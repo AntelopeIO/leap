@@ -323,19 +323,19 @@ Performance Harness:
 * `--skip-tps-test`       Determines whether to skip the max TPS measurement tests (default: False)
 * `--calc-producer-threads {none,lmax,full}`
                           Determines whether to calculate number of worker threads to use in producer thread pool ("none", "lmax", or "full").
-                          In "none" mode, the default, no calculation will be attempted and default configured --producer-threads value will be used.
-                          In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
-                          In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
+                          In "none" mode, the default, no calculation will be attempted and the configured --producer-threads value will be used.
+                          In "lmax" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads.
+                          In "full" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
 * `--calc-chain-threads {none,lmax,full}`
                           Determines whether to calculate number of worker threads to use in chain thread pool ("none", "lmax", or "full").
-                          In "none" mode, the default, no calculation will be attempted and default configured --chain-threads value will be used.
-                          In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
-                          In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
+                          In "none" mode, the default, no calculation will be attempted and the configured --chain-threads value will be used.
+                          In "lmax" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads.
+                          In "full" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
 * `--calc-net-threads {none,lmax,full}`
                           Determines whether to calculate number of worker threads to use in net thread pool ("none", "lmax", or "full").
-                          In "none" mode, the default, no calculation will be attempted and default configured --net-threads value will be used.
-                          In "lmax" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads.
-                          In "full" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
+                          In "none" mode, the default, no calculation will be attempted and the configured --net-threads value will be used.
+                          In "lmax" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads.
+                          In "full" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
 * `--del-test-report`     Whether to save json reports from each test scenario. (default: False)
 
 Performance Harness - TPS Test Config:

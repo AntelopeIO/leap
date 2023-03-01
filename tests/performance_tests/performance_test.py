@@ -391,7 +391,8 @@ class PerformanceTest:
                 optType = PerformanceTest.PluginThreadOptRunType.FULL
             else:
                 optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
-            prodResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.PRODUCER, optType=optType)
+            prodResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.PRODUCER, optType=optType,
+                                                         minThreadCount=self.clusterConfig.extraNodeosArgs.producerPluginArgs._producerThreadsNodeosDefault)
             print(f"Producer Thread Optimization results: {prodResults}")
             self.clusterConfig.extraNodeosArgs.producerPluginArgs.threads = prodResults.recommendedThreadCount
 
@@ -402,7 +403,8 @@ class PerformanceTest:
                 optType = PerformanceTest.PluginThreadOptRunType.FULL
             else:
                 optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
-            chainResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.CHAIN, optType=optType)
+            chainResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.CHAIN, optType=optType,
+                                                          minThreadCount=self.clusterConfig.extraNodeosArgs.chainPluginArgs._chainThreadsNodeosDefault)
             print(f"Chain Thread Optimization results: {chainResults}")
             self.clusterConfig.extraNodeosArgs.chainPluginArgs.threads = chainResults.recommendedThreadCount
 
@@ -413,7 +415,8 @@ class PerformanceTest:
                 optType = PerformanceTest.PluginThreadOptRunType.FULL
             else:
                 optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
-            netResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.NET, optType=optType)
+            netResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.NET, optType=optType,
+                                                        minThreadCount=self.clusterConfig.extraNodeosArgs.netPluginArgs._netThreadsNodeosDefault)
             print(f"Net Thread Optimization results: {netResults}")
             self.clusterConfig.extraNodeosArgs.netPluginArgs.threads = netResults.recommendedThreadCount
 
@@ -452,21 +455,21 @@ class PerfTestArgumentsHandler(object):
         ptParserGroup = ptParser.add_argument_group(title=ptGrpTitle, description=ptGrpDescription)
         ptParserGroup.add_argument("--skip-tps-test", help="Determines whether to skip the max TPS measurement tests", action='store_true')
         ptParserGroup.add_argument("--calc-producer-threads", type=str, help="Determines whether to calculate number of worker threads to use in producer thread pool (\"none\", \"lmax\", or \"full\"). \
-                                                                    In \"none\" mode, the default, no calculation will be attempted and default configured --producer-threads value will be used. \
-                                                                    In \"lmax\" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads. \
-                                                                    In \"full\" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                    In \"none\" mode, the default, no calculation will be attempted and the configured --producer-threads value will be used. \
+                                                                    In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
+                                                                    In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
                                                                     Useful for graphing the full performance impact of each available thread.",
                                                                     choices=["none", "lmax", "full"], default="none")
         ptParserGroup.add_argument("--calc-chain-threads", type=str, help="Determines whether to calculate number of worker threads to use in chain thread pool (\"none\", \"lmax\", or \"full\"). \
-                                                                    In \"none\" mode, the default, no calculation will be attempted and default configured --chain-threads value will be used. \
-                                                                    In \"lmax\" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads. \
-                                                                    In \"full\" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                    In \"none\" mode, the default, no calculation will be attempted and the configured --chain-threads value will be used. \
+                                                                    In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
+                                                                    In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
                                                                     Useful for graphing the full performance impact of each available thread.",
                                                                     choices=["none", "lmax", "full"], default="none")
         ptParserGroup.add_argument("--calc-net-threads", type=str, help="Determines whether to calculate number of worker threads to use in net thread pool (\"none\", \"lmax\", or \"full\"). \
-                                                                    In \"none\" mode, the default, no calculation will be attempted and default configured --net-threads value will be used. \
-                                                                    In \"lmax\" mode, producer threads will incrementally be tested until the performance rate ceases to increase with the addition of additional threads. \
-                                                                    In \"full\" mode producer threads will incrementally be tested from 2..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                    In \"none\" mode, the default, no calculation will be attempted and the configured --net-threads value will be used. \
+                                                                    In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
+                                                                    In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
                                                                     Useful for graphing the full performance impact of each available thread.",
                                                                     choices=["none", "lmax", "full"], default="none")
         ptParserGroup.add_argument("--del-test-report", help="Whether to save json reports from each test scenario.", action='store_true')
