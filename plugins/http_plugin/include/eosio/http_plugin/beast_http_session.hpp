@@ -310,8 +310,13 @@ public:
    }
 
    void on_read(beast::error_code ec, std::size_t /* bytes_transferred */) {
+
       if(ec) {
-         if(ec == http::error::end_of_stream) // other side closed the connection
+         // By default, http_plugin runs in keep_alive mode (persistent connections)
+         // hence respecting the http 1.1 standard. So after sending a response, we wait
+         // on another read. If the client disconnects, we may get
+         // http::error::end_of_stream or asio::error::connection_reset.
+         if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
             return derived().do_eof();
 
          return fail(ec, "read", plugin_state_->logger, "closing connection");

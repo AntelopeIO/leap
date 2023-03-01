@@ -417,7 +417,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          if (ec) {
             fc_elog(_log, "close: ${m}", ("m", ec.message()));
          }
-         socket_stream.reset();
          app().post(priority::high,
                     [self = this->shared_from_this(), plugin=plugin]() { plugin->session_set.erase(self); });
       }
@@ -644,6 +643,8 @@ void state_history_plugin::set_program_options(options_description& cli, options
 
 void state_history_plugin::plugin_initialize(const variables_map& options) {
    try {
+      handle_sighup(); // setup logging
+
       EOS_ASSERT(options.at("disable-replay-opts").as<bool>(), plugin_exception,
                  "state_history_plugin requires --disable-replay-opts");
 
@@ -717,8 +718,6 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
 } // state_history_plugin::plugin_initialize
 
 void state_history_plugin::plugin_startup() {
-   handle_sighup(); // setup logging
-
    try {
       auto bsp = my->chain_plug->chain().head_block_state();
       if( bsp && my->chain_state_log && my->chain_state_log->begin_block() == my->chain_state_log->end_block() ) {
@@ -748,6 +747,8 @@ void state_history_plugin::plugin_shutdown() {
    my->thread_pool.stop();
 }
 
-void state_history_plugin::handle_sighup() { fc::logger::update(logger_name, _log); }
+void state_history_plugin::handle_sighup() {
+   fc::logger::update(logger_name, _log);
+}
 
 } // namespace eosio
