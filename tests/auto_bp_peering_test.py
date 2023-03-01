@@ -116,6 +116,10 @@ try:
                 peer_addr = conn["last_handshake"]["p2p_address"].split()[0]
             if peer_names[peer_addr] != "bios":
                 peers.append(peer_names[peer_addr])
+                if not conn["is_bp_peer"]:
+                    Utils.Print("Error: expected connection to {} with is_bp_peer as true".format(peer_addr))
+                    connection_check_failures = connection_check_failures+1
+
         peers = peers.sort()
         name = "defproducer" + chr(ord('a') + nodeId)
         expected_peers = neigbors_in_schedule(name, scheduled_producers)
