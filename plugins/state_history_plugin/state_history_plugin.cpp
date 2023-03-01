@@ -380,6 +380,8 @@ void state_history_plugin::set_program_options(options_description& cli, options
 
 void state_history_plugin::plugin_initialize(const variables_map& options) {
    try {
+      handle_sighup(); // setup logging
+
       EOS_ASSERT(options.at("disable-replay-opts").as<bool>(), plugin_exception,
                  "state_history_plugin requires --disable-replay-opts");
 
@@ -467,8 +469,6 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
 } // state_history_plugin::plugin_initialize
 
 void state_history_plugin::plugin_startup() {
-   handle_sighup(); // setup logging
-
    try {
       auto bsp = my->chain_plug->chain().head_block_state();
       if( bsp && my->chain_state_log && my->chain_state_log->empty() ) {
@@ -495,6 +495,8 @@ void state_history_plugin::plugin_shutdown() {
    my->thread_pool.stop();
 }
 
-void state_history_plugin::handle_sighup() { fc::logger::update(logger_name, _log); }
+void state_history_plugin::handle_sighup() {
+   fc::logger::update(logger_name, _log);
+}
 
 } // namespace eosio

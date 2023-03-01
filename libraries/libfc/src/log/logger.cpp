@@ -3,9 +3,8 @@
 #include <fc/log/appender.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/filesystem.hpp>
-#include <unordered_map>
-#include <string>
 #include <fc/log/logger_config.hpp>
+#include <unordered_map>
 
 namespace fc {
 
@@ -13,7 +12,7 @@ namespace fc {
       public:
          impl()
          :_parent(nullptr),_enabled(true),_additivity(false),_level(log_level::warn){}
-         fc::string       _name;
+         std::string      _name;
          logger           _parent;
          bool             _enabled;
          bool             _additivity;
@@ -28,7 +27,7 @@ namespace fc {
 
     logger::logger(nullptr_t){}
 
-    logger::logger( const string& name, const logger& parent )
+    logger::logger( const std::string& name, const logger& parent )
     :my( new impl() )
     {
        my->_name = name;
@@ -40,7 +39,7 @@ namespace fc {
     :my(l.my){}
 
     logger::logger( logger&& l )
-    :my(fc::move(l.my)){}
+    :my(std::move(l.my)){}
 
     logger::~logger(){}
 
@@ -82,14 +81,14 @@ namespace fc {
        }
     }
 
-    void logger::set_name( const fc::string& n ) { my->_name = n; }
-    const fc::string& logger::name()const { return my->_name; }
+    void logger::set_name( const std::string& n ) { my->_name = n; }
+    std::string logger::get_name()const { return my->_name; }
 
-    logger logger::get( const fc::string& s ) {
+    logger logger::get( const std::string& s ) {
        return log_config::get_logger( s );
     }
 
-    void logger::update( const fc::string& name, logger& log ) {
+    void logger::update( const std::string& name, logger& log ) {
        log_config::update_logger( name, log );
     }
 

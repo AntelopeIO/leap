@@ -242,9 +242,6 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "the location of the blocks archive directory (absolute path or relative to blocks dir).\n"
           "If the value is empty, blocks files beyond the retained limit will be deleted.\n"
           "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.")
-         ("fix-irreversible-blocks",
-          "When the existing block log is inconsistent with the index, allows fixing the block log and index files automatically - that is, "
-          "it will take the highest indexed block if it is valid; otherwise it will repair the block log and reconstruct the index.")
          ("state-dir", bpo::value<bfs::path>()->default_value(config::default_state_dir_name),
           "the location of the state directory (absolute path or relative to application data dir)")
          ("protocol-features-dir", bpo::value<bfs::path>()->default_value("protocol_features"),
@@ -468,9 +465,10 @@ chain_plugin::do_hard_replay(const variables_map& options) {
 }
 
 void chain_plugin::plugin_initialize(const variables_map& options) {
-   ilog("initializing chain plugin");
-
    try {
+      handle_sighup(); // Sets loggers
+      ilog("initializing chain plugin");
+
       try {
          genesis_state gs; // Check if EOSIO_ROOT_KEY is bad
       } catch ( const std::exception& ) {
@@ -1088,8 +1086,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
 void chain_plugin::plugin_startup()
 { try {
-   handle_sighup(); // Sets loggers
-
    EOS_ASSERT( my->chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions(), plugin_config_exception,
                "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions" );
    try {
@@ -1732,7 +1728,7 @@ read_only::get_producers_result
 read_only::get_producers( const read_only::get_producers_params& params, const fc::time_point& deadline ) const try {
    abi_def abi = eosio::chain_apis::get_abi(db, config::system_account_name);
    const auto table_type = get_table_type(abi, "producers"_n);
-   const abi_serializer abis{ std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) };
+   const abi_serializer abis{ abi_def(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) };
    EOS_ASSERT(table_type == KEYi64, chain::contract_table_query_exception, "Invalid table type ${type} for table producers", ("type",table_type));
 
    const auto& d = db.db();
