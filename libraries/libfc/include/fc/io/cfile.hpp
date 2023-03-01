@@ -190,8 +190,8 @@ public:
 
    bool eof() const { return feof(_file.get()) != 0; }
 
-   int getc() { 
-      int ret = fgetc(_file.get());  
+   int getc() {
+      int ret = fgetc(_file.get());
       if (ret == EOF) {
          throw std::ios_base::failure( "cfile: " + _file_path.generic_string() +
                                        " unable to read 1 byte");
@@ -209,6 +209,15 @@ public:
    }
 
    cfile_datastream create_datastream();
+
+
+   friend void swap(cfile& lhs, cfile& rhs) {
+      using std::swap;
+      swap(lhs._open, rhs._open);
+      swap(lhs._file_path, rhs._file_path);
+      swap(lhs._file_blk_size, rhs._file_blk_size);
+      swap(lhs._file, rhs._file);
+   }
 
 private:
    bool                  _open = false;
@@ -264,6 +273,11 @@ class datastream<fc::cfile, void> : public fc::cfile {
 
    fc::cfile&       storage() { return *this; }
    const fc::cfile& storage() const { return *this; }
+
+   friend void swap(datastream<fc::cfile, void>& lhs, datastream<fc::cfile, void>& rhs) {
+      using std::swap;
+      swap(static_cast<fc::cfile&>(lhs), static_cast<fc::cfile&>(rhs));
+   }
 };
 
 

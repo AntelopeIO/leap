@@ -249,8 +249,11 @@ public:
                 std::size_t bytes_transferred) {
       boost::ignore_unused(bytes_transferred);
 
-      // This means they closed the connection
-      if(ec == http::error::end_of_stream)
+      // By default, http_plugin runs in keep_alive mode (persistent connections)
+      // hence respecting the http 1.1 standard. So after sending a response, we wait
+      // on another read. If the client disconnects, we may get
+      // http::error::end_of_stream or asio::error::connection_reset.
+      if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
          return derived().do_eof();
 
       if(ec) {

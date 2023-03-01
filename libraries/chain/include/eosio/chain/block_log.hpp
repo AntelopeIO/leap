@@ -2,10 +2,11 @@
 #include <fc/filesystem.hpp>
 #include <eosio/chain/block.hpp>
 #include <eosio/chain/genesis_state.hpp>
+#include <eosio/chain/block_log_config.hpp>
 
 namespace eosio { namespace chain {
 
-   namespace detail { class block_log_impl; }
+   namespace detail { struct block_log_impl; }
 
    /* The block log is an external append only log of the blocks with a header. Blocks should only
     * be written to the log after they irreverisble as the log is append only. The log is a doubly
@@ -36,15 +37,10 @@ namespace eosio { namespace chain {
     * and unreadable due to reclamation for purposes of saving space.
     */
 
-   struct block_log_prune_config {
-      uint32_t                prune_blocks;                  //number of blocks to prune to when doing a prune
-      size_t                  prune_threshold = 4*1024*1024; //(approximately) how many bytes need to be added before a prune is performed
-      std::optional<size_t>   vacuum_on_close;               //when set, a vacuum is performed on dtor if log contains less than this many live bytes
-   };
 
    class block_log {
       public:
-         block_log(const fc::path& data_dir, std::optional<block_log_prune_config> prune_config);
+         block_log(const fc::path& data_dir, const block_log_config& config = block_log_config{});
          block_log(block_log&& other);
          ~block_log();
 
@@ -54,12 +50,10 @@ namespace eosio { namespace chain {
          void flush();
          void reset( const genesis_state& gs, const signed_block_ptr& genesis_block );
          void reset( const chain_id_type& chain_id, uint32_t first_block_num );
-         void remove(); // remove blocks.log and blocks.index
 
-         signed_block_ptr read_block(uint64_t file_pos)const;
-         void             read_block_header(block_header& bh, uint64_t file_pos)const;
          signed_block_ptr read_block_by_num(uint32_t block_num)const;
          block_id_type    read_block_id_by_num(uint32_t block_num)const;
+
          signed_block_ptr read_block_by_id(const block_id_type& id)const {
             return read_block_by_num(block_header::num_from_id(id));
          }
@@ -67,10 +61,11 @@ namespace eosio { namespace chain {
          /**
           * Return offset of block in file, or block_log::npos if it does not exist.
           */
-         uint64_t get_block_pos(uint32_t block_num) const;
-         signed_block_ptr        read_head()const;
+
+         signed_block_ptr        read_head()const; //use blocklog
          const signed_block_ptr& head()const;
          const block_id_type&    head_id()const;
+
          uint32_t                first_block_num() const;
 
          static const uint64_t npos = std::numeric_limits<uint64_t>::max();
@@ -96,35 +91,26 @@ namespace eosio { namespace chain {
 
          static bool extract_block_range(const fc::path& block_dir, const fc::path&output_dir, block_num_type& start, block_num_type& end, bool rename_input=false);
 
+         static bool trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir, uint32_t truncate_at_block);
+         static int  trim_blocklog_end(fc::path block_dir, uint32_t n);
+
+         // used for unit test to generate older version blocklog
+         static void set_initial_version(uint32_t);
+         uint32_t    version() const;
+         uint64_t get_block_pos(uint32_t block_num) const;
+
+
+         /**
+          * @param n Only test 1 block out of every n blocks. If n is 0, the interval is adjusted so that at most 8 blocks are tested.
+          */
+         static void smoke_test(fc::path block_dir, uint32_t n);
+
+         static void extract_blocklog(const fc::path& log_filename, const fc::path& index_filename,
+                                      const fc::path& dest_dir, uint32_t start_block, uint32_t num_blocks);
+         static void split_blocklog(const fc::path& block_dir, const fc::path& dest_dir, uint32_t stride);
+         static void merge_blocklogs(const fc::path& block_dir, const fc::path& dest_dir);
    private:
-         void open(const fc::path& data_dir);
-         void construct_index();
 
          std::unique_ptr<detail::block_log_impl> my;
-   };
-
-//to derive blknum_offset==14 see block_header.hpp and note on disk struct is packed
-//   block_timestamp_type timestamp;                  //bytes 0:3
-//   account_name         producer;                   //bytes 4:11
-//   uint16_t             confirmed;                  //bytes 12:13
-//   block_id_type        previous;                   //bytes 14:45, low 4 bytes is big endian block number of previous block
-
-   struct trim_data {            //used by trim_blocklog_front(), trim_blocklog_end(), and smoke_test()
-      trim_data(fc::path block_dir);
-      ~trim_data();
-      uint64_t block_index(uint32_t n) const;
-      uint64_t block_pos(uint32_t n);
-      fc::path block_file_name, index_file_name;        //full pathname for blocks.log and blocks.index
-      uint32_t version = 0;                              //blocklog version
-      uint32_t first_block = 0;                          //first block in blocks.log
-      uint32_t last_block = 0;                          //last block in blocks.log
-      FILE* blk_in = nullptr;                            //C style files for reading blocks.log and blocks.index
-      FILE* ind_in = nullptr;                            //C style files for reading blocks.log and blocks.index
-      //we use low level file IO because it is distinctly faster than C++ filebuf or iostream
-      uint64_t first_block_pos = 0;                      //file position in blocks.log for the first block in the log
-      genesis_state gs;
-      chain_id_type chain_id;
-
-      static constexpr int blknum_offset{14};            //offset from start of block to 4 byte block number, valid for the only allowed versions
    };
 } }
