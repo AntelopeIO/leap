@@ -177,7 +177,7 @@ private:
          res->result(http::status::continue_);
          continue_state_ = continue_state_t::read_body;   // after sending the continue response, just read the body with the same parser
       } else {
-         res->result(http::status::expectation_failed);
+         res->result(http::status::unauthorized);
          continue_state_ = continue_state_t::reject;
       }
       res->set(http::field::server, plugin_state_->server_header);
