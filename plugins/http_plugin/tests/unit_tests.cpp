@@ -289,7 +289,6 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
       beast::tcp_stream stream(ioc);
 
       // Look up IP and connect to it
-      //boost::asio::ip::basic_resolver::results_type const results = resolver.resolve(host, port);
       auto const results = resolver.resolve(host, port);
       stream.connect(results);
 
