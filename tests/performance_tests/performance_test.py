@@ -61,6 +61,7 @@ class PerformanceTest:
         calcProducerThreads: str="none"
         calcChainThreads: str="none"
         calcNetThreads: str="none"
+        userTrxDataFile: Path=None
 
 
     @dataclass
@@ -101,7 +102,7 @@ class PerformanceTest:
         self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/PurePath(PurePath(__file__).name).stem[0],
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
-    def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
+    def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool, userTrxDataFile: Path) -> TpsTestResult.PerfTestSearchResults:
         floor = 0
         ceiling = self.ptConfig.maxTpsToTest
         binSearchTarget = self.ptConfig.maxTpsToTest
@@ -117,7 +118,7 @@ class PerformanceTest:
             scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                        numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=logDirRoot, delReport=delReport,
-                                                       quiet=quiet, delPerfLogs=delPerfLogs)
+                                                       quiet=quiet, userTrxDataFile=userTrxDataFile)
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig)
             testSuccessful = myTest.runTest()
@@ -233,7 +234,7 @@ class PerformanceTest:
             setattr(getattr(clusterConfig.extraNodeosArgs, optPlugin.value + 'PluginArgs'), f"{optPlugin.value}Threads", threadCount)
 
             binSearchResults = self.performPtbBinarySearch(clusterConfig=clusterConfig, logDirRoot=self.loggingConfig.pluginThreadOptLogsDirPath,
-                                                            delReport=True, quiet=False, delPerfLogs=True)
+                                                            delReport=True, quiet=False, delPerfLogs=True, userTrxDataFile=self.ptConfig.userTrxDataFile)
 
             threadToMaxTpsDict[threadCount] = binSearchResults.maxTpsAchieved
             if not self.ptConfig.quiet:
@@ -353,7 +354,7 @@ class PerformanceTest:
         perfRunSuccessful = False
 
         binSearchResults = self.performPtbBinarySearch(clusterConfig=self.clusterConfig, logDirRoot=self.loggingConfig.ptbLogsDirPath,
-                                                            delReport=self.ptConfig.delReport, quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs)
+                                                            delReport=self.ptConfig.delReport, quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile)
 
         print(f"Successful rate of: {binSearchResults.maxTpsAchieved}")
 
@@ -514,10 +515,11 @@ def main():
     resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=True)
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
                           resourceMonitorPluginArgs=resourceMonitorPluginArgs)
+    SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
+    specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
-                                                           specifiedContract=PerformanceTestBasic.ClusterConfig.SpecifiedContract(account=Account(args.account_name),
-                                                                contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file),
+                                                           specifiedContract=specifiedContract,
                                                            nodeosVers=Utils.getNodeosVersion().split('.')[0])
 
     ptConfig = PerformanceTest.PtConfig(testDurationSec=args.test_iteration_duration_sec,
@@ -534,7 +536,8 @@ def main():
                                         skipTpsTests=args.skip_tps_test,
                                         calcProducerThreads=args.calc_producer_threads,
                                         calcChainThreads=args.calc_chain_threads,
-                                        calcNetThreads=args.calc_net_threads)
+                                        calcNetThreads=args.calc_net_threads,
+                                        userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
 
     myTest = PerformanceTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptConfig=ptConfig)
     perfRunSuccessful = myTest.runTest()

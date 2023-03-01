@@ -433,6 +433,8 @@ Performance Test Basic Base:
 * `--wasm-file WASM_FILE`
                           WASM file name for contract (default: eosio.system.wasm)
 * `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
+* `--user-trx-data-file USER_TRX_DATA_FILE`
+                          Path to transaction data JSON file (default: None)
 * `--wasm-runtime RUNTIME`
                           Override default WASM runtime ("eos-vm-jit", "eos-vm")
                           "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
@@ -459,8 +461,6 @@ Performance Test Basic Single Test:
                           The target transfers per second to send during test (default: 8000)
 * `--test-duration-sec TEST_DURATION_SEC`
                           The duration of transfer trx generation for the test in seconds (default: 90)
-* `--user-trx-data-file USER_TRX_DATA_FILE`
-                          Path to transaction data JSON file (default: None)
 </details>
 
 #### Launch Transaction Generators (TestHarness)

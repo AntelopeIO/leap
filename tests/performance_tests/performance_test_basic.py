@@ -560,6 +560,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--contract-dir", type=str, help="Path to contract dir", default="unittests/contracts/eosio.system")
         ptbBaseParserGroup.add_argument("--wasm-file", type=str, help="WASM file name for contract", default="eosio.system.wasm")
         ptbBaseParserGroup.add_argument("--abi-file", type=str, help="ABI file name for contract", default="eosio.system.abi")
+        ptbBaseParserGroup.add_argument("--user-trx-data-file", type=str, help="Path to transaction data JSON file")
         ptbBaseParserGroup.add_argument("--wasm-runtime", type=str, help="Override default WASM runtime (\"eos-vm-jit\", \"eos-vm\")\
                                          \"eos-vm-jit\" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to\
                                          execution. \"eos-vm\" : A WebAssembly interpreter.",
@@ -588,7 +589,6 @@ class PtbArgumentsHandler(object):
 
         ptbParserGroup.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
         ptbParserGroup.add_argument("--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=90)
-        ptbParserGroup.add_argument("--user-trx-data-file", type=str, help="Path to userTrxDataTransfer.json")
 
         return ptbParser
 
