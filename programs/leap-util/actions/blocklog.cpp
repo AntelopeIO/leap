@@ -90,6 +90,18 @@ void blocklog_actions::setup(CLI::App& app) {
    extract_blocks->add_option("--last,-l", opt->last_block, "The last block number to keep.")->required();
    extract_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the block log extracted from blocks-dir.");
 
+   // subcommand - split blocks
+   auto* split_blocks = sub->add_subcommand("split-blocks", "Split the blocks.log based on the stride and store the result in the specified 'output-dir'.")->callback([err_guard]() { err_guard(&blocklog_actions::split_blocks); });
+   split_blocks->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
+   split_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the split block log.");
+   split_blocks->add_option("--stride", opt->stride, "The number of blocks to split into each file.")->required();
+
+   // subcommand - merge blocks
+   auto* merge_blocks = sub->add_subcommand("merge-blocks", "Merge block log files in 'blocks-dir' with the file pattern 'blocks-\\d+-\\d+.[log,index]' to 'output-dir' whenever possible."
+          "The files in 'blocks-dir' will be kept without change.")->callback([err_guard]() { err_guard(&blocklog_actions::merge_blocks); });
+   merge_blocks->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
+   merge_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the merged block log.");
+
    // subcommand - smoke test
    sub->add_subcommand("smoke-test", "Quick test that blocks.log and blocks.index are well formed and agree with each other.")->callback([err_guard]() { err_guard(&blocklog_actions::smoke_test); });
 
@@ -119,10 +131,8 @@ void blocklog_actions::initialize() {
 
       //if the log is pruned, keep it that way by passing in a config with a large block pruning value. There is otherwise no
       // way to tell block_log "keep the current non/pruneness of the log"
-      if(block_log::is_pruned_log(opt->blocks_dir)) {
-         opt->blog_keep_prune_conf.emplace();
-         opt->blog_keep_prune_conf->prune_blocks = UINT32_MAX;
-      }
+      if(block_log::is_pruned_log(opt->blocks_dir))
+         opt->blog_conf = prune_blocklog_config { .prune_blocks = UINT32_MAX };
    }
    FC_LOG_AND_RETHROW()
 }
@@ -198,24 +208,9 @@ int blocklog_actions::do_genesis() {
 int blocklog_actions::trim_blocklog_end(bfs::path block_dir, uint32_t n) {//n is last block to keep (remove later blocks)
    report_time rt("trimming blocklog end");
    using namespace std;
-   trim_data td(block_dir);
-   cout << "\nIn directory " << block_dir << " will trim all blocks after block " << n << " from "
-        << td.block_file_name.generic_string() << " and " << td.index_file_name.generic_string() << ".\n";
-   if(n < td.first_block) {
-      cerr << "All blocks are after block " << n << " so do nothing (trim_end would delete entire blocks.log)\n";
-      return 1;
-   }
-   if(n >= td.last_block) {
-      cerr << "There are no blocks after block " << n << " so do nothing\n";
-      return 2;
-   }
-   const uint64_t end_of_new_file = td.block_pos(n + 1);
-   bfs::resize_file(td.block_file_name, end_of_new_file);
-   const uint64_t index_end = td.block_index(n) + sizeof(uint64_t);//advance past record for block n
-   bfs::resize_file(td.index_file_name, index_end);
-   cout << "blocks.index has been trimmed to " << index_end << " bytes\n";
+   int ret = block_log::trim_blocklog_end(block_dir, n);
    rt.report();
-   return 0;
+   return ret;
 }
 
 bool blocklog_actions::trim_blocklog_front(bfs::path block_dir, uint32_t n) {//n is first block to keep (remove prior blocks)
@@ -238,31 +233,8 @@ int blocklog_actions::smoke_test() {
    using namespace std;
    bfs::path block_dir = opt->blocks_dir;
    cout << "\nSmoke test of blocks.log and blocks.index in directory " << block_dir << '\n';
-   trim_data td(block_dir);
-   auto status = fseek(td.blk_in, -sizeof(uint64_t), SEEK_END);//get last_block from blocks.log, compare to from blocks.index
-   EOS_ASSERT(status == 0, block_log_exception, "cannot seek to ${file} ${pos} from beginning of file", ("file", td.block_file_name.string())("pos", sizeof(uint64_t)));
-   uint64_t file_pos;
-   auto size = fread((void*) &file_pos, sizeof(uint64_t), 1, td.blk_in);
-   EOS_ASSERT(size == 1, block_log_exception, "${file} read fails", ("file", td.block_file_name.string()));
-   status = fseek(td.blk_in, file_pos + trim_data::blknum_offset, SEEK_SET);
-   EOS_ASSERT(status == 0, block_log_exception, "cannot seek to ${file} ${pos} from beginning of file", ("file", td.block_file_name.string())("pos", file_pos + trim_data::blknum_offset));
-   uint32_t bnum;
-   size = fread((void*) &bnum, sizeof(uint32_t), 1, td.blk_in);
-   EOS_ASSERT(size == 1, block_log_exception, "${file} read fails", ("file", td.block_file_name.string()));
-   bnum = endian_reverse_u32(bnum) + 1;//convert from big endian to little endian and add 1
-   EOS_ASSERT(td.last_block == bnum, block_log_exception, "blocks.log says last block is ${lb} which disagrees with blocks.index", ("lb", bnum));
-   cout << "blocks.log and blocks.index agree on number of blocks\n";
-   uint32_t delta = (td.last_block + 8 - td.first_block) >> 3;
-   if(delta < 1)
-      delta = 1;
-   for(uint32_t n = td.first_block;; n += delta) {
-      if(n > td.last_block)
-         n = td.last_block;
-      td.block_pos(n);//check block 'n' is where blocks.index says
-      if(n == td.last_block)
-         break;
-   }
-   cout << "\nno problems found\n";//if get here there were no exceptions
+   block_log::smoke_test(block_dir, 0);
+   cout << "\nno problems found\n"; // if get here there were no exceptions
    return 0;
 }
 
@@ -275,11 +247,11 @@ int blocklog_actions::do_vacuum() {
       return -1;
    }
 
-   if(!opt->blog_keep_prune_conf) {
+   if(!std::holds_alternative<eosio::chain::prune_blocklog_config>(opt->blog_conf)) {
       std::cerr << "blocks.log is not a pruned log; nothing to vacuum" << std::endl;
       return -1;
    }
-   block_log blocks(opt->blocks_dir, std::optional<block_log_prune_config>());//passing an unset block_log_prune_config turns off pruning this performs a vacuum
+   block_log blocks(opt->blocks_dir);// turns off pruning this performs a vacuum
    std::cout << "Successfully vacuumed block log" << std::endl;
    return 0;
 }
@@ -287,7 +259,7 @@ int blocklog_actions::do_vacuum() {
 int blocklog_actions::read_log() {
    initialize();
    report_time rt("reading log");
-   block_log block_logger(opt->blocks_dir, opt->blog_keep_prune_conf);
+   block_log block_logger(opt->blocks_dir, opt->blog_conf);
    const auto end = block_logger.read_head();
    EOS_ASSERT(end, block_log_exception, "No blocks found in block log");
    EOS_ASSERT(end->block_num() > 1, block_log_exception, "Only one block found in block log");
@@ -380,5 +352,16 @@ int blocklog_actions::read_log() {
       *out << "]";
    rt.report();
 
+   return 0;
+}
+
+int blocklog_actions::split_blocks() {
+   block_log::split_blocklog(opt->blocks_dir, opt->output_dir, opt->stride);
+   return 0;
+
+}
+
+int blocklog_actions::merge_blocks() {
+   block_log::merge_blocklogs(opt->blocks_dir, opt->output_dir);
    return 0;
 }
