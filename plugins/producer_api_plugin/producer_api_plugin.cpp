@@ -125,7 +125,7 @@ void producer_api_plugin::plugin_startup() {
        CALL_WITH_400(producer, producer, get_snapshot_requests,
             INVOKE_R_V(producer, get_snapshot_requests), 201),
        CALL_WITH_400(producer, producer, unschedule_snapshot,
-            INVOKE_V_R(producer, unschedule_snapshot, producer_plugin::snapshot_request_information), 201),
+            INVOKE_V_R(producer, unschedule_snapshot, producer_plugin::snapshot_request_id_information), 201),
        CALL_WITH_400(producer, producer, get_scheduled_protocol_feature_activations,
             INVOKE_R_V(producer, get_scheduled_protocol_feature_activations), 201),
        CALL_WITH_400(producer, producer, schedule_protocol_feature_activations,

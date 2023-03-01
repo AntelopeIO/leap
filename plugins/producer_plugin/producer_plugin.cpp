@@ -1334,7 +1334,7 @@ void producer_plugin::schedule_snapshot(const snapshot_request_information& sri)
    my->_snapshot_scheduler.schedule_snapshot(sri);
 }
 
-void producer_plugin::unschedule_snapshot(const snapshot_request_information& sri)
+void producer_plugin::unschedule_snapshot(const snapshot_request_id_information& sri)
 {
    my->_snapshot_scheduler.unschedule_snapshot(sri.snapshot_request_id);
 }

@@ -9,46 +9,50 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-
 namespace eosio {
 
-using namespace eosio::chain;
-
+/// this class designed to serialize/deserialize snapshot schedule to a filesystem so it can be restored after restart
 class snapshot_db_json {
 public:
-   snapshot_db_json() {}
-   snapshot_db_json(bfs::path db_path) : db_path(db_path) {}
-   ~snapshot_db_json() {}
+   snapshot_db_json()   = default;
+   ~snapshot_db_json()  = default;
 
    void set_path(bfs::path path) {
-      db_path = path;
+      db_path = std::move(path);
    }
 
    bfs::path get_json_path() {
       return db_path / "snapshot-schedule.json";
    }
 
-   const snapshot_db_json& operator>>(std::vector<producer_plugin::snapshot_request_information>& sr) {
+   const snapshot_db_json& operator>>(std::vector<producer_plugin::snapshot_schedule_information>& sr) {
       boost::property_tree::ptree root;
-      std::ifstream file(get_json_path().string());
-      boost::property_tree::read_json(file, root);
-      file.close();
 
-      // parse ptree
-      for(boost::property_tree::ptree::value_type& req: root.get_child("snapshot_requests")) {
-         producer_plugin::snapshot_request_information sri;
-         sri.snapshot_request_id = req.second.get<uint32_t>("snapshot_request_id");
-         sri.snapshot_description = req.second.get<std::string>("snapshot_description");
-         sri.block_spacing = req.second.get<uint32_t>("block_spacing");
-         sri.start_block_num = req.second.get<uint32_t>("start_block_num");
-         sri.end_block_num = req.second.get<uint32_t>("end_block_num");
-         sr.push_back(sri);
+      try {
+         std::ifstream file(get_json_path().string());
+         boost::property_tree::read_json(file, root);
+         file.close();
+
+         // parse ptree
+         for(boost::property_tree::ptree::value_type& req: root.get_child("snapshot_requests")) {
+            producer_plugin::snapshot_schedule_information ssi;
+            ssi.snapshot_request_id = req.second.get<uint32_t>("snapshot_request_id");
+            ssi.snapshot_description = req.second.get<std::string>("snapshot_description");
+            ssi.block_spacing = req.second.get<uint32_t>("block_spacing");
+            ssi.start_block_num = req.second.get<uint32_t>("start_block_num");
+            ssi.end_block_num = req.second.get<uint32_t>("end_block_num");
+            sr.push_back(ssi);
+         }
+      }
+      catch (std::ifstream::failure e) {
+          wlog( "unable to restore snapshots schedule from filesystem: ${details}",
+                  ("details",e.what()) );
       }
 
       return *this;
    }
 
-   const snapshot_db_json& operator<<(std::vector<producer_plugin::snapshot_request_information>& sr) {
+   const snapshot_db_json& operator<<(std::vector<producer_plugin::snapshot_schedule_information>& sr) {
       boost::property_tree::ptree root;
       boost::property_tree::ptree node_srs;
 
@@ -61,11 +65,18 @@ public:
          node.put("end_block_num", key.end_block_num);
          node_srs.push_back(std::make_pair("", node));
       }
+
       root.push_back(std::make_pair("snapshot_requests", node_srs));
 
-      std::ofstream file(get_json_path().string());
-      boost::property_tree::write_json(file, root);
-      file.close();
+      try {
+         std::ofstream file(get_json_path().string());
+         boost::property_tree::write_json(file, root);
+         file.close();
+      }
+      catch (std::ofstream::failure e) {
+          wlog( "unable to store snapshots schedule to filesystem: ${details}",
+                  ("details",e.what()) );
+      }
 
       return *this;
    }

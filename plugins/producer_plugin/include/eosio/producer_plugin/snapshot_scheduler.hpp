@@ -1,5 +1,7 @@
 #pragma once
 
+#include <eosio/producer_plugin/snapshot_db_json.hpp>
+
 #include <eosio/chain/block_state.hpp>
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -14,8 +16,6 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 
-#include <eosio/producer_plugin/snapshot_db_json.hpp>
-
 namespace eosio {
 
 namespace bmi = boost::multi_index;
@@ -23,9 +23,14 @@ using chain::account_name;
 using chain::block_state_ptr;
 using chain::packed_transaction;
 using chain::transaction_id_type;
+using chain::duplicate_snapshot_request;
+using chain::invalid_snapshot_request;
+using chain::snapshot_request_not_found;
 
-using snapshot_request_information = producer_plugin::snapshot_request_information;
-using get_snapshot_requests_result = producer_plugin::get_snapshot_requests_result;
+using snapshot_schedule_information    = producer_plugin::snapshot_schedule_information;
+using snapshot_request_information     = producer_plugin::snapshot_request_information;
+using get_snapshot_requests_result     = producer_plugin::get_snapshot_requests_result;
+using snapshot_request_id_information  = producer_plugin::snapshot_request_id_information;
 
 class snapshot_scheduler_listener {
    virtual void on_block(uint32_t height) = 0;
@@ -46,12 +51,12 @@ private:
    struct as_vector;
 
    using snapshot_requests = bmi::multi_index_container<
-         snapshot_request_information,
+         snapshot_schedule_information,
          indexed_by<
-               bmi::hashed_unique<tag<by_snapshot_id>, BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, snapshot_request_id)>,
+               bmi::hashed_unique<tag<by_snapshot_id>, BOOST_MULTI_INDEX_MEMBER(snapshot_request_id_information, uint32_t, snapshot_request_id)>,
                bmi::random_access<tag<as_vector>>,
                bmi::ordered_unique<tag<by_snapshot_value>,
-                                   composite_key<snapshot_request_information,
+                                   composite_key<snapshot_schedule_information,
                                                  BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, block_spacing),
                                                  BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, start_block_num),
                                                  BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, end_block_num)>>>>;
@@ -61,7 +66,7 @@ private:
    std::function<void(producer_plugin::next_function<producer_plugin::snapshot_information>)> _create_snapshot;
 
 public:
-   snapshot_scheduler() {}
+   snapshot_scheduler() = default;
 
    // snapshot_scheduler_listener
    virtual void on_block(uint32_t height) {
@@ -79,8 +84,7 @@ public:
          }
          // remove expired request
          if(req.end_block_num > 0 && height >= req.end_block_num) {
-            auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
-            _snapshot_requests.erase(snapshot_by_id.find(req.snapshot_request_id));
+            _snapshot_requests.erase(req.snapshot_request_id);
          }
       }
    }
@@ -106,11 +110,10 @@ public:
          }
       }
 
-      auto request_id = sri.snapshot_request_id ? sri.snapshot_request_id : _snapshot_id++;
-      _snapshot_requests.emplace(producer_plugin::snapshot_request_information{request_id, sri.block_spacing, sri.start_block_num, sri.end_block_num, {}});
+      _snapshot_requests.emplace(producer_plugin::snapshot_schedule_information {{_snapshot_id++},{sri.block_spacing, sri.start_block_num, sri.end_block_num, sri.snapshot_description},{}});
 
       auto& vec = _snapshot_requests.get<as_vector>();
-      std::vector<producer_plugin::snapshot_request_information> sr(vec.begin(), vec.end());
+      std::vector<producer_plugin::snapshot_schedule_information> sr(vec.begin(), vec.end());
       _snapshot_db << sr;
    }
 
@@ -121,7 +124,7 @@ public:
       _snapshot_requests.erase(existing);
 
       auto& vec = _snapshot_requests.get<as_vector>();
-      std::vector<producer_plugin::snapshot_request_information> sr(vec.begin(), vec.end());
+      std::vector<producer_plugin::snapshot_schedule_information> sr(vec.begin(), vec.end());
       _snapshot_db << sr;
    }
 
@@ -137,7 +140,7 @@ public:
       _snapshot_db.set_path(db_path);
       // init from db
       if(fc::exists(_snapshot_db.get_json_path())) {
-         std::vector<producer_plugin::snapshot_request_information> sr;
+         std::vector<producer_plugin::snapshot_schedule_information> sr;
          _snapshot_db >> sr;
          _snapshot_requests.insert(sr.begin(), sr.end());
       }
@@ -166,7 +169,6 @@ public:
          }
       };
       _create_snapshot(next);
-      //auto theasync=std::async([&,next]{ return _create_snapshot(next);});
    }
 };
 }// namespace eosio
