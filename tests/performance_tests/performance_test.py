@@ -102,7 +102,7 @@ class PerformanceTest:
         self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/PurePath(PurePath(__file__).name).stem[0],
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
-    def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool, userTrxDataFile: Path) -> TpsTestResult.PerfTestSearchResults:
+    def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
         floor = 0
         ceiling = self.ptConfig.maxTpsToTest
         binSearchTarget = self.ptConfig.maxTpsToTest
@@ -118,7 +118,7 @@ class PerformanceTest:
             scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                        numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=logDirRoot, delReport=delReport,
-                                                       quiet=quiet, userTrxDataFile=userTrxDataFile)
+                                                       quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile)
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig)
             testSuccessful = myTest.runTest()
@@ -234,7 +234,7 @@ class PerformanceTest:
             setattr(getattr(clusterConfig.extraNodeosArgs, optPlugin.value + 'PluginArgs'), f"{optPlugin.value}Threads", threadCount)
 
             binSearchResults = self.performPtbBinarySearch(clusterConfig=clusterConfig, logDirRoot=self.loggingConfig.pluginThreadOptLogsDirPath,
-                                                            delReport=True, quiet=False, delPerfLogs=True, userTrxDataFile=self.ptConfig.userTrxDataFile)
+                                                            delReport=True, quiet=False, delPerfLogs=True)
 
             threadToMaxTpsDict[threadCount] = binSearchResults.maxTpsAchieved
             if not self.ptConfig.quiet:
@@ -354,7 +354,7 @@ class PerformanceTest:
         perfRunSuccessful = False
 
         binSearchResults = self.performPtbBinarySearch(clusterConfig=self.clusterConfig, logDirRoot=self.loggingConfig.ptbLogsDirPath,
-                                                            delReport=self.ptConfig.delReport, quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile)
+                                                            delReport=self.ptConfig.delReport, quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs)
 
         print(f"Successful rate of: {binSearchResults.maxTpsAchieved}")
 
