@@ -267,7 +267,7 @@ class Cluster(object):
         if self.staging:
             cmdArr.append("--nogen")
 
-        nodeosArgs="--resource-monitor-not-shutdown-on-threshold-exceeded --max-transaction-time -1 --abi-serializer-max-time-ms 990000 --p2p-max-nodes-per-host %d --max-clients %d" % (maximumP2pPerHost, maximumClients)
+        nodeosArgs="--max-transaction-time -1 --abi-serializer-max-time-ms 990000 --p2p-max-nodes-per-host %d --max-clients %d" % (maximumP2pPerHost, maximumClients)
         if not self.walletd:
             nodeosArgs += " --plugin eosio::wallet_api_plugin"
         if Utils.Debug:
