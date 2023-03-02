@@ -52,7 +52,7 @@ class Node(Transactions):
             time.sleep(0.5)
             info = self.getInfo(silentErrors=True)
             if datetime.now() > timeout:
-                break
+                raise TimeoutError('Failed to determine nodeos version')
         else:
             self.configureVersion(info)
 
