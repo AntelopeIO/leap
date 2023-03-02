@@ -615,7 +615,7 @@ namespace eosio { namespace chain {
 
    void transaction_context::add_ram_usage( account_name account, int64_t ram_delta ) {
       auto& rl = control.get_mutable_resource_limits_manager();
-      rl.add_pending_ram_usage( account, ram_delta );
+      rl.add_pending_ram_usage( account, ram_delta, is_transient() );
       if( ram_delta > 0 ) {
          validate_ram_usage.insert( account );
       }
