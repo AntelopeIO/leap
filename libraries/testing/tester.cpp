@@ -1207,6 +1207,20 @@ namespace eosio { namespace testing {
       preactivate_protocol_features( preactivations );
    }
 
+   tester::tester(const std::function<void(controller&)>& control_setup, setup_policy policy, db_read_mode read_mode) {
+      auto def_conf            = default_config(tempdir);
+      def_conf.first.read_mode = read_mode;
+      cfg                      = def_conf.first;
+
+      base_tester::open(make_protocol_feature_set(), def_conf.second.compute_chain_id(),
+                        [&genesis = def_conf.second, &control = this->control, &control_setup]() {
+                           control_setup(*control);
+                           control->startup([]() {}, []() { return false; }, genesis);
+                        });
+
+      execute_setup_policy(policy);
+   }
+
    bool fc_exception_message_is::operator()( const fc::exception& ex ) {
       auto message = ex.get_log().at( 0 ).get_message();
       bool match = (message == expected);

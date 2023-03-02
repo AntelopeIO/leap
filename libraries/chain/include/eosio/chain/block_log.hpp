@@ -35,13 +35,15 @@ namespace eosio { namespace chain {
     * An optional "pruned" mode can be activated which stores a 4 byte trailer on the log file indicating
     * how many blocks at the end of the log are valid. Any earlier blocks in the log are assumed destroyed
     * and unreadable due to reclamation for purposes of saving space.
+    *
+    * Object thread-safe. Not safe to have multiple block_log objects to same data_dir.
     */
 
 
    class block_log {
       public:
-         block_log(const fc::path& data_dir, const block_log_config& config = block_log_config{});
-         block_log(block_log&& other);
+         explicit block_log(const fc::path& data_dir, const block_log_config& config = block_log_config{});
+         block_log(block_log&& other) noexcept;
          ~block_log();
 
          void append(const signed_block_ptr& b, const block_id_type& id);
@@ -62,9 +64,9 @@ namespace eosio { namespace chain {
           * Return offset of block in file, or block_log::npos if it does not exist.
           */
 
-         signed_block_ptr        read_head()const; //use blocklog
-         const signed_block_ptr& head()const;
-         const block_id_type&    head_id()const;
+         signed_block_ptr read_head()const; //use blocklog
+         signed_block_ptr head()const;
+         block_id_type head_id()const;
 
          uint32_t                first_block_num() const;
 
@@ -72,6 +74,10 @@ namespace eosio { namespace chain {
 
          static const uint32_t min_supported_version;
          static const uint32_t max_supported_version;
+
+         /**
+          * All static methods expected to be called on quiescent block log
+          */
 
          static fc::path repair_log( const fc::path& data_dir, uint32_t truncate_at_block = 0, const char* reversible_block_dir_name="" );
 
@@ -92,25 +98,23 @@ namespace eosio { namespace chain {
          static bool extract_block_range(const fc::path& block_dir, const fc::path&output_dir, block_num_type& start, block_num_type& end, bool rename_input=false);
 
          static bool trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir, uint32_t truncate_at_block);
-         static int  trim_blocklog_end(fc::path block_dir, uint32_t n);
+         static int  trim_blocklog_end(const fc::path& block_dir, uint32_t n);
 
          // used for unit test to generate older version blocklog
          static void set_initial_version(uint32_t);
          uint32_t    version() const;
          uint64_t get_block_pos(uint32_t block_num) const;
 
-
          /**
           * @param n Only test 1 block out of every n blocks. If n is 0, the interval is adjusted so that at most 8 blocks are tested.
           */
-         static void smoke_test(fc::path block_dir, uint32_t n);
+         static void smoke_test(const fc::path& block_dir, uint32_t n);
 
          static void extract_blocklog(const fc::path& log_filename, const fc::path& index_filename,
                                       const fc::path& dest_dir, uint32_t start_block, uint32_t num_blocks);
          static void split_blocklog(const fc::path& block_dir, const fc::path& dest_dir, uint32_t stride);
          static void merge_blocklogs(const fc::path& block_dir, const fc::path& dest_dir);
    private:
-
          std::unique_ptr<detail::block_log_impl> my;
    };
 } }

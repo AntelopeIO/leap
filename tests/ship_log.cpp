@@ -7,14 +7,18 @@
 #include <fc/bitutil.hpp>
 
 #include <eosio/state_history/log.hpp>
+#include <boost/iostreams/copy.hpp>
+#include <boost/iostreams/device/back_inserter.hpp>
+
 
 namespace bdata = boost::unit_test::data;
 
 struct ship_log_fixture {
    ship_log_fixture(bool enable_read, bool reopen_on_mark, bool remove_index_on_reopen, bool vacuum_on_exit_if_small, std::optional<uint32_t> prune_blocks) :
      enable_read(enable_read), reopen_on_mark(reopen_on_mark),
-     remove_index_on_reopen(remove_index_on_reopen), vacuum_on_exit_if_small(vacuum_on_exit_if_small),
-     prune_blocks(prune_blocks) {
+     remove_index_on_reopen(remove_index_on_reopen), vacuum_on_exit_if_small(vacuum_on_exit_if_small){
+      if (prune_blocks)
+         conf = eosio::state_history::prune_config{ .prune_blocks = *prune_blocks };
       bounce();
    }
 
@@ -30,10 +34,10 @@ struct ship_log_fixture {
 
       eosio::state_history_log_header header;
       header.block_id = block_for_id(index);
-      header.payload_size = a.size();
+      header.payload_size = 0;
 
-      log->write_entry(header, block_for_id(index-1), [&](auto& f) {
-         f.write(a.data(), a.size());
+      log->pack_and_write_entry(header, block_for_id(index-1), [&](auto& f) {
+         boost::iostreams::write(f, a.data(), a.size());
       });
 
       if(index + 1 > written_data.size())
@@ -42,29 +46,32 @@ struct ship_log_fixture {
    }
 
    void check_range_present(uint32_t first, uint32_t last) {
-      BOOST_REQUIRE_EQUAL(log->begin_block(), first);
-      BOOST_REQUIRE_EQUAL(log->end_block()-1, last);
+      namespace bio = boost::iostreams;
+      auto r = log->block_range();
+      BOOST_REQUIRE_EQUAL(r.first, first);
+      BOOST_REQUIRE_EQUAL(r.second-1, last);
       if(enable_read) {
          for(auto i = first; i <= last; i++) {
-            std::vector<char> buff;
-            buff.resize(written_data.at(i).size());
-            eosio::state_history_log_header header;
-            fc::cfile& cf = log->get_entry(i, header);
-            cf.read(buff.data(), written_data.at(i).size());
-            BOOST_REQUIRE(buff == written_data.at(i));
+            auto result = log->create_locked_decompress_stream();
+            log->get_unpacked_entry(i, result);
+            std::visit(eosio::chain::overloaded{
+               [&](std::vector<char>& buff) { BOOST_REQUIRE(buff == written_data.at(i)); },
+               [&](std::unique_ptr<bio::filtering_istreambuf>& strm) {
+                  std::vector<char> buff;
+                  boost::iostreams::copy(*strm, boost::iostreams::back_inserter(buff));
+                  BOOST_REQUIRE(buff == written_data.at(i));
+               }} , result.buf);
          }
       }
    }
 
    void check_not_present(uint32_t index) {
-      eosio::state_history_log_header header;
-      BOOST_REQUIRE_EXCEPTION(log->get_entry(index, header), eosio::chain::plugin_exception, [](const eosio::chain::plugin_exception& e) {
-          return e.to_detail_string().find("read non-existing block in") != std::string::npos;
-      });
+      auto result = log->create_locked_decompress_stream();
+      BOOST_REQUIRE_EQUAL(log->get_unpacked_entry(index, result), 0);
    }
 
    void check_empty() {
-      BOOST_REQUIRE_EQUAL(log->begin_block(), log->end_block());
+      BOOST_REQUIRE(log->empty());
    }
 
    //double the fun
@@ -78,9 +85,8 @@ struct ship_log_fixture {
    }
 
    bool enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small;
-   std::optional<uint32_t> prune_blocks;
-   fc::temp_file log_file;
-   fc::temp_file index_file;
+   eosio::state_history_log_config conf;
+   fc::temp_directory log_dir;
 
    std::optional<eosio::state_history_log> log;
 
@@ -90,16 +96,14 @@ private:
    void bounce() {
       log.reset();
       if(remove_index_on_reopen)
-         fc::remove(index_file.path());
-      std::optional<eosio::state_history_log_prune_config> prune_conf;
-      if(prune_blocks) {
-         prune_conf.emplace();
-         prune_conf->prune_blocks = *prune_blocks;
+         fc::remove(log_dir.path()/ (std::string("shipit") + ".index"));
+      auto prune_conf = std::get_if<eosio::state_history::prune_config>(&conf);
+      if(prune_conf) {
          prune_conf->prune_threshold = 8; //every 8 bytes check in and see if to prune. should make it always check after each entry for us
          if(vacuum_on_exit_if_small)
             prune_conf->vacuum_on_close = 1024*1024*1024; //something large: always vacuum on close for these tests
       }
-      log.emplace("shipit", log_file.path().string(), index_file.path().string(), prune_conf);
+      log.emplace("shipit", log_dir.path(), conf);
    }
 };
 
@@ -259,50 +263,52 @@ BOOST_DATA_TEST_CASE(basic_test, bdata::xrange(2) * bdata::xrange(2) * bdata::xr
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(empty) { try {
-   fc::temp_file log_file;
-   fc::temp_file index_file;
+   fc::temp_directory log_dir;
 
    {
-      eosio::state_history_log log("empty", log_file.path().string(), index_file.path().string());
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      eosio::state_history_log log("empty", log_dir.path());
+      BOOST_REQUIRE(log.empty());
    }
    //reopen
    {
-      eosio::state_history_log log("empty", log_file.path().string(), index_file.path().string());
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      eosio::state_history_log log("empty", log_dir.path());
+      BOOST_REQUIRE(log.empty());
    }
    //reopen but prunned set
-   const eosio::state_history_log_prune_config simple_prune_conf = {
+   const eosio::state_history::prune_config simple_prune_conf = {
       .prune_blocks = 4
    };
    {
-      eosio::state_history_log log("empty", log_file.path().string(), index_file.path().string(), simple_prune_conf);
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      eosio::state_history_log log("empty", log_dir.path(), simple_prune_conf);
+      BOOST_REQUIRE(log.empty());
    }
    {
-      eosio::state_history_log log("empty", log_file.path().string(), index_file.path().string(), simple_prune_conf);
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      eosio::state_history_log log("empty", log_dir.path(), simple_prune_conf);
+      BOOST_REQUIRE(log.empty());
    }
    //back to non pruned
    {
-      eosio::state_history_log log("empty", log_file.path().string(), index_file.path().string());
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      eosio::state_history_log log("empty", log_dir.path());
+      BOOST_REQUIRE(log.empty());
    }
    {
-      eosio::state_history_log log("empty", log_file.path().string(), index_file.path().string());
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      eosio::state_history_log log("empty", log_dir.path());
+      BOOST_REQUIRE(log.empty());
    }
 
-   BOOST_REQUIRE(fc::file_size(log_file.path()) == 0);
-   BOOST_REQUIRE(fc::file_size(index_file.path()) == 0);
+   auto log_file = (log_dir.path()/ (std::string("empty") + ".log")).string();
+   auto index_file = (log_dir.path()/ (std::string("empty") + ".index")).string();
+
+   BOOST_REQUIRE(fc::file_size(log_file.c_str()) == 0);
+   BOOST_REQUIRE(fc::file_size(index_file.c_str()) == 0);
 
    //one more time to pruned, just to make sure
    {
-      eosio::state_history_log log("empty", log_file.path().string(), index_file.path().string(), simple_prune_conf);
-      BOOST_REQUIRE_EQUAL(log.begin_block(), log.end_block());
+      eosio::state_history_log log("empty", log_dir.path(), simple_prune_conf);
+      BOOST_REQUIRE(log.empty());
    }
-   BOOST_REQUIRE(fc::file_size(log_file.path()) == 0);
-   BOOST_REQUIRE(fc::file_size(index_file.path()) == 0);
+   BOOST_REQUIRE(fc::file_size(log_file.c_str()) == 0);
+   BOOST_REQUIRE(fc::file_size(index_file.c_str()) == 0);
 }  FC_LOG_AND_RETHROW() }
 
 BOOST_DATA_TEST_CASE(non_prune_to_prune, bdata::xrange(2) * bdata::xrange(2), enable_read, remove_index_on_reopen)  { try {
@@ -324,7 +330,7 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune, bdata::xrange(2) * bdata::xrange(2), en
    });
 
    //upgrade to pruned...
-   t.prune_blocks = 4;
+   t.conf = eosio::state_history::prune_config{ .prune_blocks = 4 };
    t.template check_n_bounce([]() {});
 
    t.check_n_bounce([&]() {
@@ -359,7 +365,7 @@ BOOST_DATA_TEST_CASE(prune_to_non_prune, bdata::xrange(2) * bdata::xrange(2), en
    });
 
    //no more pruned
-   t.prune_blocks.reset();
+   t.conf = std::monostate{};
    t.template check_n_bounce([]() {});
 
    t.check_n_bounce([&]() {
@@ -376,5 +382,46 @@ BOOST_DATA_TEST_CASE(prune_to_non_prune, bdata::xrange(2) * bdata::xrange(2), en
    });
 
 } FC_LOG_AND_RETHROW() }
+
+BOOST_DATA_TEST_CASE(prune_to_partitioned, bdata::xrange(2) * bdata::xrange(2), enable_read, remove_index_on_reopen)  { try {
+   ship_log_fixture t(enable_read, true, remove_index_on_reopen, false, 4);
+
+   t.check_empty();
+   size_t payload_size = larger_than_tmpfile_blocksize();
+
+   t.add(2, payload_size, 'A');
+   t.add(3, payload_size, 'B');
+   t.add(4, payload_size, 'C');
+   t.add(5, payload_size, 'D');
+   t.add(6, payload_size, 'E');
+   t.add(7, payload_size, 'F');
+   t.add(8, payload_size, 'G');
+   t.add(9, payload_size, 'H');
+   t.check_n_bounce([&]() {
+      t.check_range_present(6, 9);
+   });
+
+   //no more pruned
+   t.conf = eosio::state_history::partition_config{
+       .stride  = 5
+   };
+
+   t.template check_n_bounce([]() {});
+
+   t.check_n_bounce([&]() {
+      t.check_range_present(6, 9);
+   });
+   t.add(10, payload_size, 'I');
+   t.add(11, payload_size, 'J');
+   t.add(12, payload_size, 'K');
+   t.add(13, payload_size, 'L');
+   t.add(14, payload_size, 'M');
+   t.add(15, payload_size, 'N');
+   t.check_n_bounce([&]() {
+      t.check_range_present(6, 15);
+   });
+
+} FC_LOG_AND_RETHROW() }
+
 
 BOOST_AUTO_TEST_SUITE_END()

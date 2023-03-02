@@ -6,14 +6,14 @@
 
 #include <regex>
 
-namespace fc 
+namespace fc
 {
   // Log appender that sends log messages in JSON format over UDP
   // https://www.graylog2.org/resources/gelf/specification
-  class gelf_appender final : public appender 
+  class gelf_appender final : public appender
   {
   public:
-    struct config 
+    struct config
     {
       static const std::vector<std::string> reserved_field_names;
       static const std::regex user_field_name_pattern;
@@ -31,11 +31,11 @@ namespace fc
      * In a single-threaded world with a boost::io_service that's not owned
      * by this library, ugly things are required.  Tough.
      */
-    void initialize(boost::asio::io_service& io_service) override;
+    void initialize() override;
     virtual void log(const log_message& m) override;
 
-  private:
     class impl;
+  private:
     std::shared_ptr<impl> my;
   };
 } // namespace fc

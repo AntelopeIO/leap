@@ -18,15 +18,17 @@ bytes zlib_compress_bytes(const bytes& in) {
    return out;
 }
 
-bytes zlib_decompress(const bytes& in) {
+bytes zlib_decompress(std::string_view data) {
    bytes                  out;
    bio::filtering_ostream decomp;
    decomp.push(bio::zlib_decompressor());
    decomp.push(bio::back_inserter(out));
-   bio::write(decomp, in.data(), in.size());
+   bio::write(decomp, data.data(), data.size());
    bio::close(decomp);
    return out;
 }
+
+
 
 } // namespace state_history
 } // namespace eosio

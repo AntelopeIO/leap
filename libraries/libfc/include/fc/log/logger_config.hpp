@@ -54,7 +54,7 @@ namespace fc {
       static logger get_logger( const fc::string& name );
       static void update_logger( const fc::string& name, logger& log );
 
-      static void initialize_appenders( boost::asio::io_service& ios );
+      static void initialize_appenders();
 
       static bool configure_logging( const logging_config& l );
 
