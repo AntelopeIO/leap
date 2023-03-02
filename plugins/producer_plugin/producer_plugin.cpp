@@ -364,9 +364,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       // path to write the snapshots to
       bfs::path _snapshots_dir;
 
-      // max time in milliseconds that a read-only transaction is allowed to run
-      int32_t _max_read_only_transaction_time_ms = 150;
-
       // read-only transaction parallelization related
       uint16_t _read_only_thread_pool_size  { 0 };
       int32_t  _read_only_rw_window_time_us { 200000 };
@@ -823,8 +820,6 @@ void producer_plugin::set_program_options(
           "time in microseconds the read-write window lasts")
          ("read-only-ro-window-time-us", bpo::value<int32_t>()->default_value(my->_read_only_ro_window_time_us),
           "time in microseconds the read-only lasts")
-         ("max-read-only-transaction-time", bpo::value<int32_t>()->default_value(my->_max_read_only_transaction_time_ms),
-          "Limits the maximum time (in milliseconds) a read-only transaction can execute before being considered invalid")
          ;
    config_file_options.add(producer_options);
 }
@@ -1057,8 +1052,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       ilog("_read_only_max_trx_time_us ${t}, _read_only_ro_window_effective_time_us ${w}", ("t", my->_read_only_max_trx_time_us) ("w", my->_read_only_ro_window_effective_time_us));
    }
 
-   my->_max_read_only_transaction_time_ms = options.at("max-read-only-transaction-time").as<int32_t>();
-
    my->_incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
          [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
       return my->on_incoming_block(block, block_id, bsp);
@@ -1252,10 +1245,6 @@ void producer_plugin::update_runtime_options(const runtime_options& options) {
    if (options.greylist_limit) {
       chain.set_greylist_limit(*options.greylist_limit);
    }
-
-   if (options.max_read_only_transaction_time) {
-      my->_max_read_only_transaction_time_ms = *options.max_read_only_transaction_time;
-   }
 }
 
 producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
@@ -1269,8 +1258,7 @@ producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
             my->chain_plug->chain().get_subjective_cpu_leeway()->count() :
             std::optional<int32_t>(),
       my->_incoming_defer_ratio,
-      my->chain_plug->chain().get_greylist_limit(),
-      my->_max_read_only_transaction_time_ms
+      my->chain_plug->chain().get_greylist_limit()
    };
 }
 
@@ -2114,7 +2102,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    }
 
    chain::controller& chain = chain_plug->chain();
-   fc::microseconds max_trx_time = trx->is_read_only() ? fc::milliseconds( _max_read_only_transaction_time_ms ) : fc::milliseconds( _max_transaction_time_ms.load() );
+   fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
    if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
    int64_t sub_bill = 0;
