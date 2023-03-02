@@ -5,13 +5,6 @@ namespace eosio {
 namespace chain {
 
 template <typename T>
-T read_buffer(const char* buf) {
-   T result;
-   memcpy(&result, buf, sizeof(T));
-   return result;
-}
-
-template <typename T>
 T read_data_at(fc::datastream<fc::cfile>& file, std::size_t offset) {
    file.seek(offset);
    T value;

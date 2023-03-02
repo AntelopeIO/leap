@@ -1,4 +1,5 @@
 #include <eosio/chain/config.hpp>
+#include <eosio/chain/thread_utils.hpp>
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 #include <eosio/state_history/compression.hpp>
 #include <eosio/state_history/create_deltas.hpp>
@@ -6,47 +7,45 @@
 #include <eosio/state_history/serialization.hpp>
 #include <eosio/state_history/trace_converter.hpp>
 #include <eosio/state_history_plugin/state_history_plugin.hpp>
-#include <eosio/chain/thread_utils.hpp>
+#include <eosio/state_history_plugin/session.hpp>
 
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/ip/host_name.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/local/stream_protocol.hpp>
+
+#include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
-#include <boost/beast/websocket.hpp>
+
 #include <boost/signals2/connection.hpp>
 
-using tcp    = boost::asio::ip::tcp;
-using unixs  = boost::asio::local::stream_protocol;
+
 namespace ws = boost::beast::websocket;
 
-extern const char* const state_history_plugin_abi;
 
 /* Prior to boost 1.70, if socket type is not boost::asio::ip::tcp::socket nor boost::asio::ssl::stream beast requires
    an overload of async_teardown. This has been improved in 1.70+ to support any basic_stream_socket<> out of the box
    which includes unix sockets. */
 #if BOOST_VERSION < 107000
 namespace boost::beast::websocket {
-template<typename TeardownHandler>
+template <typename TeardownHandler>
 void async_teardown(role_type, unixs::socket& sock, TeardownHandler&& handler) {
    boost::system::error_code ec;
    sock.close(ec);
-   boost::asio::post(boost::asio::get_associated_executor(handler, sock.get_executor()), [h=std::move(handler),ec]() mutable {
-      h(ec);
-   });
+   boost::asio::post(boost::asio::get_associated_executor(handler, sock.get_executor()),
+                     [h = std::move(handler), ec]() mutable { h(ec); });
 }
-}
+} // namespace boost::beast::websocket
 #endif
 
 namespace eosio {
 using namespace chain;
 using namespace state_history;
 using boost::signals2::scoped_connection;
+namespace bio = boost::iostreams;
 
    static auto _state_history_plugin = application::register_plugin<state_history_plugin>();
 
 const std::string logger_name("state_history");
-fc::logger _log;
+fc::logger        _log;
 
 template <typename F>
 auto catch_and_log(F f) {
@@ -62,14 +61,6 @@ auto catch_and_log(F f) {
 }
 
 struct state_history_plugin_impl : std::enable_shared_from_this<state_history_plugin_impl> {
-
-   struct session_base {
-      virtual void send_update(const block_state_ptr& block_state) = 0;
-      virtual void close()                                         = 0;
-      virtual ~session_base() = default;
-      std::optional<get_blocks_request_v0>       current_request;
-   };
-
    chain_plugin*                    chain_plug = nullptr;
    std::optional<state_history_log> trace_log;
    std::optional<state_history_log> chain_state_log;
@@ -83,6 +74,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    string                           unix_path;
    state_history::trace_converter   trace_converter;
    std::set<std::shared_ptr<session_base>> session_set;
+
+   constexpr static uint64_t default_frame_size =  1024 * 1024;
 
    template <class ACCEPTOR>
    struct generic_acceptor  {
@@ -101,327 +94,68 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    named_thread_pool<struct ship> thread_pool;
 
-   static void get_log_entry(state_history_log& log, uint32_t block_num, std::optional<bytes>& result) {
-      if (block_num < log.begin_block() || block_num >= log.end_block())
-         return;
-      state_history_log_header header;
-      auto&                    stream = log.get_entry(block_num, header);
-      uint32_t                 s;
-      // Compressed deltas now exceeds 4GB on one of the public chains. This length prefix
-      // was intended to support adding additional fields in the future after the
-      // packed deltas or packed traces. For now we're going to ignore on read.
-      stream.read((char*)&s, sizeof(s));
-      uint64_t s2 = header.payload_size - sizeof(s);
-      bytes    compressed(s2);
-      if (s2)
-         stream.read(compressed.data(), s2);
-      result = state_history::zlib_decompress(compressed);
+   static fc::logger& logger() { return _log; }
+
+   std::optional<state_history_log>& get_trace_log() { return trace_log; }
+   std::optional<state_history_log>& get_chain_state_log(){ return chain_state_log; }
+
+   boost::asio::io_context& get_ship_executor() { return thread_pool.get_executor(); }
+
+   signed_block_ptr get_block(uint32_t block_num, const block_state_ptr& block_state) const {
+      chain::signed_block_ptr p;
+      try {
+         if (block_state && block_num == block_state->block_num) {
+            p = block_state->block;
+         } else {
+            p = chain_plug->chain().fetch_block_by_number(block_num);
+         }
+      } catch (...) {
+      }
+      return p;
+   }
+
+   // thread safe
+   fc::sha256 get_chain_id() const {
+      return chain_plug->chain().get_chain_id();
    }
 
    void get_block(uint32_t block_num, const block_state_ptr& block_state, std::optional<bytes>& result) const {
-      chain::signed_block_ptr p;
-      try {
-         if( block_state && block_num == block_state->block_num ) {
-            p = block_state->block;
-         } else {
-            p = chain_plug->chain().fetch_block_by_number( block_num );
-         }
-      } catch (...) {
-         return;
-      }
+      auto p = get_block(block_num, block_state);
       if (p)
          result = fc::raw::pack(*p);
    }
 
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
-      if (trace_log && block_num >= trace_log->begin_block() && block_num < trace_log->end_block())
+      if (trace_log)
          return trace_log->get_block_id(block_num);
-      if (chain_state_log && block_num >= chain_state_log->begin_block() && block_num < chain_state_log->end_block())
+      if (chain_state_log)
          return chain_state_log->get_block_id(block_num);
       try {
          return chain_plug->chain().get_block_id_for_num(block_num);
-      } catch (...) {}
+      } catch (...) {
+      }
       return {};
    }
 
-   template <typename SocketType>
-   struct session : session_base, std::enable_shared_from_this<session<SocketType>> {
-      std::shared_ptr<state_history_plugin_impl> plugin;
-      std::optional<ws::stream<SocketType>>      socket_stream; // ship thread only after creation
-      bool                                       sending  = false; // ship thread only
-      std::vector<std::vector<char>>             send_queue; // ship thread only
-      bool                                       need_to_send_update = false; // main thread only
+   block_position get_block_head() const {
+      auto& chain              = chain_plug->chain();
+      return {chain.head_block_num(), chain.head_block_id()};
+   }
 
-      uint32_t                                   to_send_block_num = 0; // main thread only
-      std::optional<std::vector<block_position>::const_iterator> position_it; // main thread only
+   block_position get_last_irreversible() const {
+      auto& chain              = chain_plug->chain();
+      return {chain.last_irreversible_block_num(), chain.last_irreversible_block_id()};
+   }
 
-      session(std::shared_ptr<state_history_plugin_impl> plugin, SocketType socket)
-          : plugin(std::move(plugin)), socket_stream(std::move(socket)) {}
+   time_point get_head_block_timestamp() const {
+      auto& chain = chain_plug->chain();
+      return chain.head_block_time();
+   }
 
-      void start() {
-         fc_ilog(_log, "incoming connection");
-         socket_stream->auto_fragment(false);
-         socket_stream->binary(true);
-         if constexpr (std::is_same_v<SocketType, tcp::socket>) {
-            socket_stream->next_layer().set_option(boost::asio::ip::tcp::no_delay(true));
-         }
-         socket_stream->next_layer().set_option(boost::asio::socket_base::send_buffer_size(1024 * 1024));
-         socket_stream->next_layer().set_option(boost::asio::socket_base::receive_buffer_size(1024 * 1024));
-
-         socket_stream->async_accept([self = this->shared_from_this()](boost::system::error_code ec) {
-            self->callback(ec, "async_accept", [self] {
-               self->socket_stream->binary(false);
-               self->socket_stream->async_write(
-                     boost::asio::buffer(state_history_plugin_abi, strlen(state_history_plugin_abi)),
-                     [self](boost::system::error_code ec, size_t) {
-                        self->callback(ec, "async_write", [self] {
-                           self->socket_stream->binary(true);
-                           self->start_read();
-                        });
-                     });
-            });
-         });
-      }
-     
-
-      void start_read() {
-         auto in_buffer = std::make_shared<boost::beast::flat_buffer>();
-         socket_stream->async_read(
-             *in_buffer, [self = this->shared_from_this(), in_buffer](boost::system::error_code ec, size_t) {
-                self->callback(ec, "async_read", [self, in_buffer] {
-                   auto d = boost::asio::buffer_cast<char const*>(boost::beast::buffers_front(in_buffer->data()));
-                   auto s = boost::asio::buffer_size(in_buffer->data());
-                   fc::datastream<const char*> ds(d, s);
-                   state_request               req;
-                   fc::raw::unpack(ds, req);
-                   app().post(priority::medium,
-                              [self, req = std::move(req)]() mutable { std::visit(*self, std::move(req)); });
-                   self->start_read();
-                });
-             });
-      }
-
-     
-      void send() {
-         if (sending)
-            return;
-         if (send_queue.empty()) {
-            app().post(priority::medium, [self = this->shared_from_this()]() {
-               self->send_update();
-            });
-            return;
-         }
-         sending = true;
-
-         socket_stream->async_write(
-             boost::asio::buffer(send_queue[0]),
-             [self = this->shared_from_this()](boost::system::error_code ec, size_t) {
-                self->send_queue.erase( self->send_queue.begin() );
-                self->sending = false;
-                self->callback(ec, "async_write", [self] { self->send(); });
-             });
-      }
-
-      template <typename T>
-      void send(T obj) {
-         boost::asio::post(this->plugin->thread_pool.get_executor(), [self = this->shared_from_this(), obj = std::move(obj) ]() mutable {
-            self->send_queue.emplace_back(fc::raw::pack(state_result{std::move(obj)}));
-            self->send();
-         });
-      }
-
-      // called from main thread
-      void operator()(get_status_request_v0&&) {
-         fc_ilog(_log, "got get_status_request_v0");
-         auto&                chain = plugin->chain_plug->chain();
-         get_status_result_v0 result;
-         result.head              = {chain.head_block_num(), chain.head_block_id()};
-         result.last_irreversible = {chain.last_irreversible_block_num(), chain.last_irreversible_block_id()};
-         result.chain_id          = chain.get_chain_id();
-         if (plugin->trace_log) {
-            result.trace_begin_block = plugin->trace_log->begin_block();
-            result.trace_end_block   = plugin->trace_log->end_block();
-         }
-         if (plugin->chain_state_log) {
-            result.chain_state_begin_block = plugin->chain_state_log->begin_block();
-            result.chain_state_end_block   = plugin->chain_state_log->end_block();
-         }
-         fc_ilog(_log, "pushing get_status_result_v0 to send queue");
-         send(std::move(result));
-      }
-
-      // called from main thread
-      void operator()(get_blocks_request_v0&& req) {
-         fc_dlog(_log, "received get_blocks_request_v0 = ${req}", ("req",req) );
-         to_send_block_num = req.start_block_num;
-         for (auto& cp : req.have_positions) {
-            if (req.start_block_num <= cp.block_num)
-               continue;
-            auto id = plugin->get_block_id(cp.block_num);
-            if (!id) {
-               to_send_block_num = std::min(to_send_block_num, cp.block_num);
-               fc_dlog(_log, "block ${block_num} is not available", ("block_num", cp.block_num));
-            } else if (*id != cp.block_id) {
-               to_send_block_num = std::min(to_send_block_num, cp.block_num);
-               fc_dlog(_log, "the id for block ${block_num} in block request have_positions does not match the existing", ("block_num", cp.block_num));
-            }
-         }
-
-         fc_dlog(_log, "  get_blocks_request_v0 start_block_num set to ${num}", ("num", to_send_block_num));
-
-         if( !req.have_positions.empty() ) {
-            position_it = req.have_positions.begin();
-         }
-
-         current_request = std::move(req);
-         send_update(true);
-      }
-
-      // called from main thread
-      void operator()(get_blocks_ack_request_v0&& req) {
-         fc_dlog(_log, "received get_blocks_ack_request_v0 = ${req}", ("req",req));
-         if (!current_request) {
-            fc_dlog(_log, " no current get_blocks_request_v0, discarding the get_blocks_ack_request_v0");
-            return;
-         }
-         current_request->max_messages_in_flight += req.num_messages;
-         send_update();
-      }
-
-      // must run on main thread
-      void send_update(get_blocks_result_v0&& result, const block_state_ptr& head_block_state) {
-         need_to_send_update = true;
-         if (!current_request || !current_request->max_messages_in_flight)
-            return;
-
-         auto& chain              = plugin->chain_plug->chain();
-         result.last_irreversible = {chain.last_irreversible_block_num(), chain.last_irreversible_block_id()};
-         uint32_t current =
-             current_request->irreversible_only ? result.last_irreversible.block_num : result.head.block_num;
-
-         if (to_send_block_num > current || to_send_block_num >= current_request->end_block_num) {
-            fc_dlog( _log, "Not sending, to_send_block_num: ${s}, current: ${c} current_request.end_block_num: ${b}",
-                     ("s", to_send_block_num)("c", current)("b", current_request->end_block_num) );
-            return;
-         }
-
-         auto block_id = plugin->get_block_id(to_send_block_num);
-
-         if (block_id && position_it && (*position_it)->block_num == to_send_block_num) {
-            // This branch happens when the head block of nodeos is behind the head block of connecting client.
-            // In addition, the client told us the corresponding block id for block_num we are going to send.
-            // We can send the block when the block_id is different.
-            auto& itr = *position_it;
-            auto block_id_seen_by_client = itr->block_id;
-            ++itr;
-            if (itr == current_request->have_positions.end())
-               position_it.reset();
-
-            if(block_id_seen_by_client == *block_id) {
-               ++to_send_block_num;
-               return;
-            }
-         }
-
-         if (block_id) {
-            result.this_block  = block_position{to_send_block_num, *block_id};
-            auto prev_block_id = plugin->get_block_id(to_send_block_num - 1);
-            if (prev_block_id)
-               result.prev_block = block_position{to_send_block_num - 1, *prev_block_id};
-            if (current_request->fetch_block) {
-               plugin->get_block( to_send_block_num, head_block_state, result.block );
-            }
-            if (current_request->fetch_traces && plugin->trace_log) {
-               get_log_entry(*plugin->trace_log, to_send_block_num, result.traces);
-            }
-            if (current_request->fetch_deltas && plugin->chain_state_log) {
-               plugin->get_log_entry(*plugin->chain_state_log, to_send_block_num, result.deltas);
-            }
-         }
-         ++to_send_block_num;
-
-         // during syncing if block is older than 5 min, log every 1000th block
-         bool fresh_block = fc::time_point::now() - chain.head_block_time() < fc::minutes(5);
-         if( fresh_block || (result.this_block && result.this_block->block_num % 1000 == 0) ) {
-            fc_ilog(_log, "pushing result "
-                          "{\"head\":{\"block_num\":${head}},\"last_irreversible\":{\"block_num\":${last_irr}},\"this_block\":{"
-                          "\"block_num\":${this_block}}} to send queue",
-                    ("head", result.head.block_num)("last_irr", result.last_irreversible.block_num)(
-                     "this_block", result.this_block ? result.this_block->block_num : fc::variant()));
-         }
-
-         send(std::move(result));
-         --current_request->max_messages_in_flight;
-         need_to_send_update = to_send_block_num <= current &&
-                               to_send_block_num < current_request->end_block_num;
-      }
-
-      // called from the main thread
-      void send_update(const block_state_ptr& block_state) override {
-         if (!current_request || !current_request->max_messages_in_flight)
-            return;
-
-         get_blocks_result_v0 result;
-         result.head = {block_state->block_num, block_state->id};
-         send_update(std::move(result), block_state);
-      }
-
-      // called from the main thread
-      void send_update(bool changed = false) {
-         if (changed || need_to_send_update) {
-            auto& chain = plugin->chain_plug->chain();
-            send_update(chain.head_block_state());
-         }
-      }
-
-      // called from ship thread
-      template <typename F>
-      void callback(boost::system::error_code ec, const char* what, F f) {
-         if (this->plugin->stopping)
-            return;
-
-         if (ec) {
-            if (ec == boost::asio::error::eof) {
-               fc_dlog(_log, "${w}: ${m}", ("w", what)("m", ec.message()));
-            } else {
-               fc_elog(_log, "${w}: ${m}", ("w", what)("m", ec.message()));
-            }
-            close_i();
-            return;
-         }
-
-         try {
-            f();
-         } catch (const fc::exception& e) {
-            fc_elog(_log, "${e}", ("e", e.to_detail_string()));
-            close_i();
-         } catch (const std::exception& e) {
-            fc_elog(_log,"${e}", ("e", e.what()));
-            close_i();
-         } catch (...) {
-            fc_elog(_log, "unknown exception");
-            close_i();
-         }
-      }
-
-      void close() override {
-         boost::asio::post(plugin->thread_pool.get_executor(), [self = this->shared_from_this()]() {
-            self->close_i();
-         });
-      }
-
-      // called from ship thread
-      void close_i() {
-         boost::system::error_code ec;
-         socket_stream->next_layer().close(ec);
-         if (ec) {
-            fc_elog(_log, "close: ${m}", ("m", ec.message()));
-         }
-         app().post(priority::high,
-                    [self = this->shared_from_this(), plugin=plugin]() { plugin->session_set.erase(self); });
-      }
-
-   }; // session
+   template <typename Task>
+   void post_task_main_thread_medium(Task&& task) {
+      app().post(priority::medium, std::forward<Task>(task));
+   }
 
    void listen() {
       boost::system::error_code ec;
@@ -505,9 +239,9 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             else {
                // Create a session object and run it
                catch_and_log([&] {
-                  auto s = std::make_shared<session<typename Acceptor::socket_type>>(self, std::move(acc.socket_));
+                  auto s = std::make_shared<session<std::shared_ptr<state_history_plugin_impl>, typename Acceptor::socket_type>>(self, std::move(acc.socket_));
                   s->start();
-                  app().post(priority::high, [self, s]() mutable { self->session_set.insert(std::move(s)); });
+                  self->session_set.insert( std::move(s) );
                });
             }
 
@@ -532,17 +266,22 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          fc_elog(_log, "fc::exception: ${details}", ("details", e.to_detail_string()));
          // Both app().quit() and exception throwing are required. Without app().quit(),
          // the exception would be caught and drop before reaching main(). The exception is
-         // to ensure the block won't be commited.
+         // to ensure the block won't be committed.
          appbase::app().quit();
          EOS_THROW(
-             chain::state_history_write_exception,
+             chain::state_history_write_exception, // controller_emit_signal_exception, so it flow through emit()
              "State history encountered an Error which it cannot recover from.  Please resolve the error and relaunch "
              "the process");
       }
 
-      for( auto& s : session_set ) {
-         s->send_update(block_state);
-      }
+      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() mutable {
+         for( auto& s : self->session_set ) {
+            self->post_task_main_thread_medium( [s, block_state]() {
+               s->send_update(block_state);
+            } );
+         }
+      });
+
    }
 
    // called from main thread
@@ -560,19 +299,12 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    void store_traces(const block_state_ptr& block_state) {
       if (!trace_log)
          return;
-      auto traces_bin = state_history::zlib_compress_bytes(
-          trace_converter.pack(chain_plug->chain().db(), trace_debug_mode, block_state));
-
-      EOS_ASSERT(traces_bin.size() == (uint32_t)traces_bin.size(), plugin_exception, "traces is too big");
 
       state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
                                       .block_id     = block_state->id,
-                                      .payload_size = sizeof(uint32_t) + traces_bin.size()};
-      trace_log->write_entry(header, block_state->block->previous, [&](auto& stream) {
-         uint32_t s = (uint32_t)traces_bin.size();
-         stream.write((char*)&s, sizeof(s));
-         if (!traces_bin.empty())
-            stream.write(traces_bin.data(), traces_bin.size());
+                                      .payload_size = 0};
+      trace_log->pack_and_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
+         trace_converter.pack(buf, chain_plug->chain().db(), trace_debug_mode, block_state);
       });
    }
 
@@ -580,26 +312,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    void store_chain_state(const block_state_ptr& block_state) {
       if (!chain_state_log)
          return;
-      bool fresh = chain_state_log->begin_block() == chain_state_log->end_block();
+      bool fresh = chain_state_log->empty();
       if (fresh)
          fc_ilog(_log, "Placing initial state in block ${n}", ("n", block_state->block_num));
 
-      std::vector<table_delta> deltas     = state_history::create_deltas(chain_plug->chain().db(), fresh);
-      auto                     deltas_bin = state_history::zlib_compress_bytes(fc::raw::pack(deltas));
-      state_history_log_header header{.magic        = ship_magic(ship_current_version, 0),
-                                      .block_id     = block_state->id,
-                                      .payload_size = sizeof(uint32_t) + deltas_bin.size()};
-      chain_state_log->write_entry(header, block_state->header.previous, [&](auto& stream) {
-         // Compressed deltas now exceeds 4GB on one of the public chains. This length prefix
-         // was intended to support adding additional fields in the future after the
-         // packed deltas. For now we're going to ignore on read. The 0 is an attempt to signal
-         // old versions that something's not quite right.
-         uint32_t s = (uint32_t)deltas_bin.size();
-         if (s != deltas_bin.size())
-            s = 0;
-         stream.write((char*)&s, sizeof(s));
-         if (!deltas_bin.empty())
-            stream.write(deltas_bin.data(), deltas_bin.size());
+      state_history_log_header header{
+          .magic = ship_magic(ship_current_version, 0), .block_id = block_state->id, .payload_size = 0};
+      chain_state_log->pack_and_write_entry(header, block_state->header.previous, [this, fresh](auto&& buf) {
+         pack_deltas(buf, chain_plug->chain().db(), fresh);
       });
    } // store_chain_state
 
@@ -618,6 +338,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
 };   // state_history_plugin_impl
 
+
+
 state_history_plugin::state_history_plugin()
     : my(std::make_shared<state_history_plugin_impl>()) {}
 
@@ -627,6 +349,21 @@ void state_history_plugin::set_program_options(options_description& cli, options
    auto options = cfg.add_options();
    options("state-history-dir", bpo::value<bfs::path>()->default_value("state-history"),
            "the location of the state-history directory (absolute path or relative to application data dir)");
+   options("state-history-retained-dir", bpo::value<bfs::path>(),
+           "the location of the state history retained directory (absolute path or relative to state-history dir).");
+   options("state-history-archive-dir", bpo::value<bfs::path>(),
+           "the location of the state history archive directory (absolute path or relative to state-history dir).\n"
+           "If the value is empty string, blocks files beyond the retained limit will be deleted.\n"
+           "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.");
+   options("state-history-stride", bpo::value<uint32_t>(),
+         "split the state history log files when the block number is the multiple of the stride\n"
+         "When the stride is reached, the current history log and index will be renamed '*-history-<start num>-<end num>.log/index'\n"
+         "and a new current history log and index will be created with the most recent blocks. All files following\n"
+         "this format will be used to construct an extended history log.");
+   options("max-retained-history-files", bpo::value<uint32_t>(),
+          "the maximum number of history file groups to retain so that the blocks in those files can be queried.\n"
+          "When the number is reached, the oldest history file would be moved to archive dir or deleted if the archive dir is empty.\n"
+          "The retained history log files should not be manipulated by users." );
    cli.add_options()("delete-state-history", bpo::bool_switch()->default_value(false), "clear state history files");
    options("trace-history", bpo::bool_switch()->default_value(false), "enable trace history");
    options("chain-state-history", bpo::bool_switch()->default_value(false), "enable chain state history");
@@ -698,21 +435,35 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
          my->trace_debug_mode = true;
       }
 
-      std::optional<state_history_log_prune_config> ship_log_prune_conf;
+      bool has_state_history_partition_options =
+          options.count("state-history-retained-dir") || options.count("state-history-archive-dir") ||
+          options.count("state-history-stride") || options.count("max-retained-history-files");
+
+      state_history_log_config ship_log_conf;
       if (options.count("state-history-log-retain-blocks")) {
-         ship_log_prune_conf.emplace();
-         ship_log_prune_conf->prune_blocks = options.at("state-history-log-retain-blocks").as<uint32_t>();
+         auto ship_log_prune_conf = ship_log_conf.emplace<state_history::prune_config>();
+         ship_log_prune_conf.prune_blocks = options.at("state-history-log-retain-blocks").as<uint32_t>();
          //the arbitrary limit of 1000 here is mainly so that there is enough buffer for newly applied forks to be delivered to clients
          // before getting pruned out. ideally pruning would have been smart enough to know not to prune reversible blocks
-         EOS_ASSERT(ship_log_prune_conf->prune_blocks >= 1000, plugin_exception, "state-history-log-retain-blocks must be 1000 blocks or greater");
+         EOS_ASSERT(ship_log_prune_conf.prune_blocks >= 1000, plugin_exception, "state-history-log-retain-blocks must be 1000 blocks or greater");
+         EOS_ASSERT(!has_state_history_partition_options, plugin_exception, "state-history-log-retain-blocks cannot be used together with state-history-retained-dir,"
+                  " state-history-archive-dir, state-history-stride or max-retained-history-files");
+      } else if (has_state_history_partition_options){
+         auto& config  = ship_log_conf.emplace<state_history::partition_config>();
+         if (options.count("state-history-retained-dir"))
+            config.retained_dir       = options.at("state-history-retained-dir").as<bfs::path>();
+         if (options.count("state-history-archive-dir"))
+            config.archive_dir        = options.at("state-history-archive-dir").as<bfs::path>();
+         if (options.count("state-history-stride"))
+            config.stride             = options.at("state-history-stride").as<uint32_t>();
+         if (options.count("max-retained-history-files"))
+            config.max_retained_files = options.at("max-retained-history-files").as<uint32_t>();
       }
 
       if (options.at("trace-history").as<bool>())
-         my->trace_log.emplace("trace_history", (state_history_dir / "trace_history.log").string(),
-                               (state_history_dir / "trace_history.index").string(), ship_log_prune_conf);
+         my->trace_log.emplace("trace_history", state_history_dir , ship_log_conf);
       if (options.at("chain-state-history").as<bool>())
-         my->chain_state_log.emplace("chain_state_history", (state_history_dir / "chain_state_history.log").string(),
-                                     (state_history_dir / "chain_state_history.index").string(), ship_log_prune_conf);
+         my->chain_state_log.emplace("chain_state_history", state_history_dir, ship_log_conf);
    }
    FC_LOG_AND_RETHROW()
 } // state_history_plugin::plugin_initialize
@@ -720,7 +471,7 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
 void state_history_plugin::plugin_startup() {
    try {
       auto bsp = my->chain_plug->chain().head_block_state();
-      if( bsp && my->chain_state_log && my->chain_state_log->begin_block() == my->chain_state_log->end_block() ) {
+      if( bsp && my->chain_state_log && my->chain_state_log->empty() ) {
          fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
          my->store_chain_state( bsp );
          fc_ilog( _log, "Done storing initial state on startup" );
@@ -740,10 +491,7 @@ void state_history_plugin::plugin_shutdown() {
    my->applied_transaction_connection.reset();
    my->accepted_block_connection.reset();
    my->block_start_connection.reset();
-   std::for_each(my->session_set.begin(), my->session_set.end(), [](auto& s){ s->close(); } );
    my->stopping = true;
-   my->trace_log->stop();
-   my->chain_state_log->stop();
    my->thread_pool.stop();
 }
 

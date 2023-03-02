@@ -107,7 +107,7 @@ set_property(TEST ship_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME ship_test_unix COMMAND tests/ship_test.py -v --num-clients 1 --num-requests 5000 --clean-run --unix-socket WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_test_unix PROPERTY LABELS nonparallelizable_tests)
 
-add_test(NAME ship_streamer_test COMMAND tests/ship_streamer_test.py -v --num-clients 1 --num-blocks 50 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME ship_streamer_test COMMAND tests/ship_streamer_test.py -v --num-clients 10 --num-blocks 50 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_streamer_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME p2p_dawn515_test COMMAND tests/p2p_tests/dawn_515/test.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
