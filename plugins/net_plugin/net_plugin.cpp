@@ -215,7 +215,7 @@ namespace eosio {
    constexpr uint32_t packed_transaction_which = fc::get_index<net_message, packed_transaction>(); // see protocol net_message
 
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl>,
-                           public auto_bp_peering::connection_manager<net_plugin_impl, connection> {
+                           public auto_bp_peering::bp_connection_manager<net_plugin_impl, connection> {
     public:
       using connection_t = connection;
       unique_ptr<tcp::acceptor>        acceptor;
@@ -231,7 +231,7 @@ namespace eosio {
       string                                p2p_address;
       string                                p2p_server_address;
 
-      flat_set<string>                      supplied_peers;
+      chain::flat_set<string>               supplied_peers;
       vector<chain::public_key_type>        allowed_peers; ///< peer keys allowed to connect
       std::map<chain::public_key_type,
                chain::private_key_type>     private_keys; ///< overlapping with producer keys, also authenticating non-producing nodes
@@ -2873,6 +2873,11 @@ namespace eosio {
 
          my_impl->mark_bp_connection(this);
          if (my_impl->exceeding_connection_limit(this)) {
+            // When auto bp peering is enabled, the start_listen_loop check doesn't have enough information to determine
+            // if a client is a BP peer. In start_listen_loop, it only has the peer address which a node is connecting
+            // from, but it would be different from the address it is listening. The only way to make sure is when the
+            // first handshake message is received with the p2p_address information in the message. Thus the connection
+            // limit checking has to be here when auto bp peering is enabled.
             fc_dlog(logger, "max_client_count ${m} exceeded", ("m", my_impl->max_client_count));
             my_impl->disconnect(peer_address());
             return;
@@ -3677,7 +3682,9 @@ namespace eosio {
            "The account and public p2p endpoint of a block producer node to automatically connect to when the it is in producer schedule proximity\n."
            "   Syntax: account,host:port\n"
            "   Example,\n"
-           "     eosproducer1,p2p.eos.io:9876\n")
+           "     eosproducer1,p2p.eos.io:9876\n"
+           "     eosproducer2,p2p.trx.eos.io:9876:trx\n"
+           "     eosproducer3,p2p.blk.eos.io:9876:blk\n")
          ( "agent-name", bpo::value<string>()->default_value("EOS Test Agent"), "The name supplied to identify this node amongst the peers.")
          ( "allowed-connection", bpo::value<vector<string>>()->multitoken()->default_value({"any"}, "any"), "Can be 'any' or 'producers' or 'specified' or 'none'. If 'specified', peer-key must be specified at least once. If only 'producers', peer-key is not required. 'producers' and 'specified' may be combined.")
          ( "peer-key", bpo::value<vector<string>>()->composing()->multitoken(), "Optional public key of peer allowed to connect.  May be used multiple times.")

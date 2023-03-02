@@ -14,7 +14,7 @@ struct mock_connection {
 using namespace eosio::chain::literals;
 using namespace std::literals::string_literals;
 
-struct mock_net_plugin : eosio::auto_bp_peering::connection_manager<mock_net_plugin, mock_connection> {
+struct mock_net_plugin : eosio::auto_bp_peering::bp_connection_manager<mock_net_plugin, mock_connection> {
 
    uint32_t                     max_client_count;
    bool                         is_in_sync = false;
@@ -34,9 +34,9 @@ struct mock_net_plugin : eosio::auto_bp_peering::connection_manager<mock_net_plu
    std::function<void(std::string)> disconnect;
 
    void setup_test_peers() {
-      set_bp_peers({ "proda,127.0.0.1:8001"s, "prodb,127.0.0.1:8002"s, "prodc,127.0.0.1:8003"s, "prodd,127.0.0.1:8004"s,
-                     "prode,127.0.0.1:8005"s, "prodf,127.0.0.1:8006"s, "prodg,127.0.0.1:8007"s, "prodh,127.0.0.1:8008"s,
-                     "prodi,127.0.0.1:8009"s, "prodj,127.0.0.1:8010"s,
+      set_bp_peers({ "proda,127.0.0.1:8001:blk"s, "prodb,127.0.0.1:8002:trx"s, "prodc,127.0.0.1:8003"s,
+                     "prodd,127.0.0.1:8004"s, "prode,127.0.0.1:8005"s, "prodf,127.0.0.1:8006"s, "prodg,127.0.0.1:8007"s,
+                     "prodh,127.0.0.1:8008"s, "prodi,127.0.0.1:8009"s, "prodj,127.0.0.1:8010"s,
                      // prodk is intentionally skipped
                      "prodl,127.0.0.1:8012"s, "prodm,127.0.0.1:8013"s, "prodn,127.0.0.1:8014"s, "prodo,127.0.0.1:8015"s,
                      "prodp,127.0.0.1:8016"s, "prodq,127.0.0.1:8017"s, "prodr,127.0.0.1:8018"s, "prods,127.0.0.1:8019"s,
@@ -53,19 +53,19 @@ BOOST_AUTO_TEST_CASE(test_set_bp_peers) {
    BOOST_CHECK_THROW(plugin.set_bp_peers({ "producer1"s }), eosio::chain::plugin_config_exception);
 
    plugin.set_bp_peers({
-         "producer1,127.0.0.1:8888"s,
-         "producer2,127.0.0.1:8889"s,
+         "producer1,127.0.0.1:8888:blk"s,
+         "producer2,127.0.0.1:8889:trx"s,
          "producer3,127.0.0.1:8890"s,
-         "producer4,127.0.0.1:8891"s,
+         "producer4,127.0.0.1:8891"s
    });
 
-   BOOST_CHECK_EQUAL(plugin.config.bp_peer_addresses["producer1"_n], "127.0.0.1:8888"s);
-   BOOST_CHECK_EQUAL(plugin.config.bp_peer_addresses["producer2"_n], "127.0.0.1:8889"s);
+   BOOST_CHECK_EQUAL(plugin.config.bp_peer_addresses["producer1"_n], "127.0.0.1:8888:blk"s);
+   BOOST_CHECK_EQUAL(plugin.config.bp_peer_addresses["producer2"_n], "127.0.0.1:8889:trx"s);
    BOOST_CHECK_EQUAL(plugin.config.bp_peer_addresses["producer3"_n], "127.0.0.1:8890"s);
    BOOST_CHECK_EQUAL(plugin.config.bp_peer_addresses["producer4"_n], "127.0.0.1:8891"s);
 
-   BOOST_CHECK_EQUAL(plugin.config.bp_peer_accounts["127.0.0.1:8888"], "producer1"_n);
-   BOOST_CHECK_EQUAL(plugin.config.bp_peer_accounts["127.0.0.1:8889"], "producer2"_n);
+   BOOST_CHECK_EQUAL(plugin.config.bp_peer_accounts["127.0.0.1:8888:blk"], "producer1"_n);
+   BOOST_CHECK_EQUAL(plugin.config.bp_peer_accounts["127.0.0.1:8889:trx"], "producer2"_n);
    BOOST_CHECK_EQUAL(plugin.config.bp_peer_accounts["127.0.0.1:8890"], "producer3"_n);
    BOOST_CHECK_EQUAL(plugin.config.bp_peer_accounts["127.0.0.1:8891"], "producer4"_n);
 }
@@ -154,8 +154,8 @@ BOOST_AUTO_TEST_CASE(test_on_pending_schedule) {
 
    mock_net_plugin plugin;
    plugin.setup_test_peers();
-   plugin.config.my_bp_accounts    = { "prodd"_n, "produ"_n };
-   plugin.pending_neighbors = { "prodj"_n, "prodm"_n };
+   plugin.config.my_bp_accounts = { "prodd"_n, "produ"_n };
+   plugin.pending_neighbors     = { "prodj"_n, "prodm"_n };
 
    std::vector<std::string> connected_hosts;
 
@@ -179,7 +179,7 @@ BOOST_AUTO_TEST_CASE(test_on_pending_schedule) {
                                                                 "prods"_n, "prodt"_n }));
 
    // all connect to downstream bp peers should be invoked
-   BOOST_CHECK_EQUAL(connected_hosts, (std::vector<std::string>{ "127.0.0.1:8001"s, "127.0.0.1:8002"s,
+   BOOST_CHECK_EQUAL(connected_hosts, (std::vector<std::string>{ "127.0.0.1:8001:blk"s, "127.0.0.1:8002:trx"s,
                                                                  "127.0.0.1:8005"s, "127.0.0.1:8006"s }));
 
    BOOST_CHECK_EQUAL(plugin.pending_schedule_version, 1);
@@ -262,9 +262,9 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule2) {
 BOOST_AUTO_TEST_CASE(test_exceeding_connection_limit) {
    mock_net_plugin plugin;
    plugin.setup_test_peers();
-   plugin.config.my_bp_accounts   = { "prodd"_n, "produ"_n };
-   plugin.max_client_count = 1;
-   plugin.connections      = {
+   plugin.config.my_bp_accounts = { "prodd"_n, "produ"_n };
+   plugin.max_client_count      = 1;
+   plugin.connections           = {
       { .is_bp_connection = true, .is_open = true, .handshake_received = true },   // 0
       { .is_bp_connection = true, .is_open = true, .handshake_received = false },  // 1
       { .is_bp_connection = true, .is_open = false, .handshake_received = true },  // 2

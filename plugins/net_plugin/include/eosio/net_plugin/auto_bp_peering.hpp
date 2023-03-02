@@ -1,8 +1,8 @@
 #pragma once
-
+#include <eosio/chain/producer_schedule.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/range/adaptor/transformed.hpp>
-#include <eosio/chain/producer_schedule.hpp>
+
 
 namespace eosio::auto_bp_peering {
 
@@ -11,17 +11,19 @@ namespace eosio::auto_bp_peering {
 /// neighbors on the producer schedule.
 ///
 
-using chain::account_name;
-using chain::flat_map;
-using chain::flat_set;
+
 
 template <typename Derived, typename Connection>
-class connection_manager {
+class bp_connection_manager {
 #ifdef BOOST_TEST_MODULE
  public:
 #endif
 
-
+   using account_name = chain::account_name;
+   template <typename Key, typename Value>
+   using flat_map = chain::flat_map<Key, Value>;
+   template <typename T>
+   using flat_set = chain::flat_set<T>;
    struct config_t {
       flat_map<account_name, std::string> bp_peer_addresses;
       flat_map<std::string, account_name> bp_peer_accounts;
@@ -108,8 +110,8 @@ class connection_manager {
             auto         addr = entry.substr(comma_pos + 1);
             account_name account(entry.substr(0, comma_pos));
 
-            config.bp_peer_addresses[account] = addr;
             config.bp_peer_accounts[addr]     = account;
+            config.bp_peer_addresses[account] = std::move(addr);
          }
       } catch (eosio::chain::name_type_exception&) {
          EOS_ASSERT(false, chain::plugin_config_exception, "the account supplied by --auto-bp-peer option is invalid");
@@ -180,7 +182,7 @@ class connection_manager {
                        ("pending_downstream_neighbors", to_string(pending_downstream_neighbors)));
                for (auto neighbor : pending_downstream_neighbors) { self()->connect(config.bp_peer_addresses[neighbor]); }
 
-               pending_neighbors = pending_downstream_neighbors;
+               pending_neighbors = std::move(pending_downstream_neighbors);
                finder.add_upstream_neighbors(pending_neighbors);
 
                pending_schedule_version = schedule.version;
