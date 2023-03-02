@@ -516,7 +516,11 @@ def main():
     httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
                                     httpThreads=args.http_threads)
     netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
-    resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=True)
+    nodeosVers=Utils.getNodeosVersion().split('.')[0]
+    if nodeosVers == "v2":
+        resourceMonitorPluginArgs = ResourceMonitorPluginArgs()
+    else:
+        resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=True)
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
                           resourceMonitorPluginArgs=resourceMonitorPluginArgs)
     SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
@@ -524,7 +528,7 @@ def main():
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                            specifiedContract=specifiedContract,
-                                                           nodeosVers=Utils.getNodeosVersion().split('.')[0])
+                                                           nodeosVers=nodeosVers)
 
     ptConfig = PerformanceTest.PtConfig(testDurationSec=args.test_iteration_duration_sec,
                                         finalDurationSec=args.final_iterations_duration_sec,

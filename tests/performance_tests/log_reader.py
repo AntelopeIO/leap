@@ -241,7 +241,10 @@ def scrapeBlockTrxDataLog(trxDict, path):
     #blockTrxData.txt
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
-        trxDict.update(dict([(x[0], trxData(blockNum=x[1], blockTime=x[2], cpuUsageUs=x[3], netUsageUs=x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
+        if Utils.getNodeosVersion().split('.')[0] == "v2":
+            trxDict.update(dict([(x[0], trxData(blockNum=x[1], cpuUsageUs=x[2], netUsageUs=x[3])) for x in (line.rstrip('\n').split(',') for line in f)]))
+        else:
+            trxDict.update(dict([(x[0], trxData(blockNum=x[1], blockTime=x[2], cpuUsageUs=x[3], netUsageUs=x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
 
 def scrapeBlockDataLog(blockDict, path):
     #blockData.txt
