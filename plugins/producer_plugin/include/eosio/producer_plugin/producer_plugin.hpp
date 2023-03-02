@@ -22,6 +22,7 @@ public:
       std::optional<int32_t>   subjective_cpu_leeway_us;
       std::optional<double>    incoming_defer_ratio;
       std::optional<uint32_t>  greylist_limit;
+      std::optional<int32_t>   max_read_only_transaction_time;
    };
 
    struct whitelist_blacklist {
