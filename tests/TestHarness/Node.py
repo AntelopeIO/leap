@@ -448,6 +448,7 @@ class Node(Transactions):
                 popen.errfile=serr
                 self.popenProc=popen
             self.pid=popen.pid
+            self.cmd = cmd
             if Utils.Debug: Utils.Print("start Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
         self.pollVersion()
 
