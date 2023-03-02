@@ -607,7 +607,7 @@ plugin = eosio::chain_api_plugin
                     Utils.Print(f'{"Restarting" if relaunch else "Shutting down"} node {node.name}')
                     with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
                         pid = int(f.readline())
-                        self.terminate_wait_pid(pid)
+                        self.terminate_wait_pid(pid, raise_if_missing=not relaunch)
                     if relaunch:
                         self.launch(node)
 
