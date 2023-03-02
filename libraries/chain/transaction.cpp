@@ -62,16 +62,19 @@ fc::microseconds transaction::get_signature_keys( const vector<signature_type>& 
 { try {
    auto start = fc::time_point::now();
    recovered_pub_keys.clear();
-   const digest_type digest = sig_digest(chain_id, cfd);
 
-   for(const signature_type& sig : signatures) {
-      auto now = fc::time_point::now();
-      EOS_ASSERT( now < deadline, tx_cpu_usage_exceeded, "transaction signature verification executed for too long ${time}us",
-                  ("time", now - start)("now", now)("deadline", deadline)("start", start) );
-      auto[ itr, successful_insertion ] = recovered_pub_keys.emplace( sig, digest );
-      EOS_ASSERT( allow_duplicate_keys || successful_insertion, tx_duplicate_sig,
-                  "transaction includes more than one signature signed using the same key associated with public key: ${key}",
-                  ("key", *itr ) );
+   if ( !signatures.empty() ) {
+      const digest_type digest = sig_digest(chain_id, cfd);
+
+      for(const signature_type& sig : signatures) {
+         auto now = fc::time_point::now();
+         EOS_ASSERT( now < deadline, tx_cpu_usage_exceeded, "transaction signature verification executed for too long ${time}us",
+                     ("time", now - start)("now", now)("deadline", deadline)("start", start) );
+         auto[ itr, successful_insertion ] = recovered_pub_keys.emplace( sig, digest );
+         EOS_ASSERT( allow_duplicate_keys || successful_insertion, tx_duplicate_sig,
+                     "transaction includes more than one signature signed using the same key associated with public key: ${key}",
+                     ("key", *itr ) );
+      }
    }
 
    return fc::time_point::now() - start;
