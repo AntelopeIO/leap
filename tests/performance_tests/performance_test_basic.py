@@ -103,16 +103,12 @@ class PerformanceBasicTest:
                 self.specificExtraNodeosArgs.update({f"{node}" : "--plugin eosio::trace_api_plugin" for node in range(self.pnodes, self._totalNodes)})
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
-                self.fetchBlock = lambda node, blockNum: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
                 self.writeTrx = lambda trxDataFile, block, blockNum: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
                 self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['block_num']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['confirmed']},{block['payload']['timestamp']}\n")
-                self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":headBlock}, silentErrors=False, exitOnError=True)
                 self.specificExtraNodeosArgs.update({f"{node}" : '--plugin eosio::history_api_plugin --filter-on "*"' for node in range(self.pnodes, self._totalNodes)})
             else:
-                self.fetchBlock = lambda node, blockNum: node.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
                 self.writeTrx = lambda trxDataFile, block, blockNum: [trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
                 self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
-                self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
 
     def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), targetTps: int=8000,
                  testTrxGenDurationSec: int=30, tpsLimitPerGenerator: int=4000, numAddlBlocksToPrune: int=2,
@@ -216,7 +212,7 @@ class PerformanceBasicTest:
 
     def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
         for blockNum in range(startBlockNum, endBlockNum):
-            block = self.clusterConfig.fetchBlock(node, blockNum)
+            block = node.fetchBlock(blockNum)
             btdf_append_write = self.fileOpenMode(blockTrxDataPath)
             with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
                 self.clusterConfig.writeTrx(trxDataFile, block, blockNum)
@@ -231,7 +227,7 @@ class PerformanceBasicTest:
         emptyBlocks = 0
         while emptyBlocks < numEmptyToWaitOn:
             headBlock = node.getHeadBlockNum()
-            block = self.clusterConfig.fetchHeadBlock(node, headBlock)
+            block = node.fetchHeadBlock(node, headBlock)
             node.waitForHeadToAdvance()
             if block['payload']['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
                 emptyBlocks += 1
@@ -458,7 +454,7 @@ def main():
     extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosHttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
     extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs)
 
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs)
+    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs, nodeosVers=Utils.getNodeosVersion().split('.')[0])
 
     myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=args.target_tps,
                                   testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,

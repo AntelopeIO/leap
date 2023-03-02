@@ -47,7 +47,7 @@ class Node(Transactions):
 
     def pollVersion(self):
         info = self.getInfo(silentErrors=True)
-        timeout = datetime.now() + timedelta(seconds=10)
+        timeout = datetime.now() + timedelta(seconds=20)
         while info == None:
             time.sleep(0.5)
             info = self.getInfo(silentErrors=True)
@@ -65,6 +65,8 @@ class Node(Transactions):
             self.fetchKeyCommand = lambda: "[trx][trx][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["trx"]["trx"]["ref_block_num"]
             self.cleosLimit = ""
+            self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":headBlock}, silentErrors=False, exitOnError=True)
+
         else:
             self.fetchTransactionCommand = lambda: "get transaction_trace"
             self.fetchTransactionFromTrace = lambda trx: trx['id']
@@ -72,6 +74,7 @@ class Node(Transactions):
             self.fetchKeyCommand = lambda: "[transaction][transaction_header][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["transaction_header"]["ref_block_num"]
             self.cleosLimit = "--time-limit 99999"
+            self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
 
     def __str__(self):
         return "Host: %s, Port:%d, NodeNum:%s, Pid:%s" % (self.host, self.port, self.nodeId, self.pid)
@@ -130,7 +133,7 @@ class Node(Transactions):
                 raise
 
     def waitForTransactionInBlock(self, transId, timeout=None):
-        """Wait for trans id to be appear in a block."""
+        """Wait for trans id to appear in a block."""
         assert(isinstance(transId, str))
         lam = lambda: self.isTransInAnyBlock(transId)
         ret=Utils.waitForBool(lam, timeout)

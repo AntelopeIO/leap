@@ -131,6 +131,7 @@ class Cluster(object):
         self.filesToCleanup=[]
         self.alternateVersionLabels=Cluster.__defaultAlternateVersionLabels()
         self.biosNode = None
+        self.nodeosLogPath=Path('TestLogs') / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}')
 
         unshare(CLONE_NEWNET)
         for index, name in socket.if_nameindex():
@@ -1528,7 +1529,7 @@ class Cluster(object):
     def killall(self, kill=True, silent=True, allInstances=False):
         """Kill cluster nodeos instances. allInstances will kill all nodeos instances running on the system."""
         signalNum=9 if kill else 15
-        cmd="%s -k %d" % ("python3 tests/launcher.py", signalNum)
+        cmd="%s -k %d --nogen -p 1 -n 1 --nodeos-log-path %s" % ("python3 tests/launcher.py", signalNum, self.nodeosLogPath)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         if 0 != subprocess.call(cmd.split(), stdout=Utils.FNull):
             if not silent: Utils.Print("Launcher failed to shut down eos cluster.")
