@@ -172,6 +172,7 @@ bool   tx_print_json = false;
 bool   tx_rtn_failure_trace = true;
 bool   tx_read_only = false;
 bool   tx_dry_run = false;
+bool   tx_read = false;
 bool   tx_retry_lib = false;
 uint16_t tx_retry_num_blocks = 0;
 bool   tx_use_old_rpc = false;
@@ -446,7 +447,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       }
       sign_transaction(trx, required_keys, info.chain_id);
    };
-   if (!tx_skip_sign) {
+   if (!tx_skip_sign && !tx_read) {
       // sign dry-run transactions only when explcitly requested
       if ( tx_dry_run ) {
          if ( signing_keys.size() > 0 ) {
@@ -464,6 +465,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       if (tx_use_old_rpc) {
          EOSC_ASSERT( !tx_read_only, "ERROR: --read-only can not be used with --use-old-rpc" );
          EOSC_ASSERT( !tx_dry_run, "ERROR: --dry-run can not be used with --use-old-rpc" );
+         EOSC_ASSERT( !tx_read, "ERROR: --read can not be used with --use-old-rpc" );
          EOSC_ASSERT( !tx_rtn_failure_trace, "ERROR: --return-failure-trace can not be used with --use-old-rpc" );
          EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --use-old-rpc" );
          EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --use-old-rpc" );
@@ -471,6 +473,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       } else if (tx_use_old_send_rpc) {
          EOSC_ASSERT( !tx_read_only, "ERROR: --read-only can not be used with --use-old-send-rpc" );
          EOSC_ASSERT( !tx_dry_run, "ERROR: --dry-run can not be used with --use-old-send-rpc" );
+         EOSC_ASSERT( !tx_read, "ERROR: --read can not be used with --use-old-send-rpc" );
          EOSC_ASSERT( !tx_rtn_failure_trace, "ERROR: --return-failure-trace can not be used with --use-old-send-rpc" );
          EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --use-old-send-rpc" );
          EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --use-old-send-rpc" );
@@ -481,15 +484,18 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
             throw;
          }
       } else {
-         if( tx_dry_run || tx_read_only ) {
-            EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --dry-run or --read-only" );
-            EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --dry-run or --read-only" );
+         if( tx_read || tx_dry_run || tx_read_only ) {
+            EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --read, --dry-run or --read-only" );
+            EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --read, --dry-run or --read-only" );
             try {
-               auto compute_txn_arg = fc::mutable_variant_object ("transaction",
-                                                                  packed_transaction(trx,compression));
-               return call( compute_txn_func, compute_txn_arg);
+               auto args = fc::mutable_variant_object ("transaction", packed_transaction(trx,compression));
+               if( tx_read ) {
+                  return call( send_read_only_txn_func, args );
+               } else {
+                  return call( compute_txn_func, args );
+               }
             } catch( chain::missing_chain_api_plugin_exception& ) {
-               std::cerr << "New RPC compute_transaction may not be supported. Submit to a different node." << std::endl;
+               std::cerr << "New RPC compute_transaction or send_read_only_transaction may not be supported. Submit to a different node." << std::endl;
                throw;
             }
          } else {
@@ -3902,6 +3908,7 @@ int main( int argc, char** argv ) {
    actionsSubcommand->add_option("action", action,
                                  localized("A JSON string or filename defining the action to execute on the contract"))->required()->capture_default_str();
    actionsSubcommand->add_option("data", data, localized("The arguments to the contract"))->required();
+   actionsSubcommand->add_flag("--read", tx_read, localized("Specify an action is read-only"));
 
    add_standard_transaction_options_plus_signing(actionsSubcommand);
    actionsSubcommand->callback([&] {
@@ -3933,6 +3940,7 @@ int main( int argc, char** argv ) {
    add_standard_transaction_options_plus_signing(trxSubcommand);
    trxSubcommand->add_flag("-o,--read-only", tx_read_only, localized("Deprecated, use --dry-run instead"));
    trxSubcommand->add_flag("--dry-run", tx_dry_run, localized("Specify a transaction is dry-run"));
+   trxSubcommand->add_flag("--read", tx_read, localized("Specify a transaction is read-only"));
 
    trxSubcommand->callback([&] {
       fc::variant trx_var = json_from_file_or_string(trx_to_push);

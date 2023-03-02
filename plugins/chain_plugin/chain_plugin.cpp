@@ -2557,41 +2557,51 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
    result.required_keys = required_keys_set;
    return result;
 }
-void read_only::compute_transaction(const compute_transaction_params& params, next_function<compute_transaction_results> next) const {
 
-    try {
-        auto pretty_input = std::make_shared<packed_transaction>();
-        auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
-        try {
-            abi_serializer::from_variant(params.transaction, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
-        } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
+template<typename Params, typename Results>
+void read_only::send_transient_transaction(const Params& params, next_function<Results> next, chain::transaction_metadata::trx_type trx_type) const {
+   try {
+      auto pretty_input = std::make_shared<packed_transaction>();
+      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      try {
+         abi_serializer::from_variant(params.transaction, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
-        app().get_method<incoming::methods::transaction_async>()(pretty_input, false, transaction_metadata::trx_type::dry_run, true,
-             [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
-                 if (std::holds_alternative<fc::exception_ptr>(result)) {
-                     next(std::get<fc::exception_ptr>(result));
-                 } else {
-                     auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
+      app().get_method<incoming::methods::transaction_async>()(pretty_input, true /* api_trx */, trx_type, true /* return_failure_trace */,
+          [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+             if (std::holds_alternative<fc::exception_ptr>(result)) {
+                   next(std::get<fc::exception_ptr>(result));
+              } else {
+                 auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
 
-                     try {
-                         fc::variant output;
-                         try {
-                             output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
-                         } catch( chain::abi_exception& ) {
-                             output = *trx_trace_ptr;
-                         }
+                 try {
+                    fc::variant output;
+                    try {
+                        output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+                    } catch( chain::abi_exception& ) {
+                        output = *trx_trace_ptr;
+                    }
 
-                         const chain::transaction_id_type& id = trx_trace_ptr->id;
-                         next(compute_transaction_results{id, output});
-                     } CATCH_AND_CALL(next);
-                 }
-             });
-    } catch ( boost::interprocess::bad_alloc& ) {
-        chain_plugin::handle_db_exhaustion();
-    } catch ( const std::bad_alloc& ) {
-        chain_plugin::handle_bad_alloc();
-    } CATCH_AND_CALL(next);
+                    const chain::transaction_id_type& id = trx_trace_ptr->id;
+                    next(Results{id, output});
+                 } CATCH_AND_CALL(next);
+              }
+      });
+   } catch ( boost::interprocess::bad_alloc& ) {
+      chain_plugin::handle_db_exhaustion();
+   } catch ( const std::bad_alloc& ) {
+      chain_plugin::handle_bad_alloc();
+   } CATCH_AND_CALL(next);
 }
+
+void read_only::compute_transaction(const compute_transaction_params& params, next_function<compute_transaction_results> next) const {
+   return send_transient_transaction(params, next, transaction_metadata::trx_type::dry_run);
+}
+
+void read_only::send_read_only_transaction(const send_read_only_transaction_params& params, next_function<send_read_only_transaction_results> next) const {
+   return send_transient_transaction(params, next, transaction_metadata::trx_type::read_only);
+}
+
 read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params, const fc::time_point& deadline)const {
    return params.id();
 }

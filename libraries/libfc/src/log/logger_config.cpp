@@ -43,10 +43,10 @@ namespace fc {
       }
    }
 
-   void log_config::initialize_appenders( boost::asio::io_service& ios ) {
+   void log_config::initialize_appenders() {
       std::lock_guard g( log_config::get().log_mutex );
       for( auto& iter : log_config::get().appender_map )
-         iter.second->initialize( ios );
+         iter.second->initialize();
    }
 
    void configure_logging( const fc::path& lc ) {

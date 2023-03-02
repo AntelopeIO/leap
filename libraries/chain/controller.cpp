@@ -296,9 +296,9 @@ struct controller_impl {
     blog( cfg.blocks_dir, cfg.blog ),
     fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
     wasmif( cfg.wasm_runtime, cfg.eosvmoc_tierup, db, cfg.state_dir, cfg.eosvmoc_config, !cfg.profile_accounts.empty() ),
-    resource_limits( db, [&s]() { return s.get_deep_mind_logger(); }),
+    resource_limits( db, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
     authorization( s, db ),
-    protocol_features( std::move(pfs), [&s]() { return s.get_deep_mind_logger(); } ),
+    protocol_features( std::move(pfs), [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); } ),
     conf( cfg ),
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
@@ -384,7 +384,10 @@ struct controller_impl {
    }
 
    void dmlog_applied_transaction(const transaction_trace_ptr& t) {
-      if (auto dm_logger = get_deep_mind_logger()) {
+      // dmlog_applied_transaction is called by push_scheduled_transaction
+      // where transient transactions are not possible, and by push_transaction
+      // only when the transaction is not transient
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_applied_transaction(self.head_block_num() + 1, t);
       }
    }
@@ -392,20 +395,21 @@ struct controller_impl {
    void log_irreversible() {
       EOS_ASSERT( fork_db.root(), fork_database_exception, "fork database not properly initialized" );
 
-      const auto& log_head = blog.head();
+      const block_id_type log_head_id = blog.head_id();
+      const bool valid_log_head = !log_head_id.empty();
 
-      auto lib_num = log_head ? log_head->block_num() : (blog.first_block_num() - 1);
+      const auto lib_num = valid_log_head ? block_header::num_from_id(log_head_id) : (blog.first_block_num() - 1);
 
       auto root_id = fork_db.root()->id;
 
-      if( log_head ) {
-         EOS_ASSERT( root_id == blog.head_id(), fork_database_exception, "fork database root does not match block log head" );
+      if( valid_log_head ) {
+         EOS_ASSERT( root_id == log_head_id, fork_database_exception, "fork database root does not match block log head" );
       } else {
          EOS_ASSERT( fork_db.root()->block_num == lib_num, fork_database_exception,
                      "empty block log expects the first appended block to build off a block that is not the fork database root. root block number: ${block_num}, lib: ${lib_num}", ("block_num", fork_db.root()->block_num) ("lib_num", lib_num) );
       }
 
-      auto fork_head = (read_mode == db_read_mode::IRREVERSIBLE) ? fork_db.pending_head() : fork_db.head();
+      const auto fork_head = (read_mode == db_read_mode::IRREVERSIBLE) ? fork_db.pending_head() : fork_db.head();
 
       if( fork_head->dpos_irreversible_blocknum <= lib_num )
          return;
@@ -483,12 +487,12 @@ struct controller_impl {
    }
 
    void replay(std::function<bool()> check_shutdown) {
-      if( !blog.head() && !fork_db.root() ) {
+      auto blog_head = blog.head();
+      if( !blog_head && !fork_db.root() ) {
          fork_db.reset( *head );
          return;
       }
 
-      auto blog_head = blog.head();
       replaying = true;
       auto start_block_num = head->block_num + 1;
       auto start = fc::time_point::now();
@@ -570,8 +574,8 @@ struct controller_impl {
       ilog( "Starting initialization from snapshot, this may take a significant amount of time" );
       try {
          snapshot->validate();
-         if( blog.head() ) {
-            read_from_snapshot( snapshot, blog.first_block_num(), blog.head()->block_num() );
+         if( auto blog_head = blog.head() ) {
+            read_from_snapshot( snapshot, blog.first_block_num(), blog_head->block_num() );
          } else {
             read_from_snapshot( snapshot, 0, std::numeric_limits<uint32_t>::max() );
             const uint32_t lib_num = head->block_num;
@@ -629,15 +633,15 @@ struct controller_impl {
       this->shutdown = shutdown;
       uint32_t lib_num = fork_db.root()->block_num;
       auto first_block_num = blog.first_block_num();
-      if( blog.head() ) {
-         EOS_ASSERT( first_block_num <= lib_num && lib_num <= blog.head()->block_num(),
+      if( auto blog_head = blog.head() ) {
+         EOS_ASSERT( first_block_num <= lib_num && lib_num <= blog_head->block_num(),
                      block_log_exception,
                      "block log (ranging from ${block_log_first_num} to ${block_log_last_num}) does not contain the last irreversible block (${fork_db_lib})",
                      ("block_log_first_num", first_block_num)
-                     ("block_log_last_num", blog.head()->block_num())
+                     ("block_log_last_num", blog_head->block_num())
                      ("fork_db_lib", lib_num)
          );
-         lib_num = blog.head()->block_num();
+         lib_num = blog_head->block_num();
       } else {
          if( first_block_num != (lib_num + 1) ) {
             blog.reset( chain_id, lib_num + 1 );
@@ -700,7 +704,8 @@ struct controller_impl {
 
       protocol_features.init( db );
 
-      if (auto dm_logger = get_deep_mind_logger()) {
+      // At startup, no transaction specific logging is possible
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_startup(db, head->block_num);
       }
 
@@ -1016,22 +1021,23 @@ struct controller_impl {
       });
 
       const auto& owner_permission  = authorization.create_permission(name, config::owner_name, 0,
-                                                                      owner, initial_timestamp );
+                                                                      owner, false, initial_timestamp );
       const auto& active_permission = authorization.create_permission(name, config::active_name, owner_permission.id,
-                                                                      active, initial_timestamp );
+                                                                      active, false, initial_timestamp );
 
-      resource_limits.initialize_account(name);
+      resource_limits.initialize_account(name, false);
 
       int64_t ram_delta = config::overhead_per_account_ram_bytes;
       ram_delta += 2*config::billable_size_v<permission_object>;
       ram_delta += owner_permission.auth.get_billable_size();
       ram_delta += active_permission.auth.get_billable_size();
 
-      if (auto dm_logger = get_deep_mind_logger()) {
+      // This is only called at startup, no transaction specific logging is possible
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", name)), "account", "add", "newaccount");
       }
 
-      resource_limits.add_pending_ram_usage(name, ram_delta);
+      resource_limits.add_pending_ram_usage(name, ram_delta, false); // false for doing dm logging
       resource_limits.verify_account_ram_usage(name);
    }
 
@@ -1084,11 +1090,13 @@ struct controller_impl {
                                                                              config::majority_producers_permission_name,
                                                                              active_permission.id,
                                                                              active_producers_authority,
+                                                                             false,
                                                                              genesis.initial_timestamp );
                                             authorization.create_permission( config::producers_account_name,
                                                                              config::minority_producers_permission_name,
                                                                              majority_permission.id,
                                                                              active_producers_authority,
+                                                                             false,
                                                                              genesis.initial_timestamp );
 
    }
@@ -1141,13 +1149,13 @@ struct controller_impl {
          etrx.set_reference_block( self.head_block_id() );
       }
 
-      if (auto dm_logger = get_deep_mind_logger()) {
-         dm_logger->on_onerror(etrx);
-      }
-
       transaction_checktime_timer trx_timer(timer);
       const packed_transaction trx( std::move( etrx ) );
       transaction_context trx_context( self, trx, std::move(trx_timer), start );
+
+      if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
+         dm_logger->on_onerror(etrx);
+      }
 
       trx_context.block_deadline = block_deadline;
       trx_context.max_transaction_time_subjective = max_transaction_time;
@@ -1197,12 +1205,13 @@ struct controller_impl {
    }
 
    int64_t remove_scheduled_transaction( const generated_transaction_object& gto ) {
-      if (auto dm_logger = get_deep_mind_logger()) {
+      // deferred transactions cannot be transient.
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", gto.id)), "deferred_trx", "remove", "deferred_trx_removed");
       }
 
       int64_t ram_delta = -(config::billable_size_v<generated_transaction_object> + gto.packed_trx.size());
-      resource_limits.add_pending_ram_usage( gto.payer, ram_delta );
+      resource_limits.add_pending_ram_usage( gto.payer, ram_delta, false ); // false for doing dm logging
       // No need to verify_account_ram_usage since we are only reducing memory
 
       db.remove( gto );
@@ -1325,7 +1334,8 @@ struct controller_impl {
          trace->except_ptr = std::current_exception();
          trace->elapsed = fc::time_point::now() - start;
 
-         if (auto dm_logger = get_deep_mind_logger()) {
+         // deferred transactions cannot be transient
+         if (auto dm_logger = get_deep_mind_logger(false)) {
             dm_logger->on_fail_deferred();
          }
       };
@@ -1506,7 +1516,7 @@ struct controller_impl {
       transaction_trace_ptr trace;
       try {
          auto start = fc::time_point::now();
-         const bool check_auth = !self.skip_auth_check() && !trx->implicit();
+         const bool check_auth = !self.skip_auth_check() && !trx->implicit() && !trx->is_read_only();
          const fc::microseconds sig_cpu_usage = trx->signature_cpu_usage();
 
          if( !explicit_billed_cpu_time ) {
@@ -1586,7 +1596,7 @@ struct controller_impl {
                              std::move(trx_context.executed_action_receipt_digests) );
 
             // call the accept signal but only once for this transaction
-            if (!trx->is_dry_run()) {
+            if (!trx->is_transient()) {
                 if (!trx->accepted) {
                     trx->accepted = true;
                     emit(self.accepted_transaction, trx);
@@ -1597,7 +1607,7 @@ struct controller_impl {
             }
 
 
-            if ( trx->is_dry_run() ) {
+            if ( trx->is_transient() ) {
                // remove trx from pending block by not canceling 'restore'
                trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
             } else if ( pending->_block_status == controller::block_status::ephemeral ) {
@@ -1612,7 +1622,7 @@ struct controller_impl {
                trx_context.squash();
             }
 
-            if( !trx->is_dry_run() ) {
+            if( !trx->is_transient() ) {
                pending->_block_report.total_net_usage += trace->net_usage;
                pending->_block_report.total_cpu_usage_us += trace->receipt->cpu_usage_us;
                pending->_block_report.total_elapsed_time += trace->elapsed;
@@ -1635,7 +1645,7 @@ struct controller_impl {
            handle_exception(wrapper);
          }
 
-         if (!trx->is_dry_run()) {
+         if (!trx->is_transient()) {
             emit(self.accepted_transaction, trx);
             dmlog_applied_transaction(trace);
             emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
@@ -1661,7 +1671,8 @@ struct controller_impl {
 
       emit( self.block_start, head->block_num + 1 );
 
-      if (auto dm_logger = get_deep_mind_logger()) {
+      // at block level, no transaction specific logging is possible
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          // The head block represents the block just before this one that is about to start, so add 1 to get this block num
          dm_logger->on_start_block(head->block_num + 1);
       }
@@ -1913,7 +1924,8 @@ struct controller_impl {
             EOS_ASSERT( bsp == head, fork_database_exception, "committed block did not become the new head in fork database");
          }
 
-         if (auto dm_logger = get_deep_mind_logger()) {
+         // at block level, no transaction specific logging is possible
+         if (auto dm_logger = get_deep_mind_logger(false)) {
             dm_logger->on_accepted_block(bsp);
          }
 
@@ -2308,7 +2320,8 @@ struct controller_impl {
          ilog("switching forks from ${current_head_id} (block number ${current_head_num}) to ${new_head_id} (block number ${new_head_num})",
               ("current_head_id", head->id)("current_head_num", head->block_num)("new_head_id", new_head->id)("new_head_num", new_head->block_num) );
 
-         if (auto dm_logger = get_deep_mind_logger()) {
+         // not possible to log transaction specific infor when switching forks
+         if (auto dm_logger = get_deep_mind_logger(false)) {
             dm_logger->on_switch_forks(head->id, new_head->id);
          }
 
@@ -2627,21 +2640,22 @@ struct controller_impl {
          trx.set_reference_block( self.head_block_id() );
       }
 
-      if (auto dm_logger = get_deep_mind_logger()) {
+      // onblock transaction cannot be transient
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_onblock(trx);
       }
 
       return trx;
    }
 
-   inline deep_mind_handler* get_deep_mind_logger() const {
-      return deep_mind_logger;
+   inline deep_mind_handler* get_deep_mind_logger(bool is_trx_transient) const {
+      // do not perform deep mind logging for read-only and dry-run transactions
+      return is_trx_transient ? nullptr : deep_mind_logger;
    }
 
    uint32_t earliest_available_block_num() const {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
-
 }; /// controller_impl
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
@@ -2714,7 +2728,7 @@ chainbase::database& controller::mutable_db()const { return my->db; }
 
 const fork_database& controller::fork_db()const { return my->fork_db; }
 
-void controller::preactivate_feature( const digest_type& feature_digest ) {
+void controller::preactivate_feature( const digest_type& feature_digest, bool is_trx_transient ) {
    const auto& pfs = my->protocol_features.get_protocol_feature_set();
    auto cur_time = pending_block_time();
 
@@ -2811,7 +2825,7 @@ void controller::preactivate_feature( const digest_type& feature_digest ) {
                ("digest", feature_digest)
    );
 
-   if (auto dm_logger = get_deep_mind_logger()) {
+   if (auto dm_logger = get_deep_mind_logger(is_trx_transient)) {
       const auto feature = pfs.get_protocol_feature(feature_digest);
 
       dm_logger->on_preactivate_feature(feature);
@@ -3120,11 +3134,6 @@ block_state_ptr controller::fetch_block_state_by_number( uint32_t block_num )con
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
-   const auto& tapos_block_summary = db().get<block_summary_object>((uint16_t)block_num);
-
-   if( block_header::num_from_id(tapos_block_summary.block_id) == block_num )
-      return tapos_block_summary.block_id;
-
    const auto& blog_head = my->blog.head();
 
    bool find_in_blog = (blog_head && block_num <= blog_head->block_num());
@@ -3474,7 +3483,9 @@ void controller::add_to_ram_correction( account_name account, uint64_t ram_bytes
       } );
    }
 
-   if (auto dm_logger = get_deep_mind_logger()) {
+   // on_add_ram_correction is only called for deferred transaction
+   // (in apply_context::schedule_deferred_transaction)
+   if (auto dm_logger = get_deep_mind_logger(false)) {
       dm_logger->on_add_ram_correction(*ptr, ram_bytes);
    }
 }
@@ -3483,8 +3494,8 @@ bool controller::all_subjective_mitigations_disabled()const {
    return my->conf.disable_all_subjective_mitigations;
 }
 
-deep_mind_handler* controller::get_deep_mind_logger()const {
-   return my->get_deep_mind_logger();
+deep_mind_handler* controller::get_deep_mind_logger(bool is_trx_transient)const {
+   return my->get_deep_mind_logger(is_trx_transient);
 }
 
 void controller::enable_deep_mind(deep_mind_handler* logger) {
@@ -3598,8 +3609,16 @@ void controller::replace_account_keys( name account, name permission, const publ
       p.auth = authority(key);
    });
    int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
-   rlm.add_pending_ram_usage(account, new_size - old_size);
+   rlm.add_pending_ram_usage(account, new_size - old_size, false); // false for doing dm logging
    rlm.verify_account_ram_usage(account);
+}
+
+void controller::set_db_read_only_mode() {
+   mutable_db().set_read_only_mode();
+}
+
+void controller::unset_db_read_only_mode() {
+   mutable_db().unset_read_only_mode();
 }
 
 /// Protocol feature activation handlers:
@@ -3631,11 +3650,12 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
                ("name", itr->name)("adjust", itr->ram_correction)("current", current_ram_usage) );
       }
 
-      if (auto dm_logger = get_deep_mind_logger()) {
+      // This method is only called for deferred transaction
+      if (auto dm_logger = get_deep_mind_logger(false)) {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", itr->id._id)), "deferred_trx", "correction", "deferred_trx_ram_correction");
       }
 
-      resource_limits.add_pending_ram_usage( itr->name, ram_delta );
+      resource_limits.add_pending_ram_usage( itr->name, ram_delta, false ); // false for doing dm logging
       db.remove( *itr );
    }
 }
