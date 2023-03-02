@@ -454,16 +454,7 @@ class state_history_log {
 
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
       std::lock_guard g(_mx);
-      auto result = catalog.id_for_block(block_num);
-      if (!result) {
-         if (block_num >= _begin_block && block_num < _end_block) {
-            state_history_log_header header;
-            get_entry(block_num, header);
-            return header.block_id;
-         }
-         return {};
-      }
-      return result;
+      return get_block_id_i(block_num);
    }
 
 #ifdef BOOST_TEST_MODULE
@@ -510,12 +501,26 @@ class state_history_log {
       }
 
       auto prune_config = std::get_if<state_history::prune_config>(&config);
-      if (block_num < _end_block)
-         truncate(block_num); //truncate is expected to always leave file pointer at the end
-      else if (!prune_config)
+      if (block_num < _end_block) {
+         // This is typically because of a fork, and we need to truncate the log back to the beginning of the fork.
+         static uint32_t start_block_num = block_num;
+         // Guard agaisnt accidently starting a fresh chain with an existing ship log, require manual removal of ship logs.
+         EOS_ASSERT( block_num > 2, chain::plugin_exception, "Existing ship log with ${eb} blocks when starting from genesis block ${b}",
+                     ("eb", _end_block)("b", block_num) );
+         // block_num < _begin_block = pruned log, need to call truncate() to reset
+         // get_block_id_i check is an optimization to avoid writing a block that is already in the log (snapshot or replay)
+         if ( block_num < _begin_block || get_block_id_i(block_num) != header.block_id ) {
+            truncate(block_num); //truncate is expected to always leave file pointer at the end
+         } else {
+            if (start_block_num == block_num || block_num % 1000 == 0 )
+               ilog("log ${name}.log already contains block ${b}, end block ${eb}", ("name", name)("b", block_num)("eb", _end_block));
+            return;
+         }
+      } else if (!prune_config) {
          log.seek_end(0);
-      else if (prune_config && _begin_block != _end_block)
+      } else if (prune_config && _begin_block != _end_block) {
          log.seek_end(-sizeof(uint32_t));  //overwrite the trailing block count marker on this write
+      }
 
       //if we're operating on a pruned block log and this is the first entry in the log, make note of the feature in the header
       if(prune_config && _begin_block == _end_block)
@@ -551,13 +556,25 @@ class state_history_log {
       }
    }
 
-   // returns cfile positioned at payload
    fc::cfile& get_entry(uint32_t block_num, state_history_log_header& header) {
       EOS_ASSERT(block_num >= _begin_block && block_num < _end_block, chain::plugin_exception,
                  "read non-existing block in ${name}.log", ("name", name));
       log.seek(get_pos(block_num));
       read_header(header);
       return log;
+   }
+
+   std::optional<chain::block_id_type> get_block_id_i(uint32_t block_num) {
+      auto result = catalog.id_for_block(block_num);
+      if (!result) {
+         if (block_num >= _begin_block && block_num < _end_block) {
+            state_history_log_header header;
+            get_entry(block_num, header);
+            return header.block_id;
+         }
+         return {};
+      }
+      return result;
    }
 
    //file position must be at start of last block's suffix (back pointer)

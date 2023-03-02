@@ -144,7 +144,7 @@ BOOST_AUTO_TEST_CASE(test_restart_from_block_log) {
    chain.create_account("replay2"_n);
    chain.produce_blocks(1);
    chain.create_account("replay3"_n);
-   chain.produce_blocks(1);
+   chain.produce_blocks(1); // replay3 will be in fork_db.dat
 
    BOOST_REQUIRE_NO_THROW(chain.control->get_account("replay1"_n));
    BOOST_REQUIRE_NO_THROW(chain.control->get_account("replay2"_n));
@@ -156,7 +156,7 @@ BOOST_AUTO_TEST_CASE(test_restart_from_block_log) {
    auto               genesis       = chain::block_log::extract_genesis_state(chain.get_config().blocks_dir);
    BOOST_REQUIRE(genesis);
 
-   // remove the state files to make sure we are starting from block log
+   // remove the state files to make sure we are starting from block log & fork_db.dat
    remove_existing_states(copied_config);
 
    tester from_block_log_chain(copied_config, *genesis);
