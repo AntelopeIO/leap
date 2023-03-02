@@ -821,6 +821,8 @@ if( options.count(op_name) ) { \
 
 void producer_plugin::plugin_initialize(const boost::program_options::variables_map& options)
 { try {
+   handle_sighup(); // Sets loggers
+
    my->chain_plug = app().find_plugin<chain_plugin>();
    EOS_ASSERT( my->chain_plug, plugin_config_exception, "chain_plugin not found" );
    my->_options = &options;
@@ -997,8 +999,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
 void producer_plugin::plugin_startup()
 { try {
-   handle_sighup(); // Sets loggers
-
    try {
    ilog("producer plugin:  plugin_startup() begin");
 
