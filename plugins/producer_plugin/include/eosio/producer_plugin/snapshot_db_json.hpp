@@ -46,8 +46,8 @@ public:
          }
       }
       catch (std::ifstream::failure e) {
-          wlog( "unable to restore snapshots schedule from filesystem: ${details}",
-                  ("details",e.what()) );
+         elog( "unable to restore snapshots schedule from filesystem ${jsonpath}, details: ${details}",
+            ("jsonpath", get_json_path().string()) ("details",e.what()) );
       }
 
       return *this;
@@ -76,8 +76,8 @@ public:
          file.close();
       }
       catch (std::ofstream::failure e) {
-          wlog( "unable to store snapshots schedule to filesystem: ${details}",
-                  ("details",e.what()) );
+         elog( "unable to store snapshots schedule to filesystem to ${jsonpath}, details: ${details}",
+            ("jsonpath", get_json_path().string()) ("details", e.what()) );
       }
 
       return *this;

@@ -185,6 +185,7 @@ FC_REFLECT(eosio::producer_plugin::snapshot_information, (head_block_id)(head_bl
 FC_REFLECT(eosio::producer_plugin::snapshot_request_information, (block_spacing)(start_block_num)(end_block_num)(snapshot_description))
 FC_REFLECT(eosio::producer_plugin::snapshot_request_id_information, (snapshot_request_id))
 FC_REFLECT(eosio::producer_plugin::get_snapshot_requests_result, (requests))
+FC_REFLECT_DERIVED(eosio::producer_plugin::snapshot_schedule_information, (eosio::producer_plugin::snapshot_request_id_information)(eosio::producer_plugin::snapshot_request_information), (pending_snapshot))
 FC_REFLECT(eosio::producer_plugin::scheduled_protocol_feature_activations, (protocol_features_to_activate))
 FC_REFLECT(eosio::producer_plugin::get_supported_protocol_features_params, (exclude_disabled)(exclude_unactivatable))
 FC_REFLECT(eosio::producer_plugin::get_account_ram_corrections_params, (lower_bound)(upper_bound)(limit)(reverse))

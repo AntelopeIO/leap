@@ -116,13 +116,14 @@ public:
    virtual producer_plugin::get_snapshot_requests_result get_snapshot_requests() {
       producer_plugin::get_snapshot_requests_result result;
       auto& asvector = _snapshot_requests.get<as_vector>();
+      result.requests.reserve(asvector.size());
       result.requests.insert(result.requests.begin(), asvector.begin(), asvector.end());
       return result;
    }
 
    // initialize with storage
    void set_db_path(bfs::path db_path) {
-      _snapshot_db.set_path(db_path);
+      _snapshot_db.set_path(std::move(db_path));
       // init from db
       if(fc::exists(_snapshot_db.get_json_path())) {
          std::vector<producer_plugin::snapshot_schedule_information> sr;
@@ -133,7 +134,7 @@ public:
 
    // snapshot executor
    void set_create_snapshot_fn(std::function<void(producer_plugin::next_function<producer_plugin::snapshot_information>)> fn) {
-      _create_snapshot = fn;
+      _create_snapshot = std::move(fn);
    }
 
 
@@ -143,10 +144,10 @@ public:
             try {
                std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();
             } catch(const fc::exception& e) {
-               wlog( "snapshot creation error: ${details}", ("details",e.to_detail_string()) );
+               elog( "snapshot creation error: ${details}", ("details",e.to_detail_string()) );
                throw;
             } catch(const std::exception& e) {
-               wlog( "snapshot creation error: ${details}", ("details",e.what()) );
+               elog( "snapshot creation error: ${details}", ("details",e.what()) );
                throw;
             }
          } else {

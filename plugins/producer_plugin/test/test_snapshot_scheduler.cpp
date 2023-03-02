@@ -127,9 +127,6 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
       bfs::remove_all(temp);
    }
 
-
-
-
    BOOST_AUTO_TEST_SUITE_END()
 }
 
