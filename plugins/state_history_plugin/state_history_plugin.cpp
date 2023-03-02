@@ -1,3 +1,4 @@
+#include "eosio/chain/block_header.hpp"
 #include <eosio/chain/config.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
@@ -16,6 +17,7 @@
 #include <boost/beast/core.hpp>
 
 #include <boost/signals2/connection.hpp>
+#include <mutex>
 
 
 namespace ws = boost::beast::websocket;
@@ -65,7 +67,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    std::optional<state_history_log> trace_log;
    std::optional<state_history_log> chain_state_log;
    bool                             trace_debug_mode = false;
-   std::atomic<bool>                stopping         = false;
    std::optional<scoped_connection> applied_transaction_connection;
    std::optional<scoped_connection> block_start_connection;
    std::optional<scoped_connection> accepted_block_connection;
@@ -73,21 +74,26 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    uint16_t                         endpoint_port = 8080;
    string                           unix_path;
    state_history::trace_converter   trace_converter;
-   std::set<std::shared_ptr<session_base>> session_set;
+   session_manager                  session_mgr;
+
+   mutable std::mutex mtx;
+   block_id_type head_id;
+   block_id_type lib_id;
+   time_point head_timestamp;
 
    constexpr static uint64_t default_frame_size =  1024 * 1024;
 
    template <class ACCEPTOR>
    struct generic_acceptor  {
       using socket_type = typename ACCEPTOR::protocol_type::socket;
-      generic_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
+      explicit generic_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
       ACCEPTOR                    acceptor_;
       socket_type                 socket_;
       boost::asio::deadline_timer error_timer_;
    };
    
-   using tcp_acceptor  = generic_acceptor<tcp::acceptor>;
-   using unix_acceptor = generic_acceptor<unixs::acceptor>;
+   using tcp_acceptor  = generic_acceptor<boost::asio::ip::tcp::acceptor>;
+   using unix_acceptor = generic_acceptor<boost::asio::local::stream_protocol::acceptor>;
    
    using acceptor_type = std::variant<std::unique_ptr<tcp_acceptor>, std::unique_ptr<unix_acceptor>>;
    std::set<acceptor_type>          acceptors;
@@ -101,6 +107,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    boost::asio::io_context& get_ship_executor() { return thread_pool.get_executor(); }
 
+   // thread-safe
    signed_block_ptr get_block(uint32_t block_num, const block_state_ptr& block_state) const {
       chain::signed_block_ptr p;
       try {
@@ -119,12 +126,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       return chain_plug->chain().get_chain_id();
    }
 
+   // thread-safe
    void get_block(uint32_t block_num, const block_state_ptr& block_state, std::optional<bytes>& result) const {
       auto p = get_block(block_num, block_state);
       if (p)
          result = fc::raw::pack(*p);
    }
 
+   // thread-safe
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
       if (trace_log)
          return trace_log->get_block_id(block_num);
@@ -137,19 +146,22 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       return {};
    }
 
+   // thread-safe
    block_position get_block_head() const {
-      auto& chain              = chain_plug->chain();
-      return {chain.head_block_num(), chain.head_block_id()};
+      std::lock_guard g(mtx);
+      return { block_header::num_from_id(head_id), head_id };
    }
 
+   // thread-safe
    block_position get_last_irreversible() const {
-      auto& chain              = chain_plug->chain();
-      return {chain.last_irreversible_block_num(), chain.last_irreversible_block_id()};
+      std::lock_guard g(mtx);
+      return { block_header::num_from_id(lib_id), lib_id };
    }
 
+   // thread-safe
    time_point get_head_block_timestamp() const {
-      auto& chain = chain_plug->chain();
-      return chain.head_block_time();
+      std::lock_guard g(mtx);
+      return head_timestamp;
    }
 
    template <typename Task>
@@ -173,7 +185,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
          //  but nothing is listening
          {
             boost::system::error_code test_ec;
-            unixs::socket             test_socket(app().get_io_service());
+            boost::asio::local::stream_protocol::socket test_socket(app().get_io_service());
             test_socket.connect(unix_path.c_str(), test_ec);
 
             // looks like a service is already running on that socket, don't touch it... fail out
@@ -197,7 +209,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       std::for_each(acceptors.begin(), acceptors.end(), [&](const acceptor_type& acc) {
          std::visit(overloaded{[&](const std::unique_ptr<tcp_acceptor>& tcp_acc) {
                                 auto address  = boost::asio::ip::make_address(endpoint_address);
-                                auto endpoint = tcp::endpoint{address, endpoint_port};
+                                auto endpoint = boost::asio::ip::tcp::endpoint{address, endpoint_port};
                                 tcp_acc->acceptor_.open(endpoint.protocol(), ec);
                                 check_ec("open");
                                 tcp_acc->acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
@@ -208,7 +220,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
                                 do_accept(*tcp_acc);
                              },
                              [&](const std::unique_ptr<unix_acceptor>& unx_acc) {
-                                unx_acc->acceptor_.open(unixs::acceptor::protocol_type(), ec);
+                                unx_acc->acceptor_.open(boost::asio::local::stream_protocol::acceptor::protocol_type(), ec);
                                 check_ec("open");
                                 unx_acc->acceptor_.bind(unix_path.c_str(), ec);
                                 check_ec("bind");
@@ -224,8 +236,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    void do_accept(Acceptor& acc) {
       // &acceptor kept alive by self, reference into acceptors set
       acc.acceptor_.async_accept(acc.socket_, [self = shared_from_this(), &acc](const boost::system::error_code& ec) {
-         if (self->stopping)
-            return;
          if (ec == boost::system::errc::too_many_files_open) {
             fc_elog(_log, "ship accept() error: too many files open - waiting 200ms");
             acc.error_timer_.expires_from_now(boost::posix_time::milliseconds(200));
@@ -239,9 +249,9 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
             else {
                // Create a session object and run it
                catch_and_log([&] {
-                  auto s = std::make_shared<session<std::shared_ptr<state_history_plugin_impl>, typename Acceptor::socket_type>>(self, std::move(acc.socket_));
+                  auto s = std::make_shared<session<std::shared_ptr<state_history_plugin_impl>, typename Acceptor::socket_type>>(self, std::move(acc.socket_), self->session_mgr);
+                  self->session_mgr.insert(s);
                   s->start();
-                  self->session_set.insert( std::move(s) );
                });
             }
 
@@ -259,6 +269,14 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    // called from main thread
    void on_accepted_block(const block_state_ptr& block_state) {
+      {
+         const auto& chain = chain_plug->chain();
+         std::lock_guard g(mtx);
+         head_id = chain.head_block_id();
+         lib_id = chain.last_irreversible_block_id();
+         head_timestamp = chain.head_block_time();
+      }
+
       try {
          store_traces(block_state);
          store_chain_state(block_state);
@@ -274,12 +292,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              "the process");
       }
 
-      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() mutable {
-         for( auto& s : self->session_set ) {
-            self->post_task_main_thread_medium( [s, block_state]() {
-               s->send_update(block_state);
-            } );
-         }
+      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
+         self->session_mgr.send_update(block_state);
       });
 
    }
@@ -491,7 +505,6 @@ void state_history_plugin::plugin_shutdown() {
    my->applied_transaction_connection.reset();
    my->accepted_block_connection.reset();
    my->block_start_connection.reset();
-   my->stopping = true;
    my->thread_pool.stop();
 }
 
