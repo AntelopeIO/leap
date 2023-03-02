@@ -454,16 +454,7 @@ class state_history_log {
 
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
       std::lock_guard g(_mx);
-      auto result = catalog.id_for_block(block_num);
-      if (!result) {
-         if (block_num >= _begin_block && block_num < _end_block) {
-            state_history_log_header header;
-            get_entry(block_num, header);
-            return header.block_id;
-         }
-         return {};
-      }
-      return result;
+      return get_block_id_i(block_num);
    }
 
 #ifdef BOOST_TEST_MODULE
@@ -565,20 +556,7 @@ class state_history_log {
       }
    }
 
-   // returns cfile positioned at payload
    fc::cfile& get_entry(uint32_t block_num, state_history_log_header& header) {
-      std::lock_guard lock(_mx);
-      return get_entry_i(block_num, header);
-   }
-
-   chain::block_id_type get_block_id(uint32_t block_num) {
-      std::lock_guard lock(_mx);
-      return get_block_id_i(block_num);
-   }
-
- private:
-
-   fc::cfile& get_entry_i(uint32_t block_num, state_history_log_header& header) {
       EOS_ASSERT(block_num >= _begin_block && block_num < _end_block, chain::plugin_exception,
                  "read non-existing block in ${name}.log", ("name", name));
       log.seek(get_pos(block_num));
@@ -586,10 +564,17 @@ class state_history_log {
       return log;
    }
 
-   chain::block_id_type get_block_id_i(uint32_t block_num) {
-      state_history_log_header header;
-      get_entry_i(block_num, header);
-      return header.block_id;
+   std::optional<chain::block_id_type> get_block_id_i(uint32_t block_num) {
+      auto result = catalog.id_for_block(block_num);
+      if (!result) {
+         if (block_num >= _begin_block && block_num < _end_block) {
+            state_history_log_header header;
+            get_entry(block_num, header);
+            return header.block_id;
+         }
+         return {};
+      }
+      return result;
    }
 
    //file position must be at start of last block's suffix (back pointer)
