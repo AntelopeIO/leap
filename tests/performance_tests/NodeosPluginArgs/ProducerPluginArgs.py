@@ -92,6 +92,9 @@ class ProducerPluginArgs(BasePluginArgs):
     snapshotsDir: str=None
     _snapshotsDirNodeosDefault: str='"snapshots"'
     _snapshotsDirNodeosArg: str="--snapshots-dir"
+    maxReadOnlyTransactionTime: int=None
+    _maxReadOnlyTransactionTimeNodeosDefault: int=150
+    _maxReadOnlyTransactionTimeNodeosArg: str="--max-read-only-transaction-time"
 
 def main():
     pluginArgs = ProducerPluginArgs()
