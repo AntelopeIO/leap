@@ -10,6 +10,7 @@ import signal
 import json
 import log_reader
 import inspect
+import traceback
 
 from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
@@ -492,6 +493,9 @@ class PerformanceTestBasic:
             if testSuccessful and self.ptbConfig.expectedTransactionsSent != self.data.totalTransactions:
                 testSuccessful = False
                 print(f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.ptbConfig.expectedTransactionsSent}")
+
+        except:
+            traceback.print_exc()
 
         finally:
             TestHelper.shutdown(
