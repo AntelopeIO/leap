@@ -360,6 +360,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       // path to write the snapshots to
       bfs::path _snapshots_dir;
 
+      // max time in milliseconds that a read-only transaction is allowed to run
+      int32_t _max_read_only_transaction_time_ms = 150;
+
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
          auto itr = _producer_watermarks.find( producer );
          if( itr != _producer_watermarks.end() ) {
@@ -530,7 +533,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                          bool return_failure_traces,
                                          next_function<transaction_trace_ptr> next) {
          chain::controller& chain = chain_plug->chain();
-         const auto max_trx_time_ms = _max_transaction_time_ms.load();
+         const auto max_trx_time_ms = ( trx_type == transaction_metadata::trx_type::read_only ) ? -1 : _max_transaction_time_ms.load();
          fc::microseconds max_trx_cpu_usage = max_trx_time_ms < 0 ? fc::microseconds::maximum() : fc::milliseconds( max_trx_time_ms );
 
          auto future = transaction_metadata::start_recover_keys( trx, _thread_pool.get_executor(),
@@ -538,7 +541,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                                                  trx_type,
                                                                  chain.configured_subjective_signature_length_limit() );
 
-         if( trx_type != transaction_metadata::trx_type::dry_run ) {
+         if( trx_type != transaction_metadata::trx_type::dry_run && trx_type != transaction_metadata::trx_type::read_only ) {
             next = [this, trx, next{std::move(next)}]( const std::variant<fc::exception_ptr, transaction_trace_ptr>& response ) {
                next( response );
 
@@ -771,6 +774,8 @@ void producer_plugin::set_program_options(
           "Number of worker threads in producer thread pool")
          ("snapshots-dir", bpo::value<bfs::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
+         ("max-read-only-transaction-time", bpo::value<int32_t>()->default_value(my->_max_read_only_transaction_time_ms),
+          "Limits the maximum time (in milliseconds) a read-only transaction can execute before being considered invalid")
          ;
    config_file_options.add(producer_options);
 }
@@ -957,6 +962,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       }
    }
 
+   my->_max_read_only_transaction_time_ms = options.at("max-read-only-transaction-time").as<int32_t>();
+
    my->_incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
          [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
       return my->on_incoming_block(block, block_id, bsp);
@@ -1136,6 +1143,10 @@ void producer_plugin::update_runtime_options(const runtime_options& options) {
    if (options.greylist_limit) {
       chain.set_greylist_limit(*options.greylist_limit);
    }
+
+   if (options.max_read_only_transaction_time) {
+      my->_max_read_only_transaction_time_ms = *options.max_read_only_transaction_time;
+   }
 }
 
 producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
@@ -1149,7 +1160,8 @@ producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
             my->chain_plug->chain().get_subjective_cpu_leeway()->count() :
             std::optional<int32_t>(),
       my->_incoming_defer_ratio,
-      my->chain_plug->chain().get_greylist_limit()
+      my->chain_plug->chain().get_greylist_limit(),
+      my->_max_read_only_transaction_time_ms
    };
 }
 
@@ -1443,6 +1455,7 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
 
    auto get_trx_type = [&](trx_enum_type t, transaction_metadata::trx_type type) {
       if( type == transaction_metadata::trx_type::dry_run ) return "dry_run";
+      if( type == transaction_metadata::trx_type::read_only ) return "read_only";
       switch( t ) {
          case trx_enum_type::unknown:
             return "unknown";
@@ -1976,7 +1989,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 
    bool disable_subjective_enforcement = (api_trx && _disable_subjective_api_billing)
                                          || (!api_trx && _disable_subjective_p2p_billing)
-                                         || trx->is_dry_run();
+                                         || trx->is_transient();
 
    auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
    if( !disable_subjective_enforcement && _account_fails.failure_limit( first_auth ) ) {
@@ -1992,7 +2005,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    }
 
    chain::controller& chain = chain_plug->chain();
-   fc::microseconds max_trx_time = fc::milliseconds( _max_transaction_time_ms.load() );
+   fc::microseconds max_trx_time = trx->is_read_only() ? fc::milliseconds( _max_read_only_transaction_time_ms ) : fc::milliseconds( _max_transaction_time_ms.load() );
    if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
    int64_t sub_bill = 0;
@@ -2008,7 +2021,20 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       }
    }
 
+   // setting and unsetting chainbase read_only mode will be moved to right
+   // place when multi-threaded read-only transaction is implemented
+   auto unset_db_read_only_mode = fc::make_scoped_exit([trx, &chain]{
+      if( trx->is_read_only() )
+         chain.unset_db_read_only_mode();
+   });
+   if( trx->is_read_only() )
+      chain.set_db_read_only_mode();
    auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
+   if( trx->is_read_only() ) {
+      chain.unset_db_read_only_mode();
+      unset_db_read_only_mode.cancel();
+   }
+
    auto end = fc::time_point::now();
    push_result pr;
    if( trace->except ) {
