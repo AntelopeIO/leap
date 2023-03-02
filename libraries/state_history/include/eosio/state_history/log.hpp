@@ -284,14 +284,15 @@ class state_history_log {
  private:
    const char* const       name = "";
    state_history_log_config config;
+
+   // provide exclusive access to all data of this object since accessed from the main thread and the ship thread
+   mutable std::mutex      _mx;
    fc::cfile               log;
    fc::cfile               index;
    uint32_t                _begin_block = 0;        //always tracks the first block available even after pruning
    uint32_t                _index_begin_block = 0;  //the first block of the file; even after pruning. it's what index 0 in the index file points to
    uint32_t                _end_block   = 0;
    chain::block_id_type    last_block_id;
-
-   mutable std::mutex      _mx;
 
    using catalog_t = chain::log_catalog<detail::state_history_log_data, chain::log_index<chain::plugin_exception>>;
    catalog_t catalog;
