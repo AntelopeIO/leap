@@ -72,7 +72,7 @@ public:
          }
          // remove expired request
          if(req.end_block_num > 0 && height >= req.end_block_num) {
-            _snapshot_requests.erase(req.snapshot_request_id);
+            unschedule_snapshot(req.snapshot_request_id);
          }
       }
    }

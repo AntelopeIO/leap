@@ -3,7 +3,7 @@
 
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
-
+#include <eosio/producer_plugin/snapshot_db_json.hpp>
 
 #include <eosio/testing/tester.hpp>
 
@@ -64,6 +64,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
       try {
          std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
          std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
+
          std::thread app_thread([&]() {
             fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
             std::vector<const char*> argv =
@@ -111,12 +112,24 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          // quit app
          appbase::app().quit();
          app_thread.join();
+
+         // lets check whether schedule can be read back after restart
+         snapshot_db_json db;
+         std::vector<producer_plugin::snapshot_schedule_information> ssi;
+         db.set_path(temp / "snapshots");
+         db >> ssi;
+         BOOST_CHECK_EQUAL(1, ssi.size());
+         BOOST_CHECK_EQUAL(ssi.begin()->block_spacing, sri2.block_spacing);
       } catch(...) {
          bfs::remove_all(temp);
          throw;
       }
       bfs::remove_all(temp);
    }
+
+
+
+
    BOOST_AUTO_TEST_SUITE_END()
 }
 
