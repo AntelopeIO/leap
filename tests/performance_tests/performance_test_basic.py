@@ -577,6 +577,7 @@ class PtbArgumentsHandler(object):
                                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;\
                                          block log file is removed after startup.", default=None)
         ptbBaseParserGroup.add_argument("--http-threads", type=int, help="Number of worker threads in http thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=25600)
 
         return ptbBaseParser
 
@@ -615,7 +616,7 @@ def main():
                                       wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
                                       eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
                                       blockLogRetainBlocks=args.block_log_retain_blocks,
-                                      abiSerializerMaxTimeMs=990000, chainStateDbSizeMb=256000)
+                                      chainStateDbSizeMb=args.chain_state_db_size_mb, abiSerializerMaxTimeMs=990000)
 
     lbto = args.last_block_time_offset_us
     lbcep = args.last_block_cpu_effort_percent

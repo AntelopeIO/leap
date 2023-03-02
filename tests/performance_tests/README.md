@@ -316,6 +316,8 @@ Performance Test Basic Base:
                           block log file is removed after startup. (default: None)
 * `--http-threads HTTP_THREADS`
                           Number of worker threads in http thread pool (default: 2)
+* `--chain-state-db-size-mb DB_SIZE_MiB`
+                          Maximum size (in MiB) of the chain state database (default: 25600)
 
 Performance Harness:
   Performance Harness testing configuration items.
@@ -452,6 +454,8 @@ Performance Test Basic Base:
                           block log file is removed after startup. (default: None)
 * `--http-threads HTTP_THREADS`
                           Number of worker threads in http thread pool (default: 2)
+* `--chain-state-db-size-mb DB_SIZE_MiB`
+                          Maximum size (in MiB) of the chain state database (default: 25600)
 
 Performance Test Basic Single Test:
   Performance Test Basic single test configuration items. Useful for running a single test directly. These items may not be directly configurable from
