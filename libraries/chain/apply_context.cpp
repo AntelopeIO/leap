@@ -426,6 +426,7 @@ void apply_context::execute_context_free_inline( action&& a ) {
 
 
 void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, account_name payer, transaction&& trx, bool replace_existing ) {
+   EOS_ASSERT( !trx_context.is_read_only(), transaction_exception, "cannot schedule a deferred transaction from within a readonly transaction" );
    EOS_ASSERT( trx.context_free_actions.size() == 0, cfa_inside_generated_tx, "context free actions are not currently allowed in generated transactions" );
 
    bool enforce_actor_whitelist_blacklist = trx_context.enforce_whiteblacklist && control.is_speculative_block()
@@ -626,6 +627,7 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
 }
 
 bool apply_context::cancel_deferred_transaction( const uint128_t& sender_id, account_name sender ) {
+   EOS_ASSERT( !trx_context.is_read_only(), transaction_exception, "cannot cancel a deferred transaction from within a readonly transaction" );
    auto& generated_transaction_idx = db.get_mutable_index<generated_transaction_multi_index>();
    const auto* gto = db.find<generated_transaction_object,by_sender_id>(boost::make_tuple(sender, sender_id));
    if ( gto ) {
@@ -1034,7 +1036,8 @@ int apply_context::db_end_i64( name code, name scope, name table ) {
 uint64_t apply_context::next_global_sequence() {
    const auto& p = control.get_dynamic_global_properties();
    if ( trx_context.is_read_only() ) {
-      return p.global_action_sequence + 1;
+      // To avoid confusion of duplicated global sequence number, hard code to be 0.
+      return 0;
    } else {
       db.modify( p, [&]( auto& dgp ) {
          ++dgp.global_action_sequence;
@@ -1045,7 +1048,8 @@ uint64_t apply_context::next_global_sequence() {
 
 uint64_t apply_context::next_recv_sequence( const account_metadata_object& receiver_account ) {
    if ( trx_context.is_read_only() ) {
-      return receiver_account.recv_sequence + 1;
+      // To avoid confusion of duplicated receive sequence number, hard code to be 0.
+      return 0;
    } else {
       db.modify( receiver_account, [&]( auto& ra ) {
          ++ra.recv_sequence;

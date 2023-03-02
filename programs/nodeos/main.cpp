@@ -124,6 +124,7 @@ int main(int argc, char** argv)
          .default_http_port = 8888,
          .server_header = nodeos::config::node_executable_name + "/" + app->version_string()
       });
+      initialize_logging();
       if(!app->initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv)) {
          const auto& opts = app->get_options();
          if( opts.count("help") || opts.count("version") || opts.count("full-version") || opts.count("print-default-config") ) {
@@ -137,7 +138,6 @@ int main(int argc, char** argv)
          elog("resource_monitor_plugin failed to initialize");
          return INITIALIZE_FAIL;
       }
-      initialize_logging();
       ilog( "${name} version ${ver} ${fv}",
             ("name", nodeos::config::node_executable_name)("ver", app->version_string())
             ("fv", app->version_string() == app->full_version_string() ? "" : app->full_version_string()) );

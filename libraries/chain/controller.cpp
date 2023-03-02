@@ -302,7 +302,7 @@ struct controller_impl {
     db( cfg.state_dir,
         cfg.read_only ? database::read_only : database::read_write,
         cfg.state_size, false, cfg.db_map_mode ),
-    blog( cfg.blocks_dir, cfg.prune_config ),
+    blog( cfg.blocks_dir, cfg.blog ),
     fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
     resource_limits( db, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
     authorization( s, db ),
@@ -600,10 +600,6 @@ struct controller_impl {
          elog( "Failed initialization from snapshot - db storage not configured to have enough storage for the provided snapshot, please increase and retry snapshot" );
          shutdown();
       }
-
-      if (conf.prune_config && conf.prune_config->prune_blocks == 0) {
-         blog.remove();
-      }
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis) {
@@ -637,10 +633,6 @@ struct controller_impl {
          blog.reset( genesis, head->block );
       }
       init(check_shutdown);
-
-      if (conf.prune_config && conf.prune_config->prune_blocks == 0) {
-         blog.remove();
-      }
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
@@ -671,10 +663,6 @@ struct controller_impl {
       head = fork_db.head();
 
       init(check_shutdown);
-
-      if (conf.prune_config && conf.prune_config->prune_blocks == 0) {
-         blog.remove();
-      }
    }
 
 
@@ -1058,7 +1046,7 @@ struct controller_impl {
          dm_logger->on_ram_trace(RAM_EVENT_ID("${name}", ("name", name)), "account", "add", "newaccount");
       }
 
-      resource_limits.add_pending_ram_usage(name, ram_delta);
+      resource_limits.add_pending_ram_usage(name, ram_delta, false); // false for doing dm logging
       resource_limits.verify_account_ram_usage(name);
    }
 
@@ -1237,7 +1225,7 @@ struct controller_impl {
       }
 
       int64_t ram_delta = -(config::billable_size_v<generated_transaction_object> + gto.packed_trx.size());
-      resource_limits.add_pending_ram_usage( gto.payer, ram_delta );
+      resource_limits.add_pending_ram_usage( gto.payer, ram_delta, false ); // false for doing dm logging
       // No need to verify_account_ram_usage since we are only reducing memory
 
       db.remove( gto );
@@ -3680,7 +3668,7 @@ void controller::replace_account_keys( name account, name permission, const publ
       p.auth = authority(key);
    });
    int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
-   rlm.add_pending_ram_usage(account, new_size - old_size);
+   rlm.add_pending_ram_usage(account, new_size - old_size, false); // false for doing dm logging
    rlm.verify_account_ram_usage(account);
 }
 
@@ -3730,7 +3718,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::replace_deferred
          dm_logger->on_ram_trace(RAM_EVENT_ID("${id}", ("id", itr->id._id)), "deferred_trx", "correction", "deferred_trx_ram_correction");
       }
 
-      resource_limits.add_pending_ram_usage( itr->name, ram_delta );
+      resource_limits.add_pending_ram_usage( itr->name, ram_delta, false ); // false for doing dm logging
       db.remove( *itr );
    }
 }

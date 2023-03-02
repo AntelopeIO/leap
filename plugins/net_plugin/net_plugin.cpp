@@ -3671,8 +3671,10 @@ namespace eosio {
    }
 
    void net_plugin::plugin_initialize( const variables_map& options ) {
-      fc_ilog( logger, "Initialize net plugin" );
       try {
+         handle_sighup();
+         fc_ilog( logger, "Initialize net plugin" );
+
          peer_log_format = options.at( "peer-log-format" ).as<string>();
 
          my->sync_master.reset( new sync_manager( options.at( "sync-fetch-span" ).as<uint32_t>()));
@@ -3774,7 +3776,6 @@ namespace eosio {
    }
 
    void net_plugin::plugin_startup() {
-      handle_sighup();
       try {
 
       fc_ilog( logger, "my node_id is ${id}", ("id", my->node_id ));

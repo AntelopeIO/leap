@@ -35,7 +35,6 @@ namespace fc
          static constexpr uint64_t max_length_limit = std::numeric_limits<uint64_t>::max();
          static constexpr size_t escape_string_yield_check_count = 128;
          static variant  from_string( const string& utf8_str, const parse_type ptype = parse_type::legacy_parser, uint32_t max_depth = DEFAULT_MAX_RECURSION_DEPTH );
-         static variants variants_from_string( const string& utf8_str, const parse_type ptype = parse_type::legacy_parser, uint32_t max_depth = DEFAULT_MAX_RECURSION_DEPTH );
          static string   to_string( const variant& v, const yield_function_t& yield, const output_formatting format = output_formatting::stringify_large_ints_and_doubles);
          static string   to_pretty_string( const variant& v, const yield_function_t& yield, const output_formatting format = output_formatting::stringify_large_ints_and_doubles );
 

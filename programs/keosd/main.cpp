@@ -71,6 +71,17 @@ bfs::path determine_home_directory()
    return home;
 }
 
+enum return_codes {
+   OTHER_FAIL        = -2,
+   INITIALIZE_FAIL   = -1,
+   SUCCESS           = 0,
+   BAD_ALLOC         = 1,
+   DATABASE_DIRTY    = 2,
+   FIXED_REVERSIBLE  = SUCCESS,
+   EXTRACTED_GENESIS = SUCCESS,
+   NODE_MANAGEMENT_SUCCESS = 5
+};
+
 int main(int argc, char** argv)
 {
    try {
@@ -87,14 +98,15 @@ int main(int argc, char** argv)
          .server_header = keosd::config::key_store_executable_name + "/" + app->version_string()
       });
       application::register_plugin<wallet_api_plugin>();
+      initialize_logging();
       if(!app->initialize<wallet_plugin, wallet_api_plugin, http_plugin>(argc, argv)) {
          const auto &opts = app->get_options();
          if (opts.count("help") || opts.count("version") || opts.count("full-version") ||
              opts.count("print-default-config")) {
             return 0;
          }
+         return INITIALIZE_FAIL;
       }
-      initialize_logging();
       auto& http = app->get_plugin<http_plugin>();
       http.add_handler("/v1/" + keosd::config::key_store_executable_name + "/stop",
                        [&a=app](string, string, url_response_callback cb) {
