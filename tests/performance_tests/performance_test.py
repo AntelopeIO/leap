@@ -517,10 +517,7 @@ def main():
                                     httpThreads=args.http_threads)
     netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
     nodeosVers=Utils.getNodeosVersion().split('.')[0]
-    if nodeosVers == "v2":
-        resourceMonitorPluginArgs = ResourceMonitorPluginArgs()
-    else:
-        resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=True)
+    resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not nodeosVers == "v2")
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
                           resourceMonitorPluginArgs=resourceMonitorPluginArgs)
     SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
