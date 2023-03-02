@@ -102,8 +102,6 @@ void pack_deltas(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::
          }
       } else {
          auto undo = index.last_undo_session();
-         if (undo.old_values.empty() && undo.new_values.empty() && undo.removed_values.empty())
-            return;
 
          size_t num_entries =
              std::count_if(undo.old_values.begin(), undo.old_values.end(),

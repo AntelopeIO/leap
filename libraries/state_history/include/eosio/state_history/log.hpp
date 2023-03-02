@@ -107,16 +107,18 @@ struct locked_decompress_stream {
 
    template <typename StateHistoryLog>
    void init(StateHistoryLog&& log, fc::cfile& stream, uint64_t compressed_size) {
-      buf = std::make_unique<bio::filtering_istreambuf>();
-      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::zlib_decompressor());
-      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
+      auto istream = std::make_unique<bio::filtering_istreambuf>();
+      istream->push(bio::zlib_decompressor());
+      istream->push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
+      buf = std::move(istream);
    }
 
    template <typename LogData>
    void init(LogData&& log, fc::datastream<const char*>& stream, uint64_t compressed_size) {
-      buf = std::make_unique<bio::filtering_istreambuf>();
-      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::zlib_decompressor());
-      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::restrict(bio::file_source(log.filename), stream.pos() - log.data(), compressed_size));
+      auto istream = std::make_unique<bio::filtering_istreambuf>();
+      istream->push(bio::zlib_decompressor());
+      istream->push(bio::restrict(bio::file_source(log.filename), stream.pos() - log.data(), compressed_size));
+      buf = std::move(istream);
    }
 
    size_t init(std::vector<char> cbuf) {
@@ -644,7 +646,6 @@ class state_history_log {
 
    // only called from constructor
    void open_log() {
-      log.set_file_path(log.get_file_path().string());
       log.open(fc::cfile::create_or_update_rw_mode);
       log.seek_end(0);
       uint64_t size = log.tellp();
