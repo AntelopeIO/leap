@@ -295,7 +295,6 @@ struct session : session_base, std::enable_shared_from_this<session<Plugin, Sock
       return 0;
    }
 
-   using result_type = void;
    void operator()(get_status_request_v0&) {
       fc_dlog(plugin->logger(), "got get_status_request_v0");
 
