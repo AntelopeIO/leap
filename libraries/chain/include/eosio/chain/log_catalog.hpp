@@ -170,6 +170,15 @@ struct log_catalog {
       return nullptr;
    }
 
+   template <typename ...Rest>
+   auto ro_stream_for_block(uint32_t block_num, Rest&& ...rest) -> std::optional<decltype( std::declval<LogData>().ro_stream_at(0, std::forward<Rest&&>(rest)...))> {
+      auto pos = get_block_position(block_num);
+      if (pos) {
+         return log_data.ro_stream_at(*pos, std::forward<Rest&&>(rest)...);
+      }
+      return {};
+   }
+
    std::optional<block_id_type> id_for_block(uint32_t block_num) {
       auto pos = get_block_position(block_num);
       if (pos) {
