@@ -56,7 +56,7 @@ namespace fc {
       }
    }
 
-   void dmlog_appender::initialize( boost::asio::io_service& io_service ) {}
+   void dmlog_appender::initialize() {}
 
    void dmlog_appender::log( const log_message& m ) {
       FILE* out = my->out;

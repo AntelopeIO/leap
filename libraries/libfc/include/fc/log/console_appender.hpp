@@ -3,12 +3,12 @@
 #include <fc/log/logger.hpp>
 #include <vector>
 
-namespace fc 
+namespace fc
 {
-   class console_appender final : public appender 
+   class console_appender final : public appender
    {
        public:
-            struct color 
+            struct color
             {
                 enum type {
                    red,
@@ -24,9 +24,9 @@ namespace fc
 
             struct stream { enum type { std_out, std_error }; };
 
-            struct level_color 
+            struct level_color
             {
-               level_color( log_level l=log_level::all, 
+               level_color( log_level l=log_level::all,
                             color::type c=color::console_default )
                :level(l),color(c){}
 
@@ -34,7 +34,7 @@ namespace fc
                console_appender::color::type     color;
             };
 
-            struct config 
+            struct config
             {
                config()
                :format( "${timestamp} ${thread_name} ${context} ${file}:${line} ${method} ${level}]  ${message}" ),
@@ -52,10 +52,10 @@ namespace fc
             console_appender();
 
             ~console_appender();
-            void initialize( boost::asio::io_service& io_service ) {}
-            virtual void log( const log_message& m );
-            
-            void print( const std::string& text_to_print, 
+            void initialize() override {}
+            virtual void log( const log_message& m ) override;
+
+            void print( const std::string& text_to_print,
                         color::type text_color = color::console_default );
 
             void configure( const config& cfg );
