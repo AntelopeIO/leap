@@ -28,8 +28,6 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/signals2/connection.hpp>
-#include <boost/range/adaptor/map.hpp>
-#include <boost/range/algorithm/copy.hpp>
 
 namespace bmi = boost::multi_index;
 using bmi::indexed_by;
@@ -1000,8 +998,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    }
 
    my->_snapshot_scheduler.set_db_path(my->_snapshots_dir);
-   my->_snapshot_scheduler.set_create_snapshot_fn(std::bind(&producer_plugin::create_snapshot, this, std::placeholders::_1));
-
+   my->_snapshot_scheduler.set_create_snapshot_fn([this](producer_plugin::next_function<producer_plugin::snapshot_information> next){create_snapshot(next);});
 } FC_LOG_AND_RETHROW() }
 
 void producer_plugin::plugin_startup()
@@ -1027,7 +1024,7 @@ void producer_plugin::plugin_startup()
    my->_accepted_block_connection.emplace(chain.accepted_block.connect( [this]( const auto& bsp ){ my->on_block( bsp ); } ));
    my->_accepted_block_header_connection.emplace(chain.accepted_block_header.connect( [this]( const auto& bsp ){ my->on_block_header( bsp ); } ));
    my->_irreversible_block_connection.emplace(chain.irreversible_block.connect( [this]( const auto& bsp ){ my->on_irreversible_block( bsp->block ); } ));
-   my->_block_start_connection.emplace(chain.block_start.connect( [this]( uint32_t bs ){ my->_snapshot_scheduler.on_block(bs); } ));
+   my->_block_start_connection.emplace(chain.block_start.connect( [this]( uint32_t bs ){ my->_snapshot_scheduler.on_start_block(bs); } ));
 
    const auto lib_num = chain.last_irreversible_block_num();
    const auto lib = chain.fetch_block_by_number(lib_num);

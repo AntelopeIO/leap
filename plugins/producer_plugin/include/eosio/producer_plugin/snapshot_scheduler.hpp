@@ -19,29 +19,18 @@
 namespace eosio {
 
 namespace bmi = boost::multi_index;
-using chain::account_name;
-using chain::block_state_ptr;
-using chain::packed_transaction;
-using chain::transaction_id_type;
-using chain::duplicate_snapshot_request;
-using chain::invalid_snapshot_request;
-using chain::snapshot_request_not_found;
-
-using snapshot_schedule_information    = producer_plugin::snapshot_schedule_information;
-using snapshot_request_information     = producer_plugin::snapshot_request_information;
-using get_snapshot_requests_result     = producer_plugin::get_snapshot_requests_result;
-using snapshot_request_id_information  = producer_plugin::snapshot_request_id_information;
 
 class snapshot_scheduler_listener {
+   virtual void on_start_block(uint32_t height) = 0;
    virtual void on_block(uint32_t height) = 0;
    virtual void on_irreversible_block(uint32_t height) = 0;
    virtual void on_abort_block() = 0;
 };
 
 class snapshot_scheduler_handler {
-   virtual void schedule_snapshot(const snapshot_request_information& sri) = 0;
+   virtual void schedule_snapshot(const producer_plugin::snapshot_request_information& sri) = 0;
    virtual void unschedule_snapshot(uint32_t sri) = 0;
-   virtual get_snapshot_requests_result get_snapshot_requests() = 0;
+   virtual producer_plugin::get_snapshot_requests_result get_snapshot_requests() = 0;
 };
 
 class snapshot_scheduler : public snapshot_scheduler_handler, public snapshot_scheduler_listener {
@@ -51,15 +40,15 @@ private:
    struct as_vector;
 
    using snapshot_requests = bmi::multi_index_container<
-         snapshot_schedule_information,
+         producer_plugin::snapshot_schedule_information,
          indexed_by<
-               bmi::hashed_unique<tag<by_snapshot_id>, BOOST_MULTI_INDEX_MEMBER(snapshot_request_id_information, uint32_t, snapshot_request_id)>,
+               bmi::hashed_unique<tag<by_snapshot_id>, BOOST_MULTI_INDEX_MEMBER(producer_plugin::snapshot_request_id_information, uint32_t, snapshot_request_id)>,
                bmi::random_access<tag<as_vector>>,
                bmi::ordered_unique<tag<by_snapshot_value>,
-                                   composite_key<snapshot_schedule_information,
-                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, block_spacing),
-                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, start_block_num),
-                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, end_block_num)>>>>;
+                                   composite_key<producer_plugin::snapshot_schedule_information,
+                                                 BOOST_MULTI_INDEX_MEMBER(producer_plugin::snapshot_request_information, uint32_t, block_spacing),
+                                                 BOOST_MULTI_INDEX_MEMBER(producer_plugin::snapshot_request_information, uint32_t, start_block_num),
+                                                 BOOST_MULTI_INDEX_MEMBER(producer_plugin::snapshot_request_information, uint32_t, end_block_num)>>>>;
    snapshot_requests _snapshot_requests;
    snapshot_db_json _snapshot_db;
    uint32_t _snapshot_id = 0;
@@ -69,11 +58,10 @@ public:
    snapshot_scheduler() = default;
 
    // snapshot_scheduler_listener
-   virtual void on_block(uint32_t height) {
+   void on_start_block(uint32_t height) {
       for(const auto& req: _snapshot_requests.get<0>()) {
-         // execute "asap" or if matches spacing
-         if((req.start_block_num == 0) ||
-            (!((height - req.start_block_num) % req.block_spacing))) {
+         // execute snapshot, -1 since its called from start block
+         if(!((height - req.start_block_num - 1) % req.block_spacing)) {
             execute_snapshot();
          }
          // assume "asap" for snapshot with missed/zero start, it can have spacing
@@ -88,25 +76,22 @@ public:
          }
       }
    }
-
-   virtual void on_irreversible_block(uint32_t height) {
-   }
-
-   virtual void on_abort_block() {
-   }
+   void on_block(uint32_t height) {}
+   void on_irreversible_block(uint32_t height) {}
+   void on_abort_block() {}
 
    // snapshot_scheduler_handler
-   void schedule_snapshot(const snapshot_request_information& sri) {
+   void schedule_snapshot(const producer_plugin::snapshot_request_information& sri) {
       auto& snapshot_by_value = _snapshot_requests.get<by_snapshot_value>();
       auto existing = snapshot_by_value.find(std::make_tuple(sri.block_spacing, sri.start_block_num, sri.end_block_num));
-      EOS_ASSERT(existing == snapshot_by_value.end(), duplicate_snapshot_request, "Duplicate snapshot request");
+      EOS_ASSERT(existing == snapshot_by_value.end(), chain::duplicate_snapshot_request, "Duplicate snapshot request");
 
       if(sri.end_block_num > 0) {
          // if "end" is specified, it should be greater then start
-         EOS_ASSERT(sri.start_block_num <= sri.end_block_num, invalid_snapshot_request, "End block number should be greater or equal to start block number");
+         EOS_ASSERT(sri.start_block_num <= sri.end_block_num, chain::invalid_snapshot_request, "End block number should be greater or equal to start block number");
          // if also block_spacing specified, check it
          if(sri.block_spacing > 0) {
-            EOS_ASSERT(sri.start_block_num + sri.block_spacing <= sri.end_block_num, invalid_snapshot_request, "Block spacing exceeds defined by start and end range");
+            EOS_ASSERT(sri.start_block_num + sri.block_spacing <= sri.end_block_num, chain::invalid_snapshot_request, "Block spacing exceeds defined by start and end range");
          }
       }
 
@@ -120,7 +105,7 @@ public:
    virtual void unschedule_snapshot(uint32_t sri) {
       auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
       auto existing = snapshot_by_id.find(sri);
-      EOS_ASSERT(existing != snapshot_by_id.end(), snapshot_request_not_found, "Snapshot request not found");
+      EOS_ASSERT(existing != snapshot_by_id.end(), chain::snapshot_request_not_found, "Snapshot request not found");
       _snapshot_requests.erase(existing);
 
       auto& vec = _snapshot_requests.get<as_vector>();
@@ -128,8 +113,8 @@ public:
       _snapshot_db << sr;
    }
 
-   virtual get_snapshot_requests_result get_snapshot_requests() {
-      get_snapshot_requests_result result;
+   virtual producer_plugin::get_snapshot_requests_result get_snapshot_requests() {
+      producer_plugin::get_snapshot_requests_result result;
       auto& asvector = _snapshot_requests.get<as_vector>();
       result.requests.insert(result.requests.begin(), asvector.begin(), asvector.end());
       return result;
@@ -158,10 +143,10 @@ public:
             try {
                std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();
             } catch(const fc::exception& e) {
-               edump((e.to_detail_string()));
+               wlog( "snapshot creation error: ${details}", ("details",e.to_detail_string()) );
                throw;
             } catch(const std::exception& e) {
-               edump((e.what()));
+               wlog( "snapshot creation error: ${details}", ("details",e.what()) );
                throw;
             }
          } else {

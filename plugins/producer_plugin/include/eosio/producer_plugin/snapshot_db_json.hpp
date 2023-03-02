@@ -30,6 +30,7 @@ public:
 
       try {
          std::ifstream file(get_json_path().string());
+         file.exceptions(std::istream::failbit|std::istream::eofbit);
          boost::property_tree::read_json(file, root);
          file.close();
 
@@ -70,6 +71,7 @@ public:
 
       try {
          std::ofstream file(get_json_path().string());
+         file.exceptions(std::istream::failbit|std::istream::eofbit);
          boost::property_tree::write_json(file, root);
          file.close();
       }
