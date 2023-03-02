@@ -226,7 +226,7 @@ class Node(Transactions):
             timeout = 6 + blocksToAdvance / 2
         def isHeadAdvancing():
             return self.getHeadBlockNum() >= currentHead + blocksToAdvance
-        return Utils.waitForBool(isHeadAdvancing, timeout)
+        return Utils.waitForBool(isHeadAdvancing, timeout, sleepTime=0.5)
 
     def waitForLibToAdvance(self, timeout=30):
         currentLib = self.getIrreversibleBlockNum()

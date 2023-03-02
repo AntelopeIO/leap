@@ -67,7 +67,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nested_container_multi_index_test.py 
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/large-lib-test.py ${CMAKE_CURRENT_BINARY_DIR}/large-lib-test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/launcher.py ${CMAKE_CURRENT_BINARY_DIR}/launcher.py COPYONLY)
 
-
 #To run plugin_test with all log from blockchain displayed, put --verbose after --, i.e. plugin_test -- --verbose
 add_test(NAME plugin_test COMMAND plugin_test --report_level=detailed --color_output)
 
@@ -223,7 +222,6 @@ set_tests_properties(http_plugin_test PROPERTIES TIMEOUT 100)
 set_property(TEST http_plugin_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME plugin_http_api_test COMMAND tests/plugin_http_api_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_tests_properties(plugin_http_api_test PROPERTIES TIMEOUT 40)
 set_property(TEST plugin_http_api_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME trace_plugin_test COMMAND tests/trace_plugin_test.py -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

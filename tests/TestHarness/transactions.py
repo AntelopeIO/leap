@@ -321,7 +321,7 @@ class Transactions(Queries):
         self.scheduleProtocolFeatureActivations([preactivateFeatureDigest])
 
         # Wait for the next block to be produced so the scheduled protocol feature is activated
-        assert self.waitForHeadToAdvance(blocksToAdvance=2), print("ERROR: TIMEOUT WAITING FOR PREACTIVATE")
+        assert self.waitForHeadToAdvance(blocksToAdvance=2), "ERROR: TIMEOUT WAITING FOR PREACTIVATE"
 
     # Return an array of feature digests to be preactivated in a correct order respecting dependencies
     # Require producer_api_plugin
