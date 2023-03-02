@@ -1036,7 +1036,8 @@ int apply_context::db_end_i64( name code, name scope, name table ) {
 uint64_t apply_context::next_global_sequence() {
    const auto& p = control.get_dynamic_global_properties();
    if ( trx_context.is_read_only() ) {
-      return p.global_action_sequence + 1;
+      // To avoid confusion of duplicated global sequence number, hard code to be 0.
+      return 0;
    } else {
       db.modify( p, [&]( auto& dgp ) {
          ++dgp.global_action_sequence;
@@ -1047,7 +1048,8 @@ uint64_t apply_context::next_global_sequence() {
 
 uint64_t apply_context::next_recv_sequence( const account_metadata_object& receiver_account ) {
    if ( trx_context.is_read_only() ) {
-      return receiver_account.recv_sequence + 1;
+      // To avoid confusion of duplicated receive sequence number, hard code to be 0.
+      return 0;
    } else {
       db.modify( receiver_account, [&]( auto& ra ) {
          ++ra.recv_sequence;
