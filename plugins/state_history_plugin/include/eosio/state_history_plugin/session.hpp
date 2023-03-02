@@ -1,5 +1,4 @@
 #pragma once
-#include <boost/asio/error.hpp>
 #include <eosio/chain/block_state.hpp>
 #include <eosio/state_history/compression.hpp>
 #include <eosio/state_history/log.hpp>
@@ -9,6 +8,7 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/buffer.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
+#include <boost/asio/error.hpp>
 #include <boost/beast/websocket.hpp>
 #include <memory>
 

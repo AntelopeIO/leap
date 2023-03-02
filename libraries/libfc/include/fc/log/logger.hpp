@@ -1,7 +1,7 @@
 #pragma once
-#include <fc/string.hpp>
 #include <fc/time.hpp>
 #include <fc/log/log_message.hpp>
+#include <string>
 
 #ifndef DEFAULT_LOGGER
 #define DEFAULT_LOGGER "default"
@@ -25,11 +25,11 @@ namespace fc
    class logger 
    {
       public:
-         static logger get( const fc::string& name = DEFAULT_LOGGER );
-         static void update( const fc::string& name, logger& log );
+         static logger get( const std::string& name = DEFAULT_LOGGER );
+         static void update( const std::string& name, logger& log );
 
          logger();
-         logger( const string& name, const logger& parent = nullptr );
+         logger( const std::string& name, const logger& parent = nullptr );
          logger( std::nullptr_t );
          logger( const logger& c );
          logger( logger&& c );
@@ -44,8 +44,8 @@ namespace fc
          logger&    set_parent( const logger& l );
          logger     get_parent()const;
 
-         void  set_name( const fc::string& n );
-         const fc::string& name()const;
+         void  set_name( const std::string& n );
+         std::string get_name()const;
 
          bool is_enabled( log_level e )const;
          void log( log_message m );

@@ -107,16 +107,18 @@ struct locked_decompress_stream {
 
    template <typename StateHistoryLog>
    void init(StateHistoryLog&& log, fc::cfile& stream, uint64_t compressed_size) {
-      buf = std::make_unique<bio::filtering_istreambuf>();
-      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::zlib_decompressor());
-      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
+      auto istream = std::make_unique<bio::filtering_istreambuf>();
+      istream->push(bio::zlib_decompressor());
+      istream->push(bio::restrict(bio::file_source(stream.get_file_path().string()), stream.tellp(), compressed_size));
+      buf = std::move(istream);
    }
 
    template <typename LogData>
    void init(LogData&& log, fc::datastream<const char*>& stream, uint64_t compressed_size) {
-      buf = std::make_unique<bio::filtering_istreambuf>();
-      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::zlib_decompressor());
-      std::get<std::unique_ptr<bio::filtering_istreambuf>>(buf)->push(bio::restrict(bio::file_source(log.filename), stream.pos() - log.data(), compressed_size));
+      auto istream = std::make_unique<bio::filtering_istreambuf>();
+      istream->push(bio::zlib_decompressor());
+      istream->push(bio::restrict(bio::file_source(log.filename), stream.pos() - log.data(), compressed_size));
+      buf = std::move(istream);
    }
 
    size_t init(std::vector<char> cbuf) {
@@ -184,7 +186,6 @@ class state_history_log_data : public chain::log_data_base<state_history_log_dat
       is_currently_pruned_ = is_ship_log_pruned(v);
       file.seek_end(0);
       size_ = file.tellp();
-      return;
    }
 
    uint64_t size() const { return size_; }
@@ -283,14 +284,15 @@ class state_history_log {
  private:
    const char* const       name = "";
    state_history_log_config config;
+
+   // provide exclusive access to all data of this object since accessed from the main thread and the ship thread
+   mutable std::mutex      _mx;
    fc::cfile               log;
    fc::cfile               index;
    uint32_t                _begin_block = 0;        //always tracks the first block available even after pruning
    uint32_t                _index_begin_block = 0;  //the first block of the file; even after pruning. it's what index 0 in the index file points to
    uint32_t                _end_block   = 0;
    chain::block_id_type    last_block_id;
-
-   mutable std::mutex      _mx;
 
    using catalog_t = chain::log_catalog<detail::state_history_log_data, chain::log_index<chain::plugin_exception>>;
    catalog_t catalog;
@@ -647,7 +649,6 @@ class state_history_log {
 
    // only called from constructor
    void open_log() {
-      log.set_file_path(log.get_file_path().string());
       log.open(fc::cfile::create_or_update_rw_mode);
       log.seek_end(0);
       uint64_t size = log.tellp();

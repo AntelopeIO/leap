@@ -14,15 +14,12 @@ static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
 
 namespace eosio { namespace chain {
 
-   /**
-    * History:
-    * Version 1: complete block log from genesis
-    * Version 2: adds optional partial block log, cannot be used for replay without snapshot
-    *            this is in the form of an first_block_num that is written immediately after the version
-    * Version 3: improvement on version 2 to not require the genesis state be provided when not starting
-    *            from block 1
-    */
-   enum versions { initial_version = 1, block_x_start_version = 2, genesis_state_or_chain_id_version = 3 };
+   enum versions {
+      initial_version = 1,                  ///< complete block log from genesis
+      block_x_start_version = 2,            ///< adds optional partial block log, cannot be used for replay without snapshot
+                                            ///< this is in the form of an first_block_num that is written immediately after the version
+      genesis_state_or_chain_id_version = 3 ///< improvement on version 2 to not require the genesis state be provided when not starting from block 1
+   };
 
    constexpr uint32_t block_log::min_supported_version = initial_version;
    constexpr uint32_t block_log::max_supported_version = genesis_state_or_chain_id_version;
@@ -81,7 +78,7 @@ namespace eosio { namespace chain {
 
          first_block_num = 1;
          if (version() != initial_version) {
-            ds.read((char*)&first_block_num, sizeof(first_block_num));
+            ds.read(reinterpret_cast<char*>(&first_block_num), sizeof(first_block_num));
          }
 
          if (block_log::contains_genesis_state(version(), first_block_num)) {
@@ -484,14 +481,14 @@ namespace eosio { namespace chain {
 
          virtual signed_block_ptr read_head() = 0;
          void                     update_head(const signed_block_ptr& b, const std::optional<block_id_type>& id = {}) {
-                                head = b;
-                                if (id) {
-                                   head_id = *id;
+            head = b;
+            if (id) {
+               head_id = *id;
             } else {
-                                   if (head) {
-                                      head_id = b->calculate_id();
+               if (head) {
+                  head_id = b->calculate_id();
                } else {
-                                      head_id = {};
+                  head_id = {};
                }
             }
          }
@@ -1290,9 +1287,13 @@ namespace eosio { namespace chain {
             detail::basic_block_log::write_incomplete_block_data(blocks_dir, now, block_num, ro_stream_at(pos));
             std::rethrow_exception(e.inner);
          }
-      } catch (const fc::exception& e) { error_msg = e.what(); } catch (const std::exception& e) {
+      // clang-format off
+      } catch (const std::exception& e) {
          error_msg = e.what();
-      } catch (...) { error_msg = "unrecognized exception"; }
+      } catch (...) {
+         error_msg = "unrecognized exception";
+      }
+      // clang-format on
 
       return { pos, block_num, error_msg };
    }
