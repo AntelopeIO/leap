@@ -3110,11 +3110,7 @@ block_state_ptr controller::fetch_block_state_by_id( block_id_type id )const {
 }
 
 block_state_ptr controller::fetch_block_state_by_number( uint32_t block_num )const  { try {
-   if( my->read_mode == db_read_mode::IRREVERSIBLE ) {
-      return my->fork_db.search_on_branch( my->fork_db.pending_head()->id, block_num );
-   } else {
-      return my->fork_db.search_on_branch( my->fork_db.head()->id, block_num );
-   }
+   return my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
