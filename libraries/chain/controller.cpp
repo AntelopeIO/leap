@@ -405,20 +405,21 @@ struct controller_impl {
    void log_irreversible() {
       EOS_ASSERT( fork_db.root(), fork_database_exception, "fork database not properly initialized" );
 
-      const auto& log_head = blog.head();
+      const block_id_type log_head_id = blog.head_id();
+      const bool valid_log_head = !log_head_id.empty();
 
-      auto lib_num = log_head ? log_head->block_num() : (blog.first_block_num() - 1);
+      const auto lib_num = valid_log_head ? block_header::num_from_id(log_head_id) : (blog.first_block_num() - 1);
 
       auto root_id = fork_db.root()->id;
 
-      if( log_head ) {
-         EOS_ASSERT( root_id == blog.head_id(), fork_database_exception, "fork database root does not match block log head" );
+      if( valid_log_head ) {
+         EOS_ASSERT( root_id == log_head_id, fork_database_exception, "fork database root does not match block log head" );
       } else {
          EOS_ASSERT( fork_db.root()->block_num == lib_num, fork_database_exception,
                      "empty block log expects the first appended block to build off a block that is not the fork database root. root block number: ${block_num}, lib: ${lib_num}", ("block_num", fork_db.root()->block_num) ("lib_num", lib_num) );
       }
 
-      auto fork_head = (read_mode == db_read_mode::IRREVERSIBLE) ? fork_db.pending_head() : fork_db.head();
+      const auto fork_head = (read_mode == db_read_mode::IRREVERSIBLE) ? fork_db.pending_head() : fork_db.head();
 
       if( fork_head->dpos_irreversible_blocknum <= lib_num )
          return;
@@ -496,12 +497,12 @@ struct controller_impl {
    }
 
    void replay(std::function<bool()> check_shutdown) {
-      if( !blog.head() && !fork_db.root() ) {
+      auto blog_head = blog.head();
+      if( !blog_head && !fork_db.root() ) {
          fork_db.reset( *head );
          return;
       }
 
-      auto blog_head = blog.head();
       replaying = true;
       auto start_block_num = head->block_num + 1;
       auto start = fc::time_point::now();
@@ -583,8 +584,8 @@ struct controller_impl {
       ilog( "Starting initialization from snapshot, this may take a significant amount of time" );
       try {
          snapshot->validate();
-         if( blog.head() ) {
-            read_from_snapshot( snapshot, blog.first_block_num(), blog.head()->block_num() );
+         if( auto blog_head = blog.head() ) {
+            read_from_snapshot( snapshot, blog.first_block_num(), blog_head->block_num() );
          } else {
             read_from_snapshot( snapshot, 0, std::numeric_limits<uint32_t>::max() );
             const uint32_t lib_num = head->block_num;
@@ -642,15 +643,15 @@ struct controller_impl {
       this->shutdown = shutdown;
       uint32_t lib_num = fork_db.root()->block_num;
       auto first_block_num = blog.first_block_num();
-      if( blog.head() ) {
-         EOS_ASSERT( first_block_num <= lib_num && lib_num <= blog.head()->block_num(),
+      if( auto blog_head = blog.head() ) {
+         EOS_ASSERT( first_block_num <= lib_num && lib_num <= blog_head->block_num(),
                      block_log_exception,
                      "block log (ranging from ${block_log_first_num} to ${block_log_last_num}) does not contain the last irreversible block (${fork_db_lib})",
                      ("block_log_first_num", first_block_num)
-                     ("block_log_last_num", blog.head()->block_num())
+                     ("block_log_last_num", blog_head->block_num())
                      ("fork_db_lib", lib_num)
          );
-         lib_num = blog.head()->block_num();
+         lib_num = blog_head->block_num();
       } else {
          if( first_block_num != (lib_num + 1) ) {
             blog.reset( chain_id, lib_num + 1 );
@@ -3184,11 +3185,6 @@ block_state_ptr controller::fetch_block_state_by_number( uint32_t block_num )con
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
-   const auto& tapos_block_summary = db().get<block_summary_object>((uint16_t)block_num);
-
-   if( block_header::num_from_id(tapos_block_summary.block_id) == block_num )
-      return tapos_block_summary.block_id;
-
    const auto& blog_head = my->blog.head();
 
    bool find_in_blog = (blog_head && block_num <= blog_head->block_num());

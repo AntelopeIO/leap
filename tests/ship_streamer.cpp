@@ -109,6 +109,7 @@ int main(int argc, char* argv[]) {
 
       stream.binary(true);
       stream.write(boost::asio::buffer(request_type.json_to_bin(request_sb.GetString(), [](){})));
+      stream.read_message_max(0);
 
       bool is_first = true;
       for(;;) {

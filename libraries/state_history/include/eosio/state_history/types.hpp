@@ -101,12 +101,15 @@ struct get_blocks_ack_request_v0 {
    uint32_t num_messages = 0;
 };
 
-struct get_blocks_result_v0 {
+struct get_blocks_result_base {
    block_position                head;
    block_position                last_irreversible;
    std::optional<block_position> this_block;
    std::optional<block_position> prev_block;
    std::optional<bytes>          block;
+};
+
+struct get_blocks_result_v0 : get_blocks_result_base {
    std::optional<bytes>          traces;
    std::optional<bytes>          deltas;
 };
