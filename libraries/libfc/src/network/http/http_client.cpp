@@ -8,15 +8,12 @@
 #include <boost/beast/version.hpp>
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ssl/error.hpp>
-#include <boost/asio/ssl/stream.hpp>
+#include <boost/asio/deadline_timer.hpp>
 #include <boost/asio/local/stream_protocol.hpp>
-#include <boost/asio/ssl/rfc2818_verification.hpp>
 #include <boost/filesystem.hpp>
 
 using tcp = boost::asio::ip::tcp;       // from <boost/asio/ip/tcp.hpp>
 namespace http = boost::beast::http;    // from <boost/beast/http.hpp>
-namespace ssl = boost::asio::ssl;       // from <boost/asio/ssl.hpp>
 namespace local = boost::asio::local;
 
 namespace fc {
@@ -25,17 +22,15 @@ namespace fc {
  * mapping of protocols to their standard ports
  */
 static const std::map<string,uint16_t> default_proto_ports = {
-   {"http", 80},
-   {"https", 443}
+   {"http", 80}
 };
 
 class http_client_impl {
 public:
    using host_key = std::tuple<std::string, std::string, uint16_t>;
    using raw_socket_ptr = std::unique_ptr<tcp::socket>;
-   using ssl_socket_ptr = std::unique_ptr<ssl::stream<tcp::socket>>;
    using unix_socket_ptr = std::unique_ptr<local::stream_protocol::socket>;
-   using connection = std::variant<raw_socket_ptr, ssl_socket_ptr, unix_socket_ptr>;
+   using connection = std::variant<raw_socket_ptr, unix_socket_ptr>;
    using connection_map = std::map<host_key, connection>;
    using unix_url_split_map = std::map<string, fc::url>;
    using error_code = boost::system::error_code;
@@ -43,24 +38,13 @@ public:
 
    http_client_impl()
    :_ioc()
-   ,_sslc(ssl::context::sslv23_client)
    {
       set_verify_peers(true);
    }
 
-   void add_cert(const std::string& cert_pem_string) {
-      error_code ec;
-      _sslc.add_certificate_authority(boost::asio::buffer(cert_pem_string.data(), cert_pem_string.size()), ec);
-      FC_ASSERT(!ec, "Failed to add cert: ${msg}", ("msg", ec.message()));
-   }
+   void add_cert(const std::string& cert_pem_string) {}
 
-   void set_verify_peers(bool enabled) {
-      if (enabled) {
-         _sslc.set_verify_mode(ssl::verify_peer);
-      } else {
-         _sslc.set_verify_mode(ssl::verify_none);
-      }
-   }
+   void set_verify_peers(bool enabled) {}
 
    template<typename SyncReadStream, typename Fn, typename CancelFn>
    error_code sync_do_with_deadline( SyncReadStream& s, deadline_type deadline, Fn f, CancelFn cf ) {
@@ -189,41 +173,9 @@ public:
       return res.first;
    }
 
-   connection_map::iterator create_ssl_connection( const url& dest, const deadline_type& deadline ) {
-      auto key = url_to_host_key(dest);
-      auto ssl_socket = std::make_unique<ssl::stream<tcp::socket>>(_ioc, _sslc);
-
-      // Set SNI Hostname (many hosts need this to handshake successfully)
-      if(!SSL_set_tlsext_host_name(ssl_socket->native_handle(), dest.host()->c_str()))
-      {
-         error_code ec{static_cast<int>(::ERR_get_error()), boost::asio::error::get_ssl_category()};
-         FC_THROW("Unable to set SNI Host Name: ${msg}", ("msg", ec.message()));
-      }
-
-      ssl_socket->set_verify_callback(boost::asio::ssl::rfc2818_verification(*dest.host()));
-
-      error_code ec = sync_connect_with_timeout(ssl_socket->next_layer(), *dest.host(), dest.port() ? std::to_string(*dest.port()) : "443", deadline);
-      if (!ec) {
-         ec = sync_do_with_deadline(ssl_socket->next_layer(), deadline, [&ssl_socket](std::optional<error_code>& final_ec) {
-            ssl_socket->async_handshake(ssl::stream_base::client, [&final_ec](const error_code& ec) {
-               final_ec.emplace(ec);
-            });
-         });
-      }
-      FC_ASSERT(!ec, "Failed to connect: ${message}", ("message",ec.message()));
-
-      auto res = _connections.emplace(std::piecewise_construct,
-                                      std::forward_as_tuple(key),
-                                      std::forward_as_tuple(std::move(ssl_socket)));
-
-      return res.first;
-   }
-
    connection_map::iterator create_connection( const url& dest, const deadline_type& deadline ) {
       if (dest.proto() == "http") {
          return create_raw_connection(dest, deadline);
-      } else if (dest.proto() == "https") {
-         return create_ssl_connection(dest, deadline);
       } else if (dest.proto() == "unix") {
          return create_unix_connection(dest, deadline);
       } else {
@@ -234,10 +186,6 @@ public:
    struct check_closed_visitor : public visitor<bool> {
       bool operator() ( const raw_socket_ptr& ptr ) const {
          return !ptr->is_open();
-      }
-
-      bool operator() ( const ssl_socket_ptr& ptr ) const {
-         return !ptr->lowest_layer().is_open();
       }
 
       bool operator() ( const unix_socket_ptr& ptr) const {
@@ -420,7 +368,6 @@ public:
    }
 
    boost::asio::io_context  _ioc;
-   ssl::context             _sslc;
    connection_map           _connections;
    unix_url_split_map       _unix_url_paths;
 };
