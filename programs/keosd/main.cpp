@@ -43,14 +43,14 @@ void logging_conf_handler() {
       ilog("Received HUP.  No log config found at ${p}, setting to default.", ("p", config_path.string()));
    }
    configure_logging(config_path);
-   fc::log_config::initialize_appenders(app().get_io_service());
+   fc::log_config::initialize_appenders();
 }
 
 void initialize_logging() {
    auto config_path = app().get_logging_conf();
    if (fc::exists(config_path))
       fc::configure_logging(config_path); // intentionally allowing exceptions to escape
-   fc::log_config::initialize_appenders(app().get_io_service());
+   fc::log_config::initialize_appenders();
 
    app().set_sighup_callback(logging_conf_handler);
 }
@@ -86,7 +86,7 @@ int main(int argc, char** argv)
 {
    try {
       appbase::scoped_app app;
-      
+
       app->set_version_string(eosio::version::version_client());
       app->set_full_version_string(eosio::version::version_full());
       bfs::path home = determine_home_directory();

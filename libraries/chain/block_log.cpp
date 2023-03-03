@@ -6,6 +6,7 @@
 #include <eosio/chain/log_index.hpp>
 #include <fc/bitutil.hpp>
 #include <fc/io/raw.hpp>
+#include <mutex>
 
 #if defined(__BYTE_ORDER__)
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
@@ -204,7 +205,7 @@ namespace eosio { namespace chain {
        public:
          block_log_data() = default;
          block_log_data(const fc::path& path) { open(path); }
-         uint64_t first_block_position() { return first_block_pos; }
+         uint64_t first_block_position() const { return first_block_pos; }
 
          const block_log_preamble& get_preamble() const { return preamble; }
 
@@ -222,11 +223,11 @@ namespace eosio { namespace chain {
          uint64_t size() const { return size_; }
 
          uint32_t      version() { return preamble.version(); }
-         uint32_t      first_block_num() { return preamble.first_block_num; }
+         uint32_t      first_block_num() const { return preamble.first_block_num; }
          uint32_t      number_of_blocks();
          chain_id_type chain_id() { return preamble.chain_id(); }
-         bool          is_currently_pruned() { return preamble.is_currently_pruned(); }
-         uint64_t      end_of_block_position() { return is_currently_pruned() ? size() - sizeof(uint32_t) : size(); }
+         bool          is_currently_pruned() const { return preamble.is_currently_pruned(); }
+         uint64_t      end_of_block_position() const { return is_currently_pruned() ? size() - sizeof(uint32_t) : size(); }
 
          std::optional<genesis_state> get_genesis_state() {
             return std::visit(
@@ -292,7 +293,7 @@ namespace eosio { namespace chain {
                     ("num", block_num)("id", id)("prev_num", previous_block_num)("previous", previous_block_id));
             }
 
-            if (previous_block_id != block_id_type() && previous_block_id != header.previous) {
+            if (!previous_block_id.empty() && previous_block_id != header.previous) {
                elog("Block ${num} (${id}) does not link back to previous block. "
                     "Expected previous: ${expected}. Actual previous: ${actual}.",
                     ("num", block_num)("id", id)("expected", previous_block_id)("actual", header.previous));
@@ -313,7 +314,7 @@ namespace eosio { namespace chain {
          std::tuple<uint64_t, uint32_t, std::string>
          full_validate_blocks(uint32_t last_block_num, const fc::path& blocks_dir, fc::time_point now);
 
-         void construct_index(const fc::path& index_file_name);
+         void construct_index(const fc::path& index_file_path);
       };
 
       using block_log_index = eosio::chain::log_index<block_log_exception>;
@@ -325,7 +326,7 @@ namespace eosio { namespace chain {
          block_log_index log_index;
 
          block_log_bundle(fc::path block_file, fc::path index_file)
-             : block_file_name(block_file), index_file_name(index_file) {
+             : block_file_name(std::move(block_file)), index_file_name(std::move(index_file)) {
 
             log_data.open(block_file_name);
             log_index.open(index_file_name);
@@ -344,7 +345,7 @@ namespace eosio { namespace chain {
                         "index_num_blocks", index_num_blocks)("index_file_name", index_file_name));
          }
 
-         block_log_bundle(fc::path block_dir)
+         explicit block_log_bundle(const fc::path& block_dir)
              : block_log_bundle(block_dir / "blocks.log", block_dir / "blocks.index") {}
       };
 
@@ -457,10 +458,13 @@ namespace eosio { namespace chain {
       }
 
       struct block_log_impl {
-         static uint32_t  default_initial_version;
+         inline static uint32_t  default_initial_version = block_log::max_supported_version;
+
+         std::mutex       mtx;
          signed_block_ptr head;
          block_id_type    head_id;
-         virtual ~block_log_impl() {}
+
+         virtual ~block_log_impl() = default;
 
          virtual uint32_t first_block_num()                                                   = 0;
          virtual void     append(const signed_block_ptr& b, const block_id_type& id,
@@ -488,13 +492,11 @@ namespace eosio { namespace chain {
                }
             }
          }
-      };
-
-      uint32_t block_log_impl::default_initial_version = block_log::max_supported_version;
+      }; // block_log_impl
 
       /// Would remove pre-existing block log and index, never write blocks into disk.
-      struct empty_block_log : block_log_impl {
-         explicit empty_block_log(bfs::path log_dir) {
+      struct empty_block_log final : block_log_impl {
+         explicit empty_block_log(const bfs::path& log_dir) {
             fc::remove(log_dir / "blocks.log");
             fc::remove(log_dir / "blocks.index");
          }
@@ -522,9 +524,9 @@ namespace eosio { namespace chain {
          block_log_preamble        preamble;
          bool                      genesis_written_to_block_log = false;
 
-         explicit basic_block_log(){};
+         basic_block_log() = default;
 
-         explicit basic_block_log(bfs::path log_dir, basic_blocklog_config conf) { open(log_dir); }
+         explicit basic_block_log(bfs::path log_dir) { open(log_dir); }
 
          static void ensure_file_exists(fc::cfile& f) {
             if (fc::exists(f.get_file_path()))
@@ -549,7 +551,7 @@ namespace eosio { namespace chain {
          }
 
          uint32_t first_block_num() override { return preamble.first_block_num; }
-         uint32_t index_first_block_num() { return preamble.first_block_num; }
+         uint32_t index_first_block_num() const { return preamble.first_block_num; }
 
          virtual uint32_t         working_block_file_first_block_num() { return preamble.first_block_num; }
          virtual void             post_append(uint64_t pos) {}
@@ -938,11 +940,11 @@ namespace eosio { namespace chain {
          uint32_t version() const final { return preamble.version(); }
       };
 
-      struct partitioned_block_log : basic_block_log {
+      struct partitioned_block_log final : basic_block_log {
          block_log_catalog catalog;
          const size_t      stride;
 
-         partitioned_block_log(bfs::path log_dir, const partitioned_blocklog_config& config) : stride(config.stride) {
+         partitioned_block_log(const bfs::path& log_dir, const partitioned_blocklog_config& config) : stride(config.stride) {
             catalog.open(log_dir, config.retained_dir, config.archive_dir, "blocks");
             catalog.max_retained_files = config.max_retained_files;
 
@@ -1040,7 +1042,7 @@ namespace eosio { namespace chain {
          }
       };
 
-      struct punch_hole_block_log : basic_block_log {
+      struct punch_hole_block_log final : basic_block_log {
          uint32_t              first_block_number = 0; // the first number available to read
          prune_blocklog_config prune_config;
 
@@ -1060,7 +1062,7 @@ namespace eosio { namespace chain {
             preamble.ver |= pruned_version_flag;
          }
 
-         ~punch_hole_block_log() {
+         ~punch_hole_block_log() final {
             flush();
             try_exit_vacuum();
          }
@@ -1168,7 +1170,7 @@ namespace eosio { namespace chain {
 
    block_log::block_log(const fc::path& data_dir, const block_log_config& config)
        : my(std::visit(overloaded{ [&data_dir](const basic_blocklog_config& conf) -> detail::block_log_impl* {
-                                     return new detail::basic_block_log(data_dir, conf);
+                                     return new detail::basic_block_log(data_dir);
                                   },
                                    [&data_dir](const empty_blocklog_config&) -> detail::block_log_impl* {
                                       return new detail::empty_block_log(data_dir);
@@ -1181,46 +1183,79 @@ namespace eosio { namespace chain {
                                    } },
                        config)) {}
 
-   block_log::block_log(block_log&& other) { my = std::move(other.my); }
+   block_log::block_log(block_log&& other) noexcept { my = std::move(other.my); }
 
-   block_log::~block_log() {}
+   block_log::~block_log() = default;
 
    void     block_log::set_initial_version(uint32_t ver) { detail::block_log_impl::default_initial_version = ver; }
-   uint32_t block_log::version() const { return my->version(); }
+   uint32_t block_log::version() const {
+      std::lock_guard g(my->mtx);
+      return my->version();
+   }
 
-   void block_log::append(const signed_block_ptr& b, const block_id_type& id) { my->append(b, id, fc::raw::pack(*b)); }
-
-   void block_log::append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block) {
+   void block_log::append(const signed_block_ptr& b, const block_id_type& id) {
+      std::vector<char> packed_block = fc::raw::pack(*b);
+      std::lock_guard g(my->mtx);
       my->append(b, id, packed_block);
    }
 
-   void block_log::flush() { my->flush(); }
+   void block_log::append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block) {
+      std::lock_guard g(my->mtx);
+      my->append(b, id, packed_block);
+   }
+
+   void block_log::flush() {
+      std::lock_guard g(my->mtx);
+      my->flush();
+   }
 
    void block_log::reset(const genesis_state& gs, const signed_block_ptr& first_block) {
       // At startup, OK to be called in no blocks.log mode from controller.cpp
+      std::lock_guard g(my->mtx);
       my->reset(gs, first_block);
    }
 
    void block_log::reset(const chain_id_type& chain_id, uint32_t first_block_num) {
+      std::lock_guard g(my->mtx);
       my->reset(chain_id, first_block_num);
    }
 
-   signed_block_ptr block_log::read_block_by_num(uint32_t block_num) const { return my->read_block_by_num(block_num); }
+   signed_block_ptr block_log::read_block_by_num(uint32_t block_num) const {
+      std::lock_guard g(my->mtx);
+      return my->read_block_by_num(block_num);
+   }
 
    block_id_type block_log::read_block_id_by_num(uint32_t block_num) const {
+      std::lock_guard g(my->mtx);
       return my->read_block_id_by_num(block_num);
    }
 
-   uint64_t block_log::get_block_pos(uint32_t block_num) const { return my->get_block_pos(block_num); }
+   uint64_t block_log::get_block_pos(uint32_t block_num) const {
+      std::lock_guard g(my->mtx);
+      return my->get_block_pos(block_num);
+   }
 
-   signed_block_ptr block_log::read_head() const { return my->read_head(); }
+   signed_block_ptr block_log::read_head() const {
+      std::lock_guard g(my->mtx);
+      return my->read_head();
+   }
 
-   const signed_block_ptr& block_log::head() const { return my->head; }
+   signed_block_ptr block_log::head() const {
+      std::lock_guard g(my->mtx);
+      return my->head;
+   }
 
-   const block_id_type& block_log::head_id() const { return my->head_id; }
+   block_id_type block_log::head_id() const {
+      std::lock_guard g(my->mtx);
+      return my->head_id;
+   }
 
-   uint32_t block_log::first_block_num() const { return my->first_block_num(); }
+   uint32_t block_log::first_block_num() const {
+      std::lock_guard g(my->mtx);
+      return my->first_block_num();
+   }
 
+   // static
    void block_log::construct_index(const fc::path& block_file_name, const fc::path& index_file_name) {
 
       ilog("Will read existing blocks.log file ${file}", ("file", block_file_name.generic_string()));
@@ -1263,6 +1298,7 @@ namespace eosio { namespace chain {
       return { pos, block_num, error_msg };
    }
 
+   // static
    fc::path block_log::repair_log(const fc::path& data_dir, uint32_t truncate_at_block,
                                   const char* reversible_block_dir_name) {
       ilog("Recovering Block Log...");
@@ -1326,29 +1362,35 @@ namespace eosio { namespace chain {
       return backup_dir;
    }
 
+   // static
    std::optional<genesis_state> block_log::extract_genesis_state(const fc::path& block_dir) {
       boost::filesystem::path p(block_dir / "blocks.log");
       for_each_file_in_dir_matches(block_dir, R"(blocks-1-\d+\.log)",
-                                   [&p](boost::filesystem::path log_path) { p = log_path; });
+                                   [&p](boost::filesystem::path log_path) { p = std::move(log_path); });
       return block_log_data(p).get_genesis_state();
    }
 
+   // static
    chain_id_type block_log::extract_chain_id(const fc::path& data_dir) {
       return block_log_data(data_dir / "blocks.log").chain_id();
    }
 
+   // static
    bool block_log::contains_genesis_state(uint32_t version, uint32_t first_block_num) {
       return version < genesis_state_or_chain_id_version || first_block_num == 1;
    }
 
+   // static
    bool block_log::contains_chain_id(uint32_t version, uint32_t first_block_num) {
       return version >= genesis_state_or_chain_id_version && first_block_num > 1;
    }
 
+   // static
    bool block_log::is_supported_version(uint32_t version) {
       return std::clamp(version, min_supported_version, max_supported_version) == version;
    }
 
+   // static
    bool block_log::is_pruned_log(const fc::path& data_dir) {
       uint32_t version = 0;
       try {
@@ -1360,7 +1402,7 @@ namespace eosio { namespace chain {
       return detail::is_pruned_log_and_mask_version(version);
    }
 
-   void extract_blocklog_i(block_log_bundle& log_bundle, fc::path new_block_filename, fc::path new_index_filename,
+   void extract_blocklog_i(block_log_bundle& log_bundle, const fc::path& new_block_filename, const fc::path& new_index_filename,
                            uint32_t first_block_num, uint32_t num_blocks) {
 
       auto position_for_block = [&log_bundle](uint64_t block_num) {
@@ -1408,6 +1450,7 @@ namespace eosio { namespace chain {
       adjust_block_positions(index, new_block_file, block_log_preamble::nbytes_with_chain_id, -nbytes_to_trim);
    }
 
+   // static
    bool block_log::extract_block_range(const fc::path& block_dir, const fc::path& output_dir, block_num_type& start,
                                        block_num_type& end, bool rename_input) {
       block_log_bundle bundle(block_dir);
@@ -1419,6 +1462,7 @@ namespace eosio { namespace chain {
       return true;
    }
 
+   // static
    bool block_log::trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir,
                                        uint32_t truncate_at_block) {
       EOS_ASSERT(block_dir != temp_dir, block_log_exception, "block_dir and temp_dir need to be different directories");
@@ -1456,7 +1500,8 @@ namespace eosio { namespace chain {
       return true;
    }
 
-   int block_log::trim_blocklog_end(fc::path block_dir, uint32_t n) { // n is last block to keep (remove later blocks)
+   // static
+   int block_log::trim_blocklog_end(const fc::path& block_dir, uint32_t n) { // n is last block to keep (remove later blocks)
 
       block_log_bundle log_bundle(block_dir);
 
@@ -1483,7 +1528,8 @@ namespace eosio { namespace chain {
       return 0;
    }
 
-   void block_log::smoke_test(fc::path block_dir, uint32_t interval) {
+   // static
+   void block_log::smoke_test(const fc::path& block_dir, uint32_t interval) {
 
       block_log_bundle log_bundle(block_dir);
 
@@ -1510,6 +1556,7 @@ namespace eosio { namespace chain {
       return std::make_pair(new_block_filename, new_index_filename);
    }
 
+   // static
    void block_log::extract_blocklog(const fc::path& log_filename, const fc::path& index_filename,
                                     const fc::path& dest_dir, uint32_t start_block_num, uint32_t num_blocks) {
 
@@ -1531,6 +1578,7 @@ namespace eosio { namespace chain {
       extract_blocklog_i(log_bundle, new_block_filename, new_index_filename, start_block_num, num_blocks);
    }
 
+   // static
    void block_log::split_blocklog(const fc::path& block_dir, const fc::path& dest_dir, uint32_t stride) {
 
       block_log_bundle log_bundle(block_dir);
@@ -1550,7 +1598,7 @@ namespace eosio { namespace chain {
       }
    }
 
-   inline bfs::path operator+(bfs::path left, bfs::path right) { return bfs::path(left) += right; }
+   inline bfs::path operator+(const bfs::path& left, const bfs::path& right) { return bfs::path(left) += right; }
 
    void move_blocklog_files(const bfs::path& src_dir, const fc::path& dest_dir, uint32_t start_block,
                             uint32_t end_block) {
@@ -1568,6 +1616,7 @@ namespace eosio { namespace chain {
       return version;
    }
 
+   // static
    void block_log::merge_blocklogs(const fc::path& blocks_dir, const fc::path& dest_dir) {
       block_log_catalog catalog;
 

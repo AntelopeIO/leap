@@ -41,8 +41,6 @@ namespace chain {
          return {};
       }
 
-      bool empty() const { return *this == chain_id_type{};}
-
       private:
          chain_id_type() = default;
 
