@@ -286,7 +286,7 @@ public:
       if (req_parser_->get()[http::field::expect] == "100-continue") {
          bool do_continue = true;
          auto sv = req_parser_->get()[http::field::content_length];
-         if (uint64_t sz; sv.size() && std::from_chars(sv.data(), sv.data() + sv.size(), sz).ec == std::errc() &&
+         if (uint64_t sz; !sv.empty() && std::from_chars(sv.data(), sv.data() + sv.size(), sz).ec == std::errc() &&
              sz > plugin_state_->max_body_size) {
             do_continue = false;
          }

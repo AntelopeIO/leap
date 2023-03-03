@@ -8,20 +8,13 @@
 
 #include <boost/asio.hpp>
 #include <boost/asio/bind_executor.hpp>
-#include <boost/asio/dispatch.hpp>
-#include <boost/asio/signal_set.hpp>
-#include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
-#include <boost/beast/websocket.hpp>
-#include <boost/make_unique.hpp>
 #include <boost/optional.hpp>
 
-#include <boost/asio/basic_socket_acceptor.hpp>
-#include <boost/asio/basic_socket_iostream.hpp>
 #include <boost/asio/basic_stream_socket.hpp>
 #include <boost/asio/detail/config.hpp>
 
@@ -222,18 +215,14 @@ void run_test(Protocol &p, size_t max_body_size)
    // check ones with long body exactly max_req_size - should work and return yes
    {
       string test_str;
-      test_str.resize(max_body_size);
-      for (auto& c : test_str)
-         c = '1';
+      test_str.resize(max_body_size, '1');
       check_request(p, "/check_ones", test_str.c_str(), {"yes"});
    }
 
    // check ones with long body (should be rejected by http_plugin as over max_body_size
    {
       string test_str;
-      test_str.resize(max_body_size + 1);
-      for (auto& c : test_str)
-         c = '1';
+      test_str.resize(max_body_size + 1, '1');
       check_request(p, "/check_ones", test_str.c_str(), {}); // we don't expect a response
    }
 }   
