@@ -87,7 +87,7 @@ class Cluster(object):
     # pylint: disable=too-many-arguments
     # walletd [True|False] Is keosd running. If not load the wallet plugin
     def __init__(self, walletd=False, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
-                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}):
+                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers=""):
         """Cluster container.
         walletd [True|False] Is wallet keosd running. If not load the wallet plugin
         localCluster [True|False] Is cluster local to host.
@@ -131,6 +131,7 @@ class Cluster(object):
         self.filesToCleanup=[]
         self.alternateVersionLabels=Cluster.__defaultAlternateVersionLabels()
         self.biosNode = None
+        self.nodeosVers=nodeosVers
         self.nodeosLogPath=Path('TestLogs') / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}')
 
         unshare(CLONE_NEWNET)
@@ -558,7 +559,7 @@ class Cluster(object):
         port=Cluster.__BiosPort if onlyBios else self.port
         host=Cluster.__BiosHost if onlyBios else self.host
         nodeNum="bios" if onlyBios else 0
-        node=Node(host, port, nodeNum, walletMgr=self.walletMgr)
+        node=Node(host, port, nodeNum, walletMgr=self.walletMgr,nodeosVers=self.nodeosVers)
         if Utils.Debug: Utils.Print("Node: %s", str(node))
 
         node.checkPulse(exitOnError=True)
@@ -597,7 +598,7 @@ class Cluster(object):
         for n in nArr:
             port=n["port"]
             host=n["host"]
-            node=Node(host, port, nodeId=len(nodes), walletMgr=self.walletMgr)
+            node=Node(host, port, nodeId=len(nodes), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
             if Utils.Debug: Utils.Print("Node:", node)
 
             node.checkPulse(exitOnError=True)
@@ -1051,8 +1052,7 @@ class Cluster(object):
             env["BIOS_CONTRACT_PATH"] = "libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/eosio.bios"
 
         if pfSetupPolicy == PFSetupPolicy.FULL:
-            queryNode = self.getLowestVersionNode(silentErrors=silent)
-            allBuiltinProtocolFeatureDigests = queryNode.getAllBuiltinFeatureDigestsToPreactivate()
+            allBuiltinProtocolFeatureDigests = biosNode.getAllBuiltinFeatureDigestsToPreactivate()
             env["FEATURE_DIGESTS"] = " ".join(allBuiltinProtocolFeatureDigests)
             Utils.Print("Set FEATURE_DIGESTS to: %s" % env["FEATURE_DIGESTS"])
 
@@ -1179,8 +1179,7 @@ class Cluster(object):
             return None
 
         if pfSetupPolicy == PFSetupPolicy.FULL:
-            queryNode = self.getLowestVersionNode(silentErrors=True)
-            queryNode.preactivateAllBuiltinProtocolFeature()
+            biosNode.preactivateAllBuiltinProtocolFeature()
 
         Node.validateTransaction(trans)
 
@@ -1448,7 +1447,7 @@ class Cluster(object):
         if m is None:
             Utils.Print("ERROR: Failed to find %s pid. Pattern %s" % (Utils.EosServerName, pattern))
             return None
-        instance=Node(self.host, self.port + nodeNum, nodeNum, pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr)
+        instance=Node(self.host, self.port + nodeNum, nodeNum, pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
         if Utils.Debug: Utils.Print("Node>", instance)
         return instance
 
@@ -1461,7 +1460,7 @@ class Cluster(object):
             Utils.Print("ERROR: Failed to find %s pid. Pattern %s" % (Utils.EosServerName, pattern))
             return None
         else:
-            return Node(Cluster.__BiosHost, Cluster.__BiosPort, "bios", pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr)
+            return Node(Cluster.__BiosHost, Cluster.__BiosPort, "bios", pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
 
     # Kills a percentange of Eos instances starting from the tail and update eosInstanceInfos state
     def killSomeEosInstances(self, killCount, killSignalStr=Utils.SigKillTag):
@@ -1638,7 +1637,7 @@ class Cluster(object):
         with open(startFile, 'r') as file:
             cmd=file.read()
             Utils.Print("unstarted local node cmd: %s" % (cmd))
-        instance=Node(self.host, port=self.port+nodeId, nodeId=nodeId, pid=None, cmd=cmd, walletMgr=self.walletMgr)
+        instance=Node(self.host, port=self.port+nodeId, nodeId=nodeId, pid=None, cmd=cmd, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
         if Utils.Debug: Utils.Print("Unstarted Node>", instance)
         return instance
 
@@ -1648,17 +1647,6 @@ class Cluster(object):
             infos.append(node.getInfo(silentErrors=silentErrors, exitOnError=exitOnError))
 
         return infos
-
-    def getLowestVersionNode(self, silentErrors=False, exitOnError=False):
-        '''Returns node with lowest major version of all nodes in the cluster.
-        
-        Naive implementation depends on current node version scheme.
-        Upgrade this to use packaging.version.parse_version() if 
-        more sophisticated versioning is necessary.'''
-        vers=[]
-        for node in self.nodes:
-            vers.append(node.getInfo(silentErrors=silentErrors, exitOnError=exitOnError)['server_version_string'][:2])
-        return self.nodes[vers.index(min(vers))]
 
     def reportStatus(self):
         nodes = self.getAllNodes()

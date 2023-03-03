@@ -23,7 +23,7 @@ class Node(Transactions):
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
-    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None):
+    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, nodeosVers=""):
         super().__init__(host, port, walletMgr)
         self.host=host
         self.port=port
@@ -43,21 +43,10 @@ class Node(Transactions):
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
-        self.pollVersion()
+        self.nodeosVers=nodeosVers
+        self.configureVersion()
 
-    def pollVersion(self):
-        info = self.getInfo(silentErrors=True)
-        timeout = datetime.now() + timedelta(seconds=20)
-        while info == None:
-            time.sleep(0.5)
-            info = self.getInfo(silentErrors=True)
-            if datetime.now() > timeout:
-                break
-        else:
-            self.configureVersion(info)
-
-    def configureVersion(self, info):
-        self.nodeosVers=info["server_version_string"]
+    def configureVersion(self):
         if 'v2' in self.nodeosVers:
             self.fetchTransactionCommand = lambda: "get transaction"
             self.fetchTransactionFromTrace = lambda trx: trx['trx']['id']
@@ -450,7 +439,6 @@ class Node(Transactions):
             self.pid=popen.pid
             self.cmd = cmd
             if Utils.Debug: Utils.Print("start Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
-        self.pollVersion()
 
     def trackCmdTransaction(self, trans, ignoreNonTrans=False, reportStatus=True):
         if trans is None:
