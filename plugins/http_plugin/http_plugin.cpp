@@ -122,7 +122,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             plugin_state->valid_hosts.emplace(host + ":" + resolved_port_str);
          }
 
-         void create_beast_server(bool useSSL, bool isUnix=false) {
+         void create_beast_server(bool isUnix) {
             if(isUnix) {
                beast_unix_server = std::make_shared<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket> >(plugin_state);
                fc_ilog( logger(), "created beast UNIX socket listener");
@@ -305,7 +305,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
             if(my->unix_endpoint) {
                try {
-                  my->create_beast_server(false, true);
+                  my->create_beast_server(true);
                   
                   my->beast_unix_server->listen(*my->unix_endpoint);
                   my->beast_unix_server->start_accept();
