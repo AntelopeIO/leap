@@ -624,8 +624,6 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( my->wasm_runtime )
          my->chain_config->wasm_runtime = *my->wasm_runtime;
 
-      ilog("!!!! wasm_runtime ${w}", ("w", my->chain_config->wasm_runtime));
-
       my->chain_config->force_all_checks = options.at( "force-all-checks" ).as<bool>();
       my->chain_config->disable_replay_opts = options.at( "disable-replay-opts" ).as<bool>();
       my->chain_config->contracts_console = options.at( "contracts-console" ).as<bool>();

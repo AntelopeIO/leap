@@ -139,7 +139,7 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RW_CALL_ASYNC(push_transactions, chain_apis::read_write::push_transactions_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(send_transaction, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(send_transaction2, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required)
-   }, appbase::priority::medium_low, appbase::exec_queue::write);
+   }, appbase::priority::medium_low, appbase::exec_queue::general);
 
    if (chain.account_queries_enabled()) {
       _http_plugin.add_async_api({
