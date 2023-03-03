@@ -409,7 +409,7 @@ struct controller_impl {
                      "empty block log expects the first appended block to build off a block that is not the fork database root. root block number: ${block_num}, lib: ${lib_num}", ("block_num", fork_db.root()->block_num) ("lib_num", lib_num) );
       }
 
-      const auto fork_head = (read_mode == db_read_mode::IRREVERSIBLE) ? fork_db.pending_head() : fork_db.head();
+      const auto fork_head = fork_db_head();
 
       if( fork_head->dpos_irreversible_blocknum <= lib_num )
          return;
@@ -2656,6 +2656,9 @@ struct controller_impl {
    uint32_t earliest_available_block_num() const {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
+
+   block_state_ptr fork_db_head() const;
+
 }; /// controller_impl
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
@@ -3010,20 +3013,23 @@ block_state_ptr controller::head_block_state()const {
    return my->head;
 }
 
-uint32_t controller::fork_db_head_block_num()const {
-   if( my->read_mode == db_read_mode::IRREVERSIBLE ) {
-      return my->fork_db.pending_head()->block_num;
+block_state_ptr controller_impl::fork_db_head() const {
+   if( read_mode == db_read_mode::IRREVERSIBLE ) {
+      // When in IRREVERSIBLE mode fork_db blocks are marked valid when they become irreversible so that
+      // fork_db.head() returns irreversible block
+      // Use pending_head since this method should return the chain head and not last irreversible.
+      return fork_db.pending_head();
    } else {
-      return my->fork_db.head()->block_num;
+      return fork_db.head();
    }
 }
 
+uint32_t controller::fork_db_head_block_num()const {
+   return my->fork_db_head()->block_num;
+}
+
 block_id_type controller::fork_db_head_block_id()const {
-   if( my->read_mode == db_read_mode::IRREVERSIBLE ) {
-      return my->fork_db.pending_head()->id;
-   } else {
-      return my->fork_db.head()->id;
-   }
+   return my->fork_db_head()->id;
 }
 
 time_point controller::pending_block_time()const {
