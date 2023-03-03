@@ -50,7 +50,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 
 #define CALL_WITH_400(api_name, api_handle, api_namespace, call_name, http_response_code, params_type) \
 {std::string("/v1/" #api_name "/" #call_name), \
-   [api_handle](string, string body, url_response_callback cb) mutable { \
+   [api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
           auto deadline = api_handle.start(); \
           try { \
              auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\
@@ -64,7 +64,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 
 #define CALL_ASYNC_WITH_400(api_name, api_handle, api_namespace, call_name, call_result, http_response_code, params_type) \
 {std::string("/v1/" #api_name "/" #call_name), \
-   [api_handle](string, string body, url_response_callback cb) mutable { \
+   [api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
       auto deadline = api_handle.start(); \
       try { \
          auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\

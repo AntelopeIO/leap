@@ -69,7 +69,7 @@ using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
 /**
 * internal url handler that contains more parameters than the handlers provided by external systems
 */
-using internal_url_handler = std::function<void(abstract_conn_ptr, string, string, url_response_callback)>;
+using internal_url_handler = std::function<void(abstract_conn_ptr, string&&, string&&, url_response_callback&&)>;
 
 /**
 * Helper method to calculate the "in flight" size of a fc::variant

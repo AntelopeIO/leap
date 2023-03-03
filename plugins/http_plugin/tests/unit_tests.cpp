@@ -45,17 +45,17 @@ public:
    void add_api(http_plugin &p) {
       p.add_api({
             {  std::string("/hello"),
-               [&](string, string body, url_response_callback cb) {
+               [&](string&&, string&& body, url_response_callback&& cb) {
                   cb(200, fc::time_point::maximum(), fc::variant("world!"));
                }
             },
             {  std::string("/echo"),
-               [&](string, string body, url_response_callback cb) {
+               [&](string&&, string&& body, url_response_callback&& cb) {
                   cb(200, fc::time_point::maximum(), fc::variant(body));
                }
             },
             {  std::string("/check_ones"), // returns "yes" if body only has only '1' chars, "no" otherwise
-               [&](string, string body, url_response_callback cb) {
+               [&](string&&, string&& body, url_response_callback&& cb) {
                   bool ok = std::all_of(body.begin(), body.end(), [](char c) { return c == '1'; });
                   cb(200, fc::time_point::maximum(), fc::variant(ok ? string("yes") : string("no")));
                }
