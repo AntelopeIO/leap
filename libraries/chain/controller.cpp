@@ -3018,28 +3018,12 @@ block_id_type controller::fork_db_head_block_id()const {
    return my->fork_db.head()->id;
 }
 
-time_point controller::fork_db_head_block_time()const {
-   return my->fork_db.head()->header.timestamp;
-}
-
-account_name  controller::fork_db_head_block_producer()const {
-   return my->fork_db.head()->header.producer;
-}
-
 uint32_t controller::fork_db_pending_head_block_num()const {
    return my->fork_db.pending_head()->block_num;
 }
 
 block_id_type controller::fork_db_pending_head_block_id()const {
    return my->fork_db.pending_head()->id;
-}
-
-time_point controller::fork_db_pending_head_block_time()const {
-   return my->fork_db.pending_head()->header.timestamp;
-}
-
-account_name  controller::fork_db_pending_head_block_producer()const {
-   return my->fork_db.pending_head()->header.producer;
 }
 
 time_point controller::pending_block_time()const {
