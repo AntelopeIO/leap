@@ -5,6 +5,7 @@ import subprocess
 import time
 
 from core_symbol import CORE_SYMBOL
+from .depresolver import dep
 from .queries import Queries
 from .testUtils import Account
 from .testUtils import Utils
@@ -320,12 +321,12 @@ class Transactions(Queries):
         self.scheduleProtocolFeatureActivations([preactivateFeatureDigest])
 
         # Wait for the next block to be produced so the scheduled protocol feature is activated
-        assert self.waitForHeadToAdvance(blocksToAdvance=2), print("ERROR: TIMEOUT WAITING FOR PREACTIVATE")
+        assert self.waitForHeadToAdvance(blocksToAdvance=2), "ERROR: TIMEOUT WAITING FOR PREACTIVATE"
 
     # Return an array of feature digests to be preactivated in a correct order respecting dependencies
     # Require producer_api_plugin
     def getAllBuiltinFeatureDigestsToPreactivate(self):
-        protocolFeatures = []
+        protocolFeatures = {}
         supportedProtocolFeatures = self.getSupportedProtocolFeatures()
         for protocolFeature in supportedProtocolFeatures["payload"]:
             for spec in protocolFeature["specification"]:
@@ -333,9 +334,10 @@ class Transactions(Queries):
                     codename = spec["value"]
                     # Filter out "PREACTIVATE_FEATURE"
                     if codename != "PREACTIVATE_FEATURE":
-                        protocolFeatures.append(protocolFeature["feature_digest"])
+                        protocolFeatures[protocolFeature["feature_digest"]] = protocolFeature["dependencies"]
                     break
-        return protocolFeatures
+        dependencies = dep(protocolFeatures)
+        return [f for s in dependencies for f in s]
 
     # Require PREACTIVATE_FEATURE to be activated and require eosio.bios with preactivate_feature
     def preactivateProtocolFeatures(self, featureDigests:list):

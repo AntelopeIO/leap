@@ -11,6 +11,8 @@ import datetime
 import sys
 import random
 import json
+import socket
+from pathlib import Path
 
 from core_symbol import CORE_SYMBOL
 from .testUtils import Utils
@@ -20,6 +22,8 @@ from .Node import BlockType
 from .Node import Node
 from .WalletMgr import WalletMgr
 from .launch_transaction_generators import TransactionGeneratorsLauncher, TpsTrxGensConfig
+from .libc import unshare, CLONE_NEWNET
+from .interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
 
 # Protocol Feature Setup Policy
 class PFSetupPolicy:
@@ -83,7 +87,7 @@ class Cluster(object):
     # pylint: disable=too-many-arguments
     # walletd [True|False] Is keosd running. If not load the wallet plugin
     def __init__(self, walletd=False, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
-                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers=""):
+                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}):
         """Cluster container.
         walletd [True|False] Is wallet keosd running. If not load the wallet plugin
         localCluster [True|False] Is cluster local to host.
@@ -127,8 +131,12 @@ class Cluster(object):
         self.filesToCleanup=[]
         self.alternateVersionLabels=Cluster.__defaultAlternateVersionLabels()
         self.biosNode = None
-        self.nodeosVers=nodeosVers
+        self.nodeosLogPath=Path('TestLogs') / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}')
 
+        unshare(CLONE_NEWNET)
+        for index, name in socket.if_nameindex():
+            if getInterfaceFlags(name) & IFF_LOOPBACK:
+                setInterfaceUp(name)
 
     def setChainStrategy(self, chainSyncStrategy=Utils.SyncReplayTag):
         self.__chainSyncStrategy=self.__chainSyncStrategies.get(chainSyncStrategy)
@@ -173,8 +181,8 @@ class Cluster(object):
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
-               totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=True, specificExtraNodeosArgs=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=f"TestLogs/{os.path.basename(sys.argv[0]).split('.')[0]}{os.getpid()}/", genesisPath=None,
+               totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=False, specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path('TestLogs') / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
                maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
         """Launch cluster.
         pnodes: producer nodes count
@@ -192,6 +200,8 @@ class Cluster(object):
           A value of false uses manual bootstrapping in this script, which does not do things like stake votes for producers.
         specificExtraNodeosArgs: dictionary of arguments to pass to a specific node (via --specific-num and
                                  --specific-nodeos flags on launcher), example: { "5" : "--plugin eosio::test_control_api_plugin" }
+        specificNodeosInstances: dictionary of paths to launch specific nodeos binaries (via --spcfc-inst-num and
+                                 --spcfc_inst_nodeos flags to launcher), example: { "4" : "bin/nodeos"}
         onlySetProds: Stop the bootstrap process after setting the producers (only if useBiosBootFile is false)
         pfSetupPolicy: determine the protocol feature setup policy (none, preactivate_feature_only, or full)
         alternateVersionLabelsFile: Supply an alternate version labels file to use with associatedNodeLabels.
@@ -240,7 +250,6 @@ class Cluster(object):
         if maximumP2pPerHost <= 0:
             maximumP2pPerHost = totalNodes
 
-
         self.setAlternateVersionLabels(alternateVersionLabelsFile)
 
         tries = 30
@@ -252,7 +261,7 @@ class Cluster(object):
             time.sleep(2)
         loggingLevelDictString = json.dumps(self.loggingLevelDict, separators=(',', ':'))
         cmd="%s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s --logging-level %s --logging-level-map %s" % (
-            Utils.EosLauncherPath, pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
+            "python3 tests/launcher.py", pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
             producerFlag, unstartedNodes, self.loggingLevel, loggingLevelDictString)
         cmdArr=cmd.split()
         if self.staging:
@@ -275,11 +284,25 @@ class Cluster(object):
             for nodeNum,arg in specificExtraNodeosArgs.items():
                 assert(isinstance(nodeNum, (str,int)))
                 assert(isinstance(arg, str))
+                if not len(arg):
+                    continue
                 cmdArr.append("--specific-num")
                 cmdArr.append(str(nodeNum))
                 cmdArr.append("--specific-nodeos")
                 if arg.find("--http-max-response-time-ms") != -1:
                     httpMaxResponseTimeSet = True
+                if arg[0] != "'" and arg[-1] != "'":
+                    cmdArr.append("'" + arg + "'")
+                else:
+                    cmdArr.append(arg)
+        if specificNodeosInstances is not None:
+            assert(isinstance(specificNodeosInstances, dict))
+            for nodeNum,arg in specificNodeosInstances.items():
+                assert(isinstance(nodeNum, (str,int)))
+                assert(isinstance(arg, str))
+                cmdArr.append("--spcfc-inst-num")
+                cmdArr.append(str(nodeNum))
+                cmdArr.append("--spcfc-inst-nodeos")
                 cmdArr.append(arg)
 
         if not httpMaxResponseTimeSet and extraNodeosArgs.find("--http-max-response-time-ms") == -1:
@@ -302,7 +325,7 @@ class Cluster(object):
             cmdArr.append("--genesis")
             cmdArr.append(str(genesisPath))
         cmdArr.append("--nodeos-log-path")
-        cmdArr.append(nodeosLogPath)
+        cmdArr.append(str(nodeosLogPath))
 
         if associatedNodeLabels is not None:
             for nodeNum,label in associatedNodeLabels.items():
@@ -323,22 +346,25 @@ class Cluster(object):
             shapeFile=shapeFilePrefix+".json"
             cmdArrForOutput=copy.deepcopy(cmdArr)
             cmdArrForOutput.append("--output")
-            cmdArrForOutput.append(shapeFile)
+            cmdArrForOutput.append(str(nodeosLogPath / shapeFile))
+            cmdArrForOutput.append("--shape")
+            cmdArrForOutput.append("line")
             s=" ".join(cmdArrForOutput)
             if Utils.Debug: Utils.Print("cmd: %s" % (s))
             if 0 != subprocess.call(cmdArrForOutput):
                 Utils.Print("ERROR: Launcher failed to create shape file \"%s\"." % (shapeFile))
                 return False
 
-            Utils.Print("opening %s shape file: %s, current dir: %s" % (topo, shapeFile, os.getcwd()))
-            f = open(shapeFile, "r")
+            Utils.Print(f"opening {topo} shape file: {nodeosLogPath / shapeFile}")
+            f = open(nodeosLogPath / shapeFile, "r")
             shapeFileJsonStr = f.read()
             f.close()
             shapeFileObject = json.loads(shapeFileJsonStr)
             Utils.Print("shapeFileObject=%s" % (shapeFileObject))
-            # retrieve the nodes, which as a map of node name to node definition, which the fc library prints out as
+            # retrieve the nodes, which is a map of node name to node definition, which the fc library prints out as
             # an array of array, the first level of arrays is the pair entries of the map, the second is an array
             # of two entries - [ <first>, <second> ] with first being the name and second being the node definition
+            # also support Python launcher format, which is nested objects
             shapeFileNodes = shapeFileObject["nodes"]
 
             numProducers=totalProducers if totalProducers is not None else (totalNodes - unstartedNodes)
@@ -369,11 +395,14 @@ class Cluster(object):
                 return int(m.group(1))
 
             for shapeFileNodePair in shapeFileNodes:
-                assert(len(shapeFileNodePair)==2)
-                nodeName=shapeFileNodePair[0]
-                shapeFileNode=shapeFileNodePair[1]
+                if len(shapeFileNodePair) == 2:
+                    nodeName=shapeFileNodePair[0]
+                    shapeFileNode=shapeFileNodePair[1]
+                elif type(shapeFileNodePair) == str:
+                    nodeName=shapeFileNodePair
+                    shapeFileNode=shapeFileNodes[shapeFileNodePair]
                 shapeFileNodeMap[nodeName]=shapeFileNode
-                Utils.Print("name=%s, shapeFileNode=%s" % (nodeName, shapeFileNodeMap[shapeFileNodePair[0]]))
+                Utils.Print("name=%s, shapeFileNode=%s" % (nodeName, shapeFileNodeMap[nodeName]))
                 if nodeName=="bios":
                     biosNodeObject=shapeFileNode
                     continue
@@ -452,7 +481,6 @@ class Cluster(object):
             return False
 
         startedNodes=totalNodes-unstartedNodes
-        self.nodes=list(range(startedNodes)) # placeholder for cleanup purposes only
 
         nodes=self.discoverLocalNodes(startedNodes, timeout=Utils.systemWaitTimeout)
         if nodes is None or startedNodes != len(nodes):
@@ -493,15 +521,9 @@ class Cluster(object):
             useBiosBootFile=False  #ensure we use Cluster.bootstrap
         if onlyBios or not useBiosBootFile:
             self.biosNode=self.bootstrap(biosNode, startedNodes, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract)
-            if self.biosNode is None:
-                Utils.Print("ERROR: Bootstrap failed.")
-                return False
         else:
             self.useBiosBootFile=True
             self.biosNode=self.bios_bootstrap(biosNode, startedNodes, pfSetupPolicy)
-            if self.biosNode is None:
-                Utils.Print("ERROR: Bootstrap failed.")
-                return False
 
         if self.biosNode is None:
             Utils.Print("ERROR: Bootstrap failed.")
@@ -536,7 +558,7 @@ class Cluster(object):
         port=Cluster.__BiosPort if onlyBios else self.port
         host=Cluster.__BiosHost if onlyBios else self.host
         nodeNum="bios" if onlyBios else 0
-        node=Node(host, port, nodeNum, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+        node=Node(host, port, nodeNum, walletMgr=self.walletMgr)
         if Utils.Debug: Utils.Print("Node: %s", str(node))
 
         node.checkPulse(exitOnError=True)
@@ -575,7 +597,7 @@ class Cluster(object):
         for n in nArr:
             port=n["port"]
             host=n["host"]
-            node=Node(host, port, nodeId=len(nodes), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+            node=Node(host, port, nodeId=len(nodes), walletMgr=self.walletMgr)
             if Utils.Debug: Utils.Print("Node:", node)
 
             node.checkPulse(exitOnError=True)
@@ -1029,12 +1051,13 @@ class Cluster(object):
             env["BIOS_CONTRACT_PATH"] = "libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/eosio.bios"
 
         if pfSetupPolicy == PFSetupPolicy.FULL:
-            allBuiltinProtocolFeatureDigests = biosNode.getAllBuiltinFeatureDigestsToPreactivate()
+            queryNode = self.getLowestVersionNode(silentErrors=silent)
+            allBuiltinProtocolFeatureDigests = queryNode.getAllBuiltinFeatureDigestsToPreactivate()
             env["FEATURE_DIGESTS"] = " ".join(allBuiltinProtocolFeatureDigests)
             Utils.Print("Set FEATURE_DIGESTS to: %s" % env["FEATURE_DIGESTS"])
 
         if 0 != subprocess.call(cmd.split(), stdout=Utils.FNull, env=env):
-            if not silent: Utils.Print("Launcher failed to shut down eos cluster.")
+            if not silent: Utils.Print("Launcher failed to initialize leap cluster using bios_boot.sh.")
             return None
 
         p = re.compile(r"\berror\b", re.IGNORECASE)
@@ -1156,7 +1179,8 @@ class Cluster(object):
             return None
 
         if pfSetupPolicy == PFSetupPolicy.FULL:
-            biosNode.preactivateAllBuiltinProtocolFeature()
+            queryNode = self.getLowestVersionNode(silentErrors=True)
+            queryNode.preactivateAllBuiltinProtocolFeature()
 
         Node.validateTransaction(trans)
 
@@ -1164,7 +1188,6 @@ class Cluster(object):
         producerKeys.pop(eosioName)
         accounts=[]
         for name, keys in producerKeys.items():
-            initx = None
             initx = Account(name)
             initx.ownerPrivateKey=keys["private"]
             initx.ownerPublicKey=keys["public"]
@@ -1240,40 +1263,28 @@ class Cluster(object):
 
         if onlySetProds: return biosNode
 
-        eosioTokenAccount=copy.deepcopy(eosioAccount)
-        eosioTokenAccount.name="eosio.token"
-        trans=biosNode.createAccount(eosioTokenAccount, eosioAccount, 0)
-        if trans is None:
-            Utils.Print("ERROR: Failed to create account %s" % (eosioTokenAccount.name))
+        def createSystemAccount(accountName):
+            newAccount = copy.deepcopy(eosioAccount)
+            newAccount.name = accountName
+            trans=biosNode.createAccount(newAccount, eosioAccount, 0)
+            if trans is None:
+                Utils.Print(f'ERROR: Failed to create account {newAccount.name}')
+                return None
+            return trans
+
+        systemAccounts = ['eosio.bpay', 'eosio.msig', 'eosio.names', 'eosio.ram', 'eosio.ramfee', 'eosio.saving', 'eosio.stake', 'eosio.token', 'eosio.vpay', 'eosio.wrap']
+        acctTrans = list(map(createSystemAccount, systemAccounts))
+
+        for trans in acctTrans:
+            Node.validateTransaction(trans)
+
+        transIds = list(map(Node.getTransId, acctTrans))
+        if not biosNode.waitForTransactionsInBlock(transIds):
+            Utils.Print('ERROR: Failed to validate creation of system accounts')
             return None
 
-        eosioRamAccount=copy.deepcopy(eosioAccount)
-        eosioRamAccount.name="eosio.ram"
-        trans=biosNode.createAccount(eosioRamAccount, eosioAccount, 0)
-        if trans is None:
-            Utils.Print("ERROR: Failed to create account %s" % (eosioRamAccount.name))
-            return None
-
-        eosioRamfeeAccount=copy.deepcopy(eosioAccount)
-        eosioRamfeeAccount.name="eosio.ramfee"
-        trans=biosNode.createAccount(eosioRamfeeAccount, eosioAccount, 0)
-        if trans is None:
-            Utils.Print("ERROR: Failed to create account %s" % (eosioRamfeeAccount.name))
-            return None
-
-        eosioStakeAccount=copy.deepcopy(eosioAccount)
-        eosioStakeAccount.name="eosio.stake"
-        trans=biosNode.createAccount(eosioStakeAccount, eosioAccount, 0)
-        if trans is None:
-            Utils.Print("ERROR: Failed to create account %s" % (eosioStakeAccount.name))
-            return None
-
-        Node.validateTransaction(trans)
-        transId=Node.getTransId(trans)
-        if not biosNode.waitForTransactionInBlock(transId):
-            Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
-            return None
-
+        eosioTokenAccount = copy.deepcopy(eosioAccount)
+        eosioTokenAccount.name = 'eosio.token'
         contract="eosio.token"
         contractDir="unittests/contracts/%s" % (contract)
         wasmFile="%s.wasm" % (contract)
@@ -1437,7 +1448,7 @@ class Cluster(object):
         if m is None:
             Utils.Print("ERROR: Failed to find %s pid. Pattern %s" % (Utils.EosServerName, pattern))
             return None
-        instance=Node(self.host, self.port + nodeNum, nodeNum, pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+        instance=Node(self.host, self.port + nodeNum, nodeNum, pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr)
         if Utils.Debug: Utils.Print("Node>", instance)
         return instance
 
@@ -1450,7 +1461,7 @@ class Cluster(object):
             Utils.Print("ERROR: Failed to find %s pid. Pattern %s" % (Utils.EosServerName, pattern))
             return None
         else:
-            return Node(Cluster.__BiosHost, Cluster.__BiosPort, "bios", pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+            return Node(Cluster.__BiosHost, Cluster.__BiosPort, "bios", pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr)
 
     # Kills a percentange of Eos instances starting from the tail and update eosInstanceInfos state
     def killSomeEosInstances(self, killCount, killSignalStr=Utils.SigKillTag):
@@ -1518,7 +1529,7 @@ class Cluster(object):
     def killall(self, kill=True, silent=True, allInstances=False):
         """Kill cluster nodeos instances. allInstances will kill all nodeos instances running on the system."""
         signalNum=9 if kill else 15
-        cmd="%s -k %d" % (Utils.EosLauncherPath, signalNum)
+        cmd="%s -k %d --nogen -p 1 -n 1 --nodeos-log-path %s" % ("python3 tests/launcher.py", signalNum, self.nodeosLogPath)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         if 0 != subprocess.call(cmd.split(), stdout=Utils.FNull):
             if not silent: Utils.Print("Launcher failed to shut down eos cluster.")
@@ -1627,7 +1638,7 @@ class Cluster(object):
         with open(startFile, 'r') as file:
             cmd=file.read()
             Utils.Print("unstarted local node cmd: %s" % (cmd))
-        instance=Node(self.host, port=self.port+nodeId, nodeId=nodeId, pid=None, cmd=cmd, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+        instance=Node(self.host, port=self.port+nodeId, nodeId=nodeId, pid=None, cmd=cmd, walletMgr=self.walletMgr)
         if Utils.Debug: Utils.Print("Unstarted Node>", instance)
         return instance
 
@@ -1637,6 +1648,17 @@ class Cluster(object):
             infos.append(node.getInfo(silentErrors=silentErrors, exitOnError=exitOnError))
 
         return infos
+
+    def getLowestVersionNode(self, silentErrors=False, exitOnError=False):
+        '''Returns node with lowest major version of all nodes in the cluster.
+        
+        Naive implementation depends on current node version scheme.
+        Upgrade this to use packaging.version.parse_version() if 
+        more sophisticated versioning is necessary.'''
+        vers=[]
+        for node in self.nodes:
+            vers.append(node.getInfo(silentErrors=silentErrors, exitOnError=exitOnError)['server_version_string'][:2])
+        return self.nodes[vers.index(min(vers))]
 
     def reportStatus(self):
         nodes = self.getAllNodes()
@@ -1664,7 +1686,6 @@ class Cluster(object):
             blockLog=self.getBlockLog(i)
             Utils.Print(Utils.FileDivider)
             Utils.Print("Block log from node %s:\n%s" % (i, json.dumps(blockLog, indent=1)))
-
 
     def compareBlockLogs(self):
         blockLogs=[]

@@ -2,19 +2,38 @@
 
 import argparse
 import datetime
-from dataclasses import InitVar, dataclass, field
+from dataclasses import InitVar, dataclass, field, is_dataclass, asdict
+from enum import Enum
+import errno
 import json
 from pathlib import Path
 import os
 import math
+import platform
+import shlex
+import select
+import signal
 import string
+import subprocess
 import sys
+import time
 from typing import ClassVar, Dict, List
 
 from TestHarness import Cluster
 from TestHarness import Utils
+from TestHarness import fc_log_level
 
 block_dir = 'blocks'
+
+class EnhancedEncoder(json.JSONEncoder):
+    def default(self, o):
+        if is_dataclass(o):
+            return asdict(o)
+        elif isinstance(o, Path):
+            return str(o)
+        elif isinstance(o, Enum):
+            return str(o)
+        return super().default(o)
 
 @dataclass
 class KeyStrings(object):
@@ -23,6 +42,7 @@ class KeyStrings(object):
 
 @dataclass
 class nodeDefinition:
+    index: int
     name: str
     node_cfg_name: InitVar[str]
     base_dir: InitVar[str]
@@ -31,7 +51,6 @@ class nodeDefinition:
     keys: List[str] = field(default_factory=list)
     peers: List[str] = field(default_factory=list)
     producers: List[str] = field(default_factory=list)
-    #gelf_endpoint: str
     dont_start: bool = field(init=False, default=False)
     config_dir_name: Path = field(init=False)
     data_dir_name: str = field(init=False)
@@ -39,9 +58,6 @@ class nodeDefinition:
     http_port: int = 0
     base_p2p_port: ClassVar[int] = 9876
     base_http_port: ClassVar[int] = 8888
-    #file_size: int
-    instance_name: str = field(init=False, repr=False)
-    #host: str
     host_name: str = 'localhost'
     public_name: str = 'localhost'
     listen_addr: str = '0.0.0.0'
@@ -53,7 +69,7 @@ class nodeDefinition:
 
     def __post_init__(self, node_cfg_name, base_dir, cfg_name, data_name):
         self.config_dir_name = Path(base_dir) / cfg_name / node_cfg_name
-        self.data_dir_name = os.path.join(base_dir, data_name, node_cfg_name)
+        self.data_dir_name = Path(base_dir) / data_name / node_cfg_name
         if self.p2p_port_generator is None:
             type(self).p2p_port_generator = self.create_p2p_port_generator()
         if self.http_port_generator is None:
@@ -117,8 +133,18 @@ class testnetDefinition:
 
 
 def producer_name(producer_number: int, shared_producer: bool = False):
-    '''Currently only supports 26 producer names; original supports approx. 26^6'''
-    return ('shr' if shared_producer else 'def') + 'producer' + string.ascii_lowercase[producer_number]
+    '''For first 26 return "defproducera" ... "defproducerz".
+       After 26 return "defpraaaaaab", "defpraaaaaac"...'''
+    if producer_number > len(string.ascii_lowercase) - 1:
+        def alpha_str_base(number: int, base: str):
+            '''Convert number to base represented as string of "digits"'''
+            d,m = divmod(number, len(base))
+            if d > 0:
+                return alpha_str_base(d, base) + base[m]
+            return base[m]
+        return ('shr' if shared_producer else 'def') + 'pr' + alpha_str_base(producer_number - len(string.ascii_lowercase) + 1, string.ascii_lowercase).rjust(7, string.ascii_lowercase[0])
+    else:
+        return ('shr' if shared_producer else 'def') + 'producer' + string.ascii_lowercase[producer_number]
 
 class launcher(object):
     def __init__(self, args):
@@ -126,6 +152,8 @@ class launcher(object):
         self.network = testnetDefinition(self.args.network_name)
         self.aliases: List[str] = []
         self.next_node = 0
+
+        self.launch_time = datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
 
         self.define_network()
         self.generate()
@@ -144,10 +172,10 @@ class launcher(object):
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument('-i', '--timestamp', help='set the timestamp for the first block.  Use "now" to indicate the current time')
         parser.add_argument('-l', '--launch', choices=['all', 'none', 'local'], help='select a subset of nodes to launch.  If not set, the default is to launch all unless an output file is named, in which case none are started.', default='all')
-        parser.add_argument('-o', '--output', help='save a copy of the generated topology in this file', dest='topology_filename')
+        parser.add_argument('-o', '--output', help='save a copy of the generated topology in this file and exit without launching', dest='topology_filename')
         parser.add_argument('-k', '--kill', help='retrieve the list of previously started process ids and issue a kill to each')
-        parser.add_argument('--down', type=comma_separated, help='comma-separated list of node numbers that will be shut down')
-        parser.add_argument('--bounce', type=comma_separated, help='comma-separated list of node numbers that will be restarted')
+        parser.add_argument('--down', type=comma_separated, help='comma-separated list of node numbers that will be shut down', default=[])
+        parser.add_argument('--bounce', type=comma_separated, help='comma-separated list of node numbers that will be restarted', default=[])
         parser.add_argument('--roll', type=comma_separated, help='comma-separated list of host names where the nodes will be rolled to a new version')
         parser.add_argument('-b', '--base_dir', type=Path, help='base directory where configuration and data files will be written', default=Path('.'))
         parser.add_argument('--config-dir', type=Path, help='directory containing configuration files such as config.ini', default=Path('etc') / 'eosio')
@@ -180,12 +208,19 @@ class launcher(object):
         cfg.add_argument('--network-name', help='network name prefix used in GELF logging source', default='testnet_')
         cfg.add_argument('--enable-gelf-logging', action='store_true', help='enable gelf logging appender in logging configuration file', default=False)
         cfg.add_argument('--gelf-endpoint', help='hostname:port or ip:port of GELF endpoint', default='128.0.0.1:12201')
-        cfg.add_argument('--template', help='the startup script template')
+        cfg.add_argument('--template', help='the startup script template', default='testnet.template')
         cfg.add_argument('--script', help='the optionally generated startup script name', default='bios_boot.sh')
         cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=200000)
         cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
+        cfg.add_argument('--nodeos-log-path', type=Path, help='path to nodeos log directory')
+        cfg.add_argument('--logging-level', type=fc_log_level, help='Provide the "level" value to use in the logging.json file')
+        cfg.add_argument('--logging-level-map', type=json.loads, help='JSON string of a logging level dictionary to use in the logging.json file for specific nodes, matching based on node number. Ex: {"bios":"off","00":"info"}')
+        cfg.add_argument('--is-nodeos-v2', action='store_true', help='Toggles old nodeos compatibility', default=False)
         r = parser.parse_args(args)
-        if r.shape not in ['star', 'mesh', 'ring', 'line'] and not pathlib.Path(r.shape).is_file():
+        if r.launch != 'none' and r.topology_filename:
+            Utils.Print('Output file specified--overriding launch to "none"')
+            r.launch = 'none'
+        if r.shape not in ['star', 'mesh', 'ring', 'line'] and not Path(r.shape).is_file():
             parser.error('-s, --shape must be one of "star", "mesh", "ring", "line", or a file')
         if len(r.specific_nums) != len(getattr(r, f'specific_{Utils.EosServerName}es')):
             parser.error(f'Count of uses of --specific-num and --specific-{Utils.EosServerName} must match')
@@ -193,22 +228,28 @@ class launcher(object):
             parser.error(f'Count of uses of --spcfc-inst-num and --spcfc-inst-{Utils.EosServerName} must match')
         r.pnodes += 1 # add one for the bios node
         r.total_nodes += 1
-        print(r)
+        if r.pnodes > r.producers + 1:
+            r.pnodes = r.producers
+        if r.pnodes > r.total_nodes:
+            r.total_nodes = r.pnodes + r.unstarted_nodes
+        elif r.total_nodes < r.pnodes + r.unstarted_nodes:
+            Utils.errorExit('if provided, "--nodes" must be equal to or greater than the number of nodes indicated by "--pnodes" and "--unstarted-nodes".')
         return r
 
     def assign_name(self, is_bios):
         if is_bios:
-            return 'bios', 'node_bios'
+            return -1, 'bios', 'node_bios'
         else:
-            index = str(self.next_node)
+            index = self.next_node
+            indexStr = str(self.next_node)
             self.next_node += 1
-            return self.network.name + index.zfill(2), f'node_{index.zfill(2)}'
+            return index, self.network.name + indexStr.zfill(2), f'node_{indexStr.zfill(2)}'
 
     def define_network(self):
         if self.args.per_host == 0:
             for i in range(self.args.total_nodes):
-                node_name, cfg_name = self.assign_name(i == 0)
-                node = nodeDefinition(node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
+                index, node_name, cfg_name = self.assign_name(i == 0)
+                node = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.nodeos_log_path)
                 node.set_host(i == 0)
                 self.aliases.append(node.name)
                 self.network.nodes[node.name] = node
@@ -219,8 +260,8 @@ class launcher(object):
             num_nonprod_addr = 1
             for i in range(self.args.total_nodes, 0, -1):
                 do_bios = False
-                node_name, cfg_name = self.assign_name(i == 0)
-                lhost = nodeDefinition(node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
+                index, node_name, cfg_name = self.assign_name(i == 0)
+                lhost = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.nodeos_log_path)
                 lhost.set_host(i == 0)
                 if ph_count == 0:
                     if host_ndx < num_prod_addr:
@@ -248,7 +289,7 @@ class launcher(object):
         if self.args.pnodes < 2:
             raise RuntimeError(f'Unable to allocate producers due to insufficient pnodes = {self.args.pnodes}')
         non_bios = self.args.pnodes - 1
-        per_node = self.args.producers / non_bios
+        per_node = int(self.args.producers / non_bios)
         extra = self.args.producers % non_bios
         i = 0
         producer_number = 0
@@ -267,7 +308,7 @@ class launcher(object):
                     if extra:
                         count += 1
                         extra -= 1
-                    while count:
+                    while count > 0:
                         prodname = producer_name(producer_number)
                         node.producers.append(prodname)
                         producer_number += 1
@@ -295,8 +336,13 @@ class launcher(object):
                 self.write_config_file(node)
                 self.write_logging_config_file(node)
                 self.write_genesis_file(node, genesis)
+                node.data_dir_name.mkdir(parents=True, exist_ok=True)
         
         self.write_dot_file()
+
+        if self.args.topology_filename:
+            with open(self.args.topology_filename, 'w') as topo:
+                json.dump(self.network, topo, cls=EnhancedEncoder, indent=2, separators=[', ', ': '])
 
     def write_config_file(self, node):
         with open(node.config_dir_name / 'config.ini', 'w') as cfg:
@@ -328,7 +374,18 @@ plugin = eosio::chain_api_plugin
             cfg.write(config)
 
     def write_logging_config_file(self, node):
-        pass
+        ll = fc_log_level.debug
+        if self.args.logging_level:
+            ll = self.args.logging_level
+        dex = str(node.index).zfill(2)
+        if dex in self.args.logging_level_map:
+            ll = self.args.logging_level_map[dex]
+        with open(Path(os.getcwd()) / 'logging.json', 'r') as default:
+            cfg = json.load(default)
+        for logger in cfg['loggers']:
+            logger['level'] = ll
+        with open(node.config_dir_name / 'logging.json', 'w') as out:
+            json.dump(cfg, out, cls=EnhancedEncoder, indent=2)
 
     def init_genesis(self):
         genesis_path = self.args.genesis if self.args.genesis.is_absolute() else Path.cwd() / self.args.genesis
@@ -393,30 +450,8 @@ plugin = eosio::chain_api_plugin
                 attempts -= 1
         return ndx
 
-    def old_make_line(self, make_ring: bool = True):
-        print(f"making {'ring' if make_ring else 'line'}")
-        self.bind_nodes()
-        non_bios = self.args.total_nodes - 1
-        if non_bios > 2:
-            end_of_loop = False
-            i = self.start_ndx()
-            while not end_of_loop:
-                front = i
-                front, end_of_loop = self.next_ndx(front)
-                if end_of_loop and not make_ring:
-                    break
-                self.network.nodes[self.aliases[i]].peers.append(self.aliases[front])
-                i, _ = self.next_ndx(i)
-        elif non_bios == 2:
-            n0 = self.start_ndx()
-            n1 = n0
-            n1 = self.next_ndx(n1)[0]
-            self.network.nodes[self.aliases[n0]].peers.append(self.aliases[n1])
-            if make_ring:
-                self.network.nodes[self.aliases[n1]].peers.append(self.aliases[n0])
-
     def make_line(self, make_ring: bool = True):
-        print(f"making {'ring' if make_ring else 'line'}")
+        if Utils.Debug: Utils.Print(f"making {'ring' if make_ring else 'line'}")
         self.bind_nodes()
         nl = list(self.network.nodes.values())
         for node, nextNode in zip(nl, nl[1:]):
@@ -425,7 +460,7 @@ plugin = eosio::chain_api_plugin
             nl[-1].peers.append(nl[1].name)
 
     def make_star(self):
-        print('making star')
+        if Utils.Debug: Utils.Print('making star')
         non_bios = self.args.total_nodes - 1
         if non_bios < 4:
             self.make_line()
@@ -463,7 +498,7 @@ plugin = eosio::chain_api_plugin
             i, loop = self.next_ndx(i)
 
     def make_mesh(self):
-        print('making mesh')
+        if Utils.Debug: Utils.Print('making mesh')
         non_bios = self.args.total_nodes - 1
         self.bind_nodes()
         loop = False
@@ -478,7 +513,136 @@ plugin = eosio::chain_api_plugin
             i, loop = self.next_ndx(i)
 
     def make_custom(self):
-        print('making custom')
+        if Utils.Debug: Utils.Print('making custom')
+        with open(self.args.shape, 'r') as source:
+            topo = json.load(source)
+            self.network.name = topo['name']
+            for nodeName in topo['nodes']:
+                node = topo['nodes'][nodeName]
+                self.network.nodes[nodeName].dont_start = node['dont_start']
+                for keyObj in node['keys']:
+                    self.network.nodes[nodeName].keys.append(KeyStrings(keyObj['pubkey'], keyObj['privkey']))
+                for peer in node['peers']:
+                    self.network.nodes[nodeName].peers.append(peer)
+                for producer in node['producers']:
+                    self.network.nodes[nodeName].producers.append(producer)
+
+    def launch(self, instance: nodeDefinition):
+        dd = Path(instance.data_dir_name)
+        out = dd / 'stdout.txt'
+        err_sl = dd / 'stderr.txt'
+        err = dd / Path(f'stderr.{self.launch_time}.txt')
+        pidf = dd / Path(f'{Utils.EosServerName}.pid')
+
+        if instance.index in self.args.spcfc_inst_nums:
+            eosdcmd = [f"{getattr(self.args, f'spcfc_inst_{Utils.EosServerName}es')[self.args.spcfc_inst_nums.index(instance.index)]}"]
+        else:
+            eosdcmd = [Utils.EosServerPath]
+        if self.args.skip_signature:
+            eosdcmd.append('--skip-transaction-signatures')
+        if getattr(self.args, Utils.EosServerName):
+            eosdcmd.extend(shlex.split(getattr(self.args, Utils.EosServerName)))
+        if instance.index in self.args.specific_nums:
+            i = self.args.specific_nums.index(instance.index)
+            specifics = getattr(self.args, f'specific_{Utils.EosServerName}es')[i]
+            if specifics[0] == "'" and specifics[-1] == "'":
+                eosdcmd.extend(shlex.split(specifics[1:-1]))
+            else:
+                eosdcmd.extend(shlex.split(specifics))
+        eosdcmd.append('--config-dir')
+        eosdcmd.append(str(instance.config_dir_name))
+        eosdcmd.append('--data-dir')
+        eosdcmd.append(str(instance.data_dir_name))
+        eosdcmd.append('--genesis-json')
+        eosdcmd.append(f'{instance.config_dir_name}/genesis.json')
+        if self.args.timestamp:
+            eosdcmd.append('--genesis-timestamp')
+            eosdcmd.append(self.args.timestamp)
+
+        # Always enable a history query plugin on the bios node
+        if instance.name == 'bios':
+            if self.args.is_nodeos_v2:
+                eosdcmd.append('--plugin')
+                eosdcmd.append('eosio::history_api_plugin')
+                eosdcmd.append('--filter-on')
+                eosdcmd.append('"*"')
+            else:
+                eosdcmd.append('--plugin')
+                eosdcmd.append('eosio::trace_api_plugin')
+
+        if 'eosio::history_api_plugin' in eosdcmd and 'eosio::trace_api_plugin' in eosdcmd:
+            eosdcmd.remove('--trace-no-abis')
+            eosdcmd.remove('--trace-rpc-abi')
+            i = eosdcmd.index('eosio::trace_api_plugin')
+            eosdcmd.pop(i)
+            i -= 1
+            eosdcmd.pop(i)
+
+        if not instance.dont_start:
+            Utils.Print(f'spawning child: {" ".join(eosdcmd)}')
+
+            stdout = open(out, 'w')
+            stderr = open(err, 'w')
+            c = subprocess.Popen(eosdcmd, stdout=stdout, stderr=stderr)
+            with pidf.open('w') as pidout:
+                pidout.write(str(c.pid))
+            try:
+                err_sl.unlink()
+            except FileNotFoundError:
+                pass
+            err_sl.symlink_to(err.name)
+        else:
+            Utils.Print(f'unstarted node command: {" ".join(eosdcmd)}')
+
+            with open(instance.data_dir_name / 'start.cmd', 'w') as f:
+                f.write(' '.join(eosdcmd))
+
+    def bounce(self, nodeNumbers):
+        self.down(nodeNumbers, True)
+
+    def down(self, nodeNumbers, relaunch=False):
+        for num in nodeNumbers:
+            for node in self.network.nodes.values():
+                if self.network.name + num == node.name:
+                    Utils.Print(f'{"Restarting" if relaunch else "Shutting down"} node {node.name}')
+                    with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
+                        pid = int(f.readline())
+                        self.terminate_wait_pid(pid, raise_if_missing=not relaunch)
+                    if relaunch:
+                        self.launch(node)
+
+    def start_all(self):
+        if self.args.launch.lower() != 'none':
+            for instance in self.network.nodes.values():
+                self.launch(instance)
+                time.sleep(self.args.delay)
+        self.write_bios_boot()
+
+    def write_bios_boot(self):
+        templatePath = Path(self.args.config_dir) / 'launcher' / self.args.template
+        with open(templatePath, 'r') as f:
+            template = f.read()
+        scriptPath = Path('.') / self.args.script
+        with open(scriptPath, 'w') as f:
+            bhost = self.network.nodes['bios'].host_name
+            biosport = self.network.nodes['bios'].http_port
+            prefix = '###INSERT '
+            for line in template.split('\n'):
+                if prefix in line:
+                    if 'envars' in line:
+                        f.write(f'bioshost={bhost}\n')
+                        f.write(f'biosport={biosport}\n')
+                    elif 'prodkeys' in line:
+                        for node in self.network.nodes.values():
+                            f.write(f'wcmd import -n ignition --private-key {node.keys[0].privkey}\n')
+                    elif 'cacmd' in line:
+                        for node in self.network.nodes.values():
+                            if node.producers and node.producers[0] == 'eosio':
+                                continue
+                            for producer in node.producers:
+                                f.write(f'cacmd {producer} {node.keys[0].pubkey}\n')
+                f.write(f'{line}\n')
+
     
     def write_dot_file(self):
         with open('testnet.dot', 'w') as f:
@@ -489,5 +653,58 @@ plugin = eosio::chain_api_plugin
                     f.write(f'"{node.dot_label}"->"{pname}" [dir="forward"];\n')
             f.write('}')
 
+    def terminate_wait_pid(self, pid, raise_if_missing=True):
+        '''Terminate a non-child process with SIGTERM and wait for it to exit.'''
+        if sys.version_info >= (3, 9) and platform.system() == 'Linux': # on our supported platforms, Python 3.9 accompanies a kernel > 5.3
+            try:
+                fd = os.pidfd_open(pid)
+            except:
+                if raise_if_missing:
+                    raise
+            else:
+                po = select.poll()
+                po.register(fd, select.POLLIN)
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    if raise_if_missing:
+                        raise
+                po.poll(None)
+        else:
+            if platform.system() in {'Linux', 'Darwin'}:
+                def pid_exists(pid):
+                    try:
+                        os.kill(pid, 0)
+                    except OSError as err:
+                        if err.errno == errno.ESRCH:
+                            return False
+                        elif err.errno == errno.EPERM:
+                            return True
+                        else:
+                            raise err
+                    return True
+                def backoff_timer(delay):
+                    time.sleep(delay)
+                    return min(delay * 2, 0.04)
+                delay = 0.0001
+                try:
+                    os.kill(pid, signal.SIGTERM)
+                except ProcessLookupError:
+                    if raise_if_missing:
+                        raise
+                    else:
+                        return
+                while True:
+                    if pid_exists(pid):
+                        delay = backoff_timer(delay)
+                    else:
+                        return
+
 if __name__ == '__main__':
     l = launcher(sys.argv[1:])
+    if len(l.args.down):
+        l.down(l.args.down)
+    elif len(l.args.bounce):
+        l.bounce(l.args.bounce)
+    elif l.args.launch == 'all' or l.args.launch == 'local':
+        l.start_all()

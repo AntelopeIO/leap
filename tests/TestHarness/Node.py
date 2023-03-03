@@ -8,10 +8,6 @@ import json
 import signal
 import sys
 
-import urllib.request
-import urllib.parse
-import urllib.error
-
 from datetime import datetime
 from datetime import timedelta
 from core_symbol import CORE_SYMBOL
@@ -27,7 +23,7 @@ class Node(Transactions):
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
-    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, nodeosVers=""):
+    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None):
         super().__init__(host, port, walletMgr)
         self.host=host
         self.port=port
@@ -47,14 +43,30 @@ class Node(Transactions):
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
-        self.nodeosVers=nodeosVers
-        if self.nodeosVers=="v2":
+        self.pollVersion()
+
+    def pollVersion(self):
+        info = self.getInfo(silentErrors=True)
+        timeout = datetime.now() + timedelta(seconds=20)
+        while info == None:
+            time.sleep(0.5)
+            info = self.getInfo(silentErrors=True)
+            if datetime.now() > timeout:
+                break
+        else:
+            self.configureVersion(info)
+
+    def configureVersion(self, info):
+        self.nodeosVers=info["server_version_string"]
+        if 'v2' in self.nodeosVers:
             self.fetchTransactionCommand = lambda: "get transaction"
             self.fetchTransactionFromTrace = lambda trx: trx['trx']['id']
             self.fetchBlock = lambda blockNum: self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
             self.fetchKeyCommand = lambda: "[trx][trx][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["trx"]["trx"]["ref_block_num"]
             self.cleosLimit = ""
+            self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":headBlock}, silentErrors=False, exitOnError=True)
+
         else:
             self.fetchTransactionCommand = lambda: "get transaction_trace"
             self.fetchTransactionFromTrace = lambda trx: trx['id']
@@ -62,6 +74,7 @@ class Node(Transactions):
             self.fetchKeyCommand = lambda: "[transaction][transaction_header][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["transaction_header"]["ref_block_num"]
             self.cleosLimit = "--time-limit 99999"
+            self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
 
     def __str__(self):
         return "Host: %s, Port:%d, NodeNum:%s, Pid:%s" % (self.host, self.port, self.nodeId, self.pid)
@@ -120,7 +133,7 @@ class Node(Transactions):
                 raise
 
     def waitForTransactionInBlock(self, transId, timeout=None):
-        """Wait for trans id to be finalized."""
+        """Wait for trans id to appear in a block."""
         assert(isinstance(transId, str))
         lam = lambda: self.isTransInAnyBlock(transId)
         ret=Utils.waitForBool(lam, timeout)
@@ -153,8 +166,10 @@ class Node(Transactions):
         return transIds
 
     def waitForTransactionsInBlock(self, transIds, timeout=None):
+        status = True
         for transId in transIds:
-            self.waitForTransactionInBlock(transId, timeout)
+            status &= self.waitForTransactionInBlock(transId, timeout)
+        return status
 
     def waitForTransFinalization(self, transId, timeout=None):
         """Wait for trans id to be finalized."""
@@ -211,7 +226,7 @@ class Node(Transactions):
             timeout = 6 + blocksToAdvance / 2
         def isHeadAdvancing():
             return self.getHeadBlockNum() >= currentHead + blocksToAdvance
-        return Utils.waitForBool(isHeadAdvancing, timeout)
+        return Utils.waitForBool(isHeadAdvancing, timeout, sleepTime=0.5)
 
     def waitForLibToAdvance(self, timeout=30):
         currentLib = self.getIrreversibleBlockNum()
@@ -240,63 +255,6 @@ class Node(Transactions):
         basedOnLib="true" if blockType==BlockType.lib else "false"
         payload={ "producer":producer, "where_in_sequence":whereInSequence, "based_on_lib":basedOnLib }
         return self.processUrllibRequest("test_control", "kill_node_on_producer", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
-
-    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
-        if not endpoint:
-            endpoint = self.endpointHttp
-        cmd = f"{endpoint}/v1/{resource}/{command}"
-        req = urllib.request.Request(cmd, method="POST")
-        req.add_header('Content-Type', 'application/json')
-        data = payload
-        data = json.dumps(data)
-        data = data.encode()
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-        rtn=None
-        start=time.perf_counter()
-        try:
-            response = urllib.request.urlopen(req, data=data)
-            if returnType==ReturnType.json:
-                rtn = {}
-                rtn["code"] = response.getcode()
-                rtn["payload"] = json.load(response)
-            elif returnType==ReturnType.raw:
-                rtn = response.read()
-            else:
-                unhandledEnumType(returnType)
-
-            if Utils.Debug:
-                end=time.perf_counter()
-                Utils.Print("cmd Duration: %.3f sec" % (end-start))
-                printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
-                Utils.Print("cmd returned: %s" % (printReturn[:1024]))
-        except urllib.error.HTTPError as ex:
-            if not silentErrors:
-                end=time.perf_counter()
-                msg=ex.msg
-                errorMsg="Exception during \"%s\". %s.  cmd Duration=%.3f sec." % (cmd, msg, end-start)
-                if exitOnError:
-                    Utils.cmdError(errorMsg)
-                    Utils.errorExit(errorMsg)
-                else:
-                    Utils.Print("ERROR: %s" % (errorMsg))
-                    if returnType==ReturnType.json:
-                        rtn = json.load(ex)
-                    elif returnType==ReturnType.raw:
-                        rtn = ex.read()
-                    else:
-                        unhandledEnumType(returnType)
-            else:
-                return None
-
-        if exitMsg is not None:
-            exitMsg=": " + exitMsg
-        else:
-            exitMsg=""
-        if exitOnError and rtn is None:
-            Utils.cmdError("could not \"%s\" - %s" % (cmd,exitMsg))
-            Utils.errorExit("Failed to \"%s\"" % (cmd))
-
-        return rtn
 
     def txnGenCreateTestAccounts(self, genAccount, genKey, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
         assert(isinstance(genAccount, str))
@@ -490,7 +448,9 @@ class Node(Transactions):
                 popen.errfile=serr
                 self.popenProc=popen
             self.pid=popen.pid
+            self.cmd = cmd
             if Utils.Debug: Utils.Print("start Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
+        self.pollVersion()
 
     def trackCmdTransaction(self, trans, ignoreNonTrans=False, reportStatus=True):
         if trans is None:

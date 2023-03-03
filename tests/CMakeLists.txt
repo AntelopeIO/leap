@@ -28,7 +28,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_snapshot_diff_test.py ${CMAKE_
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_forked_chain_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_forked_chain_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_short_fork_take_over_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_short_fork_take_over_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_run_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_run_test.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_run_remote_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_run_remote_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_under_min_avail_ram.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_under_min_avail_ram.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_voting_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_voting_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_irreversible_mode_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_irreversible_mode_test.py COPYONLY)
@@ -67,7 +66,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/trace_plugin_test.py ${CMAKE_CURRENT_
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nested_container_multi_index_test.py ${CMAKE_CURRENT_BINARY_DIR}/nested_container_multi_index_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/large-lib-test.py ${CMAKE_CURRENT_BINARY_DIR}/large-lib-test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/launcher.py ${CMAKE_CURRENT_BINARY_DIR}/launcher.py COPYONLY)
-
 
 #To run plugin_test with all log from blockchain displayed, put --verbose after --, i.e. plugin_test -- --verbose
 add_test(NAME plugin_test COMMAND plugin_test --report_level=detailed --color_output)
@@ -153,7 +151,7 @@ set_property(TEST trx_finality_status_test PROPERTY LABELS nonparallelizable_tes
 add_test(NAME trx_finality_status_forked_test COMMAND tests/trx_finality_status_forked_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST trx_finality_status_forked_test PROPERTY LABELS nonparallelizable_tests)
 
-add_test(NAME db_modes_test COMMAND tests/db_modes_test.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME db_modes_test COMMAND tests/db_modes_test.sh -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(db_modes_test PROPERTIES COST 6000)
 add_test(NAME release-build-test COMMAND tests/release-build.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 add_test(NAME version-label-test COMMAND tests/version-label.sh "v${VERSION_FULL}" WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -163,8 +161,6 @@ set_property(TEST nested_container_multi_index_test PROPERTY LABELS nonparalleli
 
 add_test(NAME nodeos_run_check_test COMMAND tests/nodeos_run_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_run_check_test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME nodeos_remote_test COMMAND tests/nodeos_run_remote_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_remote_test PROPERTY LABELS nonparallelizable_tests)
 
 # needs iproute-tc or iproute2 depending on platform
 #add_test(NAME p2p_high_latency_test COMMAND tests/p2p_high_latency_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -226,7 +222,7 @@ set_tests_properties(http_plugin_test PROPERTIES TIMEOUT 100)
 set_property(TEST http_plugin_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME plugin_http_api_test COMMAND tests/plugin_http_api_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_tests_properties(plugin_http_api_test PROPERTIES TIMEOUT 40)
+set_tests_properties(plugin_http_api_test PROPERTIES TIMEOUT 50)
 set_property(TEST plugin_http_api_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME trace_plugin_test COMMAND tests/trace_plugin_test.py -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -260,7 +256,7 @@ if(ENABLE_COVERAGE_TESTING)
 
   # no spaces allowed within tests list
   set(ctest_tests 'plugin_test|p2p_dawn515_test|nodeos_run_test|distributed-transactions-test|restart-scenarios-test_resync')
-  set(ctest_exclude_tests 'nodeos_run_remote_test|distributed-transactions-remote-test|restart-scenarios-test_replay')
+  set(ctest_exclude_tests 'distributed-transactions-remote-test|restart-scenarios-test_replay')
 
   # Setup target
   add_custom_target(${Coverage_NAME}
