@@ -147,7 +147,6 @@ public:
    }
 
    void execute_snapshot(uint32_t srid) {
-       elog( "execute: ${details}", ("details", srid) );
       _inflight_sid = srid;
       auto next = [srid, this](const std::variant<fc::exception_ptr, producer_plugin::snapshot_information>& result) {
          if(std::holds_alternative<fc::exception_ptr>(result)) {
