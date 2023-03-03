@@ -29,16 +29,6 @@ Config Options for eosio::http_plugin:
                                         The local IP and port to listen for
                                         incoming http connections; set blank to
                                         disable.
-  --https-server-address arg            The local IP and port to listen for
-                                        incoming https connections; leave blank
-                                        to disable.
-  --https-certificate-chain-file arg    Filename with the certificate chain to
-                                        present on https connections. PEM
-                                        format. Required for https.
-  --https-private-key-file arg          Filename with https private key in PEM
-                                        format. Required for https
-  --https-ecdh-curve arg (=secp384r1)   Configure https ECDH curve to use:
-                                        secp384r1 or prime256v1
   --access-control-allow-origin arg     Specify the Access-Control-Allow-Origin
                                         to be returned on each request
   --access-control-allow-headers arg    Specify the Access-Control-Allow-Header
