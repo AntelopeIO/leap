@@ -22,9 +22,6 @@ namespace bmi = boost::multi_index;
 
 class snapshot_scheduler_listener {
    virtual void on_start_block(uint32_t height) = 0;
-   virtual void on_block(uint32_t height) = 0;
-   virtual void on_irreversible_block(uint32_t height) = 0;
-   virtual void on_abort_block() = 0;
 };
 
 class snapshot_scheduler_handler {
@@ -51,8 +48,15 @@ private:
                                                  BOOST_MULTI_INDEX_MEMBER(producer_plugin::snapshot_request_information, uint32_t, end_block_num)>>>>;
    snapshot_requests _snapshot_requests;
    snapshot_db_json _snapshot_db;
-   uint32_t _snapshot_id = 0;
+   uint32_t _snapshot_id   = 0;
+   uint32_t _inflight_sid  = 0;
    std::function<void(producer_plugin::next_function<producer_plugin::snapshot_information>)> _create_snapshot;
+
+   void x_serialize() {
+      auto& vec = _snapshot_requests.get<as_vector>();
+      std::vector<producer_plugin::snapshot_schedule_information> sr(vec.begin(), vec.end());
+      _snapshot_db << sr;   
+   }
 
 public:
    snapshot_scheduler() = default;
@@ -62,7 +66,7 @@ public:
       for(const auto& req: _snapshot_requests.get<0>()) {
          // execute snapshot, -1 since its called from start block
          if(!req.block_spacing || (!((height - req.start_block_num - 1) % req.block_spacing))) {
-            execute_snapshot();
+            execute_snapshot(req.snapshot_request_id);
          }
          // assume "asap" for snapshot with missed/zero start, it can have spacing
          if(req.start_block_num == 0) {
@@ -76,9 +80,6 @@ public:
          }
       }
    }
-   void on_block(uint32_t height) {}
-   void on_irreversible_block(uint32_t height) {}
-   void on_abort_block() {}
 
    // snapshot_scheduler_handler
    void schedule_snapshot(const producer_plugin::snapshot_request_information& sri) {
@@ -96,10 +97,7 @@ public:
       }
 
       _snapshot_requests.emplace(producer_plugin::snapshot_schedule_information {{_snapshot_id++},{sri.block_spacing, sri.start_block_num, sri.end_block_num, sri.snapshot_description},{}});
-
-      auto& vec = _snapshot_requests.get<as_vector>();
-      std::vector<producer_plugin::snapshot_schedule_information> sr(vec.begin(), vec.end());
-      _snapshot_db << sr;
+      x_serialize();
    }
 
    virtual void unschedule_snapshot(uint32_t sri) {
@@ -107,17 +105,14 @@ public:
       auto existing = snapshot_by_id.find(sri);
       EOS_ASSERT(existing != snapshot_by_id.end(), chain::snapshot_request_not_found, "Snapshot request not found");
       _snapshot_requests.erase(existing);
-
-      auto& vec = _snapshot_requests.get<as_vector>();
-      std::vector<producer_plugin::snapshot_schedule_information> sr(vec.begin(), vec.end());
-      _snapshot_db << sr;
+      x_serialize();
    }
 
    virtual producer_plugin::get_snapshot_requests_result get_snapshot_requests() {
       producer_plugin::get_snapshot_requests_result result;
       auto& asvector = _snapshot_requests.get<as_vector>();
-      result.requests.reserve(asvector.size());
-      result.requests.insert(result.requests.begin(), asvector.begin(), asvector.end());
+      result.snapshot_requests.reserve(asvector.size());
+      result.snapshot_requests.insert(result.snapshot_requests.begin(), asvector.begin(), asvector.end());
       return result;
    }
 
@@ -132,14 +127,29 @@ public:
       }
    }
 
+   // add pending snapshot info to inflight snapshot request
+   void add_pending_snapshot_info(const producer_plugin::snapshot_information & si) {
+      auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
+      auto  snapshot_req   = snapshot_by_id.find(_inflight_sid);
+      if (snapshot_req != snapshot_by_id.end()) {
+         _snapshot_requests.modify(snapshot_req, [&si](auto& p) { 
+            if (!p.pending_snapshots) {
+               p.pending_snapshots = std::vector<producer_plugin::snapshot_information>();
+            }
+            p.pending_snapshots->emplace_back(si);       
+         });
+      }
+   }
+
    // snapshot executor
    void set_create_snapshot_fn(std::function<void(producer_plugin::next_function<producer_plugin::snapshot_information>)> fn) {
       _create_snapshot = std::move(fn);
    }
 
-
-   void execute_snapshot() {
-      auto next = [](const std::variant<fc::exception_ptr, producer_plugin::snapshot_information>& result) {
+   void execute_snapshot(uint32_t srid) {
+       elog( "execute: ${details}", ("details", srid) );
+      _inflight_sid = srid;
+      auto next = [srid, this](const std::variant<fc::exception_ptr, producer_plugin::snapshot_information>& result) {
          if(std::holds_alternative<fc::exception_ptr>(result)) {
             try {
                std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();
@@ -151,7 +161,20 @@ public:
                throw;
             }
          } else {
-            // success
+            // success, snapshot finalized
+            auto snapshot_info   = std::get<producer_plugin::snapshot_information>(result);
+            auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
+            auto  snapshot_req   = snapshot_by_id.find(srid);
+
+            if (snapshot_req != snapshot_by_id.end()) {               
+               if (auto pending = snapshot_req->pending_snapshots; pending) {                 
+                  auto it = std::remove_if(pending->begin(), pending->end(), [&snapshot_info](const producer_plugin::snapshot_information & s){ return s.head_block_num <=  snapshot_info.head_block_num; });
+                  pending->erase(it, pending->end());
+                  _snapshot_requests.modify(snapshot_req, [&pending](auto& p) { 
+                     p.pending_snapshots = std::move(pending);
+                  });
+               }
+            }
          }
       };
       _create_snapshot(next);
