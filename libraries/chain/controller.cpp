@@ -3011,19 +3011,19 @@ block_state_ptr controller::head_block_state()const {
 }
 
 uint32_t controller::fork_db_head_block_num()const {
-   return my->fork_db.head()->block_num;
+   if( my->read_mode == db_read_mode::IRREVERSIBLE ) {
+      return my->fork_db.pending_head()->block_num;
+   } else {
+      return my->fork_db.head()->block_num;
+   }
 }
 
 block_id_type controller::fork_db_head_block_id()const {
-   return my->fork_db.head()->id;
-}
-
-uint32_t controller::fork_db_pending_head_block_num()const {
-   return my->fork_db.pending_head()->block_num;
-}
-
-block_id_type controller::fork_db_pending_head_block_id()const {
-   return my->fork_db.pending_head()->id;
+   if( my->read_mode == db_read_mode::IRREVERSIBLE ) {
+      return my->fork_db.pending_head()->id;
+   } else {
+      return my->fork_db.head()->id;
+   }
 }
 
 time_point controller::pending_block_time()const {
