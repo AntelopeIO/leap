@@ -405,6 +405,34 @@ BOOST_AUTO_TEST_CASE(store_read_entry_prune_enabled) {
    store_read_test_case(1024, eosio::state_history::prune_config{.prune_blocks = 100});
 }
 
+BOOST_AUTO_TEST_CASE(store_with_existing) {
+   uint64_t data_size = 512;
+   fc::temp_directory       log_dir;
+   eosio::state_history_log log("ship", log_dir.path(), {});
+
+   eosio::state_history_log_header header;
+   header.block_id     = block_id_for(1);
+   header.payload_size = 0;
+   auto data           = generate_data(data_size);
+
+   log.pack_and_write_entry(header, block_id_for(0),
+                            [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
+
+   header.block_id     = block_id_for(2);
+   log.pack_and_write_entry(header, block_id_for(1),
+                            [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); });
+
+   // Do not allow starting from scratch for existing
+   header.block_id     = block_id_for(1);
+   BOOST_CHECK_EXCEPTION(
+         log.pack_and_write_entry(header, block_id_for(0), [&](auto&& buf) { bio::write(buf, (const char*)data.data(), data.size() * sizeof(data[0])); }),
+         eosio::chain::plugin_exception,
+         []( const auto& e ) {
+            return e.to_detail_string().find( "Existing ship log" ) != std::string::npos;
+         }
+   );
+}
+
 BOOST_FIXTURE_TEST_CASE(test_session_no_prune, state_history_test_fixture) {
    try {
       // setup block head for the server
