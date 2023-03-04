@@ -288,16 +288,14 @@ namespace eosio {
    private:
       mutable std::mutex            chain_info_mtx; // protects chain_*
       uint32_t                      chain_lib_num{0};
-      uint32_t                      chain_head_blk_num{0};
       uint32_t                      chain_fork_head_blk_num{0};
       block_id_type                 chain_lib_id;
-      block_id_type                 chain_head_blk_id;
       block_id_type                 chain_fork_head_blk_id;
 
    public:
       void update_chain_info();
-      //         lib_num, head_block_num, fork_head_blk_num, lib_id, head_blk_id, fork_head_blk_id
-      std::tuple<uint32_t, uint32_t, uint32_t, block_id_type, block_id_type, block_id_type> get_chain_info() const;
+      //        lib_num, fork_head_blk_num, lib_id, fork_head_blk_id
+      std::tuple<uint32_t, uint32_t, block_id_type, block_id_type> get_chain_info() const;
 
       void start_listen_loop();
 
@@ -1027,8 +1025,8 @@ namespace eosio {
    // called from connection strand
    void connection::blk_send_branch( const block_id_type& msg_head_id ) {
       uint32_t head_num = 0;
-      std::tie( std::ignore, std::ignore, head_num,
-                std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
+      std::tie( std::ignore, head_num,
+                std::ignore, std::ignore ) = my_impl->get_chain_info();
 
       peer_dlog(this, "head_num = ${h}",("h",head_num));
       if(head_num == 0) {
@@ -1564,7 +1562,7 @@ namespace eosio {
             reset_last_requested_num(g);
             // if starting to sync need to always start from lib as we might be on our own fork
             uint32_t lib_num = 0;
-            std::tie( lib_num, std::ignore, std::ignore, std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
+            std::tie( lib_num, std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
             sync_next_expected_num = lib_num + 1;
             request_next_chunk( std::move(g) );
          }
@@ -1575,8 +1573,8 @@ namespace eosio {
    void sync_manager::request_next_chunk( std::unique_lock<std::mutex> g_sync, const connection_ptr& conn ) {
       uint32_t fork_head_block_num = 0;
       uint32_t lib_block_num = 0;
-      std::tie( lib_block_num, std::ignore, fork_head_block_num,
-                std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
+      std::tie( lib_block_num, fork_head_block_num,
+                std::ignore, std::ignore ) = my_impl->get_chain_info();
 
       fc_dlog( logger, "sync_last_requested_num: ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}",
                ("r", sync_last_requested_num)("e", sync_next_expected_num)("k", sync_known_lib_num)("s", sync_req_span) );
@@ -1707,8 +1705,8 @@ namespace eosio {
 
       uint32_t lib_num = 0;
       uint32_t fork_head_block_num = 0;
-      std::tie( lib_num, std::ignore, fork_head_block_num,
-                std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
+      std::tie( lib_num, fork_head_block_num,
+                std::ignore, std::ignore ) = my_impl->get_chain_info();
 
       if( !is_sync_required( fork_head_block_num ) || target <= lib_num ) {
          peer_dlog( c, "We are already caught up, my irr = ${b}, head = ${h}, target = ${t}",
@@ -1750,8 +1748,8 @@ namespace eosio {
       uint32_t lib_num = 0;
       uint32_t head = 0;
       block_id_type head_id;
-      std::tie( lib_num, std::ignore, head,
-                std::ignore, std::ignore, head_id ) = my_impl->get_chain_info();
+      std::tie( lib_num, head,
+                std::ignore, head_id ) = my_impl->get_chain_info();
 
       sync_reset_lib_num(c, false);
 
@@ -1879,8 +1877,8 @@ namespace eosio {
          }
          uint32_t lib;
          block_id_type head_id;
-         std::tie( lib, std::ignore, std::ignore,
-                   std::ignore, std::ignore, head_id ) = my_impl->get_chain_info();
+         std::tie( lib, std::ignore,
+                   std::ignore, head_id ) = my_impl->get_chain_info();
          if( sync_state == lib_catchup || num < lib )
             return false;
          set_state( head_catchup );
@@ -2601,7 +2599,7 @@ namespace eosio {
                  ("latency", (fc::time_point::now() - bh.timestamp).count()/1000) );
       if( !my_impl->sync_master->syncing_with_peer() ) { // guard against peer thinking it needs to send us old blocks
          uint32_t lib = 0;
-         std::tie( lib, std::ignore, std::ignore, std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
+         std::tie( lib, std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
          if( blk_num < lib ) {
             std::unique_lock<std::mutex> g( conn_mtx );
             const auto last_sent_lib = last_handshake_sent.last_irreversible_block_num;
@@ -2726,21 +2724,19 @@ namespace eosio {
       std::lock_guard<std::mutex> g( chain_info_mtx );
       chain_lib_num = cc.last_irreversible_block_num();
       chain_lib_id = cc.last_irreversible_block_id();
-      chain_head_blk_num = cc.head_block_num();
-      chain_head_blk_id = cc.head_block_id();
       chain_fork_head_blk_num = cc.fork_db_head_block_num();
       chain_fork_head_blk_id = cc.fork_db_head_block_id();
-      fc_dlog( logger, "updating chain info lib ${lib}, head ${head}, fork ${fork}",
-               ("lib", chain_lib_num)("head", chain_head_blk_num)("fork", chain_fork_head_blk_num) );
+      fc_dlog( logger, "updating chain info lib ${lib}, fork ${fork}",
+               ("lib", chain_lib_num)("fork", chain_fork_head_blk_num) );
    }
 
-   //         lib_num, head_blk_num, fork_head_blk_num, lib_id, head_blk_id, fork_head_blk_id
-   std::tuple<uint32_t, uint32_t, uint32_t, block_id_type, block_id_type, block_id_type>
+   //        lib_num, fork_head_blk_num, lib_id, fork_head_blk_id
+   std::tuple<uint32_t, uint32_t, block_id_type, block_id_type>
    net_plugin_impl::get_chain_info() const {
       std::lock_guard<std::mutex> g( chain_info_mtx );
       return std::make_tuple(
-            chain_lib_num, chain_head_blk_num, chain_fork_head_blk_num,
-            chain_lib_id, chain_head_blk_id, chain_fork_head_blk_id );
+            chain_lib_num, chain_fork_head_blk_num,
+            chain_lib_id, chain_fork_head_blk_id );
    }
 
    bool connection::is_valid( const handshake_message& msg ) const {
@@ -2896,7 +2892,7 @@ namespace eosio {
 
          uint32_t peer_lib = msg.last_irreversible_block_num;
          uint32_t lib_num = 0;
-         std::tie( lib_num, std::ignore, std::ignore, std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
+         std::tie( lib_num, std::ignore, std::ignore, std::ignore ) = my_impl->get_chain_info();
 
          peer_dlog( this, "handshake check for fork lib_num = ${ln}, peer_lib = ${pl}", ("ln", lib_num)("pl", peer_lib) );
 
@@ -3378,7 +3374,7 @@ namespace eosio {
    void net_plugin_impl::expire() {
       auto now = time_point::now();
       uint32_t lib = 0;
-      std::tie( lib, std::ignore, std::ignore, std::ignore, std::ignore, std::ignore ) = get_chain_info();
+      std::tie( lib, std::ignore, std::ignore, std::ignore ) = get_chain_info();
       dispatcher->expire_blocks( lib );
       dispatcher->expire_txns();
       fc_dlog( logger, "expire_txns ${n}us", ("n", time_point::now() - now) );
@@ -3533,8 +3529,8 @@ namespace eosio {
       namespace sc = std::chrono;
       hello.network_version = net_version_base + net_version;
       uint32_t lib, head;
-      std::tie( lib, std::ignore, head,
-                hello.last_irreversible_block_id, std::ignore, hello.head_id ) = my_impl->get_chain_info();
+      std::tie( lib, head,
+                hello.last_irreversible_block_id, hello.head_id ) = my_impl->get_chain_info();
       hello.last_irreversible_block_num = lib;
       hello.head_num = head;
       hello.chain_id = my_impl->chain_id;
