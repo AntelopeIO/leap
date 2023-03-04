@@ -74,6 +74,12 @@ namespace fc
 # define FC_MULTILINE_MACRO_END  } while (0)
 #endif
 
+#define fc_tlog( LOGGER, FORMAT, ... ) \
+  FC_MULTILINE_MACRO_BEGIN \
+   if( (LOGGER).is_enabled( fc::log_level::all ) ) \
+      (LOGGER).log( FC_LOG_MESSAGE( all, FORMAT, __VA_ARGS__ ) ); \
+  FC_MULTILINE_MACRO_END
+
 #define fc_dlog( LOGGER, FORMAT, ... ) \
   FC_MULTILINE_MACRO_BEGIN \
    if( (LOGGER).is_enabled( fc::log_level::debug ) ) \

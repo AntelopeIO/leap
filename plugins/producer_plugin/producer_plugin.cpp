@@ -40,13 +40,6 @@ using std::string;
 using std::vector;
 using boost::signals2::scoped_connection;
 
-// in release/3.2+ move to fc logger.hpp
-#define fc_tlog( LOGGER, FORMAT, ... ) \
-  FC_MULTILINE_MACRO_BEGIN \
-   if( (LOGGER).is_enabled( fc::log_level::all ) ) \
-      (LOGGER).log( FC_LOG_MESSAGE( all, FORMAT, __VA_ARGS__ ) ); \
-  FC_MULTILINE_MACRO_END
-
 #undef FC_LOG_AND_DROP
 #define LOG_AND_DROP()  \
    catch ( const guard_exception& e ) { \
