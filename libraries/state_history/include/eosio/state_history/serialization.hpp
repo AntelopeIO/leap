@@ -715,4 +715,15 @@ datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::get_b
    return ds;
 }
 
+template <typename ST>
+datastream<ST>& operator<<(datastream<ST>& ds, const eosio::state_history::get_blocks_result_base& obj) {
+   fc::raw::pack(ds, obj.head);
+   fc::raw::pack(ds, obj.last_irreversible);
+   fc::raw::pack(ds, obj.this_block);
+   fc::raw::pack(ds, obj.prev_block);
+   history_pack_big_bytes(ds, obj.block);
+   return ds;
+}
+
+
 } // namespace fc

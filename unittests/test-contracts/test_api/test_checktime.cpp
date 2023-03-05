@@ -15,8 +15,7 @@ void test_checktime::checktime_pass() {
    eosio::print(p);
 }
 
-
-void test_checktime::checktime_failure() {
+static void checktime_failure_common() {
    volatile unsigned long long bound{}; // `volatile' necessary to prevent loop optimization
    read_action_data( (char*)&bound, sizeof(bound) );
 
@@ -26,6 +25,15 @@ void test_checktime::checktime_failure() {
          p += i+j+bound;
 
    eosio::print(p);
+}
+
+void test_checktime::checktime_failure() {
+   checktime_failure_common();
+}
+
+// used by tests where authorization is not allowed, like read-only transactions
+void test_checktime::checktime_no_auth_failure() {
+   checktime_failure_common();
 }
 
 constexpr size_t size = 20000000;

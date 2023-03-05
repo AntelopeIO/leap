@@ -75,7 +75,7 @@ void logging_conf_handler()
       ilog( "Received HUP.  No log config found at ${p}, setting to default.", ("p", config_path.string()) );
    }
    ::detail::configure_logging( config_path );
-   fc::log_config::initialize_appenders( app().get_io_service() );
+   fc::log_config::initialize_appenders();
 }
 
 void initialize_logging()
@@ -89,7 +89,7 @@ void initialize_logging()
       fc::configure_logging( ::detail::add_deep_mind_logger(cfg) );
    }
 
-   fc::log_config::initialize_appenders( app().get_io_service() );
+   fc::log_config::initialize_appenders();
 
    app().set_sighup_callback(logging_conf_handler);
 }
@@ -124,8 +124,7 @@ int main(int argc, char** argv)
          .default_http_port = 8888,
          .server_header = nodeos::config::node_executable_name + "/" + app->version_string()
       });
-      initialize_logging();
-      if(!app->initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv)) {
+      if(!app->initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv, initialize_logging)) {
          const auto& opts = app->get_options();
          if( opts.count("help") || opts.count("version") || opts.count("full-version") || opts.count("print-default-config") ) {
             return SUCCESS;

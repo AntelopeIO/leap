@@ -37,6 +37,10 @@ namespace chain {
 
       void reflector_init()const;
 
+      static chain_id_type empty_chain_id() {
+         return {};
+      }
+
       private:
          chain_id_type() = default;
 

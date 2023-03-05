@@ -11,7 +11,6 @@ For information on specific plugins, just select from the list below:
 * [`chain_api_plugin`](chain_api_plugin/index.md)
 * [`chain_plugin`](chain_plugin/index.md)
 * [`db_size_api_plugin`](db_size_api_plugin/index.md)
-* [`http_client_plugin`](http_client_plugin/index.md)
 * [`http_plugin`](http_plugin/index.md)
 * [`net_api_plugin`](net_api_plugin/index.md)
 * [`net_plugin`](net_plugin/index.md)

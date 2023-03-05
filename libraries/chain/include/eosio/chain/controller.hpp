@@ -68,7 +68,7 @@ namespace eosio { namespace chain {
             flat_set< pair<account_name, action_name> > action_blacklist;
             flat_set<public_key_type> key_blacklist;
             path                     blocks_dir             =  chain::config::default_blocks_dir_name;
-            std::optional<block_log_prune_config>  prune_config;
+            block_log_config         blog;
             path                     state_dir              =  chain::config::default_state_dir_name;
             uint64_t                 state_size             =  chain::config::default_state_size;
             uint64_t                 state_guard_size       =  chain::config::default_state_guard_size;
@@ -119,7 +119,7 @@ namespace eosio { namespace chain {
          void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown, const genesis_state& genesis);
          void startup( std::function<void()> shutdown, std::function<bool()> check_shutdown);
 
-         void preactivate_feature( const digest_type& feature_digest );
+         void preactivate_feature( const digest_type& feature_digest, bool is_trx_transient );
 
          vector<digest_type> get_preactivated_protocol_features()const;
 
@@ -221,13 +221,6 @@ namespace eosio { namespace chain {
 
          uint32_t             fork_db_head_block_num()const;
          block_id_type        fork_db_head_block_id()const;
-         time_point           fork_db_head_block_time()const;
-         account_name         fork_db_head_block_producer()const;
-
-         uint32_t             fork_db_pending_head_block_num()const;
-         block_id_type        fork_db_pending_head_block_id()const;
-         time_point           fork_db_pending_head_block_time()const;
-         account_name         fork_db_pending_head_block_producer()const;
 
          time_point                     pending_block_time()const;
          account_name                   pending_block_producer()const;
@@ -243,13 +236,15 @@ namespace eosio { namespace chain {
          block_id_type last_irreversible_block_id() const;
          time_point last_irreversible_block_time() const;
 
+         // thread-safe
          signed_block_ptr fetch_block_by_number( uint32_t block_num )const;
+         // thread-safe
          signed_block_ptr fetch_block_by_id( block_id_type id )const;
-
+         // return block_state from forkdb, thread-safe
          block_state_ptr fetch_block_state_by_number( uint32_t block_num )const;
          // return block_state from forkdb, thread-safe
          block_state_ptr fetch_block_state_by_id( block_id_type id )const;
-
+         // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;
 
          sha256 calculate_integrity_hash();
@@ -311,7 +306,7 @@ namespace eosio { namespace chain {
          void add_to_ram_correction( account_name account, uint64_t ram_bytes );
          bool all_subjective_mitigations_disabled()const;
 
-         deep_mind_handler* get_deep_mind_logger() const;
+         deep_mind_handler* get_deep_mind_logger(bool is_trx_transient) const;
          void enable_deep_mind( deep_mind_handler* logger );
          uint32_t earliest_available_block_num() const;
 
@@ -369,6 +364,9 @@ namespace eosio { namespace chain {
 
       void replace_producer_keys( const public_key_type& key );
       void replace_account_keys( name account, name permission, const public_key_type& key );
+
+      void set_db_read_only_mode();
+      void unset_db_read_only_mode();
 
       private:
          friend class apply_context;

@@ -19,7 +19,6 @@
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/signal_set.hpp>
-#include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
@@ -46,7 +45,6 @@ using std::string;
 namespace beast = boost::beast;     // from <boost/beast.hpp>
 namespace http = boost::beast::http;// from <boost/beast/http.hpp>
 namespace asio = boost::asio;
-namespace ssl = boost::asio::ssl;
 using boost::asio::ip::tcp;// from <boost/asio/ip/tcp.hpp>
 
 
@@ -117,8 +115,6 @@ struct http_plugin_state {
    size_t max_bytes_in_flight = 0;
    int32_t max_requests_in_flight = -1;
    fc::microseconds max_response_time{30 * 1000};
-
-   std::optional<ssl::context> ctx;// only for ssl
 
    bool validate_host = true;
    set<string> valid_hosts;
