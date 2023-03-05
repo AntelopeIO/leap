@@ -419,7 +419,7 @@ struct controller_impl {
                      "empty block log expects the first appended block to build off a block that is not the fork database root. root block number: ${block_num}, lib: ${lib_num}", ("block_num", fork_db.root()->block_num) ("lib_num", lib_num) );
       }
 
-      const auto fork_head = (read_mode == db_read_mode::IRREVERSIBLE) ? fork_db.pending_head() : fork_db.head();
+      const auto fork_head = fork_db_head();
 
       if( fork_head->dpos_irreversible_blocknum <= lib_num )
          return;
@@ -2701,6 +2701,8 @@ struct controller_impl {
       else
          return *wasmif_thread_local;
    }
+
+   block_state_ptr fork_db_head() const;
 }; /// controller_impl
 
 thread_local platform_timer controller_impl::timer;
@@ -3061,36 +3063,23 @@ block_state_ptr controller::head_block_state()const {
    return my->head;
 }
 
+block_state_ptr controller_impl::fork_db_head() const {
+   if( read_mode == db_read_mode::IRREVERSIBLE ) {
+      // When in IRREVERSIBLE mode fork_db blocks are marked valid when they become irreversible so that
+      // fork_db.head() returns irreversible block
+      // Use pending_head since this method should return the chain head and not last irreversible.
+      return fork_db.pending_head();
+   } else {
+      return fork_db.head();
+   }
+}
+
 uint32_t controller::fork_db_head_block_num()const {
-   return my->fork_db.head()->block_num;
+   return my->fork_db_head()->block_num;
 }
 
 block_id_type controller::fork_db_head_block_id()const {
-   return my->fork_db.head()->id;
-}
-
-time_point controller::fork_db_head_block_time()const {
-   return my->fork_db.head()->header.timestamp;
-}
-
-account_name  controller::fork_db_head_block_producer()const {
-   return my->fork_db.head()->header.producer;
-}
-
-uint32_t controller::fork_db_pending_head_block_num()const {
-   return my->fork_db.pending_head()->block_num;
-}
-
-block_id_type controller::fork_db_pending_head_block_id()const {
-   return my->fork_db.pending_head()->id;
-}
-
-time_point controller::fork_db_pending_head_block_time()const {
-   return my->fork_db.pending_head()->header.timestamp;
-}
-
-account_name  controller::fork_db_pending_head_block_producer()const {
-   return my->fork_db.pending_head()->header.producer;
+   return my->fork_db_head()->id;
 }
 
 time_point controller::pending_block_time()const {
@@ -3177,11 +3166,7 @@ block_state_ptr controller::fetch_block_state_by_id( block_id_type id )const {
 }
 
 block_state_ptr controller::fetch_block_state_by_number( uint32_t block_num )const  { try {
-   if( my->read_mode == db_read_mode::IRREVERSIBLE ) {
-      return my->fork_db.search_on_branch( my->fork_db.pending_head()->id, block_num );
-   } else {
-      return my->fork_db.search_on_branch( my->fork_db.head()->id, block_num );
-   }
+   return my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try {
