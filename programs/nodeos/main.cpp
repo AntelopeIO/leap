@@ -124,8 +124,7 @@ int main(int argc, char** argv)
          .default_http_port = 8888,
          .server_header = nodeos::config::node_executable_name + "/" + app->version_string()
       });
-      initialize_logging();
-      if(!app->initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv)) {
+      if(!app->initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv, initialize_logging)) {
          const auto& opts = app->get_options();
          if( opts.count("help") || opts.count("version") || opts.count("full-version") || opts.count("print-default-config") ) {
             return SUCCESS;
