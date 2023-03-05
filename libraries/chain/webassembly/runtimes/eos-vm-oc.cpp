@@ -16,7 +16,7 @@ class eosvmoc_instantiated_module : public wasm_instantiated_module_interface {
          _code_hash(code_hash),
          _vm_version(vm_version),
          _eosvmoc_runtime(wr),
-         _main_thread_id(boost::this_thread::get_id())
+         _main_thread_id(std::this_thread::get_id())
       {
 
       }
@@ -25,7 +25,7 @@ class eosvmoc_instantiated_module : public wasm_instantiated_module_interface {
          _eosvmoc_runtime.cc.free_code(_code_hash, _vm_version);
       }
 
-      bool is_main_thread() { return _main_thread_id == boost::this_thread::get_id(); };
+      bool is_main_thread() { return _main_thread_id == std::this_thread::get_id(); };
 
       void apply(apply_context& context) override {
          const code_descriptor* const cd = _eosvmoc_runtime.cc.get_descriptor_for_code_sync(_code_hash, _vm_version);
@@ -40,7 +40,7 @@ class eosvmoc_instantiated_module : public wasm_instantiated_module_interface {
       const digest_type              _code_hash;
       const uint8_t                  _vm_version;
       eosvmoc_runtime&               _eosvmoc_runtime;
-      boost::thread::id              _main_thread_id;
+      std::thread::id                _main_thread_id;
 };
 
 eosvmoc_runtime::eosvmoc_runtime(const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db)

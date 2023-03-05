@@ -244,7 +244,7 @@ struct controller_impl {
    // Ideally wasmif should be thread_local which must be a static.
    // Unittests can create multiple controller objects (testers) at the same time,
    // which overwrites the same static wasmif. This same wasmif is used for eosvmoc too.
-   boost::thread::id               main_thread_id;
+   std::thread::id                 main_thread_id;
    wasm_interface                  wasmif;
    thread_local static platform_timer timer;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
@@ -311,7 +311,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    main_thread_id( boost::this_thread::get_id() ),
+    main_thread_id( std::this_thread::get_id() ),
     wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
@@ -2693,7 +2693,7 @@ struct controller_impl {
          wasmif_thread_local = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
    }
 
-   bool is_main_thread() { return main_thread_id == boost::this_thread::get_id(); };
+   bool is_main_thread() { return main_thread_id == std::this_thread::get_id(); };
 
    wasm_interface& get_wasm_interface() {
       if ( is_main_thread() || is_eos_vm_oc_enabled() )

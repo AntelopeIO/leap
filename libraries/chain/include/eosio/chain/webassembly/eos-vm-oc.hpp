@@ -34,7 +34,7 @@ class eosvmoc_runtime : public eosio::chain::wasm_runtime_interface {
                                                                              const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) override;
 
       void immediately_exit_currently_running_module() override;
-      void init_thread_local_data();
+      void init_thread_local_data() override;
 
       friend eosvmoc_instantiated_module;
       eosvmoc::code_cache_sync cc;
