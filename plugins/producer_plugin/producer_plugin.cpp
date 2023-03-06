@@ -2536,4 +2536,9 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
             ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
 }
 
+const std::set<account_name>& producer_plugin::producer_accounts() const {
+   return my->_producers;
+}
+
+
 } // namespace eosio
