@@ -6,8 +6,6 @@
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/plugin_interface.hpp>
 
-using eosio::chain::plugin_interface::metrics_listener;
-
 namespace eosio {
    using namespace appbase;
 
@@ -119,7 +117,7 @@ namespace eosio {
         /// @return the configured http-max-response-time-ms
         fc::microseconds get_max_response_time()const;
 
-        void register_metrics_listener(metrics_listener listener);
+        void register_metrics_listener(chain::plugin_interface::metrics_listener listener);
 
    private:
         std::shared_ptr<class http_plugin_impl> my;

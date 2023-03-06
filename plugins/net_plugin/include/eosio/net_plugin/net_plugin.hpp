@@ -6,22 +6,13 @@
 namespace eosio {
    using namespace appbase;
 
-   struct connection_status {
-      string            peer;
-      bool              connecting = false;
-      bool              syncing    = false;
-      handshake_message last_handshake;
-   };
+   struct net_plugin_metrics : chain::plugin_interface::plugin_metrics {
+      chain::plugin_interface::runtime_metric num_peers{ chain::plugin_interface::metric_type::gauge, "num_peers", "num_peers", 0 };
+      chain::plugin_interface::runtime_metric num_clients{ chain::plugin_interface::metric_type::gauge, "num_clients", "num_clients", 0 };
+      chain::plugin_interface::runtime_metric dropped_trxs{ chain::plugin_interface::metric_type::counter, "dropped_trxs", "dropped_trxs", 0 };
 
-   using namespace plugin_interface;
-
-   struct net_plugin_metrics : plugin_metrics {
-      runtime_metric num_peers{metric_type::gauge, "num_peers", "num_peers", 0};
-      runtime_metric num_clients{metric_type::gauge, "num_clients", "num_clients", 0};
-      runtime_metric dropped_trxs{metric_type::counter, "dropped_trxs", "dropped_trxs", 0};
-
-      vector<runtime_metric> metrics() final {
-         vector<runtime_metric> metrics {
+      vector<chain::plugin_interface::runtime_metric> metrics() final {
+         vector<chain::plugin_interface::runtime_metric> metrics {
             num_peers,
             num_clients,
             dropped_trxs
@@ -29,6 +20,13 @@ namespace eosio {
 
          return metrics;
       }
+   };
+
+   struct connection_status {
+      string            peer;
+      bool              connecting = false;
+      bool              syncing    = false;
+      handshake_message last_handshake;
    };
 
    class net_plugin : public appbase::plugin<net_plugin>
@@ -50,7 +48,7 @@ namespace eosio {
         std::optional<connection_status>  status( const string& endpoint )const;
         vector<connection_status>         connections()const;
 
-        void register_metrics_listener(metrics_listener listener);
+        void register_metrics_listener(chain::plugin_interface::metrics_listener listener);
 
       private:
         std::shared_ptr<class net_plugin_impl> my;

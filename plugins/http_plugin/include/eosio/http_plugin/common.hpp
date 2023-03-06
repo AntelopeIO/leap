@@ -69,14 +69,13 @@ using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
 * internal url handler that contains more parameters than the handlers provided by external systems
 */
 
-using namespace eosio::chain::plugin_interface;
-
 using internal_url_handler_fn = std::function<void(abstract_conn_ptr, string, string, url_response_callback)>;
 struct internal_url_handler {
-   runtime_metric call_count;
+   chain::plugin_interface::runtime_metric call_count;
    internal_url_handler_fn fn;
    http_content_type content_type = http_content_type::json;
-   internal_url_handler(const string& url="") : call_count{metric_type::gauge, "num_calls", url} {}
+   explicit internal_url_handler(const string& url)
+   : call_count{chain::plugin_interface::metric_type::gauge, "num_calls", url} {}
 };
 /**
 * Helper method to calculate the "in flight" size of a fc::variant
@@ -112,14 +111,11 @@ static size_t in_flight_sizeof(const std::optional<T>& o) {
 // key -> priority, url_handler
 typedef map<string, detail::internal_url_handler> url_handlers_type;
 
-using eosio::chain::plugin_interface::plugin_metrics;
-using eosio::chain::plugin_interface::runtime_metric;
-
-struct http_plugin_metrics : plugin_metrics {
+struct http_plugin_metrics : chain::plugin_interface::plugin_metrics {
    url_handlers_type& _handlers;
 
-   vector<runtime_metric> metrics() {
-      vector<runtime_metric> m;
+   vector<chain::plugin_interface::runtime_metric> metrics() final {
+      vector<chain::plugin_interface::runtime_metric> m;
       m.reserve(_handlers.size());
 
       for (const auto& p : _handlers) {
@@ -129,7 +125,8 @@ struct http_plugin_metrics : plugin_metrics {
       return m;
    }
 
-   http_plugin_metrics(url_handlers_type& handlers) : _handlers(handlers) { }
+   explicit http_plugin_metrics(url_handlers_type& handlers)
+   : _handlers(handlers) {}
 };
 
 struct http_plugin_state {
@@ -206,7 +203,7 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
                               session_ptr->handle_exception();
                            }
                         });
-      };// end lambda
+   };// end lambda
 
 }
 

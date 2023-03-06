@@ -24,7 +24,7 @@ struct producer_plugin_metrics : public plugin_metrics {
    runtime_metric subjective_bill_account_size{metric_type::gauge, "subjective_bill_account_size", "subjective_bill_account_size", 0};
    runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
 
-   virtual vector<runtime_metric> metrics() {
+   vector<runtime_metric> metrics() final {
       vector<runtime_metric> metrics{
             unapplied_transactions,
             blacklisted_transactions,
@@ -175,7 +175,6 @@ public:
 
 
    void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
-   producer_plugin_metrics& metrics();
    void register_metrics_listener(metrics_listener listener);
 
    // thread-safe, called when a new block is received

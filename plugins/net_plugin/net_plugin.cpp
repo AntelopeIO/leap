@@ -212,8 +212,6 @@ namespace eosio {
    constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
    constexpr uint32_t packed_transaction_which = fc::get_index<net_message, packed_transaction>(); // see protocol net_message
 
-   using runtime_metrics=eosio::chain::plugin_interface::runtime_metric;
-
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl> {
    public:
       unique_ptr<tcp::acceptor>        acceptor;

@@ -852,10 +852,6 @@ public:
 
 } // namespace chain_apis
 
-struct chain_plugin_metrics {
-   //runtime_metric
-};
-
 class chain_plugin : public plugin<chain_plugin> {
 public:
    APPBASE_PLUGIN_REQUIRES()
@@ -901,8 +897,6 @@ public:
    fc::variant get_log_trx_trace(const chain::transaction_trace_ptr& trx_trace) const;
    // return variant of trx for logging, trace is modified to minimize log output
    fc::variant get_log_trx(const transaction& trx) const;
-
-   const chain_plugin_metrics& metrics() const;
 
 private:
    static void log_guard_exception(const chain::guard_exception& e);

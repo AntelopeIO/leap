@@ -1,16 +1,24 @@
 #include <eosio/prometheus_plugin/prometheus_plugin.hpp>
+#include <eosio/chain/plugin_interface.hpp>
+#include <eosio/chain/thread_utils.hpp>
+#include <eosio/http_plugin/macros.hpp>
+#include <eosio/net_plugin/net_plugin.hpp>
+#include <eosio/producer_plugin/producer_plugin.hpp>
+
 #include <fc/log/logger.hpp>
+
 #include <prometheus/metric_family.h>
 #include <prometheus/collectable.h>
 #include <prometheus/counter.h>
 #include <prometheus/summary.h>
 #include <prometheus/text_serializer.h>
 #include <prometheus/registry.h>
-#include <eosio/chain/thread_utils.hpp>
-#include <eosio/http_plugin/macros.hpp>
+
 
 namespace eosio {
    using namespace prometheus;
+   using namespace chain::plugin_interface;
+
    static auto& _prometheus_plugin = app().register_plugin<prometheus_plugin>();
    using metric_type=chain::plugin_interface::metric_type;
 
@@ -18,7 +26,7 @@ namespace eosio {
       runtime_metric bytes_transferred{metric_type::counter, "exposer_transferred_bytes_total", "exposer_transferred_bytes_total"};
       runtime_metric num_scrapes{metric_type::counter, "exposer_scrapes_total", "exposer_scrapes_total"};
 
-      std::vector<runtime_metric> metrics() {
+      std::vector<chain::plugin_interface::runtime_metric> metrics() final {
         return std::vector{
           bytes_transferred,
           num_scrapes
@@ -46,11 +54,11 @@ namespace eosio {
       }
 
       void add_counter_metric(const runtime_metric& plugin_metric) {
-         auto &counter_family = BuildCounter()
+         auto& counter_family = BuildCounter()
                .Name(plugin_metric.family)
                .Help("")
                .Register(*_registry);
-         auto &counter = counter_family.Add({});
+         auto& counter = counter_family.Add({});
          counter.Increment(plugin_metric.value);
          _counters.push_back(counter_family);
 
@@ -102,85 +110,80 @@ namespace eosio {
       }
    };
 
-   struct prom;
-      struct prometheus_plugin_impl {
-         eosio::chain::named_thread_pool<prom> _prometheus_thread_pool;
-         boost::asio::io_context::strand _prometheus_strand;
-         prometheus_plugin_metrics _metrics;
+   struct prometheus_plugin_impl {
+      eosio::chain::named_thread_pool<struct prom> _prometheus_thread_pool;
+      boost::asio::io_context::strand _prometheus_strand;
+      prometheus_plugin_metrics _metrics;
 
-         map<std::string, vector<runtime_metric>> _plugin_metrics;
+      map<std::string, vector<runtime_metric>> _plugin_metrics;
 
-         prometheus_plugin_impl(): _prometheus_strand(_prometheus_thread_pool.get_executor()){ }
+      prometheus_plugin_impl(): _prometheus_strand(_prometheus_thread_pool.get_executor()){ }
 
-         void update_metrics(std::string plugin_name, vector<runtime_metric> metrics) {
-            auto plugin_metrics = _plugin_metrics.find(plugin_name);
-            if (plugin_metrics != _plugin_metrics.end()) {
-               plugin_metrics->second = std::move(metrics);
-            }
+      void update_metrics(const std::string& plugin_name, vector<runtime_metric> metrics) {
+         auto plugin_metrics = _plugin_metrics.find(plugin_name);
+         if (plugin_metrics != _plugin_metrics.end()) {
+            plugin_metrics->second = std::move(metrics);
          }
+      }
 
-         metrics_listener create_metrics_listener(std::string plugin_name) {
-            return  [plugin_name, self=this] (vector<runtime_metric> metrics) {
-               self->_prometheus_strand.post(
-                     [self, plugin_name, metrics{std::move(metrics)}]() mutable {
-                        self->update_metrics(plugin_name, std::move(metrics));
-               });
-            };
-         }
-
-
-         void initialize_metrics() {
-            net_plugin* np = app().find_plugin<net_plugin>();
-            if (nullptr != np) {
-               _plugin_metrics.emplace(std::pair{"net", std::vector<runtime_metric>()});
-               np->register_metrics_listener(create_metrics_listener("net"));
-            } else {
-               dlog("net_plugin not found -- metrics not added");
-            }
-
-            producer_plugin* pp = app().find_plugin<producer_plugin>();
-            if (nullptr != pp) {
-               _plugin_metrics.emplace(std::pair{"prod", std::vector<runtime_metric>()});
-               pp->register_metrics_listener(create_metrics_listener("prod"));
-            } else {
-               dlog("producer_plugin not found -- metrics not added");
-            }
-
-            http_plugin* hp = app().find_plugin<http_plugin>();
-            if (nullptr != pp) {
-               _plugin_metrics.emplace(std::pair{"http", std::vector<runtime_metric>()});
-               hp->register_metrics_listener(create_metrics_listener("http"));
-            } else {
-               dlog("producer_plugin not found -- metrics not added");
-            }
-         }
-
-         std::string metrics() {
-            auto start_time_of_request = std::chrono::steady_clock::now();
-            metrics_model mm;
-            vector<runtime_metric> prometheus_metrics = _metrics.metrics();
-            mm.add_runtime_metrics(prometheus_metrics);
-
-            for (auto& pm : _plugin_metrics) {
-               mm.add_runtime_metrics(pm.second);
-            }
-
-            std::string body = mm.serialize();
-
-            auto stop_time_of_request = std::chrono::steady_clock::now();
-
-            _metrics.bytes_transferred.value += body.length();
-            _metrics.num_scrapes.value++;
-
-            return body;
-         }
-
-         void metrics_async(chain::plugin_interface::next_function<std::string> results) {
-            _prometheus_strand.post([self=this, results=std::move(results)]() {
-               results(self->metrics());
+      metrics_listener create_metrics_listener(std::string plugin_name) {
+         return  [plugin_name{std::move(plugin_name)}, self=this] (vector<runtime_metric> metrics) mutable {
+            self->_prometheus_strand.post(
+                  [self, plugin_name{std::move(plugin_name)}, metrics{std::move(metrics)}]() mutable {
+                     self->update_metrics(plugin_name, std::move(metrics));
             });
+         };
+      }
+
+
+      void initialize_metrics() {
+         net_plugin* np = app().find_plugin<net_plugin>();
+         if (nullptr != np) {
+            _plugin_metrics.emplace(std::pair{"net", std::vector<runtime_metric>()});
+            np->register_metrics_listener(create_metrics_listener("net"));
+         } else {
+            dlog("net_plugin not found -- metrics not added");
          }
 
+         producer_plugin* pp = app().find_plugin<producer_plugin>();
+         if (nullptr != pp) {
+            _plugin_metrics.emplace(std::pair{"prod", std::vector<runtime_metric>()});
+            pp->register_metrics_listener(create_metrics_listener("prod"));
+         } else {
+            dlog("producer_plugin not found -- metrics not added");
+         }
+
+         http_plugin* hp = app().find_plugin<http_plugin>();
+         if (nullptr != pp) {
+            _plugin_metrics.emplace(std::pair{"http", std::vector<runtime_metric>()});
+            hp->register_metrics_listener(create_metrics_listener("http"));
+         } else {
+            dlog("producer_plugin not found -- metrics not added");
+         }
+      }
+
+      std::string metrics() {
+         metrics_model mm;
+         vector<runtime_metric> prometheus_metrics = _metrics.metrics();
+         mm.add_runtime_metrics(prometheus_metrics);
+
+         for (auto& pm : _plugin_metrics) {
+            mm.add_runtime_metrics(pm.second);
+         }
+
+         std::string body = mm.serialize();
+
+         _metrics.bytes_transferred.value += body.length();
+         _metrics.num_scrapes.value++;
+
+         return body;
+      }
+
+      void metrics_async(chain::plugin_interface::next_function<std::string> results) {
+         _prometheus_strand.post([self=this, results=std::move(results)]() {
+            results(self->metrics());
+         });
+      }
 
    };
 
@@ -195,30 +198,29 @@ namespace eosio {
       }
 
       void metrics(const metrics_params& p, chain::plugin_interface::next_function<std::string> results) {
-         _pp.metrics_async(results);
+         _pp.metrics_async(std::move(results));
       }
 
-      explicit prometheus_api(prometheus_plugin_impl& plugin)  : _pp(plugin){
-      }
+      explicit prometheus_api(prometheus_plugin_impl& plugin)
+      : _pp(plugin) {}
+
    };
 
-   prometheus_plugin::prometheus_plugin() {
-      my.reset(new prometheus_plugin_impl{});
-      prometheus_api handle(*my);
-      app().get_plugin<http_plugin>().add_async_api({
-        CALL_ASYNC_WITH_400(prometheus, handle, eosio, metrics, std::string, 200, http_params_types::no_params)}, http_content_type::plaintext);
+   prometheus_plugin::prometheus_plugin()
+   : my(new prometheus_plugin_impl{}) {
    }
 
    prometheus_plugin::~prometheus_plugin() = default;
 
-   std::string prometheus_plugin::metrics() {return my->metrics();}
-
    void prometheus_plugin::set_program_options(options_description&, options_description& cfg) {
-
    }
 
    void prometheus_plugin::plugin_initialize(const variables_map& options) {
       my->initialize_metrics();
+
+      prometheus_api handle(*my);
+      app().get_plugin<http_plugin>().add_async_api({
+        CALL_ASYNC_WITH_400(prometheus, handle, eosio, metrics, std::string, 200, http_params_types::no_params)}, http_content_type::plaintext);
    }
 
    void prometheus_plugin::plugin_startup() {
