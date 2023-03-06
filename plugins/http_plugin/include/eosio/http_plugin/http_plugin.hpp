@@ -86,13 +86,8 @@ namespace eosio {
         void plugin_shutdown();
         void handle_sighup() override;
 
-<<<<<<< HEAD
         void add_handler(const string& url, const url_handler&, int priority = appbase::priority::medium_low, http_content_type content_type = http_content_type::json);
         void add_api(const api_description& api, int priority = appbase::priority::medium_low, http_content_type content_type = http_content_type::json) {
-=======
-        void add_handler( const string& url, const url_handler&, int priority = appbase::priority::medium_low);
-        void add_api(const api_description& api, int priority = appbase::priority::medium_low) {
->>>>>>> origin/main
            for (const auto& call : api)
               add_handler(call.first, call.second, priority, content_type);
         }
@@ -122,13 +117,10 @@ namespace eosio {
         /// @return the configured http-max-response-time-ms
         fc::microseconds get_max_response_time()const;
 
-<<<<<<< HEAD
         void register_metrics_listener(chain::plugin_interface::metrics_listener listener);
 
-=======
         size_t get_max_body_size()const;
       
->>>>>>> origin/main
    private:
         std::shared_ptr<class http_plugin_impl> my;
    };
