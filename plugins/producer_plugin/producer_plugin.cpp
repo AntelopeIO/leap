@@ -375,7 +375,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       named_thread_pool<struct read>  _ro_thread_pool;
       fc::microseconds                _ro_write_window_time_us { 200000 };
       fc::microseconds                _ro_read_window_time_us { 60000 };
-      static constexpr uint32_t       _ro_read_window_pct { 95 };
+      static constexpr fc::microseconds _ro_read_window_minimum_time_us { 10000 };
       fc::microseconds                _ro_read_window_effective_time_us { 0 }; // calculated during option initialization
       boost::asio::deadline_timer     _ro_write_window_timer;
       boost::asio::deadline_timer     _ro_read_window_timer;
@@ -566,7 +566,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                          next_function<transaction_trace_ptr> next) {
          if ( trx_type == transaction_metadata::trx_type::read_only && _ro_thread_pool_size > 0 ) {
             std::lock_guard<std::mutex> g( _ro_trx_queue.mtx );
-            _ro_trx_queue.queue.push_back({trx, next});
+            _ro_trx_queue.queue.push_back({trx, std::move(next)});
             return;
          }
 
@@ -1010,43 +1010,47 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       if (chain.is_eos_vm_oc_enabled()) {
          // EOS VM OC requires 4.2TB Virtual for each executing thread. Make sure the memory
          // required by configured read-only threads does not exceed the total system virtual memory.
-         auto get_total_vm_size = []() -> unsigned long {
+         auto get_vm_sizes = []() -> std::pair<size_t, size_t> {
             std::string attr_name;
+            size_t vm_total { 0 };
+            size_t vm_used { 0 };
             std::ifstream meminfo_file("/proc/meminfo");
             while (meminfo_file >> attr_name) {
                if (attr_name == "VmallocTotal:") {
-                  unsigned long vm_total;
-                  if (meminfo_file >> vm_total) {
-                     return vm_total;
-                  } else {
-                     return 0;
-                  }
+                  if ( !(meminfo_file >> vm_total) )
+                     break;
+               } else if (attr_name == "VmallocUsed:") {
+                  if ( !(meminfo_file >> vm_used) )
+                     break;
                }
                meminfo_file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
             }
-            return 0;
+            return std::make_pair(vm_total, vm_used);
          };
 
-         unsigned long vm_total_kb = get_total_vm_size();
+         auto [vm_total_kb, vm_used_kb] = get_vm_sizes();
          EOS_ASSERT( vm_total_kb > 0, plugin_config_exception, "Unable to get system virtual memory size (not a Linux?), therefore cannot determine if the system has enough virtual memory for multi-threaded read-only transactions on EOS VM OC");
-         auto num_threads_supported = vm_total_kb / 4200000000;
-         // reserve 1 for the main thread
-         EOS_ASSERT( num_threads_supported > my->_ro_thread_pool_size + 1, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads supported for EOS VM OC (${supp})", ("th", my->_ro_thread_pool_size) ("supp", num_threads_supported - 1 ) );
+         // reserve 1 for the app thread, 1 for anything else which might use VM
+         int num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000 - 2;
+         EOS_ASSERT( num_threads_supported >= my->_ro_thread_pool_size, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads supported for EOS VM OC (${supp})", ("th", my->_ro_thread_pool_size) ("supp", num_threads_supported) );
       }
 
       my->_ro_write_window_time_us = fc::microseconds( options.at( "read-only-write-window-time-us" ).as<uint32_t>() );
       my->_ro_read_window_time_us = fc::microseconds( options.at( "read-only-read-window-time-us" ).as<uint32_t>() );
+      EOS_ASSERT( my->_ro_read_window_time_us > my->_ro_read_window_minimum_time_us, plugin_config_exception, "minimum of --read-only-read-window-time-us (${read}) must be ${min} microseconds", ("read", my->_ro_read_window_time_us) ("min", my->_ro_read_window_minimum_time_us) );
+      my->_ro_read_window_effective_time_us = my->_ro_read_window_time_us - my->_ro_read_window_minimum_time_us;
 
-      my->_ro_read_window_effective_time_us = fc::microseconds(( my->_ro_read_window_time_us.count() / 100 ) * my->_ro_read_window_pct );
-      // make sure a read-only transaction can finish within the read
-      // window if scheduled at the very beginning. use _ro_read_window_effective_time_us
-      // instead of _ro_read_window_time_us for safety marging
-      if ( my->_max_transaction_time_ms.load() > 0 )
-         // _max_transaction_time_ms can be set to negative for unlimited in testing
-         // safe to do static_cast as we know it is > 0
-         my->_ro_max_trx_time_us = std::min( fc::milliseconds(my->_max_transaction_time_ms.load()) , my->_ro_read_window_effective_time_us );
-      else
+      // Make sure a read-only transaction can finish within the read
+      // window if scheduled at the very beginning of the window.
+      // Use _ro_read_window_effective_time_us instead of _ro_read_window_time_us
+      // for safety marging
+      if ( my->_max_transaction_time_ms.load() > 0 ) {
+         EOS_ASSERT( my->_ro_read_window_effective_time_us > fc::milliseconds(my->_max_transaction_time_ms.load()), plugin_config_exception, "--read-only-read-window-time-us (${read}) must be greater than --max-transaction-time ${trx_time} ms plus a margin of ${min} us", ("read", my->_ro_read_window_time_us) ("trx_time", my->_max_transaction_time_ms.load()) ("min", my->_ro_read_window_minimum_time_us) );
+         my->_ro_max_trx_time_us = fc::milliseconds(my->_max_transaction_time_ms.load());
+      } else {
+         // _max_transaction_time_ms can be set to negative in testing (for unlimited)
          my->_ro_max_trx_time_us = my->_ro_read_window_effective_time_us;
+      }
       ilog("_ro_thread_pool_size ${s},  _ro_write_window_time_us ${ww}, _ro_read_window_time_us ${rw}, _ro_max_trx_time_us ${t}, _ro_read_window_effective_time_us ${w}", ("s", my->_ro_thread_pool_size) ("ww", my->_ro_write_window_time_us) ("rw", my->_ro_read_window_time_us) ("t", my->_ro_max_trx_time_us) ("w", my->_ro_read_window_effective_time_us));
    }
 
@@ -2633,7 +2637,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
 
 // Called from app thread
 void producer_plugin_impl::switch_to_write_window() {
-   EOS_ASSERT(app().executor().is_read_window(), producer_exception, "not swicth from read window");
+   EOS_ASSERT(app().executor().is_read_window(), producer_exception, "expected to be in read window");
    EOS_ASSERT(_ro_num_active_trx_exec_tasks.load() == 0, producer_exception, "no read-only tasks should be running before switching to write window");
 
    _ro_read_window_timer.cancel();
@@ -2668,7 +2672,7 @@ void producer_plugin_impl::start_write_window() {
 
 // called from app thread
 void producer_plugin_impl::switch_to_read_window() {
-   EOS_ASSERT(app().executor().is_write_window(),  producer_exception, "not swicth from write window");
+   EOS_ASSERT(app().executor().is_write_window(),  producer_exception, "expected to be in write window");
 
    _ro_write_window_timer.cancel();
    _ro_read_window_timer.cancel();
@@ -2711,7 +2715,7 @@ void producer_plugin_impl::switch_to_read_window() {
 bool producer_plugin_impl::read_only_trx_execution_task() {
    auto start = fc::time_point::now();
    auto read_window_deadline = start + _ro_read_window_effective_time_us;
-   while ( fc::time_point::now() < read_window_deadline ) {
+   while ( fc::time_point::now() < read_window_deadline && !_received_block ) {
       std::unique_lock<std::mutex> lck( _ro_trx_queue.mtx );
       if ( _ro_trx_queue.queue.empty() ) {
          break;
