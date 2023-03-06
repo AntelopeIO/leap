@@ -686,8 +686,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
             if( _account_fails.failure_limit( first_auth ) ) {
                send_response( std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
-                     FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
-                                     ("id", trx->id())("a", first_auth) ) ) ) );
+                     FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a} until ${next_reset_time}",
+                                     ("id", trx->id())("a", first_auth)
+                                     ("next_reset_time", _account_fails.next_reset_timepoint(chain.head_block_num(),chain.head_block_time())) ) ) ) );
                return true;
             }
 
@@ -2044,8 +2045,9 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                ++num_failed;
                if( itr->next ) {
                   itr->next( std::make_shared<tx_cpu_usage_exceeded>(
-                        FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
-                                        ("id", trx->id())("a", first_auth) ) ) );
+                        FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a} until ${next_reset_time}",
+                                        ("id", trx->id())("a", first_auth)
+                                        ("next_reset_time", _account_fails.next_reset_timepoint(chain.head_block_num(),chain.head_block_time())) ) ) );
                }
                itr = _unapplied_transactions.erase( itr );
                continue;
