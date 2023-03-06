@@ -23,15 +23,10 @@ namespace eosio {
 
    static auto _http_plugin = application::register_plugin<http_plugin>();
 
-   using std::map;
    using std::vector;
-   using std::set;
    using std::string;
    using std::regex;
-   using boost::optional;
    using boost::asio::ip::tcp;
-   using boost::asio::ip::address_v4;
-   using boost::asio::ip::address_v6;
    using std::shared_ptr;
    
    static http_plugin_defaults current_http_plugin_defaults;
@@ -78,7 +73,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             handler.content_type = content_type;
             auto next_ptr = std::make_shared<url_handler>(std::move(next));
             handler.fn = [my=std::move(my), priority, next_ptr=std::move(next_ptr)]
-                       ( detail::abstract_conn_ptr conn, string r, string b, url_response_callback then ) {
+                       ( detail::abstract_conn_ptr conn, string&& r, string&& b, url_response_callback&& then ) {
                if (auto error_str = conn->verify_max_bytes_in_flight(b.size()); !error_str.empty()) {
                   conn->send_busy_response(std::move(error_str));
                   return;
@@ -90,11 +85,12 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
                // post to the app thread taking shared ownership of next (via std::shared_ptr),
                // sole ownership of the tracked body and the passed in parameters
+               // we can't std::move() next_ptr because we post a new lambda for each http request and we need to keep the original
                app().post( priority, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
                   try {
                      if( app().is_quiting() ) return; // http_plugin shutting down, do not call callback
                      // call the `next` url_handler and wrap the response handler
-                     (*next_ptr)( std::move( r ), std::move(b), std::move(wrapped_then)) ;
+                     (*next_ptr)( std::move(r), std::move(b), std::move(wrapped_then)) ;
                   } catch( ... ) {
                      conn->handle_exception();
                   }
@@ -113,7 +109,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          static detail::internal_url_handler make_http_thread_url_handler(const string& url, url_handler next, http_content_type content_type) {
             detail::internal_url_handler handler{url};
             handler.content_type = content_type;
-            handler.fn = [next=std::move(next)]( const detail::abstract_conn_ptr& conn, string r, string b, url_response_callback then ) mutable {
+            handler.fn = [next=std::move(next)]( const detail::abstract_conn_ptr& conn, string&& r, string&& b, url_response_callback&& then ) mutable {
                try {
                   next(std::move(r), std::move(b), std::move(then));
                } catch( ... ) {
@@ -330,13 +326,12 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
             add_api({{
                std::string("/v1/node/get_supported_apis"),
-               [&](const string&, string body, url_response_callback cb) mutable {
+               [&](string&&, string&& body, url_response_callback&& cb) {
                   try {
-                     if (body.empty()) body = "{}";
                      auto result = (*this).get_supported_apis();
                      cb(200, fc::time_point::maximum(), fc::variant(result));
                   } catch (...) {
-                     handle_exception("node", "get_supported_apis", body, cb);
+                     handle_exception("node", "get_supported_apis", body.empty() ? "{}" : body, cb);
                   }
                }
             }});
@@ -459,5 +454,9 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
    fc::microseconds http_plugin::get_max_response_time()const {
       return my->plugin_state->max_response_time;
    }
-
+   
+   size_t http_plugin::get_max_body_size()const {
+      return my->plugin_state->max_body_size;
+   }
+   
 }

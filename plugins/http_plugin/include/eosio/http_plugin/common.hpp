@@ -68,8 +68,7 @@ using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
 /**
 * internal url handler that contains more parameters than the handlers provided by external systems
 */
-
-using internal_url_handler_fn = std::function<void(abstract_conn_ptr, string, string, url_response_callback)>;
+using internal_url_handler_fn = std::function<void(abstract_conn_ptr, string&&, string&&, url_response_callback&&)>;
 struct internal_url_handler {
    chain::plugin_interface::runtime_metric call_count;
    internal_url_handler_fn fn;
