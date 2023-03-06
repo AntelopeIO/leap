@@ -23,9 +23,9 @@ def unshare(flags):
     Call libc unshare with flags.  If unprivileged, first unshare user namespace
     and map current user to root in the new namespace.
     '''
-    euid = os.geteuid()
-    if euid != 0:
-        uidmap = f'0 {os.getuid()} 1'
+    uid = os.getuid()
+    if uid != 0:
+        uidmap = f'0 {uid} 1'
         rc = libc.unshare(CLONE_NEWUSER)
         if rc == -1:
             raise Exception(f'unshare() error code: {get_errno_loc().contents.value}')
