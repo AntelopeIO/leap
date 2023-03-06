@@ -44,7 +44,7 @@ class eosvmoc_instantiated_module : public wasm_instantiated_module_interface {
 };
 
 eosvmoc_runtime::eosvmoc_runtime(const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db)
-   : cc(data_dir, eosvmoc_config, db), exec(cc), mem ( wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size ) {
+   : cc(data_dir, eosvmoc_config, db), exec(cc), mem(wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size) {
 }
 
 eosvmoc_runtime::~eosvmoc_runtime() {
@@ -63,6 +63,6 @@ void eosvmoc_runtime::init_thread_local_data() {
 }
 
 thread_local std::unique_ptr<eosvmoc::executor> eosvmoc_runtime::exec_thread_local {};
-thread_local eosvmoc::memory eosvmoc_runtime::mem_thread_local { wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size };
+thread_local eosvmoc::memory eosvmoc_runtime::mem_thread_local{ wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size };
 
 }}}}

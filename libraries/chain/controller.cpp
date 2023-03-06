@@ -1592,12 +1592,12 @@ struct controller_impl {
 
             auto restore = make_block_restore_point( trx->is_read_only() );
 
-            if (!trx->implicit() && !trx->is_read_only()) {
+            trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
+            if (!trx->implicit() && !trx->is_transient()) {
                transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
                                                     ? transaction_receipt::executed
                                                     : transaction_receipt::delayed;
                trace->receipt = push_receipt(*trx->packed_trx(), s, trx_context.billed_cpu_time_us, trace->net_usage);
-               trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
                std::get<building_block>(pending->_block_stage)._pending_trx_metas.emplace_back(trx);
             } else {
                transaction_receipt_header r;
@@ -1607,13 +1607,10 @@ struct controller_impl {
                trace->receipt = r;
             }
 
+            // call the accept signal but only once for this transaction
             if ( !trx->is_transient() ) {
                fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
                                 std::move(trx_context.executed_action_receipt_digests) );
-            }
-
-            // call the accept signal but only once for this transaction
-            if (!trx->is_transient()) {
                 if (!trx->accepted) {
                     trx->accepted = true;
                     emit(self.accepted_transaction, trx);
@@ -2687,8 +2684,8 @@ struct controller_impl {
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if ( is_eos_vm_oc_enabled() )
          wasmif.init_thread_local_data();
-#endif
       else
+#endif
          // Non-EOSVMOC needs a wasmif per thread
          wasmif_thread_local = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
    }

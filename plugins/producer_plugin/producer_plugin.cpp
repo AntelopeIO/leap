@@ -371,17 +371,17 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          std::mutex              mtx;
          std::deque<ro_trx_t>    queue;
       };
-      uint16_t                        _ro_thread_pool_size { 0 };
+      uint16_t                        _ro_thread_pool_size{ 2 };
       named_thread_pool<struct read>  _ro_thread_pool;
-      fc::microseconds                _ro_write_window_time_us { 200000 };
-      fc::microseconds                _ro_read_window_time_us { 60000 };
-      static constexpr fc::microseconds _ro_read_window_minimum_time_us { 10000 };
-      fc::microseconds                _ro_read_window_effective_time_us { 0 }; // calculated during option initialization
+      fc::microseconds                _ro_write_window_time_us{ 200000 };
+      fc::microseconds                _ro_read_window_time_us{ 60000 };
+      static constexpr fc::microseconds _ro_read_window_minimum_time_us{ 10000 };
+      fc::microseconds                _ro_read_window_effective_time_us{ 0 }; // calculated during option initialization
       boost::asio::deadline_timer     _ro_write_window_timer;
       boost::asio::deadline_timer     _ro_read_window_timer;
-      fc::microseconds                _ro_max_trx_time_us { 0 }; // calculated during option initialization
+      fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_trx_queue;
-      std::atomic<uint32_t>           _ro_num_active_trx_exec_tasks { 0 };
+      std::atomic<uint32_t>           _ro_num_active_trx_exec_tasks{ 0 };
       std::vector<std::future<bool>>  _ro_trx_exec_tasks_fut;
 
       void start_write_window();
@@ -1032,6 +1032,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          EOS_ASSERT( vm_total_kb > 0, plugin_config_exception, "Unable to get system virtual memory size (not a Linux?), therefore cannot determine if the system has enough virtual memory for multi-threaded read-only transactions on EOS VM OC");
          // reserve 1 for the app thread, 1 for anything else which might use VM
          int num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000 - 2;
+         ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported));
          EOS_ASSERT( num_threads_supported >= my->_ro_thread_pool_size, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads supported for EOS VM OC (${supp})", ("th", my->_ro_thread_pool_size) ("supp", num_threads_supported) );
       }
 
@@ -2673,6 +2674,7 @@ void producer_plugin_impl::start_write_window() {
 // called from app thread
 void producer_plugin_impl::switch_to_read_window() {
    EOS_ASSERT(app().executor().is_write_window(),  producer_exception, "expected to be in write window");
+   EOS_ASSERT(_ro_trx_exec_tasks_fut.empty(),  producer_exception, "_ro_trx_exec_tasks_fut expected to be empty");
 
    _ro_write_window_timer.cancel();
    _ro_read_window_timer.cancel();
@@ -2686,7 +2688,7 @@ void producer_plugin_impl::switch_to_read_window() {
 
    app().executor().set_to_read_window();
    chain_plug->chain().set_db_read_only_mode();
-   _ro_trx_exec_tasks_fut.clear();
+   _received_block = false;
 
    // start read-only transaction execution tasks in the thread pool
    _ro_num_active_trx_exec_tasks = _ro_thread_pool_size;
@@ -2707,8 +2709,10 @@ void producer_plugin_impl::switch_to_read_window() {
             // use future make sure all read-only tasks finished before swithching to write window
             for ( auto& task: self->_ro_trx_exec_tasks_fut )
                task.get();
+            self->_ro_trx_exec_tasks_fut.clear();
             self->switch_to_write_window();
-          }
+          } else
+             self->_ro_trx_exec_tasks_fut.clear();
        }));
 }
 
@@ -2737,7 +2741,8 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
 
    // If all tasks are finished, do not wait until end of read window; switch to write window now.
    if ( --_ro_num_active_trx_exec_tasks == 0 ) {
-      // do switch on app thread
+      _ro_trx_exec_tasks_fut.clear();
+      // do switching on app thread
       app().executor().post( priority::high, exec_queue::read_only_trx_safe, [self=this]() {
          self->switch_to_write_window();
       } );
