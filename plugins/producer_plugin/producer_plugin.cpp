@@ -219,9 +219,22 @@ public:
       return false;
    }
 
+   void report_and_clear(uint32_t block_num) {
+      if (last_reset_block_num != block_num && (block_num % reset_window_size_in_num_blocks == 0) ) {
+         report(block_num);
+         failed_accounts.clear();
+         last_reset_block_num = block_num;
+      }
+   }
+
+   fc::time_point next_reset_timepoint(uint32_t current_block_num, fc::time_point current_block_time) const {
+      auto num_blocks_to_reset = reset_window_size_in_num_blocks - (current_block_num % reset_window_size_in_num_blocks);
+      return current_block_time + fc::milliseconds(num_blocks_to_reset * eosio::chain::config::block_interval_ms);
+   }
+
+private:
    void report(uint32_t block_num) const {
-      if( _log.is_enabled(fc::log_level::debug) &&
-          (block_num % reset_window_size_in_num_blocks == (reset_window_size_in_num_blocks - 1)) ) {
+      if( _log.is_enabled(fc::log_level::debug)) {
          auto now = fc::time_point::now();
          for ( const auto& e : failed_accounts ) {
             std::string reason;
@@ -244,20 +257,6 @@ public:
          }
       }
    }
-
-   void clear(uint32_t block_num) {
-      if (last_reset_block_num != block_num && (block_num % reset_window_size_in_num_blocks == 0) ) {
-         failed_accounts.clear();
-         last_reset_block_num = block_num;
-      }
-   }
-
-   fc::time_point next_reset_timepoint(uint32_t current_block_num, fc::time_point current_block_time) const {
-      auto num_blocks_to_reset = reset_window_size_in_num_blocks - (current_block_num % reset_window_size_in_num_blocks);
-      return current_block_time + fc::milliseconds(num_blocks_to_reset * eosio::chain::config::block_interval_ms);
-   }
-
-private:
    struct account_failure {
       enum class ex_fields : uint8_t {
          ex_deadline_exception = 1,
@@ -685,14 +684,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             }
 
             auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
-            if (_account_fails.failure_limit(first_auth)) {
-               send_response(
-                     std::static_pointer_cast<fc::exception>(std::make_shared<tx_cpu_usage_exceeded>(FC_LOG_MESSAGE(
-                           error,
-                           "transaction ${id} exceeded failure limit for account ${a} until ${next_reset_timepoint}",
-                           ("id", trx->id())("a", first_auth)(
-                                 "next_reset_timepoint",
-                                 _account_fails.next_reset_timepoint(chain.head_block_num(), bt))))));
+            if( _account_fails.failure_limit( first_auth ) ) {
+               send_response( std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
+                     FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
+                                     ("id", trx->id())("a", first_auth) ) ) ) );
                return true;
             }
 
@@ -1876,7 +1871,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
 
       try {
-         _account_fails.clear(hbs->block_num);
+         _account_fails.report_and_clear(hbs->block_num);
 
          if( !remove_expired_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
@@ -2047,13 +2042,10 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
             auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
             if( _account_fails.failure_limit( first_auth ) ) {
                ++num_failed;
-               if (itr->next) {
-                  itr->next(std::make_shared<tx_cpu_usage_exceeded>(FC_LOG_MESSAGE(
-                        error,
-                        "transaction ${id} exceeded failure limit for account ${a} until ${next_reset_timepoint}",
-                        ("id", trx->id())("a", first_auth)(
-                              "next_reset_timepoint",
-                              _account_fails.next_reset_timepoint(chain.head_block_num(), chain.head_block_time())))));
+               if( itr->next ) {
+                  itr->next( std::make_shared<tx_cpu_usage_exceeded>(
+                        FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
+                                        ("id", trx->id())("a", first_auth) ) ) );
                }
                itr = _unapplied_transactions.erase( itr );
                continue;
@@ -2465,8 +2457,6 @@ void producer_plugin_impl::produce_block() {
    chain.commit_block();
 
    block_state_ptr new_bs = chain.head_block_state();
-
-   _account_fails.report(new_bs->block_num);
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} [trxs: ${count}, lib: ${lib}, confirmed: ${confs}]",
         ("p",new_bs->header.producer)("id",new_bs->id.str().substr(8,16))
