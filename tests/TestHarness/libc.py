@@ -17,13 +17,14 @@ get_errno_loc = libc.__errno_location
 CLONE_NEWUSER = 0x10000000
 CLONE_NEWNET  = 0x40000000
 
-def unshare(flags, privileged=False):
+def unshare(flags):
     '''Disassociate part of execution context
     
     Call libc unshare with flags.  If unprivileged, first unshare user namespace
     and map current user to root in the new namespace.
     '''
-    if not privileged:
+    euid = os.geteuid()
+    if euid != 0:
         uidmap = f'0 {os.getuid()} 1'
         rc = libc.unshare(CLONE_NEWUSER)
         if rc == -1:
