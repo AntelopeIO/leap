@@ -23,15 +23,10 @@ namespace eosio {
 
    static auto _http_plugin = application::register_plugin<http_plugin>();
 
-   using std::map;
    using std::vector;
-   using std::set;
    using std::string;
    using std::regex;
-   using boost::optional;
    using boost::asio::ip::tcp;
-   using boost::asio::ip::address_v4;
-   using boost::asio::ip::address_v6;
    using std::shared_ptr;
    
    static http_plugin_defaults current_http_plugin_defaults;
@@ -87,7 +82,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
                // post to the app thread taking shared ownership of next (via std::shared_ptr),
                // sole ownership of the tracked body and the passed in parameters
-               app().post( priority, [next_ptr=std::move(next_ptr), conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
+               app().post( priority, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
                   try {
                      if( app().is_quiting() ) return; // http_plugin shutting down, do not call callback
                      // call the `next` url_handler and wrap the response handler
