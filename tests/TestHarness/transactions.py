@@ -336,20 +336,21 @@ class Transactions(Queries):
                     if codename != "PREACTIVATE_FEATURE":
                         protocolFeatures[protocolFeature["feature_digest"]] = protocolFeature["dependencies"]
                     break
-        dependencies = dep(protocolFeatures)
-        return [f for s in dependencies for f in s]
+        return dep(protocolFeatures)
+
 
     # Require PREACTIVATE_FEATURE to be activated and require eosio.bios with preactivate_feature
     def preactivateProtocolFeatures(self, featureDigests:list):
-        for digest in featureDigests:
-            Utils.Print("push activate action with digest {}".format(digest))
-            data="{{\"feature_digest\":{}}}".format(digest)
-            opts="--permission eosio@active"
-            trans=self.pushMessage("eosio", "activate", data, opts)
-            if trans is None or not trans[0]:
-                Utils.Print("ERROR: Failed to preactive digest {}".format(digest))
-                return None
-        self.waitForHeadToAdvance(blocksToAdvance=2)
+        for group in featureDigests:
+            for digest in group:
+                Utils.Print("push activate action with digest {}".format(digest))
+                data="{{\"feature_digest\":{}}}".format(digest)
+                opts="--permission eosio@active"
+                success, trans=self.pushMessage("eosio", "activate", data, opts)
+                if not success:
+                    Utils.Print("ERROR: Failed to preactive digest {}".format(digest))
+                    return None
+            self.waitForTransactionInBlock(trans['transaction_id'])
 
     # Require PREACTIVATE_FEATURE to be activated and require eosio.bios with preactivate_feature
     def preactivateAllBuiltinProtocolFeature(self):
