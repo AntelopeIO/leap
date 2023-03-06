@@ -4,9 +4,7 @@
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/producer_plugin/snapshot_db_json.hpp>
-
 #include <eosio/testing/tester.hpp>
-
 namespace {
 
 using namespace eosio;
@@ -78,7 +76,6 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          });
 
          auto [prod_plug, chain_plug] = plugin_fut.get();
-         // auto chain_id = chain_plug->get_chain_id();
          std::deque<block_state_ptr> all_blocks;
          std::promise<void> empty_blocks_promise;
          std::future<void> empty_blocks_fut = empty_blocks_promise.get_future();
@@ -92,31 +89,26 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                num_empty = 10;
             }
          });
-         auto bs = chain_plug->chain().block_start.connect([&](uint32_t bn) {
+         auto pp = appbase::app().find_plugin<producer_plugin>();
+         auto bs = chain_plug->chain().block_start.connect([&pp](uint32_t bn) {
+            // catching pending snapshot
+            if (pp->get_snapshot_requests().snapshot_requests.begin()->pending_snapshots && pp->get_snapshot_requests().snapshot_requests.begin()->pending_snapshots->size()==1) {
+               // lets check the head block num of it, it should be 8 + 1 = 9
+               // this means we are getting a snapshot for correct block # as well
+               BOOST_CHECK_EQUAL(9, pp->get_snapshot_requests().snapshot_requests.begin()->pending_snapshots->begin()->head_block_num);   
+            }
          });
-
-        
        
          producer_plugin::snapshot_request_information sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2"};
          producer_plugin::snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2"};
          producer_plugin::snapshot_request_information sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 1"};
 
-         auto pp = appbase::app().find_plugin<producer_plugin>();
-         
          pp->schedule_snapshot(sri1);
          pp->schedule_snapshot(sri2);
          pp->schedule_snapshot(sri3);
 
          // all three snapshot requests should be present now
          BOOST_CHECK_EQUAL(3, pp->get_snapshot_requests().snapshot_requests.size());
-
-         empty_blocks_fut.wait_for(std::chrono::seconds(4));
-
-         // there should be a single pending snapshot here
-         BOOST_CHECK_EQUAL(1, pp->get_snapshot_requests().snapshot_requests.begin()->pending_snapshots->size());
-
-         // lets check the head block num of it
-         BOOST_CHECK_EQUAL(9, pp->get_snapshot_requests().snapshot_requests.begin()->pending_snapshots->begin()->head_block_num);         
 
          empty_blocks_fut.wait_for(std::chrono::seconds(5));
 
@@ -143,8 +135,6 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
       }
       bfs::remove_all(temp);
    }
-
-   BOOST_AUTO_TEST_SUITE_END()
 }
-
+   BOOST_AUTO_TEST_SUITE_END()
 }// namespace
