@@ -281,7 +281,8 @@ class PerformanceTest:
         report['LongRunningMaxTpsReport'] =  tpsTestResult.longRunningSearchResults.maxTpsReport
         return report
 
-    def createReport(self,producerThreadResult: PluginThreadOptResult=None, chainThreadResult: PluginThreadOptResult=None, netThreadResult: PluginThreadOptResult=None, tpsTestResult: dict=None) -> dict:
+    def createReport(self, producerThreadResult: PluginThreadOptResult=None, chainThreadResult: PluginThreadOptResult=None, netThreadResult: PluginThreadOptResult=None,
+                     tpsTestResult: dict=None, nodeosVers: str="") -> dict:
         report = {}
         report['perfTestsBegin'] = self.testsStart
         report['perfTestsFinish'] = self.testsFinish
@@ -299,7 +300,7 @@ class PerformanceTest:
 
         report['args'] =  self.prepArgsDict()
         report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
-        report['nodeosVersion'] = Utils.getNodeosVersion()
+        report['nodeosVersion'] = nodeosVers
         return report
 
     def reportAsJSON(self, report: dict) -> json:
@@ -431,7 +432,7 @@ class PerformanceTest:
 
         self.testsFinish = datetime.utcnow()
 
-        self.report = self.createReport(producerThreadResult=prodResults, chainThreadResult=chainResults, netThreadResult=netResults, tpsTestResult=tpsTestResult)
+        self.report = self.createReport(producerThreadResult=prodResults, chainThreadResult=chainResults, netThreadResult=netResults, tpsTestResult=tpsTestResult, nodeosVers=self.clusterConfig.nodeosVers)
         jsonReport = self.reportAsJSON(self.report)
 
         if not self.ptConfig.quiet:

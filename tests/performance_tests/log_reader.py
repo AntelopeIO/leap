@@ -237,11 +237,11 @@ def scrapeTrxGenLog(trxSent, path):
     with selectedopen(path, 'rt') as f:
         trxSent.update(dict([(x[0], x[1]) for x in (line.rstrip('\n').split(',') for line in f)]))
 
-def scrapeBlockTrxDataLog(trxDict, path):
+def scrapeBlockTrxDataLog(trxDict, path, nodeosVers):
     #blockTrxData.txt
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
-        if Utils.getNodeosVersion().split('.')[0] == "v2":
+        if nodeosVers == "v2":
             trxDict.update(dict([(x[0], trxData(blockNum=x[1], cpuUsageUs=x[2], netUsageUs=x[3])) for x in (line.rstrip('\n').split(',') for line in f)]))
         else:
             trxDict.update(dict([(x[0], trxData(blockNum=x[1], blockTime=x[2], cpuUsageUs=x[3], netUsageUs=x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
@@ -438,7 +438,8 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
            basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
 
 def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats,
-                 trxNetStats: basicStats, forkedBlocks, droppedBlocks, prodWindows: productionWindows, notFound: dict, testStart: datetime, testFinish: datetime, argsDict: dict, completedRun: bool) -> dict:
+                 trxNetStats: basicStats, forkedBlocks, droppedBlocks, prodWindows: productionWindows, notFound: dict, testStart: datetime, testFinish: datetime,
+                 argsDict: dict, completedRun: bool, nodeosVers: str) -> dict:
     report = {}
     report['completedRun'] = completedRun
     report['testStart'] = testStart
@@ -464,7 +465,7 @@ def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats
     report['Analysis']['ForksCount'] = len(forkedBlocks)
     report['args'] =  argsDict
     report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
-    report['nodeosVersion'] = Utils.getNodeosVersion()
+    report['nodeosVersion'] = nodeosVers
     return report
 
 class LogReaderEncoder(json.JSONEncoder):
@@ -489,14 +490,14 @@ class LogReaderEncoder(json.JSONEncoder):
 def reportAsJSON(report: dict) -> json:
     return json.dumps(report, indent=2, cls=LogReaderEncoder)
 
-def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True) -> dict:
+def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True, nodeosVers: str="") -> dict:
     scrapeLog(data, artifacts.nodeosLogPath)
 
     trxSent = {}
     scrapeTrxGenTrxSentDataLogs(trxSent, artifacts.trxGenLogDirPath, tpsTestConfig.quiet)
 
     trxDict = {}
-    scrapeBlockTrxDataLog(trxDict, artifacts.blockTrxDataPath)
+    scrapeBlockTrxDataLog(trxDict, artifacts.blockTrxDataPath, nodeosVers)
 
     blockDict = {}
     scrapeBlockDataLog(blockDict, artifacts.blockDataPath)
@@ -531,7 +532,8 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
 
     report = createReport(guide=guide, tpsTestConfig=tpsTestConfig, tpsStats=tpsStats, blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats,
                           trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, forkedBlocks=data.forkedBlocks, droppedBlocks=data.droppedBlocks,
-                          prodWindows=prodWindows, notFound=notFound, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun)
+                          prodWindows=prodWindows, notFound=notFound, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun,
+                          nodeosVers=nodeosVers)
     return report
 
 def exportReportAsJSON(report: json, exportPath):
