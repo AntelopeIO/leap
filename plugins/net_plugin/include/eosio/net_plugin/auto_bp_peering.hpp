@@ -131,7 +131,7 @@ class bp_connection_manager {
       auto space_pos = conn->log_p2p_address.find(' ');
       // log_p2p_address always has a trailing hex like `localhost:9877 - bc3f55b`
       std::string addr = conn->log_p2p_address.substr(0, space_pos);
-      if (auto itr = config.bp_peer_accounts.find(addr); itr != config.bp_peer_accounts.end()) {
+      if (config.bp_peer_accounts.count(addr)) {
          conn->is_bp_connection = true;
       }
    }
@@ -205,7 +205,7 @@ class bp_connection_manager {
          fc_dlog(self()->get_logger(), "active producer schedule switches from version ${old} to ${new}",
                  ("old", active_schedule_version)("new", schedule.version));
 
-         auto old_neighbors = active_neighbors;
+         auto old_neighbors = std::move(active_neighbors);
          active_neighbors   = neighbor_finder(schedule.producers).neighbors();
 
          fc_dlog(self()->get_logger(), "active_neighbors: ${active_neighbors}",
