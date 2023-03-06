@@ -41,6 +41,13 @@ using std::vector;
 using std::deque;
 using boost::signals2::scoped_connection;
 
+// in release/3.2+ move to fc logger.hpp
+#define fc_tlog( LOGGER, FORMAT, ... ) \
+  FC_MULTILINE_MACRO_BEGIN \
+   if( (LOGGER).is_enabled( fc::log_level::all ) ) \
+      (LOGGER).log( FC_LOG_MESSAGE( all, FORMAT, __VA_ARGS__ ) ); \
+  FC_MULTILINE_MACRO_END
+
 #undef FC_LOG_AND_DROP
 #define LOG_AND_DROP()  \
    catch ( const guard_exception& e ) { \
@@ -708,7 +715,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
             auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
             auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
-            fc_dlog( _trx_failed_trace_log, "Subjective bill for ${a}: ${b} elapsed ${t}us", ("a",first_auth)("b",sub_bill)("t",trace->elapsed));
+            fc_tlog( _log, "Subjective bill for ${a}: ${b} elapsed ${t}us", ("a",first_auth)("b",sub_bill)("t",trace->elapsed));
             if( trace->except ) {
                if( exception_is_exhausted( *trace->except ) ) {
                   _unapplied_transactions.add_incoming( trx, persist_until_expired, return_failure_traces, next );
@@ -2070,7 +2077,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                || trx->read_only;
 
             auto trace = chain.push_transaction( trx, deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
-            fc_dlog( _trx_failed_trace_log, "Subjective unapplied bill for ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
+            fc_tlog( _log, "Subjective unapplied bill for ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
             if( trace->except ) {
                if( exception_is_exhausted( *trace->except ) ) {
                   if( block_is_exhausted() ) {
@@ -2079,7 +2086,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                      break;
                   }
                } else {
-                  fc_dlog( _trx_failed_trace_log, "Subjective unapplied bill for failed ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
+                  fc_tlog( _log, "Subjective unapplied bill for failed ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
                   auto failure_code = trace->except->code();
                   if( failure_code != tx_duplicate::code_value ) {
                      // this failed our configured maximum transaction time, we don't want to replay it
@@ -2098,7 +2105,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                   continue;
                }
             } else {
-               fc_dlog( _trx_successful_trace_log, "Subjective unapplied bill for success ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
+               fc_tlog( _log, "Subjective unapplied bill for success ${a}: ${b} prev ${t}us", ("a",first_auth)("b",prev_billed_cpu_time_us)("t",trace->elapsed));
                // if db_read_mode SPECULATIVE then trx is in the pending block and not immediately reverted
                if (!disable_subjective_billing)
                   _subjective_billing.subjective_bill( trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed,
