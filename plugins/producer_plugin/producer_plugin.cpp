@@ -2859,4 +2859,8 @@ bool producer_plugin_impl::push_read_only_transaction(const transaction_metadata
 
    return exhausted;
 }
+
+const std::set<account_name>& producer_plugin::producer_accounts() const {
+   return my->_producers;
+}
 } // namespace eosio

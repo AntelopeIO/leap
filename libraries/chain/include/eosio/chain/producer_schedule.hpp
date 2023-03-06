@@ -335,4 +335,3 @@ FC_REFLECT_DERIVED( eosio::chain::producer_schedule_change_extension, (eosio::ch
 FC_REFLECT( eosio::chain::shared_block_signing_authority_v0, (threshold)(keys))
 FC_REFLECT( eosio::chain::shared_producer_authority, (producer_name)(authority) )
 FC_REFLECT( eosio::chain::shared_producer_authority_schedule, (version)(producers) )
-
