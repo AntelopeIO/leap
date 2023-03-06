@@ -13,12 +13,13 @@ struct blocklog_options {
    uint32_t first_block = 0;
    uint32_t last_block = std::numeric_limits<uint32_t>::max();
    std::string output_dir = "";
+   uint32_t stride = 100000;
 
    // flags
    bool no_pretty_print = false;
    bool as_json_array = false;
 
-   std::optional<block_log_prune_config> blog_keep_prune_conf;
+   block_log_config blog_conf;
 };
 
 class blocklog_actions : public sub_command<blocklog_options> {
@@ -39,4 +40,7 @@ protected:
    int do_vacuum();
    int do_genesis();
    int read_log();
+
+   int split_blocks();
+   int merge_blocks();
 };

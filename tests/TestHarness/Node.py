@@ -332,7 +332,7 @@ class Node(Transactions):
 
     # pylint: disable=too-many-locals
     # If nodeosPath is equal to None, it will use the existing nodeos path
-    def relaunch(self, chainArg=None, newChain=False, skipGenesis=True, timeout=Utils.systemWaitTimeout, addSwapFlags=None, cachePopen=False, nodeosPath=None, waitForTerm=True):
+    def relaunch(self, chainArg=None, newChain=False, skipGenesis=True, timeout=Utils.systemWaitTimeout, addSwapFlags=None, cachePopen=False, nodeosPath=None, waitForTerm=False):
 
         assert(self.pid is None)
         assert(self.killed)
@@ -387,15 +387,16 @@ class Node(Transactions):
             except subprocess.TimeoutExpired:
                 return False
             with open(popen.errfile.name, 'r') as f:
-                if "Reached configured maximum block 10; terminating" in f.read():
+                if "successfully exiting" in f.read():
                     return True
                 else:
                     return False
 
-        if "terminate-at-block" not in cmd or not waitForTerm:
-            isAlive=Utils.waitForBool(isNodeAlive, timeout, sleepTime=1)
-        else:
+        if waitForTerm:
             isAlive=Utils.waitForBoolWithArg(didNodeExitGracefully, self.popenProc, timeout, sleepTime=1)
+        else:
+            isAlive=Utils.waitForBool(isNodeAlive, timeout, sleepTime=1)
+
         if isAlive:
             Utils.Print("Node relaunch was successful.")
         else:

@@ -60,12 +60,16 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/trx_finality_status_test.py ${CMAKE_C
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/trx_finality_status_forked_test.py ${CMAKE_CURRENT_BINARY_DIR}/trx_finality_status_forked_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/plugin_http_api_test.py ${CMAKE_CURRENT_BINARY_DIR}/plugin_http_api_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_contrl_c_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_contrl_c_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/read_only_trx_test.py ${CMAKE_CURRENT_BINARY_DIR}/read_only_trx_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/resource_monitor_plugin_test.py ${CMAKE_CURRENT_BINARY_DIR}/resource_monitor_plugin_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/light_validation_sync_test.py ${CMAKE_CURRENT_BINARY_DIR}/light_validation_sync_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/trace_plugin_test.py ${CMAKE_CURRENT_BINARY_DIR}/trace_plugin_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nested_container_multi_index_test.py ${CMAKE_CURRENT_BINARY_DIR}/nested_container_multi_index_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/large-lib-test.py ${CMAKE_CURRENT_BINARY_DIR}/large-lib-test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/launcher.py ${CMAKE_CURRENT_BINARY_DIR}/launcher.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/auto_bp_peering_test.py ${CMAKE_CURRENT_BINARY_DIR}/auto_bp_peering_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/auto_bp_peering_test_shape.json ${CMAKE_CURRENT_BINARY_DIR}/auto_bp_peering_test_shape.json COPYONLY)
+
 
 #To run plugin_test with all log from blockchain displayed, put --verbose after --, i.e. plugin_test -- --verbose
 add_test(NAME plugin_test COMMAND plugin_test --report_level=detailed --color_output)
@@ -100,12 +104,12 @@ target_link_libraries(ship_client abieos Boost::program_options Boost::system Th
 add_executable(ship_streamer ship_streamer.cpp)
 target_link_libraries(ship_streamer abieos Boost::program_options Boost::system Threads::Threads)
 
-add_test(NAME ship_test COMMAND tests/ship_test.py -v --num-clients 1 --num-requests 5000 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME ship_test COMMAND tests/ship_test.py -v --num-clients 10 --num-requests 5000 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME ship_test_unix COMMAND tests/ship_test.py -v --num-clients 1 --num-requests 5000 --clean-run --unix-socket WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME ship_test_unix COMMAND tests/ship_test.py -v --num-clients 10 --num-requests 5000 --clean-run --unix-socket WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_test_unix PROPERTY LABELS nonparallelizable_tests)
 
-add_test(NAME ship_streamer_test COMMAND tests/ship_streamer_test.py -v --num-clients 1 --num-blocks 50 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME ship_streamer_test COMMAND tests/ship_streamer_test.py -v --num-clients 10 --num-blocks 50 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST ship_streamer_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME p2p_dawn515_test COMMAND tests/p2p_tests/dawn_515/test.sh WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -117,6 +121,8 @@ add_test(NAME nodeos_protocol_feature_test COMMAND tests/nodeos_protocol_feature
 set_property(TEST nodeos_protocol_feature_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME compute_transaction_test COMMAND tests/compute_transaction_test.py -v -p 2 -n 3 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST compute_transaction_test PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME read_only_trx_test COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST read_only_trx_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME subjective_billing_test COMMAND tests/subjective_billing_test.py -v -p 2 -n 4 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST subjective_billing_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME get_account_test COMMAND tests/get_account_test.py -v -p 2 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
@@ -130,11 +136,11 @@ add_test(NAME restart-scenarios-test-hard_replay COMMAND tests/restart-scenarios
 set_property(TEST restart-scenarios-test-hard_replay PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME restart-scenarios-test-none COMMAND tests/restart-scenarios-test.py -c none --kill-sig term -p4 -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST restart-scenarios-test-none PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME terminate-scenarios-test-resync COMMAND tests/terminate-scenarios-test.py -p 1 -c resync --kill-count 1 --terminate-at-block 10 --kill-sig term WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME terminate-scenarios-test-resync COMMAND tests/terminate-scenarios-test.py -c resync --terminate-at-block 10 --kill-sig term WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST terminate-scenarios-test-resync PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME terminate-scenarios-test-replay COMMAND tests/terminate-scenarios-test.py -p 1 -c replay --kill-count 1 --terminate-at-block 10 --kill-sig term WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME terminate-scenarios-test-replay COMMAND tests/terminate-scenarios-test.py -c replay --terminate-at-block 10 --kill-sig term WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST terminate-scenarios-test-replay PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME terminate-scenarios-test-hard_replay COMMAND tests/terminate-scenarios-test.py -p 1 -c hardReplay --kill-count 1 --terminate-at-block 10 --kill-sig term WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME terminate-scenarios-test-hard_replay COMMAND tests/terminate-scenarios-test.py -c hardReplay --terminate-at-block 10 --kill-sig term WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST terminate-scenarios-test-hard_replay PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME validate_dirty_db_test COMMAND tests/validate-dirty-db.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST validate_dirty_db_test PROPERTY LABELS nonparallelizable_tests)
@@ -237,6 +243,9 @@ set_property(TEST nodeos_repeat_transaction_lr_test PROPERTY LABELS long_running
 
 add_test(NAME light_validation_sync_test COMMAND tests/light_validation_sync_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST light_validation_sync_test PROPERTY LABELS nonparallelizable_tests)
+
+add_test(NAME auto_bp_peering_test COMMAND tests/auto_bp_peering_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST auto_bp_peering_test PROPERTY LABELS long_running_tests)
 
 if(ENABLE_COVERAGE_TESTING)
 

@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
       abi.version = "eosio::abi/1.";
 
       abi_data_handler handler(exception_handler{});
-      handler.add_abi("alice"_n, abi);
+      handler.add_abi("alice"_n, std::move(abi));
 
       fc::variant expected = fc::mutable_variant_object()
          ("a", 0)
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
       abi.version = "eosio::abi/1.";
 
       abi_data_handler handler(exception_handler{});
-      handler.add_abi("alice"_n, abi);
+      handler.add_abi("alice"_n, std::move(abi));
 
       fc::variant expected = fc::mutable_variant_object()
             ("a", 0)
@@ -155,7 +155,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
       abi.version = "eosio::abi/1.";
 
       abi_data_handler handler(exception_handler{});
-      handler.add_abi("alice"_n, abi);
+      handler.add_abi("alice"_n, std::move(abi));
 
       auto expected = fc::variant();
 
@@ -184,7 +184,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
       abi.version = "eosio::abi/1.";
 
       abi_data_handler handler(exception_handler{});
-      handler.add_abi("alice"_n, abi);
+      handler.add_abi("alice"_n, std::move(abi));
 
       auto expected = fc::variant();
 
@@ -214,7 +214,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
 
       bool log_called = false;
       abi_data_handler handler([&log_called](const exception_with_context& ){log_called = true;});
-      handler.add_abi("alice"_n, abi);
+      handler.add_abi("alice"_n, std::move(abi));
 
       auto expected = fc::variant();
 

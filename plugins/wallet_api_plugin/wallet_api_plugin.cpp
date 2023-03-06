@@ -16,13 +16,13 @@ FC_REFLECT(eosio::detail::wallet_api_plugin_empty, );
 
 namespace eosio {
 
-static appbase::abstract_plugin& _wallet_api_plugin = app().register_plugin<wallet_api_plugin>();
+   static auto _wallet_api_plugin = application::register_plugin<wallet_api_plugin>();
 
 using namespace eosio;
 
 #define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
-   [&api_handle](string, string body, url_response_callback cb) mutable { \
+   [&api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
           try { \
              INVOKE \
              cb(http_response_code, fc::time_point::now() + fc::days(365), fc::variant(result)); \

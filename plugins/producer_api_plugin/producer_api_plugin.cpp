@@ -16,7 +16,7 @@ FC_REFLECT(eosio::detail::producer_api_plugin_response, (result));
 
 namespace eosio {
 
-static appbase::abstract_plugin& _producer_api_plugin = app().register_plugin<producer_api_plugin>();
+   static auto _producer_api_plugin = application::register_plugin<producer_api_plugin>();
 
 using namespace eosio;
 
@@ -29,7 +29,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
 
 #define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
-   [&api_handle, http_max_response_time](string, string body, url_response_callback cb) mutable { \
+   [&api_handle, http_max_response_time](string&&, string&& body, url_response_callback&& cb) mutable { \
           try { \
              auto deadline = fc::time_point::now() + http_max_response_time; \
              INVOKE \
@@ -41,7 +41,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
 
 #define CALL_ASYNC(api_name, api_handle, call_name, call_result, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
-   [&api_handle](string, string body, url_response_callback cb) mutable { \
+   [&api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
       if (body.empty()) body = "{}"; \
       auto next = [cb, body](const std::variant<fc::exception_ptr, call_result>& result){\
          if (std::holds_alternative<fc::exception_ptr>(result)) {\

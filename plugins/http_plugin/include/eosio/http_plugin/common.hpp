@@ -19,7 +19,6 @@
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/dispatch.hpp>
 #include <boost/asio/signal_set.hpp>
-#include <boost/asio/ssl/stream.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
@@ -46,7 +45,6 @@ using std::string;
 namespace beast = boost::beast;     // from <boost/beast.hpp>
 namespace http = boost::beast::http;// from <boost/beast/http.hpp>
 namespace asio = boost::asio;
-namespace ssl = boost::asio::ssl;
 using boost::asio::ip::tcp;// from <boost/asio/ip/tcp.hpp>
 
 
@@ -69,7 +67,7 @@ using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
 /**
 * internal url handler that contains more parameters than the handlers provided by external systems
 */
-using internal_url_handler = std::function<void(abstract_conn_ptr, string, string, url_response_callback)>;
+using internal_url_handler = std::function<void(abstract_conn_ptr, string&&, string&&, url_response_callback&&)>;
 
 /**
 * Helper method to calculate the "in flight" size of a fc::variant
@@ -118,8 +116,6 @@ struct http_plugin_state {
    int32_t max_requests_in_flight = -1;
    fc::microseconds max_response_time{30 * 1000};
 
-   std::optional<ssl::context> ctx;// only for ssl
-
    bool validate_host = true;
    set<string> valid_hosts;
 
@@ -129,7 +125,8 @@ struct http_plugin_state {
    bool keep_alive = false;
 
    uint16_t thread_pool_size = 2;
-   eosio::chain::named_thread_pool thread_pool{ "http" };
+   struct http; // http is a namespace so use an embedded type for the named_thread_pool tag
+   eosio::chain::named_thread_pool<http> thread_pool;
 
    fc::logger& logger;
 

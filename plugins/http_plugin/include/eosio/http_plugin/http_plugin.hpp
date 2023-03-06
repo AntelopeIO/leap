@@ -26,7 +26,7 @@ namespace eosio {
     *
     * Arguments: url, request_body, response_callback
     **/
-   using url_handler = std::function<void(string,string,url_response_callback)>;
+   using url_handler = std::function<void(string&&, string&&, url_response_callback&&)>;
 
    /**
     * @brief An API, containing URLs and handlers
@@ -80,7 +80,7 @@ namespace eosio {
         void plugin_shutdown();
         void handle_sighup() override;
 
-        void add_handler(const string& url, const url_handler&, int priority = appbase::priority::medium_low);
+        void add_handler( const string& url, const url_handler&, int priority = appbase::priority::medium_low);
         void add_api(const api_description& api, int priority = appbase::priority::medium_low) {
            for (const auto& call : api)
               add_handler(call.first, call.second, priority);
@@ -94,6 +94,8 @@ namespace eosio {
 
         // standard exception handling for api handlers
         static void handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb );
+
+        void post_http_thread_pool(std::function<void()> f);
 
         bool is_on_loopback() const;
         bool is_secure() const;
@@ -109,6 +111,8 @@ namespace eosio {
         /// @return the configured http-max-response-time-ms
         fc::microseconds get_max_response_time()const;
 
+        size_t get_max_body_size()const;
+      
    private:
         std::shared_ptr<class http_plugin_impl> my;
    };
