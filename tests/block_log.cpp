@@ -13,9 +13,9 @@
 namespace bdata = boost::unit_test::data;
 
 struct block_log_fixture {
-   block_log_fixture(bool enable_read, bool reopen_on_mark, bool remove_index_on_reopen, bool vacuum_on_exit_if_small, std::optional<uint32_t> prune_blocks) :
+   block_log_fixture(bool enable_read, bool reopen_on_mark, bool vacuum_on_exit_if_small, std::optional<uint32_t> prune_blocks) :
      enable_read(enable_read), reopen_on_mark(reopen_on_mark),
-     remove_index_on_reopen(remove_index_on_reopen), vacuum_on_exit_if_small(vacuum_on_exit_if_small),
+     vacuum_on_exit_if_small(vacuum_on_exit_if_small),
      prune_blocks(prune_blocks) {
       bounce();
    }
@@ -58,7 +58,7 @@ struct block_log_fixture {
       p->previous._hash[0] = fc::endian_reverse_u32(index-1);
       p->header_extensions.push_back(std::make_pair<uint16_t, std::vector<char>>(0, std::vector<char>(a)));
 
-      log->append(p, p->calculate_id());
+      log->append(p, p->calculate_id(), fc::raw::pack(*p));
 
       if(index + 1 > written_data.size())
          written_data.resize(index + 1);
@@ -92,8 +92,9 @@ struct block_log_fixture {
       }
    }
 
-   bool enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small;
+   bool enable_read, reopen_on_mark, vacuum_on_exit_if_small;
    std::optional<uint32_t> prune_blocks;
+   std::optional<uint32_t> partition_stride;
    fc::temp_directory dir;
 
    std::optional<eosio::chain::block_log> log;
@@ -103,16 +104,27 @@ struct block_log_fixture {
 private:
    void bounce() {
       log.reset();
-      if(remove_index_on_reopen)
-         fc::remove(dir.path() / "blocks.index");
-      std::optional<eosio::chain::block_log_prune_config> conf;
+
+      eosio::chain::block_log_config conf;
+
       if(prune_blocks) {
-         conf.emplace();
-         conf->prune_blocks = *prune_blocks;
-         conf->prune_threshold = 8; //check to prune every 8 bytes; should guarantee always checking to prune for each block added
-         if(vacuum_on_exit_if_small)
-            conf->vacuum_on_close = 1024*1024*1024; //something large: will always vacuum on close for these small tests
+         if (*prune_blocks) {
+            eosio::chain::prune_blocklog_config prune_conf;
+            prune_conf.prune_blocks = *prune_blocks;
+            prune_conf.prune_threshold = 8; //check to prune every 8 bytes; should guarantee always checking to prune for each block added
+            if(vacuum_on_exit_if_small)
+               prune_conf.vacuum_on_close = 1024*1024*1024; //something large: will always vacuum on close for these small tests
+            conf = prune_conf;
+         } else{
+            conf = eosio::chain::empty_blocklog_config{};
+         }
+      } else if (partition_stride) {
+         conf = eosio::chain::partitioned_blocklog_config{
+            .stride = *partition_stride,
+            .max_retained_files = 1
+         };
       }
+
       log.emplace(dir.path(), conf);
    }
 };
@@ -127,9 +139,9 @@ static size_t payload_size() {
 
 BOOST_AUTO_TEST_SUITE(blog_file_tests)
 
-BOOST_DATA_TEST_CASE(basic_prune_test_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
-                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
-   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 4);
+BOOST_DATA_TEST_CASE(basic_prune_test_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, vacuum_on_exit_if_small, 4);
 
    t.startup(1);
 
@@ -162,9 +174,9 @@ BOOST_DATA_TEST_CASE(basic_prune_test_genesis, bdata::xrange(2) * bdata::xrange(
    });
 }  FC_LOG_AND_RETHROW() }
 
-BOOST_DATA_TEST_CASE(basic_prune_test_nongenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
-                                                  enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
-   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 4);
+BOOST_DATA_TEST_CASE(basic_prune_test_nongenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                                  enable_read, reopen_on_mark, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, vacuum_on_exit_if_small, 4);
 
    t.startup(10);
 
@@ -198,9 +210,9 @@ BOOST_DATA_TEST_CASE(basic_prune_test_nongenesis, bdata::xrange(2) * bdata::xran
 }  FC_LOG_AND_RETHROW() }
 
 //well we do let someone configure a single block prune; so let's make sure that works..
-BOOST_DATA_TEST_CASE(single_prune_test_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
-                                                enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
-   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 1);
+BOOST_DATA_TEST_CASE(single_prune_test_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                                enable_read, reopen_on_mark, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, vacuum_on_exit_if_small, 1);
 
    t.startup(1);
 
@@ -217,9 +229,9 @@ BOOST_DATA_TEST_CASE(single_prune_test_genesis, bdata::xrange(2) * bdata::xrange
 
 }  FC_LOG_AND_RETHROW() }
 
-BOOST_DATA_TEST_CASE(single_prune_test_nongenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
-                                                enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
-   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 1);
+BOOST_DATA_TEST_CASE(single_prune_test_nongenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                                enable_read, reopen_on_mark, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, vacuum_on_exit_if_small, 1);
 
    t.startup(10);
 
@@ -236,9 +248,9 @@ BOOST_DATA_TEST_CASE(single_prune_test_nongenesis, bdata::xrange(2) * bdata::xra
 
 }  FC_LOG_AND_RETHROW() }
 
-BOOST_DATA_TEST_CASE(nonprune_test_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
-                                            enable_read, reopen_on_mark, remove_index_on_reopen)  { try {
-   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
+BOOST_DATA_TEST_CASE(nonprune_test_genesis, bdata::xrange(2) * bdata::xrange(2),
+                                            enable_read, reopen_on_mark)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, false, std::optional<uint32_t>());
 
    t.startup(1);
 
@@ -271,9 +283,9 @@ BOOST_DATA_TEST_CASE(nonprune_test_genesis, bdata::xrange(2) * bdata::xrange(2) 
    });
 }  FC_LOG_AND_RETHROW() }
 
-BOOST_DATA_TEST_CASE(nonprune_test_nongenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
-                                               enable_read, reopen_on_mark, remove_index_on_reopen)  { try {
-   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, false, std::optional<uint32_t>());
+BOOST_DATA_TEST_CASE(nonprune_test_nongenesis, bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, false, std::optional<uint32_t>());
 
    t.startup(10);
 
@@ -309,8 +321,8 @@ BOOST_DATA_TEST_CASE(nonprune_test_nongenesis, bdata::xrange(2) * bdata::xrange(
 //the important part of this test is that we transition to a pruned log that still has the genesis state after transition to pruned
 // and then try vacuuming it in both cases where it remains a genesis_state and gets converted to a chainid. basically we want to feel
 // around in convert_existing_header_to_vacuumed()
-BOOST_DATA_TEST_CASE(non_prune_to_prune_genesis, bdata::xrange(2) * bdata::xrange(2), enable_read, remove_index_on_reopen)  { try {
-   block_log_fixture t(enable_read, true, remove_index_on_reopen, false, std::optional<uint32_t>());
+BOOST_DATA_TEST_CASE(non_prune_to_prune_genesis, bdata::xrange(2), enable_read)  { try {
+   block_log_fixture t(enable_read, true, false, std::optional<uint32_t>());
 
    t.startup(1);
 
@@ -396,8 +408,8 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune_genesis, bdata::xrange(2) * bdata::xrang
 } FC_LOG_AND_RETHROW() }
 
 //simpler than above, we'll start out with a non-genesis log and just make sure after pruning the chainid is still what we expect
-BOOST_DATA_TEST_CASE(non_prune_to_prune_nongenesis, bdata::xrange(2) * bdata::xrange(2), enable_read, remove_index_on_reopen)  { try {
-   block_log_fixture t(enable_read, true, remove_index_on_reopen, false, std::optional<uint32_t>());
+BOOST_DATA_TEST_CASE(non_prune_to_prune_nongenesis, bdata::xrange(2), enable_read)  { try {
+   block_log_fixture t(enable_read, true, false, std::optional<uint32_t>());
 
    t.startup(10);
 
@@ -479,9 +491,9 @@ BOOST_DATA_TEST_CASE(non_prune_to_prune_nongenesis, bdata::xrange(2) * bdata::xr
 
 } FC_LOG_AND_RETHROW() }
 
-BOOST_DATA_TEST_CASE(empty_nonprune_to_prune_transitions, bdata::xrange(2) * bdata::xrange(1, 11, 9), remove_index_on_reopen, starting_block)  { try {
+BOOST_DATA_TEST_CASE(empty_nonprune_to_prune_transitions, bdata::xrange(1, 11, 9), starting_block)  { try {
    //start non pruned
-   block_log_fixture t(false, true, remove_index_on_reopen, false, std::optional<uint32_t>());
+   block_log_fixture t(false, true, false, std::optional<uint32_t>());
    t.startup(starting_block);
 
    //pruned mode..
@@ -505,9 +517,9 @@ BOOST_DATA_TEST_CASE(empty_nonprune_to_prune_transitions, bdata::xrange(2) * bda
       t.check_not_present(starting_block);
 }  FC_LOG_AND_RETHROW() }
 
-BOOST_DATA_TEST_CASE(empty_prune_to_nonprune_transitions, bdata::xrange(2) * bdata::xrange(1, 11, 9), remove_index_on_reopen, starting_block)  { try {
+BOOST_DATA_TEST_CASE(empty_prune_to_nonprune_transitions, bdata::xrange(1, 11, 9), starting_block)  { try {
    //start pruned
-   block_log_fixture t(false, true, remove_index_on_reopen, false, 5);
+   block_log_fixture t(false, true, false, 5);
    t.startup(starting_block);
 
    //vacuum back to non-pruned
@@ -532,13 +544,13 @@ BOOST_DATA_TEST_CASE(empty_prune_to_nonprune_transitions, bdata::xrange(2) * bda
 }  FC_LOG_AND_RETHROW() }
 
 // Test when prune_blocks is set to 0, no block log is generated
-BOOST_DATA_TEST_CASE(no_block_log_basic_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
-                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
+BOOST_DATA_TEST_CASE(no_block_log_basic_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, vacuum_on_exit_if_small)  { try {
    // set enable_read to false: when it is true, startup calls
    // log->read_block_by_num which always returns null when block log does not exist.
    // set reopen_on_mark to false: when it is ture, check_n_bounce resets block
    // object but does not reinitialze.
-   block_log_fixture t(false, false, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
+   block_log_fixture t(false, false, vacuum_on_exit_if_small, 0);
 
    t.startup(1);
 
@@ -555,9 +567,9 @@ BOOST_DATA_TEST_CASE(no_block_log_basic_genesis, bdata::xrange(2) * bdata::xrang
 }  FC_LOG_AND_RETHROW() }
 
 // Test when prune_blocks is set to 0, no block log is generated
-BOOST_DATA_TEST_CASE(no_block_log_basic_nongenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
-                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
-   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
+BOOST_DATA_TEST_CASE(no_block_log_basic_nongenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, vacuum_on_exit_if_small, 0);
 
    t.startup(10);
 
@@ -575,11 +587,6 @@ BOOST_DATA_TEST_CASE(no_block_log_basic_nongenesis, bdata::xrange(2) * bdata::xr
 
 void no_block_log_public_functions_test( block_log_fixture& t) {
    BOOST_REQUIRE_NO_THROW(t.log->flush());
-   BOOST_REQUIRE(t.log->read_block(1) == nullptr);
-   BOOST_REQUIRE_NO_THROW(
-      eosio::chain::block_header bh;
-      t.log->read_block_header(bh, 1);
-   );
    BOOST_REQUIRE(t.log->read_block_by_num(1) == nullptr);
    BOOST_REQUIRE(t.log->read_block_id_by_num(1) == eosio::chain::block_id_type{});
    BOOST_REQUIRE(t.log->get_block_pos(1) == eosio::chain::block_log::npos);
@@ -587,21 +594,54 @@ void no_block_log_public_functions_test( block_log_fixture& t) {
 }
 
 // Test when prune_blocks is set to 0, block_log's public methods work
-BOOST_DATA_TEST_CASE(no_block_log_public_functions_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
-                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
-   block_log_fixture t(false, false, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
+BOOST_DATA_TEST_CASE(no_block_log_public_functions_genesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(false, false, vacuum_on_exit_if_small, 0);
 
    t.startup(1);
    no_block_log_public_functions_test(t);
 }  FC_LOG_AND_RETHROW() }
 
 // Test when prune_blocks is set to 0, block_log's public methods work
-BOOST_DATA_TEST_CASE(no_block_log_public_functions_nogenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
-                                               enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small)  { try {
-   block_log_fixture t(enable_read, reopen_on_mark, remove_index_on_reopen, vacuum_on_exit_if_small, 0);
+BOOST_DATA_TEST_CASE(no_block_log_public_functions_nogenesis, bdata::xrange(2) * bdata::xrange(2) * bdata::xrange(2),
+                                               enable_read, reopen_on_mark, vacuum_on_exit_if_small)  { try {
+   block_log_fixture t(enable_read, reopen_on_mark, vacuum_on_exit_if_small, 0);
 
    t.startup(10);
    no_block_log_public_functions_test(t);
+}  FC_LOG_AND_RETHROW() }
+
+
+BOOST_DATA_TEST_CASE(empty_prune_to_partitioned_transitions, bdata::xrange(1, 11, 9), starting_block)  { try {
+   //start pruned
+   block_log_fixture t(false, true, false, 5);
+   t.startup(starting_block);
+
+   const uint32_t stride = 5;
+   uint32_t next_block_num = starting_block;
+
+   //vacuum back to partitioned
+   t.prune_blocks.reset();
+   t.partition_stride = stride;
+   t.check_n_bounce([&]() {});
+   if(starting_block == 1) {
+      t.check_range_present(1, 1);
+      t.check_not_present(2);
+      next_block_num = 2;
+   }
+   else
+      t.check_not_present(starting_block);
+
+   // add 10 more blocks
+   for (int i = 0; i < 10; ++i )
+      t.add(next_block_num + i, payload_size(), 'A');
+
+   uint32_t last_block_num = next_block_num + 10 - 1;
+   uint32_t expected_smallest_block_num = ((last_block_num - stride)/stride)*stride + 1;
+   t.check_range_present(expected_smallest_block_num, last_block_num);
+   t.check_not_present(expected_smallest_block_num-1);
+
+
 }  FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

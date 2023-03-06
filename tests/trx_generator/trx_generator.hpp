@@ -2,7 +2,6 @@
 #include <trx_provider.hpp>
 #include <string>
 #include <vector>
-#include <appbase/plugin.hpp>
 #include <boost/program_options.hpp>
 #include <eosio/chain/transaction.hpp>
 

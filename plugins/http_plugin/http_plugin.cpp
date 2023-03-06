@@ -5,7 +5,6 @@
 
 #include <fc/log/logger_config.hpp>
 #include <fc/reflect/variant.hpp>
-#include <fc/crypto/openssl.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
@@ -35,11 +34,6 @@ namespace eosio {
    using boost::asio::ip::address_v6;
    using std::shared_ptr;
    
-   enum https_ecdh_curve_t {
-      SECP384R1,
-      PRIME256V1
-   };
-
    static http_plugin_defaults current_http_plugin_defaults;
    static bool verbose_http_errors = false;
 
@@ -62,15 +56,9 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          
          std::optional<tcp::endpoint>  listen_endpoint;
          
-         std::optional<tcp::endpoint>  https_listen_endpoint;
-         string                        https_cert_chain;
-         string                        https_key;
-         https_ecdh_curve_t            https_ecdh_curve = SECP384R1;
-
          std::optional<asio::local::stream_protocol::endpoint> unix_endpoint;
 
          shared_ptr<beast_http_listener<plain_session, tcp, tcp_socket_t > >  beast_server;
-         shared_ptr<beast_http_listener<ssl_session, tcp, tcp_socket_t > >  beast_https_server;
          shared_ptr<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket > > beast_unix_server;
 
          shared_ptr<http_plugin_state> plugin_state = std::make_shared<http_plugin_state>(logger());
@@ -141,56 +129,19 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             plugin_state->valid_hosts.emplace(host + ":" + resolved_port_str);
          }
 
-         void create_beast_server(bool useSSL, bool isUnix=false) {
-            if(useSSL) {
-               try {
-                  plugin_state->ctx.emplace(ssl::context::tlsv12);
-                  plugin_state->ctx->set_options(asio::ssl::context::default_workarounds |
-                                 asio::ssl::context::no_sslv2 |
-                                 asio::ssl::context::no_sslv3 |
-                                 asio::ssl::context::no_tlsv1 |
-                                 asio::ssl::context::no_tlsv1_1 |
-                                 asio::ssl::context::single_dh_use);
-
-                  plugin_state->ctx->use_certificate_chain_file(https_cert_chain);
-                  plugin_state->ctx->use_private_key_file(https_key, asio::ssl::context::pem);
-
-                  //going for the A+! Do a few more things on the native context to get ECDH in use
-
-                  fc::ec_key ecdh = EC_KEY_new_by_curve_name(https_ecdh_curve == SECP384R1 ? NID_secp384r1 : NID_X9_62_prime256v1);
-                  if (!ecdh)
-                     EOS_THROW(chain::http_exception, "Failed to set NID_secp384r1");
-                  if(SSL_CTX_set_tmp_ecdh(plugin_state->ctx->native_handle(), (EC_KEY*)ecdh) != 1)
-                     EOS_THROW(chain::http_exception, "Failed to set ECDH PFS");
-
-                  if(SSL_CTX_set_cipher_list(plugin_state->ctx->native_handle(), \
-                     "EECDH+ECDSA+AESGCM:EECDH+aRSA+AESGCM:EECDH+ECDSA+SHA384:EECDH+ECDSA+SHA256:AES256:" \
-                     "!DHE:!RSA:!AES128:!RC4:!DES:!3DES:!DSS:!SRP:!PSK:!EXP:!MD5:!LOW:!aNULL:!eNULL") != 1)
-                     EOS_THROW(chain::http_exception, "Failed to set HTTPS cipher list");
-               } catch (const fc::exception& e) {
-                  fc_elog( logger(), "https server initialization error: ${w}", ("w", e.to_detail_string()) );
-               } catch(std::exception& e) {
-                  fc_elog( logger(), "https server initialization error: ${w}", ("w", e.what()) );
-               }
-
-               beast_https_server = std::make_shared<beast_http_listener<ssl_session, tcp, tcp_socket_t> >(plugin_state);
-               fc_ilog( logger(), "created beast HTTPS listener");
+         void create_beast_server(bool isUnix) {
+            if(isUnix) {
+               beast_unix_server = std::make_shared<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket> >(plugin_state);
+               fc_ilog( logger(), "created beast UNIX socket listener");
             }
             else {
-               if(isUnix) {
-                  beast_unix_server = std::make_shared<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket> >(plugin_state);
-                  fc_ilog( logger(), "created beast UNIX socket listener");
-               }
-               else {
-                  beast_server = std::make_shared<beast_http_listener<plain_session, tcp, tcp_socket_t> >(plugin_state);
-                  fc_ilog( logger(), "created beast HTTP listener");
-               }
+               beast_server = std::make_shared<beast_http_listener<plain_session, tcp, tcp_socket_t> >(plugin_state);
+               fc_ilog( logger(), "created beast HTTP listener");
             }
          }
    };
 
    http_plugin::http_plugin():my(new http_plugin_impl()){
-      app().register_config_type<https_ecdh_curve_t>();
    }
    http_plugin::~http_plugin() = default;
 
@@ -214,20 +165,6 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
              "The local IP and port to listen for incoming http connections; leave blank to disable.");
 
       cfg.add_options()
-            ("https-server-address", bpo::value<string>(),
-             "The local IP and port to listen for incoming https connections; leave blank to disable.")
-
-            ("https-certificate-chain-file", bpo::value<string>(),
-             "Filename with the certificate chain to present on https connections. PEM format. Required for https.")
-
-            ("https-private-key-file", bpo::value<string>(),
-             "Filename with https private key in PEM format. Required for https")
-
-            ("https-ecdh-curve", bpo::value<https_ecdh_curve_t>()->notifier([this](https_ecdh_curve_t c) {
-               my->https_ecdh_curve = c;
-            })->default_value(SECP384R1),
-            "Configure https ECDH curve to use: secp384r1 or prime256v1")
-
             ("access-control-allow-origin", bpo::value<string>()->notifier([this](const string& v) {
                 my->plugin_state->access_control_allow_origin = v;
                 fc_ilog( logger(), "configured http with Access-Control-Allow-Origin: ${o}",
@@ -278,6 +215,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
    void http_plugin::plugin_initialize(const variables_map& options) {
       try {
+         handle_sighup(); // setup logging
          my->plugin_state->max_body_size = options.at( "max-body-size" ).as<uint32_t>();
          verbose_http_errors = options.at( "verbose-http-errors" ).as<bool>();
 
@@ -335,38 +273,6 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
             my->unix_endpoint = asio::local::stream_protocol::endpoint(sock_path.string());
          }
 
-         if( options.count( "https-server-address" ) && options.at( "https-server-address" ).as<string>().length()) {
-            if( !options.count( "https-certificate-chain-file" ) ||
-                options.at( "https-certificate-chain-file" ).as<string>().empty()) {
-               fc_elog(logger(), "https-certificate-chain-file is required for HTTPS" );
-               return;
-            }
-            if( !options.count( "https-private-key-file" ) ||
-                options.at( "https-private-key-file" ).as<string>().empty()) {
-               fc_elog(logger(), "https-private-key-file is required for HTTPS" );
-               return;
-            }
-
-            string lipstr = options.at( "https-server-address" ).as<string>();
-            string host = lipstr.substr( 0, lipstr.find( ':' ));
-            string port = lipstr.substr( host.size() + 1, lipstr.size());
-            try {
-               my->https_listen_endpoint = *resolver.resolve( tcp::v4(), host, port );
-               fc_ilog(logger(), "configured https to listen on ${h}:${p} (TLS configuration will be validated momentarily)",
-                     ("h", host)( "p", port ));
-               my->https_cert_chain = options.at( "https-certificate-chain-file" ).as<string>();
-               my->https_key = options.at( "https-private-key-file" ).as<string>();
-            } catch ( const boost::system::system_error& ec ) {
-               fc_elog(logger(), "failed to configure https to listen on ${h}:${p} (${m})",
-                     ("h", host)( "p", port )( "m", ec.what()));
-            }
-
-            // add in resolved hosts and ports as well
-            if (my->https_listen_endpoint) {
-               my->add_aliases_for_endpoint(*my->https_listen_endpoint, host, port);
-            }
-         }
-
          my->plugin_state->server_header = current_http_plugin_defaults.server_header;
 
          
@@ -376,7 +282,6 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
    void http_plugin::plugin_startup() {
 
-      handle_sighup(); // setup logging
       app().post(appbase::priority::high, [this] ()
       {
          try {
@@ -407,7 +312,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
             if(my->unix_endpoint) {
                try {
-                  my->create_beast_server(false, true);
+                  my->create_beast_server(true);
                   
                   my->beast_unix_server->listen(*my->unix_endpoint);
                   my->beast_unix_server->start_accept();
@@ -423,25 +328,6 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
                }
             }
 
-            if(my->https_listen_endpoint) {
-               try {
-                  my->create_beast_server(true);
-
-                  fc_ilog( logger(), "start listening for https requests (boost::beast)" );
-                  my->beast_https_server->listen(*my->https_listen_endpoint);
-                  my->beast_https_server->start_accept();
-               } catch ( const fc::exception& e ){
-                  fc_elog( logger(), "https service failed to start: ${e}", ("e", e.to_detail_string()) );
-                  throw;
-               } catch ( const std::exception& e ){
-                  fc_elog( logger(), "https service failed to start: ${e}", ("e", e.what()) );
-                  throw;
-               } catch (...) {
-                  fc_elog( logger(), "error thrown from https io service" );
-                  throw;
-               }
-            }
-            
             add_api({{
                std::string("/v1/node/get_supported_apis"),
                [&](const string&, string body, url_response_callback cb) mutable {
@@ -463,22 +349,18 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
    }
 
    void http_plugin::handle_sighup() {
-      const std::string name = logger().name(); // copy needed as update can destroy logger impl which holds name
-      fc::logger::update( name, logger() );
+      fc::logger::update( logger().get_name(), logger() );
    }
 
    void http_plugin::plugin_shutdown() {
       if(my->beast_server)
          my->beast_server->stop_listening();
-      if(my->beast_https_server)
-         my->beast_https_server->stop_listening();
       if(my->beast_unix_server)
          my->beast_unix_server->stop_listening();
 
       my->plugin_state->thread_pool.stop();
 
       my->beast_server.reset();
-      my->beast_https_server.reset();
       my->beast_unix_server.reset();
 
       // release http_plugin_impl_ptr shared_ptrs captured in url handlers
@@ -546,7 +428,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
    }
 
    bool http_plugin::is_on_loopback() const {
-      return (!my->listen_endpoint || my->listen_endpoint->address().is_loopback()) && (!my->https_listen_endpoint || my->https_listen_endpoint->address().is_loopback());
+      return (!my->listen_endpoint || my->listen_endpoint->address().is_loopback());
    }
 
    bool http_plugin::is_secure() const {
@@ -576,25 +458,4 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       return my->plugin_state->max_response_time;
    }
 
-   std::istream& operator>>(std::istream& in, https_ecdh_curve_t& curve) {
-      std::string s;
-      in >> s;
-      if (s == "secp384r1")
-         curve = SECP384R1;
-      else if (s == "prime256v1")
-         curve = PRIME256V1;
-      else
-         in.setstate(std::ios_base::failbit);
-      return in;
-   }
-
-   std::ostream& operator<<(std::ostream& osm, https_ecdh_curve_t curve) {
-      if (curve == SECP384R1) {
-         osm << "secp384r1";
-      } else if (curve == PRIME256V1) {
-         osm << "prime256v1";
-      }
-
-      return osm;
-   }
 }

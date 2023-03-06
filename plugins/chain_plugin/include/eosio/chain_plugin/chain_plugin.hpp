@@ -495,6 +495,15 @@ public:
 
    void compute_transaction(const compute_transaction_params& params, chain::plugin_interface::next_function<compute_transaction_results> next ) const;
 
+   struct send_read_only_transaction_results {
+      chain::transaction_id_type  transaction_id;
+      fc::variant                 processed;
+   };
+   struct send_read_only_transaction_params {
+      fc::variant transaction;
+   };
+   void send_read_only_transaction(const send_read_only_transaction_params& params, chain::plugin_interface::next_function<send_read_only_transaction_results> next ) const;
+
    static void copy_inline_row(const chain::key_value_object& obj, vector<char>& data) {
       data.resize( obj.value.size() );
       memcpy( data.data(), obj.value.data(), obj.value.size() );
@@ -718,6 +727,10 @@ public:
      chain::wasm_config         wasm_config;
    };
    get_consensus_parameters_results get_consensus_parameters(const get_consensus_parameters_params&, const fc::time_point& deadline) const;
+
+private:
+   template<typename Params, typename Results>
+   void send_transient_transaction(const Params& params, next_function<Results> next, chain::transaction_metadata::trx_type trx_type) const;
 };
 
 class read_write {
@@ -967,4 +980,6 @@ FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_params, (transaction
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_result, (required_keys) )
 FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_params, (transaction))
 FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_results, (transaction_id)(processed) )
+FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_params, (transaction))
+FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_results, (transaction_id)(processed) )
 FC_REFLECT( eosio::chain_apis::read_only::get_consensus_parameters_results, (chain_config)(wasm_config))

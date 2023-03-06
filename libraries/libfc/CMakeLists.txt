@@ -140,7 +140,7 @@ if(APPLE)
   find_library(corefoundation_framework CoreFoundation)
 endif()
 target_link_libraries( fc PUBLIC Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
-                                 OpenSSL::Crypto OpenSSL::SSL ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework})
+                                 OpenSSL::Crypto ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework})
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access
 #  to some obsoleted AES functions in 3.0 too, since 3.0's API_COMPAT is effectively 3.0 by default

@@ -40,11 +40,7 @@ using local_stream = beast::basic_stream<
 //------------------------------------------------------------------------------
 // fail()
 //  this function is generally reserved in the case of a severe error which results
-//  in immediate termiantion of the session, with no response sent back to the client
-//  currently also includes SSL "short read" error for security reasons:
-//
-//  https://github.com/boostorg/beast/issues/38
-//  https://security.stackexchange.com/questions/91435/how-to-handle-a-malicious-ssl-tls-shutdown
+//  in immediate termination of the session, with no response sent back to the client
 void fail(beast::error_code ec, char const* what, fc::logger& logger, char const* action) {
    fc_elog(logger, "${w}: ${m}", ("w", what)("m", ec.message()));
    fc_elog(logger, action);
@@ -76,9 +72,9 @@ bool allow_host(const http::request<http::string_body>& req, T& session,
 }
 
 // Handle HTTP connection using boost::beast for TCP communication
-// Subclasses of this class (plain_session, ssl_session, etc.)
+// Subclasses of this class (plain_session, ssl_session (now removed), etc.)
 // use the Curiously Recurring Template Pattern so that
-// the same code works with both SSL streams, regular TCP sockets and UNIX sockets
+// the same code works with both regular TCP sockets and UNIX sockets
 template<class Derived>
 class beast_http_session : public detail::abstract_conn {
 protected:
@@ -269,8 +265,11 @@ public:
                 std::size_t bytes_transferred) {
       boost::ignore_unused(bytes_transferred);
 
-      // This means they closed the connection
-      if(ec == http::error::end_of_stream)
+      // By default, http_plugin runs in keep_alive mode (persistent connections)
+      // hence respecting the http 1.1 standard. So after sending a response, we wait
+      // on another read. If the client disconnects, we may get
+      // http::error::end_of_stream or asio::error::connection_reset.
+      if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
          return derived().do_eof();
 
       if(ec) {
@@ -457,75 +456,6 @@ public:
       return "plain_session";
    }
 };// end class plain_session
-
-// Handles an SSL HTTP connection
-class ssl_session
-    : public beast_http_session<ssl_session>,
-      public std::enable_shared_from_this<ssl_session> {
-   ssl::stream<tcp_socket_t> stream_;
-
-public:
-   // Create the session
-
-   ssl_session(
-         tcp_socket_t socket,
-         std::shared_ptr<http_plugin_state> plugin_state)
-       : beast_http_session<ssl_session>(std::move(plugin_state)), stream_(std::move(socket), *plugin_state_->ctx) {}
-
-
-   ssl::stream<tcp_socket_t>& stream() { return stream_; }
-#if BOOST_VERSION < 107000
-   tcp_socket_t& socket() { return beast::get_lowest_layer<tcp_socket_t&>(stream_); }
-#else
-   tcp_socket_t& socket() { return beast::get_lowest_layer(stream_); }
-#endif
-   // Start the asynchronous operation
-   void run() {
-      auto self = shared_from_this();
-      self->stream_.async_handshake(
-            ssl::stream_base::server,
-            self->buffer_.data(),
-            [self](beast::error_code ec, std::size_t bytes_used) {
-               self->on_handshake(ec, bytes_used);
-            });
-   }
-
-   void on_handshake(beast::error_code ec, std::size_t bytes_used) {
-      if(ec)
-         return fail(ec, "handshake", plugin_state_->logger, "closing connection");
-
-      buffer_.consume(bytes_used);
-
-      do_read();
-   }
-
-   void do_eof() {
-      // Perform the SSL shutdown
-      auto self = shared_from_this();
-      stream_.async_shutdown(
-            [self](beast::error_code ec) {
-               self->on_shutdown(ec);
-            });
-   }
-
-   void on_shutdown(beast::error_code ec) {
-      if(ec)
-         return fail(ec, "shutdown", plugin_state_->logger, "closing connection");
-      // At this point the connection is closed gracefully
-   }
-
-   bool is_secure() { return true; }
-
-   bool allow_host(const http::request<http::string_body>& req) {
-      return eosio::allow_host(req, *this, plugin_state_);
-   }
-
-   static constexpr auto name() {
-      return "ssl_session";
-   }
-
-};// end class ssl_session
-
 
 // unix domain sockets
 class unix_socket_session
