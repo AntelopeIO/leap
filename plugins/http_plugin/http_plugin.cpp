@@ -82,6 +82,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
 
                // post to the app thread taking shared ownership of next (via std::shared_ptr),
                // sole ownership of the tracked body and the passed in parameters
+               // we can't std::move() next_ptr because we post a new lambda for each http request and we need to keep the original
                app().post( priority, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
                   try {
                      if( app().is_quiting() ) return; // http_plugin shutting down, do not call callback
