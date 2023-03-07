@@ -68,6 +68,7 @@ int main(int argc, char** argv) {
          ("monitor-max-lag-percent", bpo::value<uint32_t>(&max_lag_per)->default_value(5), "Max percentage off from expected transactions sent before being in violation. Defaults to 5.")
          ("monitor-max-lag-duration-us", bpo::value<int64_t>(&max_lag_duration_us)->default_value(1000000), "Max microseconds that transaction generation can be in violation before quitting. Defaults to 1000000 (1s).")
          ("log-dir", bpo::value<string>(&log_dir_in), "set the logs directory")
+         ("stop-on-trx-failed", bpo::value<bool>(&stop_on_trx_failed)->default_value(true), "stop transaction generation if sending fails.")
          ("abi-file", bpo::value<string>(&abi_file_path_in), "The path to the contract abi file to use for the supplied transaction action data")
          ("actions-data", bpo::value<string>(&actions_data_json_file_or_str), "The json actions data file or json actions data description string to use")
          ("actions-auths", bpo::value<string>(&actions_auths_json_file_or_str), "The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.")
