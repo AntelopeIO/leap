@@ -188,9 +188,8 @@ jobs:
       - name: Run tests in parallel containers
         uses: ./.github/actions/parallel-ctest-containers
         with:
-          container:
-            image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-            options: --security-opt seccomp=unconfined
+          container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+          args: --security-opt seccomp=unconfined
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: long_running_tests
