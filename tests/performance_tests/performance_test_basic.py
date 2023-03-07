@@ -15,7 +15,7 @@ import traceback
 from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
-from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
+from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
 from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr, TransactionGeneratorsLauncher, TpsTrxGensConfig
 from TestHarness.TestHelper import AppArgs
 from dataclasses import dataclass, asdict, field
@@ -52,7 +52,6 @@ class PerformanceTestBasic:
         class ExtraNodeosArgs:
 
             chainPluginArgs: ChainPluginArgs = ChainPluginArgs()
-            httpClientPluginArgs: HttpClientPluginArgs = HttpClientPluginArgs()
             httpPluginArgs: HttpPluginArgs = HttpPluginArgs()
             netPluginArgs: NetPluginArgs = NetPluginArgs()
             producerPluginArgs: ProducerPluginArgs = ProducerPluginArgs()

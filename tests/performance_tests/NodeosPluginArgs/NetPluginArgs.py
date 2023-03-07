@@ -26,6 +26,9 @@ class NetPluginArgs(BasePluginArgs):
     p2pAcceptTransactions: int=None
     _p2pAcceptTransactionsNodeosDefault: int=1
     _p2pAcceptTransactionsNodeosArg: str="--p2p-accept-transactions"
+    p2pAutoBpPeer: str=None
+    _p2pAutoBpPeerNodeosDefault: str=None
+    _p2pAutoBpPeerNodeosArg: str="--p2p-auto-bp-peer"
     agentName: str=None
     _agentNameNodeosDefault: str="EOS Test Agent"
     _agentNameNodeosArg: str="--agent-name"

@@ -14,7 +14,6 @@ The script then uses the parsed output to generate *PluginArgs.py scripts, placi
 
 Currently it generates the following scripts:
 - ChainPluginArgs.py
-- HttpClientPluginArgs.py
 - HttpPluginArgs.py
 - NetPluginArgs.py
 - ProducerPluginArgs.py
@@ -189,7 +188,6 @@ if __name__ == '__main__':\n\
             dataclassFile.write(writeHelpers(f"{newPlugin}Args"))
     
     writeDataclass(plugin="chain_plugin:", dataFieldDict=newDict, pluginOptsDict=pluginOptsDict)
-    writeDataclass(plugin="http_client_plugin:", dataFieldDict=newDict, pluginOptsDict=pluginOptsDict)
     writeDataclass(plugin="http_plugin:", dataFieldDict=newDict, pluginOptsDict=pluginOptsDict)
     writeDataclass(plugin="net_plugin:", dataFieldDict=newDict, pluginOptsDict=pluginOptsDict)
     writeDataclass(plugin="producer_plugin:", dataFieldDict=newDict, pluginOptsDict=pluginOptsDict)

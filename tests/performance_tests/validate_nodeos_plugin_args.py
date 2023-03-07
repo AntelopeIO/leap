@@ -3,7 +3,7 @@
 import re
 import subprocess
 
-from NodeosPluginArgs import ChainPluginArgs, HttpClientPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
+from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
 
 testSuccessful = False
 
@@ -65,7 +65,7 @@ def parseNodeosConfigOptions() -> dict:
 
 nodeosPluginOptsDict = parseNodeosConfigOptions()
 
-curListOfSupportedPlugins = [ChainPluginArgs(), HttpClientPluginArgs(), HttpPluginArgs(), NetPluginArgs(), ProducerPluginArgs(),
+curListOfSupportedPlugins = [ChainPluginArgs(), HttpPluginArgs(), NetPluginArgs(), ProducerPluginArgs(),
                              ResourceMonitorPluginArgs(), SignatureProviderPluginArgs(), StateHistoryPluginArgs(), TraceApiPluginArgs()]
 
 curListOfUnsupportedOptionGroups = ["txn_test_gen_plugin", "Application Config Options", "Application Command Line Options"]
@@ -81,7 +81,7 @@ def argStrToAttrName(argStr: str) -> str:
 
 for supportedPlugin in curListOfSupportedPlugins:
     #Check whether nodeos has removed any plugin configuration sections
-    assert supportedPlugin._pluginName in nodeosPluginOptsDict, f"ERROR: Supported config section \"{supportedPlugin}\" no longer supported by nodeos. {regenSuggestion}"
+    assert supportedPlugin._pluginName in nodeosPluginOptsDict, f"ERROR: Supported config section \"{supportedPlugin._pluginName}\" no longer supported by nodeos. {regenSuggestion}"
 
     for opt in supportedPlugin.supportedNodeosArgs():
         #Check whether nodeos has removed any arguments in a plugin

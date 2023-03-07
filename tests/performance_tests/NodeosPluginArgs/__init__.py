@@ -1,8 +1,7 @@
-__all__ = ['BasePluginArgs', 'ChainPluginArgs', 'HttpClientPluginArgs', 'HttpPluginArgs', 'NetPluginArgs', 'ProducerPluginArgs', 'ResourceMonitorPluginArgs', 'SignatureProviderPluginArgs', 'StateHistoryPluginArgs', 'TraceApiPluginArgs']
+__all__ = ['BasePluginArgs', 'ChainPluginArgs', 'HttpPluginArgs', 'NetPluginArgs', 'ProducerPluginArgs', 'ResourceMonitorPluginArgs', 'SignatureProviderPluginArgs', 'StateHistoryPluginArgs', 'TraceApiPluginArgs']
 
 from .BasePluginArgs import BasePluginArgs
 from .ChainPluginArgs import ChainPluginArgs
-from .HttpClientPluginArgs import HttpClientPluginArgs
 from .HttpPluginArgs import HttpPluginArgs
 from .NetPluginArgs import NetPluginArgs
 from .ProducerPluginArgs import ProducerPluginArgs

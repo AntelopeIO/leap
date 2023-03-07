@@ -1,7 +1,6 @@
 configure_file(__init__.py __init__.py COPYONLY)
 configure_file(BasePluginArgs.py BasePluginArgs.py COPYONLY)
 configure_file(ChainPluginArgs.py ChainPluginArgs.py COPYONLY)
-configure_file(HttpClientPluginArgs.py HttpClientPluginArgs.py COPYONLY)
 configure_file(HttpPluginArgs.py HttpPluginArgs.py COPYONLY)
 configure_file(NetPluginArgs.py NetPluginArgs.py COPYONLY)
 configure_file(ProducerPluginArgs.py ProducerPluginArgs.py COPYONLY)
