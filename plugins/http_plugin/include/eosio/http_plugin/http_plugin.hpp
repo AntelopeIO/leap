@@ -26,7 +26,7 @@ namespace eosio {
     *
     * Arguments: url, request_body, response_callback
     **/
-   using url_handler = std::function<void(string,string,url_response_callback)>;
+   using url_handler = std::function<void(string&&, string&&, url_response_callback&&)>;
 
    /**
     * @brief An API, containing URLs and handlers
@@ -111,6 +111,8 @@ namespace eosio {
         /// @return the configured http-max-response-time-ms
         fc::microseconds get_max_response_time()const;
 
+        size_t get_max_body_size()const;
+      
    private:
         std::shared_ptr<class http_plugin_impl> my;
    };
