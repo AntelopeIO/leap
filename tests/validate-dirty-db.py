@@ -38,10 +38,10 @@ seed=1
 Utils.Debug=debug
 testSuccessful=False
 
-def runNodeosAndGetOutput(myTimeout=3):
+def runNodeosAndGetOutput(myTimeout=3, nodeosLogPath=f"{Utils.TestLogRoot}"):
     """Startup nodeos, wait for timeout (before forced shutdown) and collect output. Stdout, stderr and return code are returned in a dictionary."""
     Print("Launching nodeos process.")
-    cmd=f"programs/nodeos/nodeos --config-dir etc/eosio/node_bios --data-dir TestLogs/{Path(__file__).stem}{getpid()}/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
+    cmd=f"programs/nodeos/nodeos --config-dir etc/eosio/node_bios --data-dir {nodeosLogPath}/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
     Print("cmd: %s" % (cmd))
     proc=subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if debug: Print("Nodeos process launched.")
@@ -90,7 +90,7 @@ try:
 
     for i in range(1,4):
         Print("Attempt %d." % (i))
-        ret = runNodeosAndGetOutput(timeout)
+        ret = runNodeosAndGetOutput(timeout, cluster.nodeosLogPath)
         assert(ret)
         assert(isinstance(ret, tuple))
         if not ret[0]:

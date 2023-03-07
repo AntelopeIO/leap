@@ -310,9 +310,9 @@ class PerformanceBasicTest:
     def captureLowLevelArtifacts(self):
         try:
             pid = os.getpid()
-            shutil.move(f"TestLogs/{self.nodeosBasePath}{pid}", f"{self.varLogsDirPath}")
+            shutil.move(f"{self.cluster.nodeosLogPath}", f"{self.varLogsDirPath}")
         except Exception as e:
-            print(f"Failed to move 'TestLogs/{self.nodeosBasePath}{pid}' to '{self.varLogsDirPath}': {type(e)}: {e}")
+            print(f"Failed to move '{self.cluster.nodeosLogPath}' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
         etcEosioDir = "etc/eosio"
         for path in os.listdir(etcEosioDir):

@@ -38,13 +38,13 @@ onlyBios=args.only_bios
 killAll=args.clean_run
 sanityTest=args.sanity_test
 walletPort=args.wallet_port
-errFileName=f"TestLogs/{Path(__file__).stem}{os.getpid()}/node_00/stderr.txt"
-if args.error_log_path:
-    errFileName=args.error_log_path
 
 Utils.Debug=debug
 localTest=True if server == TestHelper.LOCAL_HOST else False
 cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey)
+errFileName=f"{cluster.nodeosLogPath}/node_00/stderr.txt"
+if args.error_log_path:
+    errFileName=args.error_log_path
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
 killEosInstances=not dontKill

@@ -217,8 +217,7 @@ try:
         errorExit("Failed to bounce eos node.")
 
     p = re.compile('Assert')
-    errFileName=f"TestLogs/{Path(__file__).stem}{os.getpid()}/node_00/stderr.txt"
-    assertionsFound=False
+    errFileName=f"{cluster.nodeosLogPath}/node_00/stderr.txt"
     with open(errFileName) as errFile:
         for line in errFile:
             if p.search(line):
@@ -227,7 +226,7 @@ try:
     if assertionsFound:
         # Too many assertion logs, hard to validate how many are genuine. Make this a warning
         #  for now, hopefully the logs will get cleaned up in future.
-        Print(f"WARNING: Asserts in TestLogs/{Path(__file__).stem}{os.getpid()}/node_00/stderr.txt")
+        Print(f"WARNING: Asserts in {cluster.nodeosLogPath}/node_00/stderr.txt")
         #errorExit("FAILURE - Assert in launcher_test.py/node_00/stderr.txt")
 
     Print("Validating accounts at end of test")

@@ -18,6 +18,7 @@ from core_symbol import CORE_SYMBOL
 from .testUtils import Utils
 from .testUtils import Account
 from .testUtils import BlockLogAction
+from .testUtils import Utils
 from .Node import BlockType
 from .Node import Node
 from .WalletMgr import WalletMgr
@@ -132,7 +133,7 @@ class Cluster(object):
         self.alternateVersionLabels=Cluster.__defaultAlternateVersionLabels()
         self.biosNode = None
         self.nodeosVers=nodeosVers
-        self.nodeosLogPath=Path('TestLogs') / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}')
+        self.nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}')
 
         unshare(CLONE_NEWNET)
         for index, name in socket.if_nameindex():
@@ -183,7 +184,7 @@ class Cluster(object):
     # pylint: disable=too-many-statements
     def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", useBiosBootFile=False, specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
-               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path('TestLogs') / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
+               pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
                maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
         """Launch cluster.
         pnodes: producer nodes count

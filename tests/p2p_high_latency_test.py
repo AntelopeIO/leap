@@ -21,8 +21,8 @@ from pathlib import Path
 #   loop of sending lib catch up to syncing node.
 ###############################################################
 
-def readlogs(node_num, net_latency):
-    filename = f'TestLogs/{Path(__file__).stem}{getpid()}/node_0/stderr.txt'.format(node_num)
+def readlogs(node_num, net_latency, nodeosLogPath):
+    filename = nodeosLogPath
     f = subprocess.Popen(['tail','-F',filename], \
                          stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     latRegex = re.compile(r'\d+ms')
@@ -98,7 +98,7 @@ try:
         print(err.decode("utf-8")) # print error details of network slowdown initialization commands
         Utils.errorExit("failed to initialize network latency, exited with error code {}".format(ReturnCode))
         # processing logs to make sure syncing node doesn't get into lib catch up mode.
-    testSuccessful=readlogs(syncingNodeId, latency)
+    testSuccessful=readlogs(syncingNodeId, latency, cluster.nodeosLogPath)
     if platform.system() == 'Darwin':
         cmd = 'sudo pfctl -f /etc/pf.conf && \
             sudo dnctl -q flush && sudo pfctl -d'
