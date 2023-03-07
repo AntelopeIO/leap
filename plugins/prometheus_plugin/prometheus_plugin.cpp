@@ -19,7 +19,7 @@ namespace eosio {
    using namespace prometheus;
    using namespace chain::plugin_interface;
 
-   static auto& _prometheus_plugin = app().register_plugin<prometheus_plugin>();
+   static auto _prometheus_plugin = application::register_plugin<prometheus_plugin>();
    using metric_type=chain::plugin_interface::metric_type;
 
    struct prometheus_plugin_metrics : plugin_metrics {
