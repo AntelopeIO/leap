@@ -19,7 +19,7 @@ from TestHarness.testUtils import BlockLogAction
 #  Test configures a producing node and 2 non-producing nodes.
 #  Configures trx_generator(s) and starts generating transactions and sending them
 #  to the producing node.
-#  - Create a snapshot from producing node
+#  - Create a snapshot from producing node using snapshot scheduler
 #  - Convert snapshot to JSON
 #  - Trim blocklog to head block of snapshot
 #  - Start nodeos in irreversible mode on blocklog
@@ -60,10 +60,14 @@ ClientName="cleos"
 
 trxGenLauncher=None
 
+snapshotScheduleDB = "snapshot-schedule.json"
+
 def getLatestSnapshot(nodeId):
     snapshotDir = os.path.join(Utils.getNodeDataDir(nodeId), "snapshots")
     snapshotDirContents = os.listdir(snapshotDir)
     assert len(snapshotDirContents) > 0
+    # disregard snapshot schedule config in same folder
+    if snapshotScheduleDB in snapshotDirContents: snapshotDirContents.remove(snapshotScheduleDB)
     snapshotDirContents.sort()
     return os.path.join(snapshotDir, snapshotDirContents[-1])
 
@@ -152,10 +156,9 @@ try:
     assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
 
     Print("Create snapshot")
-    ret = nodeSnap.createSnapshot()
+    ret = nodeSnap.scheduleSnapshot()
     assert ret is not None, "Snapshot creation failed"
-    ret_head_block_num = ret["payload"]["head_block_num"]
-    Print(f"Snapshot head block number {ret_head_block_num}")
+    ret_head_block_num = nodeSnap.getBlockNum(BlockType.head) + 1
 
     Print("Wait for snapshot node lib to advance")
     waitForBlock(nodeSnap, ret_head_block_num+1, blockType=BlockType.lib)
