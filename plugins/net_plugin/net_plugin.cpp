@@ -800,7 +800,6 @@ namespace eosio {
       void handle_message( packed_transaction_ptr msg );
 
       void process_signed_block( const block_id_type& id, signed_block_ptr msg, block_state_ptr bsp );
-      void process_packed_transaction( packed_transaction_ptr trx );
 
       fc::variant_object get_logger_variant() const {
          fc::mutable_variant_object mvo;
@@ -3161,13 +3160,6 @@ namespace eosio {
       const auto& tid = trx->id();
       peer_dlog( this, "received packed_transaction ${id}", ("id", tid) );
 
-      app().executor().post(priority::medium, exec_queue::general, [trx{std::move(trx)}, c = shared_from_this()]() mutable {
-         c->process_packed_transaction( std::move( trx ) );
-      });
-   }
-
-   // called from application thread
-   void connection::process_packed_transaction( packed_transaction_ptr trx ) {
       trx_in_progress_size += calc_trx_size( trx );
       my_impl->chain_plug->accept_transaction( trx,
          [weak = weak_from_this(), trx](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) mutable {

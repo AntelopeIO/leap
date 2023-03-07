@@ -371,7 +371,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          std::mutex              mtx;
          std::deque<ro_trx_t>    queue;
       };
-      uint16_t                        _ro_thread_pool_size{ 2 };
+      uint16_t                        _ro_thread_pool_size{ 0 };
       named_thread_pool<struct read>  _ro_thread_pool;
       fc::microseconds                _ro_write_window_time_us{ 200000 };
       fc::microseconds                _ro_read_window_time_us{ 60000 };
@@ -1007,6 +1007,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
    // only initialize other read-only options when read-only thread pool is enabled
    if ( my->_ro_thread_pool_size > 0 ) {
+      EOS_ASSERT( !my->_production_enabled, plugin_config_exception, "--read-only-thread does not work when production is enabled" );
+
       if (chain.is_eos_vm_oc_enabled()) {
          // EOS VM OC requires 4.2TB Virtual for each executing thread. Make sure the memory
          // required by configured read-only threads does not exceed the total system virtual memory.
@@ -2638,16 +2640,15 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
 
 // Called from app thread
 void producer_plugin_impl::switch_to_write_window() {
-   EOS_ASSERT(app().executor().is_read_window(), producer_exception, "expected to be in read window");
-   EOS_ASSERT(_ro_num_active_trx_exec_tasks.load() == 0, producer_exception, "no read-only tasks should be running before switching to write window");
-
-   _ro_read_window_timer.cancel();
-   _ro_write_window_timer.cancel();
-
    // this methond can be called from multiple places. it is possible
    // we are already in write window.
    if ( app().executor().is_write_window() )
       return;
+
+   EOS_ASSERT(_ro_num_active_trx_exec_tasks.load() == 0, producer_exception, "no read-only tasks should be running before switching to write window");
+   _ro_read_window_timer.cancel();
+   _ro_write_window_timer.cancel();
+
    start_write_window();
 }
 
@@ -2711,7 +2712,7 @@ void producer_plugin_impl::switch_to_read_window() {
                task.get();
             self->_ro_trx_exec_tasks_fut.clear();
             self->switch_to_write_window();
-          } else
+          } else if ( self )
              self->_ro_trx_exec_tasks_fut.clear();
        }));
 }
