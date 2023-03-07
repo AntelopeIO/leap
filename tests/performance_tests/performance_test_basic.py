@@ -84,7 +84,7 @@ class PerformanceTestBasic:
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
-        loggingLevel: str = "info"
+        loggingLevel: str = "info   "
         loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
         prodsEnableTraceApi: bool = False
         nodeosVers: str = ""
@@ -331,7 +331,9 @@ class PerformanceTestBasic:
     def runTpsTest(self) -> PtbTpsTestResult:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
-        self.producerP2pPort = self.cluster.getNodeP2pPort(self.producerNodeId)
+        self.producerP2pPorts = []
+        for producer in range(0, self.clusterConfig.pnodes):
+            self.producerP2pPorts.append(self.cluster.getNodeP2pPort(producer))
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         self.wallet = self.walletMgr.create('default')
         self.setupContract()
@@ -381,7 +383,7 @@ class PerformanceTestBasic:
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
                                                        trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
                                                        abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,
-                                                       peerEndpoint=self.producerNode.host, port=self.producerP2pPort, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                       peerEndpoint=self.producerNode.host, ports=self.producerP2pPorts, tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenExitCodes = self.cluster.trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")

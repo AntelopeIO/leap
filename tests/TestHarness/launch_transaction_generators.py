@@ -38,7 +38,7 @@ class TransactionGeneratorsLauncher:
 
     def __init__(self, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str, trxGenDurationSec: int, logDir: str,
                  abiFile: Path, actionsData, actionsAuths,
-                 peerEndpoint: str, port: int, tpsTrxGensConfig: TpsTrxGensConfig):
+                 peerEndpoint: str, ports: list, tpsTrxGensConfig: TpsTrxGensConfig):
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.contractOwnerAccount  = contractOwnerAccount
@@ -51,10 +51,11 @@ class TransactionGeneratorsLauncher:
         self.actionsData=actionsData
         self.actionsAuths=actionsAuths
         self.peerEndpoint = peerEndpoint
-        self.port = port
+        self.ports = ports
 
     def launch(self, waitToComplete=True):
         self.subprocess_ret_codes = []
+        portIter = 0
         for id, targetTps in enumerate(self.tpsTrxGensConfig.targetTpsPerGenList):
             if self.abiFile is not None and self.actionsData is not None and self.actionsAuths is not None:
                 if Utils.Debug:
@@ -73,7 +74,7 @@ class TransactionGeneratorsLauncher:
                         f'--actions-data {self.actionsData} '
                         f'--actions-auths {self.actionsAuths} '
                         f'--peer-endpoint {self.peerEndpoint} '
-                        f'--port {self.port}'
+                        f'--port {self.ports[portIter]}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
@@ -91,7 +92,7 @@ class TransactionGeneratorsLauncher:
                         '--actions-data', f'{self.actionsData}',
                         '--actions-auths', f'{self.actionsAuths}',
                         '--peer-endpoint', f'{self.peerEndpoint}',
-                        '--port', f'{self.port}'
+                        '--port', f'{self.ports[portIter]}'
                     ])
                 )
             else:
@@ -108,7 +109,7 @@ class TransactionGeneratorsLauncher:
                         f'--target-tps {targetTps} '
                         f'--log-dir {self.logDir} '
                         f'--peer-endpoint {self.peerEndpoint} '
-                        f'--port {self.port}'
+                        f'--port {self.ports[portIter]}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
@@ -123,9 +124,10 @@ class TransactionGeneratorsLauncher:
                         '--target-tps', f'{targetTps}',
                         '--log-dir', f'{self.logDir}',
                         '--peer-endpoint', f'{self.peerEndpoint}',
-                        '--port', f'{self.port}'
+                        '--port', f'{self.ports[portIter]}'
                     ])
                 )
+            portIter = (portIter + 1) % 3
         exitCodes=None
         if waitToComplete:
             exitCodes = [ret_code.wait() for ret_code in self.subprocess_ret_codes]
