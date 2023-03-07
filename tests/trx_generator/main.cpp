@@ -97,95 +97,72 @@ int main(int argc, char** argv) {
          transaction_specified = true;
       }
 
-      if(!vmap.count("chain-id")) {
+      if(chain_id_in.empty()) {
          ilog("Initialization error: missing chain-id");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
-      if(!vmap.count("log-dir")) {
+      if(log_dir_in.empty()) {
          ilog("Initialization error: missing log-dir");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
-      if(!vmap.count("last-irreversible-block-id")) {
+      if(lib_id_str.empty()) {
          ilog("Initialization error: missing last-irreversible-block-id");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("contract-owner-account")) {
-      } else {
+      if(contract_owner_acct.empty()) {
          ilog("Initialization error: missing contract-owner-account");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("accounts")) {
-         boost::split(account_str_vector, accts, boost::is_any_of(","));
-         if(!transaction_specified && account_str_vector.size() < 2) {
-            ilog("Initialization error: requires at minimum 2 transfer accounts");
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
-      } else {
+      boost::split(account_str_vector, accts, boost::is_any_of(","));
+      if(account_str_vector.size() < 1 || (!transaction_specified && account_str_vector.size() < 2)) {
          ilog("Initialization error: did not specify transfer accounts. Auto transfer transaction generation requires at minimum 2 transfer accounts, while providing transaction action data requires at least one.");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("priv-keys")) {
-         boost::split(private_keys_str_vector, p_keys, boost::is_any_of(","));
-         if(!transaction_specified && private_keys_str_vector.size() < 2) {
-            ilog("Initialization error: requires at minimum 2 private keys");
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
-      } else {
+      boost::split(private_keys_str_vector, p_keys, boost::is_any_of(","));
+      if(private_keys_str_vector.size() < 1 || (!transaction_specified && private_keys_str_vector.size() < 2)) {
          ilog("Initialization error: did not specify accounts' private keys. Auto transfer transaction generation requires at minimum 2 private keys, while providing transaction action data requires at least one.");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("generator-id")) {
-         if(gen_id > generator_id_max) {
-            ilog("Initialization error: Exceeded max value for generator id. Value must be less than ${max}.", ("max", generator_id_max));
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
+      if(gen_id > generator_id_max) {
+         ilog("Initialization error: Exceeded max value for generator id. Value must be less than ${max}.", ("max", generator_id_max));
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("trx-expiration")) {
-         if(trx_expr > trx_expiration_max) {
-            ilog("Initialization error: Exceeded max value for transaction expiration. Value must be less than ${max}.", ("max", trx_expiration_max));
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
+      if(trx_expr > trx_expiration_max) {
+         ilog("Initialization error: Exceeded max value for transaction expiration. Value must be less than ${max}.", ("max", trx_expiration_max));
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("spinup-time-us")) {
-         if(spinup_time_us < 0) {
-            ilog("Initialization error: spinup-time-us cannot be negative");
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
+      if(spinup_time_us < 0) {
+         ilog("Initialization error: spinup-time-us cannot be negative");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("max-lag-duration-us")) {
-         if(max_lag_duration_us < 0) {
-            ilog("Initialization error: max-lag-duration-us cannot be negative");
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
+      if(max_lag_duration_us < 0) {
+         ilog("Initialization error: max-lag-duration-us cannot be negative");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
       }
 
-      if(vmap.count("max-lag-percent")) {
-         if(max_lag_per > 100) {
-            ilog("Initialization error: max-lag-percent must be between 0 and 100");
-            cli.print(std::cerr);
-            return INITIALIZE_FAIL;
-         }
+      if(max_lag_per > 100) {
+         ilog("Initialization error: max-lag-percent must be between 0 and 100");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
       }
    } catch(bpo::unknown_option& ex) {
       std::cerr << ex.what() << std::endl;
