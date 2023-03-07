@@ -1581,6 +1581,9 @@ class Node(object):
     def createSnapshot(self):
         return self.processUrllibRequest("producer", "create_snapshot")
 
+    def scheduleSnapshot(self):
+        return self.processUrllibRequest("producer", "schedule_snapshot")
+
     # kill all existing nodeos in case lingering from previous test
     @staticmethod
     def killAllNodeos():
