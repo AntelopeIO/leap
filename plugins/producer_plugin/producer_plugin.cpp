@@ -141,8 +141,9 @@ public:
    {
    }
 
-   void set_max_failures_per_account( uint32_t max_failures ) {
-       max_failures_per_account = max_failures;
+   void set_max_failures_per_account( uint32_t max_failures, uint32_t size ) {
+      max_failures_per_account = max_failures;
+      reset_window_size_in_num_blocks = size;
    }
 
    void add_idle_time( const fc::microseconds& idle ) {
@@ -177,15 +178,24 @@ public:
       return false;
    }
 
-   void report( const fc::time_point& idle_trx_time ) {
-      if( _log.is_enabled( fc::log_level::debug ) ) {
+   void report_and_clear(uint32_t block_num) {
+      if (last_reset_block_num != block_num && (block_num % reset_window_size_in_num_blocks == 0) ) {
+         report(block_num);
+         failed_accounts.clear();
+         last_reset_block_num = block_num;
+      }
+   }
+
+   fc::time_point next_reset_timepoint(uint32_t current_block_num, fc::time_point current_block_time) const {
+      auto num_blocks_to_reset = reset_window_size_in_num_blocks - (current_block_num % reset_window_size_in_num_blocks);
+      return current_block_time + fc::milliseconds(num_blocks_to_reset * eosio::chain::config::block_interval_ms);
+   }
+
+private:
+   void report(uint32_t block_num) const {
+      if( _log.is_enabled(fc::log_level::debug)) {
          auto now = fc::time_point::now();
-         add_idle_time( now - idle_trx_time );
-         fc_dlog( _log, "Block trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, other: ${o}us",
-                  ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
-                  ("fn", trx_fail_num)("f", trx_fail_time)
-                  ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time) );
-         for( const auto& e : failed_accounts ) {
+         for ( const auto& e : failed_accounts ) {
             std::string reason;
             if( e.second.is_deadline() ) reason += "deadline";
             if( e.second.is_tx_cpu_usage() ) {
@@ -206,15 +216,6 @@ public:
          }
       }
    }
-
-   void clear() {
-      failed_accounts.clear();
-      block_idle_time = trx_fail_time = trx_success_time = fc::microseconds{};
-      trx_fail_num = trx_success_num = 0;
-      clear_time = fc::time_point::now();
-   }
-
-private:
    struct account_failure {
       enum class ex_fields : uint8_t {
          ex_deadline_exception = 1,
@@ -249,6 +250,8 @@ private:
 
    std::map<account_name, account_failure> failed_accounts;
    uint32_t max_failures_per_account = 3;
+   uint32_t last_reset_block_num = 0;
+   uint32_t reset_window_size_in_num_blocks = 1;
    fc::microseconds block_idle_time;
    uint32_t trx_success_num = 0;
    uint32_t trx_fail_num = 0;
@@ -753,7 +756,9 @@ void producer_plugin::set_program_options(
          ("subjective-cpu-leeway-us", boost::program_options::value<int32_t>()->default_value( config::default_subjective_cpu_leeway_us ),
           "Time in microseconds allowed for a transaction that starts with insufficient CPU quota to complete and cover its CPU usage.")
          ("subjective-account-max-failures", boost::program_options::value<uint32_t>()->default_value(3),
-          "Sets the maximum amount of failures that are allowed for a given account per block.")
+          "Sets the maximum amount of failures that are allowed for a given account per window size.")
+         ("subjective-account-max-failures-window-size", boost::program_options::value<uint32_t>()->default_value(1),
+          "Sets the window size in number of blocks for subjective-account-max-failures.")
          ("subjective-account-decay-time-minutes", bpo::value<uint32_t>()->default_value( config::account_cpu_usage_average_window_ms / 1000 / 60 ),
           "Sets the time to return full subjective cpu for accounts")
          ("incoming-defer-ratio", bpo::value<double>()->default_value(1.0),
@@ -858,7 +863,12 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       }
    }
 
-   my->_account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>() );
+   auto subjective_account_max_failures_window_size = options.at("subjective-account-max-failures-window-size").as<uint32_t>();
+   EOS_ASSERT( subjective_account_max_failures_window_size > 0, plugin_config_exception,
+               "subjective-account-max-failures-window-size ${s} must be greater than 0", ("s", subjective_account_max_failures_window_size) );
+
+   my->_account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>(),
+                                                    subjective_account_max_failures_window_size );
 
    my->_produce_time_offset_us = options.at("produce-time-offset-us").as<int32_t>();
    EOS_ASSERT( my->_produce_time_offset_us <= 0 && my->_produce_time_offset_us >= -config::block_interval_us, plugin_config_exception,
@@ -1760,7 +1770,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
 
       try {
-         _account_fails.clear();
+         _account_fails.report_and_clear(hbs->block_num);
 
          if( !remove_expired_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
