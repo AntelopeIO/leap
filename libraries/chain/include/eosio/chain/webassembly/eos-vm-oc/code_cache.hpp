@@ -105,6 +105,8 @@ class code_cache_async : public code_cache_base {
       std::tuple<size_t, size_t> consume_compile_thread_queue();
       std::unordered_set<code_tuple> _blacklist;
       size_t _threads;
+      std::thread::id _main_thread_id;
+      bool is_main_thread() const;
 };
 
 class code_cache_sync : public code_cache_base {

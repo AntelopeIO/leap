@@ -42,7 +42,8 @@ static_assert(sizeof(code_cache_header) <= header_size, "code_cache_header too b
 code_cache_async::code_cache_async(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    code_cache_base(data_dir, eosvmoc_config, db),
    _result_queue(eosvmoc_config.threads * 2),
-   _threads(eosvmoc_config.threads)
+   _threads(eosvmoc_config.threads),
+   _main_thread_id(std::this_thread::get_id())
 {
    FC_ASSERT(_threads, "EOS VM OC requires at least 1 compile thread");
 
@@ -106,11 +107,16 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
    return {gotsome, bytes_remaining};
 }
 
+bool code_cache_async::is_main_thread() const {
+   return _main_thread_id == std::this_thread::get_id();
+}
+
 const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version) {
    std::lock_guard<std::shared_mutex> g(get_descriptor_async_mutex);
 
    //if there are any outstanding compiles, process the result queue now
-   if(_outstanding_compiles_and_poison.size()) {
+   //do this only on main thread (which is in single threaded write window)
+   if(is_main_thread() && _outstanding_compiles_and_poison.size()) {
       auto [count_processed, bytes_remaining] = consume_compile_thread_queue();
 
       if(count_processed)
