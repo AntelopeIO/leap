@@ -190,19 +190,20 @@ namespace eosio {
    using metrics_params = fc::variant_object;
 
    struct prometheus_api {
-      fc::microseconds max_response_time_us{30*1000};
       prometheus_plugin_impl& _pp;
+      fc::microseconds _max_response_time_us;
 
       fc::time_point start() const {
-         return fc::time_point::now() + max_response_time_us;
+         return fc::time_point::now() + _max_response_time_us;
       }
 
       void metrics(const metrics_params& p, chain::plugin_interface::next_function<std::string> results) {
          _pp.metrics_async(std::move(results));
       }
 
-      explicit prometheus_api(prometheus_plugin_impl& plugin)
-      : _pp(plugin) {}
+      prometheus_api(prometheus_plugin_impl& plugin, const fc::microseconds& max_response_time)
+      : _pp(plugin)
+      , _max_response_time_us(max_response_time){}
 
    };
 
@@ -218,7 +219,10 @@ namespace eosio {
    void prometheus_plugin::plugin_initialize(const variables_map& options) {
       my->initialize_metrics();
 
-      prometheus_api handle(*my);
+      auto& _http_plugin = app().get_plugin<http_plugin>();
+      fc::microseconds max_response_time = _http_plugin.get_max_response_time();
+
+      prometheus_api handle(*my, max_response_time);
       app().get_plugin<http_plugin>().add_async_api({
         CALL_ASYNC_WITH_400(prometheus, handle, eosio, metrics, std::string, 200, http_params_types::no_params)}, http_content_type::plaintext);
    }
