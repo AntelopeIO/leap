@@ -1593,7 +1593,7 @@ struct controller_impl {
             auto restore = make_block_restore_point( trx->is_read_only() );
 
             trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
-            if (!trx->implicit() && !trx->is_transient()) {
+            if (!trx->implicit() && !trx->is_read_only()) {
                transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
                                                     ? transaction_receipt::executed
                                                     : transaction_receipt::delayed;
@@ -1607,10 +1607,10 @@ struct controller_impl {
                trace->receipt = r;
             }
 
-            // call the accept signal but only once for this transaction
             if ( !trx->is_transient() ) {
                fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
                                 std::move(trx_context.executed_action_receipt_digests) );
+                // call the accept signal but only once for this transaction
                 if (!trx->accepted) {
                     trx->accepted = true;
                     emit(self.accepted_transaction, trx);
@@ -1619,7 +1619,6 @@ struct controller_impl {
                 dmlog_applied_transaction(trace);
                 emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
             }
-
 
             if ( trx->is_transient() ) {
                // remove trx from pending block by not canceling 'restore'

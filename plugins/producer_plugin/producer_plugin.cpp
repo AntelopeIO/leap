@@ -2744,9 +2744,9 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
 
    // If all tasks are finished, do not wait until end of read window; switch to write window now.
    if ( --_ro_num_active_trx_exec_tasks == 0 ) {
-      _ro_trx_exec_tasks_fut.clear();
       // do switching on app thread
       app().executor().post( priority::high, exec_queue::read_only_trx_safe, [self=this]() {
+         self->_ro_trx_exec_tasks_fut.clear();
          self->switch_to_write_window();
       } );
    }
@@ -2826,7 +2826,6 @@ bool producer_plugin_impl::push_read_only_transaction(const transaction_metadata
          if( exception_is_exhausted( *trace->except ) ) {
             auto time_spent = end - start;
             if ( time_spent < _ro_max_trx_time_us ) {
-               ilog("actually exhausted: time_spent ${s}, _ro_max_trx_time_us ${m}, remained_time_in_read_window_us ${r}, available_trx_time_us ${a}", ("s", time_spent) ("m", _ro_max_trx_time_us) ("r", remained_time_in_read_window_us) ("a", available_trx_time_us));
                exhausted = true;
                // no need to do log_trx_results. the trx will be tried next time
                return exhausted;
