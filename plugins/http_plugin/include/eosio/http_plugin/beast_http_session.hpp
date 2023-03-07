@@ -5,6 +5,7 @@
 
 #include <memory>
 #include <string>
+#include <charconv>
 
 namespace eosio {
 
@@ -40,11 +41,7 @@ using local_stream = beast::basic_stream<
 //------------------------------------------------------------------------------
 // fail()
 //  this function is generally reserved in the case of a severe error which results
-//  in immediate termiantion of the session, with no response sent back to the client
-//  currently also includes SSL "short read" error for security reasons:
-//
-//  https://github.com/boostorg/beast/issues/38
-//  https://security.stackexchange.com/questions/91435/how-to-handle-a-malicious-ssl-tls-shutdown
+//  in immediate termination of the session, with no response sent back to the client
 void fail(beast::error_code ec, char const* what, fc::logger& logger, char const* action) {
    fc_elog(logger, "${w}: ${m}", ("w", what)("m", ec.message()));
    fc_elog(logger, action);
@@ -76,9 +73,9 @@ bool allow_host(const http::request<http::string_body>& req, T& session,
 }
 
 // Handle HTTP connection using boost::beast for TCP communication
-// Subclasses of this class (plain_session, ssl_session, etc.)
+// Subclasses of this class (plain_session, ssl_session (now removed), etc.)
 // use the Curiously Recurring Template Pattern so that
-// the same code works with both SSL streams, regular TCP sockets and UNIX sockets
+// the same code works with both regular TCP sockets and UNIX sockets
 template<class Derived>
 class beast_http_session : public detail::abstract_conn {
 protected:
@@ -98,6 +95,9 @@ protected:
 
    // whether response should be sent back to client when an exception occurs
    bool is_send_exception_response_ = true;
+
+   enum class continue_state_t { none, read_body, reject };
+   continue_state_t continue_state_ { continue_state_t::none };
 
    template<
          class Body, class Allocator>
@@ -162,6 +162,28 @@ protected:
       } catch(...) {
          handle_exception();
       }
+   }
+
+private:
+   void send_100_continue_response(bool do_continue) {
+      auto res = std::make_shared<http::response<http::empty_body>>();
+         
+      res->version(11);
+      if (do_continue) {
+         res->result(http::status::continue_);
+         continue_state_ = continue_state_t::read_body;   // after sending the continue response, just read the body with the same parser
+      } else {
+         res->result(http::status::unauthorized);
+         continue_state_ = continue_state_t::reject;
+      }
+      res->set(http::field::server, plugin_state_->server_header);
+      
+      http::async_write(
+         derived().stream(),
+         *res,
+         [self = derived().shared_from_this(), res](beast::error_code ec, std::size_t bytes_transferred) {
+            self->on_write(ec, bytes_transferred, false);
+         });
    }
 
 public:
@@ -235,32 +257,64 @@ public:
       }
    }
 
-   void do_read() {
+   void do_read_header() {
       read_begin_ = steady_clock::now();
 
       // Read a request
-      auto self = derived().shared_from_this();
+      http::async_read_header(
+            derived().stream(),
+            buffer_,
+            *req_parser_,
+            [self = derived().shared_from_this()](beast::error_code ec, std::size_t bytes_transferred) {
+               self->on_read_header(ec, bytes_transferred);
+            });
+   }
+
+   void on_read_header(beast::error_code ec, std::size_t /* bytes_transferred */) {
+      if(ec) {
+         if(ec == http::error::end_of_stream) // other side closed the connection
+            return derived().do_eof();
+         
+         return fail(ec, "read_header", plugin_state_->logger, "closing connection");
+      }
+
+      // Check for the Expect field value
+      if (req_parser_->get()[http::field::expect] == "100-continue") {
+         bool do_continue = true;
+         auto sv = req_parser_->get()[http::field::content_length];
+         if (uint64_t sz; !sv.empty() && std::from_chars(sv.data(), sv.data() + sv.size(), sz).ec == std::errc() &&
+             sz > plugin_state_->max_body_size) {
+            do_continue = false;
+         }
+         send_100_continue_response(do_continue);
+         return;
+      }
+
+      // Read the rest of the message.
+      do_read();
+   }
+
+   void do_read() {
+      // Read a request
       http::async_read(
             derived().stream(),
             buffer_,
             *req_parser_,
-            [self](beast::error_code ec, std::size_t bytes_transferred) {
+            [self = derived().shared_from_this()](beast::error_code ec, std::size_t bytes_transferred) {
                self->on_read(ec, bytes_transferred);
             });
    }
 
-   void on_read(beast::error_code ec,
-                std::size_t bytes_transferred) {
-      boost::ignore_unused(bytes_transferred);
-
-      // By default, http_plugin runs in keep_alive mode (persistent connections)
-      // hence respecting the http 1.1 standard. So after sending a response, we wait
-      // on another read. If the client disconnects, we may get
-      // http::error::end_of_stream or asio::error::connection_reset.
-      if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
-         return derived().do_eof();
+   void on_read(beast::error_code ec, std::size_t /* bytes_transferred */) {
 
       if(ec) {
+         // By default, http_plugin runs in keep_alive mode (persistent connections)
+         // hence respecting the http 1.1 standard. So after sending a response, we wait
+         // on another read. If the client disconnects, we may get
+         // http::error::end_of_stream or asio::error::connection_reset.
+         if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
+            return derived().do_eof();
+
          return fail(ec, "read", plugin_state_->logger, "closing connection");
       }
 
@@ -292,14 +346,33 @@ public:
          return derived().do_eof();
       }
 
-      // create a new parser to clear state
-      req_parser_.emplace();
-      req_parser_->body_limit(plugin_state_->max_body_size);
       // create a new response object
       res_.emplace();
 
-      // Read another request
-      do_read();
+      switch(continue_state_) {
+      case continue_state_t::read_body:
+         // just sent "100-continue" response - now read the body with same parser
+         continue_state_ = continue_state_t::none;
+         do_read();
+         break;
+         
+      case continue_state_t::reject:
+         // request body too large. After issuing 401 response, close connection
+         continue_state_ = continue_state_t::none;
+         derived().do_eof();
+         break;
+         
+      default:
+         assert(continue_state_ == continue_state_t::none);
+         
+         // create a new parser to clear state
+         req_parser_.emplace();
+         req_parser_->body_limit(plugin_state_->max_body_size);
+
+         // Read another request
+         do_read_header();
+         break;
+      }
    }
 
    virtual void handle_exception() final {
@@ -374,21 +447,19 @@ public:
 
       res_->result(code);
       res_->body() = std::move(json);
-
       res_->prepare_payload();
 
       // Determine if we should close the connection after
       bool close = !(plugin_state_->keep_alive) || res_->need_eof();
 
       // Write the response
-      auto self = derived().shared_from_this();
       http::async_write(
-            derived().stream(),
-            *res_,
-            [self, payload_size, close](beast::error_code ec, std::size_t bytes_transferred) {
-               self->decrement_bytes_in_flight(payload_size);
-               self->on_write(ec, bytes_transferred, close);
-            });
+         derived().stream(),
+         *res_,
+         [self = derived().shared_from_this(), payload_size, close](beast::error_code ec, std::size_t bytes_transferred) {
+            self->decrement_bytes_in_flight(payload_size);
+            self->on_write(ec, bytes_transferred, close);
+         });
    }
 
    void run_session() {
@@ -419,7 +490,7 @@ public:
 
    // Start the asynchronous operation
    void run() {
-      do_read();
+      do_read_header();
    }
 
    void do_eof() {
@@ -444,74 +515,6 @@ public:
       return "plain_session";
    }
 };// end class plain_session
-
-// Handles an SSL HTTP connection
-class ssl_session
-    : public beast_http_session<ssl_session>,
-      public std::enable_shared_from_this<ssl_session> {
-   ssl::stream<tcp_socket_t> stream_;
-
-public:
-   // Create the session
-
-   ssl_session(
-         tcp_socket_t socket,
-         std::shared_ptr<http_plugin_state> plugin_state)
-       : beast_http_session<ssl_session>(std::move(plugin_state)), stream_(std::move(socket), *plugin_state_->ctx) {}
-
-
-   ssl::stream<tcp_socket_t>& stream() { return stream_; }
-#if BOOST_VERSION < 107000
-   tcp_socket_t& socket() { return beast::get_lowest_layer<tcp_socket_t&>(stream_); }
-#else
-   tcp_socket_t& socket() { return beast::get_lowest_layer(stream_); }
-#endif
-   // Start the asynchronous operation
-   void run() {
-      auto self = shared_from_this();
-      self->stream_.async_handshake(
-            ssl::stream_base::server,
-            self->buffer_.data(),
-            [self](beast::error_code ec, std::size_t bytes_used) {
-               self->on_handshake(ec, bytes_used);
-            });
-   }
-
-   void on_handshake(beast::error_code ec, std::size_t bytes_used) {
-      if(ec)
-         return fail(ec, "handshake", plugin_state_->logger, "closing connection");
-
-      buffer_.consume(bytes_used);
-
-      do_read();
-   }
-
-   void do_eof() {
-      // Perform the SSL shutdown
-      auto self = shared_from_this();
-      stream_.async_shutdown(
-            [self](beast::error_code ec) {
-               self->on_shutdown(ec);
-            });
-   }
-
-   void on_shutdown(beast::error_code ec) {
-      if(ec)
-         return fail(ec, "shutdown", plugin_state_->logger, "closing connection");
-      // At this point the connection is closed gracefully
-   }
-
-   bool is_secure() { return true; }
-
-   bool allow_host(const http::request<http::string_body>& req) {
-      return eosio::allow_host(req, *this, plugin_state_);
-   }
-
-   static constexpr auto name() {
-      return "ssl_session";
-   }
-};// end class ssl_session
-
 
 // unix domain sockets
 class unix_socket_session
@@ -548,7 +551,7 @@ public:
    bool is_secure() { return false; };
 
    void run() {
-      do_read();
+      do_read_header();
    }
 
    stream_protocol::socket& stream() { return socket_; }

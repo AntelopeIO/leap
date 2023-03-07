@@ -11,7 +11,7 @@ using namespace eosio;
 
 #define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
-   [api_handle](string, string body, url_response_callback cb) mutable { \
+   [api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
           try { \
              body = parse_params<std::string, http_params_types::no_params>(body); \
              INVOKE \

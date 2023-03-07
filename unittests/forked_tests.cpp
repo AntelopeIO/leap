@@ -395,8 +395,7 @@ BOOST_AUTO_TEST_CASE( read_modes ) try {
 
    tester irreversible(setup_policy::none, db_read_mode::IRREVERSIBLE);
    push_blocks(c, irreversible);
-   BOOST_CHECK_EQUAL(head_block_num, irreversible.control->fork_db_pending_head_block_num());
-   BOOST_CHECK_EQUAL(last_irreversible_block_num, irreversible.control->fork_db_head_block_num());
+   BOOST_CHECK_EQUAL(head_block_num, irreversible.control->fork_db_head_block_num());
    BOOST_CHECK_EQUAL(last_irreversible_block_num, irreversible.control->head_block_num());
 
 } FC_LOG_AND_RETHROW()
@@ -471,13 +470,13 @@ BOOST_AUTO_TEST_CASE( irreversible_mode ) try {
 
    push_blocks( main, irreversible, hbn1 );
 
-   BOOST_CHECK_EQUAL( irreversible.control->fork_db_pending_head_block_num(), hbn1 );
+   BOOST_CHECK_EQUAL( irreversible.control->fork_db_head_block_num(), hbn1 );
    BOOST_CHECK_EQUAL( irreversible.control->head_block_num(), lib1 );
    BOOST_CHECK_EQUAL( does_account_exist( irreversible, "alice"_n ), false );
 
    push_blocks( other, irreversible, hbn4 );
 
-   BOOST_CHECK_EQUAL( irreversible.control->fork_db_pending_head_block_num(), hbn4 );
+   BOOST_CHECK_EQUAL( irreversible.control->fork_db_head_block_num(), hbn4 );
    BOOST_CHECK_EQUAL( irreversible.control->head_block_num(), lib4 );
    BOOST_CHECK_EQUAL( does_account_exist( irreversible, "alice"_n ), false );
 
@@ -487,7 +486,7 @@ BOOST_AUTO_TEST_CASE( irreversible_mode ) try {
       irreversible.push_block( fb );
    }
 
-   BOOST_CHECK_EQUAL( irreversible.control->fork_db_pending_head_block_num(), hbn3 );
+   BOOST_CHECK_EQUAL( irreversible.control->fork_db_head_block_num(), hbn3 );
    BOOST_CHECK_EQUAL( irreversible.control->head_block_num(), lib3 );
    BOOST_CHECK_EQUAL( does_account_exist( irreversible, "alice"_n ), true );
 

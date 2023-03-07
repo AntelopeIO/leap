@@ -1,0 +1,297 @@
+{
+  "name": "testnet_",
+  "ssh_helper": {
+    "ssh_cmd": "/usr/bin/ssh",
+    "scp_cmd": "/usr/bin/scp",
+    "ssh_identity": "",
+    "ssh_args": ""
+  },
+  "nodes": [[
+      "bios",{
+        "name": "bios",
+        "keys": [
+          "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
+        ],
+        "peers": [],
+        "producers": [
+          "eosio"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_00",{
+        "name": "testnet_00",
+        "keys": [
+          "5Jf4sTk7vwX1MYpLJ2eQFanVvKYXFqGBrCyANPukuP2BJ5WAAKZ"
+        ],
+        "peers": [
+          "bios"
+        ],
+        "producers": [
+          "defproducera"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_01",{
+        "name": "testnet_01",
+        "keys": [
+          "5HviUPkTEtvF2B1nm8aZUnjma2TzgpKRjuXjwHyy3FME4xDbkZF"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerb"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_02",{
+        "name": "testnet_02",
+        "keys": [
+          "5KkQbdxFHr8Pg1N3DEMDdU7emFgUTwQvh99FDJrodFhUbbsAtQT"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerc"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_03",{
+        "name": "testnet_03",
+        "keys": [
+          "5JxTJJegQBpEL1p77TzkN1ompMB9gDwAfjM9chPzFCB4chxmwrE"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerd"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_04",{
+        "name": "testnet_04",
+        "keys": [
+          "5K3h9XiAmrx9EuqD8CRxHgQwEVDaWpqrhrnpdvwHtVzwJFMhNmE"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducere"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_05",{
+        "name": "testnet_05",
+        "keys": [
+          "5KNxJ5cGoMeDiPi7raQMx1oqkuB8afJSDa5UdwrkCSC5qqt6Lbf"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerf"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_06",{
+        "name": "testnet_06",
+        "keys": [
+          "5KWn533nXMjUv6tYoNyV6U6UGgvC2hBprGvYhoR9Xr6cE6dJAKX"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerg"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_07",{
+        "name": "testnet_07",
+        "keys": [
+          "5JLyZdVL9GyhhnmFZNXB6xLWVWivsMCtxTQmDRMGj9scNebDynq"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerh"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_08",{
+        "name": "testnet_08",
+        "keys": [
+          "5Jjkwz2aSsq6cVW74rifqQzDzs85gAEQh6MhL3stEeoY8idnwG2"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproduceri"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_09",{
+        "name": "testnet_09",
+        "keys": [
+          "5K233w6Hb74Q5Cz3ocRnu3svompUd7XyNmcpNkJjJRdfJmKeVM7"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerj"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_10",{
+        "name": "testnet_10",
+        "keys": [
+          "5K3T3rhvCHyL4SkiMvkehgLwo9iwwqGhYdDmM6aQKpJYkm1p65N"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerk"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_11",{
+        "name": "testnet_11",
+        "keys": [
+          "5KFMjaCKHrTEKRNk9UTrxz3cu1vdNcVo9PsmaUX3JhNWNYmg7Ak"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerl"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_12",{
+        "name": "testnet_12",
+        "keys": [
+          "5KgUZEsvsiBrmBXvaK4GefQkhtwXKmEpjj4ChhBcyhbZkiLJ4gV"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerm"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_13",{
+        "name": "testnet_13",
+        "keys": [
+          "5KAKiYtrxrhZzeiF2tb2kgyupdStyPcnZ7dfPQDUc9BLG6vigjc"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducern"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_14",{
+        "name": "testnet_14",
+        "keys": [
+          "5HsYvqVcuHkddyZF9h7iR4YxUMUmvoz3CRetNb4GveiRkehNpK6"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducero"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_15",{
+        "name": "testnet_15",
+        "keys": [
+          "5KA9YksaqmuwAU4WRUFEuHHbm2oXURZWNi5EmHXow4MrzZakAUf"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerp"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_16",{
+        "name": "testnet_16",
+        "keys": [
+          "5JUV8ELodV2N31nYpfkzjyzNTqSSJEW7A33yvC9vfcFEDsV2UJj"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerq"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_17",{
+        "name": "testnet_17",
+        "keys": [
+          "5KAx38nXk4Rck1XefFW8w7vPgzELVeieYUuCjeZJfPoi2jh2s2C"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducerr"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_18",{
+        "name": "testnet_18",
+        "keys": [
+          "5KhyQJFLkqtxrFyKtpEng9c8N5dD7gB4Q5q8LQL78e8J12LCiTz"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducers"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_19",{
+        "name": "testnet_19",
+        "keys": [
+          "5KRT1XwAy8RPFwH2SkwZdzACt6JaeFRefVTy4aBBLj9VtRzdcqH"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproducert"
+        ],
+        "dont_start": false
+      }
+    ],[
+      "testnet_20",{
+        "name": "testnet_20",
+        "keys": [
+          "5J7Jg9E17ae1dAunZSMMtDKE1r1XtrmBKWmU4DGa7atZXCpy1RE"
+        ],
+        "peers": [
+        ],
+        "producers": [
+          "defproduceru"
+        ],
+        "dont_start": false
+      }
+    ]
+  ]
+}
