@@ -65,16 +65,23 @@ public:
    void on_start_block(uint32_t height) {
       for(const auto& req: _snapshot_requests.get<0>()) {
          // assume "asap" for snapshot with missed/zero start, it can have spacing
-         if(req.start_block_num == 0) {
-            auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
-            auto it = snapshot_by_id.find(req.snapshot_request_id);
-            _snapshot_requests.modify(it, [&height](auto& p) { p.start_block_num = height; });
+         if(!req.start_block_num) {
+            // update start_block_num with current height only if this is recurring
+            // if non recurring, will be executed and unscheduled
+            if (req.block_spacing && height) {
+               auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
+               auto it = snapshot_by_id.find(req.snapshot_request_id);
+               _snapshot_requests.modify(it, [&height](auto& p) { p.start_block_num = height; });
+               x_serialize();
+            }
+            execute_snapshot(req.snapshot_request_id);
          }
          // execute snapshot, -1 since its called from start block
-         if(!req.block_spacing || (!((height - req.start_block_num - 1) % req.block_spacing))) {
+         else if(!req.block_spacing || (!((height - req.start_block_num - 1) % req.block_spacing))) {
             execute_snapshot(req.snapshot_request_id);
-         }        
-         // remove expired request
+         }       
+
+         // cleanup - remove expired request
          if(!req.block_spacing || (req.end_block_num > 0 && height >= req.end_block_num)) {
             unschedule_snapshot(req.snapshot_request_id);
          }
