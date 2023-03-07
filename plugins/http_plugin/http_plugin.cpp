@@ -70,7 +70,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
          static detail::internal_url_handler make_app_thread_url_handler( int priority, appbase::exec_queue q, url_handler next, http_plugin_impl_ptr my ) {
             auto next_ptr = std::make_shared<url_handler>(std::move(next));
             return [my=std::move(my), priority, &q, next_ptr=std::move(next_ptr)]
-               ( detail::abstract_conn_ptr conn, string&& r, string b&&, url_response_callback&& then ) {
+               ( detail::abstract_conn_ptr conn, string&& r, string&& b, url_response_callback&& then ) {
 
                if (auto error_str = conn->verify_max_bytes_in_flight(b.size()); !error_str.empty()) {
                   conn->send_busy_response(std::move(error_str));
