@@ -57,7 +57,7 @@ The Transaction Generator logs each transaction's id and sent timestamp at the m
                                     activePrivateKey pairs.
 * `--peer-endpoint arg` (=127.0.0.1)      set the peer endpoint to send
                                     transactions to
-* `--port arg` (=9876)              set the peer endpoint port to send
-                                    transactions to
+* `--ports arg` (=9876)             Comma separated list of peer endpoint
+                                    ports to send transactions to
 * `-h [ --help ]`                   print this list
 </details>

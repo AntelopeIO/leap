@@ -486,7 +486,7 @@ Performance Test Basic Single Test:
 * `actions_data`                The json actions data file or json actions data description string to use
 * `actions_auths`               The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.
 * `peer_endpoint`               set the peer endpoint to send transactions to, default="127.0.0.1"
-* `port`                        set the peer endpoint port to send transactions to, default=9876
+* `ports`                       Comma separated list of peer endpoint ports to send transactions to, default=9876
 </details>
 
 #### Transaction Generator
@@ -540,8 +540,8 @@ Performance Test Basic Single Test:
                                         activePrivateKey pairs.
 * `--peer-endpoint arg` (=127.0.0.1)    set the peer endpoint to send
                                         transactions to
-* `--port arg` (=9876)                  set the peer endpoint port to send
-                                        transactions to
+* `--ports arg` (=9876)                 Comma separated list of peer endpoint
+                                        ports to send transactions to
 * `-h [ --help ]`                       print this list
 </details>
 
