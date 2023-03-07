@@ -155,7 +155,7 @@ def parseArgs():
     parser.add_argument("actions_data", type=str, help="The json actions data file or json actions data description string to use")
     parser.add_argument("actions_auths", type=str, help="The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.")
     parser.add_argument("peer_endpoint", type=str, help="set the peer endpoint to send transactions to", default="127.0.0.1")
-    parser.add_argument("port", type=int, help="set the peer endpoint port to send transactions to", default=9876)
+    parser.add_argument("ports", type=str, help="Comma separated list of peer endpoint ports to send transactions to", default="9876")
     args = parser.parse_args()
     return args
 
@@ -166,7 +166,7 @@ def main():
                                                    contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
                                                    abiFile=args.abi_file, actionsData=args.actions_data, actionsAuths=args.actions_auths,
-                                                   peerEndpoint=args.peer_endpoint, port=args.port,
+                                                   peerEndpoint=args.peer_endpoint, ports=args.ports.rsplit(", "),
                                                    tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator))
 
 

@@ -1777,7 +1777,7 @@ class Cluster(object):
                             waitToComplete:bool=False, abiFile=None, actionsData=None, actionsAuths=None):
         Utils.Print("Configure txn generators")
         node=self.getNode(nodeId)
-        p2pListenPort = self.getNodeP2pPort(nodeId)
+        p2pListenPort = [self.getNodeP2pPort(nodeId)]
         info = node.getInfo()
         chainId = info['chain_id']
         lib_id = info['last_irreversible_block_id']
@@ -1792,7 +1792,7 @@ class Cluster(object):
                                                     contractOwnerAccount=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
                                                     privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec, logDir=Utils.DataDir,
                                                     abiFile=abiFile, actionsData=actionsData, actionsAuths=actionsAuths,
-                                                    peerEndpoint=self.host, port=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                    peerEndpoint=self.host, ports=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
 
         Utils.Print("Launch txn generators and start generating/sending transactions")
         self.trxGenLauncher.launch(waitToComplete=waitToComplete)
