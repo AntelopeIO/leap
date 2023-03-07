@@ -204,8 +204,9 @@ public:
    {
    }
 
-   void set_max_failures_per_account( uint32_t max_failures ) {
-       max_failures_per_account = max_failures;
+   void set_max_failures_per_account( uint32_t max_failures, uint32_t size ) {
+      max_failures_per_account = max_failures;
+      reset_window_size_in_num_blocks = size;
    }
 
    void add( const account_name& n, int64_t exception_code ) {
@@ -225,10 +226,24 @@ public:
       return false;
    }
 
-   void report() const {
-      if( _log.is_enabled( fc::log_level::debug ) ) {
+   void report_and_clear(uint32_t block_num) {
+      if (last_reset_block_num != block_num && (block_num % reset_window_size_in_num_blocks == 0) ) {
+         report(block_num);
+         failed_accounts.clear();
+         last_reset_block_num = block_num;
+      }
+   }
+
+   fc::time_point next_reset_timepoint(uint32_t current_block_num, fc::time_point current_block_time) const {
+      auto num_blocks_to_reset = reset_window_size_in_num_blocks - (current_block_num % reset_window_size_in_num_blocks);
+      return current_block_time + fc::milliseconds(num_blocks_to_reset * eosio::chain::config::block_interval_ms);
+   }
+
+private:
+   void report(uint32_t block_num) const {
+      if( _log.is_enabled(fc::log_level::debug)) {
          auto now = fc::time_point::now();
-         for( const auto& e : failed_accounts ) {
+         for ( const auto& e : failed_accounts ) {
             std::string reason;
             if( e.second.is_deadline() ) reason += "deadline";
             if( e.second.is_tx_cpu_usage() ) {
@@ -249,12 +264,6 @@ public:
          }
       }
    }
-
-   void clear() {
-      failed_accounts.clear();
-   }
-
-private:
    struct account_failure {
       enum class ex_fields : uint8_t {
          ex_deadline_exception = 1,
@@ -289,6 +298,8 @@ private:
 
    std::map<account_name, account_failure> failed_accounts;
    uint32_t max_failures_per_account = 3;
+   uint32_t last_reset_block_num = 0;
+   uint32_t reset_window_size_in_num_blocks = 1;
    const eosio::subjective_billing& subjective_billing;
 };
 
@@ -682,8 +693,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
             if( _account_fails.failure_limit( first_auth ) ) {
                send_response( std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
-                     FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
-                                     ("id", trx->id())("a", first_auth) ) ) ) );
+                     FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a} until ${next_reset_time}",
+                                     ("id", trx->id())("a", first_auth)
+                                     ("next_reset_time", _account_fails.next_reset_timepoint(chain.head_block_num(),chain.head_block_time())) ) ) ) );
                return true;
             }
 
@@ -886,7 +898,9 @@ void producer_plugin::set_program_options(
          ("subjective-cpu-leeway-us", boost::program_options::value<int32_t>()->default_value( config::default_subjective_cpu_leeway_us ),
           "Time in microseconds allowed for a transaction that starts with insufficient CPU quota to complete and cover its CPU usage.")
          ("subjective-account-max-failures", boost::program_options::value<uint32_t>()->default_value(3),
-          "Sets the maximum amount of failures that are allowed for a given account per block.")
+          "Sets the maximum amount of failures that are allowed for a given account per window size.")
+         ("subjective-account-max-failures-window-size", boost::program_options::value<uint32_t>()->default_value(1),
+          "Sets the window size in number of blocks for subjective-account-max-failures.")
          ("subjective-account-decay-time-minutes", bpo::value<uint32_t>()->default_value( config::account_cpu_usage_average_window_ms / 1000 / 60 ),
           "Sets the time to return full subjective cpu for accounts")
          ("incoming-defer-ratio", bpo::value<double>()->default_value(1.0),
@@ -1036,7 +1050,13 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    my->_keosd_provider_timeout_us = fc::milliseconds(options.at("keosd-provider-timeout").as<int32_t>());
 
-   my->_account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>() );
+   auto subjective_account_max_failures_window_size = options.at("subjective-account-max-failures-window-size").as<uint32_t>();
+   EOS_ASSERT( subjective_account_max_failures_window_size > 0, plugin_config_exception,
+               "subjective-account-max-failures-window-size ${s} must be greater than 0", ("s", subjective_account_max_failures_window_size) );
+
+   my->_account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>(),
+                                                    subjective_account_max_failures_window_size );
+
 
    my->_produce_time_offset_us = options.at("produce-time-offset-us").as<int32_t>();
    EOS_ASSERT( my->_produce_time_offset_us <= 0 && my->_produce_time_offset_us >= -config::block_interval_us, plugin_config_exception,
@@ -1859,7 +1879,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
 
       try {
-         _account_fails.clear();
+         _account_fails.report_and_clear(hbs->block_num);
 
          if( !remove_expired_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
@@ -2032,8 +2052,9 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
                ++num_failed;
                if( itr->next ) {
                   itr->next( std::make_shared<tx_cpu_usage_exceeded>(
-                        FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
-                                        ("id", trx->id())("a", first_auth) ) ) );
+                        FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a} until ${next_reset_time}",
+                                        ("id", trx->id())("a", first_auth)
+                                        ("next_reset_time", _account_fails.next_reset_timepoint(chain.head_block_num(),chain.head_block_time())) ) ) );
                }
                itr = _unapplied_transactions.erase( itr );
                continue;
@@ -2445,9 +2466,6 @@ void producer_plugin_impl::produce_block() {
    chain.commit_block();
 
    block_state_ptr new_bs = chain.head_block_state();
-
-   _account_fails.report();
-   _account_fails.clear();
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} [trxs: ${count}, lib: ${lib}, confirmed: ${confs}]",
         ("p",new_bs->header.producer)("id",new_bs->id.str().substr(8,16))
