@@ -112,8 +112,6 @@ bool code_cache_async::is_main_thread() const {
 }
 
 const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version) {
-   std::lock_guard<std::shared_mutex> g(get_descriptor_async_mutex);
-
    //if there are any outstanding compiles, process the result queue now
    //do this only on main thread (which is in single threaded write window)
    if(is_main_thread() && _outstanding_compiles_and_poison.size()) {
@@ -142,9 +140,12 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
    //check for entry in cache
    code_cache_index::index<by_hash>::type::iterator it = _cache_index.get<by_hash>().find(boost::make_tuple(code_id, vm_version));
    if(it != _cache_index.get<by_hash>().end()) {
-      _cache_index.relocate(_cache_index.begin(), _cache_index.project<0>(it));
+      if (is_main_thread())
+         _cache_index.relocate(_cache_index.begin(), _cache_index.project<0>(it));
       return &*it;
    }
+   if(!is_main_thread())
+      return nullptr;
 
    const code_tuple ct = code_tuple{code_id, vm_version};
 
