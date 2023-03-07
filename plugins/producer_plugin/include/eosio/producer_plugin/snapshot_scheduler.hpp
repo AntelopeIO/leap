@@ -81,8 +81,8 @@ public:
             execute_snapshot(req.snapshot_request_id);
          }       
 
-         // cleanup - remove expired request
-         if(!req.block_spacing || (req.end_block_num > 0 && height >= req.end_block_num)) {
+         // cleanup - remove expired (or invalid) request
+         if(!req.start_block_num || !req.block_spacing || (req.end_block_num > 0 && height >= req.end_block_num)) {
             unschedule_snapshot(req.snapshot_request_id);
          }
       }
