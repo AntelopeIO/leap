@@ -60,7 +60,7 @@ public:
    };
 
    struct snapshot_request_id_information {
-      uint32_t                            snapshot_request_id = 0;
+      uint32_t snapshot_request_id = 0;
    };
 
    struct snapshot_schedule_information : public snapshot_request_id_information, public snapshot_request_information {

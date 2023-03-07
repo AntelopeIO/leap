@@ -2,54 +2,42 @@
 
 import os
 import time
-import signal
 import decimal
+import json
 import math
 import re
-import shutil
+import signal
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
 from TestHarness.Node import BlockType
-from TestHarness.TestHelper import AppArgs
-from TestHarness.testUtils import BlockLogAction
 
 ###############################################################
-# nodeos_snapshot_programmable_test
+# nodeos_snapshot_programmable
 #
-#  Test configures a producing node and 2 non-producing nodes.
-#  Configures trx_generator(s) and starts generating transactions and sending them
-#  to the producing node.
-#  - Schedule a snapshot from producing node
-#  - Create a snapshot from producing node
-#  - Convert snapshot to JSON
-#  - Trim blocklog to head block of snapshot
-#  - Start nodeos in irreversible mode on blocklog
-#  - Generate snapshot and convert to JSON
-#  - Compare JSON snapshot to original snapshot JSON
+#  Test to verify that programmable snapshot functionality is
+#  working appropriately when forks occur
 #
 ###############################################################
-
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-appArgs=AppArgs()
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--wallet-port"},
-                             applicationSpecificArgs=appArgs)
+from core_symbol import CORE_SYMBOL
 
-relaunchTimeout = 30
+
+args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run",
+                              "--wallet-port"})
 Utils.Debug=args.v
-pnodes=1
-testAccounts = 2
-trxGeneratorCnt=2
-startedNonProdNodes = 2
+totalProducerNodes=2
+totalNonProducerNodes=1
+totalNodes=totalProducerNodes+totalNonProducerNodes
+maxActiveProducers=3
+totalProducers=maxActiveProducers
 cluster=Cluster(walletd=True)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running
-prodCount=2
 killAll=args.clean_run
 walletPort=args.wallet_port
-totalNodes=startedNonProdNodes+pnodes
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
@@ -59,152 +47,158 @@ killWallet=not dontKill
 WalletdName=Utils.EosWalletName
 ClientName="cleos"
 
-trxGenLauncher=None
-
 snapshotScheduleDB = "snapshot-schedule.json"
 
-def getLatestSnapshot(nodeId):
-    snapshotDir = os.path.join(Utils.getNodeDataDir(nodeId), "snapshots")
-    snapshotDirContents = os.listdir(snapshotDir)
-    assert len(snapshotDirContents) > 0
-    # disregard snapshot schedule config in same folder
-    if snapshotScheduleDB in snapshotDirContents: snapshotDirContents.remove(snapshotScheduleDB)
-    snapshotDirContents.sort()
-    return os.path.join(snapshotDir, snapshotDirContents[-1])
+EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
+EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
-def removeState(nodeId):
-    dataDir = Utils.getNodeDataDir(nodeId)
-    state = os.path.join(dataDir, "state")
-    shutil.rmtree(state, ignore_errors=True)
-
-try:
-    TestHelper.printSystemInfo("BEGIN")
-    cluster.setWalletMgr(walletMgr)
-
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
-    specificExtraNodeosArgs={}
-    Print("Stand up cluster")
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, loadSystemContract=True, maximumP2pPerHost=totalNodes+trxGeneratorCnt) is False:
-        Utils.errorExit("Failed to stand up eos cluster.")
-
-    Print("Create test wallet")
-    wallet = walletMgr.create('txntestwallet')
-    cluster.populateWallet(2, wallet)
-
-    Print("Create test accounts for transactions.")
-    cluster.createAccounts(cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=0)
-
-    account1Name = cluster.accounts[0].name
-    account2Name = cluster.accounts[1].name
-
-    account1PrivKey = cluster.accounts[0].activePrivateKey
-    account2PrivKey = cluster.accounts[1].activePrivateKey
-
-    Print("Validating system accounts after bootstrap")
-    cluster.validateAccounts([cluster.accounts[0], cluster.accounts[1]])
-
-    def waitForBlock(node, blockNum, blockType=BlockType.head, timeout=None, reportInterval=20):
+def waitForBlock(node, blockNum, blockType=BlockType.head, timeout=None, reportInterval=20):
         if not node.waitForBlock(blockNum, timeout=timeout, blockType=blockType, reportInterval=reportInterval):
             info=node.getInfo()
             headBlockNum=info["head_block_num"]
             libBlockNum=info["last_irreversible_block_num"]
             Utils.errorExit("Failed to get to %s block number %d. Last had head block number %d and lib %d" % (blockType, blockNum, headBlockNum, libBlockNum))
 
+def getSnapshotsCount(nodeId):
+    snapshotDir = os.path.join(Utils.getNodeDataDir(nodeId), "snapshots")
+    snapshotDirContents = os.listdir(snapshotDir)
+    assert len(snapshotDirContents) > 0
+    # disregard snapshot schedule config in same folder
+    if snapshotScheduleDB in snapshotDirContents: snapshotDirContents.remove(snapshotScheduleDB)
+    return len(snapshotDirContents)
 
-    snapshotNodeId = 0
-    node0=cluster.getNode(snapshotNodeId)
-    irrNodeId = snapshotNodeId+1
+try:
+    TestHelper.printSystemInfo("BEGIN")
 
-    nodeSnap=cluster.getNode(snapshotNodeId)
-    nodeIrr=cluster.getNode(irrNodeId)
+    cluster.setWalletMgr(walletMgr)
+    cluster.killall(allInstances=killAll)
+    cluster.cleanup()
+    Print("Stand up cluster")
+    specificExtraNodeosArgs={}
+    # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
+    specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin"
 
-    Print("Wait for account creation to be irreversible")
-    blockNum=node0.getBlockNum(BlockType.head)
-    waitForBlock(node0, blockNum, blockType=BlockType.lib)
+    # ensure that transactions don't get cleaned up too early
+    successDuration = 360
+    failure_duration = 360
+    extraNodeosArgs=" --transaction-finality-status-max-storage-size-gb 1 " + \
+                   f"--transaction-finality-status-success-duration-sec {successDuration} --transaction-finality-status-failure-duration-sec {failure_duration}"
+    extraNodeosArgs+=" --http-max-response-time-ms 990000"
 
-    Print("Configure and launch txn generators")
-    targetTpsPerGenerator = 10
-    testTrxGenDurationSec=60*30
-    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[account1Name, account2Name],
-                                acctPrivKeysList=[account1PrivKey,account2PrivKey], nodeId=snapshotNodeId, tpsPerGenerator=targetTpsPerGenerator,
-                                numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec, waitToComplete=False)
 
-    cluster.waitForTrxGeneratorsSpinup(nodeId=snapshotNodeId, numGenerators=trxGeneratorCnt)
+    # ***   setup topogrophy   ***
 
-    blockNum=node0.getBlockNum(BlockType.head)
-    timePerBlock=500
-    transactionsPerBlock=targetTpsPerGenerator*trxGeneratorCnt*timePerBlock/1000
-    steadyStateWait=30
-    startBlockNum=blockNum+steadyStateWait
-    numBlocks=30
-    endBlockNum=startBlockNum+numBlocks
-    waitForBlock(node0, endBlockNum)
-    steadyStateWindowTrxs=0
-    steadyStateAvg=0
-    steadyStateWindowBlks=0
-    for bNum in range(startBlockNum, endBlockNum):
-        steadyStateWindowBlks=steadyStateWindowBlks+1
-        block=node0.getBlock(bNum)
-        steadyStateWindowTrxs+=len(block["transactions"])
+    # "bridge" shape connects defprocera through defproducerb (in node0) to each other and defproducerc is alone (in node01)
+    # and the only connection between those 2 groups is through the bridge node
+    if cluster.launch(prodCount=2, topo="bridge", pnodes=totalProducerNodes,
+                      totalNodes=totalNodes, totalProducers=totalProducers,
+                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs,
+                      extraNodeosArgs=extraNodeosArgs) is False:
+        Utils.cmdError("launcher")
+        Utils.errorExit("Failed to stand up eos cluster.")
+    Print("Validating system accounts after bootstrap")
+    cluster.validateAccounts(None)
 
-    steadyStateAvg=steadyStateWindowTrxs / steadyStateWindowBlks
+    # ***   identify each node (producers and non-producing node)   ***
 
-    Print("Validate transactions are generating")
-    minReqPctLeeway=0.60
-    minRequiredTransactions=minReqPctLeeway*transactionsPerBlock
-    assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
+    nonProdNode=None
+    prodNodes=[]
+    producers=[]
+    for i, node in enumerate(cluster.getNodes()):
+        node.producers=Cluster.parseProducers(node.nodeId)
+        numProducers=len(node.producers)
+        Print(f"node {i} has producers={node.producers}")
+        if numProducers==0:
+            if nonProdNode is None:
+                nonProdNode=node
+            else:
+                Utils.errorExit("More than one non-producing nodes")
+        else:
+            prodNodes.append(node)
+            producers.extend(node.producers)
 
-    Print("Create snapshot")
-    ret = nodeSnap.scheduleSnapshot()
-    assert ret is not None, "Snapshot creation failed"
-  
-    # scheduleSnapshot is async, not returning block info
-    Print("Wait for snapshot node lib to advance")
-    ret_head_block_num = nodeSnap.getBlockNum(BlockType.head)
-    waitForBlock(nodeSnap, ret_head_block_num+1, blockType=BlockType.lib)
+    prodAB=prodNodes[0]  # defproducera, defproducerb
+    prodC=prodNodes[1]   # defproducerc
 
-    Print("Kill snapshot node")
-    nodeSnap.kill(signal.SIGTERM)
+    # ***   Identify a block where production is stable   ***
 
-    Print("Convert snapshot to JSON")
-    snapshotFile = getLatestSnapshot(snapshotNodeId)
-    Utils.processLeapUtilCmd("snapshot to-json --input-file {}".format(snapshotFile), "snapshot to-json", silentErrors=False)
-    snapshotFile = snapshotFile + ".json"
+    #verify nodes are in sync and advancing
+    cluster.biosNode.kill(signal.SIGTERM)
+    cluster.waitOnClusterSync(blockAdvancing=5)
 
-    Print("Trim irreversible blocklog to snapshot head block num")
-    nodeIrr.kill(signal.SIGTERM)
-    output=cluster.getBlockLog(irrNodeId, blockLogAction=BlockLogAction.trim, last=ret_head_block_num, throwException=True)
+    Print("Creating account1")
+    account1 = Account('account1')
+    account1.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    account1.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    cluster.createAccountAndVerify(account1, cluster.eosioAccount, stakedDeposit=1000)
 
-    Print("Relaunch irreversible node in irreversible mode")
-    removeState(irrNodeId)
-    Utils.rmFromFile(Utils.getNodeConfigDir(irrNodeId, "config.ini"), "p2p-peer-address")
-    swapFlags = {"--read-mode":"irreversible", "--p2p-max-nodes-per-host":"0", "--max-clients":"0", "--allowed-connection":"none"}
-    isRelaunchSuccess = nodeIrr.relaunch(chainArg="--replay", addSwapFlags=swapFlags, timeout=relaunchTimeout, cachePopen=True)
-    assert isRelaunchSuccess, "Failed to relaunch snapshot node"
+    Print("Validating accounts after bootstrap")
+    cluster.validateAccounts([account1])
 
-    Print("Create snapshot from irreversible")
-    ret = nodeIrr.createSnapshot()
-    assert ret is not None, "Snapshot creation failed"
-    ret_irr_head_block_num = ret["payload"]["head_block_num"]
-    Print(f"Snapshot head block number {ret_irr_head_block_num}")
-    assert ret_irr_head_block_num == ret_head_block_num, f"Snapshot head block numbers do not match: {ret_irr_head_block_num} != {ret_head_block_num}"
+    # ***   Schedule snapshot, it should become pending, then wait for finality
+    prodAB.scheduleSnapshot()
+    blockNum=prodAB.getBlockNum(BlockType.head) + 1
+    waitForBlock(prodAB, blockNum + 1, blockType=BlockType.lib)
 
-    Print("Kill snapshot node")
-    nodeIrr.kill(signal.SIGTERM)
+   
+    # ***   Killing the "bridge" node   ***
+    Print("Sending command to kill \"bridge\" node to separate the 2 producer groups.")
+    # kill at the beginning of the production window for defproducera, so there is time for the fork for
+    # defproducerc to grow before it would overtake the fork for defproducera and defproducerb
+    killAtProducer="defproducera"
+    nonProdNode.killNodeOnProducer(producer=killAtProducer, whereInSequence=1)
 
-    Print("Convert snapshot to JSON")
-    irrSnapshotFile = getLatestSnapshot(irrNodeId)
-    Utils.processLeapUtilCmd("snapshot to-json --input-file {}".format(irrSnapshotFile), "snapshot to-json", silentErrors=False)
-    irrSnapshotFile = irrSnapshotFile + ".json"
+    #verify that the non producing node is not alive (and populate the producer nodes with current getInfo data to report if
+    #an error occurs)
+    numPasses = 2
+    blocksPerProducer = 12
+    blocksPerRound = totalProducers * blocksPerProducer
+    count = blocksPerRound * numPasses
+    while nonProdNode.verifyAlive() and count > 0:
+        # wait on prodNode 0 since it will continue to advance, since defproducera and defproducerb are its producers
+        Print("Wait for next block")
+        assert prodAB.waitForNextBlock(timeout=6), "Production node AB should continue to advance, even after bridge node is killed"
+        count -= 1
+   
+    # schedule a snapshot that should get finalized
+    prodC.scheduleSnapshot()
 
-    assert Utils.compareFiles(snapshotFile, irrSnapshotFile), f"Snapshot files differ {snapshotFile} != {irrSnapshotFile}"
+    assert not nonProdNode.verifyAlive(), "Bridge node should have been killed if test was functioning correctly."
+
+    def getState(status):
+        assert status is not None, "ERROR: getTransactionStatus failed to return any status"
+        assert "state" in status, \
+            f"ERROR: getTransactionStatus returned a status object that didn't have a \"state\" field. state: {json.dumps(status, indent=1)}"
+        return status["state"]
+   
+    assert prodC.waitForNextBlock(), "Production node C should continue to advance, even after bridge node is killed"
+
+    Print("Relaunching the non-producing bridge node to connect the nodes")
+    if not nonProdNode.relaunch():
+        errorExit(f"Failure - (non-production) node {nonProdNode.nodeNum} should have restarted")
+
+    Print("Wait for LIB to move, which indicates prodC has forked out the branch")
+    assert prodC.waitForLibToAdvance(), \
+        "ERROR: Network did not reach consensus after bridge node was restarted."
+ 
+    for prodNode in prodNodes:
+        info=prodNode.getInfo()
+        Print(f"node info: {json.dumps(info, indent=1)}")
+
+    assert prodC.waitForProducer("defproducerc"), \
+        f"Waiting for prodC to produce, but it never happened" + \
+        f"\n\nprod AB info: {json.dumps(prodAB.getInfo(), indent=1)}\n\nprod C info: {json.dumps(prodC.getInfo(), indent=1)}"
+    
+    blockNum=prodC.getBlockNum(BlockType.head) + 1
+    waitForBlock(prodC, blockNum + 1, blockType=BlockType.lib)
+
+    # AB & C compare counts, should be same
+    assert getSnapshotsCount(0) == getSnapshotsCount(1), \
+        "ERROR: Snapshot generation failed."
 
     testSuccessful=True
-
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
 
-exitCode = 0 if testSuccessful else 1
-exit(exitCode)
+errorCode = 0 if testSuccessful else 1
+exit(errorCode)
