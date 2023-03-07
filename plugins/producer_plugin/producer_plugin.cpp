@@ -1007,7 +1007,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
    // only initialize other read-only options when read-only thread pool is enabled
    if ( my->_ro_thread_pool_size > 0 ) {
-      EOS_ASSERT( !my->_production_enabled, plugin_config_exception, "--read-only-thread does not work when production is enabled" );
+      EOS_ASSERT( !my->_production_enabled, plugin_config_exception, "--read-only-thread not allowed on producer node" );
 
       if (chain.is_eos_vm_oc_enabled()) {
          // EOS VM OC requires 4.2TB Virtual for each executing thread. Make sure the memory
@@ -2658,6 +2658,7 @@ void producer_plugin_impl::start_write_window() {
 
    app().executor().set_to_write_window();
    chain.unset_db_read_only_mode();
+   _idle_trx_time = fc::time_point::now();
 
    auto expire_time = boost::posix_time::microseconds(_ro_write_window_time_us.count());
    _ro_write_window_timer.expires_from_now( expire_time );
@@ -2679,6 +2680,7 @@ void producer_plugin_impl::switch_to_read_window() {
 
    _ro_write_window_timer.cancel();
    _ro_read_window_timer.cancel();
+   _account_fails.add_idle_time( fc::time_point::now() - _idle_trx_time );
 
    // we are in write window, so no read-only trx threads are processing transactions.
    // _ro_trx_queue is not being accessed. No need to lock.
