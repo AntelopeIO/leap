@@ -1,7 +1,7 @@
 #pragma once
 
 #include <appbase/application_base.hpp>
-#include <eosio/chain/exec_pri_queue.hpp>
+#include <appbase/execution_priority_queue.hpp>
 
 /*
  * Custmomize appbase to support two-queue exector.
@@ -63,7 +63,7 @@ public:
    }
 
    template <typename Function>
-   boost::asio::executor_binder<Function, appbase::exec_pri_queue::executor>
+   boost::asio::executor_binder<Function, appbase::execution_priority_queue::executor>
    wrap(int priority, exec_queue q, Function&& func ) {
       if ( q == exec_queue::general )
          return general_queue_.wrap(priority, --order_, std::forward<Function>(func));
@@ -98,11 +98,11 @@ public:
 
    // members are ordered taking into account that the last one is destructed first
 private:
-   boost::asio::io_service    io_serv_;
-   appbase::exec_pri_queue    read_only_trx_safe_queue_;
-   appbase::exec_pri_queue    general_queue_;
-   std::atomic<std::size_t>   order_ { std::numeric_limits<size_t>::max() }; // to maintain FIFO ordering in both queues within priority
-   exec_window                exec_window_ { exec_window::write };
+   boost::asio::io_service            io_serv_;
+   appbase::execution_priority_queue  read_only_trx_safe_queue_;
+   appbase::execution_priority_queue  general_queue_;
+   std::atomic<std::size_t>           order_ { std::numeric_limits<size_t>::max() }; // to maintain FIFO ordering in both queues within priority
+   exec_window                        exec_window_ { exec_window::write };
 };
 
 using application = application_t<two_queue_executor>;
