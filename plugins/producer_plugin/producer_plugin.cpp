@@ -256,7 +256,7 @@ struct block_time_tracker {
       ++trx_success_num;
    }
 
-   void report_and_clear( const fc::time_point& idle_trx_time ) {
+   void report( const fc::time_point& idle_trx_time ) {
       if( _log.is_enabled( fc::log_level::debug ) ) {
          auto now = fc::time_point::now();
          add_idle_time( now - idle_trx_time );
@@ -265,7 +265,9 @@ struct block_time_tracker {
                   ("fn", trx_fail_num)("f", trx_fail_time)
                   ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time) );
       }
+   }
 
+   void clear() {
       block_idle_time = trx_fail_time = trx_success_time = fc::microseconds{};
       trx_fail_num = trx_success_num = 0;
       clear_time = fc::time_point::now();
@@ -436,7 +438,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto& chain = chain_plug->chain();
 
          if( chain.is_building_block() ) {
-            _time_tracker.report_and_clear( _idle_trx_time );
+            _time_tracker.report( _idle_trx_time );
          }
          _unapplied_transactions.add_aborted( chain.abort_block() );
          _subjective_billing.abort_block();
@@ -1789,7 +1791,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
       try {
          _account_fails.report_and_clear(hbs->block_num);
-         _time_tracker.report_and_clear(_idle_trx_time);
+         _time_tracker.clear();
 
          if( !remove_expired_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
@@ -2547,6 +2549,8 @@ void producer_plugin_impl::produce_block() {
    } );
 
    chain.commit_block();
+
+   _time_tracker.report(_idle_trx_time);
 
    block_state_ptr new_bs = chain.head_block_state();
 
