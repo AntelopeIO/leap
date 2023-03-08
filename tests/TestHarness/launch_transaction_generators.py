@@ -56,6 +56,7 @@ class TransactionGeneratorsLauncher:
     def launch(self, waitToComplete=True):
         self.subprocess_ret_codes = []
         portIter = 0
+        numPorts = len(self.ports)
         for id, targetTps in enumerate(self.tpsTrxGensConfig.targetTpsPerGenList):
             if self.abiFile is not None and self.actionsData is not None and self.actionsAuths is not None:
                 if Utils.Debug:
@@ -127,7 +128,7 @@ class TransactionGeneratorsLauncher:
                         '--port', f'{self.ports[portIter]}'
                     ])
                 )
-            portIter = (portIter + 1) % 3
+            portIter = (portIter + 1) % numPorts
         exitCodes=None
         if waitToComplete:
             exitCodes = [ret_code.wait() for ret_code in self.subprocess_ret_codes]
