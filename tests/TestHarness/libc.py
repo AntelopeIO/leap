@@ -24,7 +24,7 @@ def unshare(flags):
     and map current user to root in the new namespace.
     '''
     uid = os.getuid()
-    if uid != 0:
+    if uid != 0 or os.getenv('GITHB_ACTIONS'):
         uidmap = f'0 {uid} 1'
         rc = libc.unshare(CLONE_NEWUSER)
         if rc == -1:
