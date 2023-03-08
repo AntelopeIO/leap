@@ -218,6 +218,7 @@ try:
 
     p = re.compile('Assert')
     errFileName=f"{cluster.nodeosLogPath}/node_00/stderr.txt"
+    assertionsFound = False
     with open(errFileName) as errFile:
         for line in errFile:
             if p.search(line):
