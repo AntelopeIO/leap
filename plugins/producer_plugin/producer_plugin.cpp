@@ -293,6 +293,16 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                     const transaction_metadata_ptr& trx,
                                     bool api_trx, bool return_failure_trace,
                                     next_function<transaction_trace_ptr> next );
+      push_result handle_push_result( const transaction_metadata_ptr& trx,
+                                      bool return_failure_trace,
+                                      next_function<transaction_trace_ptr> next,
+                                      const fc::time_point& start,
+                                      bool disable_subjective_enforcement,
+                                      account_name first_auth,
+                                      int64_t sub_bill,
+                                      const chain::controller& chain,
+                                      uint32_t prev_billed_cpu_time_us,
+                                      const transaction_trace_ptr& trace);
       void log_trx_results( const transaction_metadata_ptr& trx, const transaction_trace_ptr& trace, const fc::time_point& start );
       void log_trx_results( const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr );
       void log_trx_results( const packed_transaction_ptr& trx, const transaction_trace_ptr& trace,
@@ -2137,6 +2147,20 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       unset_db_read_only_mode.cancel();
    }
 
+   return handle_push_result(trx, return_failure_trace, next, start, disable_subjective_enforcement, first_auth, sub_bill, chain, prev_billed_cpu_time_us, trace);
+}
+
+producer_plugin_impl::push_result
+producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
+                                          bool return_failure_trace,
+                                          next_function<transaction_trace_ptr> next,
+                                          const fc::time_point& start,
+                                          bool disable_subjective_enforcement,
+                                          account_name first_auth,
+                                          int64_t sub_bill,
+                                          const chain::controller& chain,
+                                          uint32_t prev_billed_cpu_time_us,
+                                          const transaction_trace_ptr& trace) {
    auto end = fc::time_point::now();
    push_result pr;
    if( trace->except ) {
@@ -2731,11 +2755,11 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
       _ro_trx_queue.queue.pop_front();
       lck.unlock();
       
-      auto block_deadline_exhausted = process_read_only_transaction( trx.trx, trx.next, start );
+      auto exhausted = process_read_only_transaction( trx.trx, trx.next, start );
 
-      // If a transaction passes deadline, that indicates we are close to the end of
-      // read window. Do not schedule new transactions
-      if ( block_deadline_exhausted ) {
+      // If a transaction or block was exhausted, that indicates we are close to
+      // the end of read window or block boundary. Do not schedule new transactions
+      if ( exhausted ) {
          lck.lock();
          _ro_trx_queue.queue.push_front(trx);
          break;
@@ -2776,42 +2800,24 @@ bool producer_plugin_impl::process_read_only_transaction(const packed_transactio
 
 // called on read_only_trx execution thread; multi-threaded safe 
 // return exhausted status
-bool producer_plugin_impl::push_read_only_transaction(const transaction_metadata_ptr& trx, next_function<transaction_trace_ptr> next, const fc::time_point& read_window_start_time) {
+bool producer_plugin_impl::push_read_only_transaction(
+            const transaction_metadata_ptr& trx,
+            next_function<transaction_trace_ptr> next,
+            const fc::time_point& read_window_start_time) {
    auto exhausted = false;
    chain::controller& chain = chain_plug->chain();
 
+   if( !chain.is_building_block() ) {
+      // try next round
+      return true;
+   }
+
    try {
-      const auto& id = trx->id();
-
-      fc::time_point bt = chain.is_building_block() ? chain.pending_block_time() : chain.head_block_time();
-      const fc::time_point expire = trx->packed_trx()->expiration();
-      if( expire < bt ) {
-         auto except_ptr = std::static_pointer_cast<fc::exception>(
-               std::make_shared<expired_tx_exception>(
-                     FC_LOG_MESSAGE( error, "expired transaction ${id}, expiration ${e}, block time ${bt}",
-                                     ("id", id)("e", expire)("bt", bt))));
-         log_trx_results( trx, except_ptr );
-         next( std::move(except_ptr) );
-         return false;
-      }
-
-      if( chain.is_known_unexpired_transaction( id )) {
-         auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_duplicate>(
-               FC_LOG_MESSAGE( error, "duplicate transaction ${id}", ("id", id))));
-         next( std::move(except_ptr) );
-         return false;
-      }
-
-      if( !chain.is_building_block() ) {
-         // try next round
-         return true;
-      }
-
       const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
       auto start = fc::time_point::now();
       auto time_used_in_read_window_us = ( start - read_window_start_time );
       if ( time_used_in_read_window_us >= _ro_read_window_time_us ) {
-         // already passed read-window deadline, retry in next round
+         // already passed read-window deadline, try next round
          return true;
       }
 
@@ -2820,42 +2826,8 @@ bool producer_plugin_impl::push_read_only_transaction(const transaction_metadata
       auto available_trx_time_us = std::min( remained_time_in_read_window_us, _ro_max_trx_time_us );
 
       auto trace = chain.push_transaction( trx, block_deadline, available_trx_time_us, 0, false, 0 );
-
-      auto end = fc::time_point::now();
-      if( trace->except ) {
-         if( exception_is_exhausted( *trace->except ) ) {
-            auto time_spent = end - start;
-            if ( time_spent < _ro_max_trx_time_us ) {
-               exhausted = true;
-               // no need to do log_trx_results. the trx will be tried next time
-               return exhausted;
-            } else {
-               if( _pending_block_mode == pending_block_mode::producing ) {
-                  fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
-                          ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id()));
-               } else {
-                  fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution COULD NOT FIT tx: ${txid} RETRYING", ("txid", trx->id()));
-               }
-               if( next ) next( trace );
-            }
-         } else {
-            auto failure_code = trace->except->code();
-            if( failure_code != tx_duplicate::code_value ) {
-               // this failed our configured maximum transaction time, we don't want to replay it
-               fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, ran: ${r}us, id: ${id}",
-                        ("c", failure_code)
-                        ( "r", end - start )( "id", trx->id() ) );
-            } else {
-               fc_dlog( _trx_failed_trace_log, "duploicated ${c} trx, ran: ${r}us, id: ${id}",
-                        ("c", failure_code)
-                        ( "r", end - start )( "id", trx->id() ) );
-            }
-            if( next ) next( trace );
-         }
-      } else {
-         if( next ) next( trace );
-      }
-      log_trx_results( trx, trace, start );
+      auto pr = handle_push_result(trx, true /*return_failure_trace*/, next, start, false /* disable_subjective_enforcement*/, {} /*first_auth*/, 0 /*sub_bill*/, chain, 0 /*prev_billed_cpu_time_us*/, trace);
+      exhausted = pr.block_exhausted || pr.trx_exhausted;
    } catch ( const guard_exception& e ) {
       chain_plugin::handle_guard_exception(e);
    } catch ( boost::interprocess::bad_alloc& ) {
