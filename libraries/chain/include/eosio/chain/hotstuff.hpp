@@ -23,6 +23,10 @@ namespace eosio { namespace chain {
       return fc::endian_reverse_u32(block_id._hash[0]);
    }
 
+   static uint64_t compute_height(uint32_t block_height, uint32_t phase_counter){
+      return (uint64_t{block_height} << 32) | phase_counter;
+   }
+
    struct extended_schedule {
 
       producer_authority_schedule producer_schedule;
@@ -31,134 +35,56 @@ namespace eosio { namespace chain {
 
    };
 
-/*   struct qc_height {
-      
-      uint32_t block_height;
-      uint8_t phase;
-
-      bool operator == (const qc_height& rhs) {
-         if (block_height != rhs.block_height) return false;
-         if (phase != rhs.phase) return false;
-         return true;
-      }
-
-      bool operator != (const qc_height& rhs) {
-         if (block_height != rhs.block_height) return true;
-         if (phase != rhs.phase) return true;
-         return false;
-      }
-
-      bool operator<(const qc_height& rhs) {
-         if (block_height < rhs.block_height) return true;
-         else if (block_height == rhs.block_height){
-            if (phase < rhs.phase) return true;
-         }
-         else return false;
-      }
-
-      bool operator>(const qc_height& rhs) {
-         if (block_height > rhs.block_height) return true;
-         else if (block_height == rhs.block_height){
-            if (phase > rhs.phase) return true;
-         }
-         else return false;
-      }
-
-   };*/
-
    struct quorum_certificate {
 
       public:
 
-         block_id_type                                      block_id;
+         fc::sha256                                         proposal_id;
+
+         bool                                               quorum_met = false;
 
          vector<name>                                       active_finalizers;
          fc::crypto::blslib::bls_signature                  active_agg_sig;
-
-         std::optional<vector<name>>                        incoming_finalizers;
-         std::optional<fc::crypto::blslib::bls_signature>   incoming_agg_sig;
-               
-         uint32_t block_num()const{
-            return compute_block_num(block_id);
-         }
-
-         /*bool quorum_met(extended_schedule es, bool dual_set_mode){
-
-            if (  dual_set_mode && 
-                  incoming_finalizers.has_value() && 
-                  incoming_agg_sig.has_value()){
-               return _quorum_met(es, active_finalizers, active_agg_sig) && _quorum_met(es, incoming_finalizers.value(), incoming_agg_sig.value());
-            }
-            else {
-               return _quorum_met(es, active_finalizers, active_agg_sig);
-            }
-
-         };
-
-      private:
-         bool _quorum_met(extended_schedule es, vector<name> finalizers, fc::crypto::blslib::bls_signature agg_sig){
-            
-            ilog("evaluating if _quorum_met");
-
-            if (finalizers.size() != _threshold){
-            
-               ilog("finalizers.size() ${size}", ("size",finalizers.size()));
-               return false;
-            
-            }
-
-            ilog("correct threshold");
-            
-            fc::crypto::blslib::bls_public_key agg_key;
-
-            for (name f : finalizers) {
-
-               auto itr = es.bls_pub_keys.find(f);
-
-               if (itr==es.bls_pub_keys.end()) return false;
-   
-               agg_key = fc::crypto::blslib::aggregate({agg_key, itr->second });
-
-            }
-
-            std::vector<unsigned char> msg = std::vector<unsigned char>(block_id.data(), block_id.data() + 32);
-
-            bool ok = fc::crypto::blslib::verify(agg_key, msg, agg_sig);
-
-            return ok;
-
-            return true; //temporary
-
-         }*/
 
    };
 
    struct hs_vote_message {
 
-      block_id_type                       block_id; //vote on proposal
+      fc::sha256                          proposal_id; //vote on proposal
 
       name                                finalizer;
       fc::crypto::blslib::bls_signature   sig;
 
       hs_vote_message() = default;
 
-      uint32_t block_num()const{
+/*      uint32_t block_num()const{
          return compute_block_num(block_id);
-      }
+      }*/
 
    };
 
    struct hs_proposal_message {
 
-      block_id_type                       block_id; //new proposal
+      fc::sha256                          proposal_id; //vote on proposal
 
-      std::optional<quorum_certificate>   justify; //justification
+      block_id_type                       block_id;
+      uint8_t                             phase_counter;
+
+      fc::sha256                          parent_id; //new proposal
+
+      fc::sha256                          final_on_qc;
+
+      quorum_certificate   justify; //justification
 
       hs_proposal_message() = default;
-      
+
       uint32_t block_num()const{
          return compute_block_num(block_id);
       }
+
+      uint64_t get_height()const {
+           return compute_height(compute_block_num(block_id), phase_counter);
+      };
 
    };
 
@@ -166,19 +92,14 @@ namespace eosio { namespace chain {
 
       block_id_type                       block_id; //new proposal
 
-      std::optional<quorum_certificate>   justify; //justification
+      quorum_certificate   justify; //justification
 
       hs_new_block_message() = default;
-      
-      uint32_t block_num()const{
-         return compute_block_num(block_id);
-      }
-
    };
 
    struct hs_new_view_message {
 
-      std::optional<quorum_certificate>   high_qc; //justification
+      quorum_certificate   high_qc; //justification
 
       hs_new_view_message() = default;
       
@@ -193,13 +114,8 @@ namespace eosio { namespace chain {
 }} //eosio::chain
 
 
-//FC_REFLECT_ENUM( eosio::chain::consensus_msg_type,
-//                 (cm_new_view)(cm_prepare)(cm_pre_commit)(cm_commit)(cm_decide) );
-
-//FC_REFLECT(eosio::chain::consensus_node, (header)(previous_bmroot)(schedule_hash)(digest_to_sign));
-FC_REFLECT(eosio::chain::quorum_certificate, (block_id)(active_finalizers)(active_agg_sig)(incoming_finalizers)(incoming_agg_sig));
-//FC_REFLECT(eosio::chain::proposal, (block)(justify));
-FC_REFLECT(eosio::chain::hs_vote_message, (block_id)(finalizer)(sig));
-FC_REFLECT(eosio::chain::hs_proposal_message, (block_id)(justify));
+FC_REFLECT(eosio::chain::quorum_certificate, (proposal_id)(active_finalizers)(active_agg_sig));
+FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer)(sig));
+FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(phase_counter)(parent_id)(final_on_qc)(justify));
 FC_REFLECT(eosio::chain::hs_new_block_message, (block_id)(justify));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
