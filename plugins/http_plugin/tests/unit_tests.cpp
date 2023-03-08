@@ -1,32 +1,24 @@
 #include <appbase/application.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
-#include <iostream>
-#include <string_view>
-#include <thread>
-#include <future>
-#include <boost/exception/diagnostic_information.hpp>
 
 #include <boost/asio.hpp>
-#include <boost/asio/bind_executor.hpp>
-#include <boost/asio/steady_timer.hpp>
-#include <boost/asio/strand.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/beast/version.hpp>
-#include <boost/optional.hpp>
 
 #include <boost/asio/basic_stream_socket.hpp>
-#include <boost/asio/detail/config.hpp>
 
 #define BOOST_TEST_MODULE http_plugin unit tests
 #include <boost/test/included/unit_test.hpp>
 
+#include <iostream>
+#include <thread>
+#include <future>
+#include <optional>
+
 namespace bu = boost::unit_test;
-namespace bpo = boost::program_options;
 
 using std::string;
-using std::string_view;
-using std::vector;
 
 using namespace appbase;
 using namespace eosio;
@@ -42,7 +34,7 @@ using tcp       = net::ip::tcp;     // from <boost/asio/ip/tcp.hpp>
 class Db
 {
 public:
-   void add_api(http_plugin &p) {
+   void add_api(http_plugin& p) {
       p.add_api({
             {  std::string("/hello"),
                [&](string&&, string&& body, url_response_callback&& cb) {
@@ -97,7 +89,7 @@ struct ProtocolCommon
 
    const char* host;
    beast::tcp_stream& stream;
-   Results &results;
+   Results& results;
 };
 
    
@@ -182,7 +174,7 @@ struct Expect100ContinueProtocol : public ProtocolCommon<Results>
 // -------------------------------------------------------------------------
 // -------------------------------------------------------------------------
 template<class Protocol>
-void check_request(Protocol &p, const char* r, const char* body,
+void check_request(Protocol& p, const char* r, const char* body,
                    std::optional<const char*> expected_response)
 {
    if (p.send_request(r, body, !expected_response)) {
@@ -201,7 +193,7 @@ void check_request(Protocol &p, const char* r, const char* body,
 }
 
 template<class Protocol>
-void run_test(Protocol &p, size_t max_body_size)
+void run_test(Protocol& p, size_t max_body_size)
 {
    // try a echo
    check_request(p, "/echo", "hello", {"hello"});
@@ -282,12 +274,12 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
       stream.connect(results);
 
       {
-         BasicProtocol<decltype(results)> p { host, stream, results };
+         BasicProtocol<decltype(results)> p{ {host, stream, results} };
          run_test(p, max_body_size);
       }
 
       {
-         Expect100ContinueProtocol<decltype(results)> p { host, stream, results };
+         Expect100ContinueProtocol<decltype(results)> p{ {host, stream, results} };
          run_test(p, max_body_size);
       }
 

@@ -22,7 +22,6 @@ dumpErrorDetails = dumpErrorDetails=args.dump_error_details
 
 
 Utils.Debug=debug
-https_port = 5555
 cluster=Cluster(walletd=True)
 
 testSuccessful=False
@@ -35,10 +34,6 @@ try:
     TestHelper.printSystemInfo("BEGIN")
 
     Print("Stand up cluster")
-    # standup cluster with HTTPS enabled, but not configured
-    # HTTP should still work
-    extraArgs={ 0 : "--https-server-address 127.0.0.1:5555" }
-    # specificExtraNodeosArgs=extraArgs
 
     if cluster.launch(dontBootstrap=True, loadSystemContract=False) is False:
         cmdError("launcher")
