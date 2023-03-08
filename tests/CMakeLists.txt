@@ -125,6 +125,8 @@ add_test(NAME read_only_trx_test_single_threaded COMMAND tests/read_only_trx_tes
 set_property(TEST read_only_trx_test_single_threaded PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME read_only_trx_test_multi_threaded COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --read-only-threads 3 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST read_only_trx_test_multi_threaded PROPERTY LABELS nonparallelizable_tests)
+add_test(NAME read_only_trx_test_eos_vm_oc_multi_threaded COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --eos-vm-oc-enable --read-only-threads 3 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+set_property(TEST read_only_trx_test_eos_vm_oc_multi_threaded PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME subjective_billing_test COMMAND tests/subjective_billing_test.py -v -p 2 -n 4 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST subjective_billing_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME get_account_test COMMAND tests/get_account_test.py -v -p 2 --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

@@ -1607,7 +1607,7 @@ struct controller_impl {
                trace->receipt = r;
             }
 
-            if ( !trx->is_transient() ) {
+            if ( !trx->is_read_only() ) {
                fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
                                 std::move(trx_context.executed_action_receipt_digests) );
                 // call the accept signal but only once for this transaction

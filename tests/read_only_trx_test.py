@@ -33,6 +33,10 @@ pnodes=args.p
 topo=args.s
 delay=args.d
 total_nodes = pnodes if args.n < pnodes else args.n
+# For this test, we need at least 1 non-producer
+if total_nodes <= pnodes:
+    Print ("non-producing nodes %d must be greater than 0. Force it to %d. producing nodes: %d," % (total_nodes - pnodes, pnodes + 1, pnodes))
+    total_nodes = pnodes + 1
 debug=args.v
 nodesFile=args.nodes_file
 dontLaunch=nodesFile is not None
@@ -76,7 +80,7 @@ try:
             cluster.killall(allInstances=killAll)
             cluster.cleanup()
 
-    Print ("producing nodes: %s, non-producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d" % (pnodes, total_nodes-pnodes, topo, delay))
+    Print ("producing nodes: %d, non-producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d" % (pnodes, total_nodes-pnodes, topo, delay))
 
     Print("Stand up cluster")
     # set up read-only options for API node
@@ -192,7 +196,7 @@ try:
     def testReadOnlyTrxAndOtherTrx(opt=None):
         Print("testReadOnlyTrxAndOtherTrx -- opt = ", opt)
 
-        numRuns = 100
+        numRuns = 500
         readOnlyThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
         readOnlyThread.start()
         trxThread = threading.Thread(target = sendTrxsOnThread, args = (numRuns, numRuns, opt))

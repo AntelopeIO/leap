@@ -575,6 +575,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                          bool return_failure_traces,
                                          next_function<transaction_trace_ptr> next) {
          if ( trx_type == transaction_metadata::trx_type::read_only && _ro_thread_pool_size > 0 ) {
+            // Parallel read-only trx execution enabled.
+            // Store the transaction in read-only-trx queue so that it is
+            // executed in read window
             std::lock_guard<std::mutex> g( _ro_trx_queue.mtx );
             _ro_trx_queue.queue.push_back({trx, std::move(next)});
             return;
@@ -2133,18 +2136,19 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       }
    }
 
-   // setting and unsetting chainbase read_only mode will be moved to right
-   // place when multi-threaded read-only transaction is implemented
-   auto unset_db_read_only_mode = fc::make_scoped_exit([trx, &chain]{
+   // Make sure db_read_only_mode to be always unset
+   auto db_read_only_mode_guard = fc::make_scoped_exit([trx, &chain]{
       if( trx->is_read_only() )
          chain.unset_db_read_only_mode();
    });
    if( trx->is_read_only() )
       chain.set_db_read_only_mode();
+
    auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
+
    if( trx->is_read_only() ) {
       chain.unset_db_read_only_mode();
-      unset_db_read_only_mode.cancel();
+      db_read_only_mode_guard.cancel();
    }
 
    return handle_push_result(trx, next, start, chain, trace, return_failure_trace, disable_subjective_enforcement, first_auth, sub_bill, prev_billed_cpu_time_us);
