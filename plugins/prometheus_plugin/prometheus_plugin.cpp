@@ -129,7 +129,7 @@ namespace eosio {
       metrics_listener create_metrics_listener(std::string plugin_name) {
          return  [plugin_name{std::move(plugin_name)}, self=this] (vector<runtime_metric> metrics) mutable {
             self->_prometheus_strand.post(
-                  [self, plugin_name, metrics{std::move(metrics)}]() mutable {
+                  [self, plugin_name, metrics{std::move(metrics)}]() {
                      self->update_metrics(plugin_name, std::move(metrics));
             });
          };
