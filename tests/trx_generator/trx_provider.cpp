@@ -8,10 +8,6 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <eosio/chain/exceptions.hpp>
 
-using std::string;
-using std::vector;
-using namespace eosio;
-
 namespace eosio::testing {
    using namespace boost::asio;
    using ip::tcp;
@@ -27,7 +23,7 @@ namespace eosio::testing {
       const char* const header = reinterpret_cast<const char* const>(&payload_size); // avoid variable size encoding of uint32_t
 
 
-      auto send_buffer = std::make_shared<vector<char>>(buffer_size);
+      auto send_buffer = std::make_shared<std::vector<char>>(buffer_size);
       fc::datastream<char*> ds( send_buffer->data(), buffer_size);
       ds.write( header, message_header_size );
       fc::raw::pack( ds, fc::unsigned_int(packed_trx_which));
@@ -83,7 +79,7 @@ namespace eosio::testing {
       std::ofstream out(fileName.str());
 
       for (logged_trx_data data : _sent_trx_data) {
-         out << fc::string(data._trx_id) << ","<< std::string(data._sent_timestamp) << "\n";
+         out << std::string(data._trx_id) << ","<< std::string(data._sent_timestamp) << "\n";
       }
       out.close();
    }

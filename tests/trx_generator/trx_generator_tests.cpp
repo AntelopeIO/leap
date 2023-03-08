@@ -81,7 +81,6 @@ BOOST_AUTO_TEST_CASE(tps_short_run_high_tps)
    std::shared_ptr<mock_trx_generator> generator = std::make_shared<mock_trx_generator>(expected_trxs);
    std::shared_ptr<simple_tps_monitor> monitor = std::make_shared<simple_tps_monitor>(expected_trxs);
 
-
    trx_tps_tester<mock_trx_generator, simple_tps_monitor> t1(generator, monitor, {test_duration_s, test_tps});
 
    fc::time_point start = fc::time_point::now();
@@ -113,7 +112,6 @@ BOOST_AUTO_TEST_CASE(tps_short_run_med_tps_med_delay)
 
    std::shared_ptr<mock_trx_generator> generator = std::make_shared<mock_trx_generator>(expected_trxs, trx_delay_us);
    std::shared_ptr<simple_tps_monitor> monitor = std::make_shared<simple_tps_monitor>(expected_trxs);
-
 
    trx_tps_tester<mock_trx_generator, simple_tps_monitor> t1(generator, monitor, {test_duration_s, test_tps});
 
@@ -147,7 +145,6 @@ BOOST_AUTO_TEST_CASE(tps_med_run_med_tps_med_delay)
    std::shared_ptr<mock_trx_generator> generator = std::make_shared<mock_trx_generator>(expected_trxs, trx_delay_us);
    std::shared_ptr<simple_tps_monitor> monitor = std::make_shared<simple_tps_monitor>(expected_trxs);
 
-
    trx_tps_tester<mock_trx_generator, simple_tps_monitor> t1(generator, monitor, {test_duration_s, test_tps});
 
    fc::time_point start = fc::time_point::now();
@@ -180,7 +177,6 @@ BOOST_AUTO_TEST_CASE(tps_cant_keep_up)
    std::shared_ptr<mock_trx_generator> generator = std::make_shared<mock_trx_generator>(expected_trxs, trx_delay_us);
    std::shared_ptr<simple_tps_monitor> monitor = std::make_shared<simple_tps_monitor>(expected_trxs);
 
-
    trx_tps_tester<mock_trx_generator, simple_tps_monitor> t1(generator, monitor, {test_duration_s, test_tps});
 
    fc::time_point start = fc::time_point::now();
@@ -212,7 +208,6 @@ BOOST_AUTO_TEST_CASE(tps_med_run_med_tps_30us_delay)
 
    std::shared_ptr<mock_trx_generator> generator = std::make_shared<mock_trx_generator>(expected_trxs, trx_delay_us);
    std::shared_ptr<simple_tps_monitor> monitor = std::make_shared<simple_tps_monitor>(expected_trxs);
-
 
    trx_tps_tester<mock_trx_generator, simple_tps_monitor> t1(generator, monitor, {test_duration_s, test_tps});
 
@@ -310,7 +305,6 @@ BOOST_AUTO_TEST_CASE(tps_cant_keep_up_monitored)
    std::shared_ptr<mock_trx_generator> generator = std::make_shared<mock_trx_generator>(expected_trxs, trx_delay_us);
    std::shared_ptr<tps_performance_monitor> monitor = std::make_shared<tps_performance_monitor>();
 
-
    trx_tps_tester<mock_trx_generator, tps_performance_monitor> t1(generator, monitor, {test_duration_s, test_tps});
 
    fc::time_point start = fc::time_point::now();
@@ -324,11 +318,14 @@ BOOST_AUTO_TEST_CASE(tps_cant_keep_up_monitored)
 
 BOOST_AUTO_TEST_CASE(trx_generator_constructor)
 {
-   trx_generator_base_config tg_config{1, chain_id_type("999"), name("eosio"), fc::seconds(3600), fc::variant("00000062989f69fd251df3e0b274c3364ffc2f4fce73de3f1c7b5e11a4c92f21").as<block_id_type>(), ".", true};
+   trx_generator_base_config tg_config{1, chain::chain_id_type("999"), chain::name("eosio"), fc::seconds(3600),
+                                       fc::variant("00000062989f69fd251df3e0b274c3364ffc2f4fce73de3f1c7b5e11a4c92f21").as<chain::block_id_type>(), ".", true};
    provider_base_config p_config{"127.0.0.1", 9876};
    const std::string abi_file = "../../unittests/contracts/eosio.token/eosio.token.abi";
-   const std::string actions_data = "[{\"actionAuthAcct\": \"testacct1\",\"actionName\": \"transfer\",\"authorization\": {\"actor\": \"testacct1\",\"permission\": \"active\"},\"actionData\": {\"from\": \"testacct1\",\"to\": \"testacct2\",\"quantity\": \"0.0001 CUR\",\"memo\": \"transaction specified\"}}]";
-   const std::string action_auths = "{\"testacct1\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\",\"testacct2\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\",\"eosio\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\"}";
+   const std::string actions_data = "[{\"actionAuthAcct\": \"testacct1\",\"actionName\": \"transfer\",\"authorization\": {\"actor\": \"testacct1\",\"permission\": \"active\"},"
+                                    "\"actionData\": {\"from\": \"testacct1\",\"to\": \"testacct2\",\"quantity\": \"0.0001 CUR\",\"memo\": \"transaction specified\"}}]";
+   const std::string action_auths = "{\"testacct1\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\",\"testacct2\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\","
+                                    "\"eosio\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\"}";
    user_specified_trx_config trx_config{abi_file, actions_data, action_auths};
 
    auto generator = trx_generator(tg_config, p_config, trx_config);
