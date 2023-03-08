@@ -185,7 +185,7 @@ namespace eosio::testing {
 
       void set_transaction_headers(eosio::chain::transaction& trx, const eosio::chain::block_id_type& last_irr_block_id, const fc::microseconds& expiration, uint32_t delay_sec = 0);
 
-      signed_transaction_w_signer create_trx_w_actions_and_signer(std::vector<eosio::chain::action> act, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
+      signed_transaction_w_signer create_trx_w_actions_and_signer(std::vector<eosio::chain::action>&& act, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
                                                                  const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
 
       void log_first_trx(const std::string& log_dir, const eosio::chain::signed_transaction& trx);
@@ -216,7 +216,6 @@ namespace eosio::testing {
       eosio::chain::abi_serializer _abi;
       std::vector<fc::mutable_variant_object> _unpacked_actions;
       std::map<int, std::vector<std::string>> _acct_gen_fields;
-      std::vector<eosio::chain::action> _actions;
 
       const fc::microseconds abi_serializer_max_time = fc::seconds(10); // No risk to client side serialization taking a long time
 
@@ -227,7 +226,7 @@ namespace eosio::testing {
       void update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key, const std::string& key_word);
       void update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string& key_word);
 
-      void update_actions();
+      std::vector<eosio::chain::action> generate_actions();
       virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
                                      const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
 
