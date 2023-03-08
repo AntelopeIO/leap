@@ -473,6 +473,7 @@ Performance Test Basic Single Test:
 
 <details>
     <summary>Expand Argument List</summary>
+
 * `chain_id`                    set the chain id
 * `last_irreversible_block_id`  Current last-irreversible-block-id (LIB ID) to use for transactions.
 * `contract_owner_account`      Account name of the contract owner account for the transfer actions
