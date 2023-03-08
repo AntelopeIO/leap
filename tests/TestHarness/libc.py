@@ -33,4 +33,4 @@ def unshare(flags):
             f.write(uidmap)
     rc = libc.unshare(flags)
     if rc == -1:
-        raise Exception(f'unshare() error code: {get_errno_loc().contents.value}')
+        raise Exception(f'GITHUB_ACTIONS {os.getenv("GITHUB_ACTIONS")} unshare() error code: {get_errno_loc().contents.value}')
