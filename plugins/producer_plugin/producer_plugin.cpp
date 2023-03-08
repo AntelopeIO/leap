@@ -294,15 +294,15 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                     bool api_trx, bool return_failure_trace,
                                     next_function<transaction_trace_ptr> next );
       push_result handle_push_result( const transaction_metadata_ptr& trx,
-                                      bool return_failure_trace,
                                       next_function<transaction_trace_ptr> next,
                                       const fc::time_point& start,
-                                      bool disable_subjective_enforcement,
-                                      account_name first_auth,
-                                      int64_t sub_bill,
                                       const chain::controller& chain,
-                                      uint32_t prev_billed_cpu_time_us,
-                                      const transaction_trace_ptr& trace);
+                                      const transaction_trace_ptr& trace,
+                                      bool return_failure_trace = true,
+                                      bool disable_subjective_enforcement = false,
+                                      account_name first_auth = {},
+                                      int64_t sub_bill = 0,
+                                      uint32_t prev_billed_cpu_time_us = 0);
       void log_trx_results( const transaction_metadata_ptr& trx, const transaction_trace_ptr& trace, const fc::time_point& start );
       void log_trx_results( const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr );
       void log_trx_results( const packed_transaction_ptr& trx, const transaction_trace_ptr& trace,
@@ -2147,20 +2147,20 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       unset_db_read_only_mode.cancel();
    }
 
-   return handle_push_result(trx, return_failure_trace, next, start, disable_subjective_enforcement, first_auth, sub_bill, chain, prev_billed_cpu_time_us, trace);
+   return handle_push_result(trx, next, start, chain, trace, return_failure_trace, disable_subjective_enforcement, first_auth, sub_bill, prev_billed_cpu_time_us);
 }
 
 producer_plugin_impl::push_result
 producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
-                                          bool return_failure_trace,
                                           next_function<transaction_trace_ptr> next,
                                           const fc::time_point& start,
+                                          const chain::controller& chain,
+                                          const transaction_trace_ptr& trace,
+                                          bool return_failure_trace,
                                           bool disable_subjective_enforcement,
                                           account_name first_auth,
                                           int64_t sub_bill,
-                                          const chain::controller& chain,
-                                          uint32_t prev_billed_cpu_time_us,
-                                          const transaction_trace_ptr& trace) {
+                                          uint32_t prev_billed_cpu_time_us) {
    auto end = fc::time_point::now();
    push_result pr;
    if( trace->except ) {
@@ -2755,13 +2755,11 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
       _ro_trx_queue.queue.pop_front();
       lck.unlock();
       
-      auto exhausted = process_read_only_transaction( trx.trx, trx.next, start );
-
-      // If a transaction or block was exhausted, that indicates we are close to
-      // the end of read window or block boundary. Do not schedule new transactions
-      if ( exhausted ) {
+      auto retry = process_read_only_transaction( trx.trx, trx.next, start );
+      if ( retry ) {
          lck.lock();
          _ro_trx_queue.queue.push_front(trx);
+         // Do not schedule new transactions
          break;
       }
    }
@@ -2779,7 +2777,7 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
 }
 
 // Called from a read only trx thread. Run in parallel with app and other read only trx threads
-// Return exhausted status of the transaction.
+// Return whether the trx needs to be retried in next read window
 bool producer_plugin_impl::process_read_only_transaction(const packed_transaction_ptr& trx, const next_function<transaction_trace_ptr>& next, const fc::time_point& read_window_start_time) {
    chain::controller& chain = chain_plug->chain();
    auto future = transaction_metadata::start_recover_keys( trx, _thread_pool.get_executor(),
@@ -2798,13 +2796,13 @@ bool producer_plugin_impl::process_read_only_transaction(const packed_transactio
    return false;
 }
 
-// called on read_only_trx execution thread; multi-threaded safe 
-// return exhausted status
+// Called on read_only_trx execution thread; multi-threaded safe
+// Return whether the trx needs to be retried in next read window
 bool producer_plugin_impl::push_read_only_transaction(
             const transaction_metadata_ptr& trx,
             next_function<transaction_trace_ptr> next,
             const fc::time_point& read_window_start_time) {
-   auto exhausted = false;
+   auto retry = false;
    chain::controller& chain = chain_plug->chain();
 
    if( !chain.is_building_block() ) {
@@ -2826,8 +2824,10 @@ bool producer_plugin_impl::push_read_only_transaction(
       auto available_trx_time_us = std::min( remained_time_in_read_window_us, _ro_max_trx_time_us );
 
       auto trace = chain.push_transaction( trx, block_deadline, available_trx_time_us, 0, false, 0 );
-      auto pr = handle_push_result(trx, true /*return_failure_trace*/, next, start, false /* disable_subjective_enforcement*/, {} /*first_auth*/, 0 /*sub_bill*/, chain, 0 /*prev_billed_cpu_time_us*/, trace);
-      exhausted = pr.block_exhausted || pr.trx_exhausted;
+      auto pr = handle_push_result(trx, next, start, chain, trace);
+      // If a transaction or block was exhausted, that indicates we are close to
+      // the end of read window or block boundary. Retry in next round.
+      retry = pr.block_exhausted || pr.trx_exhausted;
    } catch ( const guard_exception& e ) {
       chain_plugin::handle_guard_exception(e);
    } catch ( boost::interprocess::bad_alloc& ) {
@@ -2836,7 +2836,7 @@ bool producer_plugin_impl::push_read_only_transaction(
       chain_plugin::handle_bad_alloc();
    } CATCH_AND_CALL(next);
 
-   return exhausted;
+   return retry;
 }
 
 const std::set<account_name>& producer_plugin::producer_accounts() const {
