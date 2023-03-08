@@ -28,7 +28,7 @@ try {
    let subprocesses = [];
    tests.forEach(t => {
       subprocesses.push(new Promise(resolve => {
-         child_process.spawn("docker", ["run", "--security-opt", "seccomp=unconfined", "--name", t, "--init", "baseimage", "bash", "-c", `cd build; ctest --output-on-failure -R '^${t}$'`], {stdio:"inherit"}).on('close', code => resolve(code));
+         child_process.spawn("docker", ["run", "--security-opt", "seccomp=unconfined", "-e", "GITHUB_ACTIONS=True", "--name", t, "--init", "baseimage", "bash", "-c", `cd build; ctest --output-on-failure -R '^${t}$'`], {stdio:"inherit"}).on('close', code => resolve(code));
       }));
    });
 
