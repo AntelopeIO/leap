@@ -37,12 +37,12 @@ namespace eosio::testing {
    }
 
    void p2p_connection::connect() {
-      ilog("Attempting P2P connection to ${ip}:${port}.", ("ip", _peer_endpoint)("port", _peer_port));
+      ilog("Attempting P2P connection to ${ip}:${port}.", ("ip", _config._peer_endpoint)("port", _config._port));
       tcp::resolver r(_p2p_service);
-      tcp::resolver::query q(tcp::v4(), _peer_endpoint, std::to_string(_peer_port));
+      tcp::resolver::query q(tcp::v4(), _config._peer_endpoint, std::to_string(_config._port));
       auto i = r.resolve(q);
       boost::asio::connect(_p2p_socket, i);
-      ilog("Connected to ${ip}:${port}.", ("ip", _peer_endpoint)("port", _peer_port));
+      ilog("Connected to ${ip}:${port}.", ("ip", _config._peer_endpoint)("port", _config._port));
    }
 
    void p2p_connection::disconnect() {
@@ -56,8 +56,8 @@ namespace eosio::testing {
       _p2p_socket.send(boost::asio::buffer(*msg));
    }
 
-   p2p_trx_provider::p2p_trx_provider(const std::string& peer_endpoint, unsigned short peer_port) :
-      _peer_connection(peer_endpoint, peer_port) {
+   p2p_trx_provider::p2p_trx_provider(const provider_base_config& provider_config) :
+      _peer_connection(provider_config) {
 
    }
 
