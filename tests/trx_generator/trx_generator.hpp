@@ -210,6 +210,12 @@ namespace eosio::testing {
       bool setup();
    };
 
+   void locate_key_words_in_action_mvo(std::vector<std::string>& acct_gen_fields_out, const fc::mutable_variant_object& action_mvo, const std::string& key_word);
+   void locate_key_words_in_action_array(std::map<int, std::vector<std::string>>& acct_gen_fields_out, const fc::variants& action_array, const std::string& key_word);
+   void update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key, const std::string& key_word);
+   void update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string& key_word);
+   fc::variant json_from_file_or_string(const std::string& file_or_str, fc::json::parse_type ptype = fc::json::parse_type::legacy_parser);
+
    struct trx_generator : public trx_generator_base{
       user_specified_trx_config _usr_trx_config;
       account_name_generator _acct_name_generator;
@@ -222,16 +228,11 @@ namespace eosio::testing {
 
       trx_generator(const trx_generator_base_config& trx_gen_base_config, const provider_base_config& provider_config, const user_specified_trx_config& usr_trx_config);
 
-      void locate_key_words_in_action_mvo(std::vector<std::string>& acct_gen_fields_out, fc::mutable_variant_object& action_mvo, const std::string& key_word);
-      void locate_key_words_in_action_array(std::map<int, std::vector<std::string>>& acct_gen_fields_out, fc::variants& action_array, const std::string& key_word);
-      void update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key, const std::string& key_word);
-      void update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string& key_word);
 
       std::vector<eosio::chain::action> generate_actions();
       virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
                                      const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
 
-      fc::variant json_from_file_or_string(const std::string& file_or_str, fc::json::parse_type ptype = fc::json::parse_type::legacy_parser);
 
       bool setup();
    };

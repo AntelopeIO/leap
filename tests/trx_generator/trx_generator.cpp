@@ -117,7 +117,7 @@ namespace eosio::testing {
       return true;
    }
 
-   fc::variant trx_generator::json_from_file_or_string(const std::string& file_or_str, fc::json::parse_type ptype) {
+   fc::variant json_from_file_or_string(const std::string& file_or_str, fc::json::parse_type ptype) {
       std::regex r("^[ \t]*[\{\[]");
       if ( !regex_search(file_or_str, r) && fc::is_regular_file(file_or_str) ) {
          try {
@@ -131,7 +131,7 @@ namespace eosio::testing {
       }
    }
 
-   void trx_generator::locate_key_words_in_action_mvo(std::vector<std::string>& acct_gen_fields_out, fc::mutable_variant_object& action_mvo, const std::string& key_word) {
+   void locate_key_words_in_action_mvo(std::vector<std::string>& acct_gen_fields_out, const fc::mutable_variant_object& action_mvo, const std::string& key_word) {
       for (const fc::mutable_variant_object::entry& e: action_mvo) {
          if (e.value().get_type() == fc::variant::string_type && e.value() == key_word) {
             acct_gen_fields_out.push_back(e.key());
@@ -142,14 +142,14 @@ namespace eosio::testing {
       }
    }
 
-   void trx_generator::locate_key_words_in_action_array(std::map<int, std::vector<std::string>>& acct_gen_fields_out, fc::variants& action_array, const std::string& key_word) {
+   void locate_key_words_in_action_array(std::map<int, std::vector<std::string>>& acct_gen_fields_out, const fc::variants& action_array, const std::string& key_word) {
       for (size_t i = 0; i < action_array.size(); ++i) {
          auto action_mvo = fc::mutable_variant_object(action_array[i]);
          locate_key_words_in_action_mvo(acct_gen_fields_out[i], action_mvo, key_word);
       }
    }
 
-   void trx_generator::update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key,
+   void update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key,
                                                             const std::string& key_word) {
       if (action_mvo.find(action_inner_key) != action_mvo.end()) {
          auto inner = action_mvo[action_inner_key].get_object();
@@ -161,7 +161,7 @@ namespace eosio::testing {
       }
    }
 
-   void trx_generator::update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string& key_word) {
+   void update_key_word_fields_in_action(std::vector<std::string>& acct_gen_fields, fc::mutable_variant_object& action_mvo, const std::string& key_word) {
       for (const auto& key: acct_gen_fields) {
          if (action_mvo.find(key) != action_mvo.end()) {
             action_mvo.set(key, key_word);
