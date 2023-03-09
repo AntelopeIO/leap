@@ -1,7 +1,7 @@
 #pragma once
 
 #include <eosio/chain_plugin/chain_plugin.hpp>
-#include <eosio/producer_plugin/qc_chain.hpp>
+#include <eosio/hotstuff/qc_chain.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
 #include <appbase/application.hpp>

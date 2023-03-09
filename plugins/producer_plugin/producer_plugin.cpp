@@ -350,7 +350,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<scoped_connection>                          _accepted_block_header_connection;
       std::optional<scoped_connection>                          _irreversible_block_connection;
 
-      qc_chain                                                  _qc_chain;
+      eosio::hotstuff::qc_chain                                 _qc_chain;
 
       /*
        * HACK ALERT
@@ -1015,7 +1015,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       }
    }
 
-   my->_qc_chain.init(*my->chain_plug, my->_producers);
+
+   my->_qc_chain.init(&chain, my->_producers);
 
 } FC_LOG_AND_RETHROW() }
 

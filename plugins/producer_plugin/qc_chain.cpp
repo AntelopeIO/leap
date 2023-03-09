@@ -1,4 +1,4 @@
-#include <eosio/producer_plugin/qc_chain.hpp>
+#include <eosio/hostuff/qc_chain.hpp>
 #include <eosio/chain/fork_database.hpp>
 
 #include <boost/multi_index_container.hpp>

@@ -19,7 +19,3 @@ add_test(NAME test_filesystem COMMAND test_filesystem WORKING_DIRECTORY ${CMAKE_
 add_executable( test_bls test_bls.cpp )
 target_link_libraries( test_bls fc )
 add_test(NAME test_bls COMMAND libraries/libfc/test/test_bls WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-
-add_executable( test_hotstuff test_hotstuff.cpp )
-target_link_libraries( test_hotstuff fc )
-add_test(NAME test_hotstuff COMMAND libraries/libfc/test/test_hotstuff WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
