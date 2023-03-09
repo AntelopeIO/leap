@@ -969,7 +969,7 @@ class Cluster(object):
         with open(configFile, 'r') as f:
             configStr=f.read()
 
-        pattern=r"^\s*private-key\s*=\W+(\w+)\W+(\w+)\W+$"
+        pattern=r"^\s*signature-provider\s*=(\w+)=KEY:(\w+)$"
         m=re.search(pattern, configStr, re.MULTILINE)
         regMsg="None" if m is None else "NOT None"
         if m is None:
