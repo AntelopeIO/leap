@@ -81,7 +81,7 @@ Sample `logging.json`:
   - Answers the question: is this useful information for a user that is monitoring the log output. Care should be taken not to create excessive log output; similar to `info` level logging.
   - Enabling `debug` level logging should provide greater insight into behavior without overwhelming the output with log entries.
   - `debug` level should not be used for *trace* level logging; to that end, use `all` (see below).
-  - Like `info`, no `debug` level logging should be produced for every transaction. There are specific transaction level loggers dedicated to transaction level logging: `transaction`, `transaction_trace_failure`, `transaction_trace_success`, `transaction_failure_tracing`, `transaction_success_tracing`.
+  - Like `info`, no `debug` level logging should be produced for every transaction. There are specific transaction level loggers dedicated to transaction level logging: `transaction`, `transaction_trace_failure`, `transaction_trace_success`, `transaction_failure_tracing`, `transaction_success_tracing`, `transient_trx_success_tracing`, `transient_trx_success_tracing`.
 * `all` (trace) - For logging that would be overwhelming if `debug` level logging were used.
   - Can be used for trace level logging. Only used in a few places and not completely supported.
   - *Note*: In the future a different logging library may provide better trace level logging support. The current logging framework is not performant enough to enable excess trace level output.

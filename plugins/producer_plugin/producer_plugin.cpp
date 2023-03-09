@@ -83,6 +83,12 @@ fc::logger       _trx_trace_failure_log;
 const std::string trx_logger_name("transaction");
 fc::logger       _trx_log;
 
+const std::string transient_trx_successful_trace_logger_name("transient_trx_success_tracing");
+fc::logger       _transient_trx_successful_trace_log;
+
+const std::string transient_trx_failed_trace_logger_name("transient_trx_success_tracing");
+fc::logger       _transient_trx_failed_trace_log;
+
 namespace eosio {
 
    static auto _producer_plugin = application::register_plugin<producer_plugin>();
@@ -306,7 +312,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void log_trx_results( const transaction_metadata_ptr& trx, const transaction_trace_ptr& trace, const fc::time_point& start );
       void log_trx_results( const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr );
       void log_trx_results( const packed_transaction_ptr& trx, const transaction_trace_ptr& trace,
-                            const fc::exception_ptr& except_ptr, uint32_t billed_cpu_us, const fc::time_point& start );
+                            const fc::exception_ptr& except_ptr, uint32_t billed_cpu_us, const fc::time_point& start, bool is_transient );
 
       boost::program_options::variables_map _options;
       bool     _production_enabled                 = false;
@@ -592,7 +598,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                                                  trx_type,
                                                                  chain.configured_subjective_signature_length_limit() );
 
-         if( trx_type != transaction_metadata::trx_type::dry_run && trx_type != transaction_metadata::trx_type::read_only ) {
+         auto is_transient = (trx_type == transaction_metadata::trx_type::read_only || trx_type == transaction_metadata::trx_type::dry_run);
+         if( !is_transient ) {
             next = [this, trx, next{std::move(next)}]( const std::variant<fc::exception_ptr, transaction_trace_ptr>& response ) {
                next( response );
 
@@ -607,19 +614,19 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             };
          }
 
-         boost::asio::post(_thread_pool.get_executor(), [self = this, future{std::move(future)}, api_trx, return_failure_traces,
+         boost::asio::post(_thread_pool.get_executor(), [self = this, future{std::move(future)}, api_trx, is_transient, return_failure_traces,
                                                           next{std::move(next)}, trx=trx]() mutable {
             if( future.valid() ) {
                future.wait();
-               app().executor().post( priority::low, exec_queue::general, [self, future{std::move(future)}, api_trx, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
+               app().executor().post( priority::low, exec_queue::general, [self, future{std::move(future)}, api_trx, is_transient, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
                   auto start = fc::time_point::now();
                   auto idle_time = start - self->_idle_trx_time;
                   self->_account_fails.add_idle_time( idle_time );
                   fc_tlog( _log, "Time since last trx: ${t}us", ("t", idle_time) );
 
-                  auto exception_handler = [self, &next, trx{std::move(trx)}, &start](fc::exception_ptr ex) {
+                  auto exception_handler = [self, is_transient, &next, trx{std::move(trx)}, &start](fc::exception_ptr ex) {
                      self->_account_fails.add_idle_time( start - self->_idle_trx_time );
-                     self->log_trx_results( trx, nullptr, ex, 0, start );
+                     self->log_trx_results( trx, nullptr, ex, 0, start, is_transient );
                      next( std::move(ex) );
                      self->_idle_trx_time = fc::time_point::now();
                      self->_account_fails.add_fail_time(self->_idle_trx_time - start);
@@ -1197,6 +1204,8 @@ void producer_plugin::handle_sighup() {
    fc::logger::update(trx_trace_success_logger_name, _trx_trace_success_log);
    fc::logger::update(trx_trace_failure_logger_name, _trx_trace_failure_log);
    fc::logger::update(trx_logger_name, _trx_log);
+   fc::logger::update(transient_trx_successful_trace_logger_name, _transient_trx_successful_trace_log);
+   fc::logger::update(transient_trx_failed_trace_logger_name, _transient_trx_failed_trace_log);
 }
 
 void producer_plugin::pause() {
@@ -2021,21 +2030,22 @@ void producer_plugin_impl::log_trx_results( const transaction_metadata_ptr& trx,
                                             const fc::time_point& start )
 {
    uint32_t billed_cpu_time_us = (trace && trace->receipt) ? trace->receipt->cpu_usage_us : 0;
-   log_trx_results( trx->packed_trx(), trace, nullptr, billed_cpu_time_us, start );
+   log_trx_results( trx->packed_trx(), trace, nullptr, billed_cpu_time_us, start, trx->is_transient() );
 }
 
 void producer_plugin_impl::log_trx_results( const transaction_metadata_ptr& trx,
                                             const fc::exception_ptr& except_ptr )
 {
    uint32_t billed_cpu_time_us = trx ? trx->billed_cpu_time_us : 0;
-   log_trx_results( trx->packed_trx(), nullptr, except_ptr, billed_cpu_time_us, fc::time_point::now() );
+   log_trx_results( trx->packed_trx(), nullptr, except_ptr, billed_cpu_time_us, fc::time_point::now(), trx->is_transient() );
 }
 
 void producer_plugin_impl::log_trx_results( const packed_transaction_ptr& trx,
                                             const transaction_trace_ptr& trace,
                                             const fc::exception_ptr& except_ptr,
                                             uint32_t billed_cpu_us,
-                                            const fc::time_point& start )
+                                            const fc::time_point& start,
+                                            bool is_transient )
 {
    chain::controller& chain = chain_plug->chain();
 
@@ -2050,44 +2060,69 @@ void producer_plugin_impl::log_trx_results( const packed_transaction_ptr& trx,
    bool except = except_ptr || (trace && trace->except);
    if (except) {
       if (_pending_block_mode == pending_block_mode::producing) {
-         fc_dlog(_trx_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${trx}",
-                 ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
-                 ("trx", chain_plug->get_log_trx(trx->get_transaction())));
-         fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${txid}, auth: ${a}, ${details}",
+         if ( is_transient ) {
+            fc_dlog(_transient_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING transient tx: ${txid}, auth: ${a}, ${details}",
                  ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id())
                  ("a", trx->get_transaction().first_authorizer())
                  ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
-         fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${entire_trace}",
+         } else {
+            fc_dlog(_trx_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${trx}",
+                 ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+                 ("trx", chain_plug->get_log_trx(trx->get_transaction())));
+            fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${txid}, auth: ${a}, ${details}",
+                 ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id())
+                 ("a", trx->get_transaction().first_authorizer())
+                 ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
+            fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${entire_trace}",
                  ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                  ("entire_trace", get_trace(trace, except_ptr)));
+         }
       } else {
-         fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${trx} ",
-                 ("trx", chain_plug->get_log_trx(trx->get_transaction())));
-         fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid}, auth: ${a} : ${details}",
-                 ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
-                 ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
-         fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${entire_trace} ",
-                 ("entire_trace", get_trace(trace, except_ptr)));
+         if ( is_transient ) {
+            fc_dlog(_transient_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING transient tx: ${txid}, auth: ${a} : ${details}",
+                    ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
+                    ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
+         } else {
+            fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${trx} ",
+                    ("trx", chain_plug->get_log_trx(trx->get_transaction())));
+            fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid}, auth: ${a} : ${details}",
+                    ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
+                    ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
+            fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${entire_trace} ",
+                    ("entire_trace", get_trace(trace, except_ptr)));
+         }
       }
    } else {
       if (_pending_block_mode == pending_block_mode::producing) {
-         fc_dlog(_trx_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${trx}",
-                 ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
-                 ("trx", chain_plug->get_log_trx(trx->get_transaction())));
-         fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${txid}, auth: ${a}, cpu: ${cpu}",
-                 ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id())
-                 ("a", trx->get_transaction().first_authorizer())("cpu", billed_cpu_us));
-         fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${entire_trace}",
-                 ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
-                 ("entire_trace", get_trace(trace, except_ptr)));
+         if ( is_transient ) {
+            fc_dlog(_transient_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING transient tx: ${txid}, auth: ${a}, cpu: ${cpu}",
+                    ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id())
+                    ("a", trx->get_transaction().first_authorizer())("cpu", billed_cpu_us));
+         } else {
+            fc_dlog(_trx_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${trx}",
+                    ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+                    ("trx", chain_plug->get_log_trx(trx->get_transaction())));
+            fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${txid}, auth: ${a}, cpu: ${cpu}",
+                    ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id())
+                    ("a", trx->get_transaction().first_authorizer())("cpu", billed_cpu_us));
+            fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${entire_trace}",
+                    ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+                    ("entire_trace", get_trace(trace, except_ptr)));
+         }
       } else {
-         fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${trx}",
-                 ("trx", chain_plug->get_log_trx(trx->get_transaction())));
-         fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${txid}, auth: ${a}, cpu: ${cpu}",
-                 ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
-                 ("cpu", billed_cpu_us));
-         fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${entire_trace}",
-                 ("entire_trace", get_trace(trace, except_ptr)));
+         if ( is_transient ) {
+            fc_dlog(_transient_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is ACCEPTING transient tx: ${txid}, auth: ${a}, cpu: ${cpu}",
+                    ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
+                    ("cpu", billed_cpu_us));
+         } else {
+            fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${trx}",
+                    ("trx", chain_plug->get_log_trx(trx->get_transaction())));
+            fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${txid}, auth: ${a}, cpu: ${cpu}",
+                    ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
+                    ("cpu", billed_cpu_us));
+            fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${entire_trace}",
+                    ("entire_trace", get_trace(trace, except_ptr)));
+         }
       }
    }
 }
@@ -2136,7 +2171,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       }
    }
 
-   // Make sure db_read_only_mode to be always unset
+   // Make sure db_read_only_mode always to be unset
    auto db_read_only_mode_guard = fc::make_scoped_exit([trx, &chain]{
       if( trx->is_read_only() )
          chain.unset_db_read_only_mode();
@@ -2145,11 +2180,6 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       chain.set_db_read_only_mode();
 
    auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
-
-   if( trx->is_read_only() ) {
-      chain.unset_db_read_only_mode();
-      db_read_only_mode_guard.cancel();
-   }
 
    return handle_push_result(trx, next, start, chain, trace, return_failure_trace, disable_subjective_enforcement, first_auth, sub_bill, prev_billed_cpu_time_us);
 }
