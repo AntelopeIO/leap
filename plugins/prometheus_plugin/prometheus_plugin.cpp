@@ -27,10 +27,10 @@ namespace eosio {
       runtime_metric num_scrapes{metric_type::counter, "exposer_scrapes_total", "exposer_scrapes_total"};
 
       std::vector<chain::plugin_interface::runtime_metric> metrics() final {
-        return std::vector{
-          bytes_transferred,
-          num_scrapes
-        };
+         return std::vector{
+            bytes_transferred,
+            num_scrapes
+         };
       }
    };
 
@@ -50,7 +50,7 @@ namespace eosio {
 
          _gauges.push_back(gauge_family);
 
-         ilog("Added gauge metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
+         tlog("Added gauge metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
       }
 
       void add_counter_metric(const runtime_metric& plugin_metric) {
@@ -62,7 +62,7 @@ namespace eosio {
          counter.Increment(plugin_metric.value);
          _counters.push_back(counter_family);
 
-         ilog("Added counter metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
+         tlog("Added counter metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
       }
 
       void add_runtime_metric(const runtime_metric& plugin_metric) {
@@ -79,7 +79,7 @@ namespace eosio {
          }
       }
 
-      void add_runtime_metrics(std::vector<runtime_metric>& metrics){
+      void add_runtime_metrics(const std::vector<runtime_metric>& metrics){
          for (auto const& m : metrics) {
             add_runtime_metric(m);
          }
@@ -142,7 +142,7 @@ namespace eosio {
             _plugin_metrics.emplace(std::pair{"net", std::vector<runtime_metric>()});
             np->register_metrics_listener(create_metrics_listener("net"));
          } else {
-            dlog("net_plugin not found -- metrics not added");
+            wlog("net_plugin not found -- metrics not added");
          }
 
          producer_plugin* pp = app().find_plugin<producer_plugin>();
@@ -150,7 +150,7 @@ namespace eosio {
             _plugin_metrics.emplace(std::pair{"prod", std::vector<runtime_metric>()});
             pp->register_metrics_listener(create_metrics_listener("prod"));
          } else {
-            dlog("producer_plugin not found -- metrics not added");
+            wlog("producer_plugin not found -- metrics not added");
          }
 
          http_plugin* hp = app().find_plugin<http_plugin>();
@@ -158,7 +158,7 @@ namespace eosio {
             _plugin_metrics.emplace(std::pair{"http", std::vector<runtime_metric>()});
             hp->register_metrics_listener(create_metrics_listener("http"));
          } else {
-            dlog("producer_plugin not found -- metrics not added");
+            wlog("http_plugin not found -- metrics not added");
          }
       }
 
@@ -197,7 +197,7 @@ namespace eosio {
          return fc::time_point::now() + _max_response_time_us;
       }
 
-      void metrics(const metrics_params& p, chain::plugin_interface::next_function<std::string> results) {
+      void metrics(const metrics_params&, chain::plugin_interface::next_function<std::string> results) {
          _pp.metrics_async(std::move(results));
       }
 

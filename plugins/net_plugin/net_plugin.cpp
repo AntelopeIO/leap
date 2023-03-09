@@ -3465,6 +3465,8 @@ namespace eosio {
       }
       g.unlock();
 
+      metrics.num_clients.value = num_clients;
+      metrics.num_peers.value = num_peers;
       metrics.post_metrics();
 
       if( num_clients > 0 || num_peers > 0 )

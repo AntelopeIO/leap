@@ -1,7 +1,7 @@
 #pragma once
 
 #include <eosio/chain/thread_utils.hpp>// for thread pool
-#include <eosio/chain/plugin_interface.hpp>
+#include <eosio/chain/plugin_metrics.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
 #include <fc/utility.hpp>
 

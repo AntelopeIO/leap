@@ -424,7 +424,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
             auto &chain = chain_plug->chain();
             _metrics.last_irreversible.value = chain.last_irreversible_block_num();
-            _metrics.block_num.value = chain.head_block_num();
+            _metrics.head_block_num.value = chain.head_block_num();
 
             const auto& sch_idx = chain.db().get_index<generated_transaction_multi_index, by_delay>();
             _metrics.scheduled_trxs.value = sch_idx.size();
@@ -586,7 +586,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                   auto start = fc::time_point::now();
                   auto idle_time = start - self->_idle_trx_time;
                   self->_account_fails.add_idle_time( idle_time );
-                  fc_dlog( _trx_successful_trace_log, "Time since last trx: ${t}us", ("t", idle_time) );
+                  fc_tlog( _log, "Time since last trx: ${t}us", ("t", idle_time) );
 
                   auto exception_handler = [self, &next, trx{std::move(trx)}, &start](fc::exception_ptr ex) {
                      self->_account_fails.add_idle_time( start - self->_idle_trx_time );
@@ -2075,14 +2075,14 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          pr.failed = true;
          const fc::exception& e = *trace->except;
          if( e.code() != tx_duplicate::code_value ) {
-            fc_dlog( _trx_failed_trace_log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us",
+            fc_tlog( _log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us",
                      ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
             if (!disable_subjective_enforcement) // subjectively bill failure when producing since not in objective cpu account billing
                _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
 
             log_trx_results( trx, trace, start );
             // this failed our configured maximum transaction time, we don't want to replay it
-            fc_dlog( _trx_failed_trace_log, "Failed ${c} trx, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}, except: ${e}",
+            fc_tlog( _log, "Failed ${c} trx, auth: ${a}, prev billed: ${p}us, ran: ${r}us, id: ${id}, except: ${e}",
                      ("c", e.code())("a", first_auth)("p", prev_billed_cpu_time_us)
                      ( "r", end - start)("id", trx->id())("e", e) );
             if( !disable_subjective_enforcement )
@@ -2098,7 +2098,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          }
       }
    } else {
-      fc_dlog( _trx_successful_trace_log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us",
+      fc_tlog( _log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us",
                ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
       _account_fails.add_success_time(end - start);
       log_trx_results( trx, trace, start );
