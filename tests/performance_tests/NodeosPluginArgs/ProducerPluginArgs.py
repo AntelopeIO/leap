@@ -65,6 +65,9 @@ class ProducerPluginArgs(BasePluginArgs):
     subjectiveAccountMaxFailures: int=None
     _subjectiveAccountMaxFailuresNodeosDefault: int=3
     _subjectiveAccountMaxFailuresNodeosArg: str="--subjective-account-max-failures"
+    subjectiveAccountMaxFailuresWindowSize: int=None
+    _subjectiveAccountMaxFailuresWindowSizeNodeosDefault: int=1
+    _subjectiveAccountMaxFailuresWindowSizeNodeosArg: str="--subjective-account-max-failures-window-size"
     subjectiveAccountDecayTimeMinutes: int=None
     _subjectiveAccountDecayTimeMinutesNodeosDefault: int=1440
     _subjectiveAccountDecayTimeMinutesNodeosArg: str="--subjective-account-decay-time-minutes"
