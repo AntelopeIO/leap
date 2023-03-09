@@ -63,13 +63,14 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
           *
           * @pre b.size() has been added to bytes_in_flight by caller
           * @param priority - priority to post to the app thread at
+          * @param to_queue - execution queue to post to
           * @param next - the next handler for responses
           * @param my - the http_plugin_impl
           * @return the constructed internal_url_handler
           */
-         static detail::internal_url_handler make_app_thread_url_handler( int priority, appbase::exec_queue q, url_handler next, http_plugin_impl_ptr my ) {
+         static detail::internal_url_handler make_app_thread_url_handler( int priority, appbase::exec_queue to_queue, url_handler next, http_plugin_impl_ptr my ) {
             auto next_ptr = std::make_shared<url_handler>(std::move(next));
-            return [my=std::move(my), priority, &q, next_ptr=std::move(next_ptr)]
+            return [my=std::move(my), priority, to_queue, next_ptr=std::move(next_ptr)]
                ( detail::abstract_conn_ptr conn, string&& r, string&& b, url_response_callback&& then ) {
 
                if (auto error_str = conn->verify_max_bytes_in_flight(b.size()); !error_str.empty()) {
@@ -84,7 +85,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
                // post to the app thread taking shared ownership of next (via std::shared_ptr),
                // sole ownership of the tracked body and the passed in parameters
                // we can't std::move() next_ptr because we post a new lambda for each http request and we need to keep the original
-               app().executor().post( priority, q, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
+               app().executor().post( priority, to_queue, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
                   try {
                      if( app().is_quiting() ) return; // http_plugin shutting down, do not call callback
                      // call the `next` url_handler and wrap the response handler

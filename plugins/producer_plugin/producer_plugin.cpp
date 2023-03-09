@@ -86,7 +86,7 @@ fc::logger       _trx_log;
 const std::string transient_trx_successful_trace_logger_name("transient_trx_success_tracing");
 fc::logger       _transient_trx_successful_trace_log;
 
-const std::string transient_trx_failed_trace_logger_name("transient_trx_success_tracing");
+const std::string transient_trx_failed_trace_logger_name("transient_trx_failure_tracing");
 fc::logger       _transient_trx_failed_trace_log;
 
 namespace eosio {
@@ -649,7 +649,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                   fc_tlog( _log, "Time since last trx: ${t}us", ("t", idle_time) );
 
                   auto exception_handler = [self, is_transient, &next, trx{std::move(trx)}, &start](fc::exception_ptr ex) {
-                     self->_account_fails.add_idle_time( start - self->_idle_trx_time );
+                     self->_time_tracker.add_idle_time( start - self->_idle_trx_time );
                      self->log_trx_results( trx, nullptr, ex, 0, start, is_transient );
                      next( std::move(ex) );
                      self->_idle_trx_time = fc::time_point::now();
@@ -2094,66 +2094,54 @@ void producer_plugin_impl::log_trx_results( const packed_transaction_ptr& trx,
    bool except = except_ptr || (trace && trace->except);
    if (except) {
       if (_pending_block_mode == pending_block_mode::producing) {
-         if ( is_transient ) {
-            fc_dlog(_transient_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING transient tx: ${txid}, auth: ${a}, ${details}",
-                 ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id())
-                 ("a", trx->get_transaction().first_authorizer())
-                 ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
-         } else {
+         fc_dlog( is_transient ? _transient_trx_failed_trace_log : _trx_failed_trace_log,
+            "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING ${desc}tx: ${txid}, auth: ${a}, ${details}",
+            ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+            ("desc", is_transient ? "transient " : "")("txid", trx->id())
+            ("a", trx->get_transaction().first_authorizer())
+            ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
+
+         if ( !is_transient ) {
             fc_dlog(_trx_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${trx}",
                  ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                  ("trx", chain_plug->get_log_trx(trx->get_transaction())));
-            fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${txid}, auth: ${a}, ${details}",
-                 ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id())
-                 ("a", trx->get_transaction().first_authorizer())
-                 ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
             fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING tx: ${entire_trace}",
                  ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                  ("entire_trace", get_trace(trace, except_ptr)));
          }
       } else {
-         if ( is_transient ) {
-            fc_dlog(_transient_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING transient tx: ${txid}, auth: ${a} : ${details}",
-                    ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
-                    ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
-         } else {
+         fc_dlog( is_transient ? _transient_trx_failed_trace_log : _trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING ${desc}tx: ${txid}, auth: ${a} : ${details}",
+            ("desc", is_transient ? "transient " : "")
+            ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
+            ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
+         if ( !is_transient ) {
             fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${trx} ",
                     ("trx", chain_plug->get_log_trx(trx->get_transaction())));
-            fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid}, auth: ${a} : ${details}",
-                    ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
-                    ("details", get_detailed_contract_except_info(trx, trace, except_ptr)));
             fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${entire_trace} ",
                     ("entire_trace", get_trace(trace, except_ptr)));
          }
       }
    } else {
       if (_pending_block_mode == pending_block_mode::producing) {
-         if ( is_transient ) {
-            fc_dlog(_transient_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING transient tx: ${txid}, auth: ${a}, cpu: ${cpu}",
-                    ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id())
-                    ("a", trx->get_transaction().first_authorizer())("cpu", billed_cpu_us));
-         } else {
+         fc_dlog( is_transient ? _transient_trx_successful_trace_log : _trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING ${desc}tx: ${txid}, auth: ${a}, cpu: ${cpu}",
+            ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("desc", is_transient ? "transient " : "")("txid", trx->id())
+            ("a", trx->get_transaction().first_authorizer())("cpu", billed_cpu_us));
+         if ( !is_transient ) {
             fc_dlog(_trx_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${trx}",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                     ("trx", chain_plug->get_log_trx(trx->get_transaction())));
-            fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${txid}, auth: ${a}, cpu: ${cpu}",
-                    ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id())
-                    ("a", trx->get_transaction().first_authorizer())("cpu", billed_cpu_us));
             fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING tx: ${entire_trace}",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                     ("entire_trace", get_trace(trace, except_ptr)));
          }
       } else {
-         if ( is_transient ) {
-            fc_dlog(_transient_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is ACCEPTING transient tx: ${txid}, auth: ${a}, cpu: ${cpu}",
-                    ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
-                    ("cpu", billed_cpu_us));
-         } else {
+         fc_dlog( is_transient ? _transient_trx_successful_trace_log : _trx_successful_trace_log, "[TRX_TRACE] Speculative execution is ACCEPTING ${desc}tx: ${txid}, auth: ${a}, cpu: ${cpu}",
+            ("desc", is_transient ? "transient " : "")
+            ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
+            ("cpu", billed_cpu_us));
+         if ( !is_transient ) {
             fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${trx}",
                     ("trx", chain_plug->get_log_trx(trx->get_transaction())));
-            fc_dlog(_trx_successful_trace_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${txid}, auth: ${a}, cpu: ${cpu}",
-                    ("txid", trx->id())("a", trx->get_transaction().first_authorizer())
-                    ("cpu", billed_cpu_us));
             fc_dlog(_trx_trace_success_log, "[TRX_TRACE] Speculative execution is ACCEPTING tx: ${entire_trace}",
                     ("entire_trace", get_trace(trace, except_ptr)));
          }
@@ -2242,7 +2230,8 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
          } else {
             fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution COULD NOT FIT tx: ${txid} RETRYING", ("txid", trx->id()));
          }
-         pr.block_exhausted = block_is_exhausted(); // smaller trx might fit
+         if ( !trx->is_read_only() )
+            pr.block_exhausted = block_is_exhausted(); // smaller trx might fit
          pr.trx_exhausted = true;
       } else {
          pr.failed = true;
@@ -2774,7 +2763,7 @@ void producer_plugin_impl::switch_to_read_window() {
 
    _ro_write_window_timer.cancel();
    _ro_read_window_timer.cancel();
-   _account_fails.add_idle_time( fc::time_point::now() - _idle_trx_time );
+   _time_tracker.add_idle_time( fc::time_point::now() - _idle_trx_time );
 
    // we are in write window, so no read-only trx threads are processing transactions.
    // _ro_trx_queue is not being accessed. No need to lock.
@@ -2895,9 +2884,9 @@ bool producer_plugin_impl::push_read_only_transaction(
 
       auto trace = chain.push_transaction( trx, block_deadline, available_trx_time_us, 0, false, 0 );
       auto pr = handle_push_result(trx, next, start, chain, trace, true /*return_failure_trace*/, true /*disable_subjective_enforcement*/, {} /*first_auth*/, 0 /*sub_bill*/, 0 /*prev_billed_cpu_time_us*/);
-      // If a transaction or block was exhausted, that indicates we are close to
-      // the end of read window or block boundary. Retry in next round.
-      retry = pr.block_exhausted || pr.trx_exhausted;
+      // If a transaction was exhausted, that indicates we are close to
+      // the end of read window. Retry in next round.
+      retry = pr.trx_exhausted;
    } catch ( const guard_exception& e ) {
       chain_plugin::handle_guard_exception(e);
    } catch ( boost::interprocess::bad_alloc& ) {
