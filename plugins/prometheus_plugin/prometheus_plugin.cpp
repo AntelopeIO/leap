@@ -50,7 +50,7 @@ namespace eosio {
 
          _gauges.push_back(gauge_family);
 
-         ilog("Added gauge metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
+         tlog("Added gauge metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
       }
 
       void add_counter_metric(const runtime_metric& plugin_metric) {
@@ -62,7 +62,7 @@ namespace eosio {
          counter.Increment(plugin_metric.value);
          _counters.push_back(counter_family);
 
-         ilog("Added counter metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
+         tlog("Added counter metric ${f}:${l}", ("f", plugin_metric.family) ("l", plugin_metric.label));
       }
 
       void add_runtime_metric(const runtime_metric& plugin_metric) {
