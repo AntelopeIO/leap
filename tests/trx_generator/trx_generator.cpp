@@ -29,8 +29,7 @@ namespace eosio::testing {
       set_transaction_headers(trx, last_irr_block_id, trx_expiration);
       trx.actions = std::move(acts);
       trx.context_free_actions.emplace_back(std::vector<chain::permission_level>(), chain::config::null_account_name, chain::name("nonce"),
-         fc::raw::pack(std::to_string(_config._generator_id) + ":" + std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" +
-         std::to_string(fc::time_point::now().time_since_epoch().count())));
+         fc::raw::pack(std::to_string(_config._generator_id) + ":" + std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + std::to_string(fc::time_point::now().time_since_epoch().count())));
 
       trx.sign(priv_key, chain_id);
       return signed_transaction_w_signer(trx, priv_key);
@@ -52,8 +51,7 @@ namespace eosio::testing {
                                                       const fc::microseconds& trx_expiration, const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
       trx.context_free_actions.clear();
       trx.context_free_actions.emplace_back(std::vector<chain::permission_level>(), chain::config::null_account_name, chain::name("nonce"),
-         fc::raw::pack(std::to_string(_config._generator_id) + ":" + std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" +
-         std::to_string(fc::time_point::now().time_since_epoch().count())));
+         fc::raw::pack(std::to_string(_config._generator_id) + ":" + std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" + std::to_string(fc::time_point::now().time_since_epoch().count())));
       set_transaction_headers(trx, last_irr_block_id, trx_expiration);
       trx.signatures.clear();
       trx.sign(priv_key, chain_id);
