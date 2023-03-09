@@ -530,26 +530,6 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
         self.assertEqual(type(ret_json["payload"]["transactions"]), list)
 
-        # abi_json_to_bin with empty parameter
-        command = "abi_json_to_bin"
-        ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # abi_json_to_bin with empty content parameter
-        ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # abi_json_to_bin with invalid parameter
-        ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # abi_json_to_bin with valid parameter
-        payload = {"code":"eosio.token",
-                   "action":"issue",
-                   "args":{"to":"eosio.token", "quantity":"1.0000\%20EOS","memo":"m"}}
-        ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
-
         # get_required_keys with empty parameter
         command = "get_required_keys"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
