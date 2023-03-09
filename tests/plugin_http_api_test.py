@@ -1351,7 +1351,7 @@ class PluginHttpTest(unittest.TestCase):
         # converting each line into a key value pair and then construct a dictionay out of all the pairs
         metrics = dict(map(lambda line: tuple(line.split(' ')), data_lines))
 
-        self.assertTrue(int(metrics["block_num"]) > 1)
+        self.assertTrue(int(metrics["head_block_num"]) > 1)
         self.assertTrue(int(metrics["blocks_produced"]) > 1)
         self.assertTrue(int(metrics["last_irreversible"]) > 1)
         self.assertTrue(int(metrics["num_calls"]) > 1)
