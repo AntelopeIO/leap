@@ -22,7 +22,9 @@ namespace eosio::testing {
       trx.delay_sec = delay_sec;
    }
 
-   signed_transaction_w_signer trx_generator_base::create_trx_w_actions_and_signer(std::vector<chain::action>&& acts, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
+   signed_transaction_w_signer trx_generator_base::create_trx_w_actions_and_signer(std::vector<chain::action>&& acts, const fc::crypto::private_key& priv_key,
+                                                                                   uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration,
+                                                                                   const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
       chain::signed_transaction trx;
       set_transaction_headers(trx, last_irr_block_id, trx_expiration);
       trx.actions = std::move(acts);
@@ -38,14 +40,16 @@ namespace eosio::testing {
       std::vector<signed_transaction_w_signer> trxs;
       _trxs.reserve(2 * _action_pairs_vector.size());
 
-      for (const action_pair_w_keys& ap : _action_pairs_vector) {
-         _trxs.push_back(create_trx_w_actions_and_signer({ap._first_act}, ap._first_act_priv_key, nonce_prefix, nonce, _config._trx_expiration_us, _config._chain_id, _config._last_irr_block_id));
-         _trxs.push_back(create_trx_w_actions_and_signer({ap._second_act}, ap._second_act_priv_key, nonce_prefix, nonce, _config._trx_expiration_us, _config._chain_id, _config._last_irr_block_id));
+      for(const action_pair_w_keys& ap: _action_pairs_vector) {
+         _trxs.push_back(create_trx_w_actions_and_signer({ap._first_act}, ap._first_act_priv_key, nonce_prefix, nonce, _config._trx_expiration_us, _config._chain_id,
+                                                         _config._last_irr_block_id));
+         _trxs.push_back(create_trx_w_actions_and_signer({ap._second_act}, ap._second_act_priv_key, nonce_prefix, nonce, _config._trx_expiration_us, _config._chain_id,
+                                                         _config._last_irr_block_id));
       }
    }
 
-   void trx_generator_base::update_resign_transaction(chain::signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration,
-                                                      const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
+   void trx_generator_base::update_resign_transaction(chain::signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
+                                                      const fc::microseconds& trx_expiration, const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
       trx.context_free_actions.clear();
       trx.context_free_actions.emplace_back(std::vector<chain::permission_level>(), chain::config::null_account_name, chain::name("nonce"),
          fc::raw::pack(std::to_string(_config._generator_id) + ":" + std::to_string(nonce_prefix) + ":" + std::to_string(++nonce) + ":" +
@@ -69,11 +73,15 @@ namespace eosio::testing {
       for (size_t i = 0; i < _accts_config._acct_name_vec.size(); ++i) {
          for (size_t j = i + 1; j < _accts_config._acct_name_vec.size(); ++j) {
             //create the actions here
-            ilog("create_initial_transfer_actions: creating transfer from ${acctA} to ${acctB}", ("acctA", _accts_config._acct_name_vec.at(i))("acctB", _accts_config._acct_name_vec.at(j)));
-            chain::action act_a_to_b = make_transfer_action(_config._contract_owner_account, _accts_config._acct_name_vec.at(i), _accts_config._acct_name_vec.at(j), chain::asset::from_string("1.0000 CUR"), salt);
+            ilog("create_initial_transfer_actions: creating transfer from ${acctA} to ${acctB}",
+                 ("acctA", _accts_config._acct_name_vec.at(i))("acctB", _accts_config._acct_name_vec.at(j)));
+            chain::action act_a_to_b = make_transfer_action(_config._contract_owner_account, _accts_config._acct_name_vec.at(i), _accts_config._acct_name_vec.at(j),
+                                                            chain::asset::from_string("1.0000 CUR"), salt);
 
-            ilog("create_initial_transfer_actions: creating transfer from ${acctB} to ${acctA}", ("acctB", _accts_config._acct_name_vec.at(j))("acctA", _accts_config._acct_name_vec.at(i)));
-            chain::action act_b_to_a = make_transfer_action(_config._contract_owner_account, _accts_config._acct_name_vec.at(j), _accts_config._acct_name_vec.at(i), chain::asset::from_string("1.0000 CUR"), salt);
+            ilog("create_initial_transfer_actions: creating transfer from ${acctB} to ${acctA}",
+                 ("acctB", _accts_config._acct_name_vec.at(j))("acctA", _accts_config._acct_name_vec.at(i)));
+            chain::action act_b_to_a = make_transfer_action(_config._contract_owner_account, _accts_config._acct_name_vec.at(j), _accts_config._acct_name_vec.at(i),
+                                                            chain::asset::from_string("1.0000 CUR"), salt);
 
             _action_pairs_vector.emplace_back(act_a_to_b, act_b_to_a, _accts_config._priv_keys_vec.at(i), _accts_config._priv_keys_vec.at(j));
          }
@@ -84,7 +92,8 @@ namespace eosio::testing {
    trx_generator_base::trx_generator_base(const trx_generator_base_config& trx_gen_base_config, const provider_base_config& provider_config)
        : _config(trx_gen_base_config), _provider(provider_config) {}
 
-   transfer_trx_generator::transfer_trx_generator(const trx_generator_base_config& trx_gen_base_config, const provider_base_config& provider_config, const accounts_config& accts_config)
+   transfer_trx_generator::transfer_trx_generator(const trx_generator_base_config& trx_gen_base_config, const provider_base_config& provider_config,
+                                                  const accounts_config& accts_config)
        : trx_generator_base(trx_gen_base_config, provider_config), _accts_config(accts_config) {}
 
    bool transfer_trx_generator::setup() {
@@ -142,7 +151,8 @@ namespace eosio::testing {
       }
    }
 
-   void trx_generator::update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key, const std::string& key_word) {
+   void trx_generator::update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key,
+                                                            const std::string& key_word) {
       if (action_mvo.find(action_inner_key) != action_mvo.end()) {
          if (action_mvo[action_inner_key].get_object().find(key) != action_mvo[action_inner_key].get_object().end()) {
             fc::mutable_variant_object inner_mvo = fc::mutable_variant_object(action_mvo[action_inner_key].get_object());
@@ -166,7 +176,8 @@ namespace eosio::testing {
       }
    }
 
-   void trx_generator::update_resign_transaction(chain::signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
+   void trx_generator::update_resign_transaction(chain::signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
+                                                 const fc::microseconds& trx_expiration, const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
       trx.actions.clear();
       trx.actions = generate_actions();
       trx_generator_base::update_resign_transaction(trx, priv_key, nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
@@ -255,11 +266,13 @@ namespace eosio::testing {
       }
 
       ilog("Populate initial transaction.");
-      _trxs.push_back(create_trx_w_actions_and_signer(std::move(actions), signer_key, ++_nonce_prefix, _nonce, _config._trx_expiration_us, _config._chain_id, _config._last_irr_block_id));
+      _trxs.push_back(create_trx_w_actions_and_signer(std::move(actions), signer_key, ++_nonce_prefix, _nonce, _config._trx_expiration_us, _config._chain_id,
+                                                      _config._last_irr_block_id));
 
       ilog("Setup p2p transaction provider");
 
-      ilog("Update each trx to qualify as unique and fresh timestamps and update each action with unique generated account name if necessary, re-sign trx, and send each updated transactions via p2p transaction provider");
+      ilog("Update each trx to qualify as unique and fresh timestamps and update each action with unique generated account name if necessary,"
+           " re-sign trx, and send each updated transactions via p2p transaction provider");
 
       _provider.setup();
       return true;
@@ -309,7 +322,8 @@ namespace eosio::testing {
       out.close();
    }
 
-   void trx_generator_base::push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce, const fc::microseconds& trx_expiration, const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
+   void trx_generator_base::push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce,
+                                             const fc::microseconds& trx_expiration, const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
       update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
       if (_txcount == 0) {
          log_first_trx(_config._log_dir, trx._trx);

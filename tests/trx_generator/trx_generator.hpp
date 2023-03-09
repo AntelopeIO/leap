@@ -185,8 +185,9 @@ namespace eosio::testing {
 
       void set_transaction_headers(eosio::chain::transaction& trx, const eosio::chain::block_id_type& last_irr_block_id, const fc::microseconds& expiration, uint32_t delay_sec = 0);
 
-      signed_transaction_w_signer create_trx_w_actions_and_signer(std::vector<eosio::chain::action>&& act, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
-                                                                 const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
+      signed_transaction_w_signer create_trx_w_actions_and_signer(std::vector<eosio::chain::action>&& act, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix,
+                                                                  uint64_t& nonce, const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id,
+                                                                  const eosio::chain::block_id_type& last_irr_block_id);
 
       void log_first_trx(const std::string& log_dir, const eosio::chain::signed_transaction& trx);
 
