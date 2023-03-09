@@ -299,6 +299,8 @@ Performance Test Basic Base:
                           Path to contract dir (default: unittests/contracts/eosio.system)
 * `--wasm-file WASM_FILE` WASM file name for contract (default: eosio.system.wasm)
 * `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
+* `--user-trx-data-file USER_TRX_DATA_FILE`
+                          Path to transaction data JSON file (default: None)
 * `--wasm-runtime RUNTIME`
                           Override default WASM runtime ("eos-vm-jit", "eos-vm")
                           "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
