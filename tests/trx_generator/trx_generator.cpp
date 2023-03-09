@@ -110,8 +110,7 @@ namespace eosio::testing {
       return true;
    }
 
-   fc::variant trx_generator::json_from_file_or_string(const std::string& file_or_str, fc::json::parse_type ptype)
-   {
+   fc::variant trx_generator::json_from_file_or_string(const std::string& file_or_str, fc::json::parse_type ptype) {
       std::regex r("^[ \t]*[\{\[]");
       if ( !regex_search(file_or_str, r) && fc::is_regular_file(file_or_str) ) {
          try {
