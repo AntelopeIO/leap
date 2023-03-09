@@ -2533,18 +2533,6 @@ read_only::abi_json_to_bin_result read_only::abi_json_to_bin( const read_only::a
 } FC_RETHROW_EXCEPTIONS( warn, "code: ${code}, action: ${action}, args: ${args}",
                          ("code", params.code)( "action", params.action )( "args", params.args ))
 
-read_only::abi_bin_to_json_result read_only::abi_bin_to_json( const read_only::abi_bin_to_json_params& params, const fc::time_point& deadline )const {
-   abi_bin_to_json_result result;
-   const auto& code_account = db.db().get<account_object,by_name>( params.code );
-   if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
-      abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
-      result.args = abis.binary_to_variant( abis.get_action_type( params.action ), params.binargs, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-   } else {
-      EOS_ASSERT(false, abi_not_found_exception, "No ABI found for ${contract}", ("contract", params.code));
-   }
-   return result;
-}
-
 read_only::get_required_keys_result read_only::get_required_keys( const get_required_keys_params& params, const fc::time_point& deadline )const {
    transaction pretty_input;
    auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));

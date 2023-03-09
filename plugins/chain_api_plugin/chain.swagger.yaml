@@ -581,35 +581,6 @@ paths:
                   binargs:
                     $ref: "https://docs.eosnetwork.com/openapi/v2.0/Hex.yaml"
 
-  /abi_bin_to_json:
-    post:
-      description: Returns an object containing the deserialized action data.
-      operationId: abi_bin_to_json
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              title: AbiBinToJsonRequest
-              required:
-                - code
-                - action
-                - binargs
-              properties:
-                code:
-                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-                action:
-                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-                binargs:
-                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Hex.yaml"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: string
-
   /get_code:
     post:
       description: Returns an object containing the smart contract WASM code.

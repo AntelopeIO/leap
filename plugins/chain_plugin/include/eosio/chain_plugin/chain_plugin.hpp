@@ -323,18 +323,6 @@ public:
    abi_json_to_bin_result abi_json_to_bin( const abi_json_to_bin_params& params, const fc::time_point& deadline )const;
 
 
-   struct abi_bin_to_json_params {
-      name         code;
-      name         action;
-      vector<char> binargs;
-   };
-   struct abi_bin_to_json_result {
-      fc::variant    args;
-   };
-
-   abi_bin_to_json_result abi_bin_to_json( const abi_bin_to_json_params& params, const fc::time_point& deadline )const;
-
-
    struct get_required_keys_params {
       fc::variant transaction;
       flat_set<public_key_type> available_keys;
@@ -968,8 +956,6 @@ FC_REFLECT( eosio::chain_apis::read_only::get_raw_abi_results, (account_name)(co
 FC_REFLECT( eosio::chain_apis::read_only::producer_info, (producer_name) )
 FC_REFLECT( eosio::chain_apis::read_only::abi_json_to_bin_params, (code)(action)(args) )
 FC_REFLECT( eosio::chain_apis::read_only::abi_json_to_bin_result, (binargs) )
-FC_REFLECT( eosio::chain_apis::read_only::abi_bin_to_json_params, (code)(action)(binargs) )
-FC_REFLECT( eosio::chain_apis::read_only::abi_bin_to_json_result, (args) )
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_params, (transaction)(available_keys) )
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_result, (required_keys) )
 FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_params, (transaction))
