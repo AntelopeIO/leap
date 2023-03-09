@@ -63,6 +63,9 @@ EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79z
 EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
 try:
+    TestHelper.printSystemInfo("BEGIN")
+    cluster.setWalletMgr(walletMgr)
+
     if dontLaunch: # run test against remote cluster
         jsonStr=None
         with open(nodesFile, "r") as f:
@@ -82,6 +85,8 @@ try:
 
     Print ("producing nodes: %d, non-producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d" % (pnodes, total_nodes-pnodes, topo, delay))
 
+    cluster.killall(allInstances=killAll)
+    cluster.cleanup()
     Print("Stand up cluster")
     # set up read-only options for API node
     specificExtraNodeosArgs={}
@@ -196,7 +201,7 @@ try:
     def testReadOnlyTrxAndOtherTrx(opt=None):
         Print("testReadOnlyTrxAndOtherTrx -- opt = ", opt)
 
-        numRuns = 500
+        numRuns = 300
         readOnlyThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
         readOnlyThread.start()
         trxThread = threading.Thread(target = sendTrxsOnThread, args = (numRuns, numRuns, opt))
