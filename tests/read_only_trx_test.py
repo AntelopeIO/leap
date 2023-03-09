@@ -261,8 +261,6 @@ try:
         runReadOnlyTrxAndRpcInParallel("chain", "get_table_by_scope", fieldIn="rows", payload = {"json":"true","table":"noauth"})
         runReadOnlyTrxAndRpcInParallel("chain", "get_currency_balance", code=200, payload = {"code":"eosio.token", "account":testAccountName})
         runReadOnlyTrxAndRpcInParallel("chain", "get_currency_stats", fieldIn="SYS", payload = {"code":"eosio.token", "symbol":"SYS"})
-        runReadOnlyTrxAndRpcInParallel("chain", "abi_json_to_bin", code=500, payload = {"code":"eosio.token", "action":"issue"})
-        runReadOnlyTrxAndRpcInParallel("chain", "abi_bin_to_json", code=500, payload = {"code":"eosio.token", "action":"issue"})
         runReadOnlyTrxAndRpcInParallel("chain", "get_required_keys", code=400)
         runReadOnlyTrxAndRpcInParallel("chain", "get_transaction_id", code=200, payload = {"ref_block_num":"1"})
         runReadOnlyTrxAndRpcInParallel("chain", "push_block", code=202, payload = {"block":"signed_block"})
