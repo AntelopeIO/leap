@@ -51,17 +51,10 @@ class PluginHttpTest(unittest.TestCase):
         self.createDataDir(self)
         self.createConfigDir(self)
         self.keosd.launch()
-        nodeos_plugins = (" --plugin %s --plugin %s --plugin %s --plugin %s --plugin %s --plugin %s"
-                          " --plugin %s --plugin %s --plugin %s --plugin %s ") % ( "eosio::trace_api_plugin",
-                                                                                   "eosio::test_control_api_plugin",
-                                                                                   "eosio::test_control_plugin",
-                                                                                   "eosio::net_plugin",
-                                                                                   "eosio::net_api_plugin",
-                                                                                   "eosio::producer_plugin",
-                                                                                   "eosio::producer_api_plugin",
-                                                                                   "eosio::chain_api_plugin",
-                                                                                   "eosio::http_plugin",
-                                                                                   "eosio::db_size_api_plugin")
+        plugin_names = ["trace_api_plugin", "test_control_api_plugin", "test_control_plugin", "net_plugin",
+                        "net_api_plugin", "producer_plugin", "producer_api_plugin", "chain_api_plugin",
+                        "http_plugin", "db_size_api_plugin", "prometheus_plugin"]
+        nodeos_plugins = "--plugin eosio::" +  " --plugin eosio::".join(plugin_names)
         nodeos_flags = (" --data-dir=%s --config-dir=%s --trace-dir=%s --trace-no-abis --access-control-allow-origin=%s "
                         "--contracts-console --http-validate-host=%s --verbose-http-errors "
                         "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
@@ -1347,14 +1340,31 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
 
+    # test prometheus api
+    def test_prometheusApi(self) :
+        resource = "prometheus"
+        command = "metrics"
+
+        ret_text = self.nodeos.processUrllibRequest(resource, command, returnType = ReturnType.raw ).decode()
+        # filter out all empty lines or lines starting with '#'
+        data_lines = filter(lambda line: len(line) > 0 and line[0]!='#', ret_text.split('\n'))
+        # converting each line into a key value pair and then construct a dictionay out of all the pairs
+        metrics = dict(map(lambda line: tuple(line.split(' ')), data_lines))
+
+        self.assertTrue(int(metrics["head_block_num"]) > 1)
+        self.assertTrue(int(metrics["blocks_produced"]) > 1)
+        self.assertTrue(int(metrics["last_irreversible"]) > 1)
+        self.assertTrue(int(metrics["num_calls"]) > 1)
+
+
     def test_multipleRequests(self):
         """Test keep-alive ability of HTTP plugin.  Handle multiple requests in a single session"""
         host = self.nodeos.host
         port = self.nodeos.port
         addr = (host, port)
-        body1 = '{ "block_num_or_id": "1" }\r\n' 
-        body2 = '{ "block_num_or_id": "2" }\r\n' 
-        body3 = '{ "block_num_or_id": "3" }\r\n' 
+        body1 = '{ "block_num_or_id": "1" }\r\n'
+        body2 = '{ "block_num_or_id": "2" }\r\n'
+        body3 = '{ "block_num_or_id": "3" }\r\n'
         api_call = "/v1/chain/get_block"
         req1 = Utils.makeHTTPReqStr(host, str(port), api_call, body1, True)
         req2 = Utils.makeHTTPReqStr(host, str(port), api_call, body2, True)
@@ -1392,12 +1402,12 @@ class PluginHttpTest(unittest.TestCase):
             resp3_data = Utils.readSocketDataStr(sock, maxMsgSize, enc)
             Utils.Print('resp3_data= \n', resp3_data)
 
-            
+
             # wait for socket to close
             time.sleep(0.5)
             # send request 2 again.  this should fail because request 3 has "Connection: close" in header
             Utils.Print('sending request 2 again')
-            try: 
+            try:
                 sock.settimeout(3)
                 sock.send(bytes(req2, enc))
                 d = sock.recv(64)
@@ -1412,7 +1422,7 @@ class PluginHttpTest(unittest.TestCase):
             Utils.Print(e)
             Utils.errorExit("Failed to send/receive on socket")
 
-        # extract response body 
+        # extract response body
         resp1_json, resp2_json, resp3_json = None, None, None
         try:
             (hdr, resp1_json) = re.split('\r\n\r\n', resp1_data)
@@ -1420,7 +1430,7 @@ class PluginHttpTest(unittest.TestCase):
             (hdr, resp3_json) = re.split('\r\n\r\n', resp3_data)
         except Exception as e:
             Utils.Print(e)
-            Utils.errorExit("Improper HTTP response(s)") 
+            Utils.errorExit("Improper HTTP response(s)")
 
         resp1, resp2, resp3 = None, None, None
         try:
@@ -1430,7 +1440,7 @@ class PluginHttpTest(unittest.TestCase):
         except Exception as e:
             Utils.Print(e)
             Utils.errorExit("Could not parse JSON response")
-        
+
         self.assertIn('block_num', resp1)
         self.assertIn('block_num', resp2)
         self.assertIn('block_num', resp3)
