@@ -232,7 +232,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
 Test Helper Arguments:
   Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
 
-* `-?`                    show this help message and exit
+* `-?, --help`            show this help message and exit
 * `-p P`                  producing nodes count (default: 1)
 * `-n N`                  total nodes (default: 0)
 * `-d D`                  delay between nodes startup (default: 1)
@@ -370,7 +370,7 @@ The following scripts are typically used by the Performance Harness main script 
 Test Helper Arguments:
   Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
 
-* `-?`                    show this help message and exit
+* `-?, --help`            show this help message and exit
 * `-p P`                  producing nodes count (default: 1)
 * `-n N`                  total nodes (default: 0)
 * `-d D`                  delay between nodes startup (default: 1)

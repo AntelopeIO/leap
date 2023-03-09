@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 from dataclasses import dataclass
 import os
 import sys
@@ -139,7 +137,7 @@ class TransactionGeneratorsLauncher:
 
 def parseArgs():
     parser = argparse.ArgumentParser(add_help=False)
-    parser.add_argument('-?', action='help', default=argparse.SUPPRESS, help=argparse._('show this help message and exit'))
+    parser.add_argument('-?', '--help', action='help', default=argparse.SUPPRESS, help=argparse._('show this help message and exit'))
     parser.add_argument("chain_id", type=str, help="Chain ID")
     parser.add_argument("last_irreversible_block_id", type=str, help="Last irreversible block ID")
     parser.add_argument("contract_owner_account", type=str, help="Cluster contract owner account name")
