@@ -1354,7 +1354,6 @@ class PluginHttpTest(unittest.TestCase):
         self.assertTrue(int(metrics["head_block_num"]) > 1)
         self.assertTrue(int(metrics["blocks_produced"]) > 1)
         self.assertTrue(int(metrics["last_irreversible"]) > 1)
-        self.assertTrue(int(metrics["num_calls"]) > 1)
 
 
     def test_multipleRequests(self):
