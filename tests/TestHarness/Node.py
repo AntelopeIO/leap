@@ -34,7 +34,6 @@ class Node(Transactions):
         self.nodeId=nodeId
         if Utils.Debug: Utils.Print("new Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
         self.killed=False # marks node as killed
-
         self.infoValid=None
         self.lastRetrievedHeadBlockNum=None
         self.lastRetrievedLIB=None
@@ -200,11 +199,10 @@ class Node(Transactions):
     def waitForTransBlockIfNeeded(self, trans, waitForTransBlock, exitOnError=False):
         if not waitForTransBlock:
             return trans
-
         transId=Queries.getTransId(trans)
         if not self.waitForTransactionInBlock(transId):
             if exitOnError:
-                Utils.cmdError("transaction with id %s never made it to a block" % (transId))
+                Utils.cmdError("transaction with id %s never made it into a block" % (transId))
                 Utils.errorExit("Failed to find transaction with id %s in a block before timeout" % (transId))
             return None
         return trans
@@ -225,7 +223,7 @@ class Node(Transactions):
 
     def waitForProducer(self, producer, timeout=None, exitOnError=False):
         if timeout is None:
-            # default to the typical configuration of 21 producers, each producing 12 blocks in a row (ever 1/2 second)
+            # default to the typical configuration of 21 producers, each producing 12 blocks in a row (every 1/2 second)
             timeout = 21 * 6;
         start=time.perf_counter()
         initialProducer=self.getInfo()["head_block_producer"]
@@ -244,23 +242,6 @@ class Node(Transactions):
         basedOnLib="true" if blockType==BlockType.lib else "false"
         payload={ "producer":producer, "where_in_sequence":whereInSequence, "based_on_lib":basedOnLib }
         return self.processUrllibRequest("test_control", "kill_node_on_producer", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
-
-    def txnGenCreateTestAccounts(self, genAccount, genKey, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
-        assert(isinstance(genAccount, str))
-        assert(isinstance(genKey, str))
-        assert(isinstance(returnType, ReturnType))
-
-        payload=[ genAccount, genKey ]
-        return self.processUrllibRequest("txn_test_gen", "create_test_accounts", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
-
-    def txnGenStart(self, salt, period, batchSize, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
-        assert(isinstance(salt, str))
-        assert(isinstance(period, int))
-        assert(isinstance(batchSize, int))
-        assert(isinstance(returnType, ReturnType))
-
-        payload=[ salt, period, batchSize ]
-        return self.processUrllibRequest("txn_test_gen", "start_generation", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
 
     def kill(self, killSignal):
         if Utils.Debug: Utils.Print("Killing node: %s" % (self.cmd))

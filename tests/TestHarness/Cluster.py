@@ -560,7 +560,7 @@ class Cluster(object):
         port=Cluster.__BiosPort if onlyBios else self.port
         host=Cluster.__BiosHost if onlyBios else self.host
         nodeNum="bios" if onlyBios else 0
-        node=Node(host, port, nodeNum, walletMgr=self.walletMgr,nodeosVers=self.nodeosVers)
+        node=Node(host, port, nodeNum, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
         if Utils.Debug: Utils.Print("Node: %s", str(node))
 
         node.checkPulse(exitOnError=True)

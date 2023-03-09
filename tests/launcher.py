@@ -131,7 +131,6 @@ class testnetDefinition:
     name: str
     nodes: Dict[str, nodeDefinition] = field(init=False, default_factory=dict)
 
-
 def producer_name(producer_number: int, shared_producer: bool = False):
     '''For first 26 return "defproducera" ... "defproducerz".
        After 26 return "defpraaaaaab", "defpraaaaaac"...'''
