@@ -126,8 +126,6 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(get_producers, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_producer_schedule, 200, http_params_types::no_params),
       CHAIN_RO_CALL(get_scheduled_transactions, 200, http_params_types::params_required),
-      CHAIN_RO_CALL(abi_json_to_bin, 200, http_params_types::params_required),
-      CHAIN_RO_CALL(abi_bin_to_json, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_required_keys, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_transaction_id, 200, http_params_types::params_required),
       CHAIN_RO_CALL_ASYNC(send_read_only_transaction, chain_apis::read_only::send_read_only_transaction_results, 200, http_params_types::params_required),
