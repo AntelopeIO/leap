@@ -1,10 +1,24 @@
 configure_file(__init__.py __init__.py COPYONLY)
 configure_file(BasePluginArgs.py BasePluginArgs.py COPYONLY)
-configure_file(ChainPluginArgs.py ChainPluginArgs.py COPYONLY)
-configure_file(HttpPluginArgs.py HttpPluginArgs.py COPYONLY)
-configure_file(NetPluginArgs.py NetPluginArgs.py COPYONLY)
-configure_file(ProducerPluginArgs.py ProducerPluginArgs.py COPYONLY)
-configure_file(ResourceMonitorPluginArgs.py ResourceMonitorPluginArgs.py COPYONLY)
-configure_file(SignatureProviderPluginArgs.py SignatureProviderPluginArgs.py COPYONLY)
-configure_file(StateHistoryPluginArgs.py StateHistoryPluginArgs.py COPYONLY)
-configure_file(TraceApiPluginArgs.py TraceApiPluginArgs.py COPYONLY)
+
+find_package(PythonInterp REQUIRED)
+find_package(Python3 REQUIRED)
+
+set(GEN_FILES
+        ChainPluginArgs.py
+        HttpPluginArgs.py
+        NetPluginArgs.py
+        ProducerPluginArgs.py
+        ResourceMonitorPluginArgs.py
+        SignatureProviderPluginArgs.py
+        StateHistoryPluginArgs.py
+        TraceApiPluginArgs.py)
+
+add_custom_command(COMMAND ${PYTHON_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/generate_nodeos_plugin_args_class_files.py
+                   WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
+                   DEPENDS ${NODE_EXECUTABLE_NAME}
+                   OUTPUT ${GEN_FILES})
+
+add_custom_target(GenNodeosPluginArgs ALL
+                  DEPENDS ${GEN_FILES}
+                  COMMENT "Generating NodeosPluginArgs files")

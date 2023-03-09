@@ -52,7 +52,7 @@ Note:
 
 
 def main():
-    result = subprocess.run(["programs/nodeos/nodeos", "--help"], capture_output=True, text=True)
+    result = subprocess.run(["../../../bin/nodeos", "--help"], capture_output=True, text=True)
 
     myStr = result.stdout
     myStr = myStr.rstrip("\n")
@@ -104,7 +104,7 @@ def main():
 
     def writeDataclass(plugin:str, dataFieldDict:dict, pluginOptsDict:dict):
         newPlugin="".join([x.capitalize() for x in plugin.split('_')]).replace(":","")
-        pluginArgsFile=f"../tests/performance_tests/NodeosPluginArgs/{newPlugin}Args.py"
+        pluginArgsFile=f"./{newPlugin}Args.py"
         with open(pluginArgsFile, 'w') as dataclassFile:
             chainPluginArgs = dataFieldDict[newPlugin]
 
