@@ -61,11 +61,6 @@ def main():
     myStr = re.sub("Application Options:\n",'', string=myStr)
     pluginSections = re.split("(@@@.*?@@@\n)", string=myStr)
 
-
-    sec=0
-    for section in pluginSections:
-        sec=sec+1
-
     def pairwise(iterable):
         "s -> (s0, s1), (s2, s3), (s4, s5), ..."
         a = iter(iterable)
