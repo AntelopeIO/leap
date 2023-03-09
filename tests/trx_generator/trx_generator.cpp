@@ -152,8 +152,9 @@ namespace eosio::testing {
    void trx_generator::update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key,
                                                             const std::string& key_word) {
       if (action_mvo.find(action_inner_key) != action_mvo.end()) {
-         if (action_mvo[action_inner_key].get_object().find(key) != action_mvo[action_inner_key].get_object().end()) {
-            fc::mutable_variant_object inner_mvo = fc::mutable_variant_object(action_mvo[action_inner_key].get_object());
+         auto inner = action_mvo[action_inner_key].get_object();
+         if (inner.find(key) != inner.end()) {
+            fc::mutable_variant_object inner_mvo = fc::mutable_variant_object(inner);
             inner_mvo.set(key, key_word);
             action_mvo.set(action_inner_key, std::move(inner_mvo));
          }
