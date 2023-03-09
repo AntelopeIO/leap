@@ -1,9 +1,6 @@
 configure_file(__init__.py __init__.py COPYONLY)
 configure_file(BasePluginArgs.py BasePluginArgs.py COPYONLY)
 
-find_package(PythonInterp REQUIRED)
-find_package(Python3 REQUIRED)
-
 set(GEN_FILES
         ChainPluginArgs.py
         HttpPluginArgs.py
