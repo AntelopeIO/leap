@@ -152,6 +152,7 @@ public:
    fc::microseconds                  abi_serializer_max_time_us;
    std::optional<bfs::path>          snapshot_path;
 
+
    // retained references to channels for easy publication
    channels::pre_accepted_block::channel_type&     pre_accepted_block_channel;
    channels::accepted_block_header::channel_type&  accepted_block_header_channel;
@@ -2687,7 +2688,6 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
     }
     return pretty_output;
 }
-
 } // namespace eosio
 
 FC_REFLECT( eosio::chain_apis::detail::ram_market_exchange_state_t, (ignore1)(ignore2)(ignore3)(core_symbol)(ignore4) )

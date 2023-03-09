@@ -1,5 +1,6 @@
 #pragma once
 
+#include <eosio/chain/plugin_metrics.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
@@ -20,7 +21,7 @@ struct producer_plugin_metrics : public plugin_metrics {
    runtime_metric blocks_produced{metric_type::counter, "blocks_produced", "blocks_produced", 0};
    runtime_metric trxs_produced{metric_type::counter, "trxs_produced", "trxs_produced", 0};
    runtime_metric last_irreversible{metric_type::gauge, "last_irreversible", "last_irreversible", 0};
-   runtime_metric block_num{metric_type::gauge, "block_num", "block_num", 0};
+   runtime_metric head_block_num{metric_type::gauge, "head_block_num", "head_block_num", 0};
    runtime_metric subjective_bill_account_size{metric_type::gauge, "subjective_bill_account_size", "subjective_bill_account_size", 0};
    runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
 
@@ -31,7 +32,7 @@ struct producer_plugin_metrics : public plugin_metrics {
             blocks_produced,
             trxs_produced,
             last_irreversible,
-            block_num,
+            head_block_num,
             subjective_bill_account_size,
             scheduled_trxs
       };

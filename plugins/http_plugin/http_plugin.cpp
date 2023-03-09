@@ -38,8 +38,7 @@ namespace eosio {
 
    using http_plugin_impl_ptr = std::shared_ptr<class http_plugin_impl>;
 
-
-class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
+   class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       public:
          http_plugin_impl() = default;
 
@@ -66,6 +65,7 @@ class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
           * @param priority - priority to post to the app thread at
           * @param next - the next handler for responses
           * @param my - the http_plugin_impl
+          * @param content_type - json or plain txt
           * @return the constructed internal_url_handler
           */
          static detail::internal_url_handler make_app_thread_url_handler(const string& url, int priority, url_handler next, http_plugin_impl_ptr my, http_content_type content_type ) {

@@ -424,7 +424,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
             auto &chain = chain_plug->chain();
             _metrics.last_irreversible.value = chain.last_irreversible_block_num();
-            _metrics.block_num.value = chain.head_block_num();
+            _metrics.head_block_num.value = chain.head_block_num();
 
             const auto& sch_idx = chain.db().get_index<generated_transaction_multi_index, by_delay>();
             _metrics.scheduled_trxs.value = sch_idx.size();

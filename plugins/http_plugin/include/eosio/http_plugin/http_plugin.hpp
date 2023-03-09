@@ -1,10 +1,10 @@
 #pragma once
+#include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/plugin_metrics.hpp>
 #include <appbase/application.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/reflect/reflect.hpp>
 #include <fc/io/json.hpp>
-#include <eosio/chain/exceptions.hpp>
-#include <eosio/chain/plugin_interface.hpp>
 
 namespace eosio {
    using namespace appbase;
