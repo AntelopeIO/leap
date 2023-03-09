@@ -63,6 +63,8 @@ public:
 
    // snapshot_scheduler_listener
    void on_start_block(uint32_t height) {
+      bool serialize_needed = false;
+
       for(const auto& req: _snapshot_requests.get<0>()) {
          // assume "asap" for snapshot with missed/zero start, it can have spacing
          if(!req.start_block_num) {
@@ -72,7 +74,7 @@ public:
                auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
                auto it = snapshot_by_id.find(req.snapshot_request_id);
                _snapshot_requests.modify(it, [&height](auto& p) { p.start_block_num = height; });
-               x_serialize();
+               serialize_needed = true;              
             }
             execute_snapshot(req.snapshot_request_id);
          }
@@ -86,6 +88,9 @@ public:
             unschedule_snapshot(req.snapshot_request_id);
          }
       }
+
+      // store db to filesystem
+      if (serialize_needed) x_serialize();
    }
 
    // snapshot_scheduler_handler
@@ -130,6 +135,8 @@ public:
       if(fc::exists(_snapshot_db.get_json_path())) {
          std::vector<producer_plugin::snapshot_schedule_information> sr;
          _snapshot_db >> sr;
+         // if db read succeeded, clear/load
+         _snapshot_requests.get<by_snapshot_id>().clear();
          _snapshot_requests.insert(sr.begin(), sr.end());
       }
    }
