@@ -2878,11 +2878,10 @@ bool producer_plugin_impl::push_read_only_transaction(
          return true;
       }
 
-      auto remained_time_in_read_window_us = _ro_read_window_time_us - time_used_in_read_window_us;
-      // set the trx to finish by the end of read-window. limit read window overrun
-      auto available_trx_time_us = std::min( remained_time_in_read_window_us, _ro_max_trx_time_us );
-
-      auto trace = chain.push_transaction( trx, block_deadline, available_trx_time_us, 0, false, 0 );
+      auto remaining_time_in_read_window_us = _ro_read_window_time_us - time_used_in_read_window_us;
+      // Ensure the trx to finish by the end of read-window.
+      auto window_deadline = std::min( start + remaining_time_in_read_window_us, block_deadline );
+      auto trace = chain.push_transaction( trx, window_deadline, _ro_max_trx_time_us, 0, false, 0 );
       auto pr = handle_push_result(trx, next, start, chain, trace, true /*return_failure_trace*/, true /*disable_subjective_enforcement*/, {} /*first_auth*/, 0 /*sub_bill*/, 0 /*prev_billed_cpu_time_us*/);
       // If a transaction was exhausted, that indicates we are close to
       // the end of read window. Retry in next round.
