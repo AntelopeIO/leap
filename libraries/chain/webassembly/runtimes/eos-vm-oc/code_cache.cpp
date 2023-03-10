@@ -42,8 +42,7 @@ static_assert(sizeof(code_cache_header) <= header_size, "code_cache_header too b
 code_cache_async::code_cache_async(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    code_cache_base(data_dir, eosvmoc_config, db),
    _result_queue(eosvmoc_config.threads * 2),
-   _threads(eosvmoc_config.threads),
-   _main_thread_id(std::this_thread::get_id())
+   _threads(eosvmoc_config.threads)
 {
    FC_ASSERT(_threads, "EOS VM OC requires at least 1 compile thread");
 
@@ -107,9 +106,6 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
    return {gotsome, bytes_remaining};
 }
 
-bool code_cache_async::is_main_thread() const {
-   return _main_thread_id == std::this_thread::get_id();
-}
 
 const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version) {
    //if there are any outstanding compiles, process the result queue now
@@ -144,7 +140,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
          _cache_index.relocate(_cache_index.begin(), _cache_index.project<0>(it));
       return &*it;
    }
-   if(!is_main_thread())
+   if(!is_main_thread()) // on read-onoy thread
       return nullptr;
 
    const code_tuple ct = code_tuple{code_id, vm_version};
@@ -184,14 +180,15 @@ code_cache_sync::~code_cache_sync() {
 }
 
 const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const digest_type& code_id, const uint8_t& vm_version) {
-   std::lock_guard<std::shared_mutex> g(get_descriptor_sync_mutex);
-
    //check for entry in cache
    code_cache_index::index<by_hash>::type::iterator it = _cache_index.get<by_hash>().find(boost::make_tuple(code_id, vm_version));
    if(it != _cache_index.get<by_hash>().end()) {
-      _cache_index.relocate(_cache_index.begin(), _cache_index.project<0>(it));
+      if (is_main_thread())
+         _cache_index.relocate(_cache_index.begin(), _cache_index.project<0>(it));
       return &*it;
    }
+   if(!is_main_thread())
+      return nullptr;
 
    const code_object* const codeobject = _db.find<code_object,by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
    if(!codeobject) //should be impossible right?
@@ -215,7 +212,8 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
 
 code_cache_base::code_cache_base(const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    _db(db),
-   _cache_file_path(data_dir/"code_cache.bin")
+   _cache_file_path(data_dir/"code_cache.bin"),
+   _main_thread_id(std::this_thread::get_id())
 {
    static_assert(sizeof(allocator_t) <= header_offset, "header offset intersects with allocator");
 
@@ -393,4 +391,7 @@ void code_cache_base::check_eviction_threshold(size_t free_bytes) {
       run_eviction_round();
 }
 
+bool code_cache_base::is_main_thread() const {
+   return _main_thread_id == std::this_thread::get_id();
+}
 }}}
