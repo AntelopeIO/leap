@@ -54,76 +54,26 @@ class TransactionGeneratorsLauncher:
     def launch(self, waitToComplete=True):
         self.subprocess_ret_codes = []
         for id, targetTps in enumerate(self.tpsTrxGensConfig.targetTpsPerGenList):
+            popenStringList = [
+                                './tests/trx_generator/trx_generator',
+                                '--generator-id', f'{id}',
+                                '--chain-id', f'{self.chainId}',
+                                '--last-irreversible-block-id', f'{self.lastIrreversibleBlockId}',
+                                '--contract-owner-account', f'{self.contractOwnerAccount}',
+                                '--accounts', f'{self.accts}',
+                                '--priv-keys', f'{self.privateKeys}',
+                                '--trx-gen-duration', f'{self.trxGenDurationSec}',
+                                '--target-tps', f'{targetTps}',
+                                '--log-dir', f'{self.logDir}',
+                                '--peer-endpoint', f'{self.peerEndpoint}',
+                                '--port', f'{self.port}']
             if self.abiFile is not None and self.actionsData is not None and self.actionsAuths is not None:
-                if Utils.Debug:
-                    Print(
-                        f'Running trx_generator: ./tests/trx_generator/trx_generator  '
-                        f'--generator-id {id} '
-                        f'--chain-id {self.chainId} '
-                        f'--last-irreversible-block-id {self.lastIrreversibleBlockId} '
-                        f'--contract-owner-account {self.contractOwnerAccount} '
-                        f'--accounts {self.accts} '
-                        f'--priv-keys {self.privateKeys} '
-                        f'--trx-gen-duration {self.trxGenDurationSec} '
-                        f'--target-tps {targetTps} '
-                        f'--log-dir {self.logDir} '
-                        f'--abi-file {self.abiFile} '
-                        f'--actions-data {self.actionsData} '
-                        f'--actions-auths {self.actionsAuths} '
-                        f'--peer-endpoint {self.peerEndpoint} '
-                        f'--port {self.port}'
-                    )
-                self.subprocess_ret_codes.append(
-                    subprocess.Popen([
-                        './tests/trx_generator/trx_generator',
-                        '--generator-id', f'{id}',
-                        '--chain-id', f'{self.chainId}',
-                        '--last-irreversible-block-id', f'{self.lastIrreversibleBlockId}',
-                        '--contract-owner-account', f'{self.contractOwnerAccount}',
-                        '--accounts', f'{self.accts}',
-                        '--priv-keys', f'{self.privateKeys}',
-                        '--trx-gen-duration', f'{self.trxGenDurationSec}',
-                        '--target-tps', f'{targetTps}',
-                        '--log-dir', f'{self.logDir}',
-                        '--abi-file', f'{self.abiFile}',
-                        '--actions-data', f'{self.actionsData}',
-                        '--actions-auths', f'{self.actionsAuths}',
-                        '--peer-endpoint', f'{self.peerEndpoint}',
-                        '--port', f'{self.port}'
-                    ])
-                )
-            else:
-                if Utils.Debug:
-                    Print(
-                        f'Running trx_generator: ./tests/trx_generator/trx_generator  '
-                        f'--generator-id {id} '
-                        f'--chain-id {self.chainId} '
-                        f'--last-irreversible-block-id {self.lastIrreversibleBlockId} '
-                        f'--contract-owner-account {self.contractOwnerAccount} '
-                        f'--accounts {self.accts} '
-                        f'--priv-keys {self.privateKeys} '
-                        f'--trx-gen-duration {self.trxGenDurationSec} '
-                        f'--target-tps {targetTps} '
-                        f'--log-dir {self.logDir} '
-                        f'--peer-endpoint {self.peerEndpoint} '
-                        f'--port {self.port}'
-                    )
-                self.subprocess_ret_codes.append(
-                    subprocess.Popen([
-                        './tests/trx_generator/trx_generator',
-                        '--generator-id', f'{id}',
-                        '--chain-id', f'{self.chainId}',
-                        '--last-irreversible-block-id', f'{self.lastIrreversibleBlockId}',
-                        '--contract-owner-account', f'{self.contractOwnerAccount}',
-                        '--accounts', f'{self.accts}',
-                        '--priv-keys', f'{self.privateKeys}',
-                        '--trx-gen-duration', f'{self.trxGenDurationSec}',
-                        '--target-tps', f'{targetTps}',
-                        '--log-dir', f'{self.logDir}',
-                        '--peer-endpoint', f'{self.peerEndpoint}',
-                        '--port', f'{self.port}'
-                    ])
-                )
+                popenStringList.extend(['--abi-file', f'{self.abiFile}',
+                                        '--actions-data', f'{self.actionsData}',
+                                        '--actions-auths', f'{self.actionsAuths}'])
+            if Utils.Debug:
+                Print(f"Running trx_generator: {' '.join(popenStringList)}")
+            self.subprocess_ret_codes.append(subprocess.Popen(popenStringList))
         exitCodes=None
         if waitToComplete:
             exitCodes = [ret_code.wait() for ret_code in self.subprocess_ret_codes]
