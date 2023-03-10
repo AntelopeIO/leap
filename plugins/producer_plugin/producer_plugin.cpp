@@ -1061,28 +1061,25 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    if ( my->_ro_thread_pool_size > 0 ) {
       EOS_ASSERT( my->_producers.empty(), plugin_config_exception, "--read-only-thread not allowed on producer node" );
 
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if (chain.is_eos_vm_oc_enabled()) {
          // EOS VM OC requires 4.2TB Virtual for each executing thread. Make sure the memory
          // required by configured read-only threads does not exceed the total system virtual memory.
-         auto get_vm_sizes = []() -> std::pair<size_t, size_t> {
-            std::string attr_name;
-            size_t vm_total { 0 };
-            size_t vm_used { 0 };
-            std::ifstream meminfo_file("/proc/meminfo");
-            while (meminfo_file >> attr_name) {
-               if (attr_name == "VmallocTotal:") {
-                  if ( !(meminfo_file >> vm_total) )
-                     break;
-               } else if (attr_name == "VmallocUsed:") {
-                  if ( !(meminfo_file >> vm_used) )
-                     break;
-               }
-               meminfo_file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+         std::string attr_name;
+         size_t vm_total_kb { 0 };
+         size_t vm_used_kb { 0 };
+         std::ifstream meminfo_file("/proc/meminfo");
+         while (meminfo_file >> attr_name) {
+            if (attr_name == "VmallocTotal:") {
+               if ( !(meminfo_file >> vm_total_kb) )
+                  break;
+            } else if (attr_name == "VmallocUsed:") {
+               if ( !(meminfo_file >> vm_used_kb) )
+                  break;
             }
-            return std::make_pair(vm_total, vm_used);
-         };
+            meminfo_file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+         }
 
-         auto [vm_total_kb, vm_used_kb] = get_vm_sizes();
          EOS_ASSERT( vm_total_kb > 0, plugin_config_exception, "Unable to get system virtual memory size (not a Linux?), therefore cannot determine if the system has enough virtual memory for multi-threaded read-only transactions on EOS VM OC");
          // reserve 1 for the app thread, 1 for anything else which might use VM
          int num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000 - 2;
@@ -1094,6 +1091,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
             my->_ro_thread_pool_size = my->_ro_max_eos_vm_oc_threads_allowed;
          }
       }
+#endif
 
       my->_ro_write_window_time_us = fc::microseconds( options.at( "read-only-write-window-time-us" ).as<uint32_t>() );
       my->_ro_read_window_time_us = fc::microseconds( options.at( "read-only-read-window-time-us" ).as<uint32_t>() );

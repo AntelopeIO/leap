@@ -2694,7 +2694,11 @@ struct controller_impl {
    bool is_main_thread() { return main_thread_id == std::this_thread::get_id(); };
 
    wasm_interface& get_wasm_interface() {
-      if ( is_main_thread() || is_eos_vm_oc_enabled() )
+      if ( is_main_thread()
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+          || is_eos_vm_oc_enabled()
+#endif
+         )
          return wasmif;
       else
          return *wasmif_thread_local;
@@ -3544,7 +3548,9 @@ uint32_t controller::earliest_available_block_num() const{
 vm::wasm_allocator& controller::get_wasm_allocator() {
    return my->wasm_alloc;
 }
+#endif
 
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
 bool controller::is_eos_vm_oc_enabled() const {
    return my->is_eos_vm_oc_enabled();
 }
