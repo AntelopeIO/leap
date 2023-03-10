@@ -136,18 +136,18 @@ class Node(Transactions):
         return transIds
 
     def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=0):
-        lastBlockProcessed = startBlock
-        overallFinalBlock = startBlock + maxFutureBlocks
+        nextBlockToProcess = startBlock
+        overallEndBlock = startBlock + maxFutureBlocks
         while len(transIds) > 0:
             currentLoopEndBlock = self.getHeadBlockNum()
-            if currentLoopEndBlock >  overallFinalBlock:
-                currentLoopEndBlock = overallFinalBlock
-            for blockNum in range(currentLoopEndBlock, lastBlockProcessed - 1, -1):
+            if currentLoopEndBlock >  overallEndBlock:
+                currentLoopEndBlock = overallEndBlock
+            for blockNum in range(nextBlockToProcess, currentLoopEndBlock + 1):
                 transIds = self.checkBlockForTransactions(transIds, blockNum)
                 if len(transIds) == 0:
                     return transIds
-            lastBlockProcessed = currentLoopEndBlock
-            if currentLoopEndBlock == overallFinalBlock:
+            nextBlockToProcess = currentLoopEndBlock + 1
+            if currentLoopEndBlock == overallEndBlock:
                 Utils.Print("ERROR: Transactions were missing upon expiration of waitOnblockTransactions")
                 break
             self.waitForHeadToAdvance()
