@@ -4,7 +4,6 @@
 #include <boost/algorithm/string.hpp>
 #include <fc/bitutil.hpp>
 #include <fc/io/raw.hpp>
-#include <contracts.hpp>
 #include <iostream>
 
 namespace bpo = boost::program_options;
