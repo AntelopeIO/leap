@@ -52,7 +52,7 @@ Note:
 
 
 def main():
-    result = subprocess.run(["../../../bin/nodeos", "--help"], stdout=subprocess.PIPE, text=True)
+    result = subprocess.run(["../../../bin/nodeos", "--help"], stdout=subprocess.PIPE, universal_newlines=True)
 
     myStr = result.stdout
     myStr = myStr.rstrip("\n")
