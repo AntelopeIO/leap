@@ -22,14 +22,24 @@ namespace eosio::testing {
          _trx_id(trx_id), _sent_timestamp(sent) {}
    };
 
+   struct provider_base_config {
+      std::string _peer_endpoint = "127.0.0.1";
+      unsigned short _port = 9876;
+
+      std::string to_string() const {
+         std::ostringstream ss;
+         ss << "peer_endpoint: " << _peer_endpoint << " port: " << _port;
+         return std::move(ss).str();
+      }
+   };
+
    struct p2p_connection {
-      std::string _peer_endpoint;
+      const provider_base_config& _config;
       boost::asio::io_service _p2p_service;
       boost::asio::ip::tcp::socket _p2p_socket;
-      unsigned short _peer_port;
 
-      p2p_connection(const std::string& peer_endpoint, unsigned short peer_port) :
-            _peer_endpoint(peer_endpoint), _p2p_service(), _p2p_socket(_p2p_service), _peer_port(peer_port) {}
+      p2p_connection(const provider_base_config& provider_config) :
+            _config(provider_config), _p2p_service(), _p2p_socket(_p2p_service) {}
 
       void connect();
       void disconnect();
@@ -37,7 +47,7 @@ namespace eosio::testing {
    };
 
    struct p2p_trx_provider {
-      p2p_trx_provider(const std::string& peer_endpoint="127.0.0.1", unsigned short port=9876);
+      p2p_trx_provider(const provider_base_config& provider_config);
 
       void setup();
       void send(const std::vector<chain::signed_transaction>& trxs);
@@ -89,23 +99,30 @@ namespace eosio::testing {
       bool terminated_early() {return _terminated_early;}
    };
 
+   struct trx_tps_tester_config {
+      uint32_t _gen_duration_seconds;
+      uint32_t _target_tps;
+
+      std::string to_string() const {
+         std::ostringstream ss;
+         ss << "Trx Tps Tester Config: duration: " << _gen_duration_seconds << " target tps: " << _target_tps;
+         return std::move(ss).str();
+      };
+   };
+
    template<typename G, typename M>
    struct trx_tps_tester {
       std::shared_ptr<G> _generator;
       std::shared_ptr<M> _monitor;
+      trx_tps_tester_config _config;
 
-      uint32_t _gen_duration_seconds;
-      uint32_t _target_tps;
-
-      trx_tps_tester(std::shared_ptr<G> generator, std::shared_ptr<M> monitor, uint32_t gen_duration_seconds, uint32_t target_tps) :
-            _generator(generator), _monitor(monitor),
-               _gen_duration_seconds(gen_duration_seconds), _target_tps(target_tps) {
-
+      trx_tps_tester(std::shared_ptr<G> generator, std::shared_ptr<M> monitor, const trx_tps_tester_config& tester_config) :
+            _generator(generator), _monitor(monitor), _config(tester_config) {
       }
 
       bool run() {
-         if ((_target_tps) < 1 || (_gen_duration_seconds < 1)) {
-            elog("target tps (${tps}) and duration (${dur}) must both be 1+", ("tps", _target_tps)("dur", _gen_duration_seconds));
+         if ((_config._target_tps) < 1 || (_config._gen_duration_seconds < 1)) {
+            elog("target tps (${tps}) and duration (${dur}) must both be 1+", ("tps", _config._target_tps)("dur", _config._gen_duration_seconds));
             return false;
          }
 
@@ -114,12 +131,12 @@ namespace eosio::testing {
          }
 
          tps_test_stats stats;
-         stats.trx_interval = fc::microseconds(std::chrono::microseconds(1s).count() / _target_tps);
+         stats.trx_interval = fc::microseconds(std::chrono::microseconds(1s).count() / _config._target_tps);
 
-         stats.total_trxs = _gen_duration_seconds * _target_tps;
+         stats.total_trxs = _config._gen_duration_seconds * _config._target_tps;
          stats.trxs_left = stats.total_trxs;
          stats.start_time = fc::time_point::now();
-         stats.expected_end_time = stats.start_time + fc::microseconds{_gen_duration_seconds * std::chrono::microseconds(1s).count()};
+         stats.expected_end_time = stats.start_time + fc::microseconds{_config._gen_duration_seconds * std::chrono::microseconds(1s).count()};
          stats.time_to_next_trx_us = 0;
 
          bool keep_running = true;

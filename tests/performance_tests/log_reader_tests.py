@@ -3,13 +3,15 @@
 # Also ensures that all versions of nodeos logs can be handled
 import log_reader
 
+from pathlib import Path
+
 testSuccessful = False
 
 # Test log scraping for 3.2 log format
 dataCurrent = log_reader.chainData()
 dataCurrent.startBlock = None
 dataCurrent.ceaseBlock = None
-log_reader.scrapeLog(dataCurrent, "tests/performance_tests/nodeos_log_3_2.txt.gz")
+log_reader.scrapeLog(dataCurrent, Path("tests")/"performance_tests"/"nodeos_log_3_2.txt.gz")
 
 expectedCurrent = log_reader.chainData()
 expectedCurrent.startBlock = 2
@@ -101,7 +103,7 @@ assert expectedTpsStats == stats , f"Error: Stats calculated: {stats} did not ma
 dataOld = log_reader.chainData()
 dataOld.startBlock = None
 dataOld.ceaseBlock = None
-log_reader.scrapeLog(dataOld, "tests/performance_tests/nodeos_log_2_0_14.txt.gz")
+log_reader.scrapeLog(dataOld, Path("tests")/"performance_tests"/"nodeos_log_2_0_14.txt.gz")
 expectedOld = log_reader.chainData()
 expectedOld.startBlock = 2
 expectedOld.ceaseBlock = 93
@@ -189,6 +191,14 @@ expectedGuide = log_reader.chainBlocksGuide(expectedOld.startBlock, expectedOld.
 assert expectedGuide == guide, f"Error: Guide calculated: {guide} did not match expected stats: {expectedGuide}"
 expectedTpsStats = log_reader.stats(41, 41, 41, 0.0, 0, 2)
 assert expectedTpsStats == stats , f"Error: Stats calculated: {stats} did not match expected stats: {expectedTpsStats}"
+
+#ensure that scraping of trxDataLog is compatible with 2.0
+trxDict = {}
+log_reader.scrapeBlockTrxDataLog(trxDict=trxDict, path=Path("tests")/"performance_tests"/"block_trx_data_log_2_0_14.txt.gz", nodeosVers="v2")
+expectedDict = {}
+expectedDict["41c6dca250f9b74d9fa6a8177a9c8390cb1d01b2123d6f88354f571f0053df72"] = log_reader.trxData(blockNum='112',cpuUsageUs='1253',netUsageUs='19')
+expectedDict["fa17f9033589bb8757be009af46d465f0d903e26b7d198ea0fb6a3cbed93c2e6"] = log_reader.trxData(blockNum='112',cpuUsageUs='1263',netUsageUs='19')
+assert trxDict == expectedDict, f"Scraped transaction dictionary: {trxDict} did not match expected dictionary : {expectedDict}"
 
 testSuccessful = True
 
