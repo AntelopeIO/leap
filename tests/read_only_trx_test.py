@@ -188,7 +188,7 @@ try:
     def runReadOnlyTrxAndRpcInParallel(resource, command, fieldIn=None, expectedValue=None, code=None, payload={}):
         Print("runReadOnlyTrxAndRpcInParallel: ", command)
 
-        numRuns = 1
+        numRuns = 10
         trxThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
         rpcThread = threading.Thread(target = doRpc, args = (resource, command, numRuns, fieldIn, expectedValue, code, payload))
         trxThread.start()
@@ -198,17 +198,20 @@ try:
         rpcThread.join()
         assert(not errorInThread)
 
-    def testReadOnlyTrxAndOtherTrx(opt=None):
-        Print("testReadOnlyTrxAndOtherTrx -- opt = ", opt)
+    def mixedOpsTest(opt=None):
+        Print("mixedOpsTest -- opt = ", opt)
 
         numRuns = 300
         readOnlyThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
         readOnlyThread.start()
-        trxThread = threading.Thread(target = sendTrxsOnThread, args = (numRuns, numRuns, opt))
-        trxThread.start()
+        sendTrxThread = threading.Thread(target = sendTrxsOnThread, args = (numRuns, numRuns, opt))
+        sendTrxThread.start()
+        pushBlockThread = threading.Thread(target = doRpc, args = ("chain", "push_block", numRuns, None, None, 202, {"block":"signed_block"}))
+        pushBlockThread.start()
 
         readOnlyThread.join()
-        trxThread.join()
+        sendTrxThread.join()
+        pushBlockThread.join()
         assert(not errorInThread)
 
     def sendMulReadOnlyTrx(numThreads):
@@ -275,10 +278,12 @@ try:
         runReadOnlyTrxAndRpcInParallel("net", "disconnect", code=201, payload = "localhost")
 
     basicTests()
-    multiReadOnlyTests()
-    chainApiTests()
-    netApiTests()
-    testReadOnlyTrxAndOtherTrx()
+
+    if args.read_only_threads > 0: # Save test time. No need to run other tests if multi-threaded is not enabled
+        multiReadOnlyTests()
+        chainApiTests()
+        netApiTests()
+        mixedOpsTest()
 
     testSuccessful = True
 finally:
