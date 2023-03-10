@@ -2729,7 +2729,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
 
 // Called from app thread
 void producer_plugin_impl::switch_to_write_window() {
-   // this methond can be called from multiple places. it is possible
+   // this method can be called from multiple places. it is possible
    // we are already in write window.
    if ( app().executor().is_write_window() ) {
       return;
@@ -2799,7 +2799,7 @@ void producer_plugin_impl::switch_to_read_window() {
       [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
          auto self = weak_this.lock();
          if( self && ec != boost::asio::error::operation_aborted ) {
-            // use future make sure all read-only tasks finished before swithching to write window
+            // use future to make sure all read-only tasks finished before switching to write window
             for ( auto& task: self->_ro_trx_exec_tasks_fut ) {
                task.get();
             }
