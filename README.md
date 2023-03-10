@@ -195,10 +195,7 @@ cd build
 cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 -DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/" -DCMAKE_BUILD_TYPE=Release ..
 make -j "$(nproc)" package
 ```
-If CMake fails to find a valid llvm configure file, it may be necessary to update the CMAKE_PREFIX_PATH argument to `-DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/"`.
-
 After building, you may remove the `~/boost1.79` directory or you may keep it around for your next build.
-
 </details>
 
 Now you can optionally [test](#step-4---test) your build, or [install](#step-5---install) the `*.deb` binary packages, which will be in the root of your build directory.
