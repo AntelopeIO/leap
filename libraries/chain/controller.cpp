@@ -241,17 +241,16 @@ struct controller_impl {
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
 
+   std::thread::id                 main_thread_id;
+   thread_local static platform_timer timer; // a copy for main thread and each read-only thread
+#if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
+   thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
+#endif
    // Ideally wasmif should be thread_local which must be a static.
    // Unittests can create multiple controller objects (testers) at the same time,
-   // which overwrites the same static wasmif. This same wasmif is used for eosvmoc too.
-   std::thread::id                 main_thread_id;
-   wasm_interface                  wasmif;
-   thread_local static platform_timer timer;
-#if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
-   thread_local static vm::wasm_allocator wasm_alloc;
-#endif
-   // eos-vm and eos-vm-jit requires one wasmif per thread
-   thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local;
+   // which overwrites the same static wasmif, is used for eosvmoc too.
+   wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
+   thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local; // a copy for each read-only thread, used by eos-vm and eos-vm-jit
 
    typedef pair<scope_name,action_name>                   handler_key;
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
@@ -1610,14 +1609,16 @@ struct controller_impl {
             if ( !trx->is_read_only() ) {
                fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
                                 std::move(trx_context.executed_action_receipt_digests) );
-                // call the accept signal but only once for this transaction
-                if (!trx->accepted) {
-                    trx->accepted = true;
-                    emit(self.accepted_transaction, trx);
-                }
+                if ( !trx->is_dry_run() ) {
+                   // call the accept signal but only once for this transaction
+                   if (!trx->accepted) {
+                       trx->accepted = true;
+                       emit(self.accepted_transaction, trx);
+                   }
 
-                dmlog_applied_transaction(trace);
-                emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
+                   dmlog_applied_transaction(trace);
+                   emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
+                }
             }
 
             if ( trx->is_transient() ) {
@@ -2682,6 +2683,7 @@ struct controller_impl {
       EOS_ASSERT( !is_main_thread(), misc_exception, "init_thread_local_data called on the main thread");
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if ( is_eos_vm_oc_enabled() )
+         // EOSVMOC needs further initialization of its thread local data
          wasmif.init_thread_local_data();
       else
 #endif
