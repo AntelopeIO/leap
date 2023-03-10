@@ -8,10 +8,6 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <eosio/chain/exceptions.hpp>
 
-using std::string;
-using std::vector;
-using namespace eosio;
-
 namespace eosio::testing {
    using namespace boost::asio;
    using ip::tcp;
@@ -27,7 +23,7 @@ namespace eosio::testing {
       const char* const header = reinterpret_cast<const char* const>(&payload_size); // avoid variable size encoding of uint32_t
 
 
-      auto send_buffer = std::make_shared<vector<char>>(buffer_size);
+      auto send_buffer = std::make_shared<std::vector<char>>(buffer_size);
       fc::datastream<char*> ds( send_buffer->data(), buffer_size);
       ds.write( header, message_header_size );
       fc::raw::pack( ds, fc::unsigned_int(packed_trx_which));
@@ -37,11 +33,11 @@ namespace eosio::testing {
    }
 
    void p2p_connection::connect() {
-      ilog("Attempting P2P connection to ${ip}:${port}.", ("ip", _peer_endpoint)("port", _peer_port));
+      ilog("Attempting P2P connection to ${ip}:${port}.", ("ip", _config._peer_endpoint)("port", _config._port));
       tcp::resolver r(_p2p_service);
-      auto i = r.resolve(tcp::v4(), _peer_endpoint, std::to_string(_peer_port));
+      auto i = r.resolve(tcp::v4(), _config._peer_endpoint, std::to_string(_config._port));
       boost::asio::connect(_p2p_socket, i);
-      ilog("Connected to ${ip}:${port}.", ("ip", _peer_endpoint)("port", _peer_port));
+      ilog("Connected to ${ip}:${port}.", ("ip", _config._peer_endpoint)("port", _config._port));
    }
 
    void p2p_connection::disconnect() {
@@ -55,8 +51,8 @@ namespace eosio::testing {
       _p2p_socket.send(boost::asio::buffer(*msg));
    }
 
-   p2p_trx_provider::p2p_trx_provider(const std::string& peer_endpoint, unsigned short peer_port) :
-      _peer_connection(peer_endpoint, peer_port) {
+   p2p_trx_provider::p2p_trx_provider(const provider_base_config& provider_config) :
+      _peer_connection(provider_config) {
 
    }
 
@@ -82,7 +78,7 @@ namespace eosio::testing {
       std::ofstream out(fileName.str());
 
       for (logged_trx_data data : _sent_trx_data) {
-         out << fc::string(data._trx_id) << ","<< std::string(data._sent_timestamp) << "\n";
+         out << std::string(data._trx_id) << ","<< std::string(data._sent_timestamp) << "\n";
       }
       out.close();
    }
