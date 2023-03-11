@@ -446,7 +446,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       fc::microseconds                _ro_read_window_effective_time_us{ 0 }; // calculated during option initialization
       std::atomic<int64_t>            _ro_all_threads_exec_time_us; // total time spent by all threads executing transactions. use atomic for simplicity and performance
       fc::time_point                  _ro_read_window_start_time;
-      std::atomic<fc::time_point>     _read_window_deadline;
+      fc::time_point                  _read_window_deadline; // only modified on app thread
       boost::asio::deadline_timer     _ro_write_window_timer;
       boost::asio::deadline_timer     _ro_read_window_timer;
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
@@ -2821,6 +2821,7 @@ void producer_plugin_impl::start_write_window() {
    chain.unset_db_read_only_mode();
    _idle_trx_time = fc::time_point::now();
 
+   _read_window_deadline = fc::time_point::maximum(); // not allowed on block producers, so no need to limit to block deadline
    auto expire_time = boost::posix_time::microseconds(_ro_write_window_time_us.count());
    _ro_write_window_timer.expires_from_now( expire_time );
    _ro_write_window_timer.async_wait( app().executor().wrap(  // stay on app thread
