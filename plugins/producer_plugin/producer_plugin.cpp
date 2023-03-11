@@ -1,3 +1,4 @@
+#include "fc/time.hpp"
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/producer_plugin/pending_snapshot.hpp>
 #include <eosio/producer_plugin/subjective_billing.hpp>
@@ -421,6 +422,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       fc::microseconds                _ro_read_window_time_us{ 60000 };
       static constexpr fc::microseconds _ro_read_window_minimum_time_us{ 10000 };
       fc::microseconds                _ro_read_window_effective_time_us{ 0 }; // calculated during option initialization
+      std::atomic<fc::time_point>     _read_window_deadline;
       boost::asio::deadline_timer     _ro_write_window_timer;
       boost::asio::deadline_timer     _ro_read_window_timer;
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
@@ -433,11 +435,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void switch_to_read_window();
       bool read_only_trx_execution_task();
       bool process_read_only_transaction(const packed_transaction_ptr& trx,
-                                         const next_function<transaction_trace_ptr>& next,
-                                         const fc::time_point& read_window_start_time);
+                                         const next_function<transaction_trace_ptr>& next);
       bool push_read_only_transaction(const transaction_metadata_ptr& trx,
-                                      next_function<transaction_trace_ptr> next,
-                                      const fc::time_point& read_window_start_time);
+                                      next_function<transaction_trace_ptr> next);
 
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
          auto itr = _producer_watermarks.find( producer );
@@ -611,8 +611,13 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             // Parallel read-only trx execution enabled.
             // Store the transaction in read-only-trx queue so that it is
             // executed in read window
-            std::lock_guard<std::mutex> g( _ro_trx_queue.mtx );
-            _ro_trx_queue.queue.push_back({trx, std::move(next)});
+            app().executor().post(priority::low, exec_queue::read_only_trx_safe, [this, trx=trx, next{std::move(next)}]() mutable {
+               auto retry = process_read_only_transaction( trx, next );
+               if( retry ) {
+                  std::lock_guard g(_ro_trx_queue.mtx);
+                  _ro_trx_queue.queue.push_front( {std::move(trx), std::move(next)} );
+               }
+            } );
             return;
          }
 
@@ -2754,7 +2759,7 @@ void producer_plugin_impl::start_write_window() {
    _ro_write_window_timer.expires_from_now( expire_time );
    _ro_write_window_timer.async_wait( app().executor().wrap(  // stay on app thread
       priority::high,
-      exec_queue::read_only_trx_safe, // placed in read_only_trx_safe queue so it is ensured to be executed in either window
+      exec_queue::general, // placed in general so only called from main thread
       [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
          auto self = weak_this.lock();
          if( self && ec != boost::asio::error::operation_aborted ) {
@@ -2774,7 +2779,7 @@ void producer_plugin_impl::switch_to_read_window() {
 
    // we are in write window, so no read-only trx threads are processing transactions.
    // _ro_trx_queue is not being accessed. No need to lock.
-   if ( _ro_trx_queue.queue.empty() ) { // no read-only trxs to process. stay in write window
+   if ( _ro_trx_queue.queue.empty() && app().executor().read_only_trx_safe_queue().empty() ) { // no read-only trxs to process. stay in write window
       start_write_window(); // restart write window timer for next round
       return;
    }
@@ -2785,6 +2790,7 @@ void producer_plugin_impl::switch_to_read_window() {
 
    // start a read-only transaction execution task in each thread in the thread pool
    _ro_num_active_trx_exec_tasks = _ro_thread_pool_size;
+   _read_window_deadline = fc::time_point::now() + _ro_read_window_effective_time_us;
    for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
       _ro_trx_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this] () {
          return self->read_only_trx_execution_task();
@@ -2813,28 +2819,29 @@ void producer_plugin_impl::switch_to_read_window() {
 
 // Called from a read only trx thread. Run in parallel with app and other read only trx threads
 bool producer_plugin_impl::read_only_trx_execution_task() {
-   auto start = fc::time_point::now();
-   auto read_window_deadline = start + _ro_read_window_effective_time_us;
    // We have 4 ways to break out the while loop:
    // 1. pass read window deadline
    // 2. Net_plugin receives a block
-   // 3. No more transactions in the read-only trx queue
-   // 4. A transaction execution is exhaused
-   while ( fc::time_point::now() < read_window_deadline && !_received_block ) {
+   // 3. No more transactions in the read-only trx queue and no read-only tasks to execute
+   // 4. A transaction execution is exhausted (means end of read window)
+   while ( fc::time_point::now() < _read_window_deadline && !_received_block ) {
       std::unique_lock<std::mutex> lck( _ro_trx_queue.mtx );
-      if ( _ro_trx_queue.queue.empty() ) {
-         break;
-      }
-      auto trx = _ro_trx_queue.queue.front();
-      _ro_trx_queue.queue.pop_front();
-      lck.unlock();
-      
-      auto retry = process_read_only_transaction( trx.trx, trx.next, start );
-      if ( retry ) {
-         lck.lock();
-         _ro_trx_queue.queue.push_front(trx);
-         // Do not schedule new execution
-         break;
+      if ( !_ro_trx_queue.queue.empty() ) { // execute exhausted read-only first
+         auto trx = _ro_trx_queue.queue.front();
+         _ro_trx_queue.queue.pop_front();
+         lck.unlock();
+
+         auto retry = process_read_only_transaction( trx.trx, trx.next );
+         if( retry ) {
+            lck.lock();
+            _ro_trx_queue.queue.push_front( trx );
+            // Do not schedule new execution
+            break;
+         }
+      } else {
+         bool more = app().executor().execute_highest_read_only();
+         if ( !more )
+            break;
       }
    }
 
@@ -2852,7 +2859,7 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
 
 // Called from a read only trx thread. Run in parallel with app and other read only trx threads
 // Return whether the trx needs to be retried in next read window
-bool producer_plugin_impl::process_read_only_transaction(const packed_transaction_ptr& trx, const next_function<transaction_trace_ptr>& next, const fc::time_point& read_window_start_time) {
+bool producer_plugin_impl::process_read_only_transaction(const packed_transaction_ptr& trx, const next_function<transaction_trace_ptr>& next) {
    chain::controller& chain = chain_plug->chain();
    auto future = transaction_metadata::start_recover_keys( trx, _thread_pool.get_executor(),
                                                            chain.get_chain_id(), fc::microseconds::maximum(),
@@ -2865,7 +2872,7 @@ bool producer_plugin_impl::process_read_only_transaction(const packed_transactio
    future.wait();
    try {
       auto trx_metadata = future.get();
-      return push_read_only_transaction( trx_metadata, next, read_window_start_time );
+      return push_read_only_transaction( trx_metadata, next );
    } CATCH_AND_CALL(exception_handler);
    return false;
 }
@@ -2874,8 +2881,7 @@ bool producer_plugin_impl::process_read_only_transaction(const packed_transactio
 // Return whether the trx needs to be retried in next read window
 bool producer_plugin_impl::push_read_only_transaction(
             const transaction_metadata_ptr& trx,
-            next_function<transaction_trace_ptr> next,
-            const fc::time_point& read_window_start_time) {
+            next_function<transaction_trace_ptr> next) {
    auto retry = false;
    chain::controller& chain = chain_plug->chain();
 
@@ -2885,18 +2891,14 @@ bool producer_plugin_impl::push_read_only_transaction(
    }
 
    try {
-      const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
       auto start = fc::time_point::now();
-      auto time_used_in_read_window_us = ( start - read_window_start_time );
-      if ( time_used_in_read_window_us >= _ro_read_window_time_us ) {
+      if ( start >= _read_window_deadline ) {
          // already passed read-window deadline, try next round
          return true;
       }
 
-      auto remaining_time_in_read_window_us = _ro_read_window_time_us - time_used_in_read_window_us;
       // Ensure the trx to finish by the end of read-window.
-      auto window_deadline = std::min( start + remaining_time_in_read_window_us, block_deadline );
-      auto trace = chain.push_transaction( trx, window_deadline, _ro_max_trx_time_us, 0, false, 0 );
+      auto trace = chain.push_transaction( trx, _read_window_deadline, _ro_max_trx_time_us, 0, false, 0 );
       auto pr = handle_push_result(trx, next, start, chain, trace, true /*return_failure_trace*/, true /*disable_subjective_enforcement*/, {} /*first_auth*/, 0 /*sub_bill*/, 0 /*prev_billed_cpu_time_us*/);
       // If a transaction was exhausted, that indicates we are close to
       // the end of read window. Retry in next round.
