@@ -2,6 +2,7 @@
 
 #include <appbase/application_base.hpp>
 #include <appbase/execution_priority_queue.hpp>
+#include <mutex>
 
 /*
  * Custmomize appbase to support two-queue exector.
@@ -58,8 +59,19 @@ public:
          }
          return !read_only_trx_safe_queue_.empty() || !general_queue_.empty();
       } else {
-         return read_only_trx_safe_queue_.execute_highest();
+         return execute_highest_read_only();
       }
+   }
+
+   bool execute_highest_read_only() {
+      std::unique_lock g(read_only_mx);
+      auto size = read_only_trx_safe_queue_.size();
+      if( size > 0 ) {
+         auto t = read_only_trx_safe_queue_.pop();
+         g.unlock();
+         t->execute();
+      }
+      return size > 1;
    }
 
    template <typename Function>
@@ -99,6 +111,7 @@ public:
    // members are ordered taking into account that the last one is destructed first
 private:
    boost::asio::io_service            io_serv_;
+   std::mutex                         read_only_mx;
    appbase::execution_priority_queue  read_only_trx_safe_queue_;
    appbase::execution_priority_queue  general_queue_;
    std::atomic<std::size_t>           order_ { std::numeric_limits<size_t>::max() }; // to maintain FIFO ordering in both queues within priority
