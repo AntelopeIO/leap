@@ -89,7 +89,7 @@ BOOST_AUTO_TEST_CASE( execute_from_read_queue ) {
    // stop application. Use lowest at the end to make sure this executes the last
    app->executor().post( priority::lowest, exec_queue::read_only_trx_safe, [&]() {
       // read_queue should have current function and write_queue should have all its functions
-      BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 1);
+      BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 0); // pop()s before execute
       BOOST_REQUIRE_EQUAL( app->executor().general_queue().size(), 4 );
       app->quit();
       } );
@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE( execute_from_empty_read_queue ) {
    // Stop application. Use lowest at the end to make sure this executes the last
    app->executor().post( priority::lowest, exec_queue::read_only_trx_safe, [&]() {
       // read_queue should have current function and write_queue should have all its functions
-      BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 1);
+      BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 0); // pop()s before execute
       BOOST_REQUIRE_EQUAL( app->executor().general_queue().size(), 10 );
       app->quit();
       } );
@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE( execute_from_both_queues ) {
    // stop application. Use lowest at the end to make sure this executes the last
    app->executor().post( priority::lowest, exec_queue::read_only_trx_safe, [&]() {
       // read_queue should have current function and write_queue's functions are all executed 
-      BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 1);
+      BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 1); // pop()s after execute
       BOOST_REQUIRE_EQUAL( app->executor().general_queue().size(), 0 );
       app->quit();
       } );
