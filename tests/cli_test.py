@@ -381,7 +381,7 @@ def abi_file_with_nodeos_test():
 
         node.processCleosCmd('set abi eosio.token ' + malicious_token_abi_path, 'set malicious eosio.token abi', returnType=ReturnType.raw)
 
-        cmdArr = node._Transactions__transferFundsCmdArr(accounts[2], accounts[3], '25.0000 SYS', 'm', False, None, False, False, 90, False)
+        cmdArr = node.transferFundsCmdArr(accounts[2], accounts[3], '25.0000 SYS', 'm', False, None, False, False, 90, False)
         cmdArr.insert(6, '--print-request')
         cmdArr.insert(7, '--abi-file')
         cmdArr.insert(8, token_abi_file_arg)

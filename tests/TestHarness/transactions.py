@@ -6,17 +6,17 @@ import time
 
 from core_symbol import CORE_SYMBOL
 from .depresolver import dep
-from .queries import Queries
+from .queries import NodeosQueries
 from .testUtils import Account
 from .testUtils import Utils
 
-class Transactions(Queries):
+class Transactions(NodeosQueries):
     def __init__(self, host, port, walletMgr=None):
         super().__init__(host, port, walletMgr)
 
     # Create & initialize account and return creation transactions. Return transaction json object
     def createInitializeAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, stakeNet=100, stakeCPU=100, buyRAM=10000, exitOnError=False, sign=False, additionalArgs=''):
-        signStr = Queries.sign_str(sign, [ creatorAccount.activePublicKey ])
+        signStr = NodeosQueries.sign_str(sign, [ creatorAccount.activePublicKey ])
         cmdDesc="system newaccount"
         cmd='%s -j %s %s %s \'%s\' \'%s\' --stake-net "%s %s" --stake-cpu "%s %s" --buy-ram "%s %s" %s' % (
             cmdDesc, signStr, creatorAccount.name, account.name, account.ownerPublicKey,
@@ -24,36 +24,36 @@ class Transactions(Queries):
         msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
         trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
-        transId=Queries.getTransId(trans)
+        transId=NodeosQueries.getTransId(trans)
 
         if stakedDeposit > 0:
             self.waitForTransactionInBlock(transId) # seems like account creation needs to be finalized before transfer can happen
-            trans = self.transferFunds(creatorAccount, account, Queries.currencyIntToStr(stakedDeposit, CORE_SYMBOL), "init")
-            transId=Queries.getTransId(trans)
+            trans = self.transferFunds(creatorAccount, account, NodeosQueries.currencyIntToStr(stakedDeposit, CORE_SYMBOL), "init")
+            transId=NodeosQueries.getTransId(trans)
 
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
     def createAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, exitOnError=False, sign=False):
         """Create account and return creation transactions. Return transaction json object.
         waitForTransBlock: wait on creation transaction id to appear in a block."""
-        signStr = Queries.sign_str(sign, [ creatorAccount.activePublicKey ])
+        signStr = NodeosQueries.sign_str(sign, [ creatorAccount.activePublicKey ])
         cmdDesc="create account"
         cmd="%s -j %s %s %s %s %s" % (
             cmdDesc, signStr, creatorAccount.name, account.name, account.ownerPublicKey, account.activePublicKey)
         msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
         trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
-        transId=Queries.getTransId(trans)
+        transId=NodeosQueries.getTransId(trans)
 
         if stakedDeposit > 0:
             self.waitForTransactionInBlock(transId) # seems like account creation needs to be finlized before transfer can happen
             trans = self.transferFunds(creatorAccount, account, "%0.04f %s" % (stakedDeposit/10000, CORE_SYMBOL), "init")
             self.trackCmdTransaction(trans)
-            transId=Queries.getTransId(trans)
+            transId=NodeosQueries.getTransId(trans)
 
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
-    def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign):
+    def transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign):
         assert isinstance(amountStr, str)
         assert(source)
         assert(isinstance(source, Account))
@@ -95,7 +95,7 @@ class Transactions(Queries):
 
     # Trasfer funds. Returns "transfer" json return object
     def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None, sign=False, dontSend=False, expiration=90, skipSign=False):
-        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign)
+        cmdArr = self.transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign)
         trans=None
         start=time.perf_counter()
         try:
@@ -122,7 +122,7 @@ class Transactions(Queries):
 
     # Trasfer funds. Returns (popen, cmdArr) for checkDelayedOutput
     def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None, sign=False, dontSend=False, expiration=90, skipSign=False):
-        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign)
+        cmdArr = self.transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign)
         start=time.perf_counter()
         try:
             popen=Utils.delayedCheckOutput(cmdArr)
@@ -142,7 +142,7 @@ class Transactions(Queries):
 
     # publish contract and return transaction as json object
     def publishContract(self, account, contractDir, wasmFile, abiFile, waitForTransBlock=False, shouldFail=False, sign=False):
-        signStr = Queries.sign_str(sign, [ account.activePublicKey ])
+        signStr = NodeosQueries.sign_str(sign, [ account.activePublicKey ])
         cmd="%s %s -v set contract -j %s %s %s" % (Utils.EosClientPath, self.eosClientArgs(), signStr, account.name, contractDir)
         cmd += "" if wasmFile is None else (" "+ wasmFile)
         cmd += "" if abiFile is None else (" " + abiFile)
@@ -181,7 +181,7 @@ class Transactions(Queries):
                 Utils.Print("ERROR: The publish contract did not fail as expected.")
                 return None
 
-        Queries.validateTransaction(trans)
+        NodeosQueries.validateTransaction(trans)
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=False)
 
     # returns tuple with indication if transaction was successfully sent and either the transaction or else the exception output
@@ -211,7 +211,7 @@ class Transactions(Queries):
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            return (Queries.getTransStatus(retTrans) == 'executed', retTrans)
+            return (NodeosQueries.getTransStatus(retTrans) == 'executed', retTrans)
         except subprocess.CalledProcessError as ex:
             msg=ex.output.decode("utf-8")
             if not silentErrors:
@@ -239,7 +239,7 @@ class Transactions(Queries):
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            return (Queries.getTransStatus(trans) == 'executed' if expectTrxTrace else True, trans)
+            return (NodeosQueries.getTransStatus(trans) == 'executed' if expectTrxTrace else True, trans)
         except subprocess.CalledProcessError as ex:
             msg=ex.stderr.decode("utf-8")
             output=ex.output.decode("utf-8")
@@ -252,7 +252,7 @@ class Transactions(Queries):
     def setPermission(self, account, code, pType, requirement, waitForTransBlock=False, exitOnError=False, sign=False):
         assert(isinstance(account, Account))
         assert(isinstance(code, Account))
-        signStr = Queries.sign_str(sign, [ account.activePublicKey ])
+        signStr = NodeosQueries.sign_str(sign, [ account.activePublicKey ])
         cmdDesc="set action permission"
         cmd="%s -j %s %s %s %s %s" % (cmdDesc, signStr, account.name, code.name, pType, requirement)
         trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError)
@@ -264,7 +264,7 @@ class Transactions(Queries):
         if toAccount is None:
             toAccount=fromAccount
 
-        signStr = Queries.sign_str(sign, [ fromAccount.activePublicKey ])
+        signStr = NodeosQueries.sign_str(sign, [ fromAccount.activePublicKey ])
         cmdDesc="system delegatebw"
         transferStr="--transfer" if transferTo else ""
         cmd="%s -j %s %s %s \"%s %s\" \"%s %s\" %s" % (
@@ -279,7 +279,7 @@ class Transactions(Queries):
         if toAccount is None:
             toAccount=fromAccount
 
-        signStr = Queries.sign_str(sign, [ fromAccount.activePublicKey ])
+        signStr = NodeosQueries.sign_str(sign, [ fromAccount.activePublicKey ])
         cmdDesc="system undelegatebw"
         cmd="%s -j %s %s %s \"%s %s\" \"%s %s\"" % (
             cmdDesc, signStr, fromAccount.name, toAccount.name, netQuantity, CORE_SYMBOL, cpuQuantity, CORE_SYMBOL)
@@ -290,7 +290,7 @@ class Transactions(Queries):
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
     def regproducer(self, producer, url, location, waitForTransBlock=False, exitOnError=False, sign=False):
-        signStr = Queries.sign_str(sign, [ producer.activePublicKey ])
+        signStr = NodeosQueries.sign_str(sign, [ producer.activePublicKey ])
         cmdDesc="system regproducer"
         cmd="%s -j %s %s %s %s %s" % (
             cmdDesc, signStr, producer.name, producer.activePublicKey, url, location)
@@ -301,7 +301,7 @@ class Transactions(Queries):
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
     def vote(self, account, producers, waitForTransBlock=False, exitOnError=False, sign=False):
-        signStr = Queries.sign_str(sign, [ account.activePublicKey ])
+        signStr = NodeosQueries.sign_str(sign, [ account.activePublicKey ])
         cmdDesc = "system voteproducer prods"
         cmd="%s -j %s %s %s" % (
             cmdDesc, signStr, account.name, " ".join(producers))

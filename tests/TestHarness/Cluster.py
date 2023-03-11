@@ -15,7 +15,6 @@ import socket
 from pathlib import Path
 
 from core_symbol import CORE_SYMBOL
-from .testUtils import Utils
 from .testUtils import Account
 from .testUtils import BlockLogAction
 from .testUtils import Utils
@@ -262,8 +261,8 @@ class Cluster(object):
             tries = tries - 1
             time.sleep(2)
         loggingLevelDictString = json.dumps(self.loggingLevelDict, separators=(',', ':'))
-        cmd="%s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s --logging-level %s --logging-level-map %s" % (
-            "python3 tests/launcher.py", pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
+        cmd="%s %s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s --logging-level %s --logging-level-map %s" % (
+            sys.executable, "tests/launcher.py", pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
             producerFlag, unstartedNodes, self.loggingLevel, loggingLevelDictString)
         cmdArr=cmd.split()
         if self.staging:
@@ -963,7 +962,7 @@ class Cluster(object):
     #         return transId
     #     return None
 
-    def createInitializeAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, stakeNet=100, stakeCPU=100, buyRAM=10000, exitOnError=False, sign=False, additionalArgs=''):
+    def createInitializeAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, stakeNet=100, stakeCPU=100, buyRAM=10000, exitOnError=False):
         assert(len(self.nodes) > 0)
         node=self.nodes[0]
         trans=node.createInitializeAccount(account, creatorAccount, stakedDeposit, waitForTransBlock, stakeNet=stakeNet, stakeCPU=stakeCPU, buyRAM=buyRAM)

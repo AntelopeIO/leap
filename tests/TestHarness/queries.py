@@ -26,7 +26,7 @@ addEnum(BlockType, "head")
 addEnum(BlockType, "lib")
 
 
-class Queries:
+class NodeosQueries:
     def __init__(self, host, port, walletMgr=None):
         self.endpointHttp = f'http://{host}:{port}'
         self.endpointArgs = f'--url {self.endpointHttp}'
@@ -47,16 +47,8 @@ class Queries:
             return "%s=\n%s" % (self.desc, json.dumps(self.obj, indent=1))
 
         def __keyContext(self):
-            msg=""
-            for key in self.keyContext:
-                if msg=="":
-                    msg="["
-                else:
-                    msg+="]["
-                msg+=key
-            if msg!="":
-                msg+="]"
-            return msg
+            msg = ']['.join(self.keyContext)
+            return f'[{msg}]' if len(msg) > 0 else ''
 
         def __contextDesc(self):
             return "%s%s" % (self.desc, self.__keyContext())
