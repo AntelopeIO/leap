@@ -468,7 +468,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto blk_num = block->block_num();
 
          auto now = fc::time_point::now();
-         if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0))
+         if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) // only log every 1000 during sync
             fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
 
          EOS_ASSERT( block->timestamp < (now + fc::seconds( 7 )), block_from_the_future,
