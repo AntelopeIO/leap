@@ -199,7 +199,7 @@ class Node(Transactions):
     def waitForTransBlockIfNeeded(self, trans, waitForTransBlock, exitOnError=False):
         if not waitForTransBlock:
             return trans
-        transId=Queries.getTransId(trans)
+        transId=NodeosQueries.getTransId(trans)
         if not self.waitForTransactionInBlock(transId):
             if exitOnError:
                 Utils.cmdError("transaction with id %s never made it into a block" % (transId))
@@ -427,11 +427,11 @@ class Node(Transactions):
             if Utils.Debug: Utils.Print("  cmd returned transaction: %s" % (trans))
             return
 
-        if ignoreNonTrans and not Queries.isTrans(trans):
+        if ignoreNonTrans and not NodeosQueries.isTrans(trans):
             if Utils.Debug: Utils.Print("  cmd returned a non-transaction: %s" % (trans))
             return
 
-        transId=Queries.getTransId(trans)
+        transId=NodeosQueries.getTransId(trans)
         self.lastTrackedTransactionId=transId
         if transId in self.transCache.keys():
             replaceMsg="replacing previous trans=\n%s" % json.dumps(self.transCache[transId], indent=2, sort_keys=True)
@@ -439,8 +439,8 @@ class Node(Transactions):
             replaceMsg=""
 
         if Utils.Debug and reportStatus:
-            status=Queries.getTransStatus(trans)
-            blockNum=Queries.getTransBlockNum(trans)
+            status=NodeosQueries.getTransStatus(trans)
+            blockNum=NodeosQueries.getTransBlockNum(trans)
             Utils.Print("  cmd returned transaction id: %s, status: %s, (possible) block num: %s %s" % (transId, status, blockNum, replaceMsg))
         elif Utils.Debug:
             Utils.Print("  cmd returned transaction id: %s %s" % (transId, replaceMsg))
