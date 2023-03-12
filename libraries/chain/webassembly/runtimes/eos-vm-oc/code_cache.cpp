@@ -140,7 +140,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
          _cache_index.relocate(_cache_index.begin(), _cache_index.project<0>(it));
       return &*it;
    }
-   if(!is_main_thread()) // on read-onoy thread
+   if(!is_main_thread()) // on read-only thread
       return nullptr;
 
    const code_tuple ct = code_tuple{code_id, vm_version};

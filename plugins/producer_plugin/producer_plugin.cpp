@@ -2874,7 +2874,7 @@ bool producer_plugin_impl::process_read_only_transaction(const packed_transactio
    return false;
 }
 
-// Called on read_only_trx execution thread; multi-threaded safe
+// Called from a read_only_trx execution thread
 // Return whether the trx needs to be retried in next read window
 bool producer_plugin_impl::push_read_only_transaction(const transaction_metadata_ptr& trx, const next_function<transaction_trace_ptr>& next) {
    auto retry = false;
