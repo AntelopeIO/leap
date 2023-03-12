@@ -339,9 +339,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       push_result push_transaction( const fc::time_point& block_deadline,
                                     const transaction_metadata_ptr& trx,
                                     bool api_trx, bool return_failure_trace,
-                                    next_function<transaction_trace_ptr> next );
+                                    const next_function<transaction_trace_ptr>& next );
       push_result handle_push_result( const transaction_metadata_ptr& trx,
-                                      next_function<transaction_trace_ptr> next,
+                                      const next_function<transaction_trace_ptr>& next,
                                       const fc::time_point& start,
                                       const chain::controller& chain,
                                       const transaction_trace_ptr& trace,
@@ -461,7 +461,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       bool process_read_only_transaction(const packed_transaction_ptr& trx,
                                          const next_function<transaction_trace_ptr>& next);
       bool push_read_only_transaction(const transaction_metadata_ptr& trx,
-                                      next_function<transaction_trace_ptr> next);
+                                      const next_function<transaction_trace_ptr>& next);
 
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
          auto itr = _producer_watermarks.find( producer );
@@ -655,7 +655,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                          transaction_metadata::trx_type trx_type,
                                          bool return_failure_traces,
                                          next_function<transaction_trace_ptr> next) {
-         if ( trx_type == transaction_metadata::trx_type::read_only && _ro_thread_pool_size > 0 ) {
+         if ( trx_type == transaction_metadata::trx_type::read_only ) {
             // Parallel read-only trx execution enabled. Post to read_only queue for execution.
             app().executor().post(priority::low, exec_queue::read_only_trx_safe, [this, trx=trx, next{std::move(next)}]() mutable {
                auto retry = process_read_only_transaction( trx, next );
@@ -729,7 +729,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       bool process_incoming_transaction_async(const transaction_metadata_ptr& trx,
                                               bool api_trx,
                                               bool return_failure_trace,
-                                              next_function<transaction_trace_ptr> next) {
+                                              const next_function<transaction_trace_ptr>& next) {
          bool exhausted = false;
          chain::controller& chain = chain_plug->chain();
          try {
@@ -2215,9 +2215,10 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
                                         const transaction_metadata_ptr& trx,
                                         bool api_trx,
                                         bool return_failure_trace,
-                                        next_function<transaction_trace_ptr> next )
+                                        const next_function<transaction_trace_ptr>& next )
 {
    auto start = fc::time_point::now();
+   EOS_ASSERT(!trx->is_read_only(), producer_exception, "Unexpected read-only trx");
 
    bool disable_subjective_enforcement = (api_trx && _disable_subjective_api_billing)
                                          || (!api_trx && _disable_subjective_p2p_billing)
@@ -2254,14 +2255,6 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
       }
    }
 
-   // Make sure db_read_only_mode always to be unset
-   auto db_read_only_mode_guard = fc::make_scoped_exit([trx, &chain]{
-      if( trx->is_read_only() )
-         chain.unset_db_read_only_mode();
-   });
-   if( trx->is_read_only() )
-      chain.set_db_read_only_mode();
-
    auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
 
    return handle_push_result(trx, next, start, chain, trace, return_failure_trace, disable_subjective_enforcement, first_auth, sub_bill, prev_billed_cpu_time_us);
@@ -2269,7 +2262,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 
 producer_plugin_impl::push_result
 producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
-                                          next_function<transaction_trace_ptr> next,
+                                          const next_function<transaction_trace_ptr>& next,
                                           const fc::time_point& start,
                                           const chain::controller& chain,
                                           const transaction_trace_ptr& trace,
@@ -2951,9 +2944,7 @@ bool producer_plugin_impl::process_read_only_transaction(const packed_transactio
 
 // Called from a read_only_trx execution thread
 // Return whether the trx needs to be retried in next read window
-bool producer_plugin_impl::push_read_only_transaction(
-            const transaction_metadata_ptr& trx,
-            next_function<transaction_trace_ptr> next) {
+bool producer_plugin_impl::push_read_only_transaction(const transaction_metadata_ptr& trx, const next_function<transaction_trace_ptr>& next) {
    auto retry = false;
    chain::controller& chain = chain_plug->chain();
 
