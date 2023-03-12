@@ -39,8 +39,8 @@ BOOST_AUTO_TEST_CASE( default_exec_window ) {
    // Stop app. Use the lowest priority to make sure this function to execute the last
    app->executor().post( priority::lowest, exec_queue::read_only_trx_safe, [&]() {
       // read_only_trx_safe_queue should only contain the current lambda function,
-      // and general_queue should have execute all its functions
-      BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 1);
+      // and general_queue should have executed all its functions
+      BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 1); // pop()s after execute
       BOOST_REQUIRE_EQUAL( app->executor().general_queue().size(), 0 );
       app->quit();
       } );
@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE( execute_from_read_queue ) {
 
    // stop application. Use lowest at the end to make sure this executes the last
    app->executor().post( priority::lowest, exec_queue::read_only_trx_safe, [&]() {
-      // read_queue should have current function and write_queue should have all its functions
+      // read_queue should be empty (read window pops before execute) and write_queue should have all its functions
       BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 0); // pop()s before execute
       BOOST_REQUIRE_EQUAL( app->executor().general_queue().size(), 4 );
       app->quit();
@@ -133,7 +133,7 @@ BOOST_AUTO_TEST_CASE( execute_from_empty_read_queue ) {
 
    // Stop application. Use lowest at the end to make sure this executes the last
    app->executor().post( priority::lowest, exec_queue::read_only_trx_safe, [&]() {
-      // read_queue should have current function and write_queue should have all its functions
+      // read_queue should be empty (read window pops before execute) and write_queue should have all its functions
       BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 0); // pop()s before execute
       BOOST_REQUIRE_EQUAL( app->executor().general_queue().size(), 10 );
       app->quit();
