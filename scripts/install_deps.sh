@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/bash
 
 apt-get update
 apt-get update --fix-missing
