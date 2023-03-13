@@ -111,7 +111,7 @@ install_boost() {
         pushdir "${BOOST_DIR}"
         patch -p1 < "${SCRIPT_DIR}/0001-beast-fix-moved-from-executor.patch"
         try ./bootstrap.sh -with-toolset=clang --prefix="${BOOST_DIR}/bin"
-        ./b2 toolset=clang cxxflags='-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I${CLANG_DIR}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE' linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -q -j "${JOBS}" install
+        ./b2 toolset=clang cxxflags="-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I\${CLANG_DIR}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE" linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -q -j "${JOBS}" install
         popdir "${DEP_DIR}"
         rm "boost_${BOOST_VER//\./_}.tar.gz"
     fi
