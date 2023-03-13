@@ -2883,11 +2883,6 @@ bool producer_plugin_impl::push_read_only_transaction(
    auto retry = false;
    chain::controller& chain = chain_plug->chain();
 
-   if( !chain.is_building_block() ) {
-      // try next round
-      return true;
-   }
-
    try {
       const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
       auto start = fc::time_point::now();
