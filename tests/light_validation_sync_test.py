@@ -41,7 +41,6 @@ try:
         prodCount=1,
         totalProducers=1,
         totalNodes=2,
-        useBiosBootFile=False,
         loadSystemContract=False,
         specificExtraNodeosArgs={
             1:"--validation-mode light"})

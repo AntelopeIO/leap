@@ -80,7 +80,6 @@ class PerformanceTestBasic:
         topo: str = "mesh"
         extraNodeosArgs: ExtraNodeosArgs = field(default_factory=ExtraNodeosArgs)
         specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
-        useBiosBootFile: bool = False
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
@@ -263,7 +262,6 @@ class PerformanceTestBasic:
         return self.cluster.launch(
             pnodes=self.clusterConfig.pnodes,
             totalNodes=self.clusterConfig._totalNodes,
-            useBiosBootFile=self.clusterConfig.useBiosBootFile,
             topo=self.clusterConfig.topo,
             genesisPath=self.clusterConfig.genesisPath,
             maximumP2pPerHost=self.clusterConfig.maximumP2pPerHost,

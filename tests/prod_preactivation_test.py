@@ -59,7 +59,7 @@ try:
         cluster.cleanup()
         Print("Stand up cluster")
         if cluster.launch(pnodes=prodCount, totalNodes=prodCount, prodCount=1, onlyBios=onlyBios,
-                         dontBootstrap=dontBootstrap, useBiosBootFile=False,
+                         dontBootstrap=dontBootstrap,
                          pfSetupPolicy=PFSetupPolicy.NONE, extraNodeosArgs=" --plugin eosio::producer_api_plugin  --http-max-response-time-ms 990000 ") is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")

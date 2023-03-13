@@ -51,7 +51,6 @@ try:
         prodCount=1,
         totalProducers=1,
         totalNodes=2,
-        useBiosBootFile=False,
         loadSystemContract=False,
         specificExtraNodeosArgs={
             1:"--read-mode irreversible --plugin eosio::producer_api_plugin"})

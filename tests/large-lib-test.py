@@ -63,7 +63,6 @@ try:
             pnodes=pnodes,
             totalNodes=total_nodes,
             totalProducers=1,
-            useBiosBootFile=False,
             topo="mesh") is False:
         errorExit("Failed to stand up eos cluster.")
 

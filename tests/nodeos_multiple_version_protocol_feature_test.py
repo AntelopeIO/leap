@@ -92,7 +92,6 @@ try:
     # avoid dropping late blocks
     assert cluster.launch(pnodes=4, totalNodes=4, prodCount=1, totalProducers=4,
                           extraNodeosArgs=" --plugin eosio::producer_api_plugin ",
-                          useBiosBootFile=False,
                           specificExtraNodeosArgs={
                              0:"--http-max-response-time-ms 990000",
                              1:"--http-max-response-time-ms 990000",

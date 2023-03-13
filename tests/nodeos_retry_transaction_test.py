@@ -86,8 +86,7 @@ try:
     # topo=ring all nodes are connected in a ring but also to the bios node
     if cluster.launch(pnodes=totalProducerNodes, totalNodes=totalNodes, totalProducers=totalProducers,
                       topo="ring",
-                      specificExtraNodeosArgs=specificExtraNodeosArgs,
-                      useBiosBootFile=False) is False:
+                      specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 

@@ -85,7 +85,6 @@ try:
         totalNodes=totalNodes,
         pnodes=producerNodes,
         totalProducers=producerNodes,
-        useBiosBootFile=False,
         topo="./tests/auto_bp_peering_test_shape.json",
         extraNodeosArgs=" --plugin eosio::net_api_plugin ",
         specificExtraNodeosArgs=specificNodeosArgs,
