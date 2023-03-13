@@ -96,6 +96,18 @@ protected:
    // whether response should be sent back to client when an exception occurs
    bool is_send_exception_response_ = true;
 
+   void set_content_type_header(http_content_type content_type) {
+      switch (content_type) {
+         case http_content_type::plaintext:
+            res_->set(http::field::content_type, "text/plain");
+            break;
+
+         case http_content_type::json:
+         default:
+            res_->set(http::field::content_type, "application/json");
+      }
+   }
+
    enum class continue_state_t { none, read_body, reject };
    continue_state_t continue_state_ { continue_state_t::none };
 
@@ -147,10 +159,14 @@ protected:
             if(plugin_state_->logger.is_enabled(fc::log_level::all))
                plugin_state_->logger.log(FC_LOG_MESSAGE(all, "resource: ${ep}", ("ep", resource)));
             std::string body = req.body();
-            handler_itr->second(derived().shared_from_this(),
+            auto content_type = handler_itr->second.content_type;
+            set_content_type_header(content_type);
+            handler_itr->second.call_count.value++;
+            plugin_state_->metrics.post_metrics();
+            handler_itr->second.fn(derived().shared_from_this(),
                                 std::move(resource),
                                 std::move(body),
-                                make_http_response_handler(plugin_state_, derived().shared_from_this()));
+                                make_http_response_handler(plugin_state_, derived().shared_from_this(), content_type));
          } else {
             fc_dlog( plugin_state_->logger, "404 - not found: ${ep}", ("ep", resource) );
             error_results results{static_cast<uint16_t>(http::status::not_found), "Not Found",
@@ -421,7 +437,7 @@ public:
 
 
       if(is_send_exception_response_) {
-         res_->set(http::field::content_type, "application/json");
+         set_content_type_header(http_content_type::json);
          res_->keep_alive(false);
          res_->set(http::field::server, BOOST_BEAST_VERSION_STRING);
 
