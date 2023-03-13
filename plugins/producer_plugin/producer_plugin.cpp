@@ -658,7 +658,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                          bool return_failure_traces,
                                          next_function<transaction_trace_ptr> next) {
          if ( trx_type == transaction_metadata::trx_type::read_only ) {
-            // Parallel read-only trx execution enabled. Post to read_only queue for execution.
+            // Post all read only trxs to read_only queue for execution.
             app().executor().post(priority::low, exec_queue::read_only_trx_safe, [this, trx=trx, next{std::move(next)}]() mutable {
                process_read_only_transaction( trx, next );
             } );
@@ -2838,7 +2838,7 @@ void producer_plugin_impl::switch_to_read_window() {
    _time_tracker.add_idle_time( fc::time_point::now() - _idle_trx_time );
 
    // we are in write window, so no read-only trx threads are processing transactions.
-   // _ro_exhausted_trx_queue is not being accessed. No need to lock.
+   // _ro_exhausted_trx_queue is not being accessed by read-only threads, no need to lock.
    if ( _ro_exhausted_trx_queue.queue.empty() && app().executor().read_only_trx_safe_queue().empty() ) { // no read-only trxs to process. stay in write window
       start_write_window(); // restart write window timer for next round
       return;
@@ -2885,7 +2885,7 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
    // We have 4 ways to break out the while loop:
    // 1. pass read window deadline
    // 2. Net_plugin receives a block
-   // 3. No more transactions in the read-only trx queue and no read-only tasks to execute
+   // 3. No more transactions in the read-only trx queue and no read-only exhausted tasks to execute
    // 4. A transaction execution is exhausted (means end of read window)
    bool exhausted_trx_queue_empty = false;
    while ( fc::time_point::now() < _ro_window_deadline && !_received_block ) {
