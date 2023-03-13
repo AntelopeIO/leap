@@ -16,12 +16,11 @@ else
     echo "Currently only supporting Ubuntu based builds. Your architecture is not supported. Proceed at your own risk."
 fi
 
-if [ $# -eq 0 ] || [ -z "$1" ]
-    then
-        echo "Please supply a directory for the build dependencies to be placed and a directory for leap build and a value for the number of jobs to use for building."
-        echo "The binary packages will be created and placed into the leap build directory."
-        echo "./pinned_build.sh <dependencies directory> <leap build directory> <1-100>"
-        exit -1
+if [ $# -eq 0 ] || [ -z "$1" ]; then
+    echo "Please supply a directory for the build dependencies to be placed and a directory for leap build and a value for the number of jobs to use for building."
+    echo "The binary packages will be created and placed into the leap build directory."
+    echo "./pinned_build.sh <dependencies directory> <leap build directory> <1-100>"
+    exit -1
 fi
 
 CORE_SYM=EOS
