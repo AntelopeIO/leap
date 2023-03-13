@@ -156,6 +156,7 @@ try:
     assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
 
     Print("Create snapshot")
+    waitForBlock(nodeSnap, nodeSnap.getBlockNum(BlockType.head) + 30)
     ret = nodeSnap.scheduleSnapshot()
     assert ret is not None, "Snapshot creation failed"
     ret_head_block_num = nodeSnap.getBlockNum(BlockType.head) + 1
