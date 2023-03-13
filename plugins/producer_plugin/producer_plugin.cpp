@@ -2983,7 +2983,7 @@ bool producer_plugin_impl::push_read_only_transaction(const transaction_metadata
          return true;
       }
 
-      // when executing on the main thread, need to switch db mode if not already in read only mode
+      // when executing on the main thread while in the write window, need to switch db mode to read only
       // _ro_in_read_only_mode can only be false if running on main thread as it is only modified from the main thread
       const bool switch_read_mode = !_ro_in_read_only_mode;
       auto db_read_only_mode_guard = fc::make_scoped_exit([&]{
