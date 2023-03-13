@@ -22,6 +22,9 @@
 [submodule "libraries/libfc/secp256k1/secp256k1"]
 	path = libraries/libfc/secp256k1/secp256k1
 	url = https://github.com/bitcoin-core/secp256k1
+[submodule "libraries/prometheus/prometheus-cpp"]
+	path = libraries/prometheus/prometheus-cpp
+	url = https://github.com/jupp0r/prometheus-cpp.git
 [submodule "libraries/libfc/libraries/bn256"]
 	path = libraries/libfc/libraries/bn256
 	url = https://github.com/AntelopeIO/bn256
