@@ -57,6 +57,7 @@ popdir() {
 }
 
 try(){
+    echo "$ $*"
     "$@"
     res=$?
     if [[ ${res} -ne 0 ]]; then
