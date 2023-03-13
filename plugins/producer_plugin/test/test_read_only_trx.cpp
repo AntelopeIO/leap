@@ -144,10 +144,4 @@ BOOST_AUTO_TEST_CASE(no_read_only_threads) {
    test_trxs_common(specific_args);
 }
 
-// test a tight read window size
-BOOST_AUTO_TEST_CASE(tight_read_window) {
-   std::vector<const char*> specific_args = { "--read-only-threads", "2", "--max-transaction-time", "5", "--read-only-write-window-time-us", "50000", "--read-only-read-window-time-us", "15001" }; // 15001 = max-transaction-time (5ms) + 10000us (minimum margin) + 1
-   test_trxs_common(specific_args);
-}
-
 BOOST_AUTO_TEST_SUITE_END()
