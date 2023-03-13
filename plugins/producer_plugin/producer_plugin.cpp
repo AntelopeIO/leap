@@ -428,6 +428,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_exhausted_trx_queue;
       std::atomic<uint32_t>           _ro_num_active_trx_exec_tasks{ 0 };
+      bool                            _ro_in_read_only_mode{false}; // only modified on app thread
       std::vector<std::future<bool>>  _ro_trx_exec_tasks_fut;
 
       void start_write_window();
@@ -2744,6 +2745,7 @@ void producer_plugin_impl::start_write_window() {
 
    app().executor().set_to_write_window();
    chain.unset_db_read_only_mode();
+   _ro_in_read_only_mode = false;
    _idle_trx_time = fc::time_point::now();
 
    _ro_window_deadline = _idle_trx_time + _ro_write_window_time_us; // not allowed on block producers, so no need to limit to block deadline
@@ -2778,6 +2780,7 @@ void producer_plugin_impl::switch_to_read_window() {
 
    app().executor().set_to_read_window();
    chain_plug->chain().set_db_read_only_mode();
+   _ro_in_read_only_mode = true;
    _received_block = false;
 
    // start a read-only transaction execution task in each thread in the thread pool
@@ -2911,6 +2914,16 @@ bool producer_plugin_impl::push_read_only_transaction(const transaction_metadata
          // already passed read-window deadline, try next round
          return true;
       }
+
+      // when executing on the main thread, need to switch db mode if not already in read only mode
+      // _ro_in_read_only_mode can only be false if running on main thread as it is only modified from the main thread
+      const bool switch_read_mode = !_ro_in_read_only_mode;
+      auto db_read_only_mode_guard = fc::make_scoped_exit([&]{
+         if( switch_read_mode )
+            chain.unset_db_read_only_mode();
+      });
+      if( switch_read_mode )
+         chain.set_db_read_only_mode();
 
       // Ensure the trx to finish by the end of read-window.
       auto trace = chain.push_transaction( trx, _ro_window_deadline, _ro_max_trx_time_us, 0, false, 0 );
