@@ -31,7 +31,6 @@ JOBS=$3
 CLANG_VER=11.0.1
 BOOST_VER=1.70.0
 LLVM_VER=7.1.0
-ARCH=`uname -m`
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 START_DIR="$(pwd)"
 
