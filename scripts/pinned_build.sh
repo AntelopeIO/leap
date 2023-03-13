@@ -110,7 +110,7 @@ install_clang() {
         mkdir -p "${CLANG_DIR}"
         CLANG_FN="clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
         try wget -O "${CLANG_FN}" "https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VER}/${CLANG_FN}"
-        try tar -xvf "${CLANG_FN}" -C "${CLANG_DIR}"
+        try tar -xf "${CLANG_FN}" -C "${CLANG_DIR}"
         pushdir "${CLANG_DIR}"
         mv clang+*/* .
         popdir "${DEP_DIR}"
@@ -126,7 +126,7 @@ install_llvm() {
         echo "Installing LLVM ${LLVM_VER} @ ${LLVM_DIR}"
         mkdir -p "${LLVM_DIR}"
         try wget -O "llvm-${LLVM_VER}.src.tar.xz" "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VER}/llvm-${LLVM_VER}.src.tar.xz"
-        try tar -xvf "llvm-${LLVM_VER}.src.tar.xz"
+        try tar -xf "llvm-${LLVM_VER}.src.tar.xz"
         pushdir "${LLVM_DIR}.src"
         pushdir build
         try cmake -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX="${LLVM_DIR}" -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=host -DLLVM_BUILD_TOOLS=Off -DLLVM_ENABLE_RTTI=On -DLLVM_ENABLE_TERMINFO=Off -DCMAKE_EXE_LINKER_FLAGS=-pthread -DCMAKE_SHARED_LINKER_FLAGS=-pthread -DLLVM_ENABLE_PIC=NO ..
@@ -146,7 +146,7 @@ install_boost() {
     if [ ! -d "${BOOST_DIR}" ]; then
         echo "Installing Boost ${BOOST_VER} @ ${BOOST_DIR}"
         try wget -O "boost_${BOOST_VER//\./_}.tar.gz" "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/boost_${BOOST_VER//\./_}.tar.gz"
-        try tar --transform="s:^boost_${BOOST_VER//\./_}:boost_${BOOST_VER//\./_}patched:" -xvzf "boost_${BOOST_VER//\./_}.tar.gz" -C "${DEP_DIR}"
+        try tar --transform="s:^boost_${BOOST_VER//\./_}:boost_${BOOST_VER//\./_}patched:" -xzf "boost_${BOOST_VER//\./_}.tar.gz" -C "${DEP_DIR}"
         pushdir "${BOOST_DIR}"
         patch -p1 < "${SCRIPT_DIR}/0001-beast-fix-moved-from-executor.patch"
         try ./bootstrap.sh -with-toolset=clang --prefix="${BOOST_DIR}/bin"
