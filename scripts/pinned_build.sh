@@ -20,7 +20,7 @@ if [ $# -eq 0 ] || [ -z "$1" ]; then
     echo "Please supply a directory for the build dependencies to be placed and a directory for leap build and a value for the number of jobs to use for building."
     echo "The binary packages will be created and placed into the leap build directory."
     echo "./pinned_build.sh <dependencies directory> <leap build directory> <1-100>"
-    exit -1
+    exit 255
 fi
 
 CORE_SYM=EOS
@@ -60,7 +60,7 @@ try(){
     output=$($@)
     res=$?
     if [[ ${res} -ne 0 ]]; then
-        exit -1
+        exit 255
     fi
 }
 
