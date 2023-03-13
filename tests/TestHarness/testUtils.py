@@ -68,8 +68,6 @@ class Utils:
     EosLauncherPath="programs/eosio-launcher/eosio-launcher"
     ShuttingDown=False
 
-    EosBlockLogPath="programs/eosio-blocklog/eosio-blocklog"
-
     FileDivider="================================================================="
     DataRoot="var"
     DataDir="%s/lib/" % (DataRoot)
@@ -408,18 +406,18 @@ class Utils:
         blockLogActionStr=None
         returnType=ReturnType.raw
         if blockLogAction==BlockLogAction.return_blocks:
-            blockLogActionStr=""
+            blockLogActionStr=" print-log --as-json-array "
             returnType=ReturnType.json
         elif blockLogAction==BlockLogAction.make_index:
-            blockLogActionStr=" --make-index "
+            blockLogActionStr=" make-index "
         elif blockLogAction==BlockLogAction.trim:
-            blockLogActionStr=" --trim "
+            blockLogActionStr=" trim-blocklog "
         elif blockLogAction==BlockLogAction.smoke_test:
-            blockLogActionStr=" --smoke-test "
+            blockLogActionStr=" smoke-test "
         else:
             unhandledEnumType(blockLogAction)
 
-        cmd="%s --blocks-dir %s --as-json-array %s%s%s%s" % (Utils.EosBlockLogPath, blockLogLocation, outputFileStr, firstStr, lastStr, blockLogActionStr)
+        cmd="%s block-log %s --blocks-dir %s  %s%s%s" % (Utils.LeapClientPath, blockLogActionStr, blockLogLocation, outputFileStr, firstStr, lastStr)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         rtn=None
         try:
@@ -572,11 +570,11 @@ class Utils:
 
     @staticmethod
     def makeHTTPReqStr(host : str, port : str, api_call : str, body : str, keepAlive=False) -> str:
-        hdr = "POST " + api_call + " HTTP/1.1\r\n" 
+        hdr = "POST " + api_call + " HTTP/1.1\r\n"
         hdr += f"Host: {host}:{port}\r\n"
         body += "\r\n"
         body_len = len(body)
-        hdr +=  f"content-length: {body_len}\r\n" 
+        hdr +=  f"content-length: {body_len}\r\n"
         hdr +=  "Accept: */*\r\n"
         hdr += "Connection: "
         if keepAlive:
@@ -613,7 +611,7 @@ class Utils:
     def readSocketDataStr(sock : socket.socket, maxMsgSize : int, enc : str) -> str:
         """Read data from a socket until maxMsgSize is reached or timeout
         Retrusn data as decoded string object"""
-        data = Utils.readSocketData(sock, maxMsgSize) 
+        data = Utils.readSocketData(sock, maxMsgSize)
         return data.decode(enc)
 
     @staticmethod
@@ -636,4 +634,3 @@ class Account(object):
 
     def __str__(self):
         return "Name: %s" % (self.name)
-

@@ -31,7 +31,7 @@ protected:
    void initialize();
    int trim_blocklog_end(bfs::path block_dir, uint32_t n);
    bool trim_blocklog_front(bfs::path block_dir, uint32_t n);
-   bool extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end);
+   void extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end);
 
    int make_index();
    int trim_blocklog();
