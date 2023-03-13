@@ -36,7 +36,14 @@ auto make_unique_trx( const chain_id_type& chain_id ) {
    ++nextid;
    account_name creator = config::system_account_name;
    signed_transaction trx;
-   trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}}, testit{nextid} );
+   trx.expiration = fc::time_point::now() + fc::seconds( nextid % 50 == 0 ? 0 : 60 ); // fail some transactions via expired
+   if( nextid % 10 == 0 ) {
+      // fail some for authorization (read-only transaction should not have authorization)
+      trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}}, testit{nextid} );
+   } else {
+      vector<permission_level> no_auth{};
+      trx.actions.emplace_back( no_auth, testit{nextid} );
+   }
    return std::make_shared<packed_transaction>( std::move(trx) );
 }
 }
@@ -88,7 +95,6 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
    auto[prod_plug, chain_plug] = plugin_fut.get();
    auto chain_id = chain_plug->get_chain_id();
 
-   std::deque<packed_transaction_ptr> trxs;
    std::atomic<size_t> next_calls = 0;
    std::atomic<size_t> num_posts = 0;
    std::atomic<size_t> trace_with_except = 0;
@@ -97,14 +103,14 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
 
    for( size_t i = 1; i <= num_pushes; ++i ) {
       auto ptrx = make_unique_trx( chain_id );
-      app->executor().post( priority::low, exec_queue::general, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &trxs, &app, i]() {
+      app->executor().post( priority::low, exec_queue::general, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
          ++num_posts;
          bool return_failure_traces = true;
          app->get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
             false, // api_trx
             transaction_metadata::trx_type::read_only, // trx_type
             return_failure_traces,
-            [ptrx, &next_calls, &trace_with_except, &trx_match, &trxs, return_failure_traces]
+            [ptrx, &next_calls, &trace_with_except, &trx_match, return_failure_traces]
             (const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) {
                if( !std::holds_alternative<fc::exception_ptr>( result ) && !std::get<chain::transaction_trace_ptr>( result )->except ) {
                   if( std::get<chain::transaction_trace_ptr>( result )->id != ptrx->id() ) {
@@ -124,9 +130,9 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
 
    // Wait long enough such that all transactions are executed
    auto start = fc::time_point::now();
-   auto end = start + fc::milliseconds(1000);
-   while ( fc::time_point::now() < end ){
-      std::this_thread::sleep_for( 500000us);;
+   auto hard_deadline = start + fc::seconds(10); // To protect against waiting forever
+   while ( next_calls < num_pushes && fc::time_point::now() < hard_deadline ){
+      std::this_thread::sleep_for( 100ms );;
    }
 
    app->quit();
