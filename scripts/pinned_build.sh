@@ -26,7 +26,7 @@ fi
 
 export CORE_SYM='EOS'
 # CMAKE_C_COMPILER requires absolute path
-DEP_DIR=`realpath "$1"`
+DEP_DIR="$(realpath "$1")"
 LEAP_DIR="$2"
 JOBS="$3"
 CLANG_VER=11.0.1
@@ -44,10 +44,10 @@ pushdir() {
 
 popdir() {
     EXPECTED="$1"
-    D=`popd`
+    D="$(popd)"
     popd &> /dev/null
     echo "${D}"
-    D=`eval echo "$D" | head -n1 | cut -d " " -f1`
+    D="$(eval echo "$D" | head -n1 | cut -d " " -f1)"
 
     # -ef compares absolute paths
     if ! [[ "${D}" -ef "${EXPECTED}" ]]; then
