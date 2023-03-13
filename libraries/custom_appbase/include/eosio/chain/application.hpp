@@ -22,7 +22,7 @@ enum class exec_window {
 enum class exec_queue {
    read_only_trx_safe, // the queue storing operations which are safe to execute
                        // on app thread in parallel with read-only transactions
-                       // in read-only transaction excuting threads.
+                       // in read-only transaction executing threads.
    general             // the queue storing operations which can be only executed
                        // on the app thread while read-only transactions are
                        // not being executed in read-only threads
