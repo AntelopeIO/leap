@@ -34,12 +34,12 @@ struct block_log_extract_fixture {
       for (bfs::directory_iterator itr(dir); itr != bfs::directory_iterator{}; ++itr ) {
          auto file_path = itr->path();
          if ( !bfs::is_regular_file( file_path )) continue;
-         std::regex block_range_expression("-\\d+-\\d+");
-         auto new_path = std::regex_replace(file_path.string(), block_range_expression, "");
-         if (new_path != file_path)
+         std::regex block_range_expression("blocks-\\d+-\\d+");
+         auto new_path = std::regex_replace(file_path.string(), block_range_expression, "blocks");
+         if (new_path != file_path) {
             bfs::rename(file_path, new_path);
+         }
       }
-
    }
 
    genesis_state gs;
