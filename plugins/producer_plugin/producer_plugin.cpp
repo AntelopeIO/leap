@@ -461,8 +461,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto before = _unapplied_transactions.size();
          _unapplied_transactions.clear_applied( bsp );
          _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
-         fc_dlog( _log, "Removed applied transactions before: ${before}, after: ${after}",
-                  ("before", before)("after", _unapplied_transactions.size()) );
+         if (before > 0) {
+            fc_dlog( _log, "Removed applied transactions before: ${before}, after: ${after}",
+                     ("before", before)("after", _unapplied_transactions.size()) );
+         }
       }
 
       void on_block_header( const block_state_ptr& bsp ) {
@@ -516,9 +518,11 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          const auto& id = block_id ? *block_id : block->calculate_id();
          auto blk_num = block->block_num();
 
-         fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
+         auto now = fc::time_point::now();
+         if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) // only log every 1000 during sync
+            fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
 
-         EOS_ASSERT( block->timestamp < (fc::time_point::now() + fc::seconds( 7 )), block_from_the_future,
+         EOS_ASSERT( block->timestamp < (now + fc::seconds( 7 )), block_from_the_future,
                      "received a block from the future, ignoring it: ${id}", ("id", id) );
 
          /* de-dupe here... no point in aborting block if we already know the block */
@@ -568,7 +572,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
 
          const auto& hbs = chain.head_block_state();
-         auto now = fc::time_point::now();
+         now = fc::time_point::now();
          if( hbs->header.timestamp.next().to_time_point() >= now ) {
             _production_enabled = true;
          }
@@ -2533,7 +2537,7 @@ void producer_plugin_impl::schedule_production_loop() {
          fc_dlog(_log, "Waiting till another block is received and scheduling Speculative/Production Change");
          schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(calculate_pending_block_time()));
       } else {
-         fc_dlog(_log, "Waiting till another block is received");
+         fc_tlog(_log, "Waiting till another block is received");
          // nothing to do until more blocks arrive
       }
 
