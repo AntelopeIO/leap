@@ -5,6 +5,8 @@ import log_reader
 
 from TestHarness import TpsTrxGensConfig
 
+from pathlib import Path
+
 parser = argparse.ArgumentParser(add_help=False)
 parser.add_argument("--target-tps", type=int, help="The target transfers per second to send during test", default=8000)
 parser.add_argument("--test-duration-sec", type=int, help="The duration of transfer trx generation for the test in seconds", default=30)
@@ -19,14 +21,14 @@ parser.add_argument("--del-report", type=bool, help="Whether to delete overarchi
 parser.add_argument("--json-path", type=str, help="Path to save json output", default="data.json")
 parser.add_argument("--quiet", type=bool, help="Whether to quiet printing intermediate results and reports to stdout", default=False)
 args = parser.parse_args()
-nodeosLogPath=args.log_path
+nodeosLogPath=Path(args.log_path)
 blockDataLogDirPath = args.block_data_logs_dir
-trxGenLogDirPath = args.trx_data_logs_dir
+trxGenLogDirPath = Path(args.trx_data_logs_dir)
 data = log_reader.chainData()
 data.startBlock = args.start_block
 data.ceaseBlock = args.cease_block
-blockDataPath = f"{blockDataLogDirPath}/blockData.txt"
-blockTrxDataPath = f"{blockDataLogDirPath}/blockTrxData.txt"
+blockDataPath = Path(blockDataLogDirPath)/"blockData.txt"
+blockTrxDataPath = Path(blockDataLogDirPath)/"blockTrxData.txt"
 tpsLimitPerGenerator=args.tps_limit_per_generator
 targetTps=args.target_tps
 tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)

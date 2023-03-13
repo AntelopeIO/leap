@@ -1,335 +1,552 @@
 #!/usr/bin/env python3
 
+import argparse
+import copy
 import math
 import os
 import sys
 import json
 import shutil
 
-harnessPath = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-sys.path.append(harnessPath)
+from pathlib import Path, PurePath
+sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
-from TestHarness import TestHelper, Utils
-from TestHarness.TestHelper import AppArgs
-from performance_test_basic import PerformanceBasicTest
+from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs
+from TestHarness import TestHelper, Utils, Account
+from performance_test_basic import PerformanceTestBasic, PtbArgumentsHandler
 from platform import release, system
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
+from enum import Enum
+from log_reader import LogReaderEncoder
 
-@dataclass
-class PerfTestBasicResult:
-    targetTPS: int = 0
-    resultAvgTps: float = 0
-    expectedTxns: int = 0
-    resultTxns: int = 0
-    tpsExpectMet: bool = False
-    trxExpectMet: bool = False
-    basicTestSuccess: bool = False
-    testAnalysisBlockCnt: int = 0
-    logsDir: str = ""
-    testStart: datetime = None
-    testEnd: datetime = None
+class PerformanceTest:
 
-@dataclass
-class PerfTestSearchIndivResult:
-    success: bool = False
-    searchTarget: int = 0
-    searchFloor: int = 0
-    searchCeiling: int = 0
-    basicTestResult: PerfTestBasicResult = PerfTestBasicResult()
+    @dataclass
+    class PerfTestSearchIndivResult:
+        @dataclass
+        class PerfTestBasicResult:
+            targetTPS: int = 0
+            resultAvgTps: float = 0
+            expectedTxns: int = 0
+            resultTxns: int = 0
+            tpsExpectMet: bool = False
+            trxExpectMet: bool = False
+            basicTestSuccess: bool = False
+            testAnalysisBlockCnt: int = 0
+            logsDir: Path = Path("")
+            testStart: datetime = None
+            testEnd: datetime = None
 
-@dataclass
-class PerfTestSearchResults:
-    maxTpsAchieved: int = 0
-    searchResults: list = field(default_factory=list) #PerfTestSearchIndivResult list
-    maxTpsReport: dict = field(default_factory=dict)
+        success: bool = False
+        searchTarget: int = 0
+        searchFloor: int = 0
+        searchCeiling: int = 0
+        basicTestResult: PerfTestBasicResult = PerfTestBasicResult()
 
-def performPtbBinarySearch(tpsTestFloor: int, tpsTestCeiling: int, minStep: int, testHelperConfig: PerformanceBasicTest.TestHelperConfig,
-                           testClusterConfig: PerformanceBasicTest.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
-                           numAddlBlocksToPrune: int, testLogDir: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> PerfTestSearchResults:
-    floor = tpsTestFloor
-    ceiling = tpsTestCeiling
-    binSearchTarget = tpsTestCeiling
+    @dataclass
+    class PtConfig:
+        testDurationSec: int=150
+        finalDurationSec: int=300
+        delPerfLogs: bool=False
+        maxTpsToTest: int=50000
+        testIterationMinStep: int=500
+        tpsLimitPerGenerator: int=4000
+        delReport: bool=False
+        delTestReport: bool=False
+        numAddlBlocksToPrune: int=2
+        quiet: bool=False
+        logDirRoot: Path=Path(".")
+        skipTpsTests: bool=False
+        calcProducerThreads: str="none"
+        calcChainThreads: str="none"
+        calcNetThreads: str="none"
+        userTrxDataFile: Path=None
 
-    maxTpsAchieved = 0
-    maxTpsReport = {}
-    searchResults = []
 
-    while ceiling >= floor:
-        print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
-        ptbResult = PerfTestBasicResult()
-        scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
+    @dataclass
+    class TpsTestResult:
+        @dataclass
+        class PerfTestSearchResults:
+            maxTpsAchieved: int = 0
+            searchResults: list = field(default_factory=list) #PerfTestSearchIndivResult list
+            maxTpsReport: dict = field(default_factory=dict)
 
-        myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=binSearchTarget,
-                                    testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
-        testSuccessful = myTest.runTest()
-        if evaluateSuccess(myTest, testSuccessful, ptbResult):
-            maxTpsAchieved = binSearchTarget
-            maxTpsReport = myTest.report
-            floor = binSearchTarget + minStep
-            scenarioResult.success = True
-        else:
-            ceiling = binSearchTarget - minStep
+        binSearchResults: PerfTestSearchResults=PerfTestSearchResults()
+        longRunningSearchResults: PerfTestSearchResults=PerfTestSearchResults()
+        tpsTestStart: datetime=datetime.utcnow()
+        tpsTestFinish: datetime=datetime.utcnow()
+        perfRunSuccessful: bool=False
 
-        scenarioResult.basicTestResult = ptbResult
-        searchResults.append(scenarioResult)
-        if not quiet:
-            print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
+    @dataclass
+    class LoggingConfig:
+        logDirBase: Path = Path(".")/PurePath(PurePath(__file__).name).stem[0]
+        logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
+        logDirPath: Path = field(default_factory=Path, init=False)
+        ptbLogsDirPath: Path = field(default_factory=Path, init=False)
+        pluginThreadOptLogsDirPath: Path = field(default_factory=Path, init=False)
 
-        binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
+        def __post_init__(self):
+            self.logDirPath = self.logDirBase/Path(self.logDirTimestamp)
+            self.ptbLogsDirPath = self.logDirPath/Path("testRunLogs")
+            self.pluginThreadOptLogsDirPath = self.logDirPath/Path("pluginThreadOptRunLogs")
 
-    return PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
+    def __init__(self, testHelperConfig: PerformanceTestBasic.TestHelperConfig=PerformanceTestBasic.TestHelperConfig(),
+                 clusterConfig: PerformanceTestBasic.ClusterConfig=PerformanceTestBasic.ClusterConfig(), ptConfig=PtConfig()):
+        self.testHelperConfig = testHelperConfig
+        self.clusterConfig = clusterConfig
+        self.ptConfig = ptConfig
 
-def performPtbReverseLinearSearch(tpsInitial: int, step: int, testHelperConfig: PerformanceBasicTest.TestHelperConfig,
-                                  testClusterConfig: PerformanceBasicTest.ClusterConfig, testDurationSec: int, tpsLimitPerGenerator: int,
-                                  numAddlBlocksToPrune: int, testLogDir: str, delReport: bool, quiet: bool, delPerfLogs: bool) -> PerfTestSearchResults:
+        self.testsStart = datetime.utcnow()
 
-    # Default - Decrementing Max TPS in range [0, tpsInitial]
-    absFloor = 0
-    absCeiling = tpsInitial
+        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/PurePath(PurePath(__file__).name).stem[0],
+                                                           logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
-    searchTarget = tpsInitial
+    def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
+        floor = 0
+        ceiling = self.ptConfig.maxTpsToTest
+        binSearchTarget = self.ptConfig.maxTpsToTest
+        minStep = self.ptConfig.testIterationMinStep
 
-    maxTpsAchieved = 0
-    maxTpsReport = {}
-    searchResults = []
-    maxFound = False
+        maxTpsAchieved = 0
+        maxTpsReport = {}
+        searchResults = []
 
-    while not maxFound:
-        print(f"Running scenario: floor {absFloor} searchTarget {searchTarget} ceiling {absCeiling}")
-        ptbResult = PerfTestBasicResult()
-        scenarioResult = PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
+        while ceiling >= floor:
+            print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
+            ptbResult = PerformanceTest.PerfTestSearchIndivResult.PerfTestBasicResult()
+            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
+            ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
+                                                       numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=logDirRoot, delReport=delReport,
+                                                       quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile)
 
-        myTest = PerformanceBasicTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, targetTps=searchTarget,
-                                    testTrxGenDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                    numAddlBlocksToPrune=numAddlBlocksToPrune, rootLogDir=testLogDir, delReport=delReport, quiet=quiet, delPerfLogs=delPerfLogs)
-        testSuccessful = myTest.runTest()
-        if evaluateSuccess(myTest, testSuccessful, ptbResult):
-            maxTpsAchieved = searchTarget
-            maxTpsReport = myTest.report
-            scenarioResult.success = True
-            maxFound = True
-        else:
-            searchTarget = searchTarget - step
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig)
+            testSuccessful = myTest.runTest()
+            if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
+                maxTpsAchieved = binSearchTarget
+                maxTpsReport = myTest.report
+                floor = binSearchTarget + minStep
+                scenarioResult.success = True
+            else:
+                ceiling = binSearchTarget - minStep
 
-        scenarioResult.basicTestResult = ptbResult
-        searchResults.append(scenarioResult)
-        if not quiet:
-            print(f"searchResult: {searchTarget} : {searchResults[-1]}")
+            scenarioResult.basicTestResult = ptbResult
+            searchResults.append(scenarioResult)
+            if not self.ptConfig.quiet:
+                print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
 
-    return PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
+            binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
 
-def evaluateSuccess(test: PerformanceBasicTest, testSuccessful: bool, result: PerfTestBasicResult) -> bool:
-    result.targetTPS = test.targetTps
-    result.expectedTxns = test.expectedTransactionsSent
-    reportDict = test.report
-    result.testStart = reportDict["testStart"]
-    result.testEnd = reportDict["testFinish"]
-    result.resultAvgTps = reportDict["Analysis"]["TPS"]["avg"]
-    result.resultTxns = reportDict["Analysis"]["TrxLatency"]["samples"]
-    print(f"targetTPS: {result.targetTPS} expectedTxns: {result.expectedTxns} resultAvgTps: {result.resultAvgTps} resultTxns: {result.resultTxns}")
+        return PerformanceTest.TpsTestResult.PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
-    result.tpsExpectMet = True if result.resultAvgTps >= result.targetTPS else abs(result.targetTPS - result.resultAvgTps) < 100
-    result.trxExpectMet = result.expectedTxns == result.resultTxns
-    result.basicTestSuccess = testSuccessful
-    result.testAnalysisBlockCnt = reportDict["Analysis"]["BlocksGuide"]["testAnalysisBlockCnt"]
-    result.logsDir = test.testTimeStampDirPath
+    def performPtbReverseLinearSearch(self, tpsInitial: int) -> TpsTestResult.PerfTestSearchResults:
 
-    print(f"basicTestSuccess: {result.basicTestSuccess} tpsExpectationMet: {result.tpsExpectMet} trxExpectationMet: {result.trxExpectMet}")
+        # Default - Decrementing Max TPS in range [0, tpsInitial]
+        absFloor = 0
+        absCeiling = tpsInitial
 
-    return result.basicTestSuccess and result.tpsExpectMet and result.trxExpectMet
+        step = self.ptConfig.testIterationMinStep
 
-def createReport(maxTpsAchieved, searchResults, maxTpsReport, longRunningMaxTpsAchieved, longRunningSearchResults, longRunningMaxTpsReport, testStart: datetime, testFinish: datetime, argsDict) -> dict:
-    report = {}
-    report['InitialMaxTpsAchieved'] = maxTpsAchieved
-    report['LongRunningMaxTpsAchieved'] = longRunningMaxTpsAchieved
-    report['testStart'] = testStart
-    report['testFinish'] = testFinish
-    report['InitialSearchResults'] =  {x: asdict(searchResults[x]) for x in range(len(searchResults))}
-    report['InitialMaxTpsReport'] =  maxTpsReport
-    report['LongRunningSearchResults'] =  {x: asdict(longRunningSearchResults[x]) for x in range(len(longRunningSearchResults))}
-    report['LongRunningMaxTpsReport'] =  longRunningMaxTpsReport
-    report['args'] =  argsDict
-    report['env'] = {'system': system(), 'os': os.name, 'release': release()}
-    report['nodeosVersion'] = Utils.getNodeosVersion()
-    return report
+        searchTarget = tpsInitial
 
-def createJSONReport(maxTpsAchieved, searchResults, maxTpsReport, longRunningMaxTpsAchieved, longRunningSearchResults, longRunningMaxTpsReport, testStart: datetime, testFinish: datetime, argsDict) -> json:
-    report = createReport(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport, longRunningMaxTpsAchieved=longRunningMaxTpsAchieved,
-                              longRunningSearchResults=longRunningSearchResults, longRunningMaxTpsReport=longRunningMaxTpsReport, testStart=testStart, testFinish=testFinish, argsDict=argsDict)
-    return reportAsJSON(report)
+        maxTpsAchieved = 0
+        maxTpsReport = {}
+        searchResults = []
+        maxFound = False
 
-def reportAsJSON(report: dict) -> json:
-    report['testStart'] = "Unknown" if report['testStart'] is None else report['testStart'].isoformat()
-    report['testFinish'] = "Unknown" if report['testFinish'] is None else report['testFinish'].isoformat()
-    return json.dumps(report, indent=2)
+        while not maxFound:
+            print(f"Running scenario: floor {absFloor} searchTarget {searchTarget} ceiling {absCeiling}")
+            ptbResult = PerformanceTest.PerfTestSearchIndivResult.PerfTestBasicResult()
+            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
+            ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=searchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
+                                                    numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport,
+                                                    quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile)
 
-def exportReportAsJSON(report: json, exportPath):
-    with open(exportPath, 'wt') as f:
-        f.write(report)
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig)
+            testSuccessful = myTest.runTest()
+            if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
+                maxTpsAchieved = searchTarget
+                maxTpsReport = myTest.report
+                scenarioResult.success = True
+                maxFound = True
+            else:
+                searchTarget = searchTarget - step
 
-def testDirsCleanup(delReport, testTimeStampDirPath, ptbLogsDirPath):
-    try:
-        def removeArtifacts(path):
-            print(f"Checking if test artifacts dir exists: {path}")
-            if os.path.isdir(f"{path}"):
-                print(f"Cleaning up test artifacts dir and all contents of: {path}")
-                shutil.rmtree(f"{path}")
+            scenarioResult.basicTestResult = ptbResult
+            searchResults.append(scenarioResult)
+            if not self.ptConfig.quiet:
+                print(f"searchResult: {searchTarget} : {searchResults[-1]}")
 
-        if not delReport:
-            removeArtifacts(ptbLogsDirPath)
-        else:
-            removeArtifacts(testTimeStampDirPath)
-    except OSError as error:
-        print(error)
+        return PerformanceTest.TpsTestResult.PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
-def testDirsSetup(rootLogDir, testTimeStampDirPath, ptbLogsDirPath):
-    try:
-        def createArtifactsDir(path):
-            print(f"Checking if test artifacts dir exists: {path}")
-            if not os.path.isdir(f"{path}"):
-                print(f"Creating test artifacts dir: {path}")
-                os.mkdir(f"{path}")
+    def evaluateSuccess(self, test: PerformanceTestBasic, testSuccessful: bool, result: PerfTestSearchIndivResult.PerfTestBasicResult) -> bool:
+        result.targetTPS = test.ptbConfig.targetTps
+        result.expectedTxns = test.ptbConfig.expectedTransactionsSent
+        reportDict = test.report
+        result.testStart = reportDict["testStart"]
+        result.testEnd = reportDict["testFinish"]
+        result.resultAvgTps = reportDict["Analysis"]["TPS"]["avg"]
+        result.resultTxns = reportDict["Analysis"]["TrxLatency"]["samples"]
+        print(f"targetTPS: {result.targetTPS} expectedTxns: {result.expectedTxns} resultAvgTps: {result.resultAvgTps} resultTxns: {result.resultTxns}")
 
-        createArtifactsDir(rootLogDir)
-        createArtifactsDir(testTimeStampDirPath)
-        createArtifactsDir(ptbLogsDirPath)
+        result.tpsExpectMet = True if result.resultAvgTps >= result.targetTPS else abs(result.targetTPS - result.resultAvgTps) < 100
+        result.trxExpectMet = result.expectedTxns == result.resultTxns
+        result.basicTestSuccess = testSuccessful
+        result.testAnalysisBlockCnt = reportDict["Analysis"]["BlocksGuide"]["testAnalysisBlockCnt"]
+        result.logsDir = test.loggingConfig.logDirPath
 
-    except OSError as error:
-        print(error)
+        print(f"basicTestSuccess: {result.basicTestSuccess} tpsExpectationMet: {result.tpsExpectMet} trxExpectationMet: {result.trxExpectMet}")
 
-def prepArgsDict(testDurationSec, finalDurationSec, logsDir, maxTpsToTest, testIterationMinStep,
-                 tpsLimitPerGenerator, delReport, delTestReport, numAddlBlocksToPrune, quiet, delPerfLogs,
-                 testHelperConfig, testClusterConfig) -> dict:
-    argsDict = {}
-    argsDict.update(asdict(testHelperConfig))
-    argsDict.update(asdict(testClusterConfig))
-    argsDict.update({key:val for key, val in locals().items() if key in set(['testDurationSec', 'finalDurationSec', 'maxTpsToTest', 'testIterationMinStep', 'tpsLimitPerGenerator',
-                                                                             'delReport', 'delTestReport', 'numAddlBlocksToPrune', 'logsDir', 'quiet', 'delPerfLogs'])})
-    return argsDict
+        return result.basicTestSuccess and result.tpsExpectMet and result.trxExpectMet
 
-def parseArgs():
-    appArgs=AppArgs()
-    appArgs.add(flag="--max-tps-to-test", type=int, help="The max target transfers realistic as ceiling of test range", default=50000)
-    appArgs.add(flag="--test-iteration-duration-sec", type=int, help="The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=150)
-    appArgs.add(flag="--test-iteration-min-step", type=int, help="The step size determining granularity of tps result during initial search", default=500)
-    appArgs.add(flag="--final-iterations-duration-sec", type=int, help="The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=300)
-    appArgs.add(flag="--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
-    appArgs.add(flag="--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
-    appArgs.add(flag="--num-blocks-to-prune", type=int, help="The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end of the range of blocks of interest for evaluation.", default=2)
-    appArgs.add(flag="--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
-    appArgs.add(flag="--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=10*1024)
-    appArgs.add(flag="--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
-    appArgs.add(flag="--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
-    appArgs.add(flag="--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
-    appArgs.add(flag="--cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
-    appArgs.add(flag="--last-block-cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%%", default=100)
-    appArgs.add(flag="--http-max-response-time-ms", type=int, help="Maximum time for processing a request, -1 for unlimited", default=990000)
-    appArgs.add_bool(flag="--del-perf-logs", help="Whether to delete performance test specific logs.")
-    appArgs.add_bool(flag="--del-report", help="Whether to delete overarching performance run report.")
-    appArgs.add_bool(flag="--del-test-report", help="Whether to save json reports from each test scenario.")
-    appArgs.add_bool(flag="--quiet", help="Whether to quiet printing intermediate results and reports to stdout")
-    appArgs.add_bool(flag="--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled")
-    args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file"
-                                ,"--dump-error-details","-v","--leave-running"
-                                ,"--clean-run"}, applicationSpecificArgs=appArgs)
-    return args
+    class PluginThreadOpt(Enum):
+        PRODUCER = "producer"
+        CHAIN = "chain"
+        NET = "net"
 
-def main():
+    class PluginThreadOptRunType(Enum):
+        FULL = 1
+        LOCAL_MAX = 2
 
-    args = parseArgs()
-    Utils.Debug = args.v
-    testDurationSec=args.test_iteration_duration_sec
-    finalDurationSec=args.final_iterations_duration_sec
-    killAll=args.clean_run
-    dontKill=args.leave_running
-    delPerfLogs=args.del_perf_logs
-    dumpErrorDetails=args.dump_error_details
-    delay=args.d
-    nodesFile=args.nodes_file
-    verbose=args.v
-    pnodes=args.p
-    totalNodes=args.n
-    topo=args.s
-    genesisPath=args.genesis
-    maxTpsToTest=args.max_tps_to_test
-    testIterationMinStep=args.test_iteration_min_step
-    tpsLimitPerGenerator=args.tps_limit_per_generator
-    delReport=args.del_report
-    delTestReport=args.del_test_report
-    numAddlBlocksToPrune=args.num_blocks_to_prune
-    quiet=args.quiet
-    prodsEnableTraceApi=args.prods_enable_trace_api
+    @dataclass
+    class PluginThreadOptResult:
+        recommendedThreadCount: int = 0
+        threadToMaxTpsDict: dict = field(default_factory=dict)
+        analysisStart: datetime = datetime.utcnow()
+        analysisFinish: datetime = datetime.utcnow()
 
-    testStart = datetime.utcnow()
+    def optimizePluginThreadCount(self,  optPlugin: PluginThreadOpt, optType: PluginThreadOptRunType=PluginThreadOptRunType.LOCAL_MAX,
+                                  minThreadCount: int=2, maxThreadCount: int=os.cpu_count()) -> PluginThreadOptResult:
 
-    rootLogDir: str=os.path.splitext(os.path.basename(__file__))[0]
-    testTimeStampDirPath = f"{rootLogDir}/{testStart.strftime('%Y-%m-%d_%H-%M-%S')}"
-    ptbLogsDirPath = f"{testTimeStampDirPath}/testRunLogs"
+        resultsFile = self.loggingConfig.pluginThreadOptLogsDirPath/Path(f"{optPlugin.value}ThreadResults.txt")
 
-    testDirsSetup(rootLogDir=rootLogDir, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
+        threadToMaxTpsDict: dict = {}
 
-    testHelperConfig = PerformanceBasicTest.TestHelperConfig(killAll=killAll, dontKill=dontKill, keepLogs=not delPerfLogs,
-                                                             dumpErrorDetails=dumpErrorDetails, delay=delay, nodesFile=nodesFile,
-                                                             verbose=verbose)
+        clusterConfig = copy.deepcopy(self.clusterConfig)
+        analysisStart = datetime.utcnow()
 
-    extraNodeosChainPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct, chainStateDbSizeMb=args.chain_state_db_size_mb)
-    extraNodeosProducerPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
-                lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us, cpuEffortPercent=args.cpu_effort_percent,
-                lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent)
-    extraNodeosHttpPluginArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs.ExtraNodeosHttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms)
-    extraNodeosArgs = PerformanceBasicTest.ClusterConfig.ExtraNodeosArgs(chainPluginArgs=extraNodeosChainPluginArgs, httpPluginArgs=extraNodeosHttpPluginArgs, producerPluginArgs=extraNodeosProducerPluginArgs)
-    testClusterConfig = PerformanceBasicTest.ClusterConfig(pnodes=pnodes, totalNodes=totalNodes, topo=topo, genesisPath=genesisPath, prodsEnableTraceApi=prodsEnableTraceApi, extraNodeosArgs=extraNodeosArgs, nodeosVers=Utils.getNodeosVersion().split('.')[0])
+        with open(resultsFile, 'w') as log:
+            log.write(f"{optPlugin.value}Threads, maxTpsAchieved\n")
 
-    argsDict = prepArgsDict(testDurationSec=testDurationSec, finalDurationSec=finalDurationSec, logsDir=testTimeStampDirPath,
-                        maxTpsToTest=maxTpsToTest, testIterationMinStep=testIterationMinStep, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                        delReport=delReport, delTestReport=delTestReport, numAddlBlocksToPrune=numAddlBlocksToPrune,
-                        quiet=quiet, delPerfLogs=delPerfLogs, testHelperConfig=testHelperConfig, testClusterConfig=testClusterConfig)
+        lastMaxTpsAchieved = 0
+        for threadCount in range(minThreadCount, maxThreadCount+1):
+            print(f"Running {optPlugin.value} thread count optimization check with {threadCount} {optPlugin.value} threads")
 
-    perfRunSuccessful = False
+            setattr(getattr(clusterConfig.extraNodeosArgs, optPlugin.value + 'PluginArgs'), f"{optPlugin.value}Threads", threadCount)
 
-    try:
-        binSearchResults = performPtbBinarySearch(tpsTestFloor=0, tpsTestCeiling=maxTpsToTest, minStep=testIterationMinStep, testHelperConfig=testHelperConfig,
-                           testClusterConfig=testClusterConfig, testDurationSec=testDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                           numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, delReport=delTestReport, quiet=quiet, delPerfLogs=delPerfLogs)
+            binSearchResults = self.performPtbBinarySearch(clusterConfig=clusterConfig, logDirRoot=self.loggingConfig.pluginThreadOptLogsDirPath,
+                                                            delReport=True, quiet=False, delPerfLogs=True)
+
+            threadToMaxTpsDict[threadCount] = binSearchResults.maxTpsAchieved
+            if not self.ptConfig.quiet:
+                print("Search Results:")
+                for i in range(len(binSearchResults.searchResults)):
+                    print(f"Search scenario {optPlugin.value} thread count {threadCount}: {i} result: {binSearchResults.searchResults[i]}")
+
+            with open(resultsFile, 'a') as log:
+                log.write(f"{threadCount},{binSearchResults.maxTpsAchieved}\n")
+
+            if optType == PerformanceTest.PluginThreadOptRunType.LOCAL_MAX:
+                if binSearchResults.maxTpsAchieved <= lastMaxTpsAchieved:
+                    break
+            lastMaxTpsAchieved = binSearchResults.maxTpsAchieved
+
+        analysisFinish = datetime.utcnow()
+
+        def calcLocalMax(threadToMaxDict: dict):
+            localMax = 0
+            recThreadCount = 0
+            for threads, tps in threadToMaxDict.items():
+                if tps > localMax:
+                    localMax = tps
+                    recThreadCount = threads
+                else:
+                    break
+            return recThreadCount
+
+        recommendedThreadCount = calcLocalMax(threadToMaxDict=threadToMaxTpsDict)
+
+        return PerformanceTest.PluginThreadOptResult(recommendedThreadCount=recommendedThreadCount, threadToMaxTpsDict=threadToMaxTpsDict,
+                                                     analysisStart=analysisStart, analysisFinish=analysisFinish)
+
+    def createTpsTestReport(self, tpsTestResult: TpsTestResult) -> dict:
+        report = {}
+        report['InitialMaxTpsAchieved'] = tpsTestResult.binSearchResults.maxTpsAchieved
+        report['LongRunningMaxTpsAchieved'] = tpsTestResult.longRunningSearchResults.maxTpsAchieved
+        report['tpsTestStart'] = tpsTestResult.tpsTestStart
+        report['tpsTestFinish'] = tpsTestResult.tpsTestFinish
+        report['InitialSearchResults'] =  {x: asdict(tpsTestResult.binSearchResults.searchResults[x]) for x in range(len(tpsTestResult.binSearchResults.searchResults))}
+        report['InitialMaxTpsReport'] =  tpsTestResult.binSearchResults.maxTpsReport
+        report['LongRunningSearchResults'] =  {x: asdict(tpsTestResult.longRunningSearchResults.searchResults[x]) for x in range(len(tpsTestResult.longRunningSearchResults.searchResults))}
+        report['LongRunningMaxTpsReport'] =  tpsTestResult.longRunningSearchResults.maxTpsReport
+        return report
+
+    def createReport(self, producerThreadResult: PluginThreadOptResult=None, chainThreadResult: PluginThreadOptResult=None, netThreadResult: PluginThreadOptResult=None,
+                     tpsTestResult: dict=None, nodeosVers: str="") -> dict:
+        report = {}
+        report['perfTestsBegin'] = self.testsStart
+        report['perfTestsFinish'] = self.testsFinish
+        if tpsTestResult is not None:
+            report.update(self.createTpsTestReport(tpsTestResult))
+
+        if producerThreadResult is not None:
+            report['ProducerThreadAnalysis'] = asdict(producerThreadResult)
+
+        if chainThreadResult is not None:
+            report['ChainThreadAnalysis'] = asdict(chainThreadResult)
+
+        if netThreadResult is not None:
+            report['NetThreadAnalysis'] = asdict(netThreadResult)
+
+        report['args'] =  self.prepArgsDict()
+        report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
+        report['nodeosVersion'] = nodeosVers
+        return report
+
+    def reportAsJSON(self, report: dict) -> json:
+        return json.dumps(report, indent=2, cls=LogReaderEncoder)
+
+    def exportReportAsJSON(self, report: json, exportPath):
+        with open(exportPath, 'wt') as f:
+            f.write(report)
+
+    def testDirsCleanup(self):
+        try:
+            def removeArtifacts(path):
+                print(f"Checking if test artifacts dir exists: {path}")
+                if Path(path).is_dir():
+                    print(f"Cleaning up test artifacts dir and all contents of: {path}")
+                    shutil.rmtree(f"{path}")
+
+            if not self.ptConfig.delReport:
+                removeArtifacts(self.loggingConfig.ptbLogsDirPath)
+                removeArtifacts(self.loggingConfig.pluginThreadOptLogsDirPath)
+            else:
+                removeArtifacts(self.loggingConfig.logDirPath)
+        except OSError as error:
+            print(error)
+
+    def testDirsSetup(self):
+        try:
+            def createArtifactsDir(path):
+                print(f"Checking if test artifacts dir exists: {path}")
+                if not Path(path).is_dir():
+                    print(f"Creating test artifacts dir: {path}")
+                    os.mkdir(f"{path}")
+
+            createArtifactsDir(self.loggingConfig.logDirBase)
+            createArtifactsDir(self.loggingConfig.logDirPath)
+            createArtifactsDir(self.loggingConfig.ptbLogsDirPath)
+            createArtifactsDir(self.loggingConfig.pluginThreadOptLogsDirPath)
+
+        except OSError as error:
+            print(error)
+
+    def prepArgsDict(self) -> dict:
+        argsDict = {}
+        argsDict.update({"rawCmdLine ": ' '.join(sys.argv[0:])})
+        argsDict.update(asdict(self.testHelperConfig))
+        argsDict.update(asdict(self.clusterConfig))
+        argsDict.update(asdict(self.ptConfig))
+        argsDict.update(asdict(self.loggingConfig))
+        return argsDict
+
+    def performTpsTest(self) -> TpsTestResult:
+        tpsTestStart = datetime.utcnow()
+        perfRunSuccessful = False
+
+        binSearchResults = self.performPtbBinarySearch(clusterConfig=self.clusterConfig, logDirRoot=self.loggingConfig.ptbLogsDirPath,
+                                                            delReport=self.ptConfig.delReport, quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs)
 
         print(f"Successful rate of: {binSearchResults.maxTpsAchieved}")
 
-        if not quiet:
+        if not self.ptConfig.quiet:
             print("Search Results:")
             for i in range(len(binSearchResults.searchResults)):
                 print(f"Search scenario: {i} result: {binSearchResults.searchResults[i]}")
 
-        longRunningSearchResults = performPtbReverseLinearSearch(tpsInitial=binSearchResults.maxTpsAchieved, step=testIterationMinStep, testHelperConfig=testHelperConfig,
-                                                                 testClusterConfig=testClusterConfig, testDurationSec=finalDurationSec, tpsLimitPerGenerator=tpsLimitPerGenerator,
-                                                                 numAddlBlocksToPrune=numAddlBlocksToPrune, testLogDir=ptbLogsDirPath, delReport=delTestReport, quiet=quiet,
-                                                                 delPerfLogs=delPerfLogs)
+        longRunningSearchResults = self.performPtbReverseLinearSearch(tpsInitial=binSearchResults.maxTpsAchieved)
 
         print(f"Long Running Test - Successful rate of: {longRunningSearchResults.maxTpsAchieved}")
         perfRunSuccessful = True
 
-        if not quiet:
+        if not self.ptConfig.quiet:
             print("Long Running Test - Search Results:")
             for i in range(len(longRunningSearchResults.searchResults)):
                 print(f"Search scenario: {i} result: {longRunningSearchResults.searchResults[i]}")
 
-        testFinish = datetime.utcnow()
-        fullReport = createJSONReport(maxTpsAchieved=binSearchResults.maxTpsAchieved, searchResults=binSearchResults.searchResults, maxTpsReport=binSearchResults.maxTpsReport,
-                                      longRunningMaxTpsAchieved=longRunningSearchResults.maxTpsAchieved, longRunningSearchResults=longRunningSearchResults.searchResults,
-                                      longRunningMaxTpsReport=longRunningSearchResults.maxTpsReport, testStart=testStart, testFinish=testFinish, argsDict=argsDict)
+        tpsTestFinish = datetime.utcnow()
 
-        if not quiet:
-            print(f"Full Performance Test Report: {fullReport}")
+        return PerformanceTest.TpsTestResult(binSearchResults=binSearchResults, longRunningSearchResults=longRunningSearchResults,
+                                             tpsTestStart=tpsTestStart, tpsTestFinish=tpsTestFinish, perfRunSuccessful=perfRunSuccessful)
 
-        if not delReport:
-            exportReportAsJSON(fullReport, f"{testTimeStampDirPath}/report.json")
+    def runTest(self):
+        testSuccessful = True
 
-    finally:
+        TestHelper.printSystemInfo("BEGIN")
+        self.testDirsCleanup()
+        self.testDirsSetup()
 
-        if delPerfLogs:
-            print(f"Cleaning up logs directory: {testTimeStampDirPath}")
-            testDirsCleanup(delReport=delReport, testTimeStampDirPath=testTimeStampDirPath, ptbLogsDirPath=ptbLogsDirPath)
+        prodResults = None
+        if self.ptConfig.calcProducerThreads != "none":
+            print(f"Performing Producer Thread Optimization Tests")
+            if self.ptConfig.calcProducerThreads == "full":
+                optType = PerformanceTest.PluginThreadOptRunType.FULL
+            else:
+                optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
+            prodResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.PRODUCER, optType=optType,
+                                                         minThreadCount=self.clusterConfig.extraNodeosArgs.producerPluginArgs._producerThreadsNodeosDefault)
+            print(f"Producer Thread Optimization results: {prodResults}")
+            self.clusterConfig.extraNodeosArgs.producerPluginArgs.threads = prodResults.recommendedThreadCount
+
+        chainResults = None
+        if self.ptConfig.calcChainThreads != "none":
+            print(f"Performing Chain Thread Optimization Tests")
+            if self.ptConfig.calcChainThreads == "full":
+                optType = PerformanceTest.PluginThreadOptRunType.FULL
+            else:
+                optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
+            chainResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.CHAIN, optType=optType,
+                                                          minThreadCount=self.clusterConfig.extraNodeosArgs.chainPluginArgs._chainThreadsNodeosDefault)
+            print(f"Chain Thread Optimization results: {chainResults}")
+            self.clusterConfig.extraNodeosArgs.chainPluginArgs.threads = chainResults.recommendedThreadCount
+
+        netResults = None
+        if self.ptConfig.calcNetThreads != "none":
+            print(f"Performing Net Thread Optimization Tests")
+            if self.ptConfig.calcNetThreads == "full":
+                optType = PerformanceTest.PluginThreadOptRunType.FULL
+            else:
+                optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
+            netResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.NET, optType=optType,
+                                                        minThreadCount=self.clusterConfig.extraNodeosArgs.netPluginArgs._netThreadsNodeosDefault)
+            print(f"Net Thread Optimization results: {netResults}")
+            self.clusterConfig.extraNodeosArgs.netPluginArgs.threads = netResults.recommendedThreadCount
+
+        tpsTestResult = None
+        if not self.ptConfig.skipTpsTests:
+            print(f"Performing TPS Performance Tests")
+            testSuccessful = False
+            tpsTestResult = self.performTpsTest()
+            testSuccessful = tpsTestResult.perfRunSuccessful
+
+        self.testsFinish = datetime.utcnow()
+
+        self.report = self.createReport(producerThreadResult=prodResults, chainThreadResult=chainResults, netThreadResult=netResults, tpsTestResult=tpsTestResult, nodeosVers=self.clusterConfig.nodeosVers)
+        jsonReport = self.reportAsJSON(self.report)
+
+        if not self.ptConfig.quiet:
+            print(f"Full Performance Test Report: {jsonReport}")
+
+        if not self.ptConfig.delReport:
+            self.exportReportAsJSON(jsonReport, self.loggingConfig.logDirPath/Path("report.json"))
+
+        if self.ptConfig.delPerfLogs:
+            print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
+            self.testDirsCleanup()
+
+        return testSuccessful
+
+class PerfTestArgumentsHandler(object):
+    @staticmethod
+    def createArgumentParser():
+        ptbArgParser = PtbArgumentsHandler.createBaseArgumentParser()
+        ptParser = argparse.ArgumentParser(parents=[ptbArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+
+        ptGrpTitle="Performance Harness"
+        ptGrpDescription="Performance Harness testing configuration items."
+        ptParserGroup = ptParser.add_argument_group(title=ptGrpTitle, description=ptGrpDescription)
+        ptParserGroup.add_argument("--skip-tps-test", help="Determines whether to skip the max TPS measurement tests", action='store_true')
+        ptParserGroup.add_argument("--calc-producer-threads", type=str, help="Determines whether to calculate number of worker threads to use in producer thread pool (\"none\", \"lmax\", or \"full\"). \
+                                                                    In \"none\" mode, the default, no calculation will be attempted and the configured --producer-threads value will be used. \
+                                                                    In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
+                                                                    In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                    Useful for graphing the full performance impact of each available thread.",
+                                                                    choices=["none", "lmax", "full"], default="none")
+        ptParserGroup.add_argument("--calc-chain-threads", type=str, help="Determines whether to calculate number of worker threads to use in chain thread pool (\"none\", \"lmax\", or \"full\"). \
+                                                                    In \"none\" mode, the default, no calculation will be attempted and the configured --chain-threads value will be used. \
+                                                                    In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
+                                                                    In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                    Useful for graphing the full performance impact of each available thread.",
+                                                                    choices=["none", "lmax", "full"], default="none")
+        ptParserGroup.add_argument("--calc-net-threads", type=str, help="Determines whether to calculate number of worker threads to use in net thread pool (\"none\", \"lmax\", or \"full\"). \
+                                                                    In \"none\" mode, the default, no calculation will be attempted and the configured --net-threads value will be used. \
+                                                                    In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
+                                                                    In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                    Useful for graphing the full performance impact of each available thread.",
+                                                                    choices=["none", "lmax", "full"], default="none")
+        ptParserGroup.add_argument("--del-test-report", help="Whether to save json reports from each test scenario.", action='store_true')
+
+        ptTpsGrpTitle="Performance Harness - TPS Test Config"
+        ptTpsGrpDescription="TPS Performance Test configuration items."
+        ptTpsParserGroup = ptParser.add_argument_group(title=ptTpsGrpTitle, description=ptTpsGrpDescription)
+
+        ptTpsParserGroup.add_argument("--max-tps-to-test", type=int, help="The max target transfers realistic as ceiling of test range", default=50000)
+        ptTpsParserGroup.add_argument("--test-iteration-duration-sec", type=int, help="The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=150)
+        ptTpsParserGroup.add_argument("--test-iteration-min-step", type=int, help="The step size determining granularity of tps result during initial search", default=500)
+        ptTpsParserGroup.add_argument("--final-iterations-duration-sec", type=int, help="The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=300)
+
+        return ptParser
+
+    @staticmethod
+    def parseArgs():
+        ptParser=PerfTestArgumentsHandler.createArgumentParser()
+        args=ptParser.parse_args()
+        return args
+
+def main():
+
+    args = PerfTestArgumentsHandler.parseArgs()
+    Utils.Debug = args.v
+
+    testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+                                                             dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file,
+                                                             verbose=args.v)
+
+    ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
+    chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
+                                      chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,
+                                      wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
+                                      eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
+                                      blockLogRetainBlocks=args.block_log_retain_blocks,
+                                      abiSerializerMaxTimeMs=990000, chainStateDbSizeMb=256000)
+    producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
+                                            lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,
+                                            cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent,
+                                            producerThreads=args.producer_threads, maxTransactionTime=-1)
+    httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
+                                    httpThreads=args.http_threads)
+    netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
+    nodeosVers=Utils.getNodeosVersion().split('.')[0]
+    resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not nodeosVers == "v2")
+    extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
+                          resourceMonitorPluginArgs=resourceMonitorPluginArgs)
+    SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
+    specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
+    testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
+                                                           prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
+                                                           specifiedContract=specifiedContract,
+                                                           nodeosVers=nodeosVers)
+
+    ptConfig = PerformanceTest.PtConfig(testDurationSec=args.test_iteration_duration_sec,
+                                        finalDurationSec=args.final_iterations_duration_sec,
+                                        delPerfLogs=args.del_perf_logs,
+                                        maxTpsToTest=args.max_tps_to_test,
+                                        testIterationMinStep=args.test_iteration_min_step,
+                                        tpsLimitPerGenerator=args.tps_limit_per_generator,
+                                        delReport=args.del_report,
+                                        delTestReport=args.del_test_report,
+                                        numAddlBlocksToPrune=args.num_blocks_to_prune,
+                                        quiet=args.quiet,
+                                        logDirRoot=Path("."),
+                                        skipTpsTests=args.skip_tps_test,
+                                        calcProducerThreads=args.calc_producer_threads,
+                                        calcChainThreads=args.calc_chain_threads,
+                                        calcNetThreads=args.calc_net_threads,
+                                        userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
+
+    myTest = PerformanceTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptConfig=ptConfig)
+    perfRunSuccessful = myTest.runTest()
 
     exitCode = 0 if perfRunSuccessful else 1
     exit(exitCode)

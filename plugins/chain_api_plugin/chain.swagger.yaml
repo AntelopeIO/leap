@@ -548,68 +548,6 @@ paths:
                     type: array
                     items: {}
 
-  /abi_json_to_bin:
-    post:
-      description: Returns an object containing the serialized action data.
-      operationId: abi_json_to_bin
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              title: AbiJsonToBinRequest
-                - code
-                - action
-                - args
-              properties:
-                code:
-                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-                action:
-                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-                args:
-                  type: object
-                  description: json object of the action parameters that will be serialized.
-
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: object
-                properties:
-                  binargs:
-                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Hex.yaml"
-
-  /abi_bin_to_json:
-    post:
-      description: Returns an object containing the deserialized action data.
-      operationId: abi_bin_to_json
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              title: AbiBinToJsonRequest
-              required:
-                - code
-                - action
-                - binargs
-              properties:
-                code:
-                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-                action:
-                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Name.yaml"
-                binargs:
-                  $ref: "https://docs.eosnetwork.com/openapi/v2.0/Hex.yaml"
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: string
-
   /get_code:
     post:
       description: Returns an object containing the smart contract WASM code.

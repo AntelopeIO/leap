@@ -141,22 +141,9 @@ public:
    {
    }
 
-   void set_max_failures_per_account( uint32_t max_failures ) {
-       max_failures_per_account = max_failures;
-   }
-
-   void add_idle_time( const fc::microseconds& idle ) {
-      block_idle_time += idle;
-   }
-
-   void add_fail_time( const fc::microseconds& fail_time ) {
-      trx_fail_time += fail_time;
-      ++trx_fail_num;
-   }
-
-   void add_success_time( const fc::microseconds& time ) {
-      trx_success_time += time;
-      ++trx_success_num;
+   void set_max_failures_per_account( uint32_t max_failures, uint32_t size ) {
+      max_failures_per_account = max_failures;
+      reset_window_size_in_num_blocks = size;
    }
 
    void add( const account_name& n, const fc::exception& e ) {
@@ -176,16 +163,24 @@ public:
       return false;
    }
 
-   void report( const fc::time_point& idle_trx_time, uint32_t block_num ) {
-      if( _log.is_enabled( fc::log_level::debug ) ) {
+   void report_and_clear(uint32_t block_num) {
+      if (last_reset_block_num != block_num && (block_num % reset_window_size_in_num_blocks == 0) ) {
+         report(block_num);
+         failed_accounts.clear();
+         last_reset_block_num = block_num;
+      }
+   }
+
+   fc::time_point next_reset_timepoint(uint32_t current_block_num, fc::time_point current_block_time) const {
+      auto num_blocks_to_reset = reset_window_size_in_num_blocks - (current_block_num % reset_window_size_in_num_blocks);
+      return current_block_time + fc::milliseconds(num_blocks_to_reset * eosio::chain::config::block_interval_ms);
+   }
+
+private:
+   void report(uint32_t block_num) const {
+      if( _log.is_enabled(fc::log_level::debug)) {
          auto now = fc::time_point::now();
-         add_idle_time( now - idle_trx_time );
-         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, other: ${o}us",
-	 	  ("n", block_num)
-                  ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
-                  ("fn", trx_fail_num)("f", trx_fail_time)
-                  ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time) );
-         for( const auto& e : failed_accounts ) {
+         for ( const auto& e : failed_accounts ) {
             std::string reason;
             if( e.second.is_deadline() ) reason += "deadline";
             if( e.second.is_tx_cpu_usage() ) {
@@ -206,15 +201,6 @@ public:
          }
       }
    }
-
-   void clear() {
-      failed_accounts.clear();
-      block_idle_time = trx_fail_time = trx_success_time = fc::microseconds{};
-      trx_fail_num = trx_success_num = 0;
-      clear_time = fc::time_point::now();
-   }
-
-private:
    struct account_failure {
       enum class ex_fields : uint8_t {
          ex_deadline_exception = 1,
@@ -250,13 +236,51 @@ private:
 
    std::map<account_name, account_failure> failed_accounts;
    uint32_t max_failures_per_account = 3;
+   uint32_t last_reset_block_num = 0;
+   uint32_t reset_window_size_in_num_blocks = 1;
+   const eosio::subjective_billing& subjective_billing;
+};
+
+struct block_time_tracker {
+
+   void add_idle_time( const fc::microseconds& idle ) {
+      block_idle_time += idle;
+   }
+
+   void add_fail_time( const fc::microseconds& fail_time ) {
+      trx_fail_time += fail_time;
+      ++trx_fail_num;
+   }
+
+   void add_success_time( const fc::microseconds& time ) {
+      trx_success_time += time;
+      ++trx_success_num;
+   }
+
+   void report( const fc::time_point& idle_trx_time, uint32_t block_num ) {
+      if( _log.is_enabled( fc::log_level::debug ) ) {
+         auto now = fc::time_point::now();
+         add_idle_time( now - idle_trx_time );
+         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, other: ${o}us",
+                  ("n", block_num)
+                  ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
+                  ("fn", trx_fail_num)("f", trx_fail_time)
+                  ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time) );
+      }
+   }
+
+   void clear() {
+      block_idle_time = trx_fail_time = trx_success_time = fc::microseconds{};
+      trx_fail_num = trx_success_num = 0;
+      clear_time = fc::time_point::now();
+   }
+
    fc::microseconds block_idle_time;
    uint32_t trx_success_num = 0;
    uint32_t trx_fail_num = 0;
    fc::microseconds trx_success_time;
    fc::microseconds trx_fail_time;
    fc::time_point clear_time{fc::time_point::now()};
-   const eosio::subjective_billing& subjective_billing;
 };
 
 } // anonymous namespace
@@ -337,6 +361,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       pending_snapshot_index                                   _pending_snapshot_index;
       subjective_billing                                       _subjective_billing;
       account_failures                                         _account_fails{_subjective_billing};
+      block_time_tracker                                       _time_tracker;
 
       std::optional<scoped_connection>                          _accepted_block_connection;
       std::optional<scoped_connection>                          _accepted_block_header_connection;
@@ -387,8 +412,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto before = _unapplied_transactions.size();
          _unapplied_transactions.clear_applied( bsp );
          _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
-         fc_dlog( _log, "Removed applied transactions before: ${before}, after: ${after}",
-                  ("before", before)("after", _unapplied_transactions.size()) );
+         if (before > 0) {
+            fc_dlog( _log, "Removed applied transactions before: ${before}, after: ${after}",
+                     ("before", before)("after", _unapplied_transactions.size()) );
+         }
       }
 
       void on_block_header( const block_state_ptr& bsp ) {
@@ -437,11 +464,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto& chain = chain_plug->chain();
 
          if( chain.is_building_block() ) {
-            _account_fails.report( _idle_trx_time, chain.pending_block_num() );
+            _time_tracker.report( _idle_trx_time, chain.pending_block_num() );
          }
          _unapplied_transactions.add_aborted( chain.abort_block() );
          _subjective_billing.abort_block();
-         _account_fails.clear();
          _idle_trx_time = fc::time_point::now();
       }
 
@@ -461,9 +487,11 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          const auto& id = block_id ? *block_id : block->calculate_id();
          auto blk_num = block->block_num();
 
-         fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
+         auto now = fc::time_point::now();
+         if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) // only log every 1000 during sync
+            fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
 
-         EOS_ASSERT( block->timestamp < (fc::time_point::now() + fc::seconds( 7 )), block_from_the_future,
+         EOS_ASSERT( block->timestamp < (now + fc::seconds( 7 )), block_from_the_future,
                      "received a block from the future, ignoring it: ${id}", ("id", id) );
 
          /* de-dupe here... no point in aborting block if we already know the block */
@@ -513,7 +541,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
 
          const auto& hbs = chain.head_block_state();
-         auto now = fc::time_point::now();
+         now = fc::time_point::now();
          if( hbs->header.timestamp.next().to_time_point() >= now ) {
             _production_enabled = true;
          }
@@ -585,15 +613,15 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                app().post( priority::low, [self, future{std::move(future)}, api_trx, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
                   auto start = fc::time_point::now();
                   auto idle_time = start - self->_idle_trx_time;
-                  self->_account_fails.add_idle_time( idle_time );
+                  self->_time_tracker.add_idle_time( idle_time );
                   fc_tlog( _log, "Time since last trx: ${t}us", ("t", idle_time) );
 
                   auto exception_handler = [self, &next, trx{std::move(trx)}, &start](fc::exception_ptr ex) {
-                     self->_account_fails.add_idle_time( start - self->_idle_trx_time );
+                     self->_time_tracker.add_idle_time( start - self->_idle_trx_time );
                      self->log_trx_results( trx, nullptr, ex, 0, start );
                      next( std::move(ex) );
                      self->_idle_trx_time = fc::time_point::now();
-                     self->_account_fails.add_fail_time(self->_idle_trx_time - start);
+                     self->_time_tracker.add_fail_time(self->_idle_trx_time - start);
                   };
                   try {
                      auto result = future.get();
@@ -777,7 +805,9 @@ void producer_plugin::set_program_options(
          ("subjective-cpu-leeway-us", boost::program_options::value<int32_t>()->default_value( config::default_subjective_cpu_leeway_us ),
           "Time in microseconds allowed for a transaction that starts with insufficient CPU quota to complete and cover its CPU usage.")
          ("subjective-account-max-failures", boost::program_options::value<uint32_t>()->default_value(3),
-          "Sets the maximum amount of failures that are allowed for a given account per block.")
+          "Sets the maximum amount of failures that are allowed for a given account per window size.")
+         ("subjective-account-max-failures-window-size", boost::program_options::value<uint32_t>()->default_value(1),
+          "Sets the window size in number of blocks for subjective-account-max-failures.")
          ("subjective-account-decay-time-minutes", bpo::value<uint32_t>()->default_value( config::account_cpu_usage_average_window_ms / 1000 / 60 ),
           "Sets the time to return full subjective cpu for accounts")
          ("incoming-defer-ratio", bpo::value<double>()->default_value(1.0),
@@ -884,7 +914,12 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       }
    }
 
-   my->_account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>() );
+   auto subjective_account_max_failures_window_size = options.at("subjective-account-max-failures-window-size").as<uint32_t>();
+   EOS_ASSERT( subjective_account_max_failures_window_size > 0, plugin_config_exception,
+               "subjective-account-max-failures-window-size ${s} must be greater than 0", ("s", subjective_account_max_failures_window_size) );
+
+   my->_account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>(),
+                                                    subjective_account_max_failures_window_size );
 
    my->_produce_time_offset_us = options.at("produce-time-offset-us").as<int32_t>();
    EOS_ASSERT( my->_produce_time_offset_us <= 0 && my->_produce_time_offset_us >= -config::block_interval_us, plugin_config_exception,
@@ -1791,6 +1826,9 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
 
       try {
+         _account_fails.report_and_clear(hbs->block_num);
+         _time_tracker.clear();
+
          if( !remove_expired_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
          if( !remove_expired_blacklisted_trxs( preprocess_deadline ) )
@@ -2014,20 +2052,21 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
                                          || (!api_trx && _disable_subjective_p2p_billing)
                                          || trx->is_transient();
 
+   chain::controller& chain = chain_plug->chain();
    auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
    if( !disable_subjective_enforcement && _account_fails.failure_limit( first_auth ) ) {
       if( next ) {
          auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
-               FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a}",
-                               ("id", trx->id())( "a", first_auth ) ) ) );
+               FC_LOG_MESSAGE( error, "transaction ${id} exceeded failure limit for account ${a} until ${next_reset_time}",
+                               ("id", trx->id())( "a", first_auth )
+                               ("next_reset_time", _account_fails.next_reset_timepoint(chain.head_block_num(),chain.head_block_time()))) ) );
          log_trx_results( trx, except_ptr );
          next( except_ptr );
       }
-      _account_fails.add_fail_time(fc::time_point::now() - start);
+      _time_tracker.add_fail_time(fc::time_point::now() - start);
       return push_result{.failed = true};
    }
 
-   chain::controller& chain = chain_plug->chain();
    fc::microseconds max_trx_time = trx->is_read_only() ? fc::milliseconds( _max_read_only_transaction_time_ms ) : fc::milliseconds( _max_transaction_time_ms.load() );
    if( max_trx_time.count() < 0 ) max_trx_time = fc::microseconds::maximum();
 
@@ -2061,7 +2100,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    auto end = fc::time_point::now();
    push_result pr;
    if( trace->except ) {
-      _account_fails.add_fail_time(end - start);
+      _time_tracker.add_fail_time(end - start);
       if( exception_is_exhausted( *trace->except ) ) {
          if( _pending_block_mode == pending_block_mode::producing ) {
             fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
@@ -2100,7 +2139,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    } else {
       fc_tlog( _log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us",
                ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
-      _account_fails.add_success_time(end - start);
+      _time_tracker.add_success_time(end - start);
       log_trx_results( trx, trace, start );
       // if producing then trx is in objective cpu account billing
       if (!disable_subjective_enforcement && _pending_block_mode != pending_block_mode::producing) {
@@ -2243,7 +2282,7 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
          auto trace = chain.push_scheduled_transaction(trx_id, deadline, max_trx_time, 0, false);
          auto end = fc::time_point::now();
          if (trace->except) {
-            _account_fails.add_fail_time(end - start);
+            _time_tracker.add_fail_time(end - start);
             if (exception_is_exhausted(*trace->except)) {
                if( block_is_exhausted() ) {
                   exhausted = true;
@@ -2263,7 +2302,7 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                num_failed++;
             }
          } else {
-            _account_fails.add_success_time(end - start);
+            _time_tracker.add_success_time(end - start);
             fc_dlog(_trx_successful_trace_log,
                     "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${txid}, time: ${r}, auth: ${a}, cpu: ${cpu}",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
@@ -2364,7 +2403,7 @@ void producer_plugin_impl::schedule_production_loop() {
          fc_dlog(_log, "Waiting till another block is received and scheduling Speculative/Production Change");
          schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(calculate_pending_block_time()));
       } else {
-         fc_dlog(_log, "Waiting till another block is received");
+         fc_tlog(_log, "Waiting till another block is received");
          // nothing to do until more blocks arrive
       }
 
@@ -2532,8 +2571,7 @@ void producer_plugin_impl::produce_block() {
 
    block_state_ptr new_bs = chain.head_block_state();
 
-   _account_fails.report(_idle_trx_time, new_bs->block_num);
-   _account_fails.clear();
+   _time_tracker.report(_idle_trx_time, new_bs->block_num);
 
    br.total_time += fc::time_point::now() - start;
 

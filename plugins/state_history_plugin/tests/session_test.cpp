@@ -1,6 +1,6 @@
 
 #define BOOST_TEST_MODULE example
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <algorithm>
 #include <boost/asio/dispatch.hpp>
