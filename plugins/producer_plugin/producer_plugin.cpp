@@ -2949,9 +2949,4 @@ const std::set<account_name>& producer_plugin::producer_accounts() const {
 void producer_plugin::register_metrics_listener(metrics_listener listener) {
    my->_metrics.register_listener(listener);
 }
-
-const std::set<account_name>& producer_plugin::producer_accounts() const {
-   return my->_producers;
-}
-
 } // namespace eosio

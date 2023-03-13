@@ -1,6 +1,6 @@
 #pragma once
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
 
 namespace eosio {
