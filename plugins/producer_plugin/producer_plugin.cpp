@@ -386,6 +386,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<scoped_connection>                          _accepted_block_header_connection;
       std::optional<scoped_connection>                          _irreversible_block_connection;
 
+      producer_plugin_metrics                                   _metrics;
+
       /*
        * HACK ALERT
        * Boost timers can be in a state where a handler has not yet executed but is not abortable.
@@ -488,6 +490,24 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             } CATCH_AND_CALL(next);
 
             snapshots_by_height.erase(snapshots_by_height.begin());
+         }
+      }
+
+      void update_block_metrics() {
+         if (_metrics.should_post()) {
+            _metrics.unapplied_transactions.value = _unapplied_transactions.size();
+            _metrics.subjective_bill_account_size.value = _subjective_billing.get_account_cache_size();
+            _metrics.blacklisted_transactions.value = _blacklisted_transactions.size();
+            _metrics.unapplied_transactions.value = _unapplied_transactions.size();
+
+            auto &chain = chain_plug->chain();
+            _metrics.last_irreversible.value = chain.last_irreversible_block_num();
+            _metrics.head_block_num.value = chain.head_block_num();
+
+            const auto& sch_idx = chain.db().get_index<generated_transaction_multi_index, by_delay>();
+            _metrics.scheduled_trxs.value = sch_idx.size();
+
+            _metrics.post_metrics();
          }
       }
 
@@ -595,6 +615,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                     ("latency", (now - hbs->block->timestamp).count()/1000 ) );
             }
          }
+
+         update_block_metrics();
 
          return true;
       }
@@ -1758,6 +1780,7 @@ bool producer_plugin_impl::should_interrupt_start_block( const fc::time_point& d
 
 producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    chain::controller& chain = chain_plug->chain();
+   update_block_metrics();
 
    if( !chain_plug->accept_transactions() )
       return start_block_result::waiting_for_block;
@@ -2709,6 +2732,9 @@ void producer_plugin_impl::produce_block() {
 
    br.total_time += fc::time_point::now() - start;
 
+   ++_metrics.blocks_produced.value;
+   _metrics.trxs_produced.value += new_bs->block->transactions.size();
+
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
         ("p",new_bs->header.producer)("id",new_bs->id.str().substr(8,16))
@@ -2919,4 +2945,13 @@ bool producer_plugin_impl::push_read_only_transaction(
 const std::set<account_name>& producer_plugin::producer_accounts() const {
    return my->_producers;
 }
+
+void producer_plugin::register_metrics_listener(metrics_listener listener) {
+   my->_metrics.register_listener(listener);
+}
+
+const std::set<account_name>& producer_plugin::producer_accounts() const {
+   return my->_producers;
+}
+
 } // namespace eosio
