@@ -104,7 +104,7 @@ install_dependencies() {
 }
 
 install_clang() {
-    CLANG_DIR="$1"
+    export CLANG_DIR="$1"
     if [ ! -d "${CLANG_DIR}" ]; then
         echo "Installing Clang ${CLANG_VER} @ ${CLANG_DIR}"
         mkdir -p "${CLANG_DIR}"
