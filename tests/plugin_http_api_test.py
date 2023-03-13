@@ -56,7 +56,7 @@ class PluginHttpTest(unittest.TestCase):
                         "http_plugin", "db_size_api_plugin", "prometheus_plugin"]
         nodeos_plugins = "--plugin eosio::" +  " --plugin eosio::".join(plugin_names)
         nodeos_flags = (" --data-dir=%s --config-dir=%s --trace-dir=%s --trace-no-abis --access-control-allow-origin=%s "
-                        "--contracts-console --http-validate-host=%s --verbose-http-errors "
+                        "--contracts-console --http-validate-host=%s --verbose-http-errors --abi-serializer-max-time-ms 30000 --http-max-response-time-ms 30000 "
                         "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
         start_nodeos_cmd = ("%s -e -p eosio %s %s ") % (Utils.EosServerPath, nodeos_plugins, nodeos_flags)
         self.nodeos.launchCmd(start_nodeos_cmd, self.node_id)
