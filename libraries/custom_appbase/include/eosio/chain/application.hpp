@@ -1,22 +1,22 @@
 #pragma once
 
 #include <appbase/application_base.hpp>
-#include <appbase/execution_priority_queue.hpp>
+#include <eosio/chain/exec_pri_queue.hpp>
 #include <mutex>
 
 /*
- * Custmomize appbase to support two-queue exector.
+ * Customize appbase to support two-queue executor.
 */
 namespace appbase { 
 
 enum class exec_window {
    read,  // the window during which operations from read_only_trx_safe queue
           // can be executed in app thread in parallel with read-only transactions
-          // in read-only transaction excuting threads.
+          // in read-only transaction executing threads.
    write, // the window during which operations from both general and
           // read_only_trx_safe queues can be executed in app thread,
           // while read-only transactions are not executed in read-only
-          // transaction excuting threads.
+          // transaction executing threads.
 };
 
 enum class exec_queue {
@@ -51,6 +51,7 @@ public:
 
    bool execute_highest() {
       if ( exec_window_ == exec_window::write ) {
+         // During write window only main thread is accessing anything in two_queue_executor, no locking required
          if( !general_queue_.empty() && ( read_only_trx_safe_queue_.empty() || *read_only_trx_safe_queue_.top() < *general_queue_.top()) )  {
             // general_queue_'s top function's priority greater than read_only_trx_safe_queue_'s top function's, or general_queue_ empty
             general_queue_.execute_highest();
@@ -59,23 +60,17 @@ public:
          }
          return !read_only_trx_safe_queue_.empty() || !general_queue_.empty();
       } else {
-         return execute_highest_read_only();
+         // When in read window, multiple threads including main app thread are accessing two_queue_executor, locking required
+         return read_only_trx_safe_queue_.execute_highest_locked();
       }
    }
 
    bool execute_highest_read_only() {
-      std::unique_lock g(read_only_mx);
-      auto size = read_only_trx_safe_queue_.size();
-      if( size > 0 ) {
-         auto t = read_only_trx_safe_queue_.pop();
-         g.unlock();
-         t->execute();
-      }
-      return size > 1;
+      return read_only_trx_safe_queue_.execute_highest_locked();
    }
 
    template <typename Function>
-   boost::asio::executor_binder<Function, appbase::execution_priority_queue::executor>
+   boost::asio::executor_binder<Function, appbase::exec_pri_queue::executor>
    wrap(int priority, exec_queue q, Function&& func ) {
       if ( q == exec_queue::general )
          return general_queue_.wrap(priority, --order_, std::forward<Function>(func));
@@ -90,10 +85,12 @@ public:
 
    void set_to_read_window() {
       exec_window_ = exec_window::read;
+      read_only_trx_safe_queue_.enable_locking();
    }
 
    void set_to_write_window() {
       exec_window_ = exec_window::write;
+      read_only_trx_safe_queue_.disable_locking();
    }
 
    bool is_read_window() const {
@@ -111,9 +108,8 @@ public:
    // members are ordered taking into account that the last one is destructed first
 private:
    boost::asio::io_service            io_serv_;
-   std::mutex                         read_only_mx;
-   appbase::execution_priority_queue  read_only_trx_safe_queue_;
-   appbase::execution_priority_queue  general_queue_;
+   appbase::exec_pri_queue            read_only_trx_safe_queue_;
+   appbase::exec_pri_queue            general_queue_;
    std::atomic<std::size_t>           order_ { std::numeric_limits<size_t>::max() }; // to maintain FIFO ordering in both queues within priority
    exec_window                        exec_window_ { exec_window::write };
 };
