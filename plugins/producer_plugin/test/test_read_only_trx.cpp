@@ -36,7 +36,14 @@ auto make_unique_trx( const chain_id_type& chain_id ) {
    ++nextid;
    account_name creator = config::system_account_name;
    signed_transaction trx;
-   trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}}, testit{nextid} );
+   trx.expiration = fc::time_point::now() + fc::seconds( nextid % 50 == 0 ? 0 : 60 ); // fail some transactions via expired
+   if( nextid % 10 == 0 ) {
+      // fail some for authorization (read-only transaction should not have authorization)
+      trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}}, testit{nextid} );
+   } else {
+      vector<permission_level> no_auth{};
+      trx.actions.emplace_back( no_auth, testit{nextid} );
+   }
    return std::make_shared<packed_transaction>( std::move(trx) );
 }
 }
@@ -123,10 +130,9 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
 
    // Wait long enough such that all transactions are executed
    auto start = fc::time_point::now();
-   auto end = start + fc::seconds(10);
-   while ( fc::time_point::now() < end ){
-      if (next_calls == num_pushes) break;
-      std::this_thread::sleep_for( 500000us);
+   auto hard_deadline = start + fc::seconds(10); // To protect against waiting forever
+   while ( next_calls < num_pushes && fc::time_point::now() < hard_deadline ){
+      std::this_thread::sleep_for( 100ms );;
    }
 
    app->quit();
