@@ -23,7 +23,7 @@ if [ $# -eq 0 ] || [ -z "$1" ]; then
     exit 255
 fi
 
-CORE_SYM=EOS
+export CORE_SYM='EOS'
 # CMAKE_C_COMPILER requires absolute path
 DEP_DIR=`realpath $1`
 LEAP_DIR=$2
