@@ -1,0 +1,53 @@
+{
+    "initAccounts": [],
+    "abiFile": "unittests/contracts/eosio.system/eosio.system.abi",
+    "actions": [
+        {
+            "actionAuthAcct": "eosio",
+            "actionName": "newaccount",
+            "authorization": {
+                "actor": "eosio",
+                "permission": "active"
+            },
+            "actionData": {
+                "creator": "eosio",
+                "name": "ACCT_PER_TRX",
+                "owner": {
+                    "threshold": 1,
+                    "keys": [
+                        {
+                            "key": "EOS65rXebLhtk2aTTzP4e9x1AQZs7c5NNXJp89W8R3HyaA6Zyd4im",
+                            "weight": 1
+                        }
+                    ],
+                    "accounts": [],
+                    "waits": []
+                },
+                "active": {
+                    "threshold": 1,
+                    "keys": [
+                        {
+                            "key": "EOS65rXebLhtk2aTTzP4e9x1AQZs7c5NNXJp89W8R3HyaA6Zyd4im",
+                            "weight": 1
+                        }
+                    ],
+                    "accounts": [],
+                    "waits": []
+                }
+            }
+        },
+        {
+            "actionAuthAcct": "eosio",
+            "actionName": "buyrambytes",
+            "authorization": {
+                "actor": "eosio",
+                "permission": "active"
+            },
+            "actionData": {
+                "payer": "eosio",
+                "receiver": "ACCT_PER_TRX",
+                "bytes": "3000"
+            }
+        }
+    ]
+}

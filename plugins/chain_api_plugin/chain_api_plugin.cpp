@@ -50,7 +50,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 
 #define CALL_WITH_400(api_name, api_handle, api_namespace, call_name, http_response_code, params_type) \
 {std::string("/v1/" #api_name "/" #call_name), \
-   [api_handle](string, string body, url_response_callback cb) mutable { \
+   [api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
           auto deadline = api_handle.start(); \
           try { \
              auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\
@@ -64,7 +64,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 
 #define CALL_ASYNC_WITH_400(api_name, api_handle, api_namespace, call_name, call_result, http_response_code, params_type) \
 {std::string("/v1/" #api_name "/" #call_name), \
-   [api_handle](string, string body, url_response_callback cb) mutable { \
+   [api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
       auto deadline = api_handle.start(); \
       try { \
          auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\
@@ -125,8 +125,6 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(get_producers, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_producer_schedule, 200, http_params_types::no_params),
       CHAIN_RO_CALL(get_scheduled_transactions, 200, http_params_types::params_required),
-      CHAIN_RO_CALL(abi_json_to_bin, 200, http_params_types::params_required),
-      CHAIN_RO_CALL(abi_bin_to_json, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_required_keys, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_transaction_id, 200, http_params_types::params_required),
       CHAIN_RO_CALL_ASYNC(compute_transaction, chain_apis::read_only::compute_transaction_results, 200, http_params_types::params_required),
@@ -154,7 +152,7 @@ void chain_api_plugin::plugin_startup() {
    _http_plugin.add_api({
       { std::string("/v1/chain/get_block"),
         [ro_api, &_http_plugin, max_time=std::min(chain.get_abi_serializer_max_time(),max_response_time)]
-              ( string, string body, url_response_callback cb ) mutable {
+              ( string&&, string&& body, url_response_callback&& cb ) mutable {
            auto deadline = ro_api.start();
            try {
               auto start = fc::time_point::now();
@@ -168,11 +166,11 @@ void chain_api_plugin::plugin_startup() {
               auto post_time = fc::time_point::now();
               auto remaining_time = max_time - (post_time - start);
               _http_plugin.post_http_thread_pool(
-                    [ro_api, cb, deadline, post_time, remaining_time, abi_cache{std::move(abi_cache)}, block{std::move( block )}]() {
+                    [ro_api, cb, deadline, post_time, remaining_time, abi_cache{std::move(abi_cache)}, block{std::move( block )}]() mutable {
                  try {
                     auto new_deadline = deadline + (fc::time_point::now() - post_time);
 
-                    fc::variant result = ro_api.convert_block( block, abi_cache, remaining_time );
+                    fc::variant result = ro_api.convert_block( block, std::move(abi_cache), remaining_time );
 
                     cb( 200, new_deadline, std::move( result ) );
                  } catch( ... ) {
