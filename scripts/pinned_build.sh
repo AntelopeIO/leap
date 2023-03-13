@@ -53,7 +53,7 @@ popdir() {
     # -ef compares absolute paths
     if ! [[ ${D} -ef ${EXPECTED} ]]; then
         echo "Directory is not where expected EXPECTED=${EXPECTED} at ${D}"
-        exit 1 
+        exit 1
     fi
 }
 
@@ -92,11 +92,11 @@ install_llvm() {
         pushdir "${LLVM_DIR}.src"
         pushdir build
         try cmake -DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/pinned_toolchain.cmake -DCMAKE_INSTALL_PREFIX=${LLVM_DIR} -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=host -DLLVM_BUILD_TOOLS=Off -DLLVM_ENABLE_RTTI=On -DLLVM_ENABLE_TERMINFO=Off -DCMAKE_EXE_LINKER_FLAGS=-pthread -DCMAKE_SHARED_LINKER_FLAGS=-pthread -DLLVM_ENABLE_PIC=NO ..
-        try make -j${JOBS} 
+        try make -j${JOBS}
         try make -j${JOBS} install
         popdir "${LLVM_DIR}.src"
         popdir ${DEP_DIR}
-        rm -rf ${LLVM_DIR}.src 
+        rm -rf ${LLVM_DIR}.src
         rm llvm-${LLVM_VER}.src.tar.xz
     fi
     export LLVM_DIR=${LLVM_DIR}
