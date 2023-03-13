@@ -106,7 +106,7 @@ install_dependencies() {
 install_clang() {
     export CLANG_DIR="$1"
     if [ ! -d "${CLANG_DIR}" ]; then
-        echo "Installing Clang ${CLANG_VER} @ ${CLANG_DIR}"
+        echo "Installing Clang v${CLANG_VER} to \"${CLANG_DIR}\"."
         mkdir -p "${CLANG_DIR}"
         CLANG_FN="clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
         try wget -O "${CLANG_FN}" "https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VER}/${CLANG_FN}"
@@ -124,7 +124,7 @@ install_clang() {
 install_llvm() {
     LLVM_DIR="$1"
     if [ ! -d "${LLVM_DIR}" ]; then
-        echo "Installing LLVM ${LLVM_VER} @ ${LLVM_DIR}"
+        echo "Installing LLVM v${LLVM_VER} to \"${LLVM_DIR}\"."
         mkdir -p "${LLVM_DIR}"
         try wget -O "llvm-${LLVM_VER}.src.tar.xz" "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VER}/llvm-${LLVM_VER}.src.tar.xz"
         echo "Extracting \"llvm-${LLVM_VER}.src.tar.xz\" to \"${LLVM_DIR}\"..."
@@ -146,7 +146,7 @@ install_boost() {
     BOOST_DIR="$1"
 
     if [ ! -d "${BOOST_DIR}" ]; then
-        echo "Installing Boost ${BOOST_VER} @ ${BOOST_DIR}"
+        echo "Installing Boost v${BOOST_VER} to \"${BOOST_DIR}\"."
         try wget -O "boost_${BOOST_VER//\./_}.tar.gz" "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/boost_${BOOST_VER//\./_}.tar.gz"
         echo "Extracting \"boost_${BOOST_VER//\./_}.tar.gz\" to \"${BOOST_DIR}\"..."
         try tar --transform="s:^boost_${BOOST_VER//\./_}:boost_${BOOST_VER//\./_}patched:" -xzf "boost_${BOOST_VER//\./_}.tar.gz" -C "${DEP_DIR}"
