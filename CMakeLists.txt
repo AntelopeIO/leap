@@ -256,6 +256,26 @@ configure_file(programs/cleos/LICENSE.CLI11                                licen
 
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/leap" DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/" COMPONENT base)
 
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libraries/testing/contracts DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/libraries/testing COMPONENT base
+        PATTERN "CMakeFiles" EXCLUDE
+        PATTERN "*.cmake" EXCLUDE
+        PATTERN "Makefile" EXCLUDE)
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/unittests/contracts DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/unittests COMPONENT base
+        PATTERN "CMakeFiles" EXCLUDE
+        PATTERN "*.cmake" EXCLUDE
+        PATTERN "Makefile" EXCLUDE)
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests/TestHarness DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/tests COMPONENT dev
+        FILES_MATCHING
+        PATTERN "*.py"
+        PATTERN "*.json"
+        PATTERN "__pycache__" EXCLUDE
+        PATTERN "CMakeFiles" EXCLUDE)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tests/launcher.py DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/tests COMPONENT dev)
+
+install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages)")
+install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../../share/leap_testing/tests/TestHarness ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness)")
+install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin)")
+
 configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/leap-util
                ${CMAKE_BINARY_DIR}/programs/leap-util/bash-completion/completions/leap-util COPYONLY)
 configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/cleos

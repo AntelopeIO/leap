@@ -14,7 +14,7 @@ import json
 import socket
 from pathlib import Path
 
-from core_symbol import CORE_SYMBOL
+from .core_symbol import CORE_SYMBOL
 from .testUtils import Account
 from .testUtils import BlockLogAction
 from .testUtils import Utils
@@ -132,6 +132,10 @@ class Cluster(object):
         self.biosNode = None
         self.nodeosVers=nodeosVers
         self.nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}')
+
+        self.launcherPath = Path(__file__).resolve().parents[1] / "launcher.py"
+        self.libTestingContractsPath = Path(__file__).resolve().parents[2] / "libraries" / "testing" / "contracts"
+        self.unittestsContractsPath = Path(__file__).resolve().parents[2] / "unittests" / "contracts"
 
         unshare(CLONE_NEWNET)
         for index, name in socket.if_nameindex():
@@ -258,7 +262,7 @@ class Cluster(object):
             time.sleep(2)
         loggingLevelDictString = json.dumps(self.loggingLevelDict, separators=(',', ':'))
         cmd="%s %s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s --logging-level %s --logging-level-map %s" % (
-            sys.executable, "tests/launcher.py", pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
+            sys.executable, str(self.launcherPath), pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
             producerFlag, unstartedNodes, self.loggingLevel, loggingLevelDictString)
         cmdArr=cmd.split()
         if self.staging:
@@ -1082,11 +1086,11 @@ class Cluster(object):
             return None
 
         contract="eosio.bios"
-        contractDir="libraries/testing/contracts/%s" % (contract)
+        contractDir= str(self.libTestingContractsPath / contract)
         if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
-            contractDir="libraries/testing/contracts/old_versions/v1.7.0-develop-preactivate_feature/%s" % (contract)
+            contractDir=str(self.libTestingContractsPath / "old_versions" / "v1.7.0-develop-preactivate_feature" / contract)
         else:
-            contractDir="libraries/testing/contracts/old_versions/v1.6.0-rc3/%s" % (contract)
+            contractDir=str(self.libTestingContractsPath / "old_versions" / "v1.6.0-rc3" / contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
         Utils.Print("Publish %s contract" % (contract))
@@ -1202,7 +1206,7 @@ class Cluster(object):
         eosioTokenAccount = copy.deepcopy(eosioAccount)
         eosioTokenAccount.name = 'eosio.token'
         contract="eosio.token"
-        contractDir="unittests/contracts/%s" % (contract)
+        contractDir=str(self.unittestsContractsPath / contract)
         wasmFile="%s.wasm" % (contract)
         abiFile="%s.abi" % (contract)
         Utils.Print("Publish %s contract" % (contract))
@@ -1258,7 +1262,7 @@ class Cluster(object):
 
         if loadSystemContract:
             contract="eosio.system"
-            contractDir="unittests/contracts/%s" % (contract)
+            contractDir=str(self.unittestsContractsPath / contract)
             wasmFile="%s.wasm" % (contract)
             abiFile="%s.abi" % (contract)
             Utils.Print("Publish %s contract" % (contract))
@@ -1442,7 +1446,7 @@ class Cluster(object):
     def killall(self, kill=True, silent=True, allInstances=False):
         """Kill cluster nodeos instances. allInstances will kill all nodeos instances running on the system."""
         signalNum=9 if kill else 15
-        cmd="%s -k %d --nogen -p 1 -n 1 --nodeos-log-path %s" % ("python3 tests/launcher.py", signalNum, self.nodeosLogPath)
+        cmd="%s -k %d --nogen -p 1 -n 1 --nodeos-log-path %s" % (f"python3 {str(self.launcherPath)}", signalNum, self.nodeosLogPath)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         if 0 != subprocess.call(cmd.split(), stdout=Utils.FNull):
             if not silent: Utils.Print("Launcher failed to shut down eos cluster.")

@@ -378,7 +378,7 @@ plugin = eosio::chain_api_plugin
         dex = str(node.index).zfill(2)
         if dex in self.args.logging_level_map:
             ll = self.args.logging_level_map[dex]
-        with open(Path(os.getcwd()) / 'logging.json', 'r') as default:
+        with open(Path(__file__).resolve().parents[0] / 'TestHarness' / 'logging-template.json', 'r') as default:
             cfg = json.load(default)
         for logger in cfg['loggers']:
             logger['level'] = ll

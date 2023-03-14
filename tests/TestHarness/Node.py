@@ -10,7 +10,7 @@ import sys
 
 from datetime import datetime
 from datetime import timedelta
-from core_symbol import CORE_SYMBOL
+from .core_symbol import CORE_SYMBOL
 from .queries import NodeosQueries, BlockType
 from .transactions import Transactions
 from .testUtils import Utils

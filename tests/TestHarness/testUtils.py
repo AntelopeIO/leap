@@ -16,6 +16,7 @@ from sys import exit
 import traceback
 import shutil
 import sys
+from pathlib import Path
 
 ###########################################################################################
 
@@ -55,29 +56,30 @@ class Utils:
     Debug=False
     FNull = open(os.devnull, 'w')
 
-    EosClientPath="programs/cleos/cleos"
+    testBinPath = Path(__file__).resolve().parents[2] / 'bin'
+
+    EosClientPath=str(testBinPath / "cleos")
     MiscEosClientArgs="--no-auto-keosd"
 
-    LeapClientPath="programs/leap-util/leap-util"
+    LeapClientPath=str(testBinPath / "leap-util")
 
     EosWalletName="keosd"
-    EosWalletPath="programs/keosd/"+ EosWalletName
+    EosWalletPath=str(testBinPath / EosWalletName)
 
     EosServerName="nodeos"
-    EosServerPath="programs/nodeos/"+ EosServerName
+    EosServerPath=str(testBinPath / EosServerName)
 
-    EosLauncherPath="programs/eosio-launcher/eosio-launcher"
     ShuttingDown=False
 
     EosBlockLogPath="programs/eosio-blocklog/eosio-blocklog"
 
     FileDivider="================================================================="
-    TestLogRoot="TestLogs"
+    TestLogRoot=f"{str(Path.cwd().resolve())}/TestLogs"
     DataRoot=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0]
     PID = os.getpid()
     DataPath= f"{TestLogRoot}/{DataRoot}{PID}"
     DataDir= f"{DataPath}/"
-    ConfigDir="etc/eosio/"
+    ConfigDir=f"{str(Path.cwd().resolve())}/etc/eosio/"
 
     TimeFmt='%Y-%m-%dT%H:%M:%S.%f'
 
@@ -90,10 +92,10 @@ class Utils:
         stop=Utils.timestamp()
         if not hasattr(Utils, "checkOutputFile"):
             if not os.path.isdir(Utils.TestLogRoot):
-                if Utils.Debug: Utils.Print("creating dir %s in dir: %s" % (Utils.TestLogRoot, os.getcwd()))
+                if Utils.Debug: Utils.Print("TestLogRoot creating dir %s in dir: %s" % (Utils.TestLogRoot, os.getcwd()))
                 os.mkdir(Utils.TestLogRoot)
             if not os.path.isdir(Utils.DataPath):
-                if Utils.Debug: Utils.Print("creating dir %s in dir: %s" % (Utils.DataPath, os.getcwd()))
+                if Utils.Debug: Utils.Print("DataPath creating dir %s in dir: %s" % (Utils.DataPath, os.getcwd()))
                 os.mkdir(Utils.DataPath)
             filename=f"{Utils.DataPath}/subprocess_results.log"
             if Utils.Debug: Utils.Print("opening %s in dir: %s" % (filename, os.getcwd()))
