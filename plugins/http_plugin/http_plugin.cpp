@@ -69,7 +69,7 @@ namespace eosio {
           * @param content_type - json or plain txt
           * @return the constructed internal_url_handler
           */
-         static detail::internal_url_handler make_app_thread_url_handler(const string& url, int priority, appbase::exec_queue to_queue, url_handler next, http_plugin_impl_ptr my, http_content_type content_type ) {
+         static detail::internal_url_handler make_app_thread_url_handler(const string& url, appbase::exec_queue to_queue, int priority, url_handler next, http_plugin_impl_ptr my, http_content_type content_type ) {
             detail::internal_url_handler handler{url};
             handler.content_type = content_type;
             auto next_ptr = std::make_shared<url_handler>(std::move(next));
@@ -334,7 +334,7 @@ namespace eosio {
                      handle_exception("node", "get_supported_apis", body.empty() ? "{}" : body, cb);
                   }
                }
-            }});
+            }}, appbase::exec_queue::read_only_trx_safe);
             
          } catch (...) {
             fc_elog(logger(), "http_plugin startup fails, shutting down");
@@ -364,9 +364,9 @@ namespace eosio {
       fc_ilog( logger(), "exit shutdown");
    }
 
-   void http_plugin::add_handler(const string& url, const url_handler& handler, int priority, appbase::exec_queue q, http_content_type content_type) {
+   void http_plugin::add_handler(const string& url, const url_handler& handler, appbase::exec_queue q, int priority, http_content_type content_type) {
       fc_ilog( logger(), "add api url: ${c}", ("c", url) );
-      auto p = my->plugin_state->url_handlers.emplace(url, my->make_app_thread_url_handler(url, priority, q, handler, my, content_type));
+      auto p = my->plugin_state->url_handlers.emplace(url, my->make_app_thread_url_handler(url, q, priority, handler, my, content_type));
       EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", url) );
    }
 
