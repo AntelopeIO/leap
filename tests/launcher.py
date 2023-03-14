@@ -579,7 +579,7 @@ plugin = eosio::chain_api_plugin
         if not instance.dont_start:
             Utils.Print(f'spawning child: {" ".join(eosdcmd)}')
 
-            os.makedir(dd, exist_ok=True)
+            dd.mkdir(parents=True, exist_ok=True)
 
             stdout = open(out, 'w')
             stderr = open(err, 'w')
