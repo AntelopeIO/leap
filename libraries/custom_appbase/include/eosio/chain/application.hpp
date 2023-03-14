@@ -10,22 +10,24 @@
 namespace appbase { 
 
 enum class exec_window {
-   read,  // the window during which operations from read_only_trx_safe queue
-          // can be executed in app thread in parallel with read-only transactions
-          // in read-only transaction executing threads.
+   read,  // the window during which operations from parallel queue
+          // can be executed in parallel in the read-only thread pool
+          // as well as in the app thread.
    write, // the window during which operations from both general and
-          // read_only_trx_safe queues can be executed in app thread,
-          // while read-only transactions are not executed in read-only
-          // transaction executing threads.
+          // parallel queues can be executed in app thread,
+          // while read-only operations are not executed in read-only
+          // thread pool. The read-only thread pool is not active; only
+          // the main app thread is active.
 };
 
 enum class exec_queue {
-   read_only_trx_safe, // the queue storing operations which are safe to execute
-                       // on app thread in parallel with read-only transactions
-                       // in read-only transaction executing threads.
-   general             // the queue storing operations which can be only executed
-                       // on the app thread while read-only transactions are
-                       // not being executed in read-only threads
+   read_only_safe,     // the queue storing tasks which are safe to execute
+                       // in parallel with other read-only tasks in the read-only
+                       // thread pool as well as on the main app thread.
+                       // Multi-thread safe as long as nothing is executed from the general queue.
+   general             // the queue storing tasks which can be only executed
+                       // on the app thread while read-only tasks are
+                       // not being executed in read-only threads. Single threaded.
 };
 
 class two_queue_executor {
@@ -36,7 +38,7 @@ public:
       if ( q == exec_queue::general )
          return boost::asio::post(io_serv_, general_queue_.wrap(priority, --order_, std::forward<Func>(func)));
       else
-         return boost::asio::post(io_serv_, read_only_trx_safe_queue_.wrap(priority, --order_, std::forward<Func>(func)));
+         return boost::asio::post( io_serv_, read_only_safe_queue_.wrap( priority, --order_, std::forward<Func>( func)));
    }
 
    // Legacy and deprecated. To be removed after cleaning up its uses in base appbase
@@ -52,21 +54,21 @@ public:
    bool execute_highest() {
       if ( exec_window_ == exec_window::write ) {
          // During write window only main thread is accessing anything in two_queue_executor, no locking required
-         if( !general_queue_.empty() && ( read_only_trx_safe_queue_.empty() || *read_only_trx_safe_queue_.top() < *general_queue_.top()) )  {
-            // general_queue_'s top function's priority greater than read_only_trx_safe_queue_'s top function's, or general_queue_ empty
+         if( !general_queue_.empty() && (read_only_safe_queue_.empty() || *read_only_safe_queue_.top() < *general_queue_.top()) )  {
+            // general_queue_'s top function's priority greater than read_only_safe_queue_'s top function's, or general_queue_ empty
             general_queue_.execute_highest();
-         } else if( !read_only_trx_safe_queue_.empty() ) {
-            read_only_trx_safe_queue_.execute_highest();
+         } else if( !read_only_safe_queue_.empty() ) {
+            read_only_safe_queue_.execute_highest();
          }
-         return !read_only_trx_safe_queue_.empty() || !general_queue_.empty();
+         return !read_only_safe_queue_.empty() || !general_queue_.empty();
       } else {
          // When in read window, multiple threads including main app thread are accessing two_queue_executor, locking required
-         return read_only_trx_safe_queue_.execute_highest_locked();
+         return read_only_safe_queue_.execute_highest_locked();
       }
    }
 
    bool execute_highest_read_only() {
-      return read_only_trx_safe_queue_.execute_highest_locked();
+      return read_only_safe_queue_.execute_highest_locked();
    }
 
    template <typename Function>
@@ -75,22 +77,22 @@ public:
       if ( q == exec_queue::general )
          return general_queue_.wrap(priority, --order_, std::forward<Function>(func));
       else
-         return read_only_trx_safe_queue_.wrap(priority, --order_, std::forward<Function>(func));
+         return read_only_safe_queue_.wrap( priority, --order_, std::forward<Function>( func));
    }
      
    void clear() {
-      read_only_trx_safe_queue_.clear();
+      read_only_safe_queue_.clear();
       general_queue_.clear();
    }
 
    void set_to_read_window() {
       exec_window_ = exec_window::read;
-      read_only_trx_safe_queue_.enable_locking();
+      read_only_safe_queue_.enable_locking();
    }
 
    void set_to_write_window() {
       exec_window_ = exec_window::write;
-      read_only_trx_safe_queue_.disable_locking();
+      read_only_safe_queue_.disable_locking();
    }
 
    bool is_read_window() const {
@@ -101,14 +103,14 @@ public:
       return exec_window_ == exec_window::write;
    }
 
-   auto& read_only_trx_safe_queue() { return read_only_trx_safe_queue_; }
+   auto& read_only_trx_safe_queue() { return read_only_safe_queue_; }
 
    auto& general_queue() { return general_queue_; }
 
    // members are ordered taking into account that the last one is destructed first
 private:
    boost::asio::io_service            io_serv_;
-   appbase::exec_pri_queue            read_only_trx_safe_queue_;
+   appbase::exec_pri_queue            read_only_safe_queue_;
    appbase::exec_pri_queue            general_queue_;
    std::atomic<std::size_t>           order_ { std::numeric_limits<size_t>::max() }; // to maintain FIFO ordering in both queues within priority
    exec_window                        exec_window_ { exec_window::write };
