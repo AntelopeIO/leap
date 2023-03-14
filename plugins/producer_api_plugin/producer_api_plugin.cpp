@@ -96,26 +96,14 @@ void producer_api_plugin::plugin_startup() {
    fc::microseconds http_max_response_time = http.get_max_response_time();
 
    app().get_plugin<http_plugin>().add_api({
-       CALL_WITH_400(producer, producer, pause,
-            INVOKE_V_V(producer, pause), 201),
-       CALL_WITH_400(producer, producer, resume,
-            INVOKE_V_V(producer, resume), 201),
        CALL_WITH_400(producer, producer, paused,
-            INVOKE_R_V(producer, paused), 201),
+                     INVOKE_R_V(producer, paused), 201),
        CALL_WITH_400(producer, producer, get_runtime_options,
             INVOKE_R_V(producer, get_runtime_options), 201),
-       CALL_WITH_400(producer, producer, add_greylist_accounts,
-            INVOKE_V_R(producer, add_greylist_accounts, producer_plugin::greylist_params), 201),
-       CALL_WITH_400(producer, producer, remove_greylist_accounts,
-            INVOKE_V_R(producer, remove_greylist_accounts, producer_plugin::greylist_params), 201),
        CALL_WITH_400(producer, producer, get_greylist,
             INVOKE_R_V(producer, get_greylist), 201),
        CALL_WITH_400(producer, producer, get_whitelist_blacklist,
             INVOKE_R_V(producer, get_whitelist_blacklist), 201),
-       CALL_WITH_400(producer, producer, get_integrity_hash,
-            INVOKE_R_V(producer, get_integrity_hash), 201),
-       CALL_ASYNC(producer, producer, create_snapshot, producer_plugin::snapshot_information,
-            INVOKE_R_V_ASYNC(producer, create_snapshot), 201),
        CALL_WITH_400(producer, producer, get_scheduled_protocol_feature_activations,
             INVOKE_R_V(producer, get_scheduled_protocol_feature_activations), 201),
        CALL_WITH_400(producer, producer, get_supported_protocol_features,
@@ -127,8 +115,20 @@ void producer_api_plugin::plugin_startup() {
                      INVOKE_R_R_D(producer, get_unapplied_transactions, producer_plugin::get_unapplied_transactions_params), 200),
    }, appbase::priority::medium_high);
 
-   // Not safe to run in parallel with read-only transactions
+   // Not safe to run in parallel
    app().get_plugin<http_plugin>().add_api({
+       CALL_WITH_400(producer, producer, get_integrity_hash,
+                     INVOKE_R_V(producer, get_integrity_hash), 201),
+       CALL_WITH_400(producer, producer, add_greylist_accounts,
+                     INVOKE_V_R(producer, add_greylist_accounts, producer_plugin::greylist_params), 201),
+       CALL_WITH_400(producer, producer, remove_greylist_accounts,
+                     INVOKE_V_R(producer, remove_greylist_accounts, producer_plugin::greylist_params), 201),
+       CALL_WITH_400(producer, producer, pause,
+                     INVOKE_V_V(producer, pause), 201),
+       CALL_WITH_400(producer, producer, resume,
+                     INVOKE_V_V(producer, resume), 201),
+       CALL_ASYNC(producer, producer, create_snapshot, producer_plugin::snapshot_information,
+                  INVOKE_R_V_ASYNC(producer, create_snapshot), 201),
        CALL_WITH_400(producer, producer, update_runtime_options,
             INVOKE_V_R(producer, update_runtime_options, producer_plugin::runtime_options), 201),
        CALL_WITH_400(producer, producer, set_whitelist_blacklist,
