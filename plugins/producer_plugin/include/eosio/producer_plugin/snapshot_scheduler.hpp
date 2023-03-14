@@ -53,9 +53,24 @@ public:
 
    // snapshot_scheduler_listener
    void on_start_block(uint32_t height) {
-      bool serialize_needed = false;
+      bool serialize_needed  = false;
+      bool snapshot_executed = false; 
+
+      auto execute_snapshot_with_log = [this, &height](const auto & req) {
+         dlog("snapshot scheduler creating a snapshot from the request [start_block_num:${start_block_num}, end_block_num=${end_block_num}, block_spacing=${block_spacing}], height=${height}",
+             ("start_block_num", req.start_block_num)
+             ("end_block_num",   req.end_block_num)
+             ("block_spacing",   req.block_spacing)
+             ("height",          height));
+             
+         execute_snapshot(req.snapshot_request_id);
+      };    
 
       for(const auto& req: _snapshot_requests.get<0>()) {
+         // -1 since its called from start block
+         bool recurring_snapshot =  req.block_spacing &&  (!((height - req.start_block_num - 1) % req.block_spacing));
+         bool onetime_snapshot   = (!req.block_spacing) && (height == req.start_block_num + 1);
+        
          // assume "asap" for snapshot with missed/zero start, it can have spacing
          if(!req.start_block_num) {
             // update start_block_num with current height only if this is recurring
@@ -66,17 +81,21 @@ public:
                _snapshot_requests.modify(it, [&height](auto& p) { p.start_block_num = height; });
                serialize_needed = true;              
             }
-            execute_snapshot(req.snapshot_request_id);
-         }
-         // execute snapshot, -1 since its called from start block
-         else if(!req.block_spacing || (!((height - req.start_block_num - 1) % req.block_spacing))) {
-            execute_snapshot(req.snapshot_request_id);
+            execute_snapshot_with_log(req);
+            snapshot_executed = true;
+         }        
+         else if(recurring_snapshot || onetime_snapshot) {
+            execute_snapshot_with_log(req);
          }       
 
          // cleanup - remove expired (or invalid) request
          if(!req.start_block_num || !req.block_spacing || (req.end_block_num > 0 && height >= req.end_block_num)) {
             unschedule_snapshot(req.snapshot_request_id);
+            snapshot_executed = true;
          }
+
+         // stop iterating snapshot requests after snapshot execution
+         if (snapshot_executed) break;
       }
 
       // store db to filesystem
