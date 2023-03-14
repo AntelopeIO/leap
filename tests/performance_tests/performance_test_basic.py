@@ -333,8 +333,7 @@ class PerformanceTestBasic:
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.connectionPairList = []
         for producer in range(0, self.clusterConfig.pnodes):
-            self.connectionPairList.append(self.cluster.getNode(producer).host)
-            self.connectionPairList.append(self.cluster.getNodeP2pPort(producer))
+            self.connectionPairList.append(f"{self.cluster.getNode(producer).host}:{self.cluster.getNodeP2pPort(producer)}")
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         self.wallet = self.walletMgr.create('default')
         self.setupContract()

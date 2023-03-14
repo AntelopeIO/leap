@@ -22,7 +22,7 @@ class TpsTrxGensConfig:
         self.targetTps: int = targetTps
         self.tpsLimitPerGenerator: int = tpsLimitPerGenerator
         self.connectionPairList = connectionPairList
-        self.numConnectionPairs = int(len(self.connectionPairList)/2)
+        self.numConnectionPairs = len(self.connectionPairList)
         self.numGenerators = math.ceil(self.targetTps / self.tpsLimitPerGenerator)
         self.numGenerators = math.ceil(self.numGenerators/self.numConnectionPairs) * self.numConnectionPairs
         self.initialTpsPerGenerator = math.floor(self.targetTps / self.numGenerators)
@@ -57,6 +57,7 @@ class TransactionGeneratorsLauncher:
         self.subprocess_ret_codes = []
         connectionPairIter = 0
         for id, targetTps in enumerate(self.tpsTrxGensConfig.targetTpsPerGenList):
+            connectionPair = self.tpsTrxGensConfig.connectionPairList[connectionPairIter].rsplit(":")
             if self.abiFile is not None and self.actionsData is not None and self.actionsAuths is not None:
                 if Utils.Debug:
                     Print(
@@ -73,8 +74,8 @@ class TransactionGeneratorsLauncher:
                         f'--abi-file {self.abiFile} '
                         f'--actions-data {self.actionsData} '
                         f'--actions-auths {self.actionsAuths} '
-                        f'--peer-endpoint {self.tpsTrxGensConfig.connectionPairList[connectionPairIter]} '
-                        f'--port {self.tpsTrxGensConfig.connectionPairList[connectionPairIter+1]}'
+                        f'--peer-endpoint {connectionPair[0]} '
+                        f'--port {connectionPair[1]}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
@@ -91,8 +92,8 @@ class TransactionGeneratorsLauncher:
                         '--abi-file', f'{self.abiFile}',
                         '--actions-data', f'{self.actionsData}',
                         '--actions-auths', f'{self.actionsAuths}',
-                        '--peer-endpoint', f'{self.tpsTrxGensConfig.connectionPairList[connectionPairIter]}',
-                        '--port', f'{self.tpsTrxGensConfig.connectionPairList[connectionPairIter+1]}'
+                        '--peer-endpoint', f'{connectionPair[0]}',
+                        '--port', f'{connectionPair[1]}'
                     ])
                 )
             else:
@@ -108,8 +109,8 @@ class TransactionGeneratorsLauncher:
                         f'--trx-gen-duration {self.trxGenDurationSec} '
                         f'--target-tps {targetTps} '
                         f'--log-dir {self.logDir} '
-                        f'--peer-endpoint {self.tpsTrxGensConfig.connectionPairList[connectionPairIter]} '
-                        f'--port {self.tpsTrxGensConfig.connectionPairList[connectionPairIter+1]}'
+                        f'--peer-endpoint {connectionPair[0]} '
+                        f'--port {connectionPair[1]}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
@@ -123,11 +124,11 @@ class TransactionGeneratorsLauncher:
                         '--trx-gen-duration', f'{self.trxGenDurationSec}',
                         '--target-tps', f'{targetTps}',
                         '--log-dir', f'{self.logDir}',
-                        '--peer-endpoint', f'{self.tpsTrxGensConfig.connectionPairList[connectionPairIter]}',
-                        '--port', f'{self.tpsTrxGensConfig.connectionPairList[connectionPairIter+1]}'
+                        '--peer-endpoint', f'{connectionPair[0]}',
+                        '--port', f'{connectionPair[1]}'
                     ])
                 )
-            connectionPairIter = (connectionPairIter + 2) % len(self.tpsTrxGensConfig.connectionPairList)
+            connectionPairIter = (connectionPairIter + 1) % len(self.tpsTrxGensConfig.connectionPairList)
         exitCodes=None
         if waitToComplete:
             exitCodes = [ret_code.wait() for ret_code in self.subprocess_ret_codes]
@@ -160,7 +161,7 @@ def parseArgs():
 
 def main():
     args = parseArgs()
-    connectionPairList = split(":|, ", args.connection_pair_list)
+    connectionPairList = args.connection_pair_list.rsplit(", ")
 
     trxGenLauncher = TransactionGeneratorsLauncher(chainId=args.chain_id, lastIrreversibleBlockId=args.last_irreversible_block_id,
                                                    contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
