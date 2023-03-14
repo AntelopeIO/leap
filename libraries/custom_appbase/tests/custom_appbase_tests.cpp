@@ -27,17 +27,17 @@ BOOST_AUTO_TEST_CASE( default_exec_window ) {
    // post functions
    std::map<int, int> rslts {};
    int seq_num = 0;
-   app->executor().post( priority::medium, exec_queue::read_only_trx_safe,  [&]() { rslts[0]=seq_num; ++seq_num; } );
+   app->executor().post( priority::medium, exec_queue::read_only_safe,  [&]() { rslts[0]=seq_num; ++seq_num; } );
    app->executor().post( priority::medium, exec_queue::general, [&]() { rslts[1]=seq_num; ++seq_num; } );
    app->executor().post( priority::high,   exec_queue::general, [&]() { rslts[2]=seq_num; ++seq_num; } );
-   app->executor().post( priority::high,   exec_queue::read_only_trx_safe,  [&]() { rslts[3]=seq_num; ++seq_num; } );
-   app->executor().post( priority::low,    exec_queue::read_only_trx_safe,  [&]() { rslts[4]=seq_num; ++seq_num; } );
+   app->executor().post( priority::high,   exec_queue::read_only_safe,  [&]() { rslts[3]=seq_num; ++seq_num; } );
+   app->executor().post( priority::low,    exec_queue::read_only_safe,  [&]() { rslts[4]=seq_num; ++seq_num; } );
    app->executor().post( priority::low,    exec_queue::general, [&]() { rslts[5]=seq_num; ++seq_num; } );
-   app->executor().post( priority::highest,exec_queue::read_only_trx_safe,  [&]() { rslts[6]=seq_num; ++seq_num; } );
+   app->executor().post( priority::highest,exec_queue::read_only_safe,  [&]() { rslts[6]=seq_num; ++seq_num; } );
    app->executor().post( priority::high,   exec_queue::general, [&]() { rslts[7]=seq_num; ++seq_num; } );
 
    // Stop app. Use the lowest priority to make sure this function to execute the last
-   app->executor().post( priority::lowest, exec_queue::read_only_trx_safe, [&]() {
+   app->executor().post( priority::lowest, exec_queue::read_only_safe, [&]() {
       // read_only_trx_safe_queue should only contain the current lambda function,
       // and general_queue should have executed all its functions
       BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 1); // pop()s after execute
@@ -76,18 +76,18 @@ BOOST_AUTO_TEST_CASE( execute_from_read_queue ) {
    std::map<int, int> rslts {};
    int seq_num = 0;
    app->executor().post( priority::medium, exec_queue::general, [&]() { rslts[0]=seq_num; ++seq_num; } );
-   app->executor().post( priority::high,   exec_queue::read_only_trx_safe,  [&]() { rslts[1]=seq_num; ++seq_num; } );
+   app->executor().post( priority::high,   exec_queue::read_only_safe,  [&]() { rslts[1]=seq_num; ++seq_num; } );
    app->executor().post( priority::high,   exec_queue::general, [&]() { rslts[2]=seq_num; ++seq_num; } );
-   app->executor().post( priority::high,   exec_queue::read_only_trx_safe,  [&]() { rslts[3]=seq_num; ++seq_num; } );
-   app->executor().post( priority::low,    exec_queue::read_only_trx_safe,  [&]() { rslts[4]=seq_num; ++seq_num; } );
+   app->executor().post( priority::high,   exec_queue::read_only_safe,  [&]() { rslts[3]=seq_num; ++seq_num; } );
+   app->executor().post( priority::low,    exec_queue::read_only_safe,  [&]() { rslts[4]=seq_num; ++seq_num; } );
    app->executor().post( priority::low,    exec_queue::general, [&]() { rslts[5]=seq_num; ++seq_num; } );
-   app->executor().post( priority::highest,exec_queue::read_only_trx_safe,  [&]() { rslts[6]=seq_num; ++seq_num; } );
-   app->executor().post( priority::highest,exec_queue::read_only_trx_safe,  [&]() { rslts[7]=seq_num; ++seq_num; } );
-   app->executor().post( priority::high,   exec_queue::read_only_trx_safe,  [&]() { rslts[8]=seq_num; ++seq_num; } );
+   app->executor().post( priority::highest,exec_queue::read_only_safe,  [&]() { rslts[6]=seq_num; ++seq_num; } );
+   app->executor().post( priority::highest,exec_queue::read_only_safe,  [&]() { rslts[7]=seq_num; ++seq_num; } );
+   app->executor().post( priority::high,   exec_queue::read_only_safe,  [&]() { rslts[8]=seq_num; ++seq_num; } );
    app->executor().post( priority::high,   exec_queue::general, [&]() { rslts[9]=seq_num; ++seq_num; } );
 
    // stop application. Use lowest at the end to make sure this executes the last
-   app->executor().post( priority::lowest, exec_queue::read_only_trx_safe, [&]() {
+   app->executor().post( priority::lowest, exec_queue::read_only_safe, [&]() {
       // read_queue should be empty (read window pops before execute) and write_queue should have all its functions
       BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 0); // pop()s before execute
       BOOST_REQUIRE_EQUAL( app->executor().general_queue().size(), 4 );
@@ -132,7 +132,7 @@ BOOST_AUTO_TEST_CASE( execute_from_empty_read_queue ) {
    app->executor().post( priority::high,   exec_queue::general, [&]() { rslts[9]=seq_num; ++seq_num; } );
 
    // Stop application. Use lowest at the end to make sure this executes the last
-   app->executor().post( priority::lowest, exec_queue::read_only_trx_safe, [&]() {
+   app->executor().post( priority::lowest, exec_queue::read_only_safe, [&]() {
       // read_queue should be empty (read window pops before execute) and write_queue should have all its functions
       BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 0); // pop()s before execute
       BOOST_REQUIRE_EQUAL( app->executor().general_queue().size(), 10 );
@@ -159,21 +159,21 @@ BOOST_AUTO_TEST_CASE( execute_from_both_queues ) {
    // post functions
    std::map<int, int> rslts {};
    int seq_num = 0;
-   app->executor().post( priority::medium, exec_queue::read_only_trx_safe,  [&]() { rslts[0]=seq_num; ++seq_num; } );
+   app->executor().post( priority::medium, exec_queue::read_only_safe,  [&]() { rslts[0]=seq_num; ++seq_num; } );
    app->executor().post( priority::medium, exec_queue::general, [&]() { rslts[1]=seq_num; ++seq_num; } );
    app->executor().post( priority::high,   exec_queue::general, [&]() { rslts[2]=seq_num; ++seq_num; } );
-   app->executor().post( priority::lowest, exec_queue::read_only_trx_safe,  [&]() { rslts[3]=seq_num; ++seq_num; } );
-   app->executor().post( priority::low,    exec_queue::read_only_trx_safe,  [&]() { rslts[4]=seq_num; ++seq_num; } );
+   app->executor().post( priority::lowest, exec_queue::read_only_safe,  [&]() { rslts[3]=seq_num; ++seq_num; } );
+   app->executor().post( priority::low,    exec_queue::read_only_safe,  [&]() { rslts[4]=seq_num; ++seq_num; } );
    app->executor().post( priority::low,    exec_queue::general, [&]() { rslts[5]=seq_num; ++seq_num; } );
-   app->executor().post( priority::highest,exec_queue::read_only_trx_safe,  [&]() { rslts[6]=seq_num; ++seq_num; } );
+   app->executor().post( priority::highest,exec_queue::read_only_safe,  [&]() { rslts[6]=seq_num; ++seq_num; } );
    app->executor().post( priority::low,    exec_queue::general, [&]() { rslts[7]=seq_num; ++seq_num; } );
-   app->executor().post( priority::lowest, exec_queue::read_only_trx_safe,  [&]() { rslts[8]=seq_num; ++seq_num; } );
-   app->executor().post( priority::lowest, exec_queue::read_only_trx_safe,  [&]() { rslts[9]=seq_num; ++seq_num; } );
+   app->executor().post( priority::lowest, exec_queue::read_only_safe,  [&]() { rslts[8]=seq_num; ++seq_num; } );
+   app->executor().post( priority::lowest, exec_queue::read_only_safe,  [&]() { rslts[9]=seq_num; ++seq_num; } );
    app->executor().post( priority::low,    exec_queue::general, [&]() { rslts[10]=seq_num; ++seq_num; } );
    app->executor().post( priority::medium, exec_queue::general, [&]() { rslts[11]=seq_num; ++seq_num; } );
 
    // stop application. Use lowest at the end to make sure this executes the last
-   app->executor().post( priority::lowest, exec_queue::read_only_trx_safe, [&]() {
+   app->executor().post( priority::lowest, exec_queue::read_only_safe, [&]() {
       // read_queue should have current function and write_queue's functions are all executed 
       BOOST_REQUIRE_EQUAL( app->executor().read_only_trx_safe_queue().size(), 1); // pop()s after execute
       BOOST_REQUIRE_EQUAL( app->executor().general_queue().size(), 0 );

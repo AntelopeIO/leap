@@ -659,7 +659,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                          next_function<transaction_trace_ptr> next) {
          if ( trx_type == transaction_metadata::trx_type::read_only ) {
             // Post all read only trxs to read_only queue for execution.
-            app().executor().post(priority::low, exec_queue::read_only_trx_safe, [this, trx=trx, next{std::move(next)}]() mutable {
+            app().executor().post(priority::low, exec_queue::read_only_safe, [this, trx=trx, next{std::move(next)}]() mutable {
                process_read_only_transaction( trx, next );
             } );
             return;
@@ -2864,7 +2864,7 @@ void producer_plugin_impl::switch_to_read_window() {
    _ro_read_window_timer.expires_from_now( expire_time );
    _ro_read_window_timer.async_wait( app().executor().wrap(  // stay on app thread
       priority::high,
-      exec_queue::read_only_trx_safe,
+      exec_queue::general,
       [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
          auto self = weak_this.lock();
          if( self && ec != boost::asio::error::operation_aborted ) {
@@ -2912,7 +2912,7 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
    // If all tasks are finished, do not wait until end of read window; switch to write window now.
    if ( --_ro_num_active_trx_exec_tasks == 0 ) {
       // Do switching on app thread to serialize
-      app().executor().post( priority::high, exec_queue::read_only_trx_safe, [self=this]() {
+      app().executor().post( priority::high, exec_queue::general, [self=this]() {
          self->_ro_trx_exec_tasks_fut.clear();
          self->switch_to_write_window();
       } );
