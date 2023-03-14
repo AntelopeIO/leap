@@ -20,17 +20,7 @@ namespace eosio {
 
 namespace bmi = boost::multi_index;
 
-class snapshot_scheduler_listener {
-   virtual void on_start_block(uint32_t height) = 0;
-};
-
-class snapshot_scheduler_handler {
-   virtual void schedule_snapshot(const producer_plugin::snapshot_request_information& sri) = 0;
-   virtual void unschedule_snapshot(uint32_t sri) = 0;
-   virtual producer_plugin::get_snapshot_requests_result get_snapshot_requests() = 0;
-};
-
-class snapshot_scheduler : public snapshot_scheduler_handler, public snapshot_scheduler_listener {
+class snapshot_scheduler {
 private:
    struct by_snapshot_id;
    struct by_snapshot_value;
