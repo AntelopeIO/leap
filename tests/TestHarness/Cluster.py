@@ -1785,7 +1785,7 @@ class Cluster(object):
         tpsLimitPerGenerator=tpsPerGenerator
 
         self.preExistingFirstTrxFiles = glob.glob(f"{Utils.DataDir}/first_trx_*.txt")
-        connectionPairList = [self.host, self.getNodeP2pPort(nodeId)]
+        connectionPairList = [f"{self.host}:{self.getNodeP2pPort(nodeId)}"]
         tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator, connectionPairList=connectionPairList)
         self.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                     contractOwnerAccount=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
