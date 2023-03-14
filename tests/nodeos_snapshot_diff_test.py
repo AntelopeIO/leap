@@ -19,7 +19,7 @@ from TestHarness.testUtils import BlockLogAction
 #  Test configures a producing node and 2 non-producing nodes.
 #  Configures trx_generator(s) and starts generating transactions and sending them
 #  to the producing node.
-#  - Create a snapshot from producing node using snapshot scheduler
+#  - Create a snapshot from producing node
 #  - Convert snapshot to JSON
 #  - Trim blocklog to head block of snapshot
 #  - Start nodeos in irreversible mode on blocklog
@@ -40,7 +40,7 @@ Utils.Debug=args.v
 pnodes=1
 testAccounts = 2
 trxGeneratorCnt=2
-startedNonProdNodes = 2
+startedNonProdNodes = 3
 cluster=Cluster(walletd=True)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
@@ -115,9 +115,11 @@ try:
     snapshotNodeId = 0
     node0=cluster.getNode(snapshotNodeId)
     irrNodeId = snapshotNodeId+1
+    progNodeId = irrNodeId+1
 
     nodeSnap=cluster.getNode(snapshotNodeId)
     nodeIrr=cluster.getNode(irrNodeId)
+    nodeProg=cluster.getNode(progNodeId)
 
     Print("Wait for account creation to be irreversible")
     blockNum=node0.getBlockNum(BlockType.head)
@@ -156,10 +158,13 @@ try:
     assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
 
     Print("Create snapshot")
-    waitForBlock(nodeSnap, nodeSnap.getBlockNum(BlockType.head) + 30)
-    ret = nodeSnap.scheduleSnapshot()
+    ret = nodeProg.scheduleSnapshot()
     assert ret is not None, "Snapshot creation failed"
-    ret_head_block_num = nodeSnap.getBlockNum(BlockType.head) + 1
+    
+    ret = nodeSnap.createSnapshot()
+    assert ret is not None, "Snapshot creation failed"
+    ret_head_block_num = ret["payload"]["head_block_num"]
+    Print(f"Snapshot head block number {ret_head_block_num}")
 
     Print("Wait for snapshot node lib to advance")
     waitForBlock(nodeSnap, ret_head_block_num+1, blockType=BlockType.lib)
@@ -199,6 +204,16 @@ try:
     irrSnapshotFile = irrSnapshotFile + ".json"
 
     assert Utils.compareFiles(snapshotFile, irrSnapshotFile), f"Snapshot files differ {snapshotFile} != {irrSnapshotFile}"
+  
+    Print("Kill programmable node")
+    nodeProg.kill(signal.SIGTERM)
+
+    Print("Convert snapshot to JSON")
+    progSnapshotFile = getLatestSnapshot(progNodeId)
+    Utils.processLeapUtilCmd("snapshot to-json --input-file {}".format(progSnapshotFile), "snapshot to-json", silentErrors=False)
+    progSnapshotFile = progSnapshotFile + ".json"
+
+    assert Utils.compareFiles(progSnapshotFile, irrSnapshotFile), f"Snapshot files differ {progSnapshotFile} != {irrSnapshotFile}"
 
     testSuccessful=True
 
