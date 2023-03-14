@@ -168,10 +168,10 @@ public:
                std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();
             } catch(const fc::exception& e) {
                elog( "snapshot creation error: ${details}", ("details",e.to_detail_string()) );
-               throw;
+               appbase::app().quit();
             } catch(const std::exception& e) {
                elog( "snapshot creation error: ${details}", ("details",e.what()) );
-               throw;
+               appbase::app().quit();
             }
          } else {
             // success, snapshot finalized

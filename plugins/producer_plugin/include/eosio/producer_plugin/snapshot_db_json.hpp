@@ -48,6 +48,7 @@ public:
       catch (std::ifstream::failure & e) {
          elog( "unable to restore snapshots schedule from filesystem ${jsonpath}, details: ${details}",
             ("jsonpath", get_json_path().string()) ("details",e.what()) );
+         appbase::app().quit();
       }
 
       return *this;
@@ -78,6 +79,7 @@ public:
       catch (std::ofstream::failure & e) {
          elog( "unable to store snapshots schedule to filesystem to ${jsonpath}, details: ${details}",
             ("jsonpath", get_json_path().string()) ("details", e.what()) );
+         appbase::app().quit();
       }
 
       return *this;
