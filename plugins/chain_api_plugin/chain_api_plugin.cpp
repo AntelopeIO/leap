@@ -75,7 +75,7 @@ void chain_api_plugin::plugin_startup() {
    ro_api.set_shorten_abi_errors( !http_plugin::verbose_errors() );
 
    _http_plugin.add_api( {
-      CHAIN_RO_CALL(get_info, 200, http_params_types::no_params)}, appbase::exec_queue::read_only_trx_safe, appbase::priority::medium_high);
+      CHAIN_RO_CALL(get_info, 200, http_params_types::no_params)}, appbase::exec_queue::read_only_safe, appbase::priority::medium_high);
    _http_plugin.add_api({
       CHAIN_RO_CALL(get_activated_protocol_features, 200, http_params_types::possible_no_params),
       CHAIN_RO_CALL(get_block_info, 200, http_params_types::params_required),
@@ -103,7 +103,7 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RW_CALL_ASYNC(push_transactions, chain_apis::read_write::push_transactions_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(send_transaction, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(send_transaction2, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required)
-   }, appbase::exec_queue::read_only_trx_safe);
+   }, appbase::exec_queue::read_only_safe);
 
    // Not safe to run in parallel with read-only transactions
    _http_plugin.add_api({
@@ -124,7 +124,7 @@ void chain_api_plugin::plugin_startup() {
    if (chain.transaction_finality_status_enabled()) {
       _http_plugin.add_api({
          CHAIN_RO_CALL_WITH_400(get_transaction_status, 200, http_params_types::params_required),
-      }, appbase::exec_queue::read_only_trx_safe);
+      }, appbase::exec_queue::read_only_safe);
    }
 
    _http_plugin.add_api({
@@ -160,7 +160,7 @@ void chain_api_plugin::plugin_startup() {
            }
         }
       }
-   }, appbase::exec_queue::read_only_trx_safe);
+   }, appbase::exec_queue::read_only_safe);
 }
 
 void chain_api_plugin::plugin_shutdown() {}

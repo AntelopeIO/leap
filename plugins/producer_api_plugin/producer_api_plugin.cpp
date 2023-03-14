@@ -118,7 +118,7 @@ void producer_api_plugin::plugin_startup() {
             INVOKE_R_R(producer, get_account_ram_corrections, producer_plugin::get_account_ram_corrections_params), 201),
        CALL_WITH_400(producer, producer, get_unapplied_transactions,
                      INVOKE_R_R_D(producer, get_unapplied_transactions, producer_plugin::get_unapplied_transactions_params), 200),
-   }, appbase::exec_queue::read_only_trx_safe, appbase::priority::medium_high);
+   }, appbase::exec_queue::read_only_safe, appbase::priority::medium_high);
 
    // Not safe to run in parallel
    app().get_plugin<http_plugin>().add_api({
