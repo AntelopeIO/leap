@@ -117,22 +117,22 @@ void producer_api_plugin::plugin_startup() {
 
    // Not safe to run in parallel
    app().get_plugin<http_plugin>().add_api({
-       CALL_WITH_400(producer, producer, get_integrity_hash,
-                     INVOKE_R_V(producer, get_integrity_hash), 201),
        CALL_WITH_400(producer, producer, add_greylist_accounts,
                      INVOKE_V_R(producer, add_greylist_accounts, producer_plugin::greylist_params), 201),
        CALL_WITH_400(producer, producer, remove_greylist_accounts,
                      INVOKE_V_R(producer, remove_greylist_accounts, producer_plugin::greylist_params), 201),
        CALL_WITH_400(producer, producer, pause,
-                     INVOKE_V_V(producer, pause), 201),
+            INVOKE_V_V(producer, pause), 201),
        CALL_WITH_400(producer, producer, resume,
-                     INVOKE_V_V(producer, resume), 201),
-       CALL_ASYNC(producer, producer, create_snapshot, producer_plugin::snapshot_information,
-                  INVOKE_R_V_ASYNC(producer, create_snapshot), 201),
+            INVOKE_V_V(producer, resume), 201),
        CALL_WITH_400(producer, producer, update_runtime_options,
             INVOKE_V_R(producer, update_runtime_options, producer_plugin::runtime_options), 201),
        CALL_WITH_400(producer, producer, set_whitelist_blacklist,
             INVOKE_V_R(producer, set_whitelist_blacklist, producer_plugin::whitelist_blacklist), 201),
+       CALL_ASYNC(producer, producer, create_snapshot, producer_plugin::snapshot_information,
+            INVOKE_R_V_ASYNC(producer, create_snapshot), 201),
+       CALL_WITH_400(producer, producer, get_integrity_hash,
+            INVOKE_R_V(producer, get_integrity_hash), 201),
        CALL_WITH_400(producer, producer, schedule_protocol_feature_activations,
             INVOKE_V_R(producer, schedule_protocol_feature_activations, producer_plugin::scheduled_protocol_feature_activations), 201),
    }, appbase::priority::medium_high, appbase::exec_queue::general);
