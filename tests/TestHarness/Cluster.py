@@ -1777,7 +1777,6 @@ class Cluster(object):
                             waitToComplete:bool=False, abiFile=None, actionsData=None, actionsAuths=None):
         Utils.Print("Configure txn generators")
         node=self.getNode(nodeId)
-        p2pListenPort = [self.getNodeP2pPort(nodeId)]
         info = node.getInfo()
         chainId = info['chain_id']
         lib_id = info['last_irreversible_block_id']
@@ -1786,13 +1785,12 @@ class Cluster(object):
         tpsLimitPerGenerator=tpsPerGenerator
 
         self.preExistingFirstTrxFiles = glob.glob(f"{Utils.DataDir}/first_trx_*.txt")
-
-        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
+        connectionPairList = [self.host, self.getNodeP2pPort(nodeId)]
+        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator, connectionPairList=connectionPairList)
         self.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                     contractOwnerAccount=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
                                                     privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec, logDir=Utils.DataDir,
-                                                    abiFile=abiFile, actionsData=actionsData, actionsAuths=actionsAuths,
-                                                    peerEndpoint=self.host, ports=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                    abiFile=abiFile, actionsData=actionsData, actionsAuths=actionsAuths, tpsTrxGensConfig=tpsTrxGensConfig)
 
         Utils.Print("Launch txn generators and start generating/sending transactions")
         self.trxGenLauncher.launch(waitToComplete=waitToComplete)

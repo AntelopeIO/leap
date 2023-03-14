@@ -12,16 +12,19 @@ sys.path.append(harnessPath)
 
 from .testUtils import Utils
 from pathlib import Path
+from re import split
 
 Print = Utils.Print
 
 class TpsTrxGensConfig:
 
-    def __init__(self, targetTps: int, tpsLimitPerGenerator: int):
+    def __init__(self, targetTps: int, tpsLimitPerGenerator: int, connectionPairList: list):
         self.targetTps: int = targetTps
         self.tpsLimitPerGenerator: int = tpsLimitPerGenerator
-
+        self.connectionPairList = connectionPairList
+        self.numConnectionPairs = int(len(self.connectionPairList)/2)
         self.numGenerators = math.ceil(self.targetTps / self.tpsLimitPerGenerator)
+        self.numGenerators = math.ceil(self.numGenerators/self.numConnectionPairs) * self.numConnectionPairs
         self.initialTpsPerGenerator = math.floor(self.targetTps / self.numGenerators)
         self.modTps = self.targetTps % self.numGenerators
         self.cleanlyDivisible = self.modTps == 0
@@ -37,8 +40,7 @@ class TpsTrxGensConfig:
 class TransactionGeneratorsLauncher:
 
     def __init__(self, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str, trxGenDurationSec: int, logDir: str,
-                 abiFile: Path, actionsData, actionsAuths,
-                 peerEndpoint: str, ports: list, tpsTrxGensConfig: TpsTrxGensConfig):
+                 abiFile: Path, actionsData, actionsAuths, tpsTrxGensConfig: TpsTrxGensConfig):
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.contractOwnerAccount  = contractOwnerAccount
@@ -48,15 +50,12 @@ class TransactionGeneratorsLauncher:
         self.tpsTrxGensConfig = tpsTrxGensConfig
         self.logDir = logDir
         self.abiFile = abiFile
-        self.actionsData=actionsData
-        self.actionsAuths=actionsAuths
-        self.peerEndpoint = peerEndpoint
-        self.ports = ports
+        self.actionsData = actionsData
+        self.actionsAuths = actionsAuths
 
     def launch(self, waitToComplete=True):
         self.subprocess_ret_codes = []
-        portIter = 0
-        numPorts = len(self.ports)
+        connectionPairIter = 0
         for id, targetTps in enumerate(self.tpsTrxGensConfig.targetTpsPerGenList):
             if self.abiFile is not None and self.actionsData is not None and self.actionsAuths is not None:
                 if Utils.Debug:
@@ -74,8 +73,8 @@ class TransactionGeneratorsLauncher:
                         f'--abi-file {self.abiFile} '
                         f'--actions-data {self.actionsData} '
                         f'--actions-auths {self.actionsAuths} '
-                        f'--peer-endpoint {self.peerEndpoint} '
-                        f'--port {self.ports[portIter]}'
+                        f'--peer-endpoint {self.tpsTrxGensConfig.connectionPairList[connectionPairIter]} '
+                        f'--port {self.tpsTrxGensConfig.connectionPairList[connectionPairIter+1]}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
@@ -92,8 +91,8 @@ class TransactionGeneratorsLauncher:
                         '--abi-file', f'{self.abiFile}',
                         '--actions-data', f'{self.actionsData}',
                         '--actions-auths', f'{self.actionsAuths}',
-                        '--peer-endpoint', f'{self.peerEndpoint}',
-                        '--port', f'{self.ports[portIter]}'
+                        '--peer-endpoint', f'{self.tpsTrxGensConfig.connectionPairList[connectionPairIter]}',
+                        '--port', f'{self.tpsTrxGensConfig.connectionPairList[connectionPairIter+1]}'
                     ])
                 )
             else:
@@ -109,8 +108,8 @@ class TransactionGeneratorsLauncher:
                         f'--trx-gen-duration {self.trxGenDurationSec} '
                         f'--target-tps {targetTps} '
                         f'--log-dir {self.logDir} '
-                        f'--peer-endpoint {self.peerEndpoint} '
-                        f'--port {self.ports[portIter]}'
+                        f'--peer-endpoint {self.tpsTrxGensConfig.connectionPairList[connectionPairIter]} '
+                        f'--port {self.tpsTrxGensConfig.connectionPairList[connectionPairIter+1]}'
                     )
                 self.subprocess_ret_codes.append(
                     subprocess.Popen([
@@ -124,11 +123,11 @@ class TransactionGeneratorsLauncher:
                         '--trx-gen-duration', f'{self.trxGenDurationSec}',
                         '--target-tps', f'{targetTps}',
                         '--log-dir', f'{self.logDir}',
-                        '--peer-endpoint', f'{self.peerEndpoint}',
-                        '--port', f'{self.ports[portIter]}'
+                        '--peer-endpoint', f'{self.tpsTrxGensConfig.connectionPairList[connectionPairIter]}',
+                        '--port', f'{self.tpsTrxGensConfig.connectionPairList[connectionPairIter+1]}'
                     ])
                 )
-            portIter = (portIter + 1) % numPorts
+            connectionPairIter = (connectionPairIter + 2) % len(self.tpsTrxGensConfig.connectionPairList)
         exitCodes=None
         if waitToComplete:
             exitCodes = [ret_code.wait() for ret_code in self.subprocess_ret_codes]
@@ -155,20 +154,19 @@ def parseArgs():
     parser.add_argument("abi_file", type=str, help="The path to the contract abi file to use for the supplied transaction action data")
     parser.add_argument("actions_data", type=str, help="The json actions data file or json actions data description string to use")
     parser.add_argument("actions_auths", type=str, help="The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.")
-    parser.add_argument("peer_endpoint", type=str, help="set the peer endpoint to send transactions to", default="127.0.0.1")
-    parser.add_argument("ports", type=str, help="Comma separated list of peer endpoint ports to send transactions to", default="9876")
+    parser.add_argument("connection_pair_list", type=str, help="Comma separated list of endpoint:port combinations to send transactions to", default="localhost:9876")
     args = parser.parse_args()
     return args
 
 def main():
     args = parseArgs()
+    connectionPairList = split(":|, ", args.connection_pair_list)
 
     trxGenLauncher = TransactionGeneratorsLauncher(chainId=args.chain_id, lastIrreversibleBlockId=args.last_irreversible_block_id,
                                                    contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
                                                    abiFile=args.abi_file, actionsData=args.actions_data, actionsAuths=args.actions_auths,
-                                                   peerEndpoint=args.peer_endpoint, ports=args.ports.rsplit(", "),
-                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator))
+                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator, connectionPairList=connectionPairList))
 
 
     exit_codes = trxGenLauncher.launch()
