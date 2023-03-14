@@ -104,8 +104,6 @@ void producer_api_plugin::plugin_startup() {
             INVOKE_R_V(producer, paused), 201),
        CALL_WITH_400(producer, producer, get_runtime_options,
             INVOKE_R_V(producer, get_runtime_options), 201),
-       CALL_WITH_400(producer, producer, update_runtime_options,
-            INVOKE_V_R(producer, update_runtime_options, producer_plugin::runtime_options), 201),
        CALL_WITH_400(producer, producer, add_greylist_accounts,
             INVOKE_V_R(producer, add_greylist_accounts, producer_plugin::greylist_params), 201),
        CALL_WITH_400(producer, producer, remove_greylist_accounts,
@@ -114,16 +112,12 @@ void producer_api_plugin::plugin_startup() {
             INVOKE_R_V(producer, get_greylist), 201),
        CALL_WITH_400(producer, producer, get_whitelist_blacklist,
             INVOKE_R_V(producer, get_whitelist_blacklist), 201),
-       CALL_WITH_400(producer, producer, set_whitelist_blacklist,
-            INVOKE_V_R(producer, set_whitelist_blacklist, producer_plugin::whitelist_blacklist), 201),
        CALL_WITH_400(producer, producer, get_integrity_hash,
             INVOKE_R_V(producer, get_integrity_hash), 201),
        CALL_ASYNC(producer, producer, create_snapshot, producer_plugin::snapshot_information,
             INVOKE_R_V_ASYNC(producer, create_snapshot), 201),
        CALL_WITH_400(producer, producer, get_scheduled_protocol_feature_activations,
             INVOKE_R_V(producer, get_scheduled_protocol_feature_activations), 201),
-       CALL_WITH_400(producer, producer, schedule_protocol_feature_activations,
-            INVOKE_V_R(producer, schedule_protocol_feature_activations, producer_plugin::scheduled_protocol_feature_activations), 201),
        CALL_WITH_400(producer, producer, get_supported_protocol_features,
             INVOKE_R_R_II(producer, get_supported_protocol_features,
                                  producer_plugin::get_supported_protocol_features_params), 201),
@@ -132,6 +126,16 @@ void producer_api_plugin::plugin_startup() {
        CALL_WITH_400(producer, producer, get_unapplied_transactions,
                      INVOKE_R_R_D(producer, get_unapplied_transactions, producer_plugin::get_unapplied_transactions_params), 200),
    }, appbase::priority::medium_high);
+
+   // Not safe to run in parallel with read-only transactions
+   app().get_plugin<http_plugin>().add_api({
+       CALL_WITH_400(producer, producer, update_runtime_options,
+            INVOKE_V_R(producer, update_runtime_options, producer_plugin::runtime_options), 201),
+       CALL_WITH_400(producer, producer, set_whitelist_blacklist,
+            INVOKE_V_R(producer, set_whitelist_blacklist, producer_plugin::whitelist_blacklist), 201),
+       CALL_WITH_400(producer, producer, schedule_protocol_feature_activations,
+            INVOKE_V_R(producer, schedule_protocol_feature_activations, producer_plugin::scheduled_protocol_feature_activations), 201),
+   }, appbase::priority::medium_high, appbase::exec_queue::general);
 }
 
 void producer_api_plugin::plugin_initialize(const variables_map& options) {
