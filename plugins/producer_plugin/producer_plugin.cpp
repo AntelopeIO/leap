@@ -2824,9 +2824,10 @@ void producer_plugin_impl::switch_to_read_window() {
 
    auto expire_time = boost::posix_time::microseconds(_ro_read_window_time_us.count());
    _ro_read_window_timer.expires_from_now( expire_time );
-   _ro_read_window_timer.async_wait( app().executor().wrap(  // stay on app thread
+   // Needs to be on read_only_safe because that is what is being processed until switch_to_write_window().
+   _ro_read_window_timer.async_wait( app().executor().wrap(
       priority::high,
-      exec_queue::general,
+      exec_queue::read_only_safe,
       [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
          auto self = weak_this.lock();
          if( self && ec != boost::asio::error::operation_aborted ) {
@@ -2835,6 +2836,7 @@ void producer_plugin_impl::switch_to_read_window() {
                task.get();
             }
             self->_ro_trx_exec_tasks_fut.clear();
+            // will be executed from the main app thread because all read-only threads are idle now
             self->switch_to_write_window();
           } else if ( self ) {
              self->_ro_trx_exec_tasks_fut.clear();
@@ -2873,9 +2875,10 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
 
    // If all tasks are finished, do not wait until end of read window; switch to write window now.
    if ( --_ro_num_active_trx_exec_tasks == 0 ) {
-      // Do switching on app thread to serialize
-      app().executor().post( priority::high, exec_queue::general, [self=this]() {
+      // Needs to be on read_only_safe because that is what is being processed until switch_to_write_window().
+      app().executor().post( priority::high, exec_queue::read_only_safe, [self=this]() {
          self->_ro_trx_exec_tasks_fut.clear();
+         // will be executed from the main app thread because all read-only threads are idle now
          self->switch_to_write_window();
       } );
    }
