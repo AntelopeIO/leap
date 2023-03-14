@@ -12,10 +12,13 @@ from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
 from TestHarness.Node import BlockType
 
 ###############################################################
-# nodeos_snapshot_programmable
+# nodeos_snapshot_forked
 #
 #  Test to verify that programmable snapshot functionality is
 #  working appropriately when forks occur
+#
+#  Setup involves constructing bridge-mode node topology and 
+#  killing a "bridge" node
 #
 ###############################################################
 Print=Utils.Print
@@ -135,12 +138,9 @@ try:
     Print("Validating accounts after bootstrap")
     cluster.validateAccounts([account1])
 
-    # ***   Schedule snapshot, it should become pending, then wait for finality
+    # ***   Schedule snapshot, it should become pending
     prodAB.scheduleSnapshot()
-    blockNum=prodAB.getBlockNum(BlockType.head) + 1
-    waitForBlock(prodAB, blockNum + 1, blockType=BlockType.lib)
-
-   
+      
     # ***   Killing the "bridge" node   ***
     Print("Sending command to kill \"bridge\" node to separate the 2 producer groups.")
     # kill at the beginning of the production window for defproducera, so there is time for the fork for
@@ -194,7 +194,7 @@ try:
 
     # AB & C compare counts, should be same
     assert getSnapshotsCount(0) == getSnapshotsCount(1), \
-        "ERROR: Snapshot generation failed."
+        "ERROR: Pre-fork and post-fork snapshots failed to finalize."
 
     testSuccessful=True
 finally:
