@@ -172,6 +172,8 @@ public:
    // thread-safe, called when a new block is received
    void received_block();
 
+const std::set<account_name>& producer_accounts() const;
+
  private:
    std::shared_ptr<class producer_plugin_impl> my;
 };

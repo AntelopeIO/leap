@@ -94,7 +94,7 @@ class Cluster(object):
         defproduceraPrvtKey: Defproducera account private key
         defproducerbPrvtKey: Defproducerb account private key
         """
-        self.accounts={}
+        self.accounts=[]
         self.nodes=[]
         self.unstartedNodes=[]
         self.localCluster=localCluster
@@ -257,11 +257,18 @@ class Cluster(object):
         cmdArr=cmd.split()
         if self.staging:
             cmdArr.append("--nogen")
-
-        nodeosArgs="--max-transaction-time -1 --abi-serializer-max-time-ms 990000 --p2p-max-nodes-per-host %d --max-clients %d" % (maximumP2pPerHost, maximumClients)
+        nodeosArgs=""
+        if "--max-transaction-time" not in extraNodeosArgs:
+            nodeosArgs += " --max-transaction-time -1"
+        if "--abi-serializer-max-time-ms" not in extraNodeosArgs:
+            nodeosArgs += " --abi-serializer-max-time-ms 990000"
+        if "--p2p-max-nodes-per-host" not in extraNodeosArgs:
+            nodeosArgs += f" --p2p-max-nodes-per-host {maximumP2pPerHost}"
+        if "--max-clients" not in extraNodeosArgs:
+            nodeosArgs += f" --max-clients {maximumClients}"
         if not self.walletd:
             nodeosArgs += " --plugin eosio::wallet_api_plugin"
-        if Utils.Debug:
+        if Utils.Debug and "--contracts-console" not in extraNodeosArgs:
             nodeosArgs += " --contracts-console"
         if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
             nodeosArgs += " --plugin eosio::producer_api_plugin"
@@ -705,10 +712,15 @@ class Cluster(object):
 
     # create account keys and import into wallet. Wallet initialization will be user responsibility
     # also imports defproducera and defproducerb accounts
-    def populateWallet(self, accountsCount, wallet):
+    def populateWallet(self, accountsCount, wallet, accountNames: list=None, createProducerAccounts: bool=True):
+        if accountsCount == 0 and (accountNames is None or len(accountNames) == 0):
+            return True
         if self.walletMgr is None:
             Utils.Print("ERROR: WalletMgr hasn't been initialized.")
             return False
+
+        if accountNames is not None:
+            assert(len(accountNames) <= accountsCount)
 
         accounts=None
         if accountsCount > 0:
@@ -718,23 +730,28 @@ class Cluster(object):
                 Utils.Print("Account keys creation failed.")
                 return False
 
-        Utils.Print("Importing keys for account %s into wallet %s." % (self.defproduceraAccount.name, wallet.name))
-        if not self.walletMgr.importKey(self.defproduceraAccount, wallet):
-            Utils.Print("ERROR: Failed to import key for account %s" % (self.defproduceraAccount.name))
-            return False
+        if createProducerAccounts:
+            Utils.Print("Importing keys for account %s into wallet %s." % (self.defproduceraAccount.name, wallet.name))
+            if not self.walletMgr.importKey(self.defproduceraAccount, wallet):
+                Utils.Print("ERROR: Failed to import key for account %s" % (self.defproduceraAccount.name))
+                return False
 
-        Utils.Print("Importing keys for account %s into wallet %s." % (self.defproducerbAccount.name, wallet.name))
-        if not self.walletMgr.importKey(self.defproducerbAccount, wallet):
-            Utils.Print("ERROR: Failed to import key for account %s" % (self.defproducerbAccount.name))
-            return False
+            Utils.Print("Importing keys for account %s into wallet %s." % (self.defproducerbAccount.name, wallet.name))
+            if not self.walletMgr.importKey(self.defproducerbAccount, wallet):
+                Utils.Print("ERROR: Failed to import key for account %s" % (self.defproducerbAccount.name))
+                return False
+
+        if accountNames is not None:
+            for idx, name in enumerate(accountNames):
+                accounts[idx].name =  name
 
         for account in accounts:
             Utils.Print("Importing keys for account %s into wallet %s." % (account.name, wallet.name))
             if not self.walletMgr.importKey(account, wallet):
                 Utils.Print("ERROR: Failed to import key for account %s" % (account.name))
                 return False
+            self.accounts.append(account)
 
-        self.accounts=accounts
         return True
 
     def getNodeP2pPort(self, nodeId: int):
@@ -1587,22 +1604,22 @@ class Cluster(object):
         for f in self.filesToCleanup:
             os.remove(f)
 
-
-    # Create accounts and validates that the last transaction is received on root node
+    # Create accounts, if account does not already exist, and validates that the last transaction is received on root node
     def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=0):
         if self.accounts is None:
             return True
-
         transId=None
         for account in self.accounts:
-            if Utils.Debug: Utils.Print("Create account %s." % (account.name))
-            if Utils.Debug: Utils.Print("Validation node %s" % validationNodeIndex)
-            trans=self.createAccountAndVerify(account, creator, stakedDeposit, validationNodeIndex=validationNodeIndex)
-            if trans is None:
-                Utils.Print("ERROR: Failed to create account %s." % (account.name))
-                return False
-            if Utils.Debug: Utils.Print("Account %s created." % (account.name))
-            transId=Node.getTransId(trans)
+            ret = self.biosNode.getEosAccount(account.name)
+            if ret is None:
+                if Utils.Debug: Utils.Print("Create account %s." % (account.name))
+                if Utils.Debug: Utils.Print("Validation node %s" % validationNodeIndex)
+                trans=self.createAccountAndVerify(account, creator, stakedDeposit, validationNodeIndex=validationNodeIndex)
+                if trans is None:
+                    Utils.Print("ERROR: Failed to create account %s." % (account.name))
+                    return False
+                if Utils.Debug: Utils.Print("Account %s created." % (account.name))
+                transId=Node.getTransId(trans)
 
         if waitForTransBlock and transId is not None:
             node=self.nodes[validationNodeIndex]
@@ -1760,7 +1777,7 @@ class Cluster(object):
 
     def launchTrxGenerators(self, contractOwnerAcctName: str, acctNamesList: list, acctPrivKeysList: list,
                             nodeId: int=0, tpsPerGenerator: int=10, numGenerators: int=1, durationSec: int=60,
-                            waitToComplete:bool=False):
+                            waitToComplete:bool=False, abiFile=None, actionsData=None, actionsAuths=None):
         Utils.Print("Configure txn generators")
         node=self.getNode(nodeId)
         p2pListenPort = self.getNodeP2pPort(nodeId)
@@ -1775,9 +1792,10 @@ class Cluster(object):
 
         tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator)
         self.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
-                                                    handlerAcct=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
-                                                    privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec,
-                                                    logDir=Utils.DataDir, peerEndpoint=self.host, port=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                    contractOwnerAccount=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
+                                                    privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec, logDir=Utils.DataDir,
+                                                    abiFile=abiFile, actionsData=actionsData, actionsAuths=actionsAuths,
+                                                    peerEndpoint=self.host, port=p2pListenPort, tpsTrxGensConfig=tpsTrxGensConfig)
 
         Utils.Print("Launch txn generators and start generating/sending transactions")
         self.trxGenLauncher.launch(waitToComplete=waitToComplete)
