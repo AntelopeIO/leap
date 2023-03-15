@@ -180,7 +180,7 @@ class PerformanceTestBasic:
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
         self.cluster=Cluster(walletd=True, loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
-                             nodeosVers=self.clusterConfig.nodeosVers,unshared=self.clusterConfig.unshared)
+                             nodeosVers=self.clusterConfig.nodeosVers,unshared=self.testHelperConfig.unshared)
         self.cluster.setWalletMgr(self.walletMgr)
 
     def cleanupOldClusters(self):
