@@ -1,10 +1,28 @@
 #pragma once
-#include <appbase/application.hpp>
-#include <eosio/chain_plugin/chain_plugin.hpp>
+
+#include <eosio/chain/application.hpp>
 #include <eosio/net_plugin/protocol.hpp>
+#include <eosio/chain/plugin_metrics.hpp>
+#include <eosio/chain_plugin/chain_plugin.hpp>
 
 namespace eosio {
    using namespace appbase;
+
+   struct net_plugin_metrics : chain::plugin_interface::plugin_metrics {
+      chain::plugin_interface::runtime_metric num_peers{ chain::plugin_interface::metric_type::gauge, "num_peers", "num_peers", 0 };
+      chain::plugin_interface::runtime_metric num_clients{ chain::plugin_interface::metric_type::gauge, "num_clients", "num_clients", 0 };
+      chain::plugin_interface::runtime_metric dropped_trxs{ chain::plugin_interface::metric_type::counter, "dropped_trxs", "dropped_trxs", 0 };
+
+      vector<chain::plugin_interface::runtime_metric> metrics() final {
+         vector<chain::plugin_interface::runtime_metric> metrics {
+            num_peers,
+            num_clients,
+            dropped_trxs
+         };
+
+         return metrics;
+      }
+   };
 
    struct connection_status {
       string            peer;
@@ -32,6 +50,8 @@ namespace eosio {
         string                            disconnect( const string& endpoint );
         std::optional<connection_status>  status( const string& endpoint )const;
         vector<connection_status>         connections()const;
+
+        void register_metrics_listener(chain::plugin_interface::metrics_listener listener);
 
       private:
         std::shared_ptr<class net_plugin_impl> my;

@@ -1,9 +1,11 @@
 #pragma once
-#include <appbase/application.hpp>
+
+#include <eosio/chain/application.hpp>
+#include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/plugin_metrics.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/reflect/reflect.hpp>
 #include <fc/io/json.hpp>
-#include <eosio/chain/exceptions.hpp>
 
 namespace eosio {
    using namespace appbase;
@@ -36,6 +38,11 @@ namespace eosio {
     * call, and the handler is the function which implements the API call
     */
    using api_description = std::map<string, url_handler>;
+
+   enum class http_content_type {
+      json = 1,
+      plaintext = 2
+   };
 
    struct http_plugin_defaults {
       //If empty, unix socket support will be completely disabled. If not empty,
@@ -80,16 +87,16 @@ namespace eosio {
         void plugin_shutdown();
         void handle_sighup() override;
 
-        void add_handler( const string& url, const url_handler&, int priority = appbase::priority::medium_low);
-        void add_api(const api_description& api, int priority = appbase::priority::medium_low) {
+        void add_handler(const string& url, const url_handler&, appbase::exec_queue q, int priority = appbase::priority::medium_low, http_content_type content_type = http_content_type::json);
+        void add_api(const api_description& api, appbase::exec_queue q, int priority = appbase::priority::medium_low, http_content_type content_type = http_content_type::json) {
            for (const auto& call : api)
-              add_handler(call.first, call.second, priority);
+              add_handler(call.first, call.second, q, priority, content_type);
         }
 
-        void add_async_handler(const string& url, const url_handler& handler);
-        void add_async_api(const api_description& api) {
+        void add_async_handler(const string& url, const url_handler& handler, http_content_type content_type = http_content_type::json);
+        void add_async_api(const api_description& api, http_content_type content_type = http_content_type::json) {
            for (const auto& call : api)
-              add_async_handler(call.first, call.second);
+              add_async_handler(call.first, call.second, content_type);
         }
 
         // standard exception handling for api handlers
@@ -110,6 +117,8 @@ namespace eosio {
 
         /// @return the configured http-max-response-time-ms
         fc::microseconds get_max_response_time()const;
+
+        void register_metrics_listener(chain::plugin_interface::metrics_listener listener);
 
         size_t get_max_body_size()const;
       

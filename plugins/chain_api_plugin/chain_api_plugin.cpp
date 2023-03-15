@@ -1,6 +1,6 @@
 #include <eosio/chain_api_plugin/chain_api_plugin.hpp>
 #include <eosio/chain/exceptions.hpp>
-
+#include <eosio/http_plugin/macros.hpp>
 #include <fc/io/json.hpp>
 
 namespace eosio {
@@ -23,13 +23,6 @@ chain_api_plugin::~chain_api_plugin(){}
 
 void chain_api_plugin::set_program_options(options_description&, options_description&) {}
 void chain_api_plugin::plugin_initialize(const variables_map&) {}
-
-struct async_result_visitor : public fc::visitor<fc::variant> {
-   template<typename T>
-   fc::variant operator()(const T& v) const {
-      return fc::variant(v);
-   }
-};
 
 // Only want a simple 'Invalid transaction id' if unable to parse the body
 template<>
@@ -62,31 +55,6 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
           } \
        }}
 
-#define CALL_ASYNC_WITH_400(api_name, api_handle, api_namespace, call_name, call_result, http_response_code, params_type) \
-{std::string("/v1/" #api_name "/" #call_name), \
-   [api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
-      auto deadline = api_handle.start(); \
-      try { \
-         auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\
-         FC_CHECK_DEADLINE(deadline);\
-         api_handle.call_name( std::move(params), \
-            [cb, body](const std::variant<fc::exception_ptr, call_result>& result){\
-               if (std::holds_alternative<fc::exception_ptr>(result)) {\
-                  try {\
-                     std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();\
-                  } catch (...) {\
-                     http_plugin::handle_exception(#api_name, #call_name, body, cb);\
-                  }\
-               } else {\
-                  cb(http_response_code, fc::time_point::maximum(), std::visit(async_result_visitor(), result));\
-               }\
-            });\
-      } catch (...) { \
-         http_plugin::handle_exception(#api_name, #call_name, body, cb); \
-      } \
-   }\
-}
-
 #define CHAIN_RO_CALL(call_name, http_response_code, params_type) CALL_WITH_400(chain, ro_api, chain_apis::read_only, call_name, http_response_code, params_type)
 #define CHAIN_RW_CALL(call_name, http_response_code, params_type) CALL_WITH_400(chain, rw_api, chain_apis::read_write, call_name, http_response_code, params_type)
 #define CHAIN_RO_CALL_ASYNC(call_name, call_result, http_response_code, params_type) CALL_ASYNC_WITH_400(chain, ro_api, chain_apis::read_only, call_name, call_result, http_response_code, params_type)
@@ -107,7 +75,7 @@ void chain_api_plugin::plugin_startup() {
    ro_api.set_shorten_abi_errors( !http_plugin::verbose_errors() );
 
    _http_plugin.add_api( {
-      CHAIN_RO_CALL(get_info, 200, http_params_types::no_params)}, appbase::priority::medium_high);
+      CHAIN_RO_CALL(get_info, 200, http_params_types::no_params)}, appbase::exec_queue::read_only_trx_safe, appbase::priority::medium_high);
    _http_plugin.add_api({
       CHAIN_RO_CALL(get_activated_protocol_features, 200, http_params_types::possible_no_params),
       CHAIN_RO_CALL(get_block_info, 200, http_params_types::params_required),
@@ -115,6 +83,7 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(get_account, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_code, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_code_hash, 200, http_params_types::params_required),
+      CHAIN_RO_CALL(get_consensus_parameters, 200, http_params_types::no_params),
       CHAIN_RO_CALL(get_abi, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_raw_code_and_abi, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_raw_abi, 200, http_params_types::params_required),
@@ -127,15 +96,19 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(get_scheduled_transactions, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_required_keys, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_transaction_id, 200, http_params_types::params_required),
-      CHAIN_RO_CALL_ASYNC(compute_transaction, chain_apis::read_only::compute_transaction_results, 200, http_params_types::params_required),
       CHAIN_RO_CALL_ASYNC(send_read_only_transaction, chain_apis::read_only::send_read_only_transaction_results, 200, http_params_types::params_required),
-      CHAIN_RW_CALL_ASYNC(push_block, chain_apis::read_write::push_block_results, 202, http_params_types::params_required),
+      CHAIN_RO_CALL_ASYNC(compute_transaction, chain_apis::read_only::compute_transaction_results, 200, http_params_types::params_required),
+      // transaction related APIs will be posted to general queue after keys are recovered
       CHAIN_RW_CALL_ASYNC(push_transaction, chain_apis::read_write::push_transaction_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(push_transactions, chain_apis::read_write::push_transactions_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(send_transaction, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
-      CHAIN_RW_CALL_ASYNC(send_transaction2, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required),
-      CHAIN_RO_CALL(get_consensus_parameters, 200, http_params_types::no_params)
-   });
+      CHAIN_RW_CALL_ASYNC(send_transaction2, chain_apis::read_write::send_transaction_results, 202, http_params_types::params_required)
+   }, appbase::exec_queue::read_only_trx_safe);
+
+   // Not safe to run in parallel with read-only transactions
+   _http_plugin.add_api({
+      CHAIN_RW_CALL_ASYNC(push_block, chain_apis::read_write::push_block_results, 202, http_params_types::params_required)
+   }, appbase::exec_queue::general, appbase::priority::medium_low );
 
    if (chain.account_queries_enabled()) {
       _http_plugin.add_async_api({
@@ -146,7 +119,7 @@ void chain_api_plugin::plugin_startup() {
    if (chain.transaction_finality_status_enabled()) {
       _http_plugin.add_api({
          CHAIN_RO_CALL_WITH_400(get_transaction_status, 200, http_params_types::params_required),
-      });
+      }, appbase::exec_queue::read_only_trx_safe);
    }
 
    _http_plugin.add_api({
@@ -182,7 +155,7 @@ void chain_api_plugin::plugin_startup() {
            }
         }
       }
-   } );
+   }, appbase::exec_queue::read_only_trx_safe);
 }
 
 void chain_api_plugin::plugin_shutdown() {}

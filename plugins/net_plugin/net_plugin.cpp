@@ -289,6 +289,8 @@ namespace eosio {
 
       boost::asio::deadline_timer           accept_error_timer{thread_pool.get_executor()};
 
+      net_plugin_metrics   metrics;
+
       struct chain_info_t {
          uint32_t      lib_num = 0;
          block_id_type lib_id;
@@ -2675,11 +2677,13 @@ namespace eosio {
       shared_ptr<packed_transaction> ptr = std::make_shared<packed_transaction>();
       fc::raw::unpack( ds, *ptr );
       if( trx_in_progress_sz > def_max_trx_in_progress_size) {
+         ++my_impl->metrics.dropped_trxs.value;
          char reason[72];
          snprintf(reason, 72, "Dropping trx, too many trx in progress %lu bytes", trx_in_progress_sz);
          my_impl->producer_plug->log_failed_transaction(ptr->id(), ptr, reason);
          if (fc::time_point::now() - fc::seconds(1) >= last_dropped_trx_msg_time) {
             last_dropped_trx_msg_time = fc::time_point::now();
+            my_impl->metrics.post_metrics();
             peer_wlog(this, reason);
          }
          return true;
@@ -3155,6 +3159,7 @@ namespace eosio {
       return trx->get_estimated_size();
    }
 
+   // called from connection strand
    void connection::handle_message( packed_transaction_ptr trx ) {
       const auto& tid = trx->id();
       peer_dlog( this, "received packed_transaction ${id}", ("id", tid) );
@@ -3229,7 +3234,7 @@ namespace eosio {
             my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
          }
 
-         app().post(priority::medium, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
+         app().executor().post(priority::medium, exec_queue::general, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
             c->process_signed_block( id, std::move(ptr), std::move(bsp) );
          });
 
@@ -3460,6 +3465,11 @@ namespace eosio {
          ++it;
       }
       g.unlock();
+
+      metrics.num_clients.value = num_clients;
+      metrics.num_peers.value = num_peers;
+      metrics.post_metrics();
+
       if( num_clients > 0 || num_peers > 0 )
          fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}, block producer peers: ${num_bp_peers}",
                   ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", supplied_peers.size())("num_bp_peers", num_bp_peers) );
@@ -3856,7 +3866,7 @@ namespace eosio {
       my->incoming_transaction_ack_subscription = app().get_channel<compat::channels::transaction_ack>().subscribe(
             std::bind(&net_plugin_impl::transaction_ack, my.get(), std::placeholders::_1));
 
-      app().post(priority::highest, [my=my, listen_endpoint](){
+      app().executor().post(priority::highest, [my=my, listen_endpoint](){
          if( my->acceptor ) {
             try {
                my->acceptor->open(listen_endpoint.protocol());
@@ -3896,12 +3906,15 @@ namespace eosio {
       try {
          fc_ilog( logger, "shutdown.." );
 
-         my->plugin_shutdown();
-
-         app().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
+         my->plugin_shutdown();   
+         app().executor().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
          fc_ilog( logger, "exit shutdown" );
       }
       FC_CAPTURE_AND_RETHROW()
+   }
+
+   void net_plugin::register_metrics_listener(metrics_listener listener) {
+      my->metrics.register_listener(listener);
    }
 
    /**

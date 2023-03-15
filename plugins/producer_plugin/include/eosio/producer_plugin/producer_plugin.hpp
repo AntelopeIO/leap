@@ -1,13 +1,45 @@
 #pragma once
 
+#include <eosio/chain/plugin_metrics.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 
 namespace eosio {
 
 using boost::signals2::signal;
+
+using chain::plugin_interface::runtime_metric;
+using chain::plugin_interface::metric_type;
+using chain::plugin_interface::metrics_listener;
+using chain::plugin_interface::plugin_metrics;
+
+struct producer_plugin_metrics : public plugin_metrics {
+   runtime_metric unapplied_transactions{metric_type::gauge, "unapplied_transactions", "unapplied_transactions", 0};
+   runtime_metric blacklisted_transactions{metric_type::gauge, "blacklisted_transactions", "blacklisted_transactions", 0};
+   runtime_metric blocks_produced{metric_type::counter, "blocks_produced", "blocks_produced", 0};
+   runtime_metric trxs_produced{metric_type::counter, "trxs_produced", "trxs_produced", 0};
+   runtime_metric last_irreversible{metric_type::gauge, "last_irreversible", "last_irreversible", 0};
+   runtime_metric head_block_num{metric_type::gauge, "head_block_num", "head_block_num", 0};
+   runtime_metric subjective_bill_account_size{metric_type::gauge, "subjective_bill_account_size", "subjective_bill_account_size", 0};
+   runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
+
+   vector<runtime_metric> metrics() final {
+      vector<runtime_metric> metrics{
+            unapplied_transactions,
+            blacklisted_transactions,
+            blocks_produced,
+            trxs_produced,
+            last_irreversible,
+            head_block_num,
+            subjective_bill_account_size,
+            scheduled_trxs
+      };
+
+      return metrics;
+   }
+};
 
 class producer_plugin : public appbase::plugin<producer_plugin> {
 public:
@@ -22,7 +54,6 @@ public:
       std::optional<int32_t>   subjective_cpu_leeway_us;
       std::optional<double>    incoming_defer_ratio;
       std::optional<uint32_t>  greylist_limit;
-      std::optional<int32_t>   max_read_only_transaction_time;
    };
 
    struct whitelist_blacklist {
@@ -168,6 +199,7 @@ public:
 
 
    void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
+   void register_metrics_listener(metrics_listener listener);
 
    // thread-safe, called when a new block is received
    void received_block();
