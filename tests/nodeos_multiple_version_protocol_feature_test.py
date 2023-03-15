@@ -19,7 +19,7 @@ from TestHarness.Cluster import PFSetupPolicy
 
 # Parse command line arguments
 args = TestHelper.parse_args({"-v","--clean-run","--dump-error-details","--leave-running",
-                              "--keep-logs", "--alternate-version-labels-file"})
+                              "--keep-logs","--alternate-version-labels-file","--unshared"})
 Utils.Debug=args.v
 killAll=args.clean_run
 dumpErrorDetails=args.dump_error_details
@@ -30,7 +30,7 @@ keepLogs=args.keep_logs
 alternateVersionLabelsFile=args.alternate_version_labels_file
 
 walletMgr=WalletMgr(True)
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 cluster.setWalletMgr(walletMgr)
 
 def restartNode(node: Node, chainArg=None, addSwapFlags=None, nodeosPath=None):

@@ -39,6 +39,7 @@ class PerformanceTestBasic:
         delay: int = 1
         nodesFile: str = None
         verbose: bool = False
+        unshared: bool = False
         _killEosInstances: bool = True
         _killWallet: bool = True
 
@@ -179,7 +180,7 @@ class PerformanceTestBasic:
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
         self.cluster=Cluster(walletd=True, loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
-                             nodeosVers=self.clusterConfig.nodeosVers)
+                             nodeosVers=self.clusterConfig.nodeosVers,unshared=self.clusterConfig.unshared)
         self.cluster.setWalletMgr(self.walletMgr)
 
     def cleanupOldClusters(self):
@@ -516,7 +517,7 @@ class PtbArgumentsHandler(object):
     def createBaseArgumentParser():
         testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-p","-n","-d","-s","--nodes-file"
                                                         ,"--dump-error-details","-v","--leave-running"
-                                                        ,"--clean-run"})
+                                                        ,"--clean-run","--unshared"})
         ptbBaseParser = argparse.ArgumentParser(parents=[testHelperArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
         ptbBaseGrpTitle="Performance Test Basic Base"
@@ -602,7 +603,7 @@ def main():
     Utils.Debug = args.v
 
     testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
-                                                             dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
+                                                             dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v, unshared=args.unshared)
 
     chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
                                       chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,

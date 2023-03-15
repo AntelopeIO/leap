@@ -13,7 +13,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 cmdError=Utils.cmdError
 
-args = TestHelper.parse_args({"-v","--clean-run", "--dump-error-details","--keep-logs"})
+args = TestHelper.parse_args({"-v","--clean-run", "--dump-error-details","--keep-logs","--unshared"})
 debug=args.v
 killAll=args.clean_run
 killEosInstances = True
@@ -22,7 +22,7 @@ dumpErrorDetails = dumpErrorDetails=args.dump_error_details
 
 
 Utils.Debug=debug
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 
 testSuccessful=False
 

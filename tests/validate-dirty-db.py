@@ -19,7 +19,7 @@ from pathlib import Path
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run"})
+args = TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run","--unshared"})
 debug=args.v
 pnodes=1
 topo="mesh"
@@ -63,7 +63,7 @@ def runNodeosAndGetOutput(myTimeout=3, nodeosLogPath=f"{Utils.TestLogRoot}"):
     return (True, output)
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 
 try:
     TestHelper.printSystemInfo("BEGIN")

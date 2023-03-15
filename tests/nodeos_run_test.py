@@ -23,7 +23,7 @@ from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--host","--port","--prod-count","--defproducera_prvt_key","--defproducerb_prvt_key"
                               ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios","--clean-run"
-                              ,"--sanity-test","--wallet-port", "--error-log-path"})
+                              ,"--sanity-test","--wallet-port", "--error-log-path", "--unshared"})
 server=args.host
 port=args.port
 debug=args.v
@@ -41,7 +41,7 @@ walletPort=args.wallet_port
 
 Utils.Debug=debug
 localTest=True if server == TestHelper.LOCAL_HOST else False
-cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey)
+cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey,unshared=args.unshared)
 errFileName=f"{cluster.nodeosLogPath}/node_00/stderr.txt"
 if args.error_log_path:
     errFileName=args.error_log_path

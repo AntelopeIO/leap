@@ -48,13 +48,13 @@ def exec(cmd):
 
 Print=Utils.Print
 
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run"})
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"})
 Utils.Debug=args.v
 
 producers=1
 syncingNodes=1
 totalNodes=producers+syncingNodes
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running

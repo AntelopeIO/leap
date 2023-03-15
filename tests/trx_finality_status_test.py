@@ -31,13 +31,13 @@ from core_symbol import CORE_SYMBOL
 
 
 appArgs=AppArgs()
-args = TestHelper.parse_args({"-n", "--dump-error-details","--keep-logs","-v","--leave-running","--clean-run"})
+args = TestHelper.parse_args({"-n", "--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"})
 Utils.Debug=args.v
 pnodes=3
 totalNodes=args.n
 if totalNodes<=pnodes+2:
     totalNodes=pnodes+2
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running

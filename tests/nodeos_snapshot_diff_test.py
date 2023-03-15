@@ -32,7 +32,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 appArgs=AppArgs()
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--wallet-port"},
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--wallet-port","--unshared"},
                              applicationSpecificArgs=appArgs)
 
 relaunchTimeout = 30
@@ -41,7 +41,7 @@ pnodes=1
 testAccounts = 2
 trxGeneratorCnt=2
 startedNonProdNodes = 2
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running

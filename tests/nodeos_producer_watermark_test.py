@@ -148,10 +148,10 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run",
-                              "--wallet-port"})
+                              "--wallet-port","--unshared"})
 Utils.Debug=args.v
 totalNodes=3
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running

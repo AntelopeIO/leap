@@ -20,7 +20,7 @@ cmdError=Utils.cmdError
 from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--defproducera_prvt_key","--dump-error-details","--dont-launch","--keep-logs",
-                              "-v","--leave-running","--clean-run"})
+                              "-v","--leave-running","--clean-run","--unshared"})
 debug=args.v
 defproduceraPrvtKey=args.defproducera_prvt_key
 dumpErrorDetails=args.dump_error_details
@@ -30,7 +30,7 @@ dontKill=args.leave_running
 killAll=args.clean_run
 
 Utils.Debug=debug
-cluster=Cluster(walletd=True, defproduceraPrvtKey=defproduceraPrvtKey)
+cluster=Cluster(walletd=True, defproduceraPrvtKey=defproduceraPrvtKey,unshared=args.unshared)
 walletMgr=WalletMgr(True)
 testSuccessful=False
 killEosInstances=not dontKill
