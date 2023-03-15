@@ -4,6 +4,20 @@
     "types": [],
     "structs": [
         {
+            "name": "age",
+            "base": "",
+            "fields": [
+                {
+                    "name": "user",
+                    "type": "name"
+                },
+                {
+                    "name": "id",
+                    "type": "uint64"
+                }
+            ]
+        },
+        {
             "name": "erase",
             "base": "",
             "fields": [
@@ -100,6 +114,11 @@
     ],
     "actions": [
         {
+            "name": "age",
+            "type": "age",
+            "ricardian_contract": ""
+        },
+        {
             "name": "erase",
             "type": "erase",
             "ricardian_contract": ""
@@ -142,6 +161,10 @@
     "ricardian_clauses": [],
     "variants": [],
     "action_results": [
+        {
+            "name": "age",
+            "result_type": "uint64"
+        },
         {
             "name": "getage",
             "result_type": "uint64"

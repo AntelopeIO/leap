@@ -12,3 +12,7 @@ add_executable( test_options test_options.cpp )
 target_link_libraries( test_options producer_plugin eosio_testing )
 
 add_test(NAME test_options COMMAND plugins/producer_plugin/test/test_options WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+add_executable( test_read_only_trx test_read_only_trx.cpp )
+target_link_libraries( test_read_only_trx producer_plugin eosio_testing )
+add_test(NAME test_read_only_trx COMMAND plugins/producer_plugin/test/test_read_only_trx WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

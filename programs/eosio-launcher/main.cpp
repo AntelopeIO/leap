@@ -1244,6 +1244,18 @@ launcher_def::write_logging_config_file(tn_node_def &node) {
    if( gelf_enabled ) ttf.appenders.push_back( "net" );
    log_config.loggers.emplace_back( ttf );
 
+  fc::logger_config ttst( "transient_trx_success_tracing" );
+  ttst.level = ll;
+  ttst.appenders.push_back( "stderr" );
+  if( gelf_enabled ) ttst.appenders.push_back( "net" );
+  log_config.loggers.emplace_back( ttst );
+
+  fc::logger_config ttft( "transient_trx_failure_tracing" );
+  ttft.level = ll;
+  ttft.appenders.push_back( "stderr" );
+  if( gelf_enabled ) ttft.appenders.push_back( "net" );
+  log_config.loggers.emplace_back( ttft );
+
   fc::logger_config ta( "trace_api" );
   ta.level = ll;
   ta.appenders.push_back( "stderr" );

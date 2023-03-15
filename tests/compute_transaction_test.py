@@ -113,8 +113,6 @@ try:
         "compression": "none"}]
     }
 
-    results = node.pushTransaction(trx, opts='--read-only', permissions=account1.name)
-    assert(results[0])
     results = node.pushTransaction(trx, opts='--dry-run', permissions=account1.name)
     assert(results[0])
     node.waitForLibToAdvance(30)
@@ -122,8 +120,6 @@ try:
     postBalances = node.getEosBalances([account1, account2])
     assert(postBalances == preBalances)
 
-    results = node.pushTransaction(trx, opts='--read-only --skip-sign')
-    assert(results[0])
     results = node.pushTransaction(trx, opts='--dry-run --skip-sign')
     assert(results[0])
     node.waitForLibToAdvance(30)
@@ -143,8 +139,6 @@ try:
                          "compression": "none"}]
         }
 
-        results = npnode.pushTransaction(trx2, opts="--read-only")
-        assert(not results[0])
         results = npnode.pushTransaction(trx2, opts="--dry-run")
         assert(not results[0])
 
@@ -178,8 +172,6 @@ try:
                      "data": {"from": "account1","to": "account2","quantity": "10.0001 SYS","memo": memo},
                      "compression": "none"}]
     }
-    results = npnode.pushTransaction(trx3, opts="--read-only")
-    assert(results[0])
     results = npnode.pushTransaction(trx3, opts="--dry-run")
     assert(results[0])
 

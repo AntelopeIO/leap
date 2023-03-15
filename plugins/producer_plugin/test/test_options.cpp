@@ -10,7 +10,7 @@
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/name.hpp>
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 
 using namespace eosio;
 using namespace eosio::chain;

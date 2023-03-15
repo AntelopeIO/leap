@@ -4,7 +4,7 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 
 namespace eosio {
 
@@ -54,7 +54,6 @@ public:
       std::optional<int32_t>   subjective_cpu_leeway_us;
       std::optional<double>    incoming_defer_ratio;
       std::optional<uint32_t>  greylist_limit;
-      std::optional<int32_t>   max_read_only_transaction_time;
    };
 
    struct whitelist_blacklist {

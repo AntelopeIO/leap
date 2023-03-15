@@ -11,7 +11,7 @@
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/name.hpp>
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 
 namespace eosio::test::detail {
 using namespace eosio::chain::literals;
