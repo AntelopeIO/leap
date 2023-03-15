@@ -68,7 +68,7 @@ public:
 
       for(const auto& req: _snapshot_requests.get<0>()) {
          // -1 since its called from start block
-         bool recurring_snapshot =  req.block_spacing &&  (!((height - req.start_block_num - 1) % req.block_spacing));
+         bool recurring_snapshot =  req.block_spacing &&  (height >= req.start_block_num + 1) && (!((height - req.start_block_num - 1) % req.block_spacing));
          bool onetime_snapshot   = (!req.block_spacing) && (height == req.start_block_num + 1);
         
          // assume "asap" for snapshot with missed/zero start, it can have spacing
