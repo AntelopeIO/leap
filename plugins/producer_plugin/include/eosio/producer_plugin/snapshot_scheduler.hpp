@@ -56,7 +56,7 @@ public:
       bool serialize_needed  = false;
       bool snapshot_executed = false; 
 
-      auto execute_snapshot_with_log = [this, &height](const auto & req) {
+      auto execute_snapshot_with_log = [this, &height, &snapshot_executed](const auto & req) {
          dlog("snapshot scheduler creating a snapshot from the request [start_block_num:${start_block_num}, end_block_num=${end_block_num}, block_spacing=${block_spacing}], height=${height}",
              ("start_block_num", req.start_block_num)
              ("end_block_num",   req.end_block_num)
@@ -64,6 +64,7 @@ public:
              ("height",          height));
              
          execute_snapshot(req.snapshot_request_id);
+         snapshot_executed = true;
       };    
 
       for(const auto& req: _snapshot_requests.get<0>()) {
@@ -82,7 +83,6 @@ public:
                serialize_needed = true;              
             }
             execute_snapshot_with_log(req);
-            snapshot_executed = true;
          }        
          else if(recurring_snapshot || onetime_snapshot) {
             execute_snapshot_with_log(req);
@@ -91,7 +91,6 @@ public:
          // cleanup - remove expired (or invalid) request
          if(!req.start_block_num || !req.block_spacing || (req.end_block_num > 0 && height >= req.end_block_num)) {
             unschedule_snapshot(req.snapshot_request_id);
-            snapshot_executed = true;
          }
 
          // stop iterating snapshot requests after snapshot execution
