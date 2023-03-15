@@ -219,10 +219,10 @@ bool blocklog_actions::trim_blocklog_front(bfs::path block_dir, uint32_t n) {//n
    return status;
 }
 
-void blocklog_actions::extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end) {
+void blocklog_actions::extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t last) {
    report_time rt("extracting block range");
-   EOS_ASSERT(end > start, block_log_exception, "extract range end must be greater than start");
-   block_log::extract_block_range(block_dir, output_dir, start, end);
+   EOS_ASSERT(last > start, block_log_exception, "extract range end must be greater than start");
+   block_log::extract_block_range(block_dir, output_dir, start, last);
    rt.report();
 }
 

@@ -1548,7 +1548,7 @@ namespace eosio { namespace chain {
 
    // static
    void block_log::extract_block_range(const fc::path& block_dir, const fc::path& dest_dir,
-                                       block_num_type start_block_num, block_num_type end_block_num) {
+                                       block_num_type start_block_num, block_num_type last_block_num) {
 
 
       block_log_bundle log_bundle(block_dir);
@@ -1560,7 +1560,7 @@ namespace eosio { namespace chain {
       if (!fc::exists(dest_dir))
          fc::create_directories(dest_dir);
 
-      uint32_t num_blocks = end_block_num - start_block_num + 1;
+      uint32_t num_blocks = last_block_num - start_block_num + 1;
 
       auto [new_block_filename, new_index_filename] = blocklog_files(dest_dir, start_block_num, num_blocks);
 
