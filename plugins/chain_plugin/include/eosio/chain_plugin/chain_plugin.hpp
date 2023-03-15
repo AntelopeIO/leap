@@ -1,5 +1,5 @@
 #pragma once
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/chain/asset.hpp>
 #include <eosio/chain/authority.hpp>
 #include <eosio/chain/account_object.hpp>

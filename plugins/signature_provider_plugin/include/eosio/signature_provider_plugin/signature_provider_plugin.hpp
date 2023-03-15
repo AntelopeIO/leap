@@ -1,5 +1,5 @@
 #pragma once
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/http_client_plugin/http_client_plugin.hpp>
 #include <eosio/chain/types.hpp>
 

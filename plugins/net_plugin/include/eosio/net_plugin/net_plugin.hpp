@@ -1,9 +1,9 @@
 #pragma once
 
+#include <eosio/chain/application.hpp>
 #include <eosio/net_plugin/protocol.hpp>
 #include <eosio/chain/plugin_metrics.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
-#include <appbase/application.hpp>
 
 namespace eosio {
    using namespace appbase;

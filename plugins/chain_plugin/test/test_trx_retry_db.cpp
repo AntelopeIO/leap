@@ -13,7 +13,7 @@
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/name.hpp>
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/chain/plugin_interface.hpp>
 #include <fc/mock_time.hpp>
 #include <fc/bitutil.hpp>

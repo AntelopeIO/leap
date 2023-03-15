@@ -3,7 +3,7 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 
 namespace eosio {
 

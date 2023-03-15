@@ -188,10 +188,7 @@ namespace eosio { namespace chain {
       if( max_transaction_time_subjective != fc::microseconds::maximum() && (start + max_transaction_time_subjective) <= _deadline ) {
          _deadline = start + max_transaction_time_subjective;
          tx_cpu_usage_reason = billed_cpu_time_us > 0 ?
-            tx_cpu_usage_exceeded_reason::speculative_executed_adjusted_max_transaction_time :
-            ( is_read_only() ?
-               tx_cpu_usage_exceeded_reason::node_configured_max_read_only_transaction_time :
-               tx_cpu_usage_exceeded_reason::node_configured_max_transaction_time );
+            tx_cpu_usage_exceeded_reason::speculative_executed_adjusted_max_transaction_time : tx_cpu_usage_exceeded_reason::node_configured_max_transaction_time;
          billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
       }
 
@@ -455,9 +452,6 @@ namespace eosio { namespace chain {
          case tx_cpu_usage_exceeded_reason::speculative_executed_adjusted_max_transaction_time:
             limit = max_transaction_time_subjective;
             return " reached speculative executed adjusted trx max time ${limit}us";
-         case tx_cpu_usage_exceeded_reason::node_configured_max_read_only_transaction_time:
-            limit = max_transaction_time_subjective;
-            return " reached node configured max-read-only-transaction-time ${limit}us";
       }
       return "unknown tx_cpu_usage_exceeded";
    }

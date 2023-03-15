@@ -1,4 +1,4 @@
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/wallet_plugin/wallet_manager.hpp>
 #include <eosio/wallet_plugin/wallet.hpp>
 #include <eosio/wallet_plugin/se_wallet.hpp>
