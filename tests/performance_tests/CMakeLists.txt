@@ -1,7 +1,6 @@
 configure_file(performance_test_basic.py . COPYONLY)
 configure_file(performance_test.py . COPYONLY)
 configure_file(log_reader.py . COPYONLY)
-configure_file(read_log_data.py . COPYONLY)
 configure_file(log_reader_tests.py . COPYONLY)
 configure_file(nodeos_log_2_0_14.txt.gz . COPYONLY)
 configure_file(nodeos_log_3_2.txt.gz . COPYONLY)
