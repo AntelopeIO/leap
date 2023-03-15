@@ -1903,7 +1903,7 @@ read_only::get_scheduled_transactions( const read_only::get_scheduled_transactio
    return result;
 }
 
-chain::signed_block_ptr read_only::get_block(const read_only::get_block_params& params, const fc::time_point& deadline) const {
+chain::signed_block_ptr read_only::get_raw_block(const read_only::get_raw_block_params& params, const fc::time_point& deadline) const {
    signed_block_ptr block;
    std::optional<uint64_t> block_num;
 
@@ -1928,6 +1928,47 @@ chain::signed_block_ptr read_only::get_block(const read_only::get_block_params& 
    FC_CHECK_DEADLINE(deadline);
 
    return block;
+}
+
+read_only::get_block_header_result read_only::get_block_header(const read_only::get_block_header_params& params, const fc::time_point& deadline) const{
+   std::optional<uint64_t> block_num;
+
+   EOS_ASSERT( !params.block_num_or_id.empty() && params.block_num_or_id.size() <= 64,
+               chain::block_id_type_exception,
+               "Invalid Block number or ID, must be greater than 0 and less than 64 characters"
+   );
+
+   try {
+      block_num = fc::to_uint64(params.block_num_or_id);
+   } catch( ... ) {}
+
+   if (!params.include_extensions) {
+      std::optional<signed_block_header> header;
+
+      if( block_num ) {
+         header = db.fetch_block_header_by_number( *block_num );
+      } else {
+         try {
+            header = db.fetch_block_header_by_id( fc::variant(params.block_num_or_id).as<block_id_type>() );
+         } EOS_RETHROW_EXCEPTIONS(chain::block_id_type_exception, "Invalid block ID: ${block_num_or_id}", ("block_num_or_id", params.block_num_or_id))
+      }
+      EOS_ASSERT( header, unknown_block_exception, "Could not find block header: ${block}", ("block", params.block_num_or_id));
+      return { header->calculate_id(), fc::variant{*header}, {}};
+   } else {
+      signed_block_ptr block;
+      if( block_num ) {
+         block = db.fetch_block_by_number( *block_num );
+      } else {
+         try {
+            block = db.fetch_block_by_id( fc::variant(params.block_num_or_id).as<block_id_type>() );
+         } EOS_RETHROW_EXCEPTIONS(chain::block_id_type_exception, "Invalid block ID: ${block_num_or_id}", ("block_num_or_id", params.block_num_or_id))
+      }
+      EOS_ASSERT( block, unknown_block_exception, "Could not find block header: ${block}", ("block", params.block_num_or_id));
+      return { block->calculate_id(), fc::variant{static_cast<signed_block_header>(*block)}, block->block_extensions};
+   }
+
+   FC_CHECK_DEADLINE(deadline);
+
 }
 
 std::unordered_map<account_name, std::optional<abi_serializer>>

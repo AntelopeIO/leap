@@ -3101,6 +3101,12 @@ signed_block_ptr controller::fetch_block_by_id( block_id_type id )const {
    return signed_block_ptr();
 }
 
+std::optional<signed_block_header> controller::fetch_block_header_by_id( block_id_type id )const {
+   auto state = my->fork_db.get_block(id);
+   if( state && state->block ) return state->header;
+   return my->blog.read_block_header_by_num( block_header::num_from_id(id) );
+}
+
 signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  { try {
    auto blk_state = fetch_block_state_by_number( block_num );
    if( blk_state ) {
@@ -3108,6 +3114,15 @@ signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  {
    }
 
    return my->blog.read_block_by_num(block_num);
+} FC_CAPTURE_AND_RETHROW( (block_num) ) }
+
+std::optional<signed_block_header> controller::fetch_block_header_by_number( uint32_t block_num )const  { try {
+   auto blk_state = fetch_block_state_by_number( block_num );
+   if( blk_state ) {
+      return blk_state->header;
+   }
+
+   return my->blog.read_block_header_by_num(block_num);
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
 block_state_ptr controller::fetch_block_state_by_id( block_id_type id )const {

@@ -185,15 +185,15 @@ namespace eosio { namespace chain {
       }
 
       template <typename Stream>
-      block_id_type read_block_id(Stream&& ds, uint32_t expect_block_num) {
-         block_header bh;
+      signed_block_header read_block_header(Stream&& ds, uint32_t expect_block_num) {
+         signed_block_header bh;
          fc::raw::unpack(ds, bh);
 
          EOS_ASSERT(bh.block_num() == expect_block_num, block_log_exception,
                     "Wrong block header was read from block log.",
                     ("returned", bh.block_num())("expected", expect_block_num));
 
-         return bh.calculate_id();
+         return bh;
       }
 
       /// Provide the read only view of the blocks.log file
@@ -474,8 +474,8 @@ namespace eosio { namespace chain {
          virtual void     reset(const chain_id_type& chain_id, uint32_t first_block_num)      = 0;
          virtual void     flush()                                                             = 0;
 
-         virtual signed_block_ptr read_block_by_num(uint32_t block_num)    = 0;
-         virtual block_id_type    read_block_id_by_num(uint32_t block_num) = 0;
+         virtual signed_block_ptr            read_block_by_num(uint32_t block_num)        = 0;
+         virtual std::optional<signed_block_header> read_block_header_by_num(uint32_t block_num) = 0;
 
          virtual uint32_t version() const = 0;
 
@@ -512,7 +512,7 @@ namespace eosio { namespace chain {
          void flush() final {}
 
          signed_block_ptr read_block_by_num(uint32_t block_num) final { return {}; };
-         block_id_type    read_block_id_by_num(uint32_t block_num) final { return {}; };
+         std::optional<signed_block_header> read_block_header_by_num(uint32_t block_num) final { return {}; };
 
          uint32_t         version() const final { return 0; }
          signed_block_ptr read_head() final { return {}; };
@@ -556,7 +556,7 @@ namespace eosio { namespace chain {
          virtual uint32_t         working_block_file_first_block_num() { return preamble.first_block_num; }
          virtual void             post_append(uint64_t pos) {}
          virtual signed_block_ptr retry_read_block_by_num(uint32_t block_num) { return {}; }
-         virtual block_id_type    retry_read_block_id_by_num(uint32_t block_num) { return {}; }
+         virtual std::optional<signed_block_header> retry_read_block_header_by_num(uint32_t block_num) { return {}; }
 
          void append(const signed_block_ptr& b, const block_id_type& id,
                      const std::vector<char>& packed_block) override {
@@ -609,14 +609,14 @@ namespace eosio { namespace chain {
             FC_LOG_AND_RETHROW()
          }
 
-         block_id_type read_block_id_by_num(uint32_t block_num) final {
+         std::optional<signed_block_header> read_block_header_by_num(uint32_t block_num) final {
             try {
                uint64_t pos = get_block_pos(block_num);
                if (pos != block_log::npos) {
                   block_file.seek(pos);
-                  return read_block_id(block_file, block_num);
+                  return read_block_header(block_file, block_num);
                }
-               return retry_read_block_id_by_num(block_num);
+               return retry_read_block_header_by_num(block_num);
             }
             FC_LOG_AND_RETHROW()
          }
@@ -1027,10 +1027,10 @@ namespace eosio { namespace chain {
             return {};
          }
 
-         block_id_type retry_read_block_id_by_num(uint32_t block_num) final {
+         std::optional<signed_block_header> retry_read_block_header_by_num(uint32_t block_num) final {
             auto ds = catalog.ro_stream_for_block(block_num);
             if (ds)
-               return read_block_id(*ds, block_num);
+               return read_block_header(*ds, block_num);
             return {};
          }
 
@@ -1225,9 +1225,15 @@ namespace eosio { namespace chain {
       return my->read_block_by_num(block_num);
    }
 
-   block_id_type block_log::read_block_id_by_num(uint32_t block_num) const {
+   std::optional<signed_block_header> block_log::read_block_header_by_num(uint32_t block_num) const {
       std::lock_guard g(my->mtx);
-      return my->read_block_id_by_num(block_num);
+      return my->read_block_header_by_num(block_num);
+   }
+
+   block_id_type block_log::read_block_id_by_num(uint32_t block_num) const {
+      auto bh = read_block_header_by_num(block_num);
+      if (bh) { return bh->calculate_id(); }
+      return {};
    }
 
    uint64_t block_log::get_block_pos(uint32_t block_num) const {

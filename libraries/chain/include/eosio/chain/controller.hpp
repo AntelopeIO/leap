@@ -240,6 +240,10 @@ namespace eosio { namespace chain {
          signed_block_ptr fetch_block_by_number( uint32_t block_num )const;
          // thread-safe
          signed_block_ptr fetch_block_by_id( block_id_type id )const;
+         // thread-safe
+         std::optional<signed_block_header> fetch_block_header_by_number( uint32_t block_num )const;
+         // thread-safe
+         std::optional<signed_block_header> fetch_block_header_by_id( block_id_type id )const;
          // return block_state from forkdb, thread-safe
          block_state_ptr fetch_block_state_by_number( uint32_t block_num )const;
          // return block_state from forkdb, thread-safe
