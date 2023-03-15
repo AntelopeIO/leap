@@ -18,8 +18,6 @@ from TestHarness.Node import BlockType
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-from core_symbol import CORE_SYMBOL
-
 def verifyBlockLog(expected_block_num, trimmedBlockLog):
     firstBlockNum = expected_block_num
     for block in trimmedBlockLog:

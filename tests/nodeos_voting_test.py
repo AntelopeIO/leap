@@ -1,10 +1,6 @@
 #!/usr/bin/env python3
 
-import decimal
-import math
-import re
-
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 
 ###############################################################
 # nodeos_voting_test
@@ -139,8 +135,6 @@ def verifyProductionRounds(trans, node, prodsActive, rounds):
 
 Print=Utils.Print
 errorExit=Utils.errorExit
-
-from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run",
                               "--wallet-port"})

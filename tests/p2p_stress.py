@@ -1,11 +1,9 @@
-import testUtils
-import p2p_test_peers
 import random
 import time
 import copy
 import threading
 
-from core_symbol import CORE_SYMBOL
+from TestHarness import CORE_SYMBOL
 
 class StressNetwork:
     speeds=[1,5,10,30,60,100,500]

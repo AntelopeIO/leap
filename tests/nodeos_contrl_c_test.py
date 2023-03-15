@@ -3,8 +3,7 @@
 import signal
 import time
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
-from core_symbol import CORE_SYMBOL
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 
 ###############################################################
 # nodeos_contrl_c_lr_test

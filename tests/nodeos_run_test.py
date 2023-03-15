@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
+from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 from pathlib import Path
 
 import decimal
@@ -19,7 +19,6 @@ import sys
 Print=Utils.Print
 errorExit=Utils.errorExit
 cmdError=Utils.cmdError
-from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--host","--port","--prod-count","--defproducera_prvt_key","--defproducerb_prvt_key"
                               ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios","--clean-run"

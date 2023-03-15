@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 
 import time
-import decimal
-import math
-import re
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 from TestHarness.Cluster import NamedAccounts
-from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # nodeos_under_min_avail_ram

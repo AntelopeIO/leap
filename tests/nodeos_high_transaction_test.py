@@ -4,10 +4,9 @@ import signal
 import time
 import json
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 from TestHarness.Cluster import NamedAccounts
 from TestHarness.TestHelper import AppArgs
-from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # nodeos_high_transaction_test
