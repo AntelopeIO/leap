@@ -92,7 +92,7 @@ public:
          }       
 
          // cleanup - remove expired (or invalid) request
-         if(!req.start_block_num ||         
+         if((!req.start_block_num && !req.block_spacing) ||         
             (!req.block_spacing && height >= (req.start_block_num + 1)) || 
             (req.end_block_num > 0 && height >= (req.end_block_num + 1))) {
             unschedule_snapshot(req.snapshot_request_id);
