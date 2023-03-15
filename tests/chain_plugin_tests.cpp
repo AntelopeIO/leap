@@ -120,6 +120,14 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    BOOST_TEST(block_str2.find("Should Not Assert!") == std::string::npos); // decode failed
    BOOST_TEST(block_str2.find("011253686f756c64204e6f742041737365727421") != std::string::npos); //action data
 
+
+   chain_apis::read_only::get_block_header_params bh_param{headnumstr, false};
+   auto get_bh_result = plugin.get_block_header(bh_param, fc::time_point::maximum());
+
+   BOOST_TEST(get_bh_result.id == block->calculate_id());
+   BOOST_TEST(json::to_string(get_bh_result.signed_block_header, fc::time_point::maximum()) ==
+              json::to_string(fc::variant{static_cast<signed_block_header&>(*block)}, fc::time_point::maximum()));
+
 } FC_LOG_AND_RETHROW() /// get_block_with_invalid_abi
 
 BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {

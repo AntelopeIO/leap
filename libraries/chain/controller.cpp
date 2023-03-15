@@ -3093,7 +3093,7 @@ const global_property_object& controller::get_global_properties()const {
   return my->db.get<global_property_object>();
 }
 
-signed_block_ptr controller::fetch_block_by_id( block_id_type id )const {
+signed_block_ptr controller::fetch_block_by_id( const block_id_type& id )const {
    auto state = my->fork_db.get_block(id);
    if( state && state->block ) return state->block;
    auto bptr = my->blog.read_block_by_num( block_header::num_from_id(id) );
@@ -3101,10 +3101,12 @@ signed_block_ptr controller::fetch_block_by_id( block_id_type id )const {
    return signed_block_ptr();
 }
 
-std::optional<signed_block_header> controller::fetch_block_header_by_id( block_id_type id )const {
+std::optional<signed_block_header> controller::fetch_block_header_by_id( const block_id_type& id )const {
    auto state = my->fork_db.get_block(id);
    if( state && state->block ) return state->header;
-   return my->blog.read_block_header_by_num( block_header::num_from_id(id) );
+   auto result = my->blog.read_block_header_by_num( block_header::num_from_id(id) );
+   if( result && result->calculate_id() == id ) return result;
+   return {};
 }
 
 signed_block_ptr controller::fetch_block_by_number( uint32_t block_num )const  { try {

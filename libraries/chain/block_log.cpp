@@ -474,7 +474,7 @@ namespace eosio { namespace chain {
          virtual void     reset(const chain_id_type& chain_id, uint32_t first_block_num)      = 0;
          virtual void     flush()                                                             = 0;
 
-         virtual signed_block_ptr            read_block_by_num(uint32_t block_num)        = 0;
+         virtual signed_block_ptr                   read_block_by_num(uint32_t block_num)        = 0;
          virtual std::optional<signed_block_header> read_block_header_by_num(uint32_t block_num) = 0;
 
          virtual uint32_t version() const = 0;
@@ -1231,6 +1231,7 @@ namespace eosio { namespace chain {
    }
 
    block_id_type block_log::read_block_id_by_num(uint32_t block_num) const {
+      // read_block_header_by_num acquires mutex
       auto bh = read_block_header_by_num(block_num);
       if (bh) { return bh->calculate_id(); }
       return {};
