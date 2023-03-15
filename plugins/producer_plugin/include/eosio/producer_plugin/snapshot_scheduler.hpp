@@ -96,7 +96,6 @@ public:
             (!req.block_spacing && height >= (req.start_block_num + 1)) || 
             (req.end_block_num > 0 && height >= (req.end_block_num + 1))) {
             unschedule_snapshot(req.snapshot_request_id);
-            if (snapshot_executed) break;
          }
       }
 
