@@ -24,20 +24,29 @@ namespace eosio {
     struct subst_plugin_impl : std::enable_shared_from_this<subst_plugin_impl> {
         debug_contract::substitution_cache<debug_contract_backend> cache;
 
-        void subst(const std::string& old_code_hash_str, const std::string& new_code_path) {
-            std::vector<uint8_t> new_code;
+        void subst(const std::string& subst_info, const std::string& new_code_path) {
 
-            new_code = eosio::vm::read_wasm(new_code_path);
-
+            // load and store new code
+            std::vector<uint8_t> new_code = eosio::vm::read_wasm(new_code_path);
             auto new_hash = fc::sha256::hash((const char*)new_code.data(), new_code.size());
-            auto old_hash = fc::sha256(old_code_hash_str);
-            cache.substitutions[old_hash] = new_hash;
             cache.codes[new_hash] = std::move(new_code);
 
+            // update substitution maps
+            if (subst_info.size() < 16) {
+                // if smaller than 16 char assume its an account name
+                auto account_name = eosio::name(subst_info).to_uint64_t();
+                cache.substitutions_by_name[account_name] = new_hash;
+            } else {
+                // if not assume its a code hash
+                auto old_hash = fc::sha256(subst_info);
+                cache.substitutions[old_hash] = new_hash;
+            }
+
             ilog("===================SUBST-PLUGIN==================");
-            ilog("Loaded new wasm for ${h}", ("h", old_code_hash_str));
+            ilog("Initialized substitution map for:");
+            ilog("${i}", ("i", subst_info));
+            ilog("Loaded from: ${p}", ("p", new_code_path));
             ilog("New hash is: ${n}", ("n", new_hash.str()));
-            ilog("New size: ${s}", ("s", cache.codes[new_hash].size()));
             ilog("=================================================");
         }
     };  // subst_plugin_impl

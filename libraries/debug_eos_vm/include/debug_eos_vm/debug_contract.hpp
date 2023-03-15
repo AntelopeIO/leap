@@ -17,8 +17,22 @@ namespace debug_contract
    struct substitution_cache
    {
       std::map<fc::sha256, fc::sha256> substitutions;
+      std::map<uint64_t, fc::sha256> substitutions_by_name;
       std::map<fc::sha256, std::vector<uint8_t>> codes;
       std::map<fc::sha256, debugging_module<Backend>> cached_modules;
+
+      void perform_call(fc::sha256 hsum, eosio::chain::apply_context& context)
+      {
+            ilog("with ${s}", ("s", hsum));
+            ilog("================================================");
+            auto& module = *get_module(hsum).module;
+            module.set_wasm_allocator(&context.control.get_wasm_allocator());
+            eosio::chain::webassembly::interface iface(context);
+            module.initialize(&iface);
+            module.call(iface, "env", "apply", context.get_receiver().to_uint64_t(),
+                        context.get_action().account.to_uint64_t(),
+                        context.get_action().name.to_uint64_t());
+      }
 
       bool substitute_apply(const fc::sha256& code_hash,
                             uint8_t vm_type,
@@ -28,17 +42,26 @@ namespace debug_contract
          if (vm_type || vm_version)
             return false;
 
+         // match by hash
          if (auto it = substitutions.find(code_hash); it != substitutions.end())
          {
-            auto& module = *get_module(it->second).module;
-            module.set_wasm_allocator(&context.control.get_wasm_allocator());
-            eosio::chain::webassembly::interface iface(context);
-            module.initialize(&iface);
-            module.call(iface, "env", "apply", context.get_receiver().to_uint64_t(),
-                        context.get_action().account.to_uint64_t(),
-                        context.get_action().name.to_uint64_t());
+            ilog("==================SUBST=PLUGIN==================");
+            ilog("Performing substitution of ${f}", ("f", it->first));
+            perform_call(it->second, context);
             return true;
          }
+
+         // match by name
+         auto it = substitutions_by_name.find(context.get_receiver().to_uint64_t());
+         if (it != substitutions_by_name.end())
+         {
+            ilog("==================SUBST=PLUGIN==================");
+            ilog("Performing substitution of ${f}", ("f", it->first));
+            perform_call(it->second, context);
+            return true;
+         }
+
+         // no matches for this call
          return false;
       }
 
