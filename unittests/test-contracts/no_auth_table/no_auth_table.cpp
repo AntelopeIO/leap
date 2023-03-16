@@ -20,6 +20,15 @@ public:
       return iterator->age;
    }
 
+   // This is used to create unique transaction by varying id.
+   [[eosio::action]]
+   uint64_t age(name user, uint64_t id) {
+      person_index people( get_self(), get_first_receiver().value );
+      auto iterator = people.find(user.value);
+      check(iterator != people.end(), "age: record does not exist");
+      return iterator->age;
+   }
+
    [[eosio::action]]
    void insert(name user, uint64_t id, uint64_t age) {
       person_index people( get_self(), get_first_receiver().value );

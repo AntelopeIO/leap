@@ -47,8 +47,7 @@ class TestHelper(object):
         thGrpTitle = "Test Helper Arguments"
         thGrpDescription="Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment."
         thGrp = thParser.add_argument_group(title=thGrpTitle, description=thGrpDescription)
-        thGrp.add_argument('-?', action='help', default=argparse.SUPPRESS,
-                                 help=argparse._('show this help message and exit'))
+        thGrp.add_argument('-?', '--help', action='help', default=argparse.SUPPRESS, help=argparse._('show this help message and exit'))
 
         if "-p" in includeArgs:
             thGrp.add_argument("-p", type=int, help="producing nodes count", default=1)

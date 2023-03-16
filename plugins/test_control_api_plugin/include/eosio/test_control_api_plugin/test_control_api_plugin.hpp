@@ -2,7 +2,7 @@
 #include <eosio/test_control_plugin/test_control_plugin.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/chain/controller.hpp>
 
 namespace eosio {

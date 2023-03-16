@@ -4,6 +4,7 @@
 
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/block.hpp>
+#include <regex>
 
 using namespace eosio::chain;
 
@@ -25,6 +26,22 @@ struct block_log_extract_fixture {
       log->append(p, p->calculate_id());
    }
 
+   static void rename_blocks_files(fc::path dir) {
+   // rename blocks files with block number range with those without
+   // i.e.   blocks-1-100.index  --> blocks.index
+   //        blocks-1-100.log    --> blocks.log
+      namespace bfs = boost::filesystem;
+      for (bfs::directory_iterator itr(dir); itr != bfs::directory_iterator{}; ++itr ) {
+         auto file_path = itr->path();
+         if ( !bfs::is_regular_file( file_path )) continue;
+         std::regex block_range_expression("blocks-\\d+-\\d+");
+         auto new_path = std::regex_replace(file_path.string(), block_range_expression, "blocks");
+         if (new_path != file_path) {
+            bfs::rename(file_path, new_path);
+         }
+      }
+   }
+
    genesis_state gs;
    fc::temp_directory dir;
    std::optional<block_log> log;
@@ -37,7 +54,7 @@ BOOST_FIXTURE_TEST_CASE(extract_from_middle, block_log_extract_fixture) try {
    fc::temp_directory output_dir;
    block_num_type start=3, end=7;
    block_log::extract_block_range(dir.path(), output_dir.path(), start, end);
-
+   rename_blocks_files(output_dir.path());
    block_log new_log(output_dir.path());
 
    auto id = gs.compute_chain_id();
@@ -53,7 +70,7 @@ BOOST_FIXTURE_TEST_CASE(extract_from_start, block_log_extract_fixture) try {
    fc::temp_directory output_dir;
    block_num_type start=1, end=7;
    block_log::extract_block_range(dir.path(), output_dir.path(), start, end);
-
+   rename_blocks_files(output_dir.path());
    block_log new_log(output_dir.path());
 
    auto id = gs.compute_chain_id();
@@ -68,11 +85,11 @@ BOOST_FIXTURE_TEST_CASE(reextract_from_start, block_log_extract_fixture) try {
    fc::temp_directory output_dir;
    block_num_type start=1, end=9;
    block_log::extract_block_range(dir.path(), output_dir.path(), start, end);
-
+   rename_blocks_files(output_dir.path());
    fc::temp_directory output_dir2;
    end=6;
    block_log::extract_block_range(output_dir.path(), output_dir2.path(), start, end);
-
+   rename_blocks_files(output_dir2.path());
    block_log new_log(output_dir2.path());
 
    auto id = gs.compute_chain_id();
@@ -87,7 +104,7 @@ BOOST_FIXTURE_TEST_CASE(extract_to_end, block_log_extract_fixture) try {
    fc::temp_directory output_dir;
    block_num_type start=5, end=std::numeric_limits<block_num_type>::max();
    block_log::extract_block_range(dir.path(), output_dir.path(), start, end);
-
+   rename_blocks_files(output_dir.path());
    block_log new_log(output_dir.path());
 
    auto id = gs.compute_chain_id();

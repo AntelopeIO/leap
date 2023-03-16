@@ -713,11 +713,14 @@ class Cluster(object):
     # create account keys and import into wallet. Wallet initialization will be user responsibility
     # also imports defproducera and defproducerb accounts
     def populateWallet(self, accountsCount, wallet, accountNames: list=None, createProducerAccounts: bool=True):
-        if accountsCount == 0 and len(accountNames) == 0:
+        if accountsCount == 0 and (accountNames is None or len(accountNames) == 0):
             return True
         if self.walletMgr is None:
             Utils.Print("ERROR: WalletMgr hasn't been initialized.")
             return False
+
+        if accountNames is not None:
+            assert(len(accountNames) <= accountsCount)
 
         accounts=None
         if accountsCount > 0:
@@ -1601,7 +1604,7 @@ class Cluster(object):
         for f in self.filesToCleanup:
             os.remove(f)
 
-    # Create accounts and validates that the last transaction is received on root node
+    # Create accounts, if account does not already exist, and validates that the last transaction is received on root node
     def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=0):
         if self.accounts is None:
             return True

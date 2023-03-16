@@ -191,9 +191,6 @@ class chainData():
         return (f"Starting block: {self.startBlock}\nEnding block:{self.ceaseBlock}\nChain transactions: {self.totalTransactions}\n"
          f"Chain cpu: {self.totalCpu}\nChain net: {(self.totalNet / (self.ceaseBlock - self.startBlock + 1))}\nChain elapsed: {self.totalElapsed}\n"
          f"Chain time: {self.totalTime}\nChain latency: {self.totalLatency}")
-    def printBlockData(self):
-        for block in self.blockLog:
-            print(block)
     def assertEquality(self, other):
         assert self == other, f"Error: Actual log:\n{self}\ndid not match expected log:\n{other}"
 
@@ -431,7 +428,7 @@ def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
     """
     trxLatencyCpuNetList = [(data.latency, data.cpuUsageUs, data.netUsageUs) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
 
-    npLatencyCpuNetList = np.array(trxLatencyCpuNetList, dtype=np.float)
+    npLatencyCpuNetList = np.array(trxLatencyCpuNetList, dtype=float)
 
     return basicStats(float(np.min(npLatencyCpuNetList[:,0])), float(np.max(npLatencyCpuNetList[:,0])), float(np.average(npLatencyCpuNetList[:,0])), float(np.std(npLatencyCpuNetList[:,0])), len(npLatencyCpuNetList)), \
            basicStats(float(np.min(npLatencyCpuNetList[:,1])), float(np.max(npLatencyCpuNetList[:,1])), float(np.average(npLatencyCpuNetList[:,1])), float(np.std(npLatencyCpuNetList[:,1])), len(npLatencyCpuNetList)), \

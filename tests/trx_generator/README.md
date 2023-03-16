@@ -46,6 +46,8 @@ The Transaction Generator logs each transaction's id and sent timestamp at the m
                                     generation can be in violation before
                                     quitting. Defaults to 1000000 (1s).
 * `--log-dir arg`                   set the logs directory
+* `--stop-on-trx-failed arg` (=1)   stop transaction generation if sending
+                                    fails.
 * `--abi-file arg`                  The path to the contract abi file to
                                     use for the supplied transaction action
                                     data

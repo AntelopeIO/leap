@@ -34,6 +34,7 @@
 #include <fc/variant_object.hpp>
 
 #include <new>
+#include <shared_mutex>
 
 namespace eosio { namespace chain {
 
@@ -224,7 +225,6 @@ struct controller_impl {
    std::optional<pending_state>    pending;
    block_state_ptr                 head;
    fork_database                   fork_db;
-   wasm_interface                  wasmif;
    resource_limits_manager         resource_limits;
    authorization_manager           authorization;
    protocol_feature_manager        protocol_features;
@@ -238,16 +238,24 @@ struct controller_impl {
    uint32_t                        snapshot_head_block = 0;
    struct chain; // chain is a namespace so use an embedded type for the named_thread_pool tag
    named_thread_pool<chain>        thread_pool;
-   platform_timer                  timer;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
+
+   std::thread::id                 main_thread_id;
+   thread_local static platform_timer timer; // a copy for main thread and each read-only thread
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
-   vm::wasm_allocator               wasm_alloc;
+   thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
 #endif
+   // Ideally wasmif should be thread_local which must be a static.
+   // Unittests can create multiple controller objects (testers) at the same time,
+   // which overwrites the same static wasmif, is used for eosvmoc too.
+   wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
+   thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local; // a copy for each read-only thread, used by eos-vm and eos-vm-jit
 
    typedef pair<scope_name,action_name>                   handler_key;
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
    unordered_map< builtin_protocol_feature_t, std::function<void(controller_impl&)>, enum_hash<builtin_protocol_feature_t> > protocol_feature_activation_handlers;
+
 
    void pop_block() {
       auto prev = fork_db.get_block( head->header.previous );
@@ -295,14 +303,15 @@ struct controller_impl {
         cfg.state_size, false, cfg.db_map_mode ),
     blog( cfg.blocks_dir, cfg.blog ),
     fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
-    wasmif( cfg.wasm_runtime, cfg.eosvmoc_tierup, db, cfg.state_dir, cfg.eosvmoc_config, !cfg.profile_accounts.empty() ),
     resource_limits( db, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
     authorization( s, db ),
     protocol_features( std::move(pfs), [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); } ),
     conf( cfg ),
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
-    thread_pool()
+    thread_pool(),
+    main_thread_id( std::this_thread::get_id() ),
+    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -328,7 +337,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
-         wasmif.current_lib(bsp->block_num);
+         get_wasm_interface().current_lib(bsp->block_num);
       });
 
 
@@ -1102,7 +1111,12 @@ struct controller_impl {
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
-   fc::scoped_exit<std::function<void()>> make_block_restore_point() {
+   fc::scoped_exit<std::function<void()>> make_block_restore_point( bool is_read_only = false ) {
+      if ( is_read_only ) {
+         std::function<void()> callback = []() { };
+         return fc::make_scoped_exit( std::move(callback) );
+      }
+
       auto& bb = std::get<building_block>(pending->_block_stage);
       auto orig_trx_receipts_size           = bb._pending_trx_receipts.size();
       auto orig_trx_metas_size              = bb._pending_trx_metas.size();
@@ -1316,7 +1330,7 @@ struct controller_impl {
 
       uint32_t cpu_time_to_bill_us = billed_cpu_time_us;
 
-      transaction_checktime_timer trx_timer(timer);
+      transaction_checktime_timer trx_timer( timer );
       transaction_context trx_context( self, *trx->packed_trx(), std::move(trx_timer) );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
@@ -1575,14 +1589,14 @@ struct controller_impl {
             trx_context.exec();
             trx_context.finalize(); // Automatically rounds up network and CPU usage in trace and bills payers if successful
 
-            auto restore = make_block_restore_point();
+            auto restore = make_block_restore_point( trx->is_read_only() );
 
-            if (!trx->implicit()) {
+            trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
+            if (!trx->implicit() && !trx->is_read_only()) {
                transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
                                                     ? transaction_receipt::executed
                                                     : transaction_receipt::delayed;
                trace->receipt = push_receipt(*trx->packed_trx(), s, trx_context.billed_cpu_time_us, trace->net_usage);
-               trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
                std::get<building_block>(pending->_block_stage)._pending_trx_metas.emplace_back(trx);
             } else {
                transaction_receipt_header r;
@@ -1592,20 +1606,20 @@ struct controller_impl {
                trace->receipt = r;
             }
 
-            fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
-                             std::move(trx_context.executed_action_receipt_digests) );
+            if ( !trx->is_read_only() ) {
+               fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
+                                std::move(trx_context.executed_action_receipt_digests) );
+                if ( !trx->is_dry_run() ) {
+                   // call the accept signal but only once for this transaction
+                   if (!trx->accepted) {
+                       trx->accepted = true;
+                       emit(self.accepted_transaction, trx);
+                   }
 
-            // call the accept signal but only once for this transaction
-            if (!trx->is_transient()) {
-                if (!trx->accepted) {
-                    trx->accepted = true;
-                    emit(self.accepted_transaction, trx);
+                   dmlog_applied_transaction(trace);
+                   emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
                 }
-
-                dmlog_applied_transaction(trace);
-                emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
             }
-
 
             if ( trx->is_transient() ) {
                // remove trx from pending block by not canceling 'restore'
@@ -2657,9 +2671,47 @@ struct controller_impl {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
 
-   block_state_ptr fork_db_head() const;
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+   bool is_eos_vm_oc_enabled() const {
+      return ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc );
+   }
+#endif
 
+   // only called from non-main threads (read-only trx execution threads)
+   // when producer_plugin starts them
+   void init_thread_local_data() {
+      EOS_ASSERT( !is_main_thread(), misc_exception, "init_thread_local_data called on the main thread");
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+      if ( is_eos_vm_oc_enabled() )
+         // EOSVMOC needs further initialization of its thread local data
+         wasmif.init_thread_local_data();
+      else
+#endif
+         // Non-EOSVMOC needs a wasmif per thread
+         wasmif_thread_local = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+   }
+
+   bool is_main_thread() { return main_thread_id == std::this_thread::get_id(); };
+
+   wasm_interface& get_wasm_interface() {
+      if ( is_main_thread()
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+          || is_eos_vm_oc_enabled()
+#endif
+         )
+         return wasmif;
+      else
+         return *wasmif_thread_local;
+   }
+
+   block_state_ptr fork_db_head() const;
 }; /// controller_impl
+
+thread_local platform_timer controller_impl::timer;
+#if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
+thread_local eosio::vm::wasm_allocator controller_impl::wasm_alloc;
+#endif
+thread_local std::unique_ptr<wasm_interface> controller_impl::wasmif_thread_local;
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
 {
@@ -3318,7 +3370,7 @@ const apply_handler* controller::find_apply_handler( account_name receiver, acco
    return nullptr;
 }
 wasm_interface& controller::get_wasm_interface() {
-   return my->wasmif;
+   return my->get_wasm_interface();
 }
 
 const account_object& controller::get_account( account_name name )const
@@ -3498,6 +3550,12 @@ vm::wasm_allocator& controller::get_wasm_allocator() {
 }
 #endif
 
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+bool controller::is_eos_vm_oc_enabled() const {
+   return my->is_eos_vm_oc_enabled();
+}
+#endif
+
 std::optional<uint64_t> controller::convert_exception_to_error_code( const fc::exception& e ) {
    const chain_exception* e_ptr = dynamic_cast<const chain_exception*>( &e );
 
@@ -3605,6 +3663,10 @@ void controller::set_db_read_only_mode() {
 
 void controller::unset_db_read_only_mode() {
    mutable_db().unset_read_only_mode();
+}
+
+void controller::init_thread_local_data() {
+   my->init_thread_local_data();
 }
 
 /// Protocol feature activation handlers:

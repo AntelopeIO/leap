@@ -3,7 +3,7 @@
 #include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/chain/exceptions.hpp>
 
 namespace bfs = boost::filesystem;

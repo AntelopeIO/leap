@@ -77,9 +77,29 @@ if(ENABLE_OC AND CMAKE_SIZEOF_VOID_P EQUAL 8 AND NOT WIN32)
       list(APPEND EOSIO_WASM_RUNTIMES eos-vm-oc)
       # EOS VM OC requires LLVM, but move the check up here to a central location so that the EosioTester.cmakes
       # can be created with the exact version found
-      find_package(LLVM REQUIRED CONFIG)
+      # find_package VERSION range is only available in 3.19 and newer.
+      if(${CMAKE_VERSION} VERSION_LESS "3.19")
+         find_package(LLVM REQUIRED CONFIG)
+      else()
+         # Preferring the latest LLVM version, search through major 11..7 and minor 9..0 in reverse order.
+         # Minor versions may break API. This manifests in the LLVM config files such that a range of `11...<12`
+         # will NOT find LLVM `11.1`. We loop over minor as well as major to resolve this.
+         set(max_minor 9)
+         set(major 11)
+         set(minor ${max_minor})
+         while(NOT LLVM_FOUND AND major GREATER_EQUAL 7)
+            math(EXPR end "${major} + 1")
+            find_package(LLVM ${major}.${minor}...<${end} CONFIG QUIET)
+            if(minor GREATER 0)
+               math(EXPR minor "${minor} - 1")
+            else()
+               math(EXPR major "${major} - 1")
+               set(minor ${max_minor})
+            endif()
+         endwhile()
+      endif()
       if(LLVM_VERSION_MAJOR VERSION_LESS 7 OR LLVM_VERSION_MAJOR VERSION_GREATER_EQUAL 12)
-	      message(FATAL_ERROR "Leap requires an LLVM version 7 through 11")
+         message(FATAL_ERROR "Leap requires an LLVM version 7 through 11")
       endif()
    endif()
 endif()
@@ -235,6 +255,7 @@ configure_file(libraries/wasm-jit/LICENSE                                  licen
 configure_file(libraries/libfc/secp256k1/secp256k1/COPYING                 licenses/leap/LICENSE.secp256k1 COPYONLY)
 configure_file(libraries/libfc/include/fc/crypto/webauthn_json/license.txt licenses/leap/LICENSE.rapidjson COPYONLY)
 configure_file(libraries/eos-vm/LICENSE                                    licenses/leap/LICENSE.eos-vm    COPYONLY)
+configure_file(libraries/prometheus/prometheus-cpp/LICENSE                 licenses/leap/LICENSE.prom      COPYONLY)
 configure_file(programs/cleos/LICENSE.CLI11                                licenses/leap/LICENSE.CLI11     COPYONLY)
 
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/leap" DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/" COMPONENT base)

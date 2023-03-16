@@ -51,19 +51,12 @@ class PluginHttpTest(unittest.TestCase):
         self.createDataDir(self)
         self.createConfigDir(self)
         self.keosd.launch()
-        nodeos_plugins = (" --plugin %s --plugin %s --plugin %s --plugin %s --plugin %s --plugin %s"
-                          " --plugin %s --plugin %s --plugin %s --plugin %s ") % ( "eosio::trace_api_plugin",
-                                                                                   "eosio::test_control_api_plugin",
-                                                                                   "eosio::test_control_plugin",
-                                                                                   "eosio::net_plugin",
-                                                                                   "eosio::net_api_plugin",
-                                                                                   "eosio::producer_plugin",
-                                                                                   "eosio::producer_api_plugin",
-                                                                                   "eosio::chain_api_plugin",
-                                                                                   "eosio::http_plugin",
-                                                                                   "eosio::db_size_api_plugin")
+        plugin_names = ["trace_api_plugin", "test_control_api_plugin", "test_control_plugin", "net_plugin",
+                        "net_api_plugin", "producer_plugin", "producer_api_plugin", "chain_api_plugin",
+                        "http_plugin", "db_size_api_plugin", "prometheus_plugin"]
+        nodeos_plugins = "--plugin eosio::" +  " --plugin eosio::".join(plugin_names)
         nodeos_flags = (" --data-dir=%s --config-dir=%s --trace-dir=%s --trace-no-abis --access-control-allow-origin=%s "
-                        "--contracts-console --http-validate-host=%s --verbose-http-errors "
+                        "--contracts-console --http-validate-host=%s --verbose-http-errors --abi-serializer-max-time-ms 30000 --http-max-response-time-ms 30000 "
                         "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
         start_nodeos_cmd = ("%s -e -p eosio %s %s ") % (Utils.EosServerPath, nodeos_plugins, nodeos_flags)
         self.nodeos.launchCmd(start_nodeos_cmd, self.node_id)
@@ -529,46 +522,6 @@ class PluginHttpTest(unittest.TestCase):
         payload = {"json":"true","lower_bound":""}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
         self.assertEqual(type(ret_json["payload"]["transactions"]), list)
-
-        # abi_json_to_bin with empty parameter
-        command = "abi_json_to_bin"
-        ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # abi_json_to_bin with empty content parameter
-        ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # abi_json_to_bin with invalid parameter
-        ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # abi_json_to_bin with valid parameter
-        payload = {"code":"eosio.token",
-                   "action":"issue",
-                   "args":{"to":"eosio.token", "quantity":"1.0000\%20EOS","memo":"m"}}
-        ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
-
-        # abi_bin_to_json with empty parameter
-        command = "abi_bin_to_json"
-        ret_json = self.nodeos.processUrllibRequest(resource, command)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # abi_bin_to_json with empty content parameter
-        ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # abi_bin_to_json with invalid parameter
-        ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
-        self.assertEqual(ret_json["code"], 400)
-        self.assertEqual(ret_json["error"]["code"], 3200006)
-        # abi_bin_to_json with valid parameter
-        payload = {"code":"eosio.token",
-                   "action":"issue",
-                   "args":"ee6fff5a5c02c55b6304000000000100a6823403ea3055000000572d3ccdcd0100000000007015d600000000a8ed32322a00000000007015d6000000005c95b1ca102700000000000004454f53000000000968656c6c6f206d616e00"}
-        ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
 
         # get_required_keys with empty parameter
         command = "get_required_keys"
@@ -1347,14 +1300,30 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
 
+    # test prometheus api
+    def test_prometheusApi(self) :
+        resource = "prometheus"
+        command = "metrics"
+
+        ret_text = self.nodeos.processUrllibRequest(resource, command, returnType = ReturnType.raw ).decode()
+        # filter out all empty lines or lines starting with '#'
+        data_lines = filter(lambda line: len(line) > 0 and line[0]!='#', ret_text.split('\n'))
+        # converting each line into a key value pair and then construct a dictionay out of all the pairs
+        metrics = dict(map(lambda line: tuple(line.split(' ')), data_lines))
+
+        self.assertTrue(int(metrics["head_block_num"]) > 1)
+        self.assertTrue(int(metrics["blocks_produced"]) > 1)
+        self.assertTrue(int(metrics["last_irreversible"]) > 1)
+
+
     def test_multipleRequests(self):
         """Test keep-alive ability of HTTP plugin.  Handle multiple requests in a single session"""
         host = self.nodeos.host
         port = self.nodeos.port
         addr = (host, port)
-        body1 = '{ "block_num_or_id": "1" }\r\n' 
-        body2 = '{ "block_num_or_id": "2" }\r\n' 
-        body3 = '{ "block_num_or_id": "3" }\r\n' 
+        body1 = '{ "block_num_or_id": "1" }\r\n'
+        body2 = '{ "block_num_or_id": "2" }\r\n'
+        body3 = '{ "block_num_or_id": "3" }\r\n'
         api_call = "/v1/chain/get_block"
         req1 = Utils.makeHTTPReqStr(host, str(port), api_call, body1, True)
         req2 = Utils.makeHTTPReqStr(host, str(port), api_call, body2, True)
@@ -1392,12 +1361,12 @@ class PluginHttpTest(unittest.TestCase):
             resp3_data = Utils.readSocketDataStr(sock, maxMsgSize, enc)
             Utils.Print('resp3_data= \n', resp3_data)
 
-            
+
             # wait for socket to close
             time.sleep(0.5)
             # send request 2 again.  this should fail because request 3 has "Connection: close" in header
             Utils.Print('sending request 2 again')
-            try: 
+            try:
                 sock.settimeout(3)
                 sock.send(bytes(req2, enc))
                 d = sock.recv(64)
@@ -1412,7 +1381,7 @@ class PluginHttpTest(unittest.TestCase):
             Utils.Print(e)
             Utils.errorExit("Failed to send/receive on socket")
 
-        # extract response body 
+        # extract response body
         resp1_json, resp2_json, resp3_json = None, None, None
         try:
             (hdr, resp1_json) = re.split('\r\n\r\n', resp1_data)
@@ -1420,7 +1389,7 @@ class PluginHttpTest(unittest.TestCase):
             (hdr, resp3_json) = re.split('\r\n\r\n', resp3_data)
         except Exception as e:
             Utils.Print(e)
-            Utils.errorExit("Improper HTTP response(s)") 
+            Utils.errorExit("Improper HTTP response(s)")
 
         resp1, resp2, resp3 = None, None, None
         try:
@@ -1430,7 +1399,7 @@ class PluginHttpTest(unittest.TestCase):
         except Exception as e:
             Utils.Print(e)
             Utils.errorExit("Could not parse JSON response")
-        
+
         self.assertIn('block_num', resp1)
         self.assertIn('block_num', resp2)
         self.assertIn('block_num', resp3)

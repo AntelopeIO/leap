@@ -6,7 +6,7 @@ The `performance_test_basic.py` support script performs a single basic performan
 
 The `launch_generators.py` support script provides a means to easily calculate and spawn the number of transaction generator instances to generate a given target TPS, distributing generation load between the instances in a fair manner such that the aggregate load meets the requested test load.
 
-The `log_reader.py` support script is used primarily to analyze `nodeos` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report. In similar fashion, `read_log_data.py` allows for recreating a report from the configuration and log files without needing to rerun the test.
+The `log_reader.py` support script is used primarily to analyze `nodeos` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report.
 
 ## Prerequisites
 
@@ -232,7 +232,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
 Test Helper Arguments:
   Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
 
-* `-?`                    show this help message and exit
+* `-?, --help`            show this help message and exit
 * `-p P`                  producing nodes count (default: 1)
 * `-n N`                  total nodes (default: 0)
 * `-d D`                  delay between nodes startup (default: 1)
@@ -299,6 +299,8 @@ Performance Test Basic Base:
                           Path to contract dir (default: unittests/contracts/eosio.system)
 * `--wasm-file WASM_FILE` WASM file name for contract (default: eosio.system.wasm)
 * `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
+* `--user-trx-data-file USER_TRX_DATA_FILE`
+                          Path to transaction data JSON file (default: None)
 * `--wasm-runtime RUNTIME`
                           Override default WASM runtime ("eos-vm-jit", "eos-vm")
                           "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
@@ -368,7 +370,7 @@ The following scripts are typically used by the Performance Harness main script 
 Test Helper Arguments:
   Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
 
-* `-?`                    show this help message and exit
+* `-?, --help`            show this help message and exit
 * `-p P`                  producing nodes count (default: 1)
 * `-n N`                  total nodes (default: 0)
 * `-d D`                  delay between nodes startup (default: 1)
@@ -473,6 +475,7 @@ Performance Test Basic Single Test:
 
 <details>
     <summary>Expand Argument List</summary>
+
 * `chain_id`                    set the chain id
 * `last_irreversible_block_id`  Current last-irreversible-block-id (LIB ID) to use for transactions.
 * `contract_owner_account`      Account name of the contract owner account for the transfer actions

@@ -51,14 +51,14 @@ class PerformanceTestBasic:
         @dataclass
         class ExtraNodeosArgs:
 
-            chainPluginArgs: ChainPluginArgs = ChainPluginArgs()
-            httpPluginArgs: HttpPluginArgs = HttpPluginArgs()
-            netPluginArgs: NetPluginArgs = NetPluginArgs()
-            producerPluginArgs: ProducerPluginArgs = ProducerPluginArgs()
-            resourceMonitorPluginArgs: ResourceMonitorPluginArgs = ResourceMonitorPluginArgs()
-            signatureProviderPluginArgs: SignatureProviderPluginArgs = SignatureProviderPluginArgs()
-            stateHistoryPluginArgs: StateHistoryPluginArgs = StateHistoryPluginArgs()
-            traceApiPluginArgs: TraceApiPluginArgs = TraceApiPluginArgs()
+            chainPluginArgs: ChainPluginArgs = field(default_factory=ChainPluginArgs)
+            httpPluginArgs: HttpPluginArgs = field(default_factory=HttpPluginArgs)
+            netPluginArgs: NetPluginArgs = field(default_factory=NetPluginArgs)
+            producerPluginArgs: ProducerPluginArgs = field(default_factory=ProducerPluginArgs)
+            resourceMonitorPluginArgs: ResourceMonitorPluginArgs = field(default_factory=ResourceMonitorPluginArgs)
+            signatureProviderPluginArgs: SignatureProviderPluginArgs = field(default_factory=SignatureProviderPluginArgs)
+            stateHistoryPluginArgs: StateHistoryPluginArgs = field(default_factory=StateHistoryPluginArgs)
+            traceApiPluginArgs: TraceApiPluginArgs = field(default_factory=TraceApiPluginArgs)
 
             def __str__(self) -> str:
                 args = []
@@ -78,8 +78,8 @@ class PerformanceTestBasic:
         pnodes: int = 1
         totalNodes: int = 2
         topo: str = "mesh"
-        extraNodeosArgs: ExtraNodeosArgs = ExtraNodeosArgs()
-        specifiedContract: SpecifiedContract = SpecifiedContract()
+        extraNodeosArgs: ExtraNodeosArgs = field(default_factory=ExtraNodeosArgs)
+        specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
         useBiosBootFile: bool = False
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
@@ -379,7 +379,7 @@ class PerformanceTestBasic:
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator, connectionPairList=self.connectionPairList)
 
-        self.cluster.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.account.name,    
+        self.cluster.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.account.name,
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
                                                        trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
                                                        abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,

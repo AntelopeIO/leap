@@ -1,5 +1,5 @@
 #pragma once
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/chain/asset.hpp>
 #include <eosio/chain/authority.hpp>
 #include <eosio/chain/account_object.hpp>
@@ -308,31 +308,6 @@ public:
    get_abi_results get_abi( const get_abi_params& params, const fc::time_point& deadline )const;
    get_raw_code_and_abi_results get_raw_code_and_abi( const get_raw_code_and_abi_params& params, const fc::time_point& deadline)const;
    get_raw_abi_results get_raw_abi( const get_raw_abi_params& params, const fc::time_point& deadline)const;
-
-
-
-   struct abi_json_to_bin_params {
-      name         code;
-      name         action;
-      fc::variant  args;
-   };
-   struct abi_json_to_bin_result {
-      vector<char>   binargs;
-   };
-
-   abi_json_to_bin_result abi_json_to_bin( const abi_json_to_bin_params& params, const fc::time_point& deadline )const;
-
-
-   struct abi_bin_to_json_params {
-      name         code;
-      name         action;
-      vector<char> binargs;
-   };
-   struct abi_bin_to_json_result {
-      fc::variant    args;
-   };
-
-   abi_bin_to_json_result abi_bin_to_json( const abi_bin_to_json_params& params, const fc::time_point& deadline )const;
 
 
    struct get_required_keys_params {
@@ -966,10 +941,6 @@ FC_REFLECT( eosio::chain_apis::read_only::get_raw_code_and_abi_results, (account
 FC_REFLECT( eosio::chain_apis::read_only::get_raw_abi_params, (account_name)(abi_hash) )
 FC_REFLECT( eosio::chain_apis::read_only::get_raw_abi_results, (account_name)(code_hash)(abi_hash)(abi) )
 FC_REFLECT( eosio::chain_apis::read_only::producer_info, (producer_name) )
-FC_REFLECT( eosio::chain_apis::read_only::abi_json_to_bin_params, (code)(action)(args) )
-FC_REFLECT( eosio::chain_apis::read_only::abi_json_to_bin_result, (binargs) )
-FC_REFLECT( eosio::chain_apis::read_only::abi_bin_to_json_params, (code)(action)(binargs) )
-FC_REFLECT( eosio::chain_apis::read_only::abi_bin_to_json_result, (args) )
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_params, (transaction)(available_keys) )
 FC_REFLECT( eosio::chain_apis::read_only::get_required_keys_result, (required_keys) )
 FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_params, (transaction))

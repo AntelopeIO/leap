@@ -104,6 +104,12 @@ namespace fc
       (LOGGER).log( FC_LOG_MESSAGE( error, FORMAT, __VA_ARGS__ ) ); \
   FC_MULTILINE_MACRO_END
 
+#define tlog( FORMAT, ... ) \
+  FC_MULTILINE_MACRO_BEGIN \
+   if( (fc::logger::get(DEFAULT_LOGGER)).is_enabled( fc::log_level::all ) ) \
+      (fc::logger::get(DEFAULT_LOGGER)).log( FC_LOG_MESSAGE( all, FORMAT, __VA_ARGS__ ) ); \
+  FC_MULTILINE_MACRO_END
+
 #define dlog( FORMAT, ... ) \
   FC_MULTILINE_MACRO_BEGIN \
    if( (fc::logger::get(DEFAULT_LOGGER)).is_enabled( fc::log_level::debug ) ) \

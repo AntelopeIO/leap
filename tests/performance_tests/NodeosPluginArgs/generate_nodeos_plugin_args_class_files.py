@@ -52,7 +52,7 @@ Note:
 
 
 def main():
-    result = subprocess.run(["programs/nodeos/nodeos", "--help"], capture_output=True, text=True)
+    result = subprocess.run(["../../../bin/nodeos", "--help"], stdout=subprocess.PIPE, universal_newlines=True)
 
     myStr = result.stdout
     myStr = myStr.rstrip("\n")
@@ -60,11 +60,6 @@ def main():
     myStr = re.sub("\n\n",'\n@@@', string=myStr)
     myStr = re.sub("Application Options:\n",'', string=myStr)
     pluginSections = re.split("(@@@.*?@@@\n)", string=myStr)
-
-
-    sec=0
-    for section in pluginSections:
-        sec=sec+1
 
     def pairwise(iterable):
         "s -> (s0, s1), (s2, s3), (s4, s5), ..."
@@ -109,7 +104,7 @@ def main():
 
     def writeDataclass(plugin:str, dataFieldDict:dict, pluginOptsDict:dict):
         newPlugin="".join([x.capitalize() for x in plugin.split('_')]).replace(":","")
-        pluginArgsFile=f"../tests/performance_tests/NodeosPluginArgs/{newPlugin}Args.py"
+        pluginArgsFile=f"./{newPlugin}Args.py"
         with open(pluginArgsFile, 'w') as dataclassFile:
             chainPluginArgs = dataFieldDict[newPlugin]
 
