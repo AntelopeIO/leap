@@ -197,8 +197,8 @@ public:
                   });
                }
             } else {     
-               // should not happen, but if happens - not a terminal error          
-               elog( "unable to finalize pending snapshot request: ${details}", ("details", srid) );
+               // this could happen when request is already "expired" so there is no value in reporting it          
+               // dlog( "unable to finalize pending snapshot request: ${details}", ("details", srid) );
             }
          }
       };
