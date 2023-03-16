@@ -141,7 +141,7 @@ class PerformanceTest:
 
     def performPtbReverseLinearSearch(self, tpsInitial: int) -> TpsTestResult.PerfTestSearchResults:
 
-        # Default - Decrementing Max TPS in range [0, tpsInitial]
+        # Default - Decrementing Max TPS in range [1, tpsInitial]
         absFloor = 1
         absCeiling = tpsInitial
 
