@@ -1,0 +1,11 @@
+#!/bin/bash
+
+if [ ! -L ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness ]; then
+    mkdir -p ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages
+    ln -s ../../../share/leap_testing/tests/TestHarness ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness
+fi
+
+if [ ! -L ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin ]; then
+    mkdir -p ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing
+    ln -s ../../bin ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin
+fi

@@ -272,9 +272,23 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests/TestHarness DESTINATION ${CM
         PATTERN "CMakeFiles" EXCLUDE)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tests/launcher.py DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/tests COMPONENT dev)
 
-install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages)" COMPONENT dev)
-install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../../share/leap_testing/tests/TestHarness ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness)" COMPONENT dev)
-install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin)" COMPONENT dev)
+if(${CMAKE_VERSION} GREATER 3.22)
+   add_custom_target(link_target ALL
+      COMMAND ${CMAKE_COMMAND} -E make_directory lib/python3/dist-packages
+      COMMAND ${CMAKE_COMMAND} -E create_symlink ../../../share/leap_testing/tests/TestHarness lib/python3/dist-packages/TestHarness
+      COMMAND ${CMAKE_COMMAND} -E make_directory share/leap_testing
+      COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin share/leap_testing/bin)
+
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib/python3/dist-packages/TestHarness DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages COMPONENT dev)
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/share/leap_testing/bin DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing COMPONENT dev)
+else()
+   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages)" COMPONENT dev)
+   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../../share/leap_testing/tests/TestHarness ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness)" COMPONENT dev)
+   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin)" COMPONENT dev)
+
+   set(CPACK_DEBIAN_PACKAGE_CONTROL_EXTRA ${CMAKE_BINARY_DIR}/scripts/postinst COMPONENT dev)
+
+endif()
 
 configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/leap-util
                ${CMAKE_BINARY_DIR}/programs/leap-util/bash-completion/completions/leap-util COPYONLY)
