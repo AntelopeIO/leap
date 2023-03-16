@@ -156,7 +156,7 @@ add_test(NAME keosd_auto_launch_test COMMAND tests/keosd_auto_launch_test.py WOR
 set_property(TEST keosd_auto_launch_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME nodeos_snapshot_diff_test COMMAND tests/nodeos_snapshot_diff_test.py -v --clean-run ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_snapshot_diff_test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME nodeos_snapshot_forked_test COMMAND tests/nodeos_snapshot_forked_test.py -v --clean-run WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME nodeos_snapshot_forked_test COMMAND tests/nodeos_snapshot_forked_test.py -v --clean-run ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_snapshot_forked_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME trx_finality_status_test COMMAND tests/trx_finality_status_test.py -v --clean-run ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
