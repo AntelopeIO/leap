@@ -3,6 +3,7 @@
 import random
 
 from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr
+from TestHarness.TestHelper import AppArgs
 from core_symbol import CORE_SYMBOL
 
 ###############################################################
