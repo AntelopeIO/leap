@@ -92,11 +92,13 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          auto pp = appbase::app().find_plugin<producer_plugin>();
          auto bs = chain_plug->chain().block_start.connect([&pp](uint32_t bn) {
             // catching pending snapshot
-            auto& pending = pp->get_snapshot_requests().snapshot_requests.begin()->pending_snapshots;
-            if (pending && pending->size()==1) {
-               // lets check the head block num of it, it should be 8 + 1 = 9
-               // this means we are getting a snapshot for correct block # as well
-               BOOST_CHECK_EQUAL(9, pending->begin()->head_block_num);   
+            if (!pp->get_snapshot_requests().snapshot_requests.empty()) {
+               auto& pending = pp->get_snapshot_requests().snapshot_requests.begin()->pending_snapshots;
+               if (pending && pending->size()==1) {
+                  // lets check the head block num of it, it should be 8 + 1 = 9
+                  // this means we are getting a snapshot for correct block # as well
+                  BOOST_CHECK_EQUAL(9, pending->begin()->head_block_num);   
+               }
             }
          });
        

@@ -196,9 +196,6 @@ public:
                      p.pending_snapshots = std::move(pending);
                   });
                }
-            } else {     
-               // this could happen when request is already "expired" so there is no value in reporting it          
-               // dlog( "unable to finalize pending snapshot request: ${details}", ("details", srid) );
             }
          }
       };
