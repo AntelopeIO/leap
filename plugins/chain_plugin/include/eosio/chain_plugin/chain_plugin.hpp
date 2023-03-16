@@ -325,11 +325,11 @@ public:
 
    get_transaction_id_result get_transaction_id( const get_transaction_id_params& params, const fc::time_point& deadline)const;
 
-   struct get_block_params {
+   struct get_raw_block_params {
       string block_num_or_id;
    };
 
-   chain::signed_block_ptr get_block(const get_block_params& params, const fc::time_point& deadline) const;
+   chain::signed_block_ptr get_raw_block(const get_raw_block_params& params, const fc::time_point& deadline) const;
    // call from app() thread
    std::unordered_map<account_name, std::optional<abi_serializer>>
      get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
@@ -337,6 +337,19 @@ public:
    fc::variant convert_block( const chain::signed_block_ptr& block,
                               std::unordered_map<account_name, std::optional<abi_serializer>> abi_cache,
                               const fc::microseconds& max_time ) const;
+
+   struct get_block_header_params {
+      string block_num_or_id;
+      bool include_extensions = false; // include block extensions (requires reading entire block off disk)
+   };
+
+   struct get_block_header_result {
+      chain::block_id_type  id;
+      fc::variant           signed_block_header;
+      std::optional<chain::extensions_type> block_extensions;
+   };
+
+   get_block_header_result get_block_header(const get_block_header_params& params, const fc::time_point& deadline) const;
 
    struct get_block_info_params {
       uint32_t block_num = 0;
@@ -782,7 +795,7 @@ public:
             // which is the format used by secondary index
             uint8_t buffer[32];
             memcpy(buffer, v.data(), 32);
-            fixed_bytes<32> fb(buffer); 
+            fixed_bytes<32> fb(buffer);
             return chain::key256_t(fb.get_array());
         };
      }
@@ -800,7 +813,7 @@ public:
             // which is the format used by secondary index
             uint8_t buffer[20];
             memcpy(buffer, v.data(), 20);
-            fixed_bytes<20> fb(buffer); 
+            fixed_bytes<20> fb(buffer);
             return chain::key256_t(fb.get_array());
         };
      }
@@ -895,9 +908,11 @@ FC_REFLECT(eosio::chain_apis::read_only::get_transaction_status_results, (state)
            (head_timestamp)(irreversible_number)(irreversible_id)(irreversible_timestamp)(earliest_tracked_block_id)(earliest_tracked_block_number) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_params, (lower_bound)(upper_bound)(limit)(search_by_block_num)(reverse)(time_limit_ms) )
 FC_REFLECT(eosio::chain_apis::read_only::get_activated_protocol_features_results, (activated_protocol_features)(more) )
-FC_REFLECT(eosio::chain_apis::read_only::get_block_params, (block_num_or_id))
+FC_REFLECT(eosio::chain_apis::read_only::get_raw_block_params, (block_num_or_id))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_info_params, (block_num))
 FC_REFLECT(eosio::chain_apis::read_only::get_block_header_state_params, (block_num_or_id))
+FC_REFLECT(eosio::chain_apis::read_only::get_block_header_params, (block_num_or_id)(include_extensions))
+FC_REFLECT(eosio::chain_apis::read_only::get_block_header_result, (id)(signed_block_header)(block_extensions))
 
 FC_REFLECT( eosio::chain_apis::read_write::push_transaction_results, (transaction_id)(processed) )
 FC_REFLECT( eosio::chain_apis::read_write::send_transaction2_params, (return_failure_trace)(retry_trx)(retry_trx_num_blocks)(transaction) )
