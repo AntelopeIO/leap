@@ -250,6 +250,43 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
         self.assertEqual(ret_json["payload"]["block_num"], 1)
 
+        # get_raw_block with empty parameter
+        command = "get_raw_block"
+        ret_json = self.nodeos.processUrllibRequest(resource, command)
+        self.assertEqual(ret_json["code"], 400)
+        # get_block with empty content parameter
+        ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
+        self.assertEqual(ret_json["code"], 400)
+        # get_block with invalid parameter
+        ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
+        self.assertEqual(ret_json["code"], 400)
+        # get_block with valid parameter
+        payload = {"block_num_or_id":1}
+        ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
+        self.assertTrue("action_mroot" in ret_json["payload"])
+
+        # get_block_header with empty parameter
+        command = "get_block_header"
+        ret_json = self.nodeos.processUrllibRequest(resource, command)
+        self.assertEqual(ret_json["code"], 400)
+        # get_block with empty content parameter
+        ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
+        self.assertEqual(ret_json["code"], 400)
+        # get_block with invalid parameter
+        ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
+        self.assertEqual(ret_json["code"], 400)
+        # get_block with valid parameters
+        payload = {"block_num_or_id":1, "include_extensions": True}
+        ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
+        self.assertTrue("id" in ret_json["payload"])
+        self.assertTrue("signed_block_header" in ret_json["payload"])
+        self.assertTrue("block_extensions" in ret_json["payload"])
+        payload = {"block_num_or_id":1, "include_extensions": False}
+        ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
+        self.assertTrue("id" in ret_json["payload"])
+        self.assertTrue("signed_block_header" in ret_json["payload"])
+        self.assertFalse("block_extensions" in ret_json["payload"])
+
         # get_block_info with empty parameter
         command =  "get_block_info"
         ret_json = self.nodeos.processUrllibRequest(resource, command)
