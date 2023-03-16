@@ -16,7 +16,7 @@ from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
 ###############################################################
 
 # Parse command line arguments
-args = TestHelper.parse_args({"-v","--clean-run","--dump-error-details","--leave-running","--keep-logs"})
+args = TestHelper.parse_args({"-v","--clean-run","--dump-error-details","--leave-running","--keep-logs","--unshared"})
 Utils.Debug = args.v
 killAll=args.clean_run
 dumpErrorDetails=args.dump_error_details
@@ -26,7 +26,7 @@ killWallet=not dontKill
 keepLogs=args.keep_logs
 
 walletMgr=WalletMgr(True)
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 cluster.setWalletMgr(walletMgr)
 
 testSuccessful = False

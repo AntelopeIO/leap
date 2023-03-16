@@ -191,9 +191,6 @@ class chainData():
         return (f"Starting block: {self.startBlock}\nEnding block:{self.ceaseBlock}\nChain transactions: {self.totalTransactions}\n"
          f"Chain cpu: {self.totalCpu}\nChain net: {(self.totalNet / (self.ceaseBlock - self.startBlock + 1))}\nChain elapsed: {self.totalElapsed}\n"
          f"Chain time: {self.totalTime}\nChain latency: {self.totalLatency}")
-    def printBlockData(self):
-        for block in self.blockLog:
-            print(block)
     def assertEquality(self, other):
         assert self == other, f"Error: Actual log:\n{self}\ndid not match expected log:\n{other}"
 

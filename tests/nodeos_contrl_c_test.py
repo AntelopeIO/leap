@@ -18,9 +18,9 @@ from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 Print = Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--wallet-port", "-v"})
+args = TestHelper.parse_args({"--wallet-port", "-v","--unshared"})
 
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 killAll=True
 totalProducerNodes=2
 totalNonProducerNodes=1

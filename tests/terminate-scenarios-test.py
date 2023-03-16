@@ -19,7 +19,7 @@ errorExit=Utils.errorExit
 
 args=TestHelper.parse_args({"-d","-s","-c","--kill-sig","--keep-logs"
                             ,"--dump-error-details","-v","--leave-running","--clean-run"
-                            ,"--terminate-at-block"})
+                            ,"--terminate-at-block","--unshared"})
 pnodes=1
 topo=args.s
 delay=args.d
@@ -38,7 +38,7 @@ Utils.Debug=debug
 testSuccessful=False
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 walletMgr=WalletMgr(True)
 
 try:

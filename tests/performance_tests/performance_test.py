@@ -42,7 +42,7 @@ class PerformanceTest:
         searchTarget: int = 0
         searchFloor: int = 0
         searchCeiling: int = 0
-        basicTestResult: PerfTestBasicResult = PerfTestBasicResult()
+        basicTestResult: PerfTestBasicResult = field(default_factory=PerfTestBasicResult)
 
     @dataclass
     class PtConfig:
@@ -72,8 +72,8 @@ class PerformanceTest:
             searchResults: list = field(default_factory=list) #PerfTestSearchIndivResult list
             maxTpsReport: dict = field(default_factory=dict)
 
-        binSearchResults: PerfTestSearchResults=PerfTestSearchResults()
-        longRunningSearchResults: PerfTestSearchResults=PerfTestSearchResults()
+        binSearchResults: PerfTestSearchResults = field(default_factory=PerfTestSearchResults)
+        longRunningSearchResults: PerfTestSearchResults= field(default_factory=PerfTestSearchResults)
         tpsTestStart: datetime=datetime.utcnow()
         tpsTestFinish: datetime=datetime.utcnow()
         perfRunSuccessful: bool=False

@@ -19,7 +19,7 @@ cmdError=Utils.cmdError
 
 args = TestHelper.parse_args({"--host","--port","--defproducera_prvt_key","--defproducerb_prvt_key"
                               ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios","--clean-run"
-                              ,"--sanity-test","--wallet-port"})
+                              ,"--sanity-test","--wallet-port","--unshared"})
 server=args.host
 port=args.port
 debug=args.v
@@ -37,7 +37,7 @@ walletPort=args.wallet_port
 
 Utils.Debug=debug
 localTest=True
-cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey)
+cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey, unshared=args.unshared)
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
 killEosInstances=not dontKill

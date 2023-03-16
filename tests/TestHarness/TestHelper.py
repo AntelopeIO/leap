@@ -115,6 +115,8 @@ class TestHelper(object):
             thGrp.add_argument("--alternate-version-labels-file", type=str, help="Provide a file to define the labels that can be used in the test and the path to the version installation associated with that.")
         if "--error-log-path" in includeArgs:
             thGrp.add_argument("--error-log-path", type=str, help="Provide path to error file for use when remotely running a test from another test.")
+        if "--unshared" in includeArgs:
+            thGrp.add_argument("--unshared", help="Run test in isolated network namespace", action='store_true')
 
         if len(applicationSpecificArgs.args) > 0:
             appArgsGrpTitle="Application Specific Arguments"

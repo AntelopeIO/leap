@@ -87,7 +87,7 @@ class Cluster(object):
     # pylint: disable=too-many-arguments
     # walletd [True|False] Is keosd running. If not load the wallet plugin
     def __init__(self, walletd=False, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
-                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers=""):
+                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers="", unshared=False):
         """Cluster container.
         walletd [True|False] Is wallet keosd running. If not load the wallet plugin
         localCluster [True|False] Is cluster local to host.
@@ -137,10 +137,11 @@ class Cluster(object):
         self.libTestingContractsPath = Path(__file__).resolve().parents[2] / "libraries" / "testing" / "contracts"
         self.unittestsContractsPath = Path(__file__).resolve().parents[2] / "unittests" / "contracts"
 
-        unshare(CLONE_NEWNET)
-        for index, name in socket.if_nameindex():
-            if getInterfaceFlags(name) & IFF_LOOPBACK:
-                setInterfaceUp(name)
+        if unshared:
+            unshare(CLONE_NEWNET)
+            for index, name in socket.if_nameindex():
+                if getInterfaceFlags(name) & IFF_LOOPBACK:
+                    setInterfaceUp(name)
 
     def setChainStrategy(self, chainSyncStrategy=Utils.SyncReplayTag):
         self.__chainSyncStrategy=self.__chainSyncStrategies.get(chainSyncStrategy)

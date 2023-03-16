@@ -28,7 +28,8 @@ args = TestHelper.parse_args({
     "--clean-run",
     "--dump-error-details",
     "--leave-running",
-    "--keep-logs"
+    "--keep-logs",
+    "--unshared"
 })
 
 Utils.Debug = args.v

@@ -367,6 +367,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<scoped_connection>                          _accepted_block_header_connection;
       std::optional<scoped_connection>                          _irreversible_block_connection;
 
+      producer_plugin_metrics                                   _metrics;
+
       /*
        * HACK ALERT
        * Boost timers can be in a state where a handler has not yet executed but is not abortable.
@@ -410,8 +412,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto before = _unapplied_transactions.size();
          _unapplied_transactions.clear_applied( bsp );
          _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
-         fc_dlog( _log, "Removed applied transactions before: ${before}, after: ${after}",
-                  ("before", before)("after", _unapplied_transactions.size()) );
+         if (before > 0) {
+            fc_dlog( _log, "Removed applied transactions before: ${before}, after: ${after}",
+                     ("before", before)("after", _unapplied_transactions.size()) );
+         }
       }
 
       void on_block_header( const block_state_ptr& bsp ) {
@@ -435,6 +439,24 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             } CATCH_AND_CALL(next);
 
             snapshots_by_height.erase(snapshots_by_height.begin());
+         }
+      }
+
+      void update_block_metrics() {
+         if (_metrics.should_post()) {
+            _metrics.unapplied_transactions.value = _unapplied_transactions.size();
+            _metrics.subjective_bill_account_size.value = _subjective_billing.get_account_cache_size();
+            _metrics.blacklisted_transactions.value = _blacklisted_transactions.size();
+            _metrics.unapplied_transactions.value = _unapplied_transactions.size();
+
+            auto &chain = chain_plug->chain();
+            _metrics.last_irreversible.value = chain.last_irreversible_block_num();
+            _metrics.head_block_num.value = chain.head_block_num();
+
+            const auto& sch_idx = chain.db().get_index<generated_transaction_multi_index, by_delay>();
+            _metrics.scheduled_trxs.value = sch_idx.size();
+
+            _metrics.post_metrics();
          }
       }
 
@@ -465,9 +487,11 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          const auto& id = block_id ? *block_id : block->calculate_id();
          auto blk_num = block->block_num();
 
-         fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
+         auto now = fc::time_point::now();
+         if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) // only log every 1000 during sync
+            fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
 
-         EOS_ASSERT( block->timestamp < (fc::time_point::now() + fc::seconds( 7 )), block_from_the_future,
+         EOS_ASSERT( block->timestamp < (now + fc::seconds( 7 )), block_from_the_future,
                      "received a block from the future, ignoring it: ${id}", ("id", id) );
 
          /* de-dupe here... no point in aborting block if we already know the block */
@@ -517,7 +541,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
 
          const auto& hbs = chain.head_block_state();
-         auto now = fc::time_point::now();
+         now = fc::time_point::now();
          if( hbs->header.timestamp.next().to_time_point() >= now ) {
             _production_enabled = true;
          }
@@ -540,6 +564,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                     ("latency", (now - hbs->block->timestamp).count()/1000 ) );
             }
          }
+
+         update_block_metrics();
 
          return true;
       }
@@ -1624,6 +1650,7 @@ bool producer_plugin_impl::should_interrupt_start_block( const fc::time_point& d
 
 producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    chain::controller& chain = chain_plug->chain();
+   update_block_metrics();
 
    if( !chain_plug->accept_transactions() )
       return start_block_result::waiting_for_block;
@@ -2376,7 +2403,7 @@ void producer_plugin_impl::schedule_production_loop() {
          fc_dlog(_log, "Waiting till another block is received and scheduling Speculative/Production Change");
          schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(calculate_pending_block_time()));
       } else {
-         fc_dlog(_log, "Waiting till another block is received");
+         fc_tlog(_log, "Waiting till another block is received");
          // nothing to do until more blocks arrive
       }
 
@@ -2548,6 +2575,9 @@ void producer_plugin_impl::produce_block() {
 
    br.total_time += fc::time_point::now() - start;
 
+   ++_metrics.blocks_produced.value;
+   _metrics.trxs_produced.value += new_bs->block->transactions.size();
+
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
         ("p",new_bs->header.producer)("id",new_bs->id.str().substr(8,16))
@@ -2570,9 +2600,12 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
             ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
 }
 
+void producer_plugin::register_metrics_listener(metrics_listener listener) {
+   my->_metrics.register_listener(listener);
+}
+
 const std::set<account_name>& producer_plugin::producer_accounts() const {
    return my->_producers;
 }
-
 
 } // namespace eosio
