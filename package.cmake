@@ -70,7 +70,7 @@ if(DPKG_QUERY AND OS_RELEASE MATCHES "\n?ID=\"?ubuntu" AND LLVM_CMAKE_DIR)
       string(APPEND CPACK_DEBIAN_DEV_PACKAGE_DEPENDS ", ${LLVM_PKG_FIND_OUTPUT}")
    endif()
 endif()
-set(CPACK_DEBIAN_DEV_PACKAGE_CONTROL_EXTRA ${CMAKE_BINARY_DIR}/scripts/postinst;${CMAKE_BINARY_DIR}/scripts/prerm)
+set(CPACK_DEBIAN_DEV_PACKAGE_CONTROL_EXTRA "${CMAKE_BINARY_DIR}/scripts/postinst;${CMAKE_BINARY_DIR}/scripts/prerm")
 
 #since rpm packages aren't component based, make sure description picks up more detailed description instead of just summary
 set(CPACK_RPM_PACKAGE_DESCRIPTION "${CPACK_COMPONENT_BASE_DESCRIPTION}")
