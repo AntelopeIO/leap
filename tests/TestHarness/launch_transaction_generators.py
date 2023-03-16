@@ -10,7 +10,7 @@ sys.path.append(harnessPath)
 
 from .testUtils import Utils
 from pathlib import Path
-from re import split
+from re import sub
 
 Print = Utils.Print
 
@@ -159,7 +159,8 @@ def parseArgs():
 
 def main():
     args = parseArgs()
-    connectionPairList = args.connection_pair_list.rsplit(", ")
+    connectionPairList = sub('[\s+]', '', connectionPairList)
+    connectionPairList = connectionPairList.rsplit(",")
 
     trxGenLauncher = TransactionGeneratorsLauncher(chainId=args.chain_id, lastIrreversibleBlockId=args.last_irreversible_block_id,
                                                    contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
