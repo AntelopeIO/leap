@@ -429,14 +429,14 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       boost::asio::deadline_timer     _ro_read_window_timer;
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_exhausted_trx_queue;
-      std::atomic<uint32_t>           _ro_num_active_trx_exec_tasks{ 0 };
+      std::atomic<uint32_t>           _ro_num_active_exec_tasks{0 };
       bool                            _ro_in_read_only_mode{false}; // only modified on app thread
-      std::vector<std::future<bool>>  _ro_trx_exec_tasks_fut;
+      std::vector<std::future<bool>>  _ro_exec_tasks_fut;
 
       void start_write_window();
       void switch_to_write_window();
       void switch_to_read_window();
-      bool read_only_trx_execution_task();
+      bool read_only_execution_task();
       void process_read_only_transactions(const fc::time_point& deadline);
       bool process_read_only_transaction(const packed_transaction_ptr& trx,
                                          const next_function<transaction_trace_ptr>& next);
@@ -2754,7 +2754,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
             ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
 }
 
-// Called from app thread
+// Called from only one read_only thread
 void producer_plugin_impl::switch_to_write_window() {
    // this method can be called from multiple places. it is possible
    // we are already in write window.
@@ -2762,14 +2762,15 @@ void producer_plugin_impl::switch_to_write_window() {
       return;
    }
 
-   EOS_ASSERT(_ro_num_active_trx_exec_tasks.load() == 0 && _ro_trx_exec_tasks_fut.empty(), producer_exception, "no read-only tasks should be running before switching to write window");
+   EOS_ASSERT( _ro_num_active_exec_tasks.load() == 0 && _ro_exec_tasks_fut.empty(), producer_exception, "no read-only tasks should be running before switching to write window");
    _ro_read_window_timer.cancel();
    _ro_write_window_timer.cancel();
 
    start_write_window();
 }
 
-// Called from app thread
+// Called from app thread on plugin_startup
+// Called from only one read_only thread & called from app thread, but not concurrently
 void producer_plugin_impl::start_write_window() {
    chain::controller& chain = chain_plug->chain();
 
@@ -2781,7 +2782,7 @@ void producer_plugin_impl::start_write_window() {
    _ro_window_deadline = _idle_trx_time + _ro_write_window_time_us; // not allowed on block producers, so no need to limit to block deadline
    auto expire_time = boost::posix_time::microseconds(_ro_write_window_time_us.count());
    _ro_write_window_timer.expires_from_now( expire_time );
-   _ro_write_window_timer.async_wait( app().executor().wrap(  // stay on app thread
+   _ro_write_window_timer.async_wait( app().executor().wrap( // run from app thread
       priority::high,
       exec_queue::read_write, // placed in read_write so only called from main thread
       [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
@@ -2792,10 +2793,10 @@ void producer_plugin_impl::start_write_window() {
       }));
 }
 
-// Called from app thread
+// Called only from app thread
 void producer_plugin_impl::switch_to_read_window() {
    EOS_ASSERT(app().executor().is_write_window(),  producer_exception, "expected to be in write window");
-   EOS_ASSERT(_ro_num_active_trx_exec_tasks.load() == 0 && _ro_trx_exec_tasks_fut.empty(),  producer_exception, "_ro_trx_exec_tasks_fut expected to be empty" );
+   EOS_ASSERT( _ro_num_active_exec_tasks.load() == 0 && _ro_exec_tasks_fut.empty(), producer_exception, "_ro_exec_tasks_fut expected to be empty" );
 
    _ro_write_window_timer.cancel();
    _ro_read_window_timer.cancel();
@@ -2814,17 +2815,17 @@ void producer_plugin_impl::switch_to_read_window() {
    _received_block = false;
 
    // start a read-only transaction execution task in each thread in the thread pool
-   _ro_num_active_trx_exec_tasks = _ro_thread_pool_size;
+   _ro_num_active_exec_tasks = _ro_thread_pool_size;
    _ro_window_deadline = fc::time_point::now() + _ro_read_window_effective_time_us;
    for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
-      _ro_trx_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this] () {
-         return self->read_only_trx_execution_task();
+      _ro_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this] () {
+         return self->read_only_execution_task();
       }) );
    }
 
    auto expire_time = boost::posix_time::microseconds(_ro_read_window_time_us.count());
    _ro_read_window_timer.expires_from_now( expire_time );
-   // Needs to be on read_only_safe because that is what is being processed until switch_to_write_window().
+   // Needs to be on read_only because that is what is being processed until switch_to_write_window().
    _ro_read_window_timer.async_wait( app().executor().wrap(
       priority::high,
       exec_queue::read_only,
@@ -2832,20 +2833,20 @@ void producer_plugin_impl::switch_to_read_window() {
          auto self = weak_this.lock();
          if( self && ec != boost::asio::error::operation_aborted ) {
             // use future to make sure all read-only tasks finished before switching to write window
-            for ( auto& task: self->_ro_trx_exec_tasks_fut ) {
+            for ( auto& task: self->_ro_exec_tasks_fut ) {
                task.get();
             }
-            self->_ro_trx_exec_tasks_fut.clear();
+            self->_ro_exec_tasks_fut.clear();
             // will be executed from the main app thread because all read-only threads are idle now
             self->switch_to_write_window();
           } else if ( self ) {
-             self->_ro_trx_exec_tasks_fut.clear();
+             self->_ro_exec_tasks_fut.clear();
           }
        }));
 }
 
-// Called from a read only trx thread. Run in parallel with app and other read only trx threads
-bool producer_plugin_impl::read_only_trx_execution_task() {
+// Called from a read only thread. Run in parallel with app and other read only threads
+bool producer_plugin_impl::read_only_execution_task() {
    // We have 4 ways to break out the while loop:
    // 1. pass read window deadline
    // 2. Net_plugin receives a block
@@ -2874,10 +2875,10 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
    }
 
    // If all tasks are finished, do not wait until end of read window; switch to write window now.
-   if ( --_ro_num_active_trx_exec_tasks == 0 ) {
+   if ( --_ro_num_active_exec_tasks == 0 ) {
       // Needs to be on read_only because that is what is being processed until switch_to_write_window().
       app().executor().post( priority::high, exec_queue::read_only, [self=this]() {
-         self->_ro_trx_exec_tasks_fut.clear();
+         self->_ro_exec_tasks_fut.clear();
          // will be executed from the main app thread because all read-only threads are idle now
          self->switch_to_write_window();
       } );
@@ -2890,7 +2891,7 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
 // Used for executing exhausted read-only trxs when no read only thread pool enabled.
 void producer_plugin_impl::process_read_only_transactions(const fc::time_point& deadline) {
    // if the read only thread pool is enabled then exhausted read only transactions will be executed
-   // by read_only_trx_execution_task, so don't execute them here.
+   // by read_only_execution_task, so don't execute them here.
    if ( _ro_thread_pool_size == 0 ) {
       _ro_window_deadline = std::min(deadline, fc::time_point::now() + _ro_read_window_effective_time_us);
       // only app thread accessing _ro_exhausted_trx_queue since _ro_thread_pool_size == 0, no lock needed
