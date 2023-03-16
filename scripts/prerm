@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 if [ -L ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness ]; then
     rmdir -p ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness
