@@ -103,7 +103,7 @@ class PerformanceTest:
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
     def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
-        floor = 0
+        floor = 1
         ceiling = self.ptConfig.maxTpsToTest
         binSearchTarget = self.ptConfig.maxTpsToTest
         minStep = self.ptConfig.testIterationMinStep
@@ -142,7 +142,7 @@ class PerformanceTest:
     def performPtbReverseLinearSearch(self, tpsInitial: int) -> TpsTestResult.PerfTestSearchResults:
 
         # Default - Decrementing Max TPS in range [0, tpsInitial]
-        absFloor = 0
+        absFloor = 1
         absCeiling = tpsInitial
 
         step = self.ptConfig.testIterationMinStep
@@ -170,7 +170,10 @@ class PerformanceTest:
                 scenarioResult.success = True
                 maxFound = True
             else:
-                searchTarget = searchTarget - step
+                if searchTarget == absFloor:
+                    # This means it has already run a search at absFloor, and failed, so exit.
+                    maxFound = True
+                searchTarget = max(searchTarget - step, absFloor)
 
             scenarioResult.basicTestResult = ptbResult
             searchResults.append(scenarioResult)
