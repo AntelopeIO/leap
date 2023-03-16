@@ -179,7 +179,7 @@ try:
 
     Print("Trim irreversible blocklog to snapshot head block num")
     nodeIrr.kill(signal.SIGTERM)
-    output=cluster.getBlockLog(irrNodeId, blockLogAction=BlockLogAction.trim, last=ret_head_block_num, throwException=True)
+    output=cluster.getBlockLog(irrNodeId, blockLogAction=BlockLogAction.trim, first=0, last=ret_head_block_num, throwException=True)
 
     Print("Relaunch irreversible node in irreversible mode")
     removeState(irrNodeId)
