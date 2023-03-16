@@ -21,8 +21,8 @@ class TpsTrxGensConfig:
         self.tpsLimitPerGenerator: int = tpsLimitPerGenerator
         self.connectionPairList = connectionPairList
         self.numConnectionPairs = len(self.connectionPairList)
-        self.numGenerators = math.ceil(self.targetTps / self.tpsLimitPerGenerator)
-        self.numGenerators = math.ceil(self.numGenerators/self.numConnectionPairs) * self.numConnectionPairs
+        round_to_multiple = lambda num, multiple: math.ceil(num/multiple) * multiple
+        self.numGenerators = round_to_multiple(math.ceil(self.targetTps / self.tpsLimitPerGenerator), self.numConnectionPairs)
         self.initialTpsPerGenerator = math.floor(self.targetTps / self.numGenerators)
         self.modTps = self.targetTps % self.numGenerators
         self.cleanlyDivisible = self.modTps == 0
