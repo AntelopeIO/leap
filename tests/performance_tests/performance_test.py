@@ -143,6 +143,7 @@ class PerformanceTest:
 
         # Default - Decrementing Max TPS in range [1, tpsInitial]
         absFloor = 1
+        tpsInitial = absFloor if tpsInitial <= 0 else tpsInitial
         absCeiling = tpsInitial
 
         step = self.ptConfig.testIterationMinStep
@@ -170,7 +171,7 @@ class PerformanceTest:
                 scenarioResult.success = True
                 maxFound = True
             else:
-                if searchTarget == absFloor:
+                if searchTarget <= absFloor:
                     # This means it has already run a search at absFloor, and failed, so exit.
                     maxFound = True
                 searchTarget = max(searchTarget - step, absFloor)
