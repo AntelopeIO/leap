@@ -56,7 +56,7 @@ public:
       bool serialize_needed  = false;
       bool snapshot_executed = false; 
 
-      auto execute_snapshot_with_log = [this, &height, &snapshot_executed](const auto & req) {
+      auto execute_snapshot_with_log = [this, height, &snapshot_executed](const auto & req) {
          // one snapshot per height
          if (!snapshot_executed) {
             dlog("snapshot scheduler creating a snapshot from the request [start_block_num:${start_block_num}, end_block_num=${end_block_num}, block_spacing=${block_spacing}], height=${height}",
@@ -86,8 +86,7 @@ public:
                serialize_needed = true;              
             }
             execute_snapshot_with_log(req);
-         }        
-         else if(recurring_snapshot || onetime_snapshot) {
+         } else if(recurring_snapshot || onetime_snapshot) {
             execute_snapshot_with_log(req);
          }       
 
@@ -197,6 +196,9 @@ public:
                      p.pending_snapshots = std::move(pending);
                   });
                }
+            } else {     
+               // should not happen, but if happens - not a terminal error          
+               elog( "unable to finalize pending snapshot request: ${details}", ("details", srid) );
             }
          }
       };

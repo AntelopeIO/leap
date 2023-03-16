@@ -21,7 +21,7 @@ public:
       db_path = std::move(path);
    }
 
-   bfs::path get_json_path() {
+   bfs::path get_json_path() const {
       return db_path / "snapshot-schedule.json";
    }
 
@@ -32,8 +32,7 @@ public:
          std::ifstream file(get_json_path().string());
          file.exceptions(std::istream::failbit|std::istream::eofbit);
          boost::property_tree::read_json(file, root);
-         file.close();
-
+       
          // parse ptree
          for(boost::property_tree::ptree::value_type& req: root.get_child("snapshot_requests")) {
             producer_plugin::snapshot_schedule_information ssi;
@@ -54,7 +53,7 @@ public:
       return *this;
    }
 
-   const snapshot_db_json& operator<<(std::vector<producer_plugin::snapshot_schedule_information>& sr) {
+   const snapshot_db_json& operator<<(std::vector<producer_plugin::snapshot_schedule_information>& sr) const {
       boost::property_tree::ptree root;
       boost::property_tree::ptree node_srs;
 
@@ -74,7 +73,6 @@ public:
          std::ofstream file(get_json_path().string());
          file.exceptions(std::istream::failbit|std::istream::eofbit);
          boost::property_tree::write_json(file, root);
-         file.close();
       }
       catch (std::ofstream::failure & e) {
          elog( "unable to store snapshots schedule to filesystem to ${jsonpath}, details: ${details}",
