@@ -276,8 +276,8 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tests/launcher.py DESTINATION ${CMAKE_
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
    # Cmake versions < 3.21 did not support installing symbolic links to a directory via install(FILES ...)
    # Cmake 3.21 fixed this (https://gitlab.kitware.com/cmake/cmake/-/commit/d71a7cc19d6e03f89581efdaa8d63db216184d40)
-   # If/when the lowest cmake version supported becomes >= 3.21, the else block as well as the postinit script
-   # would be a good option to remove in favor of using the facilities in cmake directly.
+   # If/when the lowest cmake version supported becomes >= 3.21, the else block as well as the postinit and prerm scripts
+   # would be a good option to remove in favor of using the facilities in cmake / cpack directly.
 
    add_custom_target(link_target ALL
       COMMAND ${CMAKE_COMMAND} -E make_directory lib/python3/dist-packages

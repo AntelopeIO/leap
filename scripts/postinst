@@ -1,5 +1,7 @@
 #!/bin/sh
 
+set -e
+
 if [ ! -L ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness ]; then
     mkdir -p ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages
     ln -s ../../../share/leap_testing/tests/TestHarness ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness
