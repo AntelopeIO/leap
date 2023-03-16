@@ -15,6 +15,7 @@
 
 
 #include <thread>
+#include <shared_mutex>
 
 namespace std {
     template<> struct hash<eosio::chain::eosvmoc::code_tuple> {
@@ -84,6 +85,9 @@ class code_cache_base {
 
       template <typename T>
       void serialize_cache_index(fc::datastream<T>& ds);
+
+      std::thread::id _main_thread_id;
+      bool is_main_thread() const;
 };
 
 class code_cache_async : public code_cache_base {

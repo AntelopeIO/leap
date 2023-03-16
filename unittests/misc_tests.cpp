@@ -1161,13 +1161,14 @@ BOOST_AUTO_TEST_CASE(stable_priority_queue_test) {
      std::atomic<int> ran{0};
      std::mutex mx;
      std::vector<int> results;
+     size_t order = std::numeric_limits<size_t>::max();
      for( int i = 0; i < 50; ++i ) {
-        boost::asio::post(*io_serv, pri_queue.wrap(appbase::priority::low, [io_serv, &mx, &ran, &results, i](){
+        boost::asio::post(*io_serv, pri_queue.wrap(appbase::priority::low, --order, [io_serv, &mx, &ran, &results, i](){
            std::lock_guard<std::mutex> g(mx);
            results.push_back( 50 + i );
            ++ran;
         }));
-        boost::asio::post(*io_serv, pri_queue.wrap(appbase::priority::high, [io_serv, &mx, &ran, &results, i](){
+        boost::asio::post(*io_serv, pri_queue.wrap(appbase::priority::high, --order, [io_serv, &mx, &ran, &results, i](){
            std::lock_guard<std::mutex> g(mx);
            results.push_back( i );
            ++ran;

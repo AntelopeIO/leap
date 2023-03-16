@@ -1451,18 +1451,6 @@ namespace eosio { namespace chain {
    }
 
    // static
-   bool block_log::extract_block_range(const fc::path& block_dir, const fc::path& output_dir, block_num_type& start,
-                                       block_num_type& end, bool rename_input) {
-      block_log_bundle bundle(block_dir);
-      fc::path         output_block_name = rename_input ? output_dir / "old.log" : output_dir / "blocks.log";
-      fc::path         output_index_name = rename_input ? output_dir / "old.index" : output_dir / "blocks.index";
-      if (!fc::exists(output_dir))
-         fc::create_directories(output_dir);
-      extract_blocklog_i(bundle, output_block_name, output_index_name, start, end - start + 1);
-      return true;
-   }
-
-   // static
    bool block_log::trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir,
                                        uint32_t truncate_at_block) {
       EOS_ASSERT(block_dir != temp_dir, block_log_exception, "block_dir and temp_dir need to be different directories");
@@ -1517,6 +1505,8 @@ namespace eosio { namespace chain {
          dlog("There are no blocks after block ${n} so do nothing", ("n", n));
          return 2;
       }
+      if (n == log_bundle.log_data.last_block_num())
+         return 0;
 
       const auto to_trim_block_index    = n + 1 - log_bundle.log_data.first_block_num();
       const auto to_trim_block_position = log_bundle.log_index.nth_block_position(to_trim_block_index);
@@ -1557,21 +1547,20 @@ namespace eosio { namespace chain {
    }
 
    // static
-   void block_log::extract_blocklog(const fc::path& log_filename, const fc::path& index_filename,
-                                    const fc::path& dest_dir, uint32_t start_block_num, uint32_t num_blocks) {
+   void block_log::extract_block_range(const fc::path& block_dir, const fc::path& dest_dir,
+                                       block_num_type start_block_num, block_num_type last_block_num) {
 
-      block_log_bundle log_bundle(log_filename, index_filename);
+
+      block_log_bundle log_bundle(block_dir);
 
       EOS_ASSERT(start_block_num >= log_bundle.log_data.first_block_num(), block_log_exception,
                  "The first available block is block ${first_block}.",
                  ("first_block", log_bundle.log_data.first_block_num()));
 
-      EOS_ASSERT(start_block_num + num_blocks - 1 <= log_bundle.log_data.last_block_num(), block_log_exception,
-                 "The last available block is block ${last_block}.",
-                 ("last_block", log_bundle.log_data.last_block_num()));
-
       if (!fc::exists(dest_dir))
          fc::create_directories(dest_dir);
+
+      uint32_t num_blocks = last_block_num - start_block_num + 1;
 
       auto [new_block_filename, new_index_filename] = blocklog_files(dest_dir, start_block_num, num_blocks);
 

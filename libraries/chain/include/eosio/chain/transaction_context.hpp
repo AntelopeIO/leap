@@ -181,8 +181,7 @@ namespace eosio { namespace chain {
             on_chain_consensus_max_transaction_cpu_usage,
             user_specified_trx_max_cpu_usage_ms,
             node_configured_max_transaction_time,
-            speculative_executed_adjusted_max_transaction_time, // prev_billed_cpu_time_us > 0
-            node_configured_max_read_only_transaction_time
+            speculative_executed_adjusted_max_transaction_time // prev_billed_cpu_time_us > 0
          };
          tx_cpu_usage_exceeded_reason  tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
          fc::microseconds              tx_cpu_usage_amount;

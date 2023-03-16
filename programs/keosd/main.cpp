@@ -1,4 +1,4 @@
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 
 #include <eosio/http_plugin/http_plugin.hpp>
 #include <eosio/wallet_plugin/wallet_plugin.hpp>
@@ -111,7 +111,7 @@ int main(int argc, char** argv)
                        [&a=app](string, string, url_response_callback cb) {
          cb(200, fc::time_point::maximum(), fc::variant(fc::variant_object()));
          a->quit();
-      } );
+      }, appbase::exec_queue::general );
       app->startup();
       app->exec();
    } catch (const fc::exception& e) {

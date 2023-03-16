@@ -50,11 +50,21 @@ namespace eosio { namespace chain {
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       struct eosvmoc_tier {
          eosvmoc_tier(const boost::filesystem::path& d, const eosvmoc::config& c, const chainbase::database& db)
-          : cc(d, c, db), exec(cc),
-            mem(wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size) {}
+          : cc(d, c, db) {
+             // construct exec for the main thread
+             init_thread_local_data();
+          }
+
+         // Support multi-threaded execution.
+         void init_thread_local_data() {
+            exec = std::make_unique<eosvmoc::executor>(cc);
+         }
+
          eosvmoc::code_cache_async cc;
-         eosvmoc::executor exec;
-         eosvmoc::memory mem;
+
+         // Each thread requires its own exec and mem. Defined in wasm_interface.cpp
+         thread_local static std::unique_ptr<eosvmoc::executor> exec;
+         thread_local static eosvmoc::memory mem;
       };
 #endif
 

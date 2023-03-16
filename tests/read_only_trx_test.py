@@ -18,7 +18,7 @@ errorExit=Utils.errorExit
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed"
                             ,"--dump-error-details","-v","--leave-running"
-                            ,"--clean-run","--keep-logs","--unshared"})
+                            ,"--clean-run","--keep-logs","--unshared"}, applicationSpecificArgs=appArgs)
 
 pnodes=args.p
 topo=args.s
