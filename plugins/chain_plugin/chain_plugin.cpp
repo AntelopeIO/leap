@@ -1909,7 +1909,7 @@ chain::signed_block_ptr read_only::get_raw_block(const read_only::get_raw_block_
 
    EOS_ASSERT( !params.block_num_or_id.empty() && params.block_num_or_id.size() <= 64,
                chain::block_id_type_exception,
-               "Invalid Block number or ID, must be greater than 0 and less than 64 characters"
+               "Invalid Block number or ID, must be greater than 0 and less than 65 characters"
    );
 
    try {
@@ -1935,7 +1935,7 @@ read_only::get_block_header_result read_only::get_block_header(const read_only::
 
    EOS_ASSERT( !params.block_num_or_id.empty() && params.block_num_or_id.size() <= 64,
                chain::block_id_type_exception,
-               "Invalid Block number or ID, must be greater than 0 and less than 64 characters"
+               "Invalid Block number or ID, must be greater than 0 and less than 65 characters"
    );
 
    try {
