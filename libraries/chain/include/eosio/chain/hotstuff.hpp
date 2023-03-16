@@ -13,10 +13,10 @@ namespace eosio { namespace chain {
 
    //todo : fetch from chain / nodeos config
 
-   const uint32_t block_interval = 500;
-   const uint32_t blocks_per_round = 12;
+/*   const uint32_t block_interval = 500;
+   const uint32_t blocks_per_round = 12;*/
 
-   const uint32_t _threshold = 15;
+   
    
    static uint32_t compute_block_num(block_id_type block_id)
    {
