@@ -1,9 +1,4 @@
 #!/bin/sh
 
-if [ -L ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness ]; then
-    rmdir -p ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness
-fi
-
-if [ -L ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin ]; then
-    rmdir -p ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin
-fi
+rm -f ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness
+rm -f ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin
