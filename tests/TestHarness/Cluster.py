@@ -1501,9 +1501,9 @@ class Cluster(object):
 
     def cleanup(self):
         for f in glob.glob(Utils.DataPath):
-            shutil.rmtree(f)
+            shutil.rmtree(f, ignore_errors=True)
         for f in glob.glob(Utils.ConfigDir + "node_*"):
-            shutil.rmtree(f)
+            shutil.rmtree(f, ignore_errors=True)
 
         # Cleanup transaction generator files
         for f in glob.glob(f"{Utils.DataDir}/trx_data_output_*.txt"):
