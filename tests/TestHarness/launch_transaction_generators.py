@@ -159,8 +159,8 @@ def parseArgs():
 
 def main():
     args = parseArgs()
-    connectionPairList = sub('[\s+]', '', connectionPairList)
-    connectionPairList = connectionPairList.rsplit(",")
+    connectionPairList = sub('[\s+]', '', args.connection_pair_list)
+    connectionPairList = connectionPairList.rsplit(',')
 
     trxGenLauncher = TransactionGeneratorsLauncher(chainId=args.chain_id, lastIrreversibleBlockId=args.last_irreversible_block_id,
                                                    contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
