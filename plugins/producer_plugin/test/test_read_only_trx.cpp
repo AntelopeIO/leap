@@ -103,7 +103,7 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
 
    for( size_t i = 1; i <= num_pushes; ++i ) {
       auto ptrx = make_unique_trx( chain_id );
-      app->executor().post( priority::low, exec_queue::general, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
+      app->executor().post( priority::low, exec_queue::read_write, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
          ++num_posts;
          bool return_failure_traces = true;
          app->get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,

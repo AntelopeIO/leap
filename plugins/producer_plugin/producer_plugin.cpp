@@ -659,7 +659,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                          next_function<transaction_trace_ptr> next) {
          if ( trx_type == transaction_metadata::trx_type::read_only ) {
             // Post all read only trxs to read_only queue for execution.
-            app().executor().post(priority::low, exec_queue::read_only_safe, [this, trx=trx, next{std::move(next)}]() mutable {
+            app().executor().post(priority::low, exec_queue::read_only, [this, trx=trx, next{std::move(next)}]() mutable {
                process_read_only_transaction( trx, next );
             } );
             return;
@@ -694,7 +694,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                                           next{std::move(next)}, trx=trx]() mutable {
             if( future.valid() ) {
                future.wait();
-               app().executor().post( priority::low, exec_queue::general, [self, future{std::move(future)}, api_trx, is_transient, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
+               app().executor().post( priority::low, exec_queue::read_write, [self, future{std::move(future)}, api_trx, is_transient, next{std::move( next )}, trx{std::move(trx)}, return_failure_traces]() mutable {
                   auto start = fc::time_point::now();
                   auto idle_time = start - self->_idle_trx_time;
                   self->_time_tracker.add_idle_time( idle_time );
@@ -2573,7 +2573,7 @@ void producer_plugin_impl::schedule_production_loop() {
       _timer.expires_from_now( boost::posix_time::microseconds( config::block_interval_us  / 10 ));
 
       // we failed to start a block, so try again later?
-      _timer.async_wait( app().executor().wrap( priority::high, exec_queue::general,
+      _timer.async_wait( app().executor().wrap( priority::high, exec_queue::read_write,
           [weak_this = weak_from_this(), cid = ++_timer_corelation_id]( const boost::system::error_code& ec ) {
              auto self = weak_this.lock();
              if( self && ec != boost::asio::error::operation_aborted && cid == self->_timer_corelation_id ) {
@@ -2626,7 +2626,7 @@ void producer_plugin_impl::schedule_maybe_produce_block( bool exhausted ) {
                ("num", chain.head_block_num() + 1)("desc", block_is_exhausted() ? "Exhausted" : "Deadline exceeded") );
    }
 
-   _timer.async_wait( app().executor().wrap( priority::high, exec_queue::general,
+   _timer.async_wait( app().executor().wrap( priority::high, exec_queue::read_write,
          [&chain, weak_this = weak_from_this(), cid=++_timer_corelation_id](const boost::system::error_code& ec) {
             auto self = weak_this.lock();
             if( self && ec != boost::asio::error::operation_aborted && cid == self->_timer_corelation_id ) {
@@ -2668,7 +2668,7 @@ void producer_plugin_impl::schedule_delayed_production_loop(const std::weak_ptr<
       fc_dlog(_log, "Scheduling Speculative/Production Change at ${time}", ("time", wake_up_time));
       static const boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
       _timer.expires_at(epoch + boost::posix_time::microseconds(wake_up_time->time_since_epoch().count()));
-      _timer.async_wait( app().executor().wrap( priority::high, exec_queue::general,
+      _timer.async_wait( app().executor().wrap( priority::high, exec_queue::read_write,
          [weak_this,cid=++_timer_corelation_id](const boost::system::error_code& ec) {
             auto self = weak_this.lock();
             if( self && ec != boost::asio::error::operation_aborted && cid == self->_timer_corelation_id ) {
@@ -2819,7 +2819,7 @@ void producer_plugin_impl::start_write_window() {
    _ro_write_window_timer.expires_from_now( expire_time );
    _ro_write_window_timer.async_wait( app().executor().wrap(  // stay on app thread
       priority::high,
-      exec_queue::general, // placed in general so only called from main thread
+      exec_queue::read_write, // placed in read_write so only called from main thread
       [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
          auto self = weak_this.lock();
          if( self && ec != boost::asio::error::operation_aborted ) {
@@ -2839,7 +2839,7 @@ void producer_plugin_impl::switch_to_read_window() {
 
    // we are in write window, so no read-only trx threads are processing transactions.
    // _ro_exhausted_trx_queue is not being accessed by read-only threads, no need to lock.
-   if ( _ro_exhausted_trx_queue.queue.empty() && app().executor().read_only_trx_safe_queue().empty() ) { // no read-only trxs to process. stay in write window
+   if ( _ro_exhausted_trx_queue.queue.empty() && app().executor().read_only_queue().empty() ) { // no read-only trxs to process. stay in write window
       start_write_window(); // restart write window timer for next round
       return;
    }
@@ -2865,7 +2865,7 @@ void producer_plugin_impl::switch_to_read_window() {
    // Needs to be on read_only_safe because that is what is being processed until switch_to_write_window().
    _ro_read_window_timer.async_wait( app().executor().wrap(
       priority::high,
-      exec_queue::read_only_safe,
+      exec_queue::read_only,
       [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
          auto self = weak_this.lock();
          if( self && ec != boost::asio::error::operation_aborted ) {
@@ -2913,8 +2913,8 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
 
    // If all tasks are finished, do not wait until end of read window; switch to write window now.
    if ( --_ro_num_active_trx_exec_tasks == 0 ) {
-      // Needs to be on read_only_safe because that is what is being processed until switch_to_write_window().
-      app().executor().post( priority::high, exec_queue::read_only_safe, [self=this]() {
+      // Needs to be on read_only because that is what is being processed until switch_to_write_window().
+      app().executor().post( priority::high, exec_queue::read_only, [self=this]() {
          self->_ro_trx_exec_tasks_fut.clear();
          // will be executed from the main app thread because all read-only threads are idle now
          self->switch_to_write_window();
