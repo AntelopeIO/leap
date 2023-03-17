@@ -91,6 +91,8 @@ install_dependencies() {
             wget \
             zip \
             zlib1g-dev
+    else
+        printf '\033[1;33mWARNING: Skipping package manager dependency installations because this is not a Debian-family operating system!\nWe currently only support Ubuntu.\033[0m\n'
     fi
 }
 
