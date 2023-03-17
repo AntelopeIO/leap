@@ -1,7 +1,10 @@
 #!/bin/sh
 
+# Cleanup symbolic links created during postinst
 rm -f ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness
 rm -f ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin
+
+# Attempt to clean up directories that may have been created during postinst
+# Also may have already existed, so it is acceptable to leave them in place if the rmdir fails
 rmdir --ignore-fail-on-non-empty ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages
 rmdir --ignore-fail-on-non-empty ${CMAKE_INSTALL_FULL_LIBDIR}/python3
-rmdir --ignore-fail-on-non-empty ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing
