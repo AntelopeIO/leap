@@ -67,11 +67,11 @@ try(){
 install_dependencies() {
     echo 'Installing package dependencies.'
     if [[ "$(uname)" == 'Linux' && -f /etc/debian_version ]]; then
-        apt-get update
-        apt-get update --fix-missing
+        try apt-get update
+        try apt-get update --fix-missing
         export DEBIAN_FRONTEND='noninteractive'
         export TZ='Etc/UTC'
-        apt-get install -y \
+        try apt-get install -y \
             build-essential \
             bzip2 \
             cmake \
