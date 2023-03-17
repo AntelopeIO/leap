@@ -136,6 +136,8 @@ public:
    ,incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>())
    {}
 
+   string                           chain_alias;
+   string                           cfg_chain_id;
    bfs::path                        blocks_dir;
    bfs::path                        state_dir;
    bool                             readonly = false;
@@ -226,8 +228,8 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
    cfg.add_options()
          ("chain-alias", bpo::value<string>(), "Chain Alias, alias id mapping is needed. a bootnode server address must set in p2p-peer-address.")
          ("chain-id", bpo::value<string>(), "Chain ID, must match chain id in genesis or snapshot or block. a bootnode server address must set in p2p-peer-address.")
-         ("chain-alias-mapping", bpo::value< vector<string> >()->composing(),
-          "The mapping info in config.\n"
+         ("chain-alias-mapping", bpo::value< vector<string> >()->composing()->multitoken(),
+          "The mapping info for alias and id.\n"
           "  Syntax: alias:id")
          ("blocks-dir", bpo::value<bfs::path>()->default_value("blocks"),
           "the location of the blocks directory (absolute path or relative to application data dir)")
@@ -890,6 +892,46 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             }
          }
       }
+
+      //After computing chain-id match, compare it with cfg-chain-id or alias mapping id
+      if( options.count("chain-alias") ) {
+          my->chain_alias = options.at( "chain-alias" ).as<string>();
+          ilog( "Chain Alias in config is ${alias}", ("alias", my->chain_alias) );
+
+          if (options.count("chain-alias-mapping")) {
+              auto mapping = options.at("chain-alias-mapping").as<vector<string>>();
+              for (const auto& entry : mapping) {
+                  auto colon_pos = entry.find(':');
+                  if (colon_pos != string::npos && entry.substr(0, colon_pos) == my->chain_alias) {
+                      auto id = entry.substr(colon_pos + 1);
+                      my->cfg_chain_id = id;
+                      break;
+                  }
+              }
+              EOS_ASSERT( !my->cfg_chain_id.empty(), plugin_config_exception,
+                          "Mapping chain-id missing for chain-alias (${alias})" ,
+                          ("alias", my->chain_alias)
+              );
+          }
+          ilog( "Chain ID for ${alias} is ${id}", ("alias", my->chain_alias)("id", my->cfg_chain_id) );
+      }
+
+      //chain-id setting will overwrite the id from mapping
+      if( options.count("chain-id") ) {
+          my->cfg_chain_id = options.at( "chain-id" ).as<string>();
+          ilog( "Chain id in config is ${id}", ("id", my->cfg_chain_id) );
+      }
+
+      if( !my->cfg_chain_id.empty() )
+       EOS_ASSERT( my->cfg_chain_id == chain_id->str(), plugin_config_exception,
+                   "Genesis state or snapshot has a chain ID (${chain_id}) "
+                   "that does not match the chain ID set in config (${cfg_chain_id}).",
+                   ("chain_id", chain_id)
+                   ("cfg_chain_id", my->cfg_chain_id)
+       );
+
+
+
 
       if ( options.count("read-mode") ) {
          my->chain_config->read_mode = options.at("read-mode").as<db_read_mode>();
