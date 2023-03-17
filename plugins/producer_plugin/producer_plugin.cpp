@@ -2913,7 +2913,8 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
    while ( fc::time_point::now() < read_window_deadline && !_received_block ) {
       ro_trx_t trx;
       if ( !_ro_trx_queue.pop_front(trx) ) {
-         // pop_front waits on condition variable, and returns false when all tasks must exit
+         // If the queue is empty, pop_front() waits on condition variable, and returns false
+         // when and only when all tasks must exit (i.e queue is empty and all tasks are idle)
          break;
       }
       
