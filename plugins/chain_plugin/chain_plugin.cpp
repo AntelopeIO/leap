@@ -224,6 +224,11 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
    std::string default_wasm_runtime_str= eosio::chain::wasm_interface::vm_type_string(eosio::chain::config::default_wasm_runtime);
 
    cfg.add_options()
+         ("chain-alias", bpo::value<string>(), "Chain Alias, alias id mapping is needed. a bootnode server address must set in p2p-peer-address.")
+         ("chain-id", bpo::value<string>(), "Chain ID, must match chain id in genesis or snapshot or block. a bootnode server address must set in p2p-peer-address.")
+         ("chain-alias-mapping", bpo::value< vector<string> >()->composing(),
+          "The mapping info in config.\n"
+          "  Syntax: alias:id")
          ("blocks-dir", bpo::value<bfs::path>()->default_value("blocks"),
           "the location of the blocks directory (absolute path or relative to application data dir)")
          ("blocks-log-stride", bpo::value<uint32_t>(),
