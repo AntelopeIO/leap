@@ -4,7 +4,8 @@ import decimal
 import re
 import os
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from pathlib import Path
 
 ###############################################################
 # launcher-test
@@ -16,10 +17,9 @@ from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 Print=Utils.Print
 errorExit=Utils.errorExit
 cmdError=Utils.cmdError
-from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--defproducera_prvt_key","--dump-error-details","--dont-launch","--keep-logs",
-                              "-v","--leave-running","--clean-run"})
+                              "-v","--leave-running","--clean-run","--unshared"})
 debug=args.v
 defproduceraPrvtKey=args.defproducera_prvt_key
 dumpErrorDetails=args.dump_error_details
@@ -29,7 +29,7 @@ dontKill=args.leave_running
 killAll=args.clean_run
 
 Utils.Debug=debug
-cluster=Cluster(walletd=True, defproduceraPrvtKey=defproduceraPrvtKey)
+cluster=Cluster(walletd=True, defproduceraPrvtKey=defproduceraPrvtKey,unshared=args.unshared)
 walletMgr=WalletMgr(True)
 testSuccessful=False
 killEosInstances=not dontKill
@@ -216,8 +216,8 @@ try:
         errorExit("Failed to bounce eos node.")
 
     p = re.compile('Assert')
-    errFileName="var/lib/node_00/stderr.txt"
-    assertionsFound=False
+    errFileName=f"{cluster.nodeosLogPath}/node_00/stderr.txt"
+    assertionsFound = False
     with open(errFileName) as errFile:
         for line in errFile:
             if p.search(line):
@@ -226,8 +226,8 @@ try:
     if assertionsFound:
         # Too many assertion logs, hard to validate how many are genuine. Make this a warning
         #  for now, hopefully the logs will get cleaned up in future.
-        Print("WARNING: Asserts in var/lib/node_00/stderr.txt")
-        #errorExit("FAILURE - Assert in var/lib/node_00/stderr.txt")
+        Print(f"WARNING: Asserts in {cluster.nodeosLogPath}/node_00/stderr.txt")
+        #errorExit("FAILURE - Assert in launcher_test.py/node_00/stderr.txt")
 
     Print("Validating accounts at end of test")
     accounts=[testeraAccount, currencyAccount, exchangeAccount]

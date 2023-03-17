@@ -1,6 +1,7 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/producer_plugin/pending_snapshot.hpp>
 #include <eosio/producer_plugin/subjective_billing.hpp>
+#include <eosio/producer_plugin/snapshot_scheduler.hpp>
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
@@ -26,6 +27,7 @@
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
+#include <boost/multi_index/random_access_index.hpp>
 #include <boost/signals2/connection.hpp>
 
 namespace bmi = boost::multi_index;
@@ -385,6 +387,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<scoped_connection>                          _accepted_block_connection;
       std::optional<scoped_connection>                          _accepted_block_header_connection;
       std::optional<scoped_connection>                          _irreversible_block_connection;
+      std::optional<scoped_connection>                          _block_start_connection;
 
       producer_plugin_metrics                                   _metrics;
 
@@ -406,6 +409,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       // path to write the snapshots to
       bfs::path _snapshots_dir;
 
+      // async snapshot scheduler
+      snapshot_scheduler _snapshot_scheduler;
+      
       // ro for read-only
       struct ro_trx_t {
          packed_transaction_ptr  trx;
@@ -440,7 +446,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       bool push_read_only_transaction(const transaction_metadata_ptr& trx,
                                       next_function<transaction_trace_ptr> next,
                                       const fc::time_point& read_window_start_time);
-
+      
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
          auto itr = _producer_watermarks.find( producer );
          if( itr != _producer_watermarks.end() ) {
@@ -816,7 +822,8 @@ void new_chain_banner(const eosio::chain::controller& db)
 }
 
 producer_plugin::producer_plugin()
-   : my(new producer_plugin_impl(app().get_io_service())){
+   : my(new producer_plugin_impl(app().get_io_service()))
+   {
    }
 
 producer_plugin::~producer_plugin() {}
@@ -839,8 +846,6 @@ void producer_plugin::set_program_options(
           "Limits the maximum age (in seconds) of the DPOS Irreversible Block for a chain this node will produce blocks on (use negative value to indicate unlimited)")
          ("producer-name,p", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "ID of producer controlled by this node (e.g. inita; may specify multiple times)")
-         ("private-key", boost::program_options::value<vector<string>>()->composing()->multitoken(),
-          "(DEPRECATED - Use signature-provider instead) Tuple of [public key, WIF private key] (may specify multiple times)")
          ("signature-provider", boost::program_options::value<vector<string>>()->composing()->multitoken()->default_value(
                {default_priv_key.get_public_key().to_string() + "=KEY:" + default_priv_key.to_string()},
                 default_priv_key.get_public_key().to_string() + "=KEY:" + default_priv_key.to_string()),
@@ -946,22 +951,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    LOAD_VALUE_SET(options, "producer-name", my->_producers)
 
    chain::controller& chain = my->chain_plug->chain();
-
-   if( options.count("private-key") )
-   {
-      const std::vector<std::string> key_id_to_wif_pair_strings = options["private-key"].as<std::vector<std::string>>();
-      for (const std::string& key_id_to_wif_pair_string : key_id_to_wif_pair_strings)
-      {
-         try {
-            auto key_id_to_wif_pair = dejsonify<std::pair<public_key_type, private_key_type>>(key_id_to_wif_pair_string);
-            my->_signature_providers[key_id_to_wif_pair.first] = app().get_plugin<signature_provider_plugin>().signature_provider_for_private_key(key_id_to_wif_pair.second);
-            auto blanked_privkey = std::string(key_id_to_wif_pair.second.to_string().size(), '*' );
-            wlog("\"private-key\" is DEPRECATED, use \"signature-provider=${pub}=KEY:${priv}\"", ("pub",key_id_to_wif_pair.first)("priv", blanked_privkey));
-         } catch ( const std::exception& e ) {
-            elog("Malformed private key pair");
-         }
-      }
-   }
 
    if( options.count("signature-provider") ) {
       const std::vector<std::string> key_spec_pairs = options["signature-provider"].as<std::vector<std::string>>();
@@ -1171,6 +1160,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       }
    }
 
+   my->_snapshot_scheduler.set_db_path(my->_snapshots_dir);
+   my->_snapshot_scheduler.set_create_snapshot_fn([this](producer_plugin::next_function<producer_plugin::snapshot_information> next){create_snapshot(next);});
 } FC_LOG_AND_RETHROW() }
 
 void producer_plugin::plugin_startup()
@@ -1197,6 +1188,7 @@ void producer_plugin::plugin_startup()
    my->_accepted_block_connection.emplace(chain.accepted_block.connect( [this]( const auto& bsp ){ my->on_block( bsp ); } ));
    my->_accepted_block_header_connection.emplace(chain.accepted_block_header.connect( [this]( const auto& bsp ){ my->on_block_header( bsp ); } ));
    my->_irreversible_block_connection.emplace(chain.irreversible_block.connect( [this]( const auto& bsp ){ my->on_irreversible_block( bsp->block ); } ));
+   my->_block_start_connection.emplace(chain.block_start.connect( [this]( uint32_t bs ){ my->_snapshot_scheduler.on_start_block(bs); } ));
 
    const auto lib_num = chain.last_irreversible_block_num();
    const auto lib = chain.fetch_block_by_number(lib_num);
@@ -1508,10 +1500,25 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
                ("bn", head_block_num)
                ("ec", ec.value())
                ("message", ec.message()));
-
          my->_pending_snapshot_index.emplace(head_id, next, pending_path.generic_string(), snapshot_path.generic_string());
+         my->_snapshot_scheduler.add_pending_snapshot_info( producer_plugin::snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, pending_path.generic_string()} );
       } CATCH_AND_CALL (next);
    }
+}
+
+void producer_plugin::schedule_snapshot(const snapshot_request_information& sri)
+{
+   my->_snapshot_scheduler.schedule_snapshot(sri);
+}
+
+void producer_plugin::unschedule_snapshot(const snapshot_request_id_information& sri)
+{
+   my->_snapshot_scheduler.unschedule_snapshot(sri.snapshot_request_id);
+}
+
+producer_plugin::get_snapshot_requests_result producer_plugin::get_snapshot_requests() const
+{
+   return my->_snapshot_scheduler.get_snapshot_requests();
 }
 
 producer_plugin::scheduled_protocol_feature_activations

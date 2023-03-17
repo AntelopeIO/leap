@@ -220,9 +220,6 @@ add_subdirectory( benchmark )
 
 option(DISABLE_WASM_SPEC_TESTS "disable building of wasm spec unit tests" OFF)
 
-install(FILES testnet.template DESTINATION ${CMAKE_INSTALL_FULL_SYSCONFDIR}/eosio/launcher COMPONENT dev EXCLUDE_FROM_ALL)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/testnet.template ${CMAKE_CURRENT_BINARY_DIR}/etc/eosio/launcher/testnet.template COPYONLY)
-
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/eosio.version.in ${CMAKE_CURRENT_BINARY_DIR}/eosio.version.hpp)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/eosio.version.hpp DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR} COMPONENT dev EXCLUDE_FROM_ALL)
 
@@ -259,6 +256,53 @@ configure_file(libraries/prometheus/prometheus-cpp/LICENSE                 licen
 configure_file(programs/cleos/LICENSE.CLI11                                licenses/leap/LICENSE.CLI11     COPYONLY)
 
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/leap" DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/" COMPONENT base)
+
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/libraries/testing/contracts DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/libraries/testing COMPONENT dev EXCLUDE_FROM_ALL
+        PATTERN "CMakeFiles" EXCLUDE
+        PATTERN "*.cmake" EXCLUDE
+        PATTERN "Makefile" EXCLUDE)
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/unittests/contracts DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/unittests COMPONENT dev EXCLUDE_FROM_ALL
+        PATTERN "CMakeFiles" EXCLUDE
+        PATTERN "*.cmake" EXCLUDE
+        PATTERN "Makefile" EXCLUDE)
+install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests/TestHarness DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/tests COMPONENT dev EXCLUDE_FROM_ALL
+        FILES_MATCHING
+        PATTERN "*.py"
+        PATTERN "*.json"
+        PATTERN "__pycache__" EXCLUDE
+        PATTERN "CMakeFiles" EXCLUDE)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tests/launcher.py DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/tests COMPONENT dev EXCLUDE_FROM_ALL)
+
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
+   # Cmake versions < 3.21 did not support installing symbolic links to a directory via install(FILES ...)
+   # Cmake 3.21 fixed this (https://gitlab.kitware.com/cmake/cmake/-/commit/d71a7cc19d6e03f89581efdaa8d63db216184d40)
+   # If/when the lowest cmake version supported becomes >= 3.21, the else block as well as the postinit and prerm scripts
+   # would be a good option to remove in favor of using the facilities in cmake / cpack directly.
+
+   add_custom_target(link_target ALL
+      COMMAND ${CMAKE_COMMAND} -E make_directory lib/python3/dist-packages
+      COMMAND ${CMAKE_COMMAND} -E create_symlink ../../../share/leap_testing/tests/TestHarness lib/python3/dist-packages/TestHarness
+      COMMAND ${CMAKE_COMMAND} -E make_directory share/leap_testing
+      COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin share/leap_testing/bin)
+
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib/python3/dist-packages/TestHarness DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages COMPONENT dev EXCLUDE_FROM_ALL)
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/share/leap_testing/bin DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing COMPONENT dev EXCLUDE_FROM_ALL)
+else()
+   # The following install(CODE ...) steps are necessary for `make dev-install` to work on cmake versions < 3.21.
+   # However, it can flag as an error if using `make package` instead of `make dev-install` for installation.
+   # This is due to those directories and symbolic links being created in the postinit script during the package install instead.
+
+   # Note If/when doing `make package`, it is not a true error if you see:
+   # Error creating directory "/<leap_install_dir>/lib/python3/dist-packages".
+   # CMake Error: failed to create symbolic link '/<leap_install_dir>/lib/python3/dist-packages/TestHarness': no such file or directory
+   # CMake Error: failed to create symbolic link '/<leap_install_dir>/share/leap_testing/bin': no such file or directory
+
+   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages)" COMPONENT dev EXCLUDE_FROM_ALL)
+   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../../share/leap_testing/tests/TestHarness ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness)" COMPONENT dev EXCLUDE_FROM_ALL)
+   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin)" COMPONENT dev EXCLUDE_FROM_ALL)
+
+   # The `make package` installation of symlinks happens via the `postinst` script installed in cmake.package via the line below
+endif()
 
 configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/leap-util
                ${CMAKE_BINARY_DIR}/programs/leap-util/bash-completion/completions/leap-util COPYONLY)
