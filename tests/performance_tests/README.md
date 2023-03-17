@@ -488,8 +488,7 @@ Performance Test Basic Single Test:
 * `abi_file`                    The path to the contract abi file to use for the supplied transaction action data
 * `actions_data`                The json actions data file or json actions data description string to use
 * `actions_auths`               The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.
-* `peer_endpoint`               set the peer endpoint to send transactions to, default="127.0.0.1"
-* `port`                        set the peer endpoint port to send transactions to, default=9876
+* `connection_pair_list`        Comma separated list of endpoint:port combinations to send transactions to
 </details>
 
 #### Transaction Generator
