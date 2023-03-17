@@ -111,6 +111,8 @@ Make sure you are in the root of the `leap` repo, then run the pinned build scri
   - A build folder, where the binaries you need to install will be built to.
   - The number of jobs or CPU cores/threads to use (note the [jobs flag](#step-3---build) warning above).
 
+> You do not need to run this script with `sudo` or as root, but this script will invoke aptidue at the beginning on Debian-family operating systems like Ubuntu to install dependencies. You may be prompted for your password by `sudo` if your system has it and aptitude needs additional permissions.
+
 For example, the following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads:
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
