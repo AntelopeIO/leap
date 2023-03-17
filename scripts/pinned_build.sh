@@ -59,9 +59,9 @@ popdir() {
 try(){
     echo "$ $*"
     "$@"
-    res=$?
-    if [[ ${res} -ne 0 ]]; then
-        exit 255
+    EXIT_STATUS="$?"
+    if [[ "$EXIT_STATUS" != '0' ]]; then
+        exit $EXIT_STATUS
     fi
 }
 
