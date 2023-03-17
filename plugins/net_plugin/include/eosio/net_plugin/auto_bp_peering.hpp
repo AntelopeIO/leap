@@ -75,12 +75,12 @@ class bp_connection_manager {
 
       flat_set<account_name> downstream_neighbors() const {
          chain::flat_set<account_name> result;
-         for (int i = 0; i < proximity_count; ++i) { add_neighbors_with_distance(result, i + 1); }
+         for (std::size_t i = 0; i < proximity_count; ++i) { add_neighbors_with_distance(result, i + 1); }
          return result;
       }
 
       void add_upstream_neighbors(chain::flat_set<account_name>& result) const {
-         for (int i = 0; i < proximity_count; ++i) { add_neighbors_with_distance(result, -1 - i); }
+         for (std::size_t i = 0; i < proximity_count; ++i) { add_neighbors_with_distance(result, -1 - i); }
       }
 
       flat_set<account_name> neighbors() const {
