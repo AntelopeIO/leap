@@ -1,8 +1,8 @@
 #!/bin/bash
 set -eo pipefail
-
-echo "Leap Pinned Build"
-
+echo
+echo 'Leap Pinned Build'
+echo
 if [[ "$(uname)" == "Linux" ]]; then
     if [[ -e /etc/os-release ]]; then
         # obtain NAME and other information
@@ -118,6 +118,9 @@ install_clang() {
         mv clang+*/* .
         popdir "${DEP_DIR}"
         rm "${CLANG_FN}"
+        echo 'Done installing Clang.'
+    else
+        echo "Found existing Clang installation at \"${CLANG_DIR}\"."
     fi
     export PATH="${CLANG_DIR}/bin:$PATH"
     export CLANG_DIR="${CLANG_DIR}"
@@ -140,6 +143,9 @@ install_llvm() {
         popdir "${DEP_DIR}"
         rm -rf "${LLVM_DIR}.src"
         rm "llvm-${LLVM_VER}.src.tar.xz"
+        echo 'Done installing LLVM.'
+    else
+        echo "Found existing LLVM installation at \"${LLVM_DIR}\"."
     fi
     export LLVM_DIR="${LLVM_DIR}"
 }
@@ -158,6 +164,9 @@ install_boost() {
         ./b2 toolset=clang cxxflags="-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I\${CLANG_DIR}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE" linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -q -j "${JOBS}" install
         popdir "${DEP_DIR}"
         rm "boost_${BOOST_VER//\./_}.tar.gz"
+        echo 'Done installing Boost.'
+    else
+        echo "Found existing Boost installation at \"${BOOST_DIR}\"."
     fi
     export BOOST_DIR="${BOOST_DIR}"
 }
@@ -172,11 +181,10 @@ install_boost "${DEP_DIR}/boost_${BOOST_VER//\./_}patched"
 
 # go back to the directory where the script starts
 popdir "${START_DIR}"
-
+echo 'Building Leap.'
 pushdir "${LEAP_DIR}"
 
 # build Leap
-echo "Building Leap ${SCRIPT_DIR}"
 try cmake -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX=/usr/local -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${LLVM_DIR}/lib/cmake" -DCMAKE_PREFIX_PATH="${BOOST_DIR}/bin" "${SCRIPT_DIR}/.."
 
 try make -j "${JOBS}"
