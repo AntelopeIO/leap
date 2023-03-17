@@ -107,9 +107,9 @@ If you are in an Ubuntu docker container, omit `sudo` from all commands because 
 
 #### Pinned Build
 Make sure you are in the root of the `leap` repo, then run the pinned build script. You have to give it three arguments in the following order:
-  - A temporary folder, for all dependencies that need to be built from source.
-  - A build folder, where the binaries you need to install will be built to.
-  - The number of jobs or CPU cores/threads to use (note the [jobs flag](#step-3---build) warning above).
+1. A temporary folder, for all dependencies that need to be built from source.
+1. A build folder, where the binaries you need to install will be built to.
+1. The number of jobs or CPU cores/threads to use (note the [jobs flag](#step-3---build) warning above).
 
 > You do not need to run this script with `sudo` or as root, but this script will invoke aptidue at the beginning on Debian-family operating systems like Ubuntu to install dependencies. You may be prompted for your password by `sudo` if your system has it and aptitude needs additional permissions.
 
