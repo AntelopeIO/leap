@@ -68,7 +68,7 @@ install_dependencies() {
     if [[ "$(uname)" == 'Linux' && -f /etc/debian_version ]]; then
         apt-get update
         apt-get update --fix-missing
-        DEBIAN_FRONTEND='noninteractive'
+        export DEBIAN_FRONTEND='noninteractive'
         TZ='Etc/UTC'
         apt-get install -y tzdata
         apt-get install -y \
