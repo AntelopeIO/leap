@@ -146,11 +146,9 @@ To build, make sure you are in the root of the `leap` repo, then run the followi
 ```bash
 mkdir -p build
 cd build
-cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
 make -j "$(nproc)" package
 ```
-
-If CMake fails to find a valid llvm configure file, it may be necessary to add `-DCMAKE_PREFIX_PATH=/usr/lib/llvm-11` to the cmake command.
 </details>
 
 <details> <summary>Ubuntu 18.04 Bionic</summary>
