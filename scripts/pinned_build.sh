@@ -64,6 +64,36 @@ try(){
     fi
 }
 
+install_dependencies() {
+    if [[ "$(uname)" == 'Linux' && -f /etc/debian_version ]]; then
+        apt-get update
+        apt-get update --fix-missing
+        DEBIAN_FRONTEND='noninteractive'
+        TZ='Etc/UTC'
+        apt-get install -y tzdata
+        apt-get install -y \
+            build-essential \
+            bzip2 \
+            cmake \
+            curl \
+            file \
+            git \
+            libbz2-dev \
+            libgmp-dev \
+            libncurses5 \
+            libssl-dev \
+            libtinfo-dev \
+            libzstd-dev \
+            python3 \
+            python3-numpy \
+            time \
+            unzip \
+            wget \
+            zip \
+            zlib1g-dev
+    fi
+}
+
 install_clang() {
     CLANG_DIR="$1"
     if [ ! -d "${CLANG_DIR}" ]; then
@@ -117,6 +147,8 @@ install_boost() {
     fi
     export BOOST_DIR="${BOOST_DIR}"
 }
+
+install_dependencies
 
 pushdir "${DEP_DIR}"
 
