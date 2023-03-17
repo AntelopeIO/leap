@@ -70,6 +70,7 @@ public:
          }
       };    
 
+      std::vector<uint32_t> unschedule_snapshot_request_ids;
       for(const auto& req: _snapshot_requests.get<0>()) {
          // -1 since its called from start block
          bool recurring_snapshot =  req.block_spacing &&  (height >= req.start_block_num + 1) && (!((height - req.start_block_num - 1) % req.block_spacing));
@@ -94,8 +95,12 @@ public:
          if((!req.start_block_num && !req.block_spacing) ||         
             (!req.block_spacing && height >= (req.start_block_num + 1)) || 
             (req.end_block_num > 0 && height >= (req.end_block_num + 1))) {
-            unschedule_snapshot(req.snapshot_request_id);
+            unschedule_snapshot_request_ids.push_back(req.snapshot_request_id);
          }
+      }
+
+      for( const auto& i : unschedule_snapshot_request_ids ) {
+         unschedule_snapshot(i);
       }
 
       // store db to filesystem
