@@ -181,5 +181,5 @@ find the packages at:
 TXT
 echo "${LEAP_DIR}"
 echo
-echo 'Enjoy!!'
+echo 'Thank you, fam!!'
 echo
