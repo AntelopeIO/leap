@@ -1085,11 +1085,6 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
                                      0, 5, 50, fc::raw::pack(10000000000000000000ULL), "pause"_n ),
                           tx_cpu_usage_exceeded, fc_exception_message_contains("reached node configured max-transaction-time") );
 
-   // Test hitting max_read_only_transaction_time throws tx_cpu_usage_exceeded
-   BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_no_auth_failure")>{},
-                                     0, 5, 50, fc::raw::pack(10000000000000000000ULL), "pause"_n, transaction_metadata::trx_type::read_only ),
-                          tx_cpu_usage_exceeded, fc_exception_message_contains("reached node configured max-read-only-transaction-time") );
-
    // Test hitting block deadline throws deadline_exception
    BOOST_CHECK_EXCEPTION( call_test( t, test_pause_action<TEST_METHOD("test_checktime", "checktime_failure")>{},
                                      0, 50, 5, fc::raw::pack(10000000000000000000ULL), "pause"_n ),

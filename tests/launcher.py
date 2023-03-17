@@ -5,12 +5,14 @@ import datetime
 from dataclasses import InitVar, dataclass, field, is_dataclass, asdict
 from enum import Enum
 import errno
+import glob
 import json
 from pathlib import Path
 import os
 import math
 import platform
 import shlex
+import shutil
 import select
 import signal
 import string
@@ -681,3 +683,5 @@ if __name__ == '__main__':
         l.bounce(l.args.bounce)
     elif l.args.launch == 'all' or l.args.launch == 'local':
         l.start_all()
+    for f in glob.glob(Utils.DataPath):
+        shutil.rmtree(f)

@@ -54,6 +54,7 @@ namespace eosio { namespace chain {
          void reset( const chain_id_type& chain_id, uint32_t first_block_num );
 
          signed_block_ptr read_block_by_num(uint32_t block_num)const;
+         std::optional<signed_block_header> read_block_header_by_num(uint32_t block_num)const;
          block_id_type    read_block_id_by_num(uint32_t block_num)const;
 
          signed_block_ptr read_block_by_id(const block_id_type& id)const {
@@ -95,7 +96,7 @@ namespace eosio { namespace chain {
 
          static bool is_pruned_log(const fc::path& data_dir);
 
-         static bool extract_block_range(const fc::path& block_dir, const fc::path&output_dir, block_num_type& start, block_num_type& end, bool rename_input=false);
+         static void extract_block_range(const fc::path& block_dir, const fc::path&output_dir, block_num_type start, block_num_type end);
 
          static bool trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir, uint32_t truncate_at_block);
          static int  trim_blocklog_end(const fc::path& block_dir, uint32_t n);
@@ -110,8 +111,6 @@ namespace eosio { namespace chain {
           */
          static void smoke_test(const fc::path& block_dir, uint32_t n);
 
-         static void extract_blocklog(const fc::path& log_filename, const fc::path& index_filename,
-                                      const fc::path& dest_dir, uint32_t start_block, uint32_t num_blocks);
          static void split_blocklog(const fc::path& block_dir, const fc::path& dest_dir, uint32_t stride);
          static void merge_blocklogs(const fc::path& block_dir, const fc::path& dest_dir);
    private:

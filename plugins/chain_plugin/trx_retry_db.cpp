@@ -4,7 +4,7 @@
 #include <eosio/chain/contract_types.hpp>
 #include <eosio/chain/controller.hpp>
 
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/chain/plugin_interface.hpp>
 
 #include <fc/container/tracked_storage.hpp>

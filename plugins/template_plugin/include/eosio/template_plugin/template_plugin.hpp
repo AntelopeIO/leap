@@ -1,5 +1,5 @@
 #pragma once
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 
 namespace eosio {
 

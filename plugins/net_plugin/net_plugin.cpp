@@ -3159,6 +3159,7 @@ namespace eosio {
       return trx->get_estimated_size();
    }
 
+   // called from connection strand
    void connection::handle_message( packed_transaction_ptr trx ) {
       const auto& tid = trx->id();
       peer_dlog( this, "received packed_transaction ${id}", ("id", tid) );
@@ -3233,7 +3234,7 @@ namespace eosio {
             my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
          }
 
-         app().post(priority::medium, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
+         app().executor().post(priority::medium, exec_queue::general, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
             c->process_signed_block( id, std::move(ptr), std::move(bsp) );
          });
 
@@ -3865,7 +3866,7 @@ namespace eosio {
       my->incoming_transaction_ack_subscription = app().get_channel<compat::channels::transaction_ack>().subscribe(
             std::bind(&net_plugin_impl::transaction_ack, my.get(), std::placeholders::_1));
 
-      app().post(priority::highest, [my=my, listen_endpoint](){
+      app().executor().post(priority::highest, [my=my, listen_endpoint](){
          if( my->acceptor ) {
             try {
                my->acceptor->open(listen_endpoint.protocol());
@@ -3905,9 +3906,8 @@ namespace eosio {
       try {
          fc_ilog( logger, "shutdown.." );
 
-         my->plugin_shutdown();
-
-         app().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
+         my->plugin_shutdown();   
+         app().executor().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
          fc_ilog( logger, "exit shutdown" );
       }
       FC_CAPTURE_AND_RETHROW()

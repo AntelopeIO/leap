@@ -2,7 +2,8 @@
 
 import random
 
-from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr
+from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # send_read_only_transaction_tests
@@ -15,9 +16,14 @@ from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletM
 Print=Utils.Print
 errorExit=Utils.errorExit
 
+appArgs=AppArgs()
+appArgs.add(flag="--read-only-threads", type=int, help="number of read-only threads", default=0)
+appArgs.add_bool(flag="--eos-vm-oc-enable", help="enable eos-vm-oc")
+appArgs.add(flag="--wasm-runtime", type=str, help="if set to eos-vm-oc, must compile with EOSIO_EOS_VM_OC_DEVELOPER", default="eos-vm-jit")
+
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed"
                             ,"--dump-error-details","-v","--leave-running"
-                            ,"--clean-run","--keep-logs","--unshared"})
+                            ,"--clean-run","--keep-logs","--unshared"}, applicationSpecificArgs=appArgs)
 
 pnodes=args.p
 topo=args.s

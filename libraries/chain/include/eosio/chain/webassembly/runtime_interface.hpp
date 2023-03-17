@@ -27,6 +27,9 @@ class wasm_runtime_interface {
       virtual void immediately_exit_currently_running_module() = 0;
 
       virtual ~wasm_runtime_interface();
+
+      // eosvmoc_runtime needs this
+      virtual void init_thread_local_data() {};
 };
 
 }}
