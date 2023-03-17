@@ -19,7 +19,7 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args=TestHelper.parse_args({"--keep-logs" ,"--dump-error-details","-v","--leave-running","--clean-run" })
+args=TestHelper.parse_args({"--keep-logs" ,"--dump-error-details","-v","--leave-running","--clean-run","--unshared" })
 debug=args.v
 killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
@@ -31,7 +31,7 @@ Utils.Debug=debug
 testSuccessful=False
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 walletMgr=WalletMgr(True)
 
 # the first  node for --block-log-retain-blocks 0,

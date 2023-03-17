@@ -8,32 +8,23 @@ import json
 import signal
 import sys
 
-import urllib.request
-import urllib.parse
-import urllib.error
-
 from datetime import datetime
 from datetime import timedelta
 from core_symbol import CORE_SYMBOL
+from .queries import NodeosQueries, BlockType
+from .transactions import Transactions
 from .testUtils import Utils
 from .testUtils import Account
-from .testUtils import EnumType
-from .testUtils import addEnum
 from .testUtils import unhandledEnumType
 from .testUtils import ReturnType
 
-class BlockType(EnumType):
-    pass
-
-addEnum(BlockType, "head")
-addEnum(BlockType, "lib")
-
 # pylint: disable=too-many-public-methods
-class Node(object):
+class Node(Transactions):
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
     def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, nodeosVers=""):
+        super().__init__(host, port, walletMgr)
         self.host=host
         self.port=port
         self.pid=pid
@@ -43,25 +34,27 @@ class Node(object):
         self.nodeId=nodeId
         if Utils.Debug: Utils.Print("new Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
         self.killed=False # marks node as killed
-        self.endpointHttp="http://%s:%d" % (self.host, self.port)
-        self.endpointArgs="--url %s" % (self.endpointHttp)
         self.infoValid=None
         self.lastRetrievedHeadBlockNum=None
         self.lastRetrievedLIB=None
         self.lastRetrievedHeadBlockProducer=""
         self.transCache={}
-        self.walletMgr=walletMgr
         self.missingTransaction=False
         self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
         self.nodeosVers=nodeosVers
-        if self.nodeosVers=="v2":
+        self.configureVersion()
+
+    def configureVersion(self):
+        if 'v2' in self.nodeosVers:
             self.fetchTransactionCommand = lambda: "get transaction"
             self.fetchTransactionFromTrace = lambda trx: trx['trx']['id']
             self.fetchBlock = lambda blockNum: self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
             self.fetchKeyCommand = lambda: "[trx][trx][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["trx"]["trx"]["ref_block_num"]
             self.cleosLimit = ""
+            self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":headBlock}, silentErrors=False, exitOnError=True)
+
         else:
             self.fetchTransactionCommand = lambda: "get transaction_trace"
             self.fetchTransactionFromTrace = lambda trx: trx['id']
@@ -69,118 +62,15 @@ class Node(object):
             self.fetchKeyCommand = lambda: "[transaction][transaction_header][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["transaction_header"]["ref_block_num"]
             self.cleosLimit = "--time-limit 99999"
-
-    def eosClientArgs(self):
-        walletArgs=" " + self.walletMgr.getWalletEndpointArgs() if self.walletMgr is not None else ""
-        return self.endpointArgs + walletArgs + " " + Utils.MiscEosClientArgs
+            self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
 
     def __str__(self):
         return "Host: %s, Port:%d, NodeNum:%s, Pid:%s" % (self.host, self.port, self.nodeId, self.pid)
 
     @staticmethod
-    def validateTransaction(trans):
-        assert trans
-        assert isinstance(trans, dict), f"Input type is {type(trans)}"
-
-        executed="executed"
-
-        transStatus=Node.getTransStatus(trans)
-        assert transStatus == executed, f"ERROR: Valid transaction should be '{executed}' but it was '{transStatus}'.\nTransaction: {json.dumps(trans, indent=1)}"
-
-    @staticmethod
     def __printTransStructureError(trans, context):
         Utils.Print("ERROR: Failure in expected transaction structure. Missing trans%s." % (context))
         Utils.Print("Transaction: %s" % (json.dumps(trans, indent=1)))
-
-    class Context:
-        def __init__(self, obj, desc):
-            self.obj=obj
-            self.sections=[obj]
-            self.keyContext=[]
-            self.desc=desc
-
-        def __json(self):
-            return "%s=\n%s" % (self.desc, json.dumps(self.obj, indent=1))
-
-        def __keyContext(self):
-            msg=""
-            for key in self.keyContext:
-                if msg=="":
-                    msg="["
-                else:
-                    msg+="]["
-                msg+=key
-            if msg!="":
-                msg+="]"
-            return msg
-
-        def __contextDesc(self):
-            return "%s%s" % (self.desc, self.__keyContext())
-
-        def hasKey(self, newKey, subSection = None):
-            assert isinstance(newKey, str), f"ERROR: Trying to use {newKey} as a key"
-            if subSection is None:
-                subSection=self.sections[-1]
-            assert isinstance(subSection, dict), f"ERROR: Calling 'hasKey' method when context is not a dictionary. {self.__contextDesc()} in {self.__json()}"
-            return newKey in subSection
-
-        def isSectionNull(self, key, subSection = None):
-            assert isinstance(key, str), f"ERROR: Trying to use {key} as a key"
-            if subSection is None:
-                subSection=self.sections[-1]
-            assert isinstance(subSection, dict), f"ERROR: Calling 'isSectionNull' method when context is not a dictionary. {self.__contextDesc()} in {self.__json()}"
-            return subSection[key] == None
-
-        def add(self, newKey):
-            subSection=self.sections[-1]
-            assert self.hasKey(newKey, subSection), f"ERROR: {self.__contextDesc()} does not contain key '{newKey}'. {self.__json()}"
-            current=subSection[newKey]
-            self.sections.append(current)
-            self.keyContext.append(newKey)
-            return current
-
-        def index(self, i):
-            assert isinstance(i, int), f"ERROR: Trying to use {i} as a list index"
-            cur=self.getCurrent()
-            assert isinstance(cur, list), f"ERROR: Calling 'index' method when context is not a list.  {self.__contextDesc()} in {self.__json()}"
-            listLen=len(cur)
-            assert i < listLen, f"ERROR: Index {i} is beyond the size of the current list ({listLen}).  {self.__contextDesc()} in {self.__json()}"
-            return self.sections.append(cur[i])
-
-        def getCurrent(self):
-            return self.sections[-1]
-
-    @staticmethod
-    def getTransStatus(trans):
-        cntxt=Node.Context(trans, "trans")
-        # could be a transaction response
-        if cntxt.hasKey("processed"):
-            cntxt.add("processed")
-            if not cntxt.isSectionNull("except"):
-                return "exception"
-            cntxt.add("receipt")
-            return cntxt.add("status")
-
-        # or what the history plugin returns
-        cntxt.add("trx")
-        cntxt.add("receipt")
-        return cntxt.add("status")
-
-    @staticmethod
-    def getTransBlockNum(trans):
-        cntxt=Node.Context(trans, "trans")
-        # could be a transaction response
-        if cntxt.hasKey("processed"):
-            cntxt.add("processed")
-            if not cntxt.isSectionNull("except"):
-                return "no_block"
-            cntxt.add("action_traces")
-            cntxt.index(0)
-            return cntxt.add("block_num")
-
-        # or what the trace api plugin returns
-        return cntxt.add("block_num")
-
 
     @staticmethod
     def stdinAndCheckOutput(cmd, subcommand):
@@ -212,24 +102,6 @@ class Node(object):
         return tmpStr
 
     @staticmethod
-    def getTransId(trans):
-        """Retrieve transaction id from dictionary object."""
-        assert trans
-        assert isinstance(trans, dict), f"Input type is {type(trans)}"
-
-        assert "transaction_id" in trans, f"trans does not contain key 'transaction_id'. trans={json.dumps(trans, indent=2, sort_keys=True)}"
-        transId=trans["transaction_id"]
-        return transId
-
-    @staticmethod
-    def isTrans(obj):
-        """Identify if this is a transaction dictionary."""
-        if obj is None or not isinstance(obj, dict):
-            return False
-
-        return True if "transaction_id" in obj else False
-
-    @staticmethod
     def byteArrToStr(arr):
         return arr.decode("utf-8")
 
@@ -248,262 +120,8 @@ class Node(object):
                 Utils.Print("account validation failed. account: %s" % (account.name))
                 raise
 
-    # pylint: disable=too-many-branches
-    def getBlock(self, blockNum, silentErrors=False, exitOnError=False):
-        """Given a blockId will return block details."""
-        assert(isinstance(blockNum, int))
-        cmdDesc="get block"
-        cmd="%s %d" % (cmdDesc, blockNum)
-        msg="(block number=%s)" % (blockNum);
-        return self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
-
-    def isBlockPresent(self, blockNum, blockType=BlockType.head):
-        """Does node have head_block_num/last_irreversible_block_num >= blockNum"""
-        assert isinstance(blockNum, int)
-        assert isinstance(blockType, BlockType)
-        assert (blockNum > 0)
-
-        info=self.getInfo(silentErrors=True, exitOnError=True)
-        node_block_num=0
-        try:
-            if blockType==BlockType.head:
-                node_block_num=int(info["head_block_num"])
-            elif blockType==BlockType.lib:
-                node_block_num=int(info["last_irreversible_block_num"])
-            else:
-                unhandledEnumType(blockType)
-
-        except (TypeError, KeyError) as _:
-            Utils.Print("Failure in get info parsing %s block. %s" % (blockType.type, info))
-            raise
-
-        present = True if blockNum <= node_block_num else False
-        if Utils.Debug and blockType==BlockType.lib:
-            decorator=""
-            if not present:
-                decorator="not "
-            Utils.Print("Block %d is %sfinalized." % (blockNum, decorator))
-
-        return present
-
-    def isBlockFinalized(self, blockNum):
-        """Is blockNum finalized"""
-        return self.isBlockPresent(blockNum, blockType=BlockType.lib)
-
-    # pylint: disable=too-many-branches
-    def getTransaction(self, transId, silentErrors=False, exitOnError=False, delayedRetry=True):
-        assert(isinstance(transId, str))
-        exitOnErrorForDelayed=not delayedRetry and exitOnError
-        timeout=3
-        cmdDesc=self.fetchTransactionCommand()
-        cmd="%s %s" % (cmdDesc, transId)
-        msg="(transaction id=%s)" % (transId);
-        for i in range(0,(int(60/timeout) - 1)):
-            trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=True, exitOnError=exitOnErrorForDelayed, exitMsg=msg)
-            if trans is not None or not delayedRetry:
-                return trans
-            if Utils.Debug: Utils.Print("Could not find transaction with id %s, delay and retry" % (transId))
-            time.sleep(timeout)
-
-        self.missingTransaction=True
-        # either it is there or the transaction has timed out
-        return self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
-
-    def isTransInBlock(self, transId, blockId):
-        """Check if transId is within block identified by blockId"""
-        assert(transId)
-        assert(isinstance(transId, str))
-        assert(blockId)
-        assert(isinstance(blockId, int))
-
-        block=self.getBlock(blockId, exitOnError=True)
-
-        transactions=None
-        key=""
-        try:
-            key="[transactions]"
-            transactions=block["transactions"]
-        except (AssertionError, TypeError, KeyError) as _:
-            Utils.Print("block%s not found. Block: %s" % (key,block))
-            raise
-
-        if transactions is not None:
-            for trans in transactions:
-                assert(trans)
-                try:
-                    myTransId=trans["trx"]["id"]
-                    if transId == myTransId:
-                        return True
-                except (TypeError, KeyError) as _:
-                    Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
-
-        return False
-
-    def getBlockNumByTransId(self, transId, exitOnError=True, delayedRetry=True, blocksAhead=5):
-        """Given a transaction Id (string), return the block number (int) containing the transaction"""
-        assert(transId)
-        assert(isinstance(transId, str))
-        trans=self.getTransaction(transId, exitOnError=exitOnError, delayedRetry=delayedRetry)
-
-        refBlockNum=None
-        key=""
-        try:
-            key = self.fetchKeyCommand()
-            refBlockNum = self.fetchRefBlock(trans)
-            refBlockNum=int(refBlockNum)+1
-        except (TypeError, ValueError, KeyError) as _:
-            Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
-            return None
-
-        headBlockNum=self.getHeadBlockNum()
-        assert(headBlockNum)
-        try:
-            headBlockNum=int(headBlockNum)
-        except ValueError:
-            Utils.Print("ERROR: Block info parsing failed. %s" % (headBlockNum))
-            raise
-
-        if Utils.Debug: Utils.Print("Reference block num %d, Head block num: %d" % (refBlockNum, headBlockNum))
-        for blockNum in range(refBlockNum, headBlockNum + blocksAhead):
-            self.waitForBlock(blockNum)
-            if self.isTransInBlock(str(transId), blockNum):
-                if Utils.Debug: Utils.Print("Found transaction %s in block %d" % (transId, blockNum))
-                return blockNum
-
-        return None
-
-    def isTransInAnyBlock(self, transId):
-        """Check if transaction (transId) is in a block."""
-        assert(transId)
-        assert(isinstance(transId, (str,int)))
-        blockId=self.getBlockNumByTransId(transId)
-        return True if blockId else False
-
-    def isTransFinalized(self, transId):
-        """Check if transaction (transId) has been finalized."""
-        assert(transId)
-        assert(isinstance(transId, str))
-        blockNum=self.getBlockNumByTransId(transId)
-        if not blockNum:
-            return False
-
-        assert(isinstance(blockNum, int))
-        return self.isBlockPresent(blockNum, blockType=BlockType.lib)
-
-
-    # Create & initialize account and return creation transactions. Return transaction json object
-    def createInitializeAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, stakeNet=100, stakeCPU=100, buyRAM=10000, exitOnError=False, sign=False, additionalArgs=''):
-        signStr = Node.__sign_str(sign, [ creatorAccount.activePublicKey ])
-        cmdDesc="system newaccount"
-        cmd='%s -j %s %s %s \'%s\' \'%s\' --stake-net "%s %s" --stake-cpu "%s %s" --buy-ram "%s %s" %s' % (
-            cmdDesc, signStr, creatorAccount.name, account.name, account.ownerPublicKey,
-            account.activePublicKey, stakeNet, CORE_SYMBOL, stakeCPU, CORE_SYMBOL, buyRAM, CORE_SYMBOL, additionalArgs)
-        msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError, exitMsg=msg)
-        self.trackCmdTransaction(trans)
-        transId=Node.getTransId(trans)
-
-        if stakedDeposit > 0:
-            self.waitForTransactionInBlock(transId) # seems like account creation needs to be finalized before transfer can happen
-            trans = self.transferFunds(creatorAccount, account, Node.currencyIntToStr(stakedDeposit, CORE_SYMBOL), "init")
-            transId=Node.getTransId(trans)
-
-        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
-
-    def createAccount(self, account, creatorAccount, stakedDeposit=1000, waitForTransBlock=False, exitOnError=False, sign=False):
-        """Create account and return creation transactions. Return transaction json object.
-        waitForTransBlock: wait on creation transaction id to appear in a block."""
-        signStr = Node.__sign_str(sign, [ creatorAccount.activePublicKey ])
-        cmdDesc="create account"
-        cmd="%s -j %s %s %s %s %s" % (
-            cmdDesc, signStr, creatorAccount.name, account.name, account.ownerPublicKey, account.activePublicKey)
-        msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError, exitMsg=msg)
-        self.trackCmdTransaction(trans)
-        transId=Node.getTransId(trans)
-
-        if stakedDeposit > 0:
-            self.waitForTransactionInBlock(transId) # seems like account creation needs to be finlized before transfer can happen
-            trans = self.transferFunds(creatorAccount, account, "%0.04f %s" % (stakedDeposit/10000, CORE_SYMBOL), "init")
-            self.trackCmdTransaction(trans)
-            transId=Node.getTransId(trans)
-
-        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
-
-    def getEosAccount(self, name, exitOnError=False, returnType=ReturnType.json):
-        assert(isinstance(name, str))
-        cmdDesc="get account"
-        jsonFlag="-j" if returnType==ReturnType.json else ""
-        cmd="%s %s %s" % (cmdDesc, jsonFlag, name)
-        msg="( getEosAccount(name=%s) )" % (name);
-        return self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError, exitMsg=msg, returnType=returnType)
-
-    def getTable(self, contract, scope, table, exitOnError=False):
-        cmdDesc = "get table"
-        cmd="%s %s %s %s %s" % (cmdDesc, self.cleosLimit, contract, scope, table)
-        msg="contract=%s, scope=%s, table=%s" % (contract, scope, table);
-        return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
-
-    def getTableAccountBalance(self, contract, scope):
-        assert(isinstance(contract, str))
-        assert(isinstance(scope, str))
-        table="accounts"
-        trans = self.getTable(contract, scope, table, exitOnError=True)
-        try:
-            return trans["rows"][0]["balance"]
-        except (TypeError, KeyError) as _:
-            print("transaction[rows][0][balance] not found. Transaction: %s" % (trans))
-            raise
-
-    def getCurrencyBalance(self, contract, account, symbol=CORE_SYMBOL, exitOnError=False):
-        """returns raw output from get currency balance e.g. '99999.9950 CUR'"""
-        assert(contract)
-        assert(isinstance(contract, str))
-        assert(account)
-        assert(isinstance(account, str))
-        assert(symbol)
-        assert(isinstance(symbol, str))
-        cmdDesc = "get currency balance"
-        cmd="%s %s %s %s" % (cmdDesc, contract, account, symbol)
-        msg="contract=%s, account=%s, symbol=%s" % (contract, account, symbol);
-        return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg, returnType=ReturnType.raw)
-
-    def getCurrencyStats(self, contract, symbol=CORE_SYMBOL, exitOnError=False):
-        """returns Json output from get currency stats."""
-        assert(contract)
-        assert(isinstance(contract, str))
-        assert(symbol)
-        assert(isinstance(symbol, str))
-        cmdDesc = "get currency stats"
-        cmd="%s %s %s" % (cmdDesc, contract, symbol)
-        msg="contract=%s, symbol=%s" % (contract, symbol);
-        return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
-
-    # Verifies account. Returns "get account" json return object
-    def verifyAccount(self, account):
-        assert(account)
-        ret = self.getEosAccount(account.name)
-        if ret is not None:
-            account_name = ret["account_name"]
-            if account_name is None:
-                Utils.Print("ERROR: Failed to verify account creation.", account.name)
-                return None
-            return ret
-
-    def verifyAccountMdb(self, account):
-        assert(account)
-        ret=self.getEosAccountFromDb(account.name)
-        if ret is not None:
-            account_name=ret["name"]
-            if account_name is None:
-                Utils.Print("ERROR: Failed to verify account creation.", account.name)
-                return None
-            return ret
-
-        return None
-
     def waitForTransactionInBlock(self, transId, timeout=None):
-        """Wait for trans id to be finalized."""
+        """Wait for trans id to appear in a block."""
         assert(isinstance(transId, str))
         lam = lambda: self.isTransInAnyBlock(transId)
         ret=Utils.waitForBool(lam, timeout)
@@ -536,8 +154,10 @@ class Node(object):
         return transIds
 
     def waitForTransactionsInBlock(self, transIds, timeout=None):
+        status = True
         for transId in transIds:
-            self.waitForTransactionInBlock(transId, timeout)
+            status &= self.waitForTransactionInBlock(transId, timeout)
+        return status
 
     def waitForTransFinalization(self, transId, timeout=None):
         """Wait for trans id to be finalized."""
@@ -576,491 +196,43 @@ class Node(object):
     def waitForIrreversibleBlock(self, blockNum, timeout=None, reportInterval=None):
         return self.waitForBlock(blockNum, timeout=timeout, blockType=BlockType.lib, reportInterval=reportInterval)
 
-    def __transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign):
-        assert isinstance(amountStr, str)
-        assert(source)
-        assert(isinstance(source, Account))
-        assert(destination)
-        assert(isinstance(destination, Account))
-        assert(expiration is None or isinstance(expiration, int))
-
-        dontSendStr = ""
-        if dontSend:
-            dontSendStr = "--dont-broadcast "
-            if expiration is None:
-                # default transaction expiration to be 4 minutes in the future
-                expiration = 240
-
-        expirationStr = ""
-        if expiration is not None:
-            expirationStr = "--expiration %d " % (expiration)
-
-        cmd="%s %s -v transfer %s -j %s %s" % (
-            Utils.EosClientPath, self.eosClientArgs(), self.getRetryCmdArg(retry), dontSendStr, expirationStr)
-        cmdArr=cmd.split()
-        # not using __sign_str, since cmdArr messes up the string
-        if sign:
-            cmdArr.append("--sign-with")
-            cmdArr.append("[ \"%s\" ]" % (source.activePublicKey))
-
-        if skipSign:
-            cmdArr.append("--skip-sign")
-
-        cmdArr.append(source.name)
-        cmdArr.append(destination.name)
-        cmdArr.append(amountStr)
-        cmdArr.append(memo)
-        if force:
-            cmdArr.append("-f")
-        s=" ".join(cmdArr)
-        if Utils.Debug: Utils.Print("cmd: %s" % (s))
-        return cmdArr
-
-    # Trasfer funds. Returns "transfer" json return object
-    def transferFunds(self, source, destination, amountStr, memo="memo", force=False, waitForTransBlock=False, exitOnError=True, reportStatus=True, retry=None, sign=False, dontSend=False, expiration=90, skipSign=False):
-        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign)
-        trans=None
-        start=time.perf_counter()
-        try:
-            trans=Utils.runCmdArrReturnJson(cmdArr)
-            if Utils.Debug:
-                end=time.perf_counter()
-                Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            if not dontSend:
-                self.trackCmdTransaction(trans, reportStatus=reportStatus)
-        except subprocess.CalledProcessError as ex:
-            end=time.perf_counter()
-            msg=ex.stderr.decode("utf-8")
-            Utils.Print("ERROR: Exception during funds transfer.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
+    def waitForTransBlockIfNeeded(self, trans, waitForTransBlock, exitOnError=False):
+        if not waitForTransBlock:
+            return trans
+        transId=NodeosQueries.getTransId(trans)
+        if not self.waitForTransactionInBlock(transId):
             if exitOnError:
-                Utils.cmdError("could not transfer \"%s\" from %s to %s" % (amountStr, source, destination))
-                Utils.errorExit("Failed to transfer \"%s\" from %s to %s" % (amountStr, source, destination))
+                Utils.cmdError("transaction with id %s never made it into a block" % (transId))
+                Utils.errorExit("Failed to find transaction with id %s in a block before timeout" % (transId))
             return None
-
-        if trans is None:
-            Utils.cmdError("could not transfer \"%s\" from %s to %s" % (amountStr, source, destination))
-            Utils.errorExit("Failed to transfer \"%s\" from %s to %s" % (amountStr, source, destination))
-
-        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
-
-    # Trasfer funds. Returns (popen, cmdArr) for checkDelayedOutput
-    def transferFundsAsync(self, source, destination, amountStr, memo="memo", force=False, exitOnError=True, retry=None, sign=False, dontSend=False, expiration=90, skipSign=False):
-        cmdArr = self.__transferFundsCmdArr(source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign)
-        start=time.perf_counter()
-        try:
-            popen=Utils.delayedCheckOutput(cmdArr)
-            if Utils.Debug:
-                end=time.perf_counter()
-                Utils.Print("cmd Duration: %.3f sec" % (end-start))
-        except subprocess.CalledProcessError as ex:
-            end=time.perf_counter()
-            msg=ex.stderr.decode("utf-8")
-            Utils.Print("ERROR: Exception during spawn of funds transfer.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
-            if exitOnError:
-                Utils.cmdError("could not transfer \"%s\" from %s to %s" % (amountStr, source, destination))
-                Utils.errorExit("Failed to transfer \"%s\" from %s to %s" % (amountStr, source, destination))
-            return None, None
-
-        return popen, cmdArr
-
-    @staticmethod
-    def getRetryCmdArg(retry):
-        """Returns the cleos cmd arg for retry"""
-        assert retry is None or isinstance(retry, int) or (isinstance(retry, str) and retry == "lib"), "Invalid retry passed"
-        cmdRetry = ""
-        if retry is not None:
-            if retry == "lib":
-                cmdRetry = "--retry-irreversible"
-            else:
-                cmdRetry = "--retry-num-blocks %s" % retry
-        return cmdRetry
-
-    @staticmethod
-    def currencyStrToInt(balanceStr):
-        """Converts currency string of form "12.3456 SYS" to int 123456"""
-        assert(isinstance(balanceStr, str))
-        balanceStr=balanceStr.split()[0]
-        #balance=int(decimal.Decimal(balanceStr[1:])*10000)
-        balance=int(decimal.Decimal(balanceStr)*10000)
-
-        return balance
-
-    @staticmethod
-    def currencyIntToStr(balance, symbol):
-        """Converts currency int of form 123456 to string "12.3456 SYS" where SYS is symbol string"""
-        assert(isinstance(balance, int))
-        assert(isinstance(symbol, str))
-        balanceStr="%.04f %s" % (balance/10000.0, symbol)
-
-        return balanceStr
-
-    def validateFunds(self, initialBalances, transferAmount, source, accounts):
-        """Validate each account has the expected SYS balance. Validate cumulative balance matches expectedTotal."""
-        assert(source)
-        assert(isinstance(source, Account))
-        assert(accounts)
-        assert(isinstance(accounts, list))
-        assert(len(accounts) > 0)
-        assert(initialBalances)
-        assert(isinstance(initialBalances, dict))
-        assert(isinstance(transferAmount, int))
-
-        currentBalances=self.getEosBalances([source] + accounts)
-        assert(currentBalances)
-        assert(isinstance(currentBalances, dict))
-        assert(len(initialBalances) == len(currentBalances))
-
-        if len(currentBalances) != len(initialBalances):
-            Utils.Print("ERROR: validateFunds> accounts length mismatch. Initial: %d, current: %d" % (len(initialBalances), len(currentBalances)))
-            return False
-
-        for key, value in currentBalances.items():
-            initialBalance = initialBalances[key]
-            assert(initialBalances)
-            expectedInitialBalance = value - transferAmount
-            if key is source:
-                expectedInitialBalance = value + (transferAmount*len(accounts))
-
-            if (initialBalance != expectedInitialBalance):
-                Utils.Print("ERROR: validateFunds> Expected: %d, actual: %d for account %s" %
-                            (expectedInitialBalance, initialBalance, key.name))
-                return False
-
-    def getEosBalances(self, accounts):
-        """Returns a dictionary with account balances keyed by accounts"""
-        assert(accounts)
-        assert(isinstance(accounts, list))
-
-        balances={}
-        for account in accounts:
-            balance = self.getAccountEosBalance(account.name)
-            balances[account]=balance
-
-        return balances
-
-    # Gets subjective bill info for an account
-    def getAccountSubjectiveInfo(self, account):
-        acct = self.getEosAccount(account)
-        return acct["subjective_cpu_bill_limit"]
-
-    # Gets accounts mapped to key. Returns json object
-    def getAccountsByKey(self, key, exitOnError=False):
-        cmdDesc = "get accounts"
-        cmd="%s %s" % (cmdDesc, key)
-        msg="key=%s" % (key);
-        return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
-
-    # Get actions mapped to an account (cleos get actions)
-    def getActions(self, account, pos=-1, offset=-1, exitOnError=False):
-        assert(isinstance(account, Account))
-        assert(isinstance(pos, int))
-        assert(isinstance(offset, int))
-
-        cmdDesc = "get actions"
-        cmd = "%s -j %s %d %d" % (cmdDesc, account.name, pos, offset)
-        msg = "account=%s, pos=%d, offset=%d" % (account.name, pos, offset);
-        return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
-
-    # Gets accounts mapped to key. Returns array
-    def getAccountsArrByKey(self, key):
-        trans=self.getAccountsByKey(key)
-        assert(trans)
-        assert("account_names" in trans)
-        accounts=trans["account_names"]
-        return accounts
-
-    def getServants(self, name, exitOnError=False):
-        cmdDesc = "get servants"
-        cmd="%s %s" % (cmdDesc, name)
-        msg="name=%s" % (name);
-        return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
-
-    def getServantsArr(self, name):
-        trans=self.getServants(name, exitOnError=True)
-        servants=trans["controlled_accounts"]
-        return servants
-
-    def getAccountEosBalanceStr(self, scope):
-        """Returns SYS currency0000 account balance from cleos get table command. Returned balance is string following syntax "98.0311 SYS". """
-        assert isinstance(scope, str)
-        amount=self.getTableAccountBalance("eosio.token", scope)
-        if Utils.Debug: Utils.Print("getNodeAccountEosBalance %s %s" % (scope, amount))
-        assert isinstance(amount, str)
-        return amount
-
-    def getAccountEosBalance(self, scope):
-        """Returns SYS currency0000 account balance from cleos get table command. Returned balance is an integer e.g. 980311. """
-        balanceStr=self.getAccountEosBalanceStr(scope)
-        balance=Node.currencyStrToInt(balanceStr)
-        return balance
-
-    def getAccountCodeHash(self, account):
-        cmd="%s %s get code %s" % (Utils.EosClientPath, self.eosClientArgs(), account)
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-        start=time.perf_counter()
-        try:
-            retStr=Utils.checkOutput(cmd.split())
-            if Utils.Debug:
-                end=time.perf_counter()
-                Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            #Utils.Print ("get code> %s"% retStr)
-            p=re.compile(r'code\shash: (\w+)\n', re.MULTILINE)
-            m=p.search(retStr)
-            if m is None:
-                msg="Failed to parse code hash."
-                Utils.Print("ERROR: "+ msg)
-                return None
-
-            return m.group(1)
-        except subprocess.CalledProcessError as ex:
-            end=time.perf_counter()
-            msg=ex.stderr.decode("utf-8")
-            Utils.Print("ERROR: Exception during code hash retrieval.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
-            return None
-
-    # publish contract and return transaction as json object
-    def publishContract(self, account, contractDir, wasmFile, abiFile, waitForTransBlock=False, shouldFail=False, sign=False):
-        signStr = Node.__sign_str(sign, [ account.activePublicKey ])
-        cmd="%s %s -v set contract -j %s %s %s" % (Utils.EosClientPath, self.eosClientArgs(), signStr, account.name, contractDir)
-        cmd += "" if wasmFile is None else (" "+ wasmFile)
-        cmd += "" if abiFile is None else (" " + abiFile)
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-        trans=None
-        start=time.perf_counter()
-        try:
-            trans=Utils.runCmdReturnJson(cmd, trace=False)
-            self.trackCmdTransaction(trans)
-            if Utils.Debug:
-                end=time.perf_counter()
-                Utils.Print("cmd Duration: %.3f sec" % (end-start))
-        except subprocess.CalledProcessError as ex:
-            if not shouldFail:
-                end=time.perf_counter()
-                out=ex.output.decode("utf-8")
-                msg=ex.stderr.decode("utf-8")
-                Utils.Print("ERROR: Exception during set contract. stderr: %s.  stdout: %s.  cmd Duration: %.3f sec." % (msg, out, end-start))
-                return None
-            else:
-                retMap={}
-                retMap["returncode"]=ex.returncode
-                retMap["cmd"]=ex.cmd
-                retMap["output"]=ex.output
-                retMap["stderr"]=ex.stderr
-                return retMap
-
-        if shouldFail:
-            if trans["processed"]["except"] != None:
-                retMap={}
-                retMap["returncode"]=1
-                retMap["cmd"]=cmd
-                retMap["output"]=bytes(str(trans),'utf-8')
-                return retMap
-            else:
-                Utils.Print("ERROR: The publish contract did not fail as expected.")
-                return None
-
-        Node.validateTransaction(trans)
-        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=False)
-
-    def getTableRows(self, contract, scope, table):
-        jsonData=self.getTable(contract, scope, table)
-        if jsonData is None:
-            return None
-        rows=jsonData["rows"]
-        return rows
-
-    def getTableRow(self, contract, scope, table, idx):
-        if idx < 0:
-            Utils.Print("ERROR: Table index cannot be negative. idx: %d" % (idx))
-            return None
-        rows=self.getTableRows(contract, scope, table)
-        if rows is None or idx >= len(rows):
-            Utils.Print("ERROR: Retrieved table does not contain row %d" % idx)
-            return None
-        row=rows[idx]
-        return row
-
-    def getTableColumns(self, contract, scope, table):
-        row=self.getTableRow(contract, scope, table, 0)
-        keys=list(row.keys())
-        return keys
-
-    # returns tuple with indication if transaction was successfully sent and either the transaction or else the exception output
-    def pushTransaction(self, trans, opts="", silentErrors=False, permissions=None):
-        assert(isinstance(trans, dict))
-        if isinstance(permissions, str):
-            permissions=[permissions]
-
-        cmd="%s %s push transaction -j" % (Utils.EosClientPath, self.eosClientArgs())
-        cmdArr=cmd.split()
-        transStr = json.dumps(trans, separators=(',', ':'))
-        transStr = transStr.replace("'", '"')
-        cmdArr.append(transStr)
-        if opts is not None:
-            cmdArr += opts.split()
-        if permissions is not None:
-            for permission in permissions:
-                cmdArr.append("-p")
-                cmdArr.append(permission)
-
-        s=" ".join(cmdArr)
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmdArr))
-        start=time.perf_counter()
-        try:
-            retTrans=Utils.runCmdArrReturnJson(cmdArr)
-            self.trackCmdTransaction(retTrans, ignoreNonTrans=True)
-            if Utils.Debug:
-                end=time.perf_counter()
-                Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            return (Node.getTransStatus(retTrans) == 'executed', retTrans)
-        except subprocess.CalledProcessError as ex:
-            msg=ex.stderr.decode("utf-8")
-            if not silentErrors:
-                end=time.perf_counter()
-                Utils.Print("ERROR: Exception during push transaction.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
-            return (False, msg)
-
-    # returns tuple with transaction execution status and transaction
-    def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None, expectTrxTrace=True, force=False):
-        cmd="%s %s push action -j %s %s" % (Utils.EosClientPath, self.eosClientArgs(), account, action)
-        cmdArr=cmd.split()
-        # not using __sign_str, since cmdArr messes up the string
-        if signatures is not None:
-            cmdArr.append("--sign-with")
-            cmdArr.append("[ \"%s\" ]" % ("\", \"".join(signatures)))
-        if force:
-            cmdArr.append("-f")
-        if data is not None:
-            cmdArr.append(data)
-        if opts is not None:
-            cmdArr += opts.split()
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmdArr))
-        start=time.perf_counter()
-        try:
-            trans=Utils.runCmdArrReturnJson(cmdArr)
-            self.trackCmdTransaction(trans, ignoreNonTrans=True)
-            if Utils.Debug:
-                end=time.perf_counter()
-                Utils.Print("cmd Duration: %.3f sec" % (end-start))
-            return (Node.getTransStatus(trans) == 'executed' if expectTrxTrace else True, trans)
-        except subprocess.CalledProcessError as ex:
-            msg=ex.stderr.decode("utf-8")
-            output=ex.output.decode("utf-8")
-            if not silentErrors:
-                end=time.perf_counter()
-                Utils.Print("ERROR: Exception during push message. stderr: %s. stdout: %s.  cmd Duration=%.3f sec." % (msg, output, end - start))
-            return (False, msg)
-
-    @staticmethod
-    def __sign_str(sign, keys):
-        assert(isinstance(sign, bool))
-        assert(isinstance(keys, list))
-        if not sign:
-            return ""
-
-        return "--sign-with '[ \"" + "\", \"".join(keys) + "\" ]'"
-
-    def setPermission(self, account, code, pType, requirement, waitForTransBlock=False, exitOnError=False, sign=False):
-        assert(isinstance(account, Account))
-        assert(isinstance(code, Account))
-        signStr = Node.__sign_str(sign, [ account.activePublicKey ])
-        cmdDesc="set action permission"
-        cmd="%s -j %s %s %s %s %s" % (cmdDesc, signStr, account.name, code.name, pType, requirement)
-        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError)
-        self.trackCmdTransaction(trans)
-
-        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
-
-    def delegatebw(self, fromAccount, netQuantity, cpuQuantity, toAccount=None, transferTo=False, waitForTransBlock=False, exitOnError=False, reportStatus=True, sign=False):
-        if toAccount is None:
-            toAccount=fromAccount
-
-        signStr = Node.__sign_str(sign, [ fromAccount.activePublicKey ])
-        cmdDesc="system delegatebw"
-        transferStr="--transfer" if transferTo else ""
-        cmd="%s -j %s %s %s \"%s %s\" \"%s %s\" %s" % (
-            cmdDesc, signStr, fromAccount.name, toAccount.name, netQuantity, CORE_SYMBOL, cpuQuantity, CORE_SYMBOL, transferStr)
-        msg="fromAccount=%s, toAccount=%s" % (fromAccount.name, toAccount.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
-        self.trackCmdTransaction(trans, reportStatus=reportStatus)
-
-        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
-
-    def undelegatebw(self, fromAccount, netQuantity, cpuQuantity, toAccount=None, waitForTransBlock=False, exitOnError=False, sign=False):
-        if toAccount is None:
-            toAccount=fromAccount
-
-        signStr = Node.__sign_str(sign, [ fromAccount.activePublicKey ])
-        cmdDesc="system undelegatebw"
-        cmd="%s -j %s %s %s \"%s %s\" \"%s %s\"" % (
-            cmdDesc, signStr, fromAccount.name, toAccount.name, netQuantity, CORE_SYMBOL, cpuQuantity, CORE_SYMBOL)
-        msg="fromAccount=%s, toAccount=%s" % (fromAccount.name, toAccount.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
-        self.trackCmdTransaction(trans)
-
-        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
-
-    def regproducer(self, producer, url, location, waitForTransBlock=False, exitOnError=False, sign=False):
-        signStr = Node.__sign_str(sign, [ producer.activePublicKey ])
-        cmdDesc="system regproducer"
-        cmd="%s -j %s %s %s %s %s" % (
-            cmdDesc, signStr, producer.name, producer.activePublicKey, url, location)
-        msg="producer=%s" % (producer.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
-        self.trackCmdTransaction(trans)
-
-        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
-
-    def vote(self, account, producers, waitForTransBlock=False, exitOnError=False, sign=False):
-        signStr = Node.__sign_str(sign, [ account.activePublicKey ])
-        cmdDesc = "system voteproducer prods"
-        cmd="%s -j %s %s %s" % (
-            cmdDesc, signStr, account.name, " ".join(producers))
-        msg="account=%s, producers=[ %s ]" % (account.name, ", ".join(producers));
-        trans=self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
-        self.trackCmdTransaction(trans)
-
-        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
-
-    def processCleosCmd(self, cmd, cmdDesc, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
-        assert(isinstance(returnType, ReturnType))
-        cmd="%s %s %s" % (Utils.EosClientPath, self.eosClientArgs(), cmd)
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-        if exitMsg is not None:
-            exitMsg="Context: " + exitMsg
-        else:
-            exitMsg=""
-        trans=None
-        start=time.perf_counter()
-        try:
-            if returnType==ReturnType.json:
-                trans=Utils.runCmdReturnJson(cmd, silentErrors=silentErrors)
-            elif returnType==ReturnType.raw:
-                trans=Utils.runCmdReturnStr(cmd)
-            else:
-                unhandledEnumType(returnType)
-
-            if Utils.Debug:
-                end=time.perf_counter()
-                Utils.Print("cmd Duration: %.3f sec" % (end-start))
-        except subprocess.CalledProcessError as ex:
-            if not silentErrors:
-                end=time.perf_counter()
-                out=ex.output.decode("utf-8")
-                msg=ex.stderr.decode("utf-8")
-                errorMsg="Exception during \"%s\". Exception message: %s.  stdout: %s.  cmd Duration=%.3f sec. %s" % (cmdDesc, msg, out, end-start, exitMsg)
-                if exitOnError:
-                    Utils.cmdError(errorMsg)
-                    Utils.errorExit(errorMsg)
-                else:
-                    Utils.Print("ERROR: %s" % (errorMsg))
-            return None
-
-        if exitOnError and trans is None:
-            Utils.cmdError("could not \"%s\". %s" % (cmdDesc,exitMsg))
-            Utils.errorExit("Failed to \"%s\"" % (cmdDesc))
-
         return trans
+
+    def waitForHeadToAdvance(self, blocksToAdvance=1, timeout=None):
+        currentHead = self.getHeadBlockNum()
+        if timeout is None:
+            timeout = 6 + blocksToAdvance / 2
+        def isHeadAdvancing():
+            return self.getHeadBlockNum() >= currentHead + blocksToAdvance
+        return Utils.waitForBool(isHeadAdvancing, timeout, sleepTime=0.5)
+
+    def waitForLibToAdvance(self, timeout=30):
+        currentLib = self.getIrreversibleBlockNum()
+        def isLibAdvancing():
+            return self.getIrreversibleBlockNum() > currentLib
+        return Utils.waitForBool(isLibAdvancing, timeout)
+
+    def waitForProducer(self, producer, timeout=None, exitOnError=False):
+        if timeout is None:
+            # default to the typical configuration of 21 producers, each producing 12 blocks in a row (every 1/2 second)
+            timeout = 21 * 6;
+        start=time.perf_counter()
+        initialProducer=self.getInfo()["head_block_producer"]
+        def isProducer():
+            return self.getInfo()["head_block_producer"] == producer;
+        found = Utils.waitForBool(isProducer, timeout)
+        assert not exitOnError or found, \
+            f"Waited for {time.perf_counter()-start} sec but never found producer: {producer}. Started with {initialProducer} and ended with {self.getInfo()['head_block_producer']}"
+        return found
 
     def killNodeOnProducer(self, producer, whereInSequence, blockType=BlockType.head, silentErrors=True, exitOnError=False, exitMsg=None, returnType=ReturnType.json):
         assert(isinstance(producer, str))
@@ -1070,118 +242,6 @@ class Node(object):
         basedOnLib="true" if blockType==BlockType.lib else "false"
         payload={ "producer":producer, "where_in_sequence":whereInSequence, "based_on_lib":basedOnLib }
         return self.processUrllibRequest("test_control", "kill_node_on_producer", payload, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=exitMsg, returnType=returnType)
-
-    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
-        if not endpoint:
-            endpoint = self.endpointHttp
-        cmd = f"{endpoint}/v1/{resource}/{command}"
-        req = urllib.request.Request(cmd, method="POST")
-        req.add_header('Content-Type', 'application/json')
-        data = payload
-        data = json.dumps(data)
-        data = data.encode()
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-        rtn=None
-        start=time.perf_counter()
-        try:
-            response = urllib.request.urlopen(req, data=data)
-            if returnType==ReturnType.json:
-                rtn = {}
-                rtn["code"] = response.getcode()
-                rtn["payload"] = json.load(response)
-            elif returnType==ReturnType.raw:
-                rtn = response.read()
-            else:
-                unhandledEnumType(returnType)
-
-            if Utils.Debug:
-                end=time.perf_counter()
-                Utils.Print("cmd Duration: %.3f sec" % (end-start))
-                printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
-                Utils.Print("cmd returned: %s" % (printReturn[:1024]))
-        except urllib.error.HTTPError as ex:
-            if not silentErrors:
-                end=time.perf_counter()
-                msg=ex.msg
-                errorMsg="Exception during \"%s\". %s.  cmd Duration=%.3f sec." % (cmd, msg, end-start)
-                if exitOnError:
-                    Utils.cmdError(errorMsg)
-                    Utils.errorExit(errorMsg)
-                else:
-                    Utils.Print("ERROR: %s" % (errorMsg))
-                    if returnType==ReturnType.json:
-                        rtn = json.load(ex)
-                    elif returnType==ReturnType.raw:
-                        rtn = ex.read()
-                    else:
-                        unhandledEnumType(returnType)
-            else:
-                return None
-
-        if exitMsg is not None:
-            exitMsg=": " + exitMsg
-        else:
-            exitMsg=""
-        if exitOnError and rtn is None:
-            Utils.cmdError("could not \"%s\" - %s" % (cmd,exitMsg))
-            Utils.errorExit("Failed to \"%s\"" % (cmd))
-
-        return rtn
-
-    def waitForTransBlockIfNeeded(self, trans, waitForTransBlock, exitOnError=False):
-        if not waitForTransBlock:
-            return trans
-
-        transId=Node.getTransId(trans)
-        if not self.waitForTransactionInBlock(transId):
-            if exitOnError:
-                Utils.cmdError("transaction with id %s never made it to a block" % (transId))
-                Utils.errorExit("Failed to find transaction with id %s in a block before timeout" % (transId))
-            return None
-        return trans
-
-    def getInfo(self, silentErrors=False, exitOnError=False):
-        cmdDesc = "get info"
-        info=self.processCleosCmd(cmdDesc, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError)
-        if info is None:
-            self.infoValid=False
-        else:
-            self.infoValid=True
-            self.lastRetrievedHeadBlockNum=int(info["head_block_num"])
-            self.lastRetrievedLIB=int(info["last_irreversible_block_num"])
-            self.lastRetrievedHeadBlockProducer=info["head_block_producer"]
-        return info
-
-    def getTransactionStatus(self, transId, silentErrors=False, exitOnError=True):
-        cmdDesc = f"get transaction-status {transId}"
-        status=self.processCleosCmd(cmdDesc, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError)
-        return status
-
-    def checkPulse(self, exitOnError=False):
-        info=self.getInfo(True, exitOnError=exitOnError)
-        return False if info is None else True
-
-    def getHeadBlockNum(self):
-        """returns head block number(string) as returned by cleos get info."""
-        info = self.getInfo(exitOnError=True)
-        if info is not None:
-            headBlockNumTag = "head_block_num"
-            return info[headBlockNumTag]
-
-    def getIrreversibleBlockNum(self):
-        info = self.getInfo(exitOnError=True)
-        if info is not None:
-            Utils.Print("current lib: %d" % (info["last_irreversible_block_num"]))
-            return info["last_irreversible_block_num"]
-
-    def getBlockNum(self, blockType=BlockType.head):
-        assert isinstance(blockType, BlockType)
-        if blockType==BlockType.head:
-            return self.getHeadBlockNum()
-        elif blockType==BlockType.lib:
-            return self.getIrreversibleBlockNum()
-        else:
-            unhandledEnumType(blockType)
 
     def kill(self, killSignal):
         if Utils.Debug: Utils.Print("Killing node: %s" % (self.cmd))
@@ -1250,60 +310,6 @@ class Node(object):
 
         if logStatus: Utils.Print("Determined node(pid=%s) is alive" % (self.pid))
         return True
-
-    @staticmethod
-    def getBlockAttribute(block, key, blockNum, exitOnError=True):
-        value=block[key]
-
-        if value is None and exitOnError:
-            blockNumStr=" for block number %s" % (blockNum)
-            blockStr=" with block content:\n%s" % (json.dumps(block, indent=4, sort_keys=True))
-            Utils.cmdError("could not get %s%s%s" % (key, blockNumStr, blockStr))
-            Utils.errorExit("Failed to get block's %s" % (key))
-
-        return value
-
-    def getBlockProducerByNum(self, blockNum, timeout=None, waitForBlock=True, exitOnError=True):
-        if waitForBlock:
-            self.waitForBlock(blockNum, timeout=timeout, blockType=BlockType.head)
-        block=self.getBlock(blockNum, exitOnError=exitOnError)
-        return Node.getBlockAttribute(block, "producer", blockNum, exitOnError=exitOnError)
-
-    def getBlockProducer(self, timeout=None, waitForBlock=True, exitOnError=True, blockType=BlockType.head):
-        blockNum=self.getBlockNum(blockType=blockType)
-        block=self.getBlock(blockNum, exitOnError=exitOnError, blockType=blockType)
-        return Node.getBlockAttribute(block, "producer", blockNum, exitOnError=exitOnError)
-
-    def getNextCleanProductionCycle(self, trans):
-        rounds=21*12*2  # max time to ensure that at least 2/3+1 of producers x blocks per producer x at least 2 times
-        if trans is not None:
-            transId=Node.getTransId(trans)
-            self.waitForTransFinalization(transId, timeout=rounds/2)
-        else:
-            transId="Null"
-        irreversibleBlockNum=self.getIrreversibleBlockNum()
-
-        # The voted schedule should be promoted now, then need to wait for that to become irreversible
-        votingTallyWindow=120  #could be up to 120 blocks before the votes were tallied
-        promotedBlockNum=self.getHeadBlockNum()+votingTallyWindow
-        # There was waitForIrreversibleBlock but due to bug it was waiting for head and not lib.
-        # leaving waitForIrreversibleBlock here slows down voting test by few minutes so since
-        # it was fine with head block for few years, switching to waitForBlock instead
-        self.waitForBlock(promotedBlockNum, timeout=rounds/2)
-
-        ibnSchedActive=self.getIrreversibleBlockNum()
-
-        blockNum=self.getHeadBlockNum()
-        Utils.Print("Searching for clean production cycle blockNum=%s ibn=%s  transId=%s  promoted bn=%s  ibn for schedule active=%s" % (blockNum,irreversibleBlockNum,transId,promotedBlockNum,ibnSchedActive))
-        blockProducer=self.getBlockProducerByNum(blockNum)
-        blockNum+=1
-        Utils.Print("Advance until the next block producer is retrieved")
-        while blockProducer == self.getBlockProducerByNum(blockNum):
-            blockNum+=1
-
-        blockProducer=self.getBlockProducerByNum(blockNum)
-        return blockNum
-
 
     # pylint: disable=too-many-locals
     # If nodeosPath is equal to None, it will use the existing nodeos path
@@ -1413,6 +419,7 @@ class Node(object):
                 popen.errfile=serr
                 self.popenProc=popen
             self.pid=popen.pid
+            self.cmd = cmd
             if Utils.Debug: Utils.Print("start Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
 
     def trackCmdTransaction(self, trans, ignoreNonTrans=False, reportStatus=True):
@@ -1420,11 +427,11 @@ class Node(object):
             if Utils.Debug: Utils.Print("  cmd returned transaction: %s" % (trans))
             return
 
-        if ignoreNonTrans and not Node.isTrans(trans):
+        if ignoreNonTrans and not NodeosQueries.isTrans(trans):
             if Utils.Debug: Utils.Print("  cmd returned a non-transaction: %s" % (trans))
             return
 
-        transId=Node.getTransId(trans)
+        transId=NodeosQueries.getTransId(trans)
         self.lastTrackedTransactionId=transId
         if transId in self.transCache.keys():
             replaceMsg="replacing previous trans=\n%s" % json.dumps(self.transCache[transId], indent=2, sort_keys=True)
@@ -1432,8 +439,8 @@ class Node(object):
             replaceMsg=""
 
         if Utils.Debug and reportStatus:
-            status=Node.getTransStatus(trans)
-            blockNum=Node.getTransBlockNum(trans)
+            status=NodeosQueries.getTransStatus(trans)
+            blockNum=NodeosQueries.getTransBlockNum(trans)
             Utils.Print("  cmd returned transaction id: %s, status: %s, (possible) block num: %s %s" % (transId, status, blockNum, replaceMsg))
         elif Utils.Debug:
             Utils.Print("  cmd returned transaction id: %s %s" % (transId, replaceMsg))
@@ -1459,112 +466,6 @@ class Node(object):
     def scheduleProtocolFeatureActivations(self, featureDigests=[]):
         param = { "protocol_features_to_activate": featureDigests }
         self.processUrllibRequest("producer", "schedule_protocol_feature_activations", param)
-
-    # Require producer_api_plugin
-    def getSupportedProtocolFeatures(self, excludeDisabled=False, excludeUnactivatable=False):
-        param = {
-           "exclude_disabled": excludeDisabled,
-           "exclude_unactivatable": excludeUnactivatable
-        }
-        res = self.processUrllibRequest("producer", "get_supported_protocol_features", param)
-        return res
-
-    # This will return supported protocol features in a dict (feature codename as the key), i.e.
-    # {
-    #   "PREACTIVATE_FEATURE": {...},
-    #   "ONLY_LINK_TO_EXISTING_PERMISSION": {...},
-    # }
-    # Require producer_api_plugin
-    def getSupportedProtocolFeatureDict(self, excludeDisabled=False, excludeUnactivatable=False):
-        protocolFeatureDigestDict = {}
-        supportedProtocolFeatures = self.getSupportedProtocolFeatures(excludeDisabled, excludeUnactivatable)
-        for protocolFeature in supportedProtocolFeatures["payload"]:
-            for spec in protocolFeature["specification"]:
-                if (spec["name"] == "builtin_feature_codename"):
-                    codename = spec["value"]
-                    protocolFeatureDigestDict[codename] = protocolFeature
-                    break
-        return protocolFeatureDigestDict
-
-    def waitForHeadToAdvance(self, blocksToAdvance=1, timeout=None):
-        currentHead = self.getHeadBlockNum()
-        if timeout is None:
-            timeout = 6 + blocksToAdvance / 2
-        def isHeadAdvancing():
-            return self.getHeadBlockNum() >= currentHead + blocksToAdvance
-        return Utils.waitForBool(isHeadAdvancing, timeout)
-
-    def waitForLibToAdvance(self, timeout=30):
-        currentLib = self.getIrreversibleBlockNum()
-        def isLibAdvancing():
-            return self.getIrreversibleBlockNum() > currentLib
-        return Utils.waitForBool(isLibAdvancing, timeout)
-
-    def waitForProducer(self, producer, timeout=None, exitOnError=False):
-        if timeout is None:
-            # default to the typical configuration of 21 producers, each producing 12 blocks in a row (ever 1/2 second)
-            timeout = 21 * 6;
-        start=time.perf_counter()
-        initialProducer=self.getInfo()["head_block_producer"]
-        def isProducer():
-            return self.getInfo()["head_block_producer"] == producer;
-        found = Utils.waitForBool(isProducer, timeout)
-        assert not exitOnError or found, \
-            f"Waited for {time.perf_counter()-start} sec but never found producer: {producer}. Started with {initialProducer} and ended with {self.getInfo()['head_block_producer']}"
-        return found
-
-    # Require producer_api_plugin
-    def activatePreactivateFeature(self):
-        protocolFeatureDigestDict = self.getSupportedProtocolFeatureDict()
-        preactivateFeatureDigest = protocolFeatureDigestDict["PREACTIVATE_FEATURE"]["feature_digest"]
-        assert preactivateFeatureDigest
-
-        self.scheduleProtocolFeatureActivations([preactivateFeatureDigest])
-
-        # Wait for the next block to be produced so the scheduled protocol feature is activated
-        assert self.waitForHeadToAdvance(blocksToAdvance=2), print("ERROR: TIMEOUT WAITING FOR PREACTIVATE")
-
-    # Return an array of feature digests to be preactivated in a correct order respecting dependencies
-    # Require producer_api_plugin
-    def getAllBuiltinFeatureDigestsToPreactivate(self):
-        protocolFeatures = []
-        supportedProtocolFeatures = self.getSupportedProtocolFeatures()
-        for protocolFeature in supportedProtocolFeatures["payload"]:
-            for spec in protocolFeature["specification"]:
-                if (spec["name"] == "builtin_feature_codename"):
-                    codename = spec["value"]
-                    # Filter out "PREACTIVATE_FEATURE"
-                    if codename != "PREACTIVATE_FEATURE":
-                        protocolFeatures.append(protocolFeature["feature_digest"])
-                    break
-        return protocolFeatures
-
-    # Require PREACTIVATE_FEATURE to be activated and require eosio.bios with preactivate_feature
-    def preactivateProtocolFeatures(self, featureDigests:list):
-        for digest in featureDigests:
-            Utils.Print("push activate action with digest {}".format(digest))
-            data="{{\"feature_digest\":{}}}".format(digest)
-            opts="--permission eosio@active"
-            trans=self.pushMessage("eosio", "activate", data, opts)
-            if trans is None or not trans[0]:
-                Utils.Print("ERROR: Failed to preactive digest {}".format(digest))
-                return None
-        self.waitForHeadToAdvance(blocksToAdvance=2)
-
-    # Require PREACTIVATE_FEATURE to be activated and require eosio.bios with preactivate_feature
-    def preactivateAllBuiltinProtocolFeature(self):
-        allBuiltinProtocolFeatureDigests = self.getAllBuiltinFeatureDigestsToPreactivate()
-        self.preactivateProtocolFeatures(allBuiltinProtocolFeatureDigests)
-
-    def getLatestBlockHeaderState(self):
-        headBlockNum = self.getHeadBlockNum()
-        cmdDesc = "get block {} --header-state".format(headBlockNum)
-        latestBlockHeaderState = self.processCleosCmd(cmdDesc, cmdDesc)
-        return latestBlockHeaderState
-
-    def getActivatedProtocolFeatures(self):
-        latestBlockHeaderState = self.getLatestBlockHeaderState()
-        return latestBlockHeaderState["activated_protocol_features"]["protocol_features"]
 
     def modifyBuiltinPFSubjRestrictions(self, featureCodename, subjectiveRestriction={}):
         jsonPath = os.path.join(Utils.getNodeConfigDir(self.nodeId),

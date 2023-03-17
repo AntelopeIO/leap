@@ -26,7 +26,7 @@ from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--host","--port","-p","--defproducera_prvt_key","--defproducerb_prvt_key"
                               ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--clean-run"
-                              ,"--sanity-test","--wallet-port"})
+                              ,"--sanity-test","--wallet-port","--unshared"})
 server=args.host
 port=args.port
 debug=args.v
@@ -47,7 +47,8 @@ cluster=Cluster(host=server,
                 port=port, 
                 walletd=True,
                 defproduceraPrvtKey=defproduceraPrvtKey, 
-                defproducerbPrvtKey=defproducerbPrvtKey)
+                defproducerbPrvtKey=defproducerbPrvtKey,
+                unshared=args.unshared)
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
 killEosInstances=not dontKill

@@ -17,7 +17,7 @@ errorExit=Utils.errorExit
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed"
                             ,"--dump-error-details","-v","--leave-running"
-                            ,"--clean-run","--keep-logs"})
+                            ,"--clean-run","--keep-logs","--unshared"})
 
 pnodes=args.p
 topo=args.s
@@ -41,7 +41,7 @@ Utils.Debug=debug
 testSuccessful=False
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 
 walletMgr=WalletMgr(True)
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
@@ -100,7 +100,7 @@ try:
 
     transferAmount="1000.0000 {0}".format(CORE_SYMBOL)
 
-    node.transferFunds(cluster.eosioAccount, account1, transferAmount, "fund account")
+    node.transferFunds(cluster.eosioAccount, account1, transferAmount, "fund account", waitForTransBlock=True)
     preBalances = node.getEosBalances([account1, account2])
     Print("Starting balances:")
     Print(preBalances)

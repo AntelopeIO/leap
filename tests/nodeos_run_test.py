@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr
+from pathlib import Path
 
 import decimal
 import re
@@ -22,7 +23,7 @@ from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--host","--port","--prod-count","--defproducera_prvt_key","--defproducerb_prvt_key"
                               ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios","--clean-run"
-                              ,"--sanity-test","--wallet-port"})
+                              ,"--sanity-test","--wallet-port", "--error-log-path", "--unshared"})
 server=args.host
 port=args.port
 debug=args.v
@@ -40,7 +41,10 @@ walletPort=args.wallet_port
 
 Utils.Debug=debug
 localTest=True if server == TestHelper.LOCAL_HOST else False
-cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey)
+cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey,unshared=args.unshared)
+errFileName=f"{cluster.nodeosLogPath}/node_00/stderr.txt"
+if args.error_log_path:
+    errFileName=args.error_log_path
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
 killEosInstances=not dontKill
@@ -65,7 +69,8 @@ try:
 
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi eosio.token=" + abs_path
-        if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs) is False:
+        specificNodeosInstances={0: "bin/nodeos"}
+        if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs, specificNodeosInstances=specificNodeosInstances) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:
@@ -737,7 +742,6 @@ try:
 
     if localTest:
         p = re.compile('Assert')
-        errFileName="var/lib/node_00/stderr.txt"
         assertionsFound=False
         with open(errFileName) as errFile:
             for line in errFile:
@@ -747,8 +751,7 @@ try:
         if assertionsFound:
             # Too many assertion logs, hard to validate how many are genuine. Make this a warning
             #  for now, hopefully the logs will get cleaned up in future.
-            Print("WARNING: Asserts in var/lib/node_00/stderr.txt")
-            #errorExit("FAILURE - Assert in var/lib/node_00/stderr.txt")
+            Print(f"WARNING: Asserts in {errFileName}")
 
     Print("Validating accounts at end of test")
     accounts=[testeraAccount, currencyAccount, exchangeAccount]

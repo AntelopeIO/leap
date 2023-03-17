@@ -30,7 +30,7 @@ appArgs = AppArgs()
 extraArgs = appArgs.add(flag="--num-requests", type=int, help="How many requests that each ship_client requests", default=1)
 extraArgs = appArgs.add(flag="--num-clients", type=int, help="How many ship_clients should be started", default=1)
 extraArgs = appArgs.add_bool(flag="--unix-socket", help="Run ship over unix socket")
-args = TestHelper.parse_args({"-p", "-n","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run"}, applicationSpecificArgs=appArgs)
+args = TestHelper.parse_args({"-p", "-n","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
 totalProducerNodes=args.p
@@ -39,7 +39,7 @@ if totalNodes<=totalProducerNodes:
     totalNodes=totalProducerNodes+1
 totalNonProducerNodes=totalNodes-totalProducerNodes
 totalProducers=totalProducerNodes
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running
@@ -71,7 +71,7 @@ try:
 
     if cluster.launch(pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
+                      specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 

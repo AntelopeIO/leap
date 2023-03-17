@@ -24,7 +24,7 @@ Currently it generates the following scripts:
 
 Each *PluginArgs.py file contains one dataclass that captures the available configuration options for that plugin via nodeos command line.
 
-Each config options is represented by 3 member variables, for example:
+Each config option is represented by 3 member variables, for example:
 1) blocksDir: str=None
     --This is the field that will be populated when the dataclass is used by other scripts to configure nodeos
 2) _blocksDirNodeosDefault: str='"blocks"'
