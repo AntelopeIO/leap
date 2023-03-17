@@ -87,7 +87,7 @@ try:
     shipClient = "tests/ship_client"
     cmd = "%s --num-requests %d" % (shipClient, args.num_requests)
     if args.unix_socket:
-        cmd += " -a ws+unix:///%s/%s" % (os.getcwd(), Utils.getNodeDataDir(shipNodeNum, "ship.sock"))
+        cmd += " -a ws+unix:///%s" % (Utils.getNodeDataDir(shipNodeNum, "ship.sock"))
     if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
     clients = []
     files = []

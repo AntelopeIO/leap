@@ -1,13 +1,9 @@
 #!/usr/bin/env python3
 
 import time
-import decimal
-import math
-import re
 import signal
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
-from TestHarness.Node import BlockType
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_short_fork_take_over_test
@@ -18,8 +14,6 @@ from TestHarness.Node import BlockType
 #
 ###############################################################
 Print=Utils.Print
-
-from core_symbol import CORE_SYMBOL
 
 def analyzeBPs(bps0, bps1, expectDivergence):
     start=0

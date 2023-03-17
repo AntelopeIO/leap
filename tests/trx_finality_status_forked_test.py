@@ -7,7 +7,7 @@ import math
 import re
 import signal
 
-from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 from TestHarness.Node import BlockType
 
 ###############################################################
@@ -19,8 +19,6 @@ from TestHarness.Node import BlockType
 ###############################################################
 Print=Utils.Print
 errorExit=Utils.errorExit
-
-from core_symbol import CORE_SYMBOL
 
 
 args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run",

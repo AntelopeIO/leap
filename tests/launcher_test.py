@@ -4,7 +4,7 @@ import decimal
 import re
 import os
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 from pathlib import Path
 
 ###############################################################
@@ -17,7 +17,6 @@ from pathlib import Path
 Print=Utils.Print
 errorExit=Utils.errorExit
 cmdError=Utils.cmdError
-from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--defproducera_prvt_key","--dump-error-details","--dont-launch","--keep-logs",
                               "-v","--leave-running","--clean-run","--unshared"})

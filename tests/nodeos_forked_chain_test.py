@@ -6,7 +6,7 @@ import time
 import json
 import signal
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 
 ###############################################################
 # nodeos_forked_chain_test
@@ -31,8 +31,6 @@ from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 ###############################################################
 
 Print=Utils.Print
-
-from core_symbol import CORE_SYMBOL
 
 def analyzeBPs(bps0, bps1, expectDivergence):
     start=0

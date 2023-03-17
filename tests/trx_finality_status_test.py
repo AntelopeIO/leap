@@ -7,7 +7,7 @@ import os
 import signal
 import subprocess
 
-from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr
+from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 from TestHarness.Node import BlockType
 from TestHarness.TestHelper import AppArgs
 
@@ -26,9 +26,6 @@ from TestHarness.TestHelper import AppArgs
 
 Print=Utils.Print
 errorExit=Utils.errorExit
-
-from core_symbol import CORE_SYMBOL
-
 
 appArgs=AppArgs()
 args = TestHelper.parse_args({"-n", "--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"})

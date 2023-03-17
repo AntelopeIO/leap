@@ -4,7 +4,7 @@ import json
 import subprocess
 import time
 
-from core_symbol import CORE_SYMBOL
+from .core_symbol import CORE_SYMBOL
 from .depresolver import dep
 from .queries import NodeosQueries
 from .testUtils import Account
@@ -220,13 +220,15 @@ class Transactions(NodeosQueries):
             return (False, msg)
 
     # returns tuple with transaction execution status and transaction
-    def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None, expectTrxTrace=True):
+    def pushMessage(self, account, action, data, opts, silentErrors=False, signatures=None, expectTrxTrace=True, force=False):
         cmd="%s %s push action -j %s %s" % (Utils.EosClientPath, self.eosClientArgs(), account, action)
         cmdArr=cmd.split()
         # not using sign_str, since cmdArr messes up the string
         if signatures is not None:
             cmdArr.append("--sign-with")
             cmdArr.append("[ \"%s\" ]" % ("\", \"".join(signatures)))
+        if force:
+            cmdArr.append("-f")
         if data is not None:
             cmdArr.append(data)
         if opts is not None:

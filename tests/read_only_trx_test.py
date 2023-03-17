@@ -2,9 +2,8 @@
 
 import random
 
-from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr
+from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
-from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # send_read_only_transaction_tests

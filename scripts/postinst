@@ -1,0 +1,13 @@
+#!/bin/sh
+
+set -e
+
+if [ ! -L ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness ]; then
+    mkdir -p ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages
+    ln -s ../../../share/leap_testing/tests/TestHarness ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness
+fi
+
+# leap_testing is part of the package so should already exist by the time postinst runs
+if [ ! -L ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin ]; then
+    ln -s ../../bin ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin
+fi
