@@ -349,7 +349,7 @@ class launcher(object):
             is_bios = node.name == 'bios'
             peers = '\n'.join([f'p2p-peer-address = {self.network.nodes[p].p2p_endpoint}' for p in node.peers])
             if len(node.producers) > 0:
-                producer_keys = f'private-key = ["{node.keys[0].pubkey}","{node.keys[0].privkey}"]\n'
+                producer_keys = f'signature-provider = {node.keys[0].pubkey}=KEY:{node.keys[0].privkey}\n'
                 producer_names = '\n'.join([f'producer-name = {p}' for p in node.producers])
                 producer_plugin = 'plugin = eosio::producer_plugin\n'
             else:
