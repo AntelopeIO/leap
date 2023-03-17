@@ -158,7 +158,8 @@ try:
     assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
 
     Print("Create snapshot")
-    ret = nodeProg.scheduleSnapshot()
+    blockNumSnap=nodeSnap.getBlockNum(BlockType.head)
+    ret = nodeProg.scheduleSnapshotAt(blockNumSnap)
     assert ret is not None, "Snapshot creation failed"
     
     ret = nodeSnap.createSnapshot()
@@ -213,8 +214,7 @@ try:
     Utils.processLeapUtilCmd("snapshot to-json --input-file {}".format(progSnapshotFile), "snapshot to-json", silentErrors=False)
     progSnapshotFile = progSnapshotFile + ".json"
 
-    # you cant compare prog to irr as it can be off for 1 block since it was scheduled to be executed "asap"
-    assert os.path.exists(progSnapshotFile), f"Snapshot file for programmatic snapshot failed to generate {progSnapshotFile}"
+    assert Utils.compareFiles(progSnapshotFile, irrSnapshotFile), f"Snapshot files differ {progSnapshotFile} != {irrSnapshotFile}"
 
     testSuccessful=True
 

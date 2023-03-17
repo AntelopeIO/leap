@@ -484,6 +484,10 @@ class Node(Transactions):
 
     def scheduleSnapshot(self):
         return self.processUrllibRequest("producer", "schedule_snapshot")
+    
+    def scheduleSnapshotAt(self, sbn):
+        param = { "start_block_num": sbn, "end_block_num": sbn }
+        return self.processUrllibRequest("producer", "schedule_snapshot", param)
 
     # kill all existing nodeos in case lingering from previous test
     @staticmethod
