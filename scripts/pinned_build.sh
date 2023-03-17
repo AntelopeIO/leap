@@ -65,6 +65,7 @@ try(){
 }
 
 install_dependencies() {
+    echo 'Installing package dependencies.'
     if [[ "$(uname)" == 'Linux' && -f /etc/debian_version ]]; then
         apt-get update
         apt-get update --fix-missing
@@ -95,6 +96,7 @@ install_dependencies() {
     else
         printf '\033[1;33mWARNING: Skipping package manager dependency installations because this is not a Debian-family operating system!\nWe currently only support Ubuntu.\033[0m\n'
     fi
+    echo 'Done installing package dependencies.'
 }
 
 install_clang() {
