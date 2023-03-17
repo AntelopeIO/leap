@@ -106,17 +106,12 @@ When building C/C++ software, often the build is performed in parallel via a com
 If you are in an Ubuntu docker container, omit `sudo` from all commands because you run as `root` by default. Most other docker containers also exclude `sudo`, especially Debian-family containers. If your shell prompt is a hash tag (`#`), omit `sudo`.
 
 #### Pinned Build
-Make sure you are in the root of the `leap` repo, then run the `install_depts.sh` script to install dependencies:
-```bash
-sudo scripts/install_deps.sh
-```
-
-Next, run the pinned build script. You have to give it three arguments, in the following order:
+Make sure you are in the root of the `leap` repo, then run the pinned build script. You have to give it three arguments in the following order:
   - A temporary folder, for all dependencies that need to be built from source.
   - A build folder, where the binaries you need to install will be built to.
   - The number of jobs or CPU cores/threads to use (note the [jobs flag](#step-3---build) warning above).
 
-The following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads (Note: you don't need `sudo` for this command):
+For example, the following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads:
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
 ```
