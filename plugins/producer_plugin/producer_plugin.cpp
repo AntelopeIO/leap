@@ -431,6 +431,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          void push_front(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_front(std::move(trx));
+            if (num_waiting)
+               cond.notify_one();
          }
 
          bool empty() const {
