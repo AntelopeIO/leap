@@ -417,11 +417,62 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          packed_transaction_ptr  trx;
          next_func_t             next;
       };
+   
       // The queue storing read-only transactions to be executed by read-only threads
-      struct ro_trx_queue_t {
-         std::mutex              mtx;
-         std::deque<ro_trx_t>    queue;
+      class ro_trx_queue_t {
+      public:
+         void push_back(ro_trx_t&& trx) {
+            std::unique_lock<std::mutex> g( mtx );
+            queue.push_back(std::move(trx));
+            if (num_waiting)
+               cond.notify_one();
+         }
+         
+         void push_front(ro_trx_t&& trx) {
+            std::unique_lock<std::mutex> g( mtx );
+            queue.push_front(std::move(trx));
+         }
+
+         bool empty() const {
+            std::lock_guard<std::mutex> g( mtx );
+            return queue.empty();
+         }
+
+         bool pop_front(ro_trx_t &trx) {
+            std::unique_lock<std::mutex> g( mtx );
+            if (queue.empty())
+               return wait(g);
+            trx = std::move(queue.front());
+            queue.pop_front();
+            return true;
+         }
+
+         bool wait(std::unique_lock<std::mutex> &g) {
+            assert(num_tasks != 0);
+            assert(queue.empty());
+            if (num_waiting + 1 == num_tasks) {
+               // we don't want all tasks to wait if the queue is empty... time to switch back to the write window
+               cond.notify_all();
+               return false;
+            } 
+            ++num_waiting;
+            cond.wait(g);
+            --num_waiting;
+            return !queue.empty();
+         }
+
+         void set_num_tasks(uint32_t n) {
+            num_tasks = n;
+         }
+
+      private:
+         mutable std::mutex      mtx;
+         std::condition_variable cond;
+         deque<ro_trx_t>         queue;
+         uint32_t                num_waiting {0};
+         uint32_t                num_tasks {0};
       };
+   
       uint16_t                        _ro_thread_pool_size{ 0 };
       static constexpr uint16_t       _ro_max_eos_vm_oc_threads_allowed{ 8 }; // Due to uncertainty to get total virtual memory size on a 5-level paging system, set a hard limit
       named_thread_pool<struct read>  _ro_thread_pool;
@@ -643,8 +694,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             // Parallel read-only trx execution enabled.
             // Store the transaction in read-only-trx queue so that it is
             // executed in read window
-            std::lock_guard<std::mutex> g( _ro_trx_queue.mtx );
-            _ro_trx_queue.queue.push_back({trx, std::move(next)});
+            _ro_trx_queue.push_back({trx, std::move(next)});
             return;
          }
 
@@ -2829,7 +2879,7 @@ void producer_plugin_impl::switch_to_read_window() {
 
    // we are in write window, so no read-only trx threads are processing transactions.
    // _ro_trx_queue is not being accessed. No need to lock.
-   if ( _ro_trx_queue.queue.empty() ) { // no read-only trxs to process. stay in write window
+   if ( _ro_trx_queue.empty() ) { // no read-only trxs to process. stay in write window
       start_write_window(); // restart write window timer for next round
       return;
    }
@@ -2840,6 +2890,7 @@ void producer_plugin_impl::switch_to_read_window() {
 
    // start a read-only transaction execution task in each thread in the thread pool
    _ro_num_active_trx_exec_tasks = _ro_thread_pool_size;
+   _ro_trx_queue.set_num_tasks(_ro_thread_pool_size);
    for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
       _ro_trx_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this] () {
          return self->read_only_trx_execution_task();
@@ -2876,18 +2927,15 @@ bool producer_plugin_impl::read_only_trx_execution_task() {
    // 3. No more transactions in the read-only trx queue
    // 4. A transaction execution is exhaused
    while ( fc::time_point::now() < read_window_deadline && !_received_block ) {
-      std::unique_lock<std::mutex> lck( _ro_trx_queue.mtx );
-      if ( _ro_trx_queue.queue.empty() ) {
+      ro_trx_t trx;
+      if ( !_ro_trx_queue.pop_front(trx) ) {
+         // pop_front waits on condition variable, and returns false when all tasks must exit
          break;
       }
-      auto trx = _ro_trx_queue.queue.front();
-      _ro_trx_queue.queue.pop_front();
-      lck.unlock();
       
       auto retry = process_read_only_transaction( trx.trx, trx.next, start );
       if ( retry ) {
-         lck.lock();
-         _ro_trx_queue.queue.push_front(trx);
+         _ro_trx_queue.push_front(std::move(trx));
          // Do not schedule new execution
          break;
       }
