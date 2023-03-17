@@ -4,4 +4,25 @@ apt-get update --fix-missing
 DEBIAN_FRONTEND='noninteractive'
 TZ='Etc/UTC'
 apt-get install -y tzdata
-apt-get install -y zip unzip libncurses5 wget git build-essential cmake curl libcurl4-openssl-dev libgmp-dev libssl-dev libusb-1.0.0-dev libzstd-dev time pkg-config zlib1g-dev libtinfo-dev bzip2 libbz2-dev python3 file
+apt-get install -y \
+    build-essential \
+    bzip2 \
+    cmake \
+    curl \
+    file \
+    git \
+    libbz2-dev \
+    libcurl4-openssl-dev \
+    libgmp-dev \
+    libncurses5 \
+    libssl-dev \
+    libtinfo-dev \
+    libusb-1.0.0-dev \
+    libzstd-dev \
+    pkg-config \
+    python3 \
+    time \
+    unzip \
+    wget \
+    zip \
+    zlib1g-dev
