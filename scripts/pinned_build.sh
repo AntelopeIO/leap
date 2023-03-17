@@ -67,12 +67,17 @@ try(){
 install_dependencies() {
     echo 'Installing package dependencies.'
     if [[ "$(uname)" == 'Linux' && -f /etc/debian_version ]]; then
-        try apt-get update
-        try apt-get update --fix-missing
+        if [[ "$(id -u)" != '0' ]]; then # if not root, use sudo for aptitude
+            SUDO_CMD='sudo'
+        else
+            unset SUDO_CMD
+        fi
+        try $SUDO_CMD apt-get update
+        try $SUDO_CMD apt-get update --fix-missing
         export DEBIAN_FRONTEND='noninteractive'
         TZ='Etc/UTC'
-        try apt-get install -y tzdata
-        try apt-get install -y \
+        try $SUDO_CMD apt-get install -y tzdata
+        try $SUDO_CMD apt-get install -y \
             build-essential \
             bzip2 \
             cmake \
