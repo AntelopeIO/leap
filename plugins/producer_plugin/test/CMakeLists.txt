@@ -22,3 +22,6 @@ add_executable( test_read_only_trx test_read_only_trx.cpp )
 target_link_libraries( test_read_only_trx producer_plugin eosio_testing )
 
 add_test(NAME test_read_only_trx COMMAND plugins/producer_plugin/test/test_read_only_trx WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+
+add_executable( test_block_timing_util test_block_timing_util.cpp )
+target_link_libraries( test_block_timing_util producer_plugin eosio_testing )
