@@ -424,15 +424,19 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          void push_back(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_back(std::move(trx));
-            if (num_waiting)
+            if (num_waiting) {
+               g.unlock();
                cond.notify_one();
+            }
          }
          
          void push_front(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_front(std::move(trx));
-            if (num_waiting)
+            if (num_waiting) {
+               g.unlock();
                cond.notify_one();
+            }
          }
 
          bool empty() const {
@@ -442,29 +446,35 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          bool pop_front(ro_trx_t &trx) {
             std::unique_lock<std::mutex> g( mtx );
-            if (queue.empty())
-               return wait(g);
+            
+            if (should_exit() || (queue.empty() && (num_waiting + 1 == num_tasks))) {
+               g.unlock();
+               cond.notify_all();
+               return false;
+            }
+            
+            ++num_waiting;
+            cond.wait(g);
+            --num_waiting;
+            
+            if (queue.empty() || should_exit())
+               return false;
+            
             trx = std::move(queue.front());
             queue.pop_front();
             return true;
          }
 
-         bool wait(std::unique_lock<std::mutex> &g) {
-            assert(num_tasks != 0);
-            assert(queue.empty());
-            if (num_waiting + 1 == num_tasks) {
-               // we don't want all tasks to wait if the queue is empty... time to switch back to the write window
-               cond.notify_all();
-               return false;
-            } 
-            ++num_waiting;
-            cond.wait(g);
-            --num_waiting;
-            return !queue.empty();
+         void set_exit_criteria(uint32_t n, std::atomic<bool>* received_block, fc::time_point start, fc::microseconds duration) {
+            num_tasks = n;
+            received_block_ptr = received_block;
+            start_time = start;
+            read_window_deadline = start_time + duration;
          }
 
-         void set_num_tasks(uint32_t n) {
-            num_tasks = n;
+         bool should_exit() {
+            return *received_block_ptr ||
+               fc::time_point::now() >= read_window_deadline;
          }
 
       private:
@@ -473,6 +483,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          deque<ro_trx_t>         queue;
          uint32_t                num_waiting {0};
          uint32_t                num_tasks {0};
+         std::atomic<bool>*      received_block_ptr;
+         fc::time_point          start_time;
+         fc::time_point          read_window_deadline;
       };
    
       uint16_t                        _ro_thread_pool_size{ 0 };
@@ -492,7 +505,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void start_write_window();
       void switch_to_write_window();
       void switch_to_read_window();
-      bool read_only_trx_execution_task();
+      bool read_only_trx_execution_task(fc::time_point start);
       bool process_read_only_transaction(const packed_transaction_ptr& trx,
                                          const next_function<transaction_trace_ptr>& next,
                                          const fc::time_point& read_window_start_time);
@@ -2892,10 +2905,11 @@ void producer_plugin_impl::switch_to_read_window() {
 
    // start a read-only transaction execution task in each thread in the thread pool
    _ro_num_active_trx_exec_tasks = _ro_thread_pool_size;
-   _ro_trx_queue.set_num_tasks(_ro_thread_pool_size);
+   auto start_time = fc::time_point::now();
+   _ro_trx_queue.set_exit_criteria(_ro_thread_pool_size, &_received_block, start_time, _ro_read_window_effective_time_us);
    for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
-      _ro_trx_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this] () {
-         return self->read_only_trx_execution_task();
+      _ro_trx_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this, &start_time] () {
+         return self->read_only_trx_execution_task(start_time);
       }) );
    }
 
@@ -2920,22 +2934,18 @@ void producer_plugin_impl::switch_to_read_window() {
 }
 
 // Called from a read only trx thread. Run in parallel with app and other read only trx threads
-bool producer_plugin_impl::read_only_trx_execution_task() {
-   auto start = fc::time_point::now();
-   auto read_window_deadline = start + _ro_read_window_effective_time_us;
+bool producer_plugin_impl::read_only_trx_execution_task(fc::time_point start) {
    // We have 4 ways to break out the while loop:
    // 1. pass read window deadline
    // 2. Net_plugin receives a block
    // 3. No more transactions in the read-only trx queue
    // 4. A transaction execution is exhaused
-   while ( fc::time_point::now() < read_window_deadline && !_received_block ) {
-      ro_trx_t trx;
-      if ( !_ro_trx_queue.pop_front(trx) ) {
-         // If the queue is empty, pop_front() waits on condition variable, and returns false
-         // when and only when all tasks must exit (i.e queue is empty and all tasks are idle)
-         break;
-      }
-      
+   ro_trx_t trx;
+   while ( _ro_trx_queue.pop_front(trx) ) {
+      // If the queue is empty, pop_front() waits on condition variable, and returns false
+      // when and only when all tasks must exit (i.e queue is empty and all tasks are idle, or
+      // we have reached the end of the read window, or net plugin received a block)
+
       auto retry = process_read_only_transaction( trx.trx, trx.next, start );
       if ( retry ) {
          _ro_trx_queue.push_front(std::move(trx));
