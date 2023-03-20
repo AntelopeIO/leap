@@ -1,5 +1,5 @@
-configure_file(__init__.py __init__.py COPYONLY)
-configure_file(BasePluginArgs.py BasePluginArgs.py COPYONLY)
+configure_file(__init__.py . COPYONLY)
+configure_file(BasePluginArgs.py . COPYONLY)
 
 set(GEN_FILES
         ChainPluginArgs.py

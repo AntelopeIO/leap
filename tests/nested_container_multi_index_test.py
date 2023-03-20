@@ -32,7 +32,7 @@ errorExit=Utils.errorExit
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed"
                            ,"--dump-error-details","-v","--leave-running"
-                           ,"--clean-run","--keep-logs"})
+                           ,"--clean-run","--keep-logs","--unshared"})
 
 pnodes=args.p
 topo=args.s
@@ -55,7 +55,7 @@ if nodesFile is not None:
 Utils.Debug=debug
 testSuccessful=False
 
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 
 walletMgr=WalletMgr(True)
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"

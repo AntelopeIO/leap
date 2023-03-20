@@ -9,8 +9,8 @@ from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # nodeos_producer_watermark_test
-# --dump-error-details <Upon error print etc/eosio/node_*/config.ini and var/lib/node_*/stderr.log to stdout>
-# --keep-logs <Don't delete var/lib/node_* folders upon test completion>
+# --dump-error-details <Upon error print etc/eosio/node_*/config.ini and nodeos_producer_watermark_test<pid>/node_*/stderr.log to stdout>
+# --keep-logs <Don't delete TestLogs/nodeos_producer_watermark_test<pid>/node_* folders upon test completion>
 ###############################################################
 def isValidBlockProducer(prodsActive, blockNum, node):
     blockProducer=node.getBlockProducerByNum(blockNum)
@@ -148,10 +148,10 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run",
-                              "--wallet-port"})
+                              "--wallet-port","--unshared"})
 Utils.Debug=args.v
 totalNodes=3
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running
@@ -176,7 +176,7 @@ try:
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
     Print("Stand up cluster")
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes, useBiosBootFile=False, onlySetProds=True, sharedProducers=1) is False:
+    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes, onlySetProds=True, sharedProducers=1) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 

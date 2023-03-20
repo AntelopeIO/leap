@@ -39,6 +39,7 @@ class PerformanceTestBasic:
         delay: int = 1
         nodesFile: str = None
         verbose: bool = False
+        unshared: bool = False
         _killEosInstances: bool = True
         _killWallet: bool = True
 
@@ -80,7 +81,6 @@ class PerformanceTestBasic:
         topo: str = "mesh"
         extraNodeosArgs: ExtraNodeosArgs = field(default_factory=ExtraNodeosArgs)
         specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
-        useBiosBootFile: bool = False
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
@@ -108,16 +108,12 @@ class PerformanceTestBasic:
             self.specificExtraNodeosArgs.update({f"{node}" : nonProdsSpecificNodeosStr for node in range(self.pnodes, self._totalNodes)})
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
-                self.fetchBlock = lambda node, blockNum: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
                 self.writeTrx = lambda trxDataFile, block, blockNum: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
                 self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['block_num']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['confirmed']},{block['payload']['timestamp']}\n")
-                self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":headBlock}, silentErrors=False, exitOnError=True)
                 self.specificExtraNodeosArgs.update({f"{node}" : '--plugin eosio::history_api_plugin --filter-on "*"' for node in range(self.pnodes, self._totalNodes)})
             else:
-                self.fetchBlock = lambda node, blockNum: node.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
                 self.writeTrx = lambda trxDataFile, block, blockNum:[ self.log_transactions(trxDataFile, block) ]
                 self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
-                self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
 
     @dataclass
     class PtbConfig:
@@ -138,7 +134,7 @@ class PerformanceTestBasic:
 
     @dataclass
     class LoggingConfig:
-        logDirBase: Path = Path(".")/PurePath(PurePath(__file__).name).stem[0]
+        logDirBase: Path = Path(".")/PurePath(PurePath(__file__).name).stem
         logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
         logDirTimestampedOptSuffix: str = ""
         logDirPath: Path = field(default_factory=Path, init=False)
@@ -146,7 +142,7 @@ class PerformanceTestBasic:
         def __post_init__(self):
             self.logDirPath = self.logDirBase/Path(f"{self.logDirTimestamp}{self.logDirTimestampedOptSuffix}")
 
-    def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), ptbConfig=PtbConfig()):
+    def __init__(self, testHelperConfig: TestHelperConfig=TestHelperConfig(), clusterConfig: ClusterConfig=ClusterConfig(), ptbConfig=PtbConfig(), testNamePath="performance_test_basic"):
         self.testHelperConfig = testHelperConfig
         self.clusterConfig = clusterConfig
         self.ptbConfig = ptbConfig
@@ -158,8 +154,8 @@ class PerformanceTestBasic:
         self.emptyBlockGoal = 1
 
         self.testStart = datetime.utcnow()
-
-        self.loggingConfig = PerformanceTestBasic.LoggingConfig(logDirBase=Path(self.ptbConfig.logDirRoot)/PurePath(PurePath(__file__).name).stem[0],
+        self.testNamePath = testNamePath
+        self.loggingConfig = PerformanceTestBasic.LoggingConfig(logDirBase=Path(self.ptbConfig.logDirRoot)/self.testNamePath,
                                                                 logDirTimestamp=f"{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}",
                                                                 logDirTimestampedOptSuffix = f"-{self.ptbConfig.targetTps}")
 
@@ -178,12 +174,13 @@ class PerformanceTestBasic:
         # Use first producer node and first non-producer node
         self.producerNodeId = 0
         self.validationNodeId = self.clusterConfig.pnodes
-        self.nodeosLogPath = Path("var")/"lib"/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
+        pid = os.getpid()
+        self.nodeosLogPath = Path(self.loggingConfig.logDirPath)/"var"/f"{self.testNamePath}{pid}"/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
         self.cluster=Cluster(walletd=True, loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
-                             nodeosVers=self.clusterConfig.nodeosVers)
+                             nodeosVers=self.clusterConfig.nodeosVers,unshared=self.testHelperConfig.unshared)
         self.cluster.setWalletMgr(self.walletMgr)
 
     def cleanupOldClusters(self):
@@ -241,7 +238,7 @@ class PerformanceTestBasic:
 
     def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
         for blockNum in range(startBlockNum, endBlockNum):
-            block = self.clusterConfig.fetchBlock(node, blockNum)
+            block = node.fetchBlock(blockNum)
             btdf_append_write = self.fileOpenMode(blockTrxDataPath)
             with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
                 self.clusterConfig.writeTrx(trxDataFile, block, blockNum)
@@ -254,7 +251,7 @@ class PerformanceTestBasic:
         emptyBlocks = 0
         while emptyBlocks < numEmptyToWaitOn:
             headBlock = node.getHeadBlockNum()
-            block = self.clusterConfig.fetchHeadBlock(node, headBlock)
+            block = node.fetchHeadBlock(node, headBlock)
             node.waitForHeadToAdvance()
             if block['payload']['transaction_mroot'] == "0000000000000000000000000000000000000000000000000000000000000000":
                 emptyBlocks += 1
@@ -266,7 +263,6 @@ class PerformanceTestBasic:
         return self.cluster.launch(
             pnodes=self.clusterConfig.pnodes,
             totalNodes=self.clusterConfig._totalNodes,
-            useBiosBootFile=self.clusterConfig.useBiosBootFile,
             topo=self.clusterConfig.topo,
             genesisPath=self.clusterConfig.genesisPath,
             maximumP2pPerHost=self.clusterConfig.maximumP2pPerHost,
@@ -331,7 +327,9 @@ class PerformanceTestBasic:
     def runTpsTest(self) -> PtbTpsTestResult:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
-        self.producerP2pPort = self.cluster.getNodeP2pPort(self.producerNodeId)
+        self.connectionPairList = []
+        for producer in range(0, self.clusterConfig.pnodes):
+            self.connectionPairList.append(f"{self.cluster.getNode(producer).host}:{self.cluster.getNodeP2pPort(producer)}")
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         self.wallet = self.walletMgr.create('default')
         self.setupContract()
@@ -375,13 +373,13 @@ class PerformanceTestBasic:
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
-        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator)
+        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator, connectionPairList=self.connectionPairList)
 
         self.cluster.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.account.name,
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
                                                        trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
                                                        abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,
-                                                       peerEndpoint=self.producerNode.host, port=self.producerP2pPort, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                       tpsTrxGensConfig=tpsTrxGensConfig)
 
         trxGenExitCodes = self.cluster.trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
@@ -415,9 +413,10 @@ class PerformanceTestBasic:
 
     def captureLowLevelArtifacts(self):
         try:
-            shutil.move(f"var", f"{self.varLogsDirPath}")
+            pid = os.getpid()
+            shutil.move(f"{self.cluster.nodeosLogPath}", f"{self.varLogsDirPath}")
         except Exception as e:
-            print(f"Failed to move 'var' to '{self.varLogsDirPath}': {type(e)}: {e}")
+            print(f"Failed to move '{self.cluster.nodeosLogPath}' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
         etcEosioDir = Path("etc")/"eosio"
         for path in os.listdir(etcEosioDir):
@@ -480,6 +479,7 @@ class PerformanceTestBasic:
 
             self.postTpsTestSteps()
 
+            self.captureLowLevelArtifacts()
             self.analyzeResultsAndReport(self.ptbTestResult)
 
             testSuccessful = self.ptbTestResult.completedRun
@@ -508,9 +508,6 @@ class PerformanceTestBasic:
                 self.testHelperConfig.dumpErrorDetails
                 )
 
-            if not self.ptbConfig.delPerfLogs:
-                self.captureLowLevelArtifacts()
-
             if self.ptbConfig.delPerfLogs:
                 print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
                 self.testDirsCleanup(self.ptbConfig.delReport)
@@ -522,7 +519,7 @@ class PtbArgumentsHandler(object):
     def createBaseArgumentParser():
         testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-p","-n","-d","-s","--nodes-file"
                                                         ,"--dump-error-details","-v","--leave-running"
-                                                        ,"--clean-run"})
+                                                        ,"--clean-run","--unshared"})
         ptbBaseParser = argparse.ArgumentParser(parents=[testHelperArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
         ptbBaseGrpTitle="Performance Test Basic Base"
@@ -608,7 +605,7 @@ def main():
     Utils.Debug = args.v
 
     testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
-                                                             dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v)
+                                                             dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v, unshared=args.unshared)
 
     chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
                                       chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,

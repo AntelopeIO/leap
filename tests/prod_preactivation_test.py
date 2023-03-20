@@ -9,18 +9,17 @@ from TestHarness.Cluster import PFSetupPolicy
 
 ###############################################################
 # prod_preactivation_test
-# --dump-error-details <Upon error print etc/eosio/node_*/config.ini and var/lib/node_*/stderr.log to stdout>
-# --keep-logs <Don't delete var/lib/node_* folders upon test completion>
+# --dump-error-details <Upon error print etc/eosio/node_*/config.ini and prod_preactivation_test<pid>/node_*/stderr.log to stdout>
+# --keep-logs <Don't delete TestLogs/prod_preactivation_test<pid>/node_* folders upon test completion>
 ###############################################################
 
 Print=Utils.Print
 errorExit=Utils.errorExit
 cmdError=Utils.cmdError
-from core_symbol import CORE_SYMBOL
 
 args = TestHelper.parse_args({"--host","--port","--defproducera_prvt_key","--defproducerb_prvt_key"
                               ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios","--clean-run"
-                              ,"--sanity-test","--wallet-port"})
+                              ,"--sanity-test","--wallet-port","--unshared"})
 server=args.host
 port=args.port
 debug=args.v
@@ -38,7 +37,7 @@ walletPort=args.wallet_port
 
 Utils.Debug=debug
 localTest=True
-cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey)
+cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey, unshared=args.unshared)
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
 killEosInstances=not dontKill
@@ -59,7 +58,7 @@ try:
         cluster.cleanup()
         Print("Stand up cluster")
         if cluster.launch(pnodes=prodCount, totalNodes=prodCount, prodCount=1, onlyBios=onlyBios,
-                         dontBootstrap=dontBootstrap, useBiosBootFile=False,
+                         dontBootstrap=dontBootstrap,
                          pfSetupPolicy=PFSetupPolicy.NONE, extraNodeosArgs=" --plugin eosio::producer_api_plugin  --http-max-response-time-ms 990000 ") is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")

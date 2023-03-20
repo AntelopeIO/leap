@@ -120,7 +120,9 @@ jobs:
       matrix:
         platform: [ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-hightier"]
-    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+    container: 
+      image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+      options: --security-opt seccomp=unconfined
     steps:
       - uses: actions/checkout@v3
       - name: Download builddir
@@ -157,7 +159,7 @@ jobs:
         uses: ./.github/actions/parallel-ctest-containers
         with:
           container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
+          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
       - name: Upload logs from failed tests  
@@ -186,7 +188,7 @@ jobs:
         uses: ./.github/actions/parallel-ctest-containers
         with:
           container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd"]'
+          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: long_running_tests
       - name: Upload logs from failed tests

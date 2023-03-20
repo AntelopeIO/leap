@@ -1,14 +1,10 @@
 #!/usr/bin/env python3
 
 import os
-import time
-import decimal
 import json
-import math
-import re
 import signal
 
-from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 from TestHarness.Node import BlockType
 
 ###############################################################
@@ -24,18 +20,15 @@ from TestHarness.Node import BlockType
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-from core_symbol import CORE_SYMBOL
-
-
 args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run",
-                              "--wallet-port"})
+                              "--wallet-port","--unshared"})
 Utils.Debug=args.v
 totalProducerNodes=2
 totalNonProducerNodes=1
 totalNodes=totalProducerNodes+totalNonProducerNodes
 maxActiveProducers=3
 totalProducers=maxActiveProducers
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running
@@ -95,7 +88,7 @@ try:
     # and the only connection between those 2 groups is through the bridge node
     if cluster.launch(prodCount=2, topo="bridge", pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs,
+                      specificExtraNodeosArgs=specificExtraNodeosArgs,
                       extraNodeosArgs=extraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")

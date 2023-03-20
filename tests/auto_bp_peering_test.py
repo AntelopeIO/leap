@@ -7,11 +7,11 @@ import time
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr, ReturnType
 
 ###############################################################
-# auto_bp_perring_test
+# auto_bp_peering_test
 #
-# This test setups  a cluster with 21 producers nodeos, each nodeos is configured with only one producer and only connects to the bios node.
-# Moreover, each producer nodeos also configured with a list of p2p-auto-bp-peer so that each one can automatically establish p2p connections to
-# their downstream two neighbors based on producer schedule on the chain and tear down the connections with are no longer in the scheduling neighborhood.
+# This test sets up  a cluster with 21 producers nodeos, each nodeos is configured with only one producer and only connects to the bios node.
+# Moreover, each producer nodeos is also configured with a list of p2p-auto-bp-peer so that each one can automatically establish p2p connections to
+# their downstream two neighbors based on producer schedule on the chain and tear down the connections which are no longer in the scheduling neighborhood.
 #
 ###############################################################
 
@@ -28,7 +28,8 @@ args = TestHelper.parse_args({
     "--clean-run",
     "--dump-error-details",
     "--leave-running",
-    "--keep-logs"
+    "--keep-logs",
+    "--unshared"
 })
 
 Utils.Debug = args.v
@@ -81,11 +82,10 @@ try:
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
     cluster.launch(
-        prodCount=1,
+        prodCount=producerCountInEachNode,
         totalNodes=totalNodes,
         pnodes=producerNodes,
         totalProducers=producerNodes,
-        useBiosBootFile=True,
         topo="./tests/auto_bp_peering_test_shape.json",
         extraNodeosArgs=" --plugin eosio::net_api_plugin ",
         specificExtraNodeosArgs=specificNodeosArgs,

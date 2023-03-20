@@ -8,6 +8,8 @@ import re
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.testUtils import WaitSpec
+from os import getpid
+from pathlib import Path
 
 ###############################################################
 # p2p connection in high latency network for one producer and one syning node cluster.
@@ -19,8 +21,8 @@ from TestHarness.testUtils import WaitSpec
 #   loop of sending lib catch up to syncing node.
 ###############################################################
 
-def readlogs(node_num, net_latency):
-    filename = 'var/lib/node_0{}/stderr.txt'.format(node_num)
+def readlogs(node_num, net_latency, nodeosLogPath):
+    filename = nodeosLogPath
     f = subprocess.Popen(['tail','-F',filename], \
                          stdout=subprocess.PIPE,stderr=subprocess.PIPE)
     latRegex = re.compile(r'\d+ms')
@@ -46,13 +48,13 @@ def exec(cmd):
 
 Print=Utils.Print
 
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run"})
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"})
 Utils.Debug=args.v
 
 producers=1
 syncingNodes=1
 totalNodes=producers+syncingNodes
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running
@@ -74,7 +76,7 @@ try:
     cluster.cleanup()
     traceNodeosArgs=" --plugin eosio::producer_plugin --produce-time-offset-us 0 --last-block-time-offset-us 0 --cpu-effort-percent 100 \
         --last-block-cpu-effort-percent 100 --producer-threads 1 --plugin eosio::net_plugin --net-threads 1"
-    if cluster.launch(pnodes=1, totalNodes=totalNodes, totalProducers=1, useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=traceNodeosArgs) is False:
+    if cluster.launch(pnodes=1, totalNodes=totalNodes, totalProducers=1, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=traceNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -96,7 +98,7 @@ try:
         print(err.decode("utf-8")) # print error details of network slowdown initialization commands
         Utils.errorExit("failed to initialize network latency, exited with error code {}".format(ReturnCode))
         # processing logs to make sure syncing node doesn't get into lib catch up mode.
-    testSuccessful=readlogs(syncingNodeId, latency)
+    testSuccessful=readlogs(syncingNodeId, latency, cluster.nodeosLogPath)
     if platform.system() == 'Darwin':
         cmd = 'sudo pfctl -f /etc/pf.conf && \
             sudo dnctl -q flush && sudo pfctl -d'
