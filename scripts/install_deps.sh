@@ -1,7 +1,7 @@
 #!/bin/bash
 apt-get update
 apt-get update --fix-missing
-DEBIAN_FRONTEND='noninteractive'
+export DEBIAN_FRONTEND='noninteractive'
 TZ='Etc/UTC'
 apt-get install -y \
     build-essential \
