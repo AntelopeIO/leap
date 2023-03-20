@@ -72,32 +72,19 @@ install_dependencies() {
         else
             unset SUDO_CMD
         fi
-        try $SUDO_CMD apt-get update
-        try $SUDO_CMD apt-get update --fix-missing
-        export DEBIAN_FRONTEND='noninteractive'
-        export TZ='Etc/UTC'
-        try $SUDO_CMD apt-get install -y \
-            build-essential \
-            bzip2 \
-            cmake \
-            curl \
-            file \
-            git \
-            libbz2-dev \
-            libcurl4-openssl-dev \
-            libgmp-dev \
-            libncurses5 \
-            libssl-dev \
-            libtinfo-dev \
-            libzstd-dev \
-            python3 \
-            python3-numpy \
-            time \
-            tzdata \
-            unzip \
-            wget \
-            zip \
-            zlib1g-dev
+        DEPENDENCIES="$(cat "$SCRIPT_DIR/pinned_deps.txt")"
+        echo 'Checking for missing package dependencies.'
+        dpkg -l $DEPENDENCIES &> /dev/null && MISSING_DEPS='false' || MISSING_DEPS='true'
+        if [[ "$MISSING_DEPS" == 'true' ]]; then
+            echo 'Some package dependencies are missing, installing...'
+            try $SUDO_CMD apt-get update
+            try $SUDO_CMD apt-get update --fix-missing
+            export DEBIAN_FRONTEND='noninteractive'
+            export TZ='Etc/UTC'
+            try $SUDO_CMD apt-get install -y $DEPENDENCIES
+        else
+            echo 'All package dependencies are already installed.'
+        fi
     else
         printf '\033[1;33mWARNING: Skipping package manager dependency installations because this is not a Debian-family operating system!\nWe currently only support Ubuntu.\033[0m\n'
     fi
