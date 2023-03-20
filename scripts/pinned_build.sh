@@ -74,7 +74,7 @@ install_dependencies() {
         fi
         DEPENDENCIES="$(cat "$SCRIPT_DIR/pinned_deps.txt")"
         echo 'Checking for missing package dependencies.'
-        dpkg -l $DEPENDENCIES &> /dev/null && MISSING_DEPS='false' || MISSING_DEPS='true'
+        dpkg -s $DEPENDENCIES &> /dev/null && MISSING_DEPS='false' || MISSING_DEPS='true'
         if [[ "$MISSING_DEPS" == 'true' ]]; then
             echo 'Some package dependencies are missing, installing...'
             try $SUDO_CMD apt-get update
