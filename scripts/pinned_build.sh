@@ -76,7 +76,6 @@ install_dependencies() {
         try $SUDO_CMD apt-get update --fix-missing
         export DEBIAN_FRONTEND='noninteractive'
         TZ='Etc/UTC'
-        try $SUDO_CMD apt-get install -y tzdata
         try $SUDO_CMD apt-get install -y \
             build-essential \
             bzip2 \
@@ -93,6 +92,7 @@ install_dependencies() {
             python3 \
             python3-numpy \
             time \
+            tzdata \
             unzip \
             wget \
             zip \
