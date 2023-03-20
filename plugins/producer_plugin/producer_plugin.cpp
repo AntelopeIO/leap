@@ -448,8 +448,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             std::unique_lock<std::mutex> g( mtx );
             
             if (should_exit() || (queue.empty() && (num_waiting + 1 == num_tasks))) {
-               g.unlock();
-               cond.notify_all();
+               if (num_waiting) {
+                  g.unlock();
+                  cond.notify_all();
+               }
                return false;
             }
             
@@ -465,11 +467,14 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             return true;
          }
 
-         void set_exit_criteria(uint32_t n, std::atomic<bool>* received_block, fc::time_point start, fc::microseconds duration) {
+         // We exit the read window when either:
+         //    - all threads would be idle
+         //    - or the net_plugin received a block.
+         //    - or we have reached the read_window_deadline
+         void set_exit_criteria(uint32_t n, std::atomic<bool>* received_block, fc::time_point deadline) {
             num_tasks = n;
             received_block_ptr = received_block;
-            start_time = start;
-            read_window_deadline = start_time + duration;
+            read_window_deadline = deadline;
          }
 
          bool should_exit() {
@@ -499,7 +504,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       boost::asio::deadline_timer     _ro_read_window_timer;
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_trx_queue;
-      std::atomic<uint32_t>            _ro_num_active_trx_exec_tasks{ 0 };
+      std::atomic<uint32_t>           _ro_num_active_trx_exec_tasks{ 0 };
       std::vector<std::future<bool>>  _ro_trx_exec_tasks_fut;
 
       void start_write_window();
@@ -2888,7 +2893,7 @@ void producer_plugin_impl::switch_to_read_window() {
    // start a read-only transaction execution task in each thread in the thread pool
    _ro_num_active_trx_exec_tasks = _ro_thread_pool_size;
    auto start_time = fc::time_point::now();
-   _ro_trx_queue.set_exit_criteria(_ro_thread_pool_size, &_received_block, start_time, _ro_read_window_effective_time_us);
+   _ro_trx_queue.set_exit_criteria(_ro_thread_pool_size, &_received_block, start_time + _ro_read_window_effective_time_us);
    for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
       _ro_trx_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this, &start_time] () {
          return self->read_only_trx_execution_task(start_time);
