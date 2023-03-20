@@ -911,8 +911,6 @@ void producer_plugin::set_program_options(
           "Limits the maximum age (in seconds) of the DPOS Irreversible Block for a chain this node will produce blocks on (use negative value to indicate unlimited)")
          ("producer-name,p", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "ID of producer controlled by this node (e.g. inita; may specify multiple times)")
-         ("private-key", boost::program_options::value<vector<string>>()->composing()->multitoken(),
-          "(DEPRECATED - Use signature-provider instead) Tuple of [public key, WIF private key] (may specify multiple times)")
          ("signature-provider", boost::program_options::value<vector<string>>()->composing()->multitoken()->default_value(
                {default_priv_key.get_public_key().to_string() + "=KEY:" + default_priv_key.to_string()},
                 default_priv_key.get_public_key().to_string() + "=KEY:" + default_priv_key.to_string()),
@@ -1018,22 +1016,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    LOAD_VALUE_SET(options, "producer-name", my->_producers)
 
    chain::controller& chain = my->chain_plug->chain();
-
-   if( options.count("private-key") )
-   {
-      const std::vector<std::string> key_id_to_wif_pair_strings = options["private-key"].as<std::vector<std::string>>();
-      for (const std::string& key_id_to_wif_pair_string : key_id_to_wif_pair_strings)
-      {
-         try {
-            auto key_id_to_wif_pair = dejsonify<std::pair<public_key_type, private_key_type>>(key_id_to_wif_pair_string);
-            my->_signature_providers[key_id_to_wif_pair.first] = app().get_plugin<signature_provider_plugin>().signature_provider_for_private_key(key_id_to_wif_pair.second);
-            auto blanked_privkey = std::string(key_id_to_wif_pair.second.to_string().size(), '*' );
-            wlog("\"private-key\" is DEPRECATED, use \"signature-provider=${pub}=KEY:${priv}\"", ("pub",key_id_to_wif_pair.first)("priv", blanked_privkey));
-         } catch ( const std::exception& e ) {
-            elog("Malformed private key pair");
-         }
-      }
-   }
 
    if( options.count("signature-provider") ) {
       const std::vector<std::string> key_spec_pairs = options["signature-provider"].as<std::vector<std::string>>();

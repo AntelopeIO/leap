@@ -20,7 +20,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 args=TestHelper.parse_args({"--kill-sig","--kill-count","--keep-logs"
-                            ,"--dump-error-details","-v","--leave-running","--clean-run"
+                            ,"--dump-error-details","-v","--leave-running","--clean-run","--unshared"
                             })
 pnodes=1
 total_nodes=3 # first one is producer, and last two are speculative nodes
@@ -40,7 +40,7 @@ testSuccessful=False
 
 seed=1
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 walletMgr=WalletMgr(True)
 cluster.setWalletMgr(walletMgr)
 
@@ -63,7 +63,6 @@ try:
             pnodes=pnodes,
             totalNodes=total_nodes,
             totalProducers=1,
-            useBiosBootFile=False,
             topo="mesh") is False:
         errorExit("Failed to stand up eos cluster.")
 

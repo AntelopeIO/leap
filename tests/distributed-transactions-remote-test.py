@@ -17,7 +17,7 @@ from TestHarness import Cluster, TestHelper, Utils
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"-p","--dump-error-details","-v","--leave-running","--clean-run"})
+args = TestHelper.parse_args({"-p","--dump-error-details","-v","--leave-running","--clean-run","--unshared"})
 pnodes=args.p
 debug=args.v
 dontKill=args.leave_running
@@ -47,7 +47,7 @@ clusterMapJsonTemplate="""{
 }
 """
 
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 
 (fd, nodesFile) = tempfile.mkstemp()
 try:

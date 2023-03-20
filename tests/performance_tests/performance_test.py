@@ -120,7 +120,7 @@ class PerformanceTest:
                                                        numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=logDirRoot, delReport=delReport,
                                                        quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile)
 
-            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig)
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
             testSuccessful = myTest.runTest()
             if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
                 maxTpsAchieved = binSearchTarget
@@ -143,6 +143,7 @@ class PerformanceTest:
 
         # Default - Decrementing Max TPS in range [1, tpsInitial]
         absFloor = 1
+        tpsInitial = absFloor if tpsInitial <= 0 else tpsInitial
         absCeiling = tpsInitial
 
         step = self.ptConfig.testIterationMinStep
@@ -162,7 +163,7 @@ class PerformanceTest:
                                                     numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport,
                                                     quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile)
 
-            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig)
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
             testSuccessful = myTest.runTest()
             if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
                 maxTpsAchieved = searchTarget
@@ -170,7 +171,7 @@ class PerformanceTest:
                 scenarioResult.success = True
                 maxFound = True
             else:
-                if searchTarget == absFloor:
+                if searchTarget <= absFloor:
                     # This means it has already run a search at absFloor, and failed, so exit.
                     maxFound = True
                 searchTarget = max(searchTarget - step, absFloor)

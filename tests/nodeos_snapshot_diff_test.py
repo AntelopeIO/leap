@@ -32,7 +32,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 appArgs=AppArgs()
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--wallet-port"},
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--wallet-port","--unshared"},
                              applicationSpecificArgs=appArgs)
 
 relaunchTimeout = 30
@@ -41,7 +41,7 @@ pnodes=1
 testAccounts = 2
 trxGeneratorCnt=2
 startedNonProdNodes = 3
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running
@@ -85,7 +85,7 @@ try:
     specificExtraNodeosArgs={}
     Print("Stand up cluster")
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, loadSystemContract=True, maximumP2pPerHost=totalNodes+trxGeneratorCnt) is False:
+                      specificExtraNodeosArgs=specificExtraNodeosArgs, loadSystemContract=True, maximumP2pPerHost=totalNodes+trxGeneratorCnt) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
     Print("Create test wallet")
@@ -158,7 +158,8 @@ try:
     assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
 
     Print("Create snapshot")
-    ret = nodeProg.scheduleSnapshot()
+    blockNumSnap=nodeSnap.getBlockNum(BlockType.head)
+    ret = nodeProg.scheduleSnapshotAt(blockNumSnap)
     assert ret is not None, "Snapshot creation failed"
     
     ret = nodeSnap.createSnapshot()

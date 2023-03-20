@@ -29,7 +29,7 @@ namespace eosio::testing {
 
    struct account_name_generator {
       // This account_name_generator provides the means to generate 12 character account names where the left-most 2 characters are reserved
-      // to identify the trx generator.  The right 10 characters are determined based on incrementing through the allowed char_map one at a
+      // to identify the trx generator.  The right 10 characters are determined based on incrementing through the allowed char_map one at a time
       // before incrementing the next character to the left.
       // The _name_index_vec tracks the index into the char_map for each of the 12 characters of the name.
       // For example:
