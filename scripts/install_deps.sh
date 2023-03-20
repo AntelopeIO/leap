@@ -3,7 +3,6 @@ apt-get update
 apt-get update --fix-missing
 DEBIAN_FRONTEND='noninteractive'
 TZ='Etc/UTC'
-apt-get install -y tzdata
 apt-get install -y \
     build-essential \
     bzip2 \
@@ -22,6 +21,7 @@ apt-get install -y \
     pkg-config \
     python3 \
     time \
+    tzdata \
     unzip \
     wget \
     zip \
