@@ -72,16 +72,16 @@ install_dependencies() {
         else
             unset SUDO_CMD
         fi
-        DEPENDENCIES="$(cat "$SCRIPT_DIR/pinned_deps.txt")"
+        DEPENDENCIES=( $(cat "$SCRIPT_DIR/pinned_deps.txt") )
         echo 'Checking for missing package dependencies.'
-        dpkg -s $DEPENDENCIES &> /dev/null && MISSING_DEPS='false' || MISSING_DEPS='true'
+        dpkg -s "${DEPENDENCIES[@]}" &> /dev/null && MISSING_DEPS='false' || MISSING_DEPS='true'
         if [[ "$MISSING_DEPS" == 'true' ]]; then
             echo 'Some package dependencies are missing, installing...'
             try $SUDO_CMD apt-get update
             try $SUDO_CMD apt-get update --fix-missing
             export DEBIAN_FRONTEND='noninteractive'
             export TZ='Etc/UTC'
-            try $SUDO_CMD apt-get install -y $DEPENDENCIES
+            try $SUDO_CMD apt-get install -y "${DEPENDENCIES[@]}"
         else
             echo 'All package dependencies are already installed.'
         fi
