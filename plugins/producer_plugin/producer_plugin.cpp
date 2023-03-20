@@ -466,6 +466,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          //    - or the net_plugin received a block.
          //    - or we have reached the read_window_deadline
          void set_exit_criteria(uint32_t num_tasks, std::atomic<bool>* received_block, fc::time_point deadline) {
+            assert(num_tasks > 0 && num_waiting == 0);
+            assert(received_block && *received_block == false);
             max_waiting = num_tasks;
             received_block_ptr = received_block;
             read_window_deadline = deadline;
