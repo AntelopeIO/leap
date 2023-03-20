@@ -266,29 +266,37 @@ struct block_time_tracker {
       ++trx_success_num;
    }
 
+   void add_transient_time( const fc::microseconds& time ) {
+      transient_trx_time += time;
+      ++transient_trx_num;
+   }
+
    void report( const fc::time_point& idle_trx_time, uint32_t block_num ) {
       if( _log.is_enabled( fc::log_level::debug ) ) {
          auto now = fc::time_point::now();
          add_idle_time( now - idle_trx_time );
-         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, other: ${o}us",
+         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, transient trxs: ${tn}, ${t}us, other: ${o}us",
                   ("n", block_num)
                   ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
                   ("fn", trx_fail_num)("f", trx_fail_time)
-                  ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time) );
+                  ("tn", transient_trx_num)("t", transient_trx_time)
+                  ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time - transient_trx_time) );
       }
    }
 
    void clear() {
-      block_idle_time = trx_fail_time = trx_success_time = fc::microseconds{};
-      trx_fail_num = trx_success_num = 0;
+      block_idle_time = trx_fail_time = trx_success_time = transient_trx_time = fc::microseconds{};
+      trx_fail_num = trx_success_num = transient_trx_num = 0;
       clear_time = fc::time_point::now();
    }
 
    fc::microseconds block_idle_time;
    uint32_t trx_success_num = 0;
    uint32_t trx_fail_num = 0;
+   uint32_t transient_trx_num = 0;
    fc::microseconds trx_success_time;
    fc::microseconds trx_fail_time;
+   fc::microseconds transient_trx_time;
    fc::time_point clear_time{fc::time_point::now()};
 };
 
@@ -688,7 +696,14 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                      self->log_trx_results( trx, nullptr, ex, 0, start, is_transient );
                      next( std::move(ex) );
                      self->_idle_trx_time = fc::time_point::now();
-                     self->_time_tracker.add_fail_time(self->_idle_trx_time - start);
+                     auto dur = self->_idle_trx_time - start;
+                     if ( is_transient ) {
+                        // this function can only be on main thread.
+                        // transient time includes both success and fail time
+                        self->_time_tracker.add_transient_time(dur);
+                     } else {
+                        self->_time_tracker.add_fail_time(dur);
+                     }
                   };
                   try {
                      auto result = future.get();
@@ -2261,8 +2276,15 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
    auto end = fc::time_point::now();
    push_result pr;
    if( trace->except ) {
-      if ( !trx->is_read_only() )
-         _time_tracker.add_fail_time(end - start);
+      if ( chain.is_main_thread() ) {
+         auto dur = end - start;
+         if ( trx->is_transient() ) {
+            // transient time includes both success and fail time
+            _time_tracker.add_transient_time(dur);
+         } else {
+            _time_tracker.add_fail_time(dur);
+         }
+      }
       if( exception_is_exhausted( *trace->except ) ) {
          if( _pending_block_mode == pending_block_mode::producing ) {
             fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
@@ -2302,8 +2324,15 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
    } else {
       fc_tlog( _log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us",
                ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
-      if ( !trx->is_read_only() )
-         _time_tracker.add_success_time(end - start);
+      if ( chain.is_main_thread() ) {
+         auto dur = end - start;
+         if ( trx->is_transient() ) {
+            // transient time includes both success and fail time
+            _time_tracker.add_transient_time(dur);
+         } else {
+            _time_tracker.add_success_time(dur);
+         }
+      }
       log_trx_results( trx, trace, start );
       // if producing then trx is in objective cpu account billing
       if (!disable_subjective_enforcement && _pending_block_mode != pending_block_mode::producing) {
