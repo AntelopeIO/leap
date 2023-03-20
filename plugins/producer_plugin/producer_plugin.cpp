@@ -424,19 +424,13 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          void push_back(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_back(std::move(trx));
-            if (num_waiting) {
-               g.unlock();
-               cond.notify_one();
-            }
+            notify_waiting(g, false);
          }
          
          void push_front(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_front(std::move(trx));
-            if (num_waiting) {
-               g.unlock();
-               cond.notify_one();
-            }
+            notify_waiting(g, false);
          }
 
          bool empty() const {
@@ -444,14 +438,14 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             return queue.empty();
          }
 
+         // may wait if the queue is empty, and not all other threads are already waiting.
+         // returns true if a transaction was dequeued and should be executed, or false 
+         // if conditions are met to stop processing transactions. 
          bool pop_front(ro_trx_t &trx) {
             std::unique_lock<std::mutex> g( mtx );
             
-            if (should_exit() || (queue.empty() && (num_waiting + 1 == num_tasks))) {
-               if (num_waiting) {
-                  g.unlock();
-                  cond.notify_all();
-               }
+            if (should_exit() || (queue.empty() && (num_waiting + 1 == max_waiting))) {
+               notify_waiting(g, true);
                return false;
             }
             
@@ -459,7 +453,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             cond.wait(g);
             --num_waiting;
             
-            if (queue.empty() || should_exit())
+            if (queue.empty() || should_exit()) // were we woken up by another thread?
                return false;
             
             trx = std::move(queue.front());
@@ -471,23 +465,30 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          //    - all threads would be idle
          //    - or the net_plugin received a block.
          //    - or we have reached the read_window_deadline
-         void set_exit_criteria(uint32_t n, std::atomic<bool>* received_block, fc::time_point deadline) {
-            num_tasks = n;
+         void set_exit_criteria(uint32_t num_tasks, std::atomic<bool>* received_block, fc::time_point deadline) {
+            max_waiting = num_tasks;
             received_block_ptr = received_block;
             read_window_deadline = deadline;
          }
 
+      private:
+         void notify_waiting(std::unique_lock<std::mutex>& g, bool all) {
+            if (num_waiting) {
+               g.unlock();
+               all ? cond.notify_all() : cond.notify_one();
+            }
+         }
+            
          bool should_exit() {
             return *received_block_ptr ||
                fc::time_point::now() >= read_window_deadline;
          }
-
-      private:
+         
          mutable std::mutex      mtx;
          std::condition_variable cond;
          deque<ro_trx_t>         queue;
          uint32_t                num_waiting {0};
-         uint32_t                num_tasks {0};
+         uint32_t                max_waiting {0};
          std::atomic<bool>*      received_block_ptr;
          fc::time_point          start_time;
          fc::time_point          read_window_deadline;
