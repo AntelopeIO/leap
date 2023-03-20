@@ -73,7 +73,10 @@ install_dependencies() {
         else
             unset SUDO_CMD
         fi
-        DEPENDENCIES=( $(cat "$SCRIPT_DIR/pinned_deps.txt") )
+        DEPENDENCIES=()
+        while IFS='' read -r LINE; do
+            DEPENDENCIES+=("$LINE");
+        done < <(cat "$SCRIPT_DIR/pinned_deps.txt")
         echo 'Checking for missing package dependencies.'
         dpkg -s "${DEPENDENCIES[@]}" &> /dev/null && MISSING_DEPS='false' || MISSING_DEPS='true'
         if [[ "$MISSING_DEPS" == 'true' ]]; then
