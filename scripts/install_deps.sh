@@ -12,6 +12,7 @@ apt-get install -y \
     file \
     git \
     libbz2-dev \
+    libcurl4-openssl-dev \
     libgmp-dev \
     libncurses5 \
     libssl-dev \
