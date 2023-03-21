@@ -15,6 +15,8 @@ from sys import stdout
 from sys import exit
 import traceback
 import shutil
+import sys
+from pathlib import Path
 
 ###########################################################################################
 
@@ -54,26 +56,28 @@ class Utils:
     Debug=False
     FNull = open(os.devnull, 'w')
 
-    EosClientPath="programs/cleos/cleos"
+    testBinPath = Path(__file__).resolve().parents[2] / 'bin'
+
+    EosClientPath=str(testBinPath / "cleos")
     MiscEosClientArgs="--no-auto-keosd"
 
-    LeapClientPath="programs/leap-util/leap-util"
+    LeapClientPath=str(testBinPath / "leap-util")
 
     EosWalletName="keosd"
-    EosWalletPath="programs/keosd/"+ EosWalletName
+    EosWalletPath=str(testBinPath / EosWalletName)
 
     EosServerName="nodeos"
-    EosServerPath="programs/nodeos/"+ EosServerName
+    EosServerPath=str(testBinPath / EosServerName)
 
-    EosLauncherPath="programs/eosio-launcher/eosio-launcher"
     ShuttingDown=False
 
-    EosBlockLogPath="programs/eosio-blocklog/eosio-blocklog"
-
     FileDivider="================================================================="
-    DataRoot="var"
-    DataDir="%s/lib/" % (DataRoot)
-    ConfigDir="etc/eosio/"
+    TestLogRoot=f"{str(Path.cwd().resolve())}/TestLogs"
+    DataRoot=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0]
+    PID = os.getpid()
+    DataPath= f"{TestLogRoot}/{DataRoot}{PID}"
+    DataDir= f"{DataPath}/"
+    ConfigDir=f"{str(Path.cwd().resolve())}/etc/eosio/"
 
     TimeFmt='%Y-%m-%dT%H:%M:%S.%f'
 
@@ -85,10 +89,13 @@ class Utils:
     def checkOutputFileWrite(time, cmd, output, error):
         stop=Utils.timestamp()
         if not hasattr(Utils, "checkOutputFile"):
-            if not os.path.isdir(Utils.DataRoot):
-                if Utils.Debug: Utils.Print("creating dir %s in dir: %s" % (Utils.DataRoot, os.getcwd()))
-                os.mkdir(Utils.DataRoot)
-            filename="%s/subprocess_results.log" % (Utils.DataRoot)
+            if not os.path.isdir(Utils.TestLogRoot):
+                if Utils.Debug: Utils.Print("TestLogRoot creating dir %s in dir: %s" % (Utils.TestLogRoot, os.getcwd()))
+                os.mkdir(Utils.TestLogRoot)
+            if not os.path.isdir(Utils.DataPath):
+                if Utils.Debug: Utils.Print("DataPath creating dir %s in dir: %s" % (Utils.DataPath, os.getcwd()))
+                os.mkdir(Utils.DataPath)
+            filename=f"{Utils.DataPath}/subprocess_results.log"
             if Utils.Debug: Utils.Print("opening %s in dir: %s" % (filename, os.getcwd()))
             Utils.checkOutputFile=open(filename,"w")
 
@@ -408,18 +415,18 @@ class Utils:
         blockLogActionStr=None
         returnType=ReturnType.raw
         if blockLogAction==BlockLogAction.return_blocks:
-            blockLogActionStr=""
+            blockLogActionStr=" print-log --as-json-array "
             returnType=ReturnType.json
         elif blockLogAction==BlockLogAction.make_index:
-            blockLogActionStr=" --make-index "
+            blockLogActionStr=" make-index "
         elif blockLogAction==BlockLogAction.trim:
-            blockLogActionStr=" --trim "
+            blockLogActionStr=" trim-blocklog "
         elif blockLogAction==BlockLogAction.smoke_test:
-            blockLogActionStr=" --smoke-test "
+            blockLogActionStr=" smoke-test "
         else:
             unhandledEnumType(blockLogAction)
 
-        cmd="%s --blocks-dir %s --as-json-array %s%s%s%s" % (Utils.EosBlockLogPath, blockLogLocation, outputFileStr, firstStr, lastStr, blockLogActionStr)
+        cmd="%s block-log %s --blocks-dir %s  %s%s%s" % (Utils.LeapClientPath, blockLogActionStr, blockLogLocation, outputFileStr, firstStr, lastStr)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         rtn=None
         try:
@@ -572,11 +579,11 @@ class Utils:
 
     @staticmethod
     def makeHTTPReqStr(host : str, port : str, api_call : str, body : str, keepAlive=False) -> str:
-        hdr = "POST " + api_call + " HTTP/1.1\r\n" 
+        hdr = "POST " + api_call + " HTTP/1.1\r\n"
         hdr += f"Host: {host}:{port}\r\n"
         body += "\r\n"
         body_len = len(body)
-        hdr +=  f"content-length: {body_len}\r\n" 
+        hdr +=  f"content-length: {body_len}\r\n"
         hdr +=  "Accept: */*\r\n"
         hdr += "Connection: "
         if keepAlive:
@@ -613,7 +620,7 @@ class Utils:
     def readSocketDataStr(sock : socket.socket, maxMsgSize : int, enc : str) -> str:
         """Read data from a socket until maxMsgSize is reached or timeout
         Retrusn data as decoded string object"""
-        data = Utils.readSocketData(sock, maxMsgSize) 
+        data = Utils.readSocketData(sock, maxMsgSize)
         return data.decode(enc)
 
     @staticmethod
@@ -637,3 +644,5 @@ class Account(object):
     def __str__(self):
         return "Name: %s" % (self.name)
 
+    def __repr__(self):
+        return "Name: %s" % (self.name)

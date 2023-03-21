@@ -88,11 +88,11 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
 
    char headnumstr[20];
    sprintf(headnumstr, "%d", headnum);
-   chain_apis::read_only::get_block_params param{headnumstr};
+   chain_apis::read_only::get_raw_block_params param{headnumstr};
    chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
 
    // block should be decoded successfully
-   auto block = plugin.get_block(param, fc::time_point::maximum());
+   auto block = plugin.get_raw_block(param, fc::time_point::maximum());
    auto abi_cache = plugin.get_block_serializers(block, fc::microseconds::maximum());
    std::string block_str = json::to_pretty_string(plugin.convert_block(block, abi_cache, fc::microseconds::maximum()));
    BOOST_TEST(block_str.find("procassert") != std::string::npos);
@@ -112,13 +112,21 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    BOOST_CHECK_THROW(resolver("asserter"_n), invalid_type_inside_abi);
 
    // get the same block as string, results in decode failed(invalid abi) but not exception
-   auto block2 = plugin.get_block(param, fc::time_point::maximum());
+   auto block2 = plugin.get_raw_block(param, fc::time_point::maximum());
    auto abi_cache2 = plugin.get_block_serializers(block2, fc::microseconds::maximum());
    std::string block_str2 = json::to_pretty_string(plugin.convert_block(block2, abi_cache2, fc::microseconds::maximum()));
    BOOST_TEST(block_str2.find("procassert") != std::string::npos);
    BOOST_TEST(block_str2.find("condition") == std::string::npos); // decode failed
    BOOST_TEST(block_str2.find("Should Not Assert!") == std::string::npos); // decode failed
    BOOST_TEST(block_str2.find("011253686f756c64204e6f742041737365727421") != std::string::npos); //action data
+
+
+   chain_apis::read_only::get_block_header_params bh_param{headnumstr, false};
+   auto get_bh_result = plugin.get_block_header(bh_param, fc::time_point::maximum());
+
+   BOOST_TEST(get_bh_result.id == block->calculate_id());
+   BOOST_TEST(json::to_string(get_bh_result.signed_block_header, fc::time_point::maximum()) ==
+              json::to_string(fc::variant{static_cast<signed_block_header&>(*block)}, fc::time_point::maximum()));
 
 } FC_LOG_AND_RETHROW() /// get_block_with_invalid_abi
 
@@ -185,7 +193,7 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
       BOOST_REQUIRE_EQUAL(2, result.permissions.size());
       if (result.permissions.size() > 1) {
          auto perm = result.permissions[0];
-         BOOST_REQUIRE_EQUAL(name("active"_n), perm.perm_name); 
+         BOOST_REQUIRE_EQUAL(name("active"_n), perm.perm_name);
          BOOST_REQUIRE_EQUAL(name("owner"_n), perm.parent);
          auto auth = perm.required_auth;
          BOOST_REQUIRE_EQUAL(1, auth.threshold);
@@ -194,8 +202,8 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
          BOOST_REQUIRE_EQUAL(0, auth.waits.size());
 
          perm = result.permissions[1];
-         BOOST_REQUIRE_EQUAL(name("owner"_n), perm.perm_name); 
-         BOOST_REQUIRE_EQUAL(name(""_n), perm.parent); 
+         BOOST_REQUIRE_EQUAL(name("owner"_n), perm.perm_name);
+         BOOST_REQUIRE_EQUAL(name(""_n), perm.parent);
          auth = perm.required_auth;
          BOOST_REQUIRE_EQUAL(1, auth.threshold);
          BOOST_REQUIRE_EQUAL(1, auth.keys.size());

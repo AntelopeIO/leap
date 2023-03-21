@@ -18,12 +18,10 @@ from TestHarness.Node import BlockType
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-from core_symbol import CORE_SYMBOL
-
 def verifyBlockLog(expected_block_num, trimmedBlockLog):
     firstBlockNum = expected_block_num
     for block in trimmedBlockLog:
-        assert 'block_num' in block, print("ERROR: eosio-blocklog didn't return block output")
+        assert 'block_num' in block, print("ERROR: leap-util didn't return block output")
         block_num = block['block_num']
         assert block_num == expected_block_num
         expected_block_num += 1
@@ -31,10 +29,10 @@ def verifyBlockLog(expected_block_num, trimmedBlockLog):
 
 
 appArgs=AppArgs()
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run"})
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"})
 Utils.Debug=args.v
 pnodes=2
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running
@@ -58,7 +56,7 @@ try:
     cluster.killall(allInstances=killAll)
     cluster.cleanup()
     Print("Stand up cluster")
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount, useBiosBootFile=False) is False:
+    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
     Print("Validating system accounts after bootstrap")
@@ -128,7 +126,7 @@ try:
 
     try:
         Print("Head block num %d will not be in block log (it will be in reversible DB), so --trim will throw an exception" % (headBlockNum))
-        output=cluster.getBlockLog(0, blockLogAction=BlockLogAction.trim, last=headBlockNum, throwException=True)
+        output=cluster.getBlockLog(0, blockLogAction=BlockLogAction.trim, first=0, last=headBlockNum, throwException=True)
         Utils.errorExit("BlockLogUtil --trim should have indicated error for last value set to lib (%d) " +
                         "which should not do anything since only trimming blocklog and not irreversible blocks" % (lib))
     except subprocess.CalledProcessError as ex:
@@ -136,13 +134,13 @@ try:
 
     beforeEndOfBlockLog=lib-20
     Print("Block num %d will definitely be at least one block behind the most recent entry in block log, so --trim will work" % (beforeEndOfBlockLog))
-    output=cluster.getBlockLog(0, blockLogAction=BlockLogAction.trim, last=beforeEndOfBlockLog, throwException=True)
+    output=cluster.getBlockLog(0, blockLogAction=BlockLogAction.trim, first=0, last=beforeEndOfBlockLog, throwException=True)
 
     Print("Kill the non production node, we want to verify its block log")
     cluster.getNode(2).kill(signal.SIGTERM)
 
     Print("Trim off block num 1 to remove genesis block from block log.")
-    output=cluster.getBlockLog(2, blockLogAction=BlockLogAction.trim, first=2, throwException=True)
+    output=cluster.getBlockLog(2, blockLogAction=BlockLogAction.trim, first=2, last=4294967295, throwException=True)
 
     Print("Smoke test the trimmed block log.")
     output=cluster.getBlockLog(2, blockLogAction=BlockLogAction.smoke_test)
@@ -171,7 +169,7 @@ try:
 
     firstBlock = info["last_irreversible_block_num"]
     Print("Trim off block num %s." % (firstBlock))
-    output=cluster.getBlockLog(2, blockLogAction=BlockLogAction.trim, first=firstBlock, throwException=True)
+    output=cluster.getBlockLog(2, blockLogAction=BlockLogAction.trim, first=firstBlock, last=4294967295, throwException=True)
 
     Print("Smoke test the trimmed block log.")
     output=cluster.getBlockLog(2, blockLogAction=BlockLogAction.smoke_test)

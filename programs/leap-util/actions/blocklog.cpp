@@ -38,7 +38,7 @@ struct report_time {
 
    void report() {
       const auto duration = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::high_resolution_clock::now() - _start).count() / 1000;
-      ilog("eosio-blocklog - ${desc} took ${t} msec", ("desc", _desc)("t", duration));
+      ilog("leap-util - ${desc} took ${t} msec", ("desc", _desc)("t", duration));
    }
 
    const std::chrono::high_resolution_clock::time_point _start;
@@ -164,8 +164,7 @@ int blocklog_actions::trim_blocklog() {
 }
 
 int blocklog_actions::extract_blocks() {
-   if(!extract_block_range(opt->blocks_dir, opt->output_dir, opt->first_block, opt->last_block))
-      return -1;
+   extract_block_range(opt->blocks_dir, opt->output_dir, opt->first_block, opt->last_block);
    return 0;
 }
 
@@ -215,18 +214,16 @@ int blocklog_actions::trim_blocklog_end(bfs::path block_dir, uint32_t n) {//n is
 
 bool blocklog_actions::trim_blocklog_front(bfs::path block_dir, uint32_t n) {//n is first block to keep (remove prior blocks)
    report_time rt("trimming blocklog start");
-   block_num_type end = std::numeric_limits<block_num_type>::max();
-   const bool status = block_log::extract_block_range(block_dir, block_dir / "old", n, end, true);
+   const bool status = block_log::trim_blocklog_front(block_dir, block_dir / "old", n);
    rt.report();
    return status;
 }
 
-bool blocklog_actions::extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t end) {
+void blocklog_actions::extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t last) {
    report_time rt("extracting block range");
-   EOS_ASSERT(end > start, block_log_exception, "extract range end must be greater than start");
-   const bool status = block_log::extract_block_range(block_dir, output_dir, start, end, false);
+   EOS_ASSERT(last > start, block_log_exception, "extract range end must be greater than start");
+   block_log::extract_block_range(block_dir, output_dir, start, last);
    rt.report();
-   return status;
 }
 
 int blocklog_actions::smoke_test() {

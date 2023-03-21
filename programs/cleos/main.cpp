@@ -170,7 +170,6 @@ bool   tx_return_packed = false;
 bool   tx_skip_sign = false;
 bool   tx_print_json = false;
 bool   tx_rtn_failure_trace = true;
-bool   tx_read_only = false;
 bool   tx_dry_run = false;
 bool   tx_read = false;
 bool   tx_retry_lib = false;
@@ -463,7 +462,6 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       EOSC_ASSERT( !(tx_use_old_rpc && tx_use_old_send_rpc), "ERROR: --use-old-rpc and --use-old-send-rpc are mutually exclusive" );
       EOSC_ASSERT( !(tx_retry_lib && tx_retry_num_blocks > 0), "ERROR: --retry-irreversible and --retry-num-blocks are mutually exclusive" );
       if (tx_use_old_rpc) {
-         EOSC_ASSERT( !tx_read_only, "ERROR: --read-only can not be used with --use-old-rpc" );
          EOSC_ASSERT( !tx_dry_run, "ERROR: --dry-run can not be used with --use-old-rpc" );
          EOSC_ASSERT( !tx_read, "ERROR: --read can not be used with --use-old-rpc" );
          EOSC_ASSERT( !tx_rtn_failure_trace, "ERROR: --return-failure-trace can not be used with --use-old-rpc" );
@@ -471,7 +469,6 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
          EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --use-old-rpc" );
          return call( push_txn_func, packed_transaction( trx, compression ) );
       } else if (tx_use_old_send_rpc) {
-         EOSC_ASSERT( !tx_read_only, "ERROR: --read-only can not be used with --use-old-send-rpc" );
          EOSC_ASSERT( !tx_dry_run, "ERROR: --dry-run can not be used with --use-old-send-rpc" );
          EOSC_ASSERT( !tx_read, "ERROR: --read can not be used with --use-old-send-rpc" );
          EOSC_ASSERT( !tx_rtn_failure_trace, "ERROR: --return-failure-trace can not be used with --use-old-send-rpc" );
@@ -484,9 +481,9 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
             throw;
          }
       } else {
-         if( tx_read || tx_dry_run || tx_read_only ) {
-            EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --read, --dry-run or --read-only" );
-            EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --read, --dry-run or --read-only" );
+         if( tx_read || tx_dry_run ) {
+            EOSC_ASSERT( !tx_retry_lib, "ERROR: --retry-irreversible can not be used with --read or --dry-run" );
+            EOSC_ASSERT( !tx_retry_num_blocks, "ERROR: --retry-num-blocks can not be used with --read or --dry-run" );
             try {
                auto args = fc::mutable_variant_object ("transaction", packed_transaction(trx,compression));
                if( tx_read ) {
@@ -2771,6 +2768,15 @@ struct set_url_no_trailing_slash {
    }
 };
 
+struct get_block_params {
+   string blockArg;
+   bool get_bhs = false;
+   bool get_binfo = false;
+   bool get_braw  = false;
+   bool get_bheader = false;
+   bool get_bheader_extensions = false;
+};
+
 int main( int argc, char** argv ) {
 
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
@@ -3005,29 +3011,39 @@ int main( int argc, char** argv ) {
    });
 
    // get block
-   string blockArg;
-   bool get_bhs = false;
-   bool get_binfo = false;
+   get_block_params params;
    auto getBlock = get->add_subcommand("block", localized("Retrieve a full block from the blockchain"));
-   getBlock->add_option("block", blockArg, localized("The number or ID of the block to retrieve"))->required();
-   getBlock->add_flag("--header-state", get_bhs, localized("Get block header state from fork database instead") );
-   getBlock->add_flag("--info", get_binfo, localized("Get block info from the blockchain by block num only") );
-   getBlock->callback([&blockArg, &get_bhs, &get_binfo] {
-      EOSC_ASSERT( !(get_bhs && get_binfo), "ERROR: Either --header-state or --info can be set" );
-      if (get_binfo) {
+   getBlock->add_option("block", params.blockArg, localized("The number or ID of the block to retrieve"))->required();
+   getBlock->add_flag("--header-state", params.get_bhs, localized("Get block header state from fork database instead") );
+   getBlock->add_flag("--info", params.get_binfo, localized("Get block info from the blockchain by block num only") );
+   getBlock->add_flag("--raw", params.get_braw, localized("Get raw block from the blockchain") );
+   getBlock->add_flag("--header", params.get_bheader, localized("Get block header from the blockchain") );
+   getBlock->add_flag("--header-with-extensions", params.get_bheader_extensions, localized("Get block header with block exntesions from the blockchain") );
+
+   getBlock->callback([&params] {
+      int num_flags = params.get_bhs + params.get_binfo + params.get_braw + params.get_bheader + params.get_bheader_extensions;
+      EOSC_ASSERT( num_flags <= 1, "ERROR: Only one of the following flags can be set: --header-state, --info, --raw, --header, --header-with-extensions." );
+      if (params.get_binfo) {
          std::optional<int64_t> block_num;
          try {
-            block_num = fc::to_int64(blockArg);
+            block_num = fc::to_int64(params.blockArg);
          } catch (...) {
             // error is handled in assertion below
          }
-         EOSC_ASSERT( block_num.has_value() && (*block_num > 0), "Invalid block num: ${block_num}", ("block_num", blockArg) );
+         EOSC_ASSERT( block_num.has_value() && (*block_num > 0), "Invalid block num: ${block_num}", ("block_num", params.blockArg) );
          const auto arg = fc::variant_object("block_num", static_cast<uint32_t>(*block_num));
          std::cout << fc::json::to_pretty_string(call(get_block_info_func, arg)) << std::endl;
       } else {
-         const auto arg = fc::variant_object("block_num_or_id", blockArg);
-         if (get_bhs) {
+         const auto arg = fc::variant_object("block_num_or_id", params.blockArg);
+         if (params.get_bhs) {
             std::cout << fc::json::to_pretty_string(call(get_block_header_state_func, arg)) << std::endl;
+         } else if (params.get_braw) {
+            std::cout << fc::json::to_pretty_string(call(get_raw_block_func, arg)) << std::endl;
+         } else if (params.get_bheader || params.get_bheader_extensions) {
+            std::cout << fc::json::to_pretty_string(
+               call(get_block_header_func,
+                    fc::mutable_variant_object("block_num_or_id", params.blockArg)
+                                              ("include_extensions", params.get_bheader_extensions))) << std::endl;
          } else {
             std::cout << fc::json::to_pretty_string(call(get_block_func, arg)) << std::endl;
          }
@@ -3936,7 +3952,6 @@ int main( int argc, char** argv ) {
    trxSubcommand->add_option("transaction", trx_to_push, localized("The JSON string or filename defining the transaction to push"))->required();
    trxSubcommand->add_option("--signature", extra_sig_opt_callback, localized("append a signature to the transaction; repeat this option to append multiple signatures"))->type_size(0, 1000);
    add_standard_transaction_options_plus_signing(trxSubcommand);
-   trxSubcommand->add_flag("-o,--read-only", tx_read_only, localized("Deprecated, use --dry-run instead"));
    trxSubcommand->add_flag("--dry-run", tx_dry_run, localized("Specify a transaction is dry-run"));
    trxSubcommand->add_flag("--read", tx_read, localized("Specify a transaction is read-only"));
 

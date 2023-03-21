@@ -1,4 +1,4 @@
-#include <appbase/application.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
 
 #include <boost/asio.hpp>
@@ -52,7 +52,7 @@ public:
                   cb(200, fc::time_point::maximum(), fc::variant(ok ? string("yes") : string("no")));
                }
             },
-         });
+         }, appbase::exec_queue::general);
    }
 
 private:

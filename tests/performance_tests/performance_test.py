@@ -42,7 +42,7 @@ class PerformanceTest:
         searchTarget: int = 0
         searchFloor: int = 0
         searchCeiling: int = 0
-        basicTestResult: PerfTestBasicResult = PerfTestBasicResult()
+        basicTestResult: PerfTestBasicResult = field(default_factory=PerfTestBasicResult)
 
     @dataclass
     class PtConfig:
@@ -72,8 +72,8 @@ class PerformanceTest:
             searchResults: list = field(default_factory=list) #PerfTestSearchIndivResult list
             maxTpsReport: dict = field(default_factory=dict)
 
-        binSearchResults: PerfTestSearchResults=PerfTestSearchResults()
-        longRunningSearchResults: PerfTestSearchResults=PerfTestSearchResults()
+        binSearchResults: PerfTestSearchResults = field(default_factory=PerfTestSearchResults)
+        longRunningSearchResults: PerfTestSearchResults= field(default_factory=PerfTestSearchResults)
         tpsTestStart: datetime=datetime.utcnow()
         tpsTestFinish: datetime=datetime.utcnow()
         perfRunSuccessful: bool=False
@@ -103,7 +103,7 @@ class PerformanceTest:
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
     def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
-        floor = 0
+        floor = 1
         ceiling = self.ptConfig.maxTpsToTest
         binSearchTarget = self.ptConfig.maxTpsToTest
         minStep = self.ptConfig.testIterationMinStep
@@ -120,7 +120,7 @@ class PerformanceTest:
                                                        numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=logDirRoot, delReport=delReport,
                                                        quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile)
 
-            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig)
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
             testSuccessful = myTest.runTest()
             if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
                 maxTpsAchieved = binSearchTarget
@@ -141,8 +141,9 @@ class PerformanceTest:
 
     def performPtbReverseLinearSearch(self, tpsInitial: int) -> TpsTestResult.PerfTestSearchResults:
 
-        # Default - Decrementing Max TPS in range [0, tpsInitial]
-        absFloor = 0
+        # Default - Decrementing Max TPS in range [1, tpsInitial]
+        absFloor = 1
+        tpsInitial = absFloor if tpsInitial <= 0 else tpsInitial
         absCeiling = tpsInitial
 
         step = self.ptConfig.testIterationMinStep
@@ -162,7 +163,7 @@ class PerformanceTest:
                                                     numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport,
                                                     quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile)
 
-            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig)
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
             testSuccessful = myTest.runTest()
             if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
                 maxTpsAchieved = searchTarget
@@ -170,7 +171,10 @@ class PerformanceTest:
                 scenarioResult.success = True
                 maxFound = True
             else:
-                searchTarget = searchTarget - step
+                if searchTarget <= absFloor:
+                    # This means it has already run a search at absFloor, and failed, so exit.
+                    maxFound = True
+                searchTarget = max(searchTarget - step, absFloor)
 
             scenarioResult.basicTestResult = ptbResult
             searchResults.append(scenarioResult)
@@ -503,30 +507,38 @@ def main():
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file,
                                                              verbose=args.v)
 
-    ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
     chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
                                       chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,
                                       wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
                                       eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
                                       blockLogRetainBlocks=args.block_log_retain_blocks,
-                                      abiSerializerMaxTimeMs=990000, chainStateDbSizeMb=256000)
+                                      chainStateDbSizeMb=args.chain_state_db_size_mb, abiSerializerMaxTimeMs=990000)
+
+    lbto = args.last_block_time_offset_us
+    lbcep = args.last_block_cpu_effort_percent
+    if args.p > 1 and lbto == 0 and lbcep == 100:
+        print("Overriding defaults for last_block_time_offset_us and last_block_cpu_effort_percent to ensure proper production windows.")
+        lbto = -200000
+        lbcep = 80
     producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
-                                            lastBlockTimeOffsetUs=args.last_block_time_offset_us, produceTimeOffsetUs=args.produce_time_offset_us,
-                                            cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=args.last_block_cpu_effort_percent,
+                                            lastBlockTimeOffsetUs=lbto, produceTimeOffsetUs=args.produce_time_offset_us,
+                                            cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=lbcep,
                                             producerThreads=args.producer_threads, maxTransactionTime=-1)
     httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
                                     httpThreads=args.http_threads)
     netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
     nodeosVers=Utils.getNodeosVersion().split('.')[0]
     resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not nodeosVers == "v2")
+    ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
     extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
                           resourceMonitorPluginArgs=resourceMonitorPluginArgs)
     SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
     specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
     testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
-                                                           specifiedContract=specifiedContract,
-                                                           nodeosVers=nodeosVers)
+                                                           specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
+                                                           nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
+
 
     ptConfig = PerformanceTest.PtConfig(testDurationSec=args.test_iteration_duration_sec,
                                         finalDurationSec=args.final_iterations_duration_sec,

@@ -6,8 +6,7 @@ import time
 import unittest
 import os
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
-from core_symbol import CORE_SYMBOL
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 
 class TraceApiPluginTest(unittest.TestCase):
     sleep_s = 1

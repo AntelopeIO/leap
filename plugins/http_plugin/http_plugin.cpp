@@ -63,16 +63,17 @@ namespace eosio {
           *
           * @pre b.size() has been added to bytes_in_flight by caller
           * @param priority - priority to post to the app thread at
+          * @param to_queue - execution queue to post to
           * @param next - the next handler for responses
           * @param my - the http_plugin_impl
           * @param content_type - json or plain txt
           * @return the constructed internal_url_handler
           */
-         static detail::internal_url_handler make_app_thread_url_handler(const string& url, int priority, url_handler next, http_plugin_impl_ptr my, http_content_type content_type ) {
+         static detail::internal_url_handler make_app_thread_url_handler(const string& url, appbase::exec_queue to_queue, int priority, url_handler next, http_plugin_impl_ptr my, http_content_type content_type ) {
             detail::internal_url_handler handler{url};
             handler.content_type = content_type;
             auto next_ptr = std::make_shared<url_handler>(std::move(next));
-            handler.fn = [my=std::move(my), priority, next_ptr=std::move(next_ptr)]
+            handler.fn = [my=std::move(my), priority, to_queue, next_ptr=std::move(next_ptr)]
                        ( detail::abstract_conn_ptr conn, string&& r, string&& b, url_response_callback&& then ) {
                if (auto error_str = conn->verify_max_bytes_in_flight(b.size()); !error_str.empty()) {
                   conn->send_busy_response(std::move(error_str));
@@ -86,7 +87,7 @@ namespace eosio {
                // post to the app thread taking shared ownership of next (via std::shared_ptr),
                // sole ownership of the tracked body and the passed in parameters
                // we can't std::move() next_ptr because we post a new lambda for each http request and we need to keep the original
-               app().post( priority, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
+               app().executor().post( priority, to_queue, [next_ptr, conn=std::move(conn), r=std::move(r), b = std::move(b), wrapped_then=std::move(wrapped_then)]() mutable {
                   try {
                      if( app().is_quiting() ) return; // http_plugin shutting down, do not call callback
                      // call the `next` url_handler and wrap the response handler
@@ -277,8 +278,7 @@ namespace eosio {
    }
 
    void http_plugin::plugin_startup() {
-
-      app().post(appbase::priority::high, [this] ()
+      app().executor().post(appbase::priority::high, [this] ()
       {
          try {
             my->plugin_state->thread_pool.start( my->plugin_state->thread_pool_size, [](const fc::exception& e) {
@@ -334,7 +334,7 @@ namespace eosio {
                      handle_exception("node", "get_supported_apis", body.empty() ? "{}" : body, cb);
                   }
                }
-            }});
+            }}, appbase::exec_queue::read_only_trx_safe);
             
          } catch (...) {
             fc_elog(logger(), "http_plugin startup fails, shutting down");
@@ -364,9 +364,9 @@ namespace eosio {
       fc_ilog( logger(), "exit shutdown");
    }
 
-   void http_plugin::add_handler(const string& url, const url_handler& handler, int priority, http_content_type content_type) {
+   void http_plugin::add_handler(const string& url, const url_handler& handler, appbase::exec_queue q, int priority, http_content_type content_type) {
       fc_ilog( logger(), "add api url: ${c}", ("c", url) );
-      auto p = my->plugin_state->url_handlers.emplace(url, my->make_app_thread_url_handler(url, priority, handler, my, content_type));
+      auto p = my->plugin_state->url_handlers.emplace(url, my->make_app_thread_url_handler(url, q, priority, handler, my, content_type));
       EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", url) );
    }
 

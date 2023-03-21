@@ -132,6 +132,24 @@
         "net"
       ]
     },{
+      "name": "transient_trx_success_tracing",
+      "level": "debug",
+      "enabled": true,
+      "additivity": false,
+      "appenders": [
+        "stderr",
+        "net"
+      ]
+    },{
+      "name": "transient_trx_failure_tracing",
+      "level": "debug",
+      "enabled": true,
+      "additivity": false,
+      "appenders": [
+        "stderr",
+        "net"
+      ]
+    },{
     "name": "state_history",
     "level": "info",
     "enabled": true,

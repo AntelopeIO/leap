@@ -185,15 +185,15 @@ namespace eosio { namespace chain {
       }
 
       template <typename Stream>
-      block_id_type read_block_id(Stream&& ds, uint32_t expect_block_num) {
-         block_header bh;
+      signed_block_header read_block_header(Stream&& ds, uint32_t expect_block_num) {
+         signed_block_header bh;
          fc::raw::unpack(ds, bh);
 
          EOS_ASSERT(bh.block_num() == expect_block_num, block_log_exception,
                     "Wrong block header was read from block log.",
                     ("returned", bh.block_num())("expected", expect_block_num));
 
-         return bh.calculate_id();
+         return bh;
       }
 
       /// Provide the read only view of the blocks.log file
@@ -474,8 +474,8 @@ namespace eosio { namespace chain {
          virtual void     reset(const chain_id_type& chain_id, uint32_t first_block_num)      = 0;
          virtual void     flush()                                                             = 0;
 
-         virtual signed_block_ptr read_block_by_num(uint32_t block_num)    = 0;
-         virtual block_id_type    read_block_id_by_num(uint32_t block_num) = 0;
+         virtual signed_block_ptr                   read_block_by_num(uint32_t block_num)        = 0;
+         virtual std::optional<signed_block_header> read_block_header_by_num(uint32_t block_num) = 0;
 
          virtual uint32_t version() const = 0;
 
@@ -512,7 +512,7 @@ namespace eosio { namespace chain {
          void flush() final {}
 
          signed_block_ptr read_block_by_num(uint32_t block_num) final { return {}; };
-         block_id_type    read_block_id_by_num(uint32_t block_num) final { return {}; };
+         std::optional<signed_block_header> read_block_header_by_num(uint32_t block_num) final { return {}; };
 
          uint32_t         version() const final { return 0; }
          signed_block_ptr read_head() final { return {}; };
@@ -556,7 +556,7 @@ namespace eosio { namespace chain {
          virtual uint32_t         working_block_file_first_block_num() { return preamble.first_block_num; }
          virtual void             post_append(uint64_t pos) {}
          virtual signed_block_ptr retry_read_block_by_num(uint32_t block_num) { return {}; }
-         virtual block_id_type    retry_read_block_id_by_num(uint32_t block_num) { return {}; }
+         virtual std::optional<signed_block_header> retry_read_block_header_by_num(uint32_t block_num) { return {}; }
 
          void append(const signed_block_ptr& b, const block_id_type& id,
                      const std::vector<char>& packed_block) override {
@@ -609,14 +609,14 @@ namespace eosio { namespace chain {
             FC_LOG_AND_RETHROW()
          }
 
-         block_id_type read_block_id_by_num(uint32_t block_num) final {
+         std::optional<signed_block_header> read_block_header_by_num(uint32_t block_num) final {
             try {
                uint64_t pos = get_block_pos(block_num);
                if (pos != block_log::npos) {
                   block_file.seek(pos);
-                  return read_block_id(block_file, block_num);
+                  return read_block_header(block_file, block_num);
                }
-               return retry_read_block_id_by_num(block_num);
+               return retry_read_block_header_by_num(block_num);
             }
             FC_LOG_AND_RETHROW()
          }
@@ -1027,10 +1027,10 @@ namespace eosio { namespace chain {
             return {};
          }
 
-         block_id_type retry_read_block_id_by_num(uint32_t block_num) final {
+         std::optional<signed_block_header> retry_read_block_header_by_num(uint32_t block_num) final {
             auto ds = catalog.ro_stream_for_block(block_num);
             if (ds)
-               return read_block_id(*ds, block_num);
+               return read_block_header(*ds, block_num);
             return {};
          }
 
@@ -1225,9 +1225,16 @@ namespace eosio { namespace chain {
       return my->read_block_by_num(block_num);
    }
 
-   block_id_type block_log::read_block_id_by_num(uint32_t block_num) const {
+   std::optional<signed_block_header> block_log::read_block_header_by_num(uint32_t block_num) const {
       std::lock_guard g(my->mtx);
-      return my->read_block_id_by_num(block_num);
+      return my->read_block_header_by_num(block_num);
+   }
+
+   block_id_type block_log::read_block_id_by_num(uint32_t block_num) const {
+      // read_block_header_by_num acquires mutex
+      auto bh = read_block_header_by_num(block_num);
+      if (bh) { return bh->calculate_id(); }
+      return {};
    }
 
    uint64_t block_log::get_block_pos(uint32_t block_num) const {
@@ -1451,18 +1458,6 @@ namespace eosio { namespace chain {
    }
 
    // static
-   bool block_log::extract_block_range(const fc::path& block_dir, const fc::path& output_dir, block_num_type& start,
-                                       block_num_type& end, bool rename_input) {
-      block_log_bundle bundle(block_dir);
-      fc::path         output_block_name = rename_input ? output_dir / "old.log" : output_dir / "blocks.log";
-      fc::path         output_index_name = rename_input ? output_dir / "old.index" : output_dir / "blocks.index";
-      if (!fc::exists(output_dir))
-         fc::create_directories(output_dir);
-      extract_blocklog_i(bundle, output_block_name, output_index_name, start, end - start + 1);
-      return true;
-   }
-
-   // static
    bool block_log::trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir,
                                        uint32_t truncate_at_block) {
       EOS_ASSERT(block_dir != temp_dir, block_log_exception, "block_dir and temp_dir need to be different directories");
@@ -1517,6 +1512,8 @@ namespace eosio { namespace chain {
          dlog("There are no blocks after block ${n} so do nothing", ("n", n));
          return 2;
       }
+      if (n == log_bundle.log_data.last_block_num())
+         return 0;
 
       const auto to_trim_block_index    = n + 1 - log_bundle.log_data.first_block_num();
       const auto to_trim_block_position = log_bundle.log_index.nth_block_position(to_trim_block_index);
@@ -1557,21 +1554,20 @@ namespace eosio { namespace chain {
    }
 
    // static
-   void block_log::extract_blocklog(const fc::path& log_filename, const fc::path& index_filename,
-                                    const fc::path& dest_dir, uint32_t start_block_num, uint32_t num_blocks) {
+   void block_log::extract_block_range(const fc::path& block_dir, const fc::path& dest_dir,
+                                       block_num_type start_block_num, block_num_type last_block_num) {
 
-      block_log_bundle log_bundle(log_filename, index_filename);
+
+      block_log_bundle log_bundle(block_dir);
 
       EOS_ASSERT(start_block_num >= log_bundle.log_data.first_block_num(), block_log_exception,
                  "The first available block is block ${first_block}.",
                  ("first_block", log_bundle.log_data.first_block_num()));
 
-      EOS_ASSERT(start_block_num + num_blocks - 1 <= log_bundle.log_data.last_block_num(), block_log_exception,
-                 "The last available block is block ${last_block}.",
-                 ("last_block", log_bundle.log_data.last_block_num()));
-
       if (!fc::exists(dest_dir))
          fc::create_directories(dest_dir);
+
+      uint32_t num_blocks = last_block_num - start_block_num + 1;
 
       auto [new_block_filename, new_index_filename] = blocklog_files(dest_dir, start_block_num, num_blocks);
 

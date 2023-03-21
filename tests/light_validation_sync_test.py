@@ -18,7 +18,7 @@ from TestHarness.TestHelper import AppArgs
 ###############################################################
 
 # Parse command line arguments
-args = TestHelper.parse_args({"-v","--clean-run","--dump-error-details","--leave-running","--keep-logs"})
+args = TestHelper.parse_args({"-v","--clean-run","--dump-error-details","--leave-running","--keep-logs","--unshared"})
 Utils.Debug = args.v
 killAll=args.clean_run
 dumpErrorDetails=args.dump_error_details
@@ -28,7 +28,7 @@ killWallet=not dontKill
 keepLogs=args.keep_logs
 
 walletMgr=WalletMgr(True)
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 cluster.setWalletMgr(walletMgr)
 
 testSuccessful = False
@@ -41,7 +41,6 @@ try:
         prodCount=1,
         totalProducers=1,
         totalNodes=2,
-        useBiosBootFile=False,
         loadSystemContract=False,
         specificExtraNodeosArgs={
             1:"--validation-mode light"})
