@@ -84,7 +84,7 @@ install_dependencies() {
             try $SUDO_CMD apt-get update
             try $SUDO_CMD apt-get update --fix-missing
             export DEBIAN_FRONTEND='noninteractive'
-            try $SUDO_CMD apt-get install -y "${DEPENDENCIES[@]}"
+            try $SUDO_CMD apt-get install "${DEPENDENCIES[@]}"
         fi
     else
         printf '\033[1;33mWARNING: Skipping package manager dependency installations because this is not a Debian-family operating system!\nWe currently only support Ubuntu.\033[0m\n'
