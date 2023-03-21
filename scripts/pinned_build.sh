@@ -61,7 +61,7 @@ try(){
     "$@"
     res=$?
     if [[ ${res} -ne 0 ]]; then
-        exit 255
+        exit $res
     fi
 }
 
