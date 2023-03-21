@@ -72,7 +72,7 @@ git clone --recursive https://github.com/AntelopeIO/leap.git
 git clone --recursive git@github.com:AntelopeIO/leap.git
 ```
 
-> ℹ️ **HTTPS vs. SSH Clone** ℹ️
+> ℹ️ **HTTPS vs. SSH Clone** ℹ️  
 Both an HTTPS or SSH git clone will yield the same result - a folder named `leap` containing our source code. It doesn't matter which type you use.
 
 Navigate into that folder:
@@ -96,13 +96,13 @@ git submodule update --init --recursive
 ### Step 3 - Build
 Select build instructions below for a [pinned build](#pinned-build) (preferred) or an [unpinned build](#unpinned-build).
 
-> ℹ️ **Pinned vs. Unpinned Build** ℹ️
+> ℹ️ **Pinned vs. Unpinned Build** ℹ️  
 We have two types of builds for Leap: "pinned" and "unpinned." The only difference is that pinned builds use specific versions for some dependencies hand-picked by the Leap engineers - they are "pinned" to those versions. In contrast, unpinned builds use the default dependency versions available on the build system at the time. We recommend performing a "pinned" build to ensure the compiler and boost versions remain the same between builds of different Leap versions. Leap requires these versions to remain the same, otherwise its state might need to be recovered from a portable snapshot or the chain needs to be replayed.
 
-> ⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️
+> ⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️  
 When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in Leap will consume nearly 4GB of memory. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. For these reasons, consider reducing this value.
 
-> 🐋 **Docker and `sudo`** 🐋
+> 🐋 **Docker and `sudo`** 🐋  
 If you are in an Ubuntu docker container, omit `sudo` from all commands because you run as `root` by default. Most other docker containers also exclude `sudo`, especially Debian-family containers. If your shell prompt is a hash tag (`#`), omit `sudo`.
 
 #### Pinned Build
@@ -111,12 +111,14 @@ Make sure you are in the root of the `leap` repo, then run the `install_depts.sh
 sudo scripts/install_deps.sh
 ```
 
-Next, run the pinned build script. You have to give it three arguments, in the following order:
-  - A temporary folder, for all dependencies that need to be built from source.
-  - A build folder, where the binaries you need to install will be built to.
-  - The number of jobs or CPU cores/threads to use (note the [jobs flag](#step-3---build) warning above).
+Next, run the pinned build script. You have to give it three arguments in the following order:
+1. A temporary folder, for all dependencies that need to be built from source.
+1. A build folder, where the binaries you need to install will be built to.
+1. The number of jobs or CPU cores/threads to use (note the [jobs flag](#step-3---build) warning above).
 
-The following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads (Note: you don't need `sudo` for this command):
+> 🔒 You do not need to run this script with `sudo` or as root.
+
+For example, the following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads:
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
 ```
