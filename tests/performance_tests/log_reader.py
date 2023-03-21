@@ -156,7 +156,6 @@ class blockData():
     cpu: int = 0
     elapsed: int = 0
     time: int = 0
-    latency: int = 0
 
 class chainData():
     def __init__(self):
@@ -168,7 +167,6 @@ class chainData():
         self.totalCpu = 0
         self.totalElapsed = 0
         self.totalTime = 0
-        self.totalLatency = 0
         self.droppedBlocks = {}
         self.forkedBlocks = []
     def __eq__(self, other):
@@ -178,19 +176,17 @@ class chainData():
          self.totalNet == other.totalNet and\
          self.totalCpu == other.totalCpu and\
          self.totalElapsed == other.totalElapsed and\
-         self.totalTime == other.totalTime and\
-         self.totalLatency == other.totalLatency
-    def updateTotal(self, transactions, net, cpu, elapsed, time, latency):
+         self.totalTime == other.totalTime
+    def updateTotal(self, transactions, net, cpu, elapsed, time):
         self.totalTransactions += transactions
         self.totalNet += net
         self.totalCpu += cpu
         self.totalElapsed += elapsed
         self.totalTime += time
-        self.totalLatency += latency
     def __str__(self):
         return (f"Starting block: {self.startBlock}\nEnding block:{self.ceaseBlock}\nChain transactions: {self.totalTransactions}\n"
          f"Chain cpu: {self.totalCpu}\nChain net: {(self.totalNet / (self.ceaseBlock - self.startBlock + 1))}\nChain elapsed: {self.totalElapsed}\n"
-         f"Chain time: {self.totalTime}\nChain latency: {self.totalLatency}")
+         f"Chain time: {self.totalTime}\n")
     def printBlockData(self):
         for block in self.blockLog:
             print(block)
@@ -201,29 +197,19 @@ def selectedOpen(path):
     return gzip.open if path.suffix == '.gz' else open
 
 def scrapeLog(data: chainData, path):
-    #node_00/stderr.txt
+    # node_XX/stderr.txt where XX is the first nonproducing node
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
         line = f.read()
         blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+)(.*)', line)
-        if data.startBlock is None:
-            data.startBlock = 2
-        if data.ceaseBlock is None:
-            data.ceaseBlock = len(blockResult) + 1
         for value in blockResult:
-            v3Logging = re.findall(r'net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', value[3])
-            if v3Logging:
-                data.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), int(v3Logging[0][0]), int(v3Logging[0][1]), int(v3Logging[0][2]), int(v3Logging[0][3]), int(v3Logging[0][4])))
-                if int(value[1]) in range(data.startBlock, data.ceaseBlock + 1):
-                    data.updateTotal(int(value[2]), int(v3Logging[0][0]), int(v3Logging[0][1]), int(v3Logging[0][2]), int(v3Logging[0][3]), int(v3Logging[0][4]))
-            else:
-                v2Logging = re.findall(r'latency: (-?\d+) ms', value[3])
-                if v2Logging:
-                    data.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), 0, 0, 0, 0, int(v2Logging[0])))
-                    if int(value[1]) in range(data.startBlock, data.ceaseBlock + 1):
-                        data.updateTotal(int(value[2]), 0, 0, 0, 0, int(v2Logging[0]))
-                else:
-                    print("Error: Unknown log format")
+            if int(value[1]) in range(data.startBlock, data.ceaseBlock + 1):
+                v3Logging = re.findall(r'elapsed: (\d+), time: (\d+)', value[3])
+                if v3Logging:
+                        index = int(value[1]) - data.startBlock
+                        data.blockLog[index].elapsed = int(v3Logging[0][0])
+                        data.blockLog[index].time = int(v3Logging[0][1])
+                        data.updateTotal(0, 0, 0, int(v3Logging[0][0]), int(v3Logging[0][1]))
         droppedBlocks = re.findall(r'dropped incoming block #(\d+) id: ([0-9a-fA-F]+)', line)
         for block in droppedBlocks:
             data.droppedBlocks[block[0]] = block[1]
@@ -236,21 +222,6 @@ def scrapeTrxGenLog(trxSent, path):
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
         trxSent.update(dict([(x[0], x[1]) for x in (line.rstrip('\n').split(',') for line in f)]))
-
-def scrapeBlockTrxDataLog(trxDict, path, nodeosVers):
-    #blockTrxData.txt
-    selectedopen = selectedOpen(path)
-    with selectedopen(path, 'rt') as f:
-        if nodeosVers == "v2":
-            trxDict.update(dict([(x[0], trxData(blockNum=x[1], cpuUsageUs=x[2], netUsageUs=x[3])) for x in (line.rstrip('\n').split(',') for line in f)]))
-        else:
-            trxDict.update(dict([(x[0], trxData(blockNum=x[1], blockTime=x[2], cpuUsageUs=x[3], netUsageUs=x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
-
-def scrapeBlockDataLog(blockDict, path):
-    #blockData.txt
-    selectedopen = selectedOpen(path)
-    with selectedopen(path, 'rt') as f:
-        blockDict.update(dict([(x[0], blkData(x[1], x[2], x[3], x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
 
 def scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath, quiet):
     filesScraped = []
@@ -490,17 +461,12 @@ class LogReaderEncoder(json.JSONEncoder):
 def reportAsJSON(report: dict) -> json:
     return json.dumps(report, indent=2, cls=LogReaderEncoder)
 
-def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True, nodeosVers: str="") -> dict:
+def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True, nodeosVers: str="",
+                  blockDict: dict={}, trxDict: dict={}) -> dict:
     scrapeLog(data, artifacts.nodeosLogPath)
 
     trxSent = {}
     scrapeTrxGenTrxSentDataLogs(trxSent, artifacts.trxGenLogDirPath, tpsTestConfig.quiet)
-
-    trxDict = {}
-    scrapeBlockTrxDataLog(trxDict, artifacts.blockTrxDataPath, nodeosVers)
-
-    blockDict = {}
-    scrapeBlockDataLog(blockDict, artifacts.blockDataPath)
 
     notFound = []
     populateTrxSentTimestamp(trxSent, trxDict, notFound)

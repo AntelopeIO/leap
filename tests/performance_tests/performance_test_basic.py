@@ -113,12 +113,15 @@ class PerformanceTestBasic:
                 self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['block_num']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['confirmed']},{block['payload']['timestamp']}\n")
                 self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":headBlock}, silentErrors=False, exitOnError=True)
                 self.specificExtraNodeosArgs.update({f"{node}" : '--plugin eosio::history_api_plugin --filter-on "*"' for node in range(self.pnodes, self._totalNodes)})
+                self.updateBlockDict = lambda blockNum, block, blockDict: blockDict.update(dict([(blockNum, log_reader.blkData(blockId=block["payload"]["id"], producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"]))]))
+                self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction['trx']['id'], log_reader.trxData(blockNum, transaction['cpu_usage_us'],transaction['net_usage_words']))]))
             else:
                 self.fetchBlock = lambda node, blockNum: node.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
                 self.writeTrx = lambda trxDataFile, block, blockNum:[ self.log_transactions(trxDataFile, block) ]
                 self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
                 self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
-
+                self.updateBlockDict = lambda blockNum, block, blockDict: blockDict.update(dict([(blockNum, log_reader.blkData(blockId=block["payload"]["id"], producer=block["payload"]["producer"], status=block["payload"]["status"], _timestamp=block["payload"]["timestamp"]))]))
+                self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction["id"], log_reader.trxData(blockNum=transaction["block_num"], cpuUsageUs=transaction["cpu_usage_us"], netUsageUs=transaction["net_usage_words"], blockTime=transaction["block_time"]))]))
     @dataclass
     class PtbConfig:
         targetTps: int=8000
@@ -239,9 +242,29 @@ class PerformanceTestBasic:
             append_write = 'w'
         return append_write
 
-    def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
-        for blockNum in range(startBlockNum, endBlockNum):
+    def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum, blockDict: dict, trxDict: dict):
+        for blockNum in range(startBlockNum, endBlockNum + 1):
+            blockCpuTotal = 0
+            blockNetTotal = 0
+            blockTransactionTotal = 0
             block = self.clusterConfig.fetchBlock(node, blockNum)
+            for transaction in block['payload']['transactions']:
+                if self.clusterConfig.nodeosVers == "v2":
+                    self.clusterConfig.updateTrxDict(blockNum, transaction, trxDict)
+                    blockCpuTotal += transaction["cpu_usage_us"]
+                    blockNetTotal += transaction["net_usage_words"]
+                    blockTransactionTotal += 1
+                else:
+                    for actions in transaction['actions']:
+                        if actions['account'] != 'eosio' or actions['action'] != 'onblock':
+                            self.clusterConfig.updateTrxDict(blockNum, transaction, trxDict)
+                            blockCpuTotal += transaction["cpu_usage_us"]
+                            blockNetTotal += transaction["net_usage_words"]
+                            blockTransactionTotal += 1
+            self.clusterConfig.updateBlockDict(blockNum, block, blockDict)
+            # elapsed and time are only available in logs and are therefore updated in scrapeLog
+            self.data.blockLog.append(log_reader.blockData(block["payload"]["id"], blockNum, blockTransactionTotal, blockNetTotal, blockCpuTotal, elapsed=0, time=0))
+            self.data.updateTotal(blockTransactionTotal, blockNetTotal, blockCpuTotal, elapsed=0, time=0)
             btdf_append_write = self.fileOpenMode(blockTrxDataPath)
             with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
                 self.clusterConfig.writeTrx(trxDataFile, block, blockNum)
@@ -435,7 +458,7 @@ class PerformanceTestBasic:
                     print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
 
 
-    def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
+    def analyzeResultsAndReport(self, testResult: PtbTpsTestResult, blockDict: dict, trxDict: dict):
         args = self.prepArgs()
         artifactsLocate = log_reader.ArtifactPaths(nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                    blockDataPath=self.blockDataPath, transactionMetricsDataPath=self.transactionMetricsDataPath)
@@ -443,7 +466,7 @@ class PerformanceTestBasic:
                                                  numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed,
                                                  targetTpsPerGenList=testResult.targetTpsPerGenList, quiet=self.ptbConfig.quiet)
         self.report = log_reader.calcAndReport(data=self.data, tpsTestConfig=tpsTestConfig, artifacts=artifactsLocate, argsDict=args, testStart=self.testStart,
-                                               completedRun=testResult.completedRun,nodeosVers=self.clusterConfig.nodeosVers)
+                                               completedRun=testResult.completedRun,nodeosVers=self.clusterConfig.nodeosVers, blockDict=blockDict, trxDict=trxDict)
 
         jsonReport = None
         if not self.ptbConfig.quiet or not self.ptbConfig.delReport:
@@ -465,8 +488,9 @@ class PerformanceTestBasic:
         if self.launchCluster() == False:
             self.errorExit('Failed to stand up cluster.')
 
-    def postTpsTestSteps(self):
-        self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
+    def postTpsTestSteps(self, blockDict: dict, trxDict: dict):
+        return self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock,
+                                      blockDict=blockDict, trxDict=trxDict)
 
     def runTest(self) -> bool:
         testSuccessful = False
@@ -478,9 +502,11 @@ class PerformanceTestBasic:
 
             self.ptbTestResult = self.runTpsTest()
 
-            self.postTpsTestSteps()
+            blockDict = {}
+            trxDict = {}
+            self.postTpsTestSteps(blockDict, trxDict)
 
-            self.analyzeResultsAndReport(self.ptbTestResult)
+            self.analyzeResultsAndReport(self.ptbTestResult, blockDict, trxDict)
 
             testSuccessful = self.ptbTestResult.completedRun
 
