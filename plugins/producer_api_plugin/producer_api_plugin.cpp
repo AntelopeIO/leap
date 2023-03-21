@@ -118,6 +118,8 @@ void producer_api_plugin::plugin_startup() {
             INVOKE_R_R(producer, get_account_ram_corrections, producer_plugin::get_account_ram_corrections_params), 201),
        CALL_WITH_400(producer, producer, get_unapplied_transactions,
                      INVOKE_R_R_D(producer, get_unapplied_transactions, producer_plugin::get_unapplied_transactions_params), 200),
+       CALL_WITH_400(producer, producer, get_snapshot_requests,
+                     INVOKE_R_V(producer, get_snapshot_requests), 201),
    }, appbase::exec_queue::read_only, appbase::priority::medium_high);
 
    // Not safe to run in parallel
@@ -142,8 +144,6 @@ void producer_api_plugin::plugin_startup() {
             INVOKE_R_V_ASYNC(producer, create_snapshot), 201),
        CALL_WITH_400(producer, producer, schedule_snapshot,
             INVOKE_V_R_II(producer, schedule_snapshot, producer_plugin::snapshot_request_information), 201),
-       CALL_WITH_400(producer, producer, get_snapshot_requests,
-            INVOKE_R_V(producer, get_snapshot_requests), 201),
        CALL_WITH_400(producer, producer, unschedule_snapshot,
             INVOKE_V_R(producer, unschedule_snapshot, producer_plugin::snapshot_request_id_information), 201),
        CALL_WITH_400(producer, producer, get_integrity_hash,
