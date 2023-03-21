@@ -68,7 +68,7 @@ try(){
 install_dependencies() {
     echo 'Installing package dependencies.'
     if [[ "$(uname)" == 'Linux' && -f /etc/debian_version ]]; then
-        if [[ "$(id -u)" != '0' ]]; then # if not root and sudo is installed, use sudo for the package manager
+        if [[ "$(id -u)" != '0' ]]; then # if not root, use sudo for the package manager
             if dpkg -s sudo &>/dev/null; then # guard against sudo not being installed
                 SUDO_CMD='sudo'
             else
