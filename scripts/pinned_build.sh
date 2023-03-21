@@ -77,16 +77,15 @@ install_dependencies() {
             DEPENDENCIES+=("$LINE");
         done < <(cat "$SCRIPT_DIR/pinned_deps.txt")
         echo 'Checking for missing package dependencies.'
-        dpkg -s "${DEPENDENCIES[@]}" &> /dev/null && MISSING_DEPS='false' || MISSING_DEPS='true'
-        if [[ "$MISSING_DEPS" == 'true' ]]; then
+        if dpkg -s "${DEPENDENCIES[@]}" &> /dev/null; then
+            echo 'All package dependencies are already installed.'
+        else
             echo 'Some package dependencies are missing, installing...'
             try $SUDO_CMD apt-get update
             try $SUDO_CMD apt-get update --fix-missing
             export DEBIAN_FRONTEND='noninteractive'
             export TZ='Etc/UTC'
             try $SUDO_CMD apt-get install -y "${DEPENDENCIES[@]}"
-        else
-            echo 'All package dependencies are already installed.'
         fi
     else
         printf '\033[1;33mWARNING: Skipping package manager dependency installations because this is not a Debian-family operating system!\nWe currently only support Ubuntu.\033[0m\n'
