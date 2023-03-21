@@ -116,7 +116,9 @@ Next, run the pinned build script. You have to give it three arguments in the fo
   - A build folder, where the binaries you need to install will be built to.
   - The number of jobs or CPU cores/threads to use (note the [jobs flag](#step-3---build) warning above).
 
-For example, the following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads (note: you don't need `sudo` for this command):
+> 🔒 You do not need to run this script with `sudo` or as root.
+
+For example, the following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads:
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
 ```
