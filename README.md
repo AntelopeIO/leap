@@ -117,6 +117,12 @@ For example, the following command runs the `pinned_build.sh` script, specifies 
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
 ```
+If you want to by-pass the `[Y/n]` prompt from aptidue, you can pass `-y` to the script like this.
+```bash
+echo '-y' | scripts/pinned_build.sh deps build "$(nproc)"
+```
+All other script behavior remains unchanged.
+
 Now you can optionally [test](#step-4---test) your build, or [install](#step-5---install) the `*.deb` binary packages, which will be in the root of your build directory.
 
 #### Unpinned Build
