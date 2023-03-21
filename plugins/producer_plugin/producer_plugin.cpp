@@ -424,13 +424,13 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          void push_back(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_back(std::move(trx));
-            notify_waiting(g, false);
+            notify_waiting(false);
          }
          
          void push_front(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_front(std::move(trx));
-            notify_waiting(g, false);
+            notify_waiting(false);
          }
 
          bool empty() const {
@@ -445,14 +445,14 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             std::unique_lock<std::mutex> g( mtx );
             
             if (should_exit()) {
-               notify_waiting(g, true);
+               notify_waiting(true);
                return false;
             }
 
             if (queue.empty()) {
                if (num_waiting + 1 == max_waiting) {
                   exiting_read_window = true;
-                  notify_waiting(g, true);
+                  notify_waiting(true);
                   return false;
                }
                
@@ -482,9 +482,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
 
       private:
-         void notify_waiting(std::unique_lock<std::mutex>& g, bool all) {
+         void notify_waiting(bool all) {
             if (num_waiting) {
-               g.unlock();
                all ? cond.notify_all() : cond.notify_one();
             }
          }
