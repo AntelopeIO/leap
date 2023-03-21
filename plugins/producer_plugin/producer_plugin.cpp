@@ -1158,7 +1158,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
    // only initialize other read-only options when read-only thread pool is enabled
    if ( my->_ro_thread_pool_size > 0 ) {
-      if (!options.count("allow-ro-trx-on-producer-node") || options.at("allow-ro-trx-on-producer-node").as<bool>() == false)
+      if (options.at("allow-ro-trx-on-producer-node").as<bool>() == false)
          EOS_ASSERT( my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
       
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
