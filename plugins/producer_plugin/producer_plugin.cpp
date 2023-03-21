@@ -2908,8 +2908,8 @@ void producer_plugin_impl::switch_to_read_window() {
    auto start_time = fc::time_point::now();
    _ro_trx_queue.set_exit_criteria(_ro_thread_pool_size, &_received_block, start_time + _ro_read_window_effective_time_us);
    for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
-      _ro_trx_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this, start_time] () {
-         return self->read_only_trx_execution_task(start_time);
+      _ro_trx_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [this, start_time] () {
+         return read_only_trx_execution_task(start_time);
       }) );
    }
 
