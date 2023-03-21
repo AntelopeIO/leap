@@ -451,12 +451,13 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
             if (queue.empty()) {
                if (num_waiting + 1 == max_waiting) {
+                  exiting_read_window = true;
                   notify_waiting(g, true);
                   return false;
                }
                
                ++num_waiting;
-               cond.wait(g);
+               cond.wait(g, [this]() { return !queue.empty() || should_exit(); });
                --num_waiting;
                
                if (queue.empty() || should_exit()) // were we woken up by another thread?
@@ -489,7 +490,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
             
          bool should_exit() {
-            return *received_block_ptr ||
+            return *received_block_ptr || exiting_read_window || 
                fc::time_point::now() >= read_window_deadline;
          }
          
@@ -498,6 +499,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          deque<ro_trx_t>         queue;
          uint32_t                num_waiting {0};
          uint32_t                max_waiting {0};
+         bool                    exiting_read_window {false}; 
          std::atomic<bool>*      received_block_ptr;
          fc::time_point          start_time;
          fc::time_point          read_window_deadline;
