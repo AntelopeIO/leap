@@ -84,7 +84,6 @@ install_dependencies() {
             try $SUDO_CMD apt-get update
             try $SUDO_CMD apt-get update --fix-missing
             export DEBIAN_FRONTEND='noninteractive'
-            export TZ='Etc/UTC'
             try $SUDO_CMD apt-get install -y "${DEPENDENCIES[@]}"
         fi
     else
