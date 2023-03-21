@@ -444,17 +444,24 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          bool pop_front(ro_trx_t &trx) {
             std::unique_lock<std::mutex> g( mtx );
             
-            if (should_exit() || (queue.empty() && (num_waiting + 1 == max_waiting))) {
+            if (should_exit()) {
                notify_waiting(g, true);
                return false;
             }
-            
-            ++num_waiting;
-            cond.wait(g);
-            --num_waiting;
-            
-            if (queue.empty() || should_exit()) // were we woken up by another thread?
-               return false;
+
+            if (queue.empty()) {
+               if (num_waiting + 1 == max_waiting) {
+                  notify_waiting(g, true);
+                  return false;
+               }
+               
+               ++num_waiting;
+               cond.wait(g);
+               --num_waiting;
+               
+               if (queue.empty() || should_exit()) // were we woken up by another thread?
+                  return false;
+            }
             
             trx = std::move(queue.front());
             queue.pop_front();
@@ -1149,7 +1156,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
    // only initialize other read-only options when read-only thread pool is enabled
    if ( my->_ro_thread_pool_size > 0 ) {
-      EOS_ASSERT( my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
+      //EOS_ASSERT( my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if (chain.is_eos_vm_oc_enabled()) {
@@ -2898,7 +2905,7 @@ void producer_plugin_impl::switch_to_read_window() {
    auto start_time = fc::time_point::now();
    _ro_trx_queue.set_exit_criteria(_ro_thread_pool_size, &_received_block, start_time + _ro_read_window_effective_time_us);
    for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
-      _ro_trx_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this, &start_time] () {
+      _ro_trx_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this, start_time] () {
          return self->read_only_trx_execution_task(start_time);
       }) );
    }
