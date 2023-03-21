@@ -12,9 +12,9 @@ from .testUtils import Utils
 Wallet=namedtuple("Wallet", "name password host port")
 # pylint: disable=too-many-instance-attributes
 class WalletMgr(object):
-    __walletLogOutFile="var/test_keosd_out.log"
-    __walletLogErrFile="var/test_keosd_err.log"
-    __walletDataDir="var/test_wallet_0"
+    __walletLogOutFile=f"{Utils.TestLogRoot}/test_keosd_out.log"
+    __walletLogErrFile=f"{Utils.TestLogRoot}/test_keosd_err.log"
+    __walletDataDir=f"{Utils.TestLogRoot}/test_wallet_0"
     __MaxPort=9999
 
     # pylint: disable=too-many-arguments

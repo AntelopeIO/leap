@@ -3,8 +3,7 @@
 import signal
 import time
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
-from core_symbol import CORE_SYMBOL
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 
 ###############################################################
 # nodeos_contrl_c_lr_test
@@ -19,9 +18,9 @@ from core_symbol import CORE_SYMBOL
 Print = Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--wallet-port", "-v"})
+args = TestHelper.parse_args({"--wallet-port", "-v","--unshared"})
 
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 killAll=True
 totalProducerNodes=2
 totalNonProducerNodes=1
@@ -55,7 +54,7 @@ try:
 
     if cluster.launch(prodCount=1, topo="bridge", pnodes=totalProducerNodes,
                       totalNodes=totalNodes, totalProducers=totalProducers,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs,
+                      specificExtraNodeosArgs=specificExtraNodeosArgs,
                       extraNodeosArgs=extraNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")

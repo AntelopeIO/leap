@@ -7,7 +7,6 @@ import threading
 
 from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
-from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # send_read_only_transaction_tests
@@ -28,7 +27,7 @@ appArgs.add(flag="--wasm-runtime", type=str, help="if set to eos-vm-oc, must com
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed"
                             ,"--dump-error-details","-v","--leave-running"
-                            ,"--clean-run","--keep-logs"}, applicationSpecificArgs=appArgs)
+                            ,"--clean-run","--keep-logs","--unshared"}, applicationSpecificArgs=appArgs)
 
 pnodes=args.p
 topo=args.s
@@ -58,7 +57,7 @@ testSuccessful=False
 errorInThread=False
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 
 walletMgr=WalletMgr(True)
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"

@@ -27,7 +27,8 @@ args = TestHelper.parse_args({
     "--clean-run",
     "--dump-error-details",
     "--leave-running",
-    "--keep-logs"
+    "--keep-logs",
+    "--unshared"
 })
 
 Utils.Debug = args.v
@@ -179,7 +180,7 @@ def checkHeadOrSpeculative(head, lib):
 
 # Setup cluster and it's wallet manager
 walletMgr = WalletMgr(True)
-cluster = Cluster(walletd=True)
+cluster = Cluster(walletd=True,unshared=args.unshared)
 cluster.setWalletMgr(walletMgr)
 
 # List to contain the test result message
@@ -202,7 +203,6 @@ try:
         totalProducers=numOfProducers,
         totalNodes=totalNodes,
         pnodes=1,
-        useBiosBootFile=False,
         topo="mesh",
         specificExtraNodeosArgs=specificNodeosArgs,
     )

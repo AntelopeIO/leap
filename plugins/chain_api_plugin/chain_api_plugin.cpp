@@ -116,6 +116,11 @@ void chain_api_plugin::plugin_startup() {
       });
    }
 
+   _http_plugin.add_async_api({
+      CHAIN_RO_CALL_WITH_400(get_raw_block, 200, http_params_types::params_required),
+      CHAIN_RO_CALL_WITH_400(get_block_header, 200, http_params_types::params_required)
+   });
+
    if (chain.transaction_finality_status_enabled()) {
       _http_plugin.add_api({
          CHAIN_RO_CALL_WITH_400(get_transaction_status, 200, http_params_types::params_required),
@@ -129,9 +134,9 @@ void chain_api_plugin::plugin_startup() {
            auto deadline = ro_api.start();
            try {
               auto start = fc::time_point::now();
-              auto params = parse_params<chain_apis::read_only::get_block_params, http_params_types::params_required>(body);
+              auto params = parse_params<chain_apis::read_only::get_raw_block_params, http_params_types::params_required>(body);
               FC_CHECK_DEADLINE( deadline );
-              chain::signed_block_ptr block = ro_api.get_block( params, deadline );
+              chain::signed_block_ptr block = ro_api.get_raw_block( params, deadline );
 
               auto abi_cache = ro_api.get_block_serializers( block, max_time );
               FC_CHECK_DEADLINE( deadline );

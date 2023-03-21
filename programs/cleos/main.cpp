@@ -2768,6 +2768,15 @@ struct set_url_no_trailing_slash {
    }
 };
 
+struct get_block_params {
+   string blockArg;
+   bool get_bhs = false;
+   bool get_binfo = false;
+   bool get_braw  = false;
+   bool get_bheader = false;
+   bool get_bheader_extensions = false;
+};
+
 int main( int argc, char** argv ) {
 
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
@@ -3002,29 +3011,39 @@ int main( int argc, char** argv ) {
    });
 
    // get block
-   string blockArg;
-   bool get_bhs = false;
-   bool get_binfo = false;
+   get_block_params params;
    auto getBlock = get->add_subcommand("block", localized("Retrieve a full block from the blockchain"));
-   getBlock->add_option("block", blockArg, localized("The number or ID of the block to retrieve"))->required();
-   getBlock->add_flag("--header-state", get_bhs, localized("Get block header state from fork database instead") );
-   getBlock->add_flag("--info", get_binfo, localized("Get block info from the blockchain by block num only") );
-   getBlock->callback([&blockArg, &get_bhs, &get_binfo] {
-      EOSC_ASSERT( !(get_bhs && get_binfo), "ERROR: Either --header-state or --info can be set" );
-      if (get_binfo) {
+   getBlock->add_option("block", params.blockArg, localized("The number or ID of the block to retrieve"))->required();
+   getBlock->add_flag("--header-state", params.get_bhs, localized("Get block header state from fork database instead") );
+   getBlock->add_flag("--info", params.get_binfo, localized("Get block info from the blockchain by block num only") );
+   getBlock->add_flag("--raw", params.get_braw, localized("Get raw block from the blockchain") );
+   getBlock->add_flag("--header", params.get_bheader, localized("Get block header from the blockchain") );
+   getBlock->add_flag("--header-with-extensions", params.get_bheader_extensions, localized("Get block header with block exntesions from the blockchain") );
+
+   getBlock->callback([&params] {
+      int num_flags = params.get_bhs + params.get_binfo + params.get_braw + params.get_bheader + params.get_bheader_extensions;
+      EOSC_ASSERT( num_flags <= 1, "ERROR: Only one of the following flags can be set: --header-state, --info, --raw, --header, --header-with-extensions." );
+      if (params.get_binfo) {
          std::optional<int64_t> block_num;
          try {
-            block_num = fc::to_int64(blockArg);
+            block_num = fc::to_int64(params.blockArg);
          } catch (...) {
             // error is handled in assertion below
          }
-         EOSC_ASSERT( block_num.has_value() && (*block_num > 0), "Invalid block num: ${block_num}", ("block_num", blockArg) );
+         EOSC_ASSERT( block_num.has_value() && (*block_num > 0), "Invalid block num: ${block_num}", ("block_num", params.blockArg) );
          const auto arg = fc::variant_object("block_num", static_cast<uint32_t>(*block_num));
          std::cout << fc::json::to_pretty_string(call(get_block_info_func, arg)) << std::endl;
       } else {
-         const auto arg = fc::variant_object("block_num_or_id", blockArg);
-         if (get_bhs) {
+         const auto arg = fc::variant_object("block_num_or_id", params.blockArg);
+         if (params.get_bhs) {
             std::cout << fc::json::to_pretty_string(call(get_block_header_state_func, arg)) << std::endl;
+         } else if (params.get_braw) {
+            std::cout << fc::json::to_pretty_string(call(get_raw_block_func, arg)) << std::endl;
+         } else if (params.get_bheader || params.get_bheader_extensions) {
+            std::cout << fc::json::to_pretty_string(
+               call(get_block_header_func,
+                    fc::mutable_variant_object("block_num_or_id", params.blockArg)
+                                              ("include_extensions", params.get_bheader_extensions))) << std::endl;
          } else {
             std::cout << fc::json::to_pretty_string(call(get_block_func, arg)) << std::endl;
          }

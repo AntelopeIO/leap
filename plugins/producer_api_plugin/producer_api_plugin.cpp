@@ -82,6 +82,11 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
      api_handle.call_name(std::move(params)); \
      eosio::detail::producer_api_plugin_response result{"ok"};
 
+#define INVOKE_V_R_II(api_handle, call_name, in_param) \
+     auto params = parse_params<in_param, http_params_types::possible_no_params>(body);\
+     api_handle.call_name(std::move(params)); \
+     eosio::detail::producer_api_plugin_response result{"ok"};
+
 #define INVOKE_V_V(api_handle, call_name) \
      body = parse_params<std::string, http_params_types::no_params>(body); \
      api_handle.call_name(); \
@@ -135,6 +140,12 @@ void producer_api_plugin::plugin_startup() {
             INVOKE_V_R(producer, set_whitelist_blacklist, producer_plugin::whitelist_blacklist), 201),
        CALL_ASYNC(producer, producer, create_snapshot, producer_plugin::snapshot_information,
             INVOKE_R_V_ASYNC(producer, create_snapshot), 201),
+       CALL_WITH_400(producer, producer, schedule_snapshot,
+            INVOKE_V_R_II(producer, schedule_snapshot, producer_plugin::snapshot_request_information), 201),
+       CALL_WITH_400(producer, producer, get_snapshot_requests,
+            INVOKE_R_V(producer, get_snapshot_requests), 201),
+       CALL_WITH_400(producer, producer, unschedule_snapshot,
+            INVOKE_V_R(producer, unschedule_snapshot, producer_plugin::snapshot_request_id_information), 201),
        CALL_WITH_400(producer, producer, get_integrity_hash,
             INVOKE_R_V(producer, get_integrity_hash), 201),
        CALL_WITH_400(producer, producer, schedule_protocol_feature_activations,

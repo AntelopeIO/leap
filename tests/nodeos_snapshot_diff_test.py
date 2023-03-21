@@ -32,7 +32,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 appArgs=AppArgs()
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--wallet-port"},
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--wallet-port","--unshared"},
                              applicationSpecificArgs=appArgs)
 
 relaunchTimeout = 30
@@ -40,8 +40,8 @@ Utils.Debug=args.v
 pnodes=1
 testAccounts = 2
 trxGeneratorCnt=2
-startedNonProdNodes = 2
-cluster=Cluster(walletd=True)
+startedNonProdNodes = 3
+cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontKill=args.leave_running
@@ -60,10 +60,14 @@ ClientName="cleos"
 
 trxGenLauncher=None
 
+snapshotScheduleDB = "snapshot-schedule.json"
+
 def getLatestSnapshot(nodeId):
     snapshotDir = os.path.join(Utils.getNodeDataDir(nodeId), "snapshots")
     snapshotDirContents = os.listdir(snapshotDir)
     assert len(snapshotDirContents) > 0
+    # disregard snapshot schedule config in same folder
+    if snapshotScheduleDB in snapshotDirContents: snapshotDirContents.remove(snapshotScheduleDB)
     snapshotDirContents.sort()
     return os.path.join(snapshotDir, snapshotDirContents[-1])
 
@@ -81,7 +85,7 @@ try:
     specificExtraNodeosArgs={}
     Print("Stand up cluster")
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=pnodes, totalNodes=totalNodes, totalProducers=pnodes*prodCount,
-                      useBiosBootFile=False, specificExtraNodeosArgs=specificExtraNodeosArgs, loadSystemContract=True, maximumP2pPerHost=totalNodes+trxGeneratorCnt) is False:
+                      specificExtraNodeosArgs=specificExtraNodeosArgs, loadSystemContract=True, maximumP2pPerHost=totalNodes+trxGeneratorCnt) is False:
         Utils.errorExit("Failed to stand up eos cluster.")
 
     Print("Create test wallet")
@@ -111,9 +115,11 @@ try:
     snapshotNodeId = 0
     node0=cluster.getNode(snapshotNodeId)
     irrNodeId = snapshotNodeId+1
+    progNodeId = irrNodeId+1
 
     nodeSnap=cluster.getNode(snapshotNodeId)
     nodeIrr=cluster.getNode(irrNodeId)
+    nodeProg=cluster.getNode(progNodeId)
 
     Print("Wait for account creation to be irreversible")
     blockNum=node0.getBlockNum(BlockType.head)
@@ -152,6 +158,10 @@ try:
     assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
 
     Print("Create snapshot")
+    blockNumSnap=nodeSnap.getBlockNum(BlockType.head)
+    ret = nodeProg.scheduleSnapshotAt(blockNumSnap)
+    assert ret is not None, "Snapshot creation failed"
+    
     ret = nodeSnap.createSnapshot()
     assert ret is not None, "Snapshot creation failed"
     ret_head_block_num = ret["payload"]["head_block_num"]
@@ -195,6 +205,16 @@ try:
     irrSnapshotFile = irrSnapshotFile + ".json"
 
     assert Utils.compareFiles(snapshotFile, irrSnapshotFile), f"Snapshot files differ {snapshotFile} != {irrSnapshotFile}"
+  
+    Print("Kill programmable node")
+    nodeProg.kill(signal.SIGTERM)
+
+    Print("Convert snapshot to JSON")
+    progSnapshotFile = getLatestSnapshot(progNodeId)
+    Utils.processLeapUtilCmd("snapshot to-json --input-file {}".format(progSnapshotFile), "snapshot to-json", silentErrors=False)
+    progSnapshotFile = progSnapshotFile + ".json"
+
+    assert Utils.compareFiles(progSnapshotFile, irrSnapshotFile), f"Snapshot files differ {progSnapshotFile} != {irrSnapshotFile}"
 
     testSuccessful=True
 

@@ -5,6 +5,8 @@ import subprocess
 import signal
 
 from TestHarness import Cluster, TestHelper, Utils
+from os import getpid
+from pathlib import Path
 
 ###############################################################
 # validate-dirty-db
@@ -17,7 +19,7 @@ from TestHarness import Cluster, TestHelper, Utils
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run"})
+args = TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run","--unshared"})
 debug=args.v
 pnodes=1
 topo="mesh"
@@ -36,10 +38,10 @@ seed=1
 Utils.Debug=debug
 testSuccessful=False
 
-def runNodeosAndGetOutput(myTimeout=3):
+def runNodeosAndGetOutput(myTimeout=3, nodeosLogPath=f"{Utils.TestLogRoot}"):
     """Startup nodeos, wait for timeout (before forced shutdown) and collect output. Stdout, stderr and return code are returned in a dictionary."""
     Print("Launching nodeos process.")
-    cmd="programs/nodeos/nodeos --config-dir etc/eosio/node_bios --data-dir var/lib/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
+    cmd=f"programs/nodeos/nodeos --config-dir etc/eosio/node_bios --data-dir {nodeosLogPath}/node_bios --verbose-http-errors --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded"
     Print("cmd: %s" % (cmd))
     proc=subprocess.Popen(cmd.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     if debug: Print("Nodeos process launched.")
@@ -61,7 +63,7 @@ def runNodeosAndGetOutput(myTimeout=3):
     return (True, output)
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True)
+cluster=Cluster(walletd=True,unshared=args.unshared)
 
 try:
     TestHelper.printSystemInfo("BEGIN")
@@ -88,7 +90,7 @@ try:
 
     for i in range(1,4):
         Print("Attempt %d." % (i))
-        ret = runNodeosAndGetOutput(timeout)
+        ret = runNodeosAndGetOutput(timeout, cluster.nodeosLogPath)
         assert(ret)
         assert(isinstance(ret, tuple))
         if not ret[0]:
