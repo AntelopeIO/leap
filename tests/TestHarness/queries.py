@@ -346,7 +346,7 @@ class NodeosQueries:
         return self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError, exitMsg=msg, returnType=returnType)
 
     def getTable(self, contract, scope, table, exitOnError=False):
-        cmdDesc = "get table --time-limit 999"
+        cmdDesc = "get table"
         cmd=f"{cmdDesc} {self.cleosLimit} {contract} {scope} {table}"
         msg=f"contract={contract}, scope={scope}, table={table}"
         return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
