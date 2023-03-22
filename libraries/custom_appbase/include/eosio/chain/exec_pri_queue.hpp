@@ -62,13 +62,13 @@ public:
 
    bool execute_highest_locked() {
       std::unique_lock g(mtx_);
-      auto s = size();
-      if( s > 0 ) {
-         auto t = pop();
-         g.unlock();
-         t->execute();
-      }
-      return s > 1;
+      if( handlers_.empty() )
+         return false;
+      auto t = pop();
+      g.unlock();
+      t->execute();
+      g.lock();
+      return !handlers_.empty();
    }
 
    // Only call when locking disabled
