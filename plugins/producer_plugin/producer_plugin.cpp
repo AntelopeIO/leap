@@ -443,7 +443,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          // may wait if the queue is empty, and not all other threads are already waiting.
          // returns true if a transaction was dequeued and should be executed, or false 
          // if conditions are met to stop processing transactions. 
-         bool pop_front(ro_trx_t &trx) {
+         bool pop_front(ro_trx_t& trx) {
             std::unique_lock<std::mutex> g( mtx );
             
             if (should_exit()) {
@@ -486,7 +486,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       private:
          bool should_exit() {
-            return *received_block_ptr || exiting_read_window || fc::time_point::now() >= read_window_deadline;
+            return exiting_read_window || fc::time_point::now() >= read_window_deadline || *received_block_ptr;
          }
          
          mutable std::mutex      mtx;

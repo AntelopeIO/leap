@@ -151,7 +151,7 @@ BOOST_AUTO_TEST_CASE(no_read_only_threads) {
 }
 
 // test read-only trxs on 1 threads (with --read-only-threads)
-BOOST_AUTO_TEST_CASE(with_16_read_only_threads) {
+BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
                                               "--allow-ro-trx-on-producer-node=true",
                                               "--read-only-threads=1",
@@ -163,7 +163,7 @@ BOOST_AUTO_TEST_CASE(with_16_read_only_threads) {
 }
 
 // test read-only trxs on 16 separate threads (with --read-only-threads)
-BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
+BOOST_AUTO_TEST_CASE(with_16_read_only_threads) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
                                               "--allow-ro-trx-on-producer-node=true",
                                               "--read-only-threads=16",
