@@ -451,7 +451,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       boost::asio::deadline_timer     _ro_read_window_timer;
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_exhausted_trx_queue;
-      std::atomic<uint32_t>           _ro_num_active_exec_tasks{0 };
+      std::atomic<uint32_t>           _ro_num_active_exec_tasks{ 0 };
+      std::atomic<bool>               _ro_exiting_read_window{ false };
       bool                            _ro_in_read_only_mode{false}; // only modified on app thread
       std::vector<std::future<bool>>  _ro_exec_tasks_fut;
 
@@ -2855,6 +2856,7 @@ void producer_plugin_impl::switch_to_read_window() {
    _received_block = false;
    _ro_read_window_start_time = fc::time_point::now();
    _ro_all_threads_exec_time_us = 0;
+   _ro_exiting_read_window = false;
 
    // start a read-only transaction execution task in each thread in the thread pool
    _ro_num_active_exec_tasks = _ro_thread_pool_size;
@@ -2891,11 +2893,11 @@ void producer_plugin_impl::switch_to_read_window() {
 bool producer_plugin_impl::read_only_execution_task() {
    // We have 4 ways to break out the while loop:
    // 1. pass read window deadline
-   // 2. Net_plugin receives a block
-   // 3. No more transactions in the read-only trx queue and no read-only exhausted tasks to execute
+   // 2. net_plugin receives a block
+   // 3. No more transactions in the exhausted read-only queue and no read-only tasks to execute
    // 4. A transaction execution is exhausted (means end of read window)
    bool exhausted_trx_queue_empty = false;
-   while ( fc::time_point::now() < _ro_window_deadline && !_received_block ) {
+   while ( fc::time_point::now() < _ro_window_deadline && !_received_block && !_ro_exiting_read_window ) {
       if (!exhausted_trx_queue_empty) {
          std::unique_lock<std::mutex> lck( _ro_exhausted_trx_queue.mtx );
          auto size = _ro_exhausted_trx_queue.queue.size();
@@ -2905,14 +2907,18 @@ bool producer_plugin_impl::read_only_execution_task() {
             lck.unlock();
 
             auto retry = process_read_only_transaction( trx.trx, trx.next );
-            if( retry )
+            if( retry ) {
+               _ro_exiting_read_window = true;
                break;
+            }
          }
          exhausted_trx_queue_empty = (size <= 1); // one was executed above
       } else {
          bool more = app().executor().execute_highest_read_only();
-         if ( !more )
+         if ( !more ) { // read_only queue empty, anything queued after this will be processed in the next window
+            _ro_exiting_read_window = true;
             break;
+         }
       }
    }
 
