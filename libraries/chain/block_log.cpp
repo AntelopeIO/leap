@@ -1533,7 +1533,7 @@ namespace eosio { namespace chain {
       ilog("blocks.log and blocks.index agree on number of blocks");
 
       if (interval == 0) {
-         interval = std::max((log_bundle.log_index.num_blocks() + 7) >> 3, 1);
+         interval = std::max((log_bundle.log_index.num_blocks() + 7u) >> 3, 1u);
       }
       uint32_t expected_block_num = log_bundle.log_data.first_block_num();
 
