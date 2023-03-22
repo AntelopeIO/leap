@@ -425,14 +425,12 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          void push_back(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_back(std::move(trx));
-            g.unlock();
             cond.notify_one();
          }
          
          void push_front(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_front(std::move(trx));
-            g.unlock();
             cond.notify_one();
          }
 
@@ -452,7 +450,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                return !queue.empty() || should_exit();
             });
             if (queue.empty() || should_exit()) {
-               g.unlock();
                cond.notify_all();
                return false;
             }
