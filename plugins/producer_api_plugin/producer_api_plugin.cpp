@@ -102,7 +102,7 @@ void producer_api_plugin::plugin_startup() {
 
    app().get_plugin<http_plugin>().add_api({
        CALL_WITH_400(producer, producer, paused,
-                     INVOKE_R_V(producer, paused), 201),
+            INVOKE_R_V(producer, paused), 201),
        CALL_WITH_400(producer, producer, get_runtime_options,
             INVOKE_R_V(producer, get_runtime_options), 201),
        CALL_WITH_400(producer, producer, get_greylist,
