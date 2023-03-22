@@ -126,6 +126,7 @@ try:
     waitForBlock(node0, blockNum, blockType=BlockType.lib)
 
     Print("Configure and launch txn generators")
+    
     targetTpsPerGenerator = 10
     testTrxGenDurationSec=60*30
     cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[account1Name, account2Name],
@@ -156,12 +157,8 @@ try:
     minReqPctLeeway=0.60
     minRequiredTransactions=minReqPctLeeway*transactionsPerBlock
     assert steadyStateAvg>=minRequiredTransactions, "Expected to at least receive %s transactions per block, but only getting %s" % (minRequiredTransactions, steadyStateAvg)
-
-    Print("Create snapshot")
-    blockNumSnap=nodeSnap.getBlockNum(BlockType.head)
-    ret = nodeProg.scheduleSnapshotAt(blockNumSnap)
-    assert ret is not None, "Snapshot creation failed"
     
+    Print("Create snapshot (node 0)")
     ret = nodeSnap.createSnapshot()
     assert ret is not None, "Snapshot creation failed"
     ret_head_block_num = ret["payload"]["head_block_num"]
@@ -177,6 +174,29 @@ try:
     snapshotFile = getLatestSnapshot(snapshotNodeId)
     Utils.processLeapUtilCmd("snapshot to-json --input-file {}".format(snapshotFile), "snapshot to-json", silentErrors=False)
     snapshotFile = snapshotFile + ".json"
+
+    Print("Trim programmable blocklog to snapshot head block num and relaunch programmable node")
+    nodeProg.kill(signal.SIGTERM)
+    output=cluster.getBlockLog(progNodeId, blockLogAction=BlockLogAction.trim, first=0, last=ret_head_block_num, throwException=True)
+    removeState(progNodeId)
+    Utils.rmFromFile(Utils.getNodeConfigDir(progNodeId, "config.ini"), "p2p-peer-address")
+    isRelaunchSuccess = nodeProg.relaunch(chainArg="--replay", addSwapFlags={}, timeout=relaunchTimeout, cachePopen=True)
+    assert isRelaunchSuccess, "Failed to relaunch programmable node"
+
+    Print("Schedule snapshot (node 2)")
+    ret = nodeProg.scheduleSnapshotAt(ret_head_block_num)
+    assert ret is not None, "Snapshot scheduling failed"
+
+    Print("Wait for programmable node lib to advance")
+    waitForBlock(nodeProg, ret_head_block_num+1, blockType=BlockType.lib)
+
+    Print("Kill programmable node")
+    nodeProg.kill(signal.SIGTERM)
+
+    Print("Convert snapshot to JSON")
+    progSnapshotFile = getLatestSnapshot(progNodeId)
+    Utils.processLeapUtilCmd("snapshot to-json --input-file {}".format(progSnapshotFile), "snapshot to-json", silentErrors=False)
+    progSnapshotFile = progSnapshotFile + ".json"
 
     Print("Trim irreversible blocklog to snapshot head block num")
     nodeIrr.kill(signal.SIGTERM)
@@ -205,15 +225,6 @@ try:
     irrSnapshotFile = irrSnapshotFile + ".json"
 
     assert Utils.compareFiles(snapshotFile, irrSnapshotFile), f"Snapshot files differ {snapshotFile} != {irrSnapshotFile}"
-  
-    Print("Kill programmable node")
-    nodeProg.kill(signal.SIGTERM)
-
-    Print("Convert snapshot to JSON")
-    progSnapshotFile = getLatestSnapshot(progNodeId)
-    Utils.processLeapUtilCmd("snapshot to-json --input-file {}".format(progSnapshotFile), "snapshot to-json", silentErrors=False)
-    progSnapshotFile = progSnapshotFile + ".json"
-
     assert Utils.compareFiles(progSnapshotFile, irrSnapshotFile), f"Snapshot files differ {progSnapshotFile} != {irrSnapshotFile}"
 
     testSuccessful=True
