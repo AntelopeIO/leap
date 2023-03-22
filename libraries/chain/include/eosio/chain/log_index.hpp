@@ -32,7 +32,7 @@ class log_index {
    bool is_open() const { return file_.is_open(); }
 
    uint64_t back() { return nth_block_position(num_blocks()-1); }
-   int      num_blocks() const { return num_blocks_; }
+   unsigned num_blocks() const { return num_blocks_; }
    uint64_t nth_block_position(uint32_t n) {
       file_.seek(n*sizeof(uint64_t));
       uint64_t r;
