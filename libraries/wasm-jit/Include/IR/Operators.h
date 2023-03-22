@@ -12,10 +12,11 @@ namespace IR
 	struct NoImm {};
 	struct MemoryImm {};
 
+	PACKED_STRUCT(
 	struct ControlStructureImm
 	{
 		ResultType resultType{};
-	};
+	});
 
 	struct BranchImm
 	{
