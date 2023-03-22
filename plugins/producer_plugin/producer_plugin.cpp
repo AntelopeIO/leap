@@ -974,8 +974,6 @@ void producer_plugin::set_program_options(
           "time in microseconds the write window lasts")
          ("read-only-read-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_read_window_time_us.count()),
           "time in microseconds the read window lasts")
-         ("allow-ro-trx-on-producer-node", bpo::value<bool>()->default_value(false),
-          "Allow running readonly transactions in parallel on producer nodes")
          ;
    config_file_options.add(producer_options);
 }
@@ -1154,7 +1152,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
    // only initialize other read-only options when read-only thread pool is enabled
    if ( my->_ro_thread_pool_size > 0 ) {
-      if (options.at("allow-ro-trx-on-producer-node").as<bool>() == false)
+      if (!test_mode_)
          EOS_ASSERT( my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
       
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
