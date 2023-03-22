@@ -124,10 +124,6 @@ void producer_api_plugin::plugin_startup() {
 
    // Not safe to run in parallel
    app().get_plugin<http_plugin>().add_api({
-       CALL_WITH_400(producer, producer, add_greylist_accounts,
-                     INVOKE_V_R(producer, add_greylist_accounts, producer_plugin::greylist_params), 201),
-       CALL_WITH_400(producer, producer, remove_greylist_accounts,
-                     INVOKE_V_R(producer, remove_greylist_accounts, producer_plugin::greylist_params), 201),
        CALL_WITH_400(producer, producer, pause,
             INVOKE_V_V(producer, pause), 201),
        CALL_WITH_400(producer, producer, resume,
