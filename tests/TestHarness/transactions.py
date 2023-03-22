@@ -107,7 +107,7 @@ class Transactions(NodeosQueries):
                 self.trackCmdTransaction(trans, reportStatus=reportStatus)
         except subprocess.CalledProcessError as ex:
             end=time.perf_counter()
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Exception during funds transfer.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
             if exitOnError:
                 Utils.cmdError("could not transfer \"%s\" from %s to %s" % (amountStr, source, destination))
@@ -131,7 +131,7 @@ class Transactions(NodeosQueries):
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
         except subprocess.CalledProcessError as ex:
             end=time.perf_counter()
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Exception during spawn of funds transfer.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
             if exitOnError:
                 Utils.cmdError("could not transfer \"%s\" from %s to %s" % (amountStr, source, destination))
@@ -158,15 +158,15 @@ class Transactions(NodeosQueries):
         except subprocess.CalledProcessError as ex:
             if not shouldFail:
                 end=time.perf_counter()
-                msg=ex.output.decode("utf-8")
-                Utils.Print("ERROR: Exception during set contract.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
+                out=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
+                Utils.Print("ERROR: Exception during set contract. stderr: %s.  stdout: %s.  cmd Duration: %.3f sec." % (msg, out, end-start))
                 return None
             else:
                 retMap={}
                 retMap["returncode"]=ex.returncode
                 retMap["cmd"]=ex.cmd
                 retMap["output"]=ex.output
-                retMap["stdout"]=ex.stdout
                 retMap["stderr"]=ex.stderr
                 return retMap
 
@@ -213,7 +213,7 @@ class Transactions(NodeosQueries):
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
             return (NodeosQueries.getTransStatus(retTrans) == 'executed', retTrans)
         except subprocess.CalledProcessError as ex:
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             if not silentErrors:
                 end=time.perf_counter()
                 Utils.Print("ERROR: Exception during push transaction.  cmd Duration=%.3f sec.  %s" % (end - start, msg))
@@ -245,7 +245,6 @@ class Transactions(NodeosQueries):
         except subprocess.CalledProcessError as ex:
             msg=ex.stderr.decode("utf-8")
             output=ex.output.decode("utf-8")
-            msg=ex.output.decode("utf-8")
             if not silentErrors:
                 end=time.perf_counter()
                 Utils.Print("ERROR: Exception during push message. stderr: %s. stdout: %s.  cmd Duration=%.3f sec." % (msg, output, end - start))
