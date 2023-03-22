@@ -10,6 +10,7 @@ apt-get install -y \
     curl \
     file \
     git \
+    install \
     libbz2-dev \
     libcurl4-openssl-dev \
     libgmp-dev \
