@@ -93,9 +93,8 @@ try:
     specificExtraNodeosArgs={}
     # producer nodes will be mapped to 0 through pnodes-1, so the number pnodes is the no-producing API node
     specificExtraNodeosArgs[pnodes]=" --plugin eosio::net_api_plugin"
-    if args.read_only_threads > 0:
-        specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
-        specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
+    specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
+    specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
     if args.eos_vm_oc_enable:
         specificExtraNodeosArgs[pnodes]+=" --eos-vm-oc-enable"
     if args.wasm_runtime:
