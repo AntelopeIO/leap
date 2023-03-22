@@ -424,13 +424,15 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          void push_back(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_back(std::move(trx));
-            notify_waiting(false);
+            if (num_waiting)
+               cond.notify_one();
          }
          
          void push_front(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_front(std::move(trx));
-            notify_waiting(false);
+            if (num_waiting)
+               cond.notify_one();
          }
 
          bool empty() const {
@@ -445,14 +447,14 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             std::unique_lock<std::mutex> g( mtx );
             
             if (should_exit()) {
-               notify_waiting(true);
+               cond.notify_all();
                return false;
             }
 
             if (queue.empty()) {
                if (num_waiting + 1 == max_waiting) {
                   exiting_read_window = true;
-                  notify_waiting(true);
+                  cond.notify_all();
                   return false;
                }
                
@@ -460,7 +462,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                cond.wait(g, [this]() { return !queue.empty() || should_exit(); });
                --num_waiting;
                
-               if (queue.empty() || should_exit()) // were we woken up by another thread?
+               if (should_exit())
                   return false;
             }
             
@@ -474,7 +476,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          //    - or the net_plugin received a block.
          //    - or we have reached the read_window_deadline
          void set_exit_criteria(uint32_t num_tasks, std::atomic<bool>* received_block, fc::time_point deadline) {
-            assert(num_tasks > 0 && num_waiting == 0);
+            std::lock_guard<std::mutex> g( mtx ); // not strictly necessary with current usage from single thread
+            assert(num_tasks > 0 && num_waiting == 0 && received_block != nullptr);
             assert(received_block && *received_block == false);
             max_waiting = num_tasks;
             received_block_ptr = received_block;
@@ -482,25 +485,17 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
 
       private:
-         void notify_waiting(bool all) {
-            if (num_waiting) {
-               all ? cond.notify_all() : cond.notify_one();
-            }
-         }
-            
          bool should_exit() {
-            return *received_block_ptr || exiting_read_window || 
-               fc::time_point::now() >= read_window_deadline;
+            return *received_block_ptr || exiting_read_window || fc::time_point::now() >= read_window_deadline;
          }
          
          mutable std::mutex      mtx;
          std::condition_variable cond;
          deque<ro_trx_t>         queue;
-         uint32_t                num_waiting {0};
-         uint32_t                max_waiting {0};
-         bool                    exiting_read_window {false}; 
-         std::atomic<bool>*      received_block_ptr;
-         fc::time_point          start_time;
+         uint32_t                num_waiting{0};
+         uint32_t                max_waiting{0};
+         bool                    exiting_read_window{false}; 
+         std::atomic<bool>*      received_block_ptr{nullptr};
          fc::time_point          read_window_deadline;
       };
    
