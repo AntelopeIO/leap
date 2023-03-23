@@ -1730,4 +1730,7 @@ class Cluster(object):
                 for line in f:
                     firstTrxs.append(line.rstrip('\n'))
         Utils.Print(f"first transactions: {firstTrxs}")
-        node.waitForTransactionsInBlock(firstTrxs)
+        status = node.waitForTransactionsInBlock(firstTrxs)
+        if status is None:
+            Utils.Print('ERROR: Failed to spin up transaction generators: never received first transactions')
+        return status
