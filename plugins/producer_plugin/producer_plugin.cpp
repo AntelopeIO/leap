@@ -256,19 +256,25 @@ struct block_time_tracker {
       block_idle_time += idle;
    }
 
-   void add_fail_time( const fc::microseconds& fail_time ) {
-      trx_fail_time += fail_time;
-      ++trx_fail_num;
+   void add_fail_time( const fc::microseconds& fail_time, bool is_transient ) {
+      if( is_transient ) {
+         // transient time includes both success and fail time
+         transient_trx_time += fail_time;
+         ++transient_trx_num;
+      } else {
+         trx_fail_time += fail_time;
+         ++trx_fail_num;
+      }
    }
 
-   void add_success_time( const fc::microseconds& time ) {
-      trx_success_time += time;
-      ++trx_success_num;
-   }
-
-   void add_transient_time( const fc::microseconds& time ) {
-      transient_trx_time += time;
-      ++transient_trx_num;
+   void add_success_time( const fc::microseconds& time, bool is_transient ) {
+      if( is_transient ) {
+         transient_trx_time += time;
+         ++transient_trx_num;
+      } else {
+         trx_success_time += time;
+         ++trx_success_num;
+      }
    }
 
    void report( const fc::time_point& idle_trx_time, uint32_t block_num ) {
@@ -708,12 +714,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                      next( std::move(ex) );
                      self->_idle_trx_time = fc::time_point::now();
                      auto dur = self->_idle_trx_time - start;
-                     if ( is_transient ) {
-                        // transient time includes both success and fail time
-                        self->_time_tracker.add_transient_time(dur);
-                     } else {
-                        self->_time_tracker.add_fail_time(dur);
-                     }
+                     self->_time_tracker.add_fail_time(dur, is_transient);
                   };
                   try {
                      auto result = future.get();
@@ -2239,7 +2240,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
          log_trx_results( trx, except_ptr );
          next( except_ptr );
       }
-      _time_tracker.add_fail_time(fc::time_point::now() - start);
+      _time_tracker.add_fail_time(fc::time_point::now() - start, trx->is_transient());
       return push_result{.failed = true};
    }
 
@@ -2288,12 +2289,7 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
    if( trace->except ) {
       if ( chain.is_on_main_thread() ) {
          auto dur = end - start;
-         if ( trx->is_transient() ) {
-            // transient time includes both success and fail time
-            _time_tracker.add_transient_time(dur);
-         } else {
-            _time_tracker.add_fail_time(dur);
-         }
+         _time_tracker.add_fail_time(dur, trx->is_transient());
       }
       if( exception_is_exhausted( *trace->except ) ) {
          if( _pending_block_mode == pending_block_mode::producing ) {
@@ -2336,12 +2332,7 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
                ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
       if ( chain.is_on_main_thread() ) {
          auto dur = end - start;
-         if ( trx->is_transient() ) {
-            // transient time includes both success and fail time
-            _time_tracker.add_transient_time(dur);
-         } else {
-            _time_tracker.add_success_time(dur);
-         }
+         _time_tracker.add_success_time(dur, trx->is_transient());
       }
       log_trx_results( trx, trace, start );
       // if producing then trx is in objective cpu account billing
@@ -2485,7 +2476,7 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
          auto trace = chain.push_scheduled_transaction(trx_id, deadline, max_trx_time, 0, false);
          auto end = fc::time_point::now();
          if (trace->except) {
-            _time_tracker.add_fail_time(end - start);
+            _time_tracker.add_fail_time(end - start, false); // delayed transaction cannot be transient
             if (exception_is_exhausted(*trace->except)) {
                if( block_is_exhausted() ) {
                   exhausted = true;
@@ -2505,7 +2496,7 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
                num_failed++;
             }
          } else {
-            _time_tracker.add_success_time(end - start);
+            _time_tracker.add_success_time(end - start, false); // delayed transaction cannot be transient
             fc_dlog(_trx_successful_trace_log,
                     "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${txid}, time: ${r}, auth: ${a}, cpu: ${cpu}",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
