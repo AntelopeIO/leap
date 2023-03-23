@@ -118,7 +118,8 @@ try:
                                 tpsPerGenerator=targetTpsPerGenerator, numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec,
                                 waitToComplete=False)
 
-    cluster.waitForTrxGeneratorsSpinup(nodeId=node0.nodeId, numGenerators=trxGeneratorCnt)
+    status = cluster.waitForTrxGeneratorsSpinup(nodeId=node0.nodeId, numGenerators=trxGeneratorCnt)
+    assert status is not None, "ERROR: Failed to spinup Transaction Generators"
 
     blockNum=head(node0)
     timePerBlock=500
