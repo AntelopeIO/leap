@@ -1827,14 +1827,10 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    }
 
    const fc::time_point preprocess_deadline = _block_timing_util.calculate_block_deadline(_pending_block_mode, block_time);
-   if (_pending_block_mode == pending_block_mode::producing && previous_pending_mode != pending_block_mode::producing) {
-      // first block of our round, have to wait for the right time to start
+   if (_pending_block_mode != previous_pending_mode) {
+       // first block of our round or just produced our last block of our round, have to wait for the right time to start
       const auto start_block_time = block_time - fc::microseconds( config::block_interval_us );
-      schedule_delayed_production_loop( weak_from_this(), start_block_time);
-   } else if (_pending_block_mode != pending_block_mode::producing && previous_pending_mode == pending_block_mode::producing) {
-      // just produced our last block of our round
-      const auto start_block_time = block_time - fc::microseconds( config::block_interval_us );
-      fc_dlog(_log, "Not starting speculative block until ${bt}", ("bt", start_block_time) );
+      fc_dlog(_log, "Not starting block until ${bt}", ("bt", start_block_time) );
       schedule_delayed_production_loop( weak_from_this(), start_block_time);
       return start_block_result::waiting_for_production;
    }
