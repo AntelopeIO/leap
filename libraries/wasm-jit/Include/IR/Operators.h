@@ -679,16 +679,16 @@ namespace IR
 }
 
 //paranoia for future platforms
-static_assert(sizeof(IR::OpcodeAndImm<IR::NoImm>) == 2);
-static_assert(sizeof(IR::OpcodeAndImm<IR::MemoryImm>) == 2);
-static_assert(sizeof(IR::OpcodeAndImm<IR::ControlStructureImm>) == 3);
-static_assert(sizeof(IR::OpcodeAndImm<IR::BranchImm>) == 6);
-static_assert(sizeof(IR::OpcodeAndImm<IR::BranchTableImm>) == 18);
-static_assert(sizeof(IR::OpcodeAndImm<IR::LiteralImm<I32>>) == 6);
-static_assert(sizeof(IR::OpcodeAndImm<IR::LiteralImm<I64>>) == 10);
-static_assert(sizeof(IR::OpcodeAndImm<IR::LiteralImm<F32>>) == 6);
-static_assert(sizeof(IR::OpcodeAndImm<IR::LiteralImm<F64>>) == 10);
-static_assert(sizeof(IR::OpcodeAndImm<IR::GetOrSetVariableImm<false>>) == 6);
-static_assert(sizeof(IR::OpcodeAndImm<IR::CallImm>) == 6);
-static_assert(sizeof(IR::OpcodeAndImm<IR::CallIndirectImm>) == 6);
-static_assert(sizeof(IR::OpcodeAndImm<IR::LoadOrStoreImm<0>>) == 10);
+static_assert(sizeof(IR::OpcodeAndImm<IR::NoImm>) == 2, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::MemoryImm>) == 2, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::ControlStructureImm>) == 3, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::BranchImm>) == 6, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::BranchTableImm>) == 18, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::LiteralImm<I32>>) == 6, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::LiteralImm<I64>>) == 10, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::LiteralImm<F32>>) == 6, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::LiteralImm<F64>>) == 10, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::GetOrSetVariableImm<false>>) == 6, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::CallImm>) == 6, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::CallIndirectImm>) == 6, "unexpected size");
+static_assert(sizeof(IR::OpcodeAndImm<IR::LoadOrStoreImm<0>>) == 10, "unexpected size");
