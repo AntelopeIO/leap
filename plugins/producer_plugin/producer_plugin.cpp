@@ -2277,7 +2277,7 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
    auto end = fc::time_point::now();
    push_result pr;
    if( trace->except ) {
-      if ( chain.is_main_thread() ) {
+      if ( chain.is_on_main_thread() ) {
          auto dur = end - start;
          if ( trx->is_transient() ) {
             // transient time includes both success and fail time
@@ -2325,7 +2325,7 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
    } else {
       fc_tlog( _log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us",
                ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
-      if ( chain.is_main_thread() ) {
+      if ( chain.is_on_main_thread() ) {
          auto dur = end - start;
          if ( trx->is_transient() ) {
             // transient time includes both success and fail time

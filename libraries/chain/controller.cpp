@@ -2680,7 +2680,7 @@ struct controller_impl {
    // only called from non-main threads (read-only trx execution threads)
    // when producer_plugin starts them
    void init_thread_local_data() {
-      EOS_ASSERT( !is_main_thread(), misc_exception, "init_thread_local_data called on the main thread");
+      EOS_ASSERT( !is_on_main_thread(), misc_exception, "init_thread_local_data called on the main thread");
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if ( is_eos_vm_oc_enabled() )
          // EOSVMOC needs further initialization of its thread local data
@@ -2691,10 +2691,10 @@ struct controller_impl {
          wasmif_thread_local = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
    }
 
-   bool is_main_thread() { return main_thread_id == std::this_thread::get_id(); };
+   bool is_on_main_thread() { return main_thread_id == std::this_thread::get_id(); };
 
    wasm_interface& get_wasm_interface() {
-      if ( is_main_thread()
+      if ( is_on_main_thread()
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
           || is_eos_vm_oc_enabled()
 #endif
@@ -3686,8 +3686,8 @@ void controller::init_thread_local_data() {
    my->init_thread_local_data();
 }
 
-bool controller::is_main_thread() const {
-  return my->is_main_thread();
+bool controller::is_on_main_thread() const {
+  return my->is_on_main_thread();
 }
 
 /// Protocol feature activation handlers:
