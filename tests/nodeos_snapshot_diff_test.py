@@ -133,7 +133,8 @@ try:
                                 acctPrivKeysList=[account1PrivKey,account2PrivKey], nodeId=snapshotNodeId, tpsPerGenerator=targetTpsPerGenerator,
                                 numGenerators=trxGeneratorCnt, durationSec=testTrxGenDurationSec, waitToComplete=False)
 
-    cluster.waitForTrxGeneratorsSpinup(nodeId=snapshotNodeId, numGenerators=trxGeneratorCnt)
+    status = cluster.waitForTrxGeneratorsSpinup(nodeId=snapshotNodeId, numGenerators=trxGeneratorCnt)
+    assert status is not None, "ERROR: Failed to spinup Transaction Generators"
 
     blockNum=node0.getBlockNum(BlockType.head)
     timePerBlock=500
