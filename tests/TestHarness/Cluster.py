@@ -22,8 +22,11 @@ from .Node import BlockType
 from .Node import Node
 from .WalletMgr import WalletMgr
 from .launch_transaction_generators import TransactionGeneratorsLauncher, TpsTrxGensConfig
-from .libc import unshare, CLONE_NEWNET
-from .interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
+try:
+    from .libc import unshare, CLONE_NEWNET
+    from .interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
+except:
+    pass
 
 # Protocol Feature Setup Policy
 class PFSetupPolicy:
@@ -1727,4 +1730,7 @@ class Cluster(object):
                 for line in f:
                     firstTrxs.append(line.rstrip('\n'))
         Utils.Print(f"first transactions: {firstTrxs}")
-        node.waitForTransactionsInBlock(firstTrxs)
+        status = node.waitForTransactionsInBlock(firstTrxs)
+        if status is None:
+            Utils.Print('ERROR: Failed to spin up transaction generators: never received first transactions')
+        return status
