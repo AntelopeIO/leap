@@ -275,7 +275,7 @@ struct block_time_tracker {
       if( _log.is_enabled( fc::log_level::debug ) ) {
          auto now = fc::time_point::now();
          add_idle_time( now - idle_trx_time );
-         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, transient trxs: ${tn}, ${t}us, other: ${o}us",
+         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, transient: ${tn}, ${t}us, other: ${o}us",
                   ("n", block_num)
                   ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
                   ("fn", trx_fail_num)("f", trx_fail_time)
@@ -430,6 +430,15 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          std::mutex              mtx;
          std::deque<ro_trx_t>    queue;
       };
+      struct all_threads_exec_time_t {
+         std::mutex        mtx;
+         fc::microseconds  total_time{ 0 };
+
+         void add_time(const fc::microseconds& t) {
+            std::lock_guard<std::mutex>  g(mtx);
+            total_time += t;
+         }
+      };
       uint16_t                        _ro_thread_pool_size{ 0 };
       static constexpr uint16_t       _ro_max_eos_vm_oc_threads_allowed{ 8 }; // Due to uncertainty to get total virtual memory size on a 5-level paging system, set a hard limit
       named_thread_pool<struct read>  _ro_thread_pool;
@@ -437,12 +446,13 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       fc::microseconds                _ro_read_window_time_us{ 60000 };
       static constexpr fc::microseconds _ro_read_window_minimum_time_us{ 10000 };
       fc::microseconds                _ro_read_window_effective_time_us{ 0 }; // calculated during option initialization
+      all_threads_exec_time_t         _ro_all_threads_exec_time; // total time spent by all threads executing transactions
       fc::time_point                  _ro_read_window_start_time;
       boost::asio::deadline_timer     _ro_write_window_timer;
       boost::asio::deadline_timer     _ro_read_window_timer;
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_trx_queue;
-      std::atomic<uint32_t>            _ro_num_active_trx_exec_tasks{ 0 };
+      std::atomic<uint32_t>           _ro_num_active_trx_exec_tasks{ 0 };
       std::vector<std::future<bool>>  _ro_trx_exec_tasks_fut;
 
       void start_write_window();
@@ -699,7 +709,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                      self->_idle_trx_time = fc::time_point::now();
                      auto dur = self->_idle_trx_time - start;
                      if ( is_transient ) {
-                        // this function can only be on main thread.
                         // transient time includes both success and fail time
                         self->_time_tracker.add_transient_time(dur);
                      } else {
@@ -2798,9 +2807,10 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
 void producer_plugin_impl::switch_to_write_window() {
    if ( _log.is_enabled( fc::log_level::debug ) ) {
       auto now = fc::time_point::now();
-      fc_dlog( _log, "Read-only threads #${n}, total time across all threads ${t}us",
+      fc_dlog( _log, "Read-only threads ${n}, read window time ${r}us, total all threads ${t}us",
                ("n", _ro_thread_pool_size)
-               ("t", now - _ro_read_window_start_time) );
+               ("r", now - _ro_read_window_start_time)
+               ("t", _ro_all_threads_exec_time.total_time));
    }
 
    // this method can be called from multiple places. it is possible
@@ -2856,7 +2866,10 @@ void producer_plugin_impl::switch_to_read_window() {
    app().executor().set_to_read_window();
    chain_plug->chain().set_db_read_only_mode();
    _received_block = false;
-   _ro_read_window_start_time = fc::time_point::now();
+   if ( _log.is_enabled( fc::log_level::debug ) ) {
+      _ro_read_window_start_time = fc::time_point::now();
+      _ro_all_threads_exec_time.total_time = fc::microseconds(0);
+   }
 
    // start a read-only transaction execution task in each thread in the thread pool
    _ro_num_active_trx_exec_tasks = _ro_thread_pool_size;
@@ -2971,6 +2984,14 @@ bool producer_plugin_impl::push_read_only_transaction(
       auto remaining_time_in_read_window_us = _ro_read_window_time_us - time_used_in_read_window_us;
       // Ensure the trx to finish by the end of read-window.
       auto window_deadline = std::min( start + remaining_time_in_read_window_us, block_deadline );
+
+      auto track_exec_time = fc::make_scoped_exit([this,start](){
+         if ( _log.is_enabled( fc::log_level::debug ) ) {
+            // add_time is expensive as it is protected by a mutex.
+            // use it only when log is enabled
+            _ro_all_threads_exec_time.add_time( fc::time_point::now() - start );
+         }
+      });
       auto trace = chain.push_transaction( trx, window_deadline, _ro_max_trx_time_us, 0, false, 0 );
       auto pr = handle_push_result(trx, next, start, chain, trace, true /*return_failure_trace*/, true /*disable_subjective_enforcement*/, {} /*first_auth*/, 0 /*sub_bill*/, 0 /*prev_billed_cpu_time_us*/);
       // If a transaction was exhausted, that indicates we are close to
