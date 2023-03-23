@@ -2798,7 +2798,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
 void producer_plugin_impl::switch_to_write_window() {
    if ( _log.is_enabled( fc::log_level::debug ) ) {
       auto now = fc::time_point::now();
-      fc_dlog( _log, "Read-only threads #${n}, total time across all threads ${t}",
+      fc_dlog( _log, "Read-only threads #${n}, total time across all threads ${t}us",
                ("n", _ro_thread_pool_size)
                ("t", now - _ro_read_window_start_time) );
    }
