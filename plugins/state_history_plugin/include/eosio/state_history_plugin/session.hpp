@@ -103,7 +103,7 @@ public:
    void pop_entry(bool call_send = true) {
       send_queue.erase(send_queue.begin());
       sending = false;
-      if (call_send)
+      if (call_send || !send_queue.empty())
          send();
    }
 

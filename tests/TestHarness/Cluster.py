@@ -22,8 +22,11 @@ from .Node import BlockType
 from .Node import Node
 from .WalletMgr import WalletMgr
 from .launch_transaction_generators import TransactionGeneratorsLauncher, TpsTrxGensConfig
-from .libc import unshare, CLONE_NEWNET
-from .interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
+try:
+    from .libc import unshare, CLONE_NEWNET
+    from .interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
+except:
+    pass
 
 # Protocol Feature Setup Policy
 class PFSetupPolicy:
