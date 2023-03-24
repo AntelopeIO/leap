@@ -436,15 +436,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          std::mutex              mtx;
          std::deque<ro_trx_t>    queue;
       };
-      struct all_threads_exec_time_t {
-         std::mutex        mtx;
-         fc::microseconds  total_time{ 0 };
-
-         void add_time(const fc::microseconds& t) {
-            std::lock_guard<std::mutex>  g(mtx);
-            total_time += t;
-         }
-      };
       uint16_t                        _ro_thread_pool_size{ 0 };
       static constexpr uint16_t       _ro_max_eos_vm_oc_threads_allowed{ 8 }; // Due to uncertainty to get total virtual memory size on a 5-level paging system, set a hard limit
       named_thread_pool<struct read>  _ro_thread_pool;
@@ -452,7 +443,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       fc::microseconds                _ro_read_window_time_us{ 60000 };
       static constexpr fc::microseconds _ro_read_window_minimum_time_us{ 10000 };
       fc::microseconds                _ro_read_window_effective_time_us{ 0 }; // calculated during option initialization
-      all_threads_exec_time_t         _ro_all_threads_exec_time; // total time spent by all threads executing transactions
+      std::atomic<int64_t>            _ro_all_threads_exec_time_us; // total time spent by all threads executing transactions. use atomic for simplicity and performance
       fc::time_point                  _ro_read_window_start_time;
       boost::asio::deadline_timer     _ro_write_window_timer;
       boost::asio::deadline_timer     _ro_read_window_timer;
@@ -2798,10 +2789,10 @@ void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, 
 void producer_plugin_impl::switch_to_write_window() {
    if ( _log.is_enabled( fc::log_level::debug ) ) {
       auto now = fc::time_point::now();
-      fc_dlog( _log, "Read-only threads ${n}, read window time ${r}us, total all threads ${t}us",
+      fc_dlog( _log, "Read-only threads ${n}, read window ${r}us, total all threads ${t}us",
                ("n", _ro_thread_pool_size)
                ("r", now - _ro_read_window_start_time)
-               ("t", _ro_all_threads_exec_time.total_time));
+               ("t", _ro_all_threads_exec_time_us.load()));
    }
 
    // this method can be called from multiple places. it is possible
@@ -2857,10 +2848,8 @@ void producer_plugin_impl::switch_to_read_window() {
    app().executor().set_to_read_window();
    chain_plug->chain().set_db_read_only_mode();
    _received_block = false;
-   if ( _log.is_enabled( fc::log_level::debug ) ) {
-      _ro_read_window_start_time = fc::time_point::now();
-      _ro_all_threads_exec_time.total_time = fc::microseconds(0);
-   }
+   _ro_read_window_start_time = fc::time_point::now();
+   _ro_all_threads_exec_time_us = 0;
 
    // start a read-only transaction execution task in each thread in the thread pool
    _ro_num_active_trx_exec_tasks = _ro_thread_pool_size;
@@ -2976,14 +2965,11 @@ bool producer_plugin_impl::push_read_only_transaction(
       // Ensure the trx to finish by the end of read-window.
       auto window_deadline = std::min( start + remaining_time_in_read_window_us, block_deadline );
 
-      auto track_exec_time = fc::make_scoped_exit([this,start](){
-         if ( _log.is_enabled( fc::log_level::debug ) ) {
-            // add_time is expensive as it is protected by a mutex.
-            // use it only when log is enabled
-            _ro_all_threads_exec_time.add_time( fc::time_point::now() - start );
-         }
-      });
       auto trace = chain.push_transaction( trx, window_deadline, _ro_max_trx_time_us, 0, false, 0 );
+      if ( _log.is_enabled( fc::log_level::debug ) ) {
+         auto dur = fc::time_point::now() - start;
+         _ro_all_threads_exec_time_us += dur.count();
+      }
       auto pr = handle_push_result(trx, next, start, chain, trace, true /*return_failure_trace*/, true /*disable_subjective_enforcement*/, {} /*first_auth*/, 0 /*sub_bill*/, 0 /*prev_billed_cpu_time_us*/);
       // If a transaction was exhausted, that indicates we are close to
       // the end of read window. Retry in next round.
