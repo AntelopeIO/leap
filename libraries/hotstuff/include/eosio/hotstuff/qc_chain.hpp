@@ -44,18 +44,6 @@ namespace eosio { namespace hotstuff {
                     }
                 };
 
-                qc_chain(){
-                  //ilog("_high_qc : ${qc_id}", ("qc_id", _high_qc.proposal_id));
-
-                };
-
-                ~qc_chain(){
-
-/*                  if (_pacemaker == NULL) delete _pacemaker;
-
-                  _pacemaker = 0;*/
-                  
-                };
 
                 //todo : remove. bls12-381 key used for testing purposes
                 std::vector<uint8_t> _seed = {  0,  50, 6,  244, 24,  199, 1,  25,  52,  88,  192,
@@ -171,6 +159,21 @@ namespace eosio { namespace hotstuff {
 
                 void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
 
+                qc_chain(){
+                  //ilog("_high_qc : ${qc_id}", ("qc_id", _high_qc.proposal_id));
+
+                };
+
+                ~qc_chain(){
+
+                  _proposal_store.get<by_proposal_height>().clear();
+                  _proposal_store.get<by_proposal_id>().clear();
+
+/*                  if (_pacemaker == NULL) delete _pacemaker;
+
+                  _pacemaker = 0;*/
+                  
+                };
 
         private : 
 

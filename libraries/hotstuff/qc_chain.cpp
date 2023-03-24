@@ -1060,7 +1060,16 @@ handle_eptr(eptr);
 		hs_proposal_message b_1 = *itr;
 
 		//if we're not locked on anything, means we just activated or chain just launched, else we verify if we've progressed enough to establish a new lock
-		if (_b_lock == NULL_PROPOSAL_ID ||  b_1.get_height() > b_lock->get_height()){
+
+		if (_log) ilog(" === ${id} _b_lock ${_b_lock} b_1 height ${b_1_height} b_lock height ${b_lock_height}", 
+				("id", _id)
+				("_b_lock", _b_lock)
+				("b_1_height", b_1.block_num())
+				("b_1_phase", b_1.phase_counter)
+				("b_lock_height", b_lock->block_num())
+				("b_lock_phase", b_lock->phase_counter));
+
+		if (_b_lock == NULL_PROPOSAL_ID || b_1.get_height() > b_lock->get_height()){
 
 			//ilog("setting _b_lock to ${proposal_id}", ("proposal_id",b_1.proposal_id ));
 			_b_lock = b_1.proposal_id; //commit phase on b1
