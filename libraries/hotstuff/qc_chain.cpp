@@ -157,7 +157,8 @@ namespace eosio { namespace hotstuff {
 
 		b_new.proposal_id = get_digest_to_sign(b_new.block_id, b_new.phase_counter, b_new.final_on_qc);
 
-	ilog("=== creating new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} : justify ${justify}", 
+	if (_log) ilog("=== ${id} creating new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} : justify ${justify}", 
+			("id", _id)
 			("block_num", b_new.block_num())
 			("phase_counter", b_new.phase_counter)
 			("proposal_id", b_new.proposal_id)
@@ -170,6 +171,7 @@ namespace eosio { namespace hotstuff {
 
 	void qc_chain::reset_qc(fc::sha256 proposal_id){
 
+		if (_log) ilog(" === ${id} resetting qc : ${proposal_id}", ("proposal_id" , proposal_id)("id", _id));
 		_current_qc.proposal_id = proposal_id;
 		_current_qc.quorum_met = false;
 		_current_qc.active_finalizers = {};
@@ -236,9 +238,10 @@ namespace eosio { namespace hotstuff {
 
 	}
 
-	void qc_chain::init(name id, base_pacemaker& pacemaker, std::set<name> my_producers){
+	void qc_chain::init(name id, base_pacemaker& pacemaker, std::set<name> my_producers, bool logging_enabled){
 
 		_id = id;
+		_log = logging_enabled;
 
 		_pacemaker = &pacemaker;
 		
@@ -246,7 +249,7 @@ namespace eosio { namespace hotstuff {
 
 		_pacemaker->register_listener(id, *this);
  		
-		ilog(" === qc chain initialized ${my_producers}", ("my_producers", my_producers));
+		if (_log) ilog(" === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
 
 		//auto itr = _my_producers.begin();
 
@@ -314,18 +317,77 @@ namespace eosio { namespace hotstuff {
 
 	}
 
+	hs_vote_message qc_chain::sign_proposal(hs_proposal_message proposal, name finalizer){
+
+		_v_height = proposal.get_height();
+
+		//fc::crypto::blslib::bls_signature agg_sig;
+
+		//if (proposal.justify.proposal_id != NULL_PROPOSAL_ID) agg_sig = proposal.justify.active_agg_sig;
+
+		digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
+
+		std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
+
+
+		fc::crypto::blslib::bls_signature sig = _private_key.sign(h); //todo : use appropriate private key for each producer
+
+		hs_vote_message v_msg = {proposal.proposal_id, finalizer, sig};
+
+		return v_msg;
+
+		//ilog("signed proposal. Broadcasting for each of my producers");
+
+/*		auto mf_itr = _my_producers.begin();
+
+		while(mf_itr!=_my_producers.end()){
+
+			auto prod_itr = std::find(finalizers.begin(), finalizers.end(), *mf_itr);
+
+			if (prod_itr!=finalizers.end()) {
+
+				fc::crypto::blslib::bls_signature sig = _private_key.sign(h); //todo : use appropriate private key for each producer
+
+				name n = *prod_itr;
+
+				hs_vote_message v_msg = {proposal.proposal_id, n, sig};
+
+				send_hs_vote_msg(v_msg);
+
+			};
+
+			mf_itr++;
+
+		}*/
+
+	}
+
 	void qc_chain::process_proposal(hs_proposal_message proposal){
 
+		auto start = fc::time_point::now();
 
-		auto itr = _proposal_store.get<by_proposal_id>().find( proposal.proposal_id );
+		auto pid_itr = _proposal_store.get<by_proposal_id>().find( proposal.proposal_id );
 
-		if (itr != _proposal_store.get<by_proposal_id>().end()) {
-			ilog("*** proposal received twice : ${proposal_id}",("proposal_id", proposal.proposal_id));
+		if (pid_itr != _proposal_store.get<by_proposal_id>().end()) {
+			ilog("*** ${id} proposal received twice : ${proposal_id}", ("id",_id)("proposal_id", proposal.proposal_id));
 			return ; //already aware of proposal, nothing to do
 		
 		}
 
-	ilog("=== received new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} justify ${justify}", 
+		auto hgt_itr = _proposal_store.get<by_proposal_height>().find( proposal.get_height() );
+
+		if (hgt_itr != _proposal_store.get<by_proposal_height>().end()) {
+			ilog("*** ${id} received two different proposals at the same height (${block_num}, ${phase_counter}) : Proposal #1 : ${proposal_id_1} Proposal #2 : ${proposal_id_2}",
+				("id",_id)
+				("block_num", hgt_itr->block_num())
+				("phase_counter", hgt_itr->phase_counter)
+				("proposal_id_1", hgt_itr->proposal_id)
+				("proposal_id_2", proposal.proposal_id));
+
+		}
+
+	if (_log) ilog("=== ${id} received new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} justify ${justify}", 
+			("id", _id)
 			("block_num", proposal.block_num())
 			("phase_counter", proposal.phase_counter)
 			("proposal_id", proposal.proposal_id)
@@ -334,15 +396,36 @@ namespace eosio { namespace hotstuff {
 
 		_proposal_store.insert(proposal); //new proposal
 
+		//if I am a finalizer for this proposal and the safenode predicate for a possible vote is true, sign
 		bool am_finalizer = am_i_finalizer();
 		bool node_safe = is_node_safe(proposal);
 
 		bool signature_required = am_finalizer && node_safe;
 
-		//if I am a finalizer for this proposal, test safenode predicate for possible vote
 		if (signature_required){
-			
-			//ilog("signature required");
+				
+			//iterate over all my finalizers and sign / broadcast for each that is in the schedule
+			std::vector<name> finalizers = _pacemaker->get_finalizers();
+
+			auto mf_itr = _my_producers.begin();
+
+			while(mf_itr!=_my_producers.end()){
+
+				auto prod_itr = std::find(finalizers.begin(), finalizers.end(), *mf_itr);
+
+				if (prod_itr!=finalizers.end()) {
+
+					hs_vote_message v_msg = sign_proposal(proposal, *prod_itr);
+
+					send_hs_vote_msg(v_msg);
+
+				};
+
+				mf_itr++;
+
+			}
+
+		/*	//ilog("signature required");
 
 			_v_height = proposal.get_height();
 
@@ -380,23 +463,33 @@ namespace eosio { namespace hotstuff {
 				mf_itr++;
 
 			}
+*/
 
 		}
+
+
+
+
 
 		//update internal state
 		update(proposal);
 
 		//check for leader change
-		on_leader_rotate();
+		leader_rotation_check();
 	
 		//ilog("process_proposal end");
+
+		auto total_time = fc::time_point::now() - start;
+
+		//if (_log) ilog(" ... process_proposal() total time : ${total_time}", ("total_time", total_time));
 
 	}
 
 	void qc_chain::process_vote(hs_vote_message vote){
 
-		//check for duplicate or invalid vote, return in either case
-		//abstracted [...]
+		auto start = fc::time_point::now();
+
+		//todo : check for duplicate or invalid vote. We will return in either case, but keep proposals for evidence of double signing
 
 		bool am_leader = am_i_leader(); //am I leader?
 
@@ -411,9 +504,9 @@ namespace eosio { namespace hotstuff {
 		proposal_store_type::nth_index<0>::type::iterator p_itr = _proposal_store.get<by_proposal_id>().find(vote.proposal_id  );
 
 		if (p_itr==_proposal_store.get<by_proposal_id>().end()){
-			ilog("*** couldn't find proposal");
+			ilog("*** ${id} couldn't find proposal", ("id",_id));
 
-			ilog("*** vote : ${vote}", ("vote", vote));
+			ilog("*** ${id} vote : ${vote}", ("vote", vote)("id",_id));
 
 			return;
 		}
@@ -439,11 +532,12 @@ namespace eosio { namespace hotstuff {
 				update_high_qc(_current_qc);
 
 				//check for leader change
-				on_leader_rotate();
-
+				leader_rotation_check();
 
 				//if we're operating in event-driven mode and the proposal hasn't reached the decide phase yet
 				if (_chained_mode==false && p_itr->phase_counter<3){
+
+					if (_log) ilog(" === ${id} phase increment on proposal ${proposal_id}", ("proposal_id", vote.proposal_id)("id", _id));
 
 					hs_proposal_message proposal_candidate;
 
@@ -451,14 +545,15 @@ namespace eosio { namespace hotstuff {
 					else proposal_candidate = new_proposal_candidate(_pending_proposal_block, 0);
 					
 					reset_qc(proposal_candidate.proposal_id);
-
+					
+					if (_log) ilog(" === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
 					_pending_proposal_block = NULL_BLOCK_ID;
 
 					send_hs_proposal_msg(proposal_candidate);
 
 					_b_leaf = proposal_candidate.proposal_id;
 
-					ilog("=== _b_leaf updated : ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id));
+					if (_log) ilog(" === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
 
 				}
 
@@ -466,11 +561,15 @@ namespace eosio { namespace hotstuff {
 		
 		}
 
+		auto total_time = fc::time_point::now() - start;
+
+		//if (_log) ilog(" ... process_vote() total time : ${total_time}", ("total_time", total_time));
+
 	}
 	
 	void qc_chain::process_new_view(hs_new_view_message new_view){
 		
-		ilog("=== process_new_view === ${qc}", ("qc", new_view.high_qc));
+		if (_log) ilog("=== ${id} process_new_view === ${qc}", ("qc", new_view.high_qc)("id", _id));
 		update_high_qc(new_view.high_qc);
 
 	}
@@ -487,7 +586,7 @@ namespace eosio { namespace hotstuff {
 
  		//hs_proposal_message_ptr ptr = std::make_shared<hs_proposal_message>(msg);
 
- 		_pacemaker->send_hs_proposal_msg(msg);
+ 		_pacemaker->send_hs_proposal_msg(_id, msg);
 
 		process_proposal(msg);
 
@@ -500,7 +599,7 @@ namespace eosio { namespace hotstuff {
 
  		//hs_vote_message_ptr ptr = std::make_shared<hs_vote_message>(msg);
 
- 		_pacemaker->send_hs_vote_msg(msg);
+ 		_pacemaker->send_hs_vote_msg(_id, msg);
 
 		process_vote(msg);
 
@@ -512,7 +611,7 @@ namespace eosio { namespace hotstuff {
 
  		//hs_new_view_message_ptr ptr = std::make_shared<hs_new_view_message>(msg);
 
- 		_pacemaker->send_hs_new_view_msg(msg);
+ 		_pacemaker->send_hs_new_view_msg(_id, msg);
 
 	}
 
@@ -522,7 +621,7 @@ namespace eosio { namespace hotstuff {
 
  		//hs_new_block_message_ptr ptr = std::make_shared<hs_new_block_message>(msg);
 
- 		_pacemaker->send_hs_new_block_msg(msg);
+ 		_pacemaker->send_hs_new_block_msg(_id, msg);
 
 	}
 
@@ -541,9 +640,7 @@ namespace eosio { namespace hotstuff {
 
 			if (itr->proposal_id == ancestor){
 				if (counter>25) {
-					ilog("***");
-					ilog("*** took ${counter} iterations to find ancestor ", ("counter", counter));
-					ilog("***");
+					ilog("*** ${id} took ${counter} iterations to find ancestor ", ("id",_id)("counter", counter));
 				
 				}
 				return true;
@@ -553,7 +650,8 @@ namespace eosio { namespace hotstuff {
 
 		}
 
-		ilog(" ***** extends returned false : could not find ${d_proposal_id} descending from ${a_proposal_id} ",
+		ilog(" *** ${id} extends returned false : could not find ${d_proposal_id} descending from ${a_proposal_id} ",
+				("id",_id)
 				("d_proposal_id", descendant)
 				("a_proposal_id", ancestor));
 
@@ -564,8 +662,10 @@ namespace eosio { namespace hotstuff {
 	void qc_chain::on_beat(){
 std::exception_ptr eptr;
 try{
+	
+		auto start = fc::time_point::now();
 
-		ilog("=== on beat ===");
+		if (_log) ilog(" === ${id} on beat === ", ("id", _id));
 
 		//std::lock_guard g( this-> _hotstuff_state_mutex );
 
@@ -589,8 +689,8 @@ try{
 
 		bool am_leader = am_i_leader();
 
-		//ilog("=== am_proposer = ${am_proposer}", ("am_proposer", am_proposer));
-		//ilog("=== am_leader = ${am_leader}", ("am_leader", am_leader));
+		if (_log) ilog(" === ${id} am_proposer = ${am_proposer}", ("am_proposer", am_proposer)("id", _id));
+		if (_log) ilog(" === ${id} am_leader = ${am_leader}", ("am_leader", am_leader)("id", _id));
 		
 		if (!am_proposer && !am_leader){
 
@@ -611,22 +711,34 @@ try{
 
 			if (_current_qc.proposal_id != NULL_PROPOSAL_ID && _current_qc.quorum_met == false){
 
+				if (_log) ilog(" === ${id} pending proposal found ${proposal_id} : quorum met ${quorum_met}",
+					("id", _id) 
+					("proposal_id", _current_qc.proposal_id)
+					("quorum_met", _current_qc.quorum_met));
+
+				if (_log) ilog(" === ${id} setting _pending_proposal_block to ${block_id} (on_beat)", ("id", _id)("block_id", current_block_id));
 				_pending_proposal_block = current_block_id;
 
 			}
 			else {
 
+				if (_log) ilog(" === ${id} preparing new proposal ${proposal_id} : quorum met ${quorum_met}", 
+					("id", _id)
+					("proposal_id", _current_qc.proposal_id)
+					("quorum_met", _current_qc.quorum_met));
+
 				hs_proposal_message proposal_candidate = new_proposal_candidate(current_block_id, 0 ); 
 
 				reset_qc(proposal_candidate.proposal_id);
 
+				if (_log) ilog(" === ${id} setting _pending_proposal_block to null (on_beat)", ("id", _id));
 				_pending_proposal_block = NULL_BLOCK_ID;
 				
 				send_hs_proposal_msg(proposal_candidate);
 
 				_b_leaf = proposal_candidate.proposal_id;
 
-				ilog("=== _b_leaf updated : ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id));
+				if (_log) ilog(" === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
 
 			}
 
@@ -642,6 +754,10 @@ try{
 			send_hs_new_block_msg(block_candidate);
 
 		}
+		
+		auto total_time = fc::time_point::now() - start;
+
+		//if (_log) ilog(" ... on_beat() total time : ${total_time}", ("total_time", total_time));
 
 		//ilog(" === end of on_beat");
 }
@@ -664,7 +780,7 @@ handle_eptr(eptr);
 			_high_qc = high_qc;
 			_b_leaf = _high_qc.proposal_id;
 
-			ilog("=== _b_leaf updated : ${proposal_id}", ("proposal_id", _high_qc.proposal_id));
+			if (_log) ilog(" === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
 
 		}
 		else {
@@ -692,7 +808,7 @@ handle_eptr(eptr);
 					_high_qc = high_qc;
 					_b_leaf = _high_qc.proposal_id;
 
-					ilog("=== _b_leaf updated : ${proposal_id}", ("proposal_id", _high_qc.proposal_id));
+					if (_log) ilog(" === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
 
 	         }
 
@@ -702,9 +818,9 @@ handle_eptr(eptr);
 
 	}
 
-	void qc_chain::on_leader_rotate(){
+	void qc_chain::leader_rotation_check(){
 
-		//ilog("on_leader_rotate");
+		//ilog("leader_rotation_check");
 
 		//verify if leader changed
 
@@ -713,13 +829,16 @@ handle_eptr(eptr);
 
 		if (current_leader != next_leader){
 
-			ilog("/// rotating leader : ${old_leader} -> ${new_leader} ", 
-				("old_leader", current_leader)("new_leader", next_leader));
+			if (_log) ilog(" /// ${id} rotating leader : ${old_leader} -> ${new_leader} ", 
+						("id", _id)
+						("old_leader", current_leader)
+						("new_leader", next_leader));
 
 			//leader changed, we send our new_view message
 
 			reset_qc(NULL_PROPOSAL_ID);
 
+			if (_log) ilog(" === ${id} setting _pending_proposal_block to null (leader_rotation_check)", ("id", _id));
 			_pending_proposal_block = NULL_BLOCK_ID;
 
 			hs_new_view_message new_view;
@@ -805,7 +924,7 @@ handle_eptr(eptr);
 		}
 		else { 
 
-			ilog("not locked on anything, liveness and safety are true");
+			if (_log) ilog(" === ${id} not locked on anything, liveness and safety are true", ("id", _id));
 
 			//if we're not locked on anything, means the protocol just activated or chain just launched
 			liveness_check = true;
@@ -836,7 +955,7 @@ try{
 		//ilog(" === end of on_hs_proposal_msg");
 }
 catch (...){
-	ilog("error during on_hs_proposal_msg");
+	ilog(" *** ${id} error during on_hs_proposal_msg", ("id",_id));
 	eptr = std::current_exception(); // capture
 }
 handle_eptr(eptr);
@@ -856,7 +975,7 @@ try{
 		//ilog(" === end of on_hs_vote_msg");
 	}
 catch (...){
-	ilog("error during on_hs_vote_msg");
+	ilog(" *** ${id} error during on_hs_vote_msg", ("id",_id));
 	eptr = std::current_exception(); // capture
 }
 handle_eptr(eptr);
@@ -876,7 +995,7 @@ try{
 		//ilog(" === end of on_hs_new_view_msg");
 }
 catch (...){
-	ilog("error during on_hs_new_view_msg");
+	ilog(" *** ${id} error during on_hs_new_view_msg", ("id",_id));
 	eptr = std::current_exception(); // capture
 }
 handle_eptr(eptr);
@@ -896,7 +1015,7 @@ try{
 		//ilog(" === end of on_hs_new_block_msg");
 }
 catch (...){
-	ilog("error during on_hs_new_block_msg");
+	ilog(" *** ${id} error during on_hs_new_block_msg", ("id",_id));
 	eptr = std::current_exception(); // capture
 }
 handle_eptr(eptr);
@@ -910,7 +1029,7 @@ handle_eptr(eptr);
 
 		//if proposal has no justification, means we either just activated the feature or launched the chain, or the proposal is invalid
 		if (proposal.justify.proposal_id == NULL_PROPOSAL_ID){
-			ilog("*** proposal has no justification ${proposal_id}", ("proposal_id", proposal.proposal_id));
+			if (_log) ilog(" === ${id} proposal has no justification ${proposal_id}", ("proposal_id", proposal.proposal_id)("id", _id));
 			return;
 		}
 
@@ -924,7 +1043,7 @@ handle_eptr(eptr);
 		update_high_qc(proposal.justify);
 
 		if (chain_length<1){
-			ilog("*** qc chain length is 0");
+			if (_log) ilog(" === ${id} qc chain length is 0", ("id", _id));
 			return;
 		}
 
@@ -932,7 +1051,7 @@ handle_eptr(eptr);
 		hs_proposal_message b_2 = *itr;
 		
 		if (chain_length<2){
-			ilog("*** qc chain length is 1");
+			if (_log) ilog(" === ${id} qc chain length is 1", ("id", _id));
 			return;
 		}
 
@@ -946,12 +1065,12 @@ handle_eptr(eptr);
 			//ilog("setting _b_lock to ${proposal_id}", ("proposal_id",b_1.proposal_id ));
 			_b_lock = b_1.proposal_id; //commit phase on b1
 
-			ilog("=== _b_lock updated : ${proposal_id}", ("proposal_id", b_1.proposal_id));
+			if (_log) ilog(" === ${id} _b_lock updated : ${proposal_id}", ("proposal_id", b_1.proposal_id)("id", _id));
 
 		}
 
 		if (chain_length<3){
-			ilog("*** qc chain length is 2");
+			if (_log) ilog(" === ${id} qc chain length is 2",("id", _id));
 			return;
 		}
 
@@ -986,11 +1105,11 @@ handle_eptr(eptr);
 		}
 		else {
 
-			ilog("*** could not verify direct parent relationship");
+			ilog(" *** ${id} could not verify direct parent relationship", ("id",_id));
 
-			ilog("*** b_2 #${block_num} ${b_2}", ("b_2", b_2)("block_num", b_2.block_num()));
-			ilog("*** b_1 #${block_num} ${b_1}", ("b_1", b_1)("block_num", b_1.block_num()));
-			ilog("*** b #${block_num} ${b}", ("b", b)("block_num", b.block_num()));
+			ilog(" *** b_2 #${block_num} ${b_2}", ("b_2", b_2)("block_num", b_2.block_num()));
+			ilog(" *** b_1 #${block_num} ${b_1}", ("b_1", b_1)("block_num", b_1.block_num()));
+			ilog(" *** b #${block_num} ${b}", ("b", b)("block_num", b.block_num()));
 
 		}
 
@@ -1007,7 +1126,8 @@ handle_eptr(eptr);
 
 			auto itr = _proposal_store.get<by_proposal_height>().begin();
 
-			ilog("erasing ${block_num} ${phase_counter} ${block_id} proposal_id ${proposal_id}", 
+			if (_log) ilog(" === ${id} erasing ${block_num} ${phase_counter} ${block_id} proposal_id ${proposal_id}",
+				("id", _id) 
 				("block_num", itr->block_num())
 				("phase_counter", itr->phase_counter)
 				("block_id", itr->block_id)
@@ -1058,7 +1178,8 @@ handle_eptr(eptr);
 
 			}
 
-			ilog("=== committed proposal #${block_num} phase ${phase_counter} block_id : ${block_id} proposal_id : ${proposal_id}", 
+			if (_log) ilog(" === ${id} committed proposal #${block_num} phase ${phase_counter} block_id : ${block_id} proposal_id : ${proposal_id}", 
+				("id", _id)
 				("block_num", proposal.block_num())
 				("phase_counter", proposal.phase_counter)
 				("block_id", proposal.block_id)

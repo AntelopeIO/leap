@@ -82,7 +82,7 @@ namespace eosio { namespace hotstuff {
     	//delete _qc_chain;
     };
 
-    void chain_pacemaker::send_hs_proposal_msg(hs_proposal_message msg){
+    void chain_pacemaker::send_hs_proposal_msg(name id, hs_proposal_message msg){
 
  		hs_proposal_message_ptr msg_ptr = std::make_shared<hs_proposal_message>(msg);
 
@@ -90,7 +90,7 @@ namespace eosio { namespace hotstuff {
 
    	};
 
-	void chain_pacemaker::send_hs_vote_msg(hs_vote_message msg){
+	void chain_pacemaker::send_hs_vote_msg(name id, hs_vote_message msg){
 
  		hs_vote_message_ptr msg_ptr = std::make_shared<hs_vote_message>(msg);
 
@@ -98,7 +98,7 @@ namespace eosio { namespace hotstuff {
 
    	};
 
-	void chain_pacemaker::send_hs_new_block_msg(hs_new_block_message msg){
+	void chain_pacemaker::send_hs_new_block_msg(name id, hs_new_block_message msg){
 
  		hs_new_block_message_ptr msg_ptr = std::make_shared<hs_new_block_message>(msg);
 
@@ -106,7 +106,7 @@ namespace eosio { namespace hotstuff {
 
    	};
 
-	void chain_pacemaker::send_hs_new_view_msg(hs_new_view_message msg){
+	void chain_pacemaker::send_hs_new_view_msg(name id, hs_new_view_message msg){
 
  		hs_new_view_message_ptr msg_ptr = std::make_shared<hs_new_view_message>(msg);
 
@@ -114,28 +114,28 @@ namespace eosio { namespace hotstuff {
 
    	};
 
-	void chain_pacemaker::on_hs_proposal_msg(hs_proposal_message msg){
+	void chain_pacemaker::on_hs_proposal_msg(name id, hs_proposal_message msg){
 		
-		std::lock_guard g( this-> _hotstuff_state_mutex ); //lock mutex to prevent multiple concurrent threads from accessing code block
+		std::lock_guard g( this-> _hotstuff_state_mutex );
 
 		_qc_chain->on_hs_proposal_msg(msg);
 	}
 
-	void chain_pacemaker::on_hs_vote_msg(hs_vote_message msg){
+	void chain_pacemaker::on_hs_vote_msg(name id, hs_vote_message msg){
 
 		std::lock_guard g( this-> _hotstuff_state_mutex );
 
 		_qc_chain->on_hs_vote_msg(msg);
 	}
 
-	void chain_pacemaker::on_hs_new_block_msg(hs_new_block_message msg){
+	void chain_pacemaker::on_hs_new_block_msg(name id, hs_new_block_message msg){
 
 		std::lock_guard g( this-> _hotstuff_state_mutex );
 
 		_qc_chain->on_hs_new_block_msg(msg);
 	}
 
-	void chain_pacemaker::on_hs_new_view_msg(hs_new_view_message msg){
+	void chain_pacemaker::on_hs_new_view_msg(name id, hs_new_view_message msg){
 
 		std::lock_guard g( this-> _hotstuff_state_mutex );
 

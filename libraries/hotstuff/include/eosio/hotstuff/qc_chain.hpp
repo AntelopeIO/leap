@@ -44,7 +44,11 @@ namespace eosio { namespace hotstuff {
                     }
                 };
 
-                qc_chain(){};
+                qc_chain(){
+                  //ilog("_high_qc : ${qc_id}", ("qc_id", _high_qc.proposal_id));
+
+                };
+
                 ~qc_chain(){
 
 /*                  if (_pacemaker == NULL) delete _pacemaker;
@@ -67,18 +71,20 @@ namespace eosio { namespace hotstuff {
                   vote = 4
                 };
 
-                 uint32_t _v_height;
 
                 bool _chained_mode = false ;
-
-                const block_id_type NULL_BLOCK_ID = block_id_type("00");
-                const fc::sha256 NULL_PROPOSAL_ID = fc::sha256("00");
 
                 fc::sha256 _b_leaf = NULL_PROPOSAL_ID;
                 fc::sha256 _b_lock = NULL_PROPOSAL_ID;
                 fc::sha256 _b_exec = NULL_PROPOSAL_ID;
                 
                 block_id_type _block_exec = NULL_BLOCK_ID;
+
+                block_id_type _pending_proposal_block = NULL_BLOCK_ID;
+
+                uint32_t _v_height;
+
+                bool _log = true;
 
                 eosio::chain::quorum_certificate _high_qc;
                 eosio::chain::quorum_certificate _current_qc;
@@ -87,7 +93,7 @@ namespace eosio { namespace hotstuff {
 
                 std::set<name> _my_producers;
 
-                block_id_type _pending_proposal_block = NULL_BLOCK_ID;
+                name _id;
 
                 struct by_proposal_id{};
                 struct by_proposal_height{};
@@ -106,69 +112,67 @@ namespace eosio { namespace hotstuff {
                     >
                 > proposal_store_type;
 
-                proposal_store_type _proposal_store;
+                proposal_store_type _proposal_store;  //internal proposals store
 
-                //uint32_t _threshold = 15;
-
-                digest_type get_digest_to_sign(block_id_type block_id, uint8_t phase_counter, fc::sha256 final_on_qc);
+                digest_type get_digest_to_sign(block_id_type block_id, uint8_t phase_counter, fc::sha256 final_on_qc); //get digest to sign from proposal data
                 
-                void reset_qc(fc::sha256 proposal_id);
+                void reset_qc(fc::sha256 proposal_id); //reset current internal qc
 
-                bool evaluate_quorum(extended_schedule es, vector<name> finalizers, fc::crypto::blslib::bls_signature agg_sig, hs_proposal_message proposal);
+                bool evaluate_quorum(extended_schedule es, vector<name> finalizers, fc::crypto::blslib::bls_signature agg_sig, hs_proposal_message proposal); //evaluate quorum for a proposal
 
-                name get_proposer();
+/*                name get_proposer();
                 name get_leader();
-                name get_incoming_leader();
+                name get_incoming_leader(); //get incoming leader*/
 
-                bool is_quorum_met(eosio::chain::quorum_certificate qc, extended_schedule schedule, hs_proposal_message proposal);
+                bool is_quorum_met(eosio::chain::quorum_certificate qc, extended_schedule schedule, hs_proposal_message proposal);  //check if quorum has been met over a proposal
 
-                std::vector<name> get_finalizers();
+                std::vector<name> get_finalizers(); //get current finalizers set
 
-                hs_proposal_message new_proposal_candidate(block_id_type block_id, uint8_t phase_counter);
-                hs_new_block_message new_block_candidate(block_id_type block_id);
+                hs_proposal_message new_proposal_candidate(block_id_type block_id, uint8_t phase_counter); //create new proposal message
+                hs_new_block_message new_block_candidate(block_id_type block_id); //create new block message
 
-                void init(name id, base_pacemaker& pacemaker, std::set<chain::account_name> my_producers);
+                void init(name id, base_pacemaker& pacemaker, std::set<name> my_producers, bool logging_enabled); //initialize qc object and add reference to the pacemaker
 
-                bool am_i_proposer();
-                bool am_i_leader();
-                bool am_i_finalizer();
+                bool am_i_proposer(); //check if I am the current proposer
+                bool am_i_leader(); //check if I am the current leader
+                bool am_i_finalizer(); //check if I am one of the current finalizers
 
-                void process_proposal(hs_proposal_message msg);
-                void process_vote(hs_vote_message msg);
-                void process_new_view(hs_new_view_message msg);
-                void process_new_block(hs_new_block_message msg);
+                void process_proposal(hs_proposal_message msg); //handles proposal
+                void process_vote(hs_vote_message msg); //handles vote
+                void process_new_view(hs_new_view_message msg); //handles new view
+                void process_new_block(hs_new_block_message msg); //handles new block
 
-                bool extends(fc::sha256 descendant, fc::sha256 ancestor);
+                hs_vote_message sign_proposal(hs_proposal_message proposal, name finalizer); //sign proposal
 
-                void on_beat();
+                bool extends(fc::sha256 descendant, fc::sha256 ancestor); //verify that a proposal descends from another 
 
-                void update_high_qc(eosio::chain::quorum_certificate high_qc);
+                void on_beat(); //handler for pacemaker beat()
 
-                void on_leader_rotate();
+                void update_high_qc(eosio::chain::quorum_certificate high_qc); //check if update to our high qc is required
 
-                bool is_node_safe(hs_proposal_message proposal);
+                void leader_rotation_check(); //check if leader rotation is required
 
-                std::vector<hs_proposal_message> get_qc_chain(fc::sha256 proposal_id);
+                bool is_node_safe(hs_proposal_message proposal); //verify if a proposal should be signed
+
+                std::vector<hs_proposal_message> get_qc_chain(fc::sha256 proposal_id); //get 3-phase proposal justification
                 
-                void send_hs_proposal_msg(hs_proposal_message msg);
-                void send_hs_vote_msg(hs_vote_message msg);
-                void send_hs_new_view_msg(hs_new_view_message msg);
-                void send_hs_new_block_msg(hs_new_block_message msg);
+                void send_hs_proposal_msg(hs_proposal_message msg); //send vote msg
+                void send_hs_vote_msg(hs_vote_message msg); //send proposal msg
+                void send_hs_new_view_msg(hs_new_view_message msg); //send new view msg
+                void send_hs_new_block_msg(hs_new_block_message msg); //send new block msg
 
-                void on_hs_vote_msg(hs_vote_message msg); //confirmation msg event handler
-                void on_hs_proposal_msg(hs_proposal_message msg); //consensus msg event handler
+                void on_hs_vote_msg(hs_vote_message msg); //vote msg event handler
+                void on_hs_proposal_msg(hs_proposal_message msg); //proposal msg event handler
                 void on_hs_new_view_msg(hs_new_view_message msg); //new view msg event handler
                 void on_hs_new_block_msg(hs_new_block_message msg); //new block msg event handler
 
-                void update(hs_proposal_message proposal);
-                void commit(hs_proposal_message proposal);
+                void update(hs_proposal_message proposal); //update internal state
+                void commit(hs_proposal_message proposal); //commit proposal (finality)
 
-                void gc_proposals(uint64_t cutoff);
+                void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
 
 
         private : 
-
-                name _id;
 
                 base_pacemaker* _pacemaker = NULL;
 

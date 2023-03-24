@@ -1019,7 +1019,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    my->_chain_pacemaker.init(&chain);
 
-   my->_qc_chain.init("main"_n, my->_chain_pacemaker, my->_producers);
+   my->_qc_chain.init("main"_n, my->_chain_pacemaker, my->_producers, true);
 
 } FC_LOG_AND_RETHROW() }
 
@@ -2523,19 +2523,19 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
 
 
 void producer_plugin_impl::notify_hs_vote_message( const hs_vote_message_ptr& msg){
-   _chain_pacemaker.on_hs_vote_msg(*msg);
+   _chain_pacemaker.on_hs_vote_msg("main"_n, *msg);
 };
 
 void producer_plugin_impl::notify_hs_proposal_message( const hs_proposal_message_ptr& msg ){
-   _chain_pacemaker.on_hs_proposal_msg(*msg);
+   _chain_pacemaker.on_hs_proposal_msg("main"_n, *msg);
 };
 
 void producer_plugin_impl::notify_hs_new_view_message( const hs_new_view_message_ptr& msg){
-   _chain_pacemaker.on_hs_new_view_msg(*msg);
+   _chain_pacemaker.on_hs_new_view_msg("main"_n, *msg);
 };
 
 void producer_plugin_impl::notify_hs_new_block_message( const hs_new_block_message_ptr& msg ){
-   _chain_pacemaker.on_hs_new_block_msg(*msg);
+   _chain_pacemaker.on_hs_new_block_msg("main"_n, *msg);
 };
 
 

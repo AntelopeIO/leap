@@ -53,16 +53,16 @@ namespace eosio { namespace hotstuff {
 
 
         //outbound communications
-		virtual void send_hs_proposal_msg(hs_proposal_message msg) = 0;
-		virtual void send_hs_vote_msg(hs_vote_message msg) = 0;
-		virtual void send_hs_new_block_msg(hs_new_block_message msg) = 0;
-		virtual void send_hs_new_view_msg(hs_new_view_message msg) = 0;
+		virtual void send_hs_proposal_msg(name id, hs_proposal_message msg) = 0;
+		virtual void send_hs_vote_msg(name id, hs_vote_message msg) = 0;
+		virtual void send_hs_new_block_msg(name id, hs_new_block_message msg) = 0;
+		virtual void send_hs_new_view_msg(name id, hs_new_view_message msg) = 0;
 
 		//inbound communications
-      	virtual void on_hs_vote_msg(hs_vote_message msg) = 0; //confirmation msg event handler
-      	virtual void on_hs_proposal_msg(hs_proposal_message msg) = 0; //consensus msg event handler
-      	virtual void on_hs_new_view_msg(hs_new_view_message msg) = 0; //new view msg event handler
-      	virtual void on_hs_new_block_msg(hs_new_block_message msg) = 0; //new block msg event handler
+      	virtual void on_hs_vote_msg(name id, hs_vote_message msg) = 0; //confirmation msg event handler
+      	virtual void on_hs_proposal_msg(name id, hs_proposal_message msg) = 0; //consensus msg event handler
+      	virtual void on_hs_new_view_msg(name id, hs_new_view_message msg) = 0; //new view msg event handler
+      	virtual void on_hs_new_block_msg(name id, hs_new_block_message msg) = 0; //new block msg event handler
 
 	};
 

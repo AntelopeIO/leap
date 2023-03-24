@@ -26,7 +26,7 @@ namespace eosio { namespace hotstuff {
 
         		//if (_qc_chain == NULL) delete _qc_chain;
 
-        		//_qc_chain = NULL;
+        		_qc_chain = NULL;
 
         	};
 
@@ -52,7 +52,7 @@ namespace eosio { namespace hotstuff {
 		void send_hs_new_block_msg(hs_new_block_message msg);
 		void send_hs_new_view_msg(hs_new_view_message msg);*/
 
-		using hotstuff_message = std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>;
+		using hotstuff_message = std::pair<name, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
 
 	   	//void init(std::vector<name> unique_replicas);
 
@@ -68,11 +68,18 @@ namespace eosio { namespace hotstuff {
 
 	    void set_quorum_threshold(uint32_t threshold);
 
+	    void add_message_to_queue(hotstuff_message msg);
+
 	    void propagate();
 
 	    //indexed_qc_chain get_qc_chain(name replica);
 
-        //~test_pacemaker(){};
+        ~test_pacemaker(){
+        
+        	_qcc_store.get<by_name_id>().clear();
+    	
+    	};
+
 
 		//base_pacemaker interface functions
 
@@ -90,20 +97,21 @@ namespace eosio { namespace hotstuff {
 
         void beat();
 
-		void send_hs_proposal_msg(hs_proposal_message msg);
-		void send_hs_vote_msg(hs_vote_message msg);
-		void send_hs_new_block_msg(hs_new_block_message msg);
-		void send_hs_new_view_msg(hs_new_view_message msg);
+		void send_hs_proposal_msg(name id, hs_proposal_message msg);
+		void send_hs_vote_msg(name id, hs_vote_message msg);
+		void send_hs_new_block_msg(name id, hs_new_block_message msg);
+		void send_hs_new_view_msg(name id, hs_new_view_message msg);
 
-      	void on_hs_vote_msg(hs_vote_message msg); //confirmation msg event handler
-      	void on_hs_proposal_msg(hs_proposal_message msg); //consensus msg event handler
-      	void on_hs_new_view_msg(hs_new_view_message msg); //new view msg event handler
-      	void on_hs_new_block_msg(hs_new_block_message msg); //new block msg event handler
+      	void on_hs_vote_msg(name id, hs_vote_message msg); //confirmation msg event handler
+      	void on_hs_proposal_msg(name id, hs_proposal_message msg); //consensus msg event handler
+      	void on_hs_new_view_msg(name id, hs_new_view_message msg); //new view msg event handler
+      	void on_hs_new_block_msg(name id, hs_new_block_message msg); //new block msg event handler
+
+		std::vector<hotstuff_message> _pending_message_queue;
 
 	private :
 
 		std::vector<hotstuff_message> _message_queue;
-		std::vector<hotstuff_message> _pending_message_queue;
 
 	    name _proposer;
 	    name _leader;

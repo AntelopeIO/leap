@@ -41,11 +41,15 @@ namespace eosio { namespace hotstuff {
     	_quorum_threshold = threshold;
     }
 
+    void test_pacemaker::add_message_to_queue(hotstuff_message msg){
+    	_pending_message_queue.push_back(msg);
+    }
+
     void test_pacemaker::propagate(){
 
     	int count = 1;
 
-    	ilog(" === propagate ${count} messages", ("count", _pending_message_queue.size()));
+    	//ilog(" === propagate ${count} messages", ("count", _pending_message_queue.size()));
 
     	_message_queue = _pending_message_queue;
 
@@ -64,12 +68,12 @@ namespace eosio { namespace hotstuff {
 
     	while (msg_itr!=_message_queue.end()){
 
-    	ilog(" === propagating message ${count} : type : ${index}", ("count", count) ("index", msg_itr->index()));
+    	//ilog(" === propagating message ${count} : type : ${index}", ("count", count) ("index", msg_itr->index()));
 
-    		if (msg_itr->index() == 0) on_hs_proposal_msg(std::get<hs_proposal_message>(*msg_itr));
-    		else if (msg_itr->index() == 1) on_hs_vote_msg(std::get<hs_vote_message>(*msg_itr));
-    		else if (msg_itr->index() == 2) on_hs_new_block_msg(std::get<hs_new_block_message>(*msg_itr));
-    		else if (msg_itr->index() == 3) on_hs_new_view_msg(std::get<hs_new_view_message>(*msg_itr));
+    		if (msg_itr->second.index() == 0) on_hs_proposal_msg(msg_itr->first, std::get<hs_proposal_message>(msg_itr->second));
+    		else if (msg_itr->second.index() == 1) on_hs_vote_msg(msg_itr->first, std::get<hs_vote_message>(msg_itr->second));
+    		else if (msg_itr->second.index() == 2) on_hs_new_block_msg(msg_itr->first, std::get<hs_new_block_message>(msg_itr->second));
+    		else if (msg_itr->second.index() == 3) on_hs_new_view_msg(msg_itr->first, std::get<hs_new_view_message>(msg_itr->second));
  
 
     		msg_itr++;
@@ -93,7 +97,7 @@ namespace eosio { namespace hotstuff {
 
     	//ilog(" === after erase");
 
-    	ilog(" === end propagate");
+    	//ilog(" === end propagate");
 
     }
 
@@ -150,7 +154,7 @@ namespace eosio { namespace hotstuff {
     	}
     	else {
 
-    		ilog("new listener ${name}", ("name", name));
+    		//ilog("new listener ${name}", ("name", name));
 
     		//_unique_replicas.push_back(name);
 
@@ -191,35 +195,35 @@ namespace eosio { namespace hotstuff {
 
     };
 
-	void test_pacemaker::send_hs_proposal_msg(hs_proposal_message msg){
+	void test_pacemaker::send_hs_proposal_msg(name id, hs_proposal_message msg){
 
 		//ilog("queuing hs_proposal_message : ${proposal_id} ", ("proposal_id", msg.proposal_id) );
 
-		_pending_message_queue.push_back(msg);
+		_pending_message_queue.push_back(std::make_pair(id, msg));
 
    	};
 
-	void test_pacemaker::send_hs_vote_msg(hs_vote_message msg){
+	void test_pacemaker::send_hs_vote_msg(name id, hs_vote_message msg){
 
 		//ilog("queuing hs_vote_message : ${proposal_id} ", ("proposal_id", msg.proposal_id) );
 
-		_pending_message_queue.push_back(msg);
+		_pending_message_queue.push_back(std::make_pair(id, msg));
 
    	};
 
-	void test_pacemaker::send_hs_new_block_msg(hs_new_block_message msg){
+	void test_pacemaker::send_hs_new_block_msg(name id, hs_new_block_message msg){
 		
-		_pending_message_queue.push_back(msg);
+		_pending_message_queue.push_back(std::make_pair(id, msg));
 
    	};
 
-	void test_pacemaker::send_hs_new_view_msg(hs_new_view_message msg){
+	void test_pacemaker::send_hs_new_view_msg(name id, hs_new_view_message msg){
    			
-   		_pending_message_queue.push_back(msg);
+   		_pending_message_queue.push_back(std::make_pair(id, msg));
 
    	};
 
-	void test_pacemaker::on_hs_proposal_msg(hs_proposal_message msg){
+	void test_pacemaker::on_hs_proposal_msg(name id, hs_proposal_message msg){
 
     	//ilog(" === on_hs_proposal_msg");
 		auto qc_itr = _qcc_store.begin();
@@ -230,7 +234,7 @@ namespace eosio { namespace hotstuff {
 
 			if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
 
-			if (qc_itr->_active) qc_itr->_qc_chain->on_hs_proposal_msg(msg);
+			if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_proposal_msg(msg);
 
 			qc_itr++;
 
@@ -240,7 +244,7 @@ namespace eosio { namespace hotstuff {
 
 	}
 
-	void test_pacemaker::on_hs_vote_msg(hs_vote_message msg){
+	void test_pacemaker::on_hs_vote_msg(name id, hs_vote_message msg){
 		
     	//ilog(" === on_hs_vote_msg");
 		auto qc_itr = _qcc_store.begin();
@@ -251,7 +255,7 @@ namespace eosio { namespace hotstuff {
 
 			if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
 
-			if (qc_itr->_active) qc_itr->_qc_chain->on_hs_vote_msg(msg);
+			if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_vote_msg(msg);
 
 			qc_itr++;
 		}
@@ -260,7 +264,7 @@ namespace eosio { namespace hotstuff {
 
 	}
 
-	void test_pacemaker::on_hs_new_block_msg(hs_new_block_message msg){
+	void test_pacemaker::on_hs_new_block_msg(name id, hs_new_block_message msg){
 		
     	//ilog(" === on_hs_new_block_msg");
 		auto qc_itr = _qcc_store.begin();
@@ -271,7 +275,7 @@ namespace eosio { namespace hotstuff {
 
 			if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
 
-			if (qc_itr->_active) qc_itr->_qc_chain->on_hs_new_block_msg(msg);
+			if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_new_block_msg(msg);
 
 			qc_itr++;
 		}
@@ -280,7 +284,7 @@ namespace eosio { namespace hotstuff {
 
 	}
 
-	void test_pacemaker::on_hs_new_view_msg(hs_new_view_message msg){
+	void test_pacemaker::on_hs_new_view_msg(name id, hs_new_view_message msg){
 		
     	//ilog(" === on_hs_new_view_msg");
 		auto qc_itr = _qcc_store.begin();
@@ -291,7 +295,7 @@ namespace eosio { namespace hotstuff {
 
 			if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
 
-			if (qc_itr->_active) qc_itr->_qc_chain->on_hs_new_view_msg(msg);
+			if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_new_view_msg(msg);
 
 			qc_itr++;
 		}

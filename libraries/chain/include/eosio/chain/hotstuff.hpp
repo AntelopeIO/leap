@@ -9,6 +9,10 @@
 
 namespace eosio { namespace chain {
 
+
+   const block_id_type NULL_BLOCK_ID = block_id_type("00");
+   const fc::sha256 NULL_PROPOSAL_ID = fc::sha256("00");
+
    //using namespace fc::crypto::blslib;
 
    //todo : fetch from chain / nodeos config
@@ -39,7 +43,7 @@ namespace eosio { namespace chain {
 
       public:
 
-         fc::sha256                                         proposal_id;
+         fc::sha256                                         proposal_id = NULL_PROPOSAL_ID;
 
          bool                                               quorum_met = false;
 
@@ -50,7 +54,7 @@ namespace eosio { namespace chain {
 
    struct hs_vote_message {
 
-      fc::sha256                          proposal_id; //vote on proposal
+      fc::sha256                          proposal_id = NULL_PROPOSAL_ID; //vote on proposal
 
       name                                finalizer;
       fc::crypto::blslib::bls_signature   sig;
@@ -65,16 +69,16 @@ namespace eosio { namespace chain {
 
    struct hs_proposal_message {
 
-      fc::sha256                          proposal_id; //vote on proposal
+      fc::sha256                          proposal_id = NULL_PROPOSAL_ID; //vote on proposal
 
-      block_id_type                       block_id;
-      uint8_t                             phase_counter;
+      block_id_type                       block_id = NULL_BLOCK_ID;
+      uint8_t                             phase_counter = 0;
 
-      fc::sha256                          parent_id; //new proposal
+      fc::sha256                          parent_id = NULL_PROPOSAL_ID; //new proposal
 
-      fc::sha256                          final_on_qc;
+      fc::sha256                          final_on_qc = NULL_PROPOSAL_ID;
 
-      quorum_certificate   justify; //justification
+      quorum_certificate                  justify; //justification
 
       hs_proposal_message() = default;
 
@@ -90,7 +94,7 @@ namespace eosio { namespace chain {
 
    struct hs_new_block_message {
 
-      block_id_type                       block_id; //new proposal
+      block_id_type                       block_id = NULL_BLOCK_ID; //new proposal
 
       quorum_certificate   justify; //justification
 
