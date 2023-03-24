@@ -355,7 +355,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::atomic<int32_t>                                      _max_transaction_time_ms; // modified by app thread, read by net_plugin thread pool
       std::atomic<bool>                                         _received_block{false}; // modified by net_plugin thread pool and app thread
       fc::microseconds                                          _max_irreversible_block_age_us;
-      block_timing_util                                         _block_timing_util;
+      int32_t                                                   _cpu_effort_us = 0;
+      fc::time_point                                            _pending_block_deadline;
       uint32_t                                                  _max_block_cpu_usage_threshold_us = 0;
       uint32_t                                                  _max_block_net_usage_threshold_bytes = 0;
       int32_t                                                   _max_scheduled_transaction_time_per_block_ms = 0;
@@ -735,7 +736,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                return true;
             }
 
-            const auto block_deadline = _block_timing_util.pending_block_deadline;
+            const auto block_deadline = _pending_block_deadline;
             push_result pr = push_transaction( block_deadline, trx, api_trx, return_failure_trace, next );
 
             exhausted = pr.block_exhausted;
@@ -850,13 +851,13 @@ void producer_plugin::set_program_options(
          ("greylist-limit", boost::program_options::value<uint32_t>()->default_value(1000),
           "Limit (between 1 and 1000) on the multiple that CPU/NET virtual resources can extend during low usage (only enforced subjectively; use 1000 to not enforce any limit)")
          ("produce-time-offset-us", boost::program_options::value<int32_t>()->default_value(0),
-          "Offset of non last block producing time in microseconds. Deprecated option, value would be ignored")
+          "Deprecated, ignored. Use cpu-effort-percent.")
          ("last-block-time-offset-us", boost::program_options::value<int32_t>()->default_value(-200000),
-          "Offset of last block producing time in microseconds. Deprecated option, value would be ignored")
+          "Deprecated, ignored. Use cpu-effort-percent.")
          ("cpu-effort-percent", bpo::value<uint32_t>()->default_value(config::default_block_cpu_effort_pct / config::percent_1),
           "Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%")
          ("last-block-cpu-effort-percent", bpo::value<uint32_t>()->default_value(config::default_block_cpu_effort_pct / config::percent_1),
-          "Percentage of cpu block production time used to produce last block. Deprecated option, value would be ignored")
+          "Deprecated, ignored. Use cpu-effort-percent.")
          ("max-block-cpu-usage-threshold-us", bpo::value<uint32_t>()->default_value( 5000 ),
           "Threshold of CPU block production to consider block full; when within threshold of max-block-cpu-usage block can be produced immediately")
          ("max-block-net-usage-threshold-bytes", bpo::value<uint32_t>()->default_value( 1024 ),
@@ -975,7 +976,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
                "cpu-effort-percent ${pct} must be 0 - 100", ("pct", cpu_effort_pct) );
       cpu_effort_pct *= config::percent_1;
 
-   my->_block_timing_util.cpu_effort_us = EOS_PERCENT( config::block_interval_us, cpu_effort_pct );
+   my->_cpu_effort_us = EOS_PERCENT( config::block_interval_us, cpu_effort_pct );
 
    my->_max_block_cpu_usage_threshold_us = options.at( "max-block-cpu-usage-threshold-us" ).as<uint32_t>();
    EOS_ASSERT( my->_max_block_cpu_usage_threshold_us < config::block_interval_us, plugin_config_exception,
@@ -1277,7 +1278,7 @@ void producer_plugin::update_runtime_options(const runtime_options& options) {
    }
 
    if (options.cpu_effort_us) {
-      my->_block_timing_util.cpu_effort_us = *options.cpu_effort_us;
+      my->_cpu_effort_us = *options.cpu_effort_us;
    }
 
    if (options.max_scheduled_transaction_time_per_block_ms) {
@@ -1306,7 +1307,7 @@ producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
    return {
       my->_max_transaction_time_ms,
       my->_max_irreversible_block_age_us.count() < 0 ? -1 : my->_max_irreversible_block_age_us.count() / 1'000'000,
-      my->_block_timing_util.cpu_effort_us,
+      my->_cpu_effort_us,
       my->_max_scheduled_transaction_time_per_block_ms,
       my->chain_plug->chain().get_subjective_cpu_leeway() ?
             my->chain_plug->chain().get_subjective_cpu_leeway()->count() :
@@ -1766,7 +1767,6 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    const fc::time_point now = fc::time_point::now();
    const fc::time_point block_time = calculate_pending_block_time();
 
-   const pending_block_mode previous_pending_mode = _pending_block_mode;
    _pending_block_mode = pending_block_mode::producing;
 
    // Not our turn
@@ -1826,13 +1826,17 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          return start_block_result::waiting_for_block;
    }
 
-   const fc::time_point preprocess_deadline = _block_timing_util.calculate_block_deadline(_pending_block_mode, block_time);
-   if (_pending_block_mode != previous_pending_mode) {
-       // first block of our round or just produced our last block of our round, have to wait for the right time to start
+   _pending_block_deadline = block_timing_util::calculate_block_deadline(_cpu_effort_us, _pending_block_mode, block_time);
+   auto preprocess_deadline = _pending_block_deadline;
+   uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
+   if (production_round_index == 0) {
+       // first block of our round, wait for block production window
       const auto start_block_time = block_time - fc::microseconds( config::block_interval_us );
-      fc_dlog(_log, "Not starting block until ${bt}", ("bt", start_block_time) );
-      schedule_delayed_production_loop( weak_from_this(), start_block_time);
-      return start_block_result::waiting_for_production;
+      if (now < start_block_time) {
+         fc_dlog( _log, "Not starting block until ${bt}", ("bt", start_block_time) );
+         schedule_delayed_production_loop( weak_from_this(), start_block_time );
+         return start_block_result::waiting_for_production;
+      }
    }
 
    fc_dlog(_log, "Starting block #${n} at ${time} producer ${p}",
@@ -2547,7 +2551,7 @@ void producer_plugin_impl::schedule_maybe_produce_block( bool exhausted ) {
 
    // we succeeded but block may be exhausted
    static const boost::posix_time::ptime epoch( boost::gregorian::date( 1970, 1, 1 ) );
-   auto deadline = _block_timing_util.calculate_block_deadline(_pending_block_mode, chain.pending_block_time() );
+   auto deadline = block_timing_util::calculate_block_deadline(_cpu_effort_us, _pending_block_mode, chain.pending_block_time() );
 
    if( !exhausted && deadline > fc::time_point::now() ) {
       // ship this block off no later than its deadline
@@ -2591,7 +2595,7 @@ std::optional<fc::time_point> producer_plugin_impl::calculate_producer_wake_up_t
       return {};
    }
 
-   return _block_timing_util.production_round_block_start_time(block_timestamp_type(wake_up_slot));
+   return block_timing_util::production_round_block_start_time(_cpu_effort_us, block_timestamp_type(wake_up_slot));
 }
 
 void producer_plugin_impl::schedule_delayed_production_loop(const std::weak_ptr<producer_plugin_impl>& weak_this, std::optional<fc::time_point> wake_up_time) {
@@ -2870,7 +2874,7 @@ bool producer_plugin_impl::push_read_only_transaction(
    }
 
    try {
-      const auto block_deadline = _block_timing_util.pending_block_deadline;
+      const auto block_deadline = _pending_block_deadline;
       auto start = fc::time_point::now();
       auto time_used_in_read_window_us = ( start - read_window_start_time );
       if ( time_used_in_read_window_us >= _ro_read_window_time_us ) {
