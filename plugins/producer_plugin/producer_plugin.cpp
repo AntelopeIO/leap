@@ -448,12 +448,14 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
             ++num_waiting;
             cond.wait(g, [this]() {
-               if (queue.empty()) {
-                  if (num_waiting == max_waiting && !exiting_read_window) {
+               bool _should_exit = should_exit();
+               bool _queue_empty = queue.empty();
+               if (_queue_empty || _should_exit) {
+                  if (((_queue_empty && num_waiting == max_waiting) || _should_exit) && !exiting_read_window) {
                      cond.notify_all();
                      exiting_read_window = true;
                   }
-                  return should_exit();
+                  return _should_exit || exiting_read_window; // same as calling should_exit(), but faster
                }
                return true;
             });
