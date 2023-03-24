@@ -445,27 +445,22 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          // if conditions are met to stop processing transactions. 
          bool pop_front(ro_trx_t& trx) {
             std::unique_lock<std::mutex> g( mtx );
-            
-            if (should_exit()) {
-               cond.notify_all();
-               return false;
-            }
 
-            if (queue.empty()) {
-               if (num_waiting + 1 == max_waiting) {
-                  exiting_read_window = true;
-                  cond.notify_all();
-                  return false;
+            ++num_waiting;
+            cond.wait(g, [this]() {
+               if (queue.empty()) {
+                  if (num_waiting == max_waiting && !exiting_read_window) {
+                     cond.notify_all();
+                     exiting_read_window = true;
+                  }
+                  return should_exit();
                }
-               
-               ++num_waiting;
-               cond.wait(g, [this]() { return !queue.empty() || should_exit(); });
-               --num_waiting;
-               
-               if (should_exit())
-                  return false;
-            }
-            
+               return true;
+            });
+            --num_waiting;            
+            if (should_exit())
+               return false;
+
             trx = std::move(queue.front());
             queue.pop_front();
             return true;
