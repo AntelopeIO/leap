@@ -480,8 +480,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             assert(num_tasks > 0 && num_waiting == 0 && received_block != nullptr);
             assert(received_block && *received_block == false);
             max_waiting = num_tasks;
+            num_waiting = 0;
             received_block_ptr = received_block;
             read_window_deadline = deadline;
+            exiting_read_window = false;
          }
 
       private:
