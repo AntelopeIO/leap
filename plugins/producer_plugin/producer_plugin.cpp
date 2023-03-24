@@ -333,7 +333,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<named_thread_pool>                          _thread_pool;
 
       std::atomic<int32_t>                                      _max_transaction_time_ms; // modified by app thread, read by net_plugin thread pool
-      std::atomic<bool>                                         _received_block{false}; // modified by net_plugin thread pool and app thread
+      std::atomic<uint32_t>                                     _received_block{false}; // modified by net_plugin thread pool
       fc::microseconds                                          _max_irreversible_block_age_us;
       int32_t                                                   _produce_time_offset_us = 0;
       int32_t                                                   _last_block_time_offset_us = 0;
@@ -693,7 +693,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          exhausted
       };
 
-      inline bool should_interrupt_start_block( const fc::time_point& deadline ) const;
+      inline bool should_interrupt_start_block( const fc::time_point& deadline, uint32_t pending_block_num ) const;
       start_block_result start_block();
 
       fc::time_point calculate_pending_block_time() const;
@@ -1607,12 +1607,12 @@ fc::time_point producer_plugin_impl::calculate_block_deadline( const fc::time_po
    }
 }
 
-bool producer_plugin_impl::should_interrupt_start_block( const fc::time_point& deadline ) const {
+bool producer_plugin_impl::should_interrupt_start_block( const fc::time_point& deadline, uint32_t pending_block_num ) const {
    if( _pending_block_mode == pending_block_mode::producing ) {
       return deadline <= fc::time_point::now();
    }
    // if we can produce then honor deadline so production starts on time
-   return (!_producers.empty() && deadline <= fc::time_point::now()) || _received_block;
+   return (!_producers.empty() && deadline <= fc::time_point::now()) || (_received_block >= pending_block_num);
 }
 
 producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
@@ -1631,6 +1631,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
    const fc::time_point now = fc::time_point::now();
    const fc::time_point block_time = calculate_pending_block_time();
+   const uint32_t pending_block_num = hbs->block_num + 1;
    const fc::time_point preprocess_deadline = calculate_block_deadline(block_time);
 
    const pending_block_mode previous_pending_mode = _pending_block_mode;
@@ -1696,7 +1697,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    if (_pending_block_mode == pending_block_mode::producing) {
       const auto start_block_time = block_time - fc::microseconds( config::block_interval_us );
       if( now < start_block_time ) {
-         fc_dlog(_log, "Not producing block waiting for production window ${n} ${bt}", ("n", hbs->block_num + 1)("bt", block_time) );
+         fc_dlog(_log, "Not producing block waiting for production window ${n} ${bt}", ("n", pending_block_num)("bt", block_time) );
          // start_block_time instead of block_time because schedule_delayed_production_loop calculates next block time from given time
          schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(start_block_time));
          return start_block_result::waiting_for_production;
@@ -1710,7 +1711,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    }
 
    fc_dlog(_log, "Starting block #${n} at ${time} producer ${p}",
-           ("n", hbs->block_num + 1)("time", now)("p", scheduled_producer.producer_name));
+           ("n", pending_block_num)("time", now)("p", scheduled_producer.producer_name));
 
    try {
       uint16_t blocks_to_confirm = 0;
@@ -1774,7 +1775,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             std::swap( features_to_activate, protocol_features_to_activate );
             _protocol_features_signaled = true;
             ilog( "signaling activation of the following protocol features in block ${num}: ${features_to_activate}",
-                  ("num", hbs->block_num + 1)("features_to_activate", features_to_activate) );
+                  ("num", pending_block_num)("features_to_activate", features_to_activate) );
          }
       }
 
@@ -1798,7 +1799,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          if( !remove_expired_blacklisted_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
          if( !_subjective_billing.remove_expired( _log, chain.pending_block_time(), fc::time_point::now(),
-                                                  [&](){ return should_interrupt_start_block( preprocess_deadline ); } ) ) {
+                                                  [&](){ return should_interrupt_start_block( preprocess_deadline, pending_block_num ); } ) ) {
             return start_block_result::exhausted;
          }
 
@@ -1822,7 +1823,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
          if( app().is_quiting() ) // db guard exception above in LOG_AND_DROP could have called app().quit()
             return start_block_result::failed;
-         if ( should_interrupt_start_block( preprocess_deadline ) || block_is_exhausted() ) {
+         if ( should_interrupt_start_block( preprocess_deadline, pending_block_num ) || block_is_exhausted() ) {
             return start_block_result::exhausted;
          }
 
@@ -1849,12 +1850,13 @@ bool producer_plugin_impl::remove_expired_trxs( const fc::time_point& deadline )
 {
    chain::controller& chain = chain_plug->chain();
    auto pending_block_time = chain.pending_block_time();
+   auto pending_block_num = chain.pending_block_num();
 
    // remove all expired transactions
    size_t num_expired_persistent = 0;
    size_t num_expired_other = 0;
    size_t orig_count = _unapplied_transactions.size();
-   bool exhausted = !_unapplied_transactions.clear_expired( pending_block_time, [&](){ return should_interrupt_start_block(deadline); },
+   bool exhausted = !_unapplied_transactions.clear_expired( pending_block_time, [&](){ return should_interrupt_start_block(deadline, pending_block_num); },
          [&num_expired_persistent, &num_expired_other]( const packed_transaction_ptr& packed_trx_ptr, trx_enum_type trx_type ) {
             // expired exception is logged as part of next() call
             if( trx_type == trx_enum_type::persisted ) {
@@ -1885,12 +1887,13 @@ bool producer_plugin_impl::remove_expired_blacklisted_trxs( const fc::time_point
    if(!blacklist_by_expiry.empty()) {
       const chain::controller& chain = chain_plug->chain();
       const auto lib_time = chain.last_irreversible_block_time();
+      const auto pending_block_num = chain.pending_block_num();
 
       int num_expired = 0;
       int orig_count = _blacklisted_transactions.size();
 
       while (!blacklist_by_expiry.empty() && blacklist_by_expiry.begin()->expiry <= lib_time) {
-         if ( should_interrupt_start_block( deadline ) ) {
+         if ( should_interrupt_start_block( deadline, pending_block_num ) ) {
             exhausted = true;
             break;
          }
@@ -2124,6 +2127,8 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
    bool exhausted = false;
    if( !_unapplied_transactions.empty() ) {
       if( _pending_block_mode != pending_block_mode::producing && _disable_persist_until_expired ) return !exhausted;
+      const chain::controller& chain = chain_plug->chain();
+      const auto pending_block_num = chain.pending_block_num();
       int num_applied = 0, num_failed = 0, num_processed = 0;
       auto unapplied_trxs_size = _unapplied_transactions.size();
       // unapplied and persisted do not have a next method to call
@@ -2132,7 +2137,7 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
       auto end_itr = (_pending_block_mode == pending_block_mode::producing) ?
                      _unapplied_transactions.unapplied_end()   : _unapplied_transactions.persisted_end();
       while( itr != end_itr ) {
-         if( should_interrupt_start_block( deadline ) ) {
+         if( should_interrupt_start_block( deadline, pending_block_num ) ) {
             exhausted = true;
             break;
          }
@@ -2313,8 +2318,10 @@ bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline
    if( itr != end ) {
       size_t processed = 0;
       fc_dlog( _log, "Processing ${n} pending transactions", ("n", _unapplied_transactions.incoming_size()) );
+      const chain::controller& chain = chain_plug->chain();
+      const auto pending_block_num = chain.pending_block_num();
       while( itr != end ) {
-         if ( should_interrupt_start_block( deadline ) ) {
+         if ( should_interrupt_start_block( deadline, pending_block_num ) ) {
             exhausted = true;
             break;
          }
@@ -2360,7 +2367,6 @@ bool producer_plugin_impl::block_is_exhausted() const {
 // -> Idle
 // --> Start block B (block time y.000) at time x.500
 void producer_plugin_impl::schedule_production_loop() {
-   _received_block = false;
    _timer.cancel();
 
    auto result = start_block();
@@ -2565,8 +2571,8 @@ void producer_plugin_impl::produce_block() {
         ("confs", new_bs->header.confirmed));
 }
 
-void producer_plugin::received_block() {
-   my->_received_block = true;
+void producer_plugin::received_block(uint32_t block_num) {
+   my->_received_block = block_num;
 }
 
 void producer_plugin::log_failed_transaction(const transaction_id_type& trx_id, const packed_transaction_ptr& packed_trx_ptr, const char* reason) const {
