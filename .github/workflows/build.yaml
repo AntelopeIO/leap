@@ -138,7 +138,7 @@ jobs:
           mkdir -p $TMPDIR
           zstdcat build.tar.zst | tar x
           cd build
-          ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)"
+          ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
 
   np-tests:
     name: NP Tests
@@ -162,6 +162,7 @@ jobs:
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
+          test-timeout: 420
       - name: Upload logs from failed tests  
         uses: actions/upload-artifact@v3
         if: failure()
@@ -191,6 +192,7 @@ jobs:
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: long_running_tests
+          test-timeout: 1800
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
