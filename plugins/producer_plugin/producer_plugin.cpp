@@ -432,10 +432,33 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          next_func_t             next;
       };
       // The queue storing previously exhausted read-only transactions to be re-executed by read-only threads
-      struct ro_trx_queue_t {
-         std::mutex              mtx;
+      // thread-safe
+      class ro_trx_queue_t {
+      public:
+         void push_front(ro_trx_t&& t) {
+            std::lock_guard g(mtx);
+            queue.push_front(std::move(t));
+         }
+
+         bool empty() const {
+            std::lock_guard g(mtx);
+            return queue.empty();
+         }
+
+         bool pop_front(ro_trx_t& t) {
+            std::unique_lock g(mtx);
+            if (queue.empty())
+               return false;
+            t = queue.front();
+            queue.pop_front();
+            return true;
+         }
+
+      private:
+         mutable std::mutex              mtx;
          std::deque<ro_trx_t>    queue;
       };
+
       uint16_t                        _ro_thread_pool_size{ 0 };
       static constexpr uint16_t       _ro_max_eos_vm_oc_threads_allowed{ 8 }; // Due to uncertainty to get total virtual memory size on a 5-level paging system, set a hard limit
       named_thread_pool<struct read>  _ro_thread_pool;
@@ -2843,8 +2866,7 @@ void producer_plugin_impl::switch_to_read_window() {
    _time_tracker.add_idle_time( fc::time_point::now() - _idle_trx_time );
 
    // we are in write window, so no read-only trx threads are processing transactions.
-   // _ro_exhausted_trx_queue is not being accessed by read-only threads, no need to lock.
-   if ( _ro_exhausted_trx_queue.queue.empty() && app().executor().read_only_queue().empty() ) { // no read-only trxs to process. stay in write window
+   if ( _ro_exhausted_trx_queue.empty() && app().executor().read_only_queue().empty() ) { // no read-only trxs to process. stay in write window
       start_write_window(); // restart write window timer for next round
       return;
    }
@@ -2898,20 +2920,15 @@ bool producer_plugin_impl::read_only_execution_task() {
    bool exhausted_trx_queue_empty = false;
    while ( fc::time_point::now() < _ro_window_deadline && !_received_block && !_ro_exiting_read_window ) {
       if (!exhausted_trx_queue_empty) {
-         std::unique_lock<std::mutex> lck( _ro_exhausted_trx_queue.mtx );
-         auto size = _ro_exhausted_trx_queue.queue.size();
-         if ( size > 0 ) { // execute exhausted read-only first
-            auto trx = _ro_exhausted_trx_queue.queue.front();
-            _ro_exhausted_trx_queue.queue.pop_front();
-            lck.unlock();
-
-            auto retry = process_read_only_transaction( trx.trx, trx.next );
+         ro_trx_t t;
+         exhausted_trx_queue_empty = !_ro_exhausted_trx_queue.pop_front(t);
+         if (!exhausted_trx_queue_empty) {
+            auto retry = process_read_only_transaction( t.trx, t.next );
             if( retry ) {
                _ro_exiting_read_window = true;
                break;
             }
          }
-         exhausted_trx_queue_empty = (size <= 1); // one was executed above
       } else {
          bool more = app().executor().execute_highest_read_only();
          if ( !more ) { // read_only queue empty, anything queued after this will be processed in the next window
@@ -2941,14 +2958,17 @@ void producer_plugin_impl::process_read_only_transactions(const fc::time_point& 
    // by read_only_execution_task, so don't execute them here.
    if ( _ro_thread_pool_size == 0 ) {
       _ro_window_deadline = std::min(deadline, fc::time_point::now() + _ro_read_window_effective_time_us);
-      // only app thread accessing _ro_exhausted_trx_queue since _ro_thread_pool_size == 0, no lock needed
-      while ( !_ro_exhausted_trx_queue.queue.empty() && fc::time_point::now() < _ro_window_deadline && !_received_block ) {
-         auto trx = _ro_exhausted_trx_queue.queue.front();
-         _ro_exhausted_trx_queue.queue.pop_front();
-
-         auto retry = process_read_only_transaction( trx.trx, trx.next );
-         if( retry )
-            break;
+      bool exhausted_trx_queue_empty = false;
+      while ( !exhausted_trx_queue_empty && fc::time_point::now() < _ro_window_deadline && !_received_block ) {
+         ro_trx_t t;
+         exhausted_trx_queue_empty = !_ro_exhausted_trx_queue.pop_front(t);
+         if (!exhausted_trx_queue_empty) {
+            auto retry = process_read_only_transaction( t.trx, t.next );
+            if( retry ) {
+               _ro_exiting_read_window = true;
+               break;
+            }
+         }
       }
    }
 }
@@ -2970,8 +2990,7 @@ bool producer_plugin_impl::process_read_only_transaction(const packed_transactio
       auto trx_metadata = future.get();
       bool retry = push_read_only_transaction( trx_metadata, next );
       if( retry ) {
-         std::lock_guard g( _ro_exhausted_trx_queue.mtx );
-         _ro_exhausted_trx_queue.queue.push_front( {trx, next} );
+         _ro_exhausted_trx_queue.push_front( {trx, next} );
       }
       return retry;
    } CATCH_AND_CALL(exception_handler);
