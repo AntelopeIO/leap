@@ -259,7 +259,7 @@ try:
         runReadOnlyTrxAndRpcInParallel("chain", "get_raw_code_and_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
         runReadOnlyTrxAndRpcInParallel("chain", "get_raw_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
         runReadOnlyTrxAndRpcInParallel("chain", "get_producers", "rows", payload = {"json":"true","lower_bound":""})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_table_rows", code=500, payload = {"json":"true","table":"noauth"})
+        runReadOnlyTrxAndRpcInParallel("chain", "get_table_rows", code=400, payload = {"json":"true","table":"noauth"})
         runReadOnlyTrxAndRpcInParallel("chain", "get_table_by_scope", fieldIn="rows", payload = {"json":"true","table":"noauth"})
         runReadOnlyTrxAndRpcInParallel("chain", "get_currency_balance", code=200, payload = {"code":"eosio.token", "account":testAccountName})
         runReadOnlyTrxAndRpcInParallel("chain", "get_currency_stats", fieldIn="SYS", payload = {"code":"eosio.token", "symbol":"SYS"})
