@@ -8,7 +8,6 @@ The `main` branch is the development branch; do not use it for production. Refer
 We currently support the following operating systems.
 - Ubuntu 22.04 Jammy
 - Ubuntu 20.04 Focal
-- Ubuntu 18.04 Bionic
 
 Other Unix derivatives such as macOS are tended to on a best-effort basis and may not be full featured. If you aren't using Ubuntu, please visit the "[Build Unsupported OS](./docs/00_install/01_build-from-source/00_build-unsupported-os.md)" page to explore your options.
 
@@ -127,8 +126,6 @@ Now you can optionally [test](#step-4---test) your build, or [install](#step-5--
 #### Unpinned Build
 The following instructions are valid for this branch. Other release branches may have different requirements, so ensure you follow the directions in the branch or release you intend to build. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
-<details> <summary>Ubuntu 22.04 Jammy & Ubuntu 20.04 Focal</summary>
-
 Install dependencies:
 ```bash
 sudo apt-get update
@@ -151,52 +148,6 @@ cd build
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
 make -j "$(nproc)" package
 ```
-</details>
-
-<details> <summary>Ubuntu 18.04 Bionic</summary>
-
-Install dependencies:
-```bash
-sudo apt-get update
-sudo apt-get install -y \
-        build-essential \
-        cmake \
-        curl \
-        g++-8 \
-        git \
-        libcurl4-openssl-dev \
-        libgmp-dev \
-        libssl-dev \
-        llvm-7-dev \
-        python3 \
-        python3-numpy \
-        python3-pip \
-        zlib1g-dev
-
-python3 -m pip install dataclasses
-```
-You need to build Boost from source on this distribution:
-```bash
-curl -fL https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 -o ~/Downloads/boost_1_79_0.tar.bz2
-tar -jvxf ~/Downloads/boost_1_79_0.tar.bz2 -C ~/Downloads/
-pushd ~/Downloads/boost_1_79_0
-./bootstrap.sh --prefix="$HOME/boost1.79"
-./b2 --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -j "$(nproc)" install
-popd
-```
-The Boost `*.tar.bz2` download and `boost_1_79_0` folder can be removed now if you want more space.
-```bash
-rm -r ~/Downloads/boost_1_79_0.tar.bz2 ~/Downloads/boost_1_79_0
-```
-From a terminal in the root of the `leap` repo, build.
-```bash
-mkdir -p build
-cd build
-cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 -DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/" -DCMAKE_BUILD_TYPE=Release ..
-make -j "$(nproc)" package
-```
-After building, you may remove the `~/boost1.79` directory or you may keep it around for your next build.
-</details>
 
 Now you can optionally [test](#step-4---test) your build, or [install](#step-5---install) the `*.deb` binary packages, which will be in the root of your build directory.
 
