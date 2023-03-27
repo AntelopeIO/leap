@@ -135,7 +135,39 @@ namespace eosio {
       uint32_t end_block{0};
    };
 
-   using net_message = std::variant<handshake_message,
+
+    enum address_enum_type {
+        blk,
+        trx,
+        both,
+        peer,
+        all
+    };
+
+    struct peer_address {
+        peer_address( address_enum_type t = all) : address(), address_type(t), last_active(), manual(false) {}
+        std::string address;
+        address_enum_type address_type;
+        fc::time_point last_active;
+        bool manual;
+
+        bool operator==(const peer_address& other) const {
+            return address == other.address;
+        }
+    };
+
+    struct address_request_message {
+        address_request_message() : type(0), node_id() {}
+        uint16_t         type = 0; // 0 for first pull, 1 for second pull
+        fc::sha256       node_id;
+    };
+
+
+    struct address_sync_message {
+        vector<string>    addresses;
+    };
+
+    using net_message = std::variant<handshake_message,
                                     chain_size_message,
                                     go_away_message,
                                     time_message,
@@ -143,7 +175,9 @@ namespace eosio {
                                     request_message,
                                     sync_request_message,
                                     signed_block,         // which = 7
-                                    packed_transaction>;  // which = 8
+                                    packed_transaction,   // which = 8
+                                    address_request_message,
+                                    address_sync_message>;
 
 } // namespace eosio
 
@@ -162,6 +196,9 @@ FC_REFLECT( eosio::time_message, (org)(rec)(xmt)(dst) )
 FC_REFLECT( eosio::notice_message, (known_trx)(known_blocks) )
 FC_REFLECT( eosio::request_message, (req_trx)(req_blocks) )
 FC_REFLECT( eosio::sync_request_message, (start_block)(end_block) )
+FC_REFLECT( eosio::address_request_message, (type)(node_id) )
+FC_REFLECT( eosio::address_sync_message, (addresses) )
+
 
 /**
  *
