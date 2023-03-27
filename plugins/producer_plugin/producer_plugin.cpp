@@ -1114,7 +1114,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    if ( options.count( "read-only-threads" ) ) {
       my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
-      EOS_ASSERT( my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
+      EOS_ASSERT( test_mode_ || my->_ro_thread_pool_size == 0 || my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
    } else if ( my->_producers.empty() ) {
       // default to 3 threads for non producer nodes if not specified
       my->_ro_thread_pool_size = 3;
