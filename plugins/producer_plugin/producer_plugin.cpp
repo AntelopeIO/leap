@@ -313,8 +313,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       producer_plugin_impl(boost::asio::io_service& io)
       :_timer(io)
       ,_transaction_ack_channel(app().get_channel<compat::channels::transaction_ack>())
-      ,_ro_write_window_timer(io)
-      ,_ro_read_window_timer(io)
+      ,_ro_timer(io)
       {
       }
 
@@ -521,8 +520,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       fc::microseconds                _ro_read_window_effective_time_us{ 0 }; // calculated during option initialization
       std::atomic<int64_t>            _ro_all_threads_exec_time_us; // total time spent by all threads executing transactions. use atomic for simplicity and performance
       fc::time_point                  _ro_read_window_start_time;
-      boost::asio::deadline_timer     _ro_write_window_timer;
-      boost::asio::deadline_timer     _ro_read_window_timer;
+      boost::asio::deadline_timer     _ro_timer;
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_trx_queue;
       std::atomic<uint32_t>           _ro_num_active_trx_exec_tasks{ 0 };
@@ -2878,8 +2876,7 @@ void producer_plugin_impl::switch_to_write_window() {
    }
 
    EOS_ASSERT(_ro_num_active_trx_exec_tasks.load() == 0 && _ro_trx_exec_tasks_fut.empty(), producer_exception, "no read-only tasks should be running before switching to write window");
-   _ro_read_window_timer.cancel();
-   _ro_write_window_timer.cancel();
+   _ro_timer.cancel();
 
    start_write_window();
 }
@@ -2893,8 +2890,8 @@ void producer_plugin_impl::start_write_window() {
    _idle_trx_time = fc::time_point::now();
 
    auto expire_time = boost::posix_time::microseconds(_ro_write_window_time_us.count());
-   _ro_write_window_timer.expires_from_now( expire_time );
-   _ro_write_window_timer.async_wait( app().executor().wrap(  // stay on app thread
+   _ro_timer.expires_from_now( expire_time );
+   _ro_timer.async_wait( app().executor().wrap(  // stay on app thread
       priority::high,
       exec_queue::read_only_trx_safe, // placed in read_only_trx_safe queue so it is ensured to be executed in either window
       [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
@@ -2910,8 +2907,7 @@ void producer_plugin_impl::switch_to_read_window() {
    EOS_ASSERT(app().executor().is_write_window(),  producer_exception, "expected to be in write window");
    EOS_ASSERT(_ro_num_active_trx_exec_tasks.load() == 0 && _ro_trx_exec_tasks_fut.empty(),  producer_exception, "_ro_trx_exec_tasks_fut expected to be empty" );
 
-   _ro_write_window_timer.cancel();
-   _ro_read_window_timer.cancel();
+   _ro_timer.cancel();
    _time_tracker.add_idle_time( fc::time_point::now() - _idle_trx_time );
 
    // we are in write window, so no read-only trx threads are processing transactions.
@@ -2938,8 +2934,8 @@ void producer_plugin_impl::switch_to_read_window() {
    }
 
    auto expire_time = boost::posix_time::microseconds(_ro_read_window_time_us.count());
-   _ro_read_window_timer.expires_from_now( expire_time );
-   _ro_read_window_timer.async_wait( app().executor().wrap(  // stay on app thread
+   _ro_timer.expires_from_now( expire_time );
+   _ro_timer.async_wait( app().executor().wrap(  // stay on app thread
       priority::high,
       exec_queue::read_only_trx_safe,
       [weak_this = weak_from_this()]( const boost::system::error_code& ec ) {
