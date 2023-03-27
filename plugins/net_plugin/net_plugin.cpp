@@ -3166,13 +3166,13 @@ namespace eosio {
          return;
       }
 
-      bool signal_producer = !!bsp; // ready to process immediately, so signal producer to interrupt start_block
+      uint32_t block_num = bsp ? bsp->block_num : 0;
       app().post(priority::medium, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c = shared_from_this()]() mutable {
          c->process_signed_block( id, std::move(ptr), std::move(bsp) );
       });
 
-      if( signal_producer )
-         my_impl->producer_plug->received_block();
+      if( block_num != 0 ) // ready to process immediately, so signal producer to interrupt start_block
+         my_impl->producer_plug->received_block(block_num);
    }
 
    // called from application thread
