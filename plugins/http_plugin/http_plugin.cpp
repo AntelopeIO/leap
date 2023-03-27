@@ -403,13 +403,13 @@ namespace eosio {
             fc_elog( logger(), "Unable to parse arguments to ${api}.${call}", ("api", api_name)( "call", call_name ) );
             fc_dlog( logger(), "Bad arguments: ${args}", ("args", body) );
          } catch (fc::exception& e) {
-            error_results results{500, "Internal Service Error", error_results::error_info(e, verbose_http_errors)};
-            cb( 500, fc::time_point::maximum(), fc::variant( results ));
+            error_results results{400, "Exception", error_results::error_info(e, verbose_http_errors)};
+            cb( 400, fc::time_point::maximum(), fc::variant( results ));
             fc_dlog( logger(), "Exception while processing ${api}.${call}: ${e}",
                      ("api", api_name)( "call", call_name )("e", e.to_detail_string()) );
          } catch (std::exception& e) {
-            error_results results{500, "Internal Service Error", error_results::error_info(fc::exception( FC_LOG_MESSAGE( error, e.what())), verbose_http_errors)};
-            cb( 500, fc::time_point::maximum(), fc::variant( results ));
+            error_results results{400, "Exception", error_results::error_info(fc::exception( FC_LOG_MESSAGE( error, e.what())), verbose_http_errors)};
+            cb( 400, fc::time_point::maximum(), fc::variant( results ));
             fc_dlog( logger(), "STD Exception encountered while processing ${api}.${call}: ${e}",
                      ("api", api_name)("call", call_name)("e", e.what()) );
          } catch (...) {

@@ -337,7 +337,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_account with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_code with empty parameter
         command = "get_code"
@@ -355,7 +355,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_code with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_code_hash with empty parameter
         command = "get_code_hash"
@@ -373,7 +373,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_code_hash with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_abi with empty parameter
         command = "get_abi"
@@ -391,7 +391,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_abi with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_raw_code_and_abi with empty parameter
         command = "get_raw_code_and_abi"
@@ -409,7 +409,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_raw_code_and_abi with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_raw_abi with empty parameter
         command = "get_raw_abi"
@@ -427,7 +427,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_raw_abi with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_table_rows with empty parameter
         command = "get_table_rows"
@@ -452,7 +452,7 @@ class PluginHttpTest(unittest.TestCase):
                    "lower_bound":"0x0000000000000000D0F2A472A8EB6A57",
                    "upper_bound":"0xFFFFFFFFFFFFFFFFD0F2A472A8EB6A57"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_table_by_scope with empty parameter
         command = "get_table_by_scope"
@@ -474,7 +474,7 @@ class PluginHttpTest(unittest.TestCase):
                    "lower_bound":"0x0000000000000000D0F2A472A8EB6A57",
                    "upper_bound":"0xFFFFFFFFFFFFFFFFD0F2A472A8EB6A57"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_currency_balance with empty parameter
         command = "get_currency_balance"
@@ -492,7 +492,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_currency_balance with valid parameter
         payload = {"code":"eosio.token", "account":"unknown"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_currency_stats with empty parameter
         command = "get_currency_stats"
@@ -510,7 +510,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_currency_stats with valid parameter
         payload = {"code":"eosio.token","symbol":"SYS"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_producers with empty parameter
         command = "get_producers"
@@ -585,7 +585,7 @@ class PluginHttpTest(unittest.TestCase):
                    "EOS7d9A3uLe6As66jzN8j44TXJUqJSK3bFjjEEqR4oTvNAB3iM9SA",
                    "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"]}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_transaction_id with empty parameter
         command = "get_transaction_id"
@@ -652,7 +652,7 @@ class PluginHttpTest(unittest.TestCase):
                    "packed_context_free_data": "context_free_data",
                    "packed_trx": "packed_trx"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # push_transactions with empty parameter
         command = "push_transactions"
@@ -694,7 +694,7 @@ class PluginHttpTest(unittest.TestCase):
                    "packed_context_free_data": "context_free_data",
                    "packed_trx": "packed_trx"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
 
     # test all net api
@@ -1091,7 +1091,7 @@ class PluginHttpTest(unittest.TestCase):
                    ["EOS696giL6VxeJhtEgKtWPK8aQeT8YXNjw2a7vE5wHunffhfa5QSQ"],
                    "cf057bbfb72640471fd910bcb67639c22df9f92470936cddc1ade0e2f2e7dc4f"]
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3120004)
 
         # create with empty parameter
@@ -1105,7 +1105,7 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # create with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3120000)
         # create with valid parameter
         payload = "test1"
@@ -1123,12 +1123,12 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # create with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3120000)
         # create with valid parameter
         payload = "fakeacct"
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # lock_all with empty parameter
         command = "lock_all"
@@ -1153,7 +1153,7 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["error"]["code"], 3200006)
         # lock with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3120002)
         # lock with valid parameter
         payload = {"name":"auser"}
@@ -1176,7 +1176,7 @@ class PluginHttpTest(unittest.TestCase):
         # unlock with valid parameter
         payload = ["auser", "nopassword"]
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # import_key with empty parameter
         command = "import_key"
@@ -1194,7 +1194,7 @@ class PluginHttpTest(unittest.TestCase):
         # import_key with valid parameter
         payload = ["auser", "nokey"]
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # remove_key with empty parameter
         command = "remove_key"
@@ -1212,7 +1212,7 @@ class PluginHttpTest(unittest.TestCase):
         # remove_key with valid parameter
         payload = ["auser", "none", "none"]
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # create_key with empty parameter
         command = "create_key"
@@ -1230,7 +1230,7 @@ class PluginHttpTest(unittest.TestCase):
         # create_key with valid parameter
         payload = ["auser", "none"]
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # list_wallets with empty parameter
         command = "list_wallets"
@@ -1260,15 +1260,15 @@ class PluginHttpTest(unittest.TestCase):
         # list_keys with valid parameter
         payload = ["auser", "unknownkey"]
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_public_keys with empty parameter
         command = "get_public_keys"
         ret_json = self.nodeos.processUrllibRequest(resource, command, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
         # get_public_keys with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict, endpoint=endpoint)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
         # list_wallets with invalid parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 400)

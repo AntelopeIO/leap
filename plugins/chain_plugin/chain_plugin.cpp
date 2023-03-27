@@ -2374,6 +2374,7 @@ read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params&
 }
 
 read_only::get_account_results read_only::get_account( const get_account_params& params, const fc::time_point& deadline )const {
+   try {
    get_account_results result;
    result.account_name = params.account_name;
 
@@ -2541,6 +2542,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
       }
    }
    return result;
+   } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account info")
 }
 
 read_only::get_required_keys_result read_only::get_required_keys( const get_required_keys_params& params, const fc::time_point& deadline )const {
