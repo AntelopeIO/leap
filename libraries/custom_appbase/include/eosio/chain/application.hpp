@@ -10,7 +10,7 @@
 namespace appbase { 
 
 enum class exec_window {
-   read,  // the window during which operations from parallel queue
+   read,  // the window during which operations from read_only queue
           // can be executed in parallel in the read-only thread pool
           // as well as in the app thread.
    write, // the window during which operations from both read_write and

@@ -454,7 +454,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
 
       private:
-         mutable std::mutex              mtx;
+         mutable std::mutex      mtx;
          std::deque<ro_trx_t>    queue;
       };
 
@@ -2972,7 +2972,6 @@ void producer_plugin_impl::process_read_only_transactions(const fc::time_point& 
          if (!exhausted_trx_queue_empty) {
             auto retry = process_read_only_transaction( t.trx, t.next );
             if( retry ) {
-               _ro_exiting_read_window = true;
                break;
             }
          }
