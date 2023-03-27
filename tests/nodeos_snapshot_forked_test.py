@@ -171,7 +171,7 @@ try:
         errorExit(f"Failure - (non-production) node {nonProdNode.nodeNum} should have restarted")
 
     Print("Wait for LIB to move, which indicates prodC has forked out the branch")
-    assert prodC.waitForLibToAdvance(60), \
+    assert prodC.waitForLibToAdvance(), \
         "ERROR: Network did not reach consensus after bridge node was restarted."
  
     for prodNode in prodNodes:
