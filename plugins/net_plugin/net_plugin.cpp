@@ -119,7 +119,7 @@ namespace eosio {
 
    public:
        // time_out for future address time out counting
-       explicit address_manager( uint32_t time_out );
+       explicit address_manager( uint32_t time_out ){};
 
        void add_address(const peer_address& address);
        void add_address_str(const std::string& address, bool is_manual);
