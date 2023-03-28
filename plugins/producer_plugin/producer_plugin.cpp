@@ -472,7 +472,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_exhausted_trx_queue;
       std::atomic<uint32_t>           _ro_num_active_exec_tasks{ 0 };
-      std::atomic<bool>               _ro_exiting_read_window{ false };
       bool                            _ro_in_read_only_mode{false}; // only modified on app thread
       std::vector<std::future<bool>>  _ro_exec_tasks_fut;
 
@@ -2853,8 +2852,6 @@ void producer_plugin_impl::start_write_window() {
    _ro_in_read_only_mode = false;
    _idle_trx_time = fc::time_point::now();
 
-   wlog("starting write window");
-
    _ro_window_deadline = _idle_trx_time + _ro_write_window_time_us; // not allowed on block producers, so no need to limit to block deadline
    auto expire_time = boost::posix_time::microseconds(_ro_write_window_time_us.count());
    _ro_timer.expires_from_now( expire_time );
@@ -2883,8 +2880,6 @@ void producer_plugin_impl::switch_to_read_window() {
       return;
    }
 
-   wlog("starting read window");
-
    auto& chain = chain_plug->chain();
    uint32_t pending_block_num = chain.head_block_num() + 1;
    _ro_window_deadline = fc::time_point::now() + _ro_read_window_effective_time_us;
@@ -2896,7 +2891,6 @@ void producer_plugin_impl::switch_to_read_window() {
    _ro_in_read_only_mode = true;
    _ro_read_window_start_time = fc::time_point::now();
    _ro_all_threads_exec_time_us = 0;
-   _ro_exiting_read_window = false;
 
    // start a read-only transaction execution task in each thread in the thread pool
    _ro_num_active_exec_tasks = _ro_thread_pool_size;
@@ -2930,27 +2924,21 @@ void producer_plugin_impl::switch_to_read_window() {
 
 // Called from a read only thread. Run in parallel with app and other read only threads
 bool producer_plugin_impl::read_only_execution_task(uint32_t pending_block_num) {
-   // We have 4 ways to break out the while loop:
+   // We have 3 ways to break out the while loop:
    // 1. pass read window deadline
    // 2. net_plugin receives a block
    // 3. No more transactions in the exhausted read-only queue and no read-only tasks to execute
-   // 4. A transaction execution is exhausted (means end of read window)
    bool exhausted_trx_queue_empty = false;
-   while ( fc::time_point::now() < _ro_window_deadline && !_ro_exiting_read_window && _received_block < pending_block_num ) {
+   while ( fc::time_point::now() < _ro_window_deadline && _received_block < pending_block_num ) {
       if (!exhausted_trx_queue_empty) {
          ro_trx_t t;
          exhausted_trx_queue_empty = !_ro_exhausted_trx_queue.pop_front(t);
          if (!exhausted_trx_queue_empty) {
-            auto retry = push_read_only_transaction( std::move(t.trx), std::move(t.next) );
-            if( retry ) {
-               _ro_exiting_read_window = true;
-               break;
-            }
+            exhausted_trx_queue_empty = push_read_only_transaction( std::move(t.trx), std::move(t.next) );
          }
       } else {
-         bool more = app().executor().execute_highest_read_only();
-         if ( !more ) { // read_only queue empty, anything queued after this will be processed in the next window
-            _ro_exiting_read_window = true;
+         bool more = app().executor().execute_highest_read_only(); // blocks until all read only threads are idle
+         if ( !more ) {
             break;
          }
       }
