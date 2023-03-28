@@ -427,8 +427,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       
       // ro for read-only
       struct ro_trx_t {
-         packed_transaction_ptr  trx;
-         next_func_t             next;
+         transaction_metadata_ptr trx;
+         next_func_t              next;
       };
       // The queue storing previously exhausted read-only transactions to be re-executed by read-only threads
       // thread-safe
@@ -481,10 +481,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void switch_to_read_window();
       bool read_only_execution_task(uint32_t pending_block_num);
       void process_read_only_transactions(const fc::time_point& deadline);
-      bool process_read_only_transaction(const packed_transaction_ptr& trx,
-                                         const next_function<transaction_trace_ptr>& next);
-      bool push_read_only_transaction(const transaction_metadata_ptr& trx,
-                                      const next_function<transaction_trace_ptr>& next);
+      bool push_read_only_transaction(transaction_metadata_ptr trx, next_function<transaction_trace_ptr> next);
 
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
          auto itr = _producer_watermarks.find( producer );
@@ -680,8 +677,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                          next_function<transaction_trace_ptr> next) {
          if ( trx_type == transaction_metadata::trx_type::read_only ) {
             // Post all read only trxs to read_only queue for execution.
-            app().executor().post(priority::low, exec_queue::read_only, [this, trx=trx, next{std::move(next)}]() mutable {
-               process_read_only_transaction( trx, next );
+            auto trx_metadata = transaction_metadata::create_no_recover_keys( trx, transaction_metadata::trx_type::read_only );
+            app().executor().post(priority::low, exec_queue::read_only, [this, trx{std::move(trx_metadata)}, next{std::move(next)}]() mutable {
+               push_read_only_transaction( std::move(trx), std::move(next) );
             } );
             return;
          }
@@ -2936,7 +2934,7 @@ bool producer_plugin_impl::read_only_execution_task(uint32_t pending_block_num) 
          ro_trx_t t;
          exhausted_trx_queue_empty = !_ro_exhausted_trx_queue.pop_front(t);
          if (!exhausted_trx_queue_empty) {
-            auto retry = process_read_only_transaction( t.trx, t.next );
+            auto retry = push_read_only_transaction( std::move(t.trx), std::move(t.next) );
             if( retry ) {
                _ro_exiting_read_window = true;
                break;
@@ -2977,7 +2975,7 @@ void producer_plugin_impl::process_read_only_transactions(const fc::time_point& 
          ro_trx_t t;
          exhausted_trx_queue_empty = !_ro_exhausted_trx_queue.pop_front(t);
          if (!exhausted_trx_queue_empty) {
-            auto retry = process_read_only_transaction( t.trx, t.next );
+            auto retry = push_read_only_transaction( std::move(t.trx), std::move(t.next) );
             if( retry ) {
                break;
             }
@@ -2986,45 +2984,17 @@ void producer_plugin_impl::process_read_only_transactions(const fc::time_point& 
    }
 }
 
-// Called from a read only trx thread. Run in parallel with app and other read only trx threads
+// Called from a read_only_trx execution thread, or from app thread when executing exclusively
 // Return whether the trx needs to be retried in next read window
-bool producer_plugin_impl::process_read_only_transaction(const packed_transaction_ptr& trx, const next_function<transaction_trace_ptr>& next) {
-   chain::controller& chain = chain_plug->chain();
-   auto future = transaction_metadata::start_recover_keys( trx, _thread_pool.get_executor(),
-                                                           chain.get_chain_id(), fc::microseconds::maximum(),
-                                                           transaction_metadata::trx_type::read_only,
-                                                           chain.configured_subjective_signature_length_limit() );
-   auto exception_handler = [&next](fc::exception_ptr ex) {
-      next( std::move(ex) );
-      return false;
-   };
-   future.wait();
-   try {
-      auto trx_metadata = future.get();
-      bool retry = push_read_only_transaction( trx_metadata, next );
-      if( retry ) {
-         _ro_exhausted_trx_queue.push_front( {trx, next} );
-      }
-      return retry;
-   } CATCH_AND_CALL(exception_handler);
-   return false;
-}
-
-// Called from a read_only_trx execution thread
-// Return whether the trx needs to be retried in next read window
-bool producer_plugin_impl::push_read_only_transaction(const transaction_metadata_ptr& trx, const next_function<transaction_trace_ptr>& next) {
+bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr trx, next_function<transaction_trace_ptr> next) {
    auto retry = false;
-   chain::controller& chain = chain_plug->chain();
-
-   if( !chain.is_building_block() ) {
-      // try next round
-      return true;
-   }
 
    try {
       auto start = fc::time_point::now();
-      if ( start >= _ro_window_deadline ) {
-         // already passed read-window deadline, try next round
+      chain::controller& chain = chain_plug->chain();
+      // already passed read-window deadline, try next round
+      if ( start >= _ro_window_deadline || !chain.is_building_block() ) {
+         _ro_exhausted_trx_queue.push_front( {std::move(trx), std::move(next)} );
          return true;
       }
 
@@ -3044,6 +3014,9 @@ bool producer_plugin_impl::push_read_only_transaction(const transaction_metadata
       // If a transaction was exhausted, that indicates we are close to
       // the end of read window. Retry in next round.
       retry = pr.trx_exhausted;
+      if( retry ) {
+         _ro_exhausted_trx_queue.push_front( {std::move(trx), std::move(next)} );
+      }
    } catch ( const guard_exception& e ) {
       chain_plugin::handle_guard_exception(e);
    } catch ( boost::interprocess::bad_alloc& ) {
