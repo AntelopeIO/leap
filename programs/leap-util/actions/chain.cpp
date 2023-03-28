@@ -47,6 +47,16 @@ void chain_actions::setup(CLI::App& app) {
       // properly return err code in main
       if(rc) throw(CLI::RuntimeError(rc));
    });
+
+  auto* sstate =  sub->add_subcommand("last-shutdown-state", "indicate whether last shutdown was clean or not");
+  sstate->add_option("--state-dir,-o", opt->sstate_state_dir, "The location of the state directory (absolute path or relative to the current directory)")->capture_default_str();
+
+  sstate->callback([&]() {
+      int rc = run_subcommand_sstate();
+      // properly return err code in main
+      if(rc) throw(CLI::RuntimeError(rc));
+   });
+
 }
 
 int chain_actions::run_subcommand_build() {
@@ -62,5 +72,47 @@ int chain_actions::run_subcommand_build() {
       std::cout << fc::json::to_pretty_string(chainbase::environment()) << std::endl;
    }
 
+   return 0;
+}
+
+int chain_actions::run_subcommand_sstate() {
+   bfs::path state_dir = "";
+
+   // default state dir, if none specified
+   if(opt->sstate_state_dir.empty()) {
+      auto root = fc::app_path();
+      auto default_data_dir = root / "eosio" / "nodeos" / "data" ;
+      state_dir  = default_data_dir / config::default_state_dir_name;
+   }
+   else {
+      // adjust if path relative
+      state_dir = opt->sstate_state_dir;
+      if(state_dir.is_relative()) {
+         state_dir = bfs::current_path() / state_dir;
+      }
+   }
+   
+   auto shared_mem_path = state_dir / "shared_memory.bin";
+
+   if(!bfs::exists(shared_mem_path)) {
+      std::cerr << "Unable to read database status: file not found: " << shared_mem_path << std::endl;
+      return -1;
+   }
+
+   char header[chainbase::header_size];
+   std::ifstream hs(shared_mem_path.generic_string(), std::ifstream::binary);
+   hs.read(header, chainbase::header_size);
+   if(hs.fail()) {
+      std::cerr << "Unable to read database status: file invalid or corrupt" << shared_mem_path <<  std::endl;
+      return -1;
+   }
+
+   chainbase::db_header* dbheader = reinterpret_cast<chainbase::db_header*>(header);
+   if(dbheader->dirty) {
+      std::cout << "Database dirty flag is set, shutdown was not clean" << std::endl;
+      return -1;
+   }
+
+   std::cout << "Database state is clean" << std::endl;
    return 0;
 }
