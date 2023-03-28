@@ -140,13 +140,13 @@ namespace eosio {
         std::unique_lock<std::mutex> lock(addresses_mutex);
         // if same address, skip it, ignore other properties
         if(std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
+            fc_ilog( logger, "Address Manager add_address: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
             addresses.push_back(address);
         }
     }
 
     void address_manager::add_address_str(const std::string& address, bool is_manual ) {
         peer_address addr = peer_address::from_str(address, is_manual);
-
         // same address with different configurations is ignored
         add_address(addr);
     }
@@ -157,6 +157,7 @@ namespace eosio {
         for (const auto& address : new_addresses) {
             peer_address addr = peer_address::from_str(address, is_manual);
             if (std::find(addresses.begin(), addresses.end(), addr) == addresses.end()) {
+                fc_ilog( logger, "Address Manager add_addresses: ${host} ${port} ${type}", ("host",addr.host)("port",addr.port)("type", address_type_str(addr.address_type)) );
                 addresses.push_back(addr);
             }
         }
@@ -465,8 +466,8 @@ namespace eosio {
       constexpr static uint16_t to_protocol_version(uint16_t v);
 
       connection_ptr find_connection(const string& host)const; // must call with held mutex
+
       string connect( const string& host );
-      string connect( const string& host, bool first_connect );
 
       string disconnect( const string& endpoint );
 
@@ -1094,8 +1095,16 @@ namespace eosio {
    }
 
    // called from connection strand
-   void connection::set_connection_type( const string& peer_add ) {
+   void connection::set_connection_type( const string& peer_add_str ) {
       // host:port:[<trx>|<blk>]
+
+      //  "localhost:9877 - dc2f6b6" type string
+       std::string peer_add = peer_add_str;
+       string::size_type pos = peer_add.find(' ');
+       if (pos != std::string::npos) {
+           peer_add = peer_add.substr(0, pos);
+       }
+
       string::size_type colon = peer_add.find(':');
       string::size_type colon2 = peer_add.find(':', colon + 1);
       string::size_type end = colon2 == string::npos
@@ -1315,6 +1324,10 @@ namespace eosio {
                        ("lib", last_handshake_sent.last_irreversible_block_num)
                        ("head", last_handshake_sent.head_num)("id", last_handshake_sent.head_id.str().substr(8,16)) );
             c->enqueue( last_handshake_sent );
+            // only send request to peers allowed connection
+            // every 100 handshakes will send a request
+            if(c->is_peers_connection() && c->sent_handshake_count % 100 == 1)
+                c->enqueue_address_request(0);
          }
       });
    }
@@ -2467,7 +2480,7 @@ namespace eosio {
 
       string::size_type colon = peer_address().find(':');
       if (colon == std::string::npos || colon == 0) {
-         fc_elog( logger, "Invalid peer address. must be \"host:port[:<blk>|<trx>]\": ${p}", ("p", peer_address()) );
+         fc_elog( logger, "Invalid peer address. must be \"host:port[:<blk>|<trx>|<peer>|<all>]\": ${p}", ("p", peer_address()) );
          return false;
       }
 
@@ -3012,6 +3025,8 @@ namespace eosio {
 
          log_p2p_address = msg.p2p_address;
 
+
+
          my_impl->mark_bp_connection(this);
          if (my_impl->exceeding_connection_limit(this)) {
             // When auto bp peering is enabled, the start_listen_loop check doesn't have enough information to determine
@@ -3027,6 +3042,9 @@ namespace eosio {
          if( peer_address().empty() ) {
             set_connection_type( msg.p2p_address );
          }
+
+         // add all kind address to manager, only peer or all type will be send to others
+         my_impl->address_master->add_address_str(msg.p2p_address, false);
 
          std::unique_lock<std::mutex> g_conn( conn_mtx );
          if( peer_address().empty() || last_handshake_recv.node_id == fc::sha256()) {
@@ -3335,23 +3353,27 @@ namespace eosio {
    void connection::handle_message( const address_request_message& msg ) {
        peer_dlog(this, "address request type:${type} from ${node_id}", ("type", msg.type)("node_id", msg.node_id) );
 
-       std::vector<eosio::peer_address> addresses;
-       // 0 indicates the first request, 1 indicates the second request
-       // functions such as synchronization and broadcast need to be improved
-       if (msg.type == 0) {
-           addresses = my_impl->address_master->get_addresses(0,10);
+       if(is_peers_connection()) {
+           std::vector<eosio::peer_address> addresses;
+           // 0 indicates the first request, 1 indicates the second request
+           // functions such as synchronization and broadcast need to be improved
+           if (msg.type == 0) {
+               addresses = my_impl->address_master->get_addresses(0,10);
+           } else {
+               addresses = my_impl->address_master->get_addresses(10,20);
+           }
+
+           address_sync_message addresses_msg;
+
+           for (const auto& address : addresses) {
+               // host:port:type
+               addresses_msg.addresses.emplace_back(address.to_str());
+           }
+
+           enqueue(addresses_msg);
        } else {
-           addresses = my_impl->address_master->get_addresses(10,20);
+           peer_dlog(this, "address request from ${node_id} is dropped since connection type is ${type}", ("node_id", msg.node_id)("type",this->peer_address()));
        }
-
-       address_sync_message addresses_msg;
-
-       for (const auto& address : addresses) {
-           // host:port:type
-           addresses_msg.addresses.emplace_back(address.to_str());
-       }
-
-       enqueue(addresses_msg);
    }
 
    void connection::handle_message( const address_sync_message& msg ) {
@@ -3840,8 +3862,9 @@ namespace eosio {
          ( "p2p-server-address", bpo::value<string>(), "An externally accessible host:port for identifying this node. Defaults to p2p-listen-endpoint.")
          ( "p2p-peer-address", bpo::value< vector<string> >()->composing(),
            "The public endpoint of a peer node to connect to. Use multiple p2p-peer-address options as needed to compose a network.\n"
-           "  Syntax: host:port[:<trx>|<blk>]\n"
-           "  The optional 'trx' and 'blk' indicates to node that only transactions 'trx' or blocks 'blk' should be sent."
+           "  Syntax: host:port[:<trx>|<blk>|<peer>|<all>]\n"
+           "  The optional type 'trx' and 'blk' and 'peer' indicates to node that only transactions 'trx' or blocks 'blk' or peer addresses 'peer' should be sent."
+           "  'all' means trx and blk and peer, no type means trx and blk "
            "  Examples:\n"
            "    p2p.eos.io:9876\n"
            "    p2p.trx.eos.io:9876:trx\n"
@@ -4103,7 +4126,7 @@ namespace eosio {
          for( const auto& seed_node : my->address_master->get_addresses_str() ) {
             // first connect peers from configuration
             // once the connection is complete, an address request should be sent
-            my->connect( seed_node, true );
+            my->connect( seed_node);
          }
       });
 
@@ -4141,11 +4164,6 @@ namespace eosio {
    }
 
    string net_plugin_impl::connect( const string& host ) {
-       return connect(host, false);
-   }
-
-   // should send a address request on first connect
-   string net_plugin_impl::connect( const string& host, bool first_connect ) {
        std::lock_guard<std::shared_mutex> g( connections_mtx );
        if( find_connection( host ) )
            return "already connected";
@@ -4155,8 +4173,6 @@ namespace eosio {
        if( c->resolve_and_connect() ) {
            fc_dlog( logger, "adding new connection to the list: ${host} ${cid}", ("host", host)("cid", c->connection_id) );
            c->set_heartbeat_timeout( heartbeat_timeout );
-           if(first_connect && c->is_peers_connection())
-               c->send_address_request(0);
            connections.insert( c );
        }
        return "added connection";

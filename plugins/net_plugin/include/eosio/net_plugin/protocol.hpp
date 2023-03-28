@@ -173,11 +173,16 @@ namespace eosio {
             return host + ":" + port + address_type_str(address_type);
         }
 
-        static peer_address from_str(const std::string& address_str, bool is_manual) {
+        static peer_address from_str(const std::string& input_address_str, bool is_manual) {
+            std::string address_str = input_address_str;
+            string::size_type pos = address_str.find(' ');
+            if (pos != std::string::npos) {
+                address_str = address_str.substr(0, pos);
+            }
             string::size_type colon = address_str.find(':');
             string::size_type colon2 = address_str.find(':', colon + 1);
             string::size_type end = colon2 == string::npos
-                                    ? string::npos : address_str.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 ); // future proof by including most symbols without using regex
+                                    ? string::npos : address_str.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 );
             string host_str = address_str.substr( 0, colon );
             string port_str = address_str.substr( colon + 1, colon2 == string::npos ? string::npos : colon2 - (colon + 1));
             string type_str = colon2 == string::npos ? "" : end == string::npos ?
