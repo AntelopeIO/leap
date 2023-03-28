@@ -526,7 +526,11 @@ namespace eosio { namespace hotstuff {
 
          	_current_qc.quorum_met = true;
 
-				//ilog("=== Quorum met on #${block_num} ${proposal_id} ", ("block_num", p_itr->block_num())("proposal_id", vote.proposal_id));
+				if (_log) ilog("=== ${id} quorum met on #${block_num} ${phase_counter} ${proposal_id} ", 
+					("block_num", p_itr->block_num())
+					("phase_counter", p_itr->phase_counter)
+					("proposal_id", vote.proposal_id)
+					("id", _id));
 
 				//ilog("=== update_high_qc : _current_qc ===");
 				update_high_qc(_current_qc);

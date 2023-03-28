@@ -70,7 +70,10 @@ namespace eosio { namespace hotstuff {
 
 	    void add_message_to_queue(hotstuff_message msg);
 
-	    void propagate();
+	    std::vector<hotstuff_message> flush();
+
+	    void activate(name replica);
+	    void deactivate(name replica);
 
 	    //indexed_qc_chain get_qc_chain(name replica);
 

@@ -45,12 +45,13 @@ namespace eosio { namespace hotstuff {
     	_pending_message_queue.push_back(msg);
     }
 
-    void test_pacemaker::propagate(){
+    std::vector<test_pacemaker::hotstuff_message> test_pacemaker::flush(){
 
     	int count = 1;
 
     	//ilog(" === propagate ${count} messages", ("count", _pending_message_queue.size()));
 
+    	std::vector<test_pacemaker::hotstuff_message> flushed_messages = _pending_message_queue;
     	_message_queue = _pending_message_queue;
 
     	while (_pending_message_queue.begin()!=_pending_message_queue.end()){
@@ -99,6 +100,31 @@ namespace eosio { namespace hotstuff {
 
     	//ilog(" === end propagate");
 
+    	return _pending_message_queue;
+
+    }
+
+    void test_pacemaker::activate(name replica){
+
+		auto qc_itr = _qcc_store.get<by_name_id>().find( replica.to_uint64_t() );
+		
+		if (qc_itr==_qcc_store.end()) throw std::runtime_error("replica not found"); 
+    
+		_qcc_store.modify(qc_itr, [&]( auto& qcc ){
+			qcc._active = true;
+      	});
+    }
+
+    void test_pacemaker::deactivate(name replica){
+
+		auto qc_itr = _qcc_store.get<by_name_id>().find( replica.to_uint64_t() );
+		
+		if (qc_itr==_qcc_store.end()) throw std::runtime_error("replica not found"); 
+
+		_qcc_store.modify(qc_itr, [&]( auto& qcc ){
+			qcc._active = false;
+      	});
+
     }
 
    	name test_pacemaker::get_proposer(){
@@ -145,10 +171,6 @@ namespace eosio { namespace hotstuff {
 
     	if (itr!=_qcc_store.end()){
 
-    		_qcc_store.modify(itr, [&]( auto& qcc ){
-    			qcc._active = true;
-	      	});
-
 			throw std::runtime_error("duplicate qc chain"); 
 
     	}
@@ -166,9 +188,7 @@ namespace eosio { namespace hotstuff {
 
 		//ilog(" === register_listener 1 ${my_producers}", ("my_producers", iqcc._qc_chain->_my_producers));
 
-		_qcc_store.insert(iqcc);
-
-		//ilog("aaadddd");
+			_qcc_store.insert(iqcc);
 
     	//auto itr = _qcc_store.get<by_name_id>().find( name.to_uint64_t() );
 
@@ -185,11 +205,9 @@ namespace eosio { namespace hotstuff {
     	auto itr = _qcc_store.get<by_name_id>().find( name.to_uint64_t() );
 
     	if (itr!= _qcc_store.end()) {
-    	
-    		_qcc_store.modify(itr, [&]( auto& qcc ){
-    			qcc._active = false;
-	      	});
-    	
+    		
+    		_qcc_store.erase(itr);
+
     	}
     	else throw std::runtime_error("qc chain not found"); 
 
