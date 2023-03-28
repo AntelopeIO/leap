@@ -2295,6 +2295,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
 }
 
 read_only::get_abi_results read_only::get_abi( const get_abi_params& params, const fc::time_point& deadline )const {
+   try {
    get_abi_results result;
    result.account_name = params.account_name;
    const auto& d = db.db();
@@ -2305,9 +2306,11 @@ read_only::get_abi_results read_only::get_abi( const get_abi_params& params, con
    }
 
    return result;
+   } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account abi")
 }
 
 read_only::get_code_results read_only::get_code( const get_code_params& params, const fc::time_point& deadline )const {
+   try {
    get_code_results result;
    result.account_name = params.account_name;
    const auto& d = db.db();
@@ -2327,9 +2330,11 @@ read_only::get_code_results read_only::get_code( const get_code_params& params, 
    }
 
    return result;
+   } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account code")
 }
 
 read_only::get_code_hash_results read_only::get_code_hash( const get_code_hash_params& params, const fc::time_point& deadline )const {
+   try {
    get_code_hash_results result;
    result.account_name = params.account_name;
    const auto& d = db.db();
@@ -2339,9 +2344,11 @@ read_only::get_code_hash_results read_only::get_code_hash( const get_code_hash_p
       result.code_hash = accnt.code_hash;
 
    return result;
+   } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account code has")
 }
 
 read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi( const get_raw_code_and_abi_params& params, const fc::time_point& deadline)const {
+   try {
    get_raw_code_and_abi_results result;
    result.account_name = params.account_name;
 
@@ -2355,9 +2362,11 @@ read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi( const g
    result.abi = blob{{accnt_obj.abi.begin(), accnt_obj.abi.end()}};
 
    return result;
+   } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account code/abi")
 }
 
 read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params& params, const fc::time_point& deadline )const {
+   try {
    get_raw_abi_results result;
    result.account_name = params.account_name;
 
@@ -2371,9 +2380,11 @@ read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params&
       result.abi = blob{{accnt_obj.abi.begin(), accnt_obj.abi.end()}};
 
    return result;
+   } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account abi")
 }
 
 read_only::get_account_results read_only::get_account( const get_account_params& params, const fc::time_point& deadline )const {
+   try {
    get_account_results result;
    result.account_name = params.account_name;
 
@@ -2541,6 +2552,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
       }
    }
    return result;
+   } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account info")
 }
 
 read_only::get_required_keys_result read_only::get_required_keys( const get_required_keys_params& params, const fc::time_point& deadline )const {
