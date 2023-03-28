@@ -108,6 +108,11 @@ int chain_actions::run_subcommand_sstate() {
    }
 
    chainbase::db_header* dbheader = reinterpret_cast<chainbase::db_header*>(header);
+   if(dbheader->id != chainbase::header_id) {
+      std::string what_str("\"" + state_dir.generic_string() + "\" database format not compatible with this version of chainbase.");
+      std::cerr << what_str << std::endl;
+      return -1;
+   }
    if(dbheader->dirty) {
       std::cout << "Database dirty flag is set, shutdown was not clean" << std::endl;
       return -1;
