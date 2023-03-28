@@ -2853,6 +2853,8 @@ void producer_plugin_impl::start_write_window() {
    _ro_in_read_only_mode = false;
    _idle_trx_time = fc::time_point::now();
 
+   wlog("starting write window");
+
    _ro_window_deadline = _idle_trx_time + _ro_write_window_time_us; // not allowed on block producers, so no need to limit to block deadline
    auto expire_time = boost::posix_time::microseconds(_ro_write_window_time_us.count());
    _ro_timer.expires_from_now( expire_time );
@@ -2881,9 +2883,15 @@ void producer_plugin_impl::switch_to_read_window() {
       return;
    }
 
+   wlog("starting read window");
+
    auto& chain = chain_plug->chain();
    uint32_t pending_block_num = chain.head_block_num() + 1;
-   app().executor().set_to_read_window();
+   _ro_window_deadline = fc::time_point::now() + _ro_read_window_effective_time_us;
+   app().executor().set_to_read_window(_ro_thread_pool_size,
+      [received_block=&_received_block, pending_block_num, ro_window_deadline=_ro_window_deadline]() {
+         return fc::time_point::now() >= ro_window_deadline || (received_block->load() >= pending_block_num); // should_exit()
+      });
    chain.set_db_read_only_mode();
    _ro_in_read_only_mode = true;
    _ro_read_window_start_time = fc::time_point::now();
@@ -2892,7 +2900,6 @@ void producer_plugin_impl::switch_to_read_window() {
 
    // start a read-only transaction execution task in each thread in the thread pool
    _ro_num_active_exec_tasks = _ro_thread_pool_size;
-   _ro_window_deadline = fc::time_point::now() + _ro_read_window_effective_time_us;
    for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
       _ro_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this, pending_block_num] () {
          return self->read_only_execution_task(pending_block_num);
@@ -3010,6 +3017,7 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
 
       // Ensure the trx to finish by the end of read-window.
       auto trace = chain.push_transaction( trx, _ro_window_deadline, _ro_max_trx_time_us, 0, false, 0 );
+      _ro_all_threads_exec_time_us += (fc::time_point::now() - start).count();
       auto pr = handle_push_result(trx, next, start, chain, trace, true /*return_failure_trace*/, true /*disable_subjective_enforcement*/, {} /*first_auth*/, 0 /*sub_bill*/, 0 /*prev_billed_cpu_time_us*/);
       // If a transaction was exhausted, that indicates we are close to
       // the end of read window. Retry in next round.

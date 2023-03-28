@@ -1,6 +1,7 @@
 #pragma once
 #include <boost/asio.hpp>
 
+#include <condition_variable>
 #include <mutex>
 #include <queue>
 
@@ -12,12 +13,15 @@ class exec_pri_queue : public boost::asio::execution_context
 {
 public:
 
-   void enable_locking() {
+   void enable_locking(uint32_t num_threads, std::function<bool()> should_exit) {
       lock_enabled_ = true;
+      max_waiting_ = num_threads;
+      should_exit_ = std::move(should_exit);
    }
 
    void disable_locking() {
       lock_enabled_ = false;
+      should_exit_ = [](){ assert(false); return true; }; // should not be called when locking is disabled
    }
 
    // called from appbase::application_base::exec poll_one() or run_one()
@@ -28,6 +32,8 @@ public:
       if (lock_enabled_) {
          std::lock_guard g( mtx_ );
          handlers_.push( std::move( handler ) );
+         if (num_waiting_)
+            cond_.notify_one();
       } else {
          handlers_.push( std::move( handler ) );
       }
@@ -60,8 +66,26 @@ private:
 
 public:
 
-   bool execute_highest_locked() {
+   bool execute_highest_locked(bool should_block) {
       std::unique_lock g(mtx_);
+      if (should_block) {
+         ++num_waiting_;
+         cond_.wait(g, [this](){
+            bool exit = exiting_blocking_ || should_exit_();
+            bool empty = handlers_.empty();
+            if (empty || exit) {
+               if (((empty && num_waiting_ == max_waiting_) || exit) && !exiting_blocking_) {
+                  cond_.notify_all();
+                  exiting_blocking_ = true;
+               }
+               return exit || exiting_blocking_; // same as calling should_exit(), but faster
+            }
+            return true;
+         });
+         --num_waiting_;
+         if (exiting_blocking_ || should_exit_())
+            return false;
+      }
       if( handlers_.empty() )
          return false;
       auto t = pop();
@@ -196,6 +220,11 @@ private:
 
    bool lock_enabled_ = false;
    std::mutex mtx_;
+   std::condition_variable cond_;
+   uint32_t num_waiting_{0};
+   uint32_t max_waiting_{0};
+   bool exiting_blocking_{false};
+   std::function<bool()> should_exit_; // called holding mtx_
    using prio_queue = std::priority_queue<std::unique_ptr<queued_handler_base>, std::deque<std::unique_ptr<queued_handler_base>>, deref_less>;
    prio_queue handlers_;
 };

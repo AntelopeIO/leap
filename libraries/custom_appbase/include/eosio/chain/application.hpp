@@ -63,12 +63,12 @@ public:
          return !read_only_queue_.empty() || !read_write_queue_.empty();
       } else {
          // When in read window, multiple threads including main app thread are accessing two_queue_executor, locking required
-         return read_only_queue_.execute_highest_locked();
+         return read_only_queue_.execute_highest_locked(false);
       }
    }
 
    bool execute_highest_read_only() {
-      return read_only_queue_.execute_highest_locked();
+      return read_only_queue_.execute_highest_locked(true);
    }
 
    template <typename Function>
@@ -85,9 +85,9 @@ public:
       read_write_queue_.clear();
    }
 
-   void set_to_read_window() {
+   void set_to_read_window(uint32_t num_threads, std::function<bool()> should_exit) {
       exec_window_ = exec_window::read;
-      read_only_queue_.enable_locking();
+      read_only_queue_.enable_locking(num_threads, std::move(should_exit));
    }
 
    void set_to_write_window() {
