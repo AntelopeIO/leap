@@ -89,38 +89,6 @@ class trxData():
         self._calcdTimeEpoch = 0
 
 @dataclass
-class blkData():
-    blockId: int = 0
-    producer: str = ""
-    status: str = ""
-    _timestamp: str = field(init=True, repr=True, default='')
-    _calcdTimeEpoch: float = 0
-
-    def __post_init__(self):
-        self.timestamp = self._timestamp
-
-    @property
-    def timestamp(self):
-        return self._timestamp
-
-    @property
-    def calcdTimeEpoch(self):
-        return self._calcdTimeEpoch
-
-    @timestamp.setter
-    def timestamp(self, time: str):
-        self._timestamp = time[:-1]
-        # When we no longer support Python 3.6, would be great to update to use this
-        # self._calcdTimeEpoch = datetime.fromisoformat(time[:-1]).timestamp()
-        #Note block timestamp formatted like: '2022-09-30T16:48:13.500Z', but 'Z' is not part of python's recognized iso format, so strip it off the end
-        self._calcdTimeEpoch = datetime.strptime(time[:-1], "%Y-%m-%dT%H:%M:%S.%f").timestamp()
-
-    @timestamp.deleter
-    def timestamp(self):
-        self._timestamp = ""
-        self._calcdTimeEpoch = 0
-
-@dataclass
 class productionWindow():
     producer: str = ""
     startBlock: int = 0
@@ -149,13 +117,41 @@ class chainBlocksGuide():
 
 @dataclass
 class blockData():
-    partialBlockId: str = ""
+    blockId: int = 0
     blockNum: int = 0
     transactions: int = 0
     net: int = 0
     cpu: int = 0
     elapsed: int = 0
     time: int = 0
+    producer: str = ""
+    status: str = ""
+    _timestamp: str = field(init=True, repr=True, default='')
+    _calcdTimeEpoch: float = 0
+
+    def __post_init__(self):
+        self.timestamp = self._timestamp
+
+    @property
+    def timestamp(self):
+        return self._timestamp
+
+    @property
+    def calcdTimeEpoch(self):
+        return self._calcdTimeEpoch
+
+    @timestamp.setter
+    def timestamp(self, time: str):
+        self._timestamp = time[:-1]
+        # When we no longer support Python 3.6, would be great to update to use this
+        # self._calcdTimeEpoch = datetime.fromisoformat(time[:-1]).timestamp()
+        #Note block timestamp formatted like: '2022-09-30T16:48:13.500Z', but 'Z' is not part of python's recognized iso format, so strip it off the end
+        self._calcdTimeEpoch = datetime.strptime(time[:-1], "%Y-%m-%dT%H:%M:%S.%f").timestamp()
+
+    @timestamp.deleter
+    def timestamp(self):
+        self._timestamp = ""
+        self._calcdTimeEpoch = 0
 
 class chainData():
     def __init__(self):
@@ -240,7 +236,7 @@ def populateTrxSentTimestamp(trxSent: dict, trxDict: dict, notFound):
 def populateTrxLatencies(blockDict: dict, trxDict: dict):
     for trxId, data in trxDict.items():
         if data.calcdTimeEpoch != 0:
-            trxDict[trxId].latency = blockDict[data.blockNum].calcdTimeEpoch - data.calcdTimeEpoch
+            trxDict[trxId].latency = blockDict[str(data.blockNum)].calcdTimeEpoch - data.calcdTimeEpoch
 
 def writeTransactionMetrics(trxDict: dict, path):
     with open(path, 'wt') as transactionMetricsFile:
@@ -388,12 +384,11 @@ def calcBlockSizeStats(data: chainData, guide : chainBlocksGuide) -> stats:
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
         return stats(int(np.min(npBlkSizeList[:,0])), int(np.max(npBlkSizeList[:,0])), float(np.average(npBlkSizeList[:,0])), float(np.std(npBlkSizeList[:,0])), int(np.sum(npBlkSizeList[:,1])), len(prunedBlockDataLog))
 
-def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
+def calcTrxLatencyCpuNetStats(trxDict : dict):
     """Analyzes a test scenario's steady state block data for transaction latency statistics during the test window
 
     Keyword arguments:
     trxDict -- the dictionary mapping trx id to trxData, wherein the trx sent timestamp has been populated from the trx generator at moment of send
-    blockDict -- the dictionary of block number to blockData, wherein the block production timestamp is recorded
 
     Returns:
     transaction latency stats as a basicStats object
@@ -480,7 +475,7 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
     populateTrxLatencies(blockDict, trxDict)
     writeTransactionMetrics(trxDict, artifacts.transactionMetricsDataPath)
     guide = calcChainGuide(data, tpsTestConfig.numBlocksToPrune)
-    trxLatencyStats, trxCpuStats, trxNetStats = calcTrxLatencyCpuNetStats(trxDict, blockDict)
+    trxLatencyStats, trxCpuStats, trxNetStats = calcTrxLatencyCpuNetStats(trxDict)
     tpsStats = scoreTransfersPerSecond(data, guide)
     blkSizeStats = calcBlockSizeStats(data, guide)
     prodWindows = calcProductionWindows(prodDict)

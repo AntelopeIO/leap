@@ -103,14 +103,12 @@ class PerformanceTestBasic:
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
                 self.writeTrx = lambda trxDataFile, blockNum, trx: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n")]
-                self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['block_num']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['confirmed']},{block['payload']['timestamp']}\n")
                 self.specificExtraNodeosArgs.update({f"{node}" : '--plugin eosio::history_api_plugin --filter-on "*"' for node in range(self.pnodes, self._totalNodes)})
-                self.updateBlockDict = lambda blockNum, block, blockDict: blockDict.update(dict([(blockNum, log_reader.blkData(blockId=block["payload"]["id"], producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"]))]))
+                self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: log_reader.blockData(blockId=block["payload"]["id"], blockNum=block['payload']['block_num'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"])
                 self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction['trx']['id'], log_reader.trxData(blockNum, transaction['cpu_usage_us'],transaction['net_usage_words']))]))
             else:
                 self.writeTrx = lambda trxDataFile, blockNum, trx:[ trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['block_time']},{trx['cpu_usage_us']},{trx['net_usage_words']},{trx['actions']}\n") ]
-                self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
-                self.updateBlockDict = lambda blockNum, block, blockDict: blockDict.update(dict([(blockNum, log_reader.blkData(blockId=block["payload"]["id"], producer=block["payload"]["producer"], status=block["payload"]["status"], _timestamp=block["payload"]["timestamp"]))]))
+                self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: log_reader.blockData(blockId=block["payload"]["id"], blockNum=block['payload']['number'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["status"], _timestamp=block["payload"]["timestamp"])
                 self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction["id"], log_reader.trxData(blockNum=transaction["block_num"], cpuUsageUs=transaction["cpu_usage_us"], netUsageUs=transaction["net_usage_words"], blockTime=transaction["block_time"]))]))
     @dataclass
     class PtbConfig:
@@ -254,12 +252,14 @@ class PerformanceTestBasic:
                         blockCpuTotal += transaction["cpu_usage_us"]
                         blockNetTotal += transaction["net_usage_words"]
                         blockTransactionTotal += 1
-            self.clusterConfig.updateBlockDict(blockNum, block, blockDict)
+            blockData = self.clusterConfig.createBlockData(block=block, blockTransactionTotal=blockTransactionTotal,
+                                                           blockNetTotal=blockNetTotal, blockCpuTotal=blockCpuTotal)
+            self.data.blockLog.append(blockData)
+            blockDict[str(blockNum)] = blockData
             bdf_append_write = self.fileOpenMode(blockDataPath)
             with open(blockDataPath, bdf_append_write) as blockDataFile:
-                self.clusterConfig.writeBlock(blockDataFile, block)
+                blockDataFile.write(f"{blockData.blockNum},{blockData.blockId},{blockData.producer},{blockData.status},{blockData._timestamp}\n")
             # elapsed and time are only available in logs and are therefore updated in scrapeLog
-            self.data.blockLog.append(log_reader.blockData(block["payload"]["id"], blockNum, blockTransactionTotal, blockNetTotal, blockCpuTotal, elapsed=0, time=0))
             self.data.updateTotal(blockTransactionTotal, blockNetTotal, blockCpuTotal, elapsed=0, time=0)
 
     def waitForEmptyBlocks(self, node, numEmptyToWaitOn):
