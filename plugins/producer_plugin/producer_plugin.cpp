@@ -1116,8 +1116,15 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
       EOS_ASSERT( test_mode_ || my->_ro_thread_pool_size == 0 || my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
    } else if ( my->_producers.empty() ) {
-      // default to 3 threads for non producer nodes if not specified
-      my->_ro_thread_pool_size = 3;
+      if( options.count( "plugin" ) ) {
+         const auto& v = options.at( "plugin" ).as<std::vector<std::string>>();
+         auto i = std::find_if( v.cbegin(), v.cend(), []( const std::string& p ) { return p == "eosio::chain_api_plugin"; } );
+         if( i != v.cend() ) {
+            // default to 3 threads for non producer nodes running chain_api_plugin if not specified
+            my->_ro_thread_pool_size = 3;
+            ilog( "chain_api_plugin configured, defaulting read-only-threads to ${t}", ("t", my->_ro_thread_pool_size) );
+         }
+      }
    }
    // only initialize other read-only options when read-only thread pool is enabled
    if ( my->_ro_thread_pool_size > 0 ) {
