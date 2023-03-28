@@ -100,10 +100,13 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
    std::atomic<size_t> num_posts = 0;
    std::atomic<size_t> trace_with_except = 0;
    std::atomic<bool> trx_match = true;
-   const size_t num_pushes = 2558;
+   const size_t num_pushes = 4242;
 
    for( size_t i = 1; i <= num_pushes; ++i ) {
       auto ptrx = make_unique_trx( chain_id );
+      app->executor().post( priority::low, exec_queue::read_only, [&chain_plug=chain_plug]() {
+         chain_plug->get_read_only_api(fc::seconds(90)).get_account(chain_apis::read_only::get_account_params{.account_name=config::system_account_name}, fc::time_point::now()+fc::seconds(90));
+      });
       app->executor().post( priority::low, exec_queue::read_write, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
          ++num_posts;
          bool return_failure_traces = true;
@@ -126,6 +129,9 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
                }
                ++next_calls;
         });
+      });
+      app->executor().post( priority::low, exec_queue::read_only, [&chain_plug=chain_plug]() {
+         chain_plug->get_read_only_api(fc::seconds(90)).get_consensus_parameters(chain_apis::read_only::get_consensus_parameters_params{}, fc::time_point::now()+fc::seconds(90));
       });
    }
 
