@@ -112,6 +112,119 @@ namespace eosio {
       >
       > peer_block_state_index;
 
+   class address_manager {
+   private:
+       std::vector<peer_address> addresses;
+       mutable std::mutex addresses_mutex;
+
+   public:
+       // time_out for future address time out counting
+       explicit address_manager( uint32_t time_out );
+
+       void add_address(const peer_address& address);
+       void add_address_str(const std::string& address, bool is_manual);
+       void add_addresses(const std::vector<peer_address>& new_addresses);
+       void remove_address(const peer_address& address);
+       void remove_addresses(const std::vector<peer_address>& addresses_to_remove);
+       void update_address(const peer_address& updated_address);
+       std::vector<peer_address> get_addresses() const;
+       std::vector<peer_address> get_addresses(uint32_t start, uint32_t count) const;
+   };
+
+
+    void address_manager::add_address(const peer_address& address) {
+        std::unique_lock<std::mutex> lock(addresses_mutex);
+        // if same address, skip it, ignore other properties
+        if(std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
+            addresses.push_back(address);
+        }
+    }
+
+    void address_manager::add_address_str(const std::string& address, bool is_manual) {
+        string::size_type colon = address.find(':');
+        string::size_type colon2 = address.find(':', colon + 1);
+        string::size_type end = colon2 == string::npos
+                                ? string::npos : address.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 ); // future proof by including most symbols without using regex
+        string host_str = address.substr( 0, colon );
+        string port_str = address.substr( colon + 1, colon2 == string::npos ? string::npos : colon2 - (colon + 1));
+        string type_str = colon2 == string::npos ? "" : end == string::npos ?
+                                                        address.substr( colon2 + 1 ) : address.substr( colon2 + 1, end - (colon2 + 1) );
+
+        address_enum_type address_type;
+
+        // determine address type
+        if (type_str == "trx") {
+            address_type = trx;
+        } else if (type_str == "blk") {
+            address_type = blk;
+        } else if (type_str == "peer") {
+            address_type = peer;
+        } else if (type_str.empty()) {
+            address_type = both;
+        } else
+            address_type = all;
+
+        // create peer_address and add it to the manager
+        peer_address addr;
+        addr.host = host_str;
+        addr.port = port_str;
+        addr.address_type = address_type;
+        addr.last_active = fc::time_point::now();
+        addr.manual = is_manual;
+
+        // same address with different configurations is ignored
+        add_address(addr);
+    }
+
+    void address_manager::add_addresses(const std::vector<peer_address>& new_addresses) {
+        std::unique_lock<std::mutex> lock(addresses_mutex);
+        // if same address, skip it, ignore other properties
+        for (const auto& address : new_addresses) {
+            if (std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
+                addresses.push_back(address);
+            }
+        }
+    }
+
+    void address_manager::remove_address(const peer_address& address) {
+        std::unique_lock<std::mutex> lock(addresses_mutex);
+        auto it = std::find(addresses.begin(), addresses.end(), address);
+        if (it != addresses.end()) {
+            addresses.erase(it);
+        }
+    }
+
+    void address_manager::remove_addresses(const std::vector<peer_address>& addresses_to_remove) {
+        std::unique_lock<std::mutex> lock(addresses_mutex);
+        for (const auto& address : addresses_to_remove) {
+            auto it = std::find(addresses.begin(), addresses.end(), address);
+            if (it != addresses.end()) {
+                addresses.erase(it);
+            }
+        }
+    }
+
+    void address_manager::update_address(const peer_address& updated_address) {
+        std::unique_lock<std::mutex> lock(addresses_mutex);
+        auto it = std::find(addresses.begin(), addresses.end(), updated_address);
+        if (it != addresses.end()) {
+            *it = updated_address;
+        }
+    }
+
+    std::vector<peer_address> address_manager::get_addresses() const{
+        std::unique_lock<std::mutex> lock(addresses_mutex);
+        return addresses;
+    }
+
+    std::vector<peer_address> address_manager::get_addresses(uint32_t start, uint32_t count) const {
+        std::unique_lock<std::mutex> lock(addresses_mutex);
+        // make sure start and count is suitable
+        start = std::min(start, static_cast<uint32_t>(addresses.size()));
+        count = std::min(count, static_cast<uint32_t>(addresses.size() - start));
+        return std::vector<peer_address>(addresses.begin() + start, addresses.begin() + start + count);
+    }
+
 
    class sync_manager {
    private:
@@ -223,6 +336,7 @@ namespace eosio {
 
       unique_ptr< sync_manager >       sync_master;
       unique_ptr< dispatch_manager >   dispatcher;
+      unique_ptr< address_manager >    address_master;
 
       /**
        * Thread safe, only updated in plugin initialize
@@ -606,7 +720,22 @@ namespace eosio {
       void set_connection_type( const string& peer_addr );
       bool is_transactions_only_connection()const { return connection_type == transactions_only; }
       bool is_blocks_only_connection()const { return connection_type == blocks_only; }
-      void set_heartbeat_timeout(std::chrono::milliseconds msec) {
+      //add more connection type
+      bool is_peers_only_connection() const { return connection_type == peers_only; }
+
+      bool is_all_connection() const { return connection_type == all; }
+      bool is_both_connection() const { return connection_type == both; }
+
+      bool is_transactions_connection() const { return connection_type == transactions_only || is_both_connection() || is_all_connection(); }
+      bool is_blocks_connection() const { return connection_type == blocks_only || is_both_connection() || is_all_connection(); }
+      bool is_peers_connection() const { return connection_type == peers_only || is_all_connection(); }
+
+      bool is_no_transactions_connection() const { return !is_transactions_connection(); }
+      bool is_no_blocks_connection() const { return !is_blocks_connection(); }
+      bool is_no_peers_connection() const { return !is_peers_connection(); }
+
+
+       void set_heartbeat_timeout(std::chrono::milliseconds msec) {
          std::chrono::system_clock::duration dur = msec;
          hb_timeout = dur.count();
       }
@@ -624,7 +753,9 @@ namespace eosio {
       enum connection_types : char {
          both,
          transactions_only,
-         blocks_only
+         blocks_only,
+         peers_only,
+         all
       };
 
       std::atomic<connection_types>             connection_type{both};
@@ -761,6 +892,8 @@ namespace eosio {
       void flush_queues();
       bool enqueue_sync_block();
       void request_sync_blocks(uint32_t start, uint32_t end);
+      void enqueue_address_request(uint16_t request_type);
+
 
       void cancel_wait();
       void sync_wait();
@@ -796,6 +929,11 @@ namespace eosio {
       void handle_message( const notice_message& msg );
       void handle_message( const request_message& msg );
       void handle_message( const sync_request_message& msg );
+
+      // add address message request and receive handler
+      void handle_message( const address_request_message& msg );
+      void handle_message( const address_sync_message& msg );
+
       void handle_message( const signed_block& msg ) = delete; // signed_block_ptr overload used instead
       void handle_message( const block_id_type& id, signed_block_ptr msg );
       void handle_message( const packed_transaction& msg ) = delete; // packed_transaction_ptr overload used instead
@@ -877,6 +1015,19 @@ namespace eosio {
          peer_dlog( c, "handle sync_request_message" );
          c->handle_message( msg );
       }
+
+      //add address request and receive message handler
+      void operator()( const address_request_message& msg ) const {
+          // continue call to handle_message on connection strand
+          peer_dlog( c, "handle address_request_message" );
+          c->handle_message( msg );
+      }
+
+      void operator()( const address_sync_message& msg ) const {
+           // continue call to handle_message on connection strand
+           peer_dlog( c, "handle address_sync_message" );
+           c->handle_message( msg );
+      }
    };
 
 
@@ -897,7 +1048,8 @@ namespace eosio {
    void for_each_block_connection( Function f ) {
       std::shared_lock<std::shared_mutex> g( my_impl->connections_mtx );
       for( auto& c : my_impl->connections ) {
-         if( c->is_transactions_only_connection() ) continue;
+         // since connection type changed, skip connection not accept blocks
+         if( c->is_no_blocks_connection() ) continue;
          if( !f( c ) ) return;
       }
    }
@@ -965,6 +1117,12 @@ namespace eosio {
       } else if( type == "blk" ) {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to blocks only", ("c", connection_id)("peer", peer_add) );
          connection_type = blocks_only;
+      } else if( type == "peer" ) {
+          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to peers only", ("c", connection_id)("peer", peer_add) );
+          connection_type = peers_only;
+      } else if( type == "all" ) {
+          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to all types", ("c", connection_id)("peer", peer_add) );
+          connection_type = all;
       } else {
          fc_wlog( logger, "Unknown connection ${c} type: ${t}, for ${peer}", ("c", connection_id)("t", type)("peer", peer_add) );
       }
@@ -1162,6 +1320,16 @@ namespace eosio {
             c->enqueue( last_handshake_sent );
          }
       });
+   }
+
+   // called from connection strand
+   void connection::enqueue_address_request(uint16_t request_type) {
+       peer_dlog( this, "Sending address request type ${type}", ("type", request_type) );
+       address_request_message request_msg;
+       request_msg.type = request_type;
+       request_msg.node_id = my_impl->node_id;
+
+       enqueue(request_msg);
    }
 
    // called from connection strand
@@ -1658,7 +1826,8 @@ namespace eosio {
                auto cstart_it = cptr;
                do {
                   //select the first one which is current and has valid lib and break out.
-                  if( !(*cptr)->is_transactions_only_connection() && (*cptr)->current() ) {
+                  // since connection type changed, choose connection accept blocks
+                  if( (*cptr)->is_blocks_connection() && (*cptr)->current() ) {
                      std::lock_guard<std::mutex> g_conn( (*cptr)->conn_mtx );
                      if( (*cptr)->last_handshake_recv.last_irreversible_block_num >= sync_known_lib_num ) {
                         new_sync_source = *cptr;
@@ -1674,7 +1843,8 @@ namespace eosio {
       }
 
       // verify there is an available source
-      if( !new_sync_source || !new_sync_source->current() || new_sync_source->is_transactions_only_connection() ) {
+      // since connection type changed, skip connection not accept blocks
+      if( !new_sync_source || !new_sync_source->current() || new_sync_source->is_no_blocks_connection() ) {
          fc_elog( logger, "Unable to continue syncing at this time");
          if( !new_sync_source ) sync_source.reset();
          sync_known_lib_num = chain_info.lib_num;
@@ -1768,7 +1938,9 @@ namespace eosio {
    // called from c's connection strand
    void sync_manager::recv_handshake( const connection_ptr& c, const handshake_message& msg ) {
 
-      if( c->is_transactions_only_connection() ) return;
+      // since connection type changed, choose connection accept blocks
+
+      if( c->is_no_blocks_connection() ) return;
 
       auto chain_info = my_impl->get_chain_info();
 
@@ -2180,7 +2352,8 @@ namespace eosio {
       trx_buffer_factory buff_factory;
       const auto now = fc::time_point::now();
       for_each_connection( [this, &trx, &now, &buff_factory]( auto& cp ) {
-         if( cp->is_blocks_only_connection() || !cp->current() ) {
+         // since connection type changed, skip connection not accept transactions
+         if( cp->is_no_transactions_connection() || !cp->current() ) {
             return true;
          }
          if( !add_peer_txn(trx->id(), trx->expiration(), cp->connection_id, now) ) {
@@ -3155,6 +3328,38 @@ namespace eosio {
       }
    }
 
+   // add address message request and receive handler
+   void connection::handle_message( const address_request_message& msg ) {
+       peer_dlog(this, "address request type:${type} from ${node_id}", ("type", msg.type)("node_id", msg.node_id) );
+
+       std::vector<eosio::peer_address> addresses;
+       // 0 indicates the first request, 1 indicates the second request
+       // functions such as synchronization and broadcast need to be improved
+       if (msg.type == 0) {
+           addresses = my_impl->address_master->get_addresses(0,10);
+       } else {
+           addresses = my_impl->address_master->get_addresses(10,20);
+       }
+
+       address_sync_message addresses_msg;
+
+       for (const auto& address : addresses) {
+           // host:port:type
+           addresses_msg.addresses.emplace_back(address.to_str());
+       }
+
+       enqueue(addresses_msg);
+   }
+
+   void connection::handle_message( const address_sync_message& msg ) {
+       peer_dlog(this, "address sync message with ${size} addresses", ("size", msg.addresses.size()) );
+       for (const auto& address_str : msg.addresses) {
+           // host:port:type
+           my_impl->address_master->add_address_str(address_str, false);
+       }
+   }
+
+
    size_t calc_trx_size( const packed_transaction_ptr& trx ) {
       return trx->get_estimated_size();
    }
@@ -3597,8 +3802,11 @@ namespace eosio {
       if(hello.sig == chain::signature_type())
          hello.token = sha256();
       hello.p2p_address = my_impl->p2p_address;
+      // need read configurations to set peer type
       if( is_transactions_only_connection() ) hello.p2p_address += ":trx";
       if( is_blocks_only_connection() ) hello.p2p_address += ":blk";
+      if( is_peers_only_connection() ) hello.p2p_address += ":peer";
+      if( is_all_connection() ) hello.p2p_address += ":all";
       hello.p2p_address += " - " + hello.node_id.str().substr(0,7);
 #if defined( __APPLE__ )
       hello.os = "osx";
@@ -3684,6 +3892,9 @@ namespace eosio {
          fc_ilog( logger, "Initialize net plugin" );
 
          peer_log_format = options.at( "peer-log-format" ).as<string>();
+
+         //init address manager, timeout function is yet to be implemented
+         my->address_master.reset( new address_manager(0) );
 
          my->sync_master.reset( new sync_manager( options.at( "sync-fetch-span" ).as<uint32_t>()));
 
