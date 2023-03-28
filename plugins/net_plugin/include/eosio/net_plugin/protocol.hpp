@@ -172,6 +172,40 @@ namespace eosio {
         std::string to_str() const {
             return host + ":" + port + address_type_str(address_type);
         }
+
+        static peer_address from_str(const std::string& address_str, bool is_manual) {
+            string::size_type colon = address_str.find(':');
+            string::size_type colon2 = address_str.find(':', colon + 1);
+            string::size_type end = colon2 == string::npos
+                                    ? string::npos : address_str.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 ); // future proof by including most symbols without using regex
+            string host_str = address_str.substr( 0, colon );
+            string port_str = address_str.substr( colon + 1, colon2 == string::npos ? string::npos : colon2 - (colon + 1));
+            string type_str = colon2 == string::npos ? "" : end == string::npos ?
+                                                            address_str.substr( colon2 + 1 ) : address_str.substr( colon2 + 1, end - (colon2 + 1) );
+
+            address_enum_type address_type;
+
+            // determine address type
+            if (type_str == "trx") {
+                address_type = trx;
+            } else if (type_str == "blk") {
+                address_type = blk;
+            } else if (type_str == "peer") {
+                address_type = peer;
+            } else if (type_str.empty()) {
+                address_type = both;
+            } else
+                address_type = all;
+
+            peer_address address;
+            address.host = host_str;
+            address.port = port_str;
+            address.address_type = address_type;
+            address.last_active = fc::time_point::now();
+            address.manual = is_manual;
+            return address;
+        }
+
     };
 
     struct address_request_message {

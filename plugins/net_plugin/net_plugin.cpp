@@ -123,12 +123,16 @@ namespace eosio {
 
        void add_address(const peer_address& address);
        void add_address_str(const std::string& address, bool is_manual);
-       void add_addresses(const std::vector<peer_address>& new_addresses);
+       void add_addresses(const std::vector<std::string>& new_addresses_str, bool is_manual);
        void remove_address(const peer_address& address);
        void remove_addresses(const std::vector<peer_address>& addresses_to_remove);
        void update_address(const peer_address& updated_address);
        std::vector<peer_address> get_addresses() const;
        std::vector<peer_address> get_addresses(uint32_t start, uint32_t count) const;
+       std::vector<std::string> get_addresses_str() const;
+
+       bool has_address(const std::string& address_str) const;
+
    };
 
 
@@ -140,48 +144,20 @@ namespace eosio {
         }
     }
 
-    void address_manager::add_address_str(const std::string& address, bool is_manual) {
-        string::size_type colon = address.find(':');
-        string::size_type colon2 = address.find(':', colon + 1);
-        string::size_type end = colon2 == string::npos
-                                ? string::npos : address.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 ); // future proof by including most symbols without using regex
-        string host_str = address.substr( 0, colon );
-        string port_str = address.substr( colon + 1, colon2 == string::npos ? string::npos : colon2 - (colon + 1));
-        string type_str = colon2 == string::npos ? "" : end == string::npos ?
-                                                        address.substr( colon2 + 1 ) : address.substr( colon2 + 1, end - (colon2 + 1) );
-
-        address_enum_type address_type;
-
-        // determine address type
-        if (type_str == "trx") {
-            address_type = trx;
-        } else if (type_str == "blk") {
-            address_type = blk;
-        } else if (type_str == "peer") {
-            address_type = peer;
-        } else if (type_str.empty()) {
-            address_type = both;
-        } else
-            address_type = all;
-
-        // create peer_address and add it to the manager
-        peer_address addr;
-        addr.host = host_str;
-        addr.port = port_str;
-        addr.address_type = address_type;
-        addr.last_active = fc::time_point::now();
-        addr.manual = is_manual;
+    void address_manager::add_address_str(const std::string& address, bool is_manual ) {
+        peer_address addr = peer_address::from_str(address, is_manual);
 
         // same address with different configurations is ignored
         add_address(addr);
     }
 
-    void address_manager::add_addresses(const std::vector<peer_address>& new_addresses) {
+    void address_manager::add_addresses(const std::vector<std::string>& new_addresses, bool is_manual ) {
         std::unique_lock<std::mutex> lock(addresses_mutex);
         // if same address, skip it, ignore other properties
         for (const auto& address : new_addresses) {
-            if (std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
-                addresses.push_back(address);
+            peer_address addr = peer_address::from_str(address, is_manual);
+            if (std::find(addresses.begin(), addresses.end(), addr) == addresses.end()) {
+                addresses.push_back(addr);
             }
         }
     }
@@ -223,6 +199,25 @@ namespace eosio {
         start = std::min(start, static_cast<uint32_t>(addresses.size()));
         count = std::min(count, static_cast<uint32_t>(addresses.size() - start));
         return std::vector<peer_address>(addresses.begin() + start, addresses.begin() + start + count);
+    }
+
+    std::vector<std::string> address_manager::get_addresses_str() const {
+        std::vector<std::string> address_strs;
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        for (const auto& address : addresses) {
+            address_strs.push_back(address.to_str());
+        }
+        return address_strs;
+    }
+
+    bool address_manager::has_address(const std::string& address_str) const {
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        for (const auto& address : addresses) {
+            if (address.to_str() == address_str) {
+                return true;
+            }
+        }
+        return false;
     }
 
 
@@ -345,7 +340,6 @@ namespace eosio {
       string                                p2p_address;
       string                                p2p_server_address;
 
-      chain::flat_set<string>               supplied_peers;
       vector<chain::public_key_type>        allowed_peers; ///< peer keys allowed to connect
       std::map<chain::public_key_type,
                chain::private_key_type>     private_keys; ///< overlapping with producer keys, also authenticating non-producing nodes
@@ -3641,7 +3635,7 @@ namespace eosio {
             g.unlock();
             fc_dlog( logger, "Exiting connection monitor early, ran out of time: ${t}", ("t", max_time - fc::time_point::now()) );
             fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}",
-                     ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", supplied_peers.size()) );
+                     ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", address_master->get_addresses().size()) );
             if( reschedule ) {
                start_conn_timer( std::chrono::milliseconds( 1 ), wit ); // avoid exhausting
             }
@@ -3677,7 +3671,7 @@ namespace eosio {
 
       if( num_clients > 0 || num_peers > 0 )
          fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}, block producer peers: ${num_bp_peers}",
-                  ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", supplied_peers.size())("num_bp_peers", num_bp_peers) );
+                  ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", address_master->get_addresses().size())("num_bp_peers", num_bp_peers) );
       fc_dlog( logger, "connection monitor, removed ${n} connections", ("n", num_rm) );
       if( reschedule ) {
          start_conn_timer( connector_period, std::weak_ptr<connection>());
@@ -3933,7 +3927,7 @@ namespace eosio {
 
          if( options.count( "p2p-peer-address" )) {
             auto v = options.at( "p2p-peer-address" ).as<vector<string> >();
-            my->supplied_peers.insert(v.begin(), v.end());
+            my->address_master->add_addresses(v, true);
          }
          if( options.count( "agent-name" )) {
             my->user_agent_name = options.at( "agent-name" ).as<string>();
@@ -3944,7 +3938,7 @@ namespace eosio {
          if ( options.count( "p2p-auto-bp-peer")) {
             my->set_bp_peers(options.at( "p2p-auto-bp-peer" ).as<vector<string>>());
             my->for_each_bp_peer_address([this](const auto& addr) {
-               EOS_ASSERT(my->supplied_peers.count(addr) == 0, chain::plugin_config_exception,
+               EOS_ASSERT(!my->address_master->has_address(addr), chain::plugin_config_exception,
                           "\"${addr}\" should only appear in either p2p-peer-address or p2p-auto-bp-peer option, not both.",
                           ("addr",addr));
             });
@@ -4097,7 +4091,7 @@ namespace eosio {
          my->ticker();
          my->start_monitors();
          my->update_chain_info();
-         for( const auto& seed_node : my->supplied_peers ) {
+         for( const auto& seed_node : my->address_master->get_addresses_str() ) {
             my->connect( seed_node );
          }
       });
