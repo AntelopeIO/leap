@@ -57,8 +57,6 @@ set( fc_sources
      src/crypto/blake2.cpp
      src/crypto/k1_recover.cpp
      src/network/ip.cpp
-     src/network/resolve.cpp
-     src/network/udp_socket.cpp
      src/network/url.cpp
      src/network/http/http_client.cpp
      src/compress/zlib.cpp
