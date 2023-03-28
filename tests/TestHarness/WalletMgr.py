@@ -302,3 +302,5 @@ class WalletMgr(object):
         dataDir=WalletMgr.__walletDataDir
         if os.path.isdir(dataDir) and os.path.exists(dataDir):
             shutil.rmtree(WalletMgr.__walletDataDir)
+            os.remove(WalletMgr.__walletLogOutFile)
+            os.remove(WalletMgr.__walletLogErrFile)
