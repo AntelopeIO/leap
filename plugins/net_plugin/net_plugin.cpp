@@ -466,6 +466,8 @@ namespace eosio {
 
       connection_ptr find_connection(const string& host)const; // must call with held mutex
       string connect( const string& host );
+      string connect( const string& host, bool first_connect );
+
       string disconnect( const string& endpoint );
 
       template <typename Function>
@@ -846,6 +848,7 @@ namespace eosio {
        */
       bool process_next_message(uint32_t message_length);
 
+      void send_address_request(uint16_t request_type);
       void send_handshake();
 
       /** \name Peer Timestamps
@@ -1314,6 +1317,12 @@ namespace eosio {
             c->enqueue( last_handshake_sent );
          }
       });
+   }
+
+   void connection::send_address_request(uint16_t request_type) {
+       strand.post( [c = shared_from_this(), request_type]() {
+            c->enqueue_address_request(request_type);
+       });
    }
 
    // called from connection strand
@@ -4092,7 +4101,9 @@ namespace eosio {
          my->start_monitors();
          my->update_chain_info();
          for( const auto& seed_node : my->address_master->get_addresses_str() ) {
-            my->connect( seed_node );
+            // first connect peers from configuration
+            // once the connection is complete, an address request should be sent
+            my->connect( seed_node, true );
          }
       });
 
@@ -4130,18 +4141,25 @@ namespace eosio {
    }
 
    string net_plugin_impl::connect( const string& host ) {
-      std::lock_guard<std::shared_mutex> g( connections_mtx );
-      if( find_connection( host ) )
-         return "already connected";
+       return connect(host, false);
+   }
 
-      connection_ptr c = std::make_shared<connection>( host );
-      fc_dlog( logger, "calling active connector: ${h}", ("h", host) );
-      if( c->resolve_and_connect() ) {
-         fc_dlog( logger, "adding new connection to the list: ${host} ${cid}", ("host", host)("cid", c->connection_id) );
-         c->set_heartbeat_timeout( heartbeat_timeout );
-         connections.insert( c );
-      }
-      return "added connection";
+   // should send a address request on first connect
+   string net_plugin_impl::connect( const string& host, bool first_connect ) {
+       std::lock_guard<std::shared_mutex> g( connections_mtx );
+       if( find_connection( host ) )
+           return "already connected";
+
+       connection_ptr c = std::make_shared<connection>( host );
+       fc_dlog( logger, "calling active connector: ${h}", ("h", host) );
+       if( c->resolve_and_connect() ) {
+           fc_dlog( logger, "adding new connection to the list: ${host} ${cid}", ("host", host)("cid", c->connection_id) );
+           c->set_heartbeat_timeout( heartbeat_timeout );
+           if(first_connect && c->is_peers_connection())
+               c->send_address_request(0);
+           connections.insert( c );
+       }
+       return "added connection";
    }
 
    string net_plugin_impl::disconnect( const string& host ) {
