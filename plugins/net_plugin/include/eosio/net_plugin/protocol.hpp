@@ -135,24 +135,42 @@ namespace eosio {
       uint32_t end_block{0};
    };
 
-
     enum address_enum_type {
-        blk,
-        trx,
-        both,
-        peer,
-        all
+        blk      = 1 << 0, // 1
+        trx      = 1 << 1, // 2
+        peer     = 1 << 2, // 4
+        both     = 0x3,
+        all      = 0x7
     };
 
+    constexpr auto address_type_str( address_enum_type t ) {
+        switch( t ) {
+            case blk : return ":blk";
+            case trx : return ":trx";
+            case both : return "";
+            case peer : return ":peer";
+            default: return ":all";
+        }
+    }
+
     struct peer_address {
-        peer_address( address_enum_type t = all) : address(), address_type(t), last_active(), manual(false) {}
-        std::string address;
+        peer_address( address_enum_type t = all) : host(), port(), address_type(t), last_active(), manual(false) {}
+        std::string host;
+        std::string port;
         address_enum_type address_type;
         fc::time_point last_active;
         bool manual;
 
+        // if host and port are same then ignore other configuration
         bool operator==(const peer_address& other) const {
-            return address == other.address;
+            return host == other.host && port == other.port;
+        }
+
+        std::string to_address() const {
+            return host + ":" + port;
+        }
+        std::string to_str() const {
+            return host + ":" + port + address_type_str(address_type);
         }
     };
 
