@@ -1,13 +1,13 @@
 /**
-   It was reported from a customer that when file system which 
-   "data/blocks" belongs to is running out of space, the producer  
+   It was reported from a customer that when file system which
+   "data/blocks" belongs to is running out of space, the producer
    continued to produce blocks and update state but the blocks log was
    "corrupted" in that it no longer contained all the irreversible blocks.
    It was also observed that when file system which "data/state"
    belons to is running out of space, nodeos will crash with SIGBUS as
    the state file is unable to acquire new pages.
 
-   The solution is to have a dedicated plugin to monitor resource 
+   The solution is to have a dedicated plugin to monitor resource
    usages (file system space now, CPU, memory, and networking
    bandwidth in the future).
    The plugin uses a thread to periodically check space usage of file
@@ -32,7 +32,6 @@
 
 using namespace eosio::resource_monitor;
 
-namespace bfs = boost::filesystem;
 
 namespace eosio {
    static auto _resource_monitor_plugin = application::register_plugin<resource_monitor_plugin>();
@@ -62,7 +61,7 @@ public:
            "Number of resource monitor intervals between two consecutive warnings when the threshold is hit. Should be between 1 and 450" )
          ;
    }
-   
+
    void plugin_initialize(const appbase::variables_map& options) {
       dlog("plugin_initialize");
       try{
@@ -109,56 +108,56 @@ public:
          throw;
       }
    }
-   
+
    // Start main thread
    void plugin_startup() {
       ilog("Creating and starting monitor thread");
-   
+
       // By now all plugins are initialized.
       // Find out filesystems containing the directories requested
       // so far.
       for ( auto& dir: directories_registered ) {
          space_handler.add_file_system( dir );
-   
+
          // A directory like "data" contains subdirectories like
          // "block". Those subdirectories can mount on different
          // file systems. Make sure they are taken care of.
-         for (bfs::directory_iterator itr(dir); itr != bfs::directory_iterator(); ++itr) {
-            if (fc::is_directory(itr->path())) {
+         for (std::filesystem::directory_iterator itr(dir); itr != std::filesystem::directory_iterator(); ++itr) {
+            if (std::filesystem::is_directory(itr->path())) {
                space_handler.add_file_system( itr->path() );
             }
          }
       }
-   
+
       monitor_thread = std::thread( [this] {
-         fc::set_os_thread_name( "resmon" ); // console_appender uses 9 chars for thread name reporting. 
+         fc::set_os_thread_name( "resmon" ); // console_appender uses 9 chars for thread name reporting.
          space_handler.space_monitor_loop();
-   
+
          ctx.run();
       } );
    }
-   
+
    // System is shutting down.
    void plugin_shutdown() {
       ilog("shutdown...");
-   
+
       ctx.stop();
-   
+
       // Wait for the thread to end
       monitor_thread.join();
-   
+
       ilog("exit shutdown");
    }
 
-   void monitor_directory(const bfs::path& path) {
+   void monitor_directory(const std::filesystem::path& path) {
       dlog("${path} registered to be monitored", ("path", path.string()));
       directories_registered.push_back(path);
    }
 
 private:
    std::thread               monitor_thread;
-   std::vector<bfs::path>    directories_registered;
-   
+   std::vector<std::filesystem::path>    directories_registered;
+
    static constexpr uint32_t def_interval_in_secs = 2;
    static constexpr uint32_t monitor_interval_min = 1;
    static constexpr uint32_t monitor_interval_max = 300;
@@ -198,7 +197,7 @@ void resource_monitor_plugin::plugin_shutdown() {
    my->plugin_shutdown();
 }
 
-void resource_monitor_plugin::monitor_directory(const bfs::path& path) {
+void resource_monitor_plugin::monitor_directory(const std::filesystem::path& path) {
    my->monitor_directory( path );
 }
 

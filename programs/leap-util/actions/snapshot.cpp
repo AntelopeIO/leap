@@ -19,7 +19,6 @@
 using namespace eosio;
 using namespace eosio::chain;
 
-namespace bfs = boost::filesystem;
 
 void snapshot_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("snapshot", "Snapshot utility");
@@ -46,15 +45,15 @@ void snapshot_actions::setup(CLI::App& app) {
 
 int snapshot_actions::run_subcommand() {
    if(!opt->input_file.empty()) {
-      if(!fc::exists(opt->input_file)) {
+      if(!std::filesystem::exists(opt->input_file)) {
          std::cerr << "cannot load snapshot, " << opt->input_file
                    << " does not exist" << std::endl;
          return -1;
       }
    }
 
-   bfs::path snapshot_path = opt->input_file;
-   bfs::path json_path = opt->output_file.empty()
+   std::filesystem::path snapshot_path = opt->input_file;
+   std::filesystem::path json_path = opt->output_file.empty()
                                ? snapshot_path.generic_string() + ".json"
                                : opt->output_file;
    // determine chain id
@@ -72,17 +71,17 @@ int snapshot_actions::run_subcommand() {
    }
 
    // setup controller
-   bfs::path temp_dir = boost::filesystem::temp_directory_path() /
-                        boost::filesystem::unique_path();
-   bfs::path state_dir = temp_dir / "state";
-   bfs::path blocks_dir = temp_dir / "blocks";
+   fc::temp_directory dir;
+   const auto& temp_dir = dir.path();
+   std::filesystem::path state_dir = temp_dir / "state";
+   std::filesystem::path blocks_dir = temp_dir / "blocks";
    std::unique_ptr<controller> control;
    controller::config cfg;
    cfg.blocks_dir = blocks_dir;
    cfg.state_dir = state_dir;
    cfg.state_size = opt->db_size * 1024 * 1024;
    cfg.state_guard_size = opt->guard_size * 1024 * 1024;
-   protocol_feature_set pfs = initialize_protocol_features( bfs::path("protocol_features"), false );
+   protocol_feature_set pfs = initialize_protocol_features( std::filesystem::path("protocol_features"), false );
 
    try {
       auto infile = std::ifstream(snapshot_path.generic_string(),
@@ -107,11 +106,9 @@ int snapshot_actions::run_subcommand() {
    } catch(const database_guard_exception& e) {
       std::cerr << "Database is not configured to have enough storage to handle provided snapshot, please increase storage and try aagain" << std::endl;
       control.reset();
-      fc::remove_all(temp_dir);
       throw;
    }
 
-   fc::remove_all(temp_dir);
    ilog("Completed writing snapshot: ${s}", ("s", json_path.generic_string()));
    return 0;
 }

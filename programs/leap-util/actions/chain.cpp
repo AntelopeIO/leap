@@ -19,7 +19,6 @@
 #include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
 
-namespace bfs = boost::filesystem;
 using namespace eosio;
 using namespace eosio::chain;
 
@@ -51,9 +50,9 @@ void chain_actions::setup(CLI::App& app) {
 
 int chain_actions::run_subcommand_build() {
    if(!opt->build_output_file.empty()) {
-      bfs::path p = opt->build_output_file;
+      std::filesystem::path p = opt->build_output_file;
       if(p.is_relative()) {
-         p = bfs::current_path() / p;
+         p = std::filesystem::current_path() / p;
       }
       fc::json::save_to_file(chainbase::environment(), p, true);
       std::cout << "Saved build info JSON to '" <<  p.generic_string() << "'" << std::endl;

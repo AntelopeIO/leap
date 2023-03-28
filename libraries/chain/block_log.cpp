@@ -67,7 +67,7 @@ namespace eosio { namespace chain {
             sizeof(uint32_t) + sizeof(first_block_num) + sizeof(chain_id_type) + sizeof(block_log::npos);
 
       template <typename Stream>
-      void read_from(Stream& ds, const fc::path& log_path) {
+      void read_from(Stream& ds, const std::filesystem::path& log_path) {
          ds.read((char*)&ver, sizeof(ver));
          EOS_ASSERT(version() > 0, block_log_exception, "Block log was not setup properly");
          EOS_ASSERT(block_log::is_supported_version(version()), block_log_unsupported_version,
@@ -150,7 +150,7 @@ namespace eosio { namespace chain {
 
       class index_writer {
        public:
-         index_writer(const fc::path& block_index_name, uint32_t blocks_expected, bool create = true) {
+         index_writer(const std::filesystem::path& block_index_name, uint32_t blocks_expected, bool create = true) {
             index_file.set_file_path(block_index_name);
             auto mode = create ? fc::cfile::truncate_rw_mode : fc::cfile::update_rw_mode;
             index_file.open(mode);
@@ -204,12 +204,12 @@ namespace eosio { namespace chain {
 
        public:
          block_log_data() = default;
-         block_log_data(const fc::path& path) { open(path); }
+         block_log_data(const std::filesystem::path& path) { open(path); }
          uint64_t first_block_position() const { return first_block_pos; }
 
          const block_log_preamble& get_preamble() const { return preamble; }
 
-         void open(const fc::path& path) {
+         void open(const std::filesystem::path& path) {
             if (file.is_open())
                file.close();
             file.set_file_path(path);
@@ -312,20 +312,20 @@ namespace eosio { namespace chain {
          }
 
          std::tuple<uint64_t, uint32_t, std::string>
-         full_validate_blocks(uint32_t last_block_num, const fc::path& blocks_dir, fc::time_point now);
+         full_validate_blocks(uint32_t last_block_num, const std::filesystem::path& blocks_dir, fc::time_point now);
 
-         void construct_index(const fc::path& index_file_path);
+         void construct_index(const std::filesystem::path& index_file_path);
       };
 
       using block_log_index = eosio::chain::log_index<block_log_exception>;
 
       /// Provide the read only view for both blocks.log and blocks.index files
       struct block_log_bundle {
-         fc::path        block_file_name, index_file_name; // full pathname for blocks.log and blocks.index
+         std::filesystem::path        block_file_name, index_file_name; // full pathname for blocks.log and blocks.index
          block_log_data  log_data;
          block_log_index log_index;
 
-         block_log_bundle(fc::path block_file, fc::path index_file)
+         block_log_bundle(std::filesystem::path block_file, std::filesystem::path index_file)
              : block_file_name(std::move(block_file)), index_file_name(std::move(index_file)) {
 
             log_data.open(block_file_name);
@@ -345,7 +345,7 @@ namespace eosio { namespace chain {
                         "index_num_blocks", index_num_blocks)("index_file_name", index_file_name));
          }
 
-         explicit block_log_bundle(const fc::path& block_dir)
+         explicit block_log_bundle(const std::filesystem::path& block_dir)
              : block_log_bundle(block_dir / "blocks.log", block_dir / "blocks.index") {}
       };
 
@@ -405,7 +405,7 @@ namespace eosio { namespace chain {
          return num_blocks;
       }
 
-      void block_log_data::construct_index(const fc::path& index_file_path) {
+      void block_log_data::construct_index(const std::filesystem::path& index_file_path) {
          std::string index_file_name = index_file_path.generic_string();
          ilog("Will write new blocks.index file ${file}", ("file", index_file_name));
 
@@ -438,7 +438,7 @@ namespace eosio { namespace chain {
    struct block_log_verifier {
       chain_id_type chain_id = chain_id_type::empty_chain_id();
 
-      void verify(block_log_data& log, const boost::filesystem::path& log_path) {
+      void verify(block_log_data& log, const std::filesystem::path& log_path) {
          if (chain_id.empty()) {
             chain_id = log.chain_id();
          } else {
@@ -496,9 +496,9 @@ namespace eosio { namespace chain {
 
       /// Would remove pre-existing block log and index, never write blocks into disk.
       struct empty_block_log final : block_log_impl {
-         explicit empty_block_log(const bfs::path& log_dir) {
-            fc::remove(log_dir / "blocks.log");
-            fc::remove(log_dir / "blocks.index");
+         explicit empty_block_log(const std::filesystem::path& log_dir) {
+            std::filesystem::remove(log_dir / "blocks.log");
+            std::filesystem::remove(log_dir / "blocks.index");
          }
 
          uint32_t first_block_num() final { return head ? head->block_num() : 1; }
@@ -526,10 +526,10 @@ namespace eosio { namespace chain {
 
          basic_block_log() = default;
 
-         explicit basic_block_log(bfs::path log_dir) { open(log_dir); }
+         explicit basic_block_log(std::filesystem::path log_dir) { open(log_dir); }
 
          static void ensure_file_exists(fc::cfile& f) {
-            if (fc::exists(f.get_file_path()))
+            if (std::filesystem::exists(f.get_file_path()))
                return;
             f.open(fc::cfile::create_or_update_rw_mode);
             f.close();
@@ -544,7 +544,7 @@ namespace eosio { namespace chain {
                   index_file.open(fc::cfile::update_rw_mode);
                   vacuum(first_block_num_from_pruned_log(), preamble.first_block_num);
                } else {
-                  fc::resize_file(index_file.get_file_path(), 0);
+                  std::filesystem::resize_file(index_file.get_file_path(), 0);
                }
                preamble.ver = preamble.version();
             }
@@ -621,10 +621,10 @@ namespace eosio { namespace chain {
             FC_LOG_AND_RETHROW()
          }
 
-         void open(const fc::path& data_dir) {
+         void open(const std::filesystem::path& data_dir) {
 
-            if (!fc::is_directory(data_dir))
-               fc::create_directories(data_dir);
+            if (!std::filesystem::is_directory(data_dir))
+               std::filesystem::create_directories(data_dir);
 
             this->block_file.set_file_path(data_dir / "blocks.log");
             this->index_file.set_file_path(data_dir / "blocks.index");
@@ -649,8 +649,8 @@ namespace eosio { namespace chain {
              */
             ensure_file_exists(block_file);
             ensure_file_exists(index_file);
-            auto log_size   = fc::file_size(this->block_file.get_file_path());
-            auto index_size = fc::file_size(this->index_file.get_file_path());
+            auto log_size   = std::filesystem::file_size(this->block_file.get_file_path());
+            auto index_size = std::filesystem::file_size(this->index_file.get_file_path());
 
             if (log_size) {
                block_log_data log_data(block_file.get_file_path());
@@ -689,7 +689,7 @@ namespace eosio { namespace chain {
 
             } else if (index_size) {
                ilog("Log file is empty while the index file is nonempty, discard the index file");
-               boost::filesystem::resize_file(index_file.get_file_path(), 0);
+               std::filesystem::resize_file(index_file.get_file_path(), 0);
             }
 
             if (!block_file.is_open())
@@ -793,8 +793,8 @@ namespace eosio { namespace chain {
             //  and it'll mess this all up. Be sure to still remove the 4 byte trailer though.
             if (!head) {
                block_file.flush();
-               fc::resize_file(block_file.get_file_path(),
-                               fc::file_size(block_file.get_file_path()) - sizeof(uint32_t));
+               std::filesystem::resize_file(block_file.get_file_path(),
+                                            std::filesystem::file_size(block_file.get_file_path()) - sizeof(uint32_t));
                return;
             }
 
@@ -829,7 +829,7 @@ namespace eosio { namespace chain {
                }
             }
             block_file.flush();
-            fc::resize_file(block_file.get_file_path(), block_file.tellp());
+            std::filesystem::resize_file(block_file.get_file_path(), block_file.tellp());
 
             index_file.flush();
             {
@@ -847,7 +847,7 @@ namespace eosio { namespace chain {
                   block_file.write((char*)&new_pos, sizeof(new_pos));
                }
             }
-            fc::resize_file(index_file.get_file_path(), num_blocks_in_log * sizeof(uint64_t));
+            std::filesystem::resize_file(index_file.get_file_path(), num_blocks_in_log * sizeof(uint64_t));
 
             preamble.first_block_num = first_block_num;
          }
@@ -894,7 +894,7 @@ namespace eosio { namespace chain {
             return block_file.tellp();
          }
 
-         static void write_incomplete_block_data(const fc::path& blocks_dir, fc::time_point now, uint32_t block_num,
+         static void write_incomplete_block_data(const std::filesystem::path& blocks_dir, fc::time_point now, uint32_t block_num,
                                                  fc::cfile& strm) {
             auto      tail_path = blocks_dir / std::string("blocks-bad-tail-").append(now).append(".log");
             fc::cfile tail;
@@ -932,7 +932,7 @@ namespace eosio { namespace chain {
 
                write_incomplete_block_data(block_file.get_file_path().parent_path(), fc::time_point::now(),
                                            expected_block_num + 1, ds);
-               boost::filesystem::resize_file(block_file.get_file_path(), trimmed_block_file_size);
+               std::filesystem::resize_file(block_file.get_file_path(), trimmed_block_file_size);
                return true;
             } catch (...) { return false; }
          }
@@ -944,12 +944,12 @@ namespace eosio { namespace chain {
          block_log_catalog catalog;
          const size_t      stride;
 
-         partitioned_block_log(const bfs::path& log_dir, const partitioned_blocklog_config& config) : stride(config.stride) {
+         partitioned_block_log(const std::filesystem::path& log_dir, const partitioned_blocklog_config& config) : stride(config.stride) {
             catalog.open(log_dir, config.retained_dir, config.archive_dir, "blocks");
             catalog.max_retained_files = config.max_retained_files;
 
             open(log_dir);
-            const auto log_size = fc::file_size(block_file.get_file_path());
+            const auto log_size = std::filesystem::file_size(block_file.get_file_path());
 
             if (log_size == 0 && !catalog.empty()) {
                basic_block_log::reset(catalog.verifier.chain_id, catalog.last_block_num() + 1);
@@ -965,12 +965,12 @@ namespace eosio { namespace chain {
             fc::datastream<fc::cfile> new_block_file;
             fc::datastream<fc::cfile> new_index_file;
 
-            fc::path block_file_path = block_file.get_file_path();
-            fc::path index_file_path = index_file.get_file_path();
+            std::filesystem::path block_file_path = block_file.get_file_path();
+            std::filesystem::path index_file_path = index_file.get_file_path();
 
-            fc::path tmp_block_file_path = block_file_path;
+            std::filesystem::path tmp_block_file_path = block_file_path;
             tmp_block_file_path.replace_extension("log.tmp");
-            fc::path tmp_index_file_path = index_file_path;
+            std::filesystem::path tmp_index_file_path = index_file_path;
             tmp_index_file_path.replace_extension("index.tmp");
 
             new_block_file.set_file_path(tmp_block_file_path);
@@ -996,8 +996,8 @@ namespace eosio { namespace chain {
             swap(new_block_file, block_file);
             swap(new_index_file, index_file);
 
-            fc::rename(tmp_block_file_path, block_file_path);
-            fc::rename(tmp_index_file_path, index_file_path);
+            std::filesystem::rename(tmp_block_file_path, block_file_path);
+            std::filesystem::rename(tmp_index_file_path, index_file_path);
 
             block_file.set_file_path(block_file_path);
             index_file.set_file_path(index_file_path);
@@ -1046,7 +1046,7 @@ namespace eosio { namespace chain {
          uint32_t              first_block_number = 0; // the first number available to read
          prune_blocklog_config prune_config;
 
-         punch_hole_block_log(const fc::path& data_dir, const prune_blocklog_config& prune_conf)
+         punch_hole_block_log(const std::filesystem::path& data_dir, const prune_blocklog_config& prune_conf)
              : prune_config(prune_conf) {
             EOS_ASSERT(__builtin_popcount(prune_config.prune_threshold) == 1, block_log_exception,
                        "block log prune threshold must be power of 2");
@@ -1168,7 +1168,7 @@ namespace eosio { namespace chain {
 
    } // namespace detail
 
-   block_log::block_log(const fc::path& data_dir, const block_log_config& config)
+   block_log::block_log(const std::filesystem::path& data_dir, const block_log_config& config)
        : my(std::visit(overloaded{ [&data_dir](const basic_blocklog_config& conf) -> detail::block_log_impl* {
                                      return new detail::basic_block_log(data_dir);
                                   },
@@ -1263,7 +1263,7 @@ namespace eosio { namespace chain {
    }
 
    // static
-   void block_log::construct_index(const fc::path& block_file_name, const fc::path& index_file_name) {
+   void block_log::construct_index(const std::filesystem::path& block_file_name, const std::filesystem::path& index_file_name) {
 
       ilog("Will read existing blocks.log file ${file}", ("file", block_file_name.generic_string()));
       ilog("Will write new blocks.index file ${file}", ("file", index_file_name.generic_string()));
@@ -1273,7 +1273,7 @@ namespace eosio { namespace chain {
    }
 
    std::tuple<uint64_t, uint32_t, std::string>
-   block_log_data::full_validate_blocks(uint32_t last_block_num, const fc::path& blocks_dir, fc::time_point now) {
+   block_log_data::full_validate_blocks(uint32_t last_block_num, const std::filesystem::path& blocks_dir, fc::time_point now) {
       uint64_t      pos       = first_block_position();
       uint32_t      block_num = first_block_num() - 1;
       std::string   error_msg;
@@ -1306,32 +1306,32 @@ namespace eosio { namespace chain {
    }
 
    // static
-   fc::path block_log::repair_log(const fc::path& data_dir, uint32_t truncate_at_block,
+   std::filesystem::path block_log::repair_log(const std::filesystem::path& data_dir, uint32_t truncate_at_block,
                                   const char* reversible_block_dir_name) {
       ilog("Recovering Block Log...");
-      EOS_ASSERT(fc::is_directory(data_dir) && fc::is_regular_file(data_dir / "blocks.log"), block_log_not_found,
+      EOS_ASSERT(std::filesystem::is_directory(data_dir) && std::filesystem::is_regular_file(data_dir / "blocks.log"), block_log_not_found,
                  "Block log not found in '${blocks_dir}'", ("blocks_dir", data_dir));
 
       if (truncate_at_block == 0)
          truncate_at_block = UINT32_MAX;
 
       auto now        = fc::time_point::now();
-      auto blocks_dir = fc::canonical(
+      auto blocks_dir = std::filesystem::canonical(
             data_dir); // canonical always returns an absolute path that has no symbolic link, dot, or dot-dot elements
       auto blocks_dir_name = blocks_dir.filename();
       auto backup_dir      = blocks_dir.parent_path() / blocks_dir_name.generic_string().append("-").append(now);
 
-      EOS_ASSERT(!fc::exists(backup_dir), block_log_backup_dir_exist,
+      EOS_ASSERT(!std::filesystem::exists(backup_dir), block_log_backup_dir_exist,
                  "Cannot move existing blocks directory to already existing directory '${new_blocks_dir}'",
                  ("new_blocks_dir", backup_dir));
 
-      fc::create_directories(backup_dir);
-      fc::rename(blocks_dir / "blocks.log", backup_dir / "blocks.log");
-      if (fc::exists(blocks_dir / "blocks.index")) {
-         fc::rename(blocks_dir / "blocks.index", backup_dir / "blocks.index");
+      std::filesystem::create_directories(backup_dir);
+      std::filesystem::rename(blocks_dir / "blocks.log", backup_dir / "blocks.log");
+      if (std::filesystem::exists(blocks_dir / "blocks.index")) {
+         std::filesystem::rename(blocks_dir / "blocks.index", backup_dir / "blocks.index");
       }
-      if (strlen(reversible_block_dir_name) && fc::is_directory(blocks_dir / reversible_block_dir_name)) {
-         fc::rename(blocks_dir / reversible_block_dir_name, backup_dir / reversible_block_dir_name);
+      if (strlen(reversible_block_dir_name) && std::filesystem::is_directory(blocks_dir / reversible_block_dir_name)) {
+         std::filesystem::rename(blocks_dir / reversible_block_dir_name, backup_dir / reversible_block_dir_name);
       }
       ilog("Moved existing blocks directory to backup location: '${new_blocks_dir}'", ("new_blocks_dir", backup_dir));
 
@@ -1370,15 +1370,15 @@ namespace eosio { namespace chain {
    }
 
    // static
-   std::optional<genesis_state> block_log::extract_genesis_state(const fc::path& block_dir) {
-      boost::filesystem::path p(block_dir / "blocks.log");
+   std::optional<genesis_state> block_log::extract_genesis_state(const std::filesystem::path& block_dir) {
+      std::filesystem::path p(block_dir / "blocks.log");
       for_each_file_in_dir_matches(block_dir, R"(blocks-1-\d+\.log)",
-                                   [&p](boost::filesystem::path log_path) { p = std::move(log_path); });
+                                   [&p](std::filesystem::path log_path) { p = std::move(log_path); });
       return block_log_data(p).get_genesis_state();
    }
 
    // static
-   chain_id_type block_log::extract_chain_id(const fc::path& data_dir) {
+   chain_id_type block_log::extract_chain_id(const std::filesystem::path& data_dir) {
       return block_log_data(data_dir / "blocks.log").chain_id();
    }
 
@@ -1398,7 +1398,7 @@ namespace eosio { namespace chain {
    }
 
    // static
-   bool block_log::is_pruned_log(const fc::path& data_dir) {
+   bool block_log::is_pruned_log(const std::filesystem::path& data_dir) {
       uint32_t version = 0;
       try {
          fc::cfile log_file;
@@ -1409,7 +1409,7 @@ namespace eosio { namespace chain {
       return detail::is_pruned_log_and_mask_version(version);
    }
 
-   void extract_blocklog_i(block_log_bundle& log_bundle, const fc::path& new_block_filename, const fc::path& new_index_filename,
+   void extract_blocklog_i(block_log_bundle& log_bundle, const std::filesystem::path& new_block_filename, const std::filesystem::path& new_index_filename,
                            uint32_t first_block_num, uint32_t num_blocks) {
 
       auto position_for_block = [&log_bundle](uint64_t block_num) {
@@ -1458,7 +1458,7 @@ namespace eosio { namespace chain {
    }
 
    // static
-   bool block_log::trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir,
+   bool block_log::trim_blocklog_front(const std::filesystem::path& block_dir, const std::filesystem::path& temp_dir,
                                        uint32_t truncate_at_block) {
       EOS_ASSERT(block_dir != temp_dir, block_log_exception, "block_dir and temp_dir need to be different directories");
 
@@ -1478,17 +1478,17 @@ namespace eosio { namespace chain {
       }
 
       // ****** create the new block log file and write out the header for the file
-      fc::create_directories(temp_dir);
-      fc::path new_block_filename = temp_dir / "blocks.log";
-      fc::path new_index_filename = temp_dir / "blocks.index";
+      std::filesystem::create_directories(temp_dir);
+      std::filesystem::path new_block_filename = temp_dir / "blocks.log";
+      std::filesystem::path new_index_filename = temp_dir / "blocks.index";
 
       extract_blocklog_i(log_bundle, new_block_filename, new_index_filename, truncate_at_block,
                          log_bundle.log_data.last_block_num() - truncate_at_block + 1);
 
-      fc::path old_log = temp_dir / "old.log";
+      std::filesystem::path old_log = temp_dir / "old.log";
       rename(log_bundle.block_file_name, old_log);
       rename(new_block_filename, log_bundle.block_file_name);
-      fc::path old_ind = temp_dir / "old.index";
+      std::filesystem::path old_ind = temp_dir / "old.index";
       rename(log_bundle.index_file_name, old_ind);
       rename(new_index_filename, log_bundle.index_file_name);
 
@@ -1496,7 +1496,7 @@ namespace eosio { namespace chain {
    }
 
    // static
-   int block_log::trim_blocklog_end(const fc::path& block_dir, uint32_t n) { // n is last block to keep (remove later blocks)
+   int block_log::trim_blocklog_end(const std::filesystem::path& block_dir, uint32_t n) { // n is last block to keep (remove later blocks)
 
       block_log_bundle log_bundle(block_dir);
 
@@ -1519,14 +1519,14 @@ namespace eosio { namespace chain {
       const auto to_trim_block_position = log_bundle.log_index.nth_block_position(to_trim_block_index);
       const auto index_file_size        = to_trim_block_index * sizeof(uint64_t);
 
-      boost::filesystem::resize_file(log_bundle.block_file_name, to_trim_block_position);
-      boost::filesystem::resize_file(log_bundle.index_file_name, index_file_size);
+      std::filesystem::resize_file(log_bundle.block_file_name, to_trim_block_position);
+      std::filesystem::resize_file(log_bundle.index_file_name, index_file_size);
       ilog("blocks.index has been trimmed to ${index_file_size} bytes", ("index_file_size", index_file_size));
       return 0;
    }
 
    // static
-   void block_log::smoke_test(const fc::path& block_dir, uint32_t interval) {
+   void block_log::smoke_test(const std::filesystem::path& block_dir, uint32_t interval) {
 
       block_log_bundle log_bundle(block_dir);
 
@@ -1543,18 +1543,18 @@ namespace eosio { namespace chain {
       }
    }
 
-   std::pair<fc::path, fc::path> blocklog_files(const fc::path& dir, uint32_t start_block_num, uint32_t num_blocks) {
+   std::pair<std::filesystem::path, std::filesystem::path> blocklog_files(const std::filesystem::path& dir, uint32_t start_block_num, uint32_t num_blocks) {
       const int bufsize = 64;
       char      buf[bufsize];
       snprintf(buf, bufsize, "blocks-%u-%u.log", start_block_num, start_block_num + num_blocks - 1);
-      fc::path new_block_filename = dir / buf;
-      fc::path new_index_filename(new_block_filename);
+      std::filesystem::path new_block_filename = dir / buf;
+      std::filesystem::path new_index_filename(new_block_filename);
       new_index_filename.replace_extension(".index");
       return std::make_pair(new_block_filename, new_index_filename);
    }
 
    // static
-   void block_log::extract_block_range(const fc::path& block_dir, const fc::path& dest_dir,
+   void block_log::extract_block_range(const std::filesystem::path& block_dir, const std::filesystem::path& dest_dir,
                                        block_num_type start_block_num, block_num_type last_block_num) {
 
 
@@ -1564,8 +1564,8 @@ namespace eosio { namespace chain {
                  "The first available block is block ${first_block}.",
                  ("first_block", log_bundle.log_data.first_block_num()));
 
-      if (!fc::exists(dest_dir))
-         fc::create_directories(dest_dir);
+      if (!std::filesystem::exists(dest_dir))
+         std::filesystem::create_directories(dest_dir);
 
       uint32_t num_blocks = last_block_num - start_block_num + 1;
 
@@ -1575,14 +1575,14 @@ namespace eosio { namespace chain {
    }
 
    // static
-   void block_log::split_blocklog(const fc::path& block_dir, const fc::path& dest_dir, uint32_t stride) {
+   void block_log::split_blocklog(const std::filesystem::path& block_dir, const std::filesystem::path& dest_dir, uint32_t stride) {
 
       block_log_bundle log_bundle(block_dir);
       const uint32_t   first_block_num = log_bundle.log_data.first_block_num();
       const uint32_t   last_block_num  = log_bundle.log_data.last_block_num();
 
-      if (!fc::exists(dest_dir))
-         fc::create_directories(dest_dir);
+      if (!std::filesystem::exists(dest_dir))
+         std::filesystem::create_directories(dest_dir);
 
       for (uint32_t i = (first_block_num - 1) / stride; i < (last_block_num + stride - 1) / stride; ++i) {
          uint32_t start_block_num = std::max(i * stride + 1, first_block_num);
@@ -1594,16 +1594,16 @@ namespace eosio { namespace chain {
       }
    }
 
-   inline bfs::path operator+(const bfs::path& left, const bfs::path& right) { return bfs::path(left) += right; }
+   inline std::filesystem::path operator+(const std::filesystem::path& left, const std::filesystem::path& right) { return std::filesystem::path(left) += right; }
 
-   void move_blocklog_files(const bfs::path& src_dir, const fc::path& dest_dir, uint32_t start_block,
+   void move_blocklog_files(const std::filesystem::path& src_dir, const std::filesystem::path& dest_dir, uint32_t start_block,
                             uint32_t end_block) {
       auto [log_filename, index_filename] = blocklog_files(dest_dir, start_block, end_block - start_block + 1);
-      bfs::rename(src_dir / "blocks.log", log_filename);
-      bfs::rename(src_dir / "blocks.index", index_filename);
+      std::filesystem::rename(src_dir / "blocks.log", log_filename);
+      std::filesystem::rename(src_dir / "blocks.index", index_filename);
    }
 
-   uint32_t get_blocklog_version(const bfs::path& blocklog_file) {
+   uint32_t get_blocklog_version(const std::filesystem::path& blocklog_file) {
       uint32_t  version;
       fc::cfile f;
       f.set_file_path(blocklog_file.generic_string());
@@ -1613,7 +1613,7 @@ namespace eosio { namespace chain {
    }
 
    // static
-   void block_log::merge_blocklogs(const fc::path& blocks_dir, const fc::path& dest_dir) {
+   void block_log::merge_blocklogs(const std::filesystem::path& blocks_dir, const std::filesystem::path& dest_dir) {
       block_log_catalog catalog;
 
       catalog.open("", blocks_dir, "", "blocks");
@@ -1622,20 +1622,20 @@ namespace eosio { namespace chain {
          return;
       }
 
-      if (!fc::exists(dest_dir))
-         fc::create_directories(dest_dir);
+      if (!std::filesystem::exists(dest_dir))
+         std::filesystem::create_directories(dest_dir);
 
-      fc::temp_directory temp_dir;
-      bfs::path          temp_path   = temp_dir.path();
-      uint32_t           start_block = 0, end_block = 0;
+      fc::temp_directory    temp_dir;
+      std::filesystem::path temp_path   = temp_dir.path();
+      uint32_t              start_block = 0, end_block = 0;
 
-      bfs::path                 temp_block_log   = temp_path / "blocks.log";
-      bfs::path                 temp_block_index = temp_path / "blocks.index";
+      std::filesystem::path     temp_block_log   = temp_path / "blocks.log";
+      std::filesystem::path     temp_block_index = temp_path / "blocks.index";
       fc::datastream<fc::cfile> file;
       file.set_file_path(temp_block_log);
 
       for (auto const& [first_block_num, val] : catalog.collection) {
-         if (bfs::exists(temp_block_log)) {
+         if (std::filesystem::exists(temp_block_log)) {
             if (first_block_num == end_block + 1) {
                block_log_data log_data;
                log_data.open(val.filename_base + ".log");
@@ -1659,8 +1659,8 @@ namespace eosio { namespace chain {
             move_blocklog_files(temp_path, dest_dir, start_block, end_block);
          }
 
-         bfs::copy(val.filename_base + ".log", temp_block_log);
-         bfs::copy(val.filename_base + ".index", temp_block_index);
+         std::filesystem::copy(val.filename_base + ".log", temp_block_log);
+         std::filesystem::copy(val.filename_base + ".index", temp_block_index);
          start_block = first_block_num;
          end_block   = val.last_block_num;
       }
@@ -1668,7 +1668,7 @@ namespace eosio { namespace chain {
       if (file.is_open())
          file.close();
 
-      if (bfs::exists(temp_block_log)) {
+      if (std::filesystem::exists(temp_block_log)) {
          move_blocklog_files(temp_path, dest_dir, start_block, end_block);
       }
    }

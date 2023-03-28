@@ -349,14 +349,14 @@ public:
       if(found != _unix_url_paths.end())
          return found->second;
 
-      boost::filesystem::path socket_file(full_url);
+      std::filesystem::path socket_file(full_url);
       if(socket_file.is_relative())
          FC_THROW_EXCEPTION( parse_error_exception, "socket url cannot be relative (${url})", ("url", socket_file.string()));
       if(socket_file.empty())
          FC_THROW_EXCEPTION( parse_error_exception, "missing socket url");
-      boost::filesystem::path url_path;
+      std::filesystem::path url_path;
       do {
-         if(boost::filesystem::status(socket_file).type() == boost::filesystem::socket_file)
+         if(std::filesystem::is_socket(socket_file))
             break;
          url_path = socket_file.filename() / url_path;
          socket_file = socket_file.remove_filename();

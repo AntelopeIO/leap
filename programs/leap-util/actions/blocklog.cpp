@@ -26,7 +26,6 @@
 #endif
 
 using namespace eosio::chain;
-namespace bfs = boost::filesystem;
 namespace bpo = boost::program_options;
 using bpo::options_description;
 using bpo::variables_map;
@@ -115,16 +114,16 @@ void blocklog_actions::setup(CLI::App& app) {
 
 void blocklog_actions::initialize() {
    try {
-      bfs::path bld = opt->blocks_dir;
+      std::filesystem::path bld = opt->blocks_dir;
       if(bld.is_relative())
-         opt->blocks_dir = (bfs::current_path() / bld).string();
+         opt->blocks_dir = (std::filesystem::current_path() / bld).string();
       else
          opt->blocks_dir = bld.string();
 
       if(!opt->output_file.empty()) {
          bld = opt->output_file;
          if(bld.is_relative())
-            opt->output_file = (bfs::current_path() / bld).string();
+            opt->output_file = (std::filesystem::current_path() / bld).string();
          else
             opt->output_file = bld.string();
       }
@@ -138,9 +137,9 @@ void blocklog_actions::initialize() {
 }
 
 int blocklog_actions::make_index() {
-   const bfs::path blocks_dir = opt->blocks_dir;
-   bfs::path out_file = blocks_dir / "blocks.index";
-   const bfs::path block_file = blocks_dir / "blocks.log";
+   const std::filesystem::path blocks_dir = opt->blocks_dir;
+   std::filesystem::path out_file = blocks_dir / "blocks.index";
+   const std::filesystem::path block_file = blocks_dir / "blocks.log";
    if(!opt->output_file.empty()) out_file = opt->output_file;
 
    report_time rt("making index");
@@ -170,10 +169,10 @@ int blocklog_actions::extract_blocks() {
 
 int blocklog_actions::do_genesis() {
    std::optional<genesis_state> gs;
-   bfs::path bld = opt->blocks_dir;
+   std::filesystem::path bld = opt->blocks_dir;
    auto full_path = (bld / "blocks.log").generic_string();
 
-   if(fc::exists(bld / "blocks.log")) {
+   if(std::filesystem::exists(bld / "blocks.log")) {
       gs = block_log::extract_genesis_state(opt->blocks_dir);
       if(!gs) {
          std::cerr << "Block log at '" << full_path
@@ -189,9 +188,9 @@ int blocklog_actions::do_genesis() {
    if(opt->output_file.empty()) {
       std::cout << json::to_pretty_string(*gs) << std::endl;
    } else {
-      bfs::path p = opt->output_file;
+      std::filesystem::path p = opt->output_file;
       if(p.is_relative()) {
-         p = bfs::current_path() / p;
+         p = std::filesystem::current_path() / p;
       }
 
       if(!fc::json::save_to_file(*gs, p, true)) {
@@ -204,7 +203,7 @@ int blocklog_actions::do_genesis() {
    return 0;
 }
 
-int blocklog_actions::trim_blocklog_end(bfs::path block_dir, uint32_t n) {//n is last block to keep (remove later blocks)
+int blocklog_actions::trim_blocklog_end(std::filesystem::path block_dir, uint32_t n) {//n is last block to keep (remove later blocks)
    report_time rt("trimming blocklog end");
    using namespace std;
    int ret = block_log::trim_blocklog_end(block_dir, n);
@@ -212,14 +211,14 @@ int blocklog_actions::trim_blocklog_end(bfs::path block_dir, uint32_t n) {//n is
    return ret;
 }
 
-bool blocklog_actions::trim_blocklog_front(bfs::path block_dir, uint32_t n) {//n is first block to keep (remove prior blocks)
+bool blocklog_actions::trim_blocklog_front(std::filesystem::path block_dir, uint32_t n) {//n is first block to keep (remove prior blocks)
    report_time rt("trimming blocklog start");
    const bool status = block_log::trim_blocklog_front(block_dir, block_dir / "old", n);
    rt.report();
    return status;
 }
 
-void blocklog_actions::extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t last) {
+void blocklog_actions::extract_block_range(std::filesystem::path block_dir, std::filesystem::path output_dir, uint32_t start, uint32_t last) {
    report_time rt("extracting block range");
    EOS_ASSERT(last > start, block_log_exception, "extract range end must be greater than start");
    block_log::extract_block_range(block_dir, output_dir, start, last);
@@ -228,7 +227,7 @@ void blocklog_actions::extract_block_range(bfs::path block_dir, bfs::path output
 
 int blocklog_actions::smoke_test() {
    using namespace std;
-   bfs::path block_dir = opt->blocks_dir;
+   std::filesystem::path block_dir = opt->blocks_dir;
    cout << "\nSmoke test of blocks.log and blocks.index in directory " << block_dir << '\n';
    block_log::smoke_test(block_dir, 0);
    cout << "\nno problems found\n"; // if get here there were no exceptions
@@ -236,10 +235,10 @@ int blocklog_actions::smoke_test() {
 }
 
 int blocklog_actions::do_vacuum() {
-   bfs::path bld = opt->blocks_dir;
+   std::filesystem::path bld = opt->blocks_dir;
    auto full_path = (bld / "blocks.log").generic_string();
 
-   if(!fc::exists(bld / "blocks.log")) {
+   if(!std::filesystem::exists(bld / "blocks.log")) {
       std::cerr << "No blocks.log found at '" << full_path << "'." << std::endl;
       return -1;
    }
@@ -270,9 +269,9 @@ int blocklog_actions::read_log() {
 
    eosio::chain::branch_type fork_db_branch;
 
-   if(fc::exists(bfs::path(opt->blocks_dir) / config::reversible_blocks_dir_name / config::forkdb_filename)) {
+   if(std::filesystem::exists(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name / config::forkdb_filename)) {
       ilog("opening fork_db");
-      fork_database fork_db(bfs::path(opt->blocks_dir) / config::reversible_blocks_dir_name);
+      fork_database fork_db(std::filesystem::path(opt->blocks_dir) / config::reversible_blocks_dir_name);
 
       fork_db.open([](block_timestamp_type timestamp,
                       const flat_set<digest_type>& cur_features,

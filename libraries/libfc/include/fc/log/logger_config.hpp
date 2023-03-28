@@ -6,8 +6,9 @@
 #include <unordered_map>
 #include <vector>
 
+#include <filesystem>
+
 namespace fc {
-   class path;
    struct appender_config {
       appender_config(const string& name = "",
                       const string& type = "",
@@ -69,7 +70,7 @@ namespace fc {
       std::unordered_map<std::string, logger>                  logger_map;
    };
 
-   void configure_logging( const fc::path& log_config );
+   void configure_logging( const std::filesystem::path& log_config );
    bool configure_logging( const logging_config& l );
 
    void set_os_thread_name( const string& name );

@@ -754,7 +754,7 @@ namespace fc
       return pretty_print( std::move( s ), 2);
    }
 
-   bool json::save_to_file( const variant& v, const fc::path& fi, const bool pretty, const json::output_formatting format )
+   bool json::save_to_file( const variant& v, const std::filesystem::path& fi, const bool pretty, const json::output_formatting format )
    {
       if( pretty ) {
          auto str = json::to_pretty_string( v, fc::time_point::maximum(), format, max_length_limit );
@@ -770,22 +770,22 @@ namespace fc
          return o.good();
       }
    }
-   variant json::from_file( const fc::path& p, const json::parse_type ptype, const uint32_t max_depth )
+   variant json::from_file( const std::filesystem::path& p, const json::parse_type ptype, const uint32_t max_depth )
    {
       //auto tmp = std::make_shared<fc::ifstream>( p, ifstream::binary );
       //auto tmp = std::make_shared<std::ifstream>( p.generic_string().c_str(), std::ios::binary );
       //buffered_istream bi( tmp );
-      boost::filesystem::ifstream bi( p, std::ios::binary );
+      std::ifstream bi( p.string(), std::ios::binary );
       switch( ptype )
       {
           case json::parse_type::legacy_parser:
-             return variant_from_stream<boost::filesystem::ifstream, json::parse_type::legacy_parser>( bi, max_depth );
+             return variant_from_stream<std::ifstream, json::parse_type::legacy_parser>( bi, max_depth );
           case json::parse_type::legacy_parser_with_string_doubles:
-              return variant_from_stream<boost::filesystem::ifstream, json::parse_type::legacy_parser_with_string_doubles>( bi, max_depth );
+              return variant_from_stream<std::ifstream, json::parse_type::legacy_parser_with_string_doubles>( bi, max_depth );
           case json::parse_type::strict_parser:
-              return json_relaxed::variant_from_stream<boost::filesystem::ifstream, true>( bi, max_depth );
+              return json_relaxed::variant_from_stream<std::ifstream, true>( bi, max_depth );
           case json::parse_type::relaxed_parser:
-              return json_relaxed::variant_from_stream<boost::filesystem::ifstream, false>( bi, max_depth );
+              return json_relaxed::variant_from_stream<std::ifstream, false>( bi, max_depth );
           default:
               FC_ASSERT( false, "Unknown JSON parser type {ptype}", ("ptype", static_cast<int>(ptype)) );
       }

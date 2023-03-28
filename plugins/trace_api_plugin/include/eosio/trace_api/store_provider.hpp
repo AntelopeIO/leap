@@ -100,7 +100,7 @@ namespace eosio::trace_api {
       };
 
       enum class open_state { read /*read from front to back*/, write /*write to end of file*/ };
-      slice_directory(const boost::filesystem::path& slice_dir, uint32_t width, std::optional<uint32_t> minimum_irreversible_history_blocks,
+      slice_directory(const std::filesystem::path& slice_dir, uint32_t width, std::optional<uint32_t> minimum_irreversible_history_blocks,
                       std::optional<uint32_t> minimum_uncompressed_irreversible_history_blocks, size_t compression_seek_point_stride);
 
       /**
@@ -243,7 +243,7 @@ namespace eosio::trace_api {
       template<typename F>
       void process_irreversible_slice_range(uint32_t lib, uint32_t upper_bound_block, std::optional<uint32_t>& lower_bound_slice, F&& f);
 
-      const boost::filesystem::path _slice_dir;
+      const std::filesystem::path _slice_dir;
       const uint32_t _width;
       const std::optional<uint32_t> _minimum_irreversible_history_blocks;
       std::optional<uint32_t> _last_cleaned_up_slice;
@@ -265,7 +265,7 @@ namespace eosio::trace_api {
    public:
       using open_state = slice_directory::open_state;
 
-      store_provider(const boost::filesystem::path& slice_dir, uint32_t stride_width, std::optional<uint32_t> minimum_irreversible_history_blocks,
+      store_provider(const std::filesystem::path& slice_dir, uint32_t stride_width, std::optional<uint32_t> minimum_irreversible_history_blocks,
             std::optional<uint32_t> minimum_uncompressed_irreversible_history_blocks, size_t compression_seek_point_stride);
 
       template<typename BlockTrace>

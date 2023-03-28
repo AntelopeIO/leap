@@ -140,8 +140,8 @@ public:
    ,incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>())
    {}
 
-   bfs::path                        blocks_dir;
-   bfs::path                        state_dir;
+   std::filesystem::path                        blocks_dir;
+   std::filesystem::path                        state_dir;
    bool                             readonly = false;
    flat_map<uint32_t,block_id_type> loaded_checkpoints;
    bool                             accept_transactions = false;
@@ -154,7 +154,7 @@ public:
    //txn_msg_rate_limits              rate_limits;
    std::optional<vm_type>            wasm_runtime;
    fc::microseconds                  abi_serializer_max_time_us;
-   std::optional<bfs::path>          snapshot_path;
+   std::optional<std::filesystem::path>          snapshot_path;
 
 
    // retained references to channels for easy publication
@@ -228,7 +228,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
    std::string default_wasm_runtime_str= eosio::chain::wasm_interface::vm_type_string(eosio::chain::config::default_wasm_runtime);
 
    cfg.add_options()
-         ("blocks-dir", bpo::value<bfs::path>()->default_value("blocks"),
+         ("blocks-dir", bpo::value<std::filesystem::path>()->default_value("blocks"),
           "the location of the blocks directory (absolute path or relative to application data dir)")
          ("blocks-log-stride", bpo::value<uint32_t>(),
          "split the block log file when the head block number is the multiple of the stride\n"
@@ -239,16 +239,16 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "the maximum number of blocks files to retain so that the blocks in those files can be queried.\n"
           "When the number is reached, the oldest block file would be moved to archive dir or deleted if the archive dir is empty.\n"
           "The retained block log files should not be manipulated by users." )
-         ("blocks-retained-dir", bpo::value<bfs::path>(),
+         ("blocks-retained-dir", bpo::value<std::filesystem::path>(),
           "the location of the blocks retained directory (absolute path or relative to blocks dir).\n"
           "If the value is empty, it is set to the value of blocks dir.")
-         ("blocks-archive-dir", bpo::value<bfs::path>(),
+         ("blocks-archive-dir", bpo::value<std::filesystem::path>(),
           "the location of the blocks archive directory (absolute path or relative to blocks dir).\n"
           "If the value is empty, blocks files beyond the retained limit will be deleted.\n"
           "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.")
-         ("state-dir", bpo::value<bfs::path>()->default_value(config::default_state_dir_name),
+         ("state-dir", bpo::value<std::filesystem::path>()->default_value(config::default_state_dir_name),
           "the location of the state directory (absolute path or relative to application data dir)")
-         ("protocol-features-dir", bpo::value<bfs::path>()->default_value("protocol_features"),
+         ("protocol-features-dir", bpo::value<std::filesystem::path>()->default_value("protocol_features"),
           "the location of the protocol_features directory (absolute path or relative to application config dir)")
          ("checkpoint", bpo::value<vector<string>>()->composing(), "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")
          ("wasm-runtime", bpo::value<eosio::chain::wasm_interface::vm_type>()->value_name("runtime")->notifier([](const auto& vm){
@@ -362,15 +362,15 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
            "Limits the maximum rate of transaction messages that an account's code is allowed each per-code-account-transaction-msg-rate-limit-time-frame-sec.")*/
 
    cli.add_options()
-         ("genesis-json", bpo::value<bfs::path>(), "File to read Genesis State from")
+         ("genesis-json", bpo::value<std::filesystem::path>(), "File to read Genesis State from")
          ("genesis-timestamp", bpo::value<string>(), "override the initial timestamp in the Genesis State file")
          ("print-genesis-json", bpo::bool_switch()->default_value(false),
           "extract genesis_state from blocks.log as JSON, print to console, and exit")
-         ("extract-genesis-json", bpo::value<bfs::path>(),
+         ("extract-genesis-json", bpo::value<std::filesystem::path>(),
           "extract genesis_state from blocks.log as JSON, write into specified file, and exit")
          ("print-build-info", bpo::bool_switch()->default_value(false),
           "print build environment information to console as JSON and exit")
-         ("extract-build-info", bpo::value<bfs::path>(),
+         ("extract-build-info", bpo::value<std::filesystem::path>(),
           "extract build environment information as JSON, write into specified file, and exit")
          ("force-all-checks", bpo::bool_switch()->default_value(false),
           "do not skip any validation checks while replaying blocks (useful for replaying blocks from untrusted source)")
@@ -386,7 +386,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "stop hard replay / block log recovery at this block number (if set to non-zero number)")
          ("terminate-at-block", bpo::value<uint32_t>()->default_value(0),
           "terminate after reaching this block number (if set to a non-zero number)")
-         ("snapshot", bpo::value<bfs::path>(), "File to read Snapshot State from")
+         ("snapshot", bpo::value<std::filesystem::path>(), "File to read Snapshot State from")
          ;
 
 }
@@ -419,45 +419,44 @@ fc::time_point calculate_genesis_timestamp( string tstr ) {
    return genesis_timestamp;
 }
 
-void clear_directory_contents( const fc::path& p ) {
-   using boost::filesystem::directory_iterator;
+void clear_directory_contents( const std::filesystem::path& p ) {
+   using std::filesystem::directory_iterator;
 
-   if( !fc::is_directory( p ) )
+   if( !std::filesystem::is_directory( p ) )
       return;
 
    for( directory_iterator enditr, itr{p}; itr != enditr; ++itr ) {
-      fc::remove_all( itr->path() );
+      std::filesystem::remove_all( itr->path() );
    }
 }
 
-void clear_chainbase_files( const fc::path& p ) {
-   if( !fc::is_directory( p ) )
+void clear_chainbase_files( const std::filesystem::path& p ) {
+   if( !std::filesystem::is_directory( p ) )
       return;
 
-   fc::remove( p / "shared_memory.bin" );
-   fc::remove( p / "shared_memory.meta" );
+   std::filesystem::remove( p / "shared_memory.bin" );
+   std::filesystem::remove( p / "shared_memory.meta" );
 }
 
 namespace {
   // This can be removed when versions of eosio that support reversible chainbase state file no longer supported.
   void upgrade_from_reversible_to_fork_db(chain_plugin_impl* my) {
-     namespace bfs = boost::filesystem;
-     bfs::path old_fork_db = my->chain_config->state_dir / config::forkdb_filename;
-     bfs::path new_fork_db = my->blocks_dir / config::reversible_blocks_dir_name / config::forkdb_filename;
-     if( bfs::exists( old_fork_db ) && bfs::is_regular_file( old_fork_db ) ) {
+          std::filesystem::path old_fork_db = my->chain_config->state_dir / config::forkdb_filename;
+     std::filesystem::path new_fork_db = my->blocks_dir / config::reversible_blocks_dir_name / config::forkdb_filename;
+     if( std::filesystem::exists( old_fork_db ) && std::filesystem::is_regular_file( old_fork_db ) ) {
         bool copy_file = false;
-        if( bfs::exists( new_fork_db ) && bfs::is_regular_file( new_fork_db ) ) {
-           if( bfs::last_write_time( old_fork_db ) > bfs::last_write_time( new_fork_db ) ) {
+        if( std::filesystem::exists( new_fork_db ) && std::filesystem::is_regular_file( new_fork_db ) ) {
+           if( std::filesystem::last_write_time( old_fork_db ) > std::filesystem::last_write_time( new_fork_db ) ) {
               copy_file = true;
            }
         } else {
            copy_file = true;
-           bfs::create_directories( my->blocks_dir / config::reversible_blocks_dir_name );
+           std::filesystem::create_directories( my->blocks_dir / config::reversible_blocks_dir_name );
         }
         if( copy_file ) {
-           fc::rename( old_fork_db, new_fork_db );
+           std::filesystem::rename( old_fork_db, new_fork_db );
         } else {
-           fc::remove( old_fork_db );
+           std::filesystem::remove( old_fork_db );
         }
      }
   }
@@ -490,10 +489,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             ilog( "Build environment JSON:\n${e}", ("e", json::to_pretty_string( chainbase::environment() )) );
          }
          if( options.count( "extract-build-info") ) {
-            auto p = options.at( "extract-build-info" ).as<bfs::path>();
+            auto p = options.at( "extract-build-info" ).as<std::filesystem::path>();
 
             if( p.is_relative()) {
-               p = bfs::current_path() / p;
+               p = std::filesystem::current_path() / p;
             }
 
             EOS_ASSERT( fc::json::save_to_file( chainbase::environment(), p, true ), misc_exception,
@@ -536,7 +535,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
 
       if( options.count( "blocks-dir" )) {
-         auto bld = options.at( "blocks-dir" ).as<bfs::path>();
+         auto bld = options.at( "blocks-dir" ).as<std::filesystem::path>();
          if( bld.is_relative())
             my->blocks_dir = app().data_dir() / bld;
          else
@@ -544,7 +543,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
 
       if( options.count( "state-dir" )) {
-         auto sd = options.at( "state-dir" ).as<bfs::path>();
+         auto sd = options.at( "state-dir" ).as<std::filesystem::path>();
          if( sd.is_relative())
             my->state_dir = app().data_dir() / sd;
          else
@@ -553,8 +552,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       protocol_feature_set pfs;
       {
-         fc::path protocol_features_dir;
-         auto pfd = options.at( "protocol-features-dir" ).as<bfs::path>();
+         std::filesystem::path protocol_features_dir;
+         auto pfd = options.at( "protocol-features-dir" ).as<std::filesystem::path>();
          if( pfd.is_relative())
             protocol_features_dir = app().config_dir() / pfd;
          else
@@ -647,7 +646,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "extract-genesis-json" ) || options.at( "print-genesis-json" ).as<bool>()) {
          std::optional<genesis_state> gs;
 
-         if( fc::exists( my->blocks_dir / "blocks.log" )) {
+         if( std::filesystem::exists( my->blocks_dir / "blocks.log" )) {
             gs = block_log::extract_genesis_state( my->blocks_dir );
             EOS_ASSERT( gs,
                         plugin_config_exception,
@@ -665,10 +664,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          }
 
          if( options.count( "extract-genesis-json" )) {
-            auto p = options.at( "extract-genesis-json" ).as<bfs::path>();
+            auto p = options.at( "extract-genesis-json" ).as<std::filesystem::path>();
 
             if( p.is_relative()) {
-               p = bfs::current_path() / p;
+               p = std::filesystem::current_path() / p;
             }
 
             EOS_ASSERT( fc::json::save_to_file( *gs, p, true ),
@@ -696,10 +695,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       if (has_partitioned_block_log_options) {
          my->chain_config->blog = eosio::chain::partitioned_blocklog_config{
-            .retained_dir = options.count("blocks-retained-dir") ? options.at("blocks-retained-dir").as<bfs::path>()
-                                                                 : bfs::path(""),
-            .archive_dir  = options.count("blocks-archive-dir") ? options.at("blocks-archive-dir").as<bfs::path>()
-                                                                : bfs::path("archive"),
+            .retained_dir = options.count("blocks-retained-dir") ? options.at("blocks-retained-dir").as<std::filesystem::path>()
+                                                                 : std::filesystem::path(""),
+            .archive_dir  = options.count("blocks-archive-dir") ? options.at("blocks-archive-dir").as<std::filesystem::path>()
+                                                                : std::filesystem::path("archive"),
             .stride       = options.count("blocks-log-stride") ? options.at("blocks-log-stride").as<uint32_t>()
                                                                : UINT32_MAX,
             .max_retained_files = options.count("max-retained-block-files")
@@ -737,8 +736,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       std::optional<chain_id_type> chain_id;
       if (options.count( "snapshot" )) {
-         my->snapshot_path = options.at( "snapshot" ).as<bfs::path>();
-         EOS_ASSERT( fc::exists(*my->snapshot_path), plugin_config_exception,
+         my->snapshot_path = options.at( "snapshot" ).as<std::filesystem::path>();
+         EOS_ASSERT( std::filesystem::exists(*my->snapshot_path), plugin_config_exception,
                      "Cannot load snapshot, ${name} does not exist", ("name", my->snapshot_path->generic_string()) );
 
          // recover genesis information from the snapshot
@@ -757,11 +756,11 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                      "--snapshot is incompatible with --genesis-json as the snapshot contains genesis information");
 
          auto shared_mem_path = my->chain_config->state_dir / "shared_memory.bin";
-         EOS_ASSERT( !fc::is_regular_file(shared_mem_path),
+         EOS_ASSERT( !std::filesystem::is_regular_file(shared_mem_path),
                  plugin_config_exception,
                  "Snapshot can only be used to initialize an empty database." );
 
-         if( fc::is_regular_file( my->blocks_dir / "blocks.log" )) {
+         if( std::filesystem::is_regular_file( my->blocks_dir / "blocks.log" )) {
             auto block_log_genesis = block_log::extract_genesis_state(my->blocks_dir);
             if( block_log_genesis ) {
                const auto& block_log_chain_id = block_log_genesis->compute_chain_id();
@@ -789,7 +788,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          std::optional<genesis_state> block_log_genesis;
          std::optional<chain_id_type> block_log_chain_id;
 
-         if( fc::is_regular_file( my->blocks_dir / "blocks.log" ) ) {
+         if( std::filesystem::is_regular_file( my->blocks_dir / "blocks.log" ) ) {
             block_log_genesis = block_log::extract_genesis_state( my->blocks_dir );
             if( block_log_genesis ) {
                block_log_chain_id = block_log_genesis->compute_chain_id();
@@ -813,12 +812,12 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          }
 
          if( options.count( "genesis-json" ) ) {
-            bfs::path genesis_file = options.at( "genesis-json" ).as<bfs::path>();
+            std::filesystem::path genesis_file = options.at( "genesis-json" ).as<std::filesystem::path>();
             if( genesis_file.is_relative()) {
-               genesis_file = bfs::current_path() / genesis_file;
+               genesis_file = std::filesystem::current_path() / genesis_file;
             }
 
-            EOS_ASSERT( fc::is_regular_file( genesis_file ),
+            EOS_ASSERT( std::filesystem::is_regular_file( genesis_file ),
                         plugin_config_exception,
                        "Specified genesis file '${genesis}' does not exist.",
                        ("genesis", genesis_file.generic_string()));

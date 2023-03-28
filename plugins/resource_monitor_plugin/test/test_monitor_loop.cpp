@@ -16,7 +16,7 @@ struct space_handler_fixture {
          return fixture.mock_get_stat(path, buf);
       }
 
-      bfs::space_info get_space(const bfs::path& p, boost::system::error_code& ec) const {
+      std::filesystem::space_info get_space(const std::filesystem::path& p, std::error_code& ec) const {
          return fixture.mock_get_space(p, ec);
       }
 
@@ -31,7 +31,7 @@ struct space_handler_fixture {
    {
    }
 
-   void add_file_system(const bfs::path& path_name) {
+   void add_file_system(const std::filesystem::path& path_name) {
       space_handler.add_file_system( path_name );
    }
 
@@ -57,10 +57,10 @@ struct space_handler_fixture {
 
    bool test_loop_common(int num_loops, int interval)
    {
-      mock_get_space = [ i = 0, num_loops ]( const bfs::path& p, boost::system::error_code& ec) mutable -> bfs::space_info {
+      mock_get_space = [ i = 0, num_loops ]( const std::filesystem::path& p, std::error_code& ec) mutable -> std::filesystem::space_info {
          ec = boost::system::errc::make_error_code(errc::success);
 
-         bfs::space_info rc{};
+         std::filesystem::space_info rc{};
          rc.capacity  = 1000000;
 
          if ( i < num_loops + 1 ) {  // "+ 1" for the get_space in add_file_system
@@ -99,14 +99,14 @@ struct space_handler_fixture {
       // For tests to be repeatable on any platforms under any loads,
       // particularly for longer runs,
       // we just make sure the test duration is longer than a margin
-      // of theroretical duration. 
+      // of theroretical duration.
       bool finished_in_time = (test_duration >= std::chrono::duration<double>((num_loops - 1) * interval));
 
       return finished_in_time;
    }
 
    // fixture data and methods
-   std::function<bfs::space_info(const bfs::path& p, boost::system::error_code& ec)> mock_get_space;
+   std::function<std::filesystem::space_info(const std::filesystem::path& p, std::error_code& ec)> mock_get_space;
    std::function<int(const char *path, struct stat *buf)> mock_get_stat;
 
    file_space_handler_t space_handler;

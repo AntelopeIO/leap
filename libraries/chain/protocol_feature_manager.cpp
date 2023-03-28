@@ -780,7 +780,7 @@ Enables new `get_block_num` intrinsic which returns the current block number.
       }
    }
 
-   std::optional<builtin_protocol_feature> read_builtin_protocol_feature( const fc::path& p  ) {
+   std::optional<builtin_protocol_feature> read_builtin_protocol_feature( const std::filesystem::path& p  ) {
       try {
          return fc::json::from_file<builtin_protocol_feature>( p );
       } catch( const fc::exception& e ) {
@@ -793,21 +793,21 @@ Enables new `get_block_num` intrinsic which returns the current block number.
       return {};
    }
 
-   protocol_feature_set initialize_protocol_features( const fc::path& p, bool populate_missing_builtins ) {
-      using boost::filesystem::directory_iterator;
+   protocol_feature_set initialize_protocol_features( const std::filesystem::path& p, bool populate_missing_builtins ) {
+      using std::filesystem::directory_iterator;
 
       protocol_feature_set pfs;
 
       bool directory_exists = true;
 
-      if( fc::exists( p ) ) {
-         EOS_ASSERT( fc::is_directory( p ), plugin_exception,
+      if( std::filesystem::exists( p ) ) {
+         EOS_ASSERT( std::filesystem::is_directory( p ), plugin_exception,
                      "Path to protocol-features is not a directory: ${path}",
                      ("path", p.generic_string())
          );
       } else {
          if( populate_missing_builtins )
-            boost::filesystem::create_directories( p );
+            std::filesystem::create_directories( p );
          else
             directory_exists = false;
       }
@@ -849,7 +849,7 @@ Enables new `get_block_num` intrinsic which returns the current block number.
          }
       };
 
-      map<builtin_protocol_feature_t, fc::path>  found_builtin_protocol_features;
+      map<builtin_protocol_feature_t, std::filesystem::path>  found_builtin_protocol_features;
       map<digest_type, std::pair<builtin_protocol_feature, bool> > builtin_protocol_features_to_add;
       // The bool in the pair is set to true if the builtin protocol feature has already been visited to add
       map< builtin_protocol_feature_t, std::optional<digest_type> > visited_builtins;
@@ -858,7 +858,7 @@ Enables new `get_block_num` intrinsic which returns the current block number.
       if( directory_exists ) {
          for( directory_iterator enditr, itr{p}; itr != enditr; ++itr ) {
             auto file_path = itr->path();
-            if( !fc::is_regular_file( file_path ) || file_path.extension().generic_string().compare( ".json" ) != 0 )
+            if( !std::filesystem::is_regular_file( file_path ) || file_path.extension().generic_string().compare( ".json" ) != 0 )
                continue;
 
             auto f = read_builtin_protocol_feature( file_path );
@@ -916,7 +916,7 @@ Enables new `get_block_num` intrinsic which returns the current block number.
 
          auto file_path = p / filename;
 
-         EOS_ASSERT( !fc::exists( file_path ), plugin_exception,
+         EOS_ASSERT( !std::filesystem::exists( file_path ), plugin_exception,
                      "Could not save builtin protocol feature with codename '${codename}' because a file at the following path already exists: ${path}",
                      ("codename", builtin_protocol_feature_codename( f.get_codename() ))
                            ("path", file_path.generic_string())

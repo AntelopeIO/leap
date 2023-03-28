@@ -135,9 +135,9 @@ FC_DECLARE_EXCEPTION( localized_exception, 10000000, "an error occured" );
   )
 
 //copy pasta from keosd's main.cpp
-bfs::path determine_home_directory()
+std::filesystem::path determine_home_directory()
 {
-   bfs::path home;
+   std::filesystem::path home;
    struct passwd* pwd = getpwuid(getuid());
    if(pwd) {
       home = pwd->pw_dir;
@@ -604,7 +604,7 @@ fc::variant bin_to_variant( const account_name& account, const action_name& acti
 fc::variant json_from_file_or_string(const string& file_or_str, fc::json::parse_type ptype = fc::json::parse_type::legacy_parser)
 {
    regex r("^[ \t]*[\{\[]");
-   if ( !regex_search(file_or_str, r) && fc::is_regular_file(file_or_str) ) {
+   if ( !regex_search(file_or_str, r) && std::filesystem::is_regular_file(file_or_str) ) {
       try {
          return fc::json::from_file(file_or_str, ptype);
       } EOS_RETHROW_EXCEPTIONS(json_parse_exception, "Fail to parse JSON from file: ${file}", ("file", file_or_str));
@@ -3473,12 +3473,12 @@ int main( int argc, char** argv ) {
       bytes code_bytes;
       if(!contract_clear){
         std::string wasm;
-        fc::path cpath = fc::canonical(fc::path(contractPath));
+        std::filesystem::path cpath = std::filesystem::canonical(std::filesystem::path(contractPath));
 
         if( wasmPath.empty() ) {
-           wasmPath = (cpath / fc::path(cpath.filename().generic_string()+".wasm")).generic_string();
-        } else if ( boost::filesystem::path(wasmPath).is_relative() ) {
-           wasmPath = (cpath / fc::path(wasmPath)).generic_string();
+           wasmPath = (cpath / std::filesystem::path(cpath.filename().generic_string()+".wasm")).generic_string();
+        } else if ( std::filesystem::path(wasmPath).is_relative() ) {
+           wasmPath = (cpath / std::filesystem::path(wasmPath)).generic_string();
         }
 
         std::cerr << localized(("Reading WASM from " + wasmPath + "...").c_str()) << std::endl;
@@ -3529,15 +3529,15 @@ int main( int argc, char** argv ) {
 
       bytes abi_bytes;
       if(!contract_clear){
-        fc::path cpath = fc::canonical(fc::path(contractPath));
+        std::filesystem::path cpath = std::filesystem::canonical(std::filesystem::path(contractPath));
 
         if( abiPath.empty() ) {
-           abiPath = (cpath / fc::path(cpath.filename().generic_string()+".abi")).generic_string();
-        } else if ( boost::filesystem::path(abiPath).is_relative() ) {
-           abiPath = (cpath / fc::path(abiPath)).generic_string();
+           abiPath = (cpath / std::filesystem::path(cpath.filename().generic_string()+".abi")).generic_string();
+        } else if ( std::filesystem::path(abiPath).is_relative() ) {
+           abiPath = (cpath / std::filesystem::path(abiPath)).generic_string();
         }
 
-        EOS_ASSERT( fc::exists( abiPath ), abi_file_not_found, "no abi file found ${f}", ("f", abiPath)  );
+        EOS_ASSERT( std::filesystem::exists( abiPath ), abi_file_not_found, "no abi file found ${f}", ("f", abiPath)  );
 
         abi_bytes = fc::raw::pack(fc::json::from_file(abiPath).as<abi_def>());
       } else {

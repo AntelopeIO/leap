@@ -14,11 +14,11 @@ class log_index {
    std::size_t num_blocks_ = 0;
  public:
    log_index() = default;
-   log_index(const boost::filesystem::path& path) {
+   log_index(const std::filesystem::path& path) {
       open(path);
    }
 
-   void open(const boost::filesystem::path& path) {
+   void open(const std::filesystem::path& path) {
       if (file_.is_open())
          file_.close();
       file_.set_file_path(path);

@@ -3,7 +3,7 @@
 
 namespace fc {
 
-  fc::path find_executable_in_path( const fc::string name );
+  std::filesystem::path find_executable_in_path( const fc::string name );
 
   /**
    *  @brief start and manage an local process
@@ -15,12 +15,12 @@ namespace fc {
       process();
       ~process();
 
-      virtual iprocess& exec( const fc::path&  exe, 
-                              std::vector<std::string>   args, 
-                              const fc::path&  work_dir = fc::path(), 
+      virtual iprocess& exec( const std::filesystem::path&  exe,
+                              std::vector<std::string>   args,
+                              const std::filesystem::path&  work_dir = std::filesystem::path(),
                               int              opts     = open_all    );
 
-      
+
       virtual int                        result(const microseconds& timeout = microseconds::maximum());
       virtual void                       kill();
       virtual fc::buffered_ostream_ptr   in_stream();

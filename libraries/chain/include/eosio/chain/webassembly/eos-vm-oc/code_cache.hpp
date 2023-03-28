@@ -31,7 +31,6 @@ using namespace boost::multi_index;
 using namespace boost::asio;
 
 namespace bip = boost::interprocess;
-namespace bfs = boost::filesystem;
 
 using allocator_t = bip::rbtree_best_fit<bip::null_mutex_family, bip::offset_ptr<void>, alignof(std::max_align_t)>;
 
@@ -40,7 +39,7 @@ struct config;
 
 class code_cache_base {
    public:
-      code_cache_base(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      code_cache_base(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
       ~code_cache_base();
 
       const int& fd() const { return _cache_fd; }
@@ -72,7 +71,7 @@ class code_cache_base {
 
       const chainbase::database& _db;
 
-      bfs::path _cache_file_path;
+      std::filesystem::path _cache_file_path;
       int _cache_fd;
 
       io_context _ctx;
@@ -96,7 +95,7 @@ class code_cache_base {
 
 class code_cache_async : public code_cache_base {
    public:
-      code_cache_async(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      code_cache_async(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
       ~code_cache_async();
 
       //If code is in cache: returns pointer & bumps to front of MRU list

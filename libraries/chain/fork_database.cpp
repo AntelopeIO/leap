@@ -61,7 +61,7 @@ namespace eosio { namespace chain {
    }
 
    struct fork_database_impl {
-      explicit fork_database_impl( const fc::path& data_dir )
+      explicit fork_database_impl( const std::filesystem::path& data_dir )
       :datadir(data_dir)
       {}
 
@@ -69,7 +69,7 @@ namespace eosio { namespace chain {
       fork_multi_index_type index;
       block_state_ptr       root; // Only uses the block_header_state portion
       block_state_ptr       head;
-      fc::path              datadir;
+      std::filesystem::path              datadir;
 
       void open_impl( const std::function<void( block_timestamp_type,
                                                 const flat_set<digest_type>&,
@@ -97,7 +97,7 @@ namespace eosio { namespace chain {
    };
 
 
-   fork_database::fork_database( const fc::path& data_dir )
+   fork_database::fork_database( const std::filesystem::path& data_dir )
    :my( new fork_database_impl( data_dir ) )
    {}
 
@@ -114,11 +114,11 @@ namespace eosio { namespace chain {
                                                                  const flat_set<digest_type>&,
                                                                  const vector<digest_type>& )>& validator )
    {
-      if (!fc::is_directory(datadir))
-         fc::create_directories(datadir);
+      if (!std::filesystem::is_directory(datadir))
+         std::filesystem::create_directories(datadir);
 
       auto fork_db_dat = datadir / config::forkdb_filename;
-      if( fc::exists( fork_db_dat ) ) {
+      if( std::filesystem::exists( fork_db_dat ) ) {
          try {
             string content;
             fc::read_file_contents( fork_db_dat, content );
@@ -184,7 +184,7 @@ namespace eosio { namespace chain {
             }
          } FC_CAPTURE_AND_RETHROW( (fork_db_dat) )
 
-         fc::remove( fork_db_dat );
+         std::filesystem::remove( fork_db_dat );
       }
    }
 

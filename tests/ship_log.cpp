@@ -96,7 +96,7 @@ private:
    void bounce() {
       log.reset();
       if(remove_index_on_reopen)
-         fc::remove(log_dir.path()/ (std::string("shipit") + ".index"));
+         std::filesystem::remove(log_dir.path()/ (std::string("shipit") + ".index"));
       auto prune_conf = std::get_if<eosio::state_history::prune_config>(&conf);
       if(prune_conf) {
          prune_conf->prune_threshold = 8; //every 8 bytes check in and see if to prune. should make it always check after each entry for us
@@ -109,10 +109,8 @@ private:
 
 //can only punch holes on filesystem block boundaries. let's make sure the entries we add are larger than that
 static size_t larger_than_tmpfile_blocksize() {
-   fc::temp_file tf;
-   fc::cfile cf;
-   cf.set_file_path(tf.path());
-   cf.open("ab");
+   fc::temp_cfile tf("ab");
+   auto& cf = tf.file();
    return cf.filesystem_block_size() + cf.filesystem_block_size()/2;
 }
 
@@ -309,16 +307,16 @@ BOOST_AUTO_TEST_CASE(empty) { try {
    auto log_file = (log_dir.path()/ (std::string("empty") + ".log")).string();
    auto index_file = (log_dir.path()/ (std::string("empty") + ".index")).string();
 
-   BOOST_REQUIRE(fc::file_size(log_file.c_str()) == 0);
-   BOOST_REQUIRE(fc::file_size(index_file.c_str()) == 0);
+   BOOST_REQUIRE(std::filesystem::file_size(log_file.c_str()) == 0);
+   BOOST_REQUIRE(std::filesystem::file_size(index_file.c_str()) == 0);
 
    //one more time to pruned, just to make sure
    {
       eosio::state_history_log log("empty", log_dir.path(), simple_prune_conf);
       BOOST_REQUIRE(log.empty());
    }
-   BOOST_REQUIRE(fc::file_size(log_file.c_str()) == 0);
-   BOOST_REQUIRE(fc::file_size(index_file.c_str()) == 0);
+   BOOST_REQUIRE(std::filesystem::file_size(log_file.c_str()) == 0);
+   BOOST_REQUIRE(std::filesystem::file_size(index_file.c_str()) == 0);
 }  FC_LOG_AND_RETHROW() }
 
 BOOST_DATA_TEST_CASE(non_prune_to_prune, bdata::xrange(2) * bdata::xrange(2), enable_read, remove_index_on_reopen)  { try {

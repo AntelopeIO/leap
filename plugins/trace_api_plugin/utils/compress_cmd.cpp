@@ -9,7 +9,6 @@
 
 using namespace eosio::trace_api;
 namespace bpo = boost::program_options;
-namespace bfs = boost::filesystem;
 
 namespace {
    std::string validate_input_path(const bpo::variables_map& vmap) {
@@ -19,11 +18,11 @@ namespace {
 
       auto input_path = vmap.at("input-path").as<std::string>();
 
-      if (!bfs::exists(input_path)) {
+      if (!std::filesystem::exists(input_path)) {
          throw std::logic_error(input_path + " does not exist or cannot be read");
       }
 
-      if (bfs::is_directory(input_path)) {
+      if (std::filesystem::is_directory(input_path)) {
          throw std::logic_error(input_path + " is a directory and not a trace file");
       }
 
@@ -36,18 +35,18 @@ namespace {
       if (vmap.count("output-path")) {
          output_path = vmap.at("output-path").as<std::string>();
 
-         if (bfs::exists(output_path) && bfs::is_directory(output_path)) {
-            output_path = (bfs::path(output_path) / bfs::path(input_path).filename()).replace_extension(
+         if (std::filesystem::exists(output_path) && std::filesystem::is_directory(output_path)) {
+            output_path = (std::filesystem::path(output_path) / std::filesystem::path(input_path).filename()).replace_extension(
                   default_output_extension).generic_string();
          } else {
-            auto output_dir = bfs::path(output_path).parent_path();
-            if (!output_dir.empty() && !bfs::exists(output_dir)) {
+            auto output_dir = std::filesystem::path(output_path).parent_path();
+            if (!output_dir.empty() && !std::filesystem::exists(output_dir)) {
                throw std::logic_error(
                      std::string("Output file parent directory: " + output_dir.generic_string() + " does not exist"));
             }
          }
       } else {
-         auto input = bfs::path(input_path);
+         auto input = std::filesystem::path(input_path);
          if (input.extension() != ".log") {
             throw std::logic_error(std::string("Unrecognized extension: ") + input.extension().generic_string());
          }
@@ -135,4 +134,3 @@ namespace {
 
    auto _reg = command_registration("compress", "Compress a trace file to into the \"clog\" format", do_compress);
 }
-

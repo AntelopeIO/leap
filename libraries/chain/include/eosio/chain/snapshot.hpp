@@ -376,7 +376,7 @@ namespace eosio { namespace chain {
 
    class istream_json_snapshot_reader : public snapshot_reader {
       public:
-         explicit istream_json_snapshot_reader(const fc::path& p);
+         explicit istream_json_snapshot_reader(const std::filesystem::path& p);
          ~istream_json_snapshot_reader();
 
          void validate() const override;

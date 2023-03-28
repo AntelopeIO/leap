@@ -26,18 +26,17 @@ struct block_log_extract_fixture {
       log->append(p, p->calculate_id());
    }
 
-   static void rename_blocks_files(fc::path dir) {
+   static void rename_blocks_files(std::filesystem::path dir) {
    // rename blocks files with block number range with those without
    // i.e.   blocks-1-100.index  --> blocks.index
    //        blocks-1-100.log    --> blocks.log
-      namespace bfs = boost::filesystem;
-      for (bfs::directory_iterator itr(dir); itr != bfs::directory_iterator{}; ++itr ) {
+            for (std::filesystem::directory_iterator itr(dir); itr != std::filesystem::directory_iterator{}; ++itr ) {
          auto file_path = itr->path();
-         if ( !bfs::is_regular_file( file_path )) continue;
+         if ( !std::filesystem::is_regular_file( file_path )) continue;
          std::regex block_range_expression("blocks-\\d+-\\d+");
          auto new_path = std::regex_replace(file_path.string(), block_range_expression, "blocks");
          if (new_path != file_path) {
-            bfs::rename(file_path, new_path);
+            std::filesystem::rename(file_path, new_path);
          }
       }
    }

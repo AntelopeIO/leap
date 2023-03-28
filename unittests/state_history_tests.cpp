@@ -574,8 +574,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
    BOOST_AUTO_TEST_CASE(test_trace_log_with_transaction_extensions) {
       tester c(setup_policy::full);
 
-      scoped_temp_path state_history_dir;
-      fc::create_directories(state_history_dir.path);
+      fc::temp_directory state_history_dir;
       eosio::state_history::trace_converter log;
 
       c.control->applied_transaction.connect(
@@ -603,7 +602,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
 
 
 struct state_history_tester_logs  {
-   state_history_tester_logs(const fc::path& dir, const eosio::state_history_log_config& config)
+   state_history_tester_logs(const std::filesystem::path& dir, const eosio::state_history_log_config& config)
       : traces_log("trace_history",dir, config) , chain_state_log("chain_state_history", dir, config) {}
 
    eosio::state_history_log traces_log;
@@ -614,7 +613,7 @@ struct state_history_tester_logs  {
 struct state_history_tester : state_history_tester_logs, tester {
 
 
-   state_history_tester(const fc::path& dir, const eosio::state_history_log_config& config)
+   state_history_tester(const std::filesystem::path& dir, const eosio::state_history_log_config& config)
    : state_history_tester_logs(dir, config), tester ([this](eosio::chain::controller& control) {
       control.applied_transaction.connect(
        [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t) {
@@ -669,7 +668,6 @@ static std::vector<eosio::ship_protocol::transaction_trace> get_traces(eosio::st
 }
 
 BOOST_AUTO_TEST_CASE(test_splitted_log) {
-   namespace bfs = boost::filesystem;
 
    fc::temp_directory state_history_dir;
 
@@ -692,39 +690,39 @@ BOOST_AUTO_TEST_CASE(test_splitted_log) {
    auto archive_dir  = log_dir / "archive";
    auto retained_dir = log_dir / "retained";
 
-   BOOST_CHECK(bfs::exists( archive_dir / "trace_history-2-20.log" ));
-   BOOST_CHECK(bfs::exists( archive_dir / "trace_history-2-20.index" ));
-   BOOST_CHECK(bfs::exists( archive_dir / "trace_history-21-40.log" ));
-   BOOST_CHECK(bfs::exists( archive_dir / "trace_history-21-40.index" ));
+   BOOST_CHECK(std::filesystem::exists( archive_dir / "trace_history-2-20.log" ));
+   BOOST_CHECK(std::filesystem::exists( archive_dir / "trace_history-2-20.index" ));
+   BOOST_CHECK(std::filesystem::exists( archive_dir / "trace_history-21-40.log" ));
+   BOOST_CHECK(std::filesystem::exists( archive_dir / "trace_history-21-40.index" ));
 
-   BOOST_CHECK(bfs::exists( archive_dir / "chain_state_history-2-20.log" ));
-   BOOST_CHECK(bfs::exists( archive_dir / "chain_state_history-2-20.index" ));
-   BOOST_CHECK(bfs::exists( archive_dir / "chain_state_history-21-40.log" ));
-   BOOST_CHECK(bfs::exists( archive_dir / "chain_state_history-21-40.index" ));
+   BOOST_CHECK(std::filesystem::exists( archive_dir / "chain_state_history-2-20.log" ));
+   BOOST_CHECK(std::filesystem::exists( archive_dir / "chain_state_history-2-20.index" ));
+   BOOST_CHECK(std::filesystem::exists( archive_dir / "chain_state_history-21-40.log" ));
+   BOOST_CHECK(std::filesystem::exists( archive_dir / "chain_state_history-21-40.index" ));
 
-   BOOST_CHECK(bfs::exists( retained_dir / "trace_history-41-60.log" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "trace_history-41-60.index" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "trace_history-61-80.log" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "trace_history-61-80.index" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "trace_history-81-100.log" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "trace_history-81-100.index" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "trace_history-101-120.log" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "trace_history-101-120.index" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "trace_history-121-140.log" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "trace_history-121-140.index" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "trace_history-41-60.log" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "trace_history-41-60.index" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "trace_history-61-80.log" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "trace_history-61-80.index" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "trace_history-81-100.log" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "trace_history-81-100.index" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "trace_history-101-120.log" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "trace_history-101-120.index" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "trace_history-121-140.log" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "trace_history-121-140.index" ));
 
    BOOST_CHECK_EQUAL(chain.traces_log.block_range().first, 41);
 
-   BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-41-60.log" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-41-60.index" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-61-80.log" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-61-80.index" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-81-100.log" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-81-100.index" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-101-120.log" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-101-120.index" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-121-140.log" ));
-   BOOST_CHECK(bfs::exists( retained_dir / "chain_state_history-121-140.index" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "chain_state_history-41-60.log" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "chain_state_history-41-60.index" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "chain_state_history-61-80.log" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "chain_state_history-61-80.index" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "chain_state_history-81-100.log" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "chain_state_history-81-100.index" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "chain_state_history-101-120.log" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "chain_state_history-101-120.index" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "chain_state_history-121-140.log" ));
+   BOOST_CHECK(std::filesystem::exists( retained_dir / "chain_state_history-121-140.index" ));
 
    BOOST_CHECK_EQUAL(chain.chain_state_log.block_range().first, 41);
 
@@ -751,7 +749,6 @@ void push_blocks( tester& from, tester& to ) {
 }
 
 bool test_fork(uint32_t stride, uint32_t max_retained_files) {
-   namespace bfs = boost::filesystem;
 
    fc::temp_directory state_history_dir;
 
@@ -813,7 +810,6 @@ BOOST_AUTO_TEST_CASE(test_fork_with_stride2) {
 }
 
 BOOST_AUTO_TEST_CASE(test_corrupted_log_recovery) {
-  namespace bfs = boost::filesystem;
 
    fc::temp_directory state_history_dir;
 
@@ -834,7 +830,7 @@ BOOST_AUTO_TEST_CASE(test_corrupted_log_recovery) {
    const char random_data[] = "12345678901231876983271649837";
    logfile.write(random_data, sizeof(random_data));
 
-   bfs::remove_all(chain.get_config().blocks_dir/"reversible");
+   std::filesystem::remove_all(chain.get_config().blocks_dir/"reversible");
 
    state_history_tester new_chain(state_history_dir.path(), config);
    new_chain.produce_blocks(50);
