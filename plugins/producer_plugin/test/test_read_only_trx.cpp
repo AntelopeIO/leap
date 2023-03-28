@@ -153,7 +153,7 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
 
 // test read-only trxs on main thread (no --read-only-threads)
 BOOST_AUTO_TEST_CASE(no_read_only_threads) {
-   std::vector<const char*> specific_args = { "-p", "eosio", "-e" };
+   std::vector<const char*> specific_args = { "-p", "eosio", "-e", "--abi-serializer-max-time-ms=999" };
    test_trxs_common(specific_args);
 }
 
@@ -162,6 +162,7 @@ BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
                                               "--read-only-threads=1",
                                               "--max-transaction-time=10",
+                                              "--abi-serializer-max-time-ms=999",
                                               "--read-only-write-window-time-us=100000",
                                               "--read-only-read-window-time-us=40000",
                                               "--disable-subjective-billing=true" };
@@ -173,6 +174,7 @@ BOOST_AUTO_TEST_CASE(with_16_read_only_threads) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
                                               "--read-only-threads=16",
                                               "--max-transaction-time=10",
+                                              "--abi-serializer-max-time-ms=999",
                                               "--read-only-write-window-time-us=100000",
                                               "--read-only-read-window-time-us=40000",
                                               "--disable-subjective-billing=true" };
