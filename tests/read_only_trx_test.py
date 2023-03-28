@@ -277,6 +277,17 @@ try:
         runReadOnlyTrxAndRpcInParallel("net", "connect", code=201, payload = "localhost")
         runReadOnlyTrxAndRpcInParallel("net", "disconnect", code=201, payload = "localhost")
 
+    def runEverythingParallel():
+        threadList = []
+        threadList.append(threading.Thread(target = multiReadOnlyTests))
+        threadList.append(threading.Thread(target = chainApiTests))
+        threadList.append(threading.Thread(target = netApiTests))
+        threadList.append(threading.Thread(target = mixedOpsTest))
+        for thr in threadList:
+            thr.start()
+        for thr in threadList:
+            thr.join()
+
     basicTests()
 
     if args.read_only_threads > 0: # Save test time. No need to run other tests if multi-threaded is not enabled
@@ -285,6 +296,7 @@ try:
             chainApiTests()
             netApiTests()
             mixedOpsTest()
+            runEverythingParallel()
 
     testSuccessful = True
 finally:
