@@ -131,6 +131,9 @@ try:
     testSuccessful = (connection_check_failures == 0)
 
 finally:
+    killAll=True
+    killWallet=True
+    killEosInstances=True
     TestHelper.shutdown(
         cluster,
         walletMgr,
