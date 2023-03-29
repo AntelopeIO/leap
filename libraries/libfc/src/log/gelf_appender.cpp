@@ -27,9 +27,9 @@ namespace fc
       "_method_name",
       "_thread_name",
       "_task_name"
-   };
+  };
 
-   const std::regex gelf_appender::config::user_field_name_pattern{"^_[\\w\\.\\-]*$"}; // per GELF specification
+  const std::regex gelf_appender::config::user_field_name_pattern{"^_[\\w\\.\\-]*$"}; // per GELF specification
 
   class gelf_appender::impl
   {
@@ -73,6 +73,35 @@ namespace fc
           thread.join();
        }
     }
+
+    static std::shared_ptr<std::vector<char>> make_new_bufer(boost::asio::const_buffer buf) {
+      const char* p = static_cast<const char*>(buf.data());
+      return std::make_shared<std::vector<char>>(p, p+buf.size());
+    }
+
+    static std::shared_ptr<std::vector<char>> make_new_bufer(const std::array<boost::asio::const_buffer, 2>& bufs) {
+      auto new_buf = std::make_shared<std::vector<char>>();
+      new_buf->reserve(bufs[0].size() + bufs[1].size());
+      for (int i = 0; i < 2; ++i) {
+          const char* p = static_cast<const char*>(bufs[i].data());
+          new_buf->insert(new_buf->end(), p, p + bufs[i].size());
+      }
+      return new_buf;
+    }
+
+    template <typename Buffers>
+    void send(Buffers&& bufs) {
+      boost::system::error_code ec;
+      gelf_socket.send(std::forward<Buffers>(bufs), 0, ec);
+      if (ec == boost::asio::error::would_block) {
+          auto new_buf = make_new_bufer(std::forward<Buffers>(bufs));
+          gelf_socket.async_send(boost::asio::buffer(*new_buf),
+                                    [new_buf](const boost::system::error_code& /*ec*/, std::size_t /*bytes_transferred*/) {
+                                        // Swallow errors.  Currently only used for GELF logging, so depend on local
+                                        // log to catch anything that doesn't make it across the network.
+                                    });
+      }
+    }
   };
 
   gelf_appender::gelf_appender(const variant& args) :
@@ -105,6 +134,7 @@ namespace fc
 
       my->gelf_socket.connect(*endpoints.begin());
       std::cerr << "opened GELF socket to endpoint " << my->cfg.endpoint << "\n";
+      my->gelf_socket.non_blocking(true);
 
       my->thread = std::thread([this] {
         try {
@@ -191,7 +221,7 @@ namespace fc
 
     if (gelf_message_as_string.size() <= max_payload_size)
     {
-      my->gelf_socket.send(boost::asio::buffer(gelf_message_as_string));
+      my->send(boost::asio::buffer(gelf_message_as_string));
     }
     else
     {
@@ -219,7 +249,7 @@ namespace fc
           boost::asio::const_buffer(&header, sizeof(header)),
           boost::asio::const_buffer(gelf_message_as_string.c_str() + bytes_sent, bytes_to_send)
         };
-        my->gelf_socket.send(bufs);
+        my->send(bufs);
         ++header.seq;
         bytes_sent += bytes_to_send;
       }
