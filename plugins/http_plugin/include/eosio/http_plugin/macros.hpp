@@ -15,7 +15,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
          auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\
          FC_CHECK_DEADLINE(deadline);\
          api_handle.call_name( std::move(params), \
-            [cb, body](const std::variant<fc::exception_ptr, call_result>& result){\
+               [cb=std::move(cb), body=std::move(body)](const std::variant<fc::exception_ptr, call_result>& result){ \
                if (std::holds_alternative<fc::exception_ptr>(result)) {\
                   try {\
                      std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();\

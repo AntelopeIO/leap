@@ -94,6 +94,7 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
 
    auto[prod_plug, chain_plug] = plugin_fut.get();
    auto chain_id = chain_plug->get_chain_id();
+   prod_plug->set_test_mode(true);
 
    std::atomic<size_t> next_calls = 0;
    std::atomic<size_t> num_posts = 0;
@@ -149,5 +150,28 @@ BOOST_AUTO_TEST_CASE(no_read_only_threads) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e" };
    test_trxs_common(specific_args);
 }
+
+// test read-only trxs on 1 threads (with --read-only-threads)
+BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
+   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
+                                              "--read-only-threads=1",
+                                              "--max-transaction-time=10",
+                                              "--read-only-write-window-time-us=100000",
+                                              "--read-only-read-window-time-us=40000",
+                                              "--disable-subjective-billing=true" };
+   test_trxs_common(specific_args);
+}
+
+// test read-only trxs on 16 separate threads (with --read-only-threads)
+BOOST_AUTO_TEST_CASE(with_16_read_only_threads) {
+   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
+                                              "--read-only-threads=16",
+                                              "--max-transaction-time=10",
+                                              "--read-only-write-window-time-us=100000",
+                                              "--read-only-read-window-time-us=40000",
+                                              "--disable-subjective-billing=true" };
+   test_trxs_common(specific_args);
+}
+
 
 BOOST_AUTO_TEST_SUITE_END()

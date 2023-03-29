@@ -10,6 +10,7 @@ const container = core.getInput('container', {required: true});
 const error_log_paths = JSON.parse(core.getInput('error-log-paths', {required: true}));
 const log_tarball_prefix = core.getInput('log-tarball-prefix', {required: true});
 const tests_label = core.getInput('tests-label', {required: true});
+const test_timeout = core.getInput('test-timeout', {required: true});
 
 try {
    if(child_process.spawnSync("docker", ["run", "--name", "base", "-v", `${process.cwd()}/build.tar.zst:/build.tar.zst`, "--workdir", "/__w/leap/leap", container, "sh", "-c", "zstdcat /build.tar.zst | tar x"], {stdio:"inherit"}).status)
@@ -28,7 +29,7 @@ try {
    let subprocesses = [];
    tests.forEach(t => {
       subprocesses.push(new Promise(resolve => {
-         child_process.spawn("docker", ["run", "--security-opt", "seccomp=unconfined", "-e", "GITHUB_ACTIONS=True", "--name", t, "--init", "baseimage", "bash", "-c", `cd build; ctest --output-on-failure -R '^${t}$'`], {stdio:"inherit"}).on('close', code => resolve(code));
+         child_process.spawn("docker", ["run", "--security-opt", "seccomp=unconfined", "-e", "GITHUB_ACTIONS=True", "--name", t, "--init", "baseimage", "bash", "-c", `cd build; ctest --output-on-failure -R '^${t}$' --timeout ${test_timeout}`], {stdio:"inherit"}).on('close', code => resolve(code));
       }));
    });
 
