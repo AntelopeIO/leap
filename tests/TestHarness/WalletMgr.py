@@ -84,7 +84,7 @@ class WalletMgr(object):
             Utils.EosWalletPath, WalletMgr.__walletDataDir, WalletMgr.__walletDataDir, self.host, self.port)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         if not os.path.isdir(WalletMgr.__walletDataDir):
-            if Utils.Debug: Utils.Print("Creating dir %s in dir: %s" % (WalletMgr.__walletDataDir, os.getcwd()))
+            if Utils.Debug: Utils.Print(f"Creating dir {WalletMgr.__walletDataDir} in dir: {os.getcwd()}")
             os.mkdir(WalletMgr.__walletDataDir)
         with open(WalletMgr.__walletLogOutFile, 'w') as sout, open(WalletMgr.__walletLogErrFile, 'w') as serr:
             popen=subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
