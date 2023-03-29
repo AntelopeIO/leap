@@ -613,11 +613,16 @@ plugin = eosio::chain_api_plugin
                     if relaunch:
                         self.launch(node)
 
-    def kill(self):
+    def kill(self, signum):
+        errorCode = 0
         for node in self.network.nodes.values():
-            with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
-                pid = int(f.readline())
-                self.terminate_wait_pid(pid, self.args.kill, raise_if_missing=False)
+            try:
+                with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
+                    pid = int(f.readline())
+                    self.terminate_wait_pid(pid, signum, raise_if_missing=False)
+            except FileNotFoundError as err:
+                errorCode = 1
+        return errorCode
 
     def start_all(self):
         if self.args.launch.lower() != 'none':
@@ -647,7 +652,7 @@ plugin = eosio::chain_api_plugin
                 po = select.poll()
                 po.register(fd, select.POLLIN)
                 try:
-                    os.kill(pid, signal.SIGTERM)
+                    os.kill(pid, signum)
                 except ProcessLookupError:
                     if raise_if_missing:
                         raise
@@ -683,14 +688,16 @@ plugin = eosio::chain_api_plugin
                         return
 
 if __name__ == '__main__':
+    errorCode = 0
     l = launcher(sys.argv[1:])
     if len(l.args.down):
         l.down(l.args.down)
     elif len(l.args.bounce):
         l.bounce(l.args.bounce)
     elif l.args.kill:
-        l.kill()
+        errorCode = l.kill(l.args.kill)
     elif l.args.launch == 'all' or l.args.launch == 'local':
         l.start_all()
     for f in glob.glob(Utils.DataPath):
         shutil.rmtree(f)
+    sys.exit(errorCode)
