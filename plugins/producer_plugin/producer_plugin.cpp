@@ -479,7 +479,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void switch_to_write_window();
       void switch_to_read_window();
       bool read_only_execution_task(uint32_t pending_block_num);
-      void process_read_only_transactions(const fc::time_point& deadline);
+      void repost_exhausted_transactions(const fc::time_point& deadline);
       bool push_read_only_transaction(transaction_metadata_ptr trx, next_function<transaction_trace_ptr> next);
 
       void consider_new_watermark( account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
@@ -1111,7 +1111,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    if ( options.count( "read-only-threads" ) ) {
       my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
-      EOS_ASSERT( test_mode_ || my->_ro_thread_pool_size == 0 || my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
    } else if ( my->_producers.empty() ) {
       if( options.count( "plugin" ) ) {
          const auto& v = options.at( "plugin" ).as<std::vector<std::string>>();
@@ -1123,11 +1122,9 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          }
       }
    }
+   EOS_ASSERT( test_mode_ || my->_ro_thread_pool_size == 0 || my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
    // only initialize other read-only options when read-only thread pool is enabled
    if ( my->_ro_thread_pool_size > 0 ) {
-      if (!test_mode_)
-         EOS_ASSERT( my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
-      
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if (chain.is_eos_vm_oc_enabled()) {
          // EOS VM OC requires 4.2TB Virtual for each executing thread. Make sure the memory
@@ -1169,7 +1166,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    // Make sure a read-only transaction can finish within the read
    // window if scheduled at the very beginning of the window.
    // Use _ro_read_window_effective_time_us instead of _ro_read_window_time_us
-   // for safety marging
+   // for safety margin
    if ( my->_max_transaction_time_ms.load() > 0 ) {
       EOS_ASSERT( my->_ro_read_window_effective_time_us > fc::milliseconds(my->_max_transaction_time_ms.load()), plugin_config_exception, "--read-only-read-window-time-us (${read}) must be greater than --max-transaction-time ${trx_time} ms plus a margin of ${min} us", ("read", my->_ro_read_window_time_us) ("trx_time", my->_max_transaction_time_ms.load()) ("min", my->_ro_read_window_minimum_time_us) );
       my->_ro_max_trx_time_us = fc::milliseconds(my->_max_transaction_time_ms.load());
@@ -2046,7 +2043,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             process_scheduled_and_incoming_trxs( scheduled_trx_deadline, incoming_itr );
          }
 
-         process_read_only_transactions( preprocess_deadline );
+         repost_exhausted_transactions( preprocess_deadline );
 
          if( app().is_quiting() ) // db guard exception above in LOG_AND_DROP could have called app().quit()
             return start_block_result::failed;
@@ -2957,11 +2954,11 @@ bool producer_plugin_impl::read_only_execution_task(uint32_t pending_block_num) 
 
 // Called from app thread during start block.
 // Reschedule any exhausted read-only transactions from the last block
-void producer_plugin_impl::process_read_only_transactions(const fc::time_point& deadline) {
+void producer_plugin_impl::repost_exhausted_transactions(const fc::time_point& deadline) {
    if ( !_ro_exhausted_trx_queue.empty() ) {
       // post any exhausted back into read_only queue with slightly higher priority (low+1) so they are executed first
       ro_trx_t t;
-      while( _ro_exhausted_trx_queue.pop_front(t) ) {
+      while( fc::time_point::now() < deadline && _ro_exhausted_trx_queue.pop_front(t) ) {
          app().executor().post(priority::low+1, exec_queue::read_only, [this, trx{std::move(t.trx)}, next{std::move(t.next)}]() mutable {
             push_read_only_transaction( std::move(trx), std::move(next) );
          } );
