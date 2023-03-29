@@ -79,6 +79,7 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
    appbase::scoped_app app;
    fc::temp_directory temp;
    auto temp_dir_str = temp.path().string();
+   producer_plugin::set_test_mode(true);
    
    std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
    std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
@@ -94,9 +95,9 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
 
    auto[prod_plug, chain_plug] = plugin_fut.get();
    auto chain_id = chain_plug->get_chain_id();
-   prod_plug->set_test_mode(true);
 
    std::atomic<size_t> next_calls = 0;
+   std::atomic<size_t> num_get_account_calls = 0;
    std::atomic<size_t> num_posts = 0;
    std::atomic<size_t> trace_with_except = 0;
    std::atomic<bool> trx_match = true;
@@ -104,8 +105,9 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
 
    for( size_t i = 1; i <= num_pushes; ++i ) {
       auto ptrx = make_unique_trx( chain_id );
-      app->executor().post( priority::low, exec_queue::read_only, [&chain_plug=chain_plug]() {
+      app->executor().post( priority::low, exec_queue::read_only, [&chain_plug=chain_plug, &num_get_account_calls]() {
          chain_plug->get_read_only_api(fc::seconds(90)).get_account(chain_apis::read_only::get_account_params{.account_name=config::system_account_name}, fc::time_point::now()+fc::seconds(90));
+         ++num_get_account_calls;
       });
       app->executor().post( priority::low, exec_queue::read_write, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
          ++num_posts;
@@ -138,7 +140,7 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
    // Wait long enough such that all transactions are executed
    auto start = fc::time_point::now();
    auto hard_deadline = start + fc::seconds(10); // To protect against waiting forever
-   while ( next_calls < num_pushes && fc::time_point::now() < hard_deadline ){
+   while ( (next_calls < num_pushes || num_get_account_calls < num_pushes) && fc::time_point::now() < hard_deadline ){
       std::this_thread::sleep_for( 100ms );;
    }
 
@@ -148,7 +150,8 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
    BOOST_CHECK_EQUAL( trace_with_except, 0 ); // should not have any traces with except in it
    BOOST_CHECK_EQUAL( num_pushes, num_posts );
    BOOST_CHECK_EQUAL( num_pushes, next_calls.load() );
-   BOOST_CHECK( trx_match.load() );  // trace should match the transaction  
+   BOOST_CHECK_EQUAL( num_pushes, num_get_account_calls.load() );
+   BOOST_CHECK( trx_match.load() );  // trace should match the transaction
 }
 
 // test read-only trxs on main thread (no --read-only-threads)
