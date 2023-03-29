@@ -2875,8 +2875,7 @@ void producer_plugin_impl::switch_to_read_window() {
    _time_tracker.add_idle_time( fc::time_point::now() - _idle_trx_time );
 
    // we are in write window, so no read-only trx threads are processing transactions.
-   // _ro_exhausted_trx_queue may contain read-only trxs that were exhausted on the main thread
-   if ( _ro_exhausted_trx_queue.empty() && app().executor().read_only_queue().empty() ) { // no read-only tasks to process. stay in write window
+   if ( app().executor().read_only_queue().empty() ) { // no read-only tasks to process. stay in write window
       start_write_window(); // restart write window timer for next round
       return;
    }
