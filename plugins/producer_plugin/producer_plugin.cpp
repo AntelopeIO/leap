@@ -427,7 +427,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          packed_transaction_ptr  trx;
          next_func_t             next;
       };
-   
+
       // The queue storing read-only transactions to be executed by read-only threads
       class ro_trx_queue_t {
       public:
@@ -437,7 +437,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             if (num_waiting)
                cond.notify_one();
          }
-         
+
          void push_front(ro_trx_t&& trx) {
             std::unique_lock<std::mutex> g( mtx );
             queue.push_front(std::move(trx));
@@ -451,8 +451,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          }
 
          // may wait if the queue is empty, and not all other threads are already waiting.
-         // returns true if a transaction was dequeued and should be executed, or false 
-         // if conditions are met to stop processing transactions. 
+         // returns true if a transaction was dequeued and should be executed, or false
+         // if conditions are met to stop processing transactions.
          bool pop_front(ro_trx_t& trx) {
             std::unique_lock<std::mutex> g( mtx );
 
@@ -469,7 +469,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                }
                return true;
             });
-            --num_waiting;            
+            --num_waiting;
             if (should_exit())
                return false;
 
@@ -497,18 +497,18 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          bool should_exit() {
             return exiting_read_window || fc::time_point::now() >= read_window_deadline || (*received_block_ptr >= pending_block_num);
          }
-         
+
          mutable std::mutex      mtx;
          std::condition_variable cond;
          deque<ro_trx_t>         queue;
          uint32_t                num_waiting{0};
          uint32_t                max_waiting{0};
-         bool                    exiting_read_window{false}; 
+         bool                    exiting_read_window{false};
          std::atomic<uint32_t>*  received_block_ptr{nullptr};
          uint32_t                pending_block_num{0};
          fc::time_point          read_window_deadline;
       };
-   
+
       uint16_t                        _ro_thread_pool_size{ 0 };
       static constexpr uint16_t       _ro_max_eos_vm_oc_threads_allowed{ 8 }; // Due to uncertainty to get total virtual memory size on a 5-level paging system, set a hard limit
       named_thread_pool<struct read>  _ro_thread_pool;
@@ -880,7 +880,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       inline bool should_interrupt_start_block( const fc::time_point& deadline, uint32_t pending_block_num ) const;
       start_block_result start_block();
 
-      fc::time_point calculate_pending_block_time() const;
+      block_timestamp_type calculate_pending_block_time() const;
       void schedule_delayed_production_loop(const std::weak_ptr<producer_plugin_impl>& weak_this, std::optional<fc::time_point> wake_up_time);
       std::optional<fc::time_point> calculate_producer_wake_up_time( const block_timestamp_type& ref_block_time ) const;
 
@@ -1147,7 +1147,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    if ( my->_ro_thread_pool_size > 0 ) {
       if (!test_mode_)
          EOS_ASSERT( my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
-      
+
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if (chain.is_eos_vm_oc_enabled()) {
          // EOS VM OC requires 4.2TB Virtual for each executing thread. Make sure the memory
@@ -1824,13 +1824,11 @@ uint32_t producer_plugin_impl::calculate_next_block_slot(const account_name& pro
    }
 }
 
-fc::time_point producer_plugin_impl::calculate_pending_block_time() const {
+block_timestamp_type producer_plugin_impl::calculate_pending_block_time() const {
    const chain::controller& chain = chain_plug->chain();
    const fc::time_point now = fc::time_point::now();
    const fc::time_point base = std::max<fc::time_point>(now, chain.head_block_time());
-   const int64_t min_time_to_next_block = (config::block_interval_us) - (base.time_since_epoch().count() % (config::block_interval_us) );
-   fc::time_point block_time = base + fc::microseconds(min_time_to_next_block);
-   return block_time;
+   return block_timestamp_type((base.time_since_epoch().count() / config::block_interval_us) + 1);
 }
 
 bool producer_plugin_impl::should_interrupt_start_block( const fc::time_point& deadline, uint32_t pending_block_num ) const {
@@ -1857,7 +1855,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    }
 
    const fc::time_point now = fc::time_point::now();
-   const fc::time_point block_time = calculate_pending_block_time();
+   const block_timestamp_type block_time = calculate_pending_block_time();
    const uint32_t pending_block_num = hbs->block_num + 1;
 
    _pending_block_mode = pending_block_mode::producing;
@@ -1924,7 +1922,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
    if (production_round_index == 0) {
        // first block of our round, wait for block production window
-      const auto start_block_time = block_time - fc::microseconds( config::block_interval_us );
+      const auto start_block_time = block_time.to_time_point() - fc::microseconds( config::block_interval_us );
       if (now < start_block_time) {
          fc_dlog( _log, "Not starting block until ${bt}", ("bt", start_block_time) );
          schedule_delayed_production_loop( weak_from_this(), start_block_time );
