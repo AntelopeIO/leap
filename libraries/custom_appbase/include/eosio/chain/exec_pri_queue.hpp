@@ -14,9 +14,11 @@ class exec_pri_queue : public boost::asio::execution_context
 public:
 
    void enable_locking(uint32_t num_threads, std::function<bool()> should_exit) {
+      assert(num_threads > 0 && num_waiting_ == 0);
       lock_enabled_ = true;
       max_waiting_ = num_threads;
       should_exit_ = std::move(should_exit);
+      exiting_blocking_ = false;
    }
 
    void disable_locking() {
@@ -91,8 +93,7 @@ public:
       auto t = pop();
       g.unlock();
       t->execute();
-      g.lock();
-      return !handlers_.empty();
+      return true;
    }
 
    // Only call when locking disabled
