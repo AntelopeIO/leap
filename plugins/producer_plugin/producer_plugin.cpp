@@ -941,14 +941,8 @@ void producer_plugin::set_program_options(
           "account that can not access to extended CPU/NET virtual resources")
          ("greylist-limit", boost::program_options::value<uint32_t>()->default_value(1000),
           "Limit (between 1 and 1000) on the multiple that CPU/NET virtual resources can extend during low usage (only enforced subjectively; use 1000 to not enforce any limit)")
-         ("produce-time-offset-us", boost::program_options::value<int32_t>()->default_value(0),
-          "Deprecated, ignored. Use cpu-effort-percent.")
-         ("last-block-time-offset-us", boost::program_options::value<int32_t>()->default_value(-200000),
-          "Deprecated, ignored. Use cpu-effort-percent.")
          ("cpu-effort-percent", bpo::value<uint32_t>()->default_value(config::default_block_cpu_effort_pct / config::percent_1),
           "Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%")
-         ("last-block-cpu-effort-percent", bpo::value<uint32_t>()->default_value(config::default_block_cpu_effort_pct / config::percent_1),
-          "Deprecated, ignored. Use cpu-effort-percent.")
          ("max-block-cpu-usage-threshold-us", bpo::value<uint32_t>()->default_value( 5000 ),
           "Threshold of CPU block production to consider block full; when within threshold of max-block-cpu-usage block can be produced immediately")
          ("max-block-net-usage-threshold-bytes", bpo::value<uint32_t>()->default_value( 1024 ),
