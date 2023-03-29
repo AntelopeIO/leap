@@ -236,58 +236,6 @@ static void parseImm(FunctionParseState& state,LoadOrStoreImm<naturalAlignmentLo
 	}
 }
 
-#if ENABLE_SIMD_PROTOTYPE
-
-static void parseImm(FunctionParseState& state,LiteralImm<V128>& outImm)
-{
-	for(Uptr laneIndex = 0;laneIndex < 16;++laneIndex)
-	{
-		outImm.value.i8[laneIndex] = parseI8(state);
-	}
-}
-
-template<Uptr numLanes>
-static void parseImm(FunctionParseState& state,LaneIndexImm<numLanes>& outImm)
-{
-	const U64 u64 = parseI64(state);
-	if(u64 > numLanes)
-	{
-		parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes);
-	}
-	outImm.laneIndex = U8(u64);
-}
-
-template<Uptr numLanes>
-static void parseImm(FunctionParseState& state,ShuffleImm<numLanes>& outImm)
-{
-	parseParenthesized(state,[&]
-	{
-		for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-		{
-			const U64 u64 = parseI64(state);
-			if(u64 >= numLanes * 2)
-			{
-				parseErrorf(state,state.nextToken-1,"lane index must be in the range 0..%u",numLanes * 2);
-			}
-			outImm.laneIndices[laneIndex] = U8(u64);
-		}
-	});
-}
-#endif
-
-#if ENABLE_THREADING_PROTOTYPE
-static void parseImm(FunctionParseState& state,LaunchThreadImm& outImm) {}
-
-template<Uptr naturalAlignmentLog2>
-static void parseImm(FunctionParseState& state,AtomicLoadOrStoreImm<naturalAlignmentLog2>& outImm)
-{
-	LoadOrStoreImm<naturalAlignmentLog2> loadOrStoreImm;
-	parseImm(state,loadOrStoreImm);
-	outImm.alignmentLog2 = loadOrStoreImm.alignmentLog2;
-	outImm.offset = loadOrStoreImm.offset;
-}
-#endif
-
 static void parseInstrSequence(FunctionParseState& state);
 static void parseExpr(FunctionParseState& state);
 

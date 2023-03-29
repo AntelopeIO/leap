@@ -5,8 +5,6 @@
 
 #include <string.h>
 
-#undef ENABLE_SIMD_PROTOTYPE
-
 namespace Runtime
 {
 	// A runtime value of any type.
@@ -20,9 +18,6 @@ namespace Runtime
 			U64 u64;
 			F32 f32;
 			F64 f64;
-			#if ENABLE_SIMD_PROTOTYPE
-			IR::V128 v128;
-			#endif
 		};
 		
 		UntaggedValue(I32 inI32) { i32 = inI32; }
@@ -31,9 +26,6 @@ namespace Runtime
 		UntaggedValue(U64 inU64) { u64 = inU64; }
 		UntaggedValue(F32 inF32) { f32 = inF32; }
 		UntaggedValue(F64 inF64) { f64 = inF64; }
-		#if ENABLE_SIMD_PROTOTYPE
-		UntaggedValue(IR::V128 inV128) { v128 = inV128; }
-		#endif
 		UntaggedValue() = delete;
 	};
 
@@ -48,9 +40,6 @@ namespace Runtime
 		Value(U64 inU64): UntaggedValue(inU64), type(IR::ValueType::i64) {}
 		Value(F32 inF32): UntaggedValue(inF32), type(IR::ValueType::f32) {}
 		Value(F64 inF64): UntaggedValue(inF64), type(IR::ValueType::f64) {}
-		#if ENABLE_SIMD_PROTOTYPE
-		Value(const IR::V128& inV128): UntaggedValue(inV128), type(IR::ValueType::v128) {}
-		#endif
 		Value(IR::ValueType inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
 		Value() = delete;
 		
@@ -62,9 +51,6 @@ namespace Runtime
 			case IR::ValueType::i64: return "i64(" + std::to_string(value.i64) + ")";
 			case IR::ValueType::f32: return "f32(" + Floats::asString(value.f32) + ")";
 			case IR::ValueType::f64: return "f64(" + Floats::asString(value.f64) + ")";
-			#if ENABLE_SIMD_PROTOTYPE
-			case IR::ValueType::v128: return "v128(" + std::to_string(value.v128.u64[0]) + "," + std::to_string(value.v128.u64[1]) + ")";
-			#endif
 			default: Errors::unreachable();
 			}
 		}
@@ -81,9 +67,6 @@ namespace Runtime
 		Result(U64 inU64): UntaggedValue(inU64), type(IR::ResultType::i64) {}
 		Result(F32 inF32): UntaggedValue(inF32), type(IR::ResultType::f32) {}
 		Result(F64 inF64): UntaggedValue(inF64), type(IR::ResultType::f64) {}
-		#if ENABLE_SIMD_PROTOTYPE
-		Result(const IR::V128& inV128): UntaggedValue(inV128), type(IR::ResultType::v128) {}
-		#endif
 		Result(IR::ResultType inType,UntaggedValue inValue): UntaggedValue(inValue), type(inType) {}
 		Result(const Value& inValue): UntaggedValue(inValue), type(asResultType(inValue.type)) {}
 		Result() = delete;
@@ -97,9 +80,6 @@ namespace Runtime
 			case IR::ResultType::i64: return "i64(" + std::to_string(result.i64) + ")";
 			case IR::ResultType::f32: return "f32(" + Floats::asString(result.f32) + ")";
 			case IR::ResultType::f64: return "f64(" + Floats::asString(result.f64) + ")";
-			#if ENABLE_SIMD_PROTOTYPE
-			case IR::ResultType::v128: return "v128(" + std::to_string(result.v128.u64[0]) + "," + std::to_string(result.v128.u64[1]) + ")";
-			#endif
 			default: Errors::unreachable();
 			}
 		}
@@ -114,9 +94,6 @@ namespace Runtime
 		case IR::ResultType::f32: return a.i32 == b.i32;
 		case IR::ResultType::i64:
 		case IR::ResultType::f64: return a.i64 == b.i64;
-		#if ENABLE_SIMD_PROTOTYPE
-		case IR::ResultType::v128: return a.v128.u64[0] == b.v128.u64[0] && a.v128.u64[1] == b.v128.u64[1];
-		#endif
 		case IR::ResultType::none: return true;
 		default: Errors::unreachable();
 		};

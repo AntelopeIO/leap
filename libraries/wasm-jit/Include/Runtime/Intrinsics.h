@@ -32,13 +32,6 @@ namespace NativeTypes
 	typedef F32 f32;
 	typedef F64 f64;
 	typedef void none;
-	#if ENABLE_SIMD_PROTOTYPE
-	typedef IR::V128 v128;
-	typedef IR::V128 b8x16;
-	typedef IR::V128 b16x8;
-	typedef IR::V128 b32x4;
-	typedef IR::V128 b64x2;
-	#endif
 };
 
 // Macros for defining intrinsic functions of various arities.
