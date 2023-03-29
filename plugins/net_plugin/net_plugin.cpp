@@ -312,6 +312,7 @@ namespace eosio {
    constexpr auto     def_max_trx_in_progress_size = 100*1024*1024; // 100 MB
    constexpr auto     def_max_consecutive_immediate_connection_close = 9; // back off if client keeps closing
    constexpr auto     def_max_clients = 25; // 0 for unlimited clients
+   constexpr auto     def_min_peers = 5;
    constexpr auto     def_max_nodes_per_host = 1;
    constexpr auto     def_conn_retry_wait = 30;
    constexpr auto     def_txn_expire_wait = std::chrono::seconds(3);
@@ -361,6 +362,8 @@ namespace eosio {
       int                                   max_cleanup_time_ms = 0;
       uint32_t                              max_client_count = 0;
       uint32_t                              max_nodes_per_host = 1;
+      // maintain a configurable minimum number of connected peer nodes.
+      uint32_t                              min_peers_count = 0;
       bool                                  p2p_accept_transactions = true;
       fc::microseconds                      p2p_dedup_cache_expire_time_us{};
 
@@ -3665,8 +3668,8 @@ namespace eosio {
             connection_wptr wit = *it;
             g.unlock();
             fc_dlog( logger, "Exiting connection monitor early, ran out of time: ${t}", ("t", max_time - fc::time_point::now()) );
-            fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}",
-                     ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", address_master->get_addresses().size()) );
+            fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/[${pmin}-${pmax}]",
+                     ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmin",min_peers_count)("pmax", address_master->get_addresses().size()) );
             if( reschedule ) {
                start_conn_timer( std::chrono::milliseconds( 1 ), wit ); // avoid exhausting
             }
@@ -3678,7 +3681,7 @@ namespace eosio {
             ++num_clients;
          else
             ++num_peers;
-
+         //if connection is dead, remove p2p connection and reconnect peer connection
          if( !(*it)->socket_is_open() && !(*it)->connecting) {
             if( !(*it)->incoming() ) {
                if( !(*it)->resolve_and_connect() ) {
@@ -3696,13 +3699,22 @@ namespace eosio {
       }
       g.unlock();
 
+      //if num_peers < min, get addresses from address manager to connect
+      //TODO: connection address check first
+      if( num_peers < min_peers_count) {
+          fc_ilog( logger, "peer connections not enough: ${pnum}/[${pmin}-${pmax}], trying to increase it",("pnum", num_peers)("pmin",min_peers_count)("pmax", address_master->get_addresses().size()));
+          for( const auto& peer : my_impl->address_master->get_addresses_str() ) {
+              my_impl->connect( peer );
+          }
+      }
+
       metrics.num_clients.value = num_clients;
       metrics.num_peers.value = num_peers;
       metrics.post_metrics();
 
       if( num_clients > 0 || num_peers > 0 )
-         fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}, block producer peers: ${num_bp_peers}",
-                  ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", address_master->get_addresses().size())("num_bp_peers", num_bp_peers) );
+         fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/[${pmin}-${pmax}], block producer peers: ${num_bp_peers}",
+                  ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmin",min_peers_count)("pmax", address_master->get_addresses().size())("num_bp_peers", num_bp_peers) );
       fc_dlog( logger, "connection monitor, removed ${n} connections", ("n", num_rm) );
       if( reschedule ) {
          start_conn_timer( connector_period, std::weak_ptr<connection>());
@@ -3884,6 +3896,7 @@ namespace eosio {
          ( "peer-private-key", boost::program_options::value<vector<string>>()->composing()->multitoken(),
            "Tuple of [PublicKey, WIF private key] (may specify multiple times)")
          ( "max-clients", bpo::value<int>()->default_value(def_max_clients), "Maximum number of clients from which connections are accepted, use 0 for no limit")
+         ( "min-peers", bpo::value<int>()->default_value(def_min_peers), "Maintain minimum number of connected peer nodes, if not enough, node will try to connect more")
          ( "connection-cleanup-period", bpo::value<int>()->default_value(def_conn_retry_wait), "number of seconds to wait before cleaning up dead connections")
          ( "max-cleanup-time-msec", bpo::value<int>()->default_value(10), "max connection cleanup time per cleanup call in milliseconds")
          ( "p2p-dedup-cache-expire-time-sec", bpo::value<uint32_t>()->default_value(10), "Maximum time to track transaction for duplicate optimization")
@@ -3931,6 +3944,7 @@ namespace eosio {
          my->resp_expected_period = def_resp_expected_wait;
          my->max_client_count = options.at( "max-clients" ).as<int>();
          my->max_nodes_per_host = options.at( "p2p-max-nodes-per-host" ).as<int>();
+         my->min_peers_count = options.at( "min-peers" ).as<int>();
          my->p2p_accept_transactions = options.at( "p2p-accept-transactions" ).as<bool>();
 
          my->use_socket_read_watermark = options.at( "use-socket-read-watermark" ).as<bool>();
