@@ -929,7 +929,7 @@ void producer_plugin::set_program_options(
          ("snapshots-dir", bpo::value<bfs::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
          ("read-only-threads", bpo::value<uint16_t>(),
-          "Number of worker threads in read-only transaction execution thread pool")
+          "Number of worker threads in read-only execution thread pool")
          ("read-only-write-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_write_window_time_us.count()),
           "time in microseconds the write window lasts")
          ("read-only-read-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_read_window_time_us.count()),
@@ -1259,7 +1259,7 @@ void producer_plugin::plugin_startup()
    if ( my->_ro_thread_pool_size > 0 ) {
       my->_ro_thread_pool.start( my->_ro_thread_pool_size,
          []( const fc::exception& e ) {
-            fc_elog( _log, "Exception in read-only transaction thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+            fc_elog( _log, "Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
             app().quit();
          },
          [&]() {
@@ -2834,7 +2834,6 @@ void producer_plugin_impl::switch_to_write_window() {
    }
 
    EOS_ASSERT(_ro_num_active_exec_tasks.load() == 0 && _ro_exec_tasks_fut.empty(), producer_exception, "no read-only tasks should be running before switching to write window");
-   _ro_timer.cancel();
 
    start_write_window();
 }
@@ -2889,7 +2888,7 @@ void producer_plugin_impl::switch_to_read_window() {
    _ro_read_window_start_time = fc::time_point::now();
    _ro_all_threads_exec_time_us = 0;
 
-   // start a read-only transaction execution task in each thread in the thread pool
+   // start a read-only execution task in each thread in the thread pool
    _ro_num_active_exec_tasks = _ro_thread_pool_size;
    for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
       _ro_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this, pending_block_num] () {
