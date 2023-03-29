@@ -49,7 +49,6 @@ Requirements to build:
 - LLVM 7 - 11 - for Linux only
   - newer versions do not work
 - openssl 1.1+
-- curl
 - libcurl 7.40.0+
 - git
 - GMP
@@ -132,7 +131,6 @@ sudo apt-get update
 sudo apt-get install -y \
         build-essential \
         cmake \
-        curl \
         git \
         libboost-all-dev \
         libcurl4-openssl-dev \
