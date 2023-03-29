@@ -11,7 +11,6 @@
 
 #include <Inline/Serialization.h>
 #include <IR/Module.h>
-#include <Runtime/Runtime.h>
 #include <WASM/WASM.h>
 
 #include <boost/test/unit_test.hpp>
@@ -1854,7 +1853,6 @@ BOOST_FIXTURE_TEST_CASE( reset_memory_fail, TESTER ) try {
 // TODO: Update to use eos-vm once merged
 BOOST_AUTO_TEST_CASE( code_size )  try {
    using namespace IR;
-   using namespace Runtime;
    using namespace Serialization;
    std::vector<U8> code_start = {
       0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x07, 0x01, 0x60,

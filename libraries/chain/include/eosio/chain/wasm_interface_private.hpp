@@ -15,7 +15,6 @@
 #include <fc/scoped_exit.hpp>
 
 #include "IR/Module.h"
-#include "Runtime/Intrinsics.h"
 #include "Platform/Platform.h"
 #include "WAST/WAST.h"
 #include "IR/Validate.h"
@@ -26,7 +25,6 @@
 using namespace fc;
 using namespace eosio::chain::webassembly;
 using namespace IR;
-using namespace Runtime;
 
 using boost::multi_index_container;
 
