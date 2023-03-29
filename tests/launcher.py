@@ -174,7 +174,7 @@ class launcher(object):
         parser.add_argument('-i', '--timestamp', help='set the timestamp for the first block.  Use "now" to indicate the current time')
         parser.add_argument('-l', '--launch', choices=['all', 'none', 'local'], help='select a subset of nodes to launch.  If not set, the default is to launch all unless an output file is named, in which case none are started.', default='all')
         parser.add_argument('-o', '--output', help='save a copy of the generated topology in this file and exit without launching', dest='topology_filename')
-        parser.add_argument('-k', '--kill', help='retrieve the list of previously started process ids and issue a kill to each')
+        parser.add_argument('-k', '--kill', type=int, help='kill a network as specified in arguments with given signal')
         parser.add_argument('--down', type=comma_separated, help='comma-separated list of node numbers that will be shut down', default=[])
         parser.add_argument('--bounce', type=comma_separated, help='comma-separated list of node numbers that will be restarted', default=[])
         parser.add_argument('--roll', type=comma_separated, help='comma-separated list of host names where the nodes will be rolled to a new version')
@@ -613,6 +613,17 @@ plugin = eosio::chain_api_plugin
                     if relaunch:
                         self.launch(node)
 
+    def kill(self, signum):
+        errorCode = 0
+        for node in self.network.nodes.values():
+            try:
+                with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
+                    pid = int(f.readline())
+                    self.terminate_wait_pid(pid, signum, raise_if_missing=False)
+            except FileNotFoundError as err:
+                errorCode = 1
+        return errorCode
+
     def start_all(self):
         if self.args.launch.lower() != 'none':
             for instance in self.network.nodes.values():
@@ -628,8 +639,9 @@ plugin = eosio::chain_api_plugin
                     f.write(f'"{node.dot_label}"->"{pname}" [dir="forward"];\n')
             f.write('}')
 
-    def terminate_wait_pid(self, pid, raise_if_missing=True):
-        '''Terminate a non-child process with SIGTERM and wait for it to exit.'''
+    def terminate_wait_pid(self, pid, signum = signal.SIGTERM, raise_if_missing=True):
+        '''Terminate a non-child process with given signal number or with SIGTERM if not
+           provided and wait for it to exit.'''
         if sys.version_info >= (3, 9) and platform.system() == 'Linux': # on our supported platforms, Python 3.9 accompanies a kernel > 5.3
             try:
                 fd = os.pidfd_open(pid)
@@ -640,7 +652,7 @@ plugin = eosio::chain_api_plugin
                 po = select.poll()
                 po.register(fd, select.POLLIN)
                 try:
-                    os.kill(pid, signal.SIGTERM)
+                    os.kill(pid, signum)
                 except ProcessLookupError:
                     if raise_if_missing:
                         raise
@@ -663,7 +675,7 @@ plugin = eosio::chain_api_plugin
                     return min(delay * 2, 0.04)
                 delay = 0.0001
                 try:
-                    os.kill(pid, signal.SIGTERM)
+                    os.kill(pid, signum)
                 except ProcessLookupError:
                     if raise_if_missing:
                         raise
@@ -676,12 +688,16 @@ plugin = eosio::chain_api_plugin
                         return
 
 if __name__ == '__main__':
+    errorCode = 0
     l = launcher(sys.argv[1:])
     if len(l.args.down):
         l.down(l.args.down)
     elif len(l.args.bounce):
         l.bounce(l.args.bounce)
+    elif l.args.kill:
+        errorCode = l.kill(l.args.kill)
     elif l.args.launch == 'all' or l.args.launch == 'local':
         l.start_all()
     for f in glob.glob(Utils.DataPath):
         shutil.rmtree(f)
+    sys.exit(errorCode)
