@@ -128,6 +128,8 @@ namespace eosio {
        void remove_addresses(const std::vector<peer_address>& addresses_to_remove);
        void update_address(const peer_address& updated_address);
        std::vector<peer_address> get_addresses() const;
+       std::vector<peer_address> get_manual_addresses() const;
+       std::vector<peer_address> get_diff_addresses(const std::vector<string>& addresses_exist) const;
        std::vector<peer_address> get_addresses(uint32_t start, uint32_t count) const;
        std::vector<std::string> get_addresses_str() const;
 
@@ -140,7 +142,7 @@ namespace eosio {
         std::unique_lock<std::mutex> lock(addresses_mutex);
         // if same address, skip it, ignore other properties
         if(std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
-            fc_ilog( logger, "Address Manager add_address: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
+            fc_dlog( logger, "Address Manager add_address: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
             addresses.push_back(address);
         }
     }
@@ -157,7 +159,7 @@ namespace eosio {
         for (const auto& address : new_addresses) {
             peer_address addr = peer_address::from_str(address, is_manual);
             if (std::find(addresses.begin(), addresses.end(), addr) == addresses.end()) {
-                fc_ilog( logger, "Address Manager add_addresses: ${host} ${port} ${type}", ("host",addr.host)("port",addr.port)("type", address_type_str(addr.address_type)) );
+                fc_dlog( logger, "Address Manager add_addresses: ${host} ${port} ${type}", ("host",addr.host)("port",addr.port)("type", address_type_str(addr.address_type)) );
                 addresses.push_back(addr);
             }
         }
@@ -194,6 +196,33 @@ namespace eosio {
         return addresses;
     }
 
+    std::vector<peer_address> address_manager::get_manual_addresses() const {
+        std::unique_lock<std::mutex> lock(addresses_mutex);
+        std::vector<peer_address> result;
+        for (const auto& address : addresses) {
+            //check if address is manual
+            if (address.manual) {
+                result.push_back(address);
+            }
+        }
+        return result;
+    }
+
+
+    std::vector<peer_address> address_manager::get_diff_addresses(const std::vector<string>& addresses_exist) const {
+        std::unique_lock<std::mutex> lock(addresses_mutex);
+        std::vector<peer_address> result;
+        for (const auto& address : addresses) {
+            //check if address in addresses_exist
+            auto it = std::find(addresses_exist.begin(), addresses_exist.end(), address.to_str());
+            if (it == addresses_exist.end()) {
+                result.push_back(address);
+            }
+        }
+        return result;
+    }
+
+
     std::vector<peer_address> address_manager::get_addresses(uint32_t start, uint32_t count) const {
         std::unique_lock<std::mutex> lock(addresses_mutex);
         // make sure start and count is suitable
@@ -204,7 +233,7 @@ namespace eosio {
 
     std::vector<std::string> address_manager::get_addresses_str() const {
         std::vector<std::string> address_strs;
-        std::lock_guard<std::mutex> lock(addresses_mutex);
+        std::unique_lock<std::mutex> lock(addresses_mutex);
         for (const auto& address : addresses) {
             address_strs.push_back(address.to_str());
         }
@@ -212,9 +241,10 @@ namespace eosio {
     }
 
     bool address_manager::has_address(const std::string& address_str) const {
-        std::lock_guard<std::mutex> lock(addresses_mutex);
+        std::unique_lock<std::mutex> lock(addresses_mutex);
         for (const auto& address : addresses) {
-            if (address.to_str() == address_str) {
+            // from_str will remove unnecessary part such as " - xxx", "eosname,"
+            if (address == peer_address::from_str(address_str)) {
                 return true;
             }
         }
@@ -312,7 +342,7 @@ namespace eosio {
    constexpr auto     def_max_trx_in_progress_size = 100*1024*1024; // 100 MB
    constexpr auto     def_max_consecutive_immediate_connection_close = 9; // back off if client keeps closing
    constexpr auto     def_max_clients = 25; // 0 for unlimited clients
-   constexpr auto     def_min_peers = 5;
+   constexpr auto     def_min_peers = 0;
    constexpr auto     def_max_nodes_per_host = 1;
    constexpr auto     def_conn_retry_wait = 30;
    constexpr auto     def_txn_expire_wait = std::chrono::seconds(3);
@@ -852,7 +882,7 @@ namespace eosio {
        */
       bool process_next_message(uint32_t message_length);
 
-      void send_address_request(uint16_t request_type);
+      void send_address_request(request_type_enum request_type);
       void send_handshake();
 
       /** \name Peer Timestamps
@@ -893,7 +923,7 @@ namespace eosio {
       void flush_queues();
       bool enqueue_sync_block();
       void request_sync_blocks(uint32_t start, uint32_t end);
-      void enqueue_address_request(uint16_t request_type);
+      void enqueue_address_request(request_type_enum request_type);
 
 
       void cancel_wait();
@@ -1330,25 +1360,33 @@ namespace eosio {
             // only send request to peers allowed connection
             // every 100 handshakes will send a request
             if(c->is_peers_connection() && c->sent_handshake_count % 100 == 1)
-                c->enqueue_address_request(0);
+                c->enqueue_address_request(pull);
          }
       });
    }
 
-   void connection::send_address_request(uint16_t request_type) {
+   void connection::send_address_request(request_type_enum request_type) {
        strand.post( [c = shared_from_this(), request_type]() {
             c->enqueue_address_request(request_type);
        });
    }
 
    // called from connection strand
-   void connection::enqueue_address_request(uint16_t request_type) {
-       peer_dlog( this, "Sending address request type ${type}", ("type", request_type) );
+   void connection::enqueue_address_request(request_type_enum request_type) {
+       peer_dlog( this, "Sending address request type ${type}", ("type", request_type_str(request_type)) );
        address_request_message request_msg;
-       request_msg.type = request_type;
-       request_msg.node_id = my_impl->node_id;
 
+       request_msg.request_type = request_type;
+       // request push type will send addresses to other node
+       if(request_type == push) {
+           vector<string> addresses = my_impl->address_master->get_addresses_str();
+           for (const auto& address : addresses) {
+               // host:port:type
+               request_msg.addresses.emplace_back(address);
+           }
+       }
        enqueue(request_msg);
+
    }
 
    // called from connection strand
@@ -3354,28 +3392,39 @@ namespace eosio {
 
    // add address message request and receive handler
    void connection::handle_message( const address_request_message& msg ) {
-       peer_dlog(this, "address request type:${type} from ${node_id}", ("type", msg.type)("node_id", msg.node_id) );
+       peer_dlog(this, "address request type:${type} from ${address}", ("type", request_type_str(msg.request_type))("address",this->peer_address()) );
 
        if(is_peers_connection()) {
            std::vector<eosio::peer_address> addresses;
-           // 0 indicates the first request, 1 indicates the second request
-           // functions such as synchronization and broadcast need to be improved
-           if (msg.type == 0) {
-               addresses = my_impl->address_master->get_addresses(0,10);
+           if(msg.request_type == push) {
+               //check incoming addresses, send back different one:
+               std::vector<string> addresses_incoming = msg.addresses;
+               addresses = my_impl->address_master->get_diff_addresses(addresses_incoming);
+           } else if(msg.request_type == manual) {
+               addresses = my_impl->address_master->get_manual_addresses();
+           } else if(msg.request_type == latest_active) {
+               //skip msg.addresses
+               //TODO:msg.request_type == latest_active
+               addresses = my_impl->address_master->get_addresses();
            } else {
-               addresses = my_impl->address_master->get_addresses(10,20);
+               // default msg.request_type == pull
+               //skip msg.addresses
+               addresses = my_impl->address_master->get_addresses();
            }
 
-           address_sync_message addresses_msg;
+               address_sync_message addresses_msg;
 
            for (const auto& address : addresses) {
                // host:port:type
-               addresses_msg.addresses.emplace_back(address.to_str());
+               // skipp remote peer itself
+               if(address != peer_address::from_str(this->peer_address())) {
+                   addresses_msg.addresses.emplace_back(address.to_str());
+               }
            }
 
            enqueue(addresses_msg);
        } else {
-           peer_dlog(this, "address request from ${node_id} is dropped since connection type is ${type}", ("node_id", msg.node_id)("type",this->peer_address()));
+           peer_dlog(this, "address request from ${address} is dropped since connection type not support", ("address", this->peer_address()));
        }
    }
 

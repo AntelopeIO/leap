@@ -135,7 +135,7 @@ namespace eosio {
       uint32_t end_block{0};
    };
 
-    enum address_enum_type {
+    enum address_type_enum {
         blk      = 1 << 0, // 1
         trx      = 1 << 1, // 2
         peer     = 1 << 2, // 4
@@ -143,7 +143,7 @@ namespace eosio {
         all      = 0x7
     };
 
-    constexpr auto address_type_str( address_enum_type t ) {
+    constexpr auto address_type_str( address_type_enum t ) {
         switch( t ) {
             case blk : return ":blk";
             case trx : return ":trx";
@@ -154,16 +154,21 @@ namespace eosio {
     }
 
     struct peer_address {
-        peer_address( address_enum_type t = all) : host(), port(), address_type(t), last_active(), manual(false) {}
+        peer_address( address_type_enum t = all) : host(), port(), address_type(t), receive(), last_active(), manual(false) {}
         std::string host;
         std::string port;
-        address_enum_type address_type;
+        address_type_enum address_type;
+        fc::time_point receive;
         fc::time_point last_active;
         bool manual;
 
         // if host and port are same then ignore other configuration
         bool operator==(const peer_address& other) const {
             return host == other.host && port == other.port;
+        }
+
+        bool operator!=(const peer_address& other) const {
+            return host != other.host || port != other.port;
         }
 
         std::string to_address() const {
@@ -173,12 +178,23 @@ namespace eosio {
             return host + ":" + port + address_type_str(address_type);
         }
 
+        static peer_address from_str(const std::string& input_address_str) {
+            return from_str(input_address_str, false);
+        }
+
         static peer_address from_str(const std::string& input_address_str, bool is_manual) {
             std::string address_str = input_address_str;
+            // for "localhost:1234 - 012345" str
             string::size_type pos = address_str.find(' ');
             if (pos != std::string::npos) {
                 address_str = address_str.substr(0, pos);
             }
+            // for "eosproducer1,p2p.eos.io:9876" str
+            pos = address_str.find(',');
+            if (pos != std::string::npos) {
+                address_str = address_str.substr(pos + 1);
+            }
+
             string::size_type colon = address_str.find(':');
             string::size_type colon2 = address_str.find(':', colon + 1);
             string::size_type end = colon2 == string::npos
@@ -188,7 +204,7 @@ namespace eosio {
             string type_str = colon2 == string::npos ? "" : end == string::npos ?
                                                             address_str.substr( colon2 + 1 ) : address_str.substr( colon2 + 1, end - (colon2 + 1) );
 
-            address_enum_type address_type;
+            address_type_enum address_type;
 
             // determine address type
             if (type_str == "trx") {
@@ -206,17 +222,36 @@ namespace eosio {
             address.host = host_str;
             address.port = port_str;
             address.address_type = address_type;
-            address.last_active = fc::time_point::now();
+            address.receive = fc::time_point::now();
+            address.last_active = fc::time_point::min();
             address.manual = is_manual;
             return address;
         }
 
     };
 
+    enum request_type_enum {
+        push,   //push and pull
+        pull,
+        latest_active,
+        manual, //only request manual addresses
+    };
+
+    constexpr auto request_type_str( request_type_enum t ) {
+        switch( t ) {
+            case push : return "push";
+            case pull : return "pull";
+            case latest_active : return "latest_active";
+            case manual: return "manual";
+            default: return "pull";
+        }
+    }
+
+
     struct address_request_message {
-        address_request_message() : type(0), node_id() {}
-        uint16_t         type = 0; // 0 for first pull, 1 for second pull
-        fc::sha256       node_id;
+        address_request_message(request_type_enum t = pull) : request_type(t), addresses() {}
+        request_type_enum   request_type;
+        vector<string>      addresses;
     };
 
 
@@ -253,7 +288,7 @@ FC_REFLECT( eosio::time_message, (org)(rec)(xmt)(dst) )
 FC_REFLECT( eosio::notice_message, (known_trx)(known_blocks) )
 FC_REFLECT( eosio::request_message, (req_trx)(req_blocks) )
 FC_REFLECT( eosio::sync_request_message, (start_block)(end_block) )
-FC_REFLECT( eosio::address_request_message, (type)(node_id) )
+FC_REFLECT( eosio::address_request_message, (request_type)(addresses) )
 FC_REFLECT( eosio::address_sync_message, (addresses) )
 
 
