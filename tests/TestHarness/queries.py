@@ -118,10 +118,10 @@ class NodeosQueries:
         # could be a transaction response
         if cntxt.hasKey("processed"):
             cntxt.add("processed")
-            cntxt.add("action_traces")
-            cntxt.index(0)
             if not cntxt.isSectionNull("except"):
                 return "no_block"
+            cntxt.add("action_traces")
+            cntxt.index(0)
             return cntxt.add("block_num")
 
         # or what the trace api plugin returns
@@ -242,7 +242,7 @@ class NodeosQueries:
         assert(isinstance(transId, str))
         exitOnErrorForDelayed=not delayedRetry and exitOnError
         timeout=3
-        cmdDesc="get transaction_trace"
+        cmdDesc=self.fetchTransactionCommand()
         cmd="%s %s" % (cmdDesc, transId)
         msg="(transaction id=%s)" % (transId);
         for i in range(0,(int(60/timeout) - 1)):
@@ -295,8 +295,8 @@ class NodeosQueries:
         refBlockNum=None
         key=""
         try:
-            key="[transaction][transaction_header][ref_block_num]"
-            refBlockNum=trans["transaction_header"]["ref_block_num"]
+            key = self.fetchKeyCommand()
+            refBlockNum = self.fetchRefBlock(trans)
             refBlockNum=int(refBlockNum)+1
         except (TypeError, ValueError, KeyError) as _:
             Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
@@ -347,8 +347,8 @@ class NodeosQueries:
 
     def getTable(self, contract, scope, table, exitOnError=False):
         cmdDesc = "get table"
-        cmd="%s %s %s %s" % (cmdDesc, contract, scope, table)
-        msg="contract=%s, scope=%s, table=%s" % (contract, scope, table);
+        cmd=f"{cmdDesc} {self.cleosLimit} {contract} {scope} {table}"
+        msg=f"contract={contract}, scope={scope}, table={table}"
         return self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
 
     def getTableAccountBalance(self, contract, scope):
@@ -529,7 +529,7 @@ class NodeosQueries:
             return m.group(1)
         except subprocess.CalledProcessError as ex:
             end=time.perf_counter()
-            msg=ex.output.decode("utf-8")
+            msg=ex.stderr.decode("utf-8")
             Utils.Print("ERROR: Exception during code hash retrieval.  cmd Duration: %.3f sec.  %s" % (end-start, msg))
             return None
 
@@ -580,8 +580,9 @@ class NodeosQueries:
         except subprocess.CalledProcessError as ex:
             if not silentErrors:
                 end=time.perf_counter()
-                msg=ex.output.decode("utf-8")
-                errorMsg="Exception during \"%s\". Exception message: %s.  cmd Duration=%.3f sec. %s" % (cmdDesc, msg, end-start, exitMsg)
+                out=ex.output.decode("utf-8")
+                msg=ex.stderr.decode("utf-8")
+                errorMsg="Exception during \"%s\". Exception message: %s.  stdout: %s.  cmd Duration=%.3f sec. %s" % (cmdDesc, msg, out, end-start, exitMsg)
                 if exitOnError:
                     Utils.cmdError(errorMsg)
                     Utils.errorExit(errorMsg)

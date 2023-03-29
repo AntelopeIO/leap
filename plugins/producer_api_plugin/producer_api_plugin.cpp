@@ -43,7 +43,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
 {std::string("/v1/" #api_name "/" #call_name), \
    [&api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
       if (body.empty()) body = "{}"; \
-      auto next = [cb, body](const std::variant<fc::exception_ptr, call_result>& result){\
+      auto next = [cb=std::move(cb), body=std::move(body)](const std::variant<fc::exception_ptr, call_result>& result){ \
          if (std::holds_alternative<fc::exception_ptr>(result)) {\
             try {\
                std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();\

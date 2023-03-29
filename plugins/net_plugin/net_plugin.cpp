@@ -3225,11 +3225,12 @@ namespace eosio {
             return;
          }
 
-         bool valid_block_header = !!bsp;
 
-         if( valid_block_header ) {
+         uint32_t block_num = bsp ? bsp->block_num : 0;
+
+         if( block_num != 0 ) {
             fc_dlog( logger, "validated block header, broadcasting immediately, connection ${cid}, blk num = ${num}, id = ${id}",
-                     ("cid", cid)("num", bsp->block_num)("id", bsp->id) );
+                     ("cid", cid)("num", block_num)("id", bsp->id) );
             my_impl->dispatcher->add_peer_block( bsp->id, cid ); // no need to send back to sender
             my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
          }
@@ -3238,9 +3239,9 @@ namespace eosio {
             c->process_signed_block( id, std::move(ptr), std::move(bsp) );
          });
 
-         if( valid_block_header ) {
+         if( block_num != 0 ) {
             // ready to process immediately, so signal producer to interrupt start_block
-            my_impl->producer_plug->received_block();
+            my_impl->producer_plug->received_block(block_num);
          }
       });
    }

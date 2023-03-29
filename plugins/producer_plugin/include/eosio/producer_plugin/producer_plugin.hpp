@@ -202,11 +202,14 @@ public:
    void register_metrics_listener(metrics_listener listener);
 
    // thread-safe, called when a new block is received
-   void received_block();
+   void received_block(uint32_t block_num);
 
-const std::set<account_name>& producer_accounts() const;
+   const std::set<account_name>& producer_accounts() const;
 
+   static void set_test_mode(bool m) { test_mode_ = m; }
  private:
+   inline static bool test_mode_{false}; // to be moved into appbase (application_base)
+   
    std::shared_ptr<class producer_plugin_impl> my;
 };
 
