@@ -1,7 +1,6 @@
 set(Sources
 	Intrinsics.cpp
 	Linker.cpp
-	LLVMJIT.h
 	ObjectGC.cpp
 	RuntimePrivate.h
   )
