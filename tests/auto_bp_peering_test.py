@@ -33,7 +33,7 @@ args = TestHelper.parse_args({
 })
 
 Utils.Debug = args.v
-killAll = True
+killAll = args.clean_run
 dumpErrorDetails = args.dump_error_details
 dontKill = args.leave_running
 killEosInstances = not dontKill
