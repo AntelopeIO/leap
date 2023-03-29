@@ -17,6 +17,13 @@ class http_client {
       http_client();
       ~http_client();
 
+      template<class Container>
+      typename Container::value_type get_sync(const url& dest, const fc::time_point& deadline);
+
+      std::string          get_sync     (const url& dest, const time_point& deadline = time_point::maximum());
+      std::vector<uint8_t> get_sync_raw (const url& dest, const time_point& deadline = time_point::maximum());
+      variant              get_sync_json(const url& dest, const time_point& deadline = time_point::maximum());
+
       variant post_sync(const url& dest, const variant& payload, const time_point& deadline = time_point::maximum());
 
       template<typename T>

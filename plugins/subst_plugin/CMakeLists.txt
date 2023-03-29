@@ -9,7 +9,8 @@ target_link_libraries(
     subst_plugin
     chain_plugin
     eosio_chain
-    appbase)
+    appbase
+    fc)
 
 target_include_directories(
     subst_plugin

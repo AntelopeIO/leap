@@ -1,9 +1,27 @@
 #pragma once
 #include <eosio/chain/application.hpp>
+
+#include <boost/beast/http.hpp>
+#include <boost/filesystem.hpp>
+#include <boost/algorithm/string.hpp>
+
+#include <debug_eos_vm/debug_contract.hpp>
+
+#include <fc/io/json.hpp>
+#include <fc/network/url.hpp>
+#include <fc/network/http/http_client.hpp>
+
+#include <eosio/chain/controller.hpp>
+#include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
+
+namespace http = boost::beast::http;
 
 namespace eosio
 {
+   using chain::controller;
+   typedef boost::filesystem::path bpath;
+
    struct subst_plugin_impl;
 
    class subst_plugin : public appbase::plugin<subst_plugin>

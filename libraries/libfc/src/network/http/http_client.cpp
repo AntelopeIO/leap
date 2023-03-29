@@ -116,8 +116,8 @@ public:
       return res;
    };
 
-   template<typename SyncReadStream>
-   error_code sync_write_with_timeout(SyncReadStream& s, http::request<http::string_body>& req, const deadline_type& deadline ) {
+   template<typename SyncReadStream, typename RequestContainer>
+   error_code sync_write_with_timeout(SyncReadStream& s, http::request<RequestContainer>& req, const deadline_type& deadline ) {
       return sync_do_with_deadline(s, deadline, [&s, &req](std::optional<error_code>& final_ec){
          http::async_write(s, req, [&final_ec]( const error_code& ec, std::size_t ) {
             final_ec.emplace(ec);
@@ -125,8 +125,8 @@ public:
       });
    }
 
-   template<typename SyncReadStream>
-   error_code sync_read_with_timeout(SyncReadStream& s, boost::beast::flat_buffer& buffer, http::response<http::string_body>& res, const deadline_type& deadline ) {
+   template<typename SyncReadStream, typename ResponseContainer>
+   error_code sync_read_with_timeout(SyncReadStream& s, boost::beast::flat_buffer& buffer, http::response<ResponseContainer>& res, const deadline_type& deadline ) {
       return sync_do_with_deadline(s, deadline, [&s, &buffer, &res](std::optional<error_code>& final_ec){
          http::async_read(s, buffer, res, [&final_ec]( const error_code& ec, std::size_t ) {
             final_ec.emplace(ec);
@@ -212,8 +212,9 @@ public:
       }
    }
 
+   template<typename RequestContainer>
    struct write_request_visitor : visitor<error_code> {
-      write_request_visitor(http_client_impl* that, http::request<http::string_body>& req, const deadline_type& deadline)
+      write_request_visitor(http_client_impl* that, http::request<RequestContainer>& req, const deadline_type& deadline)
       :that(that)
       ,req(req)
       ,deadline(deadline)
@@ -225,12 +226,13 @@ public:
       }
 
       http_client_impl*                 that;
-      http::request<http::string_body>& req;
+      http::request<RequestContainer>& req;
       const deadline_type&              deadline;
    };
 
+   template<typename ResponseContainer>
    struct read_response_visitor : visitor<error_code> {
-      read_response_visitor(http_client_impl* that, boost::beast::flat_buffer& buffer, http::response<http::string_body>& res, const deadline_type& deadline)
+      read_response_visitor(http_client_impl* that, boost::beast::flat_buffer& buffer, http::response<ResponseContainer>& res, const deadline_type& deadline)
       :that(that)
       ,buffer(buffer)
       ,res(res)
@@ -244,9 +246,67 @@ public:
 
       http_client_impl*                  that;
       boost::beast::flat_buffer&         buffer;
-      http::response<http::string_body>& res;
+      http::response<ResponseContainer>& res;
       const deadline_type&               deadline;
    };
+
+   template<class Container>
+   typename Container::value_type get_sync(const url& dest, const fc::time_point& _deadline) {
+      static const deadline_type epoch(boost::gregorian::date(1970, 1, 1));
+      auto deadline = epoch + boost::posix_time::microseconds(_deadline.time_since_epoch().count());
+      FC_ASSERT(dest.host(), "No host set on URL");
+
+      string path = dest.path() ? dest.path()->generic_string() : "/";
+      if (dest.query()) {
+         path = path + "?" + *dest.query();
+      }
+
+      string host_str = *dest.host();
+      if (dest.port()) {
+         auto port = *dest.port();
+         auto proto_iter = default_proto_ports.find(dest.proto());
+         if (proto_iter != default_proto_ports.end() && proto_iter->second != port) {
+            host_str = host_str + ":" + std::to_string(port);
+         }
+      }
+
+      http::request<http::empty_body> req{http::verb::get, path, 11};
+      req.set(http::field::host, host_str);
+      req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+      req.prepare_payload();
+
+      auto conn_iter = get_connection(dest, deadline);
+      auto eraser = make_scoped_exit([this, &conn_iter](){
+         _connections.erase(conn_iter);
+      });
+
+      // Send the HTTP request to the remote host
+      error_code ec = std::visit(write_request_visitor(this, req, deadline), conn_iter->second);
+      FC_ASSERT(!ec, "Failed to send request: ${message}", ("message",ec.message()));
+
+      // This buffer is used for reading and must be persisted
+      boost::beast::flat_buffer buffer;
+
+      // Declare a container to hold the response
+      http::response<Container> res;
+
+      // Receive the HTTP response
+      ec = std::visit(read_response_visitor(this, buffer, res, deadline), conn_iter->second);
+      FC_ASSERT(!ec, "Failed to read response: ${message}", ("message",ec.message()));
+
+      // if the connection can be kept open, keep it open
+      if (res.keep_alive()) {
+         eraser.cancel();
+      }
+
+      if (res.result() == http::status::internal_server_error) {
+         FC_THROW("Request failed with 500 response, but response was not parseable");
+      } else if (res.result() == http::status::not_found) {
+         FC_THROW("URL not found: ${url}", ("url", (std::string)dest));
+      }
+
+      return res.body();
+   }
 
    variant post_sync(const url& dest, const variant& payload, const fc::time_point& _deadline) {
       static const deadline_type epoch(boost::gregorian::date(1970, 1, 1));
@@ -377,6 +437,24 @@ http_client::http_client()
 :_my(new http_client_impl())
 {
 
+}
+
+template<class Container>
+typename Container::value_type http_client::get_sync(const url& dest, const fc::time_point& deadline) {
+   if(dest.proto() == "unix")
+      return _my->get_sync<Container>(_my->get_unix_url(*dest.host()), deadline);
+   else
+      return _my->get_sync<Container>(dest, deadline);
+}
+
+std::string http_client::get_sync(const url& dest, const time_point& deadline) {
+    return this->get_sync<http::string_body>(dest, deadline);
+}
+std::vector<uint8_t> http_client::get_sync_raw(const url& dest, const time_point& deadline) {
+    return this->get_sync<http::vector_body<uint8_t>>(dest, deadline);
+}
+variant http_client::get_sync_json(const url& dest, const time_point& deadline) {
+    return json::from_string(this->get_sync<http::string_body>(dest, deadline));
 }
 
 variant http_client::post_sync(const url& dest, const variant& payload, const fc::time_point& deadline) {

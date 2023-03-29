@@ -1,10 +1,5 @@
 #include "subst_plugin.hpp"
 
-#include <boost/algorithm/string.hpp>
-#include <debug_eos_vm/debug_contract.hpp>
-#include <eosio/chain/transaction_context.hpp>
-
-
 namespace eosio {
 
     static auto _subst_plugin = application::register_plugin<subst_plugin>();
@@ -23,41 +18,75 @@ namespace eosio {
 
     struct subst_plugin_impl : std::enable_shared_from_this<subst_plugin_impl> {
         debug_contract::substitution_cache<debug_contract_backend> cache;
+        fc::http_client httpc;
 
-        void subst(const std::string& subst_info, const std::string& new_code_path) {
-
-            // load and store new code
-            std::vector<uint8_t> new_code = eosio::vm::read_wasm(new_code_path);
+        fc::sha256 store_code(std::vector<uint8_t> new_code) {
             auto new_hash = fc::sha256::hash((const char*)new_code.data(), new_code.size());
             cache.codes[new_hash] = std::move(new_code);
+            return new_hash;
+        }
 
+        void subst(const fc::sha256 old_hash, std::vector<uint8_t> new_code) {
+            fc::sha256 new_hash = store_code(new_code);
+            cache.substitutions[old_hash] = new_hash;
+        }
+
+        void subst(const eosio::name account_name, std::vector<uint8_t> new_code) {
+            fc::sha256 new_hash = store_code(new_code);
+            cache.substitutions_by_name[account_name.to_uint64_t()] = new_hash;
+        }
+
+        void subst(const std::string& subst_info, std::vector<uint8_t> new_code) {
             // update substitution maps
             if (subst_info.size() < 16) {
                 // if smaller than 16 char assume its an account name
-                auto account_name = eosio::name(subst_info).to_uint64_t();
-                cache.substitutions_by_name[account_name] = new_hash;
+                subst(eosio::name(subst_info), new_code);
             } else {
                 // if not assume its a code hash
-                auto old_hash = fc::sha256(subst_info);
-                cache.substitutions[old_hash] = new_hash;
+                subst(fc::sha256(subst_info), new_code);
             }
+        }
 
-            ilog("===================SUBST-PLUGIN==================");
-            ilog("Initialized substitution map for:");
-            ilog("${i}", ("i", subst_info));
-            ilog("Loaded from: ${p}", ("p", new_code_path));
-            ilog("New hash is: ${n}", ("n", new_hash.str()));
-            ilog("=================================================");
+        void load_remote_manifest(std::string chain_id, fc::url manifest_url) {
+            string upath = manifest_url.path()->generic_string();
+
+            if (!boost::algorithm::ends_with(upath, "subst.json"))
+                wlog("Looks like provided url based substitution manifest"
+                        "doesn\'t end with \"susbt.json\"... trying anyways...");
+
+            fc::variant manifest = httpc.get_sync_json(manifest_url);
+            auto& manif_obj = manifest.get_object();
+
+            auto it = manif_obj.find(chain_id);
+            if (it != manif_obj.end()) {
+                for (auto subst_entry : (*it).value().get_object()) {
+                    bpath url_path = *(manifest_url.path());
+                    auto wasm_url_path = url_path.remove_filename() / chain_id / subst_entry.value().get_string();
+
+                    auto wasm_url = fc::url(
+                        manifest_url.proto(), manifest_url.host(), manifest_url.user(), manifest_url.pass(),
+                        wasm_url_path,
+                        manifest_url.query(), manifest_url.args(), manifest_url.port()
+                    );
+
+                    std::vector<uint8_t> new_code = httpc.get_sync_raw(wasm_url);
+                    subst(fc::sha256(subst_entry.key()), new_code);
+                }
+            } else {
+                ilog("Manifest found but chain id not present.");
+            }
         }
     };  // subst_plugin_impl
 
-    subst_plugin::subst_plugin() : my(std::make_shared<subst_plugin_impl>()) {}
+    subst_plugin::subst_plugin() :
+        my(std::make_shared<subst_plugin_impl>())
+    {}
 
     subst_plugin::~subst_plugin() {}
 
     void subst_plugin::set_program_options(options_description& cli, options_description& cfg) {
         auto options = cfg.add_options();
-        cfg.add_options()(
+        options(
             "subst", bpo::value<vector<string>>()->composing(),
             "contract_hash:new_contract.wasm. Whenever the contrac with the hash \"contract_hash\""
             "needs to run, substitute debug.wasm in "
@@ -67,18 +96,34 @@ namespace eosio {
     }
 
     void subst_plugin::plugin_initialize(const variables_map& options) {
+        auto* chain_plug = app().find_plugin<chain_plugin>();
+        auto& control = chain_plug->chain();
+        std::string chain_id = control.get_chain_id();
         try {
             if (options.count("subst")) {
                 auto substs = options.at("subst").as<vector<string>>();
                 for (auto& s : substs) {
-                    std::vector<std::string> v;
-                    boost::split(v, s, boost::is_any_of(":"));
-                    EOS_ASSERT(v.size() == 2, fc::invalid_arg_exception,
-                                "Invalid value ${s} for --subst", ("s", s));
-                    my->subst(v[0], v[1]);
+
+                    auto manifest_url = fc::url(s);
+                    if (manifest_url.path().has_value()) {
+                        my->load_remote_manifest(chain_id, manifest_url);
+                    } else {
+                        std::vector<std::string> v;
+                        boost::split(v, s, boost::is_any_of(":"));
+
+                        EOS_ASSERT(
+                            v.size() == 2,
+                            fc::invalid_arg_exception,
+                            "Invalid value ${s} for --subst", ("s", s)
+                        );
+
+                        auto susbt_info = v[0];
+                        auto new_code_path = v[1];
+
+                        std::vector<uint8_t> new_code = eosio::vm::read_wasm(new_code_path);
+                        my->subst(susbt_info, new_code);
+                    }
                 }
-                auto* chain_plug = app().find_plugin<chain_plugin>();
-                auto& control = chain_plug->chain();
                 auto& iface = control.get_wasm_interface();
                 iface.substitute_apply = [this](
                     const eosio::chain::digest_type& code_hash,
