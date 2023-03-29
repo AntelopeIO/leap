@@ -33,10 +33,9 @@ args = TestHelper.parse_args({
 })
 
 Utils.Debug = args.v
-killAll = args.clean_run
+killAll = True
 dumpErrorDetails = args.dump_error_details
-# dontKill = args.leave_running
-dontKill = True
+dontKill = args.leave_running
 killEosInstances = not dontKill
 killWallet = not dontKill
 keepLogs = args.keep_logs
@@ -131,9 +130,6 @@ try:
     testSuccessful = (connection_check_failures == 0)
 
 finally:
-    killAll=True
-    killWallet=True
-    killEosInstances=True
     TestHelper.shutdown(
         cluster,
         walletMgr,
