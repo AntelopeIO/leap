@@ -1450,7 +1450,7 @@ class Cluster(object):
     def killall(self, kill=True, silent=True, allInstances=False):
         """Kill cluster nodeos instances. allInstances will kill all nodeos instances running on the system."""
         signalNum=9 if kill else 15
-        cmd="%s -k %d --nogen -p 1 -n 1 --nodeos-log-path %s" % (f"python3 {str(self.launcherPath)}", signalNum, self.nodeosLogPath)
+        cmd="%s -k %d --nogen -p 1 -n 1 --nodeos-log-path %s" % (f"{sys.executable} {str(self.launcherPath)}", signalNum, self.nodeosLogPath)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         if 0 != subprocess.call(cmd.split(), stdout=Utils.FNull):
             if not silent: Utils.Print("Launcher failed to shut down eos cluster.")
