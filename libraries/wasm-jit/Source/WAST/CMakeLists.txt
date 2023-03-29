@@ -12,8 +12,7 @@ set(Sources
 	Regexp.cpp
 	Regexp.h)
 set(PublicHeaders
-	${WAVM_INCLUDE_DIR}/WAST/WAST.h
-	${WAVM_INCLUDE_DIR}/WAST/TestScript.h)
+	${WAVM_INCLUDE_DIR}/WAST/WAST.h)
 include_directories(${WAVM_INCLUDE_DIR}/WAST)
 
 add_library(WAST STATIC ${Sources} ${PublicHeaders})
