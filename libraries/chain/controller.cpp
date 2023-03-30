@@ -246,11 +246,8 @@ struct controller_impl {
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
 #endif
-   // Ideally wasmif should be thread_local which must be a static.
-   // Unittests can create multiple controller objects (testers) at the same time,
-   // which overwrites the same static wasmif, is used for eosvmoc too.
    wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
-   thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local; // a copy for each read-only thread, used by eos-vm and eos-vm-jit
+   std::unordered_map<std::thread::id, std::unique_ptr<wasm_interface>> threaded_wasmifs; // one for each read-only thread, used by eos-vm and eos-vm-jit
    wasm_module_cache wasm_mod_cache;
 
    typedef pair<scope_name,action_name>                   handler_key;
@@ -2689,7 +2686,7 @@ struct controller_impl {
       else
 #endif
          // Non-EOSVMOC needs a wasmif per thread
-         wasmif_thread_local = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+         threaded_wasmifs[std::this_thread::get_id()] = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
    }
 
    bool is_on_main_thread() { return main_thread_id == std::this_thread::get_id(); };
@@ -2706,7 +2703,7 @@ struct controller_impl {
          )
          return wasmif;
       else
-         return *wasmif_thread_local;
+         return *threaded_wasmifs[std::this_thread::get_id()];
    }
 
    block_state_ptr fork_db_head() const;
@@ -2716,7 +2713,6 @@ thread_local platform_timer controller_impl::timer;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 thread_local eosio::vm::wasm_allocator controller_impl::wasm_alloc;
 #endif
-thread_local std::unique_ptr<wasm_interface> controller_impl::wasmif_thread_local;
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
 {
