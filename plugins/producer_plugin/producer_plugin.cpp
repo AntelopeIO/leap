@@ -467,7 +467,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       fc::microseconds                _ro_read_window_effective_time_us{ 0 }; // calculated during option initialization
       std::atomic<int64_t>            _ro_all_threads_exec_time_us; // total time spent by all threads executing transactions. use atomic for simplicity and performance
       fc::time_point                  _ro_read_window_start_time;
-      fc::time_point                  _ro_window_deadline; // only modified on app thread
+      fc::time_point                  _ro_window_deadline; // only modified on app thread, read-window deadline or write-window deadline
       boost::asio::deadline_timer     _ro_timer;
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_exhausted_trx_queue;
@@ -2846,9 +2846,9 @@ void producer_plugin_impl::start_write_window() {
    app().executor().set_to_write_window();
    chain.unset_db_read_only_mode();
    _ro_in_read_only_mode = false;
-   _idle_trx_time = fc::time_point::now();
+   _idle_trx_time = _ro_window_deadline = fc::time_point::now();
 
-   _ro_window_deadline = _idle_trx_time + _ro_write_window_time_us; // not allowed on block producers, so no need to limit to block deadline
+   _ro_window_deadline += _ro_write_window_time_us; // not allowed on block producers, so no need to limit to block deadline
    auto expire_time = boost::posix_time::microseconds(_ro_write_window_time_us.count());
    _ro_timer.expires_from_now( expire_time );
    _ro_timer.async_wait( app().executor().wrap(  // stay on app thread
@@ -2878,14 +2878,14 @@ void producer_plugin_impl::switch_to_read_window() {
 
    auto& chain = chain_plug->chain();
    uint32_t pending_block_num = chain.head_block_num() + 1;
-   _ro_window_deadline = fc::time_point::now() + _ro_read_window_effective_time_us;
+   _ro_read_window_start_time = fc::time_point::now();
+   _ro_window_deadline = _ro_read_window_start_time + _ro_read_window_effective_time_us;
    app().executor().set_to_read_window(_ro_thread_pool_size,
       [received_block=&_received_block, pending_block_num, ro_window_deadline=_ro_window_deadline]() {
          return fc::time_point::now() >= ro_window_deadline || (received_block->load() >= pending_block_num); // should_exit()
       });
    chain.set_db_read_only_mode();
    _ro_in_read_only_mode = true;
-   _ro_read_window_start_time = fc::time_point::now();
    _ro_all_threads_exec_time_us = 0;
 
    // start a read-only execution task in each thread in the thread pool
@@ -2955,9 +2955,11 @@ bool producer_plugin_impl::read_only_execution_task(uint32_t pending_block_num) 
 // Reschedule any exhausted read-only transactions from the last block
 void producer_plugin_impl::repost_exhausted_transactions(const fc::time_point& deadline) {
    if ( !_ro_exhausted_trx_queue.empty() ) {
+      chain::controller& chain = chain_plug->chain();
+      uint32_t pending_block_num = chain.pending_block_num();
       // post any exhausted back into read_only queue with slightly higher priority (low+1) so they are executed first
       ro_trx_t t;
-      while( fc::time_point::now() < deadline && _ro_exhausted_trx_queue.pop_front(t) ) {
+      while( !should_interrupt_start_block( deadline, pending_block_num ) && _ro_exhausted_trx_queue.pop_front(t) ) {
          app().executor().post(priority::low+1, exec_queue::read_only, [this, trx{std::move(t.trx)}, next{std::move(t.next)}]() mutable {
             push_read_only_transaction( std::move(trx), std::move(next) );
          } );
@@ -2986,11 +2988,12 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
       });
       if( !_ro_in_read_only_mode ) {
          chain.set_db_read_only_mode();
-         _ro_window_deadline = calculate_block_deadline( chain.pending_block_time() );
       }
+      // use read-window/write-window deadline if there are read/write windows, otherwise use block_deadline if only the app thead
+      auto window_deadline = (_ro_thread_pool_size != 0) ? _ro_window_deadline : calculate_block_deadline( chain.pending_block_time() );
 
-      // Ensure the trx to finish by the end of read-window.
-      auto trace = chain.push_transaction( trx, _ro_window_deadline, _ro_max_trx_time_us, 0, false, 0 );
+      // Ensure the trx to finish by the end of read-window or write-window or block_deadline depending on
+      auto trace = chain.push_transaction( trx, window_deadline, _ro_max_trx_time_us, 0, false, 0 );
       _ro_all_threads_exec_time_us += (fc::time_point::now() - start).count();
       auto pr = handle_push_result(trx, next, start, chain, trace, true /*return_failure_trace*/, true /*disable_subjective_enforcement*/, {} /*first_auth*/, 0 /*sub_bill*/, 0 /*prev_billed_cpu_time_us*/);
       // If a transaction was exhausted, that indicates we are close to
