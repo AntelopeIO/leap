@@ -336,6 +336,10 @@ struct controller_impl {
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
          get_wasm_interface().current_lib(bsp->block_num);
+         for (auto& ele: threaded_wasmifs) {
+            ele.second->current_lib(bsp->block_num);
+         }
+         wasm_mod_cache.current_lib(bsp->block_num);
       });
 
 
@@ -2695,6 +2699,21 @@ struct controller_impl {
       return wasm_mod_cache;
    }
 
+   void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
+      wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+      for (auto& ele: threaded_wasmifs) {
+         ele.second->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+      }
+      wasm_mod_cache.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+   }
+
+   void wasm_interface_exit() {
+      // exit all running wasmifs
+      wasmif.exit();
+      for (auto& ele: threaded_wasmifs) {
+         ele.second->exit();
+      }
+   }
    wasm_interface& get_wasm_interface() {
       if ( is_on_main_thread()
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
@@ -3693,6 +3712,14 @@ bool controller::is_on_main_thread() const {
 
 wasm_module_cache& controller::get_wasm_module_cache() {
    return my->get_wasm_module_cache();
+}
+
+void controller::code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
+   return my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+}
+
+void controller::wasm_interface_exit() {
+   return my->wasm_interface_exit();
 }
 
 /// Protocol feature activation handlers:

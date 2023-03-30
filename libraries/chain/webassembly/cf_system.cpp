@@ -46,6 +46,6 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 
    void interface::eosio_exit( int32_t code ) const {
-      context.control.get_wasm_interface().exit();
+      context.control.wasm_interface_exit();
    }
 }}} // ns eosio::chain::webassembly
