@@ -1,5 +1,7 @@
 set -e
 
+rm -rdf data wallet_pass /root/eosio-wallet
+
 nodeos \
     -e \
     -p eosio \
@@ -17,7 +19,7 @@ nodeos \
     --contracts-console \
     --http-validate-host=false \
     --verbose-http-errors \
-    --subst helloworld.wasm:debugworld.wasm \
+    --subst-by-name helloworld:debugworld.wasm \
     --data-dir=data \
     >> "nodeos.log" 2>&1 &
 

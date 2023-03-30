@@ -12,6 +12,7 @@
 #include <fc/network/http/http_client.hpp>
 
 #include <eosio/chain/controller.hpp>
+#include <eosio/chain/application.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 

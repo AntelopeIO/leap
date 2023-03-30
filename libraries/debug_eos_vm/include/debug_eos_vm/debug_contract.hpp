@@ -23,8 +23,6 @@ namespace debug_contract
 
       void perform_call(fc::sha256 hsum, eosio::chain::apply_context& context)
       {
-            ilog("with ${s}", ("s", hsum));
-            ilog("================================================");
             auto& module = *get_module(hsum).module;
             module.set_wasm_allocator(&context.control.get_wasm_allocator());
             eosio::chain::webassembly::interface iface(context);
@@ -45,8 +43,6 @@ namespace debug_contract
          // match by hash
          if (auto it = substitutions.find(code_hash); it != substitutions.end())
          {
-            ilog("==================SUBST=PLUGIN==================");
-            ilog("Performing substitution of ${f}", ("f", it->first));
             perform_call(it->second, context);
             return true;
          }
@@ -55,8 +51,6 @@ namespace debug_contract
          auto it = substitutions_by_name.find(context.get_receiver().to_uint64_t());
          if (it != substitutions_by_name.end())
          {
-            ilog("==================SUBST=PLUGIN==================");
-            ilog("Performing substitution of ${f}", ("f", it->first));
             perform_call(it->second, context);
             return true;
          }

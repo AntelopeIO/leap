@@ -57,6 +57,8 @@ namespace eosio {
             fc::variant manifest = httpc.get_sync_json(manifest_url);
             auto& manif_obj = manifest.get_object();
 
+            ilog("Got manifest from ${url}", ("url", manifest_url));
+
             auto it = manif_obj.find(chain_id);
             if (it != manif_obj.end()) {
                 for (auto subst_entry : (*it).value().get_object()) {
@@ -69,8 +71,10 @@ namespace eosio {
                         manifest_url.query(), manifest_url.args(), manifest_url.port()
                     );
 
+                    ilog("Downloading wasm from ${wurl}...", ("wurl", wasm_url));
                     std::vector<uint8_t> new_code = httpc.get_sync_raw(wasm_url);
-                    subst(fc::sha256(subst_entry.key()), new_code);
+                    ilog("Done.");
+                    subst(subst_entry.key(), new_code);
                 }
             } else {
                 ilog("Manifest found but chain id not present.");
@@ -87,12 +91,22 @@ namespace eosio {
     void subst_plugin::set_program_options(options_description& cli, options_description& cfg) {
         auto options = cfg.add_options();
         options(
-            "subst", bpo::value<vector<string>>()->composing(),
-            "contract_hash:new_contract.wasm. Whenever the contrac with the hash \"contract_hash\""
+            "subst-by-name", bpo::value<vector<string>>()->composing(),
+            "contract_name:new_contract.wasm. Whenever the contract deployed at \"contract_name\""
             "needs to run, substitute debug.wasm in "
             "its place and enable debugging support. This bypasses size limits, timer limits, and "
             "other constraints on debug.wasm. nodeos still enforces constraints on contract.wasm. "
             "(may specify multiple times)");
+        options(
+            "subst-by-hash", bpo::value<vector<string>>()->composing(),
+            "contract_hash:new_contract.wasm. Whenever the contract with \"contract_hash\""
+            "needs to run, substitute debug.wasm in "
+            "its place and enable debugging support. This bypasses size limits, timer limits, and "
+            "other constraints on debug.wasm. nodeos still enforces constraints on contract.wasm. "
+            "(may specify multiple times)");
+        options(
+            "subst-manifest", bpo::value<vector<string>>()->composing(),
+            "url. load susbtitution information from a remote json file.");
     }
 
     void subst_plugin::plugin_initialize(const variables_map& options) {
@@ -100,42 +114,95 @@ namespace eosio {
         auto& control = chain_plug->chain();
         std::string chain_id = control.get_chain_id();
         try {
-            if (options.count("subst")) {
-                auto substs = options.at("subst").as<vector<string>>();
+            if (options.count("subst-by-name")) {
+                auto substs = options.at("subst-by-name").as<vector<string>>();
                 for (auto& s : substs) {
+                    std::vector<std::string> v;
+                    boost::split(v, s, boost::is_any_of(":"));
 
-                    auto manifest_url = fc::url(s);
-                    if (manifest_url.path().has_value()) {
-                        my->load_remote_manifest(chain_id, manifest_url);
-                    } else {
-                        std::vector<std::string> v;
-                        boost::split(v, s, boost::is_any_of(":"));
+                    EOS_ASSERT(
+                        v.size() == 2,
+                        fc::invalid_arg_exception,
+                        "Invalid value ${s} for --subst-by-name"
+                        " format is {account_name}:{path_to_wasm}", ("s", s)
+                    );
 
-                        EOS_ASSERT(
-                            v.size() == 2,
-                            fc::invalid_arg_exception,
-                            "Invalid value ${s} for --subst", ("s", s)
-                        );
+                    auto account_name = v[0];
+                    auto new_code_path = v[1];
 
-                        auto susbt_info = v[0];
-                        auto new_code_path = v[1];
-
-                        std::vector<uint8_t> new_code = eosio::vm::read_wasm(new_code_path);
-                        my->subst(susbt_info, new_code);
-                    }
+                    std::vector<uint8_t> new_code = eosio::vm::read_wasm(new_code_path);
+                    my->subst(eosio::name(account_name), new_code);
                 }
-                auto& iface = control.get_wasm_interface();
-                iface.substitute_apply = [this](
-                    const eosio::chain::digest_type& code_hash,
-                    uint8_t vm_type, uint8_t vm_version,
-                    eosio::chain::apply_context& context
-                ) {
-                    auto timer_pause =
-                        fc::make_scoped_exit([&]() { context.trx_context.resume_billing_timer(); });
-                    context.trx_context.pause_billing_timer();
-                    return my->cache.substitute_apply(code_hash, vm_type, vm_version, context);
-                };
             }
+            if (options.count("subst-by-hash")) {
+                auto substs = options.at("subst-by-hash").as<vector<string>>();
+                for (auto& s : substs) {
+                    std::vector<std::string> v;
+                    boost::split(v, s, boost::is_any_of(":"));
+
+                    EOS_ASSERT(
+                        v.size() == 2,
+                        fc::invalid_arg_exception,
+                        "Invalid value ${s} for --subst-by-hash"
+                        " format is {contract_hash}:{path_to_wasm}", ("s", s)
+                    );
+
+                    auto contract_hash = v[0];
+                    auto new_code_path = v[1];
+
+                    std::vector<uint8_t> new_code = eosio::vm::read_wasm(new_code_path);
+                    my->subst(fc::sha256(contract_hash), new_code);
+                }
+            }
+            if (options.count("subst-manifest")) {
+                auto substs = options.at("subst-manifest").as<vector<string>>();
+                for (auto& s : substs) {
+                    auto manifest_url = fc::url(s);
+                    EOS_ASSERT(
+                        manifest_url.proto() == "http",
+                        fc::invalid_arg_exception,
+                        "Only http protocol supported for now."
+                    );
+                    my->load_remote_manifest(chain_id, manifest_url);
+                }
+            }
+
+            // print susbtitution maps for debug
+            ilog("Loaded substitutions:");
+            ilog("By hash: ");
+            for (auto it = my->cache.substitutions.begin();
+                it != my->cache.substitutions.end(); it++) {
+                auto key = it->first;
+                auto new_hash = it->second;
+                auto wasm_size = my->cache.codes[new_hash].size();
+                ilog(
+                    "${k} -> ${new_hash} of size ${size}",
+                    ("k", key)("new_hash", new_hash)("size", wasm_size)
+                );
+            }
+            ilog("By name: ");
+            for (auto it = my->cache.substitutions_by_name.begin();
+                it != my->cache.substitutions_by_name.end(); it++) {
+                auto key = eosio::name(it->first);
+                auto new_hash = it->second;
+                auto wasm_size = my->cache.codes[new_hash].size();
+                ilog(
+                    "${k} -> ${new_hash} of size ${size}",
+                    ("k", key)("new_hash", new_hash)("size", wasm_size)
+                );
+            }
+
+            auto& iface = control.get_wasm_interface();
+            iface.substitute_apply = [this](
+                const eosio::chain::digest_type& code_hash,
+                uint8_t vm_type, uint8_t vm_version,
+                eosio::chain::apply_context& context
+            ) {
+                auto timer_pause =
+                    fc::make_scoped_exit([&]() { context.trx_context.resume_billing_timer(); });
+                context.trx_context.pause_billing_timer();
+                return my->cache.substitute_apply(code_hash, vm_type, vm_version, context);
+            };
         }
         FC_LOG_AND_RETHROW()
     }  // subst_plugin::plugin_initialize
