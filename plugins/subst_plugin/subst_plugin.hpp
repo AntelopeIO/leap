@@ -1,5 +1,6 @@
 #pragma once
-#include <eosio/chain/application.hpp>
+
+#include <appbase/application.hpp>
 
 #include <boost/beast/http.hpp>
 #include <boost/filesystem.hpp>

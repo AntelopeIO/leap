@@ -16,36 +16,10 @@ jobs:
       - uses: actions/checkout@v3
         with:
           submodules: recursive
-      - name: Remove default llvm
-        run: sudo apt-get remove -y llvm*
       - name: Install deps
-        uses: awalsh128/cache-apt-pkgs-action@latest
-        with:
-          packages: build-essential      \
-                    cmake                \
-                    curl                 \
-                    git                  \
-                    jq                   \
-                    libboost-all-dev     \
-                    libusb-1.0-0-dev     \
-                    libcurl4-openssl-dev \
-                    libgmp-dev           \
-                    libssl-dev           \
-                    llvm-11-dev          \
-                    ninja-build          \
-                    python3-numpy        \
-                    zstd
-          version: 1.0
-      - name: Build prep
-        run: |
-          chown -R $(id -u):$(id -g) $PWD
-          mkdir build
+        run: sudo scripts/install_deps.sh
       - name: Build
-        run: |
-          cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr ..
-          make -j$(nproc) package
-          ls -la
-        working-directory: ./build
+        run: sudo scripts/pinned_build.sh deps build 2
       - name: Set version
         id: set_version
         run: |
