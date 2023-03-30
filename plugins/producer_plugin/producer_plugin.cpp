@@ -2889,6 +2889,7 @@ void producer_plugin_impl::switch_to_read_window() {
 
    // start a read-only execution task in each thread in the thread pool
    _ro_num_active_exec_tasks = _ro_thread_pool_size;
+   _ro_exec_tasks_fut.resize(0);
    for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
       _ro_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this, pending_block_num] () {
          return self->read_only_execution_task(pending_block_num);
