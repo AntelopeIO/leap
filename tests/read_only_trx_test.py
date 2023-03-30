@@ -21,6 +21,7 @@ errorExit=Utils.errorExit
 
 appArgs=AppArgs()
 appArgs.add(flag="--read-only-threads", type=int, help="number of read-only threads", default=0)
+appArgs.add(flag="--num-test-runs", type=int, help="number of times to run the tests", default=1)
 appArgs.add_bool(flag="--eos-vm-oc-enable", help="enable eos-vm-oc")
 appArgs.add(flag="--wasm-runtime", type=str, help="if set to eos-vm-oc, must compile with EOSIO_EOS_VM_OC_DEVELOPER", default="eos-vm-jit")
 
@@ -44,6 +45,7 @@ dontKill=args.leave_running
 dumpErrorDetails=args.dump_error_details
 killAll=args.clean_run
 keepLogs=args.keep_logs
+numTestRuns=args.num_test_runs
 
 killWallet=not dontKill
 killEosInstances=not dontKill
@@ -91,9 +93,8 @@ try:
     specificExtraNodeosArgs={}
     # producer nodes will be mapped to 0 through pnodes-1, so the number pnodes is the no-producing API node
     specificExtraNodeosArgs[pnodes]=" --plugin eosio::net_api_plugin"
-    if args.read_only_threads > 0:
-        specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
-        specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
+    specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
+    specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
     if args.eos_vm_oc_enable:
         specificExtraNodeosArgs[pnodes]+=" --eos-vm-oc-enable"
     if args.wasm_runtime:
@@ -259,7 +260,7 @@ try:
         runReadOnlyTrxAndRpcInParallel("chain", "get_raw_code_and_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
         runReadOnlyTrxAndRpcInParallel("chain", "get_raw_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
         runReadOnlyTrxAndRpcInParallel("chain", "get_producers", "rows", payload = {"json":"true","lower_bound":""})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_table_rows", code=500, payload = {"json":"true","table":"noauth"})
+        runReadOnlyTrxAndRpcInParallel("chain", "get_table_rows", "rows", payload = {"json":"true","code":"eosio","scope":"eosio","table":"global"})
         runReadOnlyTrxAndRpcInParallel("chain", "get_table_by_scope", fieldIn="rows", payload = {"json":"true","table":"noauth"})
         runReadOnlyTrxAndRpcInParallel("chain", "get_currency_balance", code=200, payload = {"code":"eosio.token", "account":testAccountName})
         runReadOnlyTrxAndRpcInParallel("chain", "get_currency_stats", fieldIn="SYS", payload = {"code":"eosio.token", "symbol":"SYS"})
@@ -276,13 +277,26 @@ try:
         runReadOnlyTrxAndRpcInParallel("net", "connect", code=201, payload = "localhost")
         runReadOnlyTrxAndRpcInParallel("net", "disconnect", code=201, payload = "localhost")
 
+    def runEverythingParallel():
+        threadList = []
+        threadList.append(threading.Thread(target = multiReadOnlyTests))
+        threadList.append(threading.Thread(target = chainApiTests))
+        threadList.append(threading.Thread(target = netApiTests))
+        threadList.append(threading.Thread(target = mixedOpsTest))
+        for thr in threadList:
+            thr.start()
+        for thr in threadList:
+            thr.join()
+
     basicTests()
 
     if args.read_only_threads > 0: # Save test time. No need to run other tests if multi-threaded is not enabled
-        multiReadOnlyTests()
-        chainApiTests()
-        netApiTests()
-        mixedOpsTest()
+        for i in range(numTestRuns):
+            multiReadOnlyTests()
+            chainApiTests()
+            netApiTests()
+            mixedOpsTest()
+            runEverythingParallel()
 
     testSuccessful = True
 finally:

@@ -3235,7 +3235,7 @@ namespace eosio {
             my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
          }
 
-         app().executor().post(priority::medium, exec_queue::general, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
+         app().executor().post(priority::medium, exec_queue::read_write, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
             c->process_signed_block( id, std::move(ptr), std::move(bsp) );
          });
 
