@@ -49,7 +49,7 @@ void chain_actions::setup(CLI::App& app) {
    });
 
   auto* sstate =  sub->add_subcommand("last-shutdown-state", "indicate whether last shutdown was clean or not");
-  sstate->add_option("--state-dir,-o", opt->sstate_state_dir, "The location of the state directory (absolute path or relative to the current directory)")->capture_default_str();
+  sstate->add_option("--state-dir", opt->sstate_state_dir, "The location of the state directory (absolute path or relative to the current directory)")->capture_default_str();
 
   sstate->callback([&]() {
       int rc = run_subcommand_sstate();
