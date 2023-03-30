@@ -111,7 +111,7 @@ int main(int argc, char** argv)
                        [&a=app](string, string, url_response_callback cb) {
          cb(200, fc::time_point::maximum(), fc::variant(fc::variant_object()));
          a->quit();
-      }, appbase::exec_queue::general );
+      }, appbase::exec_queue::read_write );
       app->startup();
       app->exec();
    } catch (const fc::exception& e) {
