@@ -115,7 +115,7 @@ void wallet_api_plugin::plugin_startup() {
             INVOKE_R_R_R(wallet_mgr, list_keys, std::string, std::string), 200),
        CALL_WITH_400(wallet, wallet_mgr, get_public_keys,
             INVOKE_R_V(wallet_mgr, get_public_keys), 200)
-   }, appbase::exec_queue::general);
+   }, appbase::exec_queue::read_write);
 }
 
 void wallet_api_plugin::plugin_initialize(const variables_map& options) {
