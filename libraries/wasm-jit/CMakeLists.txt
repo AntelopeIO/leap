@@ -1,8 +1,6 @@
 set(WAVM_INCLUDE_DIR ${CMAKE_CURRENT_LIST_DIR}/Include)
 include_directories(${WAVM_INCLUDE_DIR})
 
-set(CMAKE_CXX_STANDARD 11)
-
 option(WAVM_METRICS_OUTPUT "controls printing the timings of some operations to stdout" OFF)
 if(WAVM_METRICS_OUTPUT)
 	add_definitions("-DWAVM_METRICS_OUTPUT=1")
