@@ -34,6 +34,7 @@ FC_REFLECT(chainbase::environment, (debug) (os) (arch) (boost_version) (compiler
 
 void chain_actions::setup(CLI::App& app) {
    auto* sub = app.add_subcommand("chain-state", "chain utility");
+   sub->add_option("--state-dir", opt->sstate_state_dir, "The location of the state directory (absolute path or relative to the current directory)")->capture_default_str();
    sub->require_subcommand();
    sub->fallthrough();
 
@@ -48,15 +49,11 @@ void chain_actions::setup(CLI::App& app) {
       if(rc) throw(CLI::RuntimeError(rc));
    });
 
-  auto* sstate =  sub->add_subcommand("last-shutdown-state", "indicate whether last shutdown was clean or not");
-  sstate->add_option("--state-dir", opt->sstate_state_dir, "The location of the state directory (absolute path or relative to the current directory)")->capture_default_str();
-
-  sstate->callback([&]() {
+  sub->add_subcommand("last-shutdown-state", "indicate whether last shutdown was clean or not")->callback([&]() {
       int rc = run_subcommand_sstate();
       // properly return err code in main
       if(rc) throw(CLI::RuntimeError(rc));
    });
-
 }
 
 int chain_actions::run_subcommand_build() {
