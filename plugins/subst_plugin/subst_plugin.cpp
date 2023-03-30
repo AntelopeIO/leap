@@ -7,7 +7,7 @@
 
 namespace eosio {
 
-    static appbase::abstract_plugin& _subst_plugin = app().register_plugin<subst_plugin>();
+    static auto _subst_plugin = application::register_plugin<subst_plugin>();
 
     struct debug_vm_options {
         static constexpr std::uint32_t max_call_depth = 1024;
