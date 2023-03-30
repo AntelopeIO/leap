@@ -251,6 +251,7 @@ struct controller_impl {
    // which overwrites the same static wasmif, is used for eosvmoc too.
    wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
    thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local; // a copy for each read-only thread, used by eos-vm and eos-vm-jit
+   wasm_module_cache wasm_mod_cache;
 
    typedef pair<scope_name,action_name>                   handler_key;
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
@@ -2693,6 +2694,10 @@ struct controller_impl {
 
    bool is_on_main_thread() { return main_thread_id == std::this_thread::get_id(); };
 
+   wasm_module_cache& get_wasm_module_cache() {
+      return wasm_mod_cache;
+   }
+
    wasm_interface& get_wasm_interface() {
       if ( is_on_main_thread()
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
@@ -3688,6 +3693,10 @@ void controller::init_thread_local_data() {
 
 bool controller::is_on_main_thread() const {
   return my->is_on_main_thread();
+}
+
+wasm_module_cache& controller::get_wasm_module_cache() {
+   return my->get_wasm_module_cache();
 }
 
 /// Protocol feature activation handlers:

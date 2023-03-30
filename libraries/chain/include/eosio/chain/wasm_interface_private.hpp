@@ -173,21 +173,10 @@ namespace eosio { namespace chain {
                trx_context.resume_billing_timer();
             });
             trx_context.pause_billing_timer();
-            IR::Module module;
             std::vector<U8> bytes = {
                 (const U8*)codeobject->code.data(),
                 (const U8*)codeobject->code.data() + codeobject->code.size()};
-            try {
-               Serialization::MemoryInputStream stream((const U8*)bytes.data(),
-                                                       bytes.size());
-               WASM::scoped_skip_checks no_check;
-               WASM::serialize(stream, module);
-               module.userSections.clear();
-            } catch (const Serialization::FatalSerializationException& e) {
-               EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
-            } catch (const IR::ValidationException& e) {
-               EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
-            }
+            IR::Module module = trx_context.control.get_wasm_module_cache().get_module(code_hash, vm_type, vm_version, bytes);
 
             wasm_instantiation_cache.modify(it, [&](auto& c) {
                c.module = runtime_interface->instantiate_module((const char*)bytes.data(), bytes.size(), parse_initial_memory(module), code_hash, vm_type, vm_version);

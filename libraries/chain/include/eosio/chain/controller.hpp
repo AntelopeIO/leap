@@ -10,6 +10,7 @@
 #include <eosio/chain/account_object.hpp>
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
+#include <eosio/chain/wasm_module_cache.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
 
 namespace chainbase {
@@ -374,6 +375,7 @@ namespace eosio { namespace chain {
       void unset_db_read_only_mode();
       void init_thread_local_data();
       bool is_on_main_thread() const;
+      wasm_module_cache& get_wasm_module_cache();
 
       private:
          friend class apply_context;
