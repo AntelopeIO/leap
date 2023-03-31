@@ -458,8 +458,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          deque<ro_trx_t>         queue;  // boost deque which is faster than std::deque
       };
 
-      uint16_t                        _ro_thread_pool_size{ 0 };
-      static constexpr uint16_t       _ro_max_eos_vm_oc_threads_allowed{ 8 }; // Due to uncertainty to get total virtual memory size on a 5-level paging system, set a hard limit
+      uint32_t                        _ro_thread_pool_size{ 0 };
+      static constexpr uint32_t       _ro_max_eos_vm_oc_threads_allowed{ 8 }; // Due to uncertainty to get total virtual memory size on a 5-level paging system, set a hard limit
       named_thread_pool<struct read>  _ro_thread_pool;
       fc::microseconds                _ro_write_window_time_us{ 200000 };
       fc::microseconds                _ro_read_window_time_us{ 60000 };
@@ -928,12 +928,12 @@ void producer_plugin::set_program_options(
           "Number of worker threads in producer thread pool")
          ("snapshots-dir", bpo::value<bfs::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
-         ("read-only-threads", bpo::value<uint16_t>(),
+         ("read-only-threads", bpo::value<uint32_t>(),
           "Number of worker threads in read-only execution thread pool")
          ("read-only-write-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_write_window_time_us.count()),
-          "Time in microseconds the write window lasts. The default value is not a representative one. Choose a proper one based on your use cases.")
+          "Time in microseconds the write window lasts.")
          ("read-only-read-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_read_window_time_us.count()),
-          "Time in microseconds the read window lasts. The default value is not a representative one. Choose a proper one based on your use cases.")
+          "Time in microseconds the read window lasts.")
          ;
    config_file_options.add(producer_options);
 }
@@ -1110,7 +1110,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    }
 
    if ( options.count( "read-only-threads" ) ) {
-      my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint16_t>();
+      my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint32_t>();
    } else if ( my->_producers.empty() ) {
       if( options.count( "plugin" ) ) {
          const auto& v = options.at( "plugin" ).as<std::vector<std::string>>();
@@ -1145,8 +1145,11 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          }
 
          EOS_ASSERT( vm_total_kb > 0, plugin_config_exception, "Unable to get system virtual memory size (not a Linux?), therefore cannot determine if the system has enough virtual memory for multi-threaded read-only transactions on EOS VM OC");
+         EOS_ASSERT( vm_total_kb > vm_used_kb, plugin_config_exception, "vm total (${t}) must be greater than vm used (${u})", ("t", vm_total_kb)("u", vm_used_kb));
+         uint32_t num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000;
          // reserve 1 for the app thread, 1 for anything else which might use VM
-         uint16_t num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000 - 2;
+         EOS_ASSERT( num_threads_supported > 2, plugin_config_exception, "Available system virtual memory cannot support 2 minimum threads, vm total: ${t}, vm used: ${u}", ("t", vm_total_kb)("u", vm_used_kb));
+         num_threads_supported -= 2;
          auto actual_threads_allowed = std::min(my->_ro_max_eos_vm_oc_threads_allowed, num_threads_supported);
          ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported) ("max", my->_ro_max_eos_vm_oc_threads_allowed)("actual", actual_threads_allowed));
          EOS_ASSERT( my->_ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})", ("th", my->_ro_thread_pool_size) ("allowed", actual_threads_allowed) );
@@ -2886,7 +2889,7 @@ void producer_plugin_impl::switch_to_read_window() {
    // start a read-only execution task in each thread in the thread pool
    _ro_num_active_exec_tasks = _ro_thread_pool_size;
    _ro_exec_tasks_fut.resize(0);
-   for (auto i = 0; i < _ro_thread_pool_size; ++i ) {
+   for (uint32_t i = 0; i < _ro_thread_pool_size; ++i ) {
       _ro_exec_tasks_fut.emplace_back( post_async_task( _ro_thread_pool.get_executor(), [self = this, pending_block_num] () {
          return self->read_only_execution_task(pending_block_num);
       }) );
@@ -2971,7 +2974,10 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
    try {
       auto start = fc::time_point::now();
       chain::controller& chain = chain_plug->chain();
-      EOS_ASSERT( chain.is_building_block(), producer_exception, "Expecting chain is building block" );
+      if ( !chain.is_building_block() ) {
+         _ro_exhausted_trx_queue.push_front( {std::move(trx), std::move(next)} );
+         return true;
+      }
 
       // when executing on the main thread while in the write window, need to switch db mode to read only
       // _ro_in_read_only_mode can only be false if running on main thread as it is only modified from the main thread
