@@ -110,6 +110,8 @@ int main(int argc, char* argv[]) {
       stream.binary(true);
       stream.write(boost::asio::buffer(request_type.json_to_bin(request_sb.GetString(), [](){})));
 
+      //      block_num, block_id
+      std::map<uint32_t, std::string> block_ids;
       bool is_first = true;
       for(;;) {
          boost::beast::flat_buffer buffer;
@@ -128,12 +130,41 @@ int main(int argc, char* argv[]) {
          eosio::check(result_doucment[1]["head"].IsObject(),                                 "'head' is not an object");
          eosio::check(result_doucment[1]["head"].HasMember("block_num"),                     "'head' does not contain 'block_num'");
          eosio::check(result_doucment[1]["head"]["block_num"].IsUint(),                      "'head.block_num' isn't a number");
+         eosio::check(result_doucment[1]["head"].HasMember("block_id"),                      "'head' does not contain 'block_id'");
+         eosio::check(result_doucment[1]["head"]["block_id"].IsString(),                     "'head.block_num' isn't a string");
 
          uint32_t this_block_num = 0;
          if( result_doucment[1].HasMember("this_block") && result_doucment[1]["this_block"].IsObject() ) {
             if( result_doucment[1]["this_block"].HasMember("block_num") && result_doucment[1]["this_block"]["block_num"].IsUint() ) {
                this_block_num = result_doucment[1]["this_block"]["block_num"].GetUint();
             }
+            std::string this_block_id;
+            if( result_doucment[1]["this_block"].HasMember("block_id") && result_doucment[1]["this_block"]["block_id"].IsString() ) {
+               this_block_id = result_doucment[1]["this_block"]["block_id"].GetString();
+            }
+            std::string prev_block_id;
+            if( result_doucment[1]["prev_block"].HasMember("block_id") && result_doucment[1]["prev_block"]["block_id"].IsString() ) {
+               prev_block_id = result_doucment[1]["prev_block"]["block_id"].GetString();
+            }
+            if( !irreversible_only && !this_block_id.empty() && !prev_block_id.empty() ) {
+               // verify forks were sent
+               if (block_ids.count(this_block_num-1)) {
+                  if (block_ids[this_block_num-1] != prev_block_id) {
+                     std::cerr << "Received block: << " << this_block_num << " that does not link to previous: " << block_ids[this_block_num-1] << std::endl;
+                     return 1;
+                  }
+               }
+               block_ids[this_block_num] = this_block_id;
+
+               if( result_doucment[1]["last_irreversible"].HasMember("block_num") && result_doucment[1]["last_irreversible"]["block_num"].IsUint() ) {
+                  uint32_t lib_num = result_doucment[1]["last_irreversible"]["block_num"].GetUint();
+                  auto i = block_ids.lower_bound(lib_num);
+                  if (i != block_ids.end()) {
+                     block_ids.erase(block_ids.begin(), i);
+                  }
+               }
+            }
+
          }
 
          if(is_first) {
