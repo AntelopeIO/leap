@@ -480,7 +480,7 @@ class PerformanceTestBasic:
             self.errorExit('Failed to stand up cluster.')
 
     def postTpsTestSteps(self):
-        return self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
+        self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
 
     def runTest(self) -> bool:
         testSuccessful = False
