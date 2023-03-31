@@ -351,6 +351,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
          get_blocks_result_v0 result;
          result.head = {block_state->block_num, block_state->id};
+         to_send_block_num = std::min(block_state->block_num, to_send_block_num);
          send_update(std::move(result), block_state);
       }
 
