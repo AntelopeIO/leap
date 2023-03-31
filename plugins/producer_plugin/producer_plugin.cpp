@@ -931,9 +931,9 @@ void producer_plugin::set_program_options(
          ("read-only-threads", bpo::value<uint16_t>(),
           "Number of worker threads in read-only execution thread pool")
          ("read-only-write-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_write_window_time_us.count()),
-          "time in microseconds the write window lasts")
+          "Time in microseconds the write window lasts. The default value is not a representative one. Choose a proper one based on your use cases.")
          ("read-only-read-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_read_window_time_us.count()),
-          "time in microseconds the read window lasts")
+          "Time in microseconds the read window lasts. The default value is not a representative one. Choose a proper one based on your use cases.")
          ;
    config_file_options.add(producer_options);
 }
