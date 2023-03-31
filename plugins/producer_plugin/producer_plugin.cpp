@@ -455,7 +455,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       private:
          mutable std::mutex      mtx;
-         std::deque<ro_trx_t>    queue;
+         deque<ro_trx_t>         queue;  // boost deque which is faster than std::deque
       };
 
       uint16_t                        _ro_thread_pool_size{ 0 };
