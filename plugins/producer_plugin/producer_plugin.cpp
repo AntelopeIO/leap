@@ -1222,7 +1222,6 @@ void producer_plugin::plugin_startup()
       app().quit();
    } );
 
-
    chain::controller& chain = my->chain_plug->chain();
    EOS_ASSERT( my->_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
               "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"" );
@@ -1265,6 +1264,17 @@ void producer_plugin::plugin_startup()
          [&]() {
             chain.init_thread_local_data();
          });
+
+      // Do a test run to make sure all threads have started
+      std::vector<std::future<bool>> fut;
+      for (auto i = 0; i < my->_ro_thread_pool_size; ++i ) {
+         fut.emplace_back( post_async_task( my->_ro_thread_pool.get_executor(), [] () {
+            return true;
+         }));
+      }
+      for (auto i = 0; i < my->_ro_thread_pool_size; ++i ) {
+         fut[i].get();
+      }
 
       my->start_write_window();
    }

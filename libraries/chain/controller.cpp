@@ -247,6 +247,7 @@ struct controller_impl {
    thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
 #endif
    wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
+   std::mutex threaded_wasmifs_mtx;
    std::unordered_map<std::thread::id, std::unique_ptr<wasm_interface>> threaded_wasmifs; // one for each read-only thread, used by eos-vm and eos-vm-jit
    wasm_module_cache wasm_mod_cache;
 
@@ -335,7 +336,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
-         get_wasm_interface().current_lib(bsp->block_num);
+         wasmif.current_lib(bsp->block_num);
          for (auto& ele: threaded_wasmifs) {
             ele.second->current_lib(bsp->block_num);
          }
@@ -2689,8 +2690,11 @@ struct controller_impl {
          wasmif.init_thread_local_data();
       else
 #endif
+      {
          // Non-EOSVMOC needs a wasmif per thread
+         std::lock_guard g(threaded_wasmifs_mtx);
          threaded_wasmifs[std::this_thread::get_id()] = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+      }
    }
 
    bool is_on_main_thread() { return main_thread_id == std::this_thread::get_id(); };
