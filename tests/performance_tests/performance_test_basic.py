@@ -351,7 +351,7 @@ class PerformanceTestBasic:
         chainId = info['chain_id']
         lib_id = info['last_irreversible_block_id']
         self.data = log_reader.chainData()
-        self.data.nodes = self.clusterConfig._totalNodes
+        self.data.numNodes = self.clusterConfig._totalNodes
 
         abiFile=None
         actionsDataJson=None

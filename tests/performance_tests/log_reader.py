@@ -168,7 +168,7 @@ class chainData():
         self.totalTime = 0
         self.droppedBlocks = {}
         self.forkedBlocks = {}
-        self.nodes = 0
+        self.numNodes = 0
     def __eq__(self, other):
         return self.startBlock == other.startBlock and\
          self.ceaseBlock == other.ceaseBlock and\
@@ -177,7 +177,7 @@ class chainData():
          self.totalCpu == other.totalCpu and\
          self.totalElapsed == other.totalElapsed and\
          self.totalTime == other.totalTime and\
-         self.nodes == other.nodes
+         self.numNodes == other.numNodes
     def updateTotal(self, transactions, net, cpu, elapsed, time):
         self.totalTransactions += transactions
         self.totalNet += net
@@ -209,7 +209,7 @@ def scrapeLogBlockElapsedTime(data: chainData, path):
                     data.blockDict[str(value[1])].time = int(v3Logging[0][1])
 
 def scrapeLogDroppedForkedBlocks(data: chainData, path):
-    for nodeNum in range(0, data.nodes):
+    for nodeNum in range(0, data.numNodes):
         nodePath = path/f"node_{str(nodeNum).zfill(2)}"/"stderr.txt"
         selectedopen = selectedOpen(path)
         with selectedopen(nodePath, 'rt') as f:
@@ -517,7 +517,7 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
     report = createReport(guide=guide, tpsTestConfig=tpsTestConfig, tpsStats=tpsStats, blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats,
                           trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, forkedBlocks=data.forkedBlocks, droppedBlocks=data.droppedBlocks,
                           prodWindows=prodWindows, notFound=notFound, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun,
-                          nodeosVers=nodeosVers, numNodes=data.nodes)
+                          nodeosVers=nodeosVers, numNodes=data.numNodes)
     return report
 
 def exportReportAsJSON(report: json, exportPath):
