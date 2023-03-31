@@ -97,7 +97,7 @@ public:
          enable_umask_protection();
          if( !std::filesystem::exists( dest_parent ) )
             std::filesystem::create_directories( dest_parent );
-         std::filesystem::copy( src_path, dest_path );
+         std::filesystem::copy_file( src_path, dest_path, std::filesystem::copy_options::none );
          disable_umask_protection();
       }
       catch(...)

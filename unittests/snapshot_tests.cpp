@@ -43,8 +43,8 @@ controller::config copy_config(const controller::config& config, int ordinal) {
 controller::config copy_config_and_files(const controller::config& config, int ordinal) {
    controller::config copied_config = copy_config(config, ordinal);
    std::filesystem::create_directories(copied_config.blocks_dir);
-   std::filesystem::copy(config.blocks_dir / "blocks.log", copied_config.blocks_dir / "blocks.log");
-   std::filesystem::copy(config.blocks_dir / "blocks.index", copied_config.blocks_dir / "blocks.index");
+   std::filesystem::copy_file(config.blocks_dir / "blocks.log", copied_config.blocks_dir / "blocks.log", std::filesystem::copy_options::none);
+   std::filesystem::copy_file(config.blocks_dir / "blocks.index", copied_config.blocks_dir / "blocks.index", std::filesystem::copy_options::none);
    return copied_config;
 }
 
