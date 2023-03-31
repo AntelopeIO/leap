@@ -468,7 +468,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::atomic<int64_t>            _ro_all_threads_exec_time_us; // total time spent by all threads executing transactions. use atomic for simplicity and performance
       fc::time_point                  _ro_read_window_start_time;
       fc::time_point                  _ro_window_deadline; // only modified on app thread, read-window deadline or write-window deadline
-      boost::asio::deadline_timer     _ro_timer;
+      boost::asio::deadline_timer     _ro_timer; // only accessible from the main thread
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_exhausted_trx_queue;
       std::atomic<uint32_t>           _ro_num_active_exec_tasks{ 0 };
@@ -1146,14 +1146,10 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
          EOS_ASSERT( vm_total_kb > 0, plugin_config_exception, "Unable to get system virtual memory size (not a Linux?), therefore cannot determine if the system has enough virtual memory for multi-threaded read-only transactions on EOS VM OC");
          // reserve 1 for the app thread, 1 for anything else which might use VM
-         int num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000 - 2;
-         ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported));
-         EOS_ASSERT( num_threads_supported >= my->_ro_thread_pool_size, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads supported for EOS VM OC (${supp}) by the system virtual memory size", ("th", my->_ro_thread_pool_size) ("supp", num_threads_supported) );
-
-         if ( my->_ro_thread_pool_size > my->_ro_max_eos_vm_oc_threads_allowed ) {
-            wlog("--read-only-threads (${th}) greater than maximum number of threads allowed (${allowed}) for EOS Vm OC. Set it to ${allowed}", ("th", my->_ro_thread_pool_size) ("allowed", my->_ro_max_eos_vm_oc_threads_allowed));
-            my->_ro_thread_pool_size = my->_ro_max_eos_vm_oc_threads_allowed;
-         }
+         uint16_t num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000 - 2;
+         auto actual_threads_allowed = std::min(my->_ro_max_eos_vm_oc_threads_allowed, num_threads_supported);
+         ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported) ("max", my->_ro_max_eos_vm_oc_threads_allowed)("actual", actual_threads_allowed));
+         EOS_ASSERT( my->_ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})", ("th", my->_ro_thread_pool_size) ("allowed", actual_threads_allowed) );
       }
 #endif
    }
