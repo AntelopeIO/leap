@@ -25,6 +25,7 @@ COMPLETEPRODUCTIONWINDOWSIZE = 12
 
 @dataclass
 class ArtifactPaths:
+    nodeosLogDir: Path = Path("")
     nodeosLogPath: Path = Path("")
     trxGenLogDirPath: Path = Path("")
     blockTrxDataPath: Path = Path("")
@@ -164,7 +165,8 @@ class chainData():
         self.totalElapsed = 0
         self.totalTime = 0
         self.droppedBlocks = {}
-        self.forkedBlocks = []
+        self.forkedBlocks = {}
+        self.nodes = 0
     def __eq__(self, other):
         return self.startBlock == other.startBlock and\
          self.ceaseBlock == other.ceaseBlock and\
@@ -172,7 +174,8 @@ class chainData():
          self.totalNet == other.totalNet and\
          self.totalCpu == other.totalCpu and\
          self.totalElapsed == other.totalElapsed and\
-         self.totalTime == other.totalTime
+         self.totalTime == other.totalTime and\
+         self.nodes == other.nodes
     def updateTotal(self, transactions, net, cpu, elapsed, time):
         self.totalTransactions += transactions
         self.totalNet += net
@@ -190,7 +193,7 @@ class chainData():
 def selectedOpen(path):
     return gzip.open if path.suffix == '.gz' else open
 
-def scrapeLog(data: chainData, path):
+def scrapeLogBlockElapsedTime(blockDict: dict, data: chainData, path):
     # node_XX/stderr.txt where XX is the first nonproducing node
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
@@ -200,16 +203,25 @@ def scrapeLog(data: chainData, path):
             if int(value[1]) in range(data.startBlock, data.ceaseBlock + 1):
                 v3Logging = re.findall(r'elapsed: (\d+), time: (\d+)', value[3])
                 if v3Logging:
-                        index = int(value[1]) - data.startBlock
-                        data.blockLog[index].elapsed = int(v3Logging[0][0])
-                        data.blockLog[index].time = int(v3Logging[0][1])
-                        data.updateTotal(0, 0, 0, int(v3Logging[0][0]), int(v3Logging[0][1]))
-        droppedBlocks = re.findall(r'dropped incoming block #(\d+) id: ([0-9a-fA-F]+)', line)
-        for block in droppedBlocks:
-            data.droppedBlocks[block[0]] = block[1]
-        forks = re.findall(r'switching forks from ([0-9a-fA-F]+) \(block number (\d+)\) to ([0-9a-fA-F]+) \(block number (\d+)\)', line)
-        for fork in forks:
-            data.forkedBlocks.append(int(fork[1]) - int(fork[3]) + 1)
+                    blockDict[str(value[1])].elapsed = int(v3Logging[0][0])
+                    blockDict[str(value[1])].time = int(v3Logging[0][1])
+
+def scrapeLogDroppedForkedBlocks(data: chainData, path):
+    for nodeNum in range(0, data.nodes):
+        nodePath = path/f"node_{str(nodeNum).zfill(2)}"/"stderr.txt"
+        selectedopen = selectedOpen(path)
+        with selectedopen(nodePath, 'rt') as f:
+            line = f.read()
+            droppedBlocksByCurrentNode = {}
+            forkedBlocksByCurrentNode = []
+            droppedBlocks = re.findall(r'dropped incoming block #(\d+) id: ([0-9a-fA-F]+)', line)
+            for block in droppedBlocks:
+                droppedBlocksByCurrentNode[block[0]] = block[1]
+            forks = re.findall(r'switching forks from ([0-9a-fA-F]+) \(block number (\d+)\) to ([0-9a-fA-F]+) \(block number (\d+)\)', line)
+            for fork in forks:
+                forkedBlocksByCurrentNode.append(int(fork[1]) - int(fork[3]) + 1)
+            data.droppedBlocks[str(nodeNum).zfill(2)] = droppedBlocksByCurrentNode
+            data.forkedBlocks[str(nodeNum).zfill(2)] = forkedBlocksByCurrentNode
 
 def scrapeTrxGenLog(trxSent, path):
     #trxGenLogs/trx_data_output_*.txt
@@ -237,6 +249,10 @@ def populateTrxLatencies(blockDict: dict, trxDict: dict):
     for trxId, data in trxDict.items():
         if data.calcdTimeEpoch != 0:
             trxDict[trxId].latency = blockDict[str(data.blockNum)].calcdTimeEpoch - data.calcdTimeEpoch
+
+def updateBlockTotals(blockDict: dict, data: chainData):
+    for _, block in blockDict.items():
+        data.updateTotal(transactions=block.transactions, net=block.net, cpu=block.cpu, elapsed=block.elapsed, time=block.time)
 
 def writeTransactionMetrics(trxDict: dict, path):
     with open(path, 'wt') as transactionMetricsFile:
@@ -403,7 +419,7 @@ def calcTrxLatencyCpuNetStats(trxDict : dict):
 
 def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats,
                  trxNetStats: basicStats, forkedBlocks, droppedBlocks, prodWindows: productionWindows, notFound: dict, testStart: datetime, testFinish: datetime,
-                 argsDict: dict, completedRun: bool, nodeosVers: str) -> dict:
+                 argsDict: dict, completedRun: bool, nodeosVers: str, numNodes: int) -> dict:
     report = {}
     report['completedRun'] = completedRun
     report['testStart'] = testStart
@@ -419,14 +435,20 @@ def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats
     report['Analysis']['TrxCPU'] = asdict(trxCpuStats)
     report['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
     report['Analysis']['TrxNet'] = asdict(trxNetStats)
-    report['Analysis']['DroppedBlocks'] = droppedBlocks
-    report['Analysis']['DroppedBlocksCount'] = len(droppedBlocks)
     report['Analysis']['DroppedTransactions'] = len(notFound)
     report['Analysis']['ProductionWindowsTotal'] = prodWindows.totalWindows
     report['Analysis']['ProductionWindowsAverageSize'] = prodWindows.averageWindowSize
     report['Analysis']['ProductionWindowsMissed'] = prodWindows.missedWindows
-    report['Analysis']['ForkedBlocks'] = forkedBlocks
-    report['Analysis']['ForksCount'] = len(forkedBlocks)
+    report['Analysis']['ForkedBlocks'] = {}
+    report['Analysis']['ForksCount'] = {}
+    report['Analysis']['DroppedBlocks'] = {}
+    report['Analysis']['DroppedBlocksCount'] = {}
+    for nodeNum in range(0, numNodes):
+        formattedNodeNum = str(nodeNum).zfill(2)
+        report['Analysis']['ForkedBlocks'][formattedNodeNum] = forkedBlocks[formattedNodeNum]
+        report['Analysis']['ForksCount'][formattedNodeNum] = len(forkedBlocks[formattedNodeNum])
+        report['Analysis']['DroppedBlocks'][formattedNodeNum] = droppedBlocks[formattedNodeNum]
+        report['Analysis']['DroppedBlocksCount'][formattedNodeNum] = len(droppedBlocks[formattedNodeNum])
     report['args'] =  argsDict
     report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
     report['nodeosVersion'] = nodeosVers
@@ -456,7 +478,8 @@ def reportAsJSON(report: dict) -> json:
 
 def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True, nodeosVers: str="",
                   blockDict: dict={}, trxDict: dict={}) -> dict:
-    scrapeLog(data, artifacts.nodeosLogPath)
+    scrapeLogBlockElapsedTime(blockDict, data, artifacts.nodeosLogPath)
+    scrapeLogDroppedForkedBlocks(data, artifacts.nodeosLogDir)
 
     trxSent = {}
     scrapeTrxGenTrxSentDataLogs(trxSent, artifacts.trxGenLogDirPath, tpsTestConfig.quiet)
@@ -472,6 +495,7 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
         if argsDict.get("printMissingTransactions"):
             print(notFound)
 
+    updateBlockTotals(blockDict, data)
     populateTrxLatencies(blockDict, trxDict)
     writeTransactionMetrics(trxDict, artifacts.transactionMetricsDataPath)
     guide = calcChainGuide(data, tpsTestConfig.numBlocksToPrune)
@@ -492,7 +516,7 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
     report = createReport(guide=guide, tpsTestConfig=tpsTestConfig, tpsStats=tpsStats, blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats,
                           trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, forkedBlocks=data.forkedBlocks, droppedBlocks=data.droppedBlocks,
                           prodWindows=prodWindows, notFound=notFound, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun,
-                          nodeosVers=nodeosVers)
+                          nodeosVers=nodeosVers, numNodes=data.nodes)
     return report
 
 def exportReportAsJSON(report: json, exportPath):

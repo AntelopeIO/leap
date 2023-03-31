@@ -170,7 +170,8 @@ class PerformanceTestBasic:
         self.producerNodeId = 0
         self.validationNodeId = self.clusterConfig.pnodes
         pid = os.getpid()
-        self.nodeosLogPath = Path(self.loggingConfig.logDirPath)/"var"/f"{self.testNamePath}{pid}"/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
+        self.nodeosLogDir =  Path(self.loggingConfig.logDirPath)/"var"/f"{self.testNamePath}{pid}"
+        self.nodeosLogPath = self.nodeosLogDir/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
@@ -259,8 +260,6 @@ class PerformanceTestBasic:
             bdf_append_write = self.fileOpenMode(blockDataPath)
             with open(blockDataPath, bdf_append_write) as blockDataFile:
                 blockDataFile.write(f"{blockData.blockNum},{blockData.blockId},{blockData.producer},{blockData.status},{blockData._timestamp}\n")
-            # elapsed and time are only available in logs and are therefore updated in scrapeLog
-            self.data.updateTotal(blockTransactionTotal, blockNetTotal, blockCpuTotal, elapsed=0, time=0)
 
     def waitForEmptyBlocks(self, node, numEmptyToWaitOn):
         emptyBlocks = 0
@@ -352,6 +351,7 @@ class PerformanceTestBasic:
         chainId = info['chain_id']
         lib_id = info['last_irreversible_block_id']
         self.data = log_reader.chainData()
+        self.data.nodes = self.clusterConfig._totalNodes
 
         abiFile=None
         actionsDataJson=None
@@ -451,7 +451,7 @@ class PerformanceTestBasic:
 
     def analyzeResultsAndReport(self, testResult: PtbTpsTestResult, blockDict: dict, trxDict: dict):
         args = self.prepArgs()
-        artifactsLocate = log_reader.ArtifactPaths(nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
+        artifactsLocate = log_reader.ArtifactPaths(nodeosLogDir=self.nodeosLogDir, nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                    blockDataPath=self.blockDataPath, transactionMetricsDataPath=self.transactionMetricsDataPath)
         tpsTestConfig = log_reader.TpsTestConfig(targetTps=self.ptbConfig.targetTps, testDurationSec=self.ptbConfig.testTrxGenDurationSec, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator,
                                                  numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed,
