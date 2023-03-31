@@ -1,4 +1,3 @@
-// #include <fc/network/ip.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/log/gelf_appender.hpp>
 #include <fc/reflect/variant.hpp>
