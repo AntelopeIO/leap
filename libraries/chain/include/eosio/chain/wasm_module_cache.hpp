@@ -4,6 +4,8 @@
 #include "IR/Module.h"
 #include <eosio/chain/multi_index_includes.hpp>
 
+#include <mutex>
+
 namespace eosio { namespace chain {
    struct wasm_module_cache {
       const IR::Module& get_module( const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, std::vector<U8>& bytes );
