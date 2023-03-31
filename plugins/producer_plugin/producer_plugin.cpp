@@ -1148,7 +1148,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          EOS_ASSERT( vm_total_kb > vm_used_kb, plugin_config_exception, "vm total (${t}) must be greater than vm used (${u})", ("t", vm_total_kb)("u", vm_used_kb));
          uint32_t num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000;
          // reserve 1 for the app thread, 1 for anything else which might use VM
-         EOS_ASSERT( num_threads_supported > 2, plugin_config_exception, "Available system virtual memory cannot support 2 minimum threads, vm total: ${t}, vm used: ${u}", ("t", vm_total_kb)("u", vm_used_kb));
+         EOS_ASSERT( num_threads_supported > 2, plugin_config_exception, "Available system virtual memory cannot support mininum of 3 minimum threads (1 for main thread, 1 for read-only, and 1 for anything else), vm total: ${t}, vm used: ${u}", ("t", vm_total_kb)("u", vm_used_kb));
          num_threads_supported -= 2;
          auto actual_threads_allowed = std::min(my->_ro_max_eos_vm_oc_threads_allowed, num_threads_supported);
          ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported) ("max", my->_ro_max_eos_vm_oc_threads_allowed)("actual", actual_threads_allowed));
