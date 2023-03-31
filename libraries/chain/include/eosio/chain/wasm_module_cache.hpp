@@ -16,12 +16,10 @@ namespace eosio { namespace chain {
          digest_type   code_hash;
          uint8_t       vm_type = 0;
          uint8_t       vm_version = 0;
-         uint32_t      first_block_num_used;
-         uint32_t      last_block_num_used;
+         uint32_t      last_block_num_used = UINT32_MAX;
          IR::Module    module;
       };
       struct by_hash;
-      struct by_first_block_num;
       struct by_last_block_num;
 
    private:
@@ -35,7 +33,6 @@ namespace eosio { namespace chain {
                   member<module_entry, uint8_t,     &module_entry::vm_version>
                >
             >,
-            ordered_non_unique<tag<by_first_block_num>, member<module_entry, uint32_t, &module_entry::first_block_num_used>>,
             ordered_non_unique<tag<by_last_block_num>, member<module_entry, uint32_t, &module_entry::last_block_num_used>>
          >
       > module_cache_index;
