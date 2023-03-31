@@ -14,12 +14,13 @@ extern void setup_test_logging();
 
 struct deep_mind_log_fixture
 {
-   deep_mind_handler deep_mind_logger;
    fc::temp_cfile tmp;
+   deep_mind_handler deep_mind_logger;
 
    deep_mind_log_fixture() : tmp("ab")
    {
       auto cfg = fc::logging_config::default_config();
+      tmp.file().close();
 
       cfg.appenders.push_back(
          appender_config( "deep-mind", "dmlog",

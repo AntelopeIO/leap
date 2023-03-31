@@ -197,7 +197,8 @@ auto make_block_state( uint32_t block_num, std::vector<chain::packed_transaction
 BOOST_AUTO_TEST_SUITE(trx_retry_db_test)
 
 BOOST_AUTO_TEST_CASE(trx_retry_logic) {
-   std::filesystem::path temp = std::filesystem::temp_directory_path() ;
+   fc::temp_directory temp_dir;
+   auto& temp = temp_dir.path() ;
 
    try {
       appbase::scoped_app app;
@@ -622,10 +623,8 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       app_thread.join();
 
    } catch ( ... ) {
-      std::filesystem::remove_all( temp );
       throw;
    }
-   std::filesystem::remove_all( temp );
 }
 
 

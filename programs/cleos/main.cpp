@@ -92,8 +92,6 @@ Options:
 
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
-#include <boost/dll/runtime_symbol_info.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/process.hpp>
 #include <boost/process/spawn.hpp>
 #include <boost/range/adaptor/transformed.hpp>
@@ -111,6 +109,7 @@ Options:
 #include "localize.hpp"
 #include "config.hpp"
 #include "httpc.hpp"
+#include "program_location.hpp"
 
 using namespace std;
 using namespace eosio;
@@ -1122,19 +1121,14 @@ void ensure_keosd_running(CLI::App* app) {
     if (local_port_used())
        return;
 
-    boost::filesystem::path binPath = boost::dll::program_location();
-    binPath.remove_filename();
-    // This extra check is necessary when running cleos like this: ./cleos ...
-    if (binPath.filename_is_dot())
-        binPath.remove_filename();
-    binPath.append(key_store_executable_name); // if cleos and keosd are in the same installation directory
-    if (!boost::filesystem::exists(binPath)) {
-        binPath.remove_filename().remove_filename().append("keosd").append(key_store_executable_name);
+    auto binPath = program_location().parent_path() / key_store_executable_name;
+    if (!std::filesystem::exists(binPath)) {
+        binPath = program_location().parent_path().parent_path() / "keosd"/ key_store_executable_name;
     }
 
-    if (boost::filesystem::exists(binPath)) {
+    if (std::filesystem::exists(binPath)) {
         namespace bp = boost::process;
-        binPath = boost::filesystem::canonical(binPath);
+        binPath = std::filesystem::canonical(binPath);
 
         vector<std::string> pargs;
         pargs.push_back("--http-server-address");
@@ -1142,7 +1136,7 @@ void ensure_keosd_running(CLI::App* app) {
         pargs.push_back("--unix-socket-path");
         pargs.push_back(string(key_store_executable_name) + ".sock");
 
-        ::boost::process::child keos(binPath, pargs,
+        ::boost::process::child keos(binPath.string(), pargs,
                                      bp::std_in.close(),
                                      bp::std_out > bp::null,
                                      bp::std_err > bp::null);

@@ -173,7 +173,9 @@ compressed_file::compressed_file( std::filesystem::path file_path )
 ,file_ptr(nullptr)
 ,impl(std::make_unique<compressed_file_impl>())
 {
-   impl->file_size = std::filesystem::file_size(file_path);
+   // this-> is required here; otherwise, the compiler would use the
+   // the passed parameter which has been moved.
+   impl->file_size = std::filesystem::file_size(this->file_path);
 }
 
 compressed_file::~compressed_file()
