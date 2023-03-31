@@ -237,19 +237,4 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->digest(), other_trace->action_traces.at(1).receipt->digest());
 }
 
-namespace{
-   struct scoped_temp_path {
-      boost::filesystem::path path;
-      scoped_temp_path() {
-         path = boost::filesystem::unique_path();
-         if (boost::unit_test::framework::master_test_suite().argc >= 2) {
-            path += boost::unit_test::framework::master_test_suite().argv[1];
-         }
-      }
-      ~scoped_temp_path() {
-         boost::filesystem::remove_all(path);
-      }
-   };
-}
-
 BOOST_AUTO_TEST_SUITE_END()
