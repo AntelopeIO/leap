@@ -263,6 +263,9 @@ class state_history_log {
          const uint32_t num_blocks_in_log = _end_block - _begin_block;
          fc::raw::pack(log, num_blocks_in_log);
       }
+
+      log.flush();
+      index.flush();
    }
 
    // returns cfile positioned at payload
