@@ -550,6 +550,9 @@ class state_history_log {
          fc::raw::pack(log, num_blocks_in_log);
       }
 
+      log.flush();
+      index.flush();
+
       auto partition_config = std::get_if<state_history::partition_config>(&config);
       if (partition_config && block_num % partition_config->stride == 0) {
          split_log();
