@@ -240,7 +240,7 @@ class PerformanceTestBasic:
                 return True
         return False
 
-    def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum, blockDict: dict, trxDict: dict):
+    def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
         for blockNum in range(startBlockNum, endBlockNum + 1):
             blockCpuTotal, blockNetTotal, blockTransactionTotal = 0, 0, 0
             block = node.fetchBlock(blockNum)
@@ -248,7 +248,7 @@ class PerformanceTestBasic:
             with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
                 for transaction in block['payload']['transactions']:
                     if self.isImportantTransaction(transaction):
-                        self.clusterConfig.updateTrxDict(blockNum, transaction, trxDict)
+                        self.clusterConfig.updateTrxDict(blockNum, transaction, self.data.trxDict)
                         self.clusterConfig.writeTrx(trxDataFile, blockNum, transaction)
                         blockCpuTotal += transaction["cpu_usage_us"]
                         blockNetTotal += transaction["net_usage_words"]
@@ -256,7 +256,7 @@ class PerformanceTestBasic:
             blockData = self.clusterConfig.createBlockData(block=block, blockTransactionTotal=blockTransactionTotal,
                                                            blockNetTotal=blockNetTotal, blockCpuTotal=blockCpuTotal)
             self.data.blockLog.append(blockData)
-            blockDict[str(blockNum)] = blockData
+            self.data.blockDict[str(blockNum)] = blockData
             bdf_append_write = self.fileOpenMode(blockDataPath)
             with open(blockDataPath, bdf_append_write) as blockDataFile:
                 blockDataFile.write(f"{blockData.blockNum},{blockData.blockId},{blockData.producer},{blockData.status},{blockData._timestamp}\n")
@@ -449,7 +449,7 @@ class PerformanceTestBasic:
                     print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
 
 
-    def analyzeResultsAndReport(self, testResult: PtbTpsTestResult, blockDict: dict, trxDict: dict):
+    def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
         args = self.prepArgs()
         artifactsLocate = log_reader.ArtifactPaths(nodeosLogDir=self.nodeosLogDir, nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                    blockDataPath=self.blockDataPath, transactionMetricsDataPath=self.transactionMetricsDataPath)
@@ -457,7 +457,7 @@ class PerformanceTestBasic:
                                                  numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed,
                                                  targetTpsPerGenList=testResult.targetTpsPerGenList, quiet=self.ptbConfig.quiet)
         self.report = log_reader.calcAndReport(data=self.data, tpsTestConfig=tpsTestConfig, artifacts=artifactsLocate, argsDict=args, testStart=self.testStart,
-                                               completedRun=testResult.completedRun,nodeosVers=self.clusterConfig.nodeosVers, blockDict=blockDict, trxDict=trxDict)
+                                               completedRun=testResult.completedRun,nodeosVers=self.clusterConfig.nodeosVers)
 
         jsonReport = None
         if not self.ptbConfig.quiet or not self.ptbConfig.delReport:
@@ -479,9 +479,8 @@ class PerformanceTestBasic:
         if self.launchCluster() == False:
             self.errorExit('Failed to stand up cluster.')
 
-    def postTpsTestSteps(self, blockDict: dict, trxDict: dict):
-        return self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock,
-                                      blockDict=blockDict, trxDict=trxDict)
+    def postTpsTestSteps(self):
+        return self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
 
     def runTest(self) -> bool:
         testSuccessful = False
@@ -493,12 +492,10 @@ class PerformanceTestBasic:
 
             self.ptbTestResult = self.runTpsTest()
 
-            blockDict = {}
-            trxDict = {}
-            self.postTpsTestSteps(blockDict, trxDict)
+            self.postTpsTestSteps()
 
             self.captureLowLevelArtifacts()
-            self.analyzeResultsAndReport(self.ptbTestResult, blockDict, trxDict)
+            self.analyzeResultsAndReport(self.ptbTestResult)
 
             testSuccessful = self.ptbTestResult.completedRun
 

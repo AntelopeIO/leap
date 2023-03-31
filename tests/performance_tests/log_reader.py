@@ -157,6 +157,8 @@ class blockData():
 class chainData():
     def __init__(self):
         self.blockLog = []
+        self.blockDict = {}
+        self.trxDict = {}
         self.startBlock = None
         self.ceaseBlock = None
         self.totalTransactions = 0
@@ -193,7 +195,7 @@ class chainData():
 def selectedOpen(path):
     return gzip.open if path.suffix == '.gz' else open
 
-def scrapeLogBlockElapsedTime(blockDict: dict, data: chainData, path):
+def scrapeLogBlockElapsedTime(data: chainData, path):
     # node_XX/stderr.txt where XX is the first nonproducing node
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
@@ -203,8 +205,8 @@ def scrapeLogBlockElapsedTime(blockDict: dict, data: chainData, path):
             if int(value[1]) in range(data.startBlock, data.ceaseBlock + 1):
                 v3Logging = re.findall(r'elapsed: (\d+), time: (\d+)', value[3])
                 if v3Logging:
-                    blockDict[str(value[1])].elapsed = int(v3Logging[0][0])
-                    blockDict[str(value[1])].time = int(v3Logging[0][1])
+                    data.blockDict[str(value[1])].elapsed = int(v3Logging[0][0])
+                    data.blockDict[str(value[1])].time = int(v3Logging[0][1])
 
 def scrapeLogDroppedForkedBlocks(data: chainData, path):
     for nodeNum in range(0, data.nodes):
@@ -245,13 +247,13 @@ def populateTrxSentTimestamp(trxSent: dict, trxDict: dict, notFound):
         else:
             notFound.append(sentTrxId)
 
-def populateTrxLatencies(blockDict: dict, trxDict: dict):
-    for trxId, data in trxDict.items():
-        if data.calcdTimeEpoch != 0:
-            trxDict[trxId].latency = blockDict[str(data.blockNum)].calcdTimeEpoch - data.calcdTimeEpoch
+def populateTrxLatencies(data: chainData):
+    for trxId, trxData in data.trxDict.items():
+        if trxData.calcdTimeEpoch != 0:
+            data.trxDict[trxId].latency = data.blockDict[str(trxData.blockNum)].calcdTimeEpoch - trxData.calcdTimeEpoch
 
-def updateBlockTotals(blockDict: dict, data: chainData):
-    for _, block in blockDict.items():
+def updateBlockTotals(data: chainData):
+    for _, block in data.blockDict.items():
         data.updateTotal(transactions=block.transactions, net=block.net, cpu=block.cpu, elapsed=block.elapsed, time=block.time)
 
 def writeTransactionMetrics(trxDict: dict, path):
@@ -260,12 +262,12 @@ def writeTransactionMetrics(trxDict: dict, path):
         for trxId, data in trxDict.items():
             transactionMetricsFile.write(f"{trxId},{data.blockNum},{data.blockTime},{data.cpuUsageUs},{data.netUsageUs},{data.latency},{data._sentTimestamp},{data._calcdTimeEpoch}\n")
 
-def getProductionWindows(prodDict: dict, blockDict: dict, data: chainData):
+def getProductionWindows(prodDict: dict, data: chainData):
     prod = ""
     count = 0
     blocksFromCurProd = 0
     numProdWindows = 0
-    for k, v in blockDict.items():
+    for k, v in data.blockDict.items():
         count += 1
         if prod == "":
             prod = v.producer
@@ -476,30 +478,29 @@ class LogReaderEncoder(json.JSONEncoder):
 def reportAsJSON(report: dict) -> json:
     return json.dumps(report, indent=2, cls=LogReaderEncoder)
 
-def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True, nodeosVers: str="",
-                  blockDict: dict={}, trxDict: dict={}) -> dict:
-    scrapeLogBlockElapsedTime(blockDict, data, artifacts.nodeosLogPath)
+def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True, nodeosVers: str="") -> dict:
+    scrapeLogBlockElapsedTime(data, artifacts.nodeosLogPath)
     scrapeLogDroppedForkedBlocks(data, artifacts.nodeosLogDir)
 
     trxSent = {}
     scrapeTrxGenTrxSentDataLogs(trxSent, artifacts.trxGenLogDirPath, tpsTestConfig.quiet)
 
     notFound = []
-    populateTrxSentTimestamp(trxSent, trxDict, notFound)
+    populateTrxSentTimestamp(trxSent, data.trxDict, notFound)
 
     prodDict = {}
-    getProductionWindows(prodDict, blockDict, data)
+    getProductionWindows(prodDict, data)
 
     if len(notFound) > 0:
         print(f"Transactions logged as sent but NOT FOUND in block!! lost {len(notFound)} out of {len(trxSent)}")
         if argsDict.get("printMissingTransactions"):
             print(notFound)
 
-    updateBlockTotals(blockDict, data)
-    populateTrxLatencies(blockDict, trxDict)
-    writeTransactionMetrics(trxDict, artifacts.transactionMetricsDataPath)
+    updateBlockTotals(data)
+    populateTrxLatencies(data)
+    writeTransactionMetrics(data.trxDict, artifacts.transactionMetricsDataPath)
     guide = calcChainGuide(data, tpsTestConfig.numBlocksToPrune)
-    trxLatencyStats, trxCpuStats, trxNetStats = calcTrxLatencyCpuNetStats(trxDict)
+    trxLatencyStats, trxCpuStats, trxNetStats = calcTrxLatencyCpuNetStats(data.trxDict)
     tpsStats = scoreTransfersPerSecond(data, guide)
     blkSizeStats = calcBlockSizeStats(data, guide)
     prodWindows = calcProductionWindows(prodDict)
