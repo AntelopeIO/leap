@@ -477,12 +477,13 @@ struct controller_impl {
    }
 
    void replay(std::function<bool()> check_shutdown) {
-      if( !blog.head() && !fork_db.root() ) {
+      auto blog_head = blog.head();
+      if( !fork_db.root() ) {
          fork_db.reset( *head );
-         return;
+         if (!blog_head)
+            return;
       }
 
-      auto blog_head = blog.head();
       replaying = true;
       auto start_block_num = head->block_num + 1;
       auto start = fc::time_point::now();
