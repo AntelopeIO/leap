@@ -497,9 +497,10 @@ struct controller_impl {
 
    void replay(std::function<bool()> check_shutdown) {
       auto blog_head = blog.head();
-      if( !blog_head && !fork_db.root() ) {
+      if( !fork_db.root() ) {
          fork_db.reset( *head );
-         return;
+         if (!blog_head)
+            return;
       }
 
       replaying = true;
