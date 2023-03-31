@@ -12,7 +12,6 @@
 #include <eosio/chain/contract_types.hpp>
 
 #include <fc/network/message_buffer.hpp>
-#include <fc/network/ip.hpp>
 #include <fc/io/json.hpp>
 #include <fc/io/raw.hpp>
 #include <fc/log/appender.hpp>
