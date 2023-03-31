@@ -2344,7 +2344,7 @@ read_only::get_code_hash_results read_only::get_code_hash( const get_code_hash_p
       result.code_hash = accnt.code_hash;
 
    return result;
-   } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account code has")
+   } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account code hash")
 }
 
 read_only::get_raw_code_and_abi_results read_only::get_raw_code_and_abi( const get_raw_code_and_abi_params& params, const fc::time_point& deadline)const {
