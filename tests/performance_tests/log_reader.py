@@ -156,7 +156,7 @@ class blockData():
 
 class chainData():
     def __init__(self):
-        self.blockLog = []
+        self.blockList = []
         self.blockDict = {}
         self.trxDict = {}
         self.startBlock = None
@@ -307,15 +307,15 @@ def calcChainGuide(data: chainData, numAddlBlocksToDrop=0) -> chainBlocksGuide:
     3) Additional blocks - potentially partially full blocks while test scenario ramps up to steady state
 
     Keyword arguments:
-    data -- the chainData for the test run.  Includes blockLog, startBlock, and ceaseBlock
+    data -- the chainData for the test run.  Includes blockList, startBlock, and ceaseBlock
     numAddlBlocksToDrop -- num potentially non-empty blocks to ignore at beginning and end of test for steady state purposes
 
     Returns:
     chain guide describing key blocks and counts of blocks to describe test scenario
     """
-    firstBN = data.blockLog[0].blockNum
-    lastBN = data.blockLog[-1].blockNum
-    total = len(data.blockLog)
+    firstBN = data.blockList[0].blockNum
+    lastBN = data.blockList[-1].blockNum
+    total = len(data.blockList)
     testStartBN = data.startBlock
     testEndBN = data.ceaseBlock
 
@@ -329,14 +329,14 @@ def calcChainGuide(data: chainData, numAddlBlocksToDrop=0) -> chainBlocksGuide:
 
     leadingEmpty = 0
     for le in range(setupCnt, total - tearDownCnt - 1):
-        if data.blockLog[le].transactions == 0:
+        if data.blockList[le].transactions == 0:
             leadingEmpty += 1
         else:
             break
 
     trailingEmpty = 0
     for te in range(total - tearDownCnt - 1, setupCnt + leadingEmpty, -1):
-        if data.blockLog[te].transactions == 0:
+        if data.blockList[te].transactions == 0:
             trailingEmpty += 1
         else:
             break
@@ -355,14 +355,14 @@ def pruneToSteadyState(data: chainData, guide: chainBlocksGuide):
     3) Additional blocks - potentially partially full blocks while test scenario ramps up to steady state
 
     Keyword arguments:
-    data -- the chainData for the test run.  Includes blockLog, startBlock, and ceaseBlock
+    data -- the chainData for the test run.  Includes blockList, startBlock, and ceaseBlock
     guide -- chain guiderails calculated over chain data to guide interpretation of whole run's block data
 
     Returns:
     pruned list of blockData representing steady state operation
     """
 
-    return data.blockLog[guide.setupBlocksCnt + guide.leadingEmptyBlocksCnt + guide.configAddlDropCnt:-(guide.tearDownBlocksCnt + guide.trailingEmptyBlocksCnt + guide.configAddlDropCnt)]
+    return data.blockList[guide.setupBlocksCnt + guide.leadingEmptyBlocksCnt + guide.configAddlDropCnt:-(guide.tearDownBlocksCnt + guide.trailingEmptyBlocksCnt + guide.configAddlDropCnt)]
 
 def scoreTransfersPerSecond(data: chainData, guide: chainBlocksGuide) -> stats:
     """Analyzes a test scenario's steady state block data for statistics around transfers per second over every two-consecutive-block window"""

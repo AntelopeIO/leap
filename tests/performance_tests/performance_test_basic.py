@@ -255,7 +255,7 @@ class PerformanceTestBasic:
                         blockTransactionTotal += 1
             blockData = self.clusterConfig.createBlockData(block=block, blockTransactionTotal=blockTransactionTotal,
                                                            blockNetTotal=blockNetTotal, blockCpuTotal=blockCpuTotal)
-            self.data.blockLog.append(blockData)
+            self.data.blockList.append(blockData)
             self.data.blockDict[str(blockNum)] = blockData
             bdf_append_write = self.fileOpenMode(blockDataPath)
             with open(blockDataPath, bdf_append_write) as blockDataFile:
