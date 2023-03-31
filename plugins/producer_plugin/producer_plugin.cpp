@@ -2975,10 +2975,7 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
    try {
       auto start = fc::time_point::now();
       chain::controller& chain = chain_plug->chain();
-      if ( !chain.is_building_block() ) {
-         _ro_exhausted_trx_queue.push_front( {std::move(trx), std::move(next)} );
-         return true;
-      }
+      EOS_ASSERT( chain.is_building_block(), producer_exception, "Expecting chain is building block" );
 
       // when executing on the main thread while in the write window, need to switch db mode to read only
       // _ro_in_read_only_mode can only be false if running on main thread as it is only modified from the main thread
