@@ -25,7 +25,6 @@
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
-#include <eosio/chain/application.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -337,7 +336,8 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
-         EOS_ASSERT( appbase::app().executor().is_write_window(), misc_exception, "write window expected for irreversible_block signal"); // read-only threads are idle, threaded_wasmifs are not used
+         // producer_plugin has already asserted irreversible_block signal is called in
+         // write window
          wasmif.current_lib(bsp->block_num);
          for (auto& ele: threaded_wasmifs) {
             ele.second->current_lib(bsp->block_num);
@@ -2707,7 +2707,9 @@ struct controller_impl {
    }
 
    void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
-      EOS_ASSERT( appbase::app().executor().is_write_window(), misc_exception, "write window expected for code_block_num_last_used"); // read-only threads are idle, threaded_wasmifs are not used
+      // The caller of this function apply_eosio_setcode has already asserted that
+      // the transaction is not a read-only trx, which implies we are in now
+      // in write window. Safe to call threaded_wasmifs's code_block_num_last_used
       wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
       for (auto& ele: threaded_wasmifs) {
          ele.second->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
