@@ -154,13 +154,17 @@ namespace eosio {
     }
 
     void address_manager::add_addresses(const std::vector<std::string>& new_addresses, bool is_manual ) {
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        // if same address, skip it, ignore other properties
+        std::vector<peer_address> addresses_to_add;
         for (const auto& address : new_addresses) {
             peer_address addr = peer_address::from_str(address, is_manual);
-            if (std::find(addresses.begin(), addresses.end(), addr) == addresses.end()) {
-                fc_dlog( logger, "Address Manager add_addresses: ${host} ${port} ${type}", ("host",addr.host)("port",addr.port)("type", address_type_str(addr.address_type)) );
-                addresses.push_back(addr);
+            addresses_to_add.push_back(addr);
+        }
+        std::unique_lock<std::mutex> lock(addresses_mutex);
+        for (const auto& address : addresses_to_add) {
+            // if same address, skip it, ignore other properties
+            if (std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
+                fc_dlog( logger, "Address Manager add_addresses: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
+                addresses.push_back(address);
             }
         }
     }
@@ -349,6 +353,7 @@ namespace eosio {
    constexpr auto     def_resp_expected_wait = std::chrono::seconds(5);
    constexpr auto     def_sync_fetch_span = 100;
    constexpr auto     def_keepalive_interval = 10000;
+   constexpr auto     def_max_address_per_request = 10000;
 
    constexpr auto     message_header_size = sizeof(uint32_t);
    constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
@@ -392,6 +397,9 @@ namespace eosio {
       int                                   max_cleanup_time_ms = 0;
       uint32_t                              max_client_count = 0;
       uint32_t                              max_nodes_per_host = 1;
+      uint32_t                              max_addresses_per_request = 0;
+      // address request frequency, by handshakes count
+      uint32_t                              address_request_frequency = 100;
       // maintain a configurable minimum number of connected peer nodes.
       uint32_t                              min_peers_count = 0;
       bool                                  p2p_accept_transactions = true;
@@ -583,9 +591,11 @@ namespace eosio {
    constexpr uint16_t proto_dup_goaway_resolution = 5;     // eosio 2.1: support peer address based duplicate connection resolution
    constexpr uint16_t proto_dup_node_id_goaway = 6;        // eosio 2.1: support peer node_id based duplicate connection resolution
    constexpr uint16_t proto_leap_initial = 7;            // leap client, needed because none of the 2.1 versions are supported
+   constexpr uint16_t proto_address_sync = 8;            // leap client, support peer address sync
+
 #pragma GCC diagnostic pop
 
-   constexpr uint16_t net_version_max = proto_leap_initial;
+   constexpr uint16_t net_version_max = proto_address_sync;
 
    /**
     * Index by start_block_num
@@ -1359,8 +1369,14 @@ namespace eosio {
             c->enqueue( last_handshake_sent );
             // only send request to peers allowed connection
             // every 100 handshakes will send a request
-            if(c->is_peers_connection() && c->sent_handshake_count % 100 == 1)
-                c->enqueue_address_request(pull);
+            if(c->is_peers_connection() && c->sent_handshake_count % my_impl->address_request_frequency == 1) {
+                //first time send push request
+                if(c->sent_handshake_count == 1) {
+                    c->enqueue_address_request(push);
+                } else {
+                    c->enqueue_address_request(pull);
+                }
+            }
          }
       });
    }
@@ -1373,19 +1389,27 @@ namespace eosio {
 
    // called from connection strand
    void connection::enqueue_address_request(request_type_enum request_type) {
-       peer_dlog( this, "Sending address request type ${type}", ("type", request_type_str(request_type)) );
-       address_request_message request_msg;
+       // only send request to peers that support the protocol
+       if(protocol_version >= proto_address_sync) {
+           peer_dlog(this, "Sending address request type ${type}", ("type", request_type_str(request_type)));
+           address_request_message request_msg;
 
-       request_msg.request_type = request_type;
-       // request push type will send addresses to other node
-       if(request_type == push) {
-           vector<string> addresses = my_impl->address_master->get_addresses_str();
-           for (const auto& address : addresses) {
-               // host:port:type
-               request_msg.addresses.emplace_back(address);
+           request_msg.request_type = request_type;
+           // request push type will send addresses to other node
+           if (request_type == push) {
+               vector<string> addresses = my_impl->address_master->get_addresses_str();
+               int count = 0;
+               for (const auto &address: addresses) {
+                   // host:port:type
+                   request_msg.addresses.emplace_back(address);
+                   count++;
+                   if (count >= my_impl->max_addresses_per_request) {
+                       break;
+                   }
+               }
            }
+           enqueue(request_msg);
        }
-       enqueue(request_msg);
 
    }
 
@@ -3414,11 +3438,16 @@ namespace eosio {
 
                address_sync_message addresses_msg;
 
+           int count = 0;
            for (const auto& address : addresses) {
                // host:port:type
                // skipp remote peer itself
                if(address != peer_address::from_str(this->peer_address())) {
                    addresses_msg.addresses.emplace_back(address.to_str());
+                   count++;
+                   if(count >= my_impl->max_addresses_per_request) {
+                       break;
+                   }
                }
            }
 
@@ -3426,6 +3455,7 @@ namespace eosio {
        } else {
            peer_dlog(this, "address request from ${address} is dropped since connection type not support", ("address", this->peer_address()));
        }
+
    }
 
    void connection::handle_message( const address_sync_message& msg ) {
@@ -3730,7 +3760,7 @@ namespace eosio {
             ++num_clients;
          else
             ++num_peers;
-         //if connection is dead, remove p2p connection and reconnect peer connection
+         //if connection is dead, remove client connection and reconnect peer connection
          if( !(*it)->socket_is_open() && !(*it)->connecting) {
             if( !(*it)->incoming() ) {
                if( !(*it)->resolve_and_connect() ) {
@@ -3931,6 +3961,7 @@ namespace eosio {
            "    p2p.trx.eos.io:9876:trx\n"
            "    p2p.blk.eos.io:9876:blk\n")
          ( "p2p-max-nodes-per-host", bpo::value<int>()->default_value(def_max_nodes_per_host), "Maximum number of client nodes from any single IP address")
+         ( "p2p-max-addresses-per-request", bpo::value<int>()->default_value(def_max_address_per_request), "Maximum number of addresses in address request or sync message")
          ( "p2p-accept-transactions", bpo::value<bool>()->default_value(true), "Allow transactions received over p2p network to be evaluated and relayed if valid.")
          ( "p2p-auto-bp-peer", bpo::value< vector<string> >()->composing(),
            "The account and public p2p endpoint of a block producer node to automatically connect to when the it is in producer schedule proximity\n."
@@ -3993,6 +4024,7 @@ namespace eosio {
          my->resp_expected_period = def_resp_expected_wait;
          my->max_client_count = options.at( "max-clients" ).as<int>();
          my->max_nodes_per_host = options.at( "p2p-max-nodes-per-host" ).as<int>();
+         my->max_addresses_per_request = options.at("p2p-max-addresses-per-request").as<int>();
          my->min_peers_count = options.at( "min-peers" ).as<int>();
          my->p2p_accept_transactions = options.at( "p2p-accept-transactions" ).as<bool>();
 

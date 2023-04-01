@@ -136,11 +136,11 @@ namespace eosio {
    };
 
     enum address_type_enum {
-        blk      = 1 << 0, // 1
-        trx      = 1 << 1, // 2
-        peer     = 1 << 2, // 4
-        both     = 0x3,
-        all      = 0x7
+        blk = 1,
+        trx = 2,
+        peer = 4,
+        both = blk | trx,
+        all = blk | trx | peer
     };
 
     constexpr auto address_type_str( address_type_enum t ) {
@@ -151,6 +151,23 @@ namespace eosio {
             case peer : return ":peer";
             default: return ":all";
         }
+    }
+
+    // determine address type
+    inline address_type_enum str_to_address_type(const std::string& address_type_str) {
+        static const std::unordered_map<std::string, address_type_enum> address_type_map = {
+                {"blk", blk},
+                {"trx", trx},
+                {"peer", peer},
+                {"", both},
+                {"all", all},
+        };
+        const auto it = address_type_map.find(address_type_str);
+        if (it != address_type_map.end()) {
+            return it->second;
+        }
+        // if address type not match, return all by default
+        return all;
     }
 
     struct peer_address {
@@ -204,24 +221,10 @@ namespace eosio {
             string type_str = colon2 == string::npos ? "" : end == string::npos ?
                                                             address_str.substr( colon2 + 1 ) : address_str.substr( colon2 + 1, end - (colon2 + 1) );
 
-            address_type_enum address_type;
-
-            // determine address type
-            if (type_str == "trx") {
-                address_type = trx;
-            } else if (type_str == "blk") {
-                address_type = blk;
-            } else if (type_str == "peer") {
-                address_type = peer;
-            } else if (type_str.empty()) {
-                address_type = both;
-            } else
-                address_type = all;
-
             peer_address address;
             address.host = host_str;
             address.port = port_str;
-            address.address_type = address_type;
+            address.address_type = str_to_address_type(type_str);
             address.receive = fc::time_point::now();
             address.last_active = fc::time_point::min();
             address.manual = is_manual;
@@ -231,10 +234,10 @@ namespace eosio {
     };
 
     enum request_type_enum {
-        push,   //push and pull
-        pull,
-        latest_active,
-        manual, //only request manual addresses
+        push = 0,           // push and pull
+        pull = 1,
+        latest_active = 2,
+        manual = 3,         // only request manual addresses
     };
 
     constexpr auto request_type_str( request_type_enum t ) {
@@ -246,7 +249,6 @@ namespace eosio {
             default: return "pull";
         }
     }
-
 
     struct address_request_message {
         address_request_message(request_type_enum t = pull) : request_type(t), addresses() {}
