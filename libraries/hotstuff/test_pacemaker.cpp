@@ -3,20 +3,6 @@
 
 namespace eosio { namespace hotstuff {
 
-/*   	void test_pacemaker::init(std::vector<name> unique_replicas){
-
-	    for (name r : unique_replicas){  
-		 
-			std::set<name> mp{r};
-
-			register_listener(r, qcc);
-
-	    }
-
-   		_unique_replicas = unique_replicas;
-
-   	};*/
-
    	void test_pacemaker::set_proposer(name proposer){
    		_proposer = proposer;
    	};
@@ -45,13 +31,33 @@ namespace eosio { namespace hotstuff {
     	_pending_message_queue.push_back(msg);
     }
 
-    std::vector<test_pacemaker::hotstuff_message> test_pacemaker::flush(){
+    void test_pacemaker::pipe(std::vector<test_pacemaker::hotstuff_message> messages){
+
+    	auto itr = messages.begin();
+
+    	while (itr != messages.end()){
+
+    		_pending_message_queue.push_back(*itr);
+
+    		itr++;
+    	}
+
+    }
+
+    std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo, int count){
+
+    	for (int i = 0 ; i < count ; i++){
+    		this->dispatch(memo);
+    	}
+    }
+
+    std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo){
 
     	int count = 1;
 
     	//ilog(" === propagate ${count} messages", ("count", _pending_message_queue.size()));
 
-    	std::vector<test_pacemaker::hotstuff_message> flushed_messages = _pending_message_queue;
+    	std::vector<test_pacemaker::hotstuff_message> dispatched_messages = _pending_message_queue;
     	_message_queue = _pending_message_queue;
 
     	while (_pending_message_queue.begin()!=_pending_message_queue.end()){
@@ -65,9 +71,21 @@ namespace eosio { namespace hotstuff {
 
     	//ilog(" === propagate ${count} messages", ("count", _message_queue.size()));
 
+    	size_t proposals_count = 0;
+    	size_t votes_count = 0;
+    	size_t new_blocks_count = 0;
+    	size_t new_views_count = 0;
+    	
     	auto msg_itr = _message_queue.begin();
 
     	while (msg_itr!=_message_queue.end()){
+
+    		size_t v_index = msg_itr->second.index();
+
+    		if(v_index==0) proposals_count++;
+    		if(v_index==1) votes_count++;
+    		if(v_index==2) new_blocks_count++;
+    		if(v_index==3) new_views_count++;
 
     	//ilog(" === propagating message ${count} : type : ${index}", ("count", count) ("index", msg_itr->index()));
 
@@ -98,9 +116,18 @@ namespace eosio { namespace hotstuff {
 
     	//ilog(" === after erase");
 
-    	//ilog(" === end propagate");
+    	if (memo!=""){
+    		ilog(" === ${memo} : ",
+    			("memo", memo));
+    	}
 
-    	return _pending_message_queue;
+    	ilog(" === pacemaker dispatched ${proposals} proposals, ${votes} votes, ${new_blocks} new_blocks, ${new_views} new_views", 
+    		("proposals", proposals_count)
+    		("votes", votes_count)
+    		("new_blocks", new_blocks_count)
+    		("new_views", new_views_count));
+
+    	return dispatched_messages;
 
     }
 

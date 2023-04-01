@@ -1019,7 +1019,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    my->_chain_pacemaker.init(&chain);
 
-   my->_qc_chain.init("main"_n, my->_chain_pacemaker, my->_producers, true);
+   my->_qc_chain.init("main"_n, my->_chain_pacemaker, my->_producers, true, true);
 
 } FC_LOG_AND_RETHROW() }
 

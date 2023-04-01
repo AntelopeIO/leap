@@ -65,6 +65,8 @@ namespace eosio { namespace hotstuff {
                 fc::sha256 _b_leaf = NULL_PROPOSAL_ID;
                 fc::sha256 _b_lock = NULL_PROPOSAL_ID;
                 fc::sha256 _b_exec = NULL_PROPOSAL_ID;
+
+                fc::sha256 _b_finality_violation = NULL_PROPOSAL_ID;
                 
                 block_id_type _block_exec = NULL_BLOCK_ID;
 
@@ -73,6 +75,7 @@ namespace eosio { namespace hotstuff {
                 uint32_t _v_height;
 
                 bool _log = true;
+                bool _errors = true;
 
                 eosio::chain::quorum_certificate _high_qc;
                 eosio::chain::quorum_certificate _current_qc;
@@ -93,7 +96,7 @@ namespace eosio { namespace hotstuff {
                         tag<by_proposal_id>,
                         BOOST_MULTI_INDEX_MEMBER(hs_proposal_message,fc::sha256,proposal_id)
                       >,
-                      ordered_unique<
+                      ordered_non_unique<
                         tag<by_proposal_height>,
                         BOOST_MULTI_INDEX_CONST_MEM_FUN(hs_proposal_message,uint64_t,get_height)
                       >
@@ -119,7 +122,7 @@ namespace eosio { namespace hotstuff {
                 hs_proposal_message new_proposal_candidate(block_id_type block_id, uint8_t phase_counter); //create new proposal message
                 hs_new_block_message new_block_candidate(block_id_type block_id); //create new block message
 
-                void init(name id, base_pacemaker& pacemaker, std::set<name> my_producers, bool logging_enabled); //initialize qc object and add reference to the pacemaker
+                void init(name id, base_pacemaker& pacemaker, std::set<name> my_producers, bool info_logging, bool error_logging); //initialize qc object and add reference to the pacemaker
 
                 bool am_i_proposer(); //check if I am the current proposer
                 bool am_i_leader(); //check if I am the current leader

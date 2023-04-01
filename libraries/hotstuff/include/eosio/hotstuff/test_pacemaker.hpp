@@ -70,7 +70,10 @@ namespace eosio { namespace hotstuff {
 
 	    void add_message_to_queue(hotstuff_message msg);
 
-	    std::vector<hotstuff_message> flush();
+	    void pipe(std::vector<test_pacemaker::hotstuff_message> messages);
+	    
+	    std::vector<hotstuff_message> dispatch(std::string memo, int count);
+	    std::vector<hotstuff_message> dispatch(std::string memo);
 
 	    void activate(name replica);
 	    void deactivate(name replica);

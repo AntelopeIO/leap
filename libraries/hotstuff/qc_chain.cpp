@@ -238,10 +238,11 @@ namespace eosio { namespace hotstuff {
 
 	}
 
-	void qc_chain::init(name id, base_pacemaker& pacemaker, std::set<name> my_producers, bool logging_enabled){
+	void qc_chain::init(name id, base_pacemaker& pacemaker, std::set<name> my_producers, bool info_logging, bool error_logging){
 
 		_id = id;
-		_log = logging_enabled;
+		_log = info_logging;
+		_errors = error_logging;
 
 		_pacemaker = &pacemaker;
 		
@@ -250,8 +251,6 @@ namespace eosio { namespace hotstuff {
 		_pacemaker->register_listener(id, *this);
  		
 		if (_log) ilog(" === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
-
-		//auto itr = _my_producers.begin();
 
 		//ilog("bla");
 
@@ -321,14 +320,9 @@ namespace eosio { namespace hotstuff {
 
 		_v_height = proposal.get_height();
 
-		//fc::crypto::blslib::bls_signature agg_sig;
-
-		//if (proposal.justify.proposal_id != NULL_PROPOSAL_ID) agg_sig = proposal.justify.active_agg_sig;
-
 		digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
 
 		std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
-
 
 		fc::crypto::blslib::bls_signature sig = _private_key.sign(h); //todo : use appropriate private key for each producer
 
@@ -338,55 +332,63 @@ namespace eosio { namespace hotstuff {
 
 		//ilog("signed proposal. Broadcasting for each of my producers");
 
-/*		auto mf_itr = _my_producers.begin();
-
-		while(mf_itr!=_my_producers.end()){
-
-			auto prod_itr = std::find(finalizers.begin(), finalizers.end(), *mf_itr);
-
-			if (prod_itr!=finalizers.end()) {
-
-				fc::crypto::blslib::bls_signature sig = _private_key.sign(h); //todo : use appropriate private key for each producer
-
-				name n = *prod_itr;
-
-				hs_vote_message v_msg = {proposal.proposal_id, n, sig};
-
-				send_hs_vote_msg(v_msg);
-
-			};
-
-			mf_itr++;
-
-		}*/
-
 	}
 
 	void qc_chain::process_proposal(hs_proposal_message proposal){
 
 		auto start = fc::time_point::now();
 
+		if (proposal.justify.proposal_id != NULL_PROPOSAL_ID){
+
+			auto jp_itr = _proposal_store.get<by_proposal_id>().find( proposal.justify.proposal_id  );
+
+			if (jp_itr == _proposal_store.get<by_proposal_id>().end()) {
+				if (_errors) ilog("*** ${id} proposal justification unknown : ${proposal_id}", ("id",_id)("proposal_id", proposal.justify.proposal_id));
+				return; //can't recognize a proposal with an unknown justification
+			}
+
+		}
+
 		auto pid_itr = _proposal_store.get<by_proposal_id>().find( proposal.proposal_id );
 
 		if (pid_itr != _proposal_store.get<by_proposal_id>().end()) {
-			ilog("*** ${id} proposal received twice : ${proposal_id}", ("id",_id)("proposal_id", proposal.proposal_id));
+
+			if (_errors) ilog(" *** ${id} proposal received twice : ${proposal_id}", ("id",_id)("proposal_id", proposal.proposal_id));
+
+			if (pid_itr->justify.proposal_id != proposal.justify.proposal_id) {
+
+				if (_errors) ilog(" *** ${id} two identical proposals (${proposal_id}) have different justifications :  ${justify_1} vs  ${justify_2}", 
+					("id",_id)
+					("proposal_id", proposal.proposal_id)
+					("justify_1", pid_itr->justify.proposal_id)
+					("justify_2", proposal.justify.proposal_id));
+
+			}
+
 			return ; //already aware of proposal, nothing to do
 		
 		}
 
-		auto hgt_itr = _proposal_store.get<by_proposal_height>().find( proposal.get_height() );
+		auto hgt_itr = _proposal_store.get<by_proposal_height>().lower_bound( proposal.get_height() );
+		auto end_itr = _proposal_store.get<by_proposal_height>().upper_bound( proposal.get_height() );
 
-		if (hgt_itr != _proposal_store.get<by_proposal_height>().end()) {
-			ilog("*** ${id} received two different proposals at the same height (${block_num}, ${phase_counter}) : Proposal #1 : ${proposal_id_1} Proposal #2 : ${proposal_id_2}",
+		//height is not necessarily unique, so we iterate over all prior proposals at this height
+		while (hgt_itr != end_itr) {
+			if (_errors) ilog(" *** ${id} received a different proposal at the same height (${block_num}, ${phase_counter})",
 				("id",_id)
 				("block_num", hgt_itr->block_num())
-				("phase_counter", hgt_itr->phase_counter)
+				("phase_counter", hgt_itr->phase_counter));
+
+			if (_errors) ilog(" *** Proposal #1 : ${proposal_id_1} Proposal #2 : ${proposal_id_2}",
 				("proposal_id_1", hgt_itr->proposal_id)
 				("proposal_id_2", proposal.proposal_id));
 
+			hgt_itr++;
+
 		}
 
-	if (_log) ilog("=== ${id} received new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} justify ${justify}", 
+
+	if (_log) ilog(" === ${id} received new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} justify ${justify}", 
 			("id", _id)
 			("block_num", proposal.block_num())
 			("phase_counter", proposal.phase_counter)
@@ -417,44 +419,11 @@ namespace eosio { namespace hotstuff {
 
 					hs_vote_message v_msg = sign_proposal(proposal, *prod_itr);
 
-					send_hs_vote_msg(v_msg);
-
-				};
-
-				mf_itr++;
-
-			}
-
-		/*	//ilog("signature required");
-
-			_v_height = proposal.get_height();
-
-			fc::crypto::blslib::bls_signature agg_sig;
-
-			if (proposal.justify.proposal_id != NULL_PROPOSAL_ID) agg_sig = proposal.justify.active_agg_sig;
-
-			digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
-
-			std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
-
-			//iterate over all my finalizers and sign / broadcast for each that is in the schedule
-			std::vector<name> finalizers = _pacemaker->get_finalizers();
-
-			//ilog("signed proposal. Broadcasting for each of my producers");
-
-			auto mf_itr = _my_producers.begin();
-
-			while(mf_itr!=_my_producers.end()){
-
-				auto prod_itr = std::find(finalizers.begin(), finalizers.end(), *mf_itr);
-
-				if (prod_itr!=finalizers.end()) {
-
-					fc::crypto::blslib::bls_signature sig = _private_key.sign(h); //todo : use appropriate private key for each producer
-
-					name n = *prod_itr;
-
-					hs_vote_message v_msg = {proposal.proposal_id, n, sig};
+					if (_log)  ilog(" === ${id} signed proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id}", 
+							("id", _id)
+							("block_num", proposal.block_num())
+							("phase_counter", proposal.phase_counter)
+							("proposal_id", proposal.proposal_id));
 
 					send_hs_vote_msg(v_msg);
 
@@ -463,12 +432,13 @@ namespace eosio { namespace hotstuff {
 				mf_itr++;
 
 			}
-*/
 
 		}
-
-
-
+		else if (_log)  ilog(" === ${id} skipping signature on proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id}", 
+							("id", _id)
+							("block_num", proposal.block_num())
+							("phase_counter", proposal.phase_counter)
+							("proposal_id", proposal.proposal_id));
 
 
 		//update internal state
@@ -504,9 +474,9 @@ namespace eosio { namespace hotstuff {
 		proposal_store_type::nth_index<0>::type::iterator p_itr = _proposal_store.get<by_proposal_id>().find(vote.proposal_id  );
 
 		if (p_itr==_proposal_store.get<by_proposal_id>().end()){
-			ilog("*** ${id} couldn't find proposal", ("id",_id));
+			if (_errors) ilog("*** ${id} couldn't find proposal", ("id",_id));
 
-			ilog("*** ${id} vote : ${vote}", ("vote", vote)("id",_id));
+			if (_errors) ilog("*** ${id} vote : ${vote}", ("vote", vote)("id",_id));
 
 			return;
 		}
@@ -644,7 +614,7 @@ namespace eosio { namespace hotstuff {
 
 			if (itr->proposal_id == ancestor){
 				if (counter>25) {
-					ilog("*** ${id} took ${counter} iterations to find ancestor ", ("id",_id)("counter", counter));
+					if (_errors) ilog("*** ${id} took ${counter} iterations to find ancestor ", ("id",_id)("counter", counter));
 				
 				}
 				return true;
@@ -654,7 +624,7 @@ namespace eosio { namespace hotstuff {
 
 		}
 
-		ilog(" *** ${id} extends returned false : could not find ${d_proposal_id} descending from ${a_proposal_id} ",
+		if (_errors) ilog(" *** ${id} extends returned false : could not find ${d_proposal_id} descending from ${a_proposal_id} ",
 				("id",_id)
 				("d_proposal_id", descendant)
 				("a_proposal_id", ancestor));
@@ -941,6 +911,18 @@ handle_eptr(eptr);
 			("liveness_check", liveness_check)
 			("safety_check", safety_check));*/
 
+		bool node_is_safe = final_on_qc_check && monotony_check && (liveness_check || safety_check);
+
+		if (!node_is_safe) {
+
+			if (_errors) ilog(" *** node is NOT safe. Checks : final_on_qc: ${final_on_qc}, monotony_check: ${monotony_check}, liveness_check: ${liveness_check}, safety_check: ${safety_check})",
+				("final_on_qc_check",final_on_qc_check)
+				("monotony_check",monotony_check)
+				("liveness_check",liveness_check)
+				("safety_check",safety_check));
+
+		}
+
 		return final_on_qc_check && monotony_check && (liveness_check || safety_check); //return true if monotony check and at least one of liveness or safety check evaluated successfully
 
 	}
@@ -959,7 +941,7 @@ try{
 		//ilog(" === end of on_hs_proposal_msg");
 }
 catch (...){
-	ilog(" *** ${id} error during on_hs_proposal_msg", ("id",_id));
+	if (_errors) ilog(" *** ${id} error during on_hs_proposal_msg", ("id",_id));
 	eptr = std::current_exception(); // capture
 }
 handle_eptr(eptr);
@@ -979,7 +961,7 @@ try{
 		//ilog(" === end of on_hs_vote_msg");
 	}
 catch (...){
-	ilog(" *** ${id} error during on_hs_vote_msg", ("id",_id));
+	if (_errors) ilog(" *** ${id} error during on_hs_vote_msg", ("id",_id));
 	eptr = std::current_exception(); // capture
 }
 handle_eptr(eptr);
@@ -999,7 +981,7 @@ try{
 		//ilog(" === end of on_hs_new_view_msg");
 }
 catch (...){
-	ilog(" *** ${id} error during on_hs_new_view_msg", ("id",_id));
+	if (_errors) ilog(" *** ${id} error during on_hs_new_view_msg", ("id",_id));
 	eptr = std::current_exception(); // capture
 }
 handle_eptr(eptr);
@@ -1019,7 +1001,7 @@ try{
 		//ilog(" === end of on_hs_new_block_msg");
 }
 catch (...){
-	ilog(" *** ${id} error during on_hs_new_block_msg", ("id",_id));
+	if (_errors) ilog(" *** ${id} error during on_hs_new_block_msg", ("id",_id));
 	eptr = std::current_exception(); // capture
 }
 handle_eptr(eptr);
@@ -1028,8 +1010,6 @@ handle_eptr(eptr);
 	void qc_chain::update(hs_proposal_message proposal){
 
 		//ilog("=== update internal state ===");
-
-		proposal_store_type::nth_index<0>::type::iterator b_lock;
 
 		//if proposal has no justification, means we either just activated the feature or launched the chain, or the proposal is invalid
 		if (proposal.justify.proposal_id == NULL_PROPOSAL_ID){
@@ -1041,7 +1021,7 @@ handle_eptr(eptr);
 
 		size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
 
-		b_lock = _proposal_store.get<by_proposal_id>().find( _b_lock);
+		proposal_store_type::nth_index<0>::type::iterator b_lock = _proposal_store.get<by_proposal_id>().find( _b_lock);
 
 		//ilog("=== update_high_qc : proposal.justify ===");
 		update_high_qc(proposal.justify);
@@ -1102,6 +1082,28 @@ handle_eptr(eptr);
 
 			//ilog("direct parent relationship verified");
 
+			if (_b_exec!= NULL_PROPOSAL_ID){
+
+				proposal_store_type::nth_index<0>::type::iterator b_exec = _proposal_store.get<by_proposal_id>().find( _b_exec);
+
+				if (b_exec->get_height() >= b.get_height() && b_exec->proposal_id != b.proposal_id){
+
+					if (_errors) ilog(" *** ${id} finality violation detected at height ${block_num}, phase : ${phase}. Proposal ${proposal_id_1} conflicts with ${proposal_id_2}",
+						("id", _id)
+						("block_num", b.block_num())
+						("phase", b.phase_counter)
+						("proposal_id_1", b.proposal_id)
+						("proposal_id_2", b_exec->proposal_id));
+						
+						_b_finality_violation = b.proposal_id;
+
+						//protocol failure
+
+						return;
+
+				}
+
+			}
 
 			commit(b);
 			
@@ -1118,11 +1120,11 @@ handle_eptr(eptr);
 		}
 		else {
 
-			ilog(" *** ${id} could not verify direct parent relationship", ("id",_id));
+			if (_errors) ilog(" *** ${id} could not verify direct parent relationship", ("id",_id));
 
-			ilog(" *** b_2 #${block_num} ${b_2}", ("b_2", b_2)("block_num", b_2.block_num()));
-			ilog(" *** b_1 #${block_num} ${b_1}", ("b_1", b_1)("block_num", b_1.block_num()));
-			ilog(" *** b #${block_num} ${b}", ("b", b)("block_num", b.block_num()));
+			if (_errors) ilog(" *** b_2 ${b_2}", ("b_2", b_2));
+			if (_errors) ilog(" *** b_1 ${b_1}", ("b_1", b_1));
+			if (_errors) ilog(" *** b   ${b}", ("b", b));
 
 		}
 
@@ -1162,7 +1164,7 @@ handle_eptr(eptr);
 				("phase_counter", proposal.phase_counter)
 				("parent_id", proposal.parent_id));
 		*/
-		bool sequence_respected = false;
+		bool exec_height_check = false;
 
 		proposal_store_type::nth_index<0>::type::iterator last_exec_prop = _proposal_store.get<by_proposal_id>().find( _b_exec );
 	
@@ -1173,13 +1175,19 @@ handle_eptr(eptr);
 			("phase_counter", last_exec_prop->phase_counter)
 			("parent_id", last_exec_prop->parent_id));*/
 
+/*		ilog(" *** last_exec_prop ${proposal_id_1} ${phase_counter_1} vs proposal ${proposal_id_2} ${phase_counter_2} ",
+			("proposal_id_1", last_exec_prop->block_num())
+			("phase_counter_1", last_exec_prop->phase_counter)
+			("proposal_id_2", proposal.block_num())
+			("phase_counter_2", proposal.phase_counter));*/
+
 		if (_b_exec==NULL_PROPOSAL_ID){
 			//ilog("first block committed");
-			sequence_respected = true;
+			exec_height_check = true;
 		}
-		else sequence_respected = last_exec_prop->get_height() < proposal.get_height();
+		else exec_height_check = last_exec_prop->get_height() < proposal.get_height();
 
-		if (sequence_respected){
+		if (exec_height_check){
 		
 			proposal_store_type::nth_index<0>::type::iterator p_itr = _proposal_store.get<by_proposal_id>().find( proposal.parent_id );
 
@@ -1191,14 +1199,25 @@ handle_eptr(eptr);
 
 			}
 
+			//Execute commands [...]
+
 			if (_log) ilog(" === ${id} committed proposal #${block_num} phase ${phase_counter} block_id : ${block_id} proposal_id : ${proposal_id}", 
 				("id", _id)
 				("block_num", proposal.block_num())
 				("phase_counter", proposal.phase_counter)
 				("block_id", proposal.block_id)
 				("proposal_id", proposal.proposal_id));
-		
 		}
+
+
+/*		else {
+			if (_errors) ilog(" *** ${id} sequence not respected on #${block_num} phase ${phase_counter} proposal_id : ${proposal_id}", 
+				("id", _id)
+				("block_num", proposal.block_num())
+				("phase_counter", proposal.phase_counter)
+				("proposal_id", proposal.proposal_id));
+		}*/
+
 
 	}
 

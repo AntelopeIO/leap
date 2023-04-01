@@ -16,41 +16,24 @@ namespace eosio { namespace hotstuff {
 
 	public:
         
-
-		//configuration setting
+		//todo : discuss
         virtual uint32_t get_quorum_threshold() = 0;
-
-
-        //polling calls 
+        virtual block_id_type get_current_block_id() = 0;
+        
+        //hotstuff getters. todo : implement relevant setters as host functions
         virtual name get_proposer() = 0;
         virtual name get_leader() = 0;
         virtual name get_next_leader() = 0;
         virtual std::vector<name> get_finalizers() = 0;
 
-        virtual block_id_type get_current_block_id() = 0;
+        //block / proposal API
+        virtual void beat() = 0;
 
-
-
-
-
-
-
-
-
-
+        //todo : abstract further
 
         //qc_chain event subscription
         virtual void register_listener(name name, qc_chain& qcc) = 0;
         virtual void unregister_listener(name name) = 0;
-
-
-
-
-        //block / proposal API
-        virtual void beat() = 0;
-
-
-
 
         //outbound communications
 		virtual void send_hs_proposal_msg(name id, hs_proposal_message msg) = 0;

@@ -13,15 +13,6 @@ namespace eosio { namespace chain {
    const block_id_type NULL_BLOCK_ID = block_id_type("00");
    const fc::sha256 NULL_PROPOSAL_ID = fc::sha256("00");
 
-   //using namespace fc::crypto::blslib;
-
-   //todo : fetch from chain / nodeos config
-
-/*   const uint32_t block_interval = 500;
-   const uint32_t blocks_per_round = 12;*/
-
-   
-   
    static uint32_t compute_block_num(block_id_type block_id)
    {
       return fc::endian_reverse_u32(block_id._hash[0]);
@@ -60,10 +51,6 @@ namespace eosio { namespace chain {
       fc::crypto::blslib::bls_signature   sig;
 
       hs_vote_message() = default;
-
-/*      uint32_t block_num()const{
-         return compute_block_num(block_id);
-      }*/
 
    };
 
@@ -116,7 +103,6 @@ namespace eosio { namespace chain {
    using hs_new_block_message_ptr = std::shared_ptr<hs_new_block_message>;
 
 }} //eosio::chain
-
 
 FC_REFLECT(eosio::chain::quorum_certificate, (proposal_id)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer)(sig));
