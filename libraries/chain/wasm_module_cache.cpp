@@ -32,6 +32,9 @@ namespace eosio { namespace chain {
       return it->module;
    }
 
+   // apply_eosio_setcode asserted this was not called by non-read-only trxs.
+   // This implies it is in write window and no read-only threads are running.
+   // Safe to update module_cache without mutex.
    void wasm_module_cache::code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
       auto it = module_cache.find(boost::make_tuple(code_hash,vm_type, vm_version));
       if(it != module_cache.end())
@@ -40,6 +43,9 @@ namespace eosio { namespace chain {
          });
       }
 
+   // producer_plugin has already asserted irreversible_block signal is called
+   // in write window. No read-only threads are running. Safe to update
+   // module_cache without mutex.
    void wasm_module_cache::current_lib(uint32_t lib) {
       //anything last used before or on the LIB can be evicted
       const auto first_it = module_cache.get<by_last_block_num>().begin();
