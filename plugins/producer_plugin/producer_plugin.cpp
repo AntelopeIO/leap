@@ -2306,7 +2306,11 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
    auto end = fc::time_point::now();
    push_result pr;
    if( trace->except ) {
-      if ( chain.is_on_main_thread() ) {
+      // Transient trxs are dry-run or read-only.
+      // Dry-run trxs only run in write window. Read-only trxs can run in
+      // both write and read windows; time spent in read window is counted
+      // by read window summary.
+      if ( app().executor().is_write_window() ) {
          auto dur = end - start;
          _time_tracker.add_fail_time(dur, trx->is_transient());
       }
@@ -2349,7 +2353,11 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
    } else {
       fc_tlog( _log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us",
                ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
-      if ( chain.is_on_main_thread() ) {
+      // Transient trxs are dry-run or read-only.
+      // Dry-run trxs only run in write window. Read-only trxs can run in
+      // both write and read windows; time spent in read window is counted
+      // by read window summary.
+      if ( app().executor().is_write_window() ) {
          auto dur = end - start;
          _time_tracker.add_success_time(dur, trx->is_transient());
       }
