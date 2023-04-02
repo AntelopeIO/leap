@@ -4,10 +4,26 @@
 #include <eosio/net_plugin/address_manager.hpp>
 
 #include <thread>
+#include <random>
+
 
 using namespace eosio;
 
 peer_address address = peer_address::from_str("127.0.0.1:1234:all");
+
+std::vector<string> gen_addresses(uint32_t count) {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<> distrib(1, 65535);
+    std::vector<string> addresses;
+
+    for (int i = 0; i < count; ++i) {
+        int port = distrib(gen);
+        string address = "127.0.0.1:" + std::to_string(port);
+        addresses.push_back(address);
+    }
+    return addresses;
+}
 
 BOOST_AUTO_TEST_SUITE(test_peer_address)
 
@@ -223,6 +239,62 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
         BOOST_REQUIRE(diff_addresses.size() == 2);
         BOOST_REQUIRE(diff_addresses[0].to_str() == "192.168.0.1:9876:peer");
         BOOST_REQUIRE(diff_addresses[1].to_str() == "example.com:443:trx");
+
+    }
+
+    BOOST_AUTO_TEST_CASE(test_address_manager_concurrency) {
+
+        std::random_device rd;
+        std::mt19937 gen(rd());
+        std::uniform_int_distribution<> distrib(1, 65535);
+
+        address_manager manager1(60);
+        address_manager manager2(60);
+
+        uint32_t exist_address_count = 30000;
+        uint32_t threads_count = 1000;
+        uint32_t add_address_count = 1000;
+
+        // Create a vector of peer_address objects
+        std::vector<std::string> exist_addresses = gen_addresses(exist_address_count);
+        std::vector<std::vector<std::string>> all_addresses;
+        for (int i = 0; i < threads_count; ++i) {
+            std::vector<std::string> addresses = gen_addresses(add_address_count);
+            all_addresses.push_back(addresses);
+        }
+
+        manager1.add_addresses(exist_addresses, false);
+        std::vector<std::thread> add_threads1;
+        auto start1 = fc::time_point::now().time_since_epoch().count();
+        for (auto& addresses : all_addresses) {
+            add_threads1.emplace_back([&]() {
+                manager1.add_addresses(addresses, false);
+            });
+        }
+        // Join all the threads
+        for (auto& t : add_threads1) {
+            t.join();
+        }
+        auto end1 = fc::time_point::now().time_since_epoch().count();
+        ilog(std::to_string(end1 - start1));
+
+
+
+        manager2.add_addresses(exist_addresses, false);
+        std::vector<std::thread> add_threads2;
+        auto start2 = fc::time_point::now().time_since_epoch().count();
+        for (auto& addresses : all_addresses) {
+            add_threads2.emplace_back([&]() {
+                manager2.add_addresses2(addresses, false);
+            });
+        }
+        // Join all the threads
+        for (auto& t : add_threads2) {
+            t.join();
+        }
+        auto end2 = fc::time_point::now().time_since_epoch().count();
+        ilog(std::to_string(end2 - start2));
+
 
     }
 

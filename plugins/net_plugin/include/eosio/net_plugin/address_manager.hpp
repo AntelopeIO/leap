@@ -148,6 +148,9 @@ namespace eosio {
 
         void add_addresses(const std::vector<std::string> &new_addresses_str, bool is_manual);
 
+        //for lock test
+        void add_addresses2(const std::vector<std::string> &new_addresses_str, bool is_manual);
+
         void remove_address(const peer_address &address);
 
         void remove_addresses(const std::vector<peer_address> &addresses_to_remove);

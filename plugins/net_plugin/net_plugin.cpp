@@ -144,6 +144,23 @@ namespace eosio {
         }
     }
 
+    void address_manager::add_addresses2(const std::vector<std::string>& new_addresses, bool is_manual ) {
+        std::vector<peer_address> addresses_to_add;
+        for (const auto& address : new_addresses) {
+            peer_address addr = peer_address::from_str(address, is_manual);
+            addresses_to_add.push_back(addr);
+        }
+        for (const auto& address : addresses_to_add) {
+            // if same address, skip it, ignore other properties
+            std::unique_lock<std::mutex> lock(addresses_mutex);
+            if (std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
+                fc_dlog( logger, "Address Manager add_addresses: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
+                addresses.push_back(address);
+            }
+            lock.unlock();
+        }
+    }
+
     void address_manager::remove_address(const peer_address& address) {
         std::unique_lock<std::mutex> lock(addresses_mutex);
         auto it = std::find(addresses.begin(), addresses.end(), address);
