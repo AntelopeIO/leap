@@ -2,6 +2,7 @@
 
 #include <eosio/net_plugin/net_plugin.hpp>
 #include <eosio/net_plugin/protocol.hpp>
+#include <eosio/net_plugin/address_manager.hpp>
 #include <eosio/net_plugin/auto_bp_peering.hpp>
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -111,32 +112,6 @@ namespace eosio {
          >
       >
       > peer_block_state_index;
-
-   class address_manager {
-   private:
-       std::vector<peer_address> addresses;
-       mutable std::mutex addresses_mutex;
-
-   public:
-       // time_out for future address time out counting
-       explicit address_manager( uint32_t time_out ){};
-
-       void add_address(const peer_address& address);
-       void add_address_str(const std::string& address, bool is_manual);
-       void add_addresses(const std::vector<std::string>& new_addresses_str, bool is_manual);
-       void remove_address(const peer_address& address);
-       void remove_addresses(const std::vector<peer_address>& addresses_to_remove);
-       void update_address(const peer_address& updated_address);
-       std::vector<peer_address> get_addresses() const;
-       std::vector<peer_address> get_manual_addresses() const;
-       std::vector<peer_address> get_diff_addresses(const std::vector<string>& addresses_exist) const;
-       std::vector<peer_address> get_addresses(uint32_t start, uint32_t count) const;
-       std::vector<std::string> get_addresses_str() const;
-
-       bool has_address(const std::string& address_str) const;
-
-   };
-
 
     void address_manager::add_address(const peer_address& address) {
         std::unique_lock<std::mutex> lock(addresses_mutex);
@@ -3424,6 +3399,8 @@ namespace eosio {
                //check incoming addresses, send back different one:
                std::vector<string> addresses_incoming = msg.addresses;
                addresses = my_impl->address_master->get_diff_addresses(addresses_incoming);
+               // add address from addresses_incoming to address pool
+               my_impl->address_master->add_addresses(addresses_incoming, false);
            } else if(msg.request_type == manual) {
                addresses = my_impl->address_master->get_manual_addresses();
            } else if(msg.request_type == latest_active) {
