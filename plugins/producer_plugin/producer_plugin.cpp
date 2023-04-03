@@ -2850,6 +2850,7 @@ void producer_plugin_impl::start_write_window() {
    chain::controller& chain = chain_plug->chain();
 
    app().executor().set_to_write_window();
+   chain.set_to_write_window();
    chain.unset_db_read_only_mode();
    _idle_trx_time = _ro_window_deadline = fc::time_point::now();
 
@@ -2889,6 +2890,7 @@ void producer_plugin_impl::switch_to_read_window() {
       [received_block=&_received_block, pending_block_num, ro_window_deadline=_ro_window_deadline]() {
          return fc::time_point::now() >= ro_window_deadline || (received_block->load() >= pending_block_num); // should_exit()
       });
+   chain.set_to_read_window();
    chain.set_db_read_only_mode();
    _ro_all_threads_exec_time_us = 0;
 
