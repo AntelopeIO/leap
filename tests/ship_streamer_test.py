@@ -108,7 +108,7 @@ try:
 
     testWalletName="test"
 
-    Print("Creating wallet \"%s\"." % (testWalletName))
+    Print(f"Creating wallet {testWalletName}.")
     testWallet=walletMgr.create(testWalletName, [cluster.eosioAccount,accounts[0],accounts[1],accounts[2],accounts[3],accounts[4],accounts[5]])
 
     for _, account in cluster.defProducerAccounts.items():
@@ -120,15 +120,15 @@ try:
         for prod in node.producers:
             prodName = cluster.defProducerAccounts[prod].name
             if prodName == "defproducera" or prodName == "defproducerb" or prodName == "defproducerc" or prodName == "defproduceru":
-                Print("Register producer %s" % prodName)
+                Print(f"Register producer {prodName}")
                 trans=node.regproducer(cluster.defProducerAccounts[prod], "http://mysite.com", 0, waitForTransBlock=False, exitOnError=True)
 
     # create accounts via eosio as otherwise a bid is needed
     for account in accounts:
-        Print("Create new account %s via %s with private key: %s" % (account.name, cluster.eosioAccount.name, account.activePrivateKey))
+        Print(f"Create new account {account.name} via {cluster.eosioAccount.name} with private key: {account.activePrivateKey}")
         trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=True, stakeNet=10000, stakeCPU=10000, buyRAM=10000000, exitOnError=True)
         transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
-        Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
+        Print(f"Transfer funds {transferAmount} from account {cluster.eosioAccount.name} to {account.name}")
         nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
         trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=False, exitOnError=True)
 
@@ -144,7 +144,7 @@ try:
     voteProducers.append("defproducerc")
     voteProducers.append("defproduceru")
     for account in accounts:
-        Print("Account %s vote for producers=%s" % (account.name, voteProducers))
+        Print(f"Account {account.name} vote for producers={voteProducers}")
         trans=prodNode.vote(account, voteProducers, exitOnError=True, waitForTransBlock=False)
 
     #verify nodes are in sync and advancing
@@ -157,8 +157,8 @@ try:
     end_block_num = start_block_num + block_range
 
     shipClient = "tests/ship_streamer"
-    cmd = "%s --start-block-num %d --end-block-num %d --fetch-block --fetch-traces --fetch-deltas" % (shipClient, start_block_num, end_block_num)
-    if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
+    cmd = f"{shipClient} --start-block-num {start_block_num} --end-block-num {end_block_num} --fetch-block --fetch-traces --fetch-deltas"
+    if Utils.Debug: Utils.Print(f"cmd: {cmd}")
     clients = []
     files = []
     shipTempDir = os.path.join(Utils.DataDir, "ship")
@@ -168,14 +168,14 @@ try:
     starts = []
     for i in range(0, args.num_clients):
         start = time.perf_counter()
-        outFile = open("%s%d.out" % (shipClientFilePrefix, i), "w")
-        errFile = open("%s%d.err" % (shipClientFilePrefix, i), "w")
-        Print("Start client %d" % (i))
+        outFile = open(f"{shipClientFilePrefix}{i}.out", "w")
+        errFile = open(f"{shipClientFilePrefix}{i}.err", "w")
+        Print(f"Start client {i}")
         popen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
         starts.append(time.perf_counter())
         clients.append((popen, cmd))
         files.append((outFile, errFile))
-        Print("Client %d started, Ship node head is: %s" % (i, shipNode.getBlockNum()))
+        Print(f"Client {i} started, Ship node head is: {shipNode.getBlockNum()}")
 
     # Generate a fork
     forkAtProducer="defproducera"
@@ -183,7 +183,7 @@ try:
     preKillBlockNum=nonProdNode.getBlockNum()
     preKillBlockProducer=nonProdNode.getBlockProducerByNum(preKillBlockNum)
     nonProdNode.killNodeOnProducer(producer=forkAtProducer, whereInSequence=1)
-    Print("Current block producer %s fork will be at producer %s" % (preKillBlockProducer, forkAtProducer))
+    Print(f"Current block producer {preKillBlockProducer} fork will be at producer {forkAtProducer}")
     prodNode0.waitForProducer(forkAtProducer)
     prodNode1.waitForProducer(prodNode1Prod)
     if nonProdNode.verifyAlive(): # if on defproducera, need to wait again
@@ -200,7 +200,7 @@ try:
     if nonProdNode.verifyAlive():
         Utils.errorExit("Bridge is already running");
     if not nonProdNode.relaunch():
-        Utils.errorExit("Failure - (non-production) node %d should have restarted" % (nonProdNode.nodeNum))
+        Utils.errorExit(f"Failure - (non-production) node {nonProdNode.nodeNum} should have restarted")
 
     nonProdNode.waitForProducer(forkAtProducer)
     nonProdNode.waitForProducer(prodNode1Prod)
@@ -208,13 +208,13 @@ try:
     if int(afterForkBlockNum) > int(end_block_num):
         Utils.errorExit(f"Did not stream long enough {end_block_num} to cover the fork {afterForkBlockNum}, increase block_range {block_range}")
 
-    Print("Stopping all %d clients" % (args.num_clients))
+    Print(f"Stopping all {args.num_clients} clients")
     for index, (popen, _), (out, err), start in zip(range(len(clients)), clients, files, starts):
         popen.wait()
-        Print("Stopped client %d.  Ran for %.3f seconds." % (index, time.perf_counter() - start))
+        Print(f"Stopped client {index}.  Ran for {time.perf_counter() - start:.3f} seconds.")
         out.close()
         err.close()
-        outFile = open("%s%d.out" % (shipClientFilePrefix, index), "r")
+        outFile = open(f"{shipClientFilePrefix}{index}.out", "r")
         data = json.load(outFile)
         block_num = start_block_num
         for i in data:
