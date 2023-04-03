@@ -281,11 +281,11 @@ struct block_time_tracker {
       if( _log.is_enabled( fc::log_level::debug ) ) {
          auto now = fc::time_point::now();
          add_idle_time( now - idle_trx_time );
-         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, transient: ${tn}, ${t}us, other: ${o}us",
+         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, transient: ${trans_trx_num}, ${trans_trx_time}us, other: ${o}us",
                   ("n", block_num)
                   ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
                   ("fn", trx_fail_num)("f", trx_fail_time)
-                  ("tn", transient_trx_num)("t", transient_trx_time)
+                  ("trans_trx_num", transient_trx_num)("trans_trx_time", transient_trx_time)
                   ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time - transient_trx_time) );
       }
    }
@@ -472,7 +472,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       fc::microseconds                _ro_max_trx_time_us{ 0 }; // calculated during option initialization
       ro_trx_queue_t                  _ro_exhausted_trx_queue;
       std::atomic<uint32_t>           _ro_num_active_exec_tasks{ 0 };
-      bool                            _ro_in_read_only_mode{false}; // only modified on app thread
       std::vector<std::future<bool>>  _ro_exec_tasks_fut;
 
       void start_write_window();
@@ -2306,7 +2305,11 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
    auto end = fc::time_point::now();
    push_result pr;
    if( trace->except ) {
-      if ( chain.is_on_main_thread() ) {
+      // Transient trxs are dry-run or read-only.
+      // Dry-run trxs only run in write window. Read-only trxs can run in
+      // both write and read windows; time spent in read window is counted
+      // by read window summary.
+      if ( app().executor().is_write_window() ) {
          auto dur = end - start;
          _time_tracker.add_fail_time(dur, trx->is_transient());
       }
@@ -2349,7 +2352,11 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
    } else {
       fc_tlog( _log, "Subjective bill for success ${a}: ${b} elapsed ${t}us, time ${r}us",
                ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
-      if ( chain.is_on_main_thread() ) {
+      // Transient trxs are dry-run or read-only.
+      // Dry-run trxs only run in write window. Read-only trxs can run in
+      // both write and read windows; time spent in read window is counted
+      // by read window summary.
+      if ( app().executor().is_write_window() ) {
          auto dur = end - start;
          _time_tracker.add_success_time(dur, trx->is_transient());
       }
@@ -2844,7 +2851,6 @@ void producer_plugin_impl::start_write_window() {
 
    app().executor().set_to_write_window();
    chain.unset_db_read_only_mode();
-   _ro_in_read_only_mode = false;
    _idle_trx_time = _ro_window_deadline = fc::time_point::now();
 
    _ro_window_deadline += _ro_write_window_time_us; // not allowed on block producers, so no need to limit to block deadline
@@ -2874,6 +2880,7 @@ void producer_plugin_impl::switch_to_read_window() {
       return;
    }
 
+
    auto& chain = chain_plug->chain();
    uint32_t pending_block_num = chain.head_block_num() + 1;
    _ro_read_window_start_time = fc::time_point::now();
@@ -2883,7 +2890,6 @@ void producer_plugin_impl::switch_to_read_window() {
          return fc::time_point::now() >= ro_window_deadline || (received_block->load() >= pending_block_num); // should_exit()
       });
    chain.set_db_read_only_mode();
-   _ro_in_read_only_mode = true;
    _ro_all_threads_exec_time_us = 0;
 
    // start a read-only execution task in each thread in the thread pool
@@ -2979,15 +2985,19 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
          return true;
       }
 
-      // when executing on the main thread while in the write window, need to switch db mode to read only
-      // _ro_in_read_only_mode can only be false if running on main thread as it is only modified from the main thread
+      // When executing a read-only trx on the main thread while in the write window,
+      // need to switch db mode to read only.
       auto db_read_only_mode_guard = fc::make_scoped_exit([&]{
-         if( !_ro_in_read_only_mode )
+         if( app().executor().is_write_window() )
             chain.unset_db_read_only_mode();
       });
-      if( !_ro_in_read_only_mode ) {
+
+      if ( app().executor().is_write_window() ) {
          chain.set_db_read_only_mode();
+         auto idle_time = fc::time_point::now() - _idle_trx_time;
+         _time_tracker.add_idle_time( idle_time );
       }
+
       // use read-window/write-window deadline if there are read/write windows, otherwise use block_deadline if only the app thead
       auto window_deadline = (_ro_thread_pool_size != 0) ? _ro_window_deadline : calculate_block_deadline( chain.pending_block_time() );
 
@@ -3000,6 +3010,10 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
       retry = pr.trx_exhausted;
       if( retry ) {
          _ro_exhausted_trx_queue.push_front( {std::move(trx), std::move(next)} );
+      }
+
+      if ( app().executor().is_write_window() ) {
+         _idle_trx_time = fc::time_point::now();
       }
    } catch ( const guard_exception& e ) {
       chain_plugin::handle_guard_exception(e);

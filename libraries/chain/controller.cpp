@@ -3687,10 +3687,6 @@ void controller::init_thread_local_data() {
    my->init_thread_local_data();
 }
 
-bool controller::is_on_main_thread() const {
-  return my->is_on_main_thread();
-}
-
 /// Protocol feature activation handlers:
 
 template<>
