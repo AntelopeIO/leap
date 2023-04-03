@@ -11,7 +11,7 @@ using namespace eosio;
 
 peer_address address = peer_address::from_str("127.0.0.1:1234:all");
 
-std::vector<string> gen_addresses(uint32_t count) {
+std::vector<string> gen_addresses(string host, uint32_t count) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distrib(1, 65535);
@@ -19,7 +19,7 @@ std::vector<string> gen_addresses(uint32_t count) {
 
     for (int i = 0; i < count; ++i) {
         int port = distrib(gen);
-        string address = "127.0.0.1:" + std::to_string(port);
+        string address = host + ":" + std::to_string(port);
         addresses.push_back(address);
     }
     return addresses;
@@ -250,23 +250,46 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
 
         address_manager manager1(60);
         address_manager manager2(60);
+        address_manager manager3(60);
+        address_manager manager4(60);
+        address_manager manager5(60);
+        address_manager manager6(60);
 
         uint32_t exist_address_count = 30000;
-        uint32_t threads_count = 1000;
-        uint32_t add_address_count = 1000;
+        uint32_t add_threads_count = 1000;
+        uint32_t remove_threads_count = 300;
+        uint32_t add_address_count = 10;
+        uint32_t remove_address_count = 10;
 
         // Create a vector of peer_address objects
-        std::vector<std::string> exist_addresses = gen_addresses(exist_address_count);
-        std::vector<std::vector<std::string>> all_addresses;
-        for (int i = 0; i < threads_count; ++i) {
-            std::vector<std::string> addresses = gen_addresses(add_address_count);
-            all_addresses.push_back(addresses);
+        std::vector<std::string> exist_addresses = gen_addresses("127.0.0.1",exist_address_count);
+
+        //init addresses to add, add_threads_count * add_address_count
+        std::vector<std::vector<std::string>> all_add_addresses;
+        for (int i = 0; i < add_threads_count; ++i) {
+            std::vector<std::string> addresses = gen_addresses("127.0.0.1",add_address_count);
+            all_add_addresses.push_back(addresses);
         }
+
+        //init addresses to remove, remove_threads_count * remove_address_count
+        std::vector<std::vector<std::string>> all_remove_addresses;
+        for (int i = 0; i < remove_threads_count; ++i) {
+            // addresses to remove are different from addresses to add
+            std::vector<std::string> addresses = gen_addresses("127.0.0.2", remove_address_count);
+            all_remove_addresses.push_back(addresses);
+            //add all address_to_remove to exist_addresses
+            exist_addresses.insert(exist_addresses.end(), addresses.begin(), addresses.end());
+        }
+
+        // shuffle exist_addresses
+        std::shuffle(exist_addresses.begin(), exist_addresses.end(), gen);
+
+        BOOST_REQUIRE(exist_addresses.size() == exist_address_count + remove_threads_count * remove_address_count);
 
         manager1.add_addresses(exist_addresses, false);
         std::vector<std::thread> add_threads1;
         auto start1 = fc::time_point::now().time_since_epoch().count();
-        for (auto& addresses : all_addresses) {
+        for (auto& addresses : all_add_addresses) {
             add_threads1.emplace_back([&]() {
                 manager1.add_addresses(addresses, false);
             });
@@ -278,12 +301,10 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
         auto end1 = fc::time_point::now().time_since_epoch().count();
         ilog(std::to_string(end1 - start1));
 
-
-
         manager2.add_addresses(exist_addresses, false);
         std::vector<std::thread> add_threads2;
         auto start2 = fc::time_point::now().time_since_epoch().count();
-        for (auto& addresses : all_addresses) {
+        for (auto& addresses : all_add_addresses) {
             add_threads2.emplace_back([&]() {
                 manager2.add_addresses2(addresses, false);
             });
@@ -295,6 +316,82 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
         auto end2 = fc::time_point::now().time_since_epoch().count();
         ilog(std::to_string(end2 - start2));
 
+        manager3.add_addresses(exist_addresses, false);
+        std::vector<std::thread> add_remove_threads1;
+        auto start3 = fc::time_point::now().time_since_epoch().count();
+        for (auto& addresses : all_add_addresses) {
+            add_remove_threads1.emplace_back([&]() {
+                manager3.add_addresses(addresses, false);
+            });
+        }
+        for (auto& addresses : all_remove_addresses) {
+            add_remove_threads1.emplace_back([&]() {
+                manager3.remove_addresses_str(addresses);
+            });
+        }
+        // Join all the threads
+        for (auto& t : add_remove_threads1) {
+            t.join();
+        }
+        auto end3 = fc::time_point::now().time_since_epoch().count();
+        ilog(std::to_string(end3 - start3));
+
+        manager4.add_addresses(exist_addresses, false);
+        std::vector<std::thread> add_remove_threads2;
+        auto start4 = fc::time_point::now().time_since_epoch().count();
+        for (auto& addresses : all_add_addresses) {
+            add_remove_threads2.emplace_back([&]() {
+                manager4.add_addresses2(addresses, false);
+            });
+        }
+        for (auto& addresses : all_remove_addresses) {
+            add_remove_threads2.emplace_back([&]() {
+                manager4.remove_addresses_str2(addresses);
+            });
+        }
+        // Join all the threads
+        for (auto& t : add_remove_threads2) {
+            t.join();
+        }
+        auto end4 = fc::time_point::now().time_since_epoch().count();
+        ilog(std::to_string(end4 - start4));
+
+        manager5.add_addresses(exist_addresses, false);
+        std::vector<std::thread> remove_threads1;
+        auto start5 = fc::time_point::now().time_since_epoch().count();
+        for (auto& addresses : all_remove_addresses) {
+            remove_threads1.emplace_back([&]() {
+                manager5.remove_addresses_str(addresses);
+            });
+        }
+        // Join all the threads
+        for (auto& t : remove_threads1) {
+            t.join();
+        }
+        auto end5 = fc::time_point::now().time_since_epoch().count();
+        ilog(std::to_string(end5 - start5));
+
+        manager6.add_addresses(exist_addresses, false);
+        std::vector<std::thread> remove_threads2;
+        auto start6 = fc::time_point::now().time_since_epoch().count();
+        for (auto& addresses : all_remove_addresses) {
+            remove_threads2.emplace_back([&]() {
+                manager6.remove_addresses_str2(addresses);
+            });
+        }
+        // Join all the threads
+        for (auto& t : remove_threads2) {
+            t.join();
+        }
+        auto end6 = fc::time_point::now().time_since_epoch().count();
+        ilog(std::to_string(end6 - start6));
+
+        BOOST_REQUIRE(manager1.get_addresses().size() == manager2.get_addresses().size());
+        BOOST_REQUIRE(manager1.get_diff_addresses(manager2.get_addresses_str()).size() == 0);
+        BOOST_REQUIRE(manager3.get_addresses().size() == manager4.get_addresses().size());
+        BOOST_REQUIRE(manager3.get_diff_addresses(manager4.get_addresses_str()).size() == 0);
+        BOOST_REQUIRE(manager5.get_addresses().size() == manager6.get_addresses().size());
+        BOOST_REQUIRE(manager5.get_diff_addresses(manager6.get_addresses_str()).size() == 0);
 
     }
 
