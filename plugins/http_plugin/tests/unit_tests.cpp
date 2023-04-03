@@ -52,7 +52,7 @@ public:
                   cb(200, fc::time_point::maximum(), fc::variant(ok ? string("yes") : string("no")));
                }
             },
-         }, appbase::exec_queue::general);
+         }, appbase::exec_queue::read_write);
    }
 
 private:

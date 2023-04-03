@@ -28,7 +28,7 @@ using namespace eosio;
 void db_size_api_plugin::plugin_startup() {
    app().get_plugin<http_plugin>().add_api({
        CALL_WITH_400(db_size, this, get,  INVOKE_R_V(this, get), 200),
-   }, appbase::exec_queue::read_only_trx_safe);
+   }, appbase::exec_queue::read_only);
 }
 
 db_size_stats db_size_api_plugin::get() {

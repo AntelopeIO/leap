@@ -20,16 +20,15 @@ try {
    if(child_process.spawnSync("docker", ["rm", "base"], {stdio:"inherit"}).status)
       throw new Error("Failed to remove base container");
 
-   // the correct approach is by far "--show-only=json-v1" and then pluck out .tests[].name; but that doesn't work on U18's cmake 3.10 since it lacks json-v1 output
-   const test_query_result = child_process.spawnSync("docker", ["run", "--rm", "baseimage", "bash", "-e", "-o", "pipefail", "-c", `cd build; ctest -L '${tests_label}' --show-only | head -n -1 | cut -d ':' -f 2 -s | jq -cnR '[inputs | select(length>0)[1:]]'`]);
+   const test_query_result = child_process.spawnSync("docker", ["run", "--rm", "baseimage", "bash", "-e", "-o", "pipefail", "-c", `ctest --test-dir build -L '${tests_label}' --show-only=json-v1`]);
    if(test_query_result.status)
       throw new Error("Failed to discover tests with label")
-   const tests = JSON.parse(test_query_result.stdout);
+   const tests = JSON.parse(test_query_result.stdout).tests;
 
    let subprocesses = [];
    tests.forEach(t => {
       subprocesses.push(new Promise(resolve => {
-         child_process.spawn("docker", ["run", "--security-opt", "seccomp=unconfined", "-e", "GITHUB_ACTIONS=True", "--name", t, "--init", "baseimage", "bash", "-c", `cd build; ctest --output-on-failure -R '^${t}$' --timeout ${test_timeout}`], {stdio:"inherit"}).on('close', code => resolve(code));
+         child_process.spawn("docker", ["run", "--security-opt", "seccomp=unconfined", "-e", "GITHUB_ACTIONS=True", "--name", t.name, "--init", "baseimage", "bash", "-c", `ctest --test-dir build --output-on-failure -R '^${t}$' --timeout ${test_timeout}`], {stdio:"inherit"}).on('close', code => resolve(code));
       }));
    });
 

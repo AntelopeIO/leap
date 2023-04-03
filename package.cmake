@@ -10,7 +10,7 @@ endif()
 
 set(CPACK_PACKAGE_VERSION "${VERSION_FULL}")
 set(CPACK_PACKAGE_FILE_NAME "${CMAKE_PROJECT_NAME}-${VERSION_FULL}")
-if(CMAKE_VERSION VERSION_GREATER_EQUAL "3.9" AND EXISTS /etc/os-release)
+if(EXISTS /etc/os-release)
    #if we're doing the build on Ubuntu or RHELish, add the platform version in to the package name
    file(READ /etc/os-release OS_RELEASE LIMIT 4096)
    if(OS_RELEASE MATCHES "\n?ID=\"?ubuntu" AND OS_RELEASE MATCHES "\n?VERSION_ID=\"?([0-9.]+)")

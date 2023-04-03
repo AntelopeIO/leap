@@ -412,8 +412,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
       bfs::copy_file(source_i, source_log_dir / "blocks.index", bfs::copy_option::overwrite_if_exists);
       chain.close();
    }
-
-   auto config = tester::default_config(fc::temp_directory(), legacy_default_max_inline_action_size).first;
+   fc::temp_directory temp_dir;
+   auto config = tester::default_config(temp_dir, legacy_default_max_inline_action_size).first;
    auto genesis = eosio::chain::block_log::extract_genesis_state(source_log_dir);
    bfs::create_directories(config.blocks_dir);
    bfs::copy(source_log_dir / "blocks.log", config.blocks_dir / "blocks.log");
@@ -477,7 +477,8 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_pending_schedule_snapshot, SNAPSHOT_SUITE, sn
    source_log_dir_str += "prod_sched";
    const auto source_log_dir = bfs::path(source_log_dir_str.c_str());
    const uint32_t legacy_default_max_inline_action_size = 4 * 1024;
-   auto config = tester::default_config(fc::temp_directory(), legacy_default_max_inline_action_size).first;
+   fc::temp_directory temp_dir;
+   auto config = tester::default_config(temp_dir, legacy_default_max_inline_action_size).first;
    auto genesis = eosio::chain::block_log::extract_genesis_state(source_log_dir);
    bfs::create_directories(config.blocks_dir);
    bfs::copy(source_log_dir / "blocks.log", config.blocks_dir / "blocks.log");
