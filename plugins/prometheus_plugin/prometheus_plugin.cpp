@@ -209,7 +209,7 @@ namespace eosio {
       void start() {
          run(_prometheus_thread_pool.get_executor(), _endpoint);
          _prometheus_thread_pool.start(
-               1, [](const fc::exception& e) { elog("Prometheus excpetion ${e}:${l}", ("e", e)); });
+               1, [](const fc::exception& e) { elog("Prometheus excpetion ${e}", ("e", e)); });
       }
    };
 

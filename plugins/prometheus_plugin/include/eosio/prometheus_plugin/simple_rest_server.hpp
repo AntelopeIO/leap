@@ -25,7 +25,7 @@ namespace eosio { namespace rest {
          auto const bad_request = [&req](beast::string_view why) {
             http::response<http::string_body> res{ http::status::bad_request, req.version() };
             res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
-            res.set(http::field::content_type, "text/html");
+            res.set(http::field::content_type, "text/plain");
             res.keep_alive(req.keep_alive());
             res.body() = std::string(why);
             res.prepare_payload();
