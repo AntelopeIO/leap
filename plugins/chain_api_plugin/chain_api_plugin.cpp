@@ -62,6 +62,32 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 
 #define CHAIN_RO_CALL_WITH_400(call_name, http_response_code, params_type) CALL_WITH_400(chain, ro_api, chain_apis::read_only, call_name, http_response_code, params_type)
 
+template<class API, class PARAMS_PARSER, class HANDLER>
+static api_entry make_api_entry(http_plugin &_http_plugin, API& api, const char* api_name,
+                                const char* call_name, PARAMS_PARSER params_parser, HANDLER handler) {
+   return api_entry(
+      std::string("/v1/") + api_name + "/" + call_name,
+      [&_http_plugin, api, api_name, call_name,
+       params_parser = std::move(params_parser), handler = std::move(handler)](string&&, string&& body, url_response_callback&& cb) {
+         auto deadline = api.start();
+         try {
+            auto start = fc::time_point::now();
+            auto params = params_parser(body);
+            FC_CHECK_DEADLINE(deadline);
+
+            // call first handler on main thread (likely because it accesses non thread-safe data)
+            // returns a thread-safe lambda that can be enqueued on the http thread pool to complete the request
+            auto completion_handler = handler(api, start, deadline, params, cb);
+            FC_CHECK_DEADLINE(deadline); // make sure remaining time is > 0
+
+            // execute thread-safe http_handler on _http_plugin's thread pool
+            _http_plugin.post_http_thread_pool(std::move(completion_handler));
+         } catch (...) {
+            http_plugin::handle_exception(api_name, call_name, body, cb);
+         }
+      });
+}
+
 void chain_api_plugin::plugin_startup() {
    ilog( "starting chain_api_plugin" );
    my.reset(new chain_api_plugin_impl(app().get_plugin<chain_plugin>().chain()));
@@ -128,41 +154,32 @@ void chain_api_plugin::plugin_startup() {
    }
 
    _http_plugin.add_api({
-      { std::string("/v1/chain/get_block"),
-        [ro_api, &_http_plugin, max_time=std::min(chain.get_abi_serializer_max_time(),max_response_time)]
-              ( string&&, string&& body, url_response_callback&& cb ) mutable {
-           auto deadline = ro_api.start();
-           try {
-              auto start = fc::time_point::now();
-              auto params = parse_params<chain_apis::read_only::get_raw_block_params, http_params_types::params_required>(body);
-              FC_CHECK_DEADLINE( deadline );
-              chain::signed_block_ptr block = ro_api.get_raw_block( params, deadline );
-
-              auto abi_cache = ro_api.get_block_serializers( block, max_time );
-              FC_CHECK_DEADLINE( deadline );
-
-              auto post_time = fc::time_point::now();
-              auto remaining_time = max_time - (post_time - start);
-              _http_plugin.post_http_thread_pool(
-                    [ro_api, cb, deadline, post_time, remaining_time, abi_cache{std::move(abi_cache)}, block{std::move( block )}]() mutable {
-                 try {
-                    auto new_deadline = deadline + (fc::time_point::now() - post_time);
-
-                    fc::variant result = ro_api.convert_block( block, std::move(abi_cache), remaining_time );
-
-                    cb( 200, new_deadline, std::move( result ) );
-                 } catch( ... ) {
-                    http_plugin::handle_exception( "chain", "get_block", "", cb );
-                 }
-              } );
-           } catch( ... ) {
-              http_plugin::handle_exception("chain", "get_block", body, cb);
-           }
-        }
-      }
-   }, appbase::exec_queue::read_only);
+         make_api_entry(
+            _http_plugin, ro_api, "chain", "get_block",
+            [](const string& body) {
+               return parse_params<chain_apis::read_only::get_raw_block_params, http_params_types::params_required>(body);
+            },
+            [max_response_time, &chain](auto& api, fc::time_point start, fc::time_point deadline, auto &params, const url_response_callback &cb) {
+            
+               chain::signed_block_ptr block = api.get_raw_block(params, deadline);
+               auto max_time = std::min(chain.get_abi_serializer_max_time(), max_response_time);
+               auto abi_cache = api.get_block_serializers(block, max_time);
+               auto post_time = fc::time_point::now();
+               auto remaining_time = max_time - (post_time - start);
+            
+               return [api, cb, deadline, post_time, remaining_time, abi_cache=std::move(abi_cache), block=std::move(block)]() mutable {
+                  try {
+                     auto new_deadline = deadline + (fc::time_point::now() - post_time);
+                     fc::variant result = api.convert_block(block, std::move(abi_cache), remaining_time);
+                     cb(200, new_deadline, std::move(result));
+                  } catch( ... ) {
+                     http_plugin::handle_exception("chain", "get_block", "", cb);
+                  }
+               };
+            })},
+      appbase::exec_queue::read_only);
 }
-
+   
 void chain_api_plugin::plugin_shutdown() {}
 
 }
