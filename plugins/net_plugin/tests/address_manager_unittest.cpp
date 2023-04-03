@@ -145,8 +145,8 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
 
         std::unordered_set<std::string> addresses = manager.get_addresses();
         BOOST_REQUIRE(addresses.size() == 2);
-        BOOST_REQUIRE(addresses.count("127.0.0.1:1234") == 1);
-        BOOST_REQUIRE(addresses.count("example.com:80") == 1);
+        BOOST_REQUIRE(addresses.count("127.0.0.1:1234:all") == 1);
+        BOOST_REQUIRE(addresses.count("example.com:80:all") == 1);
     }
 
     BOOST_AUTO_TEST_CASE(test_add_addresses)
@@ -160,10 +160,10 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
         
         std::unordered_set<string> retrieved_addresses = manager.get_addresses();
         BOOST_REQUIRE(retrieved_addresses.size() == 5);
-        BOOST_REQUIRE(retrieved_addresses.count("192.168.0.1:9876") == 1);
+        BOOST_REQUIRE(retrieved_addresses.count("192.168.0.1:9876:peer") == 1);
         BOOST_REQUIRE(retrieved_addresses.count("10.0.0.2:8888") == 1);
-        BOOST_REQUIRE(retrieved_addresses.count("example.com:443") == 1);
-        BOOST_REQUIRE(retrieved_addresses.count("192.168.0.1:9877") == 1);
+        BOOST_REQUIRE(retrieved_addresses.count("example.com:443:trx") == 1);
+        BOOST_REQUIRE(retrieved_addresses.count("192.168.0.1:9877:peer") == 1);
         BOOST_REQUIRE(retrieved_addresses.count("example.com:444") == 1);
         BOOST_REQUIRE(manager.get_addresses_map()["192.168.0.1:9876"].manual == false);
         BOOST_REQUIRE(manager.get_addresses_map()["10.0.0.2:8888"].manual == false);
@@ -219,7 +219,7 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
 
         std::unordered_set<string> manual_addresses = manager.get_manual_addresses();
         BOOST_CHECK_EQUAL(manual_addresses.size(), 2);
-        BOOST_REQUIRE(manual_addresses.count("192.168.0.1:9877") == 1);
+        BOOST_REQUIRE(manual_addresses.count("192.168.0.1:9877:peer") == 1);
         BOOST_REQUIRE(manual_addresses.count("example.com:444") == 1);
 
     }
