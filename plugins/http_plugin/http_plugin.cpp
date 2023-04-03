@@ -334,7 +334,7 @@ namespace eosio {
                      handle_exception("node", "get_supported_apis", body.empty() ? "{}" : body, cb);
                   }
                }
-            }}, appbase::exec_queue::read_only_trx_safe);
+            }}, appbase::exec_queue::read_only);
             
          } catch (...) {
             fc_elog(logger(), "http_plugin startup fails, shutting down");

@@ -53,11 +53,7 @@ void net_api_plugin::plugin_startup() {
    ilog("starting net_api_plugin");
    // lifetime of plugin is lifetime of application
    auto& net_mgr = app().get_plugin<net_plugin>();
-   app().get_plugin<http_plugin>().add_api({
-    //   CALL(net, net_mgr, set_timeout,
-    //        INVOKE_V_R(net_mgr, set_timeout, int64_t), 200),
-    //   CALL(net, net_mgr, sign_transaction,
-    //        INVOKE_R_R_R_R(net_mgr, sign_transaction, chain::signed_transaction, flat_set<public_key_type>, chain::chain_id_type), 201),
+   app().get_plugin<http_plugin>().add_async_api({
        CALL_WITH_400(net, net_mgr, connect,
             INVOKE_R_R(net_mgr, connect, std::string), 201),
        CALL_WITH_400(net, net_mgr, disconnect,
@@ -66,9 +62,7 @@ void net_api_plugin::plugin_startup() {
             INVOKE_R_R(net_mgr, status, std::string), 201),
        CALL_WITH_400(net, net_mgr, connections,
             INVOKE_R_V(net_mgr, connections), 201),
-    //   CALL(net, net_mgr, open,
-    //        INVOKE_V_R(net_mgr, open, std::string), 200),
-   }, appbase::exec_queue::read_only_trx_safe, appbase::priority::medium_high);
+   } );
 }
 
 void net_api_plugin::plugin_initialize(const variables_map& options) {

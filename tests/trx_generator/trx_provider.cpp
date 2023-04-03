@@ -1,6 +1,5 @@
 #include <trx_provider.hpp>
 
-#include <fc/network/ip.hpp>
 #include <fc/io/raw.hpp>
 #include <fc/log/appender.hpp>
 
