@@ -7,9 +7,8 @@ import shutil
 import signal
 import sys
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 from TestHarness.TestHelper import AppArgs
-from core_symbol import CORE_SYMBOL
 
 ###############################################################
 # ship_streamer_test
