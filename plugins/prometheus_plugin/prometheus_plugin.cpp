@@ -5,6 +5,7 @@
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/http_plugin/macros.hpp>
 #include <eosio/net_plugin/net_plugin.hpp>
+#include <eosio/http_plugin/http_plugin.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
 
 #include <fc/log/logger.hpp>
@@ -114,6 +115,10 @@ namespace eosio {
 
    namespace http = boost::beast::http;
    struct prometheus_plugin_impl : rest::simple_server<prometheus_plugin_impl> {
+
+      std::string server_header() const {
+         return http_plugin::get_server_header();
+      }
 
       void log_error(char const* what, const std::string& message) {
          elog("${what}: ${message}", ("what", what)("message", message));
