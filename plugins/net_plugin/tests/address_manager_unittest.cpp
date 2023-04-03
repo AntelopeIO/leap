@@ -11,19 +11,20 @@ using namespace eosio;
 
 peer_address address = peer_address::from_str("127.0.0.1:1234:all");
 
-std::vector<string> gen_addresses(string host, uint32_t count) {
+std::unordered_set<std::string> gen_addresses(const std::string& host, uint32_t count) {
     std::random_device rd;
     std::mt19937 gen(rd());
     std::uniform_int_distribution<> distrib(1, 65535);
-    std::vector<string> addresses;
+    std::unordered_set<std::string> addresses;
 
     for (int i = 0; i < count; ++i) {
         int port = distrib(gen);
-        string address = host + ":" + std::to_string(port);
-        addresses.push_back(address);
+        std::string address = host + ":" + std::to_string(port);
+        addresses.insert(address);
     }
     return addresses;
 }
+
 
 BOOST_AUTO_TEST_SUITE(test_peer_address)
 
@@ -142,37 +143,33 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
         manager.add_address(address3);
         manager.add_address(address4);
 
-        std::vector<peer_address> addresses = manager.get_addresses();
+        std::unordered_set<std::string> addresses = manager.get_addresses();
         BOOST_REQUIRE(addresses.size() == 2);
-        BOOST_REQUIRE(addresses[0].host  == "127.0.0.1");
-        BOOST_REQUIRE(addresses[0].port == "1234");
-        BOOST_REQUIRE(addresses[0].address_type == eosio::address_type_enum::all);
-        BOOST_REQUIRE(addresses[1].host == "example.com");
-        BOOST_REQUIRE(addresses[1].port == "80");
-        BOOST_REQUIRE(addresses[1].address_type == eosio::address_type_enum::all);
+        BOOST_REQUIRE(addresses.count("127.0.0.1:1234") == 1);
+        BOOST_REQUIRE(addresses.count("example.com:80") == 1);
     }
 
     BOOST_AUTO_TEST_CASE(test_add_addresses)
     {
         address_manager manager(60);
-        std::vector<std::string> addresses_to_add{"192.168.0.1:9876:peer", "10.0.0.2:8888", "example.com:443:trx"};
-        std::vector<std::string> addresses_to_add2{"192.168.0.1:9877:peer", "10.0.0.2:8888", "example.com:444"};
+        std::unordered_set<std::string> addresses_to_add{"192.168.0.1:9876:peer", "10.0.0.2:8888", "example.com:443:trx"};
+        std::unordered_set<std::string> addresses_to_add2{"192.168.0.1:9877:peer", "10.0.0.2:8888", "example.com:444"};
 
         manager.add_addresses(addresses_to_add, false);
         manager.add_addresses(addresses_to_add2, true);
         
-        std::vector<peer_address> retrieved_addresses = manager.get_addresses();
+        std::unordered_set<string> retrieved_addresses = manager.get_addresses();
         BOOST_REQUIRE(retrieved_addresses.size() == 5);
-        BOOST_REQUIRE(retrieved_addresses[0].to_str() == "192.168.0.1:9876:peer");
-        BOOST_REQUIRE(retrieved_addresses[1].to_str() == "10.0.0.2:8888");
-        BOOST_REQUIRE(retrieved_addresses[2].to_str() == "example.com:443:trx");
-        BOOST_REQUIRE(retrieved_addresses[3].to_str() == "192.168.0.1:9877:peer");
-        BOOST_REQUIRE(retrieved_addresses[4].to_str() == "example.com:444");
-        BOOST_REQUIRE(retrieved_addresses[0].manual == false);
-        BOOST_REQUIRE(retrieved_addresses[1].manual == false);
-        BOOST_REQUIRE(retrieved_addresses[2].manual == false);
-        BOOST_REQUIRE(retrieved_addresses[3].manual == true);
-        BOOST_REQUIRE(retrieved_addresses[4].manual == true);
+        BOOST_REQUIRE(retrieved_addresses.count("192.168.0.1:9876") == 1);
+        BOOST_REQUIRE(retrieved_addresses.count("10.0.0.2:8888") == 1);
+        BOOST_REQUIRE(retrieved_addresses.count("example.com:443") == 1);
+        BOOST_REQUIRE(retrieved_addresses.count("192.168.0.1:9877") == 1);
+        BOOST_REQUIRE(retrieved_addresses.count("example.com:444") == 1);
+        BOOST_REQUIRE(manager.get_addresses_map()["192.168.0.1:9876"].manual == false);
+        BOOST_REQUIRE(manager.get_addresses_map()["10.0.0.2:8888"].manual == false);
+        BOOST_REQUIRE(manager.get_addresses_map()["example.com:443"].manual == false);
+        BOOST_REQUIRE(manager.get_addresses_map()["192.168.0.1:9877"].manual == true);
+        BOOST_REQUIRE(manager.get_addresses_map()["example.com:444"].manual == true);
 
     }
 
@@ -188,10 +185,10 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
         manager.add_address(address);
 
         BOOST_REQUIRE(manager.get_addresses().size() == 1);
-        BOOST_REQUIRE(manager.get_addresses()[0].address_type == address_type_enum::trx);
-        BOOST_REQUIRE(manager.get_addresses()[0].receive == time1);
-        BOOST_REQUIRE(manager.get_addresses()[0].last_active == time1);
-        BOOST_REQUIRE(manager.get_addresses()[0].manual == true);
+        BOOST_REQUIRE(manager.get_addresses_map()["127.0.0.1:9876"].address_type == address_type_enum::trx);
+        BOOST_REQUIRE(manager.get_addresses_map()["127.0.0.1:9876"].receive == time1);
+        BOOST_REQUIRE(manager.get_addresses_map()["127.0.0.1:9876"].last_active == time1);
+        BOOST_REQUIRE(manager.get_addresses_map()["127.0.0.1:9876"].manual == true);
 
 
         peer_address new_address = peer_address::from_str("127.0.0.1:9876:peer");
@@ -204,41 +201,41 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
         manager.update_address(new_address);
 
         BOOST_REQUIRE(manager.get_addresses().size() == 1);
-        BOOST_REQUIRE(manager.get_addresses()[0].address_type == address_type_enum::peer);
-        BOOST_REQUIRE(manager.get_addresses()[0].receive == time2);
-        BOOST_REQUIRE(manager.get_addresses()[0].last_active == time2);
-        BOOST_REQUIRE(manager.get_addresses()[0].manual == false);
+        BOOST_REQUIRE(manager.get_addresses_map()["127.0.0.1:9876"].address_type == address_type_enum::peer);
+        BOOST_REQUIRE(manager.get_addresses_map()["127.0.0.1:9876"].receive == time2);
+        BOOST_REQUIRE(manager.get_addresses_map()["127.0.0.1:9876"].last_active == time2);
+        BOOST_REQUIRE(manager.get_addresses_map()["127.0.0.1:9876"].manual == false);
 
 
     }
 
     BOOST_AUTO_TEST_CASE(test_get_manual_addresses) {
         address_manager manager(60);
-        std::vector<std::string> addresses_to_add{"192.168.0.1:9876:peer", "10.0.0.2:8888", "example.com:443:trx"};
-        std::vector<std::string> addresses_to_add2{"192.168.0.1:9877:peer", "10.0.0.2:8888", "example.com:444"};
+        std::unordered_set<std::string> addresses_to_add{"192.168.0.1:9876:peer", "10.0.0.2:8888", "example.com:443:trx"};
+        std::unordered_set<std::string> addresses_to_add2{"192.168.0.1:9877:peer", "10.0.0.2:8888", "example.com:444"};
 
         manager.add_addresses(addresses_to_add, false);
         manager.add_addresses(addresses_to_add2, true);
 
-        std::vector<peer_address> manual_addresses = manager.get_manual_addresses();
+        std::unordered_set<string> manual_addresses = manager.get_manual_addresses();
         BOOST_CHECK_EQUAL(manual_addresses.size(), 2);
-        for (const auto& address : manual_addresses) {
-            BOOST_CHECK(address.manual);
-        }
+        BOOST_REQUIRE(manual_addresses.count("192.168.0.1:9877") == 1);
+        BOOST_REQUIRE(manual_addresses.count("example.com:444") == 1);
+
     }
 
     BOOST_AUTO_TEST_CASE(test_get_diff_addresses) {
         address_manager manager(60);
-        std::vector<std::string> addresses_to_add{"192.168.0.1:9876:peer", "10.0.0.2:8888", "example.com:443:trx"};
-        std::vector<std::string> addresses_diff{"192.168.0.1:9877:peer", "10.0.0.2:8888", "example.com:444"};
+        std::unordered_set<std::string> addresses_to_add{"192.168.0.1:9876:peer", "10.0.0.2:8888", "example.com:443:trx"};
+        std::unordered_set<std::string> addresses_diff{"192.168.0.1:9877:peer", "10.0.0.2:8888", "example.com:444"};
 
         manager.add_addresses(addresses_to_add, false);
 
-        std::vector<peer_address> diff_addresses = manager.get_diff_addresses(addresses_diff);
+        std::unordered_set<string> diff_addresses = manager.get_diff_addresses(addresses_diff);
 
         BOOST_REQUIRE(diff_addresses.size() == 2);
-        BOOST_REQUIRE(diff_addresses[0].to_str() == "192.168.0.1:9876:peer");
-        BOOST_REQUIRE(diff_addresses[1].to_str() == "example.com:443:trx");
+        BOOST_REQUIRE(diff_addresses.count("192.168.0.1:9876:peer") == 1);
+        BOOST_REQUIRE(diff_addresses.count("example.com:443:trx") == 1);
 
     }
 
@@ -262,29 +259,24 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
         uint32_t remove_address_count = 10;
 
         // Create a vector of peer_address objects
-        std::vector<std::string> exist_addresses = gen_addresses("127.0.0.1",exist_address_count);
+        std::unordered_set<std::string> exist_addresses = gen_addresses("127.0.0.1",exist_address_count);
 
         //init addresses to add, add_threads_count * add_address_count
-        std::vector<std::vector<std::string>> all_add_addresses;
+        std::vector<std::unordered_set<std::string>> all_add_addresses;
         for (int i = 0; i < add_threads_count; ++i) {
-            std::vector<std::string> addresses = gen_addresses("127.0.0.1",add_address_count);
+            std::unordered_set<std::string> addresses = gen_addresses("127.0.0.1",add_address_count);
             all_add_addresses.push_back(addresses);
         }
 
         //init addresses to remove, remove_threads_count * remove_address_count
-        std::vector<std::vector<std::string>> all_remove_addresses;
+        std::vector<std::unordered_set<std::string>> all_remove_addresses;
         for (int i = 0; i < remove_threads_count; ++i) {
             // addresses to remove are different from addresses to add
-            std::vector<std::string> addresses = gen_addresses("127.0.0.2", remove_address_count);
+            std::unordered_set<std::string> addresses = gen_addresses("127.0.0.2", remove_address_count);
             all_remove_addresses.push_back(addresses);
             //add all address_to_remove to exist_addresses
-            exist_addresses.insert(exist_addresses.end(), addresses.begin(), addresses.end());
+            exist_addresses.insert(addresses.begin(), addresses.end());
         }
-
-        // shuffle exist_addresses
-        std::shuffle(exist_addresses.begin(), exist_addresses.end(), gen);
-
-        BOOST_REQUIRE(exist_addresses.size() == exist_address_count + remove_threads_count * remove_address_count);
 
         manager1.add_addresses(exist_addresses, false);
         std::vector<std::thread> add_threads1;
@@ -387,11 +379,11 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
         ilog(std::to_string(end6 - start6));
 
         BOOST_REQUIRE(manager1.get_addresses().size() == manager2.get_addresses().size());
-        BOOST_REQUIRE(manager1.get_diff_addresses(manager2.get_addresses_str()).size() == 0);
+        BOOST_REQUIRE(manager1.get_diff_addresses(manager2.get_addresses()).size() == 0);
         BOOST_REQUIRE(manager3.get_addresses().size() == manager4.get_addresses().size());
-        BOOST_REQUIRE(manager3.get_diff_addresses(manager4.get_addresses_str()).size() == 0);
+        BOOST_REQUIRE(manager3.get_diff_addresses(manager4.get_addresses()).size() == 0);
         BOOST_REQUIRE(manager5.get_addresses().size() == manager6.get_addresses().size());
-        BOOST_REQUIRE(manager5.get_diff_addresses(manager6.get_addresses_str()).size() == 0);
+        BOOST_REQUIRE(manager5.get_diff_addresses(manager6.get_addresses()).size() == 0);
 
     }
 

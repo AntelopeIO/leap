@@ -74,6 +74,11 @@ namespace eosio {
         std::string to_address() const {
             return host + ":" + port;
         }
+
+        std::string to_key() const {
+            return host + ":" + port;
+        }
+
         std::string to_str() const {
             return host + ":" + port + address_type_str(address_type);
         }
@@ -135,7 +140,7 @@ namespace eosio {
 
     class address_manager {
     private:
-        std::vector<peer_address> addresses;
+        std::unordered_map<std::string, peer_address> addresses;
         mutable std::mutex addresses_mutex;
 
     public:
@@ -146,26 +151,27 @@ namespace eosio {
 
         void add_address_str(const std::string &address, bool is_manual);
 
-        void add_addresses(const std::vector<std::string> &new_addresses_str, bool is_manual);
+        void add_addresses(const std::unordered_set<std::string> &new_addresses_str, bool is_manual);
 
         //for lock test
-        void add_addresses2(const std::vector<std::string> &new_addresses_str, bool is_manual);
+        void add_addresses2(const std::unordered_set<std::string> &new_addresses_str, bool is_manual);
 
         void remove_address(const peer_address &address);
 
-        void remove_addresses(const std::vector<peer_address> &addresses_to_remove);
+        void remove_addresses_str(const std::unordered_set<string> &addresses_to_remove);
+
+        void remove_addresses_str2(const std::unordered_set<string> &addresses_to_remove);
+
 
         void update_address(const peer_address &updated_address);
 
-        std::vector<peer_address> get_addresses() const;
+        std::unordered_set<string> get_addresses() const;
 
-        std::vector<peer_address> get_manual_addresses() const;
+        std::unordered_map<std::string, peer_address> get_addresses_map() const;
 
-        std::vector<peer_address> get_diff_addresses(const std::vector<string> &addresses_exist) const;
+        std::unordered_set<string> get_manual_addresses() const;
 
-        std::vector<peer_address> get_addresses(uint32_t start, uint32_t count) const;
-
-        std::vector<std::string> get_addresses_str() const;
+        std::unordered_set<string> get_diff_addresses(const std::unordered_set<string> &addresses_exist) const;
 
         bool has_address(const std::string &address_str) const;
 

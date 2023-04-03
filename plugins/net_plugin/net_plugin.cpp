@@ -114,12 +114,9 @@ namespace eosio {
       > peer_block_state_index;
 
     void address_manager::add_address(const peer_address& address) {
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        // if same address, skip it, ignore other properties
-        if(std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
-            fc_dlog( logger, "Address Manager add_address: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
-            addresses.push_back(address);
-        }
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        fc_dlog( logger, "Address Manager add_address: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
+        addresses.emplace(address.to_key(), address);
     }
 
     void address_manager::add_address_str(const std::string& address, bool is_manual ) {
@@ -128,125 +125,114 @@ namespace eosio {
         add_address(addr);
     }
 
-    void address_manager::add_addresses(const std::vector<std::string>& new_addresses, bool is_manual ) {
-        std::vector<peer_address> addresses_to_add;
-        for (const auto& address : new_addresses) {
-            peer_address addr = peer_address::from_str(address, is_manual);
-            addresses_to_add.push_back(addr);
-        }
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        for (const auto& address : addresses_to_add) {
-            // if same address, skip it, ignore other properties
-            if (std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
-                fc_dlog( logger, "Address Manager add_addresses: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
-                addresses.push_back(address);
+    void address_manager::add_addresses(const std::unordered_set<std::string>& new_addresses_str, bool is_manual) {
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        for (const auto& address : new_addresses_str) {
+            peer_address pa = peer_address::from_str(address);
+            // Check if address already exists in the map
+            if (addresses.find(pa.to_key()) == addresses.end()) {
+                pa.manual = is_manual;
+                addresses.emplace(pa.to_key(), pa);
             }
         }
     }
 
-    void address_manager::add_addresses2(const std::vector<std::string>& new_addresses, bool is_manual ) {
-        std::vector<peer_address> addresses_to_add;
-        for (const auto& address : new_addresses) {
-            peer_address addr = peer_address::from_str(address, is_manual);
-            addresses_to_add.push_back(addr);
-        }
-        for (const auto& address : addresses_to_add) {
-            // if same address, skip it, ignore other properties
-            std::unique_lock<std::mutex> lock(addresses_mutex);
-            if (std::find(addresses.begin(), addresses.end(), address) == addresses.end()) {
-                fc_dlog( logger, "Address Manager add_addresses: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
-                addresses.push_back(address);
+    void address_manager::add_addresses2(const std::unordered_set<std::string>& new_addresses_str, bool is_manual) {
+        for (const auto& address : new_addresses_str) {
+            peer_address pa = peer_address::from_str(address);
+            std::lock_guard<std::mutex> lock(addresses_mutex);
+            // Check if address already exists in the map
+            if (addresses.find(pa.to_key()) == addresses.end()) {
+                pa.manual = is_manual;
+                addresses.emplace(pa.to_address(), pa);
             }
-            lock.unlock();
         }
     }
 
     void address_manager::remove_address(const peer_address& address) {
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        auto it = std::find(addresses.begin(), addresses.end(), address);
-        if (it != addresses.end()) {
-            addresses.erase(it);
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        std::string key = address.to_key();
+        auto iter = addresses.find(key);
+        if (iter != addresses.end()) {
+            addresses.erase(iter);
         }
     }
 
-    void address_manager::remove_addresses(const std::vector<peer_address>& addresses_to_remove) {
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        for (const auto& address : addresses_to_remove) {
-            auto it = std::find(addresses.begin(), addresses.end(), address);
+    void address_manager::remove_addresses_str(const std::unordered_set<string> &addresses_to_remove) {
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        for (const auto& address_str : addresses_to_remove) {
+            peer_address pa = peer_address::from_str(address_str);
+            auto it = addresses.find(pa.to_key());
             if (it != addresses.end()) {
                 addresses.erase(it);
+                fc_dlog(logger, "Address Manager remove_address: ${host}", ("host", it->second.host));
+            }
+        }
+    }
+
+    void address_manager::remove_addresses_str2(const std::unordered_set<string>& addresses_to_remove) {
+        for (const auto& address_str : addresses_to_remove) {
+            peer_address pa = peer_address::from_str(address_str);
+            std::lock_guard<std::mutex> lock(addresses_mutex);
+            auto it = addresses.find(pa.to_key());
+            if (it != addresses.end()) {
+                addresses.erase(it);
+                fc_dlog(logger, "Address Manager remove_address: ${host}", ("host", it->second.host));
             }
         }
     }
 
     void address_manager::update_address(const peer_address& updated_address) {
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        auto it = std::find(addresses.begin(), addresses.end(), updated_address);
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        auto it = addresses.find(updated_address.to_key());
         if (it != addresses.end()) {
-            *it = updated_address;
+            it->second = updated_address;
         }
     }
 
-    std::vector<peer_address> address_manager::get_addresses() const{
-        std::unique_lock<std::mutex> lock(addresses_mutex);
+    std::unordered_set<std::string> address_manager::get_addresses() const {
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        std::unordered_set<std::string> result;
+        for (const auto& item : addresses) {
+            result.emplace(item.second.to_str());
+        }
+        return result;
+    }
+
+    std::unordered_map<std::string, peer_address> address_manager::get_addresses_map() const {
         return addresses;
     }
 
-    std::vector<peer_address> address_manager::get_manual_addresses() const {
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        std::vector<peer_address> result;
-        for (const auto& address : addresses) {
-            //check if address is manual
+
+    std::unordered_set<std::string> address_manager::get_manual_addresses() const {
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        std::unordered_set<std::string> manual_addresses;
+        for (const auto& [key, address] : addresses) {
             if (address.manual) {
-                result.push_back(address);
+                manual_addresses.insert(address.to_str());
             }
         }
-        return result;
+        return manual_addresses;
     }
 
-
-    std::vector<peer_address> address_manager::get_diff_addresses(const std::vector<string>& addresses_exist) const {
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        std::vector<peer_address> result;
-        for (const auto& address : addresses) {
-            //check if address in addresses_exist
-            auto it = std::find(addresses_exist.begin(), addresses_exist.end(), address.to_str());
-            if (it == addresses_exist.end()) {
-                result.push_back(address);
+    std::unordered_set<string> address_manager::get_diff_addresses(const std::unordered_set<string> &addresses_exist) const {
+        std::unordered_set<string> diff_addresses;
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        for (const auto& addr_pair : addresses) {
+            const auto& addr_str = addr_pair.second.to_str();
+            if (addresses_exist.find(addr_str) == addresses_exist.end()) {
+                diff_addresses.insert(addr_str);
             }
         }
-        return result;
+        return diff_addresses;
     }
 
-
-    std::vector<peer_address> address_manager::get_addresses(uint32_t start, uint32_t count) const {
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        // make sure start and count is suitable
-        start = std::min(start, static_cast<uint32_t>(addresses.size()));
-        count = std::min(count, static_cast<uint32_t>(addresses.size() - start));
-        return std::vector<peer_address>(addresses.begin() + start, addresses.begin() + start + count);
+    bool address_manager::has_address(const std::string &address_str) const {
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        peer_address pa = peer_address::from_str(address_str);
+        auto it = addresses.find(pa.to_key());
+        return it != addresses.end();
     }
-
-    std::vector<std::string> address_manager::get_addresses_str() const {
-        std::vector<std::string> address_strs;
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        for (const auto& address : addresses) {
-            address_strs.push_back(address.to_str());
-        }
-        return address_strs;
-    }
-
-    bool address_manager::has_address(const std::string& address_str) const {
-        std::unique_lock<std::mutex> lock(addresses_mutex);
-        for (const auto& address : addresses) {
-            // from_str will remove unnecessary part such as " - xxx", "eosname,"
-            if (address == peer_address::from_str(address_str)) {
-                return true;
-            }
-        }
-        return false;
-    }
-
 
    class sync_manager {
    private:
@@ -1389,11 +1375,11 @@ namespace eosio {
            request_msg.request_type = request_type;
            // request push type will send addresses to other node
            if (request_type == push) {
-               vector<string> addresses = my_impl->address_master->get_addresses_str();
-               int count = 0;
+               std::unordered_set<std::string> addresses = my_impl->address_master->get_addresses();
+               std::size_t count = 0;
                for (const auto &address: addresses) {
                    // host:port:type
-                   request_msg.addresses.emplace_back(address);
+                   request_msg.addresses.emplace(address);
                    count++;
                    if (count >= my_impl->max_addresses_per_request) {
                        break;
@@ -3411,10 +3397,10 @@ namespace eosio {
        peer_dlog(this, "address request type:${type} from ${address}", ("type", request_type_str(msg.request_type))("address",this->peer_address()) );
 
        if(is_peers_connection()) {
-           std::vector<eosio::peer_address> addresses;
+           std::unordered_set<string> addresses;
            if(msg.request_type == push) {
                //check incoming addresses, send back different one:
-               std::vector<string> addresses_incoming = msg.addresses;
+               std::unordered_set<string> addresses_incoming = msg.addresses;
                addresses = my_impl->address_master->get_diff_addresses(addresses_incoming);
                // add address from addresses_incoming to address pool
                my_impl->address_master->add_addresses(addresses_incoming, false);
@@ -3436,8 +3422,8 @@ namespace eosio {
            for (const auto& address : addresses) {
                // host:port:type
                // skipp remote peer itself
-               if(address != peer_address::from_str(this->peer_address())) {
-                   addresses_msg.addresses.emplace_back(address.to_str());
+               if(address != this->peer_address()) {
+                   addresses_msg.addresses.insert(address);
                    count++;
                    if(count >= my_impl->max_addresses_per_request) {
                        break;
@@ -3776,7 +3762,7 @@ namespace eosio {
       //TODO: connection address check first
       if( num_peers < min_peers_count) {
           fc_ilog( logger, "peer connections not enough: ${pnum}/[${pmin}-${pmax}], trying to increase it",("pnum", num_peers)("pmin",min_peers_count)("pmax", address_master->get_addresses().size()));
-          for( const auto& peer : my_impl->address_master->get_addresses_str() ) {
+          for( const auto& peer : my_impl->address_master->get_addresses() ) {
               my_impl->connect( peer );
           }
       }
@@ -4048,7 +4034,8 @@ namespace eosio {
 
          if( options.count( "p2p-peer-address" )) {
             auto v = options.at( "p2p-peer-address" ).as<vector<string> >();
-            my->address_master->add_addresses(v, true);
+             std::unordered_set<std::string> addresses(v.begin(), v.end());
+             my->address_master->add_addresses(addresses, true);
          }
          if( options.count( "agent-name" )) {
             my->user_agent_name = options.at( "agent-name" ).as<string>();
@@ -4212,7 +4199,7 @@ namespace eosio {
          my->ticker();
          my->start_monitors();
          my->update_chain_info();
-         for( const auto& seed_node : my->address_master->get_addresses_str() ) {
+         for( const auto& seed_node : my->address_master->get_addresses() ) {
             // first connect peers from configuration
             // once the connection is complete, an address request should be sent
             my->connect( seed_node);

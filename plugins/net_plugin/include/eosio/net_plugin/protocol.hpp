@@ -156,12 +156,12 @@ namespace eosio {
     struct address_request_message {
         address_request_message(request_type_enum t = pull) : request_type(t), addresses() {}
         request_type_enum   request_type;
-        vector<string>      addresses;
+        std::unordered_set<string>      addresses;
     };
 
 
     struct address_sync_message {
-        vector<string>    addresses;
+        std::unordered_set<string>    addresses;
     };
 
     using net_message = std::variant<handshake_message,
