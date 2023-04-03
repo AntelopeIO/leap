@@ -96,8 +96,10 @@ namespace eosio { namespace rest {
             // Read a request
             http::async_read(
                   socket_, buffer_, req_,
-                  boost::asio::bind_executor(strand_, std::bind(&session::on_read, this->shared_from_this(),
-                                                                std::placeholders::_1, std::placeholders::_2)));
+                  boost::asio::bind_executor(strand_, [self = this->shared_from_this()](beast::error_code ec,
+                                                                                        std::size_t bytes_transferred) {
+                     self->on_read(ec, bytes_transferred);
+                  }));
          }
 
          void on_read(beast::error_code ec, std::size_t bytes_transferred) {
@@ -125,11 +127,12 @@ namespace eosio { namespace rest {
             res_ = sp;
 
             // Write the response
-            http::async_write(
-                  socket_, *sp,
-                  boost::asio::bind_executor(socket_.get_executor(),
-                                             std::bind(&session::on_write, this->shared_from_this(),
-                                                       std::placeholders::_1, std::placeholders::_2, sp->need_eof())));
+            http::async_write(socket_, *sp,
+                              boost::asio::bind_executor(socket_.get_executor(),
+                                                         [self = this->shared_from_this(), close = sp->need_eof()](
+                                                               beast::error_code ec, std::size_t bytes_transferred) {
+                                                            self->on_write(ec, bytes_transferred, close);
+                                                         }));
          }
 
          void on_write(boost::system::error_code ec, std::size_t bytes_transferred, bool close) {
@@ -211,9 +214,8 @@ namespace eosio { namespace rest {
 
        private:
          void do_accept() {
-            acceptor_.async_accept(socket_, [self=this->shared_from_this()](boost::system::error_code ec) {
-               self->on_accept(ec);
-            });
+            acceptor_.async_accept(
+                  socket_, [self = this->shared_from_this()](boost::system::error_code ec) { self->on_accept(ec); });
          }
 
          void on_accept(boost::system::error_code ec) {
