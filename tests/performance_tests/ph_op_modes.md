@@ -17,6 +17,8 @@ adversely affect the producer's ability to process transactions by answering que
 
 ### Configuration
 
+The perfomance_test.py and performance_test_basic.py are currently configured to default to the Block Producer Mode of Operation.
+
 ### Performance Measurements
 
 - Maximum Transactions Per Second (TPS) achieved/sustained
