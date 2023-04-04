@@ -377,6 +377,12 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                    - snapshot_request_id
+                    - block_spacing
+                    - start_block_num
+                    - end_block_num
+                    - snapshot_description
                 properties:
                   snapshot_request_id:
                     type: integer
@@ -420,6 +426,13 @@ paths:
                     description: An array of scheduled snapshots
                     items:
                       type: object
+                      required:
+                          - snapshot_request_id
+                          - block_spacing
+                          - start_block_num
+                          - end_block_num
+                          - snapshot_description
+                          - pending_snapshots
                       properties:
                         snapshot_request_id:
                           type: integer
@@ -444,6 +457,12 @@ paths:
                           description: List of pending snapshots
                           items:
                             type: object
+                            required:
+                                - head_block_id
+                                - head_block_num
+                                - head_block_time
+                                - version
+                                - snapshot_name
                             properties:
                               head_block_id:
                                 $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
@@ -491,6 +510,12 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - snapshot_request_id
+                  - block_spacing
+                  - start_block_num
+                  - end_block_num
+                  - snapshot_description
                 properties:
                   snapshot_request_id:
                     type: integer

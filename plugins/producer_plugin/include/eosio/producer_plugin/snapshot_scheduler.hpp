@@ -160,11 +160,8 @@ public:
       auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
       auto  snapshot_req   = snapshot_by_id.find(_inflight_sid);
       if (snapshot_req != snapshot_by_id.end()) {
-         _snapshot_requests.modify(snapshot_req, [&si](auto& p) { 
-            if (!p.pending_snapshots) {
-               p.pending_snapshots = std::vector<producer_plugin::snapshot_information>();
-            }
-            p.pending_snapshots->emplace_back(si);       
+         _snapshot_requests.modify(snapshot_req, [&si](auto& p) {          
+            p.pending_snapshots.emplace_back(si);       
          });
       }
    }
@@ -194,13 +191,12 @@ public:
             auto  snapshot_req   = snapshot_by_id.find(srid);
 
             if (snapshot_req != snapshot_by_id.end()) {               
-               if (auto pending = snapshot_req->pending_snapshots; pending) {                 
-                  auto it = std::remove_if(pending->begin(), pending->end(), [&snapshot_info](const producer_plugin::snapshot_information & s){ return s.head_block_num <=  snapshot_info.head_block_num; });
-                  pending->erase(it, pending->end());
-                  _snapshot_requests.modify(snapshot_req, [&pending](auto& p) { 
-                     p.pending_snapshots = std::move(pending);
-                  });
-               }
+               auto pending = snapshot_req->pending_snapshots;                 
+               auto it = std::remove_if(pending.begin(), pending.end(), [&snapshot_info](const producer_plugin::snapshot_information & s){ return s.head_block_num <=  snapshot_info.head_block_num; });
+               pending.erase(it, pending.end());
+               _snapshot_requests.modify(snapshot_req, [&pending](auto& p) { 
+                  p.pending_snapshots = std::move(pending);
+               });
             }
          }
       };

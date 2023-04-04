@@ -95,7 +95,7 @@ public:
    };
 
    struct snapshot_schedule_information : public snapshot_request_id_information, public snapshot_request_information {
-      std::optional<std::vector<snapshot_information>> pending_snapshots;
+      std::vector<snapshot_information> pending_snapshots;
    };
 
    struct get_snapshot_requests_result {
