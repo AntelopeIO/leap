@@ -1210,6 +1210,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_snapshot_scheduler.set_create_snapshot_fn([this](producer_plugin::next_function<producer_plugin::snapshot_information> next){create_snapshot(next);});
 } FC_LOG_AND_RETHROW() }
 
+using namespace std::chrono_literals;
 void producer_plugin::plugin_startup()
 { try {
    try {
@@ -1255,6 +1256,7 @@ void producer_plugin::plugin_startup()
    }
 
    if ( my->_ro_thread_pool_size > 0 ) {
+      std::atomic<uint32_t> num_threads_started = 0;
       my->_ro_thread_pool.start( my->_ro_thread_pool_size,
          []( const fc::exception& e ) {
             fc_elog( _log, "Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
@@ -1262,7 +1264,18 @@ void producer_plugin::plugin_startup()
          },
          [&]() {
             chain.init_thread_local_data();
+            ++num_threads_started;
          });
+
+      // This will be changed with std::latch or std::atomic<>::wait
+      // when C++20 is used.
+      auto time_slept_ms = 0;
+      constexpr auto max_time_slept_ms = 1000;
+      while ( num_threads_started.load() < my->_ro_thread_pool_size && time_slept_ms < max_time_slept_ms ) {
+         std::this_thread::sleep_for( 1ms );
+         ++time_slept_ms;
+      }
+      EOS_ASSERT(num_threads_started.load() == my->_ro_thread_pool_size, producer_exception, "read-only threads failed to start. num_threads_started: ${n}, time_slept_ms: ${t}ms", ("n", num_threads_started.load())("t", time_slept_ms));
 
       my->start_write_window();
    }
