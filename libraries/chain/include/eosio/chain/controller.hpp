@@ -373,6 +373,9 @@ namespace eosio { namespace chain {
       void set_db_read_only_mode();
       void unset_db_read_only_mode();
       void init_thread_local_data();
+      void set_to_write_window();
+      void set_to_read_window();
+      bool is_write_window() const;
 
       private:
          friend class apply_context;
