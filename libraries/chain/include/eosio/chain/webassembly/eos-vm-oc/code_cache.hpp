@@ -85,9 +85,6 @@ class code_cache_base {
 
       template <typename T>
       void serialize_cache_index(fc::datastream<T>& ds);
-
-      std::thread::id _main_thread_id;
-      bool is_main_thread() const;
 };
 
 class code_cache_async : public code_cache_base {
@@ -98,7 +95,7 @@ class code_cache_async : public code_cache_base {
       //If code is in cache: returns pointer & bumps to front of MRU list
       //If code is not in cache, and not blacklisted, and not currently compiling: return nullptr and kick off compile
       //otherwise: return nullptr
-      const code_descriptor* const get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version);
+      const code_descriptor* const get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window);
 
    private:
       std::thread _monitor_reply_thread;
@@ -115,7 +112,7 @@ class code_cache_sync : public code_cache_base {
       ~code_cache_sync();
 
       //Can still fail and return nullptr if, for example, there is an expected instantiation failure
-      const code_descriptor* const get_descriptor_for_code_sync(const digest_type& code_id, const uint8_t& vm_version);
+      const code_descriptor* const get_descriptor_for_code_sync(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window);
 };
 
 }}}

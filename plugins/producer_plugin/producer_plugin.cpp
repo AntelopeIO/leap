@@ -2309,7 +2309,7 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
       // Dry-run trxs only run in write window. Read-only trxs can run in
       // both write and read windows; time spent in read window is counted
       // by read window summary.
-      if ( app().executor().is_write_window() ) {
+      if ( chain.is_write_window() ) {
          auto dur = end - start;
          _time_tracker.add_fail_time(dur, trx->is_transient());
       }
@@ -2356,7 +2356,7 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
       // Dry-run trxs only run in write window. Read-only trxs can run in
       // both write and read windows; time spent in read window is counted
       // by read window summary.
-      if ( app().executor().is_write_window() ) {
+      if ( chain.is_write_window() ) {
          auto dur = end - start;
          _time_tracker.add_success_time(dur, trx->is_transient());
       }
@@ -2833,9 +2833,11 @@ void producer_plugin_impl::switch_to_write_window() {
                ("t", _ro_all_threads_exec_time_us.load()));
    }
 
+   chain::controller& chain = chain_plug->chain();
+
    // this method can be called from multiple places. it is possible
    // we are already in write window.
-   if ( app().executor().is_write_window() ) {
+   if ( chain.is_write_window() ) {
       return;
    }
 
@@ -2850,6 +2852,7 @@ void producer_plugin_impl::start_write_window() {
    chain::controller& chain = chain_plug->chain();
 
    app().executor().set_to_write_window();
+   chain.set_to_write_window();
    chain.unset_db_read_only_mode();
    _idle_trx_time = _ro_window_deadline = fc::time_point::now();
 
@@ -2869,7 +2872,8 @@ void producer_plugin_impl::start_write_window() {
 
 // Called only from app thread
 void producer_plugin_impl::switch_to_read_window() {
-   EOS_ASSERT(app().executor().is_write_window(),  producer_exception, "expected to be in write window");
+   chain::controller& chain = chain_plug->chain();
+   EOS_ASSERT(chain.is_write_window(),  producer_exception, "expected to be in write window");
    EOS_ASSERT( _ro_num_active_exec_tasks.load() == 0 && _ro_exec_tasks_fut.empty(), producer_exception, "_ro_exec_tasks_fut expected to be empty" );
 
    _time_tracker.add_idle_time( fc::time_point::now() - _idle_trx_time );
@@ -2880,8 +2884,6 @@ void producer_plugin_impl::switch_to_read_window() {
       return;
    }
 
-
-   auto& chain = chain_plug->chain();
    uint32_t pending_block_num = chain.head_block_num() + 1;
    _ro_read_window_start_time = fc::time_point::now();
    _ro_window_deadline = _ro_read_window_start_time + _ro_read_window_effective_time_us;
@@ -2889,6 +2891,7 @@ void producer_plugin_impl::switch_to_read_window() {
       [received_block=&_received_block, pending_block_num, ro_window_deadline=_ro_window_deadline]() {
          return fc::time_point::now() >= ro_window_deadline || (received_block->load() >= pending_block_num); // should_exit()
       });
+   chain.set_to_read_window();
    chain.set_db_read_only_mode();
    _ro_all_threads_exec_time_us = 0;
 
@@ -2988,11 +2991,11 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
       // When executing a read-only trx on the main thread while in the write window,
       // need to switch db mode to read only.
       auto db_read_only_mode_guard = fc::make_scoped_exit([&]{
-         if( app().executor().is_write_window() )
+         if( chain.is_write_window() )
             chain.unset_db_read_only_mode();
       });
 
-      if ( app().executor().is_write_window() ) {
+      if ( chain.is_write_window() ) {
          chain.set_db_read_only_mode();
          auto idle_time = fc::time_point::now() - _idle_trx_time;
          _time_tracker.add_idle_time( idle_time );
@@ -3012,7 +3015,7 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
          _ro_exhausted_trx_queue.push_front( {std::move(trx), std::move(next)} );
       }
 
-      if ( app().executor().is_write_window() ) {
+      if ( chain.is_write_window() ) {
          _idle_trx_time = fc::time_point::now();
       }
    } catch ( const guard_exception& e ) {
