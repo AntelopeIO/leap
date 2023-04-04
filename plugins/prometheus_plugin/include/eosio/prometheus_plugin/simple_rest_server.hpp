@@ -73,17 +73,17 @@ namespace eosio { namespace rest {
       }
 
       class session : public std::enable_shared_from_this<session> {
-         tcp::socket                                socket_;
-         boost::asio::strand<boost::asio::executor> strand_;
-         beast::flat_buffer                         buffer_;
-         http::request<http::string_body>           req_;
-         simple_server*                             server_;
-         std::shared_ptr<void>                      res_;
+         tcp::socket                                        socket_;
+         boost::asio::io_context::strand                    strand_;
+         beast::flat_buffer                                 buffer_;
+         http::request<http::string_body>                   req_;
+         simple_server*                                     server_;
+         std::shared_ptr<http::response<http::string_body>> res_;
 
        public:
          // Take ownership of the stream
-         session(tcp::socket&& socket, simple_server* server)
-             : socket_(std::move(socket)), strand_(socket_.get_executor()), server_(server) {}
+         session(net::io_context& ioc, tcp::socket&& socket, simple_server* server)
+             : socket_(std::move(socket)), strand_(ioc), server_(server) {}
 
          // Start the asynchronous operation
          void run() { do_read(); }
@@ -120,16 +120,12 @@ namespace eosio { namespace rest {
             // The lifetime of the message has to extend
             // for the duration of the async operation so
             // we use a shared_ptr to manage it.
-            auto sp = std::make_shared<http::response<http::string_body>>(std::move(msg));
-
-            // Store a type-erased version of the shared
-            // pointer in the class to keep it alive.
-            res_ = sp;
+            res_ = std::make_shared<http::response<http::string_body>>(std::move(msg));
 
             // Write the response
-            http::async_write(socket_, *sp,
+            http::async_write(socket_, *res_,
                               boost::asio::bind_executor(socket_.get_executor(),
-                                                         [self = this->shared_from_this(), close = sp->need_eof()](
+                                                         [self = this->shared_from_this(), close = res_->need_eof()](
                                                                beast::error_code ec, std::size_t bytes_transferred) {
                                                             self->on_write(ec, bytes_transferred, close);
                                                          }));
@@ -167,13 +163,14 @@ namespace eosio { namespace rest {
 
       // Accepts incoming connections and launches the sessions
       class listener : public std::enable_shared_from_this<listener> {
-         tcp::acceptor  acceptor_;
-         tcp::socket    socket_;
-         simple_server* server_;
+         net::io_context& ioc_;
+         tcp::acceptor    acceptor_;
+         tcp::socket      socket_;
+         simple_server*   server_;
 
        public:
          listener(net::io_context& ioc, tcp::endpoint endpoint, simple_server* server)
-             : acceptor_(ioc), socket_(ioc), server_(server) {
+             : ioc_(ioc), acceptor_(ioc), socket_(ioc), server_(server) {
             boost::system::error_code ec;
 
             // Open the acceptor
@@ -223,7 +220,7 @@ namespace eosio { namespace rest {
                server_->fail(ec, "accept");
             } else {
                // Create the session and run it
-               std::make_shared<session>(std::move(socket_), server_)->run();
+               std::make_shared<session>(ioc_, std::move(socket_), server_)->run();
             }
 
             // Accept another connection
