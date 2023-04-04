@@ -235,11 +235,11 @@ class PerformanceTestBasic:
     def isOnBlockTransaction(self, transaction):
         # v2 history does not include onblock
         if self.clusterConfig.nodeosVers == "v2":
-            return True
+            return False
         else:
             if transaction['actions'][0]['account'] != 'eosio' or transaction['actions'][0]['action'] != 'onblock':
-                return True
-        return False
+                return False
+        return True
 
     def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
         for blockNum in range(startBlockNum, endBlockNum + 1):
