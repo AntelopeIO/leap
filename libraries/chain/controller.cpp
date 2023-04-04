@@ -257,7 +257,7 @@ struct controller_impl {
    // which overwrites the same static wasmif, is used for eosvmoc too.
    wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
    thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local; // a copy for each read-only thread, used by eos-vm and eos-vm-jit
-   app_window_type app_window;
+   app_window_type app_window = app_window_type::write;
 
    typedef pair<scope_name,action_name>                   handler_key;
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
