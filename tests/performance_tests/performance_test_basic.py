@@ -92,12 +92,6 @@ class PerformanceTestBasic:
         _totalNodes: int = 2
         nonProdsEosVmOcEnable: bool = False
 
-        def log_transactions(self, trxDataFile, block):
-            for trx in block['payload']['transactions']:
-                for actions in trx['actions']:
-                    if actions['account'] != 'eosio' or actions['action'] != 'onblock':
-                        trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['block_time']},{trx['cpu_usage_us']},{trx['net_usage_words']},{trx['actions']}\n")
-
         def __post_init__(self):
             self._totalNodes = self.pnodes + 1 if self.totalNodes <= self.pnodes else self.totalNodes
             nonProdsSpecificNodeosStr = ""
@@ -108,13 +102,14 @@ class PerformanceTestBasic:
             self.specificExtraNodeosArgs.update({f"{node}" : nonProdsSpecificNodeosStr for node in range(self.pnodes, self._totalNodes)})
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
-                self.writeTrx = lambda trxDataFile, block, blockNum: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n") for trx in block['payload']['transactions'] if block['payload']['transactions']]
-                self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['block_num']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['confirmed']},{block['payload']['timestamp']}\n")
+                self.writeTrx = lambda trxDataFile, blockNum, trx: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n")]
                 self.specificExtraNodeosArgs.update({f"{node}" : '--plugin eosio::history_api_plugin --filter-on "*"' for node in range(self.pnodes, self._totalNodes)})
+                self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: log_reader.blockData(blockId=block["payload"]["id"], blockNum=block['payload']['block_num'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"])
+                self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction['trx']['id'], log_reader.trxData(blockNum, transaction['cpu_usage_us'],transaction['net_usage_words']))]))
             else:
-                self.writeTrx = lambda trxDataFile, block, blockNum:[ self.log_transactions(trxDataFile, block) ]
-                self.writeBlock = lambda blockDataFile, block: blockDataFile.write(f"{block['payload']['number']},{block['payload']['id']},{block['payload']['producer']},{block['payload']['status']},{block['payload']['timestamp']}\n")
-
+                self.writeTrx = lambda trxDataFile, blockNum, trx:[ trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['block_time']},{trx['cpu_usage_us']},{trx['net_usage_words']},{trx['actions']}\n") ]
+                self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: log_reader.blockData(blockId=block["payload"]["id"], blockNum=block['payload']['number'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["status"], _timestamp=block["payload"]["timestamp"])
+                self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction["id"], log_reader.trxData(blockNum=transaction["block_num"], cpuUsageUs=transaction["cpu_usage_us"], netUsageUs=transaction["net_usage_words"], blockTime=transaction["block_time"]))]))
     @dataclass
     class PtbConfig:
         targetTps: int=8000
@@ -175,7 +170,8 @@ class PerformanceTestBasic:
         self.producerNodeId = 0
         self.validationNodeId = self.clusterConfig.pnodes
         pid = os.getpid()
-        self.nodeosLogPath = Path(self.loggingConfig.logDirPath)/"var"/f"{self.testNamePath}{pid}"/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
+        self.nodeosLogDir =  Path(self.loggingConfig.logDirPath)/"var"/f"{self.testNamePath}{pid}"
+        self.nodeosLogPath = self.nodeosLogDir/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
@@ -236,16 +232,35 @@ class PerformanceTestBasic:
             append_write = 'w'
         return append_write
 
+    def isOnBlockTransaction(self, transaction):
+        # v2 history does not include onblock
+        if self.clusterConfig.nodeosVers == "v2":
+            return False
+        else:
+            if transaction['actions'][0]['account'] != 'eosio' or transaction['actions'][0]['action'] != 'onblock':
+                return False
+        return True
+
     def queryBlockTrxData(self, node, blockDataPath, blockTrxDataPath, startBlockNum, endBlockNum):
-        for blockNum in range(startBlockNum, endBlockNum):
+        for blockNum in range(startBlockNum, endBlockNum + 1):
+            blockCpuTotal, blockNetTotal, blockTransactionTotal = 0, 0, 0
             block = node.fetchBlock(blockNum)
             btdf_append_write = self.fileOpenMode(blockTrxDataPath)
             with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
-                self.clusterConfig.writeTrx(trxDataFile, block, blockNum)
-
+                for transaction in block['payload']['transactions']:
+                    if not self.isOnBlockTransaction(transaction):
+                        self.clusterConfig.updateTrxDict(blockNum, transaction, self.data.trxDict)
+                        self.clusterConfig.writeTrx(trxDataFile, blockNum, transaction)
+                        blockCpuTotal += transaction["cpu_usage_us"]
+                        blockNetTotal += transaction["net_usage_words"]
+                        blockTransactionTotal += 1
+            blockData = self.clusterConfig.createBlockData(block=block, blockTransactionTotal=blockTransactionTotal,
+                                                           blockNetTotal=blockNetTotal, blockCpuTotal=blockCpuTotal)
+            self.data.blockList.append(blockData)
+            self.data.blockDict[str(blockNum)] = blockData
             bdf_append_write = self.fileOpenMode(blockDataPath)
             with open(blockDataPath, bdf_append_write) as blockDataFile:
-                self.clusterConfig.writeBlock(blockDataFile, block)
+                blockDataFile.write(f"{blockData.blockNum},{blockData.blockId},{blockData.producer},{blockData.status},{blockData._timestamp}\n")
 
     def waitForEmptyBlocks(self, node, numEmptyToWaitOn):
         emptyBlocks = 0
@@ -337,6 +352,7 @@ class PerformanceTestBasic:
         chainId = info['chain_id']
         lib_id = info['last_irreversible_block_id']
         self.data = log_reader.chainData()
+        self.data.numNodes = self.clusterConfig._totalNodes
 
         abiFile=None
         actionsDataJson=None
@@ -436,7 +452,7 @@ class PerformanceTestBasic:
 
     def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
         args = self.prepArgs()
-        artifactsLocate = log_reader.ArtifactPaths(nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
+        artifactsLocate = log_reader.ArtifactPaths(nodeosLogDir=self.nodeosLogDir, nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                    blockDataPath=self.blockDataPath, transactionMetricsDataPath=self.transactionMetricsDataPath)
         tpsTestConfig = log_reader.TpsTestConfig(targetTps=self.ptbConfig.targetTps, testDurationSec=self.ptbConfig.testTrxGenDurationSec, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator,
                                                  numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed,
