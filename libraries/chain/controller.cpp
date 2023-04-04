@@ -497,9 +497,10 @@ struct controller_impl {
 
    void replay(std::function<bool()> check_shutdown) {
       auto blog_head = blog.head();
-      if( !blog_head && !fork_db.root() ) {
+      if( !fork_db.root() ) {
          fork_db.reset( *head );
-         return;
+         if (!blog_head)
+            return;
       }
 
       replaying = true;
@@ -3688,10 +3689,6 @@ void controller::unset_db_read_only_mode() {
 
 void controller::init_thread_local_data() {
    my->init_thread_local_data();
-}
-
-bool controller::is_on_main_thread() const {
-  return my->is_on_main_thread();
 }
 
 /// Protocol feature activation handlers:

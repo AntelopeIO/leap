@@ -45,11 +45,10 @@ You will need to build on a [supported operating system](#supported-operating-sy
 Requirements to build:
 - C++17 compiler and standard library
 - boost 1.67+
-- CMake 3.8+
+- CMake 3.16+
 - LLVM 7 - 11 - for Linux only
   - newer versions do not work
 - openssl 1.1+
-- curl
 - libcurl 7.40.0+
 - git
 - GMP
@@ -132,7 +131,6 @@ sudo apt-get update
 sudo apt-get install -y \
         build-essential \
         cmake \
-        curl \
         git \
         libboost-all-dev \
         libcurl4-openssl-dev \

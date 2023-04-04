@@ -497,15 +497,17 @@ class PerformanceTestBasic:
             traceback.print_exc()
 
         finally:
+            # Despite keepLogs being hardcoded to False, logs will still appear on test failure in TestLogs
+            # due to testSuccessful being False
             TestHelper.shutdown(
-                self.cluster,
-                self.walletMgr,
-                testSuccessful,
-                self.testHelperConfig._killEosInstances,
-                self.testHelperConfig._killWallet,
-                self.testHelperConfig.keepLogs,
-                self.testHelperConfig.killAll,
-                self.testHelperConfig.dumpErrorDetails
+                cluster=self.cluster,
+                walletMgr=self.walletMgr,
+                testSuccessful=testSuccessful,
+                killEosInstances=self.testHelperConfig._killEosInstances,
+                killWallet=self.testHelperConfig._killWallet,
+                keepLogs=False,
+                cleanRun=self.testHelperConfig.killAll,
+                dumpErrorDetails=self.testHelperConfig.dumpErrorDetails
                 )
 
             if self.ptbConfig.delPerfLogs:

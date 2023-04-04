@@ -1,6 +1,3 @@
-#include <fc/network/udp_socket.hpp>
-#include <fc/network/ip.hpp>
-#include <fc/network/resolve.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/log/gelf_appender.hpp>
 #include <fc/reflect/variant.hpp>
@@ -10,6 +7,7 @@
 #include <fc/compress/zlib.hpp>
 #include <fc/log/logger_config.hpp>
 
+#include <boost/asio.hpp>
 #include <boost/lexical_cast.hpp>
 #include <iomanip>
 #include <iostream>
@@ -19,14 +17,6 @@
 
 namespace fc
 {
-  namespace detail
-  {
-    boost::asio::ip::udp::endpoint to_asio_ep( const fc::ip::endpoint& e )
-    {
-      return boost::asio::ip::udp::endpoint(boost::asio::ip::address_v4(e.get_address()), e.port() );
-    }
-  }
-
   const std::vector<std::string> gelf_appender::config::reserved_field_names  = {
       "_id",            // per GELF specification
       "_timestamp_ns",  // Remaining names all populated by appender
@@ -36,23 +26,21 @@ namespace fc
       "_method_name",
       "_thread_name",
       "_task_name"
-   };
+  };
 
-   const std::regex gelf_appender::config::user_field_name_pattern{"^_[\\w\\.\\-]*$"}; // per GELF specification
+  const std::regex gelf_appender::config::user_field_name_pattern{"^_[\\w\\.\\-]*$"}; // per GELF specification
 
   class gelf_appender::impl
   {
   public:
     using work_guard_t = boost::asio::executor_work_guard<boost::asio::io_context::executor_type>;
     config                                         cfg;
-    std::optional<boost::asio::ip::udp::endpoint>  gelf_endpoint;
     std::thread                                    thread;
     boost::asio::io_context                        io_context;
     work_guard_t work_guard =                      boost::asio::make_work_guard(io_context);
-    udp_socket                                     gelf_socket;
+    boost::asio::ip::udp::socket                   gelf_socket;
 
-
-    impl(const variant& c)
+    impl(const variant& c) : gelf_socket(io_context)
     {
       mutable_variant_object mvo;
       from_variant(c, mvo);
@@ -84,6 +72,35 @@ namespace fc
           thread.join();
        }
     }
+
+    static std::shared_ptr<std::vector<char>> make_new_bufer(boost::asio::const_buffer buf) {
+      const char* p = static_cast<const char*>(buf.data());
+      return std::make_shared<std::vector<char>>(p, p+buf.size());
+    }
+
+    static std::shared_ptr<std::vector<char>> make_new_bufer(const std::array<boost::asio::const_buffer, 2>& bufs) {
+      auto new_buf = std::make_shared<std::vector<char>>();
+      new_buf->reserve(bufs[0].size() + bufs[1].size());
+      for (int i = 0; i < 2; ++i) {
+          const char* p = static_cast<const char*>(bufs[i].data());
+          new_buf->insert(new_buf->end(), p, p + bufs[i].size());
+      }
+      return new_buf;
+    }
+
+    template <typename Buffers>
+    void send(Buffers&& bufs) {
+      boost::system::error_code ec;
+      gelf_socket.send(std::forward<Buffers>(bufs), 0, ec);
+      if (ec == boost::asio::error::would_block) {
+          auto new_buf = make_new_bufer(std::forward<Buffers>(bufs));
+          gelf_socket.async_send(boost::asio::buffer(*new_buf),
+                                    [new_buf](const boost::system::error_code& /*ec*/, std::size_t /*bytes_transferred*/) {
+                                        // Swallow errors.  Currently only used for GELF logging, so depend on local
+                                        // log to catch anything that doesn't make it across the network.
+                                    });
+      }
+    }
   };
 
   gelf_appender::gelf_appender(const variant& args) :
@@ -95,58 +112,40 @@ namespace fc
   {
     try
     {
-      try
-      {
-        // if it's a numeric address:port, this will parse it
-        my->gelf_endpoint = detail::to_asio_ep(ip::endpoint::from_string(my->cfg.endpoint));
+      if (my->cfg.endpoint.empty()) {
+        fprintf(stderr, "The logging destination is not specified\n");
+        return;
       }
-      catch (...)
-      {
-      }
-      if (!my->gelf_endpoint)
-      {
-        // couldn't parse as a numeric ip address, try resolving as a DNS name.
-        // This can yield, so don't do it in the catch block above
-        string::size_type colon_pos = my->cfg.endpoint.find(':');
-        try
-        {
-          FC_ASSERT(colon_pos != std::string::npos, "The logging destination port is not specified");
-          string port = my->cfg.endpoint.substr(colon_pos + 1);
 
-          string hostname = my->cfg.endpoint.substr( 0, colon_pos );
+      std::string_view endpoint = my->cfg.endpoint;
+      string::size_type colon_pos = endpoint.rfind(':');
+      FC_ASSERT(colon_pos != std::string::npos, "The logging destination port is not specified");
+      auto port = endpoint.substr(colon_pos + 1);
 
-          boost::asio::ip::udp::resolver resolver{ my->io_context };
-          auto endpoints = resolver.resolve(hostname, port);
+      auto hostname = (endpoint[0] == '[' && colon_pos >= 2)  ? endpoint.substr( 1, colon_pos-2 ) : endpoint.substr( 0, colon_pos );
 
-          if (endpoints.empty())
-              FC_THROW_EXCEPTION(unknown_host_exception, "The logging destination host name can not be resolved: ${hostname}",
-                                 ("hostname", hostname));
+      boost::asio::ip::udp::resolver resolver{ my->io_context };
+      auto endpoints = resolver.resolve(hostname, port);
 
-          my->gelf_endpoint = *endpoints.begin();
+      if (endpoints.empty())
+          FC_THROW_EXCEPTION(unknown_host_exception, "The logging destination host name can not be resolved: ${hostname}",
+                              ("hostname", std::string(hostname)));
+
+      my->gelf_socket.connect(*endpoints.begin());
+      std::cerr << "opened GELF socket to endpoint " << my->cfg.endpoint << "\n";
+      my->gelf_socket.non_blocking(true);
+
+      my->thread = std::thread([this] {
+        try {
+          fc::set_os_thread_name("gelf");
+          my->io_context.run();
+        } catch (std::exception& ex) {
+          fprintf(stderr, "GELF logger caught exception at %s:%d : %s\n", __FILE__, __LINE__, ex.what());
+        } catch (...) {
+          fprintf(stderr, "GELF logger caught exception unknown exception %s:%d\n", __FILE__, __LINE__);
         }
-        catch (const boost::bad_lexical_cast&)
-        {
-          FC_THROW("Bad port: ${port}", ("port", my->cfg.endpoint.substr(colon_pos + 1, my->cfg.endpoint.size())));
-        }
-      }
+      });
 
-      if (my->gelf_endpoint)
-      {
-        my->gelf_socket.initialize(my->io_context);
-        my->gelf_socket.open();
-        std::cerr << "opened GELF socket to endpoint " << my->cfg.endpoint << "\n";
-
-        my->thread = std::thread([this] {
-          try {
-            fc::set_os_thread_name("gelf");
-            my->io_context.run();
-          } catch (std::exception& ex) {
-            fprintf(stderr, "GELF logger caught exception at %s:%d : %s\n", __FILE__, __LINE__, ex.what());
-          } catch (...) {
-            fprintf(stderr, "GELF logger caught exception unknown exception %s:%d\n", __FILE__, __LINE__);
-          }
-        });
-      }
     }
     catch (...)
     {
@@ -221,57 +220,44 @@ namespace fc
 
     if (gelf_message_as_string.size() <= max_payload_size)
     {
-      // no need to split
-      std::shared_ptr<char> send_buffer(new char[gelf_message_as_string.size()],
-                                        [](char* p){ delete[] p; });
-      memcpy(send_buffer.get(), gelf_message_as_string.c_str(),
-             gelf_message_as_string.size());
-
-      my->gelf_socket.send_to(send_buffer, gelf_message_as_string.size(),
-                              *my->gelf_endpoint);
+      my->send(boost::asio::buffer(gelf_message_as_string));
     }
     else
     {
       // split the message
+      struct gelf_header {
+        uint8_t magic[2] = { 0x1e, 0x0f};
+        uint64_t message_id;
+        uint8_t seq = 0;
+        uint8_t count = 0;
+      } header;
+
       // we need to generate an 8-byte ID for this message.
       // city hash should do
-      uint64_t message_id = city_hash64(gelf_message_as_string.c_str(), gelf_message_as_string.size());
-      const unsigned header_length = 2 /* magic */ + 8 /* msg id */ + 1 /* seq */ + 1 /* count */;
-      const unsigned body_length = max_payload_size - header_length;
-      unsigned total_number_of_packets = (gelf_message_as_string.size() + body_length - 1) / body_length;
+      header.message_id = city_hash64(gelf_message_as_string.c_str(), gelf_message_as_string.size());
+      const unsigned body_length = max_payload_size - sizeof(header);
+      header.count = (gelf_message_as_string.size() + body_length - 1) / body_length;
       unsigned bytes_sent = 0;
-      unsigned number_of_packets_sent = 0;
+
       while (bytes_sent < gelf_message_as_string.size())
       {
         unsigned bytes_to_send = std::min((unsigned)gelf_message_as_string.size() - bytes_sent,
                                           body_length);
 
-        std::shared_ptr<char> send_buffer(new char[max_payload_size],
-                                          [](char* p){ delete[] p; });
-        char* ptr = send_buffer.get();
-        // magic number for chunked message
-        *(unsigned char*)ptr++ = 0x1e;
-        *(unsigned char*)ptr++ = 0x0f;
-
-        // message id
-        memcpy(ptr, (char*)&message_id, sizeof(message_id));
-        ptr += sizeof(message_id);
-
-        *(unsigned char*)(ptr++) = number_of_packets_sent;
-        *(unsigned char*)(ptr++) = total_number_of_packets;
-        memcpy(ptr, gelf_message_as_string.c_str() + bytes_sent,
-               bytes_to_send);
-        my->gelf_socket.send_to(send_buffer, header_length + bytes_to_send,
-                                *my->gelf_endpoint);
-        ++number_of_packets_sent;
+        std::array<boost::asio::const_buffer,2> bufs = {
+          boost::asio::const_buffer(&header, sizeof(header)),
+          boost::asio::const_buffer(gelf_message_as_string.c_str() + bytes_sent, bytes_to_send)
+        };
+        my->send(bufs);
+        ++header.seq;
         bytes_sent += bytes_to_send;
       }
-      FC_ASSERT(number_of_packets_sent == total_number_of_packets);
+      FC_ASSERT(header.seq == header.count);
     }
   }
 
   void gelf_appender::log(const log_message& message) {
-    if (!my->gelf_endpoint)
+    if (!my->thread.joinable())
       return;
 
     // use now() instead of context.get_timestamp() because log_message construction can include user provided long running calls
