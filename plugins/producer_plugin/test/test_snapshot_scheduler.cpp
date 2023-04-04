@@ -95,11 +95,11 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
             if (!pp->get_snapshot_requests().snapshot_requests.empty()) {
                const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
                auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(), [](const producer_plugin::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
-               if (it!=snapshot_requests.end()) {
-                  auto& pending = it->pending_snapshots;
-                  if (pending && pending->size()==1) {
-                     BOOST_CHECK_EQUAL(9, pending->begin()->head_block_num);   
-                  }
+               // we should have a pending snapshot for request id = 0
+               BOOST_REQUIRE(it != snapshot_requests.end());
+               auto& pending = it->pending_snapshots;
+               if (pending && pending->size()==1) {
+                  BOOST_CHECK_EQUAL(9, pending->begin()->head_block_num);   
                }
             }
          });
@@ -123,10 +123,10 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          // check whether no pending snapshots present for a snapshot with id 0
          const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
          auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(),[](const producer_plugin::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
-         if (it!=snapshot_requests.end()) {
-            auto& pending = it->pending_snapshots;
-            BOOST_CHECK_EQUAL(0, pending ? pending->size() : 0);
-         }
+
+         // snapshot request with id = 0 should be found and should not have any pending snapshots
+         BOOST_REQUIRE(it != snapshot_requests.end());
+         BOOST_CHECK(!it->pending_snapshots->size());
 
          // quit app
          appbase::app().quit();
