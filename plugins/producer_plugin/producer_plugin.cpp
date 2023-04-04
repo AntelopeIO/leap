@@ -1776,7 +1776,7 @@ block_timestamp_type producer_plugin_impl::calculate_pending_block_time() const 
    const chain::controller& chain = chain_plug->chain();
    const fc::time_point now = fc::time_point::now();
    const fc::time_point base = std::max<fc::time_point>(now, chain.head_block_time());
-   return block_timestamp_type((base.time_since_epoch().count() / config::block_interval_us) + 1);
+   return block_timestamp_type(base).next();
 }
 
 bool producer_plugin_impl::should_interrupt_start_block( const fc::time_point& deadline, uint32_t pending_block_num ) const {

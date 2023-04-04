@@ -617,7 +617,7 @@ def main():
                                       chainStateDbSizeMb=args.chain_state_db_size_mb, abiSerializerMaxTimeMs=990000)
 
     producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
-=                                            cpuEffortPercent=args.cpu_effort_percent,
+                                            cpuEffortPercent=args.cpu_effort_percent,
                                             producerThreads=args.producer_threads, maxTransactionTime=-1)
     httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
                                     httpThreads=args.http_threads)
