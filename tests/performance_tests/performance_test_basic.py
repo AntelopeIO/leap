@@ -232,7 +232,8 @@ class PerformanceTestBasic:
             append_write = 'w'
         return append_write
 
-    def isImportantTransaction(self, transaction):
+    def isOnBlockTransaction(self, transaction):
+        # v2 history does not include onblock
         if self.clusterConfig.nodeosVers == "v2":
             return True
         else:
@@ -247,7 +248,7 @@ class PerformanceTestBasic:
             btdf_append_write = self.fileOpenMode(blockTrxDataPath)
             with open(blockTrxDataPath, btdf_append_write) as trxDataFile:
                 for transaction in block['payload']['transactions']:
-                    if self.isImportantTransaction(transaction):
+                    if not self.isOnBlockTransaction(transaction):
                         self.clusterConfig.updateTrxDict(blockNum, transaction, self.data.trxDict)
                         self.clusterConfig.writeTrx(trxDataFile, blockNum, transaction)
                         blockCpuTotal += transaction["cpu_usage_us"]
