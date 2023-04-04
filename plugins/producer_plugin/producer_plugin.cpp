@@ -514,8 +514,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       }
 
       void on_irreversible_block( const signed_block_ptr& lib ) {
-         _irreversible_block_time = lib->timestamp.to_time_point();
          const chain::controller& chain = chain_plug->chain();
+         EOS_ASSERT(chain.is_write_window(), producer_exception, "write window is expected for on_irreversible_block signal");
+         _irreversible_block_time = lib->timestamp.to_time_point();
 
          // promote any pending snapshots
          auto& snapshots_by_height = _pending_snapshot_index.get<by_height>();
