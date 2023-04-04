@@ -516,64 +516,64 @@ class PerformanceTestBasic:
 
 class PtbArgumentsHandler(object):
     @staticmethod
-    def createBaseArgumentParser():
+    def createBaseArgumentParser(suppressHelp: bool=False):
         testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-p","-n","-d","-s","--nodes-file"
-                                                        ,"--dump-error-details","-v","--leave-running"
-                                                        ,"--clean-run","--unshared"})
+                                                            ,"--dump-error-details","-v","--leave-running"
+                                                            ,"--clean-run","--unshared"}, suppressHelp=suppressHelp)
         ptbBaseParser = argparse.ArgumentParser(parents=[testHelperArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
         ptbBaseGrpTitle="Performance Test Basic Base"
         ptbBaseGrpDescription="Performance Test Basic base configuration items."
-        ptbBaseParserGroup = ptbBaseParser.add_argument_group(title=ptbBaseGrpTitle, description=ptbBaseGrpDescription)
+        ptbBaseParserGroup = ptbBaseParser.add_argument_group(title=None if suppressHelp else ptbBaseGrpTitle, description=None if suppressHelp else ptbBaseGrpDescription)
 
-        ptbBaseParserGroup.add_argument("--tps-limit-per-generator", type=int, help="Maximum amount of transactions per second a single generator can have.", default=4000)
-        ptbBaseParserGroup.add_argument("--genesis", type=str, help="Path to genesis.json", default="tests/performance_tests/genesis.json")
-        ptbBaseParserGroup.add_argument("--num-blocks-to-prune", type=int, help=("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
+        ptbBaseParserGroup.add_argument("--tps-limit-per-generator", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum amount of transactions per second a single generator can have.", default=4000)
+        ptbBaseParserGroup.add_argument("--genesis", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to genesis.json", default="tests/performance_tests/genesis.json")
+        ptbBaseParserGroup.add_argument("--num-blocks-to-prune", type=int, help=argparse.SUPPRESS if suppressHelp else ("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                                                                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
-        ptbBaseParserGroup.add_argument("--signature-cpu-billable-pct", type=int, help="Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
-        ptbBaseParserGroup.add_argument("--chain-threads", type=int, help="Number of worker threads in controller thread pool", default=2)
-        ptbBaseParserGroup.add_argument("--database-map-mode", type=str, help="Database map mode (\"mapped\", \"heap\", or \"locked\"). \
+        ptbBaseParserGroup.add_argument("--signature-cpu-billable-pct", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)
+        ptbBaseParserGroup.add_argument("--chain-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in controller thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--database-map-mode", type=str, help=argparse.SUPPRESS if suppressHelp else "Database map mode (\"mapped\", \"heap\", or \"locked\"). \
                                                                 In \"mapped\" mode database is memory mapped as a file. \
                                                                 In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available. \
                                                                 In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.",
                                                                 choices=["mapped", "heap", "locked"], default="mapped")
-        ptbBaseParserGroup.add_argument("--cluster-log-lvl", type=str, help="Cluster log level (\"all\", \"debug\", \"info\", \"warn\", \"error\", or \"off\"). \
+        ptbBaseParserGroup.add_argument("--cluster-log-lvl", type=str, help=argparse.SUPPRESS if suppressHelp else "Cluster log level (\"all\", \"debug\", \"info\", \"warn\", \"error\", or \"off\"). \
                                                                 Performance Harness Test Basic relies on some logging at \"info\" level, so it is recommended lowest logging level to use. \
                                                                 However, there are instances where more verbose logging can be useful.",
                                                                 choices=["all", "debug", "info", "warn", "error", "off"], default="info")
-        ptbBaseParserGroup.add_argument("--net-threads", type=int, help="Number of worker threads in net_plugin thread pool", default=4)
-        ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help="Disable subjective CPU billing for API/P2P transactions", default=True)
-        ptbBaseParserGroup.add_argument("--last-block-time-offset-us", type=int, help="Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
-        ptbBaseParserGroup.add_argument("--produce-time-offset-us", type=int, help="Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
-        ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
-        ptbBaseParserGroup.add_argument("--last-block-cpu-effort-percent", type=int, help="Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%%", default=100)
-        ptbBaseParserGroup.add_argument("--producer-threads", type=int, help="Number of worker threads in producer thread pool", default=2)
-        ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help="Maximum time for processing a request, -1 for unlimited", default=-1)
-        ptbBaseParserGroup.add_argument("--http-max-bytes-in-flight-mb", type=int, help="Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429\
+        ptbBaseParserGroup.add_argument("--net-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in net_plugin thread pool", default=4)
+        ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help=argparse.SUPPRESS if suppressHelp else "Disable subjective CPU billing for API/P2P transactions", default=True)
+        ptbBaseParserGroup.add_argument("--last-block-time-offset-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
+        ptbBaseParserGroup.add_argument("--produce-time-offset-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
+        ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
+        ptbBaseParserGroup.add_argument("--last-block-cpu-effort-percent", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%%", default=100)
+        ptbBaseParserGroup.add_argument("--producer-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in producer thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum time for processing a request, -1 for unlimited", default=-1)
+        ptbBaseParserGroup.add_argument("--http-max-bytes-in-flight-mb", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429\
                                          error response when exceeded.", default=-1)
-        ptbBaseParserGroup.add_argument("--del-perf-logs", help="Whether to delete performance test specific logs.", action='store_true')
-        ptbBaseParserGroup.add_argument("--del-report", help="Whether to delete overarching performance run report.", action='store_true')
-        ptbBaseParserGroup.add_argument("--quiet", help="Whether to quiet printing intermediate results and reports to stdout", action='store_true')
-        ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help="Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
-        ptbBaseParserGroup.add_argument("--print-missing-transactions", help="Toggles if missing transactions are be printed upon test completion.", action='store_true')
-        ptbBaseParserGroup.add_argument("--account-name", type=str, help="Name of the account to create and assign a contract to", default="eosio")
-        ptbBaseParserGroup.add_argument("--contract-dir", type=str, help="Path to contract dir", default="unittests/contracts/eosio.system")
-        ptbBaseParserGroup.add_argument("--wasm-file", type=str, help="WASM file name for contract", default="eosio.system.wasm")
-        ptbBaseParserGroup.add_argument("--abi-file", type=str, help="ABI file name for contract", default="eosio.system.abi")
-        ptbBaseParserGroup.add_argument("--user-trx-data-file", type=str, help="Path to transaction data JSON file")
-        ptbBaseParserGroup.add_argument("--wasm-runtime", type=str, help="Override default WASM runtime (\"eos-vm-jit\", \"eos-vm\")\
+        ptbBaseParserGroup.add_argument("--del-perf-logs", help=argparse.SUPPRESS if suppressHelp else "Whether to delete performance test specific logs.", action='store_true')
+        ptbBaseParserGroup.add_argument("--del-report", help=argparse.SUPPRESS if suppressHelp else "Whether to delete overarching performance run report.", action='store_true')
+        ptbBaseParserGroup.add_argument("--quiet", help=argparse.SUPPRESS if suppressHelp else "Whether to quiet printing intermediate results and reports to stdout", action='store_true')
+        ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help=argparse.SUPPRESS if suppressHelp else "Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
+        ptbBaseParserGroup.add_argument("--print-missing-transactions", help=argparse.SUPPRESS if suppressHelp else "Toggles if missing transactions are be printed upon test completion.", action='store_true')
+        ptbBaseParserGroup.add_argument("--account-name", type=str, help=argparse.SUPPRESS if suppressHelp else "Name of the account to create and assign a contract to", default="eosio")
+        ptbBaseParserGroup.add_argument("--contract-dir", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to contract dir", default="unittests/contracts/eosio.system")
+        ptbBaseParserGroup.add_argument("--wasm-file", type=str, help=argparse.SUPPRESS if suppressHelp else "WASM file name for contract", default="eosio.system.wasm")
+        ptbBaseParserGroup.add_argument("--abi-file", type=str, help=argparse.SUPPRESS if suppressHelp else "ABI file name for contract", default="eosio.system.abi")
+        ptbBaseParserGroup.add_argument("--user-trx-data-file", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to transaction data JSON file")
+        ptbBaseParserGroup.add_argument("--wasm-runtime", type=str, help=argparse.SUPPRESS if suppressHelp else "Override default WASM runtime (\"eos-vm-jit\", \"eos-vm\")\
                                          \"eos-vm-jit\" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to\
                                          execution. \"eos-vm\" : A WebAssembly interpreter.",
                                          choices=["eos-vm-jit", "eos-vm"], default="eos-vm-jit")
-        ptbBaseParserGroup.add_argument("--contracts-console", help="print contract's output to console", action='store_true')
-        ptbBaseParserGroup.add_argument("--eos-vm-oc-cache-size-mb", type=int, help="Maximum size (in MiB) of the EOS VM OC code cache", default=1024)
-        ptbBaseParserGroup.add_argument("--eos-vm-oc-compile-threads", type=int, help="Number of threads to use for EOS VM OC tier-up", default=1)
-        ptbBaseParserGroup.add_argument("--non-prods-eos-vm-oc-enable", help="Enable EOS VM OC tier-up runtime on non producer nodes", action='store_true')
-        ptbBaseParserGroup.add_argument("--block-log-retain-blocks", type=int, help="If set to greater than 0, periodically prune the block log to\
+        ptbBaseParserGroup.add_argument("--contracts-console", help=argparse.SUPPRESS if suppressHelp else "print contract's output to console", action='store_true')
+        ptbBaseParserGroup.add_argument("--eos-vm-oc-cache-size-mb", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum size (in MiB) of the EOS VM OC code cache", default=1024)
+        ptbBaseParserGroup.add_argument("--eos-vm-oc-compile-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of threads to use for EOS VM OC tier-up", default=1)
+        ptbBaseParserGroup.add_argument("--non-prods-eos-vm-oc-enable", help=argparse.SUPPRESS if suppressHelp else "Enable EOS VM OC tier-up runtime on non producer nodes", action='store_true')
+        ptbBaseParserGroup.add_argument("--block-log-retain-blocks", type=int, help=argparse.SUPPRESS if suppressHelp else "If set to greater than 0, periodically prune the block log to\
                                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;\
                                          block log file is removed after startup.", default=None)
-        ptbBaseParserGroup.add_argument("--http-threads", type=int, help="Number of worker threads in http thread pool", default=2)
-        ptbBaseParserGroup.add_argument("--chain-state-db-size-mb", type=int, help="Maximum size (in MiB) of the chain state database", default=25600)
+        ptbBaseParserGroup.add_argument("--http-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in http thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--chain-state-db-size-mb", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum size (in MiB) of the chain state database", default=25600)
 
         return ptbBaseParser
 
@@ -642,10 +642,15 @@ def main():
     if args.contracts_console and testClusterConfig.loggingLevel != "debug" and testClusterConfig.loggingLevel != "all":
         print("Enabling contracts-console will not print anything unless debug level is 'debug' or higher."
               f" Current debug level is: {testClusterConfig.loggingLevel}")
-    ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps, testTrxGenDurationSec=args.test_duration_sec, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                  numAddlBlocksToPrune=args.num_blocks_to_prune, logDirRoot=".", delReport=args.del_report, quiet=args.quiet, delPerfLogs=args.del_perf_logs,
-                                  printMissingTransactions=args.print_missing_transactions,
-                                  userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
+    ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps,
+                                               testTrxGenDurationSec=args.test_duration_sec,
+                                               tpsLimitPerGenerator=args.tps_limit_per_generator,
+                                               numAddlBlocksToPrune=args.num_blocks_to_prune,
+                                               logDirRoot=".",
+                                               delReport=args.del_report, quiet=args.quiet,
+                                               delPerfLogs=args.del_perf_logs,
+                                               printMissingTransactions=args.print_missing_transactions,
+                                               userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
 
     testSuccessful = myTest.runTest()
