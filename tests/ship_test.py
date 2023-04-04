@@ -132,7 +132,7 @@ try:
             try:
                 statuses = json.loads(" ".join(lines))
             except json.decoder.JSONDecodeError as er:
-                Utils.errorExit("javascript client output was malformed in %s. Exception: %s" % (shipClientErrorFile, er))
+                Utils.errorExit("ship_client output was malformed in %s. Exception: %s" % (shipClientErrorFile, er))
 
             for status in statuses:
                 statusDesc = status["status"]
@@ -143,7 +143,7 @@ try:
                     maxFirstBN = max(maxFirstBN, firstBlockNum)
                     minLastBN = min(minLastBN, lastBlockNum)
                 if statusDesc == "error":
-                    Utils.errorExit("javascript client reporting error see: %s." % (shipClientErrorFile))
+                    Utils.errorExit("ship_client reporting error see: %s." % (shipClientErrorFile))
 
         assert done, Print("ERROR: Did not find a \"done\" status for client %d" % (i))
 

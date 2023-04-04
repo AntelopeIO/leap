@@ -334,7 +334,7 @@ namespace eosio {
                      handle_exception("node", "get_supported_apis", body.empty() ? "{}" : body, cb);
                   }
                }
-            }}, appbase::exec_queue::read_only_trx_safe);
+            }}, appbase::exec_queue::read_only);
             
          } catch (...) {
             fc_elog(logger(), "http_plugin startup fails, shutting down");
@@ -390,6 +390,9 @@ namespace eosio {
             cb( 400, fc::time_point::maximum(), fc::variant( results ));
          } catch (chain::invalid_http_request& e) {
             error_results results{400, "Invalid Request", error_results::error_info(e, verbose_http_errors)};
+            cb( 400, fc::time_point::maximum(), fc::variant( results ));
+         } catch (chain::account_query_exception& e) {
+            error_results results{400, "Account lookup", error_results::error_info(e, verbose_http_errors)};
             cb( 400, fc::time_point::maximum(), fc::variant( results ));
          } catch (chain::unsatisfied_authorization& e) {
             error_results results{401, "UnAuthorized", error_results::error_info(e, verbose_http_errors)};
