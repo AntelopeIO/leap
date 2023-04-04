@@ -2738,14 +2738,6 @@ struct controller_impl {
       }
    }
 
-   void wasm_interface_exit() {
-      // exit all running wasmifs
-      wasmif.exit();
-      for (auto& ele: threaded_wasmifs) {
-         ele.second->exit();
-      }
-   }
-
    block_state_ptr fork_db_head() const;
 }; /// controller_impl
 
@@ -3739,10 +3731,6 @@ bool controller::is_write_window() const {
 
 void controller::code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
    return my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
-}
-
-void controller::wasm_interface_exit() {
-   return my->wasm_interface_exit();
 }
 
 /// Protocol feature activation handlers:

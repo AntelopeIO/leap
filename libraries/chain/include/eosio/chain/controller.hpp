@@ -377,7 +377,6 @@ namespace eosio { namespace chain {
       void set_to_read_window();
       bool is_write_window() const;
       void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num);
-      void wasm_interface_exit();
 
       private:
          friend class apply_context;
