@@ -18,6 +18,7 @@ namespace eosio { namespace hotstuff {
         
 		//todo : discuss
         virtual uint32_t get_quorum_threshold() = 0;
+        
         virtual block_id_type get_current_block_id() = 0;
         
         //hotstuff getters. todo : implement relevant setters as host functions
@@ -32,8 +33,7 @@ namespace eosio { namespace hotstuff {
         //todo : abstract further
 
         //qc_chain event subscription
-        virtual void register_listener(name name, qc_chain& qcc) = 0;
-        virtual void unregister_listener(name name) = 0;
+        virtual void assign_qc_chain(name name, qc_chain& qcc) = 0;
 
         //outbound communications
 		virtual void send_hs_proposal_msg(name id, hs_proposal_message msg) = 0;

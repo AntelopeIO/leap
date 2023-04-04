@@ -15,6 +15,9 @@
 #include <boost/multi_index/global_fun.hpp>
 #include <boost/multi_index/composite_key.hpp>
 
+#include <boost/dynamic_bitset.hpp>
+
+
 
 #include <exception>
 #include <stdexcept>
@@ -104,12 +107,16 @@ namespace eosio { namespace hotstuff {
                 > proposal_store_type;
 
                 proposal_store_type _proposal_store;  //internal proposals store
+                
+                uint32_t positive_bits_count(fc::unsigned_int value);
+
+                fc::unsigned_int update_bitset(fc::unsigned_int value, name finalizer);
 
                 digest_type get_digest_to_sign(block_id_type block_id, uint8_t phase_counter, fc::sha256 final_on_qc); //get digest to sign from proposal data
                 
                 void reset_qc(fc::sha256 proposal_id); //reset current internal qc
 
-                bool evaluate_quorum(extended_schedule es, vector<name> finalizers, fc::crypto::blslib::bls_signature agg_sig, hs_proposal_message proposal); //evaluate quorum for a proposal
+                bool evaluate_quorum(extended_schedule es, fc::unsigned_int finalizers, fc::crypto::blslib::bls_signature agg_sig, hs_proposal_message proposal); //evaluate quorum for a proposal
 
 /*                name get_proposer();
                 name get_leader();

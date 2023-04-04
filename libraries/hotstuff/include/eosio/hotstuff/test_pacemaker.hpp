@@ -98,9 +98,8 @@ namespace eosio { namespace hotstuff {
 
        	uint32_t get_quorum_threshold();
         
-        void register_listener(name name, qc_chain& qcc);
-        void unregister_listener(name name);
-
+        void assign_qc_chain(name name, qc_chain& qcc);
+        
         void beat();
 
 		void send_hs_proposal_msg(name id, hs_proposal_message msg);

@@ -188,7 +188,7 @@ namespace eosio { namespace hotstuff {
 
    	};
 
-    void test_pacemaker::register_listener(name name, qc_chain& qcc){
+    void test_pacemaker::assign_qc_chain(name name, qc_chain& qcc){
 
     	//ilog("reg listener");
 
@@ -224,19 +224,6 @@ namespace eosio { namespace hotstuff {
 
     	} 
 		
-
-    };
-
-    void test_pacemaker::unregister_listener(name name){
-
-    	auto itr = _qcc_store.get<by_name_id>().find( name.to_uint64_t() );
-
-    	if (itr!= _qcc_store.end()) {
-    		
-    		_qcc_store.erase(itr);
-
-    	}
-    	else throw std::runtime_error("qc chain not found"); 
 
     };
 

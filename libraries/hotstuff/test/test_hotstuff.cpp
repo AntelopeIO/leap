@@ -5,6 +5,10 @@
 
 #include <fc/crypto/sha256.hpp>
 
+#include <fc/io/varint.hpp>
+
+#include <boost/dynamic_bitset.hpp>
+
 #include <eosio/hotstuff/test_pacemaker.hpp>
 #include <eosio/hotstuff/qc_chain.hpp>
 
@@ -162,6 +166,37 @@ public:
 
 BOOST_AUTO_TEST_SUITE(hotstuff)
 
+BOOST_AUTO_TEST_CASE(hotstuff_bitset) try {
+	
+	boost::dynamic_bitset b( 8, 0 );
+	
+	uint32_t c = b.to_ulong();
+
+	b.flip(0); //least significant bit
+	b.flip(1);
+	b.flip(2);
+	b.flip(3);
+	b.flip(4);
+	b.flip(5);
+	b.flip(6);
+	b.flip(7); //most significant bit
+
+	uint32_t d = b.to_ulong();
+
+	for (boost::dynamic_bitset<>::size_type i = 0; i < b.size(); ++i){
+		b.flip(i);
+	}
+
+	uint32_t e = b.to_ulong();
+
+	std::cout << "c : " << c << "\n";
+	std::cout << "d : " << d << "\n";
+	std::cout << "e : " << e << "\n";
+
+
+} FC_LOG_AND_RETHROW();
+
+
 BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
 	//test optimistic responsiveness (3 confirmations per block)
@@ -170,7 +205,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
 	hotstuff_test_handler ht;
 
-	ht.initialize_qc_chains(tpm, {"bpa"_n}, {"bpa"_n}, unique_replicas);
+	ht.initialize_qc_chains(tpm, {"bpa"_n, "bpb"_n}, {"bpa"_n, "bpb"_n}, unique_replicas);
 
 	tpm.set_proposer("bpa"_n);
 	tpm.set_leader("bpa"_n);
@@ -180,11 +215,15 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 	auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
 	auto qcc_bpb = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpb"_n; });
 
+ht.print_bp_state("bpa"_n, "");
+
    	tpm.set_current_block_id(ids[0]); //first block
 
    	tpm.beat(); //produce first block and associated proposal
 
    	tpm.dispatch(""); //send proposal to replicas (prepare on first block)
+
+ht.print_bp_state("bpa"_n, "");
 
   	BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
   	BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
@@ -271,7 +310,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
   	BOOST_CHECK_EQUAL(qcc_bpb->second._b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
 
   	BOOST_CHECK_EQUAL(qcc_bpa->second._b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-  	
+
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_CASE(hotstuff_2) try {

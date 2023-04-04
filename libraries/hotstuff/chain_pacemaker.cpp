@@ -73,15 +73,11 @@ namespace eosio { namespace hotstuff {
 
    	};
 
-    void chain_pacemaker::register_listener(name name, qc_chain& qcc){
+    void chain_pacemaker::assign_qc_chain(name name, qc_chain& qcc){
     	_qc_chain = &qcc;
 
     };
     
-    void chain_pacemaker::unregister_listener(name name){
-    	//delete _qc_chain;
-    };
-
     void chain_pacemaker::send_hs_proposal_msg(name id, hs_proposal_message msg){
 
  		hs_proposal_message_ptr msg_ptr = std::make_shared<hs_proposal_message>(msg);

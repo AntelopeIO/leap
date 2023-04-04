@@ -38,7 +38,7 @@ namespace eosio { namespace chain {
 
          bool                                               quorum_met = false;
 
-         vector<name>                                       active_finalizers;
+         fc::unsigned_int                                   active_finalizers; //bitset encoding, following canonical order
          fc::crypto::blslib::bls_signature                  active_agg_sig;
 
    };
