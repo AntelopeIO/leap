@@ -155,7 +155,6 @@ namespace eosio { namespace chain {
                trx_context.resume_billing_timer();
             });
             trx_context.pause_billing_timer();
-            IR::Module module;
             wasm_instantiation_cache.modify(it, [&](auto& c) {
                c.module = runtime_interface->instantiate_module(codeobject->code.data(), codeobject->code.size(), code_hash, vm_type, vm_version);
             });
