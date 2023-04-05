@@ -99,11 +99,11 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                BOOST_REQUIRE(it != snapshot_requests.end());
                auto& pending = it->pending_snapshots;
                if (pending && pending->size()==1) {
-                  BOOST_CHECK_EQUAL(9, pending->begin()->head_block_num);   
+                  BOOST_CHECK_EQUAL(9, pending->begin()->head_block_num);
                }
             }
          });
-       
+
          producer_plugin::snapshot_request_information sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 1"};
          producer_plugin::snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2 that will never happen"};
          producer_plugin::snapshot_request_information sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 3 that will expire"};
