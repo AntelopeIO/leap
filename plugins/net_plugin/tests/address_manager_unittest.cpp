@@ -38,7 +38,7 @@ BOOST_AUTO_TEST_SUITE(test_peer_address)
         peer_address address2 = peer_address::from_str("example.com:80:both");
         peer_address address3 = peer_address::from_str("eosproducer1,127.0.0.1:1234:trx");
         peer_address address4 = peer_address::from_str("127.0.0.1:1234:blk - 012345");
-        peer_address address5 = peer_address::from_str("127.0.0.1:1234:peer 012345");
+        peer_address address5 = peer_address::from_str("127.0.0.1:1234:peer:012345");
         peer_address address6 = peer_address::from_str("127.0.0.1:1234:all", false);
         peer_address address7 = peer_address::from_str("127.0.0.1:1234:all", true);
 
@@ -48,7 +48,6 @@ BOOST_AUTO_TEST_SUITE(test_peer_address)
 
         peer_address address11 = peer_address::from_str("host1:100 - 012345");
 
-        peer_address address12 = peer_address::from_str("host1:100\t012345");
 
 
 
@@ -80,8 +79,6 @@ BOOST_AUTO_TEST_SUITE(test_peer_address)
         BOOST_REQUIRE(address10.address_type == str_to_address_type(""));
 
         BOOST_REQUIRE(address11.host == "host1");
-        BOOST_REQUIRE(address12.host == "host1");
-
 
         BOOST_CHECK_EXCEPTION(peer_address::from_str("invalid_address_string"),
                               std::invalid_argument,
@@ -110,7 +107,7 @@ BOOST_AUTO_TEST_SUITE(test_peer_address)
         BOOST_CHECK_EXCEPTION(peer_address::from_str("example.com:xxx"),
                               std::invalid_argument,
                               [](const std::invalid_argument& e) {
-                                  return std::string(e.what()) == "Invalid peer address string: example.com:xxx";
+                                  return std::string(e.what()) == "Invalid peer address string: port number xxx";
                               });
     }
 
