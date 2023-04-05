@@ -156,11 +156,8 @@ namespace eosio { namespace chain {
             });
             trx_context.pause_billing_timer();
             IR::Module module;
-            std::vector<U8> bytes = {
-                (const U8*)codeobject->code.data(),
-                (const U8*)codeobject->code.data() + codeobject->code.size()};
             wasm_instantiation_cache.modify(it, [&](auto& c) {
-               c.module = runtime_interface->instantiate_module((const char*)bytes.data(), bytes.size(), code_hash, vm_type, vm_version);
+               c.module = runtime_interface->instantiate_module(codeobject->code.data(), codeobject->code.size(), code_hash, vm_type, vm_version);
             });
          }
          return it->module;
