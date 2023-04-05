@@ -90,8 +90,8 @@ namespace eosio {
                 //([\w.]+) for host and ip address
                 //(?::(\d+)) for port
                 //(?::(\w+))? for type (optional)
-                //([-:\s]*(\w+))? for any suffix like ' - 012345' （optional)
-                static const std::regex address_regex("^(?:([\\w.-]+),)?([\\w.]+)(?::(\\d+))(?::(\\w+))?([-:\\s]*(\\w+))?$");
+                //(\W*(\w+))? for any suffix like ' - 012345' （optional)
+                static const std::regex address_regex(R"(^(?:([\w.-]+),)?([\w.]+)(?::(\d+))(?::(\w+))?(?:\W*(?:\w+))?$)");
                 std::smatch match;
                 if (!std::regex_match(input_address_str, match, address_regex)) {
                     throw std::invalid_argument(input_address_str);
