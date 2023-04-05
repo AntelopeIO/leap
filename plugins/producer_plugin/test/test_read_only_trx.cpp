@@ -117,7 +117,7 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
             transaction_metadata::trx_type::read_only, // trx_type
             return_failure_traces,
             [ptrx, &next_calls, &trace_with_except, &trx_match, return_failure_traces]
-            (const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) {
+            (const next_function_variant<transaction_trace_ptr>& result) {
                if( !std::holds_alternative<fc::exception_ptr>( result ) && !std::get<chain::transaction_trace_ptr>( result )->except ) {
                   if( std::get<chain::transaction_trace_ptr>( result )->id != ptrx->id() ) {
                      elog( "trace not for trx ${id}: ${t}",

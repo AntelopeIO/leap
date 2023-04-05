@@ -27,7 +27,7 @@ enum class trx_enum_type {
    incoming_p2p = 4 // incoming_end() needs to be updated if this changes
 };
 
-using next_func_t = std::function<void(const std::variant<fc::exception_ptr, transaction_trace_ptr>&)>;
+using next_func_t = next_function<transaction_trace_ptr>;
 
 struct unapplied_transaction {
    const transaction_metadata_ptr trx_meta;
