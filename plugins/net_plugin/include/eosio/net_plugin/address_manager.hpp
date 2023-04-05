@@ -86,7 +86,12 @@ namespace eosio {
 
         static peer_address from_str(const std::string& input_address_str, bool is_manual = false) {
             try {
-                static const std::regex address_regex("^(?:([\\w.-]+),)?([\\w.]+)(?::(\\d+))?(?::(\\w+))?(?:[-\\s]*([\\w-]+))?$");
+                //(?:([\w.-]+),)? for eosproducer1, （optional)
+                //([\w.]+) for host and ip address
+                //(?::(\d+)) for port
+                //(?::(\w+))? for type (optional)
+                //([-:\s]*(\w+))? for any suffix like ' - 012345' （optional)
+                static const std::regex address_regex("^(?:([\\w.-]+),)?([\\w.]+)(?::(\\d+))(?::(\\w+))?([-:\\s]*(\\w+))?$");
                 std::smatch match;
                 if (!std::regex_match(input_address_str, match, address_regex)) {
                     throw std::invalid_argument(input_address_str);
