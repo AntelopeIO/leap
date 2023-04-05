@@ -63,7 +63,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu18, ubuntu20, ubuntu22]
+        platform: [ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
@@ -75,11 +75,9 @@ jobs:
           run: |
             # https://github.com/actions/runner/issues/2033
             chown -R $(id -u):$(id -g) $PWD
-            mkdir build
-            cd build
-            cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja ..
-            ninja
-            tar -pc -C .. --exclude "*.o" build | zstd --long -T0 -9 > ../build.tar.zst
+            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
+            cmake --build build
+            tar -pc --exclude "*.o" build | zstd --long -T0 -9 > build.tar.zst
         - name: Upload builddir
           uses: AntelopeIO/upload-artifact-large-chunks-action@v1
           with:
@@ -137,8 +135,7 @@ jobs:
           export TMPDIR="$PWD/tmp"
           mkdir -p $TMPDIR
           zstdcat build.tar.zst | tar x
-          cd build
-          ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)"
+          ctest --test-dir build --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
 
   np-tests:
     name: NP Tests
@@ -147,7 +144,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu18, ubuntu20, ubuntu22]
+        platform: [ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-midtier"]
     steps:
       - uses: actions/checkout@v3
@@ -162,6 +159,7 @@ jobs:
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
+          test-timeout: 420
       - name: Upload logs from failed tests  
         uses: actions/upload-artifact@v3
         if: failure()
@@ -176,7 +174,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu18, ubuntu20, ubuntu22]
+        platform: [ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-lowtier"]
     steps:
       - uses: actions/checkout@v3
@@ -191,6 +189,7 @@ jobs:
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: long_running_tests
+          test-timeout: 1800
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()

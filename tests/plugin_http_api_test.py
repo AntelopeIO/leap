@@ -40,8 +40,8 @@ class PluginHttpTest(unittest.TestCase):
         self.keosd.killall(True)
         WalletMgr.cleanup()
         Node.killAllNodeos()
-        if os.path.exists(self.data_dir):
-            shutil.rmtree(self.data_dir)
+        if os.path.exists(Utils.DataPath):
+            shutil.rmtree(Utils.DataPath)
         if os.path.exists(self.config_dir):
             shutil.rmtree(self.config_dir)
         time.sleep(self.sleep_s)
@@ -56,7 +56,7 @@ class PluginHttpTest(unittest.TestCase):
                         "http_plugin", "db_size_api_plugin", "prometheus_plugin"]
         nodeos_plugins = "--plugin eosio::" +  " --plugin eosio::".join(plugin_names)
         nodeos_flags = (" --data-dir=%s --config-dir=%s --trace-dir=%s --trace-no-abis --access-control-allow-origin=%s "
-                        "--contracts-console --http-validate-host=%s --verbose-http-errors --abi-serializer-max-time-ms 30000 --http-max-response-time-ms 30000 "
+                        "--contracts-console --http-validate-host=%s --verbose-http-errors --max-transaction-time -1 --abi-serializer-max-time-ms 30000 --http-max-response-time-ms 30000 "
                         "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
         start_nodeos_cmd = ("%s -e -p eosio %s %s ") % (Utils.EosServerPath, nodeos_plugins, nodeos_flags)
         self.nodeos.launchCmd(start_nodeos_cmd, self.node_id)
@@ -337,7 +337,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_account with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_code with empty parameter
         command = "get_code"
@@ -355,7 +355,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_code with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_code_hash with empty parameter
         command = "get_code_hash"
@@ -373,7 +373,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_code_hash with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_abi with empty parameter
         command = "get_abi"
@@ -391,7 +391,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_abi with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_raw_code_and_abi with empty parameter
         command = "get_raw_code_and_abi"
@@ -409,7 +409,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_raw_code_and_abi with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_raw_abi with empty parameter
         command = "get_raw_abi"
@@ -427,7 +427,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_raw_abi with valid parameter
         payload = {"account_name":"default"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_table_rows with empty parameter
         command = "get_table_rows"
@@ -452,7 +452,7 @@ class PluginHttpTest(unittest.TestCase):
                    "lower_bound":"0x0000000000000000D0F2A472A8EB6A57",
                    "upper_bound":"0xFFFFFFFFFFFFFFFFD0F2A472A8EB6A57"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_table_by_scope with empty parameter
         command = "get_table_by_scope"
@@ -492,7 +492,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_currency_balance with valid parameter
         payload = {"code":"eosio.token", "account":"unknown"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_currency_stats with empty parameter
         command = "get_currency_stats"
@@ -510,7 +510,7 @@ class PluginHttpTest(unittest.TestCase):
         # get_currency_stats with valid parameter
         payload = {"code":"eosio.token","symbol":"SYS"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
-        self.assertEqual(ret_json["code"], 500)
+        self.assertEqual(ret_json["code"], 400)
 
         # get_producers with empty parameter
         command = "get_producers"

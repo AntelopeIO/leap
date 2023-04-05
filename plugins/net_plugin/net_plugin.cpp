@@ -12,7 +12,6 @@
 #include <eosio/chain/contract_types.hpp>
 
 #include <fc/network/message_buffer.hpp>
-#include <fc/network/ip.hpp>
 #include <fc/io/json.hpp>
 #include <fc/io/raw.hpp>
 #include <fc/log/appender.hpp>
@@ -3225,22 +3224,23 @@ namespace eosio {
             return;
          }
 
-         bool valid_block_header = !!bsp;
 
-         if( valid_block_header ) {
+         uint32_t block_num = bsp ? bsp->block_num : 0;
+
+         if( block_num != 0 ) {
             fc_dlog( logger, "validated block header, broadcasting immediately, connection ${cid}, blk num = ${num}, id = ${id}",
-                     ("cid", cid)("num", bsp->block_num)("id", bsp->id) );
+                     ("cid", cid)("num", block_num)("id", bsp->id) );
             my_impl->dispatcher->add_peer_block( bsp->id, cid ); // no need to send back to sender
             my_impl->dispatcher->bcast_block( bsp->block, bsp->id );
          }
 
-         app().executor().post(priority::medium, exec_queue::general, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
+         app().executor().post(priority::medium, exec_queue::read_write, [ptr{std::move(ptr)}, bsp{std::move(bsp)}, id, c{std::move(c)}]() mutable {
             c->process_signed_block( id, std::move(ptr), std::move(bsp) );
          });
 
-         if( valid_block_header ) {
+         if( block_num != 0 ) {
             // ready to process immediately, so signal producer to interrupt start_block
-            my_impl->producer_plug->received_block();
+            my_impl->producer_plug->received_block(block_num);
          }
       });
    }

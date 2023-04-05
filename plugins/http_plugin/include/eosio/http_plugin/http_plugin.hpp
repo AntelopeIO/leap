@@ -37,7 +37,8 @@ namespace eosio {
     * a handler. The URL is the path on the web server that triggers the
     * call, and the handler is the function which implements the API call
     */
-   using api_description = std::map<string, url_handler>;
+   using api_entry = std::pair<string, url_handler>;
+   using api_description = std::vector<api_entry>;
 
    enum class http_content_type {
       json = 1,

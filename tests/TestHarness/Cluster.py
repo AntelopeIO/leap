@@ -22,8 +22,11 @@ from .Node import BlockType
 from .Node import Node
 from .WalletMgr import WalletMgr
 from .launch_transaction_generators import TransactionGeneratorsLauncher, TpsTrxGensConfig
-from .libc import unshare, CLONE_NEWNET
-from .interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
+try:
+    from .libc import unshare, CLONE_NEWNET
+    from .interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
+except:
+    pass
 
 # Protocol Feature Setup Policy
 class PFSetupPolicy:
@@ -1447,7 +1450,7 @@ class Cluster(object):
     def killall(self, kill=True, silent=True, allInstances=False):
         """Kill cluster nodeos instances. allInstances will kill all nodeos instances running on the system."""
         signalNum=9 if kill else 15
-        cmd="%s -k %d --nogen -p 1 -n 1 --nodeos-log-path %s" % (f"python3 {str(self.launcherPath)}", signalNum, self.nodeosLogPath)
+        cmd="%s -k %d --nogen -p 1 -n 1 --nodeos-log-path %s" % (f"{sys.executable} {str(self.launcherPath)}", signalNum, self.nodeosLogPath)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         if 0 != subprocess.call(cmd.split(), stdout=Utils.FNull):
             if not silent: Utils.Print("Launcher failed to shut down eos cluster.")
@@ -1727,4 +1730,7 @@ class Cluster(object):
                 for line in f:
                     firstTrxs.append(line.rstrip('\n'))
         Utils.Print(f"first transactions: {firstTrxs}")
-        node.waitForTransactionsInBlock(firstTrxs)
+        status = node.waitForTransactionsInBlock(firstTrxs)
+        if status is None:
+            Utils.Print('ERROR: Failed to spin up transaction generators: never received first transactions')
+        return status
