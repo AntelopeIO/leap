@@ -191,6 +191,12 @@ namespace eosio {
                          const time_point_sec& now = time_point::now() );
       bool have_txn( const transaction_id_type& tid ) const;
       void expire_txns();
+
+      void bcast_hs_proposal_msg(const hs_proposal_message_ptr& msg);
+      void bcast_hs_vote_msg(const hs_vote_message_ptr& msg);
+      void bcast_hs_new_view_msg(const hs_new_view_message_ptr& msg);
+      void bcast_hs_new_block_msg(const hs_new_block_message_ptr& msg);
+
    };
 
    /**
@@ -210,8 +216,13 @@ namespace eosio {
    constexpr auto     def_keepalive_interval = 10000;
 
    constexpr auto     message_header_size = sizeof(uint32_t);
-   constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
-   constexpr uint32_t packed_transaction_which = fc::get_index<net_message, packed_transaction>(); // see protocol net_message
+
+   constexpr uint32_t signed_block_which           = fc::get_index<net_message, signed_block>();         // see protocol net_message
+   constexpr uint32_t packed_transaction_which     = fc::get_index<net_message, packed_transaction>();   // see protocol net_message
+   constexpr uint32_t hs_vote_message_which   = fc::get_index<net_message, hs_vote_message>(); // see protocol net_message
+   constexpr uint32_t hs_proposal_message_which      = fc::get_index<net_message, hs_proposal_message>();    // see protocol net_message
+   constexpr uint32_t hs_new_view_message_which   = fc::get_index<net_message, hs_new_view_message>(); // see protocol net_message
+   constexpr uint32_t hs_new_block_message_which      = fc::get_index<net_message, hs_new_block_message>();    // see protocol net_message
 
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl>,
                            public auto_bp_peering::bp_connection_manager<net_plugin_impl, connection> {
@@ -314,6 +325,11 @@ namespace eosio {
 
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_ptr& blk );
+
+      void on_hs_proposal_message( const hs_proposal_message_ptr& msg );
+      void on_hs_vote_message( const hs_vote_message_ptr& msg );
+      void on_hs_new_view_message( const hs_new_view_message_ptr& msg );
+      void on_hs_new_block_message( const hs_new_block_message_ptr& msg );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
       void start_expire_timer();
@@ -702,6 +718,12 @@ namespace eosio {
 
       bool process_next_block_message(uint32_t message_length);
       bool process_next_trx_message(uint32_t message_length);
+
+      bool process_next_hs_proposal_message(uint32_t message_length);
+      bool process_next_hs_vote_message(uint32_t message_length);
+      bool process_next_hs_new_view_message(uint32_t message_length);
+      bool process_next_hs_new_block_message(uint32_t message_length);
+
    public:
 
       bool populate_handshake( handshake_message& hello );
@@ -799,6 +821,11 @@ namespace eosio {
       void handle_message( const block_id_type& id, signed_block_ptr msg );
       void handle_message( const packed_transaction& msg ) = delete; // packed_transaction_ptr overload used instead
       void handle_message( packed_transaction_ptr msg );
+      void handle_message( const hs_vote_message_ptr& msg );
+      void handle_message( const hs_proposal_message_ptr& msg );
+      void handle_message( const hs_new_view_message_ptr& msg );
+      void handle_message( const hs_new_block_message_ptr& msg );
+
 
       void process_signed_block( const block_id_type& id, signed_block_ptr msg, block_state_ptr bsp );
 
@@ -876,6 +903,29 @@ namespace eosio {
          peer_dlog( c, "handle sync_request_message" );
          c->handle_message( msg );
       }
+
+      void operator()( const hs_vote_message_ptr& msg ) const {
+         // continue call to handle_message on connection strand
+         peer_dlog( c, "handle hs_vote_message_ptr" );
+         c->handle_message( msg );
+      }
+      void operator()( const hs_proposal_message_ptr& msg ) const {
+         // continue call to handle_message on connection strand
+         peer_dlog( c, "handle hs_proposal_message_ptr" );
+         c->handle_message( msg );
+      }
+
+      void operator()( const hs_new_view_message_ptr& msg ) const {
+         // continue call to handle_message on connection strand
+         peer_dlog( c, "handle hs_new_view_message_ptr" );
+         c->handle_message( msg );
+      }
+      void operator()( const hs_new_block_message_ptr& msg ) const {
+         // continue call to handle_message on connection strand
+         peer_dlog( c, "handle hs_new_block_message_ptr" );
+         c->handle_message( msg );
+      }
+
    };
 
 
@@ -1391,6 +1441,77 @@ namespace eosio {
       }
    };
 
+   struct hs_proposal_message_buffer_factory : public buffer_factory {
+
+      const send_buffer_type& get_send_buffer( const hs_proposal_message_ptr& sb ) {
+         if( !send_buffer ) {
+            send_buffer = create_send_buffer( sb );
+         }
+         return send_buffer;
+      }
+
+   private:
+
+      static std::shared_ptr<std::vector<char>> create_send_buffer( const hs_proposal_message_ptr& sb ) {
+         static_assert( hs_proposal_message_which == fc::get_index<net_message, hs_proposal_message>() );
+         fc_dlog( logger, "sending hs_proposal_message");
+         return buffer_factory::create_send_buffer( hs_proposal_message_which, *sb );
+      }
+   };
+
+   struct hs_vote_message_buffer_factory : public buffer_factory {
+
+      const send_buffer_type& get_send_buffer( const hs_vote_message_ptr& sb ) {
+         if( !send_buffer ) {
+            send_buffer = create_send_buffer( sb );
+         }
+         return send_buffer;
+      }
+
+   private:
+
+      static std::shared_ptr<std::vector<char>> create_send_buffer( const hs_vote_message_ptr& sb ) {
+         static_assert( hs_vote_message_which == fc::get_index<net_message, hs_vote_message>() );
+         fc_dlog( logger, "sending hs_vote_message");
+         return buffer_factory::create_send_buffer( hs_vote_message_which, *sb );
+      }
+   };
+
+   struct hs_new_view_message_buffer_factory : public buffer_factory {
+
+      const send_buffer_type& get_send_buffer( const hs_new_view_message_ptr& sb ) {
+         if( !send_buffer ) {
+            send_buffer = create_send_buffer( sb );
+         }
+         return send_buffer;
+      }
+
+   private:
+
+      static std::shared_ptr<std::vector<char>> create_send_buffer( const hs_new_view_message_ptr& sb ) {
+         static_assert( hs_new_view_message_which == fc::get_index<net_message, hs_new_view_message>() );
+         fc_dlog( logger, "sending hs_new_view_message");
+         return buffer_factory::create_send_buffer( hs_new_view_message_which, *sb );
+      }
+   };
+
+   struct hs_new_block_message_buffer_factory : public buffer_factory {
+
+      const send_buffer_type& get_send_buffer( const hs_new_block_message_ptr& sb ) {
+         if( !send_buffer ) {
+            send_buffer = create_send_buffer( sb );
+         }
+         return send_buffer;
+      }
+
+   private:
+
+      static std::shared_ptr<std::vector<char>> create_send_buffer( const hs_new_block_message_ptr& sb ) {
+         static_assert( hs_new_block_message_which == fc::get_index<net_message, hs_new_block_message>() );
+         fc_dlog( logger, "sending hs_new_block_message");
+         return buffer_factory::create_send_buffer( hs_new_block_message_which, *sb );
+      }
+   };
    struct trx_buffer_factory : public buffer_factory {
 
       /// caches result for subsequent calls, only provide same packed_transaction_ptr instance for each invocation.
@@ -2153,6 +2274,90 @@ namespace eosio {
       } );
    }
 
+   void dispatch_manager::bcast_hs_proposal_msg(const hs_proposal_message_ptr& msg) {
+      if( my_impl->sync_master->syncing_with_peer() ) return;
+
+      hs_proposal_message_buffer_factory buff_factory;
+
+      for_each_block_connection( [this, &msg, &buff_factory]( auto& cp ) {
+
+         if( !cp->current() ) return true;
+         send_buffer_type sb = buff_factory.get_send_buffer( msg );
+
+         cp->strand.post( [this, cp, sb{std::move(sb)}]() {
+            std::unique_lock<std::mutex> g_conn( cp->conn_mtx );
+            g_conn.unlock();
+
+            cp->enqueue_buffer( sb, no_reason );
+
+         });
+         return true;
+      } );
+   }
+
+   void dispatch_manager::bcast_hs_vote_msg(const hs_vote_message_ptr& msg) {
+      if( my_impl->sync_master->syncing_with_peer() ) return;
+
+      hs_vote_message_buffer_factory buff_factory;
+
+      for_each_block_connection( [this, &msg, &buff_factory]( auto& cp ) {
+
+         if( !cp->current() ) return true;
+         send_buffer_type sb = buff_factory.get_send_buffer( msg );
+
+         cp->strand.post( [this, cp, sb{std::move(sb)}]() {
+            std::unique_lock<std::mutex> g_conn( cp->conn_mtx );
+            g_conn.unlock();
+
+            cp->enqueue_buffer( sb, no_reason );
+
+         });
+         return true;
+      } );
+   }
+
+   void dispatch_manager::bcast_hs_new_block_msg(const hs_new_block_message_ptr& msg) {
+      if( my_impl->sync_master->syncing_with_peer() ) return;
+
+      hs_new_block_message_buffer_factory buff_factory;
+
+      for_each_block_connection( [this, &msg, &buff_factory]( auto& cp ) {
+
+         if( !cp->current() ) return true;
+         send_buffer_type sb = buff_factory.get_send_buffer( msg );
+
+         cp->strand.post( [this, cp, sb{std::move(sb)}]() {
+            std::unique_lock<std::mutex> g_conn( cp->conn_mtx );
+            g_conn.unlock();
+
+            cp->enqueue_buffer( sb, no_reason );
+
+         });
+         return true;
+      } );
+   }
+
+   void dispatch_manager::bcast_hs_new_view_msg(const hs_new_view_message_ptr& msg) {
+      if( my_impl->sync_master->syncing_with_peer() ) return;
+
+      hs_new_view_message_buffer_factory buff_factory;
+
+      for_each_block_connection( [this, &msg, &buff_factory]( auto& cp ) {
+
+         if( !cp->current() ) return true;
+         send_buffer_type sb = buff_factory.get_send_buffer( msg );
+
+         cp->strand.post( [this, cp, sb{std::move(sb)}]() {
+            std::unique_lock<std::mutex> g_conn( cp->conn_mtx );
+            g_conn.unlock();
+
+            cp->enqueue_buffer( sb, no_reason );
+
+         });
+         return true;
+      } );
+   }
+
    // called from c's connection strand
    void dispatch_manager::recv_block(const connection_ptr& c, const block_id_type& id, uint32_t bnum) {
       std::unique_lock<std::mutex> g( c->conn_mtx );
@@ -2575,7 +2780,24 @@ namespace eosio {
          } else if( which == packed_transaction_which ) {
             return process_next_trx_message( message_length );
 
+         } else if( which == hs_vote_message_which ) {
+            //ilog("process_next_message : process_next_hs_vote_message");
+            return process_next_hs_vote_message( message_length );
+
+         } else if( which == hs_proposal_message_which ) {
+            //ilog("process_next_message : process_next_hs_proposal_message");
+            return process_next_hs_proposal_message( message_length );
+
+         } else if( which == hs_new_view_message_which ) {
+            //ilog("process_next_message : process_next_hs_new_view_message");
+            return process_next_hs_new_view_message( message_length );
+
+         } else if( which == hs_new_block_message_which ) {
+            //ilog("process_next_message : process_next_hs_new_block_message");
+            return process_next_hs_new_block_message( message_length );
+
          } else {
+            //ilog("process_next_message : other");
             auto ds = pending_message_buffer.create_datastream();
             net_message msg;
             fc::raw::unpack( ds, msg );
@@ -2588,6 +2810,82 @@ namespace eosio {
          close();
          return false;
       }
+      return true;
+   }
+
+   bool connection::process_next_hs_vote_message(uint32_t message_length){
+
+      auto peek_ds = pending_message_buffer.create_peek_datastream();
+      unsigned_int which{};
+      fc::raw::unpack( peek_ds, which ); // throw away
+
+      hs_vote_message cm;
+      fc::raw::unpack( peek_ds, cm );
+
+      auto ds = pending_message_buffer.create_datastream();
+      fc::raw::unpack( ds, which );
+      shared_ptr<hs_vote_message> ptr = std::make_shared<hs_vote_message>();
+      fc::raw::unpack( ds, *ptr );
+
+      handle_message(std::move( ptr ) );
+
+      return true;
+   }
+
+   bool connection::process_next_hs_proposal_message(uint32_t message_length){
+
+      auto peek_ds = pending_message_buffer.create_peek_datastream();
+      unsigned_int which{};
+      fc::raw::unpack( peek_ds, which ); // throw away
+
+      hs_proposal_message cm;
+      fc::raw::unpack( peek_ds, cm );
+
+      auto ds = pending_message_buffer.create_datastream();
+      fc::raw::unpack( ds, which );
+      shared_ptr<hs_proposal_message> ptr = std::make_shared<hs_proposal_message>();
+      fc::raw::unpack( ds, *ptr );
+
+      handle_message(std::move( ptr ) );
+
+      return true;
+   }
+
+   bool connection::process_next_hs_new_view_message(uint32_t message_length){
+
+      auto peek_ds = pending_message_buffer.create_peek_datastream();
+      unsigned_int which{};
+      fc::raw::unpack( peek_ds, which ); // throw away
+
+      hs_new_view_message cm;
+      fc::raw::unpack( peek_ds, cm );
+
+      auto ds = pending_message_buffer.create_datastream();
+      fc::raw::unpack( ds, which );
+      shared_ptr<hs_new_view_message> ptr = std::make_shared<hs_new_view_message>();
+      fc::raw::unpack( ds, *ptr );
+
+      handle_message(std::move( ptr ) );
+
+      return true;
+   }
+
+   bool connection::process_next_hs_new_block_message(uint32_t message_length){
+
+      auto peek_ds = pending_message_buffer.create_peek_datastream();
+      unsigned_int which{};
+      fc::raw::unpack( peek_ds, which ); // throw away
+
+      hs_new_block_message cm;
+      fc::raw::unpack( peek_ds, cm );
+
+      auto ds = pending_message_buffer.create_datastream();
+      fc::raw::unpack( ds, which );
+      shared_ptr<hs_new_block_message> ptr = std::make_shared<hs_new_block_message>();
+      fc::raw::unpack( ds, *ptr );
+
+      handle_message(std::move( ptr ) );
+
       return true;
    }
 
@@ -3154,6 +3452,45 @@ namespace eosio {
       }
    }
 
+   void connection::handle_message( const hs_vote_message_ptr& msg ) {
+      //peer_ilog( this, "received confirmation message" );
+      //ilog("received confirmation message");
+
+      if (my_impl->producer_plug != nullptr){
+         my_impl->producer_plug->notify_hs_vote_message(msg);
+      }
+
+   }
+
+   void connection::handle_message( const hs_proposal_message_ptr& msg ) {
+      //peer_ilog( this, "received consensus message" );
+      //ilog("received consensus message");
+
+      if (my_impl->producer_plug != nullptr){
+         my_impl->producer_plug->notify_hs_proposal_message(msg);
+      }
+
+   }
+
+   void connection::handle_message( const hs_new_view_message_ptr& msg ) {
+      //peer_ilog( this, "received new view message" );
+      //ilog("received new view message");
+
+      if (my_impl->producer_plug != nullptr){
+         my_impl->producer_plug->notify_hs_new_view_message(msg);
+      }
+
+   }
+
+   void connection::handle_message( const hs_new_block_message_ptr& msg ) {
+      //peer_ilog( this, "received new block message" );
+      //ilog("received new block message");
+
+      if (my_impl->producer_plug != nullptr){
+         my_impl->producer_plug->notify_hs_new_block_message(msg);
+      }
+
+   }
    size_t calc_trx_size( const packed_transaction_ptr& trx ) {
       return trx->get_estimated_size();
    }
@@ -3491,6 +3828,46 @@ namespace eosio {
    void net_plugin_impl::on_accepted_block(const block_state_ptr& ) {
       on_pending_schedule(chain_plug->chain().pending_producers());
       on_active_schedule(chain_plug->chain().active_producers());
+   }
+
+   // called from application thread
+   void net_plugin_impl::on_hs_proposal_message( const hs_proposal_message_ptr& msg ){
+      //ilog("network plugin received consensus message from application");
+
+      dispatcher->strand.post( [this, msg]() {
+         dispatcher->bcast_hs_proposal_msg( msg );
+      });
+
+   }
+
+   // called from application thread
+   void net_plugin_impl::on_hs_vote_message( const hs_vote_message_ptr& msg ){
+      //ilog("network plugin received confirmation message from application");
+
+      dispatcher->strand.post( [this, msg]() {
+         dispatcher->bcast_hs_vote_msg( msg );
+      });
+
+   }
+
+   // called from application thread
+   void net_plugin_impl::on_hs_new_view_message( const hs_new_view_message_ptr& msg ){
+      //ilog("network plugin received new_view message from application");
+
+      dispatcher->strand.post( [this, msg]() {
+         dispatcher->bcast_hs_new_view_msg( msg );
+      });
+
+   }
+
+   // called from application thread
+   void net_plugin_impl::on_hs_new_block_message( const hs_new_block_message_ptr& msg ){
+      //ilog("network plugin received new_block message from application");
+
+      dispatcher->strand.post( [this, msg]() {
+         dispatcher->bcast_hs_new_block_msg( msg );
+      });
+
    }
 
    // called from application thread
@@ -3856,6 +4233,18 @@ namespace eosio {
          cc.irreversible_block.connect( [my = my]( const block_state_ptr& s ) {
             my->on_irreversible_block( s );
          } );
+         cc.new_hs_proposal_message.connect( [my = my]( const hs_proposal_message_ptr& s ) {
+            my->on_hs_proposal_message( s );
+         } );
+         cc.new_hs_vote_message.connect( [my = my]( const hs_vote_message_ptr& s ) {
+            my->on_hs_vote_message( s );
+         } );
+         cc.new_hs_new_view_message.connect( [my = my]( const hs_new_view_message_ptr& s ) {
+            my->on_hs_new_view_message( s );
+         } );
+         cc.new_hs_new_block_message.connect( [my = my]( const hs_new_block_message_ptr& s ) {
+            my->on_hs_new_block_message( s );
+         } );
       }
 
       {
@@ -3906,7 +4295,7 @@ namespace eosio {
       try {
          fc_ilog( logger, "shutdown.." );
 
-         my->plugin_shutdown();   
+         my->plugin_shutdown();
          app().executor().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
          fc_ilog( logger, "exit shutdown" );
       }

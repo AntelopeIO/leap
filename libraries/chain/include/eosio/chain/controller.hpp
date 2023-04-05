@@ -5,6 +5,7 @@
 #include <eosio/chain/genesis_state.hpp>
 #include <chainbase/pinnable_mapped_file.hpp>
 #include <boost/signals2/signal.hpp>
+#include <eosio/chain/hotstuff.hpp>
 
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/chain/account_object.hpp>
@@ -165,6 +166,12 @@ namespace eosio { namespace chain {
          block_state_ptr finalize_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
+         
+         void commit_hs_proposal_msg(hs_proposal_message_ptr msg);
+         void commit_hs_vote_msg(hs_vote_message_ptr msg);
+
+         void commit_hs_new_view_msg(hs_new_view_message_ptr msg);
+         void commit_hs_new_block_msg(hs_new_block_message_ptr msg);
 
          // thread-safe
          std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
@@ -329,6 +336,10 @@ namespace eosio { namespace chain {
          signal<void(const transaction_metadata_ptr&)> accepted_transaction;
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
          signal<void(const int&)>                      bad_alloc;
+         signal<void(const hs_proposal_message_ptr&)>    new_hs_proposal_message;
+         signal<void(const hs_vote_message_ptr&)> new_hs_vote_message;
+         signal<void(const hs_new_view_message_ptr&)>    new_hs_new_view_message;
+         signal<void(const hs_new_block_message_ptr&)> new_hs_new_block_message;
 
          /*
          signal<void()>                                  pre_apply_block;

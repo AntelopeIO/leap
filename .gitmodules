@@ -31,3 +31,6 @@
 [submodule "libraries/cli11/cli11"]
 	path = libraries/cli11/cli11
 	url = https://github.com/AntelopeIO/CLI11.git
+[submodule "libraries/libfc/libraries/bls-signatures"]
+        path = libraries/libfc/libraries/bls-signatures
+        url = https://github.com/systemzax/bls-signatures

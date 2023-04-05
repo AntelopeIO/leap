@@ -1,0 +1,663 @@
+/* 
+
+	Antelope + Hotstuff = Roasted Antelope
+
+	Roasted Antelope is a proposal for an upgrade to the Antelope consensus model, based on the Hotstuff protocol. This document defines extended pseudocode for this upgrade, and should be relatively straightforward to plug into the existing Antelope codebase.
+
+	Notes: This pseudocode is based on algorithms 4 (safety) & 5 (liveness) of the "HotStuff: BFT Consensus in the Lens of Blockchain" paper.
+
+	There are a few minor modifications to the pacemaker algorithm implementation, allowing to decompose the role of block producer into the 3 sub-roles of block proposer, block finalizer and view leader. 
+
+	This pseudocode handles each role separately. A single entity may play multiple roles.
+
+	This pseudocode also covers changes to the finalizer set, which include transition from and into dual_set mode.
+
+	Under dual_set mode, the incumbent and the incoming finalizer sets are jointly confirming views.
+
+	As is the case with the algorithm 4, the notion of view is almost completely decoupled from the safety protocol, and is aligned to the liveness protocol instead. 
+
+*/
+
+// Data structures 
+
+//evolved from producer_schedule
+struct schedule(){
+	
+	//currently, block_proposers, block_finalizers and view_leaders sets are block producers. A future upgrade can further define the selection process for each of these roles, and result in distinct sets of variable size without compromising the protocol's safety
+
+	block_proposers = [...<block proposers>];
+
+	block_finalizers = [...<block finalizers>] //current / incumbent block finalizers set
+	incoming_block_finalizers = [...<block finalizers>]; //incoming block finalizers set, null if operating in single_set mode
+
+	view_leaders = [...<view leaders>];
+
+	current_leader //defined by pacemaker, abstracted;
+	current_proposer //defined by pacemaker, abstracted;
+
+	get_proposer(){return current_proposer} ;
+	get_leader(){return current_leader} ;
+
+	//returns a list of incumbent finalizers
+	get_finalizers(){return block_finalizers} ;
+
+	//returns a combined list of incoming block_finalizers
+	get_incoming_finalizers(){return incoming_block_finalizers} ;
+
+}
+
+//quorum certificate
+struct qc(){
+	
+	//block candidate ID, acts as node message
+	block_id 
+
+	//aggregate signature of finalizers part of this qc
+	agg_sig
+
+	//data structure which includes the list of signatories included in the aggregate, (for easy aggregate signature verification). It can also support dual_set finalization mode
+	sig_bitset
+
+	//aggregate signature of incoming finalizers part of this qc, only present if we are operating in dual_set finalization mode
+	<optional> incoming_agg_sig;
+
+	//data structure which includes the list of incoming signatories included in the aggregate (for easy verification), only present if we are operating in dual_set finalization mode
+	<optional> incoming_sig_bitset;
+
+	//get block height from block_id
+	get_height() = <block height>; //abstracted [...]
+
+	//check if a quorum of valid signatures from active (incumbent) finalizers has been met according to me._threshold
+	quorum_met() = <true or false>; //abstracted [...]
+
+	//check if a quorum of valid signatures from both active (incumbent) finalizers AND incoming finalizers has been met. Quorums are calculated for each of the incumbent and incoming sets separately, and both sets must independently achieve quorum for this function to return true
+	extended_quorum_met() = <true or false>;//abstracted [...]
+
+}
+
+//proposal
+struct block_candidate(){
+	
+	//previous field of block header
+	parent
+
+	//list of actions to be executed
+	cmd 
+
+	//qc justification for this block
+	justify
+
+	//block id, which also contains block height
+	block_id
+
+	//return block height from block_id
+	get_height() =  <block height>; //abstracted [...];
+
+	//return the actual block this candidate wraps around, including header + transactions / actions
+	get_block() =  <block>; //abstracted [...];
+
+}
+
+//available msg types
+enum msg_type {
+	new_view //used when leader rotation is required
+	new_block //used when proposer is different from leader
+	qc 	//progress
+	vote //vote by replicas
+}
+
+// Internal book keeping variables
+
+//Hotstuff protocol
+
+me._v_height; //height of last voted node
+
+me._b_lock; //locked block_candidate
+me._b_exec; //last committed block_candidate
+me._b_leaf; //current block_candidate
+
+me._high_qc; //highest known QC
+
+me._dual_set_height; //dual set finalization mode active as of this block height, -1 if operating in single_set mode. A finalizer set change is successfully completed when a block is committed at the same or higher block height
+
+//chain data
+
+me._b_temporary; //temporary storage of received block_candidates. Pruning rules are abstracted
+
+me._schedule //current block producer schedule, mapped to new structure
+
+
+//global configuration
+
+me._block_interval; //expected block time interval, default is 0.5 second
+me._blocks_per_round; //numbers of blocks per round, default is 12
+
+me._threshold; //configurable quorum threshold
+
+
+//network_plugin protocol hooks and handlers
+
+//generic network message generation function
+network_plugin.new_message(type, ...data){
+	
+	new_message.type = type;
+	new_message[...] = ...data;
+
+	return new_message;
+}
+
+network_plugin.broadcast(msg){
+
+	//broadcasting to other nodes, replicas, etc.
+
+	//nodes that are not part of consensus making (not proposer, finalizer or leader) relay consensus messages, but take no action on them
+
+	//abstracted [...] 
+
+}
+
+//on new_block message received event handler (coming from a proposer that is not leader)
+network_plugin.on_new_block_received(block){
+	
+	//abstracted [...] 
+
+	pacemaker.on_beat(block); //check if we are leader and need to create a view for this block
+
+}
+
+//on vote received event handler
+network_plugin.on_vote_received(msg){
+	
+	//abstracted [...] 
+
+	hotstuff.on_vote_received(msg);
+
+}
+
+
+
+
+
+//Pacemaker algorithm, regulating liveness
+
+
+//on_beat(block) is called in the following cases :
+//1) As a block proposer, when we generate a block_candidate
+//2) As a view leader, when we receive a block_candidate from a proposer
+pacemaker.on_beat(block){
+
+	am_i_proposer = me._schedule.get_proposer() == me; //am I proposer?
+	am_i_leader = me._schedule.get_leader() == me; //am I leader?
+
+	if (!am_i_proposer && !am_i_leader) return; //replicas don't have to do anything here, unless they are also leader and/or proposer
+
+	block_candidate = new_proposal_candidate(block);
+	
+	//if i'm the leader
+	if (am_i_leader){
+		
+		if (!am_i_proposer){
+
+			//block validation hook
+			//abstracted [...]
+			
+			//If I am the leader but not the proposer, check if proposal is safe.
+			if(!hotstuff.is_node_safe(block_candidate)) return;
+	
+		}
+
+		me._b_leaf = block_candidate; 
+
+	}
+ 	
+ 	if (am_i_leader) msg = new_message(qc, block_candidate); //if I'm leader, send qc message
+ 	else msg = new_message(new_block, block_candidate); //if I'm only proposer, send new_block message
+
+	network_plugin.broadcast(msg); //broadcast message
+
+}
+
+//update high qc
+pacemaker.update_high_qc(new_high_qc){
+	
+	// if new high QC is higher than current, update to new
+	if (new_high_qc.get_height()>me._high_qc.block.get_height()){
+
+		me._high_qc = new_high_qc;
+		me._b_leaf = me._b_temporary.get(me._high_qc.block_id);
+
+	} 
+
+}
+
+pacemaker.on_msg_received(msg){
+
+	//p2p message relay logic
+	//abstracted [...] 
+
+	if (msg.type == new_view){
+		pacemaker.update_high_qc(msg.high_qc);
+	}
+	else if (msg.type == qc){
+		hotstuff.on_proposal_received(msg);
+	}
+	else if (msg.type == vote){
+		hotstuff.on_vote_received(msg);
+	}
+}
+
+//returns the proposer, according to schedule
+pacemaker.get_proposer(){
+	return schedule.get_proposer(); //currently active producer is proposer
+}
+
+//returns the leader, according to schedule
+pacemaker.get_leader(){
+	return schedule.get_leader(); //currently active producer is leader
+}
+
+
+/*
+
+	Corresponds to onNextSyncView in hotstuff paper. Handles both leader rotations as well as timeout if leader fails to progress
+
+	Note : for maximum liveness, on_leader_rotate() should be called by replicas as early as possible when either :
+	 
+	 1) no more blocks are expected before leader rotation occurs (eg: after receiving the final block expected from the current leader before the handoff) OR
+
+	 2) if we reach (me._block_interval * (me._blocks_per_round - 1)) time into a specific view, and we haven't received the expected second to last block for this round.
+
+	 In scenarios where liveness is maintained, this relieves an incoming leader from having to wait until it has received n - f new_view messages at the beginning of a new view since it will already have the highest qc.
+
+	 In scenarios where liveness has been lost due to f + 1 faulty replicas, progress is impossible, so the safety rule rejects attempts at creating a qc until liveness has been restored. 
+
+*/
+
+pacemaker.on_leader_rotate(){
+
+	msg = new_message(new_view, me._high_qc); //add highest qc
+
+	network_plugin.broadcast(msg); //broadcast message
+
+}
+
+
+
+//producer_plugin hook for block generation
+
+//on block produced event handler (block includes signature of proposer)
+producer_plugin.on_block_produced(block){
+	
+	//generate a new block extending from me._b_leaf
+	//abstracted [...] 
+
+	/*
+
+		Include the highest qc we recorded so far. Nodes catching up or light clients have a proof that the block referred to as high qc is irreversible. 
+	
+		We can merge the normal agg_sig / sig_bitset with the incoming_agg_sig / incoming_sig_bitset if the qc was generated in dual_set mode before we include the qc into the block, to save space
+
+	*/
+
+	block.qc = me._high_qc;
+
+	pacemaker.on_beat(block);
+	
+}
+
+
+
+//Hotstuff algorithm, regulating safety
+
+hotstuff.new_proposal_candidate(block) {
+	
+	b.parent = block.header.previous;
+	b.cmd = block.actions;
+	b.justify = me._high_qc; //or null if no _high_qc upon activation or chain launch
+	b.block_id = block.header.block_id();
+
+	//return block height from block_id
+	b.get_height() = //abstracted [...];
+
+	return b;
+}
+
+//safenode predicate
+hotstuff.is_node_safe(block_candidate){
+
+	monotony_check = false;
+	safety_check = false;
+	liveness_check = false;
+
+	if (block_candidate.get_height() > me._v_height){
+		monotony_check = true;
+	}
+	
+	if (me._b_lock){
+
+		//Safety check : check if this proposal extends the chain I'm locked on
+		if (extends(block_candidate,  me._b_lock)){
+			safety_check = true;
+		}
+
+		//Liveness check : check if the height of this proposal's justification is higher than the height of the proposal I'm locked on. This allows restoration of liveness if a replica is locked on a stale block.
+		if (block_candidate.justify.get_height() >  me._b_lock.get_height())){
+			liveness_check = true;
+		}
+
+	}
+	else { 
+
+		//if we're not locked on anything, means the protocol just activated or chain just launched
+		liveness_check = true;
+		safety_check = true;
+	}
+
+	//Lemma 2
+	return monotony_check && (liveness_check || safety_check); //return true if monotony check and at least one of liveness or safety check evaluated successfully
+
+}
+
+//verify if b_descendant extends a branch containing b_ancestor
+hotstuff.extends(b_descendant, b_ancestor){
+		
+	//in order to qualify as extending b_ancestor, b_descendant must descend from b_ancestor
+	//abstracted [...]
+
+	return true || false;
+
+}
+
+//creates or get, then return the current qc for this block candidate
+hotstuff.create_or_get_qc(block_candidate){
+	
+	//retrieve or create unique QC for this stage, primary key is block_id
+	//abstracted [...]
+
+	return qc; // V[]
+
+}
+
+//add a signature to a qc
+hotstuff.add_to_qc(qc, finalizer, sig){
+	
+	//update qc reference
+
+	// V[b] 
+
+	if (schedule.get_finalizers.contains(finalizer) && !qc.sig_bitset.contains(finalizer)){
+		qc.sig_bitset += finalizer;
+		qc.agg_sig += sig;
+	}
+	
+	if (schedule.get_incoming_finalizers.contains(finalizer) && !qc.incoming_sig_bitset.contains(finalizer)){
+		qc.incoming_sig_bitset += finalizer;
+		qc.incoming_agg_sig += sig;
+	}
+
+}
+
+//when we receive a proposal
+hotstuff.on_proposal_received(msg){
+	
+	//block candidate validation hook (check if block is valid, etc.), return if not 
+	//abstracted [...]
+
+	/*
+
+		First, we verify if we have already are aware of a proposal at this block height
+
+	*/
+
+	//Lemma 1
+	stored_block = me._b_temporary.get(msg.block_candidate.get_height());
+
+	//check if I'm finalizer, in which case I will optionally sign and update my internal state
+	
+	am_i_finalizer = get_finalizers.contains(me) || get_incoming_finalizers(me);
+
+	skip_sign = false;
+
+	//If we already have a proposal at this height, we must not double sign so we skip signing, else we store the proposal and and we continue
+	if (stored_block) skip_sign = true;
+	else me._b_temporary.add(msg.block_candidate); //new proposal 
+
+	//if I am a finalizer for this proposal and allowed to sign, test safenode predicate for possible vote
+	if (am_i_finalizer && !skip_sign && hotstuff.is_node_safe(msg.block_candidate)){
+		
+		me._v_height = msg.block_candidate.get_height();
+
+		/* 
+			Sign message.	
+
+			In Hotstuff, we need to sign a tuple of (msg.view_type, msg.view_number and msg.node).
+
+			In our implementation, the view_type is generic, and the view_number is contained in the block_id, which is also the message.
+
+			Therefore, we can ensure uniqueness by replacing the view_type part of the tuple with msg.block_candidate.justify.agg_sig.
+
+			The digest to sign now becomes the tuple (msg.block_candidate.justify.agg_sig,  msg.block_candidate.block_id).
+
+		*/
+
+		sig = <signature over tuple of (msg.block_candidate.justify.agg_sig, msg.block_candidate.block_id);  //abstracted [...]
+
+		finalizer = me;
+
+		//Lemma 4
+		msg = new_message(vote_type_msg, block_candidate, sig, finalizer); //cast my vote
+
+		network_plugin.broadcast(msg); //broadcast message
+		
+	}
+
+	hotstuff.update(msg.block_candidate); 
+
+}
+
+//when leader receives a vote on a proposal
+hotstuff.on_vote_received(msg){
+	
+	//check for duplicate or invalid vote, return in either case
+	//abstracted [...]
+
+	am_i_leader = me._schedule.get_leader() == me; //am I leader?
+
+	if(!am_i_leader) return;
+
+	//only leader need to take action on votes
+
+	qc = hotstuff.create_or_get_qc( msg.block_candidate); //qc reference
+
+	hotstuff.add_to_qc(qc, msg.finalizer, msg.sig);
+
+	if (me._dual_set_height != -1 && msg.block_candidate.get_height()>= _dual_set_height){
+		quorum_met = qc.extended_quorum_met();
+	}
+	else quorum_met = qc.quorum_met();
+
+	if (quorum_met){
+	
+		pacemaker.update_high_qc(qc);
+
+	}
+
+}
+
+//internal state update of replica
+hotstuff.update(block_candidate){
+	
+	b_new = block_candidate;
+
+	b2 = me._b_temporary.get(b_new.justify.block_id); //first phase, prepare
+	b1 = me._b_temporary.get(b2.justify.block_id); //second phase, precommit
+	b = me._b_temporary.get(b1.justify.block_id); //third phase, commit
+
+	//if a proposed command for the transition of the finalizer set is included in b_new's commands (for which we don't have a qc). Nothing special to do, but can be a useful status to be aware of for external APIs.
+	new_proposed_transition = <true or false>; //abstracted [...]
+
+	//if a transition command of the finalizer set is included in b2's commands (on which we now have a qc), we now know n - f replicas approved the transition. If no other transition is currently pending, it becomes pending.
+	new_pending_transition = <true or false>; //abstracted [...]
+
+	if (new_pending_transition){
+		me._dual_set_height = b_new.get_height() + 1; //if this block proves a quorum on a finalizer set transition, we now start using the extended_quorum_met() predicate until the transition is successfully completed
+	}
+
+	//precommit phase on b2
+	pacemaker.update_high_qc(block_candidate.justify);
+
+	if (b1.get_height() > me._b_lock.get_height()){
+		me._b_lock = b1; //commit phase on b1
+	}
+
+	//direct parent relationship verification 
+	if (b2.parent == b1 && b1.parent == b){
+
+		//if we are currently operating in dual set mode reaching this point, and the block we are about to commit has a height higher or equal to me._dual_set_height, it means we have reached extended quorum on a view ready to be committed, so we can transition into single_set mode again, where the incoming finalizer set becomes the active finalizer set
+		if (me._dual_set_height != -1 && b.get_height() >= me._dual_set_height){
+
+			//sanity check to verify quorum on justification for b (b1), should always evaluate to true
+			if (b1.justify.extended_quorum_met()){
+
+				//reset internal state to single_set mode, with new finalizer set
+				me._schedule.block_finalizers = me_.schedule.incoming_finalizers;
+				me_.schedule.incoming_finalizers = null;
+				me._dual_set_height = -1;
+
+			}
+
+		}
+		
+		hotstuff.commit(b);
+		
+		me._b_exec = b; //decide phase on b
+
+	}
+
+}
+
+//commit block and execute its actions against irreversible state
+hotstuff.commit(block_candidate){
+
+	//check if block_candidate already committed, if so, return because there is nothing to do
+
+	//can only commit newer blocks
+	if (me._b_exec.get_height() < block_candidate.get_height()){
+		
+		parent_b = _b_temporary.get(block_candidate.parent);
+
+		hotstuff.commit(parent_b); //recursively commit all non-committed ancestor blocks sequentially first
+
+		//execute block cmd
+		//abstracted [...]
+
+	}
+}
+
+
+/*
+
+	Proofs :
+
+	Safety :
+
+		Lemma 1. Let b and w be two conflicting block_candidates such that b.get_height() = w.get_height(), then they cannot both have valid quorum certificates.
+
+		Proof. Suppose they can, so both b and w receive 2f + 1 votes, among which there are at least f + 1 honest replicas
+		voting for each block_candidate, then there must be an honest replica that votes for both, which is impossible because b and w
+		are of the same height.
+
+		This is enforced by the function labeled "Lemma 1".
+
+		Lemma 2. Let b and w be two conflicting block_candidates. Then they cannot both become committed, each by an honest replica.
+
+		Proof. We prove this lemma by contradiction. Let b and w be two conflicting block_candidates at different heights.
+		Assume during an execution, b becomes committed at some honest replica via the QC Three-Chain b.
+
+		For this to happen, b must be the parent and justification of b1, b1 must be the parent and justification of b2 and b2 must be the justification of a new proposal b_new.
+
+		Likewise w becomes committed at some honest replica via the QC Three-Chain w.
+
+		For this to happen, w must be the parent and justification of w1, w1 must be the parent and justification of w2 and w2 must be the justification of a new proposal w_new.
+
+		By lemma 1, since each of the block_candidates b, b1, b2, w, w1, w2 have QCs, then without loss of generality, we assume b.get_height() > w2.get_height().
+
+		We now denote by qc_s the QC for a block_candidate with the lowest height larger than w2.get_height(), that conflicts with w.
+
+		Assuming such qc_s exists, for example by being the justification for b1. Let r denote a correct replica in the intersection of w_new.justify and qc_s. By assumption of minimality of qc_s, the lock that r has on w is not changed before qc_s is formed. Now, consider the invocation of on_proposal_received with a message carrying a conflicting block_candidate b_new such that b_new.block_id = qc_s.block_id. By assumption, the condition on the lock (see line labeled "Lemma 2") is false.
+
+		On the other hand, the protocol requires t = b_new.justifty to be an ancestor of b_new. By minimality of qc_s, t.get_height() <= w2.get_height(). Since qc_s.block_id conflicts with w.block_id, t cannot be any of w, w1 or w2. Then, t.get_height() < w.get_height() so the other half of the disjunct is also false. Therefore, r will not vote for b_new, contradicting the assumption of r.
+
+		Theorem 3. Let cmd1 and cmd2 be any two commands where cmd1 is executed before cmd2 by some honest replica, then any honest replica that executes cmd2 must execute cm1 before cmd2.
+
+		Proof. Denote by w the node that carries cmd1, b carries cmd2. From Lemma 1, it is clear the committed nodes are at distinct heights. Without loss of generality, assume w.get_height() < b.height(). The commitment of w and b are handled by commit(w1) and commit(b1) in update(), where w is an ancestor of w1 and b is an ancestor of b1. According to Lemma 2, w1 must not conflict with b1, so w does not conflict with b. Then, w is an ancestor of b, and when any honest replica executes b, it must first execute w by the recursive logic in commit().
+
+	Liveness :
+
+		In order to prove liveness, we first show that after GST, there is a bounded duration T_f such that if all correct replicas remain in view v during T_f and the leader for view v is correct, then a decision is reached. We define qc_1 and qc_2 as matching QCs if qc_1 and qc_2 are both valid and qc_1.block_id = qc_2.block_id.
+
+		Lemma 4. If a correct replica is locked such that me._b_lock.justify = generic_qc_2, then at least f + 1 correct replicas voted for some generic_qc_1 matching me._b_lock.justify.
+
+		Proof. Suppose replica r is locked on generic_qc_2. Then, (n-f) votes were cast for the matching generic_qc_1 in an earlier phase (see line labeled "Lemma 4"), out of which at least f + 1 were from correct replicas.
+
+		Theorem 5. After GST, there exists a bounded time period T_f such that if all correct replicas remain in view v during
+		T_f and the leader for view v is correct, then a decision is reached.
+
+		Proof. Starting in a new view, the leader has collected (n − f) new_view or vote messages and calculates its high_qc before
+		broadcasting a qc message. Suppose among all replicas (including the leader itself), the highest kept lock
+		is me._b_lock.justify = generic_qc_new_2.
+
+		By Lemma 4, we know there are at least f + 1 correct replicas that voted for a generic_qc_new_1 matching generic_qc_new_2, and have already sent them to the leader in their new_view or vote messages. Thus, the leader must learn a matching generic_qc_new_2 in at least one of these new_view or vote messages and use it as high_qc in its initial qc message for this view. By the assumption, all correct replicas are synchronized in their view and the leader is non-faulty. Therefore, all correct replicas will vote at a specific height, since in is_node_safe(), the condition on the line labeled "Liveness check" is satisfied. This is also the case if the block_id in the message conflicts with a replica’s stale me._b_lock.justify.block_id, such that the condition on the line labeled "Safety check" is evaluated to false. 
+
+		Then, after the leader has a valid generic_qc for this view, all replicas will vote at all the following heights, leading to a new commit decision at every step. After GST, the duration T_f for the steps required to achieve finality is of bounded length.
+
+		The protocol is Optimistically Responsive because there is no explicit “wait-for-∆” step, and the logical disjunction in is_node_safe() is used to override a stale lock with the help of the Three-Chain paradigm.
+
+	Accountability and finality violation :
+
+		Let us define b_descendant as a descendant of b_root, such that hotstuff.extends(b_descendant, b_root) returns true.
+
+		Suppose b_descendant's block header includes a high_qc field representing a 2f + 1 vote on b_root. When we become aware of a new block where the high_qc points to b_descendant or to one of b_descendant's descendants, we know b_root, as well as all of b_root's ancestors, have been committed and are final.
+
+		Theorem 6. Let b_root and w_root be two conflicting block_candidates of the same height, such that hotstuff.extends(b_root, w_root) and hotstuff.extends(w_root, b_root) both return false, and that b_root.get_height() == w_root.get_height(). Then they cannot each have a valid quorum certificate unless a finality violation has occurred. In the case of such finality violation, any party in possession of b_root and w_root would be able to prove complicity or exonerate block finalizers having taken part or not in causing the finality violation.
+
+		Proof. Let b_descendant and w_descendant be descendants of respectively b_root and w_root, such that hotstuff.extends(b_descendant, b_root) and hotstuff.extends(w_descendant, w_root) both return true.
+
+		By Lemma 1, we know that a correct replica cannot sign two conflicting block candidates at the same height.
+
+		For each of b_root and w_root, we can identify and verify the signatures of finalizers, by ensuring the justification's agg_sig matches the aggregate key calculated from the sig_bitset and the schedule.
+
+		Therefore, for b_root and w_root to both be included as qc justification into descendant blocks, at least one correct replica must have signed two vote messages on conflicting block candidates at the same height, which is impossible due to the checks performed in the function with comment "Lemma 1". Such an event would be a finality violation.
+
+		For a finality violation to occur, the intersection of the finalizers that have voted for both b_root and w_root, as evidenced by the high_qc of b_descendant and w_descendant must represent a minimum of f + 1 faulty nodes.
+
+		By holding otherwise valid blocks where a qc for b_root and w_root exist, the finality violation can be proved trivially, simply by calculating the intersection and the symmetrical difference of the finalizer sets having voted for these two proposals. The finalizers contained in the intersection can therefore be blamed for the finality violation. The symmetric difference of finalizers that have voted for either proposal but not for both can be exonerated from wrong doing, thus satisfying the Accountability property requirement.
+
+	Finalizer set transition (safety proof) :
+
+		Replicas can operate in either single_set or dual_set validation mode. In single_set mode, quorum is calculated and evaluated only for the active finalizer set. In dual_set mode, independant quorums are calculated over each of the active (incumbent) finalizer set and the incoming finalizer set, and are evaluated separately. 
+
+		Let us define active_set as the active finalizer set, as determined by the pacemaker at any given point while a replica is operating in single_set mode. The active_set is known to all active replicas that are in sync. While operating in single_set mode, verification of quorum on proposals is achieved through the use of the active_set.quorum_met() predicate.
+
+		Let us define incumbent_set and incoming_set as, respectively, the previously active_set and a new proposed set of finalizers, starting at a point in time when a replica becomes aware of a quorum on a block containing a finalizer set transition proposal. This triggers the transition into dual_set mode for this replica.
+
+		As the replica is operating in dual_set mode, the quorum_met() predicate used in single_set mode is temporarily replaced with the extended_quorum_met() predicate, which only returns true if (incumbent_set.quorum_met() AND incoming_set.quorum_met()).
+
+		As we demonstrated in Lemma 1, Lemma 2 and Theorem 3, the protocol is safe when n - f correct replicas achieve quorum on proposals.
+
+		Therefore, no safety is lost as we are transitioning into dual_set mode, since this transition only adds to the quorum constraints guaranteeing safety. However, this comes at the cost of decreased plausible liveness, because of the additional constraint of also requiring the incoming finalizer set to reach quorum in order to progress. //todo : discuss possible recovery from incoming finalizer set liveness failure
+		
+		Theorem 7. A replica can only operate in either single_set mode or in dual_set mode. While operating in dual_set mode, the constraints guaranteeing safety of single_set mode still apply, and thus the dual_set mode constraints guaranteeing safety can only be equally or more restrictive than when operating in single_set mode.
+
+		Proof. Suppose a replica is presented with a proposal b_new, which contains a qc on a previous proposal b_old such that hotstuff.extends(b_new, b_old) returns true, and that the replica could operate in both single_set mode and dual_set mode at the same time, in such a way that active_set == incumbent_set and that an unknown incoming_set also exists. 
+
+		As it needs to verify the qc, the replica invokes both quorum_met() and extended_quorum_met() predicates.
+
+		It follows that, since active_set == incumbent_set, and that active_set.quorum_met() is evaluated in single_set mode, and incumbent_set.quorum_met() is evaluated as part of the extended_quorum_met() predicate in dual_set mode, the number of proposals where (incumbent_set.quorum_met() AND incoming_set.quorum_met()) is necessarily equal or smaller than the number of proposals where active_set.quorum_met(). In addition, any specific proposal where active_set.quorum_met() is false would also imply (incumbent_set.quorum_met() AND incoming_set.quorum_met()) is false as well.
+
+		Therefore, the safety property is not weakened while transitioning into dual_set mode.
+
+*/
+
+
+

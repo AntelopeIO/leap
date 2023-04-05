@@ -12,6 +12,7 @@ const static auto reversible_blocks_dir_name = "reversible";
 
 const static auto default_state_dir_name     = "state";
 const static auto forkdb_filename            = "fork_db.dat";
+const static auto qcdb_filename            = "qc_db.dat";
 const static auto default_state_size            = 1*1024*1024*1024ll;
 const static auto default_state_guard_size      =    128*1024*1024ll;
 

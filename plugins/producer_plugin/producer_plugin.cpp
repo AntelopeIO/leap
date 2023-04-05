@@ -30,6 +30,8 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/signals2/connection.hpp>
 
+#include <unistd.h>
+
 namespace bmi = boost::multi_index;
 using bmi::indexed_by;
 using bmi::ordered_non_unique;
@@ -320,6 +322,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::optional<fc::time_point> calculate_next_block_time(const account_name& producer_name, const block_timestamp_type& current_block_time) const;
       void schedule_production_loop();
       void schedule_maybe_produce_block( bool exhausted );
+      void notify_hs_vote_message( const hs_vote_message_ptr& msg);
+      void notify_hs_proposal_message( const hs_proposal_message_ptr& msg );
+      void notify_hs_new_view_message( const hs_new_view_message_ptr& msg);
+      void notify_hs_new_block_message( const hs_new_block_message_ptr& msg );
       void produce_block();
       bool maybe_produce_block();
       bool block_is_exhausted() const;
@@ -404,6 +410,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       producer_plugin_metrics                                   _metrics;
 
+      eosio::hotstuff::qc_chain                                 _qc_chain;
+
+      eosio::hotstuff::chain_pacemaker                          _chain_pacemaker;
+
       /*
        * HACK ALERT
        * Boost timers can be in a state where a handler has not yet executed but is not abortable.
@@ -424,7 +434,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       // async snapshot scheduler
       snapshot_scheduler _snapshot_scheduler;
-      
+
       // ro for read-only
       struct ro_trx_t {
          transaction_metadata_ptr trx;
@@ -500,6 +510,11 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       }
 
       void on_block( const block_state_ptr& bsp ) {
+
+         //ilog("block");
+
+         //if (bsp->block_num % 120 == 0) _qc_chain.print_state();
+
          auto before = _unapplied_transactions.size();
          _unapplied_transactions.clear_applied( bsp );
          _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
@@ -1208,6 +1223,11 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    my->_snapshot_scheduler.set_db_path(my->_snapshots_dir);
    my->_snapshot_scheduler.set_create_snapshot_fn([this](producer_plugin::next_function<producer_plugin::snapshot_information> next){create_snapshot(next);});
+
+   my->_chain_pacemaker.init(&chain);
+
+   my->_qc_chain.init("main"_n, my->_chain_pacemaker, my->_producers, true, true);
+
 } FC_LOG_AND_RETHROW() }
 
 void producer_plugin::plugin_startup()
@@ -1589,6 +1609,22 @@ void producer_plugin::schedule_protocol_feature_activations( const scheduled_pro
    my->_protocol_features_to_activate = schedule.protocol_features_to_activate;
    my->_protocol_features_signaled = false;
 }
+
+void producer_plugin::notify_hs_vote_message( const hs_vote_message_ptr& msg){
+   my->notify_hs_vote_message(msg);
+};
+
+void producer_plugin::notify_hs_proposal_message( const hs_proposal_message_ptr& msg ){
+   my->notify_hs_proposal_message(msg);
+};
+
+void producer_plugin::notify_hs_new_view_message( const hs_new_view_message_ptr& msg){
+   my->notify_hs_new_view_message(msg);
+};
+
+void producer_plugin::notify_hs_new_block_message( const hs_new_block_message_ptr& msg ){
+   my->notify_hs_new_block_message(msg);
+};
 
 fc::variants producer_plugin::get_supported_protocol_features( const get_supported_protocol_features_params& params ) const {
    fc::variants results;
@@ -2605,11 +2641,16 @@ bool producer_plugin_impl::block_is_exhausted() const {
 void producer_plugin_impl::schedule_production_loop() {
    _timer.cancel();
 
+   //ilog("loop");
+
    auto result = start_block();
 
    _idle_trx_time = fc::time_point::now();
 
    if (result == start_block_result::failed) {
+
+      //ilog("block failed");
+
       elog("Failed to start a pending block, will try again later");
       _timer.expires_from_now( boost::posix_time::microseconds( config::block_interval_us  / 10 ));
 
@@ -2622,6 +2663,9 @@ void producer_plugin_impl::schedule_production_loop() {
              }
           } ) );
    } else if (result == start_block_result::waiting_for_block){
+
+      //ilog("waiting for block");
+
       if (!_producers.empty() && !production_disabled_by_policy()) {
          fc_dlog(_log, "Waiting till another block is received and scheduling Speculative/Production Change");
          schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(calculate_pending_block_time()));
@@ -2632,17 +2676,22 @@ void producer_plugin_impl::schedule_production_loop() {
 
    } else if (result == start_block_result::waiting_for_production) {
       // scheduled in start_block()
+      //ilog("waiting for production");
 
    } else if (_pending_block_mode == pending_block_mode::producing) {
+      //ilog("producing");
+
       schedule_maybe_produce_block( result == start_block_result::exhausted );
 
    } else if (_pending_block_mode == pending_block_mode::speculating && !_producers.empty() && !production_disabled_by_policy()){
+      //ilog("speculative block created / sched spec/prod change ");
       chain::controller& chain = chain_plug->chain();
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT( chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state" );
       schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(chain.pending_block_time()));
    } else {
       fc_dlog(_log, "Speculative Block Created");
+     // ilog("speculative block created");
    }
 }
 
@@ -2750,6 +2799,24 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
    }
 }
 
+
+void producer_plugin_impl::notify_hs_vote_message( const hs_vote_message_ptr& msg){
+   _chain_pacemaker.on_hs_vote_msg("main"_n, *msg);
+};
+
+void producer_plugin_impl::notify_hs_proposal_message( const hs_proposal_message_ptr& msg ){
+   _chain_pacemaker.on_hs_proposal_msg("main"_n, *msg);
+};
+
+void producer_plugin_impl::notify_hs_new_view_message( const hs_new_view_message_ptr& msg){
+   _chain_pacemaker.on_hs_new_view_msg("main"_n, *msg);
+};
+
+void producer_plugin_impl::notify_hs_new_block_message( const hs_new_block_message_ptr& msg ){
+   _chain_pacemaker.on_hs_new_block_msg("main"_n, *msg);
+};
+
+
 void producer_plugin_impl::produce_block() {
    //ilog("produce_block ${t}", ("t", fc::time_point::now())); // for testing _produce_time_offset_us
    auto start = fc::time_point::now();
@@ -2795,6 +2862,17 @@ void producer_plugin_impl::produce_block() {
    block_state_ptr new_bs = chain.head_block_state();
 
    _time_tracker.report(_idle_trx_time, new_bs->block_num);
+
+/*   const auto& hbs = chain.head_block_state();
+   const auto& active_schedule = hbs->active_schedule.producers;
+*/
+   //if we're producing after chain has activated, and we're not currently in the middle of a view
+   //if (hbs->header.producer != name("eosio")  &&
+   //  (_qc_chain._qc_chain_state == qc_chain::qc_chain_state::initializing || _qc_chain._qc_chain_state == qc_chain::qc_chain_state::finished_view)){
+   //   _qc_chain.create_new_view(*hbs); //we create a new view
+   //}
+
+   _chain_pacemaker.beat();
 
    br.total_time += fc::time_point::now() - start;
 

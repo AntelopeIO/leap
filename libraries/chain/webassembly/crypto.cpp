@@ -6,7 +6,9 @@
 #include <fc/crypto/blake2.hpp>
 #include <fc/crypto/sha3.hpp>
 #include <fc/crypto/k1_recover.hpp>
+#undef g1_add
 #include <bn256/bn256.h>
+#include <fc/crypto/bls_utils.hpp>
 
 namespace {
     uint32_t ceil_log2(uint32_t n)
@@ -115,6 +117,8 @@ namespace eosio { namespace chain { namespace webassembly {
    void interface::ripemd160(legacy_span<const char> data, legacy_ptr<fc::ripemd160> hash_val) const {
       *hash_val = context.trx_context.hash_with_checktime<fc::ripemd160>( data.data(), data.size() );
    }
+
+#undef g1_add
 
    int32_t interface::alt_bn128_add(span<const char> op1, span<const char> op2, span<char> result ) const {
       if (op1.size() != 64 ||  op2.size() != 64 ||  result.size() < 64 ||
@@ -244,6 +248,91 @@ namespace eosio { namespace chain { namespace webassembly {
 
       std::memcpy( pub.data(), res.data(), res.size() );
       return return_code::success;
+   }
+
+
+   bool interface::bls_verify( span<const char> signature, span<const char> digest, span<const char> pub) const {
+
+
+      fc::crypto::blslib::bls_signature u_sig;
+      fc::crypto::blslib::bls_public_key u_pub;
+      vector<uint8_t> u_digest;
+
+      datastream<const char*> s_sig( signature.data(), signature.size() );
+      datastream<const char*> s_pub( pub.data(), pub.size() );
+      datastream<const char*> s_digest( digest.data(), digest.size() );
+
+      fc::raw::unpack( s_sig, u_sig );
+      fc::raw::unpack( s_pub, u_pub );
+      fc::raw::unpack( s_digest, u_digest );
+
+      std::cerr << u_pub.to_string() << "\n";
+      std::cerr << u_sig.to_string() << "\n";
+
+      bool result = fc::crypto::blslib::verify(u_pub, u_digest, u_sig);
+
+      return result;
+
+   }
+
+   int32_t interface::bls_aggregate_pubkeys( span<const char> pubkeys, span<char> aggregate) const {
+
+      vector<fc::crypto::blslib::bls_public_key> u_pubkeys;
+
+      datastream<const char*> s_pubkeys( pubkeys.data(), pubkeys.size() );
+
+      fc::raw::unpack( s_pubkeys, u_pubkeys );
+
+      fc::crypto::blslib::bls_public_key agg_pubkey = fc::crypto::blslib::aggregate(u_pubkeys);
+
+      auto packed = fc::raw::pack(agg_pubkey);
+
+      auto copy_size = std::min<size_t>(aggregate.size(), packed.size());
+
+      std::memcpy(aggregate.data(), packed.data(), copy_size);
+
+      return packed.size();
+
+   }
+
+   int32_t interface::bls_aggregate_sigs( span<const char> signatures, span<char> aggregate) const {
+
+      vector<fc::crypto::blslib::bls_signature> u_sigs;
+
+      datastream<const char*> s_sigs( signatures.data(), signatures.size() );
+
+      fc::raw::unpack( s_sigs, u_sigs );
+
+      fc::crypto::blslib::bls_signature agg_sig = fc::crypto::blslib::aggregate(u_sigs);
+
+      auto packed = fc::raw::pack(agg_sig);
+
+      auto copy_size = std::min<size_t>(aggregate.size(), packed.size());
+
+      std::memcpy(aggregate.data(), packed.data(), copy_size);
+
+      return packed.size();
+
+   }
+
+   bool interface::bls_aggregate_verify( span<const char> signature, span<const char> digests, span<const char> pubs) const {
+
+      fc::crypto::blslib::bls_signature u_sig;
+      vector<fc::crypto::blslib::bls_public_key> u_pubs;
+      vector<vector<uint8_t>> u_digests;
+
+      datastream<const char*> s_sig( signature.data(), signature.size() );
+      datastream<const char*> s_pubs( pubs.data(), pubs.size() );
+      datastream<const char*> s_digests( digests.data(), digests.size() );
+
+      fc::raw::unpack( s_sig, u_sig );
+      fc::raw::unpack( s_pubs, u_pubs );
+      fc::raw::unpack( s_digests, u_digests );
+
+      bool result = fc::crypto::blslib::aggregate_verify(u_pubs, u_digests, u_sig);
+
+      return result;
+
    }
 
 }}} // ns eosio::chain::webassembly
