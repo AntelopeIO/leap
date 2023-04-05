@@ -495,6 +495,7 @@ namespace eosio {
       void start_monitors();
 
       void expire();
+      std::unordered_set<std::string> get_connections();
       void connection_monitor(std::weak_ptr<connection> from_connection, bool reschedule);
       /** \name Peer Timestamps
        *  Time message handling
@@ -3764,14 +3765,29 @@ namespace eosio {
       start_expire_timer();
    }
 
+    std::unordered_set<std::string> net_plugin_impl::get_connections() {
+        std::unique_lock<std::shared_mutex> g( connections_mtx );
+
+        std::unordered_set<std::string> addresses;
+        for (const auto& conn : connections) {
+            addresses.emplace(conn->peer_address());
+        }
+        return addresses;
+    }
+
    // called from any thread
    void net_plugin_impl::connection_monitor(std::weak_ptr<connection> from_connection, bool reschedule ) {
+      bool from_begin = false;
+      bool to_end = false;
       auto max_time = fc::time_point::now();
       max_time += fc::milliseconds(max_cleanup_time_ms);
       auto from = from_connection.lock();
       std::unique_lock<std::shared_mutex> g( connections_mtx );
       auto it = (from ? connections.find(from) : connections.begin());
-      if (it == connections.end()) it = connections.begin();
+      if (it == connections.end()) {
+          it = connections.begin();
+          from_begin = true;
+      }
       size_t num_rm = 0, num_clients = 0, num_peers = 0, num_bp_peers = 0;
       while (it != connections.end()) {
          if (fc::time_point::now() >= max_time) {
@@ -3807,14 +3823,21 @@ namespace eosio {
          }
          ++it;
       }
+      if(it == connections.end())
+          to_end = true;
       g.unlock();
 
+      //check if count all connections, or the num_peers is part of actual num;
       //if num_peers < min, get addresses from address manager to connect
-      //TODO: connection address check first
-      if( num_peers < min_peers_count) {
+      //try to add min_peers_count - num_peers connections from address manager
+      if( to_end && from_begin && num_peers < min_peers_count) {
           fc_ilog( logger, "peer connections not enough: ${pnum}/[${pmin}-${pmax}], trying to increase it",("pnum", num_peers)("pmin",min_peers_count)("pmax", address_master->get_addresses().size()));
-          for( const auto& peer : my_impl->address_master->get_addresses() ) {
+          uint32_t count = 0;
+          for( const auto& peer : my_impl->address_master->get_diff_addresses(get_connections()) ) {
               my_impl->connect( peer );
+              count++;
+              if(count == min_peers_count - num_peers)
+                  break;
           }
       }
 
