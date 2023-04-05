@@ -109,24 +109,6 @@ namespace eosio { namespace chain {
          return it != wasm_instantiation_cache.end();
       }
 
-      std::vector<uint8_t> parse_initial_memory(const Module& module) {
-         std::vector<uint8_t> mem_image;
-
-         for(const DataSegment& data_segment : module.dataSegments) {
-            EOS_ASSERT(data_segment.baseOffset.type == InitializerExpression::Type::i32_const, wasm_exception, "");
-            EOS_ASSERT(module.memories.defs.size(), wasm_exception, "");
-            const U32 base_offset = data_segment.baseOffset.i32;
-            const Uptr memory_size = (module.memories.defs[0].type.size.min << IR::numBytesPerPageLog2);
-            if(base_offset >= memory_size || base_offset + data_segment.data.size() > memory_size)
-               FC_THROW_EXCEPTION(wasm_execution_error, "WASM data segment outside of valid memory range");
-            if(base_offset + data_segment.data.size() > mem_image.size())
-               mem_image.resize(base_offset + data_segment.data.size(), 0x00);
-            memcpy(mem_image.data() + base_offset, data_segment.data.data(), data_segment.data.size());
-         }
-
-         return mem_image;
-      }
-
       void code_block_num_last_used(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, const uint32_t& block_num) {
          wasm_cache_index::iterator it = wasm_instantiation_cache.find(boost::make_tuple(code_hash, vm_type, vm_version));
          if(it != wasm_instantiation_cache.end())
@@ -173,24 +155,8 @@ namespace eosio { namespace chain {
                trx_context.resume_billing_timer();
             });
             trx_context.pause_billing_timer();
-            IR::Module module;
-            std::vector<U8> bytes = {
-                (const U8*)codeobject->code.data(),
-                (const U8*)codeobject->code.data() + codeobject->code.size()};
-            try {
-               Serialization::MemoryInputStream stream((const U8*)bytes.data(),
-                                                       bytes.size());
-               WASM::scoped_skip_checks no_check;
-               WASM::serialize(stream, module);
-               module.userSections.clear();
-            } catch (const Serialization::FatalSerializationException& e) {
-               EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
-            } catch (const IR::ValidationException& e) {
-               EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
-            }
-
             wasm_instantiation_cache.modify(it, [&](auto& c) {
-               c.module = runtime_interface->instantiate_module((const char*)bytes.data(), bytes.size(), parse_initial_memory(module), code_hash, vm_type, vm_version);
+               c.module = runtime_interface->instantiate_module(codeobject->code.data(), codeobject->code.size(), code_hash, vm_type, vm_version);
             });
          }
          return it->module;
