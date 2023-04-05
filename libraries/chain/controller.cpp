@@ -210,6 +210,12 @@ struct pending_state {
 };
 
 struct controller_impl {
+   enum class app_window_type {
+      write, // Only main thread is running; read-only threads are not running.
+             // All read-write and read-only tasks are sequentially executed.
+      read   // Main thread and read-only threads are running read-ony tasks in parallel.
+             // Read-write tasks are not being executed.
+   };
 
    // LLVM sets the new handler, we need to reset this to throw a bad_alloc exception so we can possibly exit cleanly
    // and not just abort.
@@ -251,6 +257,7 @@ struct controller_impl {
    // which overwrites the same static wasmif, is used for eosvmoc too.
    wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
    thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local; // a copy for each read-only thread, used by eos-vm and eos-vm-jit
+   app_window_type app_window = app_window_type::write;
 
    typedef pair<scope_name,action_name>                   handler_key;
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
@@ -2694,6 +2701,16 @@ struct controller_impl {
 
    bool is_on_main_thread() { return main_thread_id == std::this_thread::get_id(); };
 
+   void set_to_write_window() {
+      app_window = app_window_type::write;
+   }
+   void set_to_read_window() {
+      app_window = app_window_type::read;
+   }
+   bool is_write_window() const {
+      return app_window == app_window_type::write;
+   }
+
    wasm_interface& get_wasm_interface() {
       if ( is_on_main_thread()
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
@@ -3685,6 +3702,16 @@ void controller::unset_db_read_only_mode() {
 
 void controller::init_thread_local_data() {
    my->init_thread_local_data();
+}
+
+void controller::set_to_write_window() {
+   my->set_to_write_window();
+}
+void controller::set_to_read_window() {
+   my->set_to_read_window();
+}
+bool controller::is_write_window() const {
+   return my->is_write_window();
 }
 
 /// Protocol feature activation handlers:
