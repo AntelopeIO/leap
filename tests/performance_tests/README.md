@@ -8,6 +8,7 @@ The `launch_generators.py` support script provides a means to easily calculate a
 
 The `log_reader.py` support script is used primarily to analyze `nodeos` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report.
 
+# Getting Started
 ## Prerequisites
 
 Please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source) for a full list of prerequisites.
@@ -18,7 +19,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash
-        ./build/tests/performance_tests/performance_test.py
+        ./build/tests/performance_tests/performance_test.py testBpOpMode
         ```
     2. Single Performance Test Basic Run (Manually run one-off test):
         ```bash
@@ -278,336 +279,606 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
         ```
         </details>
 
-## Configuring Performance Harness Tests
+# Configuring Performance Harness Tests
 
-### Performance Test
+## Performance Test
 
 The Performance Harness main script `performance_test.py` can be configured using the following command line arguments:
 
 <details open>
-    <summary>Expand Argument List</summary>
+    <summary>Usage</summary>
 
-Test Helper Arguments:
-  Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
+```
+usage: performance_test.py [-h] {testBpOpMode} ...
+```
 
-* `-?, --help`            show this help message and exit
-* `-p P`                  producing nodes count (default: 1)
-* `-n N`                  total nodes (default: 0)
-* `-d D`                  delay between nodes startup (default: 1)
-* `--nodes-file NODES_FILE`
-                          File containing nodes info in JSON format. (default: None)
-* `-s {mesh}`             topology (default: mesh)
-* `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
-* `-v`                    verbose logging (default: False)
-* `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all nodeos and keosd instances (default: False)
+</details>
 
-Performance Test Basic Base:
-  Performance Test Basic base configuration items.
+<details open>
+    <summary>Expand Operational Mode Sub-Command List</summary>
 
-* `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
-                          Maximum amount of transactions per second a single generator can have. (default: 4000)
-* `--genesis GENESIS`     Path to genesis.json (default: tests/performance_tests/genesis.json)
-* `--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE`
-                          The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks,
-                          to prune from the beginning and end of the range of blocks of interest for evaluation.
-                          (default: 2)
-* `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
-                          Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
-* `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 2)
-* `--database-map-mode {mapped,heap,locked}`
-                          Database map mode ("mapped", "heap", or "locked").
-                          In "mapped" mode database is memory mapped as a file.
-                          In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
-                          In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
-* `--cluster-log-lvl {all,debug,info,warn,error,off}`
-                          Cluster log level ("all", "debug", "info", "warn", "error", or "off"). Performance Harness Test Basic relies on some logging at
-                          "info" level, so it is the lowest recommended logging level to use. However, there are instances where more verbose logging can be
-                          useful. (default: info)
-* `--net-threads NET_THREADS`
-                          Number of worker threads in net_plugin thread pool (default: 4)
-* `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
-                          Disable subjective CPU billing for API/P2P transactions (default: True)
-* `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
-                          Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval. (default: 0)
-* `--produce-time-offset-us PRODUCE_TIME_OFFSET_US`
-                          Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval. (default: 0)
-* `--cpu-effort-percent CPU_EFFORT_PERCENT`
-                          Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80% (default: 100)
-* `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
-                          Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
-* `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 2)
-* `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
-                          Maximum time for processing a request, -1 for unlimited (default: -1)
-* `--http-max-bytes-in-flight-mb HTTP_MAX_IN_FLIGHT_BYTES`
-                          Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited.
-                          429 error response when exceeded. (default: -1)
-* `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
-* `--del-report`          Whether to delete overarching performance run report. (default: False)
-* `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
-* `--prods-enable-trace-api`
-                          Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
-* `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
-                          Toggles if missing transactions are be printed upon test completion. (default: False)
-* `--account-name ACCOUNT_NAME`
-                          Name of the account to create and assign a contract to (default: eosio)
-* `--contract-dir CONTRACT_DIR`
-                          Path to contract dir (default: unittests/contracts/eosio.system)
-* `--wasm-file WASM_FILE` WASM file name for contract (default: eosio.system.wasm)
-* `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
-* `--user-trx-data-file USER_TRX_DATA_FILE`
-                          Path to transaction data JSON file (default: None)
-* `--wasm-runtime RUNTIME`
-                          Override default WASM runtime ("eos-vm-jit", "eos-vm")
-                          "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
-                          execution. "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
-* `--contracts-console`   print contract's output to console (default: False)
-* `--eos-vm-oc-cache-size-mb CACHE_SIZE_MiB`
-                          Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
-* `--eos-vm-oc-compile-threads COMPILE_THREADS`
-                          Number of threads to use for EOS VM OC tier-up (default: 1)
-* `--non-prods-eos-vm-oc-enable`
-                          Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
-* `--block-log-retain-blocks BLOCKS_TO_RETAIN`
-                          If set to greater than 0, periodically prune the block log to
-                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
-                          block log file is removed after startup. (default: None)
-* `--http-threads HTTP_THREADS`
-                          Number of worker threads in http thread pool (default: 2)
-* `--chain-state-db-size-mb DB_SIZE_MiB`
-                          Maximum size (in MiB) of the chain state database (default: 25600)
+```
+optional arguments:
+-h, --help      show this help message and exit
+
+Operational Modes:
+  Each Operational Mode sets up a known node operator configuration and
+  performs load testing and analysis catered to the expectations of that
+  specific operational mode. For additional configuration options for each
+  operational mode use, pass --help to the sub-command. Eg:
+  performance_test.py testBpOpMode --help
+
+  {testBpOpMode}  Currently supported operational mode sub-commands.
+    testBpOpMode  Test the Block Producer Operational Mode.
+```
+
+</details>
+
+### Operational Modes
+
+#### Block Producer Mode
+
+<details>
+    <summary>Usage</summary>
+
+```
+usage: performance_test.py testBpOpMode [--skip-tps-test]
+                                        [--calc-producer-threads {none,lmax,full}]
+                                        [--calc-chain-threads {none,lmax,full}]
+                                        [--calc-net-threads {none,lmax,full}]
+                                        [--del-test-report]
+                                        [--max-tps-to-test MAX_TPS_TO_TEST]
+                                        [--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC]
+                                        [--test-iteration-min-step TEST_ITERATION_MIN_STEP]
+                                        [--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC]
+                                        [-h]
+                                        {overrideBasicTestConfig} ...
+```
+
+</details>
+
+<details>
+    <summary>Expand Block Producer Mode Argument List</summary>
+
+```
+optional arguments:
+  -h, --help            show this help message and exit
 
 Performance Harness:
   Performance Harness testing configuration items.
 
-* `--skip-tps-test`       Determines whether to skip the max TPS measurement tests (default: False)
-* `--calc-producer-threads {none,lmax,full}`
-                          Determines whether to calculate number of worker threads to use in producer thread pool ("none", "lmax", or "full").
-                          In "none" mode, the default, no calculation will be attempted and the configured --producer-threads value will be used.
-                          In "lmax" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads.
-                          In "full" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
-* `--calc-chain-threads {none,lmax,full}`
-                          Determines whether to calculate number of worker threads to use in chain thread pool ("none", "lmax", or "full").
-                          In "none" mode, the default, no calculation will be attempted and the configured --chain-threads value will be used.
-                          In "lmax" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads.
-                          In "full" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
-* `--calc-net-threads {none,lmax,full}`
-                          Determines whether to calculate number of worker threads to use in net thread pool ("none", "lmax", or "full").
-                          In "none" mode, the default, no calculation will be attempted and the configured --net-threads value will be used.
-                          In "lmax" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads.
-                          In "full" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
-* `--del-test-report`     Whether to save json reports from each test scenario. (default: False)
+  --skip-tps-test       Determines whether to skip the max TPS measurement
+                        tests
+  --calc-producer-threads {none,lmax,full}
+                        Determines whether to calculate number of worker
+                        threads to use in producer thread pool ("none",
+                        "lmax", or "full"). In "none" mode, the default, no
+                        calculation will be attempted and the configured
+                        --producer-threads value will be used. In "lmax" mode,
+                        producer threads will incrementally be tested,
+                        starting at plugin default, until the performance rate
+                        ceases to increase with the addition of additional
+                        threads. In "full" mode producer threads will
+                        incrementally be tested from plugin default..num
+                        logical processors, recording each performance and
+                        choosing the local max performance (same value as
+                        would be discovered in "lmax" mode). Useful for
+                        graphing the full performance impact of each available
+                        thread.
+  --calc-chain-threads {none,lmax,full}
+                        Determines whether to calculate number of worker
+                        threads to use in chain thread pool ("none", "lmax",
+                        or "full"). In "none" mode, the default, no
+                        calculation will be attempted and the configured
+                        --chain-threads value will be used. In "lmax" mode,
+                        producer threads will incrementally be tested,
+                        starting at plugin default, until the performance rate
+                        ceases to increase with the addition of additional
+                        threads. In "full" mode producer threads will
+                        incrementally be tested from plugin default..num
+                        logical processors, recording each performance and
+                        choosing the local max performance (same value as
+                        would be discovered in "lmax" mode). Useful for
+                        graphing the full performance impact of each available
+                        thread.
+  --calc-net-threads {none,lmax,full}
+                        Determines whether to calculate number of worker
+                        threads to use in net thread pool ("none", "lmax", or
+                        "full"). In "none" mode, the default, no calculation
+                        will be attempted and the configured --net-threads
+                        value will be used. In "lmax" mode, producer threads
+                        will incrementally be tested, starting at plugin
+                        default, until the performance rate ceases to increase
+                        with the addition of additional threads. In "full"
+                        mode producer threads will incrementally be tested
+                        from plugin default..num logical processors, recording
+                        each performance and choosing the local max
+                        performance (same value as would be discovered in
+                        "lmax" mode). Useful for graphing the full performance
+                        impact of each available thread.
+  --del-test-report     Whether to save json reports from each test scenario.
 
 Performance Harness - TPS Test Config:
   TPS Performance Test configuration items.
 
-* `--max-tps-to-test MAX_TPS_TO_TEST`
-                          The max target transfers realistic as ceiling of test range (default: 50000)
-* `--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC`
-                          The duration of transfer trx generation for each iteration of the test during the initial search (seconds) (default: 150)
-* `--test-iteration-min-step TEST_ITERATION_MIN_STEP`
-                          The step size determining granularity of tps result during initial search (default: 500)
-* `--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC`
-                          The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)
-                          (default: 300)
+  --max-tps-to-test MAX_TPS_TO_TEST
+                        The max target transfers realistic as ceiling of test
+                        range
+  --test-iteration-duration-sec TEST_ITERATION_DURATION_SEC
+                        The duration of transfer trx generation for each
+                        iteration of the test during the initial search
+                        (seconds)
+  --test-iteration-min-step TEST_ITERATION_MIN_STEP
+                        The step size determining granularity of tps result
+                        during initial search
+  --final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC
+                        The duration of transfer trx generation for each final
+                        longer run iteration of the test during the final
+                        search (seconds)
+
+Advanced Configuration Options:
+  Block Producer Operational Mode Advanced Configuration Options allow low
+  level adjustments to the basic test configuration as well as the node
+  topology being tested. For additional information on available advanced
+  configuration options, pass --help to the sub-command. Eg:
+  performance_test.py testBpOpMode overrideBasicTestConfig --help
+
+  {overrideBasicTestConfig}
+                        sub-command to allow overriding advanced configuration
+                        options
+    overrideBasicTestConfig
+                        Use this sub-command to override low level controls
+                        for basic test, logging, node topology, etc.
+```
+
 </details>
 
-### Support Scripts
-
-The following scripts are typically used by the Performance Harness main script `performance_test.py` to perform specific tasks as delegated and configured by the main script.  However, there may be applications in certain use cases where running a single one-off test or transaction generator is desired.  In those situations, the following argument details might be useful to understanding how to run these utilities in stand-alone mode.  The argument breakdown may also be useful in understanding how the Performance Harness main script's arguments are being passed through to configure lower-level entities.
-
-#### Performance Test Basic
-
-`performance_test_basic.py` can be configured using the following command line arguments:
+#### Advance Configuration: OverrideBasicTestConfig sub-command
 
 <details>
-    <summary>Expand Argument List</summary>
+    <summary>Usage</summary>
+
+```
+usage: performance_test.py testBpOpMode overrideBasicTestConfig
+       [-h] [-p P] [-n N] [-d D] [--nodes-file NODES_FILE] [-s {mesh}]
+       [--dump-error-details] [-v] [--leave-running] [--clean-run]
+       [--unshared] [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
+       [--genesis GENESIS] [--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE]
+       [--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT]
+       [--chain-threads CHAIN_THREADS]
+       [--database-map-mode {mapped,heap,locked}]
+       [--cluster-log-lvl {all,debug,info,warn,error,off}]
+       [--net-threads NET_THREADS]
+       [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
+       [--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US]
+       [--produce-time-offset-us PRODUCE_TIME_OFFSET_US]
+       [--cpu-effort-percent CPU_EFFORT_PERCENT]
+       [--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT]
+       [--producer-threads PRODUCER_THREADS]
+       [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
+       [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
+       [--del-perf-logs] [--del-report] [--quiet] [--prods-enable-trace-api]
+       [--print-missing-transactions] [--account-name ACCOUNT_NAME]
+       [--contract-dir CONTRACT_DIR] [--wasm-file WASM_FILE]
+       [--abi-file ABI_FILE] [--user-trx-data-file USER_TRX_DATA_FILE]
+       [--wasm-runtime {eos-vm-jit,eos-vm}] [--contracts-console]
+       [--eos-vm-oc-cache-size-mb EOS_VM_OC_CACHE_SIZE_MB]
+       [--eos-vm-oc-compile-threads EOS_VM_OC_COMPILE_THREADS]
+       [--non-prods-eos-vm-oc-enable]
+       [--block-log-retain-blocks BLOCK_LOG_RETAIN_BLOCKS]
+       [--http-threads HTTP_THREADS]
+       [--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB]
+```
+
+</details>
+
+<details>
+    <summary>Expand Override Basic Test Config Argument List</summary>
+
+```
+optional arguments:
+  -h, --help            show this help message and exit
 
 Test Helper Arguments:
-  Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
+  Test Helper configuration items used to configure and spin up the
+  regression test framework and blockchain environment.
 
-* `-?, --help`            show this help message and exit
-* `-p P`                  producing nodes count (default: 1)
-* `-n N`                  total nodes (default: 0)
-* `-d D`                  delay between nodes startup (default: 1)
-* `--nodes-file NODES_FILE`
-                          File containing nodes info in JSON format. (default: None)
-* `-s {mesh}`             topology (default: mesh)
-* `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
-* `-v`                    verbose logging (default: False)
-* `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all nodeos and keosd instances (default: False)
+  -p P                  producing nodes count
+  -n N                  total nodes
+  -d D                  delay between nodes startup
+  --nodes-file NODES_FILE
+                        File containing nodes info in JSON format.
+  -s {mesh}             topology
+  --dump-error-details  Upon error print etc/eosio/node_*/config.ini and
+                        <test_name><pid>/node_*/stderr.log to stdout
+  -v                    verbose logging
+  --leave-running       Leave cluster running after test finishes
+  --clean-run           Kill all nodeos and keosd instances
+  --unshared            Run test in isolated network namespace
 
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
-* `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
-                          Maximum amount of transactions per second a single generator can have. (default: 4000)
-* `--genesis GENESIS`     Path to genesis.json (default: tests/performance_tests/genesis.json)
-* `--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE`
-                          The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end
-                          of the range of blocks of interest for evaluation. (default: 2)
-* `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
-                          Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
-* `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 2)
-* `--database-map-mode {mapped,heap,locked}`
-                          Database map mode ("mapped", "heap", or "locked").
-                          In "mapped" mode database is memory mapped as a file.
-                          In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
-                          In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
-* `--cluster-log-lvl {all,debug,info,warn,error,off}`
-                          Cluster log level ("all", "debug", "info", "warn", "error", or "off"). Performance Harness Test Basic relies on some logging at
-                          "info" level, so it is the lowest recommended logging level to use. However, there are instances where more verbose logging can be
-                          useful. (default: info)
-* `--net-threads NET_THREADS`
-                          Number of worker threads in net_plugin thread pool (default: 4)
-* `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
-                          Disable subjective CPU billing for API/P2P transactions (default: True)
-* `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
-                          Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval. (default: 0)
-* `--produce-time-offset-us PRODUCE_TIME_OFFSET_US`
-                          Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval. (default: 0)
-* `--cpu-effort-percent CPU_EFFORT_PERCENT`
-                          Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80% (default: 100)
-* `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
-                          Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
-* `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 2)
-* `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
-                          Maximum time for processing a request, -1 for unlimited (default: -1)
-* `--http-max-bytes-in-flight-mb HTTP_MAX_IN_FLIGHT_BYTES`
-                          Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited.
-                          429 error response when exceeded. (default: -1)
-* `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
-* `--del-report`          Whether to delete overarching performance run report. (default: False)
-* `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
-* `--prods-enable-trace-api`
-                          Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
-* `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
-                          Toggles if missing transactions are be printed upon test completion. (default: False)
-* `--account-name ACCOUNT_NAME`
-                          Name of the account to create and assign a contract to (default: eosio)
-* `--contract-dir CONTRACT_DIR`
-                          Path to contract dir (default: unittests/contracts/eosio.system)
-* `--wasm-file WASM_FILE`
-                          WASM file name for contract (default: eosio.system.wasm)
-* `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
-* `--user-trx-data-file USER_TRX_DATA_FILE`
-                          Path to transaction data JSON file (default: None)
-* `--wasm-runtime RUNTIME`
-                          Override default WASM runtime ("eos-vm-jit", "eos-vm")
-                          "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
-                          execution. "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
-* `--contracts-console`   print contract's output to console (default: False)
-* `--eos-vm-oc-cache-size-mb CACHE_SIZE_MiB`
-                          Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
-* `--eos-vm-oc-compile-threads COMPILE_THREADS`
-                          Number of threads to use for EOS VM OC tier-up (default: 1)
-* `--non-prods-eos-vm-oc-enable`
-                          Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
-* `--block-log-retain-blocks BLOCKS_TO_RETAIN`
-                          If set to greater than 0, periodically prune the block log to
-                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
-                          block log file is removed after startup. (default: None)
-* `--http-threads HTTP_THREADS`
-                          Number of worker threads in http thread pool (default: 2)
-* `--chain-state-db-size-mb DB_SIZE_MiB`
-                          Maximum size (in MiB) of the chain state database (default: 25600)
+  --tps-limit-per-generator TPS_LIMIT_PER_GENERATOR
+                        Maximum amount of transactions per second a single
+                        generator can have.
+  --genesis GENESIS     Path to genesis.json
+  --num-blocks-to-prune NUM_BLOCKS_TO_PRUNE
+                        The number of potentially non-empty blocks, in
+                        addition to leading and trailing size 0 blocks, to
+                        prune from the beginning and end of the range of
+                        blocks of interest for evaluation.
+  --signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT
+                        Percentage of actual signature recovery cpu to bill.
+                        Whole number percentages, e.g. 50 for 50%
+  --chain-threads CHAIN_THREADS
+                        Number of worker threads in controller thread pool
+  --database-map-mode {mapped,heap,locked}
+                        Database map mode ("mapped", "heap", or "locked"). In
+                        "mapped" mode database is memory mapped as a file. In
+                        "heap" mode database is preloaded in to swappable
+                        memory and will use huge pages if available. In
+                        "locked" mode database is preloaded, locked in to
+                        memory, and will use huge pages if available.
+  --cluster-log-lvl {all,debug,info,warn,error,off}
+                        Cluster log level ("all", "debug", "info", "warn",
+                        "error", or "off"). Performance Harness Test Basic
+                        relies on some logging at "info" level, so it is
+                        recommended lowest logging level to use. However,
+                        there are instances where more verbose logging can be
+                        useful.
+  --net-threads NET_THREADS
+                        Number of worker threads in net_plugin thread pool
+  --disable-subjective-billing DISABLE_SUBJECTIVE_BILLING
+                        Disable subjective CPU billing for API/P2P
+                        transactions
+  --last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US
+                        Offset of last block producing time in microseconds.
+                        Valid range 0 .. -block_time_interval.
+  --produce-time-offset-us PRODUCE_TIME_OFFSET_US
+                        Offset of non last block producing time in
+                        microseconds. Valid range 0 .. -block_time_interval.
+  --cpu-effort-percent CPU_EFFORT_PERCENT
+                        Percentage of cpu block production time used to
+                        produce block. Whole number percentages, e.g. 80 for
+                        80%
+  --last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT
+                        Percentage of cpu block production time used to
+                        produce last block. Whole number percentages, e.g. 80
+                        for 80%
+  --producer-threads PRODUCER_THREADS
+                        Number of worker threads in producer thread pool
+  --http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS
+                        Maximum time for processing a request, -1 for
+                        unlimited
+  --http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB
+                        Maximum size in megabytes http_plugin should use for
+                        processing http requests. -1 for unlimited. 429 error
+                        response when exceeded.
+  --del-perf-logs       Whether to delete performance test specific logs.
+  --del-report          Whether to delete overarching performance run report.
+  --quiet               Whether to quiet printing intermediate results and
+                        reports to stdout
+  --prods-enable-trace-api
+                        Determines whether producer nodes should have
+                        eosio::trace_api_plugin enabled
+  --print-missing-transactions
+                        Toggles if missing transactions are be printed upon
+                        test completion.
+  --account-name ACCOUNT_NAME
+                        Name of the account to create and assign a contract to
+  --contract-dir CONTRACT_DIR
+                        Path to contract dir
+  --wasm-file WASM_FILE
+                        WASM file name for contract
+  --abi-file ABI_FILE   ABI file name for contract
+  --user-trx-data-file USER_TRX_DATA_FILE
+                        Path to transaction data JSON file
+  --wasm-runtime {eos-vm-jit,eos-vm}
+                        Override default WASM runtime ("eos-vm-jit", "eos-vm")
+                        "eos-vm-jit" : A WebAssembly runtime that compiles
+                        WebAssembly code to native x86 code prior to
+                        execution. "eos-vm" : A WebAssembly interpreter.
+  --contracts-console   print contract's output to console
+  --eos-vm-oc-cache-size-mb EOS_VM_OC_CACHE_SIZE_MB
+                        Maximum size (in MiB) of the EOS VM OC code cache
+  --eos-vm-oc-compile-threads EOS_VM_OC_COMPILE_THREADS
+                        Number of threads to use for EOS VM OC tier-up
+  --non-prods-eos-vm-oc-enable
+                        Enable EOS VM OC tier-up runtime on non producer nodes
+  --block-log-retain-blocks BLOCK_LOG_RETAIN_BLOCKS
+                        If set to greater than 0, periodically prune the block
+                        log to store only configured number of most recent
+                        blocks. If set to 0, no blocks are be written to the
+                        block log; block log file is removed after startup.
+  --http-threads HTTP_THREADS
+                        Number of worker threads in http thread pool
+  --chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB
+                        Maximum size (in MiB) of the chain state database
+```
 
-Performance Test Basic Single Test:
-  Performance Test Basic single test configuration items. Useful for running a single test directly. These items may not be directly configurable from
-  higher level scripts as the scripts themselves may configure these internally.
-
-* `--target-tps TARGET_TPS`
-                          The target transfers per second to send during test (default: 8000)
-* `--test-duration-sec TEST_DURATION_SEC`
-                          The duration of transfer trx generation for the test in seconds (default: 90)
 </details>
 
-#### Launch Transaction Generators (TestHarness)
+# Support Scripts
 
-`launch_transaction_generators.py` can be configured using the following command line arguments:
+The following scripts are typically used by the Performance Harness main script `performance_test.py` to perform specific tasks as delegated and configured by the main script.  However, there may be applications in certain use cases where running a single one-off test or transaction generator is desired.  In those situations, the following argument details might be useful to understanding how to run these utilities in stand-alone mode.  The argument breakdown may also be useful in understanding how the Performance Harness main script's arguments are being passed through to configure lower-level entities.
+
+## Performance Test Basic
+
+`performance_test_basic.py` can be configured using the following command line arguments:
+
+<details>
+    <summary>Usage</summary>
+
+  ```
+  usage: performance_test_basic.py [-h] [-p P] [-n N] [-d D]
+                                  [--nodes-file NODES_FILE] [-s {mesh}]
+                                  [--dump-error-details] [-v] [--leave-running]
+                                  [--clean-run] [--unshared]
+                                  [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
+                                  [--genesis GENESIS]
+                                  [--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE]
+                                  [--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT]
+                                  [--chain-threads CHAIN_THREADS]
+                                  [--database-map-mode {mapped,heap,locked}]
+                                  [--cluster-log-lvl {all,debug,info,warn,error,off}]
+                                  [--net-threads NET_THREADS]
+                                  [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
+                                  [--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US]
+                                  [--produce-time-offset-us PRODUCE_TIME_OFFSET_US]
+                                  [--cpu-effort-percent CPU_EFFORT_PERCENT]
+                                  [--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT]
+                                  [--producer-threads PRODUCER_THREADS]
+                                  [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
+                                  [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
+                                  [--del-perf-logs] [--del-report] [--quiet]
+                                  [--prods-enable-trace-api]
+                                  [--print-missing-transactions]
+                                  [--account-name ACCOUNT_NAME]
+                                  [--contract-dir CONTRACT_DIR]
+                                  [--wasm-file WASM_FILE] [--abi-file ABI_FILE]
+                                  [--user-trx-data-file USER_TRX_DATA_FILE]
+                                  [--wasm-runtime {eos-vm-jit,eos-vm}]
+                                  [--contracts-console]
+                                  [--eos-vm-oc-cache-size-mb EOS_VM_OC_CACHE_SIZE_MB]
+                                  [--eos-vm-oc-compile-threads EOS_VM_OC_COMPILE_THREADS]
+                                  [--non-prods-eos-vm-oc-enable]
+                                  [--block-log-retain-blocks BLOCK_LOG_RETAIN_BLOCKS]
+                                  [--http-threads HTTP_THREADS]
+                                  [--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB]
+                                  [--target-tps TARGET_TPS]
+                                  [--test-duration-sec TEST_DURATION_SEC]
+  ```
+
+</details>
 
 <details>
     <summary>Expand Argument List</summary>
 
-* `chain_id`                    set the chain id
-* `last_irreversible_block_id`  Current last-irreversible-block-id (LIB ID) to use for transactions.
-* `contract_owner_account`      Account name of the contract owner account for the transfer actions
-* `accounts`                    Comma separated list of account names
-* `priv_keys`                   Comma separated list of private keys.
-* `trx_gen_duration`            Transaction generation duration (seconds). Defaults to 60 seconds.
-* `target_tps`                  Target transactions per second to generate/send.
-* `tps_limit_per_generator`     Maximum amount of transactions per second a single generator can have.
-* `log_dir`                     set the logs directory
-* `abi_file`                    The path to the contract abi file to use for the supplied transaction action data
-* `actions_data`                The json actions data file or json actions data description string to use
-* `actions_auths`               The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.
-* `connection_pair_list`        Comma separated list of endpoint:port combinations to send transactions to
+```
+optional arguments:
+  -h, --help            show this help message and exit
+
+Test Helper Arguments:
+  Test Helper configuration items used to configure and spin up the
+  regression test framework and blockchain environment.
+
+  -p P                  producing nodes count (default: 1)
+  -n N                  total nodes (default: 0)
+  -d D                  delay between nodes startup (default: 1)
+  --nodes-file NODES_FILE
+                        File containing nodes info in JSON format. (default:
+                        None)
+  -s {mesh}             topology (default: mesh)
+  --dump-error-details  Upon error print etc/eosio/node_*/config.ini and
+                        <test_name><pid>/node_*/stderr.log to stdout (default:
+                        False)
+  -v                    verbose logging (default: False)
+  --leave-running       Leave cluster running after test finishes (default:
+                        False)
+  --clean-run           Kill all nodeos and keosd instances (default: False)
+  --unshared            Run test in isolated network namespace (default:
+                        False)
+
+Performance Test Basic Base:
+  Performance Test Basic base configuration items.
+
+  --tps-limit-per-generator TPS_LIMIT_PER_GENERATOR
+                        Maximum amount of transactions per second a single
+                        generator can have. (default: 4000)
+  --genesis GENESIS     Path to genesis.json (default:
+                        tests/performance_tests/genesis.json)
+  --num-blocks-to-prune NUM_BLOCKS_TO_PRUNE
+                        The number of potentially non-empty blocks, in
+                        addition to leading and trailing size 0 blocks, to
+                        prune from the beginning and end of the range of
+                        blocks of interest for evaluation. (default: 2)
+  --signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT
+                        Percentage of actual signature recovery cpu to bill.
+                        Whole number percentages, e.g. 50 for 50% (default: 0)
+  --chain-threads CHAIN_THREADS
+                        Number of worker threads in controller thread pool
+                        (default: 2)
+  --database-map-mode {mapped,heap,locked}
+                        Database map mode ("mapped", "heap", or "locked"). In
+                        "mapped" mode database is memory mapped as a file. In
+                        "heap" mode database is preloaded in to swappable
+                        memory and will use huge pages if available. In
+                        "locked" mode database is preloaded, locked in to
+                        memory, and will use huge pages if available.
+                        (default: mapped)
+  --cluster-log-lvl {all,debug,info,warn,error,off}
+                        Cluster log level ("all", "debug", "info", "warn",
+                        "error", or "off"). Performance Harness Test Basic
+                        relies on some logging at "info" level, so it is
+                        recommended lowest logging level to use. However,
+                        there are instances where more verbose logging can be
+                        useful. (default: info)
+  --net-threads NET_THREADS
+                        Number of worker threads in net_plugin thread pool
+                        (default: 4)
+  --disable-subjective-billing DISABLE_SUBJECTIVE_BILLING
+                        Disable subjective CPU billing for API/P2P
+                        transactions (default: True)
+  --last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US
+                        Offset of last block producing time in microseconds.
+                        Valid range 0 .. -block_time_interval. (default: 0)
+  --produce-time-offset-us PRODUCE_TIME_OFFSET_US
+                        Offset of non last block producing time in
+                        microseconds. Valid range 0 .. -block_time_interval.
+                        (default: 0)
+  --cpu-effort-percent CPU_EFFORT_PERCENT
+                        Percentage of cpu block production time used to
+                        produce block. Whole number percentages, e.g. 80 for
+                        80% (default: 100)
+  --last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT
+                        Percentage of cpu block production time used to
+                        produce last block. Whole number percentages, e.g. 80
+                        for 80% (default: 100)
+  --producer-threads PRODUCER_THREADS
+                        Number of worker threads in producer thread pool
+                        (default: 2)
+  --http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS
+                        Maximum time for processing a request, -1 for
+                        unlimited (default: -1)
+  --http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB
+                        Maximum size in megabytes http_plugin should use for
+                        processing http requests. -1 for unlimited. 429 error
+                        response when exceeded. (default: -1)
+  --del-perf-logs       Whether to delete performance test specific logs.
+                        (default: False)
+  --del-report          Whether to delete overarching performance run report.
+                        (default: False)
+  --quiet               Whether to quiet printing intermediate results and
+                        reports to stdout (default: False)
+  --prods-enable-trace-api
+                        Determines whether producer nodes should have
+                        eosio::trace_api_plugin enabled (default: False)
+  --print-missing-transactions
+                        Toggles if missing transactions are be printed upon
+                        test completion. (default: False)
+  --account-name ACCOUNT_NAME
+                        Name of the account to create and assign a contract to
+                        (default: eosio)
+  --contract-dir CONTRACT_DIR
+                        Path to contract dir (default:
+                        unittests/contracts/eosio.system)
+  --wasm-file WASM_FILE
+                        WASM file name for contract (default:
+                        eosio.system.wasm)
+  --abi-file ABI_FILE   ABI file name for contract (default: eosio.system.abi)
+  --user-trx-data-file USER_TRX_DATA_FILE
+                        Path to transaction data JSON file (default: None)
+  --wasm-runtime {eos-vm-jit,eos-vm}
+                        Override default WASM runtime ("eos-vm-jit", "eos-vm")
+                        "eos-vm-jit" : A WebAssembly runtime that compiles
+                        WebAssembly code to native x86 code prior to
+                        execution. "eos-vm" : A WebAssembly interpreter.
+                        (default: eos-vm-jit)
+  --contracts-console   print contract's output to console (default: False)
+  --eos-vm-oc-cache-size-mb EOS_VM_OC_CACHE_SIZE_MB
+                        Maximum size (in MiB) of the EOS VM OC code cache
+                        (default: 1024)
+  --eos-vm-oc-compile-threads EOS_VM_OC_COMPILE_THREADS
+                        Number of threads to use for EOS VM OC tier-up
+                        (default: 1)
+  --non-prods-eos-vm-oc-enable
+                        Enable EOS VM OC tier-up runtime on non producer nodes
+                        (default: False)
+  --block-log-retain-blocks BLOCK_LOG_RETAIN_BLOCKS
+                        If set to greater than 0, periodically prune the block
+                        log to store only configured number of most recent
+                        blocks. If set to 0, no blocks are be written to the
+                        block log; block log file is removed after startup.
+                        (default: None)
+  --http-threads HTTP_THREADS
+                        Number of worker threads in http thread pool (default:
+                        2)
+  --chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB
+                        Maximum size (in MiB) of the chain state database
+                        (default: 25600)
+
+Performance Test Basic Single Test:
+  Performance Test Basic single test configuration items. Useful for running
+  a single test directly. These items may not be directly configurable from
+  higher level scripts as the scripts themselves may configure these
+  internally.
+
+  --target-tps TARGET_TPS
+                        The target transfers per second to send during test
+                        (default: 8000)
+  --test-duration-sec TEST_DURATION_SEC
+                        The duration of transfer trx generation for the test
+                        in seconds (default: 90)
+```
+
 </details>
 
-#### Transaction Generator
+## Transaction Generator
 `./build/tests/trx_generator/trx_generator` can be configured using the following command line arguments:
 
 <details>
     <summary>Expand Argument List</summary>
 
-* `--generator-id arg` (=0)         Id for the transaction generator.
-                                    Allowed range (0-960). Defaults to 0.
-* `--chain-id arg`                  set the chain id
-* `--contract-owner-account arg`    Account name of the contract account for
-                                    the transaction actions
-* `--accounts arg`                  comma-separated list of accounts that
-                                    will be used for transfers. Minimum
-                                    required accounts: 2.
-* `--priv-keys arg`                 comma-separated list of private keys in
-                                    same order of accounts list that will
-                                    be used to sign transactions. Minimum
-                                    required: 2.
-* `--trx-expiration arg` (=3600)    transaction expiration time in seconds.
-                                    Defaults to 3,600. Maximum allowed:
-                                    3,600
-* `--trx-gen-duration arg` (=60)    Transaction generation duration
-                                    (seconds). Defaults to 60 seconds.
-* `--target-tps arg` (=1)           Target transactions per second to
-                                    generate/send. Defaults to 1
-                                    transaction per second.
-* `--last-irreversible-block-id arg`    Current last-irreversible-block-id (LIB
+```
+Transaction Generator command line options.:
+  --generator-id arg (=0)               Id for the transaction generator.
+                                        Allowed range (0-960). Defaults to 0.
+  --chain-id arg                        set the chain id
+  --contract-owner-account arg          Account name of the contract account
+                                        for the transaction actions
+  --accounts arg                        comma-separated list of accounts that
+                                        will be used for transfers. Minimum
+                                        required accounts: 2.
+  --priv-keys arg                       comma-separated list of private keys in
+                                        same order of accounts list that will
+                                        be used to sign transactions. Minimum
+                                        required: 2.
+  --trx-expiration arg (=3600)          transaction expiration time in seconds.
+                                        Defaults to 3,600. Maximum allowed:
+                                        3,600
+  --trx-gen-duration arg (=60)          Transaction generation duration
+                                        (seconds). Defaults to 60 seconds.
+  --target-tps arg (=1)                 Target transactions per second to
+                                        generate/send. Defaults to 1
+                                        transaction per second.
+  --last-irreversible-block-id arg      Current last-irreversible-block-id (LIB
                                         ID) to use for transactions.
-* `--monitor-spinup-time-us arg` (=1000000)
+  --monitor-spinup-time-us arg (=1000000)
                                         Number of microseconds to wait before
                                         monitoring TPS. Defaults to 1000000
                                         (1s).
-* `--monitor-max-lag-percent arg` (=5)  Max percentage off from expected
+  --monitor-max-lag-percent arg (=5)    Max percentage off from expected
                                         transactions sent before being in
                                         violation. Defaults to 5.
-* `--monitor-max-lag-duration-us arg` (=1000000)
+  --monitor-max-lag-duration-us arg (=1000000)
                                         Max microseconds that transaction
                                         generation can be in violation before
                                         quitting. Defaults to 1000000 (1s).
-* `--log-dir arg`                       set the logs directory
-* `--abi-file arg`                      The path to the contract abi file to
+  --log-dir arg                         set the logs directory
+  --stop-on-trx-failed arg (=1)         stop transaction generation if sending
+                                        fails.
+  --abi-file arg                        The path to the contract abi file to
                                         use for the supplied transaction action
                                         data
-* `--actions-data arg`                  The json actions data file or json
+  --actions-data arg                    The json actions data file or json
                                         actions data description string to use
-* `--actions-auths arg`                 The json actions auth file or json
+  --actions-auths arg                   The json actions auth file or json
                                         actions auths description string to
                                         use, containting authAcctName to
                                         activePrivateKey pairs.
-* `--peer-endpoint arg` (=127.0.0.1)    set the peer endpoint to send
+  --peer-endpoint arg (=127.0.0.1)      set the peer endpoint to send
                                         transactions to
-* `--port arg` (=9876)                  set the peer endpoint port to send
+  --port arg (=9876)                    set the peer endpoint port to send
                                         transactions to
-* `-h [ --help ]`                       print this list
+  -h [ --help ]                         print this list
+```
+
 </details>
 
-## Result Reports
+# Result Reports
 
-### Performance Test Report
+## Performance Test Report
 
 The Performance Harness generates a report to summarize results of test scenarios as well as overarching results of the performance harness run.  By default the report described below will be written to the top level timestamped directory for the performance run with the file name `report.json`. To omit final report, use `--del-report`.
 
@@ -617,7 +888,7 @@ Command used to run test and generate report:
 .build/tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
 ```
 
-#### Report Breakdown
+### Report Breakdown
 The report begins by delivering the max TPS results of the performance run.
 
 * `InitialMaxTpsAchieved` - the max TPS throughput achieved during initial, short duration test scenarios to narrow search window
@@ -628,23 +899,23 @@ Next, a summary of the search scenario conducted and respective results is inclu
     <summary>Expand Search Scenario Summary Example</summary>
 
 ``` json
-    "2": {
+    "0": {
       "success": true,
-      "searchTarget": 12500,
-      "searchFloor": 0,
-      "searchCeiling": 24500,
+      "searchTarget": 13501,
+      "searchFloor": 1,
+      "searchCeiling": 13501,
       "basicTestResult": {
-        "targetTPS": 12500,
-        "resultAvgTps": 12507.6875,
-        "expectedTxns": 125000,
-        "resultTxns": 125000,
+        "targetTPS": 13501,
+        "resultAvgTps": 13555.25,
+        "expectedTxns": 135010,
+        "resultTxns": 135010,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "basicTestSuccess": true,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-15-15-12500",
-        "testStart": "2023-02-28T19:15:15.406134",
-        "testEnd": "2023-02-28T19:16:34.379216"
+        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-25-39-13501",
+        "testStart": "2023-04-05T16:25:39.588359",
+        "testEnd": "2023-04-05T16:26:58.326668"
       }
     }
 ```
@@ -1458,7 +1729,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
 </details>
 
 
-### Performance Test Basic Report
+## Performance Test Basic Report
 
 The Performance Test Basic generates, by default, a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--del-test-report`, or `performance_test_basic.py` is run with `--del-report`, the report described below will not be written.  Otherwise the report will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
 
