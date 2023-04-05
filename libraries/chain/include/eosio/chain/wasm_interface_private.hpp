@@ -37,7 +37,6 @@ namespace eosio { namespace chain {
    struct wasm_interface_impl {
       struct wasm_cache_entry {
          digest_type                                          code_hash;
-         uint32_t                                             first_block_num_used;
          uint32_t                                             last_block_num_used;
          std::unique_ptr<wasm_instantiated_module_interface>  module;
          uint8_t                                              vm_type = 0;
@@ -139,7 +138,6 @@ namespace eosio { namespace chain {
 
             it = wasm_instantiation_cache.emplace( wasm_interface_impl::wasm_cache_entry{
                                                       .code_hash = code_hash,
-                                                      .first_block_num_used = codeobject->first_block_used,
                                                       .last_block_num_used = UINT32_MAX,
                                                       .module = nullptr,
                                                       .vm_type = vm_type,
@@ -175,7 +173,6 @@ namespace eosio { namespace chain {
                   member<wasm_cache_entry, uint8_t,     &wasm_cache_entry::vm_version>
                >
             >,
-            ordered_non_unique<tag<by_first_block_num>, member<wasm_cache_entry, uint32_t, &wasm_cache_entry::first_block_num_used>>,
             ordered_non_unique<tag<by_last_block_num>, member<wasm_cache_entry, uint32_t, &wasm_cache_entry::last_block_num_used>>
          >
       > wasm_cache_index;
