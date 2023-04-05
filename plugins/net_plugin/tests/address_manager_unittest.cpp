@@ -239,6 +239,68 @@ BOOST_AUTO_TEST_SUITE(test_address_manager)
 
     }
 
+    BOOST_AUTO_TEST_CASE(test_get_latest_active_addresses) {
+        address_manager manager(60);
+        std::unordered_set<std::string> addresses_to_add{"192.168.0.1:9876:peer", "10.0.0.2:8888", "example.com:443:trx"};
+        std::unordered_set<std::string> addresses_to_add2{"192.168.0.1:9877:peer", "10.0.0.2:8888", "example.com:444"};
+
+        manager.add_addresses(addresses_to_add, false);
+        manager.add_addresses(addresses_to_add2, true);
+
+        // set last_active for some addresses to more than 10 minutes ago
+        auto old_last_active = fc::time_point::now() - fc::seconds(700);
+        auto new_last_active = fc::time_point::now() - fc::seconds(500);
+
+
+        peer_address pa1 = peer_address::from_str("192.168.0.1:9876:peer");
+        pa1.last_active = new_last_active;
+        manager.update_address(pa1);
+
+        peer_address pa2 = peer_address::from_str("192.168.0.1:9877:peer");
+        pa2.last_active = new_last_active;
+        pa2.manual = true;
+        manager.update_address(pa2);
+
+        peer_address pa3 = peer_address::from_str("10.0.0.2:8888");
+        pa3.last_active = old_last_active;
+        manager.update_address(pa3);
+
+        peer_address pa4 = peer_address::from_str("example.com:444");
+        pa4.last_active = old_last_active;
+        pa4.manual = true;
+        manager.update_address(pa4);
+
+
+
+        std::unordered_set<string> latest_active_addresses = manager.get_latest_active_addresses(std::chrono::seconds(600));
+
+        BOOST_REQUIRE(latest_active_addresses.size() == 2);
+        BOOST_REQUIRE(latest_active_addresses.count("192.168.0.1:9876:peer") == 1);
+        BOOST_REQUIRE(latest_active_addresses.count("192.168.0.1:9877:peer") == 1);
+
+
+        std::unordered_set<string> latest_active_addresses_manual = manager.get_latest_active_addresses(std::chrono::seconds(600), true);
+        BOOST_REQUIRE(latest_active_addresses_manual.size() == 1);
+        BOOST_REQUIRE(latest_active_addresses_manual.count("192.168.0.1:9877:peer") == 1);
+
+        std::unordered_set<string> latest_active_addresses2 = manager.get_latest_active_addresses(std::chrono::seconds(800));
+
+        BOOST_REQUIRE(latest_active_addresses2.size() == 4);
+        BOOST_REQUIRE(latest_active_addresses2.count("192.168.0.1:9876:peer") == 1);
+        BOOST_REQUIRE(latest_active_addresses2.count("192.168.0.1:9877:peer") == 1);
+        BOOST_REQUIRE(latest_active_addresses2.count("10.0.0.2:8888") == 1);
+        BOOST_REQUIRE(latest_active_addresses2.count("example.com:444") == 1);
+
+        std::unordered_set<string> latest_active_addresses_manual2 = manager.get_latest_active_addresses(std::chrono::seconds(800), true);
+        BOOST_REQUIRE(latest_active_addresses_manual2.size() == 2);
+        BOOST_REQUIRE(latest_active_addresses_manual2.count("192.168.0.1:9877:peer") == 1);
+        BOOST_REQUIRE(latest_active_addresses_manual2.count("example.com:444") == 1);
+
+
+
+
+    }
+
     BOOST_AUTO_TEST_CASE(test_address_manager_concurrency) {
 
         std::random_device rd;
