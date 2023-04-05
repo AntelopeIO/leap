@@ -119,11 +119,24 @@ namespace eosio {
         addresses.emplace(address.to_key(), address);
     }
 
+    void address_manager::add_or_update_address(const peer_address& address) {
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+        fc_dlog( logger, "Address Manager add_or_update_address: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
+        addresses.insert_or_assign(address.to_key(), address);
+    }
+
     void address_manager::add_address_str(const std::string& address, bool is_manual ) {
         peer_address addr = peer_address::from_str(address, is_manual);
         // same address with different configurations is ignored
         add_address(addr);
     }
+
+    void address_manager::add_active_address(const std::string& address) {
+        peer_address addr = peer_address::from_str(address, false);
+        addr.last_active = fc::time_point::now();
+        add_address(addr);
+    }
+
 
     void address_manager::add_addresses(const std::unordered_set<std::string>& new_addresses_str, bool is_manual) {
         std::lock_guard<std::mutex> lock(addresses_mutex);
@@ -158,7 +171,7 @@ namespace eosio {
         }
     }
 
-    void address_manager::remove_addresses_str(const std::unordered_set<string> &addresses_to_remove) {
+    void address_manager::remove_addresses_str(const std::unordered_set<string>& addresses_to_remove) {
         std::lock_guard<std::mutex> lock(addresses_mutex);
         for (const auto& address_str : addresses_to_remove) {
             peer_address pa = peer_address::from_str(address_str);
@@ -215,7 +228,7 @@ namespace eosio {
         return manual_addresses;
     }
 
-    std::unordered_set<string> address_manager::get_diff_addresses(const std::unordered_set<string> &addresses_exist) const {
+    std::unordered_set<string> address_manager::get_diff_addresses(const std::unordered_set<string>& addresses_exist) const {
         std::unordered_set<string> diff_addresses;
         std::lock_guard<std::mutex> lock(addresses_mutex);
         for (const auto& addr_pair : addresses) {
@@ -227,7 +240,7 @@ namespace eosio {
         return diff_addresses;
     }
 
-    bool address_manager::has_address(const std::string &address_str) const {
+    bool address_manager::has_address(const std::string& address_str) const {
         std::lock_guard<std::mutex> lock(addresses_mutex);
         peer_address pa = peer_address::from_str(address_str);
         auto it = addresses.find(pa.to_key());

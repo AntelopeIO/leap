@@ -147,33 +147,38 @@ namespace eosio {
         // time_out for future address time out counting
         explicit address_manager(uint32_t time_out) {};
 
-        void add_address(const peer_address &address);
+        void add_address(const peer_address& address);
 
-        void add_address_str(const std::string &address, bool is_manual);
+        void add_or_update_address(const peer_address& address);
 
-        void add_addresses(const std::unordered_set<std::string> &new_addresses_str, bool is_manual);
+        void add_address_str(const std::string& address, bool is_manual);
+
+        void add_active_address(const std::string& address);
+
+        void add_addresses(const std::unordered_set<std::string>& new_addresses_str, bool is_manual);
 
         //for lock test
-        void add_addresses2(const std::unordered_set<std::string> &new_addresses_str, bool is_manual);
+        void add_addresses2(const std::unordered_set<std::string>& new_addresses_str, bool is_manual);
 
-        void remove_address(const peer_address &address);
+        void remove_address(const peer_address& address);
 
-        void remove_addresses_str(const std::unordered_set<string> &addresses_to_remove);
+        void remove_addresses_str(const std::unordered_set<std::string>& addresses_to_remove);
 
-        void remove_addresses_str2(const std::unordered_set<string> &addresses_to_remove);
+        void remove_addresses_str2(const std::unordered_set<std::string>& addresses_to_remove);
 
+        void touch_address(const std::string& address);
 
-        void update_address(const peer_address &updated_address);
+        void update_address(const peer_address& updated_address);
 
-        std::unordered_set<string> get_addresses() const;
+        std::unordered_set<std::string> get_addresses() const;
 
         std::unordered_map<std::string, peer_address> get_addresses_map() const;
 
-        std::unordered_set<string> get_manual_addresses() const;
+        std::unordered_set<std::string> get_manual_addresses() const;
 
-        std::unordered_set<string> get_diff_addresses(const std::unordered_set<string> &addresses_exist) const;
+        std::unordered_set<std::string> get_diff_addresses(const std::unordered_set<std::string>& addresses_exist) const;
 
-        bool has_address(const std::string &address_str) const;
+        bool has_address(const std::string& address_str) const;
 
     };
 
