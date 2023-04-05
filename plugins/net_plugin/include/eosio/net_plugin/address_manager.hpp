@@ -176,7 +176,7 @@ namespace eosio {
 
         std::unordered_set<std::string> get_manual_addresses() const;
 
-        std::unordered_set<std::string> get_diff_addresses(const std::unordered_set<std::string>& addresses_exist) const;
+        std::unordered_set<std::string> get_diff_addresses(const std::unordered_set<std::string>& addresses_exist, bool manual = false) const;
 
         bool has_address(const std::string& address_str) const;
 

@@ -216,7 +216,6 @@ namespace eosio {
         return addresses;
     }
 
-
     std::unordered_set<std::string> address_manager::get_manual_addresses() const {
         std::lock_guard<std::mutex> lock(addresses_mutex);
         std::unordered_set<std::string> manual_addresses;
@@ -228,11 +227,10 @@ namespace eosio {
         return manual_addresses;
     }
 
-    std::unordered_set<string> address_manager::get_diff_addresses(const std::unordered_set<string>& addresses_exist) const {
+    std::unordered_set<string> address_manager::get_diff_addresses(const std::unordered_set<string>& addresses_exist, bool manual) const {
         std::unordered_set<string> diff_addresses;
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-        for (const auto& addr_pair : addresses) {
-            const auto& addr_str = addr_pair.second.to_str();
+        std::unordered_set<string> addr_str_set = manual?get_manual_addresses():get_addresses();
+        for (const auto& addr_str : addr_str_set) {
             if (addresses_exist.find(addr_str) == addresses_exist.end()) {
                 diff_addresses.insert(addr_str);
             }
@@ -389,6 +387,7 @@ namespace eosio {
       uint32_t                              max_client_count = 0;
       uint32_t                              max_nodes_per_host = 1;
       uint32_t                              max_addresses_per_request = 0;
+      bool                                  p2p_only_send_manual_addresses = false;
       // address request frequency, by handshakes count
       uint32_t                              address_request_frequency = 100;
       // maintain a configurable minimum number of connected peer nodes.
@@ -3414,19 +3413,22 @@ namespace eosio {
            if(msg.request_type == push) {
                //check incoming addresses, send back different one:
                std::unordered_set<string> addresses_incoming = msg.addresses;
-               addresses = my_impl->address_master->get_diff_addresses(addresses_incoming);
+
+               addresses = my_impl->address_master->get_diff_addresses(addresses_incoming, my_impl->p2p_only_send_manual_addresses);
+
                // add address from addresses_incoming to address pool
                my_impl->address_master->add_addresses(addresses_incoming, false);
-           } else if(msg.request_type == manual) {
-               addresses = my_impl->address_master->get_manual_addresses();
            } else if(msg.request_type == latest_active) {
                //skip msg.addresses
                //TODO:msg.request_type == latest_active
                addresses = my_impl->address_master->get_addresses();
            } else {
                // default msg.request_type == pull
-               //skip msg.addresses
-               addresses = my_impl->address_master->get_addresses();
+               if(my_impl->p2p_only_send_manual_addresses) {
+                   addresses = my_impl->address_master->get_manual_addresses();
+               } else {
+                   addresses = my_impl->address_master->get_addresses();
+               }
            }
 
                address_sync_message addresses_msg;
@@ -3956,6 +3958,7 @@ namespace eosio {
          ( "p2p-max-nodes-per-host", bpo::value<int>()->default_value(def_max_nodes_per_host), "Maximum number of client nodes from any single IP address")
          ( "p2p-max-addresses-per-request", bpo::value<int>()->default_value(def_max_address_per_request), "Maximum number of addresses in address request or sync message")
          ( "p2p-accept-transactions", bpo::value<bool>()->default_value(true), "Allow transactions received over p2p network to be evaluated and relayed if valid.")
+         ( "p2p-only-send-manual-addresses", bpo::value<bool>()->default_value(false), "Only send addresses from configuration instead from automated peer discovery")
          ( "p2p-auto-bp-peer", bpo::value< vector<string> >()->composing(),
            "The account and public p2p endpoint of a block producer node to automatically connect to when the it is in producer schedule proximity\n."
            "   Syntax: account,host:port\n"
@@ -4018,6 +4021,7 @@ namespace eosio {
          my->max_client_count = options.at( "max-clients" ).as<int>();
          my->max_nodes_per_host = options.at( "p2p-max-nodes-per-host" ).as<int>();
          my->max_addresses_per_request = options.at("p2p-max-addresses-per-request").as<int>();
+         my->p2p_only_send_manual_addresses = options.at("p2p-only-send-manual-addresses").as<bool>();
          my->min_peers_count = options.at( "min-peers" ).as<int>();
          my->p2p_accept_transactions = options.at( "p2p-accept-transactions" ).as<bool>();
 
