@@ -346,7 +346,7 @@ paths:
   /producer/schedule_snapshot:
     post:
       summary: schedule_snapshot
-      description: Submits a request to generate a schedule for automated snapshot with given parameters. If request body is empty, triest to execute snapshot immediately. Returns error when unable to create snapshot.
+      description: Submits a request to automatically generate snapshots according to a schedule specified with given parameters. If request body is empty, schedules immediate snapshot generation. Returns error when unable to accept schedule.
       operationId: schedule_snapshot
       requestBody:
         content:
@@ -411,8 +411,8 @@ paths:
   /producer/get_snapshot_requests:
     post:
       summary: get_snapshot_requests
-      description: Returns a list of scheduled snapshots
-      operationId: get_snapshot_status
+      description: Returns a list of scheduled snapshots.
+      operationId: get_snapshot_requests
       responses:
         "201":
           description: OK
@@ -423,7 +423,7 @@ paths:
                 properties:
                   snapshot_requests:
                     type: array
-                    description: An array of scheduled snapshots
+                    description: An array of scheduled snapshot requests
                     items:
                       type: object
                       required:
@@ -491,7 +491,7 @@ paths:
   /producer/unschedule_snapshot:
     post:
       summary: unschedule_snapshot
-      description: Submits a request to remove identified by id recurring snapshot from schedule. Returns error when unable to create unschedule.
+      description: Removes snapshot request identified by id. Returns error if referenced snapshot request does not exist.
       operationId: unschedule_snapshot
       requestBody:
         required: true
