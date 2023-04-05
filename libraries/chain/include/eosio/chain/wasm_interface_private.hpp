@@ -180,7 +180,6 @@ namespace eosio { namespace chain {
             try {
                Serialization::MemoryInputStream stream((const U8*)bytes.data(),
                                                        bytes.size());
-               WASM::scoped_skip_checks no_check;
                WASM::serialize(stream, module);
                module.userSections.clear();
             } catch (const Serialization::FatalSerializationException& e) {
@@ -190,7 +189,7 @@ namespace eosio { namespace chain {
             }
 
             wasm_instantiation_cache.modify(it, [&](auto& c) {
-               c.module = runtime_interface->instantiate_module((const char*)bytes.data(), bytes.size(), parse_initial_memory(module), code_hash, vm_type, vm_version);
+               c.module = runtime_interface->instantiate_module((const char*)bytes.data(), bytes.size(), code_hash, vm_type, vm_version);
             });
          }
          return it->module;
