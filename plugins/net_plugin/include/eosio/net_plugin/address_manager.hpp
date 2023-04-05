@@ -83,11 +83,7 @@ namespace eosio {
             return host + ":" + port + address_type_str(address_type);
         }
 
-        static peer_address from_str(const std::string& input_address_str) {
-            return from_str(input_address_str, false);
-        }
-
-        static peer_address from_str(const std::string& input_address_str, bool is_manual) {
+        static peer_address from_str(const std::string& input_address_str, bool is_manual = false) {
             try {
                 std::string address_str = input_address_str;
                 // for "localhost:1234 - 012345" str
@@ -151,14 +147,14 @@ namespace eosio {
 
         void add_or_update_address(const peer_address& address);
 
-        void add_address_str(const std::string& address, bool is_manual);
+        void add_address_str(const std::string& address, bool is_manual = false);
 
         void add_active_address(const std::string& address);
 
-        void add_addresses(const std::unordered_set<std::string>& new_addresses_str, bool is_manual);
+        void add_addresses(const std::unordered_set<std::string>& new_addresses_str, bool is_manual = false);
 
         //for lock test
-        void add_addresses2(const std::unordered_set<std::string>& new_addresses_str, bool is_manual);
+        void add_addresses2(const std::unordered_set<std::string>& new_addresses_str, bool is_manual = false);
 
         void remove_address(const peer_address& address);
 
@@ -177,6 +173,8 @@ namespace eosio {
         std::unordered_set<std::string> get_manual_addresses() const;
 
         std::unordered_set<std::string> get_diff_addresses(const std::unordered_set<std::string>& addresses_exist, bool manual = false) const;
+
+        std::unordered_set<std::string> get_latest_active_addresses(const std::chrono::seconds& secs, bool manual = false) const;
 
         bool has_address(const std::string& address_str) const;
 

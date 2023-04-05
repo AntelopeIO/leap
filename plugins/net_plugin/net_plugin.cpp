@@ -120,9 +120,22 @@ namespace eosio {
     }
 
     void address_manager::add_or_update_address(const peer_address& address) {
+        peer_address pa = address;
         std::lock_guard<std::mutex> lock(addresses_mutex);
         fc_dlog( logger, "Address Manager add_or_update_address: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
-        addresses.insert_or_assign(address.to_key(), address);
+        auto it = addresses.find(address.to_key());
+        if (it != addresses.end()) {
+            pa.manual = it->second.manual;
+            pa.receive = it->second.receive;
+            //type and last_active will change
+        }
+        addresses[address.to_key()] = pa;
+    }
+
+    void address_manager::touch_address(const std::string& address) {
+        peer_address pa = peer_address::from_str(address);
+        pa.last_active = fc::time_point::now();
+        add_or_update_address(pa);
     }
 
     void address_manager::add_address_str(const std::string& address, bool is_manual ) {
@@ -238,6 +251,21 @@ namespace eosio {
         return diff_addresses;
     }
 
+    std::unordered_set<std::string> address_manager::get_latest_active_addresses(const std::chrono::seconds& secs, bool manual) const {
+        std::lock_guard<std::mutex> lock(addresses_mutex);
+
+        std::unordered_set<std::string> active_addresses;
+        fc::time_point oldest_time = fc::time_point::now() - fc::seconds(secs.count());
+
+        for (const auto& [key, address] : addresses) {
+            if((!manual || address.manual == manual) && address.last_active >= oldest_time) {
+                active_addresses.insert(address.to_str());
+            }
+        }
+        return active_addresses;
+    }
+
+
     bool address_manager::has_address(const std::string& address_str) const {
         std::lock_guard<std::mutex> lock(addresses_mutex);
         peer_address pa = peer_address::from_str(address_str);
@@ -343,6 +371,8 @@ namespace eosio {
    constexpr auto     def_sync_fetch_span = 100;
    constexpr auto     def_keepalive_interval = 10000;
    constexpr auto     def_max_address_per_request = 10000;
+   constexpr auto     def_address_request_last_active_secs = std::chrono::seconds(600);
+
 
    constexpr auto     message_header_size = sizeof(uint32_t);
    constexpr uint32_t signed_block_which       = fc::get_index<net_message, signed_block>();       // see protocol net_message
@@ -390,6 +420,10 @@ namespace eosio {
       bool                                  p2p_only_send_manual_addresses = false;
       // address request frequency, by handshakes count
       uint32_t                              address_request_frequency = 100;
+      // address touch frequency, to update address last_active, by handshakes count
+      uint32_t                              address_touch_frequency = 10;
+      std::chrono::seconds                  address_request_last_active_secs = def_address_request_last_active_secs;
+
       // maintain a configurable minimum number of connected peer nodes.
       uint32_t                              min_peers_count = 0;
       bool                                  p2p_accept_transactions = true;
@@ -3098,9 +3132,6 @@ namespace eosio {
             set_connection_type( msg.p2p_address );
          }
 
-         // add all kind address to manager, only peer or all type will be send to others
-         my_impl->address_master->add_address_str(msg.p2p_address, false);
-
          std::unique_lock<std::mutex> g_conn( conn_mtx );
          if( peer_address().empty() || last_handshake_recv.node_id == fc::sha256()) {
             auto c_time = last_handshake_sent.time;
@@ -3215,6 +3246,13 @@ namespace eosio {
          if( sent_handshake_count == 0 ) {
             send_handshake();
          }
+      }
+
+      if(msg.generation % my_impl->address_touch_frequency == 1) {
+          // try to touch connection every address_touch_frequency handshakes
+          // add all kind address to manager, only peer or all type will be send to others
+          // if address in manager, update type and last_active
+          my_impl->address_master->touch_address(msg.p2p_address);
       }
 
       my_impl->sync_master->recv_handshake( shared_from_this(), msg );
@@ -3417,11 +3455,9 @@ namespace eosio {
                addresses = my_impl->address_master->get_diff_addresses(addresses_incoming, my_impl->p2p_only_send_manual_addresses);
 
                // add address from addresses_incoming to address pool
-               my_impl->address_master->add_addresses(addresses_incoming, false);
+               my_impl->address_master->add_addresses(addresses_incoming);
            } else if(msg.request_type == latest_active) {
-               //skip msg.addresses
-               //TODO:msg.request_type == latest_active
-               addresses = my_impl->address_master->get_addresses();
+               addresses = my_impl->address_master->get_latest_active_addresses(my_impl->address_request_last_active_secs, my_impl->p2p_only_send_manual_addresses);
            } else {
                // default msg.request_type == pull
                if(my_impl->p2p_only_send_manual_addresses) {
@@ -3431,7 +3467,7 @@ namespace eosio {
                }
            }
 
-               address_sync_message addresses_msg;
+           address_sync_message addresses_msg;
 
            int count = 0;
            for (const auto& address : addresses) {
