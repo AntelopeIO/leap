@@ -47,7 +47,6 @@ class TestHelper(object):
         thGrpTitle = "Test Helper Arguments"
         thGrpDescription="Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment."
         thGrp = thParser.add_argument_group(title=None if suppressHelp else thGrpTitle, description=None if suppressHelp else thGrpDescription)
-        # thGrp.add_argument('-?', '--help', action='help', default=argparse.SUPPRESS, help=argparse.SUPPRESS if suppressHelp else argparse._('show this help message and exit'))
 
         if "-p" in includeArgs:
             thGrp.add_argument("-p", type=int, help=argparse.SUPPRESS if suppressHelp else "producing nodes count", default=1)
@@ -74,7 +73,7 @@ class TestHelper(object):
             thGrp.add_argument("--seed", type=int, help=argparse.SUPPRESS if suppressHelp else "random seed", default=1)
 
         if "--host" in includeArgs:
-            thGrp.add_argument("-h", "--host", type=str, help=argparse.SUPPRESS if suppressHelp else "%s host name" % (Utils.EosServerName),
+            thGrp.add_argument("--host", type=str, help=argparse.SUPPRESS if suppressHelp else "%s host name" % (Utils.EosServerName),
                                      default=TestHelper.LOCAL_HOST)
         if "--port" in includeArgs:
             thGrp.add_argument("--port", type=int, help=argparse.SUPPRESS if suppressHelp else "%s host port" % Utils.EosServerName,
