@@ -1,4 +1,5 @@
 #pragma once
+#include <regex>
 #include <eosio/net_plugin/protocol.hpp>
 
 namespace eosio {
@@ -85,31 +86,15 @@ namespace eosio {
 
         static peer_address from_str(const std::string& input_address_str, bool is_manual = false) {
             try {
-                std::string address_str = input_address_str;
-                // for "localhost:1234 - 012345" str
-                string::size_type pos = address_str.find(' ');
-                if (pos != std::string::npos) {
-                    address_str = address_str.substr(0, pos);
-                }
-                // for "eosproducer1,p2p.eos.io:9876" str
-                pos = address_str.find(',');
-                if (pos != std::string::npos) {
-                    address_str = address_str.substr(pos + 1);
-                }
-
-                string::size_type colon = address_str.find(':');
-                //host and port is necessary
-                if (colon == string::npos) {
+                static const std::regex address_regex("^(?:([\\w.-]+),)?([\\w.]+)(?::(\\d+))?(?::(\\w+))?(?:[-\\s]*([\\w-]+))?$");
+                std::smatch match;
+                if (!std::regex_match(input_address_str, match, address_regex)) {
                     throw std::invalid_argument(input_address_str);
                 }
 
-                string::size_type colon2 = address_str.find(':', colon + 1);
-                string::size_type end = colon2 == string::npos
-                                        ? string::npos : address_str.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 );
-                string host_str = address_str.substr( 0, colon );
-                string port_str = address_str.substr( colon + 1, colon2 == string::npos ? string::npos : colon2 - (colon + 1));
-                string type_str = colon2 == string::npos ? "" : end == string::npos ?
-                                                                address_str.substr( colon2 + 1 ) : address_str.substr( colon2 + 1, end - (colon2 + 1) );
+                std::string host_str = match[2].str();
+                std::string port_str = match[3].str();
+                std::string type_str = match[4].str();
 
                 if (host_str.empty() || port_str.empty()) {
                     throw std::invalid_argument(input_address_str);
@@ -131,6 +116,7 @@ namespace eosio {
                 throw std::invalid_argument(std::string("Invalid peer address string: ") + e.what());
             }
         }
+
 
     };
 
