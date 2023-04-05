@@ -159,17 +159,6 @@ namespace eosio { namespace chain {
             std::vector<U8> bytes = {
                 (const U8*)codeobject->code.data(),
                 (const U8*)codeobject->code.data() + codeobject->code.size()};
-            try {
-               Serialization::MemoryInputStream stream((const U8*)bytes.data(),
-                                                       bytes.size());
-               WASM::serialize(stream, module);
-               module.userSections.clear();
-            } catch (const Serialization::FatalSerializationException& e) {
-               EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
-            } catch (const IR::ValidationException& e) {
-               EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
-            }
-
             wasm_instantiation_cache.modify(it, [&](auto& c) {
                c.module = runtime_interface->instantiate_module((const char*)bytes.data(), bytes.size(), code_hash, vm_type, vm_version);
             });
