@@ -459,7 +459,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       };
 
       uint32_t                        _ro_thread_pool_size{ 0 };
-      static constexpr uint32_t       _ro_max_eos_vm_oc_threads_allowed{ 8 }; // Due to uncertainty to get total virtual memory size on a 5-level paging system, set a hard limit
+       // Due to uncertainty to get total virtual memory size on a 5-level paging system for eos-vm-oc and
+       // possible memory exhuastion for large number of contract usage for non-eos-vm-oc, set a hard limit
+      static constexpr uint32_t       _ro_max_threads_allowed{ 8 };
       named_thread_pool<struct read>  _ro_thread_pool;
       fc::microseconds                _ro_write_window_time_us{ 200000 };
       fc::microseconds                _ro_read_window_time_us{ 60000 };
@@ -929,7 +931,7 @@ void producer_plugin::set_program_options(
          ("snapshots-dir", bpo::value<bfs::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
          ("read-only-threads", bpo::value<uint32_t>(),
-          "Number of worker threads in read-only execution thread pool")
+          "Number of worker threads in read-only execution thread pool. Max 8.")
          ("read-only-write-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_write_window_time_us.count()),
           "Time in microseconds the write window lasts.")
          ("read-only-read-window-time-us", bpo::value<uint32_t>()->default_value(my->_ro_read_window_time_us.count()),
@@ -1150,11 +1152,12 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          // reserve 1 for the app thread, 1 for anything else which might use VM
          EOS_ASSERT( num_threads_supported > 2, plugin_config_exception, "With the EOS VM OC configured, there is not enough system virtual memory to support the required minimum of 3 threads (1 for main thread, 1 for read-only, and 1 for anything else), vm total: ${t}, vm used: ${u}", ("t", vm_total_kb)("u", vm_used_kb));
          num_threads_supported -= 2;
-         auto actual_threads_allowed = std::min(my->_ro_max_eos_vm_oc_threads_allowed, num_threads_supported);
-         ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported) ("max", my->_ro_max_eos_vm_oc_threads_allowed)("actual", actual_threads_allowed));
+         auto actual_threads_allowed = std::min(my->_ro_max_threads_allowed, num_threads_supported);
+         ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported) ("max", my->_ro_max_threads_allowed)("actual", actual_threads_allowed));
          EOS_ASSERT( my->_ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})", ("th", my->_ro_thread_pool_size) ("allowed", actual_threads_allowed) );
       }
 #endif
+      EOS_ASSERT( my->_ro_thread_pool_size <= my->_ro_max_threads_allowed, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads allowed (${allowed})", ("th", my->_ro_thread_pool_size) ("allowed", my->_ro_max_threads_allowed) );
    }
 
    my->_ro_write_window_time_us = fc::microseconds( options.at( "read-only-write-window-time-us" ).as<uint32_t>() );
