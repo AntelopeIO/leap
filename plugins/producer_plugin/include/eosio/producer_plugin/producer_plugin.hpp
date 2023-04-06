@@ -124,7 +124,7 @@ public:
    };
 
    template<typename T>
-   using next_function = std::function<void(const std::variant<fc::exception_ptr, T>&)>;
+   using next_function = eosio::chain::next_function<T>;
 
    producer_plugin();
    virtual ~producer_plugin();

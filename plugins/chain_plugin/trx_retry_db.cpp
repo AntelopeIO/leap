@@ -31,7 +31,7 @@ struct tracked_transaction {
    uint32_t                                                  block_num = 0;
    fc::variant                                               trx_trace_v;
    fc::time_point                                            last_try;
-   chain_apis::next_function<std::unique_ptr<fc::variant>>   next;
+   next_function<std::unique_ptr<fc::variant>>               next;
 
    const transaction_id_type& id()const { return ptrx->id(); }
    fc::time_point_sec expiry()const { return ptrx->expiration(); }

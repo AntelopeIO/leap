@@ -3165,7 +3165,7 @@ namespace eosio {
 
       trx_in_progress_size += calc_trx_size( trx );
       my_impl->chain_plug->accept_transaction( trx,
-         [weak = weak_from_this(), trx](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) mutable {
+         [weak = weak_from_this(), trx](const next_function_variant<transaction_trace_ptr>& result) mutable {
          // next (this lambda) called from application thread
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             fc_dlog( logger, "bad packed_transaction : ${m}", ("m", std::get<fc::exception_ptr>(result)->what()) );

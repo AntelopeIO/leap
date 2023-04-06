@@ -2095,7 +2095,7 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
-            [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+            [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
          } else {
@@ -2169,13 +2169,15 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
 }
 
 static void push_recurse(read_write* rw, int index, const std::shared_ptr<read_write::push_transactions_params>& params, const std::shared_ptr<read_write::push_transactions_results>& results, const next_function<read_write::push_transactions_results>& next) {
-   auto wrapped_next = [=](const std::variant<fc::exception_ptr, read_write::push_transaction_results>& result) {
+   auto wrapped_next = [=](const next_function_variant<read_write::push_transaction_results>& result) {
       if (std::holds_alternative<fc::exception_ptr>(result)) {
          const auto& e = std::get<fc::exception_ptr>(result);
          results->emplace_back( read_write::push_transaction_results{ transaction_id_type(), fc::mutable_variant_object( "error", e->to_detail_string() ) } );
-      } else {
+      } else if (std::holds_alternative<read_write::push_transaction_results>(result)) {
          const auto& r = std::get<read_write::push_transaction_results>(result);
          results->emplace_back( r );
+      } else {
+         assert(0);
       }
 
       size_t next_index = index + 1;
@@ -2214,12 +2216,11 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
-            [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+            [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
          } else {
             auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
-
             try {
                fc::variant output;
                try {
@@ -2257,7 +2258,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                   ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
 
       app().get_method<incoming::methods::transaction_async>()(ptrx, true, transaction_metadata::trx_type::input, static_cast<bool>(params.return_failure_trace),
-         [this, ptrx, next, retry, retry_num_blocks](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+         [this, ptrx, next, retry, retry_num_blocks](const next_function_variant<transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                next( std::get<fc::exception_ptr>( result ) );
             } else {
@@ -2266,7 +2267,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                   if( retry && trx_retry.has_value() && !trx_trace_ptr->except) {
                      // will be ack'ed via next later
                      trx_retry->track_transaction( ptrx, retry_num_blocks,
-                        [ptrx, next](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result ) {
+                        [ptrx, next](const next_function_variant<std::unique_ptr<fc::variant>>& result ) {
                            if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                               next( std::get<fc::exception_ptr>( result ) );
                            } else {
@@ -2578,7 +2579,7 @@ void read_only::send_transient_transaction(const Params& params, next_function<R
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true /* api_trx */, trx_type, true /* return_failure_trace */,
-          [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+          [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
              if (std::holds_alternative<fc::exception_ptr>(result)) {
                    next(std::get<fc::exception_ptr>(result));
               } else {
