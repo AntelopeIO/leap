@@ -87,6 +87,26 @@
       NEXT(e.dynamic_copy_exception());\
    }
 
+/**
+ * Capture all exceptions and return a fc::exception_ptr
+ */
+#define CATCH_AND_RETURN(return_type)\
+   catch ( const fc::exception& err ) {\
+      return return_type(err.dynamic_copy_exception());\
+   } catch ( const std::exception& e ) {\
+      fc::exception fce( \
+         FC_LOG_MESSAGE( warn, "rethrow ${what}: ", ("what",e.what())),\
+         fc::std_exception_code,\
+         BOOST_CORE_TYPEID(e).name(),\
+         e.what() ) ;\
+      return return_type(fce.dynamic_copy_exception());\
+   } catch( ... ) {\
+      fc::unhandled_exception e(\
+         FC_LOG_MESSAGE(warn, "rethrow"),\
+         std::current_exception());\
+      return return_type(e.dynamic_copy_exception());\
+   }
+
 #define EOS_RECODE_EXC( cause_type, effect_type ) \
    catch( const cause_type& e ) \
    { throw( effect_type( e.what(), e.get_log() ) ); }
