@@ -228,7 +228,6 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
    cfg.add_options()
          ("chain-alias", bpo::value<string>(), "Chain Alias, alias id mapping is needed. a bootnode server address must set in p2p-peer-address.")
          ("chain-id", bpo::value<string>(), "Chain ID, must match chain id in genesis or snapshot or block. a bootnode server address must set in p2p-peer-address.")
-         ("chain-alias-mapping-json", bpo::value<bfs::path>()->default_value(config::default_mapping_filename), "The mapping info json file for alias and id.")
          ("blocks-dir", bpo::value<bfs::path>()->default_value("blocks"),
           "the location of the blocks directory (absolute path or relative to application data dir)")
          ("blocks-log-stride", bpo::value<uint32_t>(),
@@ -896,15 +895,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
           my->chain_alias = options.at( "chain-alias" ).as<string>();
           ilog( "Chain Alias in config is ${alias}", ("alias", my->chain_alias) );
 
-          bfs::path mapping_file;
-
-          if( options.count( "chain-alias-mapping-json" ) ) {
-              mapping_file = options.at( "chain-alias-mapping-json" ).as<bfs::path>();
-          }
-
-          if( mapping_file.is_relative()) {
-              mapping_file = app().config_dir() / mapping_file;
-          }
+          bfs::path mapping_file = app().config_dir() / config::default_mapping_filename;
 
           EOS_ASSERT( fc::is_regular_file( mapping_file ),
                       plugin_config_exception,

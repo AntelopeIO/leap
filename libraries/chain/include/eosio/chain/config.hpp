@@ -7,7 +7,7 @@ namespace eosio { namespace chain { namespace config {
 
 typedef __uint128_t uint128_t;
 
-const static auto default_mapping_filename   = "mapping.json";
+const static auto default_mapping_filename   = "chain_alias_mapping.json";
 
 const static auto default_blocks_dir_name    = "blocks";
 const static auto reversible_blocks_dir_name = "reversible";
