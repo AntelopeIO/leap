@@ -63,7 +63,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 #define CHAIN_RO_CALL_WITH_400(call_name, http_response_code, params_type) CALL_WITH_400(chain, ro_api, chain_apis::read_only, call_name, http_response_code, params_type)
 
 template<class API, class PARAMS_PARSER, class HANDLER>
-static api_entry make_api_entry(http_plugin &_http_plugin, API& api, const char* api_name,
+static api_entry make_api_entry(http_plugin& _http_plugin, API& api, const char* api_name,
                                 const char* call_name, PARAMS_PARSER params_parser, HANDLER handler) {
    return api_entry(
       std::string("/v1/") + api_name + "/" + call_name,
