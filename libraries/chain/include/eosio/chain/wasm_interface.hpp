@@ -4,8 +4,6 @@
 #include <eosio/chain/whitelisted_intrinsics.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <functional>
-#include "Runtime/Linker.h"
-#include "Runtime/Runtime.h"
 
 namespace eosio { namespace chain {
 

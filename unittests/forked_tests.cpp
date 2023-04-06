@@ -4,8 +4,6 @@
 
 #include <eosio/chain/fork_database.hpp>
 
-#include <Runtime/Runtime.h>
-
 #include <fc/variant_object.hpp>
 
 #include <boost/test/unit_test.hpp>

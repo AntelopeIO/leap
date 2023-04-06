@@ -15,6 +15,8 @@
 
 #include <boost/hana/equal.hpp>
 
+#include "IR/Types.h"
+
 #include <asm/prctl.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>

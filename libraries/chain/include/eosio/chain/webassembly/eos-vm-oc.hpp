@@ -19,7 +19,6 @@
 namespace eosio { namespace chain { namespace webassembly { namespace eosvmoc {
 
 using namespace IR;
-using namespace Runtime;
 using namespace fc;
 
 using namespace eosio::chain::eosvmoc;
