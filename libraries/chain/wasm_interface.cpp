@@ -93,7 +93,15 @@ namespace eosio { namespace chain {
       if(my->eosvmoc) {
          const chain::eosvmoc::code_descriptor* cd = nullptr;
          try {
-            cd = my->eosvmoc->cc.get_descriptor_for_code(code_hash, vm_version, context.control.is_write_window());
+            eosio::chain::eosvmoc::get_cd_failure failure = eosio::chain::eosvmoc::get_cd_failure::temporary;
+            cd = my->eosvmoc->cc.get_descriptor_for_code(code_hash, vm_version, context.control.is_write_window(), failure);
+            if (!cd && context.trx_context.is_read_only()) {
+               if (failure == eosio::chain::eosvmoc::get_cd_failure::temporary) {
+                  EOS_ASSERT(false, ro_trx_temporary, "get_descriptor_for_code failed with temporary failure");
+               } else {
+                  EOS_ASSERT(false, ro_trx_permanent, "get_descriptor_for_code failed with permanent failure");
+               }
+            }
          }
          catch(...) {
             //swallow errors here, if EOS VM OC has gone in to the weeds we shouldn't bail: continue to try and run baseline
