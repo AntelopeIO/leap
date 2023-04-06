@@ -11,7 +11,7 @@ import time
 import shutil
 import signal
 
-from TestHarness import Account, Cluster, Node, ReturnType, Utils, WalletMgr
+from TestHarness import Account, Node, ReturnType, Utils, WalletMgr
 
 testSuccessful=False
 
@@ -403,7 +403,7 @@ def abi_file_with_nodeos_test():
                     os.kill(node.pid, signal.SIGKILL)
         if testSuccessful:
             Utils.Print("Cleanup nodeos data.")
-            shutil.rmtree(data_dir)
+            shutil.rmtree(Utils.DataPath)
 
         if malicious_token_abi_path:
             if os.path.exists(malicious_token_abi_path):

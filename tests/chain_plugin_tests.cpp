@@ -14,8 +14,6 @@
 
 #include <fc/io/fstream.hpp>
 
-#include <Runtime/Runtime.h>
-
 #include <fc/variant_object.hpp>
 #include <fc/io/json.hpp>
 

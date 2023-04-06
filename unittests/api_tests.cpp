@@ -35,7 +35,6 @@
 #include <IR/Validate.h>
 #include <WAST/WAST.h>
 #include <WASM/WASM.h>
-#include <Runtime/Runtime.h>
 
 #include <contracts.hpp>
 #include <test_contracts.hpp>
@@ -268,7 +267,6 @@ bool is_access_violation(fc::unhandled_exception const & e) {
     }
    return false;
 }
-bool is_access_violation(const Runtime::Exception& e) { return true; }
 
 bool is_assert_exception(fc::assert_exception const & e) { return true; }
 bool is_page_memory_error(page_memory_error const &e) { return true; }

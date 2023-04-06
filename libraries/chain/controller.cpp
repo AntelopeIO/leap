@@ -210,6 +210,12 @@ struct pending_state {
 };
 
 struct controller_impl {
+   enum class app_window_type {
+      write, // Only main thread is running; read-only threads are not running.
+             // All read-write and read-only tasks are sequentially executed.
+      read   // Main thread and read-only threads are running read-ony tasks in parallel.
+             // Read-write tasks are not being executed.
+   };
 
    // LLVM sets the new handler, we need to reset this to throw a bad_alloc exception so we can possibly exit cleanly
    // and not just abort.
@@ -246,11 +252,10 @@ struct controller_impl {
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
 #endif
-   // Ideally wasmif should be thread_local which must be a static.
-   // Unittests can create multiple controller objects (testers) at the same time,
-   // which overwrites the same static wasmif, is used for eosvmoc too.
    wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
-   thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local; // a copy for each read-only thread, used by eos-vm and eos-vm-jit
+   std::mutex threaded_wasmifs_mtx;
+   std::unordered_map<std::thread::id, std::unique_ptr<wasm_interface>> threaded_wasmifs; // one for each read-only thread, used by eos-vm and eos-vm-jit
+   app_window_type app_window = app_window_type::write;
 
    typedef pair<scope_name,action_name>                   handler_key;
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
@@ -337,7 +342,12 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
-         get_wasm_interface().current_lib(bsp->block_num);
+         // producer_plugin has already asserted irreversible_block signal is
+         // called in write window
+         wasmif.current_lib(bsp->block_num);
+         for (auto& w: threaded_wasmifs) {
+            w.second->current_lib(bsp->block_num);
+         }
       });
 
 
@@ -497,9 +507,10 @@ struct controller_impl {
 
    void replay(std::function<bool()> check_shutdown) {
       auto blog_head = blog.head();
-      if( !blog_head && !fork_db.root() ) {
+      if( !fork_db.root() ) {
          fork_db.reset( *head );
-         return;
+         if (!blog_head)
+            return;
       }
 
       replaying = true;
@@ -2687,11 +2698,24 @@ struct controller_impl {
          wasmif.init_thread_local_data();
       else
 #endif
+      {
+         std::lock_guard g(threaded_wasmifs_mtx);
          // Non-EOSVMOC needs a wasmif per thread
-         wasmif_thread_local = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+         threaded_wasmifs[std::this_thread::get_id()]  = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+      }
    }
 
    bool is_on_main_thread() { return main_thread_id == std::this_thread::get_id(); };
+
+   void set_to_write_window() {
+      app_window = app_window_type::write;
+   }
+   void set_to_read_window() {
+      app_window = app_window_type::read;
+   }
+   bool is_write_window() const {
+      return app_window == app_window_type::write;
+   }
 
    wasm_interface& get_wasm_interface() {
       if ( is_on_main_thread()
@@ -2701,7 +2725,17 @@ struct controller_impl {
          )
          return wasmif;
       else
-         return *wasmif_thread_local;
+         return *threaded_wasmifs[std::this_thread::get_id()];
+   }
+
+   void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
+      // The caller of this function apply_eosio_setcode has already asserted that
+      // the transaction is not a read-only trx, which implies we are
+      // in write window. Safe to call threaded_wasmifs's code_block_num_last_used
+      wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+      for (auto& w: threaded_wasmifs) {
+         w.second->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+      }
    }
 
    block_state_ptr fork_db_head() const;
@@ -2711,7 +2745,6 @@ thread_local platform_timer controller_impl::timer;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 thread_local eosio::vm::wasm_allocator controller_impl::wasm_alloc;
 #endif
-thread_local std::unique_ptr<wasm_interface> controller_impl::wasmif_thread_local;
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
 {
@@ -3686,8 +3719,18 @@ void controller::init_thread_local_data() {
    my->init_thread_local_data();
 }
 
-bool controller::is_on_main_thread() const {
-  return my->is_on_main_thread();
+void controller::set_to_write_window() {
+   my->set_to_write_window();
+}
+void controller::set_to_read_window() {
+   my->set_to_read_window();
+}
+bool controller::is_write_window() const {
+   return my->is_write_window();
+}
+
+void controller::code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
+   return my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
 }
 
 /// Protocol feature activation handlers:
