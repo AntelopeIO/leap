@@ -397,10 +397,11 @@ namespace eosio::chain {
    template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
    // next_function is a function passed to an API (like send_transaction) and which is called at the end of
-   // the API processing on the main thread. The type T is a description for the API result.
+   // the API processing on the main thread. The type T is a description of the API result that can be
+   // serialized as output.
    // The function accepts a variant which can contain an exception_ptr (if an exception occured while
-   // processing the API) of the result T.
-   // The last option is a function which can be executed in a multithreaded context (likely on the
+   // processing the API) or the result T.
+   // The third option is a function which can be executed in a multithreaded context (likely on the
    // http_plugin thread pool) and which completes the API processing and returns the result T.
    // -------------------------------------------------------------------------------------------------------
    template<typename T>
@@ -408,7 +409,6 @@ namespace eosio::chain {
 
    template<typename T>
    using next_function = std::function<void(const next_function_variant<T>&)>;
-
 
 }  // eosio::chain
 
