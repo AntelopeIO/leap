@@ -10,12 +10,6 @@ namespace boost { namespace asio {
 
 namespace eosio { namespace chain {
 
-template<typename T>
-using next_function_variant = std::variant<fc::exception_ptr, T, std::function<void()>>;
-
-template<typename T>
-using next_function = std::function<void(const next_function_variant<T>&)>;
-
 class transaction_metadata;
 using transaction_metadata_ptr = std::shared_ptr<transaction_metadata>;
 using recover_keys_future = std::future<transaction_metadata_ptr>;
