@@ -120,11 +120,17 @@ Config Options for eosio::chain_plugin:
                                         applied to them (may specify multiple
                                         times)
   --read-mode arg (=head)               Database read mode ("head",
-                                        "irreversible").
+                                        "speculative", "irreversible").
                                         In "head" mode: database contains state
                                         changes up to the head block;
                                         transactions received by the node are
                                         relayed if valid.
+                                        In "speculative" mode: (DEPRECATED:
+                                        head mode recommended) database
+                                        contains state changes by transactions
+                                        in the blockchain up to the head block
+                                        as well as some transactions not yet
+                                        included in the blockchain.
                                         In "irreversible" mode: database
                                         contains state changes up to the last
                                         irreversible block; transactions

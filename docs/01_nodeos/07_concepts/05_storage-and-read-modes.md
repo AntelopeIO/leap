@@ -28,6 +28,7 @@ The `nodeos` service provides query access to the chain database via the HTTP [R
 The `nodeos` service can be run in different "read" modes. These modes control how the node operates and how it processes blocks and transactions:
 
 - `head`: this only includes the side effects of confirmed transactions, this mode processes unconfirmed transactions but does not include them.
+- `speculative`: this includes the side effects of confirmed and unconfirmed transactions.
 - `irreversible`: this mode also includes confirmed transactions only up to those included in the last irreversible block.
 
 A transaction is considered confirmed when a `nodeos` instance has received, processed, and written it to a block on the blockchain, i.e. it is in the head block or an earlier block.
@@ -37,6 +38,16 @@ A transaction is considered confirmed when a `nodeos` instance has received, pro
 Clients such as `cleos` and the RPC API will see database state as of the current head block of the chain.  Since current head block is not yet irreversible and short-lived forks are possible, state read in this mode may become inaccurate  if `nodeos` switches to a better fork.  
 
 In this mode `nodeos` is able to execute transactions which have TaPoS pointing to any valid block in a fork considered to be the best fork by this node.
+
+### Speculative Mode
+
+Clients such as `cleos` and the RPC API, will see database state as of the current head block plus changes made by all transactions known to this node but potentially not included in the chain, unconfirmed transactions for example.
+
+Speculative mode is low latency but fragile, there is no guarantee that the transactions reflected in the state will be included in the chain OR that they will reflected in the same order the state implies.
+
+This mode features the lowest latency, but is the least consistent.
+
+In speculative mode `nodeos` is able to execute transactions which have TaPoS (Transaction as Proof of Stake) pointing to any valid block in a fork considered to be the best fork by this node.
 
 ### Irreversible Mode
 
