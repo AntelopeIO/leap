@@ -424,7 +424,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       // async snapshot scheduler
       snapshot_scheduler _snapshot_scheduler;
-      
+
       // ro for read-only
       struct ro_trx_t {
          transaction_metadata_ptr trx;
@@ -1569,14 +1569,14 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
    }
 }
 
-void producer_plugin::schedule_snapshot(const snapshot_request_information& sri)
+producer_plugin::snapshot_schedule_result producer_plugin::schedule_snapshot(const snapshot_request_information& sri)
 {
-   my->_snapshot_scheduler.schedule_snapshot(sri);
+   return my->_snapshot_scheduler.schedule_snapshot(sri);
 }
 
-void producer_plugin::unschedule_snapshot(const snapshot_request_id_information& sri)
+producer_plugin::snapshot_schedule_result producer_plugin::unschedule_snapshot(const snapshot_request_id_information& sri)
 {
-   my->_snapshot_scheduler.unschedule_snapshot(sri.snapshot_request_id);
+   return my->_snapshot_scheduler.unschedule_snapshot(sri.snapshot_request_id);
 }
 
 producer_plugin::get_snapshot_requests_result producer_plugin::get_snapshot_requests() const
