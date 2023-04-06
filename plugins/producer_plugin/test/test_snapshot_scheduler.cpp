@@ -98,8 +98,8 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                // we should have a pending snapshot for request id = 0
                BOOST_REQUIRE(it != snapshot_requests.end());
                auto& pending = it->pending_snapshots;
-               if (pending && pending->size()==1) {
-                  BOOST_CHECK_EQUAL(9, pending->begin()->head_block_num);   
+               if (pending.size()==1) {
+                  BOOST_CHECK_EQUAL(9, pending.begin()->head_block_num);   
                }
             }
          });
@@ -126,8 +126,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
 
          // snapshot request with id = 0 should be found and should not have any pending snapshots
          BOOST_REQUIRE(it != snapshot_requests.end());
-         BOOST_REQUIRE(it->pending_snapshots);
-         BOOST_CHECK(!it->pending_snapshots->size());
+         BOOST_CHECK(!it->pending_snapshots.size());
 
          // quit app
          appbase::app().quit();

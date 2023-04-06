@@ -45,7 +45,7 @@ private:
    void x_serialize() {
       auto& vec = _snapshot_requests.get<as_vector>();
       std::vector<producer_plugin::snapshot_schedule_information> sr(vec.begin(), vec.end());
-      _snapshot_db << sr;   
+      _snapshot_db << sr;
    }
 
 public:
@@ -54,7 +54,7 @@ public:
    // snapshot_scheduler_listener
    void on_start_block(uint32_t height) {
       bool serialize_needed  = false;
-      bool snapshot_executed = false; 
+      bool snapshot_executed = false;
 
       auto execute_snapshot_with_log = [this, height, &snapshot_executed](const auto & req) {
          // one snapshot per height
@@ -64,18 +64,18 @@ public:
                ("end_block_num",   req.end_block_num)
                ("block_spacing",   req.block_spacing)
                ("height",          height));
-               
+
             execute_snapshot(req.snapshot_request_id);
             snapshot_executed = true;
          }
-      };    
+      };
 
       std::vector<uint32_t> unschedule_snapshot_request_ids;
       for(const auto& req: _snapshot_requests.get<0>()) {
          // -1 since its called from start block
          bool recurring_snapshot =  req.block_spacing &&  (height >= req.start_block_num + 1) && (!((height - req.start_block_num - 1) % req.block_spacing));
          bool onetime_snapshot   = (!req.block_spacing) && (height == req.start_block_num + 1);
-        
+
          // assume "asap" for snapshot with missed/zero start, it can have spacing
          if(!req.start_block_num) {
             // update start_block_num with current height only if this is recurring
@@ -84,16 +84,16 @@ public:
                auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
                auto it = snapshot_by_id.find(req.snapshot_request_id);
                _snapshot_requests.modify(it, [&height](auto& p) { p.start_block_num = height - 1; });
-               serialize_needed = true;              
+               serialize_needed = true;
             }
             execute_snapshot_with_log(req);
          } else if(recurring_snapshot || onetime_snapshot) {
             execute_snapshot_with_log(req);
-         }       
+         }
 
          // cleanup - remove expired (or invalid) request
-         if((!req.start_block_num && !req.block_spacing) ||         
-            (!req.block_spacing && height >= (req.start_block_num + 1)) || 
+         if((!req.start_block_num && !req.block_spacing) ||
+            (!req.block_spacing && height >= (req.start_block_num + 1)) ||
             (req.end_block_num > 0 && height >= (req.end_block_num + 1))) {
             unschedule_snapshot_request_ids.push_back(req.snapshot_request_id);
          }
@@ -108,7 +108,7 @@ public:
    }
 
    // snapshot_scheduler_handler
-   void schedule_snapshot(const producer_plugin::snapshot_request_information& sri) {
+   producer_plugin::snapshot_schedule_result schedule_snapshot(const producer_plugin::snapshot_request_information& sri) {
       auto& snapshot_by_value = _snapshot_requests.get<by_snapshot_value>();
       auto existing = snapshot_by_value.find(std::make_tuple(sri.block_spacing, sri.start_block_num, sri.end_block_num));
       EOS_ASSERT(existing == snapshot_by_value.end(), chain::duplicate_snapshot_request, "Duplicate snapshot request");
@@ -122,19 +122,27 @@ public:
          }
       }
 
-      _snapshot_requests.emplace(producer_plugin::snapshot_schedule_information {{_snapshot_id++},{sri.block_spacing, sri.start_block_num, sri.end_block_num, sri.snapshot_description},{}});
+      _snapshot_requests.emplace(producer_plugin::snapshot_schedule_information {{_snapshot_id++}, {sri.block_spacing, sri.start_block_num, sri.end_block_num, sri.snapshot_description},{}});
       x_serialize();
+
+      // returning snapshot_schedule_result
+      return  producer_plugin::snapshot_schedule_result{{_snapshot_id - 1}, {sri.block_spacing, sri.start_block_num, sri.end_block_num, sri.snapshot_description}};
    }
 
-   virtual void unschedule_snapshot(uint32_t sri) {
+   producer_plugin::snapshot_schedule_result unschedule_snapshot(uint32_t sri) {
       auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
       auto existing = snapshot_by_id.find(sri);
       EOS_ASSERT(existing != snapshot_by_id.end(), chain::snapshot_request_not_found, "Snapshot request not found");
+
+      producer_plugin::snapshot_schedule_result result{{existing->snapshot_request_id}, {existing->block_spacing, existing->start_block_num, existing->end_block_num, existing->snapshot_description}};
       _snapshot_requests.erase(existing);
       x_serialize();
+
+      // returning snapshot_schedule_result
+      return result;
    }
 
-   virtual producer_plugin::get_snapshot_requests_result get_snapshot_requests() {
+   producer_plugin::get_snapshot_requests_result get_snapshot_requests() {
       producer_plugin::get_snapshot_requests_result result;
       auto& asvector = _snapshot_requests.get<as_vector>();
       result.snapshot_requests.reserve(asvector.size());
@@ -160,11 +168,8 @@ public:
       auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
       auto  snapshot_req   = snapshot_by_id.find(_inflight_sid);
       if (snapshot_req != snapshot_by_id.end()) {
-         _snapshot_requests.modify(snapshot_req, [&si](auto& p) { 
-            if (!p.pending_snapshots) {
-               p.pending_snapshots = std::vector<producer_plugin::snapshot_information>();
-            }
-            p.pending_snapshots->emplace_back(si);       
+         _snapshot_requests.modify(snapshot_req, [&si](auto& p) {
+            p.pending_snapshots.emplace_back(si);
          });
       }
    }
@@ -193,14 +198,12 @@ public:
             auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
             auto  snapshot_req   = snapshot_by_id.find(srid);
 
-            if (snapshot_req != snapshot_by_id.end()) {               
-               if (auto pending = snapshot_req->pending_snapshots; pending) {                 
-                  auto it = std::remove_if(pending->begin(), pending->end(), [&snapshot_info](const producer_plugin::snapshot_information & s){ return s.head_block_num <=  snapshot_info.head_block_num; });
-                  pending->erase(it, pending->end());
-                  _snapshot_requests.modify(snapshot_req, [&pending](auto& p) { 
-                     p.pending_snapshots = std::move(pending);
-                  });
-               }
+            if (snapshot_req != snapshot_by_id.end()) {
+               _snapshot_requests.modify(snapshot_req, [&](auto& p) {
+                  auto & pending = p.pending_snapshots;
+                  auto it = std::remove_if(pending.begin(), pending.end(), [&snapshot_info](const producer_plugin::snapshot_information & s){ return s.head_block_num <=  snapshot_info.head_block_num; });
+                  pending.erase(it, pending.end());
+               });
             }
          }
       };
