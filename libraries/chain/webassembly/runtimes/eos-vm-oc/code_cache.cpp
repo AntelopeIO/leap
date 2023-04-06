@@ -20,7 +20,6 @@
 #include "LLVMJIT.h"
 
 using namespace IR;
-using namespace Runtime;
 
 namespace eosio { namespace chain { namespace eosvmoc {
 
