@@ -102,6 +102,8 @@ namespace eosio { namespace client { namespace http {
       curl_easy_setopt(curl, CURLOPT_HTTP_VERSION, (long)CURL_HTTP_VERSION_1_1);
       curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, postjson.size());
       curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postjson.c_str());
+      curl_easy_setopt(curl, CURLOPT_FOLLOWLOCATION, 1);
+      curl_easy_setopt(curl, CURLOPT_POSTREDIR, CURL_REDIR_POST_ALL);
 
       if (trace) {
          curl_easy_setopt(curl, CURLOPT_DEBUGFUNCTION, my_trace);
