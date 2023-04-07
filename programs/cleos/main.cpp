@@ -1057,7 +1057,7 @@ struct set_action_permission_subcommand {
       auto permissions = actionRoot->add_subcommand("permission", localized("Set parameters dealing with account permissions"));
       permissions->add_option("account", accountStr, localized("The account to set/delete a permission authority for"))->required();
       permissions->add_option("code", codeStr, localized("The account that owns the code for the action"))->required();
-      permissions->add_option("type", typeStr, localized("The type of the action"))->required();
+      permissions->add_option("type", typeStr, localized("The type of the action [use ALL for all types]"))->required();
       permissions->add_option("requirement", requirementStr, localized("[delete] NULL, [set/update] The permission name require for executing the given action"))->required();
 
       add_standard_transaction_options_plus_signing(permissions, "account@active");
@@ -1065,8 +1065,8 @@ struct set_action_permission_subcommand {
       permissions->callback([this] {
          name account = name(accountStr);
          name code = name(codeStr);
-         name type = name(typeStr);
-         bool is_delete = boost::iequals(requirementStr, "null");
+         name type = (typeStr == "ALL") ? name{} : name(typeStr);
+         bool is_delete = (requirementStr == "NULL");
 
          if (is_delete) {
             send_actions({create_unlinkauth(account, code, type)}, signing_keys_opt.get_keys());
