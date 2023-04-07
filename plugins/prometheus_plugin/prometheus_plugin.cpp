@@ -134,7 +134,7 @@ namespace eosio {
             return {};
          http::response<http::string_body> res{ http::status::ok, req.version() };
          // Respond to GET request
-         res.set(http::field::server, BOOST_BEAST_VERSION_STRING);
+         res.set(http::field::server, server_header());
          res.set(http::field::content_type, "text/plain");
          res.keep_alive(req.keep_alive());
          res.body() = metrics();
@@ -214,7 +214,7 @@ namespace eosio {
       void start() {
          run(_prometheus_thread_pool.get_executor(), _endpoint);
          _prometheus_thread_pool.start(
-               1, [](const fc::exception& e) { elog("Prometheus excpetion ${e}", ("e", e)); });
+               1, [](const fc::exception& e) { elog("Prometheus exception ${e}", ("e", e)); });
       }
    };
 

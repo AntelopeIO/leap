@@ -8,7 +8,7 @@ namespace eosio { namespace rest {
 
    // The majority of the code here are derived from boost source
    // libs/beast/example/http/server/async/http_server_async.cpp
-   // with minium modification and yet reusable.
+   // with minimum modification and yet reusable.
 
    namespace beast = boost::beast;         // from <boost/beast.hpp>
    namespace http  = beast::http;          // from <boost/beast/http.hpp>
@@ -23,7 +23,7 @@ namespace eosio { namespace rest {
       http::response<http::string_body> handle_request(http::request<http::string_body>&& req) {
          auto server_header = self()->server_header();
          // Returns a bad request response
-         auto const bad_request = [&req, &server_header](beast::string_view why) {
+         auto const bad_request = [&req, &server_header](std::string_view why) {
             http::response<http::string_body> res{ http::status::bad_request, req.version() };
             res.set(http::field::server, server_header);
             res.set(http::field::content_type, "text/plain");
@@ -34,7 +34,7 @@ namespace eosio { namespace rest {
          };
 
          // Returns a not found response
-         auto const not_found = [&req, &server_header](beast::string_view target) {
+         auto const not_found = [&req, &server_header](std::string_view target) {
             http::response<http::string_body> res{ http::status::not_found, req.version() };
             res.set(http::field::server, server_header);
             res.set(http::field::content_type, "text/plain");
@@ -45,7 +45,7 @@ namespace eosio { namespace rest {
          };
 
          // Returns a server error response
-         auto const server_error = [&req, &server_header](beast::string_view what) {
+         auto const server_error = [&req, &server_header](std::string_view what) {
             http::response<http::string_body> res{ http::status::internal_server_error, req.version() };
             res.set(http::field::server, server_header);
             res.set(http::field::content_type, "text/plain");
@@ -60,8 +60,8 @@ namespace eosio { namespace rest {
             return bad_request("Unknown HTTP-method");
 
          // Request path must be absolute and not contain "..".
-         auto target = req.target();
-         if (target.empty() || target[0] != '/' || target.find("..") != beast::string_view::npos)
+         std::string_view target{req.target().data(), req.target().size()};
+         if (target.empty() || target[0] != '/' || target.find("..") != std::string_view::npos)
             return bad_request("Illegal request-target");
 
          try {
