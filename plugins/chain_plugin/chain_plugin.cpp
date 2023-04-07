@@ -49,10 +49,10 @@ namespace chain {
 std::ostream& operator<<(std::ostream& osm, eosio::chain::db_read_mode m) {
    if ( m == eosio::chain::db_read_mode::HEAD ) {
       osm << "head";
-   } else if ( m == eosio::chain::db_read_mode::SPECULATIVE ) {
-      osm << "speculative";
    } else if ( m == eosio::chain::db_read_mode::IRREVERSIBLE ) {
       osm << "irreversible";
+   } else if ( m == eosio::chain::db_read_mode::SPECULATIVE ) {
+      osm << "speculative";
    }
 
    return osm;
@@ -74,10 +74,10 @@ void validate(boost::any& v,
 
   if ( s == "head" ) {
      v = boost::any(eosio::chain::db_read_mode::HEAD);
-  } else if ( s == "speculative" ) {
-     v = boost::any(eosio::chain::db_read_mode::SPECULATIVE);
   } else if ( s == "irreversible" ) {
      v = boost::any(eosio::chain::db_read_mode::IRREVERSIBLE);
+  } else if ( s == "speculative" ) {
+     v = boost::any(eosio::chain::db_read_mode::SPECULATIVE);
   } else {
      throw validation_error(validation_error::invalid_option_value);
   }
@@ -290,11 +290,12 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("sender-bypass-whiteblacklist", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "Deferred transactions sent by accounts in this list do not have any of the subjective whitelist/blacklist checks applied to them (may specify multiple times)")
          ("read-mode", boost::program_options::value<eosio::chain::db_read_mode>()->default_value(eosio::chain::db_read_mode::HEAD),
-          "Database read mode (\"head\", \"speculative\", \"irreversible\").\n"
+          "Database read mode (\"head\", \"irreversible\", \"speculative\").\n"
           "In \"head\" mode: database contains state changes up to the head block; transactions received by the node are relayed if valid.\n"
-          "In \"speculative\" mode: (DEPRECATED: head mode recommended) database contains state changes by transactions in the blockchain up to the head block as well as some transactions not yet included in the blockchain.\n"
           "In \"irreversible\" mode: database contains state changes up to the last irreversible block; "
           "transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
+          "In \"speculative\" mode: (DEPRECATED: head mode recommended) database contains state changes by transactions in the blockchain "
+          "up to the head block as well as some transactions not yet included in the blockchain; transactions received by the node are relayed if valid.\n"
           )
          ( "api-accept-transactions", bpo::value<bool>()->default_value(true), "Allow API transactions to be evaluated and relayed if valid.")
          ("validation-mode", boost::program_options::value<eosio::chain::validation_mode>()->default_value(eosio::chain::validation_mode::FULL),

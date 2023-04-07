@@ -120,24 +120,25 @@ Config Options for eosio::chain_plugin:
                                         applied to them (may specify multiple
                                         times)
   --read-mode arg (=head)               Database read mode ("head",
-                                        "speculative", "irreversible").
+                                        "irreversible", "speculative").
                                         In "head" mode: database contains state
                                         changes up to the head block;
                                         transactions received by the node are
                                         relayed if valid.
-                                        In "speculative" mode: (DEPRECATED:
-                                        head mode recommended) database
-                                        contains state changes by transactions
-                                        in the blockchain up to the head block
-                                        as well as some transactions not yet
-                                        included in the blockchain.
                                         In "irreversible" mode: database
                                         contains state changes up to the last
                                         irreversible block; transactions
                                         received via the P2P network are not
                                         relayed and transactions cannot be
                                         pushed via the chain API.
-
+                                        In "speculative" mode: (DEPRECATED:
+                                        head mode recommended) database
+                                        contains state changes by transactions
+                                        in the blockchain up to the head block
+                                        as well as some transactions not yet
+                                        included in the blockchain;
+                                        transactions received by the node are
+                                        relayed if valid.                                        
   --api-accept-transactions arg (=1)    Allow API transactions to be evaluated
                                         and relayed if valid.
   --validation-mode arg (=full)         Chain validation mode ("full" or
