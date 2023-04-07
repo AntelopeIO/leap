@@ -2222,8 +2222,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
          } else {
             auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
             using return_type = t_or_exception<read_write::send_transaction_results>;
-            next([this, next, trx_trace_ptr,
-                  resolver = make_resolver(db, abi_serializer::create_yield_function(fc::microseconds::maximum()))]() {
+            next([this, trx_trace_ptr, resolver = make_resolver(db, abi_serializer::create_yield_function(fc::microseconds::maximum()))]() {
                try {
                   fc::variant output;
                   try {
@@ -2588,20 +2587,23 @@ void read_only::send_transient_transaction(const Params& params, next_function<R
                    next(std::get<fc::exception_ptr>(result));
               } else {
                  auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
-
-                 try {
-                    fc::variant output;
+                 using return_type = t_or_exception<Results>;
+                 next([this, trx_trace_ptr, resolver = make_resolver(db, abi_serializer::create_yield_function(fc::microseconds::maximum()))]() {
                     try {
-                        output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
-                    } catch( chain::abi_exception& ) {
-                        output = *trx_trace_ptr;
-                    }
+                       fc::variant output;
+                       try {
+                          abi_serializer::to_variant(*trx_trace_ptr, output, resolver,
+                                                     abi_serializer::create_yield_function(abi_serializer_max_time));
+                       } catch( chain::abi_exception& ) {
+                          output = *trx_trace_ptr;
+                       }
 
-                    const chain::transaction_id_type& id = trx_trace_ptr->id;
-                    next(Results{id, output});
-                 } CATCH_AND_CALL(next);
+                       const chain::transaction_id_type& id = trx_trace_ptr->id;
+                       return return_type(Results{id, output});
+                    } CATCH_AND_RETURN(return_type);
+                 });
               }
-      });
+          });
    } catch ( boost::interprocess::bad_alloc& ) {
       chain_plugin::handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
