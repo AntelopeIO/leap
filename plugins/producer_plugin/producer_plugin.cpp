@@ -696,7 +696,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
          auto is_transient = (trx_type == transaction_metadata::trx_type::read_only || trx_type == transaction_metadata::trx_type::dry_run);
          if( !is_transient ) {
-            next = [this, trx, next{std::move(next)}]( const std::variant<fc::exception_ptr, transaction_trace_ptr>& response ) {
+            next = [this, trx, next{std::move(next)}]( const next_function_variant<transaction_trace_ptr>& response ) {
                next( response );
 
                fc::exception_ptr except_ptr; // rejected
@@ -1545,7 +1545,7 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
    if( existing != pending_by_id.end() ) {
       // if a snapshot at this block is already pending, attach this requests handler to it
       pending_by_id.modify(existing, [&next]( auto& entry ){
-         entry.next = [prev = entry.next, next](const std::variant<fc::exception_ptr, producer_plugin::snapshot_information>& res){
+         entry.next = [prev = entry.next, next](const next_function_variant<producer_plugin::snapshot_information>& res){
             prev(res);
             next(res);
          };

@@ -718,7 +718,7 @@ public:
 
 private:
    template<typename Params, typename Results>
-   void send_transient_transaction(const Params& params, next_function<Results> next, chain::transaction_metadata::trx_type trx_type) const;
+   void send_transient_transaction(const Params& params, eosio::chain::next_function<Results> next, chain::transaction_metadata::trx_type trx_type) const;
 };
 
 class read_write {
