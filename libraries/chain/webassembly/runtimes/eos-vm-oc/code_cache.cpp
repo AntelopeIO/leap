@@ -142,7 +142,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
       return &*it;
    }
    if(!is_write_window) {
-      failure = get_cd_failure::temporary; // Compile might be be done yet
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
 
@@ -153,18 +153,18 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
       return nullptr;
    }
    if(auto it = _outstanding_compiles_and_poison.find(ct); it != _outstanding_compiles_and_poison.end()) {
-      failure = get_cd_failure::temporary; // Compile might be be done yet
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       it->second = false;
       return nullptr;
    }
    if(_queued_compiles.find(ct) != _queued_compiles.end()) {
-      failure = get_cd_failure::temporary; // Compile might be be done yet
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
 
    if(_outstanding_compiles_and_poison.size() >= _threads) {
       _queued_compiles.emplace(ct);
-      failure = get_cd_failure::temporary; // Compile might be be done yet
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
 
@@ -178,7 +178,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
    std::vector<wrapped_fd> fds_to_pass;
    fds_to_pass.emplace_back(memfd_for_bytearray(codeobject->code));
    write_message_with_fds(_compile_monitor_write_socket, compile_wasm_message{ ct }, fds_to_pass);
-   failure = get_cd_failure::temporary; // Compile might be be done yet
+   failure = get_cd_failure::temporary; // Compile might not be done yet
    return nullptr;
 }
 

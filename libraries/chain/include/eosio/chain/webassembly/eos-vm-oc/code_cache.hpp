@@ -37,11 +37,6 @@ using allocator_t = bip::rbtree_best_fit<bip::null_mutex_family, bip::offset_ptr
 
 struct config;
 
-// get_descriptor_for_code failure reasons
-enum class get_cd_failure {
-   temporary, // oc compile not done yet, users like read-only trxs can retry
-   permanent  // oc will not start, users should not retry
-};
 
 class code_cache_base {
    public:
@@ -51,6 +46,12 @@ class code_cache_base {
       const int& fd() const { return _cache_fd; }
 
       void free_code(const digest_type& code_id, const uint8_t& vm_version);
+
+      // get_descriptor_for_code failure reasons
+      enum class get_cd_failure {
+         temporary, // oc compile not done yet, users like read-only trxs can retry
+         permanent  // oc will not start, users should not retry
+      };
 
    protected:
       struct by_hash;
