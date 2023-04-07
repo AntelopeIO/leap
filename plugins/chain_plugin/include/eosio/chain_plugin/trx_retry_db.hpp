@@ -2,7 +2,6 @@
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/block_state.hpp>
 #include <eosio/chain/trace.hpp>
-#include <eosio/chain/transaction_metadata.hpp>
 
 namespace eosio::chain_apis {
 
