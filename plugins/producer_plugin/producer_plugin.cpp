@@ -103,7 +103,8 @@ namespace {
       auto code = e.code();
       return (code == block_cpu_usage_exceeded::code_value) ||
              (code == block_net_usage_exceeded::code_value) ||
-             (code == deadline_exception::code_value);
+             (code == deadline_exception::code_value) ||
+             (code == ro_trx_vm_oc_compile_temporary_failure::code_value);
    }
 }
 
@@ -333,7 +334,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          bool block_exhausted = false;
          bool trx_exhausted = false;
          bool failed = false;
-         bool retry = false;
       };
       push_result push_transaction( const fc::time_point& block_deadline,
                                     const transaction_metadata_ptr& trx,
@@ -2330,7 +2330,7 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
       }
       if( exception_is_exhausted( *trace->except ) ) {
          if( _pending_block_mode == pending_block_mode::producing ) {
-            fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
+            fc_dlog(trx->is_transient() ? _transient_trx_failed_trace_log : _trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id()));
          } else {
             fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution COULD NOT FIT tx: ${txid} RETRYING", ("txid", trx->id()));
@@ -2338,9 +2338,6 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
          if ( !trx->is_read_only() )
             pr.block_exhausted = block_is_exhausted(); // smaller trx might fit
          pr.trx_exhausted = true;
-      } else if (trace->except->code() == ro_trx_temporary::code_value) {
-         fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Read-only trx execution temporary failure, tx: ${txid} RETRYING", ("txid", trx->id()));
-         pr.retry = true;
       } else {
          pr.failed = true;
          const fc::exception& e = *trace->except;
@@ -3028,7 +3025,7 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
       auto pr = handle_push_result(trx, next, start, chain, trace, true /*return_failure_trace*/, true /*disable_subjective_enforcement*/, {} /*first_auth*/, 0 /*sub_bill*/, 0 /*prev_billed_cpu_time_us*/);
       // If a transaction was exhausted, that indicates we are close to
       // the end of read window. Retry in next round.
-      retry = pr.trx_exhausted || pr.retry;
+      retry = pr.trx_exhausted;
       if( retry ) {
          _ro_exhausted_trx_queue.push_front( {std::move(trx), std::move(next)} );
       }
