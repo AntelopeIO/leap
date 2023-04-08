@@ -248,7 +248,6 @@ struct controller_impl {
    bool                            okay_to_print_integrity_hash_on_stop = false;
 
    std::thread::id                 main_thread_id;
-   thread_local static platform_timer timer; // a copy for main thread and each read-only thread
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
 #endif
@@ -1174,6 +1173,7 @@ struct controller_impl {
          etrx.set_reference_block( self.head_block_id() );
       }
 
+      platform_timer timer;
       transaction_checktime_timer trx_timer(timer);
       const packed_transaction trx( std::move( etrx ) );
       transaction_context trx_context( self, trx, std::move(trx_timer), start );
@@ -1341,6 +1341,7 @@ struct controller_impl {
 
       uint32_t cpu_time_to_bill_us = billed_cpu_time_us;
 
+      platform_timer timer;
       transaction_checktime_timer trx_timer( timer );
       transaction_context trx_context( self, *trx->packed_trx(), std::move(trx_timer) );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
@@ -1555,6 +1556,7 @@ struct controller_impl {
          }
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
+         platform_timer timer;
          transaction_checktime_timer trx_timer(timer);
          transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
@@ -2741,7 +2743,6 @@ struct controller_impl {
    block_state_ptr fork_db_head() const;
 }; /// controller_impl
 
-thread_local platform_timer controller_impl::timer;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 thread_local eosio::vm::wasm_allocator controller_impl::wasm_alloc;
 #endif
