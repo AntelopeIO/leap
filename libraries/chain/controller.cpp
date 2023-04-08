@@ -270,9 +270,7 @@ struct controller_impl {
          prev = fork_db.root();
       }
 
-      if ( read_mode == db_read_mode::HEAD ) {
-         EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
-      }
+      EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
 
       head = prev;
 
@@ -1635,7 +1633,7 @@ struct controller_impl {
             if ( trx->is_transient() ) {
                // remove trx from pending block by not canceling 'restore'
                trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
-            } else if ( pending->_block_status == controller::block_status::ephemeral ) {
+            } else if ( read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::ephemeral ) {
                // An ephemeral block will never become a full block, but on a producer node the trxs should be saved
                // in the un-applied transaction queue for execution during block production. For a non-producer node
                // save the trxs in the un-applied transaction queue for use during block validation to skip signature
