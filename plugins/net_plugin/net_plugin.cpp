@@ -3778,7 +3778,6 @@ namespace eosio {
    // called from any thread
    void net_plugin_impl::connection_monitor(std::weak_ptr<connection> from_connection, bool reschedule ) {
       bool from_begin = false;
-      bool to_end = false;
       auto max_time = fc::time_point::now();
       max_time += fc::milliseconds(max_cleanup_time_ms);
       auto from = from_connection.lock();
@@ -3823,14 +3822,12 @@ namespace eosio {
          }
          ++it;
       }
-      if(it == connections.end())
-          to_end = true;
       g.unlock();
 
       //check if count all connections, or the num_peers is part of actual num;
       //if num_peers < min, get addresses from address manager to connect
       //try to add min_peers_count - num_peers connections from address manager
-      if( to_end && from_begin && num_peers < min_peers_count) {
+      if(from_begin && num_peers < min_peers_count) {
           fc_ilog( logger, "peer connections not enough: ${pnum}/[${pmin}-${pmax}], trying to increase it",("pnum", num_peers)("pmin",min_peers_count)("pmax", address_master->get_addresses().size()));
           uint32_t count = 0;
           for( const auto& peer : my_impl->address_master->get_diff_addresses(get_connections()) ) {
