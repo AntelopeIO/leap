@@ -13,11 +13,11 @@ namespace eosio {
 
     constexpr auto address_type_str( address_type_enum t ) {
         switch( t ) {
-            case blk : return ":blk";
-            case trx : return ":trx";
+            case blk : return "blk";
+            case trx : return "trx";
             case both : return "";
-            case peer : return ":peer";
-            default: return ":all";
+            case peer : return "peer";
+            default: return "all";
         }
     }
 
@@ -72,15 +72,19 @@ namespace eosio {
         }
 
         std::string to_address() const {
-            return host + ":" + port;
-        }
+            std::ostringstream oss;
+            oss << host << ":" << port;
+            return oss.str();        }
 
         std::string to_key() const {
-            return host + ":" + port;
+            return to_address();
         }
 
         std::string to_str() const {
-            return host + ":" + port + address_type_str(address_type);
+            std::string type_colon = address_type == both ? "" : ":";
+            std::ostringstream oss;
+            oss << host << ":" << port << type_colon << address_type_str(address_type);
+            return oss.str();
         }
 
         static peer_address from_str(const std::string& input_address_str, bool is_manual = false) {

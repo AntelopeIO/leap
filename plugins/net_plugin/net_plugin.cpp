@@ -1164,23 +1164,12 @@ namespace eosio {
 
    // called from connection strand
    void connection::set_connection_type( const string& peer_add_str ) {
-      // host:port:[<trx>|<blk>]
 
-      //  "localhost:9877 - dc2f6b6" type string
-       std::string peer_add = peer_add_str;
-       string::size_type pos = peer_add.find(' ');
-       if (pos != std::string::npos) {
-           peer_add = peer_add.substr(0, pos);
-       }
+       auto address = peer_address::from_str(peer_add_str);
 
-      string::size_type colon = peer_add.find(':');
-      string::size_type colon2 = peer_add.find(':', colon + 1);
-      string::size_type end = colon2 == string::npos
-            ? string::npos : peer_add.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 ); // future proof by including most symbols without using regex
-      string host = peer_add.substr( 0, colon );
-      string port = peer_add.substr( colon + 1, colon2 == string::npos ? string::npos : colon2 - (colon + 1));
-      string type = colon2 == string::npos ? "" : end == string::npos ?
-            peer_add.substr( colon2 + 1 ) : peer_add.substr( colon2 + 1, end - (colon2 + 1) );
+       string peer_add = address.to_address();
+
+       string type = address_type_str(address.address_type);
 
       if( type.empty() ) {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to both transactions and blocks", ("c", connection_id)("peer", peer_add) );
