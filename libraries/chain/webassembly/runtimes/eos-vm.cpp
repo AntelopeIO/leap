@@ -234,11 +234,6 @@ template<typename Impl>
 eos_vm_runtime<Impl>::eos_vm_runtime() {}
 
 template<typename Impl>
-void eos_vm_runtime<Impl>::immediately_exit_currently_running_module() {
-   throw wasm_exit{};
-}
-
-template<typename Impl>
 std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instantiate_module(const char* code_bytes, size_t code_size,
                                                                                              const digest_type&, const uint8_t&, const uint8_t&) {
 
@@ -260,10 +255,6 @@ template class eos_vm_runtime<eosio::vm::interpreter>;
 template class eos_vm_runtime<eosio::vm::jit>;
 
 eos_vm_profile_runtime::eos_vm_profile_runtime() {}
-
-void eos_vm_profile_runtime::immediately_exit_currently_running_module() {
-   throw wasm_exit{};
-}
 
 std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::instantiate_module(const char* code_bytes, size_t code_size,
                                                                                                const digest_type&, const uint8_t&, const uint8_t&) {

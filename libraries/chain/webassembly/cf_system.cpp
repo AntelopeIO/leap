@@ -45,7 +45,8 @@ namespace eosio { namespace chain { namespace webassembly {
       }
    }
 
+   //be aware that EOS VM OC handles eosio_exit internally and this function will not be called by OC
    void interface::eosio_exit( int32_t code ) const {
-      context.control.get_wasm_interface().exit();
+      throw wasm_exit{};
    }
 }}} // ns eosio::chain::webassembly
