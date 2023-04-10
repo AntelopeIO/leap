@@ -140,13 +140,13 @@ public:
    ,incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>())
    {}
 
-   std::filesystem::path                        blocks_dir;
-   std::filesystem::path                        state_dir;
-   bool                             readonly = false;
-   flat_map<uint32_t,block_id_type> loaded_checkpoints;
-   bool                             accept_transactions = false;
-   bool                             api_accept_transactions = true;
-   bool                             account_queries_enabled = false;
+   std::filesystem::path             blocks_dir;
+   std::filesystem::path             state_dir;
+   bool                              readonly = false;
+   flat_map<uint32_t, block_id_type> loaded_checkpoints;
+   bool                              accept_transactions     = false;
+   bool                              api_accept_transactions = true;
+   bool                              account_queries_enabled = false;
 
    std::optional<controller::config> chain_config;
    std::optional<controller>         chain;

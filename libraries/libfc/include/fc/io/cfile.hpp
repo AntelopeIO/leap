@@ -243,7 +243,7 @@ private:
 class temp_cfile {
    cfile _impl;
 public:
-   temp_cfile(const char* mode){
+   temp_cfile(const char* mode = "wb"){
       std::filesystem::path template_path{ std::filesystem::temp_directory_path() / "fc-XXXXXX" };
       char                  tmp_buf[4096];
       strncpy(tmp_buf, template_path.c_str(), 4096);

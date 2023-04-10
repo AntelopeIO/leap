@@ -15,11 +15,10 @@ namespace fc {
       process();
       ~process();
 
-      virtual iprocess& exec( const std::filesystem::path&  exe,
-                              std::vector<std::string>   args,
-                              const std::filesystem::path&  work_dir = std::filesystem::path(),
-                              int              opts     = open_all    );
-
+      virtual iprocess& exec(const std::filesystem::path& exe,
+                             std::vector<std::string> args,
+                             const std::filesystem::path& work_dir = std::filesystem::path(),
+                             int opts = open_all);
 
       virtual int                        result(const microseconds& timeout = microseconds::maximum());
       virtual void                       kill();

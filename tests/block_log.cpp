@@ -130,7 +130,7 @@ private:
 };
 
 static size_t payload_size() {
-   fc::temp_cfile tf("ab");
+   fc::temp_cfile tf;
    auto& cf = tf.file();
    return cf.filesystem_block_size()*2 + cf.filesystem_block_size()/2;
 }

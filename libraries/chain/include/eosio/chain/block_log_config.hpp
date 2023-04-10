@@ -12,8 +12,8 @@ namespace eosio { namespace chain {
    struct partitioned_blocklog_config {
       std::filesystem::path retained_dir;
       std::filesystem::path archive_dir;
-      uint32_t  stride                  = UINT32_MAX;
-      uint32_t  max_retained_files      = UINT32_MAX;
+      uint32_t              stride             = UINT32_MAX;
+      uint32_t              max_retained_files = UINT32_MAX;
    };
 
    struct prune_blocklog_config {

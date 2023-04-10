@@ -72,7 +72,7 @@ class code_cache_base {
       const chainbase::database& _db;
 
       std::filesystem::path _cache_file_path;
-      int _cache_fd;
+      int                   _cache_fd;
 
       io_context _ctx;
       local::datagram_protocol::socket _compile_monitor_write_socket{_ctx};

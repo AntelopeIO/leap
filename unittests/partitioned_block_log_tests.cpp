@@ -64,7 +64,7 @@ struct restart_from_block_log_test_fixture {
 };
 
 BOOST_AUTO_TEST_CASE(test_split_log) {
-      fc::temp_directory temp_dir;
+   fc::temp_directory temp_dir;
 
    eosio::testing::tester chain(
          temp_dir,
@@ -116,14 +116,14 @@ BOOST_AUTO_TEST_CASE(test_split_log) {
 
 BOOST_AUTO_TEST_CASE(test_split_log_zero_retained_file) {
    fc::temp_directory temp_dir;
-      eosio::testing::tester chain(
-         temp_dir,
-         [](eosio::chain::controller::config& config) {
-            config.blog = eosio::chain::partitioned_blocklog_config{
-               .retained_dir = "retained", .archive_dir = "archive", .stride = 50, .max_retained_files = 0
-            };
-         },
-         true);
+   eosio::testing::tester chain(
+      temp_dir,
+      [](eosio::chain::controller::config& config) {
+         config.blog = eosio::chain::partitioned_blocklog_config{
+            .retained_dir = "retained", .archive_dir = "archive", .stride = 50, .max_retained_files = 0
+         };
+      },
+      true);
    chain.produce_blocks(150);
    auto blocks_dir   = chain.get_config().blocks_dir;
    auto retained_dir = blocks_dir / "retained";
@@ -141,14 +141,14 @@ BOOST_AUTO_TEST_CASE(test_split_log_zero_retained_file) {
 
 BOOST_AUTO_TEST_CASE(test_split_log_all_in_retained_new_default) {
    fc::temp_directory temp_dir;
-      eosio::testing::tester chain(
-         temp_dir,
-         [](eosio::chain::controller::config& config) {
-            config.blog = eosio::chain::partitioned_blocklog_config{ .retained_dir = "retained",
-                                                                     .archive_dir  = "archive",
-                                                                     .stride       = 50 };
-         },
-         true);
+   eosio::testing::tester chain(
+      temp_dir,
+      [](eosio::chain::controller::config& config) {
+         config.blog = eosio::chain::partitioned_blocklog_config{ .retained_dir = "retained",
+                                                                  .archive_dir  = "archive",
+                                                                  .stride       = 50 };
+      },
+      true);
    chain.produce_blocks(150);
    auto blocks_dir   = chain.get_config().blocks_dir;
    auto retained_dir = blocks_dir / "retained";
@@ -165,7 +165,7 @@ BOOST_AUTO_TEST_CASE(test_split_log_all_in_retained_new_default) {
 }
 
 BOOST_AUTO_TEST_CASE(test_split_log_util1) {
-      fc::temp_directory temp_dir;
+   fc::temp_directory temp_dir;
 
    eosio::testing::tester chain;
    chain.produce_blocks(160);
@@ -217,7 +217,7 @@ BOOST_AUTO_TEST_CASE(test_split_log_util1) {
 
 BOOST_AUTO_TEST_CASE(test_split_log_no_archive) {
 
-      fc::temp_directory temp_dir;
+   fc::temp_directory temp_dir;
 
    eosio::testing::tester chain(
          temp_dir,
@@ -257,7 +257,7 @@ BOOST_AUTO_TEST_CASE(test_split_log_no_archive) {
 }
 
 void split_log_replay(uint32_t replay_max_retained_block_files) {
-      fc::temp_directory temp_dir;
+   fc::temp_directory temp_dir;
 
    const uint32_t stride = 20;
 
@@ -313,7 +313,7 @@ BOOST_AUTO_TEST_CASE(test_split_log_replay_retained_block_files_0) { split_log_r
 
 BOOST_AUTO_TEST_CASE(test_restart_without_blocks_log_file) {
 
-      fc::temp_directory temp_dir;
+   fc::temp_directory temp_dir;
 
    const uint32_t stride = 20;
 
@@ -398,7 +398,7 @@ struct blocklog_version_setter {
 };
 
 BOOST_AUTO_TEST_CASE(test_split_from_v1_log) {
-      fc::temp_directory      temp_dir;
+   fc::temp_directory      temp_dir;
    blocklog_version_setter set_version(1);
    eosio::testing::tester  chain(
           temp_dir,

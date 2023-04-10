@@ -158,10 +158,10 @@ BOOST_AUTO_TEST_SUITE(threshold_tests)
 
    BOOST_FIXTURE_TEST_CASE(first_file_system_over_threshold, threshold_fixture)
    {
-      std::map<std::filesystem::path, uintmax_t> availables {{"/test0", 199999},
-                                                 {"/test1", 200500}};
-      std::map<std::filesystem::path, int>       devs       {{"/test0", 0},
-                                                 {"/test1", 1}};
+      std::map<std::filesystem::path, uintmax_t> availables{ { "/test0", 199999 },
+                                                             { "/test1", 200500 } };
+      std::map<std::filesystem::path, int>       devs{ { "/test0", 0 },
+                                                       { "/test1", 1 } };
 
       BOOST_TEST( test_threshold_common(availables, devs) );
    }
@@ -169,9 +169,9 @@ BOOST_AUTO_TEST_SUITE(threshold_tests)
    BOOST_FIXTURE_TEST_CASE(second_file_system_over_threshold, threshold_fixture)
    {
       std::map<std::filesystem::path, uintmax_t> availables {{"/test0", 300000},
-                                                 {"/test1", 100000}};
+                                                             {"/test1", 100000}};
       std::map<std::filesystem::path, int>       devs       {{"/test0", 0},
-                                                 {"/test1", 1}};
+                                                             {"/test1", 1}};
 
       BOOST_TEST( test_threshold_common(availables, devs) );
    }
@@ -179,9 +179,9 @@ BOOST_AUTO_TEST_SUITE(threshold_tests)
    BOOST_FIXTURE_TEST_CASE(no_file_system_over_threshold, threshold_fixture)
    {
       std::map<std::filesystem::path, uintmax_t> availables {{"/test0", 300000},
-                                                 {"/test1", 200000}};
+                                                             {"/test1", 200000}};
       std::map<std::filesystem::path, int>       devs       {{"/test0", 0},
-                                                 {"/test1", 1}};
+                                                             {"/test1", 1}};
 
       BOOST_TEST( !test_threshold_common(availables, devs) );
    }
@@ -189,9 +189,9 @@ BOOST_AUTO_TEST_SUITE(threshold_tests)
    BOOST_FIXTURE_TEST_CASE(both_file_systems_over_threshold, threshold_fixture)
    {
       std::map<std::filesystem::path, uintmax_t> availables {{"/test0", 150000},
-                                                 {"/test1", 100000}};
+                                                             {"/test1", 100000}};
       std::map<std::filesystem::path, int>       devs       {{"/test0", 0},
-                                                 {"/test1", 1}};
+                                                             {"/test1", 1}};
 
       BOOST_TEST( test_threshold_common(availables, devs) );
    }
@@ -199,11 +199,11 @@ BOOST_AUTO_TEST_SUITE(threshold_tests)
    BOOST_FIXTURE_TEST_CASE(one_of_three_over_threshold, threshold_fixture)
    {
       std::map<std::filesystem::path, uintmax_t> availables {{"/test0", 300000},
-                                                 {"/test1", 199999},
-                                                 {"/test2", 250000}};
+                                                             {"/test1", 199999},
+                                                             {"/test2", 250000}};
       std::map<std::filesystem::path, int>       devs       {{"/test0", 0},
-                                                 {"/test1", 1},
-                                                 {"/test2", 2}};
+                                                             {"/test1", 1},
+                                                             {"/test2", 2}};
 
       BOOST_TEST( test_threshold_common(availables, devs) );
    }
@@ -211,11 +211,11 @@ BOOST_AUTO_TEST_SUITE(threshold_tests)
    BOOST_FIXTURE_TEST_CASE(one_of_three_over_threshold_dup, threshold_fixture)
    {
       std::map<std::filesystem::path, uintmax_t> availables {{"/test0", 100000},
-                                                 {"/test1", 250000},
-                                                 {"/test2", 250000}};
+                                                             {"/test1", 250000},
+                                                             {"/test2", 250000}};
       std::map<std::filesystem::path, int>       devs       {{"/test0", 0},
-                                                 {"/test1", 1},  // dup
-                                                 {"/test2", 1}}; // dup
+                                                             {"/test1", 1},  // dup
+                                                             {"/test2", 1}}; // dup
 
       BOOST_TEST( test_threshold_common(availables, devs) );
    }
@@ -223,11 +223,11 @@ BOOST_AUTO_TEST_SUITE(threshold_tests)
    BOOST_FIXTURE_TEST_CASE(none_of_three_over_threshold, threshold_fixture)
    {
       std::map<std::filesystem::path, uintmax_t> availables {{"/test0", 300000},
-                                                 {"/test1", 200000},
-                                                 {"/test2", 250000}};
+                                                             {"/test1", 200000},
+                                                             {"/test2", 250000}};
       std::map<std::filesystem::path, int>       devs       {{"/test0", 0},
-                                                 {"/test1", 1},
-                                                 {"/test2", 2}};
+                                                             {"/test1", 1},
+                                                             {"/test2", 2}};
 
       BOOST_TEST( !test_threshold_common(availables, devs) );
    }
@@ -235,11 +235,11 @@ BOOST_AUTO_TEST_SUITE(threshold_tests)
    BOOST_FIXTURE_TEST_CASE(none_of_three_over_threshold_dup, threshold_fixture)
    {
       std::map<std::filesystem::path, uintmax_t> availables {{"/test0", 800000},
-                                                 {"/test1", 550000},
-                                                 {"/test2", 550000}};
+                                                             {"/test1", 550000},
+                                                             {"/test2", 550000}};
       std::map<std::filesystem::path, int>       devs       {{"/test0", 0},
-                                                 {"/test1", 1},  // dup
-                                                 {"/test2", 1}}; // dup
+                                                             {"/test1", 1},  // dup
+                                                             {"/test2", 1}}; // dup
 
       BOOST_TEST( !test_threshold_common(availables, devs) );
    }

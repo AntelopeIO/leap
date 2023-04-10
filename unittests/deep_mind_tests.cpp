@@ -17,7 +17,7 @@ struct deep_mind_log_fixture
    fc::temp_cfile tmp;
    deep_mind_handler deep_mind_logger;
 
-   deep_mind_log_fixture() : tmp("ab")
+   deep_mind_log_fixture()
    {
       auto cfg = fc::logging_config::default_config();
       tmp.file().close();

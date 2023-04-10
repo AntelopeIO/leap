@@ -37,21 +37,21 @@ struct log_catalog {
    using block_num_t = uint32_t;
 
    struct mapped_type {
-      block_num_t last_block_num;
-      std::filesystem::path   filename_base;
+      block_num_t           last_block_num;
+      std::filesystem::path filename_base;
    };
    using collection_t              = boost::container::flat_map<block_num_t, mapped_type>;
    using size_type                 = typename collection_t::size_type;
    static constexpr size_type npos = std::numeric_limits<size_type>::max();
 
-   std::filesystem::path    retained_dir;
-   std::filesystem::path    archive_dir;
-   size_type    max_retained_files = std::numeric_limits<size_type>::max();
-   collection_t collection;
-   size_type    active_index = npos;
-   LogData      log_data;
-   LogIndex     log_index;
-   LogVerifier  verifier;
+   std::filesystem::path retained_dir;
+   std::filesystem::path archive_dir;
+   size_type             max_retained_files = std::numeric_limits<size_type>::max();
+   collection_t          collection;
+   size_type             active_index = npos;
+   LogData               log_data;
+   LogIndex              log_index;
+   LogVerifier           verifier;
 
    bool empty() const { return collection.empty(); }
 

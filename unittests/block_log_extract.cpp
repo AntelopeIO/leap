@@ -30,7 +30,7 @@ struct block_log_extract_fixture {
    // rename blocks files with block number range with those without
    // i.e.   blocks-1-100.index  --> blocks.index
    //        blocks-1-100.log    --> blocks.log
-            for (std::filesystem::directory_iterator itr(dir); itr != std::filesystem::directory_iterator{}; ++itr ) {
+      for (std::filesystem::directory_iterator itr(dir); itr != std::filesystem::directory_iterator{}; ++itr ) {
          auto file_path = itr->path();
          if ( !std::filesystem::is_regular_file( file_path )) continue;
          std::regex block_range_expression("blocks-\\d+-\\d+");

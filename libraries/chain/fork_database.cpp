@@ -69,7 +69,7 @@ namespace eosio { namespace chain {
       fork_multi_index_type index;
       block_state_ptr       root; // Only uses the block_header_state portion
       block_state_ptr       head;
-      std::filesystem::path              datadir;
+      std::filesystem::path datadir;
 
       void open_impl( const std::function<void( block_timestamp_type,
                                                 const flat_set<digest_type>&,

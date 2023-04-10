@@ -88,8 +88,8 @@ namespace state_history {
    struct partition_config {
       std::filesystem::path retained_dir       = "retained";
       std::filesystem::path archive_dir        = "archive";
-      uint32_t stride             = 1000000;
-      uint32_t max_retained_files = 10;
+      uint32_t              stride             = 1000000;
+      uint32_t              max_retained_files = 10;
    };
 } // namespace state_history
 
