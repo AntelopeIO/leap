@@ -11,20 +11,10 @@ namespace eosio {
 
 using std::chrono::steady_clock;
 
-// Boost 1.70 introduced a breaking change that causes problems with construction of strand objects from tcp_socket
-// this is suggested fix OK'd Beast author (V. Falco) to handle both versions gracefully
-// see https://stackoverflow.com/questions/58453017/boost-asio-tcp-socket-1-70-not-backward-compatible
-#if BOOST_VERSION < 107000
-typedef tcp::socket tcp_socket_t;
-#else
 typedef asio::basic_stream_socket<asio::ip::tcp, asio::io_context::executor_type> tcp_socket_t;
-#endif
 
 using boost::asio::local::stream_protocol;
 
-#if BOOST_VERSION < 107000
-using local_stream = boost::asio::basic_stream_socket<stream_protocol>;
-#else
 #if BOOST_VERSION < 107300
 using local_stream = beast::basic_stream<
       stream_protocol,
@@ -35,7 +25,6 @@ using local_stream = beast::basic_stream<
       stream_protocol,
       asio::any_io_executor,
       beast::unlimited_rate_policy>;
-#endif
 #endif
 
 //------------------------------------------------------------------------------
@@ -54,11 +43,7 @@ bool allow_host(const http::request<http::string_body>& req, T& session,
    auto is_conn_secure = session.is_secure();
 
    auto& socket = session.socket();
-#if BOOST_VERSION < 107000
-   auto& lowest_layer = beast::get_lowest_layer<tcp_socket_t&>(socket);
-#else
    auto& lowest_layer = beast::get_lowest_layer(socket);
-#endif
    auto local_endpoint = lowest_layer.local_endpoint();
    auto local_socket_host_port = local_endpoint.address().to_string() + ":" + std::to_string(local_endpoint.port());
    const std::string host_str(req["host"]);
