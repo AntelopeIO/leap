@@ -170,7 +170,7 @@ void chain_api_plugin::plugin_startup() {
                return [api, cb, deadline, post_time, remaining_time, abi_cache=std::move(abi_cache), block=std::move(block)]() mutable {
                   try {
                      auto new_deadline = deadline + (fc::time_point::now() - post_time);
-                     fc::variant result = api.convert_block(block, std::move(abi_cache), remaining_time);
+                     fc::variant result = api.convert_block(block, abi_cache, remaining_time);
                      cb(200, new_deadline, std::move(result));
                   } catch( ... ) {
                      http_plugin::handle_exception("chain", "get_block", "", cb);

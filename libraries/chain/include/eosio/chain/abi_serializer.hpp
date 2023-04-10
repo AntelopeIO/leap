@@ -485,14 +485,15 @@ namespace impl {
          };
 
          try {
-            auto abi = resolver(act.account);
-            if (abi) {
-               auto type = abi->get_action_type(act.name);
+            auto abi_optional = resolver(act.account);
+            if (abi_optional) {
+               auto& abi = (abi_serializer&)*abi_optional;
+               auto type = abi.get_action_type(act.name);
                if (!type.empty()) {
                   try {
-                     binary_to_variant_context _ctx(*abi, ctx, type);
+                     binary_to_variant_context _ctx(abi, ctx, type);
                      _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
-                     mvo( "data", abi->_binary_to_variant( type, act.data, _ctx ));
+                     mvo( "data", abi._binary_to_variant( type, act.data, _ctx ));
                   } catch(...) {
                      // any failure to serialize data, then leave as not serailzed
                      set_hex_data(mvo, "data", act.data);
@@ -546,13 +547,14 @@ namespace impl {
          mvo("return_value_hex_data", act_trace.return_value);
          auto act = act_trace.act;
          try {
-            auto abi = resolver(act.account);
-            if (abi) {
-               auto type = abi->get_action_result_type(act.name);
+            auto abi_optional = resolver(act.account);
+            if (abi_optional) {
+               auto& abi = (abi_serializer&)*abi_optional;
+               auto type = abi.get_action_result_type(act.name);
                if (!type.empty()) {
-                  binary_to_variant_context _ctx(*abi, ctx, type);
+                  binary_to_variant_context _ctx(abi, ctx, type);
                   _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
-                  mvo( "return_value_data", abi->_binary_to_variant( type, act_trace.return_value, _ctx ));
+                  mvo( "return_value_data", abi._binary_to_variant( type, act_trace.return_value, _ctx ));
                }
             }
          } catch(...) {}
@@ -678,13 +680,13 @@ namespace impl {
     * this will degrade to the common fc::to_variant as soon as the type no longer contains
     * ABI related info
     *
-    * @tparam Reslover - callable with the signature (const name& code_account) -> std::optional<abi_def>
+    * @tparam Resolver - callable with the signature (const name& code_account) -> std::optional<abi_def>
     */
    template<typename T, typename Resolver>
    class abi_to_variant_visitor
    {
       public:
-         abi_to_variant_visitor( mutable_variant_object& _mvo, const T& _val, Resolver _resolver, abi_traverse_context& _ctx )
+         abi_to_variant_visitor( mutable_variant_object& _mvo, const T& _val, Resolver& _resolver, abi_traverse_context& _ctx )
          :_vo(_mvo)
          ,_val(_val)
          ,_resolver(_resolver)
@@ -707,7 +709,7 @@ namespace impl {
       private:
          mutable_variant_object& _vo;
          const T& _val;
-         Resolver _resolver;
+         Resolver& _resolver;
          abi_traverse_context& _ctx;
    };
 
@@ -890,7 +892,7 @@ namespace impl {
    class abi_from_variant_visitor : public reflector_init_visitor<T>
    {
       public:
-         abi_from_variant_visitor( const variant_object& _vo, T& v, Resolver _resolver, abi_traverse_context& _ctx )
+         abi_from_variant_visitor( const variant_object& _vo, T& v, Resolver& _resolver, abi_traverse_context& _ctx )
          : reflector_init_visitor<T>(v)
          ,_vo(_vo)
          ,_resolver(_resolver)
@@ -914,7 +916,7 @@ namespace impl {
 
       private:
          const variant_object& _vo;
-         Resolver _resolver;
+         Resolver& _resolver;
          abi_traverse_context& _ctx;
    };
 

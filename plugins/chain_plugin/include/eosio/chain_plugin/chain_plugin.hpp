@@ -86,6 +86,7 @@ string convert_to_string(const chain::key256_t& source, const string& key_type, 
 template<>
 string convert_to_string(const float128_t& source, const string& key_type, const string& encode_type, const string& desc);
 
+using abi_serializer_cache = std::unordered_map<account_name, std::optional<abi_serializer>>;
 
 class read_only {
    const controller& db;
@@ -330,12 +331,13 @@ public:
    };
 
    chain::signed_block_ptr get_raw_block(const get_raw_block_params& params, const fc::time_point& deadline) const;
+
    // call from app() thread
-   std::unordered_map<account_name, std::optional<abi_serializer>>
-     get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
+   abi_serializer_cache get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
+
    // call from any thread
    fc::variant convert_block( const chain::signed_block_ptr& block,
-                              std::unordered_map<account_name, std::optional<abi_serializer>> abi_cache,
+                              const abi_serializer_cache& abi_cache,
                               const fc::microseconds& max_time ) const;
 
    struct get_block_header_params {

@@ -1826,6 +1826,74 @@ auto make_resolver(const controller& control, abi_serializer::yield_function_t y
    };
 }
 
+class abi_serializer_cache_builder {
+public:
+   abi_serializer_cache_builder(const controller& db, const fc::microseconds& max_time) :
+      resolver(make_resolver(db, abi_serializer::create_yield_function(max_time)))
+   {
+   }
+
+   abi_serializer_cache_builder(const abi_serializer_cache_builder&) = delete;
+
+   abi_serializer_cache_builder&& add_serializers(const chain::signed_block_ptr& block) && {
+      for( const auto& receipt: block->transactions ) {
+         if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
+            const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
+            const auto& t = pt.get_transaction();
+            for( const auto& a: t.actions )
+               add_to_cache( a );
+            for( const auto& a: t.context_free_actions )
+               add_to_cache( a );
+         }
+      }
+      return std::move(*this);
+   }
+
+   abi_serializer_cache_builder&& add_serializers(const transaction_trace_ptr& trace_ptr) && {
+      for( const auto& trace: trace_ptr->action_traces ) {
+         add_to_cache(trace.act);
+      }
+      return std::move(*this);
+   }
+
+   chain_apis::abi_serializer_cache&& get() && {
+      return std::move(abi_cache);
+   }
+
+private:
+   void add_to_cache(const chain::action& a) {
+      auto it = abi_cache.find( a.account );
+      if( it == abi_cache.end() ) {
+         try {
+            abi_cache.emplace_hint( it, a.account, resolver( a.account ) );
+         } catch( ... ) {
+            // keep behavior of not throwing on invalid abi, will result in hex data
+         }
+      }
+   }
+
+   std::function<std::optional<abi_serializer> (const account_name &name)> resolver;
+   chain_apis::abi_serializer_cache abi_cache;
+};
+
+class abi_resolver {
+public:
+   abi_resolver(chain_apis::abi_serializer_cache &&abi_cache) :
+      abi_cache(std::move(abi_cache))
+   {}
+
+   std::optional<std::reference_wrapper<abi_serializer>> operator()(const account_name& account) {
+      auto it = abi_cache.find(account);
+      if (it != abi_cache.end() && it->second)
+         return std::reference_wrapper<abi_serializer>(*it->second);
+      return {};
+   };
+
+private:
+   chain_apis::abi_serializer_cache abi_cache;
+};
+
+
 read_only::get_scheduled_transactions_result
 read_only::get_scheduled_transactions( const read_only::get_scheduled_transactions_params& p, const fc::time_point& deadline ) const {
 
@@ -1971,36 +2039,13 @@ read_only::get_block_header_result read_only::get_block_header(const read_only::
 
 }
 
-std::unordered_map<account_name, std::optional<abi_serializer>>
+abi_serializer_cache
 read_only::get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const {
-   auto yield = abi_serializer::create_yield_function( max_time );
-   auto resolver = make_resolver(db, yield );
-   std::unordered_map<account_name, std::optional<abi_serializer> > abi_cache;
-   auto add_to_cache = [&]( const chain::action& a ) {
-      auto it = abi_cache.find( a.account );
-      if( it == abi_cache.end() ) {
-         try {
-            abi_cache.emplace_hint( it, a.account, resolver( a.account ) );
-         } catch( ... ) {
-            // keep behavior of not throwing on invalid abi, will result in hex data
-         }
-      }
-   };
-   for( const auto& receipt: block->transactions ) {
-      if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
-         const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
-         const auto& t = pt.get_transaction();
-         for( const auto& a: t.actions )
-            add_to_cache( a );
-         for( const auto& a: t.context_free_actions )
-            add_to_cache( a );
-      }
-   }
-   return abi_cache;
+   return abi_serializer_cache_builder(db, max_time).add_serializers(block).get();
 }
 
 fc::variant read_only::convert_block( const chain::signed_block_ptr& block,
-                                      std::unordered_map<account_name, std::optional<abi_serializer>> abi_cache,
+                                      const abi_serializer_cache& abi_cache,
                                       const fc::microseconds& max_time ) const {
 
    auto abi_serializer_resolver = [&abi_cache](const account_name& account) -> std::optional<abi_serializer> {
@@ -2207,7 +2252,6 @@ void read_write::push_transactions(const read_write::push_transactions_params& p
 }
 
 void read_write::send_transaction(const read_write::send_transaction_params& params, next_function<read_write::send_transaction_results> next) {
-
    try {
       auto pretty_input = std::make_shared<packed_transaction>();
       auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
@@ -2216,13 +2260,14 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
-            [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
+         [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
          } else {
             auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
-            using return_type = t_or_exception<read_write::send_transaction_results>;
-            next([this, trx_trace_ptr, resolver = make_resolver(db, abi_serializer::create_yield_function(fc::microseconds::maximum()))]() {
+            auto abi_cache     =  abi_serializer_cache_builder(db, fc::microseconds::maximum()).add_serializers(trx_trace_ptr).get();
+            using return_type  = t_or_exception<read_write::send_transaction_results>;
+            next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() {
                try {
                   fc::variant output;
                   try {
@@ -2279,14 +2324,21 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                            }
                         } );
                   } else {
-                     fc::variant output;
-                     try {
-                        output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
-                     } catch( chain::abi_exception& ) {
-                        output = *trx_trace_ptr;
-                     }
-                     const chain::transaction_id_type& id = trx_trace_ptr->id;
-                     next( read_write::send_transaction_results{id, std::move( output )} );
+                     auto abi_cache    =  abi_serializer_cache_builder(db, fc::microseconds::maximum()).add_serializers(trx_trace_ptr).get();
+                     using return_type = t_or_exception<read_write::send_transaction_results>;
+                     next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() {
+                        try {
+                           fc::variant output;
+                           try {
+                              abi_serializer::to_variant(*trx_trace_ptr, output, resolver,
+                                                         abi_serializer::create_yield_function(abi_serializer_max_time));
+                           } catch( chain::abi_exception& ) {
+                              output = *trx_trace_ptr;
+                           }
+                           const chain::transaction_id_type& id = trx_trace_ptr->id;
+                           return return_type(read_write::send_transaction_results{id, std::move( output )});
+                        } CATCH_AND_RETURN(return_type);
+                     });
                   }
                } CATCH_AND_CALL( next );
             }
@@ -2587,8 +2639,9 @@ void read_only::send_transient_transaction(const Params& params, next_function<R
                    next(std::get<fc::exception_ptr>(result));
               } else {
                  auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
+                 auto abi_cache     =  abi_serializer_cache_builder(db, fc::microseconds::maximum()).add_serializers(trx_trace_ptr).get();
                  using return_type = t_or_exception<Results>;
-                 next([this, trx_trace_ptr, resolver = make_resolver(db, abi_serializer::create_yield_function(fc::microseconds::maximum()))]() {
+                 next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() {
                     try {
                        fc::variant output;
                        try {
