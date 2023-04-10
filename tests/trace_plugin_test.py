@@ -8,6 +8,8 @@ import os
 
 from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 
+testSuccessful = True
+
 class TraceApiPluginTest(unittest.TestCase):
     sleep_s = 1
     cluster=Cluster(walletd=True, defproduceraPrvtKey=None)
@@ -101,6 +103,8 @@ class TraceApiPluginTest(unittest.TestCase):
                     self.assertIn('memo', prms)
                 break
         self.assertTrue(isTrxInBlockFromTraceApi)
+        global testSuccessful
+        testSuccessful = True
 
     @classmethod
     def setUpClass(self):
@@ -109,7 +113,7 @@ class TraceApiPluginTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(self):
-        self.cleanEnv(self, shouldCleanup=False)   # not cleanup to save log in case for further investigation
+        self.cleanEnv(self, shouldCleanup=testSuccessful)
 
 if __name__ == "__main__":
     unittest.main()

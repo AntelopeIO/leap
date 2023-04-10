@@ -118,9 +118,11 @@ void producer_api_plugin::plugin_startup() {
             INVOKE_R_R(producer, get_account_ram_corrections, producer_plugin::get_account_ram_corrections_params), 201),
        CALL_WITH_400(producer, producer, get_unapplied_transactions,
                      INVOKE_R_R_D(producer, get_unapplied_transactions, producer_plugin::get_unapplied_transactions_params), 200),
-   }, appbase::exec_queue::read_only_trx_safe, appbase::priority::medium_high);
+       CALL_WITH_400(producer, producer, get_snapshot_requests,
+                     INVOKE_R_V(producer, get_snapshot_requests), 201),
+   }, appbase::exec_queue::read_only, appbase::priority::medium_high);
 
-   // Not safe to run in parallel with read-only transactions
+   // Not safe to run in parallel
    app().get_plugin<http_plugin>().add_api({
        CALL_WITH_400(producer, producer, pause,
             INVOKE_V_V(producer, pause), 201),
@@ -137,16 +139,14 @@ void producer_api_plugin::plugin_startup() {
        CALL_ASYNC(producer, producer, create_snapshot, producer_plugin::snapshot_information,
             INVOKE_R_V_ASYNC(producer, create_snapshot), 201),
        CALL_WITH_400(producer, producer, schedule_snapshot,
-            INVOKE_V_R_II(producer, schedule_snapshot, producer_plugin::snapshot_request_information), 201),
-       CALL_WITH_400(producer, producer, get_snapshot_requests,
-            INVOKE_R_V(producer, get_snapshot_requests), 201),
+            INVOKE_R_R_II(producer, schedule_snapshot, producer_plugin::snapshot_request_information), 201),
        CALL_WITH_400(producer, producer, unschedule_snapshot,
-            INVOKE_V_R(producer, unschedule_snapshot, producer_plugin::snapshot_request_id_information), 201),
+            INVOKE_R_R(producer, unschedule_snapshot, producer_plugin::snapshot_request_id_information), 201),
        CALL_WITH_400(producer, producer, get_integrity_hash,
             INVOKE_R_V(producer, get_integrity_hash), 201),
        CALL_WITH_400(producer, producer, schedule_protocol_feature_activations,
             INVOKE_V_R(producer, schedule_protocol_feature_activations, producer_plugin::scheduled_protocol_feature_activations), 201),
-   }, appbase::exec_queue::general, appbase::priority::medium_high);
+   }, appbase::exec_queue::read_write, appbase::priority::medium_high);
 }
 
 void producer_api_plugin::plugin_initialize(const variables_map& options) {

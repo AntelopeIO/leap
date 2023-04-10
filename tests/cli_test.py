@@ -11,7 +11,7 @@ import time
 import shutil
 import signal
 
-from TestHarness import Account, Cluster, Node, ReturnType, Utils, WalletMgr
+from TestHarness import Account, Node, ReturnType, Utils, WalletMgr
 
 testSuccessful=False
 
@@ -352,7 +352,7 @@ def abi_file_with_nodeos_test():
         os.makedirs(data_dir, exist_ok=True)
         walletMgr = WalletMgr(True)
         walletMgr.launch()
-        node = Node('localhost', 8888, nodeId, cmd="./programs/nodeos/nodeos -e -p eosio --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir, walletMgr=walletMgr)
+        node = Node('localhost', 8888, nodeId, cmd="./programs/nodeos/nodeos -e -p eosio --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --max-transaction-time=-1 --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir, walletMgr=walletMgr)
         node.verifyAlive() # Setting node state to not alive
         node.relaunch(newChain=True, cachePopen=True)
         node.waitForBlock(1)
@@ -403,7 +403,7 @@ def abi_file_with_nodeos_test():
                     os.kill(node.pid, signal.SIGKILL)
         if testSuccessful:
             Utils.Print("Cleanup nodeos data.")
-            shutil.rmtree(data_dir)
+            shutil.rmtree(Utils.DataPath)
 
         if malicious_token_abi_path:
             if os.path.exists(malicious_token_abi_path):

@@ -103,7 +103,7 @@ public:
    void pop_entry(bool call_send = true) {
       send_queue.erase(send_queue.begin());
       sending = false;
-      if (call_send)
+      if (call_send || !send_queue.empty())
          send();
    }
 
@@ -550,6 +550,7 @@ private:
 
       state_history::get_blocks_result_v0 result;
       result.head = {block_state->block_num, block_state->id};
+      to_send_block_num = std::min(block_state->block_num, to_send_block_num);
       send_update(std::move(result), block_state);
    }
 

@@ -125,6 +125,8 @@ int main(int argc, char* argv[]) {
             eosio::check(result_doucment[1]["head"].IsObject(),                                 "'head' is not an object");
             eosio::check(result_doucment[1]["head"].HasMember("block_num"),                     "'head' does not contain 'block_num'");
             eosio::check(result_doucment[1]["head"]["block_num"].IsUint(),                      "'head.block_num' isn't a number");
+            eosio::check(result_doucment[1]["head"].HasMember("block_id"),                      "'head' does not contain 'block_id'");
+            eosio::check(result_doucment[1]["head"]["block_id"].IsString(),                     "'head.block_id' isn't a string");
 
             uint32_t this_block_num = result_doucment[1]["head"]["block_num"].GetUint();
 
