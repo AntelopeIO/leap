@@ -106,7 +106,7 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
 }
 
 
-const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window) {
+const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure) {
    //if there are any outstanding compiles, process the result queue now
    //When app is in write window, all tasks are running sequentially and read-only threads
    //are not running. Safe to update cache entries.
@@ -140,33 +140,44 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
          _cache_index.relocate(_cache_index.begin(), _cache_index.project<0>(it));
       return &*it;
    }
-   if(!is_write_window)
+   if(!is_write_window) {
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
+   }
 
    const code_tuple ct = code_tuple{code_id, vm_version};
 
-   if(_blacklist.find(ct) != _blacklist.end())
+   if(_blacklist.find(ct) != _blacklist.end()) {
+      failure = get_cd_failure::permanent; // Compile will not start
       return nullptr;
+   }
    if(auto it = _outstanding_compiles_and_poison.find(ct); it != _outstanding_compiles_and_poison.end()) {
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       it->second = false;
       return nullptr;
    }
-   if(_queued_compiles.find(ct) != _queued_compiles.end())
+   if(_queued_compiles.find(ct) != _queued_compiles.end()) {
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
+   }
 
    if(_outstanding_compiles_and_poison.size() >= _threads) {
       _queued_compiles.emplace(ct);
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
 
    const code_object* const codeobject = _db.find<code_object,by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
-   if(!codeobject) //should be impossible right?
+   if(!codeobject) { //should be impossible right?
+      failure = get_cd_failure::permanent; // Compile will not start
       return nullptr;
+   }
 
    _outstanding_compiles_and_poison.emplace(ct, false);
    std::vector<wrapped_fd> fds_to_pass;
    fds_to_pass.emplace_back(memfd_for_bytearray(codeobject->code));
    write_message_with_fds(_compile_monitor_write_socket, compile_wasm_message{ ct }, fds_to_pass);
+   failure = get_cd_failure::temporary; // Compile might not be done yet
    return nullptr;
 }
 
