@@ -112,10 +112,6 @@ namespace eosio { namespace chain {
       my->get_instantiated_module(code_hash, vm_type, vm_version, context.trx_context)->apply(context);
    }
 
-   void wasm_interface::exit() {
-      my->runtime_interface->immediately_exit_currently_running_module();
-   }
-
    bool wasm_interface::is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {
       return my->is_code_cached(code_hash, vm_type, vm_version);
    }
