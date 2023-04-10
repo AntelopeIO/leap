@@ -1876,24 +1876,6 @@ private:
    chain_apis::abi_serializer_cache abi_cache;
 };
 
-class abi_resolver {
-public:
-   abi_resolver(chain_apis::abi_serializer_cache &&abi_cache) :
-      abi_cache(std::move(abi_cache))
-   {}
-
-   std::optional<std::reference_wrapper<abi_serializer>> operator()(const account_name& account) {
-      auto it = abi_cache.find(account);
-      if (it != abi_cache.end() && it->second)
-         return std::reference_wrapper<abi_serializer>(*it->second);
-      return {};
-   };
-
-private:
-   chain_apis::abi_serializer_cache abi_cache;
-};
-
-
 read_only::get_scheduled_transactions_result
 read_only::get_scheduled_transactions( const read_only::get_scheduled_transactions_params& p, const fc::time_point& deadline ) const {
 
@@ -1998,6 +1980,23 @@ chain::signed_block_ptr read_only::get_raw_block(const read_only::get_raw_block_
    return block;
 }
 
+std::function<chain::t_or_exception<fc::variant>()> read_only::get_block(const get_raw_block_params& params, const fc::time_point& deadline) const {
+   chain::signed_block_ptr block = get_raw_block(params, deadline);
+   
+   auto abi_cache = abi_serializer_cache_builder(db, deadline - fc::time_point::now()).add_serializers(block).get();
+   FC_CHECK_DEADLINE(deadline);
+
+   using return_type = t_or_exception<fc::variant>;
+   return [this,
+           remaining_time = deadline - fc::time_point::now(),
+           resolver       = abi_resolver(std::move(abi_cache)),
+           block          = std::move(block)]() mutable -> return_type {
+      try {
+         return convert_block(block, resolver, remaining_time);
+      } CATCH_AND_RETURN(return_type);
+   };
+}
+
 read_only::get_block_header_result read_only::get_block_header(const read_only::get_block_header_params& params, const fc::time_point& deadline) const{
    std::optional<uint64_t> block_num;
 
@@ -2039,25 +2038,16 @@ read_only::get_block_header_result read_only::get_block_header(const read_only::
 
 }
 
-abi_serializer_cache
+abi_resolver
 read_only::get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const {
-   return abi_serializer_cache_builder(db, max_time).add_serializers(block).get();
+   return abi_resolver(abi_serializer_cache_builder(db, max_time).add_serializers(block).get());
 }
 
 fc::variant read_only::convert_block( const chain::signed_block_ptr& block,
-                                      const abi_serializer_cache& abi_cache,
+                                      abi_resolver& resolver,
                                       const fc::microseconds& max_time ) const {
-
-   auto abi_serializer_resolver = [&abi_cache](const account_name& account) -> std::optional<abi_serializer> {
-      auto it = abi_cache.find( account );
-      if( it != abi_cache.end() )
-         return it->second;
-      return {};
-   };
-
    fc::variant pretty_output;
-   abi_serializer::to_variant( *block, pretty_output, abi_serializer_resolver,
-                               abi_serializer::create_yield_function( max_time ) );
+   abi_serializer::to_variant( *block, pretty_output, resolver, abi_serializer::create_yield_function( max_time ) );
 
    const auto block_id = block->calculate_id();
    uint32_t ref_block_prefix = block_id._hash[1];

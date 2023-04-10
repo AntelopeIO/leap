@@ -87,6 +87,23 @@ template<>
 string convert_to_string(const float128_t& source, const string& key_type, const string& encode_type, const string& desc);
 
 using abi_serializer_cache = std::unordered_map<account_name, std::optional<abi_serializer>>;
+   
+class abi_resolver {
+public:
+   abi_resolver(chain_apis::abi_serializer_cache &&abi_cache) :
+      abi_cache(std::move(abi_cache))
+   {}
+
+   std::optional<std::reference_wrapper<abi_serializer>> operator()(const account_name& account) {
+      auto it = abi_cache.find(account);
+      if (it != abi_cache.end() && it->second)
+         return std::reference_wrapper<abi_serializer>(*it->second);
+      return {};
+   };
+
+private:
+   chain_apis::abi_serializer_cache abi_cache;
+};
 
 class read_only {
    const controller& db;
@@ -332,12 +349,15 @@ public:
 
    chain::signed_block_ptr get_raw_block(const get_raw_block_params& params, const fc::time_point& deadline) const;
 
+   using get_block_params = get_raw_block_params;
+   std::function<chain::t_or_exception<fc::variant>()> get_block(const get_block_params& params, const fc::time_point& deadline) const;
+
    // call from app() thread
-   abi_serializer_cache get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
+   abi_resolver get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
 
    // call from any thread
    fc::variant convert_block( const chain::signed_block_ptr& block,
-                              const abi_serializer_cache& abi_cache,
+                              abi_resolver& resolver,
                               const fc::microseconds& max_time ) const;
 
    struct get_block_header_params {
