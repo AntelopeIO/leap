@@ -1,8 +1,11 @@
 #include <eosio/prometheus_plugin/prometheus_plugin.hpp>
+#include <eosio/prometheus_plugin/simple_rest_server.hpp>
+
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/http_plugin/macros.hpp>
 #include <eosio/net_plugin/net_plugin.hpp>
+#include <eosio/http_plugin/http_plugin.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
 
 #include <fc/log/logger.hpp>
@@ -14,8 +17,8 @@
 #include <prometheus/text_serializer.h>
 #include <prometheus/registry.h>
 
-
 namespace eosio {
+   static const char* prometheus_api_name = "/v1/prometheus/metrics";
    using namespace prometheus;
    using namespace chain::plugin_interface;
 
@@ -110,12 +113,41 @@ namespace eosio {
       }
    };
 
-   struct prometheus_plugin_impl {
+   namespace http = boost::beast::http;
+   struct prometheus_plugin_impl : rest::simple_server<prometheus_plugin_impl> {
+
+      std::string server_header() const {
+         return http_plugin::get_server_header();
+      }
+
+      void log_error(char const* what, const std::string& message) {
+         elog("${what}: ${message}", ("what", what)("message", message));
+      }
+
+      bool allow_method(http::verb method) const {
+         return method == http::verb::get;
+      }
+
+      std::optional<http::response<http::string_body>>
+       on_request(http::request<http::string_body>&& req) {
+         if(req.target() != prometheus_api_name)
+            return {};
+         http::response<http::string_body> res{ http::status::ok, req.version() };
+         // Respond to GET request
+         res.set(http::field::server, server_header());
+         res.set(http::field::content_type, "text/plain");
+         res.keep_alive(req.keep_alive());
+         res.body() = metrics();
+         res.prepare_payload();
+         return res;
+      }
+
       eosio::chain::named_thread_pool<struct prom> _prometheus_thread_pool;
       boost::asio::io_context::strand _prometheus_strand;
       prometheus_plugin_metrics _metrics;
 
       map<std::string, vector<runtime_metric>> _plugin_metrics;
+      boost::asio::ip::tcp::endpoint           _endpoint;
 
       prometheus_plugin_impl(): _prometheus_strand(_prometheus_thread_pool.get_executor()){ }
 
@@ -179,32 +211,11 @@ namespace eosio {
          return body;
       }
 
-      void metrics_async(chain::plugin_interface::next_function<std::string> results) {
-         _prometheus_strand.post([self=this, results=std::move(results)]() {
-            results(self->metrics());
-         });
+      void start() {
+         run(_prometheus_thread_pool.get_executor(), _endpoint);
+         _prometheus_thread_pool.start(
+               1, [](const fc::exception& e) { elog("Prometheus exception ${e}", ("e", e)); });
       }
-
-   };
-
-   using metrics_params = fc::variant_object;
-
-   struct prometheus_api {
-      prometheus_plugin_impl& _pp;
-      fc::microseconds _max_response_time_us;
-
-      fc::time_point start() const {
-         return fc::time_point::now() + _max_response_time_us;
-      }
-
-      void metrics(const metrics_params&, chain::plugin_interface::next_function<std::string> results) {
-         _pp.metrics_async(std::move(results));
-      }
-
-      prometheus_api(prometheus_plugin_impl& plugin, const fc::microseconds& max_response_time)
-      : _pp(plugin)
-      , _max_response_time_us(max_response_time){}
-
    };
 
    prometheus_plugin::prometheus_plugin()
@@ -214,24 +225,35 @@ namespace eosio {
    prometheus_plugin::~prometheus_plugin() = default;
 
    void prometheus_plugin::set_program_options(options_description&, options_description& cfg) {
+      cfg.add_options()
+         ("prometheus-exporter-address", bpo::value<string>()->default_value("127.0.0.1:9101"),
+            "The local IP and port to listen for incoming prometheus metrics http request.");
    }
 
    void prometheus_plugin::plugin_initialize(const variables_map& options) {
       my->initialize_metrics();
 
-      auto& _http_plugin = app().get_plugin<http_plugin>();
-      fc::microseconds max_response_time = _http_plugin.get_max_response_time();
+      string lipstr = options.at("prometheus-exporter-address").as<string>();
+      EOS_ASSERT(lipstr.size() > 0, chain::plugin_config_exception, "prometheus-exporter-address must have a value");
 
-      prometheus_api handle(*my, max_response_time);
-      app().get_plugin<http_plugin>().add_async_api({
-        CALL_ASYNC_WITH_400(prometheus, handle, eosio, metrics, std::string, 200, http_params_types::no_params)}, http_content_type::plaintext);
+      string host = lipstr.substr(0, lipstr.find(':'));
+      string port = lipstr.substr(host.size() + 1, lipstr.size());
+
+      boost::system::error_code ec;
+      using tcp = boost::asio::ip::tcp;
+      tcp::resolver resolver(app().get_io_service());
+
+      my->_endpoint = *resolver.resolve(tcp::v4(), host, port, ec);
+      if (!ec) {
+         fc_ilog(logger(), "configured prometheus metrics exporter to listen on ${h}", ("h", lipstr));
+      } else {
+         fc_elog(logger(), "failed to configure prometheus metrics exporter to listen on ${h} (${m})",
+                 ("h", lipstr)("m", ec.message()));
+      }
    }
 
    void prometheus_plugin::plugin_startup() {
-      my->_prometheus_thread_pool.start(1, []( const fc::exception& e ) {
-         elog("Prometheus excpetion ${e}:${l}", ("e", e));
-      } );
-
+      my->start();
       ilog("Prometheus plugin started.");
    }
 
