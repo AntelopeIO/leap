@@ -1,4 +1,4 @@
-add_executable( trx_generator main.cpp trx_generator.cpp trx_provider.cpp )
+add_executable( trx_generator main.cpp trx_generator.cpp trx_provider.cpp http_client_async.cpp )
 
 target_include_directories(trx_generator PUBLIC ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
