@@ -3,6 +3,9 @@
 #include <eosio/http_plugin/common.hpp>
 #include <fc/io/json.hpp>
 
+#include <boost/iostreams/device/array.hpp>
+#include <boost/iostreams/stream.hpp>
+
 #include <memory>
 #include <string>
 
@@ -75,6 +78,26 @@ bool allow_host(const http::request<http::string_body>& req, T& session,
    return true;
 }
 
+// T can be request or response or anything serializable to boost iostreams
+template<typename T>
+std::string to_log_string(const T& req, size_t max_size = 1024) {
+   assert( max_size > 4 );
+   std::string buffer( max_size, '\0' );
+   {
+      boost::iostreams::array_sink sink( buffer.data(), buffer.size() );
+      boost::iostreams::stream stream( sink );
+      stream << req;
+   }
+   buffer.resize( std::strlen( buffer.data() ) );
+   if( buffer.size() == max_size ) {
+      buffer[max_size - 3] = '.';
+      buffer[max_size - 2] = '.';
+      buffer[max_size - 1] = '.';
+   }
+   std::replace_if( buffer.begin(), buffer.end(), []( unsigned char c ) { return c == '\r' || c == '\n'; }, ' ' );
+   return buffer;
+}
+
 // Handle HTTP conneciton using boost::beast for TCP communication
 // Subclasses of this class (plain_session, ssl_session, etc.)
 // use the Curiously Recurring Template Pattern so that
@@ -95,6 +118,7 @@ protected:
    std::optional<http::response<http::string_body>> res_;
 
    std::shared_ptr<http_plugin_state> plugin_state_;
+   std::string remote_endpoint_;
 
    // whether response should be sent back to client when an exception occurs
    bool is_send_exception_response_ = true;
@@ -142,6 +166,9 @@ protected:
 
          // verfiy bytes in flight/requests in flight
          if(!verify_max_bytes_in_flight()) return;
+
+         fc_dlog( plugin_state_->logger, "Request:  ${ep} ${r}",
+                  ("ep", remote_endpoint_)("r", to_log_string(req)) );
 
          std::string resource = std::string(req.target());
          // look for the URL handler to handle this resource
@@ -211,9 +238,9 @@ public:
    // shared_from_this() requires default constructor
    beast_http_session() = default;
 
-   beast_http_session(
-         std::shared_ptr<http_plugin_state> plugin_state)
-       : plugin_state_(std::move(plugin_state)) {
+   beast_http_session(std::shared_ptr<http_plugin_state> plugin_state, std::string remote_endpoint)
+       : plugin_state_(std::move(plugin_state)),
+         remote_endpoint_(std::move(remote_endpoint)) {
       plugin_state_->requests_in_flight += 1;
       req_parser_.emplace();
       req_parser_->body_limit(plugin_state_->max_body_size);
@@ -368,6 +395,9 @@ public:
       // Determine if we should close the connection after
       bool close = !(plugin_state_->keep_alive) || res_->need_eof();
 
+      fc_dlog( plugin_state_->logger, "Response: ${ep} ${b}",
+               ("ep", remote_endpoint_)("b", to_log_string(*res_)) );
+
       // Write the response
       auto self = derived().shared_from_this();
       http::async_write(
@@ -396,8 +426,9 @@ public:
    // Create the session
    plain_session(
          tcp_socket_t socket,
-         std::shared_ptr<http_plugin_state> plugin_state)
-       : beast_http_session<plain_session>(std::move(plugin_state)), socket_(std::move(socket)) {}
+         std::shared_ptr<http_plugin_state> plugin_state,
+         std::string remote_endpoint)
+       : beast_http_session<plain_session>(std::move(plugin_state), std::move(remote_endpoint)), socket_(std::move(socket)) {}
 
    tcp_socket_t& stream() { return socket_; }
    tcp_socket_t& socket() { return socket_; }
@@ -441,8 +472,10 @@ public:
 
    ssl_session(
          tcp_socket_t socket,
-         std::shared_ptr<http_plugin_state> plugin_state)
-       : beast_http_session<ssl_session>(std::move(plugin_state)), stream_(std::move(socket), *plugin_state_->ctx) {}
+         std::shared_ptr<http_plugin_state> plugin_state,
+         std::string remote_endpoint)
+       : beast_http_session<ssl_session>(std::move(plugin_state), std::move(remote_endpoint)),
+             stream_(std::move(socket), *plugin_state_->ctx) {}
 
 
    ssl::stream<tcp_socket_t>& stream() { return stream_; }
@@ -508,8 +541,9 @@ class unix_socket_session
 
 public:
    unix_socket_session(stream_protocol::socket sock,
-                       std::shared_ptr<http_plugin_state> plugin_state)
-       : beast_http_session(std::move(plugin_state)), socket_(std::move(sock)) {}
+                       std::shared_ptr<http_plugin_state> plugin_state,
+                       std::string remote_endpoint)
+       : beast_http_session(std::move(plugin_state), std::move(remote_endpoint)), socket_(std::move(sock)) {}
 
    virtual ~unix_socket_session() = default;
 
