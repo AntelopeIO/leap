@@ -55,38 +55,6 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
           } \
        }}
 
-// call an API which returns either fc::exception_ptr, or a function to be posted on the http thread pool
-// for execution (typically doing the final serialization)
-// ------------------------------------------------------------------------------------------------------
-#define CALL_WITH_400_POST(api_name, api_handle, api_namespace, call_name, http_resp_code, params_type)         \
-{std::string("/v1/" #api_name "/" #call_name),                                                                  \
-      [api_handle, _http_plugin](string&&, string&& body, url_response_callback&& cb) mutable {                 \
-          auto deadline = api_handle.start();                                                                   \
-          try {                                                                                                 \
-             auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);                \
-             FC_CHECK_DEADLINE(deadline);                                                                       \
-             using http_fwd_t = std::function<chain::t_or_exception<fc::variant>()>;                            \
-             http_fwd_t http_fwd( api_handle.call_name( std::move(params), deadline ) );                        \
-             FC_CHECK_DEADLINE(deadline);                                                                       \
-             _http_plugin.post_http_thread_pool([resp_code=http_resp_code, cb=std::move(cb),                    \
-                                                 body=std::move(body),                                          \
-                                                 http_fwd = std::move(http_fwd)]() {                            \
-                auto result = http_fwd(); /* this returns a t_or_exception variant */                           \
-                if (std::holds_alternative<fc::exception_ptr>(result)) {                                        \
-                   try {                                                                                        \
-                      std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();                         \
-                   } catch (...) {                                                                              \
-                      http_plugin::handle_exception(#api_name, #call_name, body, cb);                           \
-                   }                                                                                            \
-                } else {                                                                                        \
-                   cb(resp_code, fc::time_point::maximum(), std::get<fc::variant>(result)) ;                    \
-                }                                                                                               \
-             });                                                                                                \
-          } catch (...) {                                                                                       \
-             http_plugin::handle_exception(#api_name, #call_name, body, cb);                                    \
-          }                                                                                                     \
-       }}
-
 #define CHAIN_RO_CALL(call_name, http_response_code, params_type) CALL_WITH_400(chain, ro_api, chain_apis::read_only, call_name, http_response_code, params_type)
 #define CHAIN_RW_CALL(call_name, http_response_code, params_type) CALL_WITH_400(chain, rw_api, chain_apis::read_write, call_name, http_response_code, params_type)
 #define CHAIN_RO_CALL_POST(call_name, http_response_code, params_type) CALL_WITH_400_POST(chain, ro_api, chain_apis::read_only, call_name, http_response_code, params_type)

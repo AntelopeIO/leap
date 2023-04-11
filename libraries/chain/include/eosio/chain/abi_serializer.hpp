@@ -976,7 +976,7 @@ using abi_serializer_cache = std::unordered_map<account_name, std::optional<abi_
    
 class abi_resolver {
 public:
-   abi_resolver(abi_serializer_cache &&abi_cache) :
+   abi_resolver(abi_serializer_cache&& abi_cache) :
       abi_cache(std::move(abi_cache))
    {}
 

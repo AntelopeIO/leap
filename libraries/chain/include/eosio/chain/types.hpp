@@ -405,7 +405,7 @@ namespace eosio::chain {
    // http_plugin thread pool) and which completes the API processing and returns the result T.
    // -------------------------------------------------------------------------------------------------------
    template<typename T>
-   using t_or_exception = std::variant<fc::exception_ptr, T>;
+   using t_or_exception = std::variant<T, fc::exception_ptr>;
 
    template<typename T>
    using next_function_variant = std::variant<fc::exception_ptr, T, std::function<t_or_exception<T>()>>;
