@@ -33,9 +33,9 @@ class temp_directory {
  public:
    temp_directory(const std::filesystem::path& tempFolder = std::filesystem::temp_directory_path()) {
       std::filesystem::path template_path{ tempFolder / "fc-XXXXXX" };
-      char                  tmp_buf[4096];
-      strncpy(tmp_buf, template_path.c_str(), 4096);
-      if (mkdtemp(tmp_buf) == nullptr)
+      std::string tmp_buf = template_path.string();
+      // The following is valid because the return array of std::string::data() is null-terminated since C++11
+      if (mkdtemp(tmp_buf.data()) == nullptr)
          throw std::system_error(errno, std::generic_category(), __PRETTY_FUNCTION__);
       tmp_path = tmp_buf;
    }
