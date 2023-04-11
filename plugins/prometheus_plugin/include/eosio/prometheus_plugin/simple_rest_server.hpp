@@ -67,7 +67,7 @@ namespace eosio { namespace rest {
          try {
             auto res = self()->on_request(std::move(req));
             if (!res)
-               not_found(target);
+               return not_found(target);
             return *res;
          } catch (std::exception& ex) { return server_error(ex.what()); }
       }
