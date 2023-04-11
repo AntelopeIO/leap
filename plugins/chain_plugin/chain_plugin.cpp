@@ -2208,7 +2208,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
-         [this, next](const next_function_variant<transaction_trace_ptr>& result) mutable -> void {
+         [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
          } else {
@@ -2216,7 +2216,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
             auto yield         = abi_serializer::create_yield_function(fc::microseconds::maximum());
             auto abi_cache     =  abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(trx_trace_ptr).get();
             using return_type  = t_or_exception<read_write::send_transaction_results>;
-            next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
+            next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() {
                try {
                   fc::variant output;
                   try {
@@ -2276,7 +2276,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                      auto yield        = abi_serializer::create_yield_function(fc::microseconds::maximum());
                      auto abi_cache    =  abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(trx_trace_ptr).get();
                      using return_type = t_or_exception<read_write::send_transaction_results>;
-                     next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
+                     next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() {
                         try {
                            fc::variant output;
                            try {
@@ -2592,7 +2592,7 @@ void read_only::send_transient_transaction(const Params& params, next_function<R
                  auto yield         = abi_serializer::create_yield_function(fc::microseconds::maximum());
                  auto abi_cache     =  abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(trx_trace_ptr).get();
                  using return_type = t_or_exception<Results>;
-                 next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
+                 next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() {
                     try {
                        fc::variant output;
                        try {
