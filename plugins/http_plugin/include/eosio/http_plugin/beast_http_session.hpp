@@ -115,8 +115,12 @@ protected:
       }
 
       try {
-         if(!derived().allow_host(req))
+         if(!derived().allow_host(req)) {
+            error_results results{static_cast<uint16_t>(http::status::bad_request), "Disallowed HTTP HOST header in the request"};
+            send_response( fc::json::to_string( results, fc::time_point::maximum() ),
+                        static_cast<unsigned int>(http::status::bad_request) );
             return;
+         }
 
          if(!plugin_state_->access_control_allow_origin.empty()) {
             res_->set("Access-Control-Allow-Origin", plugin_state_->access_control_allow_origin);
