@@ -7,7 +7,7 @@
 #include <fc/variant_object.hpp>
 #include <fc/scoped_exit.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
 using std::map;
 using std::string;
@@ -487,7 +487,7 @@ namespace impl {
          try {
             auto abi_optional = resolver(act.account);
             if (abi_optional) {
-               auto& abi = (abi_serializer&)*abi_optional;
+               abi_serializer& abi = *abi_optional;
                auto type = abi.get_action_type(act.name);
                if (!type.empty()) {
                   try {
@@ -549,7 +549,7 @@ namespace impl {
          try {
             auto abi_optional = resolver(act.account);
             if (abi_optional) {
-               auto& abi = (abi_serializer&)*abi_optional;
+               abi_serializer& abi = *abi_optional;
                auto type = abi.get_action_result_type(act.name);
                if (!type.empty()) {
                   binary_to_variant_context _ctx(abi, ctx, type);
@@ -972,5 +972,73 @@ void abi_serializer::from_variant( const fc::variant& v, T& o, Resolver resolver
    from_variant( v, o, resolver, create_yield_function(max_serialization_time) );
 }
 
+using abi_serializer_cache = std::unordered_map<account_name, std::optional<abi_serializer>>;
+   
+class abi_resolver {
+public:
+   abi_resolver(abi_serializer_cache &&abi_cache) :
+      abi_cache(std::move(abi_cache))
+   {}
 
-} } // eosio::chain
+   std::optional<std::reference_wrapper<abi_serializer>> operator()(const account_name& account) {
+      auto it = abi_cache.find(account);
+      if (it != abi_cache.end() && it->second)
+         return std::reference_wrapper<abi_serializer>(*it->second);
+      return {};
+   };
+
+private:
+   abi_serializer_cache abi_cache;
+};
+
+class abi_serializer_cache_builder {
+public:
+   abi_serializer_cache_builder(std::function<std::optional<abi_serializer>(const account_name& name)> resolver) :
+      resolver_(std::move(resolver))
+   {
+   }
+
+   abi_serializer_cache_builder(const abi_serializer_cache_builder&) = delete;
+
+   abi_serializer_cache_builder&& add_serializers(const chain::signed_block_ptr& block) && {
+      for( const auto& receipt: block->transactions ) {
+         if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
+            const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
+            const auto& t = pt.get_transaction();
+            for( const auto& a: t.actions )
+               add_to_cache( a );
+            for( const auto& a: t.context_free_actions )
+               add_to_cache( a );
+         }
+      }
+      return std::move(*this);
+   }
+
+   abi_serializer_cache_builder&& add_serializers(const transaction_trace_ptr& trace_ptr) && {
+      for( const auto& trace: trace_ptr->action_traces ) {
+         add_to_cache(trace.act);
+      }
+      return std::move(*this);
+   }
+
+   abi_serializer_cache&& get() && {
+      return std::move(abi_cache);
+   }
+
+private:
+   void add_to_cache(const chain::action& a) {
+      auto it = abi_cache.find( a.account );
+      if( it == abi_cache.end() ) {
+         try {
+            abi_cache.emplace_hint( it, a.account, resolver_( a.account ) );
+         } catch( ... ) {
+            // keep behavior of not throwing on invalid abi, will result in hex data
+         }
+      }
+   }
+
+   std::function<std::optional<abi_serializer>(const account_name& name)> resolver_;
+   abi_serializer_cache abi_cache;
+};
+
+} // eosio::chain

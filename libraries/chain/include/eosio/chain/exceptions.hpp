@@ -88,7 +88,7 @@
    }
 
 /**
- * Capture all exceptions and return a fc::exception_ptr
+ * Capture all exceptions and return return_type which is constructible from a fc::exception_ptr
  */
 #define CATCH_AND_RETURN(return_type)\
    catch ( const fc::exception& err ) {\

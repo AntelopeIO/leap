@@ -25,6 +25,8 @@
 namespace fc { class variant; }
 
 namespace eosio {
+   namespace chain { class abi_resolver; }
+
    using chain::controller;
    using std::unique_ptr;
    using std::pair;
@@ -42,6 +44,7 @@ namespace eosio {
    using chain::action_name;
    using chain::abi_def;
    using chain::abi_serializer;
+   using chain::abi_resolver;
 
 class producer_plugin;
 
@@ -85,25 +88,6 @@ string convert_to_string(const chain::key256_t& source, const string& key_type, 
 
 template<>
 string convert_to_string(const float128_t& source, const string& key_type, const string& encode_type, const string& desc);
-
-using abi_serializer_cache = std::unordered_map<account_name, std::optional<abi_serializer>>;
-   
-class abi_resolver {
-public:
-   abi_resolver(chain_apis::abi_serializer_cache &&abi_cache) :
-      abi_cache(std::move(abi_cache))
-   {}
-
-   std::optional<std::reference_wrapper<abi_serializer>> operator()(const account_name& account) {
-      auto it = abi_cache.find(account);
-      if (it != abi_cache.end() && it->second)
-         return std::reference_wrapper<abi_serializer>(*it->second);
-      return {};
-   };
-
-private:
-   chain_apis::abi_serializer_cache abi_cache;
-};
 
 class read_only {
    const controller& db;
