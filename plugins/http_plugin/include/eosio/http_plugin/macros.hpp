@@ -25,13 +25,14 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
                     http_plugin::handle_exception(#api_name, #call_name, body, cb);                             \
                  }                                                                                              \
               } else if (std::holds_alternative<call_result>(result)) {                                         \
-                 cb(http_resp_code, fc::time_point::maximum(), fc::variant(std::get<call_result>(result)));     \
+                 cb(http_resp_code, fc::time_point::maximum(),                                                  \
+                    fc::variant(std::get<call_result>(std::move(result))));                                     \
               } else {                                                                                          \
                  /* api returned a function to be processed on the http_plugin thread pool */                   \
                  assert(std::holds_alternative<http_fwd_t>(result));                                            \
                  _http_plugin.post_http_thread_pool([resp_code=http_resp_code, cb=std::move(cb),                \
                                                      body=std::move(body),                                      \
-                                                     http_fwd = std::get<http_fwd_t>(result)]() {               \
+                                                     http_fwd = std::get<http_fwd_t>(std::move(result))]() {    \
                     chain::t_or_exception<call_result> result = http_fwd();                                     \
                     if (std::holds_alternative<fc::exception_ptr>(result)) {                                    \
                        try {                                                                                    \
@@ -40,7 +41,8 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
                           http_plugin::handle_exception(#api_name, #call_name, body, cb);                       \
                        }                                                                                        \
                     } else {                                                                                    \
-                       cb(resp_code, fc::time_point::maximum(), fc::variant(std::get<call_result>(result))) ;   \
+                       cb(resp_code, fc::time_point::maximum(),                                                 \
+                          fc::variant(std::get<call_result>(std::move(result)))) ;                              \
                     }                                                                                           \
                  });                                                                                            \
               }                                                                                                 \
@@ -63,7 +65,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
              auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);                \
              FC_CHECK_DEADLINE(deadline);                                                                       \
              using http_fwd_t = std::function<chain::t_or_exception<fc::variant>()>;                            \
-             http_fwd_t http_fwd( api_handle.call_name( std::move(params), deadline ) );                        \
+             http_fwd_t http_fwd(api_handle.call_name(std::move(params), deadline));                            \
              FC_CHECK_DEADLINE(deadline);                                                                       \
              _http_plugin.post_http_thread_pool([resp_code=http_resp_code, cb=std::move(cb),                    \
                                                  body=std::move(body),                                          \
@@ -76,7 +78,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
                       http_plugin::handle_exception(#api_name, #call_name, body, cb);                           \
                    }                                                                                            \
                 } else {                                                                                        \
-                   cb(resp_code, fc::time_point::maximum(), std::get<fc::variant>(result)) ;                    \
+                   cb(resp_code, fc::time_point::maximum(), std::get<fc::variant>(std::move(result))) ;         \
                 }                                                                                               \
              });                                                                                                \
           } catch (...) {                                                                                       \
