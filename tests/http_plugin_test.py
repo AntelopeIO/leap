@@ -24,7 +24,7 @@ dumpErrorDetails = dumpErrorDetails=args.dump_error_details
 
 
 Utils.Debug=debug
-cluster=Cluster(host="127.0.0.1", walletd=True, unshared=args.unshared)
+cluster=Cluster(host="127.0.0.1",walletd=True,unshared=args.unshared)
 
 testSuccessful=False
 
