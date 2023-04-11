@@ -1050,29 +1050,29 @@ struct set_account_permission_subcommand {
 struct set_action_permission_subcommand {
    string accountStr;
    string codeStr;
-   string typeStr;
+   string actionStr;
    string requirementStr;
 
    set_action_permission_subcommand(CLI::App* actionRoot) {
       auto permissions = actionRoot->add_subcommand("permission", localized("Set parameters dealing with account permissions"));
       permissions->add_option("account", accountStr, localized("The account to set/delete a permission authority for"))->required();
       permissions->add_option("code", codeStr, localized("The account that owns the code for the action"))->required();
-      permissions->add_option("type", typeStr, localized("The type of the action"))->required();
-      permissions->add_option("requirement", requirementStr, localized("[delete] NULL, [set/update] The permission name require for executing the given action"))->required();
+      permissions->add_option("action", actionStr, localized("The name of the action [use ALL for all actions]"))->required();
+      permissions->add_option("requirement", requirementStr, localized("The permission name required for executing the given action [use NULL to delete]"))->required();
 
       add_standard_transaction_options_plus_signing(permissions, "account@active");
 
       permissions->callback([this] {
          name account = name(accountStr);
          name code = name(codeStr);
-         name type = name(typeStr);
-         bool is_delete = boost::iequals(requirementStr, "null");
+         name action = (actionStr == "ALL") ? name{} : name(actionStr);
+         bool is_delete = (requirementStr == "NULL");
 
          if (is_delete) {
-            send_actions({create_unlinkauth(account, code, type)}, signing_keys_opt.get_keys());
+            send_actions({create_unlinkauth(account, code, action)}, signing_keys_opt.get_keys());
          } else {
             name requirement = name(requirementStr);
-            send_actions({create_linkauth(account, code, type, requirement)}, signing_keys_opt.get_keys());
+            send_actions({create_linkauth(account, code, action, requirement)}, signing_keys_opt.get_keys());
          }
       });
    }
