@@ -1352,6 +1352,8 @@ class PluginHttpTest(unittest.TestCase):
         self.assertTrue(int(metrics["blocks_produced"]) > 1)
         self.assertTrue(int(metrics["last_irreversible"]) > 1)
 
+        ret = self.nodeos.processUrllibRequest(resource, "m", returnType = ReturnType.raw, method="GET", silentErrors= True, endpoint=endpointPrometheus)
+        self.assertTrue(ret == 404)
 
     def test_multipleRequests(self):
         """Test keep-alive ability of HTTP plugin.  Handle multiple requests in a single session"""
