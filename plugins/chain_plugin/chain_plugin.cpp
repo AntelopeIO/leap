@@ -2503,15 +2503,15 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      auto lookup_object = [&](const name& obj_name, const name& account_name, const char*ext_name) -> std::optional<fc::variant> {
+      auto lookup_object = [&](const name& obj_name, const name& account_name, const char* type_name) -> std::optional<fc::variant> {
          auto t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, account_name, obj_name ));
          if (t_id != nullptr) {
-            const auto &idx = d.get_index<key_value_index, by_scope_primary>();
+            const auto& idx = d.get_index<key_value_index, by_scope_primary>();
             auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-            if ( it != idx.end() ) {
+            if (it != idx.end()) {
                vector<char> data;
                copy_inline_row(*it, data);
-               return abis.binary_to_variant( ext_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+               return abis.binary_to_variant( type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
             }
          }
          return {};
