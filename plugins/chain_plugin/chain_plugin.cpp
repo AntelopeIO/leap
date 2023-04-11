@@ -2214,7 +2214,7 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
          } else {
             auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
             auto yield         = abi_serializer::create_yield_function(fc::microseconds::maximum());
-            auto abi_cache     =  abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(trx_trace_ptr).get();
+            auto abi_cache     = abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(trx_trace_ptr).get();
             using return_type  = t_or_exception<read_write::send_transaction_results>;
             next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
                try {

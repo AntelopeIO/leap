@@ -17,7 +17,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
         using http_fwd_t = std::function<chain::t_or_exception<call_result>()>;                                 \
         api_handle.call_name( std::move(params),                                                                \
            [&_http_plugin, cb=std::move(cb), body=std::move(body)]                                              \
-           (const chain::next_function_variant<call_result>& result){                                           \
+           (const chain::next_function_variant<call_result>& result) {                                          \
               if (std::holds_alternative<fc::exception_ptr>(result)) {                                          \
                  try {                                                                                          \
                     std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();                           \
