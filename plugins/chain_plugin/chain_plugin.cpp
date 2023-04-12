@@ -116,7 +116,7 @@ void validate(boost::any& v,
   }
 }
 
-}
+} // namespace chain
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -1235,13 +1235,13 @@ void chain_plugin::handle_guard_exception(const chain::guard_exception& e) {
    app().quit();
 }
 
-void chain_plugin::handle_db_exhaustion() {
+void chain_apis::api_base::handle_db_exhaustion() {
    elog("database memory exhausted: increase chain-state-db-size-mb");
    //return 1 -- it's what programs/nodeos/main.cpp considers "BAD_ALLOC"
    std::_Exit(1);
 }
 
-void chain_plugin::handle_bad_alloc() {
+void chain_apis::api_base::handle_bad_alloc() {
    elog("std::bad_alloc - memory exhausted");
    //return -2 -- it's what programs/nodeos/main.cpp reports for std::exception
    std::_Exit(-2);
@@ -1819,19 +1819,6 @@ read_only::get_producer_schedule_result read_only::get_producer_schedule( const 
    return result;
 }
 
-
-auto make_resolver(const controller& control, abi_serializer::yield_function_t yield) {
-   return [&control, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
-      const auto* accnt = control.db().template find<account_object, by_name>(name);
-      if (accnt != nullptr) {
-         if (abi_def abi; abi_serializer::to_abi(accnt->abi, abi)) {
-            return abi_serializer(std::move(abi), yield);
-         }
-      }
-      return {};
-   };
-}
-
 read_only::get_scheduled_transactions_result
 read_only::get_scheduled_transactions( const read_only::get_scheduled_transactions_params& p, const fc::time_point& deadline ) const {
 
@@ -2072,9 +2059,9 @@ void read_write::push_block(read_write::push_block_params&& params, next_functio
    try {
       app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move(params) ), std::optional<block_id_type>{}, block_state_ptr{});
    } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
+      handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
+      handle_bad_alloc();
    } FC_LOG_AND_DROP()
    next(read_write::push_block_results{});
 }
@@ -2155,9 +2142,9 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
          }
       });
    } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
+      handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
+      handle_bad_alloc();
    } CATCH_AND_CALL(next);
 }
 
@@ -2193,69 +2180,73 @@ void read_write::push_transactions(const read_write::push_transactions_params& p
 
       push_recurse(this, 0, params_copy, result, next);
    } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
+      handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
+      handle_bad_alloc();
    } CATCH_AND_CALL(next);
 }
 
-void read_write::send_transaction(const read_write::send_transaction_params& params, next_function<read_write::send_transaction_results> next) {
-   send_transaction2_params params2 { .return_failure_trace = false,
-                                      .retry_trx            = false,
-                                      .retry_trx_num_blocks = std::nullopt,
-                                      .transaction          = std::move(params) };
-   return send_transaction2(params2, std::move(next));
-}
-
-void read_write::send_transaction2(const read_write::send_transaction2_params& params, next_function<read_write::send_transaction_results> next) {
+template<class API, class Result>
+void api_base::send_transaction_gen(API &api, const send_transaction_params_t& params, next_function<Result> next) {
    try {
       auto ptrx = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      auto resolver = make_resolver(api.db, abi_serializer::create_yield_function( api.abi_serializer_max_time ));
       try {
-         abi_serializer::from_variant(params.transaction, *ptrx, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
-      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
+         abi_serializer::from_variant(params.transaction, *ptrx, resolver, abi_serializer::create_yield_function( api.abi_serializer_max_time ));
+      } EOS_RETHROW_EXCEPTIONS(packed_transaction_type_exception, "Invalid packed transaction")
 
-      bool retry = params.retry_trx;
-      std::optional<uint16_t> retry_num_blocks = params.retry_trx_num_blocks;
+      bool retry = false;
+      std::optional<uint16_t> retry_num_blocks;
+      
+      if constexpr (std::is_same_v<API, read_write>) {
+         retry = params.retry_trx;
+         retry_num_blocks = params.retry_trx_num_blocks;
 
-      EOS_ASSERT( !retry || trx_retry.has_value(), unsupported_feature, "Transaction retry not enabled on node" );
-      EOS_ASSERT( !retry || (ptrx->expiration() <= trx_retry->get_max_expiration_time()), tx_exp_too_far_exception,
-                  "retry transaction expiration ${e} larger than allowed ${m}",
-                  ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
-
-      app().get_method<incoming::methods::transaction_async>()(ptrx, true, transaction_metadata::trx_type::input, params.return_failure_trace,
-         [this, ptrx, next, retry, retry_num_blocks](const next_function_variant<transaction_trace_ptr>& result) -> void {
+         EOS_ASSERT( !retry || api.trx_retry.has_value(), unsupported_feature, "Transaction retry not enabled on node" );
+         EOS_ASSERT( !retry || (ptrx->expiration() <= api.trx_retry->get_max_expiration_time()), tx_exp_too_far_exception,
+                     "retry transaction expiration ${e} larger than allowed ${m}",
+                     ("e", ptrx->expiration())("m", api.trx_retry->get_max_expiration_time()) );
+      }
+      
+      app().get_method<incoming::methods::transaction_async>()(ptrx, true, params.trx_type, params.return_failure_trace,
+            [&api, ptrx, next, retry, retry_num_blocks](const next_function_variant<transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                next( std::get<fc::exception_ptr>( result ) );
             } else {
                try {
                   auto trx_trace_ptr = std::get<transaction_trace_ptr>( result );
-                  if( retry && trx_retry.has_value() && !trx_trace_ptr->except) {
-                     // will be ack'ed via next later
-                     trx_retry->track_transaction( ptrx, retry_num_blocks,
-                        [ptrx, next](const next_function_variant<std::unique_ptr<fc::variant>>& result ) {
-                           if( std::holds_alternative<fc::exception_ptr>( result ) ) {
-                              next( std::get<fc::exception_ptr>( result ) );
-                           } else {
-                              fc::variant& output = *std::get<std::unique_ptr<fc::variant>>( result );
-                              next( read_write::send_transaction_results{ptrx->id(), std::move( output )} );
-                           }
-                        } );
-                  } else {
+                  bool retried = false;
+                  if constexpr (std::is_same_v<API, read_write>) {
+                     if( retry && api.trx_retry.has_value() && !trx_trace_ptr->except) {
+                        // will be ack'ed via next later
+                        api.trx_retry->track_transaction( ptrx, retry_num_blocks,
+                             [ptrx, next](const next_function_variant<std::unique_ptr<fc::variant>>& result ) {
+                                if( std::holds_alternative<fc::exception_ptr>( result ) ) {
+                                   next( std::get<fc::exception_ptr>( result ) );
+                                } else {
+                                   fc::variant& output = *std::get<std::unique_ptr<fc::variant>>( result );
+                                   next( Result{ptrx->id(), std::move( output )} );
+                                }
+                             } );
+                        retried = true;
+                     }
+                  }
+
+                  if (!retried) {
                      auto yield        = abi_serializer::create_yield_function(fc::microseconds::maximum());
-                     auto abi_cache    = abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(trx_trace_ptr).get();
-                     using return_type = t_or_exception<read_write::send_transaction_results>;
-                     next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
+                     auto abi_cache    = abi_serializer_cache_builder(api_base::make_resolver(api.db, std::move(yield))).add_serializers(trx_trace_ptr).get();
+                     using return_type = t_or_exception<Result>;
+                     next([&api, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
                         try {
                            fc::variant output;
                            try {
                               abi_serializer::to_variant(*trx_trace_ptr, output, std::move(resolver),
-                                                         abi_serializer::create_yield_function(abi_serializer_max_time));
-                           } catch( chain::abi_exception& ) {
+                                                         abi_serializer::create_yield_function(api.abi_serializer_max_time));
+                           } catch( abi_exception& ) {
                               output = *trx_trace_ptr;
                            }
-                           const chain::transaction_id_type& id = trx_trace_ptr->id;
-                           return return_type(read_write::send_transaction_results{id, std::move( output )});
+                           const transaction_id_type& id = trx_trace_ptr->id;
+                           return return_type(Result{id, std::move( output )});
                         } CATCH_AND_RETURN(return_type);
                      });
                   }
@@ -2263,12 +2254,30 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
             }
          });
    } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
+      handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
+      handle_bad_alloc();
    } CATCH_AND_CALL(next);
 }
+   
+void read_write::send_transaction(const read_write::send_transaction_params& params, next_function<read_write::send_transaction_results> next) {
+   send_transaction_params_t gen_params { .return_failure_trace = false,
+                                          .retry_trx            = false,
+                                          .retry_trx_num_blocks = std::nullopt,
+                                          .trx_type             = transaction_metadata::trx_type::input,
+                                          .transaction          = std::move(params) };
+   return send_transaction_gen(*this, gen_params, std::move(next));
+}
 
+void read_write::send_transaction2(const read_write::send_transaction2_params& params, next_function<read_write::send_transaction_results> next) {
+   send_transaction_params_t gen_params  { .return_failure_trace = params.return_failure_trace,
+                                           .retry_trx            = params.retry_trx,
+                                           .retry_trx_num_blocks = std::move(params.retry_trx_num_blocks),
+                                           .trx_type             = transaction_metadata::trx_type::input,
+                                           .transaction          = std::move(params.transaction) };
+   return send_transaction_gen(*this, gen_params, std::move(next));
+}
+   
 read_only::get_abi_results read_only::get_abi( const get_abi_params& params, const fc::time_point& deadline )const {
    try {
    get_abi_results result;
@@ -2543,56 +2552,25 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
    return result;
 }
 
-template<typename Params, typename Results>
-void read_only::send_transient_transaction(const Params& params, next_function<Results> next, chain::transaction_metadata::trx_type trx_type) const {
-   try {
-      auto pretty_input = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
-      try {
-         abi_serializer::from_variant(params.transaction, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
-      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
-
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true /* api_trx */, trx_type, true /* return_failure_trace */,
-          [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
-             if (std::holds_alternative<fc::exception_ptr>(result)) {
-                   next(std::get<fc::exception_ptr>(result));
-              } else {
-                 auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
-                 auto yield         = abi_serializer::create_yield_function(fc::microseconds::maximum());
-                 auto abi_cache     =  abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(trx_trace_ptr).get();
-                 using return_type = t_or_exception<Results>;
-                 next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
-                    try {
-                       fc::variant output;
-                       try {
-                          abi_serializer::to_variant(*trx_trace_ptr, output, resolver,
-                                                     abi_serializer::create_yield_function(abi_serializer_max_time));
-                       } catch( chain::abi_exception& ) {
-                          output = *trx_trace_ptr;
-                       }
-
-                       const chain::transaction_id_type& id = trx_trace_ptr->id;
-                       return return_type(Results{id, output});
-                    } CATCH_AND_RETURN(return_type);
-                 });
-              }
-          });
-   } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
-   } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
-   } CATCH_AND_CALL(next);
+void read_only::compute_transaction(const compute_transaction_params& params, next_function<compute_transaction_results> next) {
+   send_transaction_params_t gen_params { .return_failure_trace = false,
+                                          .retry_trx            = false,
+                                          .retry_trx_num_blocks = std::nullopt,
+                                          .trx_type             = transaction_metadata::trx_type::dry_run,
+                                          .transaction          = std::move(params.transaction) };
+   return send_transaction_gen(*this, gen_params, std::move(next));
 }
 
-void read_only::compute_transaction(const compute_transaction_params& params, next_function<compute_transaction_results> next) const {
-   return send_transient_transaction(params, next, transaction_metadata::trx_type::dry_run);
+void read_only::send_read_only_transaction(const send_read_only_transaction_params& params, next_function<send_read_only_transaction_results> next) {
+   send_transaction_params_t gen_params { .return_failure_trace = false,
+                                          .retry_trx            = false,
+                                          .retry_trx_num_blocks = std::nullopt,
+                                          .trx_type             = transaction_metadata::trx_type::read_only,
+                                          .transaction          = std::move(params.transaction) };
+   return send_transaction_gen(*this, gen_params, std::move(next));
 }
 
-void read_only::send_read_only_transaction(const send_read_only_transaction_params& params, next_function<send_read_only_transaction_results> next) const {
-   return send_transient_transaction(params, next, transaction_metadata::trx_type::read_only);
-}
-
-read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params, const fc::time_point& deadline)const {
+read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params, const fc::time_point& deadline) const {
    return params.id();
 }
 
@@ -2659,7 +2637,7 @@ fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_tra
     fc::variant pretty_output;
     try {
         abi_serializer::to_log_variant(trx_trace, pretty_output,
-                                       chain_apis::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
+                                       chain_apis::api_base::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
                                        abi_serializer::create_yield_function(get_abi_serializer_max_time()));
     } catch (...) {
         pretty_output = trx_trace;
@@ -2671,7 +2649,7 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
     fc::variant pretty_output;
     try {
         abi_serializer::to_log_variant(trx, pretty_output,
-                                       chain_apis::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
+                                       chain_apis::api_base::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
                                        abi_serializer::create_yield_function(get_abi_serializer_max_time()));
     } catch (...) {
         pretty_output = trx;

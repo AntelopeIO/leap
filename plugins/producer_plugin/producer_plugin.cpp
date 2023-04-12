@@ -48,9 +48,9 @@ using boost::signals2::scoped_connection;
    catch ( const guard_exception& e ) { \
       chain_plugin::handle_guard_exception(e); \
    } catch ( const std::bad_alloc& ) { \
-      chain_plugin::handle_bad_alloc(); \
+      chain_apis::api_base::handle_bad_alloc(); \
    } catch ( boost::interprocess::bad_alloc& ) { \
-      chain_plugin::handle_db_exhaustion(); \
+      chain_apis::api_base::handle_db_exhaustion(); \
    } catch( fc::exception& er ) { \
       wlog( "${details}", ("details",er.to_detail_string()) ); \
    } catch( const std::exception& e ) {  \
@@ -622,9 +622,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             chain_plugin::handle_guard_exception(e);
             return false;
          } catch ( const std::bad_alloc& ) {
-            chain_plugin::handle_bad_alloc();
+            chain_apis::api_base::handle_bad_alloc();
          } catch ( boost::interprocess::bad_alloc& ) {
-            chain_plugin::handle_db_exhaustion();
+            chain_apis::api_base::handle_db_exhaustion();
          } catch ( const fork_database_exception& e ) {
             elog("Cannot recover from ${e}. Shutting down.", ("e", e.to_detail_string()));
             appbase::app().quit();
@@ -789,9 +789,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          } catch ( const guard_exception& e ) {
             chain_plugin::handle_guard_exception(e);
          } catch ( boost::interprocess::bad_alloc& ) {
-            chain_plugin::handle_db_exhaustion();
+            chain_apis::api_base::handle_db_exhaustion();
          } catch ( std::bad_alloc& ) {
-            chain_plugin::handle_bad_alloc();
+            chain_apis::api_base::handle_bad_alloc();
          } CATCH_AND_CALL(next);
 
          return !exhausted;
@@ -1299,9 +1299,9 @@ void producer_plugin::plugin_shutdown() {
    try {
       my->_timer.cancel();
    } catch ( const std::bad_alloc& ) {
-     chain_plugin::handle_bad_alloc();
+     chain_apis::api_base::handle_bad_alloc();
    } catch ( const boost::interprocess::bad_alloc& ) {
-     chain_plugin::handle_bad_alloc();
+     chain_apis::api_base::handle_bad_alloc();
    } catch(const fc::exception& e) {
       edump((e.to_detail_string()));
    } catch(const std::exception& e) {
@@ -1977,9 +1977,9 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          try {
             chain.validate_protocol_features( _protocol_features_to_activate );
          } catch ( const std::bad_alloc& ) {
-           chain_plugin::handle_bad_alloc();
+           chain_apis::api_base::handle_bad_alloc();
          } catch ( const boost::interprocess::bad_alloc& ) {
-           chain_plugin::handle_bad_alloc();
+           chain_apis::api_base::handle_bad_alloc();
          } catch( const fc::exception& e ) {
             wlog( "protocol features to activate are no longer all valid: ${details}",
                   ("details",e.to_detail_string()) );
@@ -2076,9 +2076,9 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          chain_plugin::handle_guard_exception(e);
          return start_block_result::failed;
       } catch ( std::bad_alloc& ) {
-         chain_plugin::handle_bad_alloc();
+         chain_apis::api_base::handle_bad_alloc();
       } catch ( boost::interprocess::bad_alloc& ) {
-         chain_plugin::handle_db_exhaustion();
+         chain_apis::api_base::handle_db_exhaustion();
       }
 
    }
@@ -3039,9 +3039,9 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
    } catch ( const guard_exception& e ) {
       chain_plugin::handle_guard_exception(e);
    } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
+      chain_apis::api_base::handle_db_exhaustion();
    } catch ( std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
+      chain_apis::api_base::handle_bad_alloc();
    } CATCH_AND_CALL(next);
 
    return retry;
