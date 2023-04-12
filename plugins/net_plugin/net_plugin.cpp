@@ -3598,7 +3598,8 @@ namespace eosio {
          hello.token = sha256();
       hello.p2p_address = my_impl->p2p_address;
       if( is_transactions_only_connection() ) hello.p2p_address += ":trx";
-      if( is_blocks_only_connection() ) hello.p2p_address += ":blk";
+      // if we are not accepting transactions tell peer we are blocks only
+      if( is_blocks_only_connection() || !my_impl->p2p_accept_transactions ) hello.p2p_address += ":blk";
       hello.p2p_address += " - " + hello.node_id.str().substr(0,7);
 #if defined( __APPLE__ )
       hello.os = "osx";
