@@ -3115,13 +3115,17 @@ block_id_type controller::fork_db_head_block_id()const {
    return my->fork_db_head()->id;
 }
 
-time_point controller::pending_block_time()const {
+block_timestamp_type controller::pending_block_timestamp()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
 
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage)._block_state->header.timestamp;
 
    return my->pending->get_pending_block_header_state().timestamp;
+}
+
+time_point controller::pending_block_time()const {
+   return pending_block_timestamp();
 }
 
 uint32_t controller::pending_block_num()const {

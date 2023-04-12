@@ -514,15 +514,8 @@ def main():
                                       blockLogRetainBlocks=args.block_log_retain_blocks,
                                       chainStateDbSizeMb=args.chain_state_db_size_mb, abiSerializerMaxTimeMs=990000)
 
-    lbto = args.last_block_time_offset_us
-    lbcep = args.last_block_cpu_effort_percent
-    if args.p > 1 and lbto == 0 and lbcep == 100:
-        print("Overriding defaults for last_block_time_offset_us and last_block_cpu_effort_percent to ensure proper production windows.")
-        lbto = -200000
-        lbcep = 80
     producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
-                                            lastBlockTimeOffsetUs=lbto, produceTimeOffsetUs=args.produce_time_offset_us,
-                                            cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=lbcep,
+                                            cpuEffortPercent=args.cpu_effort_percent,
                                             producerThreads=args.producer_threads, maxTransactionTime=-1)
     httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
                                     httpThreads=args.http_threads)

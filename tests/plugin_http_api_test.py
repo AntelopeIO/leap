@@ -822,8 +822,7 @@ class PluginHttpTest(unittest.TestCase):
         # update_runtime_options with valid parameter
         payload = {"max_transaction_time":30,
                    "max_irreversible_block_age":1,
-                   "produce_time_offset_us":10000,
-                   "last_block_time_offset_us":0,
+                   "cpu_effort_us":400000,
                    "max_scheduled_transaction_time_per_block_ms":10000,
                    "subjective_cpu_leeway_us":0,
                    "incoming_defer_ratio":1.0,
