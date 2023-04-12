@@ -972,23 +972,23 @@ void abi_serializer::from_variant( const fc::variant& v, T& o, Resolver resolver
    from_variant( v, o, resolver, create_yield_function(max_serialization_time) );
 }
 
-using abi_serializer_cache = std::unordered_map<account_name, std::optional<abi_serializer>>;
+using abi_serializer_cache_t = std::unordered_map<account_name, std::optional<abi_serializer>>;
    
 class abi_resolver {
 public:
-   abi_resolver(abi_serializer_cache&& abi_cache) :
-      abi_cache(std::move(abi_cache))
+   abi_resolver(abi_serializer_cache_t&& abi_serializers) :
+      abi_serializers(std::move(abi_serializers))
    {}
 
    std::optional<std::reference_wrapper<abi_serializer>> operator()(const account_name& account) {
-      auto it = abi_cache.find(account);
-      if (it != abi_cache.end() && it->second)
+      auto it = abi_serializers.find(account);
+      if (it != abi_serializers.end() && it->second)
          return std::reference_wrapper<abi_serializer>(*it->second);
       return {};
    };
 
 private:
-   abi_serializer_cache abi_cache;
+   abi_serializer_cache_t abi_serializers;
 };
 
 class abi_serializer_cache_builder {
@@ -1021,16 +1021,16 @@ public:
       return std::move(*this);
    }
 
-   abi_serializer_cache&& get() && {
-      return std::move(abi_cache);
+   abi_serializer_cache_t&& get() && {
+      return std::move(abi_serializers);
    }
 
 private:
    void add_to_cache(const chain::action& a) {
-      auto it = abi_cache.find( a.account );
-      if( it == abi_cache.end() ) {
+      auto it = abi_serializers.find( a.account );
+      if( it == abi_serializers.end() ) {
          try {
-            abi_cache.emplace_hint( it, a.account, resolver_( a.account ) );
+            abi_serializers.emplace_hint( it, a.account, resolver_( a.account ) );
          } catch( ... ) {
             // keep behavior of not throwing on invalid abi, will result in hex data
          }
@@ -1038,7 +1038,7 @@ private:
    }
 
    std::function<std::optional<abi_serializer>(const account_name& name)> resolver_;
-   abi_serializer_cache abi_cache;
+   abi_serializer_cache_t abi_serializers;
 };
 
 } // eosio::chain
