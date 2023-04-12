@@ -528,7 +528,7 @@ namespace eosio {
                             deque<queued_write>& w_queue ) {
          while ( !w_queue.empty() ) {
             auto& m = w_queue.front();
-            bufs.emplace_back( boost::asio::buffer( *m.buff ));
+            bufs.emplace_back( m.buff->data(), m.buff->size() );
             _write_queue_size -= m.buff->size();
             _out_queue.emplace_back( m );
             w_queue.pop_front();
