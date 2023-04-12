@@ -193,16 +193,7 @@ namespace eosio {
             }
 
             auto& iface = control.get_wasm_interface();
-            iface.substitute_apply = [this](
-                const eosio::chain::digest_type& code_hash,
-                uint8_t vm_type, uint8_t vm_version,
-                eosio::chain::apply_context& context
-            ) {
-                auto timer_pause =
-                    fc::make_scoped_exit([&]() { context.trx_context.resume_billing_timer(); });
-                context.trx_context.pause_billing_timer();
-                return my->cache.substitute_apply(code_hash, vm_type, vm_version, context);
-            };
+            iface.substitute_apply = my->cache.substitute_apply;
         }
         FC_LOG_AND_RETHROW()
     }  // subst_plugin::plugin_initialize
