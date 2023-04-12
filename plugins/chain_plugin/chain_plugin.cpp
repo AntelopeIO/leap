@@ -2233,6 +2233,7 @@ void api_base::send_transaction_gen(API &api, const send_transaction_params_t& p
                   }
 
                   if (!retried) {
+                     // we are still on main thread here. The lambda passed to `next()` below will be executed on the http thread pool
                      auto yield        = abi_serializer::create_yield_function(fc::microseconds::maximum());
                      auto abi_cache    = abi_serializer_cache_builder(api_base::make_resolver(api.db, std::move(yield))).add_serializers(trx_trace_ptr).get();
                      using return_type = t_or_exception<Result>;
