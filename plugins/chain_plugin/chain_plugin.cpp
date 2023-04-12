@@ -2503,60 +2503,34 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "userres"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.total_resources = abis.binary_to_variant( "user_resources", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+      auto lookup_object = [&](const name& obj_name, const name& account_name, const char* type_name) -> std::optional<fc::variant> {
+         auto t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, account_name, obj_name ));
+         if (t_id != nullptr) {
+            const auto& idx = d.get_index<key_value_index, by_scope_primary>();
+            auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
+            if (it != idx.end()) {
+               vector<char> data;
+               copy_inline_row(*it, data);
+               return abis.binary_to_variant( type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+            }
          }
-      }
+         return {};
+      };
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "delband"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.self_delegated_bandwidth = abis.binary_to_variant( "delegated_bandwidth", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("userres"_n, params.account_name, "user_resources"); res)
+         result.total_resources = *res;
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "refunds"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.refund_request = abis.binary_to_variant( "refund_request", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("delband"_n, params.account_name, "delegated_bandwidth"); res)
+         result.self_delegated_bandwidth = *res;
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "voters"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.voter_info = abis.binary_to_variant( "voter_info", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("refunds"_n, params.account_name, "refund_request"); res)
+         result.refund_request = *res;
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "rexbal"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.rex_info = abis.binary_to_variant( "rex_balance", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("voters"_n, config::system_account_name, "voter_info"); res)
+         result.voter_info = *res;
+
+      if (auto res = lookup_object("rexbal"_n, config::system_account_name, "rex_balance"); res)
+         result.rex_info = *res;
    }
    return result;
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account info")
