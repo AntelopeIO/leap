@@ -118,7 +118,7 @@ jobs:
       matrix:
         platform: [ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-hightier"]
-    container: 
+    container:
       image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
       options: --security-opt seccomp=unconfined
     steps:
@@ -132,8 +132,8 @@ jobs:
           # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
           chown -R $(id -u):$(id -g) $PWD
           # jammy's boost 1.74 can stumble on an EXDEV via copy_file_range() it doesn't have a fallback for; re-eval once moving to std::filesystem
-          export TMPDIR="$PWD/tmp"
-          mkdir -p $TMPDIR
+          # export TMPDIR="$PWD/tmp"
+          # mkdir -p $TMPDIR
           zstdcat build.tar.zst | tar x
           cd build
           ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
@@ -161,7 +161,7 @@ jobs:
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
           test-timeout: 420
-      - name: Upload logs from failed tests  
+      - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
         with:
