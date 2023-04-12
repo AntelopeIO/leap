@@ -4,133 +4,117 @@
 
 namespace eosio { namespace hotstuff {
 
-	class test_pacemaker : public base_pacemaker {
+   class test_pacemaker : public base_pacemaker {
+   public:
 
-	public:
+      //class-specific functions
 
-		//class-specific functions
+      class indexed_qc_chain {
+      public:
+         name _name;
+         bool _active = true;
+         qc_chain* _qc_chain = nullptr; //todo : use smart pointer
 
-		class indexed_qc_chain{
+         uint64_t by_name()const{return _name.to_uint64_t();};
 
-		public:
+         ~indexed_qc_chain(){
+            _qc_chain = nullptr;
+         };
+      };
 
-			name _name;
+      struct by_name_id{};
 
-			bool _active = true;
+      typedef multi_index_container<
+         indexed_qc_chain,
+         indexed_by<
+            ordered_unique<
+               tag<by_name_id>,
+               BOOST_MULTI_INDEX_CONST_MEM_FUN(indexed_qc_chain, uint64_t, by_name)
+               >
+            >
+         > qc_chain_type;
 
-			qc_chain* _qc_chain = NULL; //todo : use smart pointer
+      qc_chain_type _qcc_store;
 
-			uint64_t by_name()const{return _name.to_uint64_t();};
+/*              void send_hs_proposal_msg(hs_proposal_message msg);
+                void send_hs_vote_msg(hs_vote_message msg);
+                void send_hs_new_block_msg(hs_new_block_message msg);
+                void send_hs_new_view_msg(hs_new_view_message msg);*/
 
-        	~indexed_qc_chain(){
+      using hotstuff_message = std::pair<name, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
 
-        		//if (_qc_chain == NULL) delete _qc_chain;
+      //void init(std::vector<name> unique_replicas);
 
-        		_qc_chain = NULL;
+      void set_proposer(name proposer);
 
-        	};
+      void set_leader(name leader);
 
-		};
+      void set_next_leader(name next_leader);
 
-		struct by_name_id{};
+      void set_finalizers(std::vector<name> finalizers);
 
-		typedef multi_index_container<
-			indexed_qc_chain, 
-			indexed_by<
-				ordered_unique<
-					tag<by_name_id>,
-					BOOST_MULTI_INDEX_CONST_MEM_FUN(indexed_qc_chain, uint64_t, by_name)
-				>
-			>
-		> qc_chain_type;
+      void set_current_block_id(block_id_type id);
 
-		qc_chain_type _qcc_store;
+      void set_quorum_threshold(uint32_t threshold);
 
+      void add_message_to_queue(hotstuff_message msg);
 
-/*		void send_hs_proposal_msg(hs_proposal_message msg);
-		void send_hs_vote_msg(hs_vote_message msg);
-		void send_hs_new_block_msg(hs_new_block_message msg);
-		void send_hs_new_view_msg(hs_new_view_message msg);*/
+      void pipe(std::vector<test_pacemaker::hotstuff_message> messages);
 
-		using hotstuff_message = std::pair<name, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
+      std::vector<hotstuff_message> dispatch(std::string memo, int count);
+      std::vector<hotstuff_message> dispatch(std::string memo);
 
-	   	//void init(std::vector<name> unique_replicas);
+      void activate(name replica);
+      void deactivate(name replica);
 
-	   	void set_proposer(name proposer);
+      //indexed_qc_chain get_qc_chain(name replica);
 
-	   	void set_leader(name leader);
-	   	
-	   	void set_next_leader(name next_leader);
+      ~test_pacemaker(){
+         _qcc_store.get<by_name_id>().clear();
+      };
 
-	   	void set_finalizers(std::vector<name> finalizers);
+      //base_pacemaker interface functions
 
-	    void set_current_block_id(block_id_type id);
+      name get_proposer();
+      name get_leader();
+      name get_next_leader();
+      std::vector<name> get_finalizers();
 
-	    void set_quorum_threshold(uint32_t threshold);
+      block_id_type get_current_block_id();
 
-	    void add_message_to_queue(hotstuff_message msg);
+      uint32_t get_quorum_threshold();
 
-	    void pipe(std::vector<test_pacemaker::hotstuff_message> messages);
-	    
-	    std::vector<hotstuff_message> dispatch(std::string memo, int count);
-	    std::vector<hotstuff_message> dispatch(std::string memo);
+      void assign_qc_chain(name name, qc_chain& qcc);
 
-	    void activate(name replica);
-	    void deactivate(name replica);
+      void beat();
 
-	    //indexed_qc_chain get_qc_chain(name replica);
+      void send_hs_proposal_msg(name id, hs_proposal_message msg);
+      void send_hs_vote_msg(name id, hs_vote_message msg);
+      void send_hs_new_block_msg(name id, hs_new_block_message msg);
+      void send_hs_new_view_msg(name id, hs_new_view_message msg);
 
-        ~test_pacemaker(){
-        
-        	_qcc_store.get<by_name_id>().clear();
-    	
-    	};
+      void on_hs_vote_msg(name id, hs_vote_message msg); //confirmation msg event handler
+      void on_hs_proposal_msg(name id, hs_proposal_message msg); //consensus msg event handler
+      void on_hs_new_view_msg(name id, hs_new_view_message msg); //new view msg event handler
+      void on_hs_new_block_msg(name id, hs_new_block_message msg); //new block msg event handler
 
+      std::vector<hotstuff_message> _pending_message_queue;
 
-		//base_pacemaker interface functions
+   private:
 
-       	name get_proposer();
-       	name get_leader();
-       	name get_next_leader();
-       	std::vector<name> get_finalizers();
+      std::vector<hotstuff_message> _message_queue;
 
-       	block_id_type get_current_block_id();
+      name _proposer;
+      name _leader;
+      name _next_leader;
 
-       	uint32_t get_quorum_threshold();
-        
-        void assign_qc_chain(name name, qc_chain& qcc);
-        
-        void beat();
+      std::vector<name> _finalizers;
 
-		void send_hs_proposal_msg(name id, hs_proposal_message msg);
-		void send_hs_vote_msg(name id, hs_vote_message msg);
-		void send_hs_new_block_msg(name id, hs_new_block_message msg);
-		void send_hs_new_view_msg(name id, hs_new_view_message msg);
+      block_id_type _current_block_id;
 
-      	void on_hs_vote_msg(name id, hs_vote_message msg); //confirmation msg event handler
-      	void on_hs_proposal_msg(name id, hs_proposal_message msg); //consensus msg event handler
-      	void on_hs_new_view_msg(name id, hs_new_view_message msg); //new view msg event handler
-      	void on_hs_new_block_msg(name id, hs_new_block_message msg); //new block msg event handler
+      std::vector<name> _unique_replicas;
 
-		std::vector<hotstuff_message> _pending_message_queue;
-
-	private :
-
-		std::vector<hotstuff_message> _message_queue;
-
-	    name _proposer;
-	    name _leader;
-	    name _next_leader;
-
-	    std::vector<name> _finalizers;
-
-	    block_id_type _current_block_id;
-
-		std::vector<name> _unique_replicas;
-
-		uint32_t _quorum_threshold = 15; //todo : calculate from schedule 
-
-
-	};
+      uint32_t _quorum_threshold = 15; //todo : calculate from schedule
+   };
 
 }}

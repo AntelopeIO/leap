@@ -3,337 +3,277 @@
 
 namespace eosio { namespace hotstuff {
 
-   	void test_pacemaker::set_proposer(name proposer){
-   		_proposer = proposer;
-   	};
+   void test_pacemaker::set_proposer(name proposer){
+      _proposer = proposer;
+   };
 
-   	void test_pacemaker::set_leader(name leader){
-   		_leader = leader;
-   	};
-   	
-   	void test_pacemaker::set_next_leader(name next_leader){
-   		_next_leader = next_leader;
-   	};
+   void test_pacemaker::set_leader(name leader){
+      _leader = leader;
+   };
 
-   	void test_pacemaker::set_finalizers(std::vector<name> finalizers){
-   		_finalizers = finalizers;
-   	};
+   void test_pacemaker::set_next_leader(name next_leader){
+      _next_leader = next_leader;
+   };
 
-    void test_pacemaker::set_current_block_id(block_id_type id){
-    	_current_block_id = id;
-    };
-       
-    void test_pacemaker::set_quorum_threshold(uint32_t threshold){
-    	_quorum_threshold = threshold;
-    }
+   void test_pacemaker::set_finalizers(std::vector<name> finalizers){
+      _finalizers = finalizers;
+   };
 
-    void test_pacemaker::add_message_to_queue(hotstuff_message msg){
-    	_pending_message_queue.push_back(msg);
-    }
+   void test_pacemaker::set_current_block_id(block_id_type id){
+      _current_block_id = id;
+   };
 
-    void test_pacemaker::pipe(std::vector<test_pacemaker::hotstuff_message> messages){
+   void test_pacemaker::set_quorum_threshold(uint32_t threshold){
+      _quorum_threshold = threshold;
+   }
 
-    	auto itr = messages.begin();
+   void test_pacemaker::add_message_to_queue(hotstuff_message msg){
+      _pending_message_queue.push_back(msg);
+   }
 
-    	while (itr != messages.end()){
+   void test_pacemaker::pipe(std::vector<test_pacemaker::hotstuff_message> messages){
+      auto itr = messages.begin();
+      while (itr != messages.end()){
+         _pending_message_queue.push_back(*itr);
+         itr++;
+      }
+   }
 
-    		_pending_message_queue.push_back(*itr);
+   std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo, int count){
+      for (int i = 0 ; i < count ; i++){
+         this->dispatch(memo);
+      }
+   }
 
-    		itr++;
-    	}
+   std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo){
 
-    }
+      int count = 1;
 
-    std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo, int count){
+      //ilog(" === propagate ${count} messages", ("count", _pending_message_queue.size()));
 
-    	for (int i = 0 ; i < count ; i++){
-    		this->dispatch(memo);
-    	}
-    }
+      std::vector<test_pacemaker::hotstuff_message> dispatched_messages = _pending_message_queue;
+      _message_queue = _pending_message_queue;
 
-    std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo){
+      while (_pending_message_queue.begin()!=_pending_message_queue.end()){
 
-    	int count = 1;
+         auto itr = _pending_message_queue.end();
+         itr--;
 
-    	//ilog(" === propagate ${count} messages", ("count", _pending_message_queue.size()));
+         _pending_message_queue.erase(itr);
+      }
 
-    	std::vector<test_pacemaker::hotstuff_message> dispatched_messages = _pending_message_queue;
-    	_message_queue = _pending_message_queue;
+      //ilog(" === propagate ${count} messages", ("count", _message_queue.size()));
 
-    	while (_pending_message_queue.begin()!=_pending_message_queue.end()){
-    		
-    		auto itr = _pending_message_queue.end();
-    		itr--;
+      size_t proposals_count = 0;
+      size_t votes_count = 0;
+      size_t new_blocks_count = 0;
+      size_t new_views_count = 0;
 
-            _pending_message_queue.erase(itr);
+      auto msg_itr = _message_queue.begin();
 
-    	}
+      while (msg_itr!=_message_queue.end()){
 
-    	//ilog(" === propagate ${count} messages", ("count", _message_queue.size()));
+         size_t v_index = msg_itr->second.index();
 
-    	size_t proposals_count = 0;
-    	size_t votes_count = 0;
-    	size_t new_blocks_count = 0;
-    	size_t new_views_count = 0;
-    	
-    	auto msg_itr = _message_queue.begin();
+         if(v_index==0) proposals_count++;
+         if(v_index==1) votes_count++;
+         if(v_index==2) new_blocks_count++;
+         if(v_index==3) new_views_count++;
 
-    	while (msg_itr!=_message_queue.end()){
+         //ilog(" === propagating message ${count} : type : ${index}", ("count", count) ("index", msg_itr->index()));
 
-    		size_t v_index = msg_itr->second.index();
+         if (msg_itr->second.index() == 0) on_hs_proposal_msg(msg_itr->first, std::get<hs_proposal_message>(msg_itr->second));
+         else if (msg_itr->second.index() == 1) on_hs_vote_msg(msg_itr->first, std::get<hs_vote_message>(msg_itr->second));
+         else if (msg_itr->second.index() == 2) on_hs_new_block_msg(msg_itr->first, std::get<hs_new_block_message>(msg_itr->second));
+         else if (msg_itr->second.index() == 3) on_hs_new_view_msg(msg_itr->first, std::get<hs_new_view_message>(msg_itr->second));
 
-    		if(v_index==0) proposals_count++;
-    		if(v_index==1) votes_count++;
-    		if(v_index==2) new_blocks_count++;
-    		if(v_index==3) new_views_count++;
+         msg_itr++;
 
-    	//ilog(" === propagating message ${count} : type : ${index}", ("count", count) ("index", msg_itr->index()));
+         //ilog(" === after erase");
 
-    		if (msg_itr->second.index() == 0) on_hs_proposal_msg(msg_itr->first, std::get<hs_proposal_message>(msg_itr->second));
-    		else if (msg_itr->second.index() == 1) on_hs_vote_msg(msg_itr->first, std::get<hs_vote_message>(msg_itr->second));
-    		else if (msg_itr->second.index() == 2) on_hs_new_block_msg(msg_itr->first, std::get<hs_new_block_message>(msg_itr->second));
-    		else if (msg_itr->second.index() == 3) on_hs_new_view_msg(msg_itr->first, std::get<hs_new_view_message>(msg_itr->second));
- 
+         count++;
+      }
 
-    		msg_itr++;
+      //ilog(" === erase");
 
-    	//ilog(" === after erase");
+      while (_message_queue.begin()!=_message_queue.end()){
 
-    		count++;
+         auto itr = _message_queue.end();
+         itr--;
 
-    	}
+         _message_queue.erase(itr);
+      }
 
-    	//ilog(" === erase");
+      //ilog(" === after erase");
 
-    	while (_message_queue.begin()!=_message_queue.end()){
-    		
-    		auto itr = _message_queue.end();
-    		itr--;
+      if (memo!=""){
+         ilog(" === ${memo} : ", ("memo", memo));
+      }
 
-            _message_queue.erase(itr);
+      ilog(" === pacemaker dispatched ${proposals} proposals, ${votes} votes, ${new_blocks} new_blocks, ${new_views} new_views",
+           ("proposals", proposals_count)
+           ("votes", votes_count)
+           ("new_blocks", new_blocks_count)
+           ("new_views", new_views_count));
 
-    	}
+      return dispatched_messages;
+   }
 
-    	//ilog(" === after erase");
+   void test_pacemaker::activate(name replica){
+      auto qc_itr = _qcc_store.get<by_name_id>().find( replica.to_uint64_t() );
+      if (qc_itr==_qcc_store.end()) throw std::runtime_error("replica not found");
+      _qcc_store.modify(qc_itr, [&]( auto& qcc ){
+         qcc._active = true;
+      });
+   }
 
-    	if (memo!=""){
-    		ilog(" === ${memo} : ",
-    			("memo", memo));
-    	}
+   void test_pacemaker::deactivate(name replica){
+      auto qc_itr = _qcc_store.get<by_name_id>().find( replica.to_uint64_t() );
+      if (qc_itr==_qcc_store.end()) throw std::runtime_error("replica not found");
+      _qcc_store.modify(qc_itr, [&]( auto& qcc ){
+         qcc._active = false;
+      });
+   }
 
-    	ilog(" === pacemaker dispatched ${proposals} proposals, ${votes} votes, ${new_blocks} new_blocks, ${new_views} new_views", 
-    		("proposals", proposals_count)
-    		("votes", votes_count)
-    		("new_blocks", new_blocks_count)
-    		("new_views", new_views_count));
+   name test_pacemaker::get_proposer(){
+      return _proposer;
+   };
 
-    	return dispatched_messages;
+   name test_pacemaker::get_leader(){
+      return _leader;
+   };
 
-    }
+   name test_pacemaker::get_next_leader(){
+      return _next_leader;
+   };
 
-    void test_pacemaker::activate(name replica){
+   std::vector<name> test_pacemaker::get_finalizers(){
+      return _finalizers;
+   };
 
-		auto qc_itr = _qcc_store.get<by_name_id>().find( replica.to_uint64_t() );
-		
-		if (qc_itr==_qcc_store.end()) throw std::runtime_error("replica not found"); 
-    
-		_qcc_store.modify(qc_itr, [&]( auto& qcc ){
-			qcc._active = true;
-      	});
-    }
+   block_id_type test_pacemaker::get_current_block_id(){
+      return _current_block_id;
+   };
 
-    void test_pacemaker::deactivate(name replica){
+   uint32_t test_pacemaker::get_quorum_threshold(){
+      return _quorum_threshold;
+   };
 
-		auto qc_itr = _qcc_store.get<by_name_id>().find( replica.to_uint64_t() );
-		
-		if (qc_itr==_qcc_store.end()) throw std::runtime_error("replica not found"); 
+   void test_pacemaker::beat(){
+      auto itr = _qcc_store.get<by_name_id>().find( _proposer.to_uint64_t() );
+      if (itr==_qcc_store.end()) throw std::runtime_error("proposer not found");
+      itr->_qc_chain->on_beat();
+   };
 
-		_qcc_store.modify(qc_itr, [&]( auto& qcc ){
-			qcc._active = false;
-      	});
+   void test_pacemaker::assign_qc_chain(name name, qc_chain& qcc){
 
-    }
+      //ilog("reg listener");
 
-   	name test_pacemaker::get_proposer(){
-   		return _proposer;
-   	};
+      auto itr = _qcc_store.get<by_name_id>().find( name.to_uint64_t() );
 
-   	name test_pacemaker::get_leader(){
-   		return _leader;
-   	};
-   	
-   	name test_pacemaker::get_next_leader(){
-   		return _next_leader;
-   	};
+      //ilog("got itr");
 
-   	std::vector<name> test_pacemaker::get_finalizers(){
-   		return _finalizers;
-   	};
+      if (itr!=_qcc_store.end()){
+         throw std::runtime_error("duplicate qc chain");
+      }
+      else {
 
-    block_id_type test_pacemaker::get_current_block_id(){
-   		return _current_block_id;
-    };
-    
-    uint32_t test_pacemaker::get_quorum_threshold(){
-    	return _quorum_threshold;
-    };
+         //ilog("new listener ${name}", ("name", name));
 
-	void test_pacemaker::beat(){
-			
-    	auto itr = _qcc_store.get<by_name_id>().find( _proposer.to_uint64_t() );
+         //_unique_replicas.push_back(name);
 
-    	if (itr==_qcc_store.end()) throw std::runtime_error("proposer not found"); 
+         indexed_qc_chain iqcc;
 
-    	itr->_qc_chain->on_beat();
+         iqcc._name = name;
+         iqcc._active = true;
+         iqcc._qc_chain = &qcc;
 
-   	};
+         //ilog(" === register_listener 1 ${my_producers}", ("my_producers", iqcc._qc_chain->_my_producers));
 
-    void test_pacemaker::assign_qc_chain(name name, qc_chain& qcc){
+         _qcc_store.insert(iqcc);
 
-    	//ilog("reg listener");
+         //auto itr = _qcc_store.get<by_name_id>().find( name.to_uint64_t() );
 
-    	auto itr = _qcc_store.get<by_name_id>().find( name.to_uint64_t() );
+         //ilog(" === register_listener 2 ${my_producers}", ("my_producers", itr->_qc_chain->_my_producers));
+      }
+   };
 
-    	//ilog("got itr");
+   void test_pacemaker::send_hs_proposal_msg(name id, hs_proposal_message msg){
+      //ilog("queuing hs_proposal_message : ${proposal_id} ", ("proposal_id", msg.proposal_id) );
+      _pending_message_queue.push_back(std::make_pair(id, msg));
+   };
 
-    	if (itr!=_qcc_store.end()){
+   void test_pacemaker::send_hs_vote_msg(name id, hs_vote_message msg){
+      //ilog("queuing hs_vote_message : ${proposal_id} ", ("proposal_id", msg.proposal_id) );
+      _pending_message_queue.push_back(std::make_pair(id, msg));
+   };
 
-			throw std::runtime_error("duplicate qc chain"); 
+   void test_pacemaker::send_hs_new_block_msg(name id, hs_new_block_message msg){
+      _pending_message_queue.push_back(std::make_pair(id, msg));
+   };
 
-    	}
-    	else {
+   void test_pacemaker::send_hs_new_view_msg(name id, hs_new_view_message msg){
+      _pending_message_queue.push_back(std::make_pair(id, msg));
+   };
 
-    		//ilog("new listener ${name}", ("name", name));
+   void test_pacemaker::on_hs_proposal_msg(name id, hs_proposal_message msg){
+      //ilog(" === on_hs_proposal_msg");
+      auto qc_itr = _qcc_store.begin();
+      while (qc_itr!=_qcc_store.end()){
+         //ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
 
-    		//_unique_replicas.push_back(name);
+         if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
 
-    		indexed_qc_chain iqcc;
+         if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_proposal_msg(msg);
 
-			iqcc._name = name;	
-			iqcc._active = true;
-			iqcc._qc_chain = &qcc;
+         qc_itr++;
+      }
+      //ilog(" === end on_hs_proposal_msg");
+   }
 
-		//ilog(" === register_listener 1 ${my_producers}", ("my_producers", iqcc._qc_chain->_my_producers));
+   void test_pacemaker::on_hs_vote_msg(name id, hs_vote_message msg){
+      //ilog(" === on_hs_vote_msg");
+      auto qc_itr = _qcc_store.begin();
+      while (qc_itr!=_qcc_store.end()){
+         //ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
 
-			_qcc_store.insert(iqcc);
+         if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
 
-    	//auto itr = _qcc_store.get<by_name_id>().find( name.to_uint64_t() );
+         if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_vote_msg(msg);
 
-		//ilog(" === register_listener 2 ${my_producers}", ("my_producers", itr->_qc_chain->_my_producers));
+         qc_itr++;
+      }
+      //ilog(" === end on_hs_vote_msg");
+   }
 
+   void test_pacemaker::on_hs_new_block_msg(name id, hs_new_block_message msg){
+      //ilog(" === on_hs_new_block_msg");
+      auto qc_itr = _qcc_store.begin();
+      while (qc_itr!=_qcc_store.end()){
+         //ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
 
-    	} 
-		
+         if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
 
-    };
+         if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_new_block_msg(msg);
 
-	void test_pacemaker::send_hs_proposal_msg(name id, hs_proposal_message msg){
+         qc_itr++;
+      }
+      //ilog(" === end on_hs_new_block_msg");
+   }
 
-		//ilog("queuing hs_proposal_message : ${proposal_id} ", ("proposal_id", msg.proposal_id) );
+   void test_pacemaker::on_hs_new_view_msg(name id, hs_new_view_message msg){
+      //ilog(" === on_hs_new_view_msg");
+      auto qc_itr = _qcc_store.begin();
+      while (qc_itr!=_qcc_store.end()){
+         //ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
 
-		_pending_message_queue.push_back(std::make_pair(id, msg));
+         if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
 
-   	};
+         if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_new_view_msg(msg);
 
-	void test_pacemaker::send_hs_vote_msg(name id, hs_vote_message msg){
-
-		//ilog("queuing hs_vote_message : ${proposal_id} ", ("proposal_id", msg.proposal_id) );
-
-		_pending_message_queue.push_back(std::make_pair(id, msg));
-
-   	};
-
-	void test_pacemaker::send_hs_new_block_msg(name id, hs_new_block_message msg){
-		
-		_pending_message_queue.push_back(std::make_pair(id, msg));
-
-   	};
-
-	void test_pacemaker::send_hs_new_view_msg(name id, hs_new_view_message msg){
-   			
-   		_pending_message_queue.push_back(std::make_pair(id, msg));
-
-   	};
-
-	void test_pacemaker::on_hs_proposal_msg(name id, hs_proposal_message msg){
-
-    	//ilog(" === on_hs_proposal_msg");
-		auto qc_itr = _qcc_store.begin();
-
-		while (qc_itr!=_qcc_store.end()){
-
-			//ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
-
-			if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
-
-			if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_proposal_msg(msg);
-
-			qc_itr++;
-
-		}
-
-    	//ilog(" === end on_hs_proposal_msg");
-
-	}
-
-	void test_pacemaker::on_hs_vote_msg(name id, hs_vote_message msg){
-		
-    	//ilog(" === on_hs_vote_msg");
-		auto qc_itr = _qcc_store.begin();
-
-		while (qc_itr!=_qcc_store.end()){
-
-			//ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
-
-			if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
-
-			if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_vote_msg(msg);
-
-			qc_itr++;
-		}
-
-    	//ilog(" === end on_hs_vote_msg");
-
-	}
-
-	void test_pacemaker::on_hs_new_block_msg(name id, hs_new_block_message msg){
-		
-    	//ilog(" === on_hs_new_block_msg");
-		auto qc_itr = _qcc_store.begin();
-
-		while (qc_itr!=_qcc_store.end()){
-
-			//ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
-
-			if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
-
-			if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_new_block_msg(msg);
-
-			qc_itr++;
-		}
-
-    	//ilog(" === end on_hs_new_block_msg");
-
-	}
-
-	void test_pacemaker::on_hs_new_view_msg(name id, hs_new_view_message msg){
-		
-    	//ilog(" === on_hs_new_view_msg");
-		auto qc_itr = _qcc_store.begin();
-
-		while (qc_itr!=_qcc_store.end()){
-
-			//ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
-
-			if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
-
-			if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_new_view_msg(msg);
-
-			qc_itr++;
-		}
-
-    	//ilog(" === end on_hs_new_view_msg");
-
-	}
+         qc_itr++;
+      }
+      //ilog(" === end on_hs_new_view_msg");
+   }
 
 }}
