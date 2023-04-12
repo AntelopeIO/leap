@@ -385,25 +385,35 @@ namespace eosio {
          boost::asio::post( my->plugin_state->thread_pool.get_executor(), f );
    }
 
-   void http_plugin::handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb) {
+   void http_plugin::handle_exception( const char* api_name, const char* call_name, const string& body, const url_response_callback& cb) {
       try {
          try {
             throw;
          } catch (chain::unknown_block_exception& e) {
             error_results results{400, "Unknown Block", error_results::error_info(e, verbose_http_errors)};
             cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Unknown block while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::invalid_http_request& e) {
             error_results results{400, "Invalid Request", error_results::error_info(e, verbose_http_errors)};
             cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Invalid http request while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::account_query_exception& e) {
             error_results results{400, "Account lookup", error_results::error_info(e, verbose_http_errors)};
             cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Account query exception while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::unsatisfied_authorization& e) {
             error_results results{401, "UnAuthorized", error_results::error_info(e, verbose_http_errors)};
             cb( 401, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Auth error while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::tx_duplicate& e) {
             error_results results{409, "Conflict", error_results::error_info(e, verbose_http_errors)};
             cb( 409, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Duplicate trx while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (fc::eof_exception& e) {
             error_results results{422, "Unprocessable Entity", error_results::error_info(e, verbose_http_errors)};
             cb( 422, fc::time_point::maximum(), fc::variant( results ));
