@@ -2200,42 +2200,11 @@ void read_write::push_transactions(const read_write::push_transactions_params& p
 }
 
 void read_write::send_transaction(const read_write::send_transaction_params& params, next_function<read_write::send_transaction_results> next) {
-   try {
-      auto pretty_input = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
-      try {
-         abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
-      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
-
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
-         [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
-         if (std::holds_alternative<fc::exception_ptr>(result)) {
-            next(std::get<fc::exception_ptr>(result));
-         } else {
-            auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
-            auto yield         = abi_serializer::create_yield_function(fc::microseconds::maximum());
-            auto abi_cache     = abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(trx_trace_ptr).get();
-            using return_type  = t_or_exception<read_write::send_transaction_results>;
-            next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
-               try {
-                  fc::variant output;
-                  try {
-                     abi_serializer::to_variant(*trx_trace_ptr, output, std::move(resolver), abi_serializer::create_yield_function(abi_serializer_max_time));
-                  } catch( chain::abi_exception& ) {
-                     output = *trx_trace_ptr;
-                  }
-
-                  const chain::transaction_id_type& id = trx_trace_ptr->id;
-                  return return_type(read_write::send_transaction_results{id, output});
-               } CATCH_AND_RETURN(return_type);
-            });
-         }
-      });
-   } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
-   } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
-   } CATCH_AND_CALL(next);
+   send_transaction2_params params2 { .return_failure_trace = false,
+                                      .retry_trx            = false,
+                                      .retry_trx_num_blocks = std::nullopt,
+                                      .transaction          = std::move(params) };
+   return send_transaction2(params2, std::move(next));
 }
 
 void read_write::send_transaction2(const read_write::send_transaction2_params& params, next_function<read_write::send_transaction_results> next) {
@@ -2254,7 +2223,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                   "retry transaction expiration ${e} larger than allowed ${m}",
                   ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
 
-      app().get_method<incoming::methods::transaction_async>()(ptrx, true, transaction_metadata::trx_type::input, static_cast<bool>(params.return_failure_trace),
+      app().get_method<incoming::methods::transaction_async>()(ptrx, true, transaction_metadata::trx_type::input, params.return_failure_trace,
          [this, ptrx, next, retry, retry_num_blocks](const next_function_variant<transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                next( std::get<fc::exception_ptr>( result ) );
@@ -2274,7 +2243,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                         } );
                   } else {
                      auto yield        = abi_serializer::create_yield_function(fc::microseconds::maximum());
-                     auto abi_cache    =  abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(trx_trace_ptr).get();
+                     auto abi_cache    = abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(trx_trace_ptr).get();
                      using return_type = t_or_exception<read_write::send_transaction_results>;
                      next([this, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
                         try {
