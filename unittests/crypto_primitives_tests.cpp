@@ -4,8 +4,6 @@
 #include <eosio/testing/tester.hpp>
 #include <eosio/chain/webassembly/return_codes.hpp>
 
-#include <Runtime/Runtime.h>
-
 #include <fc/variant_object.hpp>
 
 #include <boost/test/unit_test.hpp>

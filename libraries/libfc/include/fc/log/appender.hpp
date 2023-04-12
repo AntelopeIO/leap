@@ -3,11 +3,7 @@
 #include <fc/string.hpp>
 #include <memory>
 
-#if BOOST_VERSION >= 106600
 namespace boost { namespace asio { class io_context; typedef io_context io_service; } }
-#else
-namespace boost { namespace asio { class io_service; } }
-#endif
 
 namespace fc {
    class appender;

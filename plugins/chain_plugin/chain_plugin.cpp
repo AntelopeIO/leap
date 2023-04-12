@@ -51,6 +51,8 @@ std::ostream& operator<<(std::ostream& osm, eosio::chain::db_read_mode m) {
       osm << "head";
    } else if ( m == eosio::chain::db_read_mode::IRREVERSIBLE ) {
       osm << "irreversible";
+   } else if ( m == eosio::chain::db_read_mode::SPECULATIVE ) {
+      osm << "speculative";
    }
 
    return osm;
@@ -70,10 +72,12 @@ void validate(boost::any& v,
   // one string, it's an error, and exception will be thrown.
   std::string const& s = validators::get_single_string(values);
 
- if ( s == "head" ) {
+  if ( s == "head" ) {
      v = boost::any(eosio::chain::db_read_mode::HEAD);
   } else if ( s == "irreversible" ) {
      v = boost::any(eosio::chain::db_read_mode::IRREVERSIBLE);
+  } else if ( s == "speculative" ) {
+     v = boost::any(eosio::chain::db_read_mode::SPECULATIVE);
   } else {
      throw validation_error(validation_error::invalid_option_value);
   }
@@ -286,10 +290,12 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("sender-bypass-whiteblacklist", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "Deferred transactions sent by accounts in this list do not have any of the subjective whitelist/blacklist checks applied to them (may specify multiple times)")
          ("read-mode", boost::program_options::value<eosio::chain::db_read_mode>()->default_value(eosio::chain::db_read_mode::HEAD),
-          "Database read mode (\"head\", \"irreversible\").\n"
+          "Database read mode (\"head\", \"irreversible\", \"speculative\").\n"
           "In \"head\" mode: database contains state changes up to the head block; transactions received by the node are relayed if valid.\n"
           "In \"irreversible\" mode: database contains state changes up to the last irreversible block; "
           "transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
+          "In \"speculative\" mode: (DEPRECATED: head mode recommended) database contains state changes by transactions in the blockchain "
+          "up to the head block as well as some transactions not yet included in the blockchain; transactions received by the node are relayed if valid.\n"
           )
          ( "api-accept-transactions", bpo::value<bool>()->default_value(true), "Allow API transactions to be evaluated and relayed if valid.")
          ("validation-mode", boost::program_options::value<eosio::chain::validation_mode>()->default_value(eosio::chain::validation_mode::FULL),
@@ -2095,7 +2101,7 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
-            [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+            [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
          } else {
@@ -2169,13 +2175,15 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
 }
 
 static void push_recurse(read_write* rw, int index, const std::shared_ptr<read_write::push_transactions_params>& params, const std::shared_ptr<read_write::push_transactions_results>& results, const next_function<read_write::push_transactions_results>& next) {
-   auto wrapped_next = [=](const std::variant<fc::exception_ptr, read_write::push_transaction_results>& result) {
+   auto wrapped_next = [=](const next_function_variant<read_write::push_transaction_results>& result) {
       if (std::holds_alternative<fc::exception_ptr>(result)) {
          const auto& e = std::get<fc::exception_ptr>(result);
          results->emplace_back( read_write::push_transaction_results{ transaction_id_type(), fc::mutable_variant_object( "error", e->to_detail_string() ) } );
-      } else {
+      } else if (std::holds_alternative<read_write::push_transaction_results>(result)) {
          const auto& r = std::get<read_write::push_transaction_results>(result);
          results->emplace_back( r );
+      } else {
+         assert(0);
       }
 
       size_t next_index = index + 1;
@@ -2214,12 +2222,11 @@ void read_write::send_transaction(const read_write::send_transaction_params& par
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
-            [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+            [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
          if (std::holds_alternative<fc::exception_ptr>(result)) {
             next(std::get<fc::exception_ptr>(result));
          } else {
             auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
-
             try {
                fc::variant output;
                try {
@@ -2257,7 +2264,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                   ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
 
       app().get_method<incoming::methods::transaction_async>()(ptrx, true, transaction_metadata::trx_type::input, static_cast<bool>(params.return_failure_trace),
-         [this, ptrx, next, retry, retry_num_blocks](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+         [this, ptrx, next, retry, retry_num_blocks](const next_function_variant<transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                next( std::get<fc::exception_ptr>( result ) );
             } else {
@@ -2266,7 +2273,7 @@ void read_write::send_transaction2(const read_write::send_transaction2_params& p
                   if( retry && trx_retry.has_value() && !trx_trace_ptr->except) {
                      // will be ack'ed via next later
                      trx_retry->track_transaction( ptrx, retry_num_blocks,
-                        [ptrx, next](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result ) {
+                        [ptrx, next](const next_function_variant<std::unique_ptr<fc::variant>>& result ) {
                            if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                               next( std::get<fc::exception_ptr>( result ) );
                            } else {
@@ -2496,60 +2503,34 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "userres"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.total_resources = abis.binary_to_variant( "user_resources", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+      auto lookup_object = [&](const name& obj_name, const name& account_name, const char* type_name) -> std::optional<fc::variant> {
+         auto t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, account_name, obj_name ));
+         if (t_id != nullptr) {
+            const auto& idx = d.get_index<key_value_index, by_scope_primary>();
+            auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
+            if (it != idx.end()) {
+               vector<char> data;
+               copy_inline_row(*it, data);
+               return abis.binary_to_variant( type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+            }
          }
-      }
+         return {};
+      };
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "delband"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.self_delegated_bandwidth = abis.binary_to_variant( "delegated_bandwidth", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("userres"_n, params.account_name, "user_resources"); res)
+         result.total_resources = *res;
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "refunds"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.refund_request = abis.binary_to_variant( "refund_request", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("delband"_n, params.account_name, "delegated_bandwidth"); res)
+         result.self_delegated_bandwidth = *res;
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "voters"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.voter_info = abis.binary_to_variant( "voter_info", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("refunds"_n, params.account_name, "refund_request"); res)
+         result.refund_request = *res;
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "rexbal"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.rex_info = abis.binary_to_variant( "rex_balance", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("voters"_n, config::system_account_name, "voter_info"); res)
+         result.voter_info = *res;
+
+      if (auto res = lookup_object("rexbal"_n, config::system_account_name, "rex_balance"); res)
+         result.rex_info = *res;
    }
    return result;
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account info")
@@ -2578,7 +2559,7 @@ void read_only::send_transient_transaction(const Params& params, next_function<R
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true /* api_trx */, trx_type, true /* return_failure_trace */,
-          [this, next](const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) -> void {
+          [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
              if (std::holds_alternative<fc::exception_ptr>(result)) {
                    next(std::get<fc::exception_ptr>(result));
               } else {

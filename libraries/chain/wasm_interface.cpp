@@ -92,8 +92,9 @@ namespace eosio { namespace chain {
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if(my->eosvmoc) {
          const chain::eosvmoc::code_descriptor* cd = nullptr;
+         chain::eosvmoc::code_cache_base::get_cd_failure failure = chain::eosvmoc::code_cache_base::get_cd_failure::temporary;
          try {
-            cd = my->eosvmoc->cc.get_descriptor_for_code(code_hash, vm_version);
+            cd = my->eosvmoc->cc.get_descriptor_for_code(code_hash, vm_version, context.control.is_write_window(), failure);
          }
          catch(...) {
             //swallow errors here, if EOS VM OC has gone in to the weeds we shouldn't bail: continue to try and run baseline
@@ -107,13 +108,16 @@ namespace eosio { namespace chain {
             my->eosvmoc->exec->execute(*cd, my->eosvmoc->mem, context);
             return;
          }
+         else if (context.trx_context.is_read_only()) {
+            if (failure == chain::eosvmoc::code_cache_base::get_cd_failure::temporary) {
+               EOS_ASSERT(false, ro_trx_vm_oc_compile_temporary_failure, "get_descriptor_for_code failed with temporary failure");
+            } else {
+               EOS_ASSERT(false, ro_trx_vm_oc_compile_permanent_failure, "get_descriptor_for_code failed with permanent failure");
+            }
+         }
       }
 #endif
       my->get_instantiated_module(code_hash, vm_type, vm_version, context.trx_context)->apply(context);
-   }
-
-   void wasm_interface::exit() {
-      my->runtime_interface->immediately_exit_currently_running_module();
    }
 
    bool wasm_interface::is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {

@@ -80,7 +80,7 @@ class PerformanceTest:
 
     @dataclass
     class LoggingConfig:
-        logDirBase: Path = Path(".")/PurePath(PurePath(__file__).name).stem[0]
+        logDirBase: Path = Path(".")/PurePath(PurePath(__file__).name).stem
         logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
         logDirPath: Path = field(default_factory=Path, init=False)
         ptbLogsDirPath: Path = field(default_factory=Path, init=False)
@@ -99,7 +99,7 @@ class PerformanceTest:
 
         self.testsStart = datetime.utcnow()
 
-        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/PurePath(PurePath(__file__).name).stem[0],
+        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/PurePath(PurePath(__file__).name).stem,
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
     def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:

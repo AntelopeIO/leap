@@ -28,12 +28,16 @@ namespace eosio {
    using std::regex;
    using boost::asio::ip::tcp;
    using std::shared_ptr;
-   
+
    static http_plugin_defaults current_http_plugin_defaults;
    static bool verbose_http_errors = false;
 
    void http_plugin::set_defaults(const http_plugin_defaults& config) {
       current_http_plugin_defaults = config;
+   }
+
+   std::string http_plugin::get_server_header() {
+      return current_http_plugin_defaults.server_header;
    }
 
    using http_plugin_impl_ptr = std::shared_ptr<class http_plugin_impl>;
@@ -47,9 +51,9 @@ namespace eosio {
 
          http_plugin_impl& operator=(const http_plugin_impl&) = delete;
          http_plugin_impl& operator=(http_plugin_impl&&) = delete;
-         
+
          std::optional<tcp::endpoint>  listen_endpoint;
-         
+
          std::optional<asio::local::stream_protocol::endpoint> unix_endpoint;
 
          shared_ptr<beast_http_listener<plain_session, tcp, tcp_socket_t > >  beast_server;
@@ -272,7 +276,7 @@ namespace eosio {
 
          my->plugin_state->server_header = current_http_plugin_defaults.server_header;
 
-         
+
          //watch out for the returns above when adding new code here
       } FC_LOG_AND_RETHROW()
    }
@@ -309,7 +313,7 @@ namespace eosio {
             if(my->unix_endpoint) {
                try {
                   my->create_beast_server(true);
-                  
+
                   my->beast_unix_server->listen(*my->unix_endpoint);
                   my->beast_unix_server->start_accept();
                } catch ( const fc::exception& e ){
@@ -335,7 +339,7 @@ namespace eosio {
                   }
                }
             }}, appbase::exec_queue::read_only);
-            
+
          } catch (...) {
             fc_elog(logger(), "http_plugin startup fails, shutting down");
             app().quit();
@@ -457,9 +461,9 @@ namespace eosio {
    fc::microseconds http_plugin::get_max_response_time()const {
       return my->plugin_state->max_response_time;
    }
-   
+
    size_t http_plugin::get_max_body_size()const {
       return my->plugin_state->max_body_size;
    }
-   
+
 }

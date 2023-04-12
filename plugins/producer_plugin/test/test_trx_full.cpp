@@ -163,7 +163,7 @@ BOOST_AUTO_TEST_CASE(producer) {
                transaction_metadata::trx_type::input, // trx_type
                return_failure_traces, // return_failure_traces
                [ptrx, &next_calls, &trace_with_except, &trx_match, &trxs, return_failure_traces]
-               (const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) {
+               (const next_function_variant<transaction_trace_ptr>& result) {
                   if( !std::holds_alternative<fc::exception_ptr>( result ) && !std::get<chain::transaction_trace_ptr>( result )->except ) {
                      if( std::get<chain::transaction_trace_ptr>( result )->id == ptrx->id() ) {
                         trxs.push_back( ptrx );
