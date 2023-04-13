@@ -2187,7 +2187,7 @@ void read_write::push_transactions(const read_write::push_transactions_params& p
 }
 
 template<class API, class Result>
-void api_base::send_transaction_gen(API &api, const send_transaction_params_t& params, next_function<Result> next) {
+void api_base::send_transaction_gen(API &api, send_transaction_params_t params, next_function<Result> next) {
    try {
       auto ptrx = std::make_shared<packed_transaction>();
       auto resolver = make_resolver(api.db, abi_serializer::create_yield_function( api.abi_serializer_max_time ));
@@ -2261,22 +2261,22 @@ void api_base::send_transaction_gen(API &api, const send_transaction_params_t& p
    } CATCH_AND_CALL(next);
 }
    
-void read_write::send_transaction(const read_write::send_transaction_params& params, next_function<read_write::send_transaction_results> next) {
+void read_write::send_transaction(read_write::send_transaction_params params, next_function<read_write::send_transaction_results> next) {
    send_transaction_params_t gen_params { .return_failure_trace = false,
                                           .retry_trx            = false,
                                           .retry_trx_num_blocks = std::nullopt,
                                           .trx_type             = transaction_metadata::trx_type::input,
                                           .transaction          = std::move(params) };
-   return send_transaction_gen(*this, gen_params, std::move(next));
+   return send_transaction_gen(*this, std::move(gen_params), std::move(next));
 }
 
-void read_write::send_transaction2(const read_write::send_transaction2_params& params, next_function<read_write::send_transaction_results> next) {
+void read_write::send_transaction2(read_write::send_transaction2_params params, next_function<read_write::send_transaction_results> next) {
    send_transaction_params_t gen_params  { .return_failure_trace = params.return_failure_trace,
                                            .retry_trx            = params.retry_trx,
                                            .retry_trx_num_blocks = std::move(params.retry_trx_num_blocks),
                                            .trx_type             = transaction_metadata::trx_type::input,
                                            .transaction          = std::move(params.transaction) };
-   return send_transaction_gen(*this, gen_params, std::move(next));
+   return send_transaction_gen(*this, std::move(gen_params), std::move(next));
 }
    
 read_only::get_abi_results read_only::get_abi( const get_abi_params& params, const fc::time_point& deadline )const {
@@ -2553,22 +2553,22 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
    return result;
 }
 
-void read_only::compute_transaction(const compute_transaction_params& params, next_function<compute_transaction_results> next) {
+void read_only::compute_transaction(compute_transaction_params params, next_function<compute_transaction_results> next) {
    send_transaction_params_t gen_params { .return_failure_trace = false,
                                           .retry_trx            = false,
                                           .retry_trx_num_blocks = std::nullopt,
                                           .trx_type             = transaction_metadata::trx_type::dry_run,
                                           .transaction          = std::move(params.transaction) };
-   return send_transaction_gen(*this, gen_params, std::move(next));
+   return send_transaction_gen(*this, std::move(gen_params), std::move(next));
 }
 
-void read_only::send_read_only_transaction(const send_read_only_transaction_params& params, next_function<send_read_only_transaction_results> next) {
+void read_only::send_read_only_transaction(send_read_only_transaction_params params, next_function<send_read_only_transaction_results> next) {
    send_transaction_params_t gen_params { .return_failure_trace = false,
                                           .retry_trx            = false,
                                           .retry_trx_num_blocks = std::nullopt,
                                           .trx_type             = transaction_metadata::trx_type::read_only,
                                           .transaction          = std::move(params.transaction) };
-   return send_transaction_gen(*this, gen_params, std::move(next));
+   return send_transaction_gen(*this, std::move(gen_params), std::move(next));
 }
 
 read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params, const fc::time_point& deadline) const {

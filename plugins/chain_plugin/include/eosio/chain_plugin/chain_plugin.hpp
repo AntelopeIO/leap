@@ -119,7 +119,7 @@ protected:
    };
 
    template<class API, class Result>
-   static void send_transaction_gen(API &api, const send_transaction_params_t& params, chain::plugin_interface::next_function<Result> next);
+   static void send_transaction_gen(API& api, send_transaction_params_t params, chain::plugin_interface::next_function<Result> next);
 };
    
 class read_only : public api_base {
@@ -521,7 +521,7 @@ public:
       fc::variant transaction;
    };
 
-   void compute_transaction(const compute_transaction_params& params, chain::plugin_interface::next_function<compute_transaction_results> next );
+   void compute_transaction(compute_transaction_params params, chain::plugin_interface::next_function<compute_transaction_results> next );
 
    struct send_read_only_transaction_results {
       chain::transaction_id_type  transaction_id;
@@ -530,7 +530,7 @@ public:
    struct send_read_only_transaction_params {
       fc::variant transaction;
    };
-   void send_read_only_transaction(const send_read_only_transaction_params& params, chain::plugin_interface::next_function<send_read_only_transaction_results> next );
+   void send_read_only_transaction(send_read_only_transaction_params params, chain::plugin_interface::next_function<send_read_only_transaction_results> next );
 
    static void copy_inline_row(const chain::key_value_object& obj, vector<char>& data) {
       data.resize( obj.value.size() );
@@ -795,7 +795,7 @@ public:
 
    using send_transaction_params = push_transaction_params;
    using send_transaction_results = push_transaction_results;
-   void send_transaction(const send_transaction_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
+   void send_transaction(send_transaction_params params, chain::plugin_interface::next_function<send_transaction_results> next);
 
    struct send_transaction2_params {
       bool return_failure_trace = true;
@@ -803,7 +803,7 @@ public:
       std::optional<uint16_t> retry_trx_num_blocks{}; ///< if retry_trx, report trace at specified blocks from executed or lib if not specified
       fc::variant transaction;
    };
-   void send_transaction2(const send_transaction2_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
+   void send_transaction2(send_transaction2_params params, chain::plugin_interface::next_function<send_transaction_results> next);
 
 };
 
