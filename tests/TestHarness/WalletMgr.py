@@ -80,14 +80,18 @@ class WalletMgr(object):
                     statusMsg+=" port %d is NOT available." % (self.port)
                 Utils.Print("Launching %s, note similar processes running. %s" % (Utils.EosWalletName, statusMsg))
 
-        cmd="%s --data-dir %s --config-dir %s --unlock-timeout=999999 --http-server-address=%s:%d --http-max-response-time-ms 99999 --verbose-http-errors" % (
-            Utils.EosWalletPath, WalletMgr.__walletDataDir, WalletMgr.__walletDataDir, self.host, self.port)
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
+        cmd = [Utils.EosWalletPath, "--data-dir", WalletMgr.__walletDataDir, "--config-dir", WalletMgr.__walletDataDir,
+               "--unlock-timeout=999999", f"--http-server-address={self.host}:{self.port}", "--http-max-response-time-ms",
+               "99999", "--verbose-http-errors", "--unix-socket-path", ""]
+
+        if Utils.Debug: Utils.Print("cmd: %s ''" % " ".join(cmd))
+
         if not os.path.isdir(WalletMgr.__walletDataDir):
             if Utils.Debug: Utils.Print(f"Creating dir {WalletMgr.__walletDataDir} in dir: {os.getcwd()}")
             os.mkdir(WalletMgr.__walletDataDir)
+
         with open(WalletMgr.__walletLogOutFile, 'w') as sout, open(WalletMgr.__walletLogErrFile, 'w') as serr:
-            popen=subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
+            popen=subprocess.Popen(cmd, stdout=sout, stderr=serr)
             self.__walletPid=popen.pid
 
         # Give keosd time to warm up

@@ -8,6 +8,7 @@
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
+#include <boost/filesystem.hpp>
 
 #include <memory>
 #include <regex>
@@ -269,8 +270,16 @@ namespace eosio {
 
          if( options.count( "unix-socket-path" ) && !options.at( "unix-socket-path" ).as<string>().empty()) {
             boost::filesystem::path sock_path = options.at("unix-socket-path").as<string>();
-            if (sock_path.is_relative())
+            if (sock_path.is_relative()) {
                sock_path = app().data_dir() / sock_path;
+            }
+            // The maximum length of the socket path is defined by sockaddr_un::sun_path. On Linux,
+            // according to unix(7), it is 108 bytes. On FreeBSD, according to unix(4), it is 104 bytes.
+            const auto unix_socket_limits = sizeof(sockaddr_un::sun_path);
+            if (sock_path.string().size() >= unix_socket_limits) {
+               // try a relative path which may be shorter.
+               sock_path = boost::filesystem::relative(sock_path);
+            }
             my->unix_endpoint = asio::local::stream_protocol::endpoint(sock_path.string());
          }
 
