@@ -2,6 +2,7 @@
 
 #include <eosio/chain/plugin_metrics.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
+#include <eosio/chain/snapshot_scheduler.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
 #include <eosio/chain/application.hpp>
@@ -73,37 +74,6 @@ public:
       chain::digest_type   integrity_hash;
    };
 
-   struct snapshot_information {
-      chain::block_id_type head_block_id;
-      uint32_t             head_block_num;
-      fc::time_point       head_block_time;
-      uint32_t             version;
-      std::string          snapshot_name;
-   };
-
-   struct snapshot_request_information {
-      uint32_t             block_spacing = 0;
-      uint32_t             start_block_num = 0;
-      uint32_t             end_block_num = 0;
-      std::string          snapshot_description = "";
-
-   };
-
-   struct snapshot_request_id_information {
-      uint32_t snapshot_request_id = 0;
-   };
-
-   struct snapshot_schedule_result : public snapshot_request_id_information, public snapshot_request_information {
-   };
-
-   struct snapshot_schedule_information : public snapshot_request_id_information, public snapshot_request_information {
-      std::vector<snapshot_information> pending_snapshots;
-   };
-
-   struct get_snapshot_requests_result {
-       std::vector<snapshot_schedule_information>  snapshot_requests;
-   };
-
    struct scheduled_protocol_feature_activations {
       std::vector<chain::digest_type> protocol_features_to_activate;
    };
@@ -160,10 +130,10 @@ public:
 
    integrity_hash_information get_integrity_hash() const;
 
-   void create_snapshot(next_function<snapshot_information> next);
-   snapshot_schedule_result schedule_snapshot(const snapshot_request_information& schedule);
-   snapshot_schedule_result unschedule_snapshot(const snapshot_request_id_information& schedule);
-   get_snapshot_requests_result get_snapshot_requests() const;
+   void create_snapshot(next_function<chain::snapshot_scheduler::snapshot_information> next);
+   chain::snapshot_scheduler::snapshot_schedule_result schedule_snapshot(const chain::snapshot_scheduler::snapshot_request_information& schedule);
+   chain::snapshot_scheduler::snapshot_schedule_result unschedule_snapshot(const chain::snapshot_scheduler::snapshot_request_id_information& schedule);
+   chain::snapshot_scheduler::get_snapshot_requests_result get_snapshot_requests() const;
 
    scheduled_protocol_feature_activations get_scheduled_protocol_feature_activations() const;
    void schedule_protocol_feature_activations(const scheduled_protocol_feature_activations& schedule);
@@ -221,12 +191,6 @@ FC_REFLECT(eosio::producer_plugin::runtime_options, (max_transaction_time)(max_i
 FC_REFLECT(eosio::producer_plugin::greylist_params, (accounts));
 FC_REFLECT(eosio::producer_plugin::whitelist_blacklist, (actor_whitelist)(actor_blacklist)(contract_whitelist)(contract_blacklist)(action_blacklist)(key_blacklist) )
 FC_REFLECT(eosio::producer_plugin::integrity_hash_information, (head_block_id)(integrity_hash))
-FC_REFLECT(eosio::producer_plugin::snapshot_information, (head_block_id)(head_block_num)(head_block_time)(version)(snapshot_name))
-FC_REFLECT(eosio::producer_plugin::snapshot_request_information, (block_spacing)(start_block_num)(end_block_num)(snapshot_description))
-FC_REFLECT(eosio::producer_plugin::snapshot_request_id_information, (snapshot_request_id))
-FC_REFLECT(eosio::producer_plugin::get_snapshot_requests_result, (snapshot_requests))
-FC_REFLECT_DERIVED(eosio::producer_plugin::snapshot_schedule_information, (eosio::producer_plugin::snapshot_request_id_information)(eosio::producer_plugin::snapshot_request_information), (pending_snapshots))
-FC_REFLECT_DERIVED(eosio::producer_plugin::snapshot_schedule_result, (eosio::producer_plugin::snapshot_request_id_information)(eosio::producer_plugin::snapshot_request_information),)
 FC_REFLECT(eosio::producer_plugin::scheduled_protocol_feature_activations, (protocol_features_to_activate))
 FC_REFLECT(eosio::producer_plugin::get_supported_protocol_features_params, (exclude_disabled)(exclude_unactivatable))
 FC_REFLECT(eosio::producer_plugin::get_account_ram_corrections_params, (lower_bound)(upper_bound)(limit)(reverse))

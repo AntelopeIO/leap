@@ -107,6 +107,7 @@ add_library( eosio_chain
               abi_serializer.cpp
               asset.cpp
               snapshot.cpp
+              snapshot_scheduler.cpp
               deep_mind.cpp
 
              ${CHAIN_EOSVMOC_SOURCES}

@@ -1,8 +1,7 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
-#include <eosio/producer_plugin/pending_snapshot.hpp>
 #include <eosio/producer_plugin/subjective_billing.hpp>
-#include <eosio/producer_plugin/snapshot_scheduler.hpp>
 #include <eosio/producer_plugin/block_timing_util.hpp>
+
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
@@ -10,6 +9,9 @@
 #include <eosio/chain/transaction_object.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/unapplied_transaction_queue.hpp>
+#include <eosio/chain/pending_snapshot.hpp>
+#include <eosio/chain/snapshot_scheduler.hpp>
+
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 
 #include <fc/io/json.hpp>
@@ -124,17 +126,6 @@ using transaction_id_with_expiry_index = multi_index_container<
       ordered_non_unique<tag<by_expiry>, BOOST_MULTI_INDEX_MEMBER(transaction_id_with_expiry, fc::time_point, expiry)>
    >
 >;
-
-struct by_height;
-
-using pending_snapshot_index = multi_index_container<
-   pending_snapshot,
-   indexed_by<
-      hashed_unique<tag<by_id>, BOOST_MULTI_INDEX_MEMBER(pending_snapshot, block_id_type, block_id)>,
-      ordered_non_unique<tag<by_height>, BOOST_MULTI_INDEX_CONST_MEM_FUN( pending_snapshot, uint32_t, get_height)>
-   >
->;
-
 
 namespace {
 
@@ -390,7 +381,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       incoming::methods::transaction_async::method_type::handle _incoming_transaction_async_provider;
 
       transaction_id_with_expiry_index                         _blacklisted_transactions;
-      pending_snapshot_index                                   _pending_snapshot_index;
       subjective_billing                                       _subjective_billing;
       account_failures                                         _account_fails{_subjective_billing};
       block_time_tracker                                       _time_tracker;
@@ -517,21 +507,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          const chain::controller& chain = chain_plug->chain();
          EOS_ASSERT(chain.is_write_window(), producer_exception, "write window is expected for on_irreversible_block signal");
          _irreversible_block_time = lib->timestamp.to_time_point();
-
-         // promote any pending snapshots
-         auto& snapshots_by_height = _pending_snapshot_index.get<by_height>();
-         uint32_t lib_height = lib->block_num();
-
-         while (!snapshots_by_height.empty() && snapshots_by_height.begin()->get_height() <= lib_height) {
-            const auto& pending = snapshots_by_height.begin();
-            auto next = pending->next;
-
-            try {
-               next(pending->finalize(chain));
-            } CATCH_AND_CALL(next);
-
-            snapshots_by_height.erase(snapshots_by_height.begin());
-         }
+         _snapshot_scheduler.on_irreversible_block(lib);
       }
 
       void update_block_metrics() {
@@ -1184,7 +1160,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    }
 
    my->_snapshot_scheduler.set_db_path(my->_snapshots_dir);
-   my->_snapshot_scheduler.set_create_snapshot_fn([this](producer_plugin::next_function<producer_plugin::snapshot_information> next){create_snapshot(next);});
+   my->_snapshot_scheduler.set_snapshots_path(my->_snapshots_dir);  
 } FC_LOG_AND_RETHROW() }
 
 using namespace std::chrono_literals;
@@ -1213,6 +1189,8 @@ void producer_plugin::plugin_startup()
    my->_accepted_block_header_connection.emplace(chain.accepted_block_header.connect( [this]( const auto& bsp ){ my->on_block_header( bsp ); } ));
    my->_irreversible_block_connection.emplace(chain.irreversible_block.connect( [this]( const auto& bsp ){ my->on_irreversible_block( bsp->block ); } ));
    my->_block_start_connection.emplace(chain.block_start.connect( [this]( uint32_t bs ){ my->_snapshot_scheduler.on_start_block(bs); } ));
+
+   my->_snapshot_scheduler.set_controller(&chain);
 
    const auto lib_num = chain.last_irreversible_block_num();
    const auto lib = chain.fetch_block_by_number(lib_num);
@@ -1448,106 +1426,21 @@ producer_plugin::integrity_hash_information producer_plugin::get_integrity_hash(
    return {chain.head_block_id(), chain.calculate_integrity_hash()};
 }
 
-void producer_plugin::create_snapshot(producer_plugin::next_function<producer_plugin::snapshot_information> next) {
-   chain::controller& chain = my->chain_plug->chain();
-
-   auto head_id = chain.head_block_id();
-   const auto head_block_num = chain.head_block_num();
-   const auto head_block_time = chain.head_block_time();
-   const auto& snapshot_path = pending_snapshot::get_final_path(head_id, my->_snapshots_dir);
-   const auto& temp_path     = pending_snapshot::get_temp_path(head_id, my->_snapshots_dir);
-
-   // maintain legacy exception if the snapshot exists
-   if( fc::is_regular_file(snapshot_path) ) {
-      auto ex = snapshot_exists_exception( FC_LOG_MESSAGE( error, "snapshot named ${name} already exists", ("name", snapshot_path.generic_string()) ) );
-      next(ex.dynamic_copy_exception());
-      return;
-   }
-
-   auto write_snapshot = [&]( const bfs::path& p ) -> void {
-      auto reschedule = fc::make_scoped_exit([this](){
-         my->schedule_production_loop();
-      });
-
-      if (chain.is_building_block()) {
-         // abort the pending block
-         my->abort_block();
-      } else {
-         reschedule.cancel();
-      }
-
-      bfs::create_directory( p.parent_path() );
-
-      // create the snapshot
-      auto snap_out = std::ofstream(p.generic_string(), (std::ios::out | std::ios::binary));
-      auto writer = std::make_shared<ostream_snapshot_writer>(snap_out);
-      chain.write_snapshot(writer);
-      writer->finalize();
-      snap_out.flush();
-      snap_out.close();
-   };
-
-   // If in irreversible mode, create snapshot and return path to snapshot immediately.
-   if( chain.get_read_mode() == db_read_mode::IRREVERSIBLE ) {
-      try {
-         write_snapshot( temp_path );
-
-         boost::system::error_code ec;
-         bfs::rename(temp_path, snapshot_path, ec);
-         EOS_ASSERT(!ec, snapshot_finalization_exception,
-               "Unable to finalize valid snapshot of block number ${bn}: [code: ${ec}] ${message}",
-               ("bn", head_block_num)
-               ("ec", ec.value())
-               ("message", ec.message()));
-
-         next( producer_plugin::snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, snapshot_path.generic_string()} );
-      } CATCH_AND_CALL (next);
-      return;
-   }
-
-   // Otherwise, the result will be returned when the snapshot becomes irreversible.
-
-   // determine if this snapshot is already in-flight
-   auto& pending_by_id = my->_pending_snapshot_index.get<by_id>();
-   auto existing = pending_by_id.find(head_id);
-   if( existing != pending_by_id.end() ) {
-      // if a snapshot at this block is already pending, attach this requests handler to it
-      pending_by_id.modify(existing, [&next]( auto& entry ){
-         entry.next = [prev = entry.next, next](const next_function_variant<producer_plugin::snapshot_information>& res){
-            prev(res);
-            next(res);
-         };
-      });
-   } else {
-      const auto& pending_path = pending_snapshot::get_pending_path(head_id, my->_snapshots_dir);
-
-      try {
-         write_snapshot( temp_path ); // create a new pending snapshot
-
-         boost::system::error_code ec;
-         bfs::rename(temp_path, pending_path, ec);
-         EOS_ASSERT(!ec, snapshot_finalization_exception,
-               "Unable to promote temp snapshot to pending for block number ${bn}: [code: ${ec}] ${message}",
-               ("bn", head_block_num)
-               ("ec", ec.value())
-               ("message", ec.message()));
-         my->_pending_snapshot_index.emplace(head_id, next, pending_path.generic_string(), snapshot_path.generic_string());
-         my->_snapshot_scheduler.add_pending_snapshot_info( producer_plugin::snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, pending_path.generic_string()} );
-      } CATCH_AND_CALL (next);
-   }
+void producer_plugin::create_snapshot(producer_plugin::next_function<chain::snapshot_scheduler::snapshot_information> next) {
+   my->_snapshot_scheduler.create_snapshot(next);
 }
 
-producer_plugin::snapshot_schedule_result producer_plugin::schedule_snapshot(const snapshot_request_information& sri)
+chain::snapshot_scheduler::snapshot_schedule_result producer_plugin::schedule_snapshot(const chain::snapshot_scheduler::snapshot_request_information& sri)
 {
    return my->_snapshot_scheduler.schedule_snapshot(sri);
 }
 
-producer_plugin::snapshot_schedule_result producer_plugin::unschedule_snapshot(const snapshot_request_id_information& sri)
+chain::snapshot_scheduler::snapshot_schedule_result producer_plugin::unschedule_snapshot(const chain::snapshot_scheduler::snapshot_request_id_information& sri)
 {
    return my->_snapshot_scheduler.unschedule_snapshot(sri.snapshot_request_id);
 }
 
-producer_plugin::get_snapshot_requests_result producer_plugin::get_snapshot_requests() const
+chain::snapshot_scheduler::get_snapshot_requests_result producer_plugin::get_snapshot_requests() const
 {
    return my->_snapshot_scheduler.get_snapshot_requests();
 }

@@ -3,7 +3,7 @@
 
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
-#include <eosio/producer_plugin/snapshot_db_json.hpp>
+#include <eosio/chain/snapshot_db_json.hpp>
 #include <eosio/testing/tester.hpp>
 namespace {
 
@@ -19,8 +19,8 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
 
    {
       // add/remove test
-      producer_plugin::snapshot_request_information sri1 = {.block_spacing = 100, .start_block_num = 5000, .end_block_num = 10000, .snapshot_description = "Example of recurring snapshot"};
-      producer_plugin::snapshot_request_information sri2 = {.block_spacing = 0, .start_block_num = 5200, .end_block_num = 5200, .snapshot_description = "Example of one-time snapshot"};
+      snapshot_scheduler::snapshot_request_information sri1 = {.block_spacing = 100, .start_block_num = 5000, .end_block_num = 10000, .snapshot_description = "Example of recurring snapshot"};
+      snapshot_scheduler::snapshot_request_information sri2 = {.block_spacing = 0, .start_block_num = 5200, .end_block_num = 5200, .snapshot_description = "Example of one-time snapshot"};
 
       scheduler.schedule_snapshot(sri1);
       scheduler.schedule_snapshot(sri2);
@@ -31,27 +31,27 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          return e.to_detail_string().find("Duplicate snapshot request") != std::string::npos;
       });
 
-      producer_plugin::snapshot_request_id_information sri_delete_1 = {.snapshot_request_id = 0};
+      snapshot_scheduler::snapshot_request_id_information sri_delete_1 = {.snapshot_request_id = 0};
       scheduler.unschedule_snapshot(sri_delete_1);
 
       BOOST_CHECK_EQUAL(1, scheduler.get_snapshot_requests().snapshot_requests.size());
 
-      producer_plugin::snapshot_request_id_information sri_delete_none = {.snapshot_request_id = 2};
+      snapshot_scheduler::snapshot_request_id_information sri_delete_none = {.snapshot_request_id = 2};
       BOOST_CHECK_EXCEPTION(scheduler.unschedule_snapshot(sri_delete_none), snapshot_request_not_found, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("Snapshot request not found") != std::string::npos;
       });
 
-      producer_plugin::snapshot_request_id_information sri_delete_2 = {.snapshot_request_id = 1};
+      snapshot_scheduler::snapshot_request_id_information sri_delete_2 = {.snapshot_request_id = 1};
       scheduler.unschedule_snapshot(sri_delete_2);
 
       BOOST_CHECK_EQUAL(0, scheduler.get_snapshot_requests().snapshot_requests.size());
 
-      producer_plugin::snapshot_request_information sri_large_spacing = {.block_spacing = 1000, .start_block_num = 5000, .end_block_num = 5010};
+      snapshot_scheduler::snapshot_request_information sri_large_spacing = {.block_spacing = 1000, .start_block_num = 5000, .end_block_num = 5010};
       BOOST_CHECK_EXCEPTION(scheduler.schedule_snapshot(sri_large_spacing), invalid_snapshot_request, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("Block spacing exceeds defined by start and end range") != std::string::npos;
       });
 
-      producer_plugin::snapshot_request_information sri_start_end = {.block_spacing = 1000, .start_block_num = 50000, .end_block_num = 5000};
+      snapshot_scheduler::snapshot_request_information sri_start_end = {.block_spacing = 1000, .start_block_num = 50000, .end_block_num = 5000};
       BOOST_CHECK_EXCEPTION(scheduler.schedule_snapshot(sri_start_end), invalid_snapshot_request, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("End block number should be greater or equal to start block number") != std::string::npos;
       });
@@ -94,7 +94,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
             // catching pending snapshot
             if (!pp->get_snapshot_requests().snapshot_requests.empty()) {
                const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
-               auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(), [](const producer_plugin::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
+               auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(), [](const snapshot_scheduler::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
                // we should have a pending snapshot for request id = 0
                BOOST_REQUIRE(it != snapshot_requests.end());
                auto& pending = it->pending_snapshots;
@@ -104,9 +104,9 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
             }
          });
 
-         producer_plugin::snapshot_request_information sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 1"};
-         producer_plugin::snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2 that will never happen"};
-         producer_plugin::snapshot_request_information sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 3 that will expire"};
+         snapshot_scheduler::snapshot_request_information sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 1"};
+         snapshot_scheduler::snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2 that will never happen"};
+         snapshot_scheduler::snapshot_request_information sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 3 that will expire"};
 
          pp->schedule_snapshot(sri1);
          pp->schedule_snapshot(sri2);
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
 
          // check whether no pending snapshots present for a snapshot with id 0
          const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
-         auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(),[](const producer_plugin::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
+         auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(),[](const snapshot_scheduler::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
 
          // snapshot request with id = 0 should be found and should not have any pending snapshots
          BOOST_REQUIRE(it != snapshot_requests.end());
@@ -134,7 +134,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
 
          // lets check whether schedule can be read back after restart
          snapshot_db_json db;
-         std::vector<producer_plugin::snapshot_schedule_information> ssi;
+         std::vector<snapshot_scheduler::snapshot_schedule_information> ssi;
          db.set_path(temp / "snapshots");
          db >> ssi;
          BOOST_CHECK_EQUAL(2, ssi.size());
