@@ -2231,7 +2231,10 @@ void api_base::send_transaction_gen(API &api, send_transaction_params_t params, 
                         retried = true;
                      }
                   }
-
+                  else {
+                     (void)retry; // ref variable to avoid compilation warning
+                     (void)retry_num_blocks; // ref variable to avoid compilation warning
+                  }
                   if (!retried) {
                      // we are still on main thread here. The lambda passed to `next()` below will be executed on the http thread pool
                      auto yield        = abi_serializer::create_yield_function(fc::microseconds::maximum());
