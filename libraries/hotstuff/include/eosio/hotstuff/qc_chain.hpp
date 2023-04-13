@@ -171,11 +171,6 @@ namespace eosio { namespace hotstuff {
 
       };
 
-      ~qc_chain(){
-         _proposal_store.get<by_proposal_height>().clear();
-         _proposal_store.get<by_proposal_id>().clear();
-      };
-
    private:
 
       base_pacemaker* _pacemaker = nullptr;

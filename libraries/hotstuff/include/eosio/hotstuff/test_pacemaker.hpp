@@ -9,17 +9,16 @@ namespace eosio { namespace hotstuff {
 
       //class-specific functions
 
-      class indexed_qc_chain {
-      public:
-         name _name;
-         bool _active = true;
-         qc_chain* _qc_chain = nullptr; //todo : use smart pointer
+      struct indexed_qc_chain {
+         name       _name;
+         bool       _active    = true;
+         qc_chain*  _qc_chain  = nullptr;
 
-         uint64_t by_name()const{return _name.to_uint64_t();};
+         uint64_t by_name() const { return _name.to_uint64_t(); };
 
-         ~indexed_qc_chain(){
-            _qc_chain = nullptr;
-         };
+         indexed_qc_chain(const name & name, qc_chain* qc_chain, bool active = true)
+            : _name(name), _active(active), _qc_chain(qc_chain) { }
+         indexed_qc_chain() = delete;
       };
 
       struct by_name_id{};
@@ -35,11 +34,6 @@ namespace eosio { namespace hotstuff {
          > qc_chain_type;
 
       qc_chain_type _qcc_store;
-
-/*              void send_hs_proposal_msg(hs_proposal_message msg);
-                void send_hs_vote_msg(hs_vote_message msg);
-                void send_hs_new_block_msg(hs_new_block_message msg);
-                void send_hs_new_view_msg(hs_new_view_message msg);*/
 
       using hotstuff_message = std::pair<name, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
 
@@ -61,17 +55,16 @@ namespace eosio { namespace hotstuff {
 
       void pipe(std::vector<test_pacemaker::hotstuff_message> messages);
 
-      std::vector<hotstuff_message> dispatch(std::string memo, int count);
+      // Remove unused return value
+      //std::vector<hotstuff_message>
+      void dispatch(std::string memo, int count);
+
       std::vector<hotstuff_message> dispatch(std::string memo);
 
       void activate(name replica);
       void deactivate(name replica);
 
       //indexed_qc_chain get_qc_chain(name replica);
-
-      ~test_pacemaker(){
-         _qcc_store.get<by_name_id>().clear();
-      };
 
       //base_pacemaker interface functions
 

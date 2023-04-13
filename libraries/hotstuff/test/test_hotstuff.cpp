@@ -21,7 +21,7 @@ std::vector<block_id_type> ids{ block_id_type("00000001d49031dba775bd2b44fd339a3
    block_id_type("0000000202b23f86652ae43cba4bec5579c8c7133c14011a6f8d93b316530684"),
    block_id_type("00000003a5a001518358977e84a3f6abf87bf32a6e739ced9a7a3f6b0b8bf330")};
 
-std::vector<block_id_type> alternate_ids{       block_id_type("00000001d49031dba775bd2b44fd339a329ef462aaf019e5b75b4cd9609a0c31"),
+std::vector<block_id_type> alternate_ids{ block_id_type("00000001d49031dba775bd2b44fd339a329ef462aaf019e5b75b4cd9609a0c31"),
    block_id_type("0000000202b23f86652ae43cba4bec5579c8c7133c14011a6f8d93b316530681"),
    block_id_type("00000003a5a001518358977e84a3f6abf87bf32a6e739ced9a7a3f6b0b8bf331")};
 

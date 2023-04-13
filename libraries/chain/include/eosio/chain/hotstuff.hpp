@@ -78,7 +78,7 @@ namespace eosio { namespace chain {
 
 }} //eosio::chain
 
-FC_REFLECT(eosio::chain::quorum_certificate, (proposal_id)(active_finalizers)(active_agg_sig));
+FC_REFLECT(eosio::chain::quorum_certificate, (proposal_id)(quorum_met)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer)(sig));
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(phase_counter)(parent_id)(final_on_qc)(justify));
 FC_REFLECT(eosio::chain::hs_new_block_message, (block_id)(justify));

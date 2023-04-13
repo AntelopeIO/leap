@@ -39,7 +39,9 @@ namespace eosio { namespace hotstuff {
       }
    }
 
-   std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo, int count){
+   // Remove unused return value
+   //std::vector<test_pacemaker::hotstuff_message>
+   void test_pacemaker::dispatch(std::string memo, int count){
       for (int i = 0 ; i < count ; i++){
          this->dispatch(memo);
       }
@@ -182,11 +184,11 @@ namespace eosio { namespace hotstuff {
 
          //_unique_replicas.push_back(name);
 
-         indexed_qc_chain iqcc;
+         indexed_qc_chain iqcc(name, &qcc);
 
-         iqcc._name = name;
-         iqcc._active = true;
-         iqcc._qc_chain = &qcc;
+         //iqcc._name = name;
+         //iqcc._active = true;
+         //iqcc._qc_chain = &qcc;
 
          //ilog(" === register_listener 1 ${my_producers}", ("my_producers", iqcc._qc_chain->_my_producers));
 
@@ -222,7 +224,8 @@ namespace eosio { namespace hotstuff {
       while (qc_itr!=_qcc_store.end()){
          //ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
 
-         if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
+         // never happens && redundant check
+         //if (qc_itr->_qc_chain == nullptr) throw std::runtime_error("ptr is null");
 
          if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_proposal_msg(msg);
 
@@ -237,7 +240,8 @@ namespace eosio { namespace hotstuff {
       while (qc_itr!=_qcc_store.end()){
          //ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
 
-         if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
+         // never happens && redundant check
+         //if (qc_itr->_qc_chain == nullptr) throw std::runtime_error("ptr is null");
 
          if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_vote_msg(msg);
 
@@ -252,7 +256,8 @@ namespace eosio { namespace hotstuff {
       while (qc_itr!=_qcc_store.end()){
          //ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
 
-         if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
+         // never happens && redundant check
+         //if (qc_itr->_qc_chain == nullptr) throw std::runtime_error("ptr is null");
 
          if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_new_block_msg(msg);
 
@@ -267,7 +272,8 @@ namespace eosio { namespace hotstuff {
       while (qc_itr!=_qcc_store.end()){
          //ilog("name : ${name}, active : ${active}", ("name", qc_itr->_name)("active", qc_itr->_active));
 
-         if (qc_itr->_qc_chain == NULL) throw std::runtime_error("ptr is null");
+         // never happens && redundant check
+         //if (qc_itr->_qc_chain == nullptr) throw std::runtime_error("ptr is null");
 
          if (qc_itr->_qc_chain->_id != id && qc_itr->_active) qc_itr->_qc_chain->on_hs_new_view_msg(msg);
 
