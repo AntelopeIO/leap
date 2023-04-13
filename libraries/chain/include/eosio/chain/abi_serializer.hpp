@@ -1021,14 +1021,12 @@ public:
       return std::move(*this);
    }
 
-   std::pair<abi_serializer_cache_t&&, bool> get() && {
-      return {std::move(abi_serializers), has_setabi_action};
+   abi_serializer_cache_t&& get() && {
+      return std::move(abi_serializers);
    }
 
 private:
    void add_to_cache(const chain::action& a) {
-      if (a.name == setabi)
-         has_setabi_action = true;
       auto it = abi_serializers.find( a.account );
       if( it == abi_serializers.end() ) {
          try {
@@ -1041,8 +1039,6 @@ private:
 
    std::function<std::optional<abi_serializer>(const account_name& name)> resolver_;
    abi_serializer_cache_t abi_serializers;
-   bool has_setabi_action {false};
-   inline static const action_name setabi = chain::setabi::get_name();
 };
 
 } // eosio::chain
