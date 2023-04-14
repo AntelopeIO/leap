@@ -178,7 +178,7 @@ namespace fc { namespace crypto {
       {}
 
       shim(data_type&& data)
-      :_data(forward<data_type>(data))
+         :_data(std::move(data))
       {}
 
       shim(const data_type& data)

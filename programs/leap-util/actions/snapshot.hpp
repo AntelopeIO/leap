@@ -1,5 +1,4 @@
 #include "subcommand.hpp"
-#include <boost/filesystem/path.hpp>
 
 struct snapshot_options {
    std::string input_file = "";

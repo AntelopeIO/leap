@@ -2,6 +2,7 @@
 
 #include <appbase/application_base.hpp>
 #include <eosio/chain/exec_pri_queue.hpp>
+#include <chrono>
 #include <mutex>
 
 /*
@@ -33,6 +34,10 @@ enum class exec_queue {
 class two_queue_executor {
 public:
 
+   // Trade off on returning to appbase exec() loop as the overhead of poll/run can be measurable for small running tasks.
+   // This adds to the total time that the main thread can be busy when a high priority task is waiting.
+   static constexpr uint16_t minimum_runtime_ms = 3;
+
    template <typename Func>
    auto post( int priority, exec_queue q, Func&& func ) {
       if ( q == exec_queue::read_write )
@@ -52,23 +57,41 @@ public:
    boost::asio::io_service& get_io_service() { return io_serv_; }
 
    bool execute_highest() {
-      if ( exec_window_ == exec_window::write ) {
-         // During write window only main thread is accessing anything in two_queue_executor, no locking required
-         if( !read_write_queue_.empty() && (read_only_queue_.empty() || *read_only_queue_.top() < *read_write_queue_.top()) )  {
-            // read_write_queue_'s top function's priority greater than read_only_queue_'s top function's, or read_only_queue_ empty
-            read_write_queue_.execute_highest();
-         } else if( !read_only_queue_.empty() ) {
-            read_only_queue_.execute_highest();
+      // execute for at least minimum runtime
+      const auto end = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(minimum_runtime_ms);
+
+      bool more = false;
+      while (true) {
+         if ( exec_window_ == exec_window::write ) {
+            // During write window only main thread is accessing anything in two_queue_executor, no locking required
+            if( !read_write_queue_.empty() && (read_only_queue_.empty() || *read_only_queue_.top() < *read_write_queue_.top()) )  {
+               // read_write_queue_'s top function's priority greater than read_only_queue_'s top function's, or read_only_queue_ empty
+               read_write_queue_.execute_highest();
+            } else if( !read_only_queue_.empty() ) {
+               read_only_queue_.execute_highest();
+            }
+            more = !read_only_queue_.empty() || !read_write_queue_.empty();
+         } else {
+            // When in read window, multiple threads including main app thread are accessing two_queue_executor, locking required
+            more = read_only_queue_.execute_highest_locked(false);
          }
-         return !read_only_queue_.empty() || !read_write_queue_.empty();
-      } else {
-         // When in read window, multiple threads including main app thread are accessing two_queue_executor, locking required
-         return read_only_queue_.execute_highest_locked(false);
+         if (!more || std::chrono::high_resolution_clock::now() > end)
+            break;
       }
+      return more;
    }
 
    bool execute_highest_read_only() {
-      return read_only_queue_.execute_highest_locked(true);
+      // execute for at least minimum runtime
+      const auto end = std::chrono::high_resolution_clock::now() + std::chrono::milliseconds(minimum_runtime_ms);
+
+      bool more = false;
+      while (true) {
+         more = read_only_queue_.execute_highest_locked( true );
+         if (!more || std::chrono::high_resolution_clock::now() > end)
+            break;
+      }
+      return more;
    }
 
    template <typename Function>

@@ -1,6 +1,5 @@
 #pragma once
 #include <boost/container/flat_map.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/iostreams/device/mapped_file.hpp>
 #include <fc/io/cfile.hpp>
 #include <fc/io/datastream.hpp>

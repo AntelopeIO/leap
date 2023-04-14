@@ -714,7 +714,7 @@ void send_actions(std::vector<chain::action>&& actions, const std::vector<public
       out.open(tx_json_save_file);
       EOSC_ASSERT(!out.fail(), "ERROR: Failed to create file \"${p}\"", ("p", tx_json_save_file));
    }
-   auto result = push_actions( move(actions), signing_keys);
+   auto result = push_actions( std::move(actions), signing_keys);
 
    string jsonstr;
    if (tx_json_save_file.length()) {

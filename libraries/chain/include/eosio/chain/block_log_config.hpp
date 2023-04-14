@@ -1,5 +1,4 @@
 #pragma once
-#include <boost/filesystem/path.hpp>
 #include <variant>
 
 namespace eosio { namespace chain {

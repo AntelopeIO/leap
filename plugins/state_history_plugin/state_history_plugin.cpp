@@ -149,11 +149,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       return head_timestamp;
    }
 
-   template <typename Task>
-   void post_task_main_thread_medium(Task&& task) {
-      app().post(priority::medium, std::forward<Task>(task));
-   }
-
    void listen() {
       boost::system::error_code ec;
 

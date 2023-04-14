@@ -69,7 +69,7 @@ class maybe_session {
       maybe_session() = default;
 
       maybe_session( maybe_session&& other)
-      :_session(move(other._session))
+         :_session(std::move(other._session))
       {
       }
 
@@ -96,7 +96,7 @@ class maybe_session {
 
       maybe_session& operator = ( maybe_session&& mv ) {
          if (mv._session) {
-            _session.emplace(move(*mv._session));
+            _session.emplace(std::move(*mv._session));
             mv._session.reset();
          } else {
             _session.reset();
@@ -150,7 +150,7 @@ struct pending_state {
                   block_timestamp_type when,
                   uint16_t num_prev_blocks_to_confirm,
                   const vector<digest_type>& new_protocol_feature_activations )
-   :_db_session( move(s) )
+   :_db_session( std::move(s) )
    ,_block_stage( building_block( prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations ) )
    {}
 
@@ -2429,7 +2429,7 @@ struct controller_impl {
       for( const auto& a : trxs )
          trx_digests.emplace_back( a.digest() );
 
-      return merkle( move(trx_digests) );
+      return merkle( std::move(trx_digests) );
    }
 
    void update_producers_authority() {
@@ -3115,13 +3115,17 @@ block_id_type controller::fork_db_head_block_id()const {
    return my->fork_db_head()->id;
 }
 
-time_point controller::pending_block_time()const {
+block_timestamp_type controller::pending_block_timestamp()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
 
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage)._block_state->header.timestamp;
 
    return my->pending->get_pending_block_header_state().timestamp;
+}
+
+time_point controller::pending_block_time()const {
+   return pending_block_timestamp();
 }
 
 uint32_t controller::pending_block_num()const {

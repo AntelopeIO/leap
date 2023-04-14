@@ -7,7 +7,7 @@
 #include <fc/variant_object.hpp>
 #include <fc/scoped_exit.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
 using std::map;
 using std::string;
@@ -81,19 +81,19 @@ struct abi_serializer {
    void        variant_to_binary( const std::string_view& type, const fc::variant& var, fc::datastream<char*>& ds, const yield_function_t& yield, bool short_path = false )const;
 
    template<typename T, typename Resolver>
-   static void to_variant( const T& o, fc::variant& vo, Resolver resolver, const yield_function_t& yield );
+   static void to_variant( const T& o, fc::variant& vo, const Resolver& resolver, const yield_function_t& yield );
    template<typename T, typename Resolver>
    [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
-   static void to_variant( const T& o, fc::variant& vo, Resolver resolver, const fc::microseconds& max_serialization_time );
+   static void to_variant( const T& o, fc::variant& vo, const Resolver& resolver, const fc::microseconds& max_serialization_time );
 
    template<typename T, typename Resolver>
-   static void to_log_variant( const T& o, fc::variant& vo, Resolver resolver, const yield_function_t& yield );
+   static void to_log_variant( const T& o, fc::variant& vo, const Resolver& resolver, const yield_function_t& yield );
 
    template<typename T, typename Resolver>
-   static void from_variant( const fc::variant& v, T& o, Resolver resolver, const yield_function_t& yield );
+   static void from_variant( const fc::variant& v, T& o, const Resolver& resolver, const yield_function_t& yield );
    template<typename T, typename Resolver>
    [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
-   static void from_variant( const fc::variant& v, T& o, Resolver resolver, const fc::microseconds& max_serialization_time );
+   static void from_variant( const fc::variant& v, T& o, const Resolver& resolver, const fc::microseconds& max_serialization_time );
 
    template<typename Vec>
    static bool is_empty_abi(const Vec& abi_vec)
@@ -335,7 +335,7 @@ namespace impl {
        * and can be degraded to the normal ::to_variant(...) processing
        */
       template<typename M, typename Resolver, not_require_abi_t<M> = 1>
-      static void add( mutable_variant_object &mvo, const char* name, const M& v, Resolver, abi_traverse_context& ctx )
+      static void add( mutable_variant_object &mvo, const char* name, const M& v, const Resolver&, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          mvo(name,v);
@@ -346,14 +346,14 @@ namespace impl {
        * for these types we create new ABI aware visitors
        */
       template<typename M, typename Resolver, require_abi_t<M> = 1>
-      static void add( mutable_variant_object &mvo, const char* name, const M& v, Resolver resolver, abi_traverse_context& ctx );
+      static void add( mutable_variant_object &mvo, const char* name, const M& v, const Resolver& resolver, abi_traverse_context& ctx );
 
       /**
        * template which overloads add for vectors of types which contain ABI information in their trees
        * for these members we call ::add in order to trigger further processing
        */
       template<typename M, typename Resolver, require_abi_t<M> = 1>
-      static void add( mutable_variant_object &mvo, const char* name, const vector<M>& v, Resolver resolver, abi_traverse_context& ctx )
+      static void add( mutable_variant_object &mvo, const char* name, const vector<M>& v, const Resolver& resolver, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          vector<fc::variant> array;
@@ -372,7 +372,7 @@ namespace impl {
       * for these members we call ::add in order to trigger further processing
       */
       template<typename M, typename Resolver, require_abi_t<M> = 1>
-      static void add( mutable_variant_object &mvo, const char* name, const deque<M>& v, Resolver resolver, abi_traverse_context& ctx )
+      static void add( mutable_variant_object &mvo, const char* name, const deque<M>& v, const Resolver& resolver, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          deque<fc::variant> array;
@@ -389,7 +389,7 @@ namespace impl {
        * for these members we call ::add in order to trigger further processing
        */
       template<typename M, typename Resolver, require_abi_t<M> = 1>
-      static void add( mutable_variant_object &mvo, const char* name, const std::shared_ptr<M>& v, Resolver resolver, abi_traverse_context& ctx )
+      static void add( mutable_variant_object &mvo, const char* name, const std::shared_ptr<M>& v, const Resolver& resolver, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          if( !v ) return;
@@ -402,10 +402,10 @@ namespace impl {
       struct add_static_variant
       {
          mutable_variant_object& obj_mvo;
-         Resolver& resolver;
+         const Resolver& resolver;
          abi_traverse_context& ctx;
 
-         add_static_variant( mutable_variant_object& o, Resolver& r, abi_traverse_context& ctx )
+         add_static_variant( mutable_variant_object& o, const Resolver& r, abi_traverse_context& ctx )
                :obj_mvo(o), resolver(r), ctx(ctx) {}
 
          typedef void result_type;
@@ -416,7 +416,7 @@ namespace impl {
       };
 
       template<typename Resolver, typename... Args>
-      static void add( mutable_variant_object &mvo, const char* name, const std::variant<Args...>& v, Resolver resolver, abi_traverse_context& ctx )
+      static void add( mutable_variant_object &mvo, const char* name, const std::variant<Args...>& v, const Resolver& resolver, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          mutable_variant_object obj_mvo;
@@ -426,7 +426,7 @@ namespace impl {
       }
 
       template<typename Resolver>
-      static bool add_special_logging( mutable_variant_object& mvo, const char* name, const action& act, Resolver& resolver, abi_traverse_context& ctx ) {
+      static bool add_special_logging( mutable_variant_object& mvo, const char* name, const action& act, const Resolver& resolver, abi_traverse_context& ctx ) {
          if( !ctx.is_logging() ) return false;
 
          try {
@@ -455,7 +455,7 @@ namespace impl {
        * @return
        */
       template<typename Resolver>
-      static void add( mutable_variant_object &out, const char* name, const action& act, Resolver resolver, abi_traverse_context& ctx )
+      static void add( mutable_variant_object &out, const char* name, const action& act, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<action>::total_member_count == 4);
          auto h = ctx.enter_scope();
@@ -485,14 +485,15 @@ namespace impl {
          };
 
          try {
-            auto abi = resolver(act.account);
-            if (abi) {
-               auto type = abi->get_action_type(act.name);
+            auto abi_optional = resolver(act.account);
+            if (abi_optional) {
+               const abi_serializer& abi = *abi_optional;
+               auto type = abi.get_action_type(act.name);
                if (!type.empty()) {
                   try {
-                     binary_to_variant_context _ctx(*abi, ctx, type);
+                     binary_to_variant_context _ctx(abi, ctx, type);
                      _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
-                     mvo( "data", abi->_binary_to_variant( type, act.data, _ctx ));
+                     mvo( "data", abi._binary_to_variant( type, act.data, _ctx ));
                   } catch(...) {
                      // any failure to serialize data, then leave as not serailzed
                      set_hex_data(mvo, "data", act.data);
@@ -520,7 +521,7 @@ namespace impl {
        * @return
        */
       template<typename Resolver>
-      static void add( mutable_variant_object& out, const char* name, const action_trace& act_trace, Resolver resolver, abi_traverse_context& ctx )
+      static void add( mutable_variant_object& out, const char* name, const action_trace& act_trace, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<action_trace>::total_member_count == 17);
          auto h = ctx.enter_scope();
@@ -546,13 +547,14 @@ namespace impl {
          mvo("return_value_hex_data", act_trace.return_value);
          auto act = act_trace.act;
          try {
-            auto abi = resolver(act.account);
-            if (abi) {
-               auto type = abi->get_action_result_type(act.name);
+            auto abi_optional = resolver(act.account);
+            if (abi_optional) {
+               const abi_serializer& abi = *abi_optional;
+               auto type = abi.get_action_result_type(act.name);
                if (!type.empty()) {
-                  binary_to_variant_context _ctx(*abi, ctx, type);
+                  binary_to_variant_context _ctx(abi, ctx, type);
                   _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
-                  mvo( "return_value_data", abi->_binary_to_variant( type, act_trace.return_value, _ctx ));
+                  mvo( "return_value_data", abi._binary_to_variant( type, act_trace.return_value, _ctx ));
                }
             }
          } catch(...) {}
@@ -569,7 +571,7 @@ namespace impl {
        * @return
        */
       template<typename Resolver>
-      static void add( mutable_variant_object &out, const char* name, const packed_transaction& ptrx, Resolver resolver, abi_traverse_context& ctx )
+      static void add( mutable_variant_object &out, const char* name, const packed_transaction& ptrx, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<packed_transaction>::total_member_count == 4);
          auto h = ctx.enter_scope();
@@ -593,7 +595,7 @@ namespace impl {
        * This matches the FC_REFLECT for this type, but this is provided to allow extracting the contents of trx.transaction_extensions
        */
       template<typename Resolver>
-      static void add( mutable_variant_object &out, const char* name, const transaction& trx, Resolver resolver, abi_traverse_context& ctx )
+      static void add( mutable_variant_object &out, const char* name, const transaction& trx, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<transaction>::total_member_count == 9);
          auto h = ctx.enter_scope();
@@ -624,7 +626,7 @@ namespace impl {
        * block.header_extensions and block.block_extensions
        */
       template<typename Resolver>
-      static void add( mutable_variant_object &out, const char* name, const signed_block& block, Resolver resolver, abi_traverse_context& ctx )
+      static void add( mutable_variant_object &out, const char* name, const signed_block& block, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<signed_block>::total_member_count == 12);
          auto h = ctx.enter_scope();
@@ -678,13 +680,13 @@ namespace impl {
     * this will degrade to the common fc::to_variant as soon as the type no longer contains
     * ABI related info
     *
-    * @tparam Reslover - callable with the signature (const name& code_account) -> std::optional<abi_def>
+    * @tparam Resolver - callable with the signature (const name& code_account) -> std::optional<abi_def>
     */
    template<typename T, typename Resolver>
    class abi_to_variant_visitor
    {
       public:
-         abi_to_variant_visitor( mutable_variant_object& _mvo, const T& _val, Resolver _resolver, abi_traverse_context& _ctx )
+         abi_to_variant_visitor( mutable_variant_object& _mvo, const T& _val, const Resolver& _resolver, abi_traverse_context& _ctx )
          :_vo(_mvo)
          ,_val(_val)
          ,_resolver(_resolver)
@@ -707,7 +709,7 @@ namespace impl {
       private:
          mutable_variant_object& _vo;
          const T& _val;
-         Resolver _resolver;
+         const Resolver& _resolver;
          abi_traverse_context& _ctx;
    };
 
@@ -728,14 +730,14 @@ namespace impl {
        * for these types we create new ABI aware visitors
        */
       template<typename M, typename Resolver, require_abi_t<M> = 1>
-      static void extract( const fc::variant& v, M& o, Resolver resolver, abi_traverse_context& ctx );
+      static void extract( const fc::variant& v, M& o, const Resolver& resolver, abi_traverse_context& ctx );
 
       /**
        * template which overloads extract for vectors of types which contain ABI information in their trees
        * for these members we call ::extract in order to trigger further processing
        */
       template<typename M, typename Resolver, require_abi_t<M> = 1>
-      static void extract( const fc::variant& v, vector<M>& o, Resolver resolver, abi_traverse_context& ctx )
+      static void extract( const fc::variant& v, vector<M>& o, const Resolver& resolver, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          const variants& array = v.get_array();
@@ -753,7 +755,7 @@ namespace impl {
   * for these members we call ::extract in order to trigger further processing
   */
       template<typename M, typename Resolver, require_abi_t<M> = 1>
-      static void extract( const fc::variant& v, deque<M>& o, Resolver resolver, abi_traverse_context& ctx )
+      static void extract( const fc::variant& v, deque<M>& o, const Resolver& resolver, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          const variants& array = v.get_array();
@@ -771,7 +773,7 @@ namespace impl {
        * for these members we call ::extract in order to trigger further processing
        */
       template<typename M, typename Resolver, require_abi_t<M> = 1>
-      static void extract( const fc::variant& v, std::shared_ptr<M>& o, Resolver resolver, abi_traverse_context& ctx )
+      static void extract( const fc::variant& v, std::shared_ptr<M>& o, const Resolver& resolver, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          const variant_object& vo = v.get_object();
@@ -786,7 +788,7 @@ namespace impl {
        * exploded and processed explicitly
        */
       template<typename Resolver>
-      static void extract( const fc::variant& v, action& act, Resolver resolver, abi_traverse_context& ctx )
+      static void extract( const fc::variant& v, action& act, const Resolver& resolver, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          const variant_object& vo = v.get_object();
@@ -833,7 +835,7 @@ namespace impl {
       }
 
       template<typename Resolver>
-      static void extract( const fc::variant& v, packed_transaction& ptrx, Resolver resolver, abi_traverse_context& ctx )
+      static void extract( const fc::variant& v, packed_transaction& ptrx, const Resolver& resolver, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          const variant_object& vo = v.get_object();
@@ -890,7 +892,7 @@ namespace impl {
    class abi_from_variant_visitor : public reflector_init_visitor<T>
    {
       public:
-         abi_from_variant_visitor( const variant_object& _vo, T& v, Resolver _resolver, abi_traverse_context& _ctx )
+         abi_from_variant_visitor( const variant_object& _vo, T& v, const Resolver& _resolver, abi_traverse_context& _ctx )
          : reflector_init_visitor<T>(v)
          ,_vo(_vo)
          ,_resolver(_resolver)
@@ -914,12 +916,12 @@ namespace impl {
 
       private:
          const variant_object& _vo;
-         Resolver _resolver;
+         const Resolver& _resolver;
          abi_traverse_context& _ctx;
    };
 
    template<typename M, typename Resolver, require_abi_t<M>>
-   void abi_to_variant::add( mutable_variant_object &mvo, const char* name, const M& v, Resolver resolver, abi_traverse_context& ctx )
+   void abi_to_variant::add( mutable_variant_object &mvo, const char* name, const M& v, const Resolver& resolver, abi_traverse_context& ctx )
    {
       auto h = ctx.enter_scope();
       mutable_variant_object member_mvo;
@@ -928,7 +930,7 @@ namespace impl {
    }
 
    template<typename M, typename Resolver, require_abi_t<M>>
-   void abi_from_variant::extract( const fc::variant& v, M& o, Resolver resolver, abi_traverse_context& ctx )
+   void abi_from_variant::extract( const fc::variant& v, M& o, const Resolver& resolver, abi_traverse_context& ctx )
    {
       auto h = ctx.enter_scope();
       const variant_object& vo = v.get_object();
@@ -937,7 +939,7 @@ namespace impl {
 } /// namespace eosio::chain::impl
 
 template<typename T, typename Resolver>
-void abi_serializer::to_variant( const T& o, fc::variant& vo, Resolver resolver, const yield_function_t& yield ) try {
+void abi_serializer::to_variant( const T& o, fc::variant& vo, const Resolver& resolver, const yield_function_t& yield ) try {
    mutable_variant_object mvo;
    impl::abi_traverse_context ctx( yield );
    impl::abi_to_variant::add(mvo, "_", o, resolver, ctx);
@@ -945,12 +947,12 @@ void abi_serializer::to_variant( const T& o, fc::variant& vo, Resolver resolver,
 } FC_RETHROW_EXCEPTIONS(error, "Failed to serialize: ${type}", ("type", boost::core::demangle( typeid(o).name() ) ))
 
 template<typename T, typename Resolver>
-void abi_serializer::to_variant( const T& o, fc::variant& vo, Resolver resolver, const fc::microseconds& max_serialization_time ) {
+void abi_serializer::to_variant( const T& o, fc::variant& vo, const Resolver& resolver, const fc::microseconds& max_serialization_time ) {
    to_variant( o, vo, resolver, create_yield_function(max_serialization_time) );
 }
 
 template<typename T, typename Resolver>
-void abi_serializer::to_log_variant( const T& o, fc::variant& vo, Resolver resolver, const yield_function_t& yield ) try {
+void abi_serializer::to_log_variant( const T& o, fc::variant& vo, const Resolver& resolver, const yield_function_t& yield ) try {
     mutable_variant_object mvo;
     impl::abi_traverse_context ctx( yield );
     ctx.logging();
@@ -960,15 +962,83 @@ void abi_serializer::to_log_variant( const T& o, fc::variant& vo, Resolver resol
 
 
 template<typename T, typename Resolver>
-void abi_serializer::from_variant( const fc::variant& v, T& o, Resolver resolver, const yield_function_t& yield ) try {
+void abi_serializer::from_variant( const fc::variant& v, T& o, const Resolver& resolver, const yield_function_t& yield ) try {
    impl::abi_traverse_context ctx( yield );
    impl::abi_from_variant::extract(v, o, resolver, ctx);
 } FC_RETHROW_EXCEPTIONS(error, "Failed to deserialize variant", ("variant",v))
 
 template<typename T, typename Resolver>
-void abi_serializer::from_variant( const fc::variant& v, T& o, Resolver resolver, const fc::microseconds& max_serialization_time ) {
+void abi_serializer::from_variant( const fc::variant& v, T& o, const Resolver& resolver, const fc::microseconds& max_serialization_time ) {
    from_variant( v, o, resolver, create_yield_function(max_serialization_time) );
 }
 
+using abi_serializer_cache_t = std::unordered_map<account_name, std::optional<abi_serializer>>;
+   
+class abi_resolver {
+public:
+   abi_resolver(abi_serializer_cache_t&& abi_serializers) :
+      abi_serializers(std::move(abi_serializers))
+   {}
 
-} } // eosio::chain
+   std::optional<std::reference_wrapper<const abi_serializer>> operator()(const account_name& account) const {
+      auto it = abi_serializers.find(account);
+      if (it != abi_serializers.end() && it->second)
+         return std::reference_wrapper<const abi_serializer>(*it->second);
+      return {};
+   };
+
+private:
+   abi_serializer_cache_t abi_serializers;
+};
+
+class abi_serializer_cache_builder {
+public:
+   abi_serializer_cache_builder(std::function<std::optional<abi_serializer>(const account_name& name)> resolver) :
+      resolver_(std::move(resolver))
+   {
+   }
+
+   abi_serializer_cache_builder(const abi_serializer_cache_builder&) = delete;
+
+   abi_serializer_cache_builder&& add_serializers(const chain::signed_block_ptr& block) && {
+      for( const auto& receipt: block->transactions ) {
+         if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
+            const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
+            const auto& t = pt.get_transaction();
+            for( const auto& a: t.actions )
+               add_to_cache( a );
+            for( const auto& a: t.context_free_actions )
+               add_to_cache( a );
+         }
+      }
+      return std::move(*this);
+   }
+
+   abi_serializer_cache_builder&& add_serializers(const transaction_trace_ptr& trace_ptr) && {
+      for( const auto& trace: trace_ptr->action_traces ) {
+         add_to_cache(trace.act);
+      }
+      return std::move(*this);
+   }
+
+   abi_serializer_cache_t&& get() && {
+      return std::move(abi_serializers);
+   }
+
+private:
+   void add_to_cache(const chain::action& a) {
+      auto it = abi_serializers.find( a.account );
+      if( it == abi_serializers.end() ) {
+         try {
+            abi_serializers.emplace_hint( it, a.account, resolver_( a.account ) );
+         } catch( ... ) {
+            // keep behavior of not throwing on invalid abi, will result in hex data
+         }
+      }
+   }
+
+   std::function<std::optional<abi_serializer>(const account_name& name)> resolver_;
+   abi_serializer_cache_t abi_serializers;
+};
+
+} // eosio::chain

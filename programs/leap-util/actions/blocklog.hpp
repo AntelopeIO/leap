@@ -1,5 +1,4 @@
 #include "subcommand.hpp"
-#include <boost/filesystem/path.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/config.hpp>
 
