@@ -507,7 +507,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          const chain::controller& chain = chain_plug->chain();
          EOS_ASSERT(chain.is_write_window(), producer_exception, "write window is expected for on_irreversible_block signal");
          _irreversible_block_time = lib->timestamp.to_time_point();
-         _snapshot_scheduler.on_irreversible_block(lib);
+         _snapshot_scheduler.on_irreversible_block(lib, chain);
       }
 
       void update_block_metrics() {
@@ -1188,29 +1188,8 @@ void producer_plugin::plugin_startup()
    my->_accepted_block_connection.emplace(chain.accepted_block.connect( [this]( const auto& bsp ){ my->on_block( bsp ); } ));
    my->_accepted_block_header_connection.emplace(chain.accepted_block_header.connect( [this]( const auto& bsp ){ my->on_block_header( bsp ); } ));
    my->_irreversible_block_connection.emplace(chain.irreversible_block.connect( [this]( const auto& bsp ){ my->on_irreversible_block( bsp->block ); } ));
-   my->_block_start_connection.emplace(chain.block_start.connect( [this]( uint32_t bs ){ my->_snapshot_scheduler.on_start_block(bs); } ));
-
-   // controller hook
-   my->_snapshot_scheduler.set_controller([this] {
-      return &(my->chain_plug->chain());
-   });
-  
-   // to be executed right before taking snapshot
-   my->_snapshot_scheduler.set_predicate([this] {
-      auto reschedule = fc::make_scoped_exit([this](){
-         my->schedule_production_loop();
-      });
-
-      chain::controller& chain = my->chain_plug->chain();
-      if (chain.is_building_block()) {
-         // abort the pending block
-         my->abort_block();
-      } else {
-         reschedule.cancel();
-      }      
-   });
-
-  
+   my->_block_start_connection.emplace(chain.block_start.connect( [this, &chain]( uint32_t bs ){ my->_snapshot_scheduler.on_start_block(bs, chain); } ));
+ 
    const auto lib_num = chain.last_irreversible_block_num();
    const auto lib = chain.fetch_block_by_number(lib_num);
    if (lib) {
@@ -1446,21 +1425,22 @@ producer_plugin::integrity_hash_information producer_plugin::get_integrity_hash(
 }
 
 void producer_plugin::create_snapshot(producer_plugin::next_function<chain::snapshot_scheduler::snapshot_information> next) {
-  /*
-   auto predicate = [] {
-      auto reschedule = fc::make_scoped_exit([this](){
-         my->schedule_production_loop();
-      });
+   chain::controller& chain = my->chain_plug->chain();
+   
+   auto reschedule = fc::make_scoped_exit([this](){
+      my->schedule_production_loop();
+   });
 
-      if (_chain.is_building_block()) {
+   auto predicate = [&]() -> void {
+      if (chain.is_building_block()) {
          // abort the pending block
          my->abort_block();
       } else {
          reschedule.cancel();
       }
    };
-*/
-   my->_snapshot_scheduler.create_snapshot(next);
+ 
+   my->_snapshot_scheduler.create_snapshot(next, chain, predicate);
 }
 
 chain::snapshot_scheduler::snapshot_schedule_result producer_plugin::schedule_snapshot(const chain::snapshot_scheduler::snapshot_request_information& sri)

@@ -93,15 +93,6 @@ private:
    // path to write the snapshots to
    bfs::path _snapshots_dir;
 
-   // predicate to snapshot creation
-   std::function<void()> _predicate = [=]() {
-   };
-
-   // predicate to snapshot creation
-   std::function<chain::controller*()> _chain = [=]() -> chain::controller* {
-      return NULL;
-   };
-
    void x_serialize() {
       auto& vec = _snapshot_requests.get<as_vector>();
       std::vector<snapshot_scheduler::snapshot_schedule_information> sr(vec.begin(), vec.end());
@@ -112,10 +103,10 @@ public:
    snapshot_scheduler() = default;
 
    // snapshot scheduler listener
-   void on_start_block(uint32_t height);
+   void on_start_block(uint32_t height, chain::controller& chain);
 
    // to promote pending snapshots
-   void on_irreversible_block(const signed_block_ptr& lib);
+   void on_irreversible_block(const signed_block_ptr& lib, const chain::controller& chain);
 
    // snapshot scheduler handlers
    snapshot_scheduler::snapshot_schedule_result schedule_snapshot(const snapshot_scheduler::snapshot_request_information& sri);
@@ -128,24 +119,14 @@ public:
    // set snapshot path
    void set_snapshots_path(bfs::path sn_path);
 
-   // set predicate
-   void set_predicate(std::function<void()> fun) {
-      _predicate = std::move(fun);
-   }
-
-   // set controller
-   void set_controller(std::function<chain::controller*()> chain) {
-      _chain = std::move(chain);
-   }
-
    // add pending snapshot info to inflight snapshot request
    void add_pending_snapshot_info(const snapshot_scheduler::snapshot_information& si);
 
    // execute snapshot
-   void execute_snapshot(uint32_t srid);
+   void execute_snapshot(uint32_t srid, chain::controller& chain);
 
    // former producer_plugin snapshot fn
-   void create_snapshot(snapshot_scheduler::next_function<snapshot_scheduler::snapshot_information> next);
+   void create_snapshot(snapshot_scheduler::next_function<snapshot_scheduler::snapshot_information> next, chain::controller& chain, std::function<void(void)> predicate);
 };
 }// namespace chain
 }// namespace eosio

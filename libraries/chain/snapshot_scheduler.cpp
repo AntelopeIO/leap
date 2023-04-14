@@ -8,17 +8,17 @@ namespace eosio {
 namespace chain {
 
 // snapshot_scheduler_listener
-void snapshot_scheduler::on_start_block(uint32_t height) {
+void snapshot_scheduler::on_start_block(uint32_t height, chain::controller& chain) {
    bool serialize_needed = false;
    bool snapshot_executed = false;
 
-   auto execute_snapshot_with_log = [this, height, &snapshot_executed](const auto& req) {
+   auto execute_snapshot_with_log = [this, height, &snapshot_executed, &chain](const auto& req) {
       // one snapshot per height
       if(!snapshot_executed) {
          dlog("snapshot scheduler creating a snapshot from the request [start_block_num:${start_block_num}, end_block_num=${end_block_num}, block_spacing=${block_spacing}], height=${height}",
               ("start_block_num", req.start_block_num)("end_block_num", req.end_block_num)("block_spacing", req.block_spacing)("height", height));
 
-         execute_snapshot(req.snapshot_request_id);
+         execute_snapshot(req.snapshot_request_id, chain);
          snapshot_executed = true;
       }
    };
@@ -60,18 +60,16 @@ void snapshot_scheduler::on_start_block(uint32_t height) {
    if(serialize_needed) x_serialize();
 }
 
-void snapshot_scheduler::on_irreversible_block(const signed_block_ptr& lib) {
+void snapshot_scheduler::on_irreversible_block(const signed_block_ptr& lib, const chain::controller& chain) {
    auto& snapshots_by_height = _pending_snapshot_index.get<by_height>();
    uint32_t lib_height = lib->block_num();
-   chain::controller * chain = _chain();
-   EOS_ASSERT(chain, snapshot_exception, "Controller is not set");
 
    while(!snapshots_by_height.empty() && snapshots_by_height.begin()->get_height() <= lib_height) {
       const auto& pending = snapshots_by_height.begin();
       auto next = pending->next;
 
       try {
-         next(pending->finalize(*chain));
+         next(pending->finalize(chain));
       }
       CATCH_AND_CALL(next);
 
@@ -147,7 +145,7 @@ void snapshot_scheduler::add_pending_snapshot_info(const snapshot_scheduler::sna
    }
 }
 
-void snapshot_scheduler::execute_snapshot(uint32_t srid) {
+void snapshot_scheduler::execute_snapshot(uint32_t srid, chain::controller& chain) {
    _inflight_sid = srid;
    auto next = [srid, this](const chain::next_function_variant<snapshot_scheduler::snapshot_information>& result) {
       if(std::holds_alternative<fc::exception_ptr>(result)) {
@@ -175,15 +173,13 @@ void snapshot_scheduler::execute_snapshot(uint32_t srid) {
          }
       }
    };
-   create_snapshot(next);
+   create_snapshot(next, chain, {});
 }
 
-void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snapshot_scheduler::snapshot_information> next) {
-   chain::controller * chain = _chain();
-   EOS_ASSERT(chain, snapshot_exception, "Controller is not set");
-   auto head_id = chain->head_block_id();
-   const auto head_block_num = chain->head_block_num();
-   const auto head_block_time = chain->head_block_time();
+void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snapshot_scheduler::snapshot_information> next, chain::controller& chain,  std::function<void(void)> predicate) {
+   auto head_id = chain.head_block_id();
+   const auto head_block_num = chain.head_block_num();
+   const auto head_block_time = chain.head_block_time();
    const auto& snapshot_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_final_path(head_id, _snapshots_dir);
    const auto& temp_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_temp_path(head_id, _snapshots_dir);
 
@@ -195,26 +191,20 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
    }
 
    auto write_snapshot = [&](const bfs::path& p) -> void {
-      _predicate();
-
+      if (predicate) predicate();
       bfs::create_directory(p.parent_path());
-
-      // create the snapshot
       auto snap_out = std::ofstream(p.generic_string(), (std::ios::out | std::ios::binary));
       auto writer = std::make_shared<ostream_snapshot_writer>(snap_out);
-      chain->write_snapshot(writer);
+      chain.write_snapshot(writer);
       writer->finalize();
       snap_out.flush();
       snap_out.close();
    };
 
    // If in irreversible mode, create snapshot and return path to snapshot immediately.
-   if(chain->get_read_mode() == db_read_mode::IRREVERSIBLE) {
+   if(chain.get_read_mode() == db_read_mode::IRREVERSIBLE) {
       try {
-         EOS_ASSERT(false, snapshot_exception, "POOP");
-
          write_snapshot(temp_path);
-
          boost::system::error_code ec;
          bfs::rename(temp_path, snapshot_path, ec);
          EOS_ASSERT(!ec, snapshot_finalization_exception,
