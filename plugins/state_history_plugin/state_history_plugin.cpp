@@ -23,21 +23,6 @@
 namespace ws = boost::beast::websocket;
 
 
-/* Prior to boost 1.70, if socket type is not boost::asio::ip::tcp::socket nor boost::asio::ssl::stream beast requires
-   an overload of async_teardown. This has been improved in 1.70+ to support any basic_stream_socket<> out of the box
-   which includes unix sockets. */
-#if BOOST_VERSION < 107000
-namespace boost::beast::websocket {
-template <typename TeardownHandler>
-void async_teardown(role_type, unixs::socket& sock, TeardownHandler&& handler) {
-   boost::system::error_code ec;
-   sock.close(ec);
-   boost::asio::post(boost::asio::get_associated_executor(handler, sock.get_executor()),
-                     [h = std::move(handler), ec]() mutable { h(ec); });
-}
-} // namespace boost::beast::websocket
-#endif
-
 namespace eosio {
 using namespace chain;
 using namespace state_history;
@@ -162,11 +147,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    time_point get_head_block_timestamp() const {
       std::lock_guard g(mtx);
       return head_timestamp;
-   }
-
-   template <typename Task>
-   void post_task_main_thread_medium(Task&& task) {
-      app().post(priority::medium, std::forward<Task>(task));
    }
 
    void listen() {

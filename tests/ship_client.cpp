@@ -21,16 +21,6 @@ namespace ws = boost::beast::websocket;
 
 namespace bpo = boost::program_options;
 
-/* Prior to boost 1.70, if socket type is not boost::asio::ip::tcp::socket nor boost::asio::ssl::stream beast requires
-   an overload of async_/teardown. This has been improved in 1.70+ to support any basic_stream_socket<> out of the box
-   which includes unix sockets. */
-#if BOOST_VERSION < 107000
-namespace boost::beast::websocket {
-void teardown(role_type, unixs::socket& sock, error_code& ec) {
-   sock.close(ec);
-}
-}
-#endif
 
 int main(int argc, char* argv[]) {
    boost::asio::io_context ctx;

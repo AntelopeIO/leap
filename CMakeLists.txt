@@ -109,7 +109,7 @@ set(Boost_USE_MULTITHREADED      ON)
 set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
 # Most boost deps get implictly picked up via fc, as just about everything links to fc. In addition we pick up
 # the pthread dependency through fc.
-find_package(Boost 1.67 REQUIRED COMPONENTS program_options unit_test_framework system)
+find_package(Boost 1.70 REQUIRED COMPONENTS program_options unit_test_framework system)
 
 if( APPLE AND UNIX )
 # Apple Specific Options Here
@@ -268,18 +268,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib/python3/dist-packages/TestHarness DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages COMPONENT dev EXCLUDE_FROM_ALL)
    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/share/leap_testing/bin DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing COMPONENT dev EXCLUDE_FROM_ALL)
 else()
-   # The following install(CODE ...) steps are necessary for `make dev-install` to work on cmake versions < 3.21.
-   # However, it can flag as an error if using `make package` instead of `make dev-install` for installation.
-   # This is due to those directories and symbolic links being created in the postinit script during the package install instead.
-
-   # Note If/when doing `make package`, it is not a true error if you see:
-   # Error creating directory "/<leap_install_dir>/lib/python3/dist-packages".
-   # CMake Error: failed to create symbolic link '/<leap_install_dir>/lib/python3/dist-packages/TestHarness': no such file or directory
-   # CMake Error: failed to create symbolic link '/<leap_install_dir>/share/leap_testing/bin': no such file or directory
-
-   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages)" COMPONENT dev EXCLUDE_FROM_ALL)
-   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../../share/leap_testing/tests/TestHarness ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness)" COMPONENT dev EXCLUDE_FROM_ALL)
-   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin)" COMPONENT dev EXCLUDE_FROM_ALL)
+   # The following install(SCRIPT ...) steps are necessary for `make dev-install` to work on cmake versions < 3.21.
+   install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/scripts/install_testharness_symlinks.cmake COMPONENT dev EXCLUDE_FROM_ALL)
 
    # The `make package` installation of symlinks happens via the `postinst` script installed in cmake.package via the line below
 endif()

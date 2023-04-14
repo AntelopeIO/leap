@@ -822,8 +822,7 @@ class PluginHttpTest(unittest.TestCase):
         # update_runtime_options with valid parameter
         payload = {"max_transaction_time":30,
                    "max_irreversible_block_age":1,
-                   "produce_time_offset_us":10000,
-                   "last_block_time_offset_us":0,
+                   "cpu_effort_us":400000,
                    "max_scheduled_transaction_time_per_block_ms":10000,
                    "subjective_cpu_leeway_us":0,
                    "incoming_defer_ratio":1.0,
@@ -1341,8 +1340,8 @@ class PluginHttpTest(unittest.TestCase):
     def test_prometheusApi(self) :
         resource = "prometheus"
         command = "metrics"
-
-        ret_text = self.nodeos.processUrllibRequest(resource, command, returnType = ReturnType.raw ).decode()
+        endpointPrometheus = f'http://{self.nodeos.host}:9101'
+        ret_text = self.nodeos.processUrllibRequest(resource, command, returnType = ReturnType.raw, method="GET", endpoint=endpointPrometheus).decode()
         # filter out all empty lines or lines starting with '#'
         data_lines = filter(lambda line: len(line) > 0 and line[0]!='#', ret_text.split('\n'))
         # converting each line into a key value pair and then construct a dictionay out of all the pairs
@@ -1352,6 +1351,8 @@ class PluginHttpTest(unittest.TestCase):
         self.assertTrue(int(metrics["blocks_produced"]) > 1)
         self.assertTrue(int(metrics["last_irreversible"]) > 1)
 
+        ret = self.nodeos.processUrllibRequest(resource, "m", returnType = ReturnType.raw, method="GET", silentErrors= True, endpoint=endpointPrometheus)
+        self.assertTrue(ret == 404)
 
     def test_multipleRequests(self):
         """Test keep-alive ability of HTTP plugin.  Handle multiple requests in a single session"""

@@ -48,8 +48,7 @@ public:
    struct runtime_options {
       std::optional<int32_t>   max_transaction_time;
       std::optional<int32_t>   max_irreversible_block_age;
-      std::optional<int32_t>   produce_time_offset_us;
-      std::optional<int32_t>   last_block_time_offset_us;
+      std::optional<int32_t>   cpu_effort_us;
       std::optional<int32_t>   max_scheduled_transaction_time_per_block_ms;
       std::optional<int32_t>   subjective_cpu_leeway_us;
       std::optional<double>    incoming_defer_ratio;
@@ -94,8 +93,11 @@ public:
       uint32_t snapshot_request_id = 0;
    };
 
+   struct snapshot_schedule_result : public snapshot_request_id_information, public snapshot_request_information {
+   };
+
    struct snapshot_schedule_information : public snapshot_request_id_information, public snapshot_request_information {
-      std::optional<std::vector<snapshot_information>> pending_snapshots;
+      std::vector<snapshot_information> pending_snapshots;
    };
 
    struct get_snapshot_requests_result {
@@ -124,7 +126,7 @@ public:
    };
 
    template<typename T>
-   using next_function = std::function<void(const std::variant<fc::exception_ptr, T>&)>;
+   using next_function = eosio::chain::next_function<T>;
 
    producer_plugin();
    virtual ~producer_plugin();
@@ -159,8 +161,8 @@ public:
    integrity_hash_information get_integrity_hash() const;
 
    void create_snapshot(next_function<snapshot_information> next);
-   void schedule_snapshot(const snapshot_request_information& schedule);
-   void unschedule_snapshot(const snapshot_request_id_information& schedule);
+   snapshot_schedule_result schedule_snapshot(const snapshot_request_information& schedule);
+   snapshot_schedule_result unschedule_snapshot(const snapshot_request_id_information& schedule);
    get_snapshot_requests_result get_snapshot_requests() const;
 
    scheduled_protocol_feature_activations get_scheduled_protocol_feature_activations() const;
@@ -209,13 +211,13 @@ public:
    static void set_test_mode(bool m) { test_mode_ = m; }
  private:
    inline static bool test_mode_{false}; // to be moved into appbase (application_base)
-   
+
    std::shared_ptr<class producer_plugin_impl> my;
 };
 
 } //eosio
 
-FC_REFLECT(eosio::producer_plugin::runtime_options, (max_transaction_time)(max_irreversible_block_age)(produce_time_offset_us)(last_block_time_offset_us)(max_scheduled_transaction_time_per_block_ms)(subjective_cpu_leeway_us)(incoming_defer_ratio)(greylist_limit));
+FC_REFLECT(eosio::producer_plugin::runtime_options, (max_transaction_time)(max_irreversible_block_age)(cpu_effort_us)(max_scheduled_transaction_time_per_block_ms)(subjective_cpu_leeway_us)(incoming_defer_ratio)(greylist_limit));
 FC_REFLECT(eosio::producer_plugin::greylist_params, (accounts));
 FC_REFLECT(eosio::producer_plugin::whitelist_blacklist, (actor_whitelist)(actor_blacklist)(contract_whitelist)(contract_blacklist)(action_blacklist)(key_blacklist) )
 FC_REFLECT(eosio::producer_plugin::integrity_hash_information, (head_block_id)(integrity_hash))
@@ -224,6 +226,7 @@ FC_REFLECT(eosio::producer_plugin::snapshot_request_information, (block_spacing)
 FC_REFLECT(eosio::producer_plugin::snapshot_request_id_information, (snapshot_request_id))
 FC_REFLECT(eosio::producer_plugin::get_snapshot_requests_result, (snapshot_requests))
 FC_REFLECT_DERIVED(eosio::producer_plugin::snapshot_schedule_information, (eosio::producer_plugin::snapshot_request_id_information)(eosio::producer_plugin::snapshot_request_information), (pending_snapshots))
+FC_REFLECT_DERIVED(eosio::producer_plugin::snapshot_schedule_result, (eosio::producer_plugin::snapshot_request_id_information)(eosio::producer_plugin::snapshot_request_information),)
 FC_REFLECT(eosio::producer_plugin::scheduled_protocol_feature_activations, (protocol_features_to_activate))
 FC_REFLECT(eosio::producer_plugin::get_supported_protocol_features_params, (exclude_disabled)(exclude_unactivatable))
 FC_REFLECT(eosio::producer_plugin::get_account_ram_corrections_params, (lower_bound)(upper_bound)(limit)(reverse))

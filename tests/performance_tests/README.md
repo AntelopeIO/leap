@@ -450,10 +450,7 @@ usage: performance_test.py testBpOpMode overrideBasicTestConfig
        [--cluster-log-lvl {all,debug,info,warn,error,off}]
        [--net-threads NET_THREADS]
        [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
-       [--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US]
-       [--produce-time-offset-us PRODUCE_TIME_OFFSET_US]
        [--cpu-effort-percent CPU_EFFORT_PERCENT]
-       [--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT]
        [--producer-threads PRODUCER_THREADS]
        [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
        [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
@@ -532,20 +529,10 @@ Performance Test Basic Base:
   --disable-subjective-billing DISABLE_SUBJECTIVE_BILLING
                         Disable subjective CPU billing for API/P2P
                         transactions
-  --last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US
-                        Offset of last block producing time in microseconds.
-                        Valid range 0 .. -block_time_interval.
-  --produce-time-offset-us PRODUCE_TIME_OFFSET_US
-                        Offset of non last block producing time in
-                        microseconds. Valid range 0 .. -block_time_interval.
   --cpu-effort-percent CPU_EFFORT_PERCENT
                         Percentage of cpu block production time used to
                         produce block. Whole number percentages, e.g. 80 for
                         80%
-  --last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT
-                        Percentage of cpu block production time used to
-                        produce last block. Whole number percentages, e.g. 80
-                        for 80%
   --producer-threads PRODUCER_THREADS
                         Number of worker threads in producer thread pool
   --http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS
@@ -624,10 +611,7 @@ The following scripts are typically used by the Performance Harness main script 
                                   [--cluster-log-lvl {all,debug,info,warn,error,off}]
                                   [--net-threads NET_THREADS]
                                   [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
-                                  [--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US]
-                                  [--produce-time-offset-us PRODUCE_TIME_OFFSET_US]
                                   [--cpu-effort-percent CPU_EFFORT_PERCENT]
-                                  [--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT]
                                   [--producer-threads PRODUCER_THREADS]
                                   [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
                                   [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
@@ -720,21 +704,10 @@ Performance Test Basic Base:
   --disable-subjective-billing DISABLE_SUBJECTIVE_BILLING
                         Disable subjective CPU billing for API/P2P
                         transactions (default: True)
-  --last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US
-                        Offset of last block producing time in microseconds.
-                        Valid range 0 .. -block_time_interval. (default: 0)
-  --produce-time-offset-us PRODUCE_TIME_OFFSET_US
-                        Offset of non last block producing time in
-                        microseconds. Valid range 0 .. -block_time_interval.
-                        (default: 0)
   --cpu-effort-percent CPU_EFFORT_PERCENT
                         Percentage of cpu block production time used to
                         produce block. Whole number percentages, e.g. 80 for
                         80% (default: 100)
-  --last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT
-                        Percentage of cpu block production time used to
-                        produce last block. Whole number percentages, e.g. 80
-                        for 80% (default: 100)
   --producer-threads PRODUCER_THREADS
                         Number of worker threads in producer thread pool
                         (default: 2)
@@ -1519,18 +1492,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "greylistLimit": null,
         "_greylistLimitNodeosDefault": 1000,
         "_greylistLimitNodeosArg": "--greylist-limit",
-        "produceTimeOffsetUs": 0,
-        "_produceTimeOffsetUsNodeosDefault": 0,
-        "_produceTimeOffsetUsNodeosArg": "--produce-time-offset-us",
-        "lastBlockTimeOffsetUs": 0,
-        "_lastBlockTimeOffsetUsNodeosDefault": -200000,
-        "_lastBlockTimeOffsetUsNodeosArg": "--last-block-time-offset-us",
         "cpuEffortPercent": 100,
         "_cpuEffortPercentNodeosDefault": 80,
         "_cpuEffortPercentNodeosArg": "--cpu-effort-percent",
-        "lastBlockCpuEffortPercent": 100,
-        "_lastBlockCpuEffortPercentNodeosDefault": 80,
-        "_lastBlockCpuEffortPercentNodeosArg": "--last-block-cpu-effort-percent",
         "maxBlockCpuUsageThresholdUs": null,
         "_maxBlockCpuUsageThresholdUsNodeosDefault": 5000,
         "_maxBlockCpuUsageThresholdUsNodeosArg": "--max-block-cpu-usage-threshold-us",
@@ -1735,7 +1699,7 @@ The Performance Test Basic generates, by default, a report that details results 
 
 <details>
     <summary>Expand for full sample report</summary>
-    
+
 ``` json
 {
   "completedRun": true,
@@ -2156,18 +2120,9 @@ The Performance Test Basic generates, by default, a report that details results 
         "greylistLimit": null,
         "_greylistLimitNodeosDefault": 1000,
         "_greylistLimitNodeosArg": "--greylist-limit",
-        "produceTimeOffsetUs": 0,
-        "_produceTimeOffsetUsNodeosDefault": 0,
-        "_produceTimeOffsetUsNodeosArg": "--produce-time-offset-us",
-        "lastBlockTimeOffsetUs": 0,
-        "_lastBlockTimeOffsetUsNodeosDefault": -200000,
-        "_lastBlockTimeOffsetUsNodeosArg": "--last-block-time-offset-us",
         "cpuEffortPercent": 100,
         "_cpuEffortPercentNodeosDefault": 80,
         "_cpuEffortPercentNodeosArg": "--cpu-effort-percent",
-        "lastBlockCpuEffortPercent": 100,
-        "_lastBlockCpuEffortPercentNodeosDefault": 80,
-        "_lastBlockCpuEffortPercentNodeosArg": "--last-block-cpu-effort-percent",
         "maxBlockCpuUsageThresholdUs": null,
         "_maxBlockCpuUsageThresholdUsNodeosDefault": 5000,
         "_maxBlockCpuUsageThresholdUsNodeosArg": "--max-block-cpu-usage-threshold-us",
