@@ -63,13 +63,15 @@ void snapshot_scheduler::on_start_block(uint32_t height) {
 void snapshot_scheduler::on_irreversible_block(const signed_block_ptr& lib) {
    auto& snapshots_by_height = _pending_snapshot_index.get<by_height>();
    uint32_t lib_height = lib->block_num();
+   chain::controller * chain = _chain();
+   EOS_ASSERT(chain, snapshot_exception, "Controller is not set");
 
    while(!snapshots_by_height.empty() && snapshots_by_height.begin()->get_height() <= lib_height) {
       const auto& pending = snapshots_by_height.begin();
       auto next = pending->next;
 
       try {
-         next(pending->finalize(*_chain));
+         next(pending->finalize(*chain));
       }
       CATCH_AND_CALL(next);
 
@@ -153,10 +155,10 @@ void snapshot_scheduler::execute_snapshot(uint32_t srid) {
             std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();
          } catch(const fc::exception& e) {
             elog("snapshot creation error: ${details}", ("details", e.to_detail_string()));
-            //appbase::app().quit();
+            return;
          } catch(const std::exception& e) {
             elog("snapshot creation error: ${details}", ("details", e.what()));
-            //appbase::app().quit();
+            return;
          }
       } else {
          // success, snapshot finalized
@@ -177,9 +179,11 @@ void snapshot_scheduler::execute_snapshot(uint32_t srid) {
 }
 
 void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snapshot_scheduler::snapshot_information> next) {
-   auto head_id = _chain->head_block_id();
-   const auto head_block_num = _chain->head_block_num();
-   const auto head_block_time = _chain->head_block_time();
+   chain::controller * chain = _chain();
+   EOS_ASSERT(chain, snapshot_exception, "Controller is not set");
+   auto head_id = chain->head_block_id();
+   const auto head_block_num = chain->head_block_num();
+   const auto head_block_time = chain->head_block_time();
    const auto& snapshot_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_final_path(head_id, _snapshots_dir);
    const auto& temp_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_temp_path(head_id, _snapshots_dir);
 
@@ -191,32 +195,24 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
    }
 
    auto write_snapshot = [&](const bfs::path& p) -> void {
-      /*
-      auto reschedule = fc::make_scoped_exit([this](){
-         my->schedule_production_loop();
-      });
+      _predicate();
 
-      if (_chain.is_building_block()) {
-         // abort the pending block
-         my->abort_block();
-      } else {
-         reschedule.cancel();
-      }
-*/
       bfs::create_directory(p.parent_path());
 
       // create the snapshot
       auto snap_out = std::ofstream(p.generic_string(), (std::ios::out | std::ios::binary));
       auto writer = std::make_shared<ostream_snapshot_writer>(snap_out);
-      _chain->write_snapshot(writer);
+      chain->write_snapshot(writer);
       writer->finalize();
       snap_out.flush();
       snap_out.close();
    };
 
    // If in irreversible mode, create snapshot and return path to snapshot immediately.
-   if(_chain->get_read_mode() == db_read_mode::IRREVERSIBLE) {
+   if(chain->get_read_mode() == db_read_mode::IRREVERSIBLE) {
       try {
+         EOS_ASSERT(false, snapshot_exception, "POOP");
+
          write_snapshot(temp_path);
 
          boost::system::error_code ec;
@@ -229,6 +225,37 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
       }
       CATCH_AND_CALL(next);
       return;
+   }
+
+   // Otherwise, the result will be returned when the snapshot becomes irreversible.
+
+   // determine if this snapshot is already in-flight
+   auto& pending_by_id = _pending_snapshot_index.get<by_id>();
+   auto existing = pending_by_id.find(head_id);
+   if( existing != pending_by_id.end() ) {
+      // if a snapshot at this block is already pending, attach this requests handler to it
+      pending_by_id.modify(existing, [&next]( auto& entry ){
+         entry.next = [prev = entry.next, next](const next_function_variant<snapshot_scheduler::snapshot_information>& res){
+            prev(res);
+            next(res);
+         };
+      });
+   } else {
+      const auto& pending_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_pending_path(head_id, _snapshots_dir);
+
+      try {
+         write_snapshot( temp_path ); // create a new pending snapshot
+
+         boost::system::error_code ec;
+         bfs::rename(temp_path, pending_path, ec);
+         EOS_ASSERT(!ec, snapshot_finalization_exception,
+               "Unable to promote temp snapshot to pending for block number ${bn}: [code: ${ec}] ${message}",
+               ("bn", head_block_num)
+               ("ec", ec.value())
+               ("message", ec.message()));
+         _pending_snapshot_index.emplace(head_id, next, pending_path.generic_string(), snapshot_path.generic_string());
+         add_pending_snapshot_info( snapshot_scheduler::snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, pending_path.generic_string()} );
+      } CATCH_AND_CALL (next);
    }
 }
 

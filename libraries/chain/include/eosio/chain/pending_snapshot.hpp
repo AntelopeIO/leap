@@ -55,9 +55,9 @@ public:
    }
 
    chain::block_id_type block_id;
+   next_t next;
    std::string pending_path;
    std::string final_path;
-   next_t next;
 };
 }// namespace chain
 }// namespace eosio

@@ -86,7 +86,6 @@ private:
    snapshot_requests _snapshot_requests;
    snapshot_db_json _snapshot_db;
    pending_snapshot_index _pending_snapshot_index;
-   chain::controller* _chain = NULL;
 
    uint32_t _snapshot_id = 0;
    uint32_t _inflight_sid = 0;
@@ -94,11 +93,20 @@ private:
    // path to write the snapshots to
    bfs::path _snapshots_dir;
 
+   // predicate to snapshot creation
+   std::function<void()> _predicate = [=]() {
+   };
+
+   // predicate to snapshot creation
+   std::function<chain::controller*()> _chain = [=]() -> chain::controller* {
+      return NULL;
+   };
+
    void x_serialize() {
       auto& vec = _snapshot_requests.get<as_vector>();
       std::vector<snapshot_scheduler::snapshot_schedule_information> sr(vec.begin(), vec.end());
       _snapshot_db << sr;
-   }
+   };
 
 public:
    snapshot_scheduler() = default;
@@ -120,9 +128,14 @@ public:
    // set snapshot path
    void set_snapshots_path(bfs::path sn_path);
 
+   // set predicate
+   void set_predicate(std::function<void()> fun) {
+      _predicate = std::move(fun);
+   }
+
    // set controller
-   void set_controller(chain::controller* chain) {
-      _chain = chain;
+   void set_controller(std::function<chain::controller*()> chain) {
+      _chain = std::move(chain);
    }
 
    // add pending snapshot info to inflight snapshot request

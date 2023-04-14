@@ -1190,8 +1190,27 @@ void producer_plugin::plugin_startup()
    my->_irreversible_block_connection.emplace(chain.irreversible_block.connect( [this]( const auto& bsp ){ my->on_irreversible_block( bsp->block ); } ));
    my->_block_start_connection.emplace(chain.block_start.connect( [this]( uint32_t bs ){ my->_snapshot_scheduler.on_start_block(bs); } ));
 
-   my->_snapshot_scheduler.set_controller(&chain);
+   // controller hook
+   my->_snapshot_scheduler.set_controller([this] {
+      return &(my->chain_plug->chain());
+   });
+  
+   // to be executed right before taking snapshot
+   my->_snapshot_scheduler.set_predicate([this] {
+      auto reschedule = fc::make_scoped_exit([this](){
+         my->schedule_production_loop();
+      });
 
+      chain::controller& chain = my->chain_plug->chain();
+      if (chain.is_building_block()) {
+         // abort the pending block
+         my->abort_block();
+      } else {
+         reschedule.cancel();
+      }      
+   });
+
+  
    const auto lib_num = chain.last_irreversible_block_num();
    const auto lib = chain.fetch_block_by_number(lib_num);
    if (lib) {
@@ -1427,6 +1446,20 @@ producer_plugin::integrity_hash_information producer_plugin::get_integrity_hash(
 }
 
 void producer_plugin::create_snapshot(producer_plugin::next_function<chain::snapshot_scheduler::snapshot_information> next) {
+  /*
+   auto predicate = [] {
+      auto reschedule = fc::make_scoped_exit([this](){
+         my->schedule_production_loop();
+      });
+
+      if (_chain.is_building_block()) {
+         // abort the pending block
+         my->abort_block();
+      } else {
+         reschedule.cancel();
+      }
+   };
+*/
    my->_snapshot_scheduler.create_snapshot(next);
 }
 
