@@ -590,7 +590,7 @@ namespace impl {
       }
 
       /**
-       * overoad of to_variant_object for transaction
+       * overload of to_variant_object for transaction
        *
        * This matches the FC_REFLECT for this type, but this is provided to allow extracting the contents of trx.transaction_extensions
        */
