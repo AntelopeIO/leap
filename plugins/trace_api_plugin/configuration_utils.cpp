@@ -15,10 +15,10 @@ namespace eosio::trace_api::configuration_utils {
          abi_path = data_dir / abi_path;
       }
 
-      EOS_ASSERT(std::filesystem::exists(abi_path) && !std::filesystem::is_directory(abi_path), chain::plugin_config_exception, "${path} does not exist or is not a file", ("path", abi_path.generic_string()));
+      EOS_ASSERT(std::filesystem::exists(abi_path) && !std::filesystem::is_directory(abi_path), chain::plugin_config_exception, "${path} does not exist or is not a file", ("path", abi_path));
       try {
          abi_variant = fc::json::from_file(abi_path);
-      } EOS_RETHROW_EXCEPTIONS(chain::json_parse_exception, "Fail to parse JSON from file: ${file}", ("file", abi_path.generic_string()));
+      } EOS_RETHROW_EXCEPTIONS(chain::json_parse_exception, "Fail to parse JSON from file: ${file}", ("file", abi_path));
 
       chain::abi_def result;
       fc::from_variant(abi_variant, result);

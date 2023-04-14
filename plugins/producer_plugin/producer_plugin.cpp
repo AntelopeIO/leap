@@ -1105,7 +1105,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       }
 
       EOS_ASSERT( std::filesystem::is_directory(my->_snapshots_dir), snapshot_directory_not_found_exception,
-                  "No such directory '${dir}'", ("dir", my->_snapshots_dir.generic_string()) );
+                  "No such directory '${dir}'", ("dir", my->_snapshots_dir) );
 
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
          resmon_plugin->monitor_directory(my->_snapshots_dir);
@@ -1492,7 +1492,7 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
 
    // maintain legacy exception if the snapshot exists
    if( std::filesystem::is_regular_file(snapshot_path) ) {
-      auto ex = snapshot_exists_exception( FC_LOG_MESSAGE( error, "snapshot named ${name} already exists", ("name", snapshot_path.generic_string()) ) );
+      auto ex = snapshot_exists_exception( FC_LOG_MESSAGE( error, "snapshot named ${name} already exists", ("name", snapshot_path) ) );
       next(ex.dynamic_copy_exception());
       return;
    }
