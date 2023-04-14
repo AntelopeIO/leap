@@ -13,7 +13,6 @@
 #include <fc/variant.hpp>
 
 #include <boost/exception/diagnostic_information.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 
 using namespace eosio;

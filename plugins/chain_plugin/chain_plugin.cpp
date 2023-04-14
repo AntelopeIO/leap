@@ -24,7 +24,6 @@
 #include <boost/signals2/connection.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include <fc/io/json.hpp>

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
 
 #include <eosio/chain/application.hpp>

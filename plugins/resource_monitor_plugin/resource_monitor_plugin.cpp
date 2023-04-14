@@ -24,8 +24,6 @@
 #include <fc/exception/exception.hpp>
 #include <fc/log/logger_config.hpp> // set_os_thread_name
 
-#include <boost/filesystem.hpp>
-
 #include <thread>
 
 #include <sys/stat.h>

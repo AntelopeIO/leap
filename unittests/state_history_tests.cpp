@@ -11,7 +11,6 @@
 #include <eosio/chain/global_property_object.hpp>
 
 #include "test_cfd_transaction.hpp"
-#include <boost/filesystem.hpp>
 
 #include <eosio/stream.hpp>
 #include <eosio/ship_protocol.hpp>

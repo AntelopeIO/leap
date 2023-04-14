@@ -4,7 +4,6 @@
 #include <iostream>
 
 #include <boost/program_options.hpp>
-#include <boost/filesystem.hpp>
 #include <fc/exception/exception.hpp>
 
 using namespace eosio::trace_api;

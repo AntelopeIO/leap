@@ -3,7 +3,6 @@
 #include <fc/io/cfile.hpp>
 #include <eosio/trace_api/test_common.hpp>
 #include <eosio/trace_api/store_provider.hpp>
-#include <boost/filesystem.hpp>
 
 using namespace eosio;
 using namespace eosio::trace_api;

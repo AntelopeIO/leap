@@ -5,7 +5,6 @@
 #include <mutex>
 #include <condition_variable>
 #include <fc/io/cfile.hpp>
-#include <boost/filesystem.hpp>
 #include <fc/variant.hpp>
 #include <eosio/trace_api/common.hpp>
 #include <eosio/trace_api/metadata_log.hpp>
@@ -13,7 +12,6 @@
 #include <eosio/trace_api/compressed_file.hpp>
 
 namespace eosio::trace_api {
-   using namespace boost::filesystem;
 
    class path_does_not_exist : public std::runtime_error {
    public:

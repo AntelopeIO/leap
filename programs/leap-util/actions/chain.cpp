@@ -7,7 +7,6 @@
 #include <fc/variant.hpp>
 
 #include <boost/exception/diagnostic_information.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 
 #include <eosio/chain/block_log.hpp>
@@ -15,7 +14,6 @@
 #include <chainbase/environment.hpp>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
 

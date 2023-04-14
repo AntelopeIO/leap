@@ -14,7 +14,6 @@
 #include <fc/bitutil.hpp>
 
 #include <boost/asio.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
