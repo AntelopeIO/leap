@@ -118,7 +118,7 @@ jobs:
       matrix:
         platform: [ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-hightier"]
-    container: 
+    container:
       image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
       options: --security-opt seccomp=unconfined
     steps:
@@ -157,11 +157,11 @@ jobs:
         uses: ./.github/actions/parallel-ctest-containers
         with:
           container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
+          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs", "build/performance_test", "build/performance_test_basic"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
           test-timeout: 420
-      - name: Upload logs from failed tests  
+      - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
         with:
@@ -187,7 +187,7 @@ jobs:
         uses: ./.github/actions/parallel-ctest-containers
         with:
           container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
+          error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs", "build/performance_test", "build/performance_test_basic"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: long_running_tests
           test-timeout: 1800
