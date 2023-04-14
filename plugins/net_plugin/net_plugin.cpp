@@ -3249,18 +3249,6 @@ namespace eosio {
       // use c in this method instead of this to highlight that all methods called on c-> must be thread safe
       connection_ptr c = shared_from_this();
 
-      // if we have closed connection then stop processing
-      if( !c->socket_is_open() ) {
-         if( bsp ) {
-            // valid bsp means add_peer_block already called, need to remove it since we are not going to process the block
-            // call on dispatch strand to serialize with the add_peer_block calls
-            my_impl->dispatcher->strand.post( [blk_id]() {
-               my_impl->dispatcher->rm_block( blk_id );
-            } );
-         }
-         return;
-      }
-
       try {
          if( cc.fetch_block_by_id(blk_id) ) {
             c->strand.post( [sync_master = my_impl->sync_master.get(),
@@ -3271,8 +3259,7 @@ namespace eosio {
             return;
          }
       } catch(...) {
-         // should this even be caught?
-         fc_elog( logger, "Caught an unknown exception trying to recall block ID" );
+         fc_elog( logger, "Caught an unknown exception trying to fetch block ${id}", ("id", blk_id) );
       }
 
       fc::microseconds age( fc::time_point::now() - msg->timestamp);
