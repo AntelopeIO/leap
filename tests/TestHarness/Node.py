@@ -54,6 +54,8 @@ class Node(Transactions):
         self.missingTransaction=False
         self.lastTrackedTransactionId=None
         self.nodeosVers=nodeosVers
+        self.data_dir=data_dir
+        self.launch_time=launch_time
         self.configureVersion()
 
     def configureVersion(self):
@@ -333,7 +335,7 @@ class Node(Transactions):
         if Utils.Debug: Utils.Print("Launching node process, Id: {}".format(self.nodeId))
 
         cmdArr=[]
-        splittedCmd=self.cmd.split()
+        splittedCmd=self.cmd[:]
         if nodeosPath: splittedCmd[0] = nodeosPath
         myCmd=" ".join(splittedCmd)
         toAddOrSwap=copy.deepcopy(addSwapFlags) if addSwapFlags is not None else {}
@@ -364,7 +366,7 @@ class Node(Transactions):
             myCmd=" ".join(cmdArr)
 
         cmd=myCmd + ("" if chainArg is None else (" " + chainArg))
-        self.launchCmd(cmd, cachePopen)
+        self.launchCmd(cmd, self.data_dir, self.launch_time)
 
         def isNodeAlive():
             """wait for node to be responsive."""
