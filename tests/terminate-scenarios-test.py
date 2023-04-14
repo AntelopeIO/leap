@@ -18,7 +18,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 args=TestHelper.parse_args({"-d","-s","-c","--kill-sig","--keep-logs"
-                            ,"--dump-error-details","-v","--leave-running",
+                            ,"--dump-error-details","-v","--leave-running"
                             ,"--terminate-at-block","--unshared"})
 pnodes=1
 topo=args.s

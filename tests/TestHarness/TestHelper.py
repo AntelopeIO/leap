@@ -106,8 +106,6 @@ class TestHelper(object):
             thGrp.add_argument("--leave-running", help=argparse.SUPPRESS if suppressHelp else "Leave cluster running after test finishes", action='store_true')
         if "--only-bios" in includeArgs:
             thGrp.add_argument("--only-bios", help=argparse.SUPPRESS if suppressHelp else "Limit testing to bios node.", action='store_true')
-        if "--clean-run" in includeArgs:
-            thGrp.add_argument("--clean-run", help=argparse.SUPPRESS if suppressHelp else "Kill all nodeos and keosd instances", action='store_true')
         if "--sanity-test" in includeArgs:
             thGrp.add_argument("--sanity-test", help=argparse.SUPPRESS if suppressHelp else "Validates nodeos and keosd are in path and can be started up.", action='store_true')
         if "--alternate-version-labels-file" in includeArgs:
