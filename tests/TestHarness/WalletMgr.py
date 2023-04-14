@@ -283,14 +283,15 @@ class WalletMgr(object):
     def dumpErrorDetails(self):
         Utils.Print("=================================================================")
         if self.__walletPid is not None:
-            Utils.Print("Contents of %s:" % (WalletMgr.__walletLogOutFile))
-            Utils.Print("=================================================================")
-            with open(WalletMgr.__walletLogOutFile, "r") as f:
-                shutil.copyfileobj(f, sys.stdout)
+            # Utils.Print("Contents of %s:" % (WalletMgr.__walletLogOutFile))
+            # Utils.Print("=================================================================")
+            # with open(WalletMgr.__walletLogOutFile, "r") as f:
+            #     shutil.copyfileobj(f, sys.stdout)
             Utils.Print("Contents of %s:" % (WalletMgr.__walletLogErrFile))
             Utils.Print("=================================================================")
             with open(WalletMgr.__walletLogErrFile, "r") as f:
                 shutil.copyfileobj(f, sys.stdout)
+            Utils.Print("=================================================================")
 
     def killall(self, allInstances=False):
         """Kill keos instances. allInstances will kill all keos instances running on the system."""
@@ -299,7 +300,6 @@ class WalletMgr(object):
             try:
                 os.kill(self.__walletPid, signal.SIGKILL)
             except ProcessLookupError:
-                self.dumpErrorDetails()
                 raise
 
         if allInstances:

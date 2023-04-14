@@ -495,6 +495,7 @@ class PerformanceTestBasic:
 
             self.postTpsTestSteps()
 
+            self.walletMgr.dumpErrorDetails()
             self.captureLowLevelArtifacts()
             self.analyzeResultsAndReport(self.ptbTestResult)
 
