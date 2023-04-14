@@ -561,10 +561,7 @@ class PtbArgumentsHandler(object):
                                                                 choices=["all", "debug", "info", "warn", "error", "off"], default="info")
         ptbBaseParserGroup.add_argument("--net-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in net_plugin thread pool", default=4)
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help=argparse.SUPPRESS if suppressHelp else "Disable subjective CPU billing for API/P2P transactions", default=True)
-        ptbBaseParserGroup.add_argument("--last-block-time-offset-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
-        ptbBaseParserGroup.add_argument("--produce-time-offset-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.", default=0)
         ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
-        ptbBaseParserGroup.add_argument("--last-block-cpu-effort-percent", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%%", default=100)
         ptbBaseParserGroup.add_argument("--producer-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in producer thread pool", default=2)
         ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum time for processing a request, -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-bytes-in-flight-mb", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429\
