@@ -11,7 +11,7 @@ import urllib.parse
 import urllib.error
 
 from .core_symbol import CORE_SYMBOL
-from .testUtils import Account
+from .accounts import Account
 from .testUtils import EnumType
 from .testUtils import addEnum
 from .testUtils import ReturnType

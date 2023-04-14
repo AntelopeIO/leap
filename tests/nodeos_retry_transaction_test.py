@@ -31,7 +31,7 @@ extraArgs = appArgs.add(flag="--transaction-time-delta", type=int, help="How man
 extraArgs = appArgs.add(flag="--num-transactions", type=int, help="How many total transactions should be sent", default=1000)
 extraArgs = appArgs.add(flag="--max-transactions-per-second", type=int, help="How many transactions per second should be sent", default=50)
 extraArgs = appArgs.add(flag="--total-accounts", type=int, help="How many accounts should be involved in sending transfers.  Must be greater than %d" % (minTotalAccounts), default=10)
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"}, applicationSpecificArgs=appArgs)
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--unshared"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
 totalProducerNodes=3
@@ -39,11 +39,8 @@ totalNodes=7
 totalNonProducerNodes=totalNodes-totalProducerNodes
 maxActiveProducers=totalProducerNodes
 totalProducers=totalProducerNodes
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-dontKill=args.leave_running
-killAll=args.clean_run
 walletPort=TestHelper.DEFAULT_WALLET_PORT
 blocksPerSec=2
 transBlocksBehind=args.transaction_time_delta * blocksPerSec
@@ -61,8 +58,6 @@ assert numRounds > 3, Print("ERROR: Need more than three rounds: %d" % numRounds
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 ClientName="cleos"
@@ -71,8 +66,6 @@ try:
     TestHelper.printSystemInfo("BEGIN")
 
     cluster.setWalletMgr(walletMgr)
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     Print("Stand up cluster")
 
     specificExtraNodeosArgs={
@@ -379,7 +372,7 @@ try:
 
     testSuccessful = not missingReportError and not delayedReportError
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
 
 errorCode = 0 if testSuccessful else 1
 exit(errorCode)

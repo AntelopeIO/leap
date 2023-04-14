@@ -7,14 +7,16 @@ import re
 import json
 import signal
 import sys
+from pathlib import Path
+from typing import List
 
 from datetime import datetime
 from datetime import timedelta
 from .core_symbol import CORE_SYMBOL
 from .queries import NodeosQueries, BlockType
 from .transactions import Transactions
+from .accounts import Account
 from .testUtils import Utils
-from .testUtils import Account
 from .testUtils import unhandledEnumType
 from .testUtils import ReturnType
 
@@ -23,24 +25,33 @@ class Node(Transactions):
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
-    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, nodeosVers=""):
+    def __init__(self, host, port, nodeId: int, data_dir: Path, cmd: List[str], unstarted=False, launch_time=None, walletMgr=None, nodeosVers=""):
         super().__init__(host, port, walletMgr)
+        assert isinstance(data_dir, Path), 'data_dir must be a Path instance'
+        assert isinstance(cmd, list), 'cmd must be a list'
         self.host=host
         self.port=port
-        self.pid=pid
         self.cmd=cmd
-        if nodeId != "bios":
-            assert isinstance(nodeId, int)
-        self.nodeId=nodeId
-        if Utils.Debug: Utils.Print("new Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
-        self.killed=False # marks node as killed
+        if nodeId == -100:
+            self.nodeId='bios'
+        else:
+            self.nodeId=nodeId
+        if not unstarted:
+            self.popenProc=self.launchCmd(self.cmd, data_dir, launch_time)
+        else:
+            self.popenProc=None
+            self.pid=None
+            if Utils.Debug: Utils.Print(f'unstarted node command: {" ".join(self.cmd)}')
+        start = data_dir / 'start.cmd'
+        with start.open('w') as f:
+            f.write(' '.join(cmd))
+        self.killed=False
         self.infoValid=None
         self.lastRetrievedHeadBlockNum=None
         self.lastRetrievedLIB=None
         self.lastRetrievedHeadBlockProducer=""
         self.transCache={}
         self.missingTransaction=False
-        self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
         self.nodeosVers=nodeosVers
         self.configureVersion()
@@ -226,6 +237,7 @@ class Node(Transactions):
             # default to the typical configuration of 21 producers, each producing 12 blocks in a row (every 1/2 second)
             timeout = 21 * 6;
         start=time.perf_counter()
+        Utils.Print(self.getInfo())
         initialProducer=self.getInfo()["head_block_producer"]
         def isProducer():
             return self.getInfo()["head_block_producer"] == producer;
@@ -405,22 +417,29 @@ class Node(Transactions):
         Utils.Print("launchUnstarted cmd: %s" % (self.cmd))
         self.launchCmd(self.cmd, cachePopen)
 
-    def launchCmd(self, cmd, cachePopen=False):
-        dataDir=Utils.getNodeDataDir(self.nodeId)
-        dt = datetime.now()
-        dateStr=Utils.getDateString(dt)
-        stdoutFile="%s/stdout.%s.txt" % (dataDir, dateStr)
-        stderrFile="%s/stderr.%s.txt" % (dataDir, dateStr)
-        with open(stdoutFile, 'w') as sout, open(stderrFile, 'w') as serr:
-            Utils.Print("cmd: %s" % (cmd))
-            popen=subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
-            if cachePopen:
-                popen.outfile=sout
-                popen.errfile=serr
-                self.popenProc=popen
-            self.pid=popen.pid
+    def launchCmd(self, cmd: List[str], data_dir: Path, launch_time: str):
+        dd = data_dir
+        out = dd / 'stdout.txt'
+        err_sl = dd / 'stderr.txt'
+        err = dd / Path(f'stderr.{launch_time}.txt')
+        pidf = dd / Path(f'{Utils.EosServerName}.pid')
+
+        Utils.Print(f'spawning child: {" ".join(cmd)}')
+        dd.mkdir(parents=True, exist_ok=True)
+        with out.open('w') as sout, err.open('w') as serr:
+            popen = subprocess.Popen(cmd, stdout=sout, stderr=serr)
+            popen.outfile = sout
+            popen.errfile = serr
+            self.pid = popen.pid
             self.cmd = cmd
-            if Utils.Debug: Utils.Print("start Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
+        with pidf.open('w') as pidout:
+            pidout.write(str(popen.pid))
+        try:
+            err_sl.unlink()
+        except FileNotFoundError:
+            pass
+        err_sl.symlink_to(err.name)
+        return popen
 
     def trackCmdTransaction(self, trans, ignoreNonTrans=False, reportStatus=True):
         if trans is None:
@@ -488,14 +507,6 @@ class Node(Transactions):
     def scheduleSnapshotAt(self, sbn):
         param = { "start_block_num": sbn, "end_block_num": sbn }
         return self.processUrllibRequest("producer", "schedule_snapshot", param)
-
-    # kill all existing nodeos in case lingering from previous test
-    @staticmethod
-    def killAllNodeos():
-        # kill the eos server
-        cmd="pkill -9 %s" % (Utils.EosServerName)
-        ret_code = subprocess.call(cmd.split(), stdout=Utils.FNull)
-        Utils.Print("cmd: %s, ret:%d" % (cmd, ret_code))
 
     @staticmethod
     def findStderrFiles(path):

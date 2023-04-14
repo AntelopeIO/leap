@@ -626,23 +626,3 @@ class Utils:
     @staticmethod
     def getNodeosVersion():
         return os.popen(f"{Utils.EosServerPath} --version").read().replace("\n", "")
-
-
-###########################################################################################
-class Account(object):
-    # pylint: disable=too-few-public-methods
-
-    def __init__(self, name):
-        self.name=name
-
-        self.ownerPrivateKey=None
-        self.ownerPublicKey=None
-        self.activePrivateKey=None
-        self.activePublicKey=None
-
-
-    def __str__(self):
-        return "Name: %s" % (self.name)
-
-    def __repr__(self):
-        return "Name: %s" % (self.name)

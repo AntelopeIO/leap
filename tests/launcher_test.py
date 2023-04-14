@@ -4,7 +4,7 @@ import decimal
 import re
 import os
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
 from pathlib import Path
 
 ###############################################################
@@ -19,21 +19,18 @@ errorExit=Utils.errorExit
 cmdError=Utils.cmdError
 
 args = TestHelper.parse_args({"--defproducera_prvt_key","--dump-error-details","--dont-launch","--keep-logs",
-                              "-v","--leave-running","--clean-run","--unshared"})
+                              "-v","--leave-running","--unshared"})
 debug=args.v
 defproduceraPrvtKey=args.defproducera_prvt_key
 dumpErrorDetails=args.dump_error_details
 keepLogs=args.keep_logs
 dontLaunch=args.dont_launch
 dontKill=args.leave_running
-killAll=args.clean_run
 
 Utils.Debug=debug
-cluster=Cluster(walletd=True, defproduceraPrvtKey=defproduceraPrvtKey,unshared=args.unshared)
+cluster=Cluster(defproduceraPrvtKey=defproduceraPrvtKey, unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 walletMgr=WalletMgr(True)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 ClientName="cleos"
@@ -46,8 +43,6 @@ try:
     cluster.setWalletMgr(walletMgr)
 
     if not dontLaunch:
-        cluster.killall(allInstances=killAll)
-        cluster.cleanup()
         Print("Stand up cluster")
         pnodes=4
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
@@ -56,10 +51,7 @@ try:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:
-        walletMgr.killall(allInstances=killAll)
-        walletMgr.cleanup()
         cluster.initializeNodes(defproduceraPrvtKey=defproduceraPrvtKey)
-        killEosInstances=False
 
         print("Stand up walletd")
         if walletMgr.launch() is False:
@@ -69,7 +61,7 @@ try:
     Print("Validating system accounts after bootstrap")
     cluster.validateAccounts(None)
 
-    accounts=Cluster.createAccountKeys(3)
+    accounts=createAccountKeys(3)
     if accounts is None:
         errorExit("FAILURE - create keys")
     testeraAccount=accounts[0]
@@ -235,7 +227,7 @@ try:
 
     testSuccessful=True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful, dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

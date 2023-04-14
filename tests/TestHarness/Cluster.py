@@ -1,3 +1,4 @@
+import atexit
 import copy
 import subprocess
 import time
@@ -15,13 +16,15 @@ import socket
 from pathlib import Path
 
 from .core_symbol import CORE_SYMBOL
-from .testUtils import Account
+from .accounts import Account, createAccountKeys
 from .testUtils import BlockLogAction
 from .testUtils import Utils
 from .Node import BlockType
 from .Node import Node
 from .WalletMgr import WalletMgr
 from .launch_transaction_generators import TransactionGeneratorsLauncher, TpsTrxGensConfig
+from .launcher import cluster_generator
+from . import accounts
 try:
     from .libc import unshare, CLONE_NEWNET
     from .interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
@@ -43,38 +46,6 @@ class PFSetupPolicy:
                policy == PFSetupPolicy.PREACTIVATE_FEATURE_ONLY or \
                policy == PFSetupPolicy.FULL
 
-# Class for generating distinct names for many accounts
-class NamedAccounts:
-
-    def __init__(self, cluster, numAccounts):
-        Utils.Print("NamedAccounts %d" % (numAccounts))
-        self.numAccounts=numAccounts
-        self.accounts=cluster.createAccountKeys(numAccounts)
-        if self.accounts is None:
-            Utils.errorExit("FAILURE - create keys")
-        accountNum = 0
-        for account in self.accounts:
-            Utils.Print("NamedAccounts Name for %d" % (accountNum))
-            account.name=self.setName(accountNum)
-            accountNum+=1
-
-    def setName(self, num):
-        retStr="test"
-        digits=[]
-        maxDigitVal=5
-        maxDigits=8
-        temp=num
-        while len(digits) < maxDigits:
-            digit=(num % maxDigitVal)+1
-            num=int(num/maxDigitVal)
-            digits.append(digit)
-
-        digits.reverse()
-        retStr += "".join(map(str, digits))
-
-        Utils.Print("NamedAccounts Name for %d is %s" % (temp, retStr))
-        return retStr
-
 # pylint: disable=too-many-instance-attributes
 # pylint: disable=too-many-public-methods
 class Cluster(object):
@@ -88,11 +59,9 @@ class Cluster(object):
     __bootlog="leap-ignition-wd/bootlog.txt"
 
     # pylint: disable=too-many-arguments
-    # walletd [True|False] Is keosd running. If not load the wallet plugin
-    def __init__(self, walletd=False, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
-                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers="", unshared=False):
+    def __init__(self, localCluster=True, host="localhost", port=8888, walletHost="localhost", walletPort=9899
+                 , defproduceraPrvtKey=None, defproducerbPrvtKey=None, staging=False, loggingLevel="debug", loggingLevelDict={}, nodeosVers="", unshared=False, keepRunning=False, keepLogs=False):
         """Cluster container.
-        walletd [True|False] Is wallet keosd running. If not load the wallet plugin
         localCluster [True|False] Is cluster local to host.
         host: eos server host
         port: eos server port
@@ -100,13 +69,20 @@ class Cluster(object):
         walletPort: wos wallet port
         defproduceraPrvtKey: Defproducera account private key
         defproducerbPrvtKey: Defproducerb account private key
+        staging: [True|False] If true, don't generate new node configurations
+        loggingLevel: Logging level to apply to all nodeos loggers in all nodes
+        loggingLevelDict: Dictionary of node indices and logging level to apply to all nodeos loggers in that node
+        nodeosVers: Nodeos version string for compatibility
+        unshared: [True|False] If true, launch all processes in Linux namespace
+        keepRunning: [True|False] If true, leave nodes running when Cluster is destroyed. Implies keepLogs.
+        keepLogs: [True|False] If true, retain log files after cluster shuts down.
         """
+        atexit.register(self.shutdown)
         self.accounts=[]
         self.nodes=[]
         self.unstartedNodes=[]
         self.localCluster=localCluster
         self.wallet=None
-        self.walletd=walletd
         self.walletMgr=None
         self.host=host
         self.port=port
@@ -116,6 +92,8 @@ class Cluster(object):
         self.staging=staging
         self.loggingLevel=loggingLevel
         self.loggingLevelDict=loggingLevelDict
+        self.keepRunning=keepRunning
+        self.keepLogs=keepLogs or keepRunning
         # init accounts
         self.defProducerAccounts={}
         self.defproduceraAccount=self.defProducerAccounts["defproducera"]= Account("defproducera")
@@ -131,6 +109,7 @@ class Cluster(object):
         self.preExistingFirstTrxFiles=[]
 
         self.filesToCleanup=[]
+        self.testFailed=False
         self.alternateVersionLabels=Cluster.__defaultAlternateVersionLabels()
         self.biosNode = None
         self.nodeosVers=nodeosVers
@@ -188,7 +167,7 @@ class Cluster(object):
     # pylint: disable=too-many-return-statements
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
-    def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=1, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
+    def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=21, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
                pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
                maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
@@ -265,9 +244,7 @@ class Cluster(object):
             tries = tries - 1
             time.sleep(2)
         loggingLevelDictString = json.dumps(self.loggingLevelDict, separators=(',', ':'))
-        cmd="%s %s -p %s -n %s -d %s -i %s -f %s --unstarted-nodes %s --logging-level %s --logging-level-map %s" % (
-            sys.executable, str(self.launcherPath), pnodes, totalNodes, delay, datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3],
-            producerFlag, unstartedNodes, self.loggingLevel, loggingLevelDictString)
+        cmd=f'{sys.executable} {str(self.launcherPath)} -p {pnodes} -n {totalNodes} -d {delay} -i {datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]} -f {producerFlag} --unstarted-nodes {unstartedNodes} --logging-level {self.loggingLevel} --logging-level-map {loggingLevelDictString}'
         cmdArr=cmd.split()
         if self.staging:
             cmdArr.append("--nogen")
@@ -280,8 +257,6 @@ class Cluster(object):
             nodeosArgs += f" --p2p-max-nodes-per-host {maximumP2pPerHost}"
         if "--max-clients" not in extraNodeosArgs:
             nodeosArgs += f" --max-clients {maximumClients}"
-        if not self.walletd:
-            nodeosArgs += " --plugin eosio::wallet_api_plugin"
         if Utils.Debug and "--contracts-console" not in extraNodeosArgs:
             nodeosArgs += " --contracts-console"
         if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
@@ -486,26 +461,40 @@ class Cluster(object):
                     break
         Cluster.__LauncherCmdArr = cmdArr.copy()
 
-        s=" ".join([("'{0}'".format(element) if (' ' in element) else element) for element in cmdArr.copy()])
-        if Utils.Debug: Utils.Print("cmd: %s" % (s))
-        if 0 != subprocess.call(cmdArr):
-            Utils.Print("ERROR: Launcher failed to launch. failed cmd: %s" % (s))
-            return False
+        #s=" ".join([("'{0}'".format(element) if (' ' in element) else element) for element in cmdArr.copy()])
+        #if Utils.Debug: Utils.Print("cmd: %s" % (s))
+        #if 0 != subprocess.call(cmdArr):
+        #    Utils.Print("ERROR: Launcher failed to launch. failed cmd: %s" % (s))
+        #    return False
+        launcher = cluster_generator(cmdArr[2:])
+        launcher.define_network()
+        launcher.generate()
+        self.nodes = []
+        for instance in launcher.network.nodes.values():
+            eosdcmd = launcher.construct_command_line(instance)
+
+            nodeNum = instance.index
+            node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name), eosdcmd, unstarted=instance.dont_start, launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+            if nodeNum == -100:
+                biosNode = node
+            if node.popenProc and nodeNum != -100:
+                self.nodes.append(node)
+            else:
+                self.unstartedNodes.append(node)
+            time.sleep(delay)
 
         startedNodes=totalNodes-unstartedNodes
 
-        nodes=self.discoverLocalNodes(startedNodes, timeout=Utils.systemWaitTimeout)
-        if nodes is None or startedNodes != len(nodes):
+        #nodes=self.discoverLocalNodes(startedNodes, timeout=Utils.systemWaitTimeout)
+        if self.nodes is None or startedNodes != len(self.nodes):
             Utils.Print("ERROR: Unable to validate %s instances, expected: %d, actual: %d" %
-                          (Utils.EosServerName, startedNodes, len(nodes)))
+                          (Utils.EosServerName, startedNodes, len(self.nodes)))
             return False
 
-        self.nodes=nodes
+        #if unstartedNodes > 0:
+        #    self.unstartedNodes=self.discoverUnstartedLocalNodes(unstartedNodes, totalNodes)
 
-        if unstartedNodes > 0:
-            self.unstartedNodes=self.discoverUnstartedLocalNodes(unstartedNodes, totalNodes)
-
-        biosNode=self.discoverBiosNode(timeout=Utils.systemWaitTimeout)
+        #biosNode=self.discoverBiosNode(timeout=Utils.systemWaitTimeout)
         if not biosNode or not Utils.waitForBool(biosNode.checkPulse, Utils.systemWaitTimeout):
             Utils.Print("ERROR: Bios node doesn't appear to be running...")
             return False
@@ -685,54 +674,6 @@ class Cluster(object):
             Utils.Print("ERROR: Exception during client version query. %s" % (msg))
             raise
 
-    @staticmethod
-    def createAccountKeys(count):
-        accounts=[]
-        p = re.compile('Private key: (.+)\nPublic key: (.+)\n', re.MULTILINE)
-        for _ in range(0, count):
-            try:
-                cmd="%s create key --to-console" % (Utils.EosClientPath)
-                if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-                keyStr=Utils.checkOutput(cmd.split())
-                m=p.search(keyStr)
-                if m is None:
-                    Utils.Print("ERROR: Owner key creation regex mismatch")
-                    break
-
-                ownerPrivate=m.group(1)
-                ownerPublic=m.group(2)
-
-                cmd="%s create key --to-console" % (Utils.EosClientPath)
-                if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-                keyStr=Utils.checkOutput(cmd.split())
-                m=p.match(keyStr)
-                if m is None:
-                    Utils.Print("ERROR: Active key creation regex mismatch")
-                    break
-
-                activePrivate=m.group(1)
-                activePublic=m.group(2)
-
-                name=''.join(random.choice(string.ascii_lowercase) for _ in range(12))
-                account=Account(name)
-                account.ownerPrivateKey=ownerPrivate
-                account.ownerPublicKey=ownerPublic
-                account.activePrivateKey=activePrivate
-                account.activePublicKey=activePublic
-                accounts.append(account)
-                if Utils.Debug: Utils.Print("name: %s, key(owner): ['%s', '%s], key(active): ['%s', '%s']" % (name, ownerPublic, ownerPrivate, activePublic, activePrivate))
-
-            except subprocess.CalledProcessError as ex:
-                msg=ex.stderr.decode("utf-8")
-                Utils.Print("ERROR: Exception during key creation. %s" % (msg))
-                break
-
-        if count != len(accounts):
-            Utils.Print("Account keys creation failed. Expected %d, actual: %d" % (count, len(accounts)))
-            return None
-
-        return accounts
-
     # create account keys and import into wallet. Wallet initialization will be user responsibility
     # also imports defproducera and defproducerb accounts
     def populateWallet(self, accountsCount, wallet, accountNames: list=None, createProducerAccounts: bool=True):
@@ -748,7 +689,7 @@ class Cluster(object):
         accounts=None
         if accountsCount > 0:
             Utils.Print ("Create account keys.")
-            accounts = self.createAccountKeys(accountsCount)
+            accounts = createAccountKeys(accountsCount)
             if accounts is None:
                 Utils.Print("Account keys creation failed.")
                 return False
@@ -976,15 +917,15 @@ class Cluster(object):
         return int(m.group(1))
 
     @staticmethod
-    def parseProducerKeys(configFile, nodeName):
-        """Parse node config file for producer keys. Returns dictionary. (Keys: account name; Values: dictionary objects (Keys: ["name", "node", "private","public"]; Values: account name, node id returned by nodeNameToId(nodeName), private key(string)and public key(string)))."""
+    def parseProducerKeys(startFile, nodeName):
+        """Parse node start file for producer keys. Returns dictionary. (Keys: account name; Values: dictionary objects (Keys: ["name", "node", "private","public"]; Values: account name, node id returned by nodeNameToId(nodeName), private key(string)and public key(string)))."""
 
-        configStr=None
-        with open(configFile, 'r') as f:
-            configStr=f.read()
+        startStr=None
+        with open(startFile, 'r') as f:
+            startStr=f.read()
 
-        pattern=r"^\s*signature-provider\s*=\s*(\w+)=KEY:(\w+)$"
-        m=re.search(pattern, configStr, re.MULTILINE)
+        pattern=r"\s*--signature-provider\s*(\w+)=KEY:(\w+)"
+        m=re.search(pattern, startStr)
         regMsg="None" if m is None else "NOT None"
         if m is None:
             if Utils.Debug: Utils.Print("Failed to find producer keys")
@@ -993,8 +934,8 @@ class Cluster(object):
         pubKey=m.group(1)
         privateKey=m.group(2)
 
-        pattern=r"^\s*producer-name\s*=\W*(\w+)\W*$"
-        matches=re.findall(pattern, configStr, re.MULTILINE)
+        pattern=r"\s*--producer-name\s*\W*(\w+)"
+        matches=re.findall(pattern, startStr)
         if matches is None:
             if Utils.Debug: Utils.Print("Failed to find producers.")
             return None
@@ -1010,51 +951,50 @@ class Cluster(object):
 
     @staticmethod
     def parseProducers(nodeNum):
-        """Parse node config file for producers."""
+        """Parse node start file for producers."""
 
-        configFile=Utils.getNodeConfigDir(nodeNum, "config.ini")
-        if Utils.Debug: Utils.Print("Parsing config file %s" % configFile)
+        startCmd=Utils.getNodeDataDir(nodeNum, "start.cmd")
+        if Utils.Debug: Utils.Print(f'Parsing file {startCmd}')
         configStr=None
-        with open(configFile, 'r') as f:
+        with open(startCmd, 'r') as f:
             configStr=f.read()
 
-        pattern=r"^\s*producer-name\s*=\W*(\w+)\W*$"
-        producerMatches=re.findall(pattern, configStr, re.MULTILINE)
+        pattern=r"\s*--producer-name\s*\W*(\w+)"
+        producerMatches=re.findall(pattern, configStr)
         if producerMatches is None:
             if Utils.Debug: Utils.Print("Failed to find producers.")
             return None
-
+        if Utils.Debug: Utils.Print(f'Found producers {producerMatches}')
         return producerMatches
 
     @staticmethod
     def parseClusterKeys(totalNodes):
-        """Parse cluster config file. Updates producer keys data members."""
+        """Parse cluster start files. Updates producer keys data members."""
 
-        configFile=Utils.getNodeConfigDir("bios", "config.ini")
-        if Utils.Debug: Utils.Print("Parsing config file %s" % configFile)
+        startFile=Utils.getNodeDataDir("bios", "start.cmd")
+        if Utils.Debug: Utils.Print("Parsing file %s" % startFile)
         nodeName=Utils.nodeExtensionToName("bios")
-        producerKeys=Cluster.parseProducerKeys(configFile, nodeName)
+        producerKeys=Cluster.parseProducerKeys(startFile, nodeName)
         if producerKeys is None:
-            Utils.Print("ERROR: Failed to parse eosio private keys from cluster config files.")
+            Utils.Print("ERROR: Failed to parse eosio private keys from cluster start files.")
             return None
 
         for i in range(0, totalNodes):
-            configFile=Utils.getNodeConfigDir(i, "config.ini")
-            if Utils.Debug: Utils.Print("Parsing config file %s" % configFile)
+            startFile=Utils.getNodeDataDir(i, "start.cmd")
+            if Utils.Debug: Utils.Print("Parsing file %s" % startFile)
 
             nodeName=Utils.nodeExtensionToName(i)
-            keys=Cluster.parseProducerKeys(configFile, nodeName)
+            keys=Cluster.parseProducerKeys(startFile, nodeName)
             if keys is not None:
                 producerKeys.update(keys)
-            keyMsg="None" if keys is None else len(keys)
-
+        Utils.Print(f'Found {len(producerKeys)} producer keys')
         return producerKeys
 
     def bootstrap(self, biosNode, totalNodes, prodCount, totalProducers, pfSetupPolicy, onlyBios=False, onlySetProds=False, loadSystemContract=True):
         """Create 'prodCount' init accounts and deposits 10000000000 SYS in each. If prodCount is -1 will initialize all possible producers.
         Ensure nodes are inter-connected prior to this call. One way to validate this will be to check if every node has block 1."""
 
-        Utils.Print("Starting cluster bootstrap.")
+        Utils.Print("Starting cluster bootstrap of %d producers." % prodCount)
         assert PFSetupPolicy.isValid(pfSetupPolicy)
         if totalProducers is None:
             totalProducers=totalNodes
@@ -1062,14 +1002,11 @@ class Cluster(object):
         producerKeys=Cluster.parseClusterKeys(totalNodes)
         # should have totalNodes node plus bios node
         if producerKeys is None:
-            Utils.Print("ERROR: Failed to parse any producer keys from config files.")
+            Utils.Print("ERROR: Failed to parse any producer keys from start files.")
             return None
         elif len(producerKeys) < (totalProducers+1):
-            Utils.Print("ERROR: Failed to parse %d producer keys from cluster config files, only found %d." % (totalProducers+1,len(producerKeys)))
+            Utils.Print("ERROR: Failed to parse %d producer keys from cluster start files, only found %d." % (totalProducers+1,len(producerKeys)))
             return None
-
-        self.walletMgr.killall()
-        self.walletMgr.cleanup()
 
         if not self.walletMgr.launch():
             Utils.Print("ERROR: Failed to launch bootstrap wallet.")
@@ -1152,6 +1089,7 @@ class Cluster(object):
                 prodNames=[]
                 for name, keys in producerKeys.items():
                     if counts[keys["node"]] >= prodCount:
+                        Utils.Print(f'Count for this node exceeded: {counts[keys["node"]]}')
                         continue
                     if firstTime:
                         firstTime = False
@@ -1332,61 +1270,6 @@ class Cluster(object):
 
         return Utils.waitForObj(myFunc, timeout)
 
-    @staticmethod
-    def pgrepEosServerPattern(nodeInstance):
-        dataLocation=Utils.getNodeDataDir(nodeInstance)
-        return r"[\n]?(\d+) (.* --data-dir %s .*)\n" % (dataLocation)
-
-    # Populates list of EosInstanceInfo objects, matched to actual running instances
-    def discoverLocalNodes(self, totalNodes, timeout=None):
-        nodes=[]
-
-        psOut=Cluster.pgrepEosServers(timeout)
-        if psOut is None:
-            Utils.Print("ERROR: No nodes discovered.")
-            return nodes
-
-        if len(psOut) < 6660:
-            psOutDisplay=psOut
-        else:
-            psOutDisplay=psOut[:6660]+"..."
-        if Utils.Debug: Utils.Print("pgrep output: \"%s\"" % psOutDisplay)
-        for i in range(0, totalNodes):
-            instance=self.discoverLocalNode(i, psOut, timeout)
-            if instance is None:
-                break
-            nodes.append(instance)
-
-        if Utils.Debug: Utils.Print("Found %d nodes" % (len(nodes)))
-        return nodes
-
-    # Populate a node matched to actual running instance
-    def discoverLocalNode(self, nodeNum, psOut=None, timeout=None):
-        if psOut is None:
-            psOut=Cluster.pgrepEosServers(timeout)
-        if psOut is None:
-            Utils.Print("ERROR: No nodes discovered.")
-            return None
-        pattern=Cluster.pgrepEosServerPattern(nodeNum)
-        m=re.search(pattern, psOut, re.MULTILINE)
-        if m is None:
-            Utils.Print("ERROR: Failed to find %s pid. Pattern %s" % (Utils.EosServerName, pattern))
-            return None
-        instance=Node(self.host, self.port + nodeNum, nodeNum, pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
-        if Utils.Debug: Utils.Print("Node>", instance)
-        return instance
-
-    def discoverBiosNode(self, timeout=None):
-        psOut=Cluster.pgrepEosServers(timeout=timeout)
-        pattern=Cluster.pgrepEosServerPattern("bios")
-        Utils.Print("pattern={\n%s\n}, psOut=\n%s\n" % (pattern,psOut))
-        m=re.search(pattern, psOut, re.MULTILINE)
-        if m is None:
-            Utils.Print("ERROR: Failed to find %s pid. Pattern %s" % (Utils.EosServerName, pattern))
-            return None
-        else:
-            return Node(Cluster.__BiosHost, Cluster.__BiosPort, "bios", pid=int(m.group(1)), cmd=m.group(2), walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
-
     # Kills a percentange of Eos instances starting from the tail and update eosInstanceInfos state
     def killSomeEosInstances(self, killCount, killSignalStr=Utils.SigKillTag):
         killSignal=signal.SIGKILL
@@ -1447,32 +1330,25 @@ class Cluster(object):
             for fileName in fileNames:
                 Cluster.dumpErrorDetailImpl(fileName)
 
-    def killall(self, kill=True, silent=True, allInstances=False):
-        """Kill cluster nodeos instances. allInstances will kill all nodeos instances running on the system."""
-        signalNum=9 if kill else 15
-        cmd="%s -k %d --nogen -p 1 -n 1 --nodeos-log-path %s" % (f"{sys.executable} {str(self.launcherPath)}", signalNum, self.nodeosLogPath)
-        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-        if 0 != subprocess.call(cmd.split(), stdout=Utils.FNull):
-            if not silent: Utils.Print("Launcher failed to shut down eos cluster.")
-
-        if allInstances:
-            # ocassionally the launcher cannot kill the eos server
-            cmd="pkill -9 %s" % (Utils.EosServerName)
-            if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-            if 0 != subprocess.call(cmd.split(), stdout=Utils.FNull):
-                if not silent: Utils.Print("Failed to shut down eos cluster.")
-
-        # another explicit nodes shutdown
-        for node in self.nodes:
-            try:
-                if node.pid is not None:
-                    os.kill(node.pid, signal.SIGKILL)
-            except OSError as _:
-                pass
+    def shutdown(self):
+        """Shut down all nodeos instances launched by this Cluster."""
+        if not self.keepRunning:
+            Utils.Print('Cluster shutting down.')
+            for node in self.nodes:
+                node.kill(signal.SIGTERM)
+                #try:
+                #    if node.pid is not None:
+                #        os.kill(node.pid, signal.SIGKILL)
+                #except OSError as _:
+                #    pass
+        else:
+            Utils.Print('Cluster left running.')
 
         # Make sure to cleanup all trx generators that may have been started and still generating trxs
         if self.trxGenLauncher is not None:
             self.trxGenLauncher.killAll()
+
+        self.cleanup()
 
     def bounce(self, nodes, silent=True):
         """Bounces nodeos instances as indicated by parameter nodes.
@@ -1507,6 +1383,8 @@ class Cluster(object):
         return node.waitForNextBlock(timeout)
 
     def cleanup(self):
+        if self.keepRunning or self.keepLogs or self.testFailed:
+            return
         for f in glob.glob(Utils.DataPath):
             shutil.rmtree(f, ignore_errors=True)
         for f in glob.glob(Utils.ConfigDir + "node_*"):

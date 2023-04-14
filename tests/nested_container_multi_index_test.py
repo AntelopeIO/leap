@@ -32,7 +32,7 @@ errorExit=Utils.errorExit
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed"
                            ,"--dump-error-details","-v","--leave-running"
-                           ,"--clean-run","--keep-logs","--unshared"})
+                           ,"--keep-logs","--unshared"})
 
 pnodes=args.p
 topo=args.s
@@ -42,20 +42,12 @@ debug=args.v
 nodesFile=args.nodes_file
 dontLaunch=nodesFile is not None
 seed=args.seed
-dontKill=args.leave_running
 dumpErrorDetails=args.dump_error_details
-killAll=args.clean_run
-keepLogs=args.keep_logs
-
-killWallet=not dontKill
-killEosInstances=not dontKill
-if nodesFile is not None:
-    killEosInstances=False
 
 Utils.Debug=debug
 testSuccessful=False
 
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=True if nodesFiles is not None else args.leave_running, keepLogs=args.keep_logs)
 
 walletMgr=WalletMgr(True)
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
@@ -73,9 +65,6 @@ def create_action(action, data, contract_account, usr):
     Print("result= ", result)
 
 try:
-    cluster.killall(allInstances=False)
-    cluster.cleanup()
-
     Print ("producing nodes: %s, non-producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d" %
             (pnodes, total_nodes-pnodes, topo, delay))
 
@@ -384,7 +373,7 @@ try:
     assert testSuccessful
     
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful)
 
 if testSuccessful:
     exit(0)

@@ -503,7 +503,7 @@ def main():
     args = PerfTestArgumentsHandler.parseArgs()
     Utils.Debug = args.v
 
-    testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+    testHelperConfig = PerformanceTestBasic.TestHelperConfig(dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file,
                                                              verbose=args.v)
 

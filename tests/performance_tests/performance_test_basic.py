@@ -32,7 +32,6 @@ class PerformanceTestBasic:
 
     @dataclass
     class TestHelperConfig:
-        killAll: bool = True # clean_run
         dontKill: bool = False # leave_running
         keepLogs: bool = True
         dumpErrorDetails: bool = False
@@ -175,13 +174,10 @@ class PerformanceTestBasic:
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
-        self.cluster=Cluster(walletd=True, loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
-                             nodeosVers=self.clusterConfig.nodeosVers,unshared=self.testHelperConfig.unshared)
+        self.cluster=Cluster(loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
+                             nodeosVers=self.clusterConfig.nodeosVers,unshared=self.testHelperConfig.unshared,
+                             keepRunning=self.testHelperConfig.dontKill, keepLogs=self.testHelperConfig.keepLogs)
         self.cluster.setWalletMgr(self.walletMgr)
-
-    def cleanupOldClusters(self):
-        self.cluster.killall(allInstances=self.testHelperConfig.killAll)
-        self.cluster.cleanup()
 
     def testDirsCleanup(self, delReport: bool=False):
         try:
@@ -473,7 +469,6 @@ class PerformanceTestBasic:
             log_reader.exportReportAsJSON(jsonReport, self.reportPath)
 
     def preTestSpinup(self):
-        self.cleanupOldClusters()
         self.testDirsCleanup()
         self.testDirsSetup()
 
@@ -519,10 +514,6 @@ class PerformanceTestBasic:
                 cluster=self.cluster,
                 walletMgr=self.walletMgr,
                 testSuccessful=testSuccessful,
-                killEosInstances=self.testHelperConfig._killEosInstances,
-                killWallet=self.testHelperConfig._killWallet,
-                keepLogs=False,
-                cleanRun=self.testHelperConfig.killAll,
                 dumpErrorDetails=self.testHelperConfig.dumpErrorDetails
                 )
 
@@ -622,7 +613,7 @@ def main():
     args = PtbArgumentsHandler.parseArgs()
     Utils.Debug = args.v
 
-    testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+    testHelperConfig = PerformanceTestBasic.TestHelperConfig(dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                              dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v, unshared=args.unshared)
 
     chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,

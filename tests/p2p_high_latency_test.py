@@ -48,20 +48,16 @@ def exec(cmd):
 
 Print=Utils.Print
 
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"})
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--unshared"})
 Utils.Debug=args.v
 
 producers=1
 syncingNodes=1
 totalNodes=producers+syncingNodes
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-dontKill=args.leave_running
-killAll=args.clean_run
 
 testSuccessful=False
-killEosInstances=not dontKill
 
 specificExtraNodeosArgs={}
 producerNodeId=0
@@ -72,8 +68,6 @@ specificExtraNodeosArgs[syncingNodeId]="--p2p-peer-address 0.0.0.0:{}".format(98
 
 try:
     TestHelper.printSystemInfo("BEGIN")
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     traceNodeosArgs=" --plugin eosio::producer_plugin --produce-time-offset-us 0 --last-block-time-offset-us 0 --cpu-effort-percent 100 \
         --last-block-cpu-effort-percent 100 --producer-threads 1 --plugin eosio::net_plugin --net-threads 1"
     if cluster.launch(pnodes=1, totalNodes=totalNodes, totalProducers=1, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=traceNodeosArgs) is False:
@@ -109,7 +103,7 @@ try:
         print(err.decode("utf-8")) # print error details of network slowdown termination commands
         Utils.errorExit("failed to remove network latency, exited with error code {}".format(ReturnCode))
 finally:
-    TestHelper.shutdown(cluster, None, testSuccessful, killEosInstances, False, keepLogs, killAll, dumpErrorDetails)
+    TestHelper.shutdown(cluster, None, testSuccessful, dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

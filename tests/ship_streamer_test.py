@@ -7,7 +7,7 @@ import shutil
 import signal
 import sys
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
 from TestHarness.TestHelper import AppArgs
 
 ###############################################################
@@ -31,14 +31,11 @@ Print=Utils.Print
 
 appArgs = AppArgs()
 extraArgs = appArgs.add(flag="--num-clients", type=int, help="How many ship_streamers should be started", default=1)
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"}, applicationSpecificArgs=appArgs)
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--unshared"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-dontKill=args.leave_running
-killAll=args.clean_run
 walletPort=TestHelper.DEFAULT_WALLET_PORT
 
 totalProducerNodes=2
@@ -49,8 +46,6 @@ totalProducers=maxActiveProducers
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 shipTempDir=None
@@ -59,10 +54,7 @@ try:
     TestHelper.printSystemInfo("BEGIN")
 
     cluster.setWalletMgr(walletMgr)
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     Print("Stand up cluster")
-
 
     # ***   setup topogrophy   ***
 
@@ -94,7 +86,7 @@ try:
     shipNode = cluster.getNode(shipNodeNum)
 
 
-    accounts=cluster.createAccountKeys(6)
+    accounts=createAccountKeys(6)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
@@ -231,9 +223,9 @@ try:
 
     testSuccessful = True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if shipTempDir is not None:
-        if testSuccessful and not keepLogs:
+        if testSuccessful and not args.keep_logs:
             shutil.rmtree(shipTempDir, ignore_errors=True)
 
 errorCode = 0 if testSuccessful else 1

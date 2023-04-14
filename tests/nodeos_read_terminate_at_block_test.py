@@ -24,7 +24,6 @@ totalNodes = 4
 # Parse command line arguments
 args = TestHelper.parse_args({
     "-v",
-    "--clean-run",
     "--dump-error-details",
     "--leave-running",
     "--keep-logs",
@@ -32,12 +31,7 @@ args = TestHelper.parse_args({
 })
 
 Utils.Debug = args.v
-killAll = args.clean_run
 dumpErrorDetails = args.dump_error_details
-dontKill = args.leave_running
-killEosInstances = not dontKill
-killWallet = not dontKill
-keepLogs = args.keep_logs
 
 # Wrapper function to execute test
 # This wrapper function will resurrect the node to be tested, and shut
@@ -180,7 +174,7 @@ def checkHeadOrSpeculative(head, lib):
 
 # Setup cluster and it's wallet manager
 walletMgr = WalletMgr(True)
-cluster = Cluster(walletd=True,unshared=args.unshared)
+cluster = Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 cluster.setWalletMgr(walletMgr)
 
 # List to contain the test result message
@@ -196,8 +190,6 @@ try:
 
     # Kill any existing instances and launch cluster
     TestHelper.printSystemInfo("BEGIN")
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     cluster.launch(
         prodCount=numOfProducers,
         totalProducers=numOfProducers,
@@ -242,10 +234,6 @@ finally:
         cluster,
         walletMgr,
         testSuccessful,
-        killEosInstances,
-        killWallet,
-        keepLogs,
-        killAll,
         dumpErrorDetails
     )
 

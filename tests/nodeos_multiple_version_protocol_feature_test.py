@@ -18,19 +18,14 @@ from TestHarness.Cluster import PFSetupPolicy
 ###############################################################
 
 # Parse command line arguments
-args = TestHelper.parse_args({"-v","--clean-run","--dump-error-details","--leave-running",
+args = TestHelper.parse_args({"-v","--dump-error-details","--leave-running",
                               "--keep-logs","--alternate-version-labels-file","--unshared"})
 Utils.Debug=args.v
-killAll=args.clean_run
 dumpErrorDetails=args.dump_error_details
-dontKill=args.leave_running
-killEosInstances=not dontKill
-killWallet=not dontKill
-keepLogs=args.keep_logs
 alternateVersionLabelsFile=args.alternate_version_labels_file
 
 walletMgr=WalletMgr(True)
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 cluster.setWalletMgr(walletMgr)
 
 def restartNode(node: Node, chainArg=None, addSwapFlags=None, nodeosPath=None):
@@ -78,8 +73,6 @@ def waitUntilBlockBecomeIrr(node, blockNum, timeout=60):
 testSuccessful = False
 try:
     TestHelper.printSystemInfo("BEGIN")
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
 
     # Create a cluster of 4 nodes, each node has 1 producer. The first 3 nodes use the latest vesion,
     # While the 4th node use the version that doesn't support protocol feature activation (i.e. 1.7.0)
@@ -199,7 +192,7 @@ try:
 
     testSuccessful = True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful, dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

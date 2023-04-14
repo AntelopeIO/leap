@@ -39,7 +39,6 @@ class PluginHttpTest(unittest.TestCase):
     def cleanEnv(self) :
         self.keosd.killall(True)
         WalletMgr.cleanup()
-        Node.killAllNodeos()
         if os.path.exists(Utils.DataPath):
             shutil.rmtree(Utils.DataPath)
         if os.path.exists(self.config_dir):

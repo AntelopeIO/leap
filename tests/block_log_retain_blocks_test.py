@@ -19,19 +19,16 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args=TestHelper.parse_args({"--keep-logs" ,"--dump-error-details","-v","--leave-running","--clean-run","--unshared" })
+args=TestHelper.parse_args({"--keep-logs" ,"--dump-error-details","-v","--leave-running","--unshared"})
 debug=args.v
-killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-killAll=args.clean_run
 
 seed=1
 Utils.Debug=debug
 testSuccessful=False
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 walletMgr=WalletMgr(True)
 
 # the first  node for --block-log-retain-blocks 0,
@@ -44,11 +41,6 @@ try:
     TestHelper.printSystemInfo("BEGIN")
 
     cluster.setWalletMgr(walletMgr)
-
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
-    walletMgr.killall(allInstances=killAll)
-    walletMgr.cleanup()
 
     specificExtraNodeosArgs={}
     specificExtraNodeosArgs[0]=f' --block-log-retain-blocks 0 '
@@ -87,7 +79,7 @@ try:
 
     testSuccessful=True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killEosInstances, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
