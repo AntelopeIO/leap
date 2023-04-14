@@ -7,7 +7,7 @@
 #include <fc/variant_object.hpp>
 #include <fc/scoped_exit.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
 using std::map;
 using std::string;
@@ -485,14 +485,15 @@ namespace impl {
          };
 
          try {
-            auto abi = resolver(act.account);
-            if (abi) {
-               auto type = abi->get_action_type(act.name);
+            auto abi_optional = resolver(act.account);
+            if (abi_optional) {
+               abi_serializer& abi = *abi_optional;
+               auto type = abi.get_action_type(act.name);
                if (!type.empty()) {
                   try {
-                     binary_to_variant_context _ctx(*abi, ctx, type);
+                     binary_to_variant_context _ctx(abi, ctx, type);
                      _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
-                     mvo( "data", abi->_binary_to_variant( type, act.data, _ctx ));
+                     mvo( "data", abi._binary_to_variant( type, act.data, _ctx ));
                   } catch(...) {
                      // any failure to serialize data, then leave as not serailzed
                      set_hex_data(mvo, "data", act.data);
@@ -546,13 +547,14 @@ namespace impl {
          mvo("return_value_hex_data", act_trace.return_value);
          auto act = act_trace.act;
          try {
-            auto abi = resolver(act.account);
-            if (abi) {
-               auto type = abi->get_action_result_type(act.name);
+            auto abi_optional = resolver(act.account);
+            if (abi_optional) {
+               abi_serializer& abi = *abi_optional;
+               auto type = abi.get_action_result_type(act.name);
                if (!type.empty()) {
-                  binary_to_variant_context _ctx(*abi, ctx, type);
+                  binary_to_variant_context _ctx(abi, ctx, type);
                   _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
-                  mvo( "return_value_data", abi->_binary_to_variant( type, act_trace.return_value, _ctx ));
+                  mvo( "return_value_data", abi._binary_to_variant( type, act_trace.return_value, _ctx ));
                }
             }
          } catch(...) {}
@@ -678,13 +680,13 @@ namespace impl {
     * this will degrade to the common fc::to_variant as soon as the type no longer contains
     * ABI related info
     *
-    * @tparam Reslover - callable with the signature (const name& code_account) -> std::optional<abi_def>
+    * @tparam Resolver - callable with the signature (const name& code_account) -> std::optional<abi_def>
     */
    template<typename T, typename Resolver>
    class abi_to_variant_visitor
    {
       public:
-         abi_to_variant_visitor( mutable_variant_object& _mvo, const T& _val, Resolver _resolver, abi_traverse_context& _ctx )
+         abi_to_variant_visitor( mutable_variant_object& _mvo, const T& _val, Resolver& _resolver, abi_traverse_context& _ctx )
          :_vo(_mvo)
          ,_val(_val)
          ,_resolver(_resolver)
@@ -707,7 +709,7 @@ namespace impl {
       private:
          mutable_variant_object& _vo;
          const T& _val;
-         Resolver _resolver;
+         Resolver& _resolver;
          abi_traverse_context& _ctx;
    };
 
@@ -890,7 +892,7 @@ namespace impl {
    class abi_from_variant_visitor : public reflector_init_visitor<T>
    {
       public:
-         abi_from_variant_visitor( const variant_object& _vo, T& v, Resolver _resolver, abi_traverse_context& _ctx )
+         abi_from_variant_visitor( const variant_object& _vo, T& v, Resolver& _resolver, abi_traverse_context& _ctx )
          : reflector_init_visitor<T>(v)
          ,_vo(_vo)
          ,_resolver(_resolver)
@@ -914,7 +916,7 @@ namespace impl {
 
       private:
          const variant_object& _vo;
-         Resolver _resolver;
+         Resolver& _resolver;
          abi_traverse_context& _ctx;
    };
 
@@ -970,5 +972,73 @@ void abi_serializer::from_variant( const fc::variant& v, T& o, Resolver resolver
    from_variant( v, o, resolver, create_yield_function(max_serialization_time) );
 }
 
+using abi_serializer_cache_t = std::unordered_map<account_name, std::optional<abi_serializer>>;
+   
+class abi_resolver {
+public:
+   abi_resolver(abi_serializer_cache_t&& abi_serializers) :
+      abi_serializers(std::move(abi_serializers))
+   {}
 
-} } // eosio::chain
+   std::optional<std::reference_wrapper<abi_serializer>> operator()(const account_name& account) {
+      auto it = abi_serializers.find(account);
+      if (it != abi_serializers.end() && it->second)
+         return std::reference_wrapper<abi_serializer>(*it->second);
+      return {};
+   };
+
+private:
+   abi_serializer_cache_t abi_serializers;
+};
+
+class abi_serializer_cache_builder {
+public:
+   abi_serializer_cache_builder(std::function<std::optional<abi_serializer>(const account_name& name)> resolver) :
+      resolver_(std::move(resolver))
+   {
+   }
+
+   abi_serializer_cache_builder(const abi_serializer_cache_builder&) = delete;
+
+   abi_serializer_cache_builder&& add_serializers(const chain::signed_block_ptr& block) && {
+      for( const auto& receipt: block->transactions ) {
+         if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
+            const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
+            const auto& t = pt.get_transaction();
+            for( const auto& a: t.actions )
+               add_to_cache( a );
+            for( const auto& a: t.context_free_actions )
+               add_to_cache( a );
+         }
+      }
+      return std::move(*this);
+   }
+
+   abi_serializer_cache_builder&& add_serializers(const transaction_trace_ptr& trace_ptr) && {
+      for( const auto& trace: trace_ptr->action_traces ) {
+         add_to_cache(trace.act);
+      }
+      return std::move(*this);
+   }
+
+   abi_serializer_cache_t&& get() && {
+      return std::move(abi_serializers);
+   }
+
+private:
+   void add_to_cache(const chain::action& a) {
+      auto it = abi_serializers.find( a.account );
+      if( it == abi_serializers.end() ) {
+         try {
+            abi_serializers.emplace_hint( it, a.account, resolver_( a.account ) );
+         } catch( ... ) {
+            // keep behavior of not throwing on invalid abi, will result in hex data
+         }
+      }
+   }
+
+   std::function<std::optional<abi_serializer>(const account_name& name)> resolver_;
+   abi_serializer_cache_t abi_serializers;
+};
+
+} // eosio::chain

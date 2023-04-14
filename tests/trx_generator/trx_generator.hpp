@@ -11,7 +11,7 @@
 namespace eosio::testing {
 
    struct signed_transaction_w_signer {
-      signed_transaction_w_signer(eosio::chain::signed_transaction trx, fc::crypto::private_key key) : _trx(move(trx)), _signer(key) {}
+      signed_transaction_w_signer(eosio::chain::signed_transaction trx, fc::crypto::private_key key) : _trx(std::move(trx)), _signer(key) {}
 
       eosio::chain::signed_transaction _trx;
       fc::crypto::private_key _signer;
