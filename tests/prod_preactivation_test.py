@@ -34,7 +34,7 @@ walletPort=args.wallet_port
 
 Utils.Debug=debug
 localTest=True
-cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey, unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
+cluster=Cluster(host=server, port=port, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey, unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
 dontBootstrap=sanityTest

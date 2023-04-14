@@ -60,7 +60,7 @@ def runNodeosAndGetOutput(myTimeout=3, nodeosLogPath=f"{Utils.TestLogRoot}"):
     return (True, output)
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 
 try:
     TestHelper.printSystemInfo("BEGIN")

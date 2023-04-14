@@ -36,7 +36,6 @@ Utils.Debug=debug
 localTest=True if server == TestHelper.LOCAL_HOST else False
 cluster=Cluster(host=server, 
                 port=port, 
-                walletd=True,
                 defproduceraPrvtKey=defproduceraPrvtKey, 
                 defproducerbPrvtKey=defproducerbPrvtKey,
                 unshared=args.unshared,

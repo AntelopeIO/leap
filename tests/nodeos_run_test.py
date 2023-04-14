@@ -29,9 +29,7 @@ debug=args.v
 defproduceraPrvtKey=args.defproducera_prvt_key
 defproducerbPrvtKey=args.defproducerb_prvt_key
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
 dontLaunch=args.dont_launch
-dontKill=args.leave_running
 prodCount=args.prod_count
 onlyBios=args.only_bios
 sanityTest=args.sanity_test
@@ -39,13 +37,12 @@ walletPort=args.wallet_port
 
 Utils.Debug=debug
 localTest=True if server == TestHelper.LOCAL_HOST else False
-cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey,unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
+cluster=Cluster(host=server, port=port, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey,unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 errFileName=f"{cluster.nodeosLogPath}/node_00/stderr.txt"
 if args.error_log_path:
     errFileName=args.error_log_path
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killWallet=not dontKill
 dontBootstrap=sanityTest # intent is to limit the scope of the sanity test to just verifying that nodes can be started
 
 WalletdName=Utils.EosWalletName

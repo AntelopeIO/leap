@@ -3,6 +3,7 @@
 import random
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # distributed-transactions-test
@@ -101,10 +102,7 @@ try:
 
     print("Funds spread validated")
 
-    if not dontKill:
-        cluster.shutdown()
-    else:
-        print("NOTE: Skip killing nodes, block log verification will be limited")
+    print("NOTE: Skip killing nodes, block log verification will be limited")
 
     cluster.compareBlockLogs()
 
