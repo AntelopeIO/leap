@@ -5,7 +5,6 @@
 #endif
 
 #include "Inline/BasicTypes.h"
-#include "Runtime/Runtime.h"
 #include "WASM/WASM.h"
 
 namespace WAST

@@ -57,6 +57,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 
 #define CHAIN_RO_CALL(call_name, http_response_code, params_type) CALL_WITH_400(chain, ro_api, chain_apis::read_only, call_name, http_response_code, params_type)
 #define CHAIN_RW_CALL(call_name, http_response_code, params_type) CALL_WITH_400(chain, rw_api, chain_apis::read_write, call_name, http_response_code, params_type)
+#define CHAIN_RO_CALL_POST(call_name, http_response_code, params_type) CALL_WITH_400_POST(chain, ro_api, chain_apis::read_only, call_name, http_response_code, params_type)
 #define CHAIN_RO_CALL_ASYNC(call_name, call_result, http_response_code, params_type) CALL_ASYNC_WITH_400(chain, ro_api, chain_apis::read_only, call_name, call_result, http_response_code, params_type)
 #define CHAIN_RW_CALL_ASYNC(call_name, call_result, http_response_code, params_type) CALL_ASYNC_WITH_400(chain, rw_api, chain_apis::read_write, call_name, call_result, http_response_code, params_type)
 
@@ -78,6 +79,7 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(get_info, 200, http_params_types::no_params)}, appbase::exec_queue::read_only, appbase::priority::medium_high);
    _http_plugin.add_api({
       CHAIN_RO_CALL(get_activated_protocol_features, 200, http_params_types::possible_no_params),
+      CHAIN_RO_CALL_POST(get_block, 200, http_params_types::params_required), // _POST because get_block() returns a lambda to be executed on the http thread pool
       CHAIN_RO_CALL(get_block_info, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_block_header_state, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_account, 200, http_params_types::params_required),
@@ -127,42 +129,8 @@ void chain_api_plugin::plugin_startup() {
       }, appbase::exec_queue::read_only);
    }
 
-   _http_plugin.add_api({
-      { std::string("/v1/chain/get_block"),
-        [ro_api, &_http_plugin, max_time=std::min(chain.get_abi_serializer_max_time(),max_response_time)]
-              ( string&&, string&& body, url_response_callback&& cb ) mutable {
-           auto deadline = ro_api.start();
-           try {
-              auto start = fc::time_point::now();
-              auto params = parse_params<chain_apis::read_only::get_raw_block_params, http_params_types::params_required>(body);
-              FC_CHECK_DEADLINE( deadline );
-              chain::signed_block_ptr block = ro_api.get_raw_block( params, deadline );
-
-              auto abi_cache = ro_api.get_block_serializers( block, max_time );
-              FC_CHECK_DEADLINE( deadline );
-
-              auto post_time = fc::time_point::now();
-              auto remaining_time = max_time - (post_time - start);
-              _http_plugin.post_http_thread_pool(
-                    [ro_api, cb, deadline, post_time, remaining_time, abi_cache{std::move(abi_cache)}, block{std::move( block )}]() mutable {
-                 try {
-                    auto new_deadline = deadline + (fc::time_point::now() - post_time);
-
-                    fc::variant result = ro_api.convert_block( block, std::move(abi_cache), remaining_time );
-
-                    cb( 200, new_deadline, std::move( result ) );
-                 } catch( ... ) {
-                    http_plugin::handle_exception( "chain", "get_block", "", cb );
-                 }
-              } );
-           } catch( ... ) {
-              http_plugin::handle_exception("chain", "get_block", body, cb);
-           }
-        }
-      }
-   }, appbase::exec_queue::read_only);
 }
-
+   
 void chain_api_plugin::plugin_shutdown() {}
 
 }

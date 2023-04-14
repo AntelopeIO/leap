@@ -596,15 +596,18 @@ class NodeosQueries:
 
         return trans
 
-    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
+    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, method="POST", endpoint=None):
         if not endpoint:
             endpoint = self.endpointHttp
         cmd = f"{endpoint}/v1/{resource}/{command}"
-        req = urllib.request.Request(cmd, method="POST")
-        req.add_header('Content-Type', 'application/json')
-        data = payload
-        data = json.dumps(data)
-        data = data.encode()
+        req = urllib.request.Request(cmd, method=method)
+        if len(payload):
+            req.add_header('Content-Type', 'application/json')
+            data = payload
+            data = json.dumps(data)
+            data = data.encode()
+        else:
+            data = None
         if Utils.Debug: Utils.Print("cmd: %s %s" % (cmd, payload))
         rtn=None
         start=time.perf_counter()
@@ -640,6 +643,8 @@ class NodeosQueries:
                         rtn = ex.read()
                     else:
                         unhandledEnumType(returnType)
+            elif returnType==ReturnType.raw:
+                return ex.code
             else:
                 return None
 
@@ -772,4 +777,3 @@ class NodeosQueries:
     def getActivatedProtocolFeatures(self):
         latestBlockHeaderState = self.getLatestBlockHeaderState()
         return latestBlockHeaderState["activated_protocol_features"]["protocol_features"]
-

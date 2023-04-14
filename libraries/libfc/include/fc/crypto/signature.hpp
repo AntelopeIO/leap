@@ -38,7 +38,7 @@ namespace fc { namespace crypto {
          storage_type _storage;
 
          signature( storage_type&& other_storage )
-         :_storage(std::forward<storage_type>(other_storage))
+         :_storage(std::move(other_storage))
          {}
 
          friend bool operator == ( const signature& p1, const signature& p2);

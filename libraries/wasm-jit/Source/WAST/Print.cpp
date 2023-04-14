@@ -355,45 +355,6 @@ namespace WAST
 			}
 		}
 
-		#if ENABLE_SIMD_PROTOTYPE
-		
-		void printImm(LiteralImm<V128> imm) { string += ' '; string += asString(imm.value); }
-
-		template<Uptr numLanes>
-		void printImm(LaneIndexImm<numLanes> imm)
-		{
-			string += ' ';
-			string += imm.laneIndex;
-		}
-		
-		template<Uptr numLanes>
-		void printImm(ShuffleImm<numLanes> imm)
-		{
-			string += " (";
-			for(Uptr laneIndex = 0;laneIndex < numLanes;++laneIndex)
-			{
-				if(laneIndex != 0) { string += ' '; }
-				string += std::to_string(imm.laneIndices[laneIndex]);
-			}
-			string += ')';
-		}
-		#endif
-
-		#if ENABLE_THREADING_PROTOTYPE
-		void printImm(LaunchThreadImm) {}
-		
-		template<Uptr naturalAlignmentLog2>
-		void printImm(AtomicLoadOrStoreImm<naturalAlignmentLog2> imm)
-		{
-			if(imm.offset != 0)
-			{
-				string += " offset=";
-				string += std::to_string(imm.offset);
-			}
-			WAVM_ASSERT_THROW(imm.alignmentLog2 == naturalAlignmentLog2);
-		}
-		#endif
-
 		#define PRINT_OP(opcode,name,nameString,Imm,printOperands) \
 			void name(Imm imm) \
 			{ \

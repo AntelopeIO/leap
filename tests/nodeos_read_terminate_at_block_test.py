@@ -185,7 +185,7 @@ try:
         0 : "--enable-stale-production",
         1 : "--read-mode irreversible --terminate-at-block 75",
         2 : "--read-mode head --terminate-at-block 100",
-        3 : "--read-mode head --terminate-at-block 125"
+        3 : "--read-mode speculative --terminate-at-block 125"
     }
 
     # Kill any existing instances and launch cluster

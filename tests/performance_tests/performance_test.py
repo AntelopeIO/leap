@@ -452,45 +452,80 @@ class PerformanceTest:
         return testSuccessful
 
 class PerfTestArgumentsHandler(object):
+
+
     @staticmethod
     def createArgumentParser():
+        def createPtParser(suppressHelp:bool=False):
+            ptParser = argparse.ArgumentParser(add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+            ptGrpTitle="Performance Harness"
+            ptGrpDescription="Performance Harness testing configuration items."
+            ptParserGroup = ptParser.add_argument_group(title=None if suppressHelp else ptGrpTitle, description=None if suppressHelp else ptGrpDescription)
+            ptParserGroup.add_argument("--skip-tps-test", help=argparse.SUPPRESS if suppressHelp else "Determines whether to skip the max TPS measurement tests", action='store_true')
+            ptParserGroup.add_argument("--calc-producer-threads", type=str, help=argparse.SUPPRESS if suppressHelp else "Determines whether to calculate number of worker threads to use in producer thread pool (\"none\", \"lmax\", or \"full\"). \
+                                                                        In \"none\" mode, the default, no calculation will be attempted and the configured --producer-threads value will be used. \
+                                                                        In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
+                                                                        In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                        Useful for graphing the full performance impact of each available thread.",
+                                                                        choices=["none", "lmax", "full"], default="none")
+            ptParserGroup.add_argument("--calc-chain-threads", type=str, help=argparse.SUPPRESS if suppressHelp else "Determines whether to calculate number of worker threads to use in chain thread pool (\"none\", \"lmax\", or \"full\"). \
+                                                                        In \"none\" mode, the default, no calculation will be attempted and the configured --chain-threads value will be used. \
+                                                                        In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
+                                                                        In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                        Useful for graphing the full performance impact of each available thread.",
+                                                                        choices=["none", "lmax", "full"], default="none",)
+            ptParserGroup.add_argument("--calc-net-threads", type=str, help=argparse.SUPPRESS if suppressHelp else "Determines whether to calculate number of worker threads to use in net thread pool (\"none\", \"lmax\", or \"full\"). \
+                                                                        In \"none\" mode, the default, no calculation will be attempted and the configured --net-threads value will be used. \
+                                                                        In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
+                                                                        In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
+                                                                        Useful for graphing the full performance impact of each available thread.",
+                                                                        choices=["none", "lmax", "full"], default="none")
+            ptParserGroup.add_argument("--del-test-report", help=argparse.SUPPRESS if suppressHelp else "Whether to save json reports from each test scenario.", action='store_true')
+
+            ptTpsGrpTitle="Performance Harness - TPS Test Config"
+            ptTpsGrpDescription="TPS Performance Test configuration items."
+            ptTpsParserGroup = ptParser.add_argument_group(title=None if suppressHelp else ptTpsGrpTitle, description=None if suppressHelp else ptTpsGrpDescription)
+
+            ptTpsParserGroup.add_argument("--max-tps-to-test", type=int, help=argparse.SUPPRESS if suppressHelp else "The max target transfers realistic as ceiling of test range", default=50000)
+            ptTpsParserGroup.add_argument("--test-iteration-duration-sec", type=int, help=argparse.SUPPRESS if suppressHelp else "The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=150)
+            ptTpsParserGroup.add_argument("--test-iteration-min-step", type=int, help=argparse.SUPPRESS if suppressHelp else "The step size determining granularity of tps result during initial search", default=500)
+            ptTpsParserGroup.add_argument("--final-iterations-duration-sec", type=int, help=argparse.SUPPRESS if suppressHelp else "The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=300)
+            return ptParser
+
+        # Create 2 versions of the PT Parser, one with help suppressed to go on the top level parser where the help message is pared down
+        # and the second with help message not suppressed to be the parent of the operational mode sub-commands where pt configuration help
+        # should be displayed
+        ptParserNoHelp = createPtParser(suppressHelp=True)
+        ptParser = createPtParser()
+
+        # Create 2 versions of the PTB Parser, one with help suppressed to go on the top level operational mode sub-commands parsers where the help message is pared down
+        # and the second with help message not suppressed to be the parent of the overrideBasicTestConfig sub-command where configuration help should be displayed
+        ptbArgParserNoHelp = PtbArgumentsHandler.createBaseArgumentParser(suppressHelp=True)
         ptbArgParser = PtbArgumentsHandler.createBaseArgumentParser()
-        ptParser = argparse.ArgumentParser(parents=[ptbArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-        ptGrpTitle="Performance Harness"
-        ptGrpDescription="Performance Harness testing configuration items."
-        ptParserGroup = ptParser.add_argument_group(title=ptGrpTitle, description=ptGrpDescription)
-        ptParserGroup.add_argument("--skip-tps-test", help="Determines whether to skip the max TPS measurement tests", action='store_true')
-        ptParserGroup.add_argument("--calc-producer-threads", type=str, help="Determines whether to calculate number of worker threads to use in producer thread pool (\"none\", \"lmax\", or \"full\"). \
-                                                                    In \"none\" mode, the default, no calculation will be attempted and the configured --producer-threads value will be used. \
-                                                                    In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
-                                                                    In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
-                                                                    Useful for graphing the full performance impact of each available thread.",
-                                                                    choices=["none", "lmax", "full"], default="none")
-        ptParserGroup.add_argument("--calc-chain-threads", type=str, help="Determines whether to calculate number of worker threads to use in chain thread pool (\"none\", \"lmax\", or \"full\"). \
-                                                                    In \"none\" mode, the default, no calculation will be attempted and the configured --chain-threads value will be used. \
-                                                                    In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
-                                                                    In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
-                                                                    Useful for graphing the full performance impact of each available thread.",
-                                                                    choices=["none", "lmax", "full"], default="none")
-        ptParserGroup.add_argument("--calc-net-threads", type=str, help="Determines whether to calculate number of worker threads to use in net thread pool (\"none\", \"lmax\", or \"full\"). \
-                                                                    In \"none\" mode, the default, no calculation will be attempted and the configured --net-threads value will be used. \
-                                                                    In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
-                                                                    In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
-                                                                    Useful for graphing the full performance impact of each available thread.",
-                                                                    choices=["none", "lmax", "full"], default="none")
-        ptParserGroup.add_argument("--del-test-report", help="Whether to save json reports from each test scenario.", action='store_true')
+        phParser = argparse.ArgumentParser(add_help=True, parents=[ptParserNoHelp], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
-        ptTpsGrpTitle="Performance Harness - TPS Test Config"
-        ptTpsGrpDescription="TPS Performance Test configuration items."
-        ptTpsParserGroup = ptParser.add_argument_group(title=ptTpsGrpTitle, description=ptTpsGrpDescription)
+        #Let top level performance harness parser know there will be sub-commands, and that an operational mode sub-command is required
+        opModeDesc=("Each Operational Mode sets up a known node operator configuration and performs load testing and analysis catered to the expectations of that specific operational mode.\
+                    For additional configuration options for each operational mode use, pass --help to the sub-command.\
+                    Eg:  performance_test.py testBpOpMode --help")
+        ptParserSubparsers = phParser.add_subparsers(title="Operational Modes",
+                                                     description=opModeDesc,
+                                                     dest="Operational Mode sub-command",
+                                                     required=True, help="Currently supported operational mode sub-commands.")
 
-        ptTpsParserGroup.add_argument("--max-tps-to-test", type=int, help="The max target transfers realistic as ceiling of test range", default=50000)
-        ptTpsParserGroup.add_argument("--test-iteration-duration-sec", type=int, help="The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=150)
-        ptTpsParserGroup.add_argument("--test-iteration-min-step", type=int, help="The step size determining granularity of tps result during initial search", default=500)
-        ptTpsParserGroup.add_argument("--final-iterations-duration-sec", type=int, help="The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=300)
+        #Create the Block Producer Operational Mode Sub-Command and Parsers
+        bpModeParser = ptParserSubparsers.add_parser(name="testBpOpMode", parents=[ptParser, ptbArgParserNoHelp], add_help=False, help="Test the Block Producer Operational Mode.")
+        bpModeAdvDesc=("Block Producer Operational Mode Advanced Configuration Options allow low level adjustments to the basic test configuration as well as the node topology being tested.\
+                        For additional information on available advanced configuration options, pass --help to the sub-command.\
+                        Eg:  performance_test.py testBpOpMode overrideBasicTestConfig --help")
+        bpModeParserSubparsers = bpModeParser.add_subparsers(title="Advanced Configuration Options",
+                                                             description=bpModeAdvDesc,
+                                                             help="sub-command to allow overriding advanced configuration options")
+        bpModeParserSubparsers.add_parser(name="overrideBasicTestConfig", parents=[ptbArgParser], add_help=False,
+                                          help="Use this sub-command to override low level controls for basic test, logging, node topology, etc.")
 
-        return ptParser
+        return phParser
 
     @staticmethod
     def parseArgs():
@@ -514,15 +549,8 @@ def main():
                                       blockLogRetainBlocks=args.block_log_retain_blocks,
                                       chainStateDbSizeMb=args.chain_state_db_size_mb, abiSerializerMaxTimeMs=990000)
 
-    lbto = args.last_block_time_offset_us
-    lbcep = args.last_block_cpu_effort_percent
-    if args.p > 1 and lbto == 0 and lbcep == 100:
-        print("Overriding defaults for last_block_time_offset_us and last_block_cpu_effort_percent to ensure proper production windows.")
-        lbto = -200000
-        lbcep = 80
     producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
-                                            lastBlockTimeOffsetUs=lbto, produceTimeOffsetUs=args.produce_time_offset_us,
-                                            cpuEffortPercent=args.cpu_effort_percent, lastBlockCpuEffortPercent=lbcep,
+                                            cpuEffortPercent=args.cpu_effort_percent,
                                             producerThreads=args.producer_threads, maxTransactionTime=-1)
     httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
                                     httpThreads=args.http_threads)

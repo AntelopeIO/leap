@@ -93,18 +93,20 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          auto bs = chain_plug->chain().block_start.connect([&pp](uint32_t bn) {
             // catching pending snapshot
             if (!pp->get_snapshot_requests().snapshot_requests.empty()) {
-               auto& pending = pp->get_snapshot_requests().snapshot_requests.begin()->pending_snapshots;
-               if (pending && pending->size()==1) {
-                  // lets check the head block num of it, it should be 8 + 1 = 9
-                  // this means we are getting a snapshot for correct block # as well
-                  BOOST_CHECK_EQUAL(9, pending->begin()->head_block_num);   
+               const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
+               auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(), [](const producer_plugin::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
+               // we should have a pending snapshot for request id = 0
+               BOOST_REQUIRE(it != snapshot_requests.end());
+               auto& pending = it->pending_snapshots;
+               if (pending.size()==1) {
+                  BOOST_CHECK_EQUAL(9, pending.begin()->head_block_num);   
                }
             }
          });
-       
-         producer_plugin::snapshot_request_information sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2"};
-         producer_plugin::snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2"};
-         producer_plugin::snapshot_request_information sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 1"};
+
+         producer_plugin::snapshot_request_information sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 1"};
+         producer_plugin::snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2 that will never happen"};
+         producer_plugin::snapshot_request_information sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 3 that will expire"};
 
          pp->schedule_snapshot(sri1);
          pp->schedule_snapshot(sri2);
@@ -118,8 +120,13 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          // one of the snapshots is done here and request, corresponding to it should be deleted
          BOOST_CHECK_EQUAL(2, pp->get_snapshot_requests().snapshot_requests.size());
 
-         // check whether no pending snapshots present
-         BOOST_CHECK_EQUAL(0, pp->get_snapshot_requests().snapshot_requests.begin()->pending_snapshots->size());
+         // check whether no pending snapshots present for a snapshot with id 0
+         const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
+         auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(),[](const producer_plugin::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
+
+         // snapshot request with id = 0 should be found and should not have any pending snapshots
+         BOOST_REQUIRE(it != snapshot_requests.end());
+         BOOST_CHECK(!it->pending_snapshots.size());
 
          // quit app
          appbase::app().quit();

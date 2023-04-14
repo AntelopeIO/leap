@@ -135,7 +135,8 @@ jobs:
           export TMPDIR="$PWD/tmp"
           mkdir -p $TMPDIR
           zstdcat build.tar.zst | tar x
-          ctest --test-dir build --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
+          cd build
+          ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
 
   np-tests:
     name: NP Tests

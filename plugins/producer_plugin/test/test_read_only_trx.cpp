@@ -117,7 +117,7 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
             transaction_metadata::trx_type::read_only, // trx_type
             return_failure_traces,
             [ptrx, &next_calls, &trace_with_except, &trx_match, return_failure_traces]
-            (const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) {
+            (const next_function_variant<transaction_trace_ptr>& result) {
                if( !std::holds_alternative<fc::exception_ptr>( result ) && !std::get<chain::transaction_trace_ptr>( result )->except ) {
                   if( std::get<chain::transaction_trace_ptr>( result )->id != ptrx->id() ) {
                      elog( "trace not for trx ${id}: ${t}",
@@ -172,10 +172,10 @@ BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
    test_trxs_common(specific_args);
 }
 
-// test read-only trxs on 16 separate threads (with --read-only-threads)
-BOOST_AUTO_TEST_CASE(with_16_read_only_threads) {
+// test read-only trxs on 8 separate threads (with --read-only-threads)
+BOOST_AUTO_TEST_CASE(with_8_read_only_threads) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
-                                              "--read-only-threads=16",
+                                              "--read-only-threads=8",
                                               "--max-transaction-time=10",
                                               "--abi-serializer-max-time-ms=999",
                                               "--read-only-write-window-time-us=100000",

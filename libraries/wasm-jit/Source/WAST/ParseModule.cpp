@@ -125,8 +125,7 @@ static Uptr createImport(
 
 static bool parseOptionalSharedDeclaration(ModuleParseState& state)
 {
-	if(ENABLE_THREADING_PROTOTYPE && state.nextToken->type == t_shared) { ++state.nextToken; return true; }
-	else { return false; }
+	return false;
 }
 
 static void parseImport(ModuleParseState& state)

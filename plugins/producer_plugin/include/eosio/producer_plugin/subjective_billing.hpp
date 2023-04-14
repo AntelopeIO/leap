@@ -157,7 +157,10 @@ public:
       const auto time_ordinal = time_ordinal_for(now);
       const auto orig_count = _account_subjective_bill_cache.size();
       remove_subjective_billing( bsp, time_ordinal );
-      fc_dlog( log, "Subjective billed accounts ${n} removed ${r}", ("n", orig_count)("r", orig_count - _account_subjective_bill_cache.size()) );
+      if (orig_count > 0) {
+         fc_dlog( log, "Subjective billed accounts ${n} removed ${r}",
+                  ("n", orig_count)("r", orig_count - _account_subjective_bill_cache.size()) );
+      }
    }
 
    template <typename Yield>

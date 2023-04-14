@@ -80,9 +80,13 @@ fc::datastream<ST>& operator>>(fc::datastream<ST>& ds, eosio::state_history::get
 
 //------------------------------------------------------------------------------
 
-fc::sha256 block_id_for(const uint32_t bnum) {
-   fc::sha256 m = fc::sha256::hash(fc::sha256::hash(std::to_string(bnum)));
+std::unordered_map<uint32_t, eosio::chain::block_id_type> block_ids;
+fc::sha256 block_id_for(const uint32_t bnum, const std::string& nonce = {}) {
+   if (auto it = block_ids.find(bnum); it != block_ids.end())
+      return it->second;
+   fc::sha256 m = fc::sha256::hash(fc::sha256::hash(std::to_string(bnum)+nonce));
    m._hash[0]   = fc::endian_reverse_u32(bnum);
+   block_ids[bnum] = m;
    return m;
 }
 
@@ -132,11 +136,6 @@ struct mock_state_history_plugin {
 
    void add_session(std::shared_ptr<eosio::session_base> s) {
       session_mgr.insert(std::move(s));
-   }
-
-   template <typename Task>
-   void post_task_main_thread_medium(Task&& task) {
-      boost::asio::post(main_ioc, std::forward<Task>(task));
    }
 
 };
@@ -273,6 +272,9 @@ struct state_history_test_fixture {
    state_history_test_fixture()
        : ws(ioc) {
 
+      // mock uses DEFAULT_LOGGER
+      fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
+
       // start the server with 2 threads
       server.run();
       connect_to(server.local_address);
@@ -318,7 +320,7 @@ struct state_history_test_fixture {
       fc::raw::unpack(ds, result);
    }
 
-   void verify_statue(const eosio::state_history::get_status_result_v0& status) {
+   void verify_status(const eosio::state_history::get_status_result_v0& status) {
 
       send_status_request();
       eosio::state_history::state_result result;
@@ -447,7 +449,7 @@ BOOST_FIXTURE_TEST_CASE(test_session_no_prune, state_history_test_fixture) {
       add_to_log(3, 1, generate_data(n)); // format to encode decompressed size to avoid decompress entire data upfront.
 
       // send a get_status_request and verify the result is what we expected
-      verify_statue(eosio::state_history::get_status_result_v0{
+      verify_status(eosio::state_history::get_status_result_v0{
           .head                    = {head_block_num, block_id_for(head_block_num)},
           .last_irreversible       = {head_block_num, block_id_for(head_block_num)},
           .trace_begin_block       = 1,
@@ -504,7 +506,7 @@ BOOST_FIXTURE_TEST_CASE(test_session_with_prune, state_history_test_fixture) {
       add_to_log(3, 1, generate_data(n)); // format to encode decompressed size to avoid decompress entire data upfront.
 
       // send a get_status_request and verify the result is what we expected
-      verify_statue(eosio::state_history::get_status_result_v0{
+      verify_status(eosio::state_history::get_status_result_v0{
           .head                    = {head_block_num, block_id_for(head_block_num)},
           .last_irreversible       = {head_block_num, block_id_for(head_block_num)},
           .trace_begin_block       = 2,
@@ -552,3 +554,114 @@ BOOST_FIXTURE_TEST_CASE(test_session_with_prune, state_history_test_fixture) {
    }
    FC_LOG_AND_RETHROW()
 }
+
+BOOST_FIXTURE_TEST_CASE(test_session_fork, state_history_test_fixture) {
+   try {
+      // setup block head for the server
+      server.setup_state_history_log();
+      uint32_t head_block_num = 4;
+      server.block_head       = {head_block_num, block_id_for(head_block_num)};
+
+      // generate the log data used for traces and deltas
+      uint32_t n = mock_state_history_plugin::default_frame_size;
+      add_to_log(1, n * sizeof(uint32_t), generate_data(n)); // original data format
+      add_to_log(2, 0, generate_data(n)); // format to accommodate the compressed size greater than 4GB
+      add_to_log(3, 1, generate_data(n)); // format to encode decompressed size to avoid decompress entire data upfront.
+      add_to_log(4, 1, generate_data(n)); // format to encode decompressed size to avoid decompress entire data upfront.
+
+      // send a get_status_request and verify the result is what we expected
+      verify_status(eosio::state_history::get_status_result_v0{
+            .head                    = {head_block_num, block_id_for(head_block_num)},
+            .last_irreversible       = {head_block_num, block_id_for(head_block_num)},
+            .trace_begin_block       = 1,
+            .trace_end_block         = head_block_num + 1,
+            .chain_state_begin_block = 1,
+            .chain_state_end_block   = head_block_num + 1});
+
+      // send a get_blocks_request to server
+      send_request(eosio::state_history::get_blocks_request_v0{
+            .start_block_num        = 1,
+            .end_block_num          = UINT32_MAX,
+            .max_messages_in_flight = UINT32_MAX,
+            .have_positions         = {},
+            .irreversible_only      = false,
+            .fetch_block            = true,
+            .fetch_traces           = true,
+            .fetch_deltas           = true});
+
+      std::vector<eosio::state_history::block_position> have_positions;
+      eosio::state_history::state_result result;
+      // we should get 4 consecutive block result
+      for (int i = 0; i < 4; ++i) {
+         receive_result(result);
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, server.block_head.block_num);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces    = r.traces.value();
+         auto  deltas    = r.deltas.value();
+         auto& data      = written_data[i];
+         auto  data_size = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+         BOOST_REQUIRE(r.this_block.has_value());
+         BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
+         have_positions.push_back(*r.this_block);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+      }
+
+      // generate a fork that includes blocks 3,4 and verify new data retrieved
+      block_ids.extract(3); block_id_for(3, "fork");
+      block_ids.extract(4); block_id_for(4, "fork");
+      server.block_head = {head_block_num, block_id_for(head_block_num)};
+      add_to_log(3, 0, generate_data(n));
+      add_to_log(4, 1, generate_data(n));
+
+      // send a get_status_request and verify the result is what we expected
+      verify_status(eosio::state_history::get_status_result_v0{
+            .head                    = {head_block_num, block_id_for(head_block_num)},
+            .last_irreversible       = {head_block_num, block_id_for(head_block_num)},
+            .trace_begin_block       = 1,
+            .trace_end_block         = head_block_num + 1,
+            .chain_state_begin_block = 1,
+            .chain_state_end_block   = head_block_num + 1});
+
+      // send a get_blocks_request to server starting at 5, will send 3,4 because of fork
+      send_request(eosio::state_history::get_blocks_request_v0{
+            .start_block_num        = 5,
+            .end_block_num          = UINT32_MAX,
+            .max_messages_in_flight = UINT32_MAX,
+            .have_positions         = std::move(have_positions),
+            .irreversible_only      = false,
+            .fetch_block            = true,
+            .fetch_traces           = true,
+            .fetch_deltas           = true});
+
+      eosio::state_history::state_result fork_result;
+      // we should now get data for fork 3,4
+      for (int i = 2; i < 4; ++i) {
+         receive_result(fork_result);
+         BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(fork_result));
+         auto r = std::get<eosio::state_history::get_blocks_result_v0>(fork_result);
+         BOOST_REQUIRE_EQUAL(r.head.block_num, server.block_head.block_num);
+         BOOST_REQUIRE(r.this_block.has_value());
+         BOOST_REQUIRE_EQUAL(r.this_block->block_num, i+1);
+         BOOST_REQUIRE(r.traces.has_value());
+         BOOST_REQUIRE(r.deltas.has_value());
+         auto  traces    = r.traces.value();
+         auto  deltas    = r.deltas.value();
+         auto& data      = written_data[i];
+         auto  data_size = data.size() * sizeof(int32_t);
+         BOOST_REQUIRE_EQUAL(traces.size(), data_size);
+         BOOST_REQUIRE_EQUAL(deltas.size(), data_size);
+
+         BOOST_REQUIRE(std::equal(traces.begin(), traces.end(), (const char*)data.data()));
+         BOOST_REQUIRE(std::equal(deltas.begin(), deltas.end(), (const char*)data.data()));
+      }
+   }
+   FC_LOG_AND_RETHROW()
+}
+

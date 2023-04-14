@@ -69,7 +69,7 @@ class maybe_session {
       maybe_session() = default;
 
       maybe_session( maybe_session&& other)
-      :_session(move(other._session))
+         :_session(std::move(other._session))
       {
       }
 
@@ -96,7 +96,7 @@ class maybe_session {
 
       maybe_session& operator = ( maybe_session&& mv ) {
          if (mv._session) {
-            _session.emplace(move(*mv._session));
+            _session.emplace(std::move(*mv._session));
             mv._session.reset();
          } else {
             _session.reset();
@@ -150,7 +150,7 @@ struct pending_state {
                   block_timestamp_type when,
                   uint16_t num_prev_blocks_to_confirm,
                   const vector<digest_type>& new_protocol_feature_activations )
-   :_db_session( move(s) )
+   :_db_session( std::move(s) )
    ,_block_stage( building_block( prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations ) )
    {}
 
@@ -252,11 +252,9 @@ struct controller_impl {
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
 #endif
-   // Ideally wasmif should be thread_local which must be a static.
-   // Unittests can create multiple controller objects (testers) at the same time,
-   // which overwrites the same static wasmif, is used for eosvmoc too.
    wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
-   thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local; // a copy for each read-only thread, used by eos-vm and eos-vm-jit
+   std::mutex threaded_wasmifs_mtx;
+   std::unordered_map<std::thread::id, std::unique_ptr<wasm_interface>> threaded_wasmifs; // one for each read-only thread, used by eos-vm and eos-vm-jit
    app_window_type app_window = app_window_type::write;
 
    typedef pair<scope_name,action_name>                   handler_key;
@@ -272,9 +270,7 @@ struct controller_impl {
          prev = fork_db.root();
       }
 
-      if ( read_mode == db_read_mode::HEAD ) {
-         EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
-      }
+      EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
 
       head = prev;
 
@@ -344,7 +340,12 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
-         get_wasm_interface().current_lib(bsp->block_num);
+         // producer_plugin has already asserted irreversible_block signal is
+         // called in write window
+         wasmif.current_lib(bsp->block_num);
+         for (auto& w: threaded_wasmifs) {
+            w.second->current_lib(bsp->block_num);
+         }
       });
 
 
@@ -1632,7 +1633,7 @@ struct controller_impl {
             if ( trx->is_transient() ) {
                // remove trx from pending block by not canceling 'restore'
                trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
-            } else if ( pending->_block_status == controller::block_status::ephemeral ) {
+            } else if ( read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::ephemeral ) {
                // An ephemeral block will never become a full block, but on a producer node the trxs should be saved
                // in the un-applied transaction queue for execution during block production. For a non-producer node
                // save the trxs in the un-applied transaction queue for use during block validation to skip signature
@@ -2428,7 +2429,7 @@ struct controller_impl {
       for( const auto& a : trxs )
          trx_digests.emplace_back( a.digest() );
 
-      return merkle( move(trx_digests) );
+      return merkle( std::move(trx_digests) );
    }
 
    void update_producers_authority() {
@@ -2695,8 +2696,11 @@ struct controller_impl {
          wasmif.init_thread_local_data();
       else
 #endif
+      {
+         std::lock_guard g(threaded_wasmifs_mtx);
          // Non-EOSVMOC needs a wasmif per thread
-         wasmif_thread_local = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+         threaded_wasmifs[std::this_thread::get_id()]  = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+      }
    }
 
    bool is_on_main_thread() { return main_thread_id == std::this_thread::get_id(); };
@@ -2719,7 +2723,17 @@ struct controller_impl {
          )
          return wasmif;
       else
-         return *wasmif_thread_local;
+         return *threaded_wasmifs[std::this_thread::get_id()];
+   }
+
+   void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
+      // The caller of this function apply_eosio_setcode has already asserted that
+      // the transaction is not a read-only trx, which implies we are
+      // in write window. Safe to call threaded_wasmifs's code_block_num_last_used
+      wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+      for (auto& w: threaded_wasmifs) {
+         w.second->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+      }
    }
 
    block_state_ptr fork_db_head() const;
@@ -2729,7 +2743,6 @@ thread_local platform_timer controller_impl::timer;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 thread_local eosio::vm::wasm_allocator controller_impl::wasm_alloc;
 #endif
-thread_local std::unique_ptr<wasm_interface> controller_impl::wasmif_thread_local;
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
 {
@@ -3102,13 +3115,17 @@ block_id_type controller::fork_db_head_block_id()const {
    return my->fork_db_head()->id;
 }
 
-time_point controller::pending_block_time()const {
+block_timestamp_type controller::pending_block_timestamp()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
 
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage)._block_state->header.timestamp;
 
    return my->pending->get_pending_block_header_state().timestamp;
+}
+
+time_point controller::pending_block_time()const {
+   return pending_block_timestamp();
 }
 
 uint32_t controller::pending_block_num()const {
@@ -3712,6 +3729,10 @@ void controller::set_to_read_window() {
 }
 bool controller::is_write_window() const {
    return my->is_write_window();
+}
+
+void controller::code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
+   return my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
 }
 
 /// Protocol feature activation handlers:

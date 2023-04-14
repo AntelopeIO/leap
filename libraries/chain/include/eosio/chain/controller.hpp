@@ -49,7 +49,8 @@ namespace eosio { namespace chain {
 
    enum class db_read_mode {
       HEAD,
-      IRREVERSIBLE
+      IRREVERSIBLE,
+      SPECULATIVE
    };
 
    enum class validation_mode {
@@ -223,6 +224,7 @@ namespace eosio { namespace chain {
          block_id_type        fork_db_head_block_id()const;
 
          time_point                     pending_block_time()const;
+         block_timestamp_type           pending_block_timestamp()const;
          account_name                   pending_block_producer()const;
          const block_signing_authority& pending_block_signing_authority()const;
          std::optional<block_id_type>   pending_producer_block_id()const;
@@ -376,6 +378,7 @@ namespace eosio { namespace chain {
       void set_to_write_window();
       void set_to_read_window();
       bool is_write_window() const;
+      void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num);
 
       private:
          friend class apply_context;

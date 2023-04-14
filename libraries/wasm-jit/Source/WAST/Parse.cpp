@@ -93,9 +93,6 @@ namespace WAST
 		case t_i64: ++state.nextToken; outValueType = ValueType::i64; return true;
 		case t_f32: ++state.nextToken; outValueType = ValueType::f32; return true;
 		case t_f64: ++state.nextToken; outValueType = ValueType::f64; return true;
-		#if ENABLE_SIMD_PROTOTYPE
-		case t_v128: ++state.nextToken; outValueType = ValueType::v128; return true;
-		#endif
 		default:
 			outValueType = ValueType::any;
 			return false;
