@@ -82,8 +82,8 @@ fc::datastream<ST>& operator>>(fc::datastream<ST>& ds, eosio::state_history::get
 
 std::unordered_map<uint32_t, eosio::chain::block_id_type> block_ids;
 fc::sha256 block_id_for(const uint32_t bnum, const std::string& nonce = {}) {
-   if (block_ids.count(bnum))
-      return block_ids[bnum];
+   if (auto it = block_ids.find(bnum); it != block_ids.end())
+      return it->second;
    fc::sha256 m = fc::sha256::hash(fc::sha256::hash(std::to_string(bnum)+nonce));
    m._hash[0]   = fc::endian_reverse_u32(bnum);
    block_ids[bnum] = m;
