@@ -97,6 +97,8 @@ Options:
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/range/algorithm/copy.hpp>
+#define BOOST_DLL_USE_STD_FS
+#include <boost/dll/runtime_symbol_info.hpp>
 
 #pragma pop_macro("N")
 
@@ -109,7 +111,6 @@ Options:
 #include "localize.hpp"
 #include "config.hpp"
 #include "httpc.hpp"
-#include "program_location.hpp"
 
 using namespace std;
 using namespace eosio;
@@ -1120,9 +1121,10 @@ void ensure_keosd_running(CLI::App* app) {
     if (local_port_used())
        return;
 
-    auto binPath = program_location().parent_path() / key_store_executable_name;
+    auto parent_path = boost::dll::program_location().parent_path();
+    auto binPath = parent_path / key_store_executable_name;
     if (!std::filesystem::exists(binPath)) {
-        binPath = program_location().parent_path().parent_path() / "keosd"/ key_store_executable_name;
+        binPath = parent_path.parent_path() / "keosd"/ key_store_executable_name;
     }
 
     if (std::filesystem::exists(binPath)) {

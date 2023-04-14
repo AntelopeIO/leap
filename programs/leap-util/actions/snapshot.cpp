@@ -95,7 +95,7 @@ int snapshot_actions::run_subcommand() {
       control->startup(shutdown, check_shutdown, reader);
       infile.close();
 
-      ilog("Writing snapshot: ${s}", ("s", json_path.generic_string()));
+      ilog("Writing snapshot: ${s}", ("s", json_path));
       auto snap_out = std::ofstream(json_path.generic_string(), (std::ios::out));
       auto writer = std::make_shared<ostream_json_snapshot_writer>(snap_out);
       control->write_snapshot(writer);
@@ -108,6 +108,6 @@ int snapshot_actions::run_subcommand() {
       throw;
    }
 
-   ilog("Completed writing snapshot: ${s}", ("s", json_path.generic_string()));
+   ilog("Completed writing snapshot: ${s}", ("s", json_path));
    return 0;
 }

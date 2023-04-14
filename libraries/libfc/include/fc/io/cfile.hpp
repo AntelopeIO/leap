@@ -245,16 +245,15 @@ class temp_cfile {
 public:
    temp_cfile(const char* mode = "wb"){
       std::filesystem::path template_path{ std::filesystem::temp_directory_path() / "fc-XXXXXX" };
-      char                  tmp_buf[4096];
-      strncpy(tmp_buf, template_path.c_str(), 4096);
-      int fd = mkstemp(tmp_buf);
+      std::string tmp = template_path.string();
+      int fd = mkstemp(tmp.data());
       if (fd == -1)
          throw std::system_error(errno, std::generic_category(), __PRETTY_FUNCTION__);
-      _impl._file_path = tmp_buf;
+      _impl.set_file_path(tmp);
       _impl._file.reset(fdopen(fd, mode));
       if( !_impl._file ) {
          using namespace std::literals::string_literals;
-         throw std::ios_base::failure( "cfile unable to open: "s +  tmp_buf + " in mode: " + std::string( mode ) );
+         throw std::ios_base::failure( "cfile unable to open: "s +  tmp + " in mode: " + std::string( mode ) );
       }
       _impl._open = true;
    }

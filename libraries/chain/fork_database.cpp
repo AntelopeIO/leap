@@ -130,7 +130,7 @@ namespace eosio { namespace chain {
             fc::raw::unpack( ds, totem );
             EOS_ASSERT( totem == fork_database::magic_number, fork_database_exception,
                         "Fork database file '${filename}' has unexpected magic number: ${actual_totem}. Expected ${expected_totem}",
-                        ("filename", fork_db_dat.generic_string())
+                        ("filename", fork_db_dat)
                         ("actual_totem", totem)
                         ("expected_totem", fork_database::magic_number)
             );
@@ -142,7 +142,7 @@ namespace eosio { namespace chain {
                         fork_database_exception,
                        "Unsupported version of fork database file '${filename}'. "
                        "Fork database version is ${version} while code supports version(s) [${min},${max}]",
-                       ("filename", fork_db_dat.generic_string())
+                       ("filename", fork_db_dat)
                        ("version", version)
                        ("min", fork_database::min_supported_version)
                        ("max", fork_database::max_supported_version)
@@ -169,18 +169,18 @@ namespace eosio { namespace chain {
                head = get_block_impl( head_id );
                EOS_ASSERT( head, fork_database_exception,
                            "could not find head while reconstructing fork database from file; '${filename}' is likely corrupted",
-                           ("filename", fork_db_dat.generic_string()) );
+                           ("filename", fork_db_dat) );
             }
 
             auto candidate = index.get<by_lib_block_num>().begin();
             if( candidate == index.get<by_lib_block_num>().end() || !(*candidate)->is_valid() ) {
                EOS_ASSERT( head->id == root->id, fork_database_exception,
                            "head not set to root despite no better option available; '${filename}' is likely corrupted",
-                           ("filename", fork_db_dat.generic_string()) );
+                           ("filename", fork_db_dat) );
             } else {
                EOS_ASSERT( !first_preferred( **candidate, *head ), fork_database_exception,
                            "head not set to best available option available; '${filename}' is likely corrupted",
-                           ("filename", fork_db_dat.generic_string()) );
+                           ("filename", fork_db_dat) );
             }
          } FC_CAPTURE_AND_RETHROW( (fork_db_dat) )
 
@@ -199,7 +199,7 @@ namespace eosio { namespace chain {
       if( !root ) {
          if( index.size() > 0 ) {
             elog( "fork_database is in a bad state when closing; not writing out '${filename}'",
-                  ("filename", fork_db_dat.generic_string()) );
+                  ("filename", fork_db_dat) );
          }
          return;
       }
@@ -250,7 +250,7 @@ namespace eosio { namespace chain {
          fc::raw::pack( out, head->id );
       } else {
          elog( "head not set in fork database; '${filename}' will be corrupted",
-               ("filename", fork_db_dat.generic_string()) );
+               ("filename", fork_db_dat) );
       }
 
       index.clear();

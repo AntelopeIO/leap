@@ -496,10 +496,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
             EOS_ASSERT( fc::json::save_to_file( chainbase::environment(), p, true ), misc_exception,
                         "Error occurred while writing build info JSON to '${path}'",
-                        ("path", p.generic_string())
+                        ("path", p)
             );
 
-            ilog( "Saved build info JSON to '${path}'", ("path", p.generic_string()) );
+            ilog( "Saved build info JSON to '${path}'", ("path", p) );
          }
 
          EOS_THROW( node_management_success, "reported build environment information" );
@@ -650,11 +650,11 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             EOS_ASSERT( gs,
                         plugin_config_exception,
                         "Block log at '${path}' does not contain a genesis state, it only has the chain-id.",
-                        ("path", (my->blocks_dir / "blocks.log").generic_string())
+                        ("path", (my->blocks_dir / "blocks.log"))
             );
          } else {
             wlog( "No blocks.log found at '${p}'. Using default genesis state.",
-                  ("p", (my->blocks_dir / "blocks.log").generic_string()));
+                  ("p", (my->blocks_dir / "blocks.log")));
             gs.emplace();
          }
 
@@ -672,10 +672,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             EOS_ASSERT( fc::json::save_to_file( *gs, p, true ),
                         misc_exception,
                         "Error occurred while writing genesis JSON to '${path}'",
-                        ("path", p.generic_string())
+                        ("path", p)
             );
 
-            ilog( "Saved genesis JSON to '${path}'", ("path", p.generic_string()) );
+            ilog( "Saved genesis JSON to '${path}'", ("path", p) );
          }
 
          EOS_THROW( extract_genesis_state_exception, "extracted genesis state from blocks.log" );
@@ -819,7 +819,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             EOS_ASSERT( std::filesystem::is_regular_file( genesis_file ),
                         plugin_config_exception,
                        "Specified genesis file '${genesis}' does not exist.",
-                       ("genesis", genesis_file.generic_string()));
+                       ("genesis", genesis_file));
 
             genesis_state provided_genesis = fc::json::from_file( genesis_file ).as<genesis_state>();
 
@@ -827,9 +827,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                provided_genesis.initial_timestamp = calculate_genesis_timestamp( options.at( "genesis-timestamp" ).as<string>() );
 
                ilog( "Using genesis state provided in '${genesis}' but with adjusted genesis timestamp",
-                     ("genesis", genesis_file.generic_string()) );
+                     ("genesis", genesis_file) );
             } else {
-               ilog( "Using genesis state provided in '${genesis}'", ("genesis", genesis_file.generic_string()));
+               ilog( "Using genesis state provided in '${genesis}'", ("genesis", genesis_file));
             }
 
             if( block_log_genesis ) {

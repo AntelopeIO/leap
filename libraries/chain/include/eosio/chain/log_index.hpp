@@ -26,7 +26,7 @@ class log_index {
       file_.seek_end(0);
       num_blocks_ = file_.tellp()/ sizeof(uint64_t);
       EOS_ASSERT(file_.tellp() % sizeof(uint64_t) == 0, Exception,
-                 "The size of ${file} is not a multiple of sizeof(uint64_t)", ("file", path.generic_string()));
+                 "The size of ${file} is not a multiple of sizeof(uint64_t)", ("file", path));
    }
 
    bool is_open() const { return file_.is_open(); }

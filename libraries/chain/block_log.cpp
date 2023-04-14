@@ -74,7 +74,7 @@ namespace eosio { namespace chain {
                     "Unsupported version of block log. Block log version is ${version} while code supports version(s) "
                     "[${min},${max}], log file: ${log}",
                     ("version", version())("min", block_log::min_supported_version)(
-                          "max", block_log::max_supported_version)("log", log_path.generic_string()));
+                          "max", block_log::max_supported_version)("log", log_path));
 
          first_block_num = 1;
          if (version() != initial_version) {
@@ -443,7 +443,7 @@ namespace eosio { namespace chain {
             chain_id = log.chain_id();
          } else {
             EOS_ASSERT(chain_id == log.chain_id(), block_log_exception,
-                       "block log file ${path} has a different chain id", ("path", log_path.generic_string()));
+                       "block log file ${path} has a different chain id", ("path", log_path));
          }
       }
    };
@@ -1265,8 +1265,8 @@ namespace eosio { namespace chain {
    // static
    void block_log::construct_index(const std::filesystem::path& block_file_name, const std::filesystem::path& index_file_name) {
 
-      ilog("Will read existing blocks.log file ${file}", ("file", block_file_name.generic_string()));
-      ilog("Will write new blocks.index file ${file}", ("file", index_file_name.generic_string()));
+      ilog("Will read existing blocks.log file ${file}", ("file", block_file_name));
+      ilog("Will write new blocks.index file ${file}", ("file", index_file_name));
 
       block_log_data log_data(block_file_name);
       log_data.construct_index(index_file_name);
@@ -1463,7 +1463,7 @@ namespace eosio { namespace chain {
       EOS_ASSERT(block_dir != temp_dir, block_log_exception, "block_dir and temp_dir need to be different directories");
 
       ilog("In directory ${dir} will trim all blocks before block ${n} from blocks.log and blocks.index.",
-           ("dir", block_dir.generic_string())("n", truncate_at_block));
+           ("dir", block_dir)("n", truncate_at_block));
 
       block_log_bundle log_bundle(block_dir);
 
@@ -1501,8 +1501,8 @@ namespace eosio { namespace chain {
       block_log_bundle log_bundle(block_dir);
 
       ilog("In directory ${block_dir} will trim all blocks after block ${n} from ${block_file} and ${index_file}",
-           ("block_dir", block_dir.generic_string())("n", n)("block_file", log_bundle.block_file_name.generic_string())(
-                 "index_file", log_bundle.index_file_name.generic_string()));
+           ("block_dir", block_dir)("n", n)("block_file", log_bundle.block_file_name)(
+                 "index_file", log_bundle.index_file_name));
 
       if (n < log_bundle.log_data.first_block_num()) {
          dlog("All blocks are after block ${n} so do nothing (trim_end would delete entire blocks.log)", ("n", n));
@@ -1654,7 +1654,7 @@ namespace eosio { namespace chain {
             } else
                wlog("${file}.log cannot be merged with previous block log file because of the discontinuity of blocks, "
                     "skip merging.",
-                    ("file", val.filename_base.generic_string()));
+                    ("file", val.filename_base));
             // there is a version or block number gap between the stride files
             move_blocklog_files(temp_path, dest_dir, start_block, end_block);
          }

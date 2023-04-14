@@ -785,10 +785,10 @@ Enables new `get_block_num` intrinsic which returns the current block number.
          return fc::json::from_file<builtin_protocol_feature>( p );
       } catch( const fc::exception& e ) {
          wlog( "problem encountered while reading '${path}':\n${details}",
-               ("path", p.generic_string())("details",e.to_detail_string()) );
+               ("path", p)("details",e.to_detail_string()) );
       } catch( ... ) {
          dlog( "unknown problem encountered while reading '${path}'",
-               ("path", p.generic_string()) );
+               ("path", p) );
       }
       return {};
    }
@@ -803,7 +803,7 @@ Enables new `get_block_num` intrinsic which returns the current block number.
       if( std::filesystem::exists( p ) ) {
          EOS_ASSERT( std::filesystem::is_directory( p ), plugin_exception,
                      "Path to protocol-features is not a directory: ${path}",
-                     ("path", p.generic_string())
+                     ("path", p)
          );
       } else {
          if( populate_missing_builtins )
@@ -870,8 +870,8 @@ Enables new `get_block_num` intrinsic which returns the current block number.
             EOS_ASSERT( res.second, plugin_exception,
                         "Builtin protocol feature '${codename}' was already included from a previous_file",
                         ("codename", builtin_protocol_feature_codename(f->get_codename()))
-                              ("current_file", file_path.generic_string())
-                              ("previous_file", res.first->second.generic_string())
+                              ("current_file", file_path)
+                              ("previous_file", res.first->second)
             );
 
             const auto feature_digest = f->digest();
@@ -919,20 +919,20 @@ Enables new `get_block_num` intrinsic which returns the current block number.
          EOS_ASSERT( !std::filesystem::exists( file_path ), plugin_exception,
                      "Could not save builtin protocol feature with codename '${codename}' because a file at the following path already exists: ${path}",
                      ("codename", builtin_protocol_feature_codename( f.get_codename() ))
-                           ("path", file_path.generic_string())
+                           ("path", file_path)
          );
 
          if( fc::json::save_to_file( f, file_path ) ) {
             ilog( "Saved default specification for builtin protocol feature '${codename}' (with digest of '${digest}') to: ${path}",
                   ("codename", builtin_protocol_feature_codename(f.get_codename()))
                         ("digest", feature_digest)
-                        ("path", file_path.generic_string())
+                        ("path", file_path)
             );
          } else {
             elog( "Error occurred while writing default specification for builtin protocol feature '${codename}' (with digest of '${digest}') to: ${path}",
                   ("codename", builtin_protocol_feature_codename(f.get_codename()))
                         ("digest", feature_digest)
-                        ("path", file_path.generic_string())
+                        ("path", file_path)
             );
          }
       };
