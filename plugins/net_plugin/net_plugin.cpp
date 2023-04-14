@@ -122,7 +122,7 @@ namespace eosio {
       static constexpr int64_t block_interval_ns =
             std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(config::block_interval_ms)).count();
 
-      mutable std::mutex sync_mtx;
+      std::mutex     sync_mtx;
       uint32_t       sync_known_lib_num{0};
       uint32_t       sync_last_requested_num{0};
       uint32_t       sync_next_expected_num{0};
@@ -150,10 +150,8 @@ namespace eosio {
       void sync_update_expected( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied );
       void recv_handshake( const connection_ptr& c, const handshake_message& msg );
       void sync_recv_notice( const connection_ptr& c, const notice_message& msg );
-      inline std::unique_lock<std::mutex> locked_sync_mutex() {
-         return std::unique_lock<std::mutex>(sync_mtx);
-      }
-      inline void reset_last_requested_num(const std::unique_lock<std::mutex>& lock) {
+      inline void reset_last_requested_num() {
+         std::lock_guard g(sync_mtx);
          sync_last_requested_num = 0;
       }
    };
@@ -215,7 +213,6 @@ namespace eosio {
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl>,
                            public auto_bp_peering::bp_connection_manager<net_plugin_impl, connection> {
     public:
-      using connection_t = connection;
       unique_ptr<tcp::acceptor>        acceptor;
       std::atomic<uint32_t>            current_connection_id{0};
 
@@ -1590,7 +1587,7 @@ namespace eosio {
 
          // if closing the connection we are currently syncing from, then reset our last requested and next expected.
          if( c == sync_source ) {
-            reset_last_requested_num(g);
+            sync_last_requested_num = 0;
             // if starting to sync need to always start from lib as we might be on our own fork
             uint32_t lib_num = my_impl->get_chain_lib_num();
             sync_next_expected_num = lib_num + 1;
@@ -1676,7 +1673,7 @@ namespace eosio {
          fc_elog( logger, "Unable to continue syncing at this time");
          if( !new_sync_source ) sync_source.reset();
          sync_known_lib_num = chain_info.lib_num;
-         reset_last_requested_num(g_sync);
+         sync_last_requested_num = 0;
          set_state( in_sync ); // probably not, but we can't do anything else
          return;
       }
@@ -1758,7 +1755,7 @@ namespace eosio {
 
       if( c == sync_source ) {
          c->cancel_sync(reason);
-         reset_last_requested_num(g);
+         sync_last_requested_num = 0;
          request_next_chunk( std::move(g) );
       }
    }
@@ -1951,7 +1948,7 @@ namespace eosio {
    void sync_manager::rejected_block( const connection_ptr& c, uint32_t blk_num ) {
       c->block_status_monitor_.rejected();
       std::unique_lock<std::mutex> g( sync_mtx );
-      reset_last_requested_num(g);
+      sync_last_requested_num = 0;
       if( c->block_status_monitor_.max_events_violated()) {
          peer_wlog( c, "block ${bn} not accepted, closing connection", ("bn", blk_num) );
          sync_source.reset();
@@ -2622,7 +2619,7 @@ namespace eosio {
             peer_ilog( this, "received block ${n} less than ${which}lib ${lib}",
                        ("n", blk_num)("which", blk_num < last_sent_lib ? "sent " : "")
                        ("lib", blk_num < last_sent_lib ? last_sent_lib : lib_num) );
-            my_impl->sync_master->reset_last_requested_num(my_impl->sync_master->locked_sync_mutex());
+            my_impl->sync_master->reset_last_requested_num();
             enqueue( (sync_request_message) {0, 0} );
             send_handshake();
             cancel_wait();
