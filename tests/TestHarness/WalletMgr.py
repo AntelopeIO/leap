@@ -296,7 +296,11 @@ class WalletMgr(object):
         """Kill keos instances. allInstances will kill all keos instances running on the system."""
         if self.__walletPid:
             Utils.Print("Killing wallet manager process %d" % (self.__walletPid))
-            os.kill(self.__walletPid, signal.SIGKILL)
+            try:
+                os.kill(self.__walletPid, signal.SIGKILL)
+            except ProcessLookupError:
+                self.dumpErrorDetails()
+                raise
 
         if allInstances:
             cmd="pkill -9 %s" % (Utils.EosWalletName)
