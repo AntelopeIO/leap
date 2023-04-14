@@ -522,7 +522,7 @@ class PerformanceTestBasic:
                 testSuccessful=testSuccessful,
                 killEosInstances=self.testHelperConfig._killEosInstances,
                 killWallet=self.testHelperConfig._killWallet,
-                keepLogs=False,
+                keepLogs=True,
                 cleanRun=self.testHelperConfig.killAll,
                 dumpErrorDetails=self.testHelperConfig.dumpErrorDetails
                 )
