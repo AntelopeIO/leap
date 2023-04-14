@@ -47,7 +47,7 @@ dumpErrorDetails=args.dump_error_details
 Utils.Debug=debug
 testSuccessful=False
 
-cluster=Cluster(unshared=args.unshared, keepRunning=True if nodesFiles is not None else args.leave_running, keepLogs=args.keep_logs)
+cluster=Cluster(unshared=args.unshared, keepRunning=True if nodesFile is not None else args.leave_running, keepLogs=args.keep_logs)
 
 walletMgr=WalletMgr(True)
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
