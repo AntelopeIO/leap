@@ -6,6 +6,7 @@ import time
 import os
 from os.path import join, exists
 from datetime import datetime
+from typing import List
 
 from TestHarness import  Cluster, Node, TestHelper, Utils, WalletMgr
 from TestHarness.Cluster import PFSetupPolicy
@@ -109,7 +110,7 @@ try:
         for node in allNodes:
             if not node.killed: node.processUrllibRequest("producer", "resume")
 
-    def areNodesInSync(nodes:[Node]):
+    def areNodesInSync(nodes: List[Node]):
         # Pause all block production to ensure the head is not moving
         pauseBlockProductions()
         time.sleep(2) # Wait for some time to ensure all blocks are propagated
