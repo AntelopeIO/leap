@@ -679,6 +679,7 @@ namespace eosio {
       alignas(hardware_destructive_interference_size)
       std::atomic<bool>       connecting{true};
       std::atomic<bool>       syncing{false};
+      std::atomic<bool>       closing{false};
 
       std::atomic<uint16_t>   protocol_version = 0;
       uint16_t                net_version = net_version_max;
@@ -1030,7 +1031,7 @@ namespace eosio {
    }
 
    bool connection::connected() const {
-      return socket_is_open() && !connecting;
+      return socket_is_open() && !connecting && !closing;
    }
 
    bool connection::current() const {
@@ -1042,6 +1043,7 @@ namespace eosio {
    }
 
    void connection::close( bool reconnect, bool shutdown ) {
+      closing = true;
       strand.post( [self = shared_from_this(), reconnect, shutdown]() {
          connection::_close( self.get(), reconnect, shutdown );
       });
@@ -1059,6 +1061,7 @@ namespace eosio {
       self->flush_queues();
       self->connecting = false;
       self->syncing = false;
+      self->closing = false;
       self->block_status_monitor_.reset();
       ++self->consecutive_immediate_connection_close;
       bool has_last_req = false;
@@ -1175,6 +1178,8 @@ namespace eosio {
    }
 
    void connection::send_handshake() {
+      if (closing)
+         return;
       strand.post( [c = shared_from_this()]() {
          std::unique_lock<std::mutex> g_conn( c->conn_mtx );
          if( c->populate_handshake( c->last_handshake_sent ) ) {
@@ -1250,7 +1255,7 @@ namespace eosio {
 
    // called from connection strand
    void connection::do_queue_write() {
-      if( !buffer_queue.ready_to_send() )
+      if( !buffer_queue.ready_to_send() || closing )
          return;
       connection_ptr c(shared_from_this());
 
@@ -2373,8 +2378,7 @@ namespace eosio {
                   c->send_handshake();
                }
             } else {
-               fc_elog( logger, "connection failed to ${host}:${port} ${error}",
-                        ("host", endpoint.address().to_string())("port", endpoint.port())( "error", err.message()));
+               fc_elog( logger, "connection failed to ${a}, ${error}", ("a", c->peer_address())( "error", err.message()));
                c->close( false );
             }
       } ) );
