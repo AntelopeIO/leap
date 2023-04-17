@@ -2159,10 +2159,12 @@ namespace eosio {
       unlinkable_blk_state.insert( {id, std::move(b)} ); // does not insert if already there
       if (unlinkable_blk_state.size() > max_unlinkable_cache_size) {
          auto& index = unlinkable_blk_state.get<by_timestamp>();
-         index.erase( index.begin() );
+         auto begin = index.begin();
+         block_id_type rm_block_id = begin->id;
+         index.erase( begin );
          g.unlock();
          // rm_block since we are no longer tracking this not applied block, allowing it to flow back in if needed
-         rm_block(id);
+         rm_block(rm_block_id);
       }
    }
 
