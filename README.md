@@ -1,4 +1,11 @@
 # Leap
+
+1. [Branches](#branches)
+2. [Supported Operating Systems](#supported-operating-systems)
+3. [Binary Installation](#binary-installation)
+4. [Build and Install from Source](#build-and-install-from-source)
+5. [Bash Autocomplete](#bash-autocomplete)
+
 Leap is a C++ implementation of the [Antelope](https://github.com/AntelopeIO) protocol. It contains blockchain node software and supporting tools for developers and node operators.
 
 ## Branches
