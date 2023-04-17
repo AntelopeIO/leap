@@ -1061,7 +1061,6 @@ namespace eosio {
       self->flush_queues();
       self->connecting = false;
       self->syncing = false;
-      self->closing = false;
       self->block_status_monitor_.reset();
       ++self->consecutive_immediate_connection_close;
       bool has_last_req = false;
@@ -1082,6 +1081,7 @@ namespace eosio {
       if( !shutdown) my_impl->sync_master->sync_reset_lib_num( self->shared_from_this(), true );
       peer_ilog( self, "closing" );
       self->cancel_wait();
+      self->closing = false;
 
       if( reconnect && !shutdown ) {
          my_impl->start_conn_timer( std::chrono::milliseconds( 100 ), connection_wptr() );
