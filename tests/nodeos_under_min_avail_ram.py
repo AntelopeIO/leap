@@ -3,7 +3,7 @@
 import time
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
-from TestHarness.Cluster import NamedAccounts
+from TestHarness.accounts import NamedAccounts
 
 ###############################################################
 # nodeos_under_min_avail_ram

@@ -5,7 +5,7 @@ import time
 import json
 
 from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
-from TestHarness.Cluster import NamedAccounts
+from TestHarness.accounts import NamedAccounts
 from TestHarness.TestHelper import AppArgs
 
 ###############################################################
