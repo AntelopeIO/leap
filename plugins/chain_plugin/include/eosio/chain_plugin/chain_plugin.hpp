@@ -426,7 +426,9 @@ public:
       string              next_key; ///< fill lower_bound with this value to fetch more rows
    };
 
-   get_table_rows_result get_table_rows( const get_table_rows_params& params, const fc::time_point& deadline )const;
+   using get_table_rows_return_t = std::function<chain::t_or_exception<get_table_rows_result>()>;
+   
+   get_table_rows_return_t get_table_rows( const get_table_rows_params& params, const fc::time_point& deadline )const;
 
    struct get_table_by_scope_params {
       name                 code; // mandatory
@@ -559,10 +561,11 @@ public:
    static uint64_t get_table_index_name(const read_only::get_table_rows_params& p, bool& primary);
 
    template <typename IndexType, typename SecKeyType, typename ConvFn>
-   read_only::get_table_rows_result get_table_rows_by_seckey( const read_only::get_table_rows_params& p,
-                                                              abi_def&& abi,
-                                                              const fc::time_point& deadline,
-                                                              ConvFn conv )const {
+   get_table_rows_return_t  // normal return fc::variant(read_only::get_table_rows_result)
+   get_table_rows_by_seckey( const read_only::get_table_rows_params& p,
+                             abi_def&& abi,
+                             const fc::time_point& deadline,
+                             ConvFn conv ) const {
 
       fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
       fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
@@ -572,8 +575,6 @@ public:
 
       name scope{ convert_to_type<uint64_t>(p.scope, "scope") };
 
-      abi_serializer abis;
-      abis.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
       bool primary = false;
       const uint64_t table_with_index = get_table_index_name(p, primary);
       const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple(p.code, scope, p.table));
@@ -619,8 +620,13 @@ public:
          }
 
          if( upper_bound_lookup_tuple < lower_bound_lookup_tuple )
-            return result;
+            return []() ->  chain::t_or_exception<read_only::get_table_rows_result> {
+               return read_only::get_table_rows_result();
+            };
 
+         abi_serializer abis;
+         abis.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
+         
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
             auto cur_time = fc::time_point::now();
             vector<char> data;
@@ -659,13 +665,16 @@ public:
             walk_table_row_range( lower, upper );
          }
       }
-      return result;
+      return [result = std::move(result)]() mutable -> chain::t_or_exception<read_only::get_table_rows_result> {
+         return std::move(result);
+      };
    }
 
    template <typename IndexType>
-   read_only::get_table_rows_result get_table_rows_ex( const read_only::get_table_rows_params& p,
-                                                       abi_def&& abi,
-                                                       const fc::time_point& deadline )const {
+   get_table_rows_return_t
+   get_table_rows_ex( const read_only::get_table_rows_params& p,
+                      abi_def&& abi,
+                      const fc::time_point& deadline )const {
 
       fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
       fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
@@ -704,7 +713,9 @@ public:
          }
 
          if( upper_bound_lookup_tuple < lower_bound_lookup_tuple  )
-            return result;
+            return []() ->  chain::t_or_exception<read_only::get_table_rows_result> {
+               return read_only::get_table_rows_result();
+            };
 
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
             auto cur_time = fc::time_point::now();
@@ -740,7 +751,9 @@ public:
             walk_table_row_range( lower, upper );
          }
       }
-      return result;
+      return [result = std::move(result)]() mutable -> chain::t_or_exception<read_only::get_table_rows_result> {
+         return std::move(result);
+      };
    }
 
    using get_accounts_by_authorizers_result = account_query_db::get_accounts_by_authorizers_result;

@@ -1543,7 +1543,8 @@ string get_table_type( const abi_def& abi, const name& table_name ) {
    EOS_ASSERT( false, chain::contract_table_query_exception, "Table ${table} is not specified in the ABI", ("table",table_name) );
 }
 
-read_only::get_table_rows_result read_only::get_table_rows( const read_only::get_table_rows_params& p, const fc::time_point& deadline )const {
+read_only::get_table_rows_return_t // read_only::get_table_rows_result
+read_only::get_table_rows( const read_only::get_table_rows_params& p, const fc::time_point& deadline ) const {
    abi_def abi = eosio::chain_apis::get_abi( db, p.code );
    bool primary = false;
    auto table_with_index = get_table_index_name( p, primary );
