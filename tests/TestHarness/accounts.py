@@ -2,6 +2,7 @@ import random
 import re
 import string
 import subprocess
+from typing import List
 
 from .testUtils import Utils
 
@@ -56,7 +57,7 @@ class Account(object):
     def __repr__(self):
         return "Name: %s" % (self.name)
 
-def createAccountKeys(count: int) -> list[Account]:
+def createAccountKeys(count: int) -> List[Account]:
     accounts=[]
     p = re.compile('Private key: (.+)\nPublic key: (.+)\n', re.MULTILINE)
     for _ in range(0, count):
