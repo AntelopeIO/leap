@@ -570,7 +570,18 @@ public:
       fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
       fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
 
-      read_only::get_table_rows_result result;
+      struct http_params_t {
+         name table;
+         bool shorten_abi_errors;
+         bool json;
+         bool show_payer;
+         bool more;
+         std::string next_key;
+         vector<std::pair<vector<char>, name>> rows;
+      };
+      
+      http_params_t http_params { p.table, shorten_abi_errors, p.json, p.show_payer && *p.show_payer, false  };
+         
       const auto& d = db.db();
 
       name scope{ convert_to_type<uint64_t>(p.scope, "scope") };
@@ -624,9 +635,6 @@ public:
                return read_only::get_table_rows_result();
             };
 
-         abi_serializer abis;
-         abis.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
-         
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
             auto cur_time = fc::time_point::now();
             vector<char> data;
@@ -635,25 +643,12 @@ public:
                const auto* itr2 = d.find<chain::key_value_object, chain::by_scope_primary>( boost::make_tuple(t_id->id, itr->primary_key) );
                if( itr2 == nullptr ) continue;
                copy_inline_row(*itr2, data);
-
-               fc::variant data_var;
-               if( p.json ) {
-                  data_var = abis.binary_to_variant( abis.get_table_type(p.table), data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-               } else {
-                  data_var = fc::variant( data );
-               }
-
-               if( p.show_payer && *p.show_payer ) {
-                  result.rows.emplace_back( fc::mutable_variant_object("data", std::move(data_var))("payer", itr->payer) );
-               } else {
-                  result.rows.emplace_back( std::move(data_var) );
-               }
-
+               http_params.rows.emplace_back(std::move(data), itr->payer);
                ++count;
             }
             if( itr != end_itr ) {
-               result.more = true;
-               result.next_key = convert_to_string(itr->secondary_key, p.key_type, p.encode_type, "next_key - next lower bound");
+               http_params.more = true;
+               http_params.next_key = convert_to_string(itr->secondary_key, p.key_type, p.encode_type, "next_key - next lower bound");
             }
          };
 
@@ -665,7 +660,31 @@ public:
             walk_table_row_range( lower, upper );
          }
       }
-      return [result = std::move(result)]() mutable -> chain::t_or_exception<read_only::get_table_rows_result> {
+      
+      return [p = std::move(http_params), abi=std::move(abi), abi_serializer_max_time=abi_serializer_max_time]() mutable ->
+         chain::t_or_exception<read_only::get_table_rows_result> {
+         read_only::get_table_rows_result result;
+         abi_serializer abis;
+         abis.set_abi(std::move(abi), abi_serializer::create_yield_function(abi_serializer_max_time));
+         auto table_type = abis.get_table_type(p.table);
+         for (auto& row : p.rows) {
+               fc::variant data_var;
+               if( p.json ) {
+                  data_var = abis.binary_to_variant(table_type, row.first,
+                                                    abi_serializer::create_yield_function(abi_serializer_max_time),
+                                                    p.shorten_abi_errors );
+               } else {
+                  data_var = fc::variant(row.first);
+               }
+
+               if (p.show_payer) {
+                  result.rows.emplace_back(fc::mutable_variant_object("data", std::move(data_var))("payer", row.second));
+               } else {
+                  result.rows.emplace_back(std::move(data_var));
+               }            
+         }
+         result.more = p.more;
+         result.next_key = p.next_key;
          return std::move(result);
       };
    }
