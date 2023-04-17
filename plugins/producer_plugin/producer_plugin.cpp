@@ -1188,7 +1188,16 @@ void producer_plugin::plugin_startup()
    my->_accepted_block_connection.emplace(chain.accepted_block.connect( [this]( const auto& bsp ){ my->on_block( bsp ); } ));
    my->_accepted_block_header_connection.emplace(chain.accepted_block_header.connect( [this]( const auto& bsp ){ my->on_block_header( bsp ); } ));
    my->_irreversible_block_connection.emplace(chain.irreversible_block.connect( [this]( const auto& bsp ){ my->on_irreversible_block( bsp->block ); } ));
-   my->_block_start_connection.emplace(chain.block_start.connect( [this, &chain]( uint32_t bs ){ my->_snapshot_scheduler.on_start_block(bs, chain); } ));
+  
+   my->_block_start_connection.emplace(chain.block_start.connect( [this, &chain]( uint32_t bs ) { 
+      try {
+         my->_snapshot_scheduler.on_start_block(bs, chain);
+      }
+      catch (const snapshot_execution_exception & e) {
+         fc_elog( _log, "Exception during snapshot execution: ${e}", ("e", e.to_detail_string()) );
+         app().quit();
+      }
+   } ));
  
    const auto lib_num = chain.last_irreversible_block_num();
    const auto lib = chain.fetch_block_by_number(lib_num);

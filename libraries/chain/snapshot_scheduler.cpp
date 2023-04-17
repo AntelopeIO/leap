@@ -152,11 +152,13 @@ void snapshot_scheduler::execute_snapshot(uint32_t srid, chain::controller& chai
          try {
             std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();
          } catch(const fc::exception& e) {
-            elog("snapshot creation error: ${details}", ("details", e.to_detail_string()));
-            return;
+            EOS_THROW(snapshot_execution_exception,
+                     "Snapshot creation error: ${details}",
+                     ("details", e.to_detail_string()));
          } catch(const std::exception& e) {
-            elog("snapshot creation error: ${details}", ("details", e.what()));
-            return;
+            EOS_THROW(snapshot_execution_exception,
+                     "Snapshot creation error: ${details}",
+                     ("details", e.what()));
          }
       } else {
          // success, snapshot finalized
@@ -176,7 +178,7 @@ void snapshot_scheduler::execute_snapshot(uint32_t srid, chain::controller& chai
    create_snapshot(next, chain, {});
 }
 
-void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snapshot_scheduler::snapshot_information> next, chain::controller& chain,  std::function<void(void)> predicate) {
+void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snapshot_scheduler::snapshot_information> next, chain::controller& chain, std::function<void(void)> predicate) {
    auto head_id = chain.head_block_id();
    const auto head_block_num = chain.head_block_num();
    const auto head_block_time = chain.head_block_time();
@@ -191,7 +193,7 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
    }
 
    auto write_snapshot = [&](const bfs::path& p) -> void {
-      if (predicate) predicate();
+      if(predicate) predicate();
       bfs::create_directory(p.parent_path());
       auto snap_out = std::ofstream(p.generic_string(), (std::ios::out | std::ios::binary));
       auto writer = std::make_shared<ostream_snapshot_writer>(snap_out);
@@ -222,10 +224,10 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
    // determine if this snapshot is already in-flight
    auto& pending_by_id = _pending_snapshot_index.get<by_id>();
    auto existing = pending_by_id.find(head_id);
-   if( existing != pending_by_id.end() ) {
+   if(existing != pending_by_id.end()) {
       // if a snapshot at this block is already pending, attach this requests handler to it
-      pending_by_id.modify(existing, [&next]( auto& entry ){
-         entry.next = [prev = entry.next, next](const next_function_variant<snapshot_scheduler::snapshot_information>& res){
+      pending_by_id.modify(existing, [&next](auto& entry) {
+         entry.next = [prev = entry.next, next](const next_function_variant<snapshot_scheduler::snapshot_information>& res) {
             prev(res);
             next(res);
          };
@@ -234,18 +236,17 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
       const auto& pending_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_pending_path(head_id, _snapshots_dir);
 
       try {
-         write_snapshot( temp_path ); // create a new pending snapshot
+         write_snapshot(temp_path);// create a new pending snapshot
 
          boost::system::error_code ec;
          bfs::rename(temp_path, pending_path, ec);
          EOS_ASSERT(!ec, snapshot_finalization_exception,
-               "Unable to promote temp snapshot to pending for block number ${bn}: [code: ${ec}] ${message}",
-               ("bn", head_block_num)
-               ("ec", ec.value())
-               ("message", ec.message()));
+                    "Unable to promote temp snapshot to pending for block number ${bn}: [code: ${ec}] ${message}",
+                    ("bn", head_block_num)("ec", ec.value())("message", ec.message()));
          _pending_snapshot_index.emplace(head_id, next, pending_path.generic_string(), snapshot_path.generic_string());
-         add_pending_snapshot_info( snapshot_scheduler::snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, pending_path.generic_string()} );
-      } CATCH_AND_CALL (next);
+         add_pending_snapshot_info(snapshot_scheduler::snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, pending_path.generic_string()});
+      }
+      CATCH_AND_CALL(next);
    }
 }
 
