@@ -8,7 +8,6 @@
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
-#include <boost/filesystem.hpp>
 
 #include <memory>
 #include <regex>
@@ -274,12 +273,11 @@ namespace eosio {
                sock_path = app().data_dir() / sock_path;
             // The maximum length of the socket path is defined by sockaddr_un::sun_path. On Linux,
             // according to unix(7), it is 108 bytes. On FreeBSD, according to unix(4), it is 104 bytes.
-            const auto unix_socket_limit = sizeof(sockaddr_un::sun_path);
-            if (sock_path.string().size() >= unix_socket_limit) {
-               // try a relative path which may be shorter.
-               sock_path = boost::filesystem::relative(sock_path);
-            }
-            my->unix_endpoint = asio::local::stream_protocol::endpoint(sock_path.string());
+            // Therefore, we create the unix socket with the relative path to its parent path to avoid the problem.
+            auto backup_cwd = std::filesystem::current_path();
+            std::filesystem::current_path(sock_path.parent_path());
+            my->unix_endpoint = asio::local::stream_protocol::endpoint(sock_path.filename().string());
+            std::filesystem::current_path(backup_cwd);
          }
 
          my->plugin_state->server_header = current_http_plugin_defaults.server_header;
