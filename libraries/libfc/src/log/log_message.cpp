@@ -42,12 +42,12 @@ namespace fc
    log_context::log_context()
    :my( std::make_shared<detail::log_context_impl>() ){}
 
-   log_context::log_context( log_level ll, const char* file, uint64_t line, 
+   log_context::log_context( log_level ll, const char* file, uint64_t line,
                                             const char* method )
    :my( std::make_shared<detail::log_context_impl>() )
    {
       my->level       = ll;
-      my->file        = fc::path(file).filename().generic_string(); // TODO truncate filename
+      my->file        = std::filesystem::path(file).filename().generic_string(); // TODO truncate filename
       my->line        = line;
       my->method      = method;
       my->timestamp   = time_point::now();
@@ -88,18 +88,18 @@ namespace fc
 
 
    void to_variant( const log_context& l, variant& v )
-   { 
-      v = l.to_variant();     
+   {
+      v = l.to_variant();
    }
 
    void from_variant( const variant& l, log_context& c )
-   { 
-        c = log_context(l); 
+   {
+        c = log_context(l);
    }
 
    void from_variant( const variant& l, log_message& c )
-   { 
-        c = log_message(l); 
+   {
+        c = log_message(l);
    }
    void to_variant( const log_message& m, variant& v )
    {
@@ -110,7 +110,7 @@ namespace fc
    {
       switch( e )
       {
-        case log_level::all: 
+        case log_level::all:
            v = "all";
            return;
         case log_level::debug:
@@ -132,7 +132,7 @@ namespace fc
    }
    void from_variant( const variant& v, log_level& e )
    {
-      try 
+      try
       {
         if( v.as_string() == "all" ) e = log_level::all;
         else if( v.as_string() == "debug" ) e = log_level::debug;
@@ -141,7 +141,7 @@ namespace fc
         else if( v.as_string() == "error" ) e = log_level::error;
         else if( v.as_string() == "off" ) e = log_level::off;
         else FC_THROW_EXCEPTION( bad_cast_exception, "Failed to cast from Variant to log_level" );
-      } FC_RETHROW_EXCEPTIONS( error, 
+      } FC_RETHROW_EXCEPTIONS( error,
                                    "Expected 'all|debug|info|warn|error|off', but got '${variant}'",
                                    ("variant",v) );
    }
@@ -187,7 +187,7 @@ namespace fc
                ( "thread_name",  my->thread_name         )
                ( "timestamp",    variant(my->timestamp)  );
 
-      if( my->context.size() ) 
+      if( my->context.size() )
          o( "context",      my->context             );
 
       return o;
@@ -235,4 +235,3 @@ namespace fc
 
 
 } // fc
-

@@ -151,10 +151,10 @@ public:
    }
 
    // initialize with storage
-   void set_db_path(bfs::path db_path) {
+   void set_db_path(std::filesystem::path db_path) {
       _snapshot_db.set_path(std::move(db_path));
       // init from db
-      if(fc::exists(_snapshot_db.get_json_path())) {
+      if(std::filesystem::exists(_snapshot_db.get_json_path())) {
          std::vector<producer_plugin::snapshot_schedule_information> sr;
          _snapshot_db >> sr;
          // if db read succeeded, clear/load

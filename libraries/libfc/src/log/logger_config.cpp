@@ -49,7 +49,7 @@ namespace fc {
          iter.second->initialize();
    }
 
-   void configure_logging( const fc::path& lc ) {
+   void configure_logging( const std::filesystem::path& lc ) {
       configure_logging( fc::json::from_file<logging_config>(lc) );
    }
    bool configure_logging( const logging_config& cfg ) {

@@ -7,19 +7,15 @@
 #include <fc/variant.hpp>
 
 #include <boost/exception/diagnostic_information.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <chainbase/environment.hpp>
 
 #include <boost/algorithm/string.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/lexical_cast.hpp>
+#include <filesystem>
 
-namespace bfs = boost::filesystem;
 using namespace eosio;
 using namespace eosio::chain;
 
@@ -58,9 +54,9 @@ void chain_actions::setup(CLI::App& app) {
 
 int chain_actions::run_subcommand_build() {
    if(!opt->build_output_file.empty()) {
-      bfs::path p = opt->build_output_file;
+      std::filesystem::path p = opt->build_output_file;
       if(p.is_relative()) {
-         p = bfs::current_path() / p;
+         p = std::filesystem::current_path() / p;
       }
       fc::json::save_to_file(chainbase::environment(), p, true);
       std::cout << "Saved build info JSON to '" <<  p.generic_string() << "'" << std::endl;
@@ -73,7 +69,7 @@ int chain_actions::run_subcommand_build() {
 }
 
 int chain_actions::run_subcommand_sstate() {
-   bfs::path state_dir = "";
+   std::filesystem::path state_dir = "";
 
    // default state dir, if none specified
    if(opt->sstate_state_dir.empty()) {
@@ -85,13 +81,13 @@ int chain_actions::run_subcommand_sstate() {
       // adjust if path relative
       state_dir = opt->sstate_state_dir;
       if(state_dir.is_relative()) {
-         state_dir = bfs::current_path() / state_dir;
+         state_dir = std::filesystem::current_path() / state_dir;
       }
    }
-   
+
    auto shared_mem_path = state_dir / "shared_memory.bin";
 
-   if(!bfs::exists(shared_mem_path)) {
+   if(!std::filesystem::exists(shared_mem_path)) {
       std::cerr << "Unable to read database status: file not found: " << shared_mem_path << std::endl;
       return -1;
    }
