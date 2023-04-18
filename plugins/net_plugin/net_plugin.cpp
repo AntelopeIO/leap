@@ -131,7 +131,6 @@ namespace eosio {
       const block_timestamp_type& timestamp() const { return block->timestamp; }
    };
 
-   class dispatch_manager;
    class unlinkable_block_state_cache {
    private:
       struct by_timestamp;
