@@ -97,7 +97,7 @@ namespace fc
          if( c != '"' )
             FC_THROW_EXCEPTION( parse_error_exception,
                                             "Expected '\"' but read '${char}'",
-                                            ("char", string(&c, (&c) + 1) ) );
+                                            ("char", std::string(&c, (&c) + 1) ) );
          in.get();
          while( !in.eof() )
          {
@@ -178,7 +178,7 @@ namespace fc
          if( c != '{' )
             FC_THROW_EXCEPTION( parse_error_exception,
                                      "Expected '{', but read '${char}'",
-                                     ("char",string(&c, &c + 1)) );
+                                     ("char",std::string(&c, &c + 1)) );
          in.get();
          while( in.peek() != '}' )
          {
@@ -188,7 +188,7 @@ namespace fc
                continue;
             }
             if( skip_white_space(in) ) continue;
-            string key = stringFromStream( in );
+            std::string key = stringFromStream( in );
             skip_white_space(in);
             if( in.peek() != ':' )
             {
@@ -469,7 +469,7 @@ namespace fc
     */
    std::string escape_string( const std::string_view& str, const json::yield_function_t& yield, bool escape_control_chars )
    {
-      string r;
+      std::string r;
       const auto init_size = str.size();
       r.reserve( init_size + 13 ); // allow for a few escapes
       size_t i = 0;

@@ -13,11 +13,11 @@ class sha3
 public:
 	sha3();
 	~sha3(){}
-	explicit sha3(const string &hex_str);
+	explicit sha3(const std::string &hex_str);
 	explicit sha3(const char *data, size_t size);
 
-	string str() const;
-	operator string() const;
+   std::string str() const;
+	operator std::string() const;
 
 	const char *data() const;
 	char* data();
@@ -29,7 +29,7 @@ public:
 		const auto& sha = e.result(is_nist);
 		return sha;
 	}
-	static sha3 hash(const string& s, bool is_nist=true) { return hash(s.c_str(), s.size(), is_nist); }
+	static sha3 hash(const std::string& s, bool is_nist=true) { return hash(s.c_str(), s.size(), is_nist); }
 	static sha3 hash(const sha3& s, bool is_nist=true) { return hash(s.data(), sizeof(s._hash), is_nist); }
 
 	template <typename T>

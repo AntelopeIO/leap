@@ -34,9 +34,9 @@ namespace fc
          using yield_function_t = fc::optional_delegate<void(size_t)>;
          static constexpr uint64_t max_length_limit = std::numeric_limits<uint64_t>::max();
          static constexpr size_t escape_string_yield_check_count = 128;
-         static variant  from_string( const string& utf8_str, const parse_type ptype = parse_type::legacy_parser, uint32_t max_depth = DEFAULT_MAX_RECURSION_DEPTH );
-         static string   to_string( const variant& v, const yield_function_t& yield, const output_formatting format = output_formatting::stringify_large_ints_and_doubles);
-         static string   to_pretty_string( const variant& v, const yield_function_t& yield, const output_formatting format = output_formatting::stringify_large_ints_and_doubles );
+         static variant  from_string( const std::string& utf8_str, const parse_type ptype = parse_type::legacy_parser, uint32_t max_depth = DEFAULT_MAX_RECURSION_DEPTH );
+         static std::string to_string( const variant& v, const yield_function_t& yield, const output_formatting format = output_formatting::stringify_large_ints_and_doubles);
+         static std::string to_pretty_string( const variant& v, const yield_function_t& yield, const output_formatting format = output_formatting::stringify_large_ints_and_doubles );
 
          static bool     is_valid( const std::string& json_str, const parse_type ptype = parse_type::legacy_parser, const uint32_t max_depth = DEFAULT_MAX_RECURSION_DEPTH );
 
@@ -56,7 +56,7 @@ namespace fc
          }
 
          template<typename T>
-         static string   to_string( const T& v, const fc::time_point& deadline, const output_formatting format = output_formatting::stringify_large_ints_and_doubles, const uint64_t max_len = max_length_limit )
+         static std::string to_string( const T& v, const fc::time_point& deadline, const output_formatting format = output_formatting::stringify_large_ints_and_doubles, const uint64_t max_len = max_length_limit )
          {
             const auto yield = [&](size_t s) {
                FC_CHECK_DEADLINE(deadline);
@@ -66,7 +66,7 @@ namespace fc
          }
 
          template<typename T>
-         static string   to_pretty_string( const T& v, const fc::time_point& deadline = fc::time_point::maximum(), const output_formatting format = output_formatting::stringify_large_ints_and_doubles, const uint64_t max_len = max_length_limit )
+         static std::string to_pretty_string( const T& v, const fc::time_point& deadline = fc::time_point::maximum(), const output_formatting format = output_formatting::stringify_large_ints_and_doubles, const uint64_t max_len = max_length_limit )
          {
             const auto yield = [&](size_t s) {
                FC_CHECK_DEADLINE(deadline);

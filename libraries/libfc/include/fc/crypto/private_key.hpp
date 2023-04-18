@@ -46,7 +46,7 @@ namespace fc { namespace crypto {
          }
 
          // serialize to/from string
-         explicit private_key(const string& base58str);
+         explicit private_key(const std::string& base58str);
          std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
 
       private:

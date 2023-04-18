@@ -577,7 +577,7 @@ namespace fc { namespace json_relaxed
          if( c != '{' )
             FC_THROW_EXCEPTION( parse_error_exception,
                                      "Expected '{', but read '${char}'",
-                                     ("char",string(&c, &c + 1)) );
+                                     ("char",std::string(&c, &c + 1)) );
          in.get();
          skip_white_space(in);
          while( in.peek() != '}' )
@@ -588,7 +588,7 @@ namespace fc { namespace json_relaxed
                continue;
             }
             if( skip_white_space(in) ) continue;
-            string key = json_relaxed::stringFromStream<T, strict>( in );
+            std::string key = json_relaxed::stringFromStream<T, strict>( in );
             skip_white_space(in);
             if( in.peek() != ':' )
             {
