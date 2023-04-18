@@ -282,7 +282,8 @@ public:
       name                  account_name;
       std::optional<symbol> expected_core_symbol;
    };
-   get_account_results get_account( const get_account_params& params, const fc::time_point& deadline )const;
+   using get_account_return_t = std::function<chain::t_or_exception<get_account_results>()>;
+   get_account_return_t get_account( const get_account_params& params, const fc::time_point& deadline )const;
 
 
    struct get_code_results {

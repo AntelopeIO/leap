@@ -82,7 +82,7 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL_POST(get_block, fc::variant, 200, http_params_types::params_required), // _POST because get_block() returns a lambda to be executed on the http thread pool
       CHAIN_RO_CALL(get_block_info, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_block_header_state, 200, http_params_types::params_required),
-      CHAIN_RO_CALL(get_account, 200, http_params_types::params_required),
+      CHAIN_RO_CALL_POST(get_account, chain_apis::read_only::get_account_results, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_code, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_code_hash, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_consensus_parameters, 200, http_params_types::no_params),

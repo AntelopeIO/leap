@@ -2372,7 +2372,7 @@ read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params&
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account abi")
 }
 
-read_only::get_account_results read_only::get_account( const get_account_params& params, const fc::time_point& deadline )const {
+read_only::get_account_return_t read_only::get_account( const get_account_params& params, const fc::time_point& deadline ) const {
    try {
    get_account_results result;
    result.account_name = params.account_name;
@@ -2514,7 +2514,9 @@ read_only::get_account_results read_only::get_account( const get_account_params&
       if (auto res = lookup_object("rexbal"_n, config::system_account_name, "rex_balance"); res)
          result.rex_info = *res;
    }
-   return result;
+   return [result = std::move(result)]() mutable -> chain::t_or_exception<read_only::get_account_results> {
+      return std::move(result);
+   };
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account info")
 }
 
