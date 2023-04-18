@@ -2,6 +2,7 @@
 
 set -e
 Python_SITELIB=$(python3 -c "import sysconfig; print(sysconfig.get_path('purelib'))")
+mkdir -p $Python_SITELIB
 ln -sf @CMAKE_INSTALL_FULL_DATAROOTDIR@/leap_testing/tests/TestHarness $Python_SITELIB/TestHarness
 
 
