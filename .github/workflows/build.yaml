@@ -108,6 +108,10 @@ jobs:
         with:
           name: leap-dev-ubuntu20-amd64
           path: build/leap-dev*.deb
+      - name: Install dev package
+        run: |
+          apt update
+          
 
   tests:
     name: Tests
