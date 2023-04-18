@@ -35,7 +35,7 @@ BOOST_AUTO_TEST_CASE(block_with_invalid_tx_test)
    const auto& trxs = copy_b->transactions;
    for( const auto& a : trxs )
       trx_digests.emplace_back( a.digest() );
-   copy_b->transaction_mroot = merkle( move(trx_digests) );
+   copy_b->transaction_mroot = merkle( std::move(trx_digests) );
 
    // Re-sign the block
    auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state()->blockroot_merkle.get_root() ) );
@@ -115,7 +115,7 @@ std::pair<signed_block_ptr, signed_block_ptr> corrupt_trx_in_block(validating_te
    const auto& trxs = copy_b->transactions;
    for( const auto& a : trxs )
       trx_digests.emplace_back( a.digest() );
-   copy_b->transaction_mroot = merkle( move(trx_digests) );
+   copy_b->transaction_mroot = merkle( std::move(trx_digests) );
 
    // Re-sign the block
    auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), main.control->head_block_state()->blockroot_merkle.get_root() ) );

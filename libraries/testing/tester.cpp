@@ -864,7 +864,7 @@ namespace eosio { namespace testing {
                                    .account    = account,
                                    .permission = perm,
                                    .parent     = parent,
-                                   .auth       = move(auth),
+                                   .auth       = std::move(auth),
                                 });
 
          set_transaction_headers(trx);
