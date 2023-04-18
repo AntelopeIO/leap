@@ -30,8 +30,7 @@ namespace {
 }
 
 namespace eosio::trace_api {
-   namespace bfs = boost::filesystem;
-   store_provider::store_provider(const bfs::path& slice_dir, uint32_t stride_width, std::optional<uint32_t> minimum_irreversible_history_blocks,
+      store_provider::store_provider(const std::filesystem::path& slice_dir, uint32_t stride_width, std::optional<uint32_t> minimum_irreversible_history_blocks,
                                   std::optional<uint32_t> minimum_uncompressed_irreversible_history_blocks, size_t compression_seek_point_stride)
    : _slice_directory(slice_dir, stride_width, minimum_irreversible_history_blocks, minimum_uncompressed_irreversible_history_blocks, compression_seek_point_stride) {
    }
@@ -150,7 +149,7 @@ namespace eosio::trace_api {
       return get_block_n{};
    }
 
-   slice_directory::slice_directory(const bfs::path& slice_dir, uint32_t width, std::optional<uint32_t> minimum_irreversible_history_blocks, std::optional<uint32_t> minimum_uncompressed_irreversible_history_blocks, size_t compression_seek_point_stride)
+   slice_directory::slice_directory(const std::filesystem::path& slice_dir, uint32_t width, std::optional<uint32_t> minimum_irreversible_history_blocks, std::optional<uint32_t> minimum_uncompressed_irreversible_history_blocks, size_t compression_seek_point_stride)
    : _slice_dir(slice_dir)
    , _width(width)
    , _minimum_irreversible_history_blocks(minimum_irreversible_history_blocks)
@@ -158,7 +157,7 @@ namespace eosio::trace_api {
    , _compression_seek_point_stride(compression_seek_point_stride)
    , _best_known_lib(0) {
       if (!exists(_slice_dir)) {
-         bfs::create_directories(slice_dir);
+         std::filesystem::create_directories(slice_dir);
       }
    }
 
@@ -226,7 +225,7 @@ namespace eosio::trace_api {
 
    std::optional<compressed_file> slice_directory::find_compressed_trace_slice(uint32_t slice_number, bool open_file ) const {
       auto filename = make_filename(_trace_prefix, _compressed_trace_ext, slice_number, _width);
-      const path slice_path = _slice_dir / filename;
+      const auto slice_path = _slice_dir / filename;
       const bool file_exists = exists(slice_path);
 
       if (file_exists) {
@@ -243,7 +242,7 @@ namespace eosio::trace_api {
 
    bool slice_directory::find_slice(const char* slice_prefix, uint32_t slice_number, fc::cfile& slice_file, bool open_file) const {
       auto filename = make_filename(slice_prefix, _trace_ext, slice_number, _width);
-      const path slice_path = _slice_dir / filename;
+      const auto slice_path = _slice_dir / filename;
       slice_file.set_file_path(slice_path);
 
       const bool file_exists = exists(slice_path);
@@ -366,23 +365,23 @@ namespace eosio::trace_api {
             const bool index_found = find_index_slice(slice_to_clean, open_state::read, index, dont_open_file);
             if (index_found) {
                log(std::string("Removing: ") + index.get_file_path().generic_string());
-               bfs::remove(index.get_file_path());
+               std::filesystem::remove(index.get_file_path());
             }
             const bool trace_found = find_trace_slice(slice_to_clean, open_state::read, trace, dont_open_file);
             if (trace_found) {
                log(std::string("Removing: ") + trace.get_file_path().generic_string());
-               bfs::remove(trace.get_file_path());
+               std::filesystem::remove(trace.get_file_path());
             }
             const bool trx_id_found = find_trx_id_slice(slice_to_clean, open_state::read, trx_id, dont_open_file);
             if (trx_id_found) {
                log(std::string("Removing: ") + trx_id.get_file_path().generic_string());
-               bfs::remove(trx_id.get_file_path());
+               std::filesystem::remove(trx_id.get_file_path());
             }
 
             auto ctrace = find_compressed_trace_slice(slice_to_clean, dont_open_file);
             if (ctrace) {
                log(std::string("Removing: ") + ctrace->get_file_path().generic_string());
-               bfs::remove(ctrace->get_file_path());
+               std::filesystem::remove(ctrace->get_file_path());
             }
          });
       }
@@ -408,7 +407,7 @@ namespace eosio::trace_api {
 
                // after compression is complete, delete the old uncompressed file
                log(std::string("Removing: ") + trace.get_file_path().generic_string());
-               bfs::remove(trace.get_file_path());
+               std::filesystem::remove(trace.get_file_path());
             }
          });
       }

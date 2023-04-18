@@ -119,7 +119,7 @@ namespace eosio::testing {
 
    fc::variant json_from_file_or_string(const std::string& file_or_str, fc::json::parse_type ptype) {
       std::regex r("^[ \t]*[\{\[]");
-      if ( !regex_search(file_or_str, r) && fc::is_regular_file(file_or_str) ) {
+      if ( !regex_search(file_or_str, r) && std::filesystem::is_regular_file(file_or_str) ) {
          try {
             return fc::json::from_file(file_or_str, ptype);
          } EOS_RETHROW_EXCEPTIONS(chain::json_parse_exception, "Fail to parse JSON from file: ${file}", ("file", file_or_str));

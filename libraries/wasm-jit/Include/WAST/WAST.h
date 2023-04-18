@@ -4,6 +4,8 @@
 	#define WAST_API DLL_IMPORT
 #endif
 
+#include <string>
+
 #include "Inline/BasicTypes.h"
 #include "WASM/WASM.h"
 

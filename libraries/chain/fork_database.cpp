@@ -61,7 +61,7 @@ namespace eosio { namespace chain {
    }
 
    struct fork_database_impl {
-      explicit fork_database_impl( const fc::path& data_dir )
+      explicit fork_database_impl( const std::filesystem::path& data_dir )
       :datadir(data_dir)
       {}
 
@@ -69,7 +69,7 @@ namespace eosio { namespace chain {
       fork_multi_index_type index;
       block_state_ptr       root; // Only uses the block_header_state portion
       block_state_ptr       head;
-      fc::path              datadir;
+      std::filesystem::path datadir;
 
       void open_impl( const std::function<void( block_timestamp_type,
                                                 const flat_set<digest_type>&,
@@ -97,7 +97,7 @@ namespace eosio { namespace chain {
    };
 
 
-   fork_database::fork_database( const fc::path& data_dir )
+   fork_database::fork_database( const std::filesystem::path& data_dir )
    :my( new fork_database_impl( data_dir ) )
    {}
 
@@ -114,11 +114,11 @@ namespace eosio { namespace chain {
                                                                  const flat_set<digest_type>&,
                                                                  const vector<digest_type>& )>& validator )
    {
-      if (!fc::is_directory(datadir))
-         fc::create_directories(datadir);
+      if (!std::filesystem::is_directory(datadir))
+         std::filesystem::create_directories(datadir);
 
       auto fork_db_dat = datadir / config::forkdb_filename;
-      if( fc::exists( fork_db_dat ) ) {
+      if( std::filesystem::exists( fork_db_dat ) ) {
          try {
             string content;
             fc::read_file_contents( fork_db_dat, content );
@@ -130,7 +130,7 @@ namespace eosio { namespace chain {
             fc::raw::unpack( ds, totem );
             EOS_ASSERT( totem == fork_database::magic_number, fork_database_exception,
                         "Fork database file '${filename}' has unexpected magic number: ${actual_totem}. Expected ${expected_totem}",
-                        ("filename", fork_db_dat.generic_string())
+                        ("filename", fork_db_dat)
                         ("actual_totem", totem)
                         ("expected_totem", fork_database::magic_number)
             );
@@ -142,7 +142,7 @@ namespace eosio { namespace chain {
                         fork_database_exception,
                        "Unsupported version of fork database file '${filename}'. "
                        "Fork database version is ${version} while code supports version(s) [${min},${max}]",
-                       ("filename", fork_db_dat.generic_string())
+                       ("filename", fork_db_dat)
                        ("version", version)
                        ("min", fork_database::min_supported_version)
                        ("max", fork_database::max_supported_version)
@@ -169,22 +169,22 @@ namespace eosio { namespace chain {
                head = get_block_impl( head_id );
                EOS_ASSERT( head, fork_database_exception,
                            "could not find head while reconstructing fork database from file; '${filename}' is likely corrupted",
-                           ("filename", fork_db_dat.generic_string()) );
+                           ("filename", fork_db_dat) );
             }
 
             auto candidate = index.get<by_lib_block_num>().begin();
             if( candidate == index.get<by_lib_block_num>().end() || !(*candidate)->is_valid() ) {
                EOS_ASSERT( head->id == root->id, fork_database_exception,
                            "head not set to root despite no better option available; '${filename}' is likely corrupted",
-                           ("filename", fork_db_dat.generic_string()) );
+                           ("filename", fork_db_dat) );
             } else {
                EOS_ASSERT( !first_preferred( **candidate, *head ), fork_database_exception,
                            "head not set to best available option available; '${filename}' is likely corrupted",
-                           ("filename", fork_db_dat.generic_string()) );
+                           ("filename", fork_db_dat) );
             }
          } FC_CAPTURE_AND_RETHROW( (fork_db_dat) )
 
-         fc::remove( fork_db_dat );
+         std::filesystem::remove( fork_db_dat );
       }
    }
 
@@ -199,7 +199,7 @@ namespace eosio { namespace chain {
       if( !root ) {
          if( index.size() > 0 ) {
             elog( "fork_database is in a bad state when closing; not writing out '${filename}'",
-                  ("filename", fork_db_dat.generic_string()) );
+                  ("filename", fork_db_dat) );
          }
          return;
       }
@@ -250,7 +250,7 @@ namespace eosio { namespace chain {
          fc::raw::pack( out, head->id );
       } else {
          elog( "head not set in fork database; '${filename}' will be corrupted",
-               ("filename", fork_db_dat.generic_string()) );
+               ("filename", fork_db_dat) );
       }
 
       index.clear();

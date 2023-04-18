@@ -269,7 +269,7 @@ namespace eosio {
          }
 
          if( options.count( "unix-socket-path" ) && !options.at( "unix-socket-path" ).as<string>().empty()) {
-            boost::filesystem::path sock_path = options.at("unix-socket-path").as<string>();
+            std::filesystem::path sock_path = options.at("unix-socket-path").as<string>();
             if (sock_path.is_relative())
                sock_path = app().data_dir() / sock_path;
             // The maximum length of the socket path is defined by sockaddr_un::sun_path. On Linux,

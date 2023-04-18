@@ -10,7 +10,6 @@
 using namespace eosio;
 using namespace boost::system;
 
-namespace bfs = boost::filesystem;
 
 // For program options
 namespace bpo = boost::program_options;
@@ -46,7 +45,7 @@ struct resmon_fixture {
       initialize(arg);
    }
 
-   void plugin_startup(const std::vector<bfs::path>& dirs, int runTimeSecs=3) {
+   void plugin_startup(const std::vector<std::filesystem::path>& dirs, int runTimeSecs=3) {
       set_options({"--resource-monitor-interval-seconds=1"});
 
       for (auto& dir: dirs) {
