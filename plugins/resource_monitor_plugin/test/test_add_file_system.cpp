@@ -16,7 +16,7 @@ struct add_file_system_fixture {
          return fixture.mock_get_stat(path, buf);
       }
 
-      bfs::space_info get_space(const bfs::path& p, boost::system::error_code& ec) const {
+      std::filesystem::space_info get_space(const std::filesystem::path& p, std::error_code& ec) const {
          return fixture.mock_get_space(p, ec);
       }
 
@@ -31,7 +31,7 @@ struct add_file_system_fixture {
    {
    }
 
-   void add_file_system(const bfs::path& path_name) {
+   void add_file_system(const std::filesystem::path& path_name) {
       space_handler.add_file_system(path_name);
    }
 
@@ -44,10 +44,10 @@ struct add_file_system_fixture {
    }
 
    void test_add_file_systems_common(std::vector<int>& capacity, std::vector<int>& available, std::vector<int>& devs) {
-      mock_get_space = [ i = 0, capacity, available ]( const bfs::path& p, boost::system::error_code& ec) mutable -> bfs::space_info {
-         ec = boost::system::errc::make_error_code(errc::success);
+      mock_get_space = [ i = 0, capacity, available ]( const std::filesystem::path& p, std::error_code& ec) mutable -> std::filesystem::space_info {
+         ec = std::error_code{};
 
-         bfs::space_info rc{};
+         std::filesystem::space_info rc{};
          rc.capacity  = capacity[i];
          rc.available = available[i];
          i++;
@@ -70,7 +70,7 @@ struct add_file_system_fixture {
    }
 
    // fixture data and methods
-   std::function<bfs::space_info(const bfs::path& p, boost::system::error_code& ec)> mock_get_space;
+   std::function<std::filesystem::space_info(const std::filesystem::path& p, std::error_code& ec)> mock_get_space;
    std::function<int(const char *path, struct stat *buf)> mock_get_stat;
 
    file_space_handler_t space_handler;
@@ -88,9 +88,9 @@ BOOST_AUTO_TEST_SUITE(space_handler_tests)
 
    BOOST_FIXTURE_TEST_CASE(get_space_failure, add_file_system_fixture)
    {
-      mock_get_space = []( const bfs::path& p, boost::system::error_code& ec) -> bfs::space_info {
+      mock_get_space = []( const std::filesystem::path& p, std::error_code& ec) -> std::filesystem::space_info {
          ec = boost::system::errc::make_error_code(errc::no_such_file_or_directory);
-         bfs::space_info rc{};
+         std::filesystem::space_info rc{};
          return rc;
       };
 

@@ -19,7 +19,7 @@ namespace fc
            std::getline( ss, _proto, ':' );
            std::getline( ss, skip, '/' );
            std::getline( ss, skip, '/' );
-           
+
            if( s.find('@') != size_t(fc::string::npos) ) {
              fc::string user_pass;
              std::getline( ss, user_pass, '@' );
@@ -53,21 +53,21 @@ namespace fc
            if (!stricmp(_proto.c_str(), "file"))
               _path = _lpath;
            else
-              _path = fc::path( "/" ) / _lpath; // let other schemes behave like unix
+              _path = std::filesystem::path( "/" ) / _lpath; // let other schemes behave like unix
 #else
            // On unix, a URL like file:///etc/rc.local would result in _lpath = etc/rc.local
            // but we really want to make it the absolute path /etc/rc.local
-           _path = fc::path( "/" ) / _lpath;
+           _path = std::filesystem::path( "/" ) / _lpath;
 #endif
            std::getline( ss, _largs );
-           if( _args && _args->size() ) 
+           if( _args && _args->size() )
            {
              // TODO: args = fc::move(_args);
               _query = fc::move(_largs);
            }
          }
 
-         string                    _proto; 
+         string                    _proto;
          ostring                   _host;
          ostring                   _user;
          ostring                   _pass;
@@ -84,7 +84,7 @@ namespace fc
   }
   void from_variant( const fc::variant& v, url& u )
   {
-    u  = url( v.as_string() ); 
+    u  = url( v.as_string() );
   }
 
   url::operator string()const
@@ -115,7 +115,7 @@ namespace fc
   std::shared_ptr<detail::url_impl> get_null_url()
   {
     static auto u = std::make_shared<detail::url_impl>();
-    return u; 
+    return u;
   }
 
   url::url()
@@ -166,7 +166,7 @@ namespace fc
   string                    url::proto()const
   {
     return my->_proto;
-  } 
+  }
   ostring                   url::host()const
   {
     return my->_host;
@@ -199,4 +199,3 @@ namespace fc
 
 
 }
-

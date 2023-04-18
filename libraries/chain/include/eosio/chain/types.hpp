@@ -61,7 +61,7 @@ namespace eosio::chain {
    using                               std::to_string;
    using                               std::all_of;
 
-   using                               fc::path;
+   using                               std::filesystem::path;
    using                               fc::variant_object;
    using                               fc::variant;
    using                               fc::enum_type;

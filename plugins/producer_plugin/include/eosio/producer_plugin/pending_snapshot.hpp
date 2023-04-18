@@ -19,15 +19,15 @@ public:
       return chain::block_header::num_from_id(block_id);
    }
 
-   static bfs::path get_final_path(const chain::block_id_type& block_id, const bfs::path& snapshots_dir) {
+   static std::filesystem::path get_final_path(const chain::block_id_type& block_id, const std::filesystem::path& snapshots_dir) {
       return snapshots_dir / fc::format_string("snapshot-${id}.bin", fc::mutable_variant_object()("id", block_id));
    }
 
-   static bfs::path get_pending_path(const chain::block_id_type& block_id, const bfs::path& snapshots_dir) {
+   static std::filesystem::path get_pending_path(const chain::block_id_type& block_id, const std::filesystem::path& snapshots_dir) {
       return snapshots_dir / fc::format_string(".pending-snapshot-${id}.bin", fc::mutable_variant_object()("id", block_id));
    }
 
-   static bfs::path get_temp_path(const chain::block_id_type& block_id, const bfs::path& snapshots_dir) {
+   static std::filesystem::path get_temp_path(const chain::block_id_type& block_id, const std::filesystem::path& snapshots_dir) {
       return snapshots_dir / fc::format_string(".incomplete-snapshot-${id}.bin", fc::mutable_variant_object()("id", block_id));
    }
 

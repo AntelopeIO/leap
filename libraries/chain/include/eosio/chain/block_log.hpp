@@ -42,7 +42,7 @@ namespace eosio { namespace chain {
 
    class block_log {
       public:
-         explicit block_log(const fc::path& data_dir, const block_log_config& config = block_log_config{});
+         explicit block_log(const std::filesystem::path& data_dir, const block_log_config& config = block_log_config{});
          block_log(block_log&& other) noexcept;
          ~block_log();
 
@@ -80,13 +80,13 @@ namespace eosio { namespace chain {
           * All static methods expected to be called on quiescent block log
           */
 
-         static fc::path repair_log( const fc::path& data_dir, uint32_t truncate_at_block = 0, const char* reversible_block_dir_name="" );
+         static std::filesystem::path repair_log( const std::filesystem::path& data_dir, uint32_t truncate_at_block = 0, const char* reversible_block_dir_name="" );
 
-         static std::optional<genesis_state> extract_genesis_state( const fc::path& data_dir );
+         static std::optional<genesis_state> extract_genesis_state( const std::filesystem::path& data_dir );
 
-         static chain_id_type extract_chain_id( const fc::path& data_dir );
+         static chain_id_type extract_chain_id( const std::filesystem::path& data_dir );
 
-         static void construct_index(const fc::path& block_file_name, const fc::path& index_file_name);
+         static void construct_index(const std::filesystem::path& block_file_name, const std::filesystem::path& index_file_name);
 
          static bool contains_genesis_state(uint32_t version, uint32_t first_block_num);
 
@@ -94,12 +94,12 @@ namespace eosio { namespace chain {
 
          static bool is_supported_version(uint32_t version);
 
-         static bool is_pruned_log(const fc::path& data_dir);
+         static bool is_pruned_log(const std::filesystem::path& data_dir);
 
-         static void extract_block_range(const fc::path& block_dir, const fc::path&output_dir, block_num_type start, block_num_type end);
+         static void extract_block_range(const std::filesystem::path& block_dir, const std::filesystem::path&output_dir, block_num_type start, block_num_type end);
 
-         static bool trim_blocklog_front(const fc::path& block_dir, const fc::path& temp_dir, uint32_t truncate_at_block);
-         static int  trim_blocklog_end(const fc::path& block_dir, uint32_t n);
+         static bool trim_blocklog_front(const std::filesystem::path& block_dir, const std::filesystem::path& temp_dir, uint32_t truncate_at_block);
+         static int  trim_blocklog_end(const std::filesystem::path& block_dir, uint32_t n);
 
          // used for unit test to generate older version blocklog
          static void set_initial_version(uint32_t);
@@ -109,10 +109,10 @@ namespace eosio { namespace chain {
          /**
           * @param n Only test 1 block out of every n blocks. If n is 0, the interval is adjusted so that at most 8 blocks are tested.
           */
-         static void smoke_test(const fc::path& block_dir, uint32_t n);
+         static void smoke_test(const std::filesystem::path& block_dir, uint32_t n);
 
-         static void split_blocklog(const fc::path& block_dir, const fc::path& dest_dir, uint32_t stride);
-         static void merge_blocklogs(const fc::path& block_dir, const fc::path& dest_dir);
+         static void split_blocklog(const std::filesystem::path& block_dir, const std::filesystem::path& dest_dir, uint32_t stride);
+         static void merge_blocklogs(const std::filesystem::path& block_dir, const std::filesystem::path& dest_dir);
    private:
          std::unique_ptr<detail::block_log_impl> my;
    };
