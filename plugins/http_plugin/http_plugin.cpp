@@ -54,7 +54,7 @@ namespace eosio {
 
          std::optional<tcp::endpoint>  listen_endpoint;
 
-         std::optional<asio::local::stream_protocol::endpoint> unix_endpoint;
+         std::filesystem::path unix_sock_path;
 
          shared_ptr<beast_http_listener<plain_session, tcp, tcp_socket_t > >  beast_server;
          shared_ptr<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket > > beast_unix_server;
@@ -271,13 +271,8 @@ namespace eosio {
             std::filesystem::path sock_path = options.at("unix-socket-path").as<string>();
             if (sock_path.is_relative())
                sock_path = app().data_dir() / sock_path;
-            // The maximum length of the socket path is defined by sockaddr_un::sun_path. On Linux,
-            // according to unix(7), it is 108 bytes. On FreeBSD, according to unix(4), it is 104 bytes.
-            // Therefore, we create the unix socket with the relative path to its parent path to avoid the problem.
-            auto backup_cwd = std::filesystem::current_path();
-            std::filesystem::current_path(sock_path.parent_path());
-            my->unix_endpoint = asio::local::stream_protocol::endpoint(sock_path.filename().string());
-            std::filesystem::current_path(backup_cwd);
+            
+            my->unix_sock_path = sock_path;
          }
 
          my->plugin_state->server_header = current_http_plugin_defaults.server_header;
@@ -316,20 +311,29 @@ namespace eosio {
                }
             }
 
-            if(my->unix_endpoint) {
+            if(!my->unix_sock_path.empty()) {
                try {
                   my->create_beast_server(true);
 
-                  my->beast_unix_server->listen(*my->unix_endpoint);
+                  // The maximum length of the socket path is defined by sockaddr_un::sun_path. On Linux,
+                  // according to unix(7), it is 108 bytes. On FreeBSD, according to unix(4), it is 104 bytes.
+                  // Therefore, we create the unix socket with the relative path to its parent path to avoid the problem.
+
+                  auto cwd = std::filesystem::current_path();
+                  std::filesystem::current_path(my->unix_sock_path.parent_path());
+                  asio::local::stream_protocol::endpoint endpoint(my->unix_sock_path.filename().string());
+                  my->beast_unix_server->listen(endpoint);
+                  std::filesystem::current_path(cwd);
+
                   my->beast_unix_server->start_accept();
                } catch ( const fc::exception& e ){
-                  fc_elog( logger(), "unix socket service (${path}) failed to start: ${e}", ("e", e.to_detail_string())("path",my->unix_endpoint->path()) );
+                  fc_elog( logger(), "unix socket service (${path}) failed to start: ${e}", ("e", e.to_detail_string())("path",my->unix_sock_path) );
                   throw;
                } catch ( const std::exception& e ){
-                  fc_elog( logger(), "unix socket service (${path}) failed to start: ${e}", ("e", e.what())("path",my->unix_endpoint->path()) );
+                  fc_elog( logger(), "unix socket service (${path}) failed to start: ${e}", ("e", e.what())("path",my->unix_sock_path) );
                   throw;
                } catch (...) {
-                  fc_elog( logger(), "error thrown from unix socket (${path}) io service", ("path",my->unix_endpoint->path()) );
+                  fc_elog( logger(), "error thrown from unix socket (${path}) io service", ("path",my->unix_sock_path) );
                   throw;
                }
             }
