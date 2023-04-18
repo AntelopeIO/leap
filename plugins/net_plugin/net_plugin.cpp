@@ -132,12 +132,12 @@ namespace eosio {
    };
 
    struct by_timestamp;
-   struct by_blk;
+   struct by_block_num_id;
    struct by_prev;
    typedef multi_index_container<
          eosio::unlinkable_block_state,
          indexed_by<
-               ordered_unique< tag<by_blk>,
+               ordered_unique< tag<by_block_num_id>,
                      composite_key< unlinkable_block_state,
                            const_mem_fun<unlinkable_block_state, uint32_t , &eosio::unlinkable_block_state::block_num>,
                            member<unlinkable_block_state, block_id_type, &eosio::unlinkable_block_state::id>
@@ -241,7 +241,7 @@ namespace eosio {
       void rm_block(const block_id_type& blkid);
 
       void add_unlinkable_block( signed_block_ptr b, const block_id_type& id );
-      unlinkable_block_state get_possible_linkable_block(const block_id_type& blkid);
+      unlinkable_block_state pop_possible_linkable_block(const block_id_type& blkid);
 
       bool add_peer_txn( const transaction_id_type& id, const time_point_sec& trx_expires, uint32_t connection_id,
                          const time_point_sec& now = time_point::now() );
@@ -2168,7 +2168,7 @@ namespace eosio {
       }
    }
 
-   unlinkable_block_state dispatch_manager::get_possible_linkable_block(const block_id_type& blkid) {
+   unlinkable_block_state dispatch_manager::pop_possible_linkable_block(const block_id_type& blkid) {
       std::lock_guard g(unlinkable_blk_state_mtx);
       auto& index = unlinkable_blk_state.get<by_prev>();
       auto blk_itr = index.find( blkid );
@@ -2225,7 +2225,7 @@ namespace eosio {
       }
       {
          std::lock_guard<std::mutex> g( unlinkable_blk_state_mtx );
-         auto& stale_blk = unlinkable_blk_state.get<by_blk>();
+         auto& stale_blk = unlinkable_blk_state.get<by_block_num_id>();
          stale_blk.erase( stale_blk.lower_bound( 1 ), stale_blk.upper_bound( lib_num ) );
       }
    }
@@ -3408,8 +3408,8 @@ namespace eosio {
             fc_dlog( logger, "accepted signed_block : #${n} ${id}...", ("n", blk_num)("id", blk_id.str().substr(8,16)) );
             dispatcher->add_peer_block( blk_id, c->connection_id );
 
-            while (true) { // schedule any possible previously unlinkable blocks
-               unlinkable_block_state prev_unlinkable = my_impl->dispatcher->get_possible_linkable_block(blk_id);
+            while (true) { // attempt previously unlinkable blocks where prev_unlinkable->block->previous == blk_id
+               unlinkable_block_state prev_unlinkable = my_impl->dispatcher->pop_possible_linkable_block(blk_id);
                if (!prev_unlinkable.block)
                   break;
                fc_dlog( logger, "retrying previous unlinkable block #${n} ${id}...",
@@ -3428,7 +3428,7 @@ namespace eosio {
          c->strand.post( [sync_master = my_impl->sync_master.get(), dispatcher = my_impl->dispatcher.get(), c,
                           block{std::move(block)}, blk_id, blk_num, reason]() mutable {
             if( reason == unlinkable || reason == no_reason ) {
-               my_impl->dispatcher->add_unlinkable_block( std::move(block), blk_id );
+               dispatcher->add_unlinkable_block( std::move(block), blk_id );
             }
             // reason==no_reason means accept_block() return false because we are producing, don't call rejected_block which sends handshake
             if( reason != no_reason ) {
