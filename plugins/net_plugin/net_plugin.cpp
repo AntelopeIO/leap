@@ -163,15 +163,39 @@ namespace eosio {
       // almost immediately (blocks came in from multiple peers out of order). 30 allows for one block per
       // producer round until lib. When queue larger than max, remove by block timestamp farthest in the past.
       static constexpr size_t max_unlinkable_cache_size = 30;
-      dispatch_manager& dispatch;
 
    public:
-      explicit unlinkable_block_state_cache(dispatch_manager& dispatch)
-      : dispatch(dispatch) {};
+      // returns block id of any block removed because of a full cache
+      std::optional<block_id_type> add_unlinkable_block( signed_block_ptr b, const block_id_type& id ) {
+         std::lock_guard g(unlinkable_blk_state_mtx);
+         unlinkable_blk_state.insert( {id, std::move(b)} ); // does not insert if already there
+         if (unlinkable_blk_state.size() > max_unlinkable_cache_size) {
+            auto& index = unlinkable_blk_state.get<by_timestamp>();
+            auto begin = index.begin();
+            block_id_type rm_block_id = begin->id;
+            index.erase( begin );
+            return rm_block_id;
+         }
+         return {};
+      }
 
-      void add_unlinkable_block( signed_block_ptr b, const block_id_type& id );
-      unlinkable_block_state pop_possible_linkable_block( const block_id_type& blkid );
-      void expire_blocks( uint32_t lib_num );
+      unlinkable_block_state pop_possible_linkable_block(const block_id_type& blkid) {
+         std::lock_guard g(unlinkable_blk_state_mtx);
+         auto& index = unlinkable_blk_state.get<by_prev>();
+         auto blk_itr = index.find( blkid );
+         if (blk_itr != index.end()) {
+            unlinkable_block_state result = *blk_itr;
+            index.erase(blk_itr);
+            return result;
+         }
+         return {};
+      }
+
+      void expire_blocks( uint32_t lib_num ) {
+         std::lock_guard g(unlinkable_blk_state_mtx);
+         auto& stale_blk = unlinkable_blk_state.get<by_block_num_id>();
+         stale_blk.erase( stale_blk.lower_bound( 1 ), stale_blk.upper_bound( lib_num ) );
+      }
    };
 
    class sync_manager {
@@ -237,8 +261,7 @@ namespace eosio {
       boost::asio::io_context::strand  strand;
 
       explicit dispatch_manager(boost::asio::io_context& io_context)
-      : unlinkable_block_cache(*this),
-        strand( io_context ) {}
+      : strand( io_context ) {}
 
       void bcast_transaction(const packed_transaction_ptr& trx);
       void rejected_transaction(const packed_transaction_ptr& trx);
@@ -262,7 +285,11 @@ namespace eosio {
       void expire_txns();
 
       void add_unlinkable_block( signed_block_ptr b, const block_id_type& id ) {
-         unlinkable_block_cache.add_unlinkable_block(std::move(b), id);
+         std::optional<block_id_type> rm_blk_id = unlinkable_block_cache.add_unlinkable_block(std::move(b), id);
+         if (rm_blk_id) {
+            // rm_block since we are no longer tracking this not applied block, allowing it to flow back in if needed
+            rm_block(*rm_blk_id);
+         }
       }
       unlinkable_block_state pop_possible_linkable_block( const block_id_type& blkid ) {
          return unlinkable_block_cache.pop_possible_linkable_block(blkid);
@@ -2134,41 +2161,6 @@ namespace eosio {
             c->sync_wait();
          }
       }
-   }
-
-   //------------------------------------------------------------------------
-   // thread safe
-
-   void unlinkable_block_state_cache::add_unlinkable_block( signed_block_ptr b, const block_id_type& id ) {
-      std::unique_lock g(unlinkable_blk_state_mtx);
-      unlinkable_blk_state.insert( {id, std::move(b)} ); // does not insert if already there
-      if (unlinkable_blk_state.size() > max_unlinkable_cache_size) {
-         auto& index = unlinkable_blk_state.get<by_timestamp>();
-         auto begin = index.begin();
-         block_id_type rm_block_id = begin->id;
-         index.erase( begin );
-         g.unlock();
-         // rm_block since we are no longer tracking this not applied block, allowing it to flow back in if needed
-         dispatch.rm_block(rm_block_id);
-      }
-   }
-
-   unlinkable_block_state unlinkable_block_state_cache::pop_possible_linkable_block(const block_id_type& blkid) {
-      std::lock_guard g(unlinkable_blk_state_mtx);
-      auto& index = unlinkable_blk_state.get<by_prev>();
-      auto blk_itr = index.find( blkid );
-      if (blk_itr != index.end()) {
-         unlinkable_block_state result = *blk_itr;
-         index.erase(blk_itr);
-         return result;
-      }
-      return {};
-   }
-
-   void unlinkable_block_state_cache::expire_blocks( uint32_t lib_num ) {
-      std::lock_guard<std::mutex> g(unlinkable_blk_state_mtx);
-      auto& stale_blk = unlinkable_blk_state.get<by_block_num_id>();
-      stale_blk.erase( stale_blk.lower_bound( 1 ), stale_blk.upper_bound( lib_num ) );
    }
 
    //------------------------------------------------------------------------
