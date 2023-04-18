@@ -197,7 +197,7 @@ BOOST_AUTO_TEST_SUITE(trx_retry_db_test)
 
 BOOST_AUTO_TEST_CASE(trx_retry_logic) {
    fc::temp_directory temp_dir;
-   auto& temp = temp_dir.path() ;
+   const auto& temp = temp_dir.path();
 
    try {
       appbase::scoped_app app;

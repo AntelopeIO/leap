@@ -243,7 +243,7 @@ private:
 class temp_cfile {
    cfile _impl;
 public:
-   temp_cfile(const char* mode = "wb"){
+   explicit temp_cfile(const char* mode = "wb"){
       std::filesystem::path template_path{ std::filesystem::temp_directory_path() / "fc-XXXXXX" };
       std::string tmp = template_path.string();
       int fd = mkstemp(tmp.data());
@@ -258,6 +258,7 @@ public:
       _impl._open = true;
    }
    ~temp_cfile() {
+      _impl.close();
       std::error_code ec;
       std::filesystem::remove(_impl.get_file_path(), ec);
    }
