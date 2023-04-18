@@ -16,7 +16,7 @@ public:
 	explicit sha3(const std::string &hex_str);
 	explicit sha3(const char *data, size_t size);
 
-   std::string str() const;
+	std::string str() const;
 	operator std::string() const;
 
 	const char *data() const;
