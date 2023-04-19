@@ -1,3 +1,7 @@
+// The majority of the code here are derived from boost source
+// libs/beast/example/http/client/async/http_client_async.cpp
+// with minimum modification and yet reusable.
+//
 //
 // Copyright (c) 2016-2019 Vinnie Falco (vinnie dot falco at gmail dot com)
 //
@@ -75,9 +79,7 @@ public:
         resolver_.async_resolve(
             host,
             port,
-            beast::bind_front_handler(
-                &session::on_resolve,
-                shared_from_this()));
+            [self = this->shared_from_this()](beast::error_code ec, auto res) { self->on_resolve(ec, res); });
     }
 
     void
@@ -94,9 +96,7 @@ public:
         // Make the connection on the IP address we get from a lookup
         stream_.async_connect(
             results,
-            beast::bind_front_handler(
-                &session::on_connect,
-                shared_from_this()));
+            [self = this->shared_from_this()](beast::error_code ec, auto endpt) { self->on_connect(ec, endpt); });
     }
 
     void
@@ -110,9 +110,7 @@ public:
 
         // Send the HTTP request to the remote host
         http::async_write(stream_, req_,
-            beast::bind_front_handler(
-                &session::on_write,
-                shared_from_this()));
+            [self = this->shared_from_this()](beast::error_code ec, auto bytes_transferred) { self->on_write(ec, bytes_transferred); });
     }
 
     void
@@ -127,9 +125,7 @@ public:
         
         // Receive the HTTP response
         http::async_read(stream_, buffer_, res_,
-            beast::bind_front_handler(
-                &session::on_read,
-                shared_from_this()));
+            [self = this->shared_from_this()](beast::error_code ec, auto bytes_transferred) { self->on_read(ec, bytes_transferred); });
     }
 
     void
