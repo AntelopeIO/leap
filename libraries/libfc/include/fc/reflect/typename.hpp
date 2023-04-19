@@ -1,13 +1,13 @@
 #pragma once
 
-#include <deque>
-#include <map>
-#include <vector>
-
-#include <fc/string.hpp>
-
 #include <fc/container/flat_fwd.hpp>
 #include <fc/container/deque_fwd.hpp>
+#include <fc/string.hpp>
+
+#include <deque>
+#include <optional>
+#include <map>
+#include <vector>
 
 namespace fc {
   class value;
