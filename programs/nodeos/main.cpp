@@ -38,11 +38,11 @@ fc::logging_config& add_deep_mind_logger(fc::logging_config& config) {
    return config;
 }
 
-void configure_logging(const bfs::path& config_path)
+void configure_logging(const std::filesystem::path& config_path)
 {
    try {
       try {
-         if( fc::exists( config_path ) ) {
+         if( std::filesystem::exists( config_path ) ) {
             fc::configure_logging( config_path );
          } else {
             auto cfg = fc::logging_config::default_config();
@@ -69,7 +69,7 @@ void configure_logging(const bfs::path& config_path)
 void logging_conf_handler()
 {
    auto config_path = app().get_logging_conf();
-   if( fc::exists( config_path ) ) {
+   if( std::filesystem::exists( config_path ) ) {
       ilog( "Received HUP.  Reloading logging configuration from ${p}.", ("p", config_path.string()) );
    } else {
       ilog( "Received HUP.  No log config found at ${p}, setting to default.", ("p", config_path.string()) );
@@ -81,7 +81,7 @@ void logging_conf_handler()
 void initialize_logging()
 {
    auto config_path = app().get_logging_conf();
-   if(fc::exists(config_path))
+   if(std::filesystem::exists(config_path))
      fc::configure_logging(config_path); // intentionally allowing exceptions to escape
    else {
       auto cfg = fc::logging_config::default_config();

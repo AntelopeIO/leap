@@ -103,7 +103,7 @@ namespace eosio {
 struct trace_api_common_impl {
    static void set_program_options(appbase::options_description& cli, appbase::options_description& cfg) {
       auto cfg_options = cfg.add_options();
-      cfg_options("trace-dir", bpo::value<bfs::path>()->default_value("traces"),
+      cfg_options("trace-dir", bpo::value<std::filesystem::path>()->default_value("traces"),
                   "the location of the trace directory (absolute path or relative to application data dir)");
       cfg_options("trace-slice-stride", bpo::value<uint32_t>()->default_value(10'000),
                   "the number of blocks each \"slice\" of trace data will contain on the filesystem");
@@ -116,7 +116,7 @@ struct trace_api_common_impl {
    }
 
    void plugin_initialize(const appbase::variables_map& options) {
-      auto dir_option = options.at("trace-dir").as<bfs::path>();
+      auto dir_option = options.at("trace-dir").as<std::filesystem::path>();
       if (dir_option.is_relative())
          trace_dir = app().data_dir() / dir_option;
       else
@@ -161,7 +161,7 @@ struct trace_api_common_impl {
    }
 
    // common configuration paramters
-   boost::filesystem::path trace_dir;
+   std::filesystem::path trace_dir;
    uint32_t slice_stride = 0;
 
    std::optional<uint32_t> minimum_irreversible_history_blocks;

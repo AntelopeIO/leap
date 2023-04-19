@@ -10,16 +10,16 @@
 namespace fc {
 
     sha224::sha224() { memset( _hash, 0, sizeof(_hash) ); }
-    sha224::sha224( const string& hex_str ) {
+    sha224::sha224( const std::string& hex_str ) {
       auto bytes_written = fc::from_hex( hex_str, (char*)_hash, sizeof(_hash) );
       if( bytes_written < sizeof(_hash) )
          memset( (char*)_hash + bytes_written, 0, (sizeof(_hash) - bytes_written) );
     }
 
-    string sha224::str()const {
+    std::string sha224::str()const {
       return fc::to_hex( (char*)_hash, sizeof(_hash) );
     }
-    sha224::operator string()const { return  str(); }
+    sha224::operator std::string()const { return  str(); }
 
     char* sha224::data() { return (char*)&_hash[0]; }
     const char* sha224::data() const { return (const char*)&_hash[0]; }
@@ -38,7 +38,7 @@ namespace fc {
       e.write(d,dlen);
       return e.result();
     }
-    sha224 sha224::hash( const string& s ) {
+    sha224 sha224::hash( const std::string& s ) {
       return hash( s.c_str(), s.size() );
     }
 

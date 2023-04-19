@@ -1,12 +1,10 @@
 #pragma once
 
-#include <boost/filesystem.hpp>
 #include <boost/asio.hpp>
 
 #include <eosio/chain/application.hpp>
 #include <eosio/chain/exceptions.hpp>
 
-namespace bfs = boost::filesystem;
 
 namespace eosio::resource_monitor {
    template<typename SpaceProvider>
@@ -51,7 +49,7 @@ namespace eosio::resource_monitor {
       bool is_threshold_exceeded() {
          // Go over each monitored file system
          for (auto& fs: filesystems) {
-            boost::system::error_code ec;
+            std::error_code ec;
             auto info = space_provider.get_space(fs.path_name, ec);
             if ( ec ) {
                // As the system is running and this plugin is not a critical
@@ -86,7 +84,7 @@ namespace eosio::resource_monitor {
          return false;
       }
 
-      void add_file_system(const bfs::path& path_name) {
+      void add_file_system(const std::filesystem::path& path_name) {
          // Get detailed information of the path
          struct stat statbuf{};
          auto status = space_provider.get_stat(path_name.string().c_str(), &statbuf);
@@ -106,9 +104,9 @@ namespace eosio::resource_monitor {
          }
 
          // For efficiency, precalculate threshold values to avoid calculating it
-         // everytime we check space usage. Since bfs::space returns
+         // everytime we check space usage. Since std::filesystem::space returns
          // available amount, we use minimum available amount as threshold.
-         boost::system::error_code ec;
+         std::error_code ec;
          auto info = space_provider.get_space(path_name, ec);
          EOS_ASSERT(!ec, chain::plugin_config_exception,
             "Unable to get space info for ${path_name}: [code: ${ec}] ${message}",
@@ -168,10 +166,10 @@ namespace eosio::resource_monitor {
       struct   filesystem_info {
          dev_t      st_dev; // device id of file system containing "file_path"
          uintmax_t  shutdown_available {0}; // minimum number of available bytes the file system must maintain
-         bfs::path  path_name;
+         std::filesystem::path  path_name;
          uintmax_t  warning_available {0};  // warning is issued when available number of bytes drops below warning_available
 
-         filesystem_info(dev_t dev, uintmax_t available, const bfs::path& path, uintmax_t warning)
+         filesystem_info(dev_t dev, uintmax_t available, const std::filesystem::path& path, uintmax_t warning)
          : st_dev(dev),
          shutdown_available(available),
          path_name(path),

@@ -27,7 +27,7 @@ void block_log_set_buff_len(uint64_t len);
 void remove_existing_states(controller::config& config) {
    auto state_path = config.state_dir;
    remove_all(state_path);
-   fc::create_directories(state_path);
+   std::filesystem::create_directories(state_path);
 }
 
 struct dummy_action {

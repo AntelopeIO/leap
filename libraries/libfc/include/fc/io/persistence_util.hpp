@@ -11,15 +11,15 @@ namespace fc {
 
 namespace persistence_util {
 
-   cfile open_cfile_for_read(const fc::path& dir, const std::string& filename) {
-      if (!fc::is_directory(dir))
-         fc::create_directories(dir);
-      
+   cfile open_cfile_for_read(const std::filesystem::path& dir, const std::string& filename) {
+      if (!std::filesystem::is_directory(dir))
+         std::filesystem::create_directories(dir);
+
       auto dat_file = dir / filename;
 
       cfile dat_content;
       dat_content.set_file_path(dat_file);
-      if( fc::exists( dat_file ) ) {
+      if( std::filesystem::exists( dat_file ) ) {
          dat_content.open(cfile::create_or_update_rw_mode);
       }
       return dat_content;
@@ -55,9 +55,9 @@ namespace persistence_util {
       return version;
    }
 
-   cfile open_cfile_for_write(const fc::path& dir, const std::string& filename) {
-      if (!fc::is_directory(dir))
-         fc::create_directories(dir);
+   cfile open_cfile_for_write(const std::filesystem::path& dir, const std::string& filename) {
+      if (!std::filesystem::is_directory(dir))
+         std::filesystem::create_directories(dir);
 
       auto dat_file = dir / filename;
       cfile dat_content;

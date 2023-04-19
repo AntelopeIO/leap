@@ -1,6 +1,4 @@
 #pragma once
-#include <fc/any.hpp>
-#include <fc/string.hpp>
 #include <memory>
 
 namespace boost { namespace asio { class io_context; typedef io_context io_service; } }
@@ -14,7 +12,7 @@ namespace fc {
       public:
        typedef std::shared_ptr<appender_factory> ptr;
 
-       virtual ~appender_factory(){};
+       virtual ~appender_factory() = default;
        virtual std::shared_ptr<appender> create( const variant& args ) = 0;
    };
 
@@ -22,7 +20,7 @@ namespace fc {
       template<typename T>
       class appender_factory_impl : public appender_factory {
         public:
-           virtual std::shared_ptr<appender> create( const variant& args ) {
+           std::shared_ptr<appender> create( const variant& args ) override {
               return std::shared_ptr<appender>(new T(args));
            }
       };
