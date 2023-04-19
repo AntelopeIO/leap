@@ -525,7 +525,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       }
    }
 
-   EOSC_ASSERT( fasle, "control reaches end of push_transaction" );
+   EOSC_ASSERT( false, "control reaches end of push_transaction" );
    return {};
 }
 
