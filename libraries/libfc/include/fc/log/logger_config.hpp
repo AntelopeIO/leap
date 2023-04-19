@@ -27,7 +27,7 @@ namespace fc {
    struct logger_config {
       logger_config(const std::string& name = ""):name(name),enabled(true),additivity(false){}
       std::string                      name;
-      ostring                          parent;
+      std::optional<std::string>       parent;
       /// if not set, then parents level is used.
       std::optional<log_level>         level;
       bool                             enabled;

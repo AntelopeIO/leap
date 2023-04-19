@@ -1,5 +1,4 @@
 #include <fc/string.hpp>
-#include <fc/utility.hpp>
 #include <fc/exception/exception.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
@@ -7,7 +6,6 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
-#include <locale>
 #include <limits>
 
 /**
@@ -21,14 +19,6 @@ namespace fc  {
          virtual char do_thousands_sep() const { return ','; }
          virtual std::string do_grouping() const { return "\03"; }
    };
-
-  std::string to_pretty_string( int64_t value )
-  {
-     std::stringstream ss;
-     ss.imbue( {std::locale(), new comma_numpunct} );
-     ss << std::fixed << value;
-     return ss.str();
-  }
 
   int64_t    to_int64( const std::string& i )
   {
@@ -98,19 +88,6 @@ namespace fc  {
       boost::algorithm::trim(cpy);
       return cpy;
       */
-  }
-  std::string to_lower( const std::string& s )
-  {
-     auto tmp = s;
-     boost::algorithm::to_lower(tmp);
-     return tmp;
-  }
-  std::string trim_and_normalize_spaces( const std::string& s )
-  {
-     std::string result = boost::algorithm::trim_copy( s );
-     while( result.find( "  " ) != result.npos )
-       boost::algorithm::replace_all( result, "  ", " " );
-     return result;
   }
 
 } // namespace fc

@@ -120,8 +120,6 @@ namespace fc {
         uint32_t utc_seconds;
   };
 
-  typedef std::optional<time_point> otime_point;
-
   /** return a human-readable approximate time, relative to now()
    * e.g., "4 hours ago", "2 months ago", etc.
    */
