@@ -7,6 +7,7 @@
 #include <fc/bitutil.hpp>
 #include <fc/io/raw.hpp>
 #include <mutex>
+#include <string>
 
 #if defined(__BYTE_ORDER__)
 static_assert(__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__);
@@ -896,7 +897,7 @@ namespace eosio { namespace chain {
 
          static void write_incomplete_block_data(const std::filesystem::path& blocks_dir, fc::time_point now, uint32_t block_num,
                                                  fc::cfile& strm) {
-            auto      tail_path = blocks_dir / std::string("blocks-bad-tail-").append(now).append(".log");
+            auto      tail_path = blocks_dir / std::string("blocks-bad-tail-").append(std::string(now)).append(".log");
             fc::cfile tail;
             tail.set_file_path(tail_path);
             tail.open(fc::cfile::create_or_update_rw_mode);

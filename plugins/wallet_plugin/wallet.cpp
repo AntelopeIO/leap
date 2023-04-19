@@ -9,7 +9,6 @@
 #include <string>
 #include <list>
 
-#include <fc/container/deque.hpp>
 #include <fc/crypto/elliptic.hpp>
 #include <fc/git_revision.hpp>
 #include <fc/io/json.hpp>

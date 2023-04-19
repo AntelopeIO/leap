@@ -36,7 +36,7 @@ FC_REFLECT_ENUM( chainbase::environment::arch_t,
                  (ARCH_X86_64)(ARCH_ARM)(ARCH_RISCV)(ARCH_OTHER) )
 FC_REFLECT(chainbase::environment, (debug)(os)(arch)(boost_version)(compiler) )
 
-const fc::string deep_mind_logger_name("deep-mind");
+const std::string deep_mind_logger_name("deep-mind");
 eosio::chain::deep_mind_handler _deep_mind_log;
 
 namespace eosio {
