@@ -32,3 +32,19 @@ The perfomance_test.py and performance_test_basic.py are currently configured to
 - Production Windows (total, avg size, missed)  
 - Forked blocks
 - Fork Count
+
+## API Node (HTTP Node) Mode
+*Placeholder - documentation to follow*
+
+### Topology
+
+### Use Case
+
+### Configuration
+
+### Performance Measurements
+
+*Placeholder - measurements of interest*
+ - How many transactions can be pushed
+ - How many read-only transactions can be processed
+ - How many reads are possible (i.e. get table calls)
