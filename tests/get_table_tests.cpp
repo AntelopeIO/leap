@@ -31,9 +31,9 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
-auto get_table_rows_full = [](chain_apis::read_only &plugin,
-                              chain_apis::read_only::get_table_rows_params &params,
-                              const fc::time_point& deadline) -> chain_apis::read_only::get_table_rows_result {   
+static auto get_table_rows_full = [](chain_apis::read_only &plugin,
+                                     chain_apis::read_only::get_table_rows_params &params,
+                                     const fc::time_point& deadline) -> chain_apis::read_only::get_table_rows_result {   
    auto res_nm_v =  plugin.get_table_rows(params, deadline)();
    BOOST_REQUIRE(!std::holds_alternative<fc::exception_ptr>(res_nm_v));
    return std::get<chain_apis::read_only::get_table_rows_result>(std::move(res_nm_v));
