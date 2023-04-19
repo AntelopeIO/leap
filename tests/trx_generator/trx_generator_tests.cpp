@@ -2,7 +2,7 @@
 #include <trx_generator.cpp>
 #include <http_client_async.cpp>
 #include <simple_rest_server.hpp>
-
+#include <future>
 
 #define BOOST_TEST_MODULE trx_generator_tests
 #include <boost/test/included/unit_test.hpp>
