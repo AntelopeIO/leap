@@ -31,20 +31,26 @@ using namespace boost::multi_index;
 using namespace boost::asio;
 
 namespace bip = boost::interprocess;
-namespace bfs = boost::filesystem;
 
 using allocator_t = bip::rbtree_best_fit<bip::null_mutex_family, bip::offset_ptr<void>, alignof(std::max_align_t)>;
 
 struct config;
 
+
 class code_cache_base {
    public:
-      code_cache_base(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      code_cache_base(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
       ~code_cache_base();
 
       const int& fd() const { return _cache_fd; }
 
       void free_code(const digest_type& code_id, const uint8_t& vm_version);
+
+      // get_descriptor_for_code failure reasons
+      enum class get_cd_failure {
+         temporary, // oc compile not done yet, users like read-only trxs can retry
+         permanent  // oc will not start, users should not retry
+      };
 
    protected:
       struct by_hash;
@@ -65,8 +71,8 @@ class code_cache_base {
 
       const chainbase::database& _db;
 
-      bfs::path _cache_file_path;
-      int _cache_fd;
+      std::filesystem::path _cache_file_path;
+      int                   _cache_fd;
 
       io_context _ctx;
       local::datagram_protocol::socket _compile_monitor_write_socket{_ctx};
@@ -89,13 +95,13 @@ class code_cache_base {
 
 class code_cache_async : public code_cache_base {
    public:
-      code_cache_async(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      code_cache_async(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
       ~code_cache_async();
 
       //If code is in cache: returns pointer & bumps to front of MRU list
       //If code is not in cache, and not blacklisted, and not currently compiling: return nullptr and kick off compile
       //otherwise: return nullptr
-      const code_descriptor* const get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window);
+      const code_descriptor* const get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure);
 
    private:
       std::thread _monitor_reply_thread;

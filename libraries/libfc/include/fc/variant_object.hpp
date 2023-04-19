@@ -77,7 +77,7 @@ namespace fc
       variant_object( string key, T&& val )
       :_key_value( std::make_shared<std::vector<entry> >() )
       {
-         *this = variant_object( std::move(key), variant(forward<T>(val)) );
+         *this = variant_object( std::move(key), variant(std::forward<T>(val)) );
       }
       variant_object( const variant_object& );
       variant_object( variant_object&& );
@@ -223,7 +223,7 @@ namespace fc
       mutable_variant_object( string key, T&& val )
       :_key_value( new std::vector<entry>() )
       {
-         set( std::move(key), variant(forward<T>(val)) );
+         set( std::move(key), variant(std::forward<T>(val)) );
       }
 
       mutable_variant_object( mutable_variant_object&& );

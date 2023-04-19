@@ -17,11 +17,11 @@ public:
    snapshot_db_json()   = default;
    ~snapshot_db_json()  = default;
 
-   void set_path(bfs::path path) {
+   void set_path(std::filesystem::path path) {
       db_path = std::move(path);
    }
 
-   bfs::path get_json_path() const {
+   std::filesystem::path get_json_path() const {
       return db_path / "snapshot-schedule.json";
    }
 
@@ -32,7 +32,7 @@ public:
          std::ifstream file(get_json_path().string());
          file.exceptions(std::istream::failbit|std::istream::eofbit);
          boost::property_tree::read_json(file, root);
-       
+
          // parse ptree
          for(boost::property_tree::ptree::value_type& req: root.get_child("snapshot_requests")) {
             producer_plugin::snapshot_schedule_information ssi;
@@ -84,7 +84,7 @@ public:
    }
 
 private:
-   bfs::path db_path;
+   std::filesystem::path db_path;
 };
 
 }// namespace eosio

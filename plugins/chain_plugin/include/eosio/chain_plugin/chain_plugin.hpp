@@ -25,6 +25,8 @@
 namespace fc { class variant; }
 
 namespace eosio {
+   namespace chain { class abi_resolver; }
+
    using chain::controller;
    using std::unique_ptr;
    using std::pair;
@@ -42,6 +44,8 @@ namespace eosio {
    using chain::action_name;
    using chain::abi_def;
    using chain::abi_serializer;
+   using chain::abi_resolver;
+   using chain::packed_transaction;
 
 class producer_plugin;
 
@@ -86,8 +90,39 @@ string convert_to_string(const chain::key256_t& source, const string& key_type, 
 template<>
 string convert_to_string(const float128_t& source, const string& key_type, const string& encode_type, const string& desc);
 
+class read_write;
+   
+class api_base {
+public:
+   static void handle_db_exhaustion();
+   static void handle_bad_alloc();
 
-class read_only {
+   static auto make_resolver(const controller& control, abi_serializer::yield_function_t yield) {
+      return [&control, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
+         const auto* accnt = control.db().template find<chain::account_object, chain::by_name>(name);
+         if (accnt != nullptr) {
+            if (abi_def abi; abi_serializer::to_abi(accnt->abi, abi)) {
+               return abi_serializer(std::move(abi), yield);
+            }
+         }
+         return {};
+      };
+   }
+
+protected:
+   struct send_transaction_params_t {
+      bool return_failure_trace = true;
+      bool retry_trx = false; ///< request transaction retry on validated transaction
+      std::optional<uint16_t> retry_trx_num_blocks{}; ///< if retry_trx, report trace at specified blocks from executed or lib if not specified
+      chain::transaction_metadata::trx_type trx_type;
+      fc::variant transaction;
+   };
+
+   template<class API, class Result>
+   static void send_transaction_gen(API& api, send_transaction_params_t params, chain::plugin_interface::next_function<Result> next);
+};
+   
+class read_only : public api_base {
    const controller& db;
    const std::optional<account_query_db>& aqdb;
    const fc::microseconds abi_serializer_max_time;
@@ -95,7 +130,8 @@ class read_only {
    bool  shorten_abi_errors = true;
    const producer_plugin* producer_plug;
    const trx_finality_status_processing* trx_finality_status_proc;
-
+   friend class api_base;
+   
 public:
    static const string KEYi64;
 
@@ -330,12 +366,16 @@ public:
    };
 
    chain::signed_block_ptr get_raw_block(const get_raw_block_params& params, const fc::time_point& deadline) const;
+
+   using get_block_params = get_raw_block_params;
+   std::function<chain::t_or_exception<fc::variant>()> get_block(const get_block_params& params, const fc::time_point& deadline) const;
+
    // call from app() thread
-   std::unordered_map<account_name, std::optional<abi_serializer>>
-     get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
+   abi_resolver get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
+
    // call from any thread
    fc::variant convert_block( const chain::signed_block_ptr& block,
-                              std::unordered_map<account_name, std::optional<abi_serializer>> abi_cache,
+                              abi_resolver& resolver,
                               const fc::microseconds& max_time ) const;
 
    struct get_block_header_params {
@@ -481,7 +521,7 @@ public:
       fc::variant transaction;
    };
 
-   void compute_transaction(const compute_transaction_params& params, chain::plugin_interface::next_function<compute_transaction_results> next ) const;
+   void compute_transaction(compute_transaction_params params, chain::plugin_interface::next_function<compute_transaction_results> next );
 
    struct send_read_only_transaction_results {
       chain::transaction_id_type  transaction_id;
@@ -490,7 +530,7 @@ public:
    struct send_read_only_transaction_params {
       fc::variant transaction;
    };
-   void send_read_only_transaction(const send_read_only_transaction_params& params, chain::plugin_interface::next_function<send_read_only_transaction_results> next ) const;
+   void send_read_only_transaction(send_read_only_transaction_params params, chain::plugin_interface::next_function<send_read_only_transaction_results> next );
 
    static void copy_inline_row(const chain::key_value_object& obj, vector<char>& data) {
       data.resize( obj.value.size() );
@@ -715,18 +755,16 @@ public:
      chain::wasm_config         wasm_config;
    };
    get_consensus_parameters_results get_consensus_parameters(const get_consensus_parameters_params&, const fc::time_point& deadline) const;
-
-private:
-   template<typename Params, typename Results>
-   void send_transient_transaction(const Params& params, eosio::chain::next_function<Results> next, chain::transaction_metadata::trx_type trx_type) const;
 };
 
-class read_write {
+class read_write : public api_base {
    controller& db;
    std::optional<trx_retry_db>& trx_retry;
    const fc::microseconds abi_serializer_max_time;
    const fc::microseconds http_max_response_time;
    const bool api_accept_transactions;
+   friend class api_base;
+   
 public:
    read_write(controller& db, std::optional<trx_retry_db>& trx_retry,
               const fc::microseconds& abi_serializer_max_time, const fc::microseconds& http_max_response_time,
@@ -757,7 +795,7 @@ public:
 
    using send_transaction_params = push_transaction_params;
    using send_transaction_results = push_transaction_results;
-   void send_transaction(const send_transaction_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
+   void send_transaction(send_transaction_params params, chain::plugin_interface::next_function<send_transaction_results> next);
 
    struct send_transaction2_params {
       bool return_failure_trace = true;
@@ -765,7 +803,7 @@ public:
       std::optional<uint16_t> retry_trx_num_blocks{}; ///< if retry_trx, report trace at specified blocks from executed or lib if not specified
       fc::variant transaction;
    };
-   void send_transaction2(const send_transaction2_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
+   void send_transaction2(send_transaction2_params params, chain::plugin_interface::next_function<send_transaction_results> next);
 
 };
 
@@ -875,9 +913,6 @@ public:
    static void handle_guard_exception(const chain::guard_exception& e);
    void do_hard_replay(const variables_map& options);
 
-   static void handle_db_exhaustion();
-   static void handle_bad_alloc();
-
    bool account_queries_enabled() const;
    bool transaction_finality_status_enabled() const;
 
@@ -892,7 +927,7 @@ private:
    unique_ptr<class chain_plugin_impl> my;
 };
 
-}
+} // namespace eosio
 
 FC_REFLECT( eosio::chain_apis::linked_action, (account)(action) )
 FC_REFLECT( eosio::chain_apis::permission, (perm_name)(parent)(required_auth)(linked_actions) )

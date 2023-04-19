@@ -6,7 +6,6 @@
 #include <vector>
 
 namespace fc {
-    class path;
 
     class aes_encoder
     {
@@ -42,13 +41,13 @@ namespace fc {
     std::vector<char> aes_decrypt( const fc::sha512& key, const std::vector<char>& cipher_text );
 
     /** encrypts plain_text and then includes a checksum that enables us to verify the integrety of
-     * the file / key prior to decryption. 
+     * the file / key prior to decryption.
      */
-    void              aes_save( const fc::path& file, const fc::sha512& key, std::vector<char> plain_text );
+    void              aes_save( const std::filesystem::path& file, const fc::sha512& key, std::vector<char> plain_text );
 
     /**
      *  recovers the plain_text saved via aes_save()
      */
-    std::vector<char> aes_load( const fc::path& file, const fc::sha512& key );
+    std::vector<char> aes_load( const std::filesystem::path& file, const fc::sha512& key );
 
-} // namespace fc 
+} // namespace fc

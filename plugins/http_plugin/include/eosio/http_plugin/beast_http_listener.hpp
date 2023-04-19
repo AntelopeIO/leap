@@ -121,9 +121,11 @@ private:
                fail(ec, "accept", self->plugin_state_->logger, "closing connection");
             } else {
                // Create the session object and run it
+               std::string remote_endpoint = boost::lexical_cast<std::string>(self->socket_.remote_endpoint());
                std::make_shared<session_type>(
                   std::move(self->socket_),
-                  self->plugin_state_)
+                  self->plugin_state_,
+                  std::move(remote_endpoint))
                   ->run_session();
             }
             

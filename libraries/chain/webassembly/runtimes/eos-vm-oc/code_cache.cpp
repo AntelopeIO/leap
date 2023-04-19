@@ -38,7 +38,7 @@ static constexpr size_t descriptor_ptr_from_file_start = header_offset + offseto
 
 static_assert(sizeof(code_cache_header) <= header_size, "code_cache_header too big");
 
-code_cache_async::code_cache_async(const bfs::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
+code_cache_async::code_cache_async(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    code_cache_base(data_dir, eosvmoc_config, db),
    _result_queue(eosvmoc_config.threads * 2),
    _threads(eosvmoc_config.threads)
@@ -106,7 +106,7 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
 }
 
 
-const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window) {
+const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure) {
    //if there are any outstanding compiles, process the result queue now
    //When app is in write window, all tasks are running sequentially and read-only threads
    //are not running. Safe to update cache entries.
@@ -140,33 +140,44 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
          _cache_index.relocate(_cache_index.begin(), _cache_index.project<0>(it));
       return &*it;
    }
-   if(!is_write_window)
+   if(!is_write_window) {
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
+   }
 
    const code_tuple ct = code_tuple{code_id, vm_version};
 
-   if(_blacklist.find(ct) != _blacklist.end())
+   if(_blacklist.find(ct) != _blacklist.end()) {
+      failure = get_cd_failure::permanent; // Compile will not start
       return nullptr;
+   }
    if(auto it = _outstanding_compiles_and_poison.find(ct); it != _outstanding_compiles_and_poison.end()) {
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       it->second = false;
       return nullptr;
    }
-   if(_queued_compiles.find(ct) != _queued_compiles.end())
+   if(_queued_compiles.find(ct) != _queued_compiles.end()) {
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
+   }
 
    if(_outstanding_compiles_and_poison.size() >= _threads) {
       _queued_compiles.emplace(ct);
+      failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
 
    const code_object* const codeobject = _db.find<code_object,by_code_hash>(boost::make_tuple(code_id, 0, vm_version));
-   if(!codeobject) //should be impossible right?
+   if(!codeobject) { //should be impossible right?
+      failure = get_cd_failure::permanent; // Compile will not start
       return nullptr;
+   }
 
    _outstanding_compiles_and_poison.emplace(ct, false);
    std::vector<wrapped_fd> fds_to_pass;
    fds_to_pass.emplace_back(memfd_for_bytearray(codeobject->code));
    write_message_with_fds(_compile_monitor_write_socket, compile_wasm_message{ ct }, fds_to_pass);
+   failure = get_cd_failure::temporary; // Compile might not be done yet
    return nullptr;
 }
 
@@ -210,19 +221,19 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
    return &*_cache_index.push_front(std::move(std::get<code_descriptor>(result.result))).first;
 }
 
-code_cache_base::code_cache_base(const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
+code_cache_base::code_cache_base(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    _db(db),
    _cache_file_path(data_dir/"code_cache.bin")
 {
    static_assert(sizeof(allocator_t) <= header_offset, "header offset intersects with allocator");
 
-   bfs::create_directories(data_dir);
+   std::filesystem::create_directories(data_dir);
 
-   if(!bfs::exists(_cache_file_path)) {
+   if(!std::filesystem::exists(_cache_file_path)) {
       EOS_ASSERT(eosvmoc_config.cache_size >= allocator_t::get_min_size(total_header_size), database_exception, "configured code cache size is too small");
       std::ofstream ofs(_cache_file_path.generic_string(), std::ofstream::trunc);
       EOS_ASSERT(ofs.good(), database_exception, "unable to create EOS VM Optimized Compiler code cache");
-      bfs::resize_file(_cache_file_path, eosvmoc_config.cache_size);
+      std::filesystem::resize_file(_cache_file_path, eosvmoc_config.cache_size);
       bip::file_mapping creation_mapping(_cache_file_path.generic_string().c_str(), bip::read_write);
       bip::mapped_region creation_region(creation_mapping, bip::read_write);
       new (creation_region.get_address()) allocator_t(eosvmoc_config.cache_size, total_header_size);
@@ -243,9 +254,9 @@ code_cache_base::code_cache_base(const boost::filesystem::path data_dir, const e
 
    set_on_disk_region_dirty(true);
 
-   auto existing_file_size = bfs::file_size(_cache_file_path);
+   auto existing_file_size = std::filesystem::file_size(_cache_file_path);
    if(eosvmoc_config.cache_size > existing_file_size) {
-      bfs::resize_file(_cache_file_path, eosvmoc_config.cache_size);
+      std::filesystem::resize_file(_cache_file_path, eosvmoc_config.cache_size);
 
       bip::file_mapping resize_mapping(_cache_file_path.generic_string().c_str(), bip::read_write);
       bip::mapped_region resize_region(resize_mapping, bip::read_write);

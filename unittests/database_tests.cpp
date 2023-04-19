@@ -13,7 +13,6 @@
 
 using namespace eosio::chain;
 using namespace eosio::testing;
-namespace bfs = boost::filesystem;
 
 BOOST_AUTO_TEST_SUITE(database_tests)
 

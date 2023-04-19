@@ -31,7 +31,7 @@ namespace fc { namespace crypto {
          public_key( const signature& c, const sha256& digest, bool check_canonical = true );
 
          public_key( storage_type&& other_storage )
-         :_storage(forward<storage_type>(other_storage))
+            :_storage(std::move(other_storage))
          {}
 
          bool valid()const;

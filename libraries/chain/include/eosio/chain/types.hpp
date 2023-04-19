@@ -61,7 +61,7 @@ namespace eosio::chain {
    using                               std::to_string;
    using                               std::all_of;
 
-   using                               fc::path;
+   using                               std::filesystem::path;
    using                               fc::variant_object;
    using                               fc::variant;
    using                               fc::enum_type;
@@ -405,7 +405,10 @@ namespace eosio::chain {
    // http_plugin thread pool) and which completes the API processing and returns the result T.
    // -------------------------------------------------------------------------------------------------------
    template<typename T>
-   using next_function_variant = std::variant<fc::exception_ptr, T, std::function<T()>>;
+   using t_or_exception = std::variant<T, fc::exception_ptr>;
+
+   template<typename T>
+   using next_function_variant = std::variant<fc::exception_ptr, T, std::function<t_or_exception<T>()>>;
 
    template<typename T>
    using next_function = std::function<void(const next_function_variant<T>&)>;

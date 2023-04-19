@@ -24,8 +24,6 @@
 #include <boost/signals2/connection.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/variant.hpp>
@@ -51,6 +49,8 @@ std::ostream& operator<<(std::ostream& osm, eosio::chain::db_read_mode m) {
       osm << "head";
    } else if ( m == eosio::chain::db_read_mode::IRREVERSIBLE ) {
       osm << "irreversible";
+   } else if ( m == eosio::chain::db_read_mode::SPECULATIVE ) {
+      osm << "speculative";
    }
 
    return osm;
@@ -70,10 +70,12 @@ void validate(boost::any& v,
   // one string, it's an error, and exception will be thrown.
   std::string const& s = validators::get_single_string(values);
 
- if ( s == "head" ) {
+  if ( s == "head" ) {
      v = boost::any(eosio::chain::db_read_mode::HEAD);
   } else if ( s == "irreversible" ) {
      v = boost::any(eosio::chain::db_read_mode::IRREVERSIBLE);
+  } else if ( s == "speculative" ) {
+     v = boost::any(eosio::chain::db_read_mode::SPECULATIVE);
   } else {
      throw validation_error(validation_error::invalid_option_value);
   }
@@ -112,7 +114,7 @@ void validate(boost::any& v,
   }
 }
 
-}
+} // namespace chain
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -136,13 +138,13 @@ public:
    ,incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>())
    {}
 
-   bfs::path                        blocks_dir;
-   bfs::path                        state_dir;
-   bool                             readonly = false;
-   flat_map<uint32_t,block_id_type> loaded_checkpoints;
-   bool                             accept_transactions = false;
-   bool                             api_accept_transactions = true;
-   bool                             account_queries_enabled = false;
+   std::filesystem::path             blocks_dir;
+   std::filesystem::path             state_dir;
+   bool                              readonly = false;
+   flat_map<uint32_t, block_id_type> loaded_checkpoints;
+   bool                              accept_transactions     = false;
+   bool                              api_accept_transactions = true;
+   bool                              account_queries_enabled = false;
 
    std::optional<controller::config> chain_config;
    std::optional<controller>         chain;
@@ -150,7 +152,7 @@ public:
    //txn_msg_rate_limits              rate_limits;
    std::optional<vm_type>            wasm_runtime;
    fc::microseconds                  abi_serializer_max_time_us;
-   std::optional<bfs::path>          snapshot_path;
+   std::optional<std::filesystem::path>          snapshot_path;
 
 
    // retained references to channels for easy publication
@@ -224,7 +226,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
    std::string default_wasm_runtime_str= eosio::chain::wasm_interface::vm_type_string(eosio::chain::config::default_wasm_runtime);
 
    cfg.add_options()
-         ("blocks-dir", bpo::value<bfs::path>()->default_value("blocks"),
+         ("blocks-dir", bpo::value<std::filesystem::path>()->default_value("blocks"),
           "the location of the blocks directory (absolute path or relative to application data dir)")
          ("blocks-log-stride", bpo::value<uint32_t>(),
          "split the block log file when the head block number is the multiple of the stride\n"
@@ -235,16 +237,16 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "the maximum number of blocks files to retain so that the blocks in those files can be queried.\n"
           "When the number is reached, the oldest block file would be moved to archive dir or deleted if the archive dir is empty.\n"
           "The retained block log files should not be manipulated by users." )
-         ("blocks-retained-dir", bpo::value<bfs::path>(),
+         ("blocks-retained-dir", bpo::value<std::filesystem::path>(),
           "the location of the blocks retained directory (absolute path or relative to blocks dir).\n"
           "If the value is empty, it is set to the value of blocks dir.")
-         ("blocks-archive-dir", bpo::value<bfs::path>(),
+         ("blocks-archive-dir", bpo::value<std::filesystem::path>(),
           "the location of the blocks archive directory (absolute path or relative to blocks dir).\n"
           "If the value is empty, blocks files beyond the retained limit will be deleted.\n"
           "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.")
-         ("state-dir", bpo::value<bfs::path>()->default_value(config::default_state_dir_name),
+         ("state-dir", bpo::value<std::filesystem::path>()->default_value(config::default_state_dir_name),
           "the location of the state directory (absolute path or relative to application data dir)")
-         ("protocol-features-dir", bpo::value<bfs::path>()->default_value("protocol_features"),
+         ("protocol-features-dir", bpo::value<std::filesystem::path>()->default_value("protocol_features"),
           "the location of the protocol_features directory (absolute path or relative to application config dir)")
          ("checkpoint", bpo::value<vector<string>>()->composing(), "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")
          ("wasm-runtime", bpo::value<eosio::chain::wasm_interface::vm_type>()->value_name("runtime")->notifier([](const auto& vm){
@@ -286,10 +288,12 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
          ("sender-bypass-whiteblacklist", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "Deferred transactions sent by accounts in this list do not have any of the subjective whitelist/blacklist checks applied to them (may specify multiple times)")
          ("read-mode", boost::program_options::value<eosio::chain::db_read_mode>()->default_value(eosio::chain::db_read_mode::HEAD),
-          "Database read mode (\"head\", \"irreversible\").\n"
+          "Database read mode (\"head\", \"irreversible\", \"speculative\").\n"
           "In \"head\" mode: database contains state changes up to the head block; transactions received by the node are relayed if valid.\n"
           "In \"irreversible\" mode: database contains state changes up to the last irreversible block; "
           "transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
+          "In \"speculative\" mode: (DEPRECATED: head mode recommended) database contains state changes by transactions in the blockchain "
+          "up to the head block as well as some transactions not yet included in the blockchain; transactions received by the node are relayed if valid.\n"
           )
          ( "api-accept-transactions", bpo::value<bool>()->default_value(true), "Allow API transactions to be evaluated and relayed if valid.")
          ("validation-mode", boost::program_options::value<eosio::chain::validation_mode>()->default_value(eosio::chain::validation_mode::FULL),
@@ -356,15 +360,15 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
            "Limits the maximum rate of transaction messages that an account's code is allowed each per-code-account-transaction-msg-rate-limit-time-frame-sec.")*/
 
    cli.add_options()
-         ("genesis-json", bpo::value<bfs::path>(), "File to read Genesis State from")
+         ("genesis-json", bpo::value<std::filesystem::path>(), "File to read Genesis State from")
          ("genesis-timestamp", bpo::value<string>(), "override the initial timestamp in the Genesis State file")
          ("print-genesis-json", bpo::bool_switch()->default_value(false),
           "extract genesis_state from blocks.log as JSON, print to console, and exit")
-         ("extract-genesis-json", bpo::value<bfs::path>(),
+         ("extract-genesis-json", bpo::value<std::filesystem::path>(),
           "extract genesis_state from blocks.log as JSON, write into specified file, and exit")
          ("print-build-info", bpo::bool_switch()->default_value(false),
           "print build environment information to console as JSON and exit")
-         ("extract-build-info", bpo::value<bfs::path>(),
+         ("extract-build-info", bpo::value<std::filesystem::path>(),
           "extract build environment information as JSON, write into specified file, and exit")
          ("force-all-checks", bpo::bool_switch()->default_value(false),
           "do not skip any validation checks while replaying blocks (useful for replaying blocks from untrusted source)")
@@ -380,7 +384,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "stop hard replay / block log recovery at this block number (if set to non-zero number)")
          ("terminate-at-block", bpo::value<uint32_t>()->default_value(0),
           "terminate after reaching this block number (if set to a non-zero number)")
-         ("snapshot", bpo::value<bfs::path>(), "File to read Snapshot State from")
+         ("snapshot", bpo::value<std::filesystem::path>(), "File to read Snapshot State from")
          ;
 
 }
@@ -413,45 +417,44 @@ fc::time_point calculate_genesis_timestamp( string tstr ) {
    return genesis_timestamp;
 }
 
-void clear_directory_contents( const fc::path& p ) {
-   using boost::filesystem::directory_iterator;
+void clear_directory_contents( const std::filesystem::path& p ) {
+   using std::filesystem::directory_iterator;
 
-   if( !fc::is_directory( p ) )
+   if( !std::filesystem::is_directory( p ) )
       return;
 
    for( directory_iterator enditr, itr{p}; itr != enditr; ++itr ) {
-      fc::remove_all( itr->path() );
+      std::filesystem::remove_all( itr->path() );
    }
 }
 
-void clear_chainbase_files( const fc::path& p ) {
-   if( !fc::is_directory( p ) )
+void clear_chainbase_files( const std::filesystem::path& p ) {
+   if( !std::filesystem::is_directory( p ) )
       return;
 
-   fc::remove( p / "shared_memory.bin" );
-   fc::remove( p / "shared_memory.meta" );
+   std::filesystem::remove( p / "shared_memory.bin" );
+   std::filesystem::remove( p / "shared_memory.meta" );
 }
 
 namespace {
   // This can be removed when versions of eosio that support reversible chainbase state file no longer supported.
   void upgrade_from_reversible_to_fork_db(chain_plugin_impl* my) {
-     namespace bfs = boost::filesystem;
-     bfs::path old_fork_db = my->chain_config->state_dir / config::forkdb_filename;
-     bfs::path new_fork_db = my->blocks_dir / config::reversible_blocks_dir_name / config::forkdb_filename;
-     if( bfs::exists( old_fork_db ) && bfs::is_regular_file( old_fork_db ) ) {
+          std::filesystem::path old_fork_db = my->chain_config->state_dir / config::forkdb_filename;
+     std::filesystem::path new_fork_db = my->blocks_dir / config::reversible_blocks_dir_name / config::forkdb_filename;
+     if( std::filesystem::exists( old_fork_db ) && std::filesystem::is_regular_file( old_fork_db ) ) {
         bool copy_file = false;
-        if( bfs::exists( new_fork_db ) && bfs::is_regular_file( new_fork_db ) ) {
-           if( bfs::last_write_time( old_fork_db ) > bfs::last_write_time( new_fork_db ) ) {
+        if( std::filesystem::exists( new_fork_db ) && std::filesystem::is_regular_file( new_fork_db ) ) {
+           if( std::filesystem::last_write_time( old_fork_db ) > std::filesystem::last_write_time( new_fork_db ) ) {
               copy_file = true;
            }
         } else {
            copy_file = true;
-           bfs::create_directories( my->blocks_dir / config::reversible_blocks_dir_name );
+           std::filesystem::create_directories( my->blocks_dir / config::reversible_blocks_dir_name );
         }
         if( copy_file ) {
-           fc::rename( old_fork_db, new_fork_db );
+           std::filesystem::rename( old_fork_db, new_fork_db );
         } else {
-           fc::remove( old_fork_db );
+           std::filesystem::remove( old_fork_db );
         }
      }
   }
@@ -484,18 +487,18 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             ilog( "Build environment JSON:\n${e}", ("e", json::to_pretty_string( chainbase::environment() )) );
          }
          if( options.count( "extract-build-info") ) {
-            auto p = options.at( "extract-build-info" ).as<bfs::path>();
+            auto p = options.at( "extract-build-info" ).as<std::filesystem::path>();
 
             if( p.is_relative()) {
-               p = bfs::current_path() / p;
+               p = std::filesystem::current_path() / p;
             }
 
             EOS_ASSERT( fc::json::save_to_file( chainbase::environment(), p, true ), misc_exception,
                         "Error occurred while writing build info JSON to '${path}'",
-                        ("path", p.generic_string())
+                        ("path", p)
             );
 
-            ilog( "Saved build info JSON to '${path}'", ("path", p.generic_string()) );
+            ilog( "Saved build info JSON to '${path}'", ("path", p) );
          }
 
          EOS_THROW( node_management_success, "reported build environment information" );
@@ -530,7 +533,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
 
       if( options.count( "blocks-dir" )) {
-         auto bld = options.at( "blocks-dir" ).as<bfs::path>();
+         auto bld = options.at( "blocks-dir" ).as<std::filesystem::path>();
          if( bld.is_relative())
             my->blocks_dir = app().data_dir() / bld;
          else
@@ -538,7 +541,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
 
       if( options.count( "state-dir" )) {
-         auto sd = options.at( "state-dir" ).as<bfs::path>();
+         auto sd = options.at( "state-dir" ).as<std::filesystem::path>();
          if( sd.is_relative())
             my->state_dir = app().data_dir() / sd;
          else
@@ -547,8 +550,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       protocol_feature_set pfs;
       {
-         fc::path protocol_features_dir;
-         auto pfd = options.at( "protocol-features-dir" ).as<bfs::path>();
+         std::filesystem::path protocol_features_dir;
+         auto pfd = options.at( "protocol-features-dir" ).as<std::filesystem::path>();
          if( pfd.is_relative())
             protocol_features_dir = app().config_dir() / pfd;
          else
@@ -641,16 +644,16 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "extract-genesis-json" ) || options.at( "print-genesis-json" ).as<bool>()) {
          std::optional<genesis_state> gs;
 
-         if( fc::exists( my->blocks_dir / "blocks.log" )) {
+         if( std::filesystem::exists( my->blocks_dir / "blocks.log" )) {
             gs = block_log::extract_genesis_state( my->blocks_dir );
             EOS_ASSERT( gs,
                         plugin_config_exception,
                         "Block log at '${path}' does not contain a genesis state, it only has the chain-id.",
-                        ("path", (my->blocks_dir / "blocks.log").generic_string())
+                        ("path", (my->blocks_dir / "blocks.log"))
             );
          } else {
             wlog( "No blocks.log found at '${p}'. Using default genesis state.",
-                  ("p", (my->blocks_dir / "blocks.log").generic_string()));
+                  ("p", (my->blocks_dir / "blocks.log")));
             gs.emplace();
          }
 
@@ -659,19 +662,19 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          }
 
          if( options.count( "extract-genesis-json" )) {
-            auto p = options.at( "extract-genesis-json" ).as<bfs::path>();
+            auto p = options.at( "extract-genesis-json" ).as<std::filesystem::path>();
 
             if( p.is_relative()) {
-               p = bfs::current_path() / p;
+               p = std::filesystem::current_path() / p;
             }
 
             EOS_ASSERT( fc::json::save_to_file( *gs, p, true ),
                         misc_exception,
                         "Error occurred while writing genesis JSON to '${path}'",
-                        ("path", p.generic_string())
+                        ("path", p)
             );
 
-            ilog( "Saved genesis JSON to '${path}'", ("path", p.generic_string()) );
+            ilog( "Saved genesis JSON to '${path}'", ("path", p) );
          }
 
          EOS_THROW( extract_genesis_state_exception, "extracted genesis state from blocks.log" );
@@ -690,10 +693,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       if (has_partitioned_block_log_options) {
          my->chain_config->blog = eosio::chain::partitioned_blocklog_config{
-            .retained_dir = options.count("blocks-retained-dir") ? options.at("blocks-retained-dir").as<bfs::path>()
-                                                                 : bfs::path(""),
-            .archive_dir  = options.count("blocks-archive-dir") ? options.at("blocks-archive-dir").as<bfs::path>()
-                                                                : bfs::path("archive"),
+            .retained_dir = options.count("blocks-retained-dir") ? options.at("blocks-retained-dir").as<std::filesystem::path>()
+                                                                 : std::filesystem::path(""),
+            .archive_dir  = options.count("blocks-archive-dir") ? options.at("blocks-archive-dir").as<std::filesystem::path>()
+                                                                : std::filesystem::path("archive"),
             .stride       = options.count("blocks-log-stride") ? options.at("blocks-log-stride").as<uint32_t>()
                                                                : UINT32_MAX,
             .max_retained_files = options.count("max-retained-block-files")
@@ -731,8 +734,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       std::optional<chain_id_type> chain_id;
       if (options.count( "snapshot" )) {
-         my->snapshot_path = options.at( "snapshot" ).as<bfs::path>();
-         EOS_ASSERT( fc::exists(*my->snapshot_path), plugin_config_exception,
+         my->snapshot_path = options.at( "snapshot" ).as<std::filesystem::path>();
+         EOS_ASSERT( std::filesystem::exists(*my->snapshot_path), plugin_config_exception,
                      "Cannot load snapshot, ${name} does not exist", ("name", my->snapshot_path->generic_string()) );
 
          // recover genesis information from the snapshot
@@ -751,11 +754,11 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                      "--snapshot is incompatible with --genesis-json as the snapshot contains genesis information");
 
          auto shared_mem_path = my->chain_config->state_dir / "shared_memory.bin";
-         EOS_ASSERT( !fc::is_regular_file(shared_mem_path),
+         EOS_ASSERT( !std::filesystem::is_regular_file(shared_mem_path),
                  plugin_config_exception,
                  "Snapshot can only be used to initialize an empty database." );
 
-         if( fc::is_regular_file( my->blocks_dir / "blocks.log" )) {
+         if( std::filesystem::is_regular_file( my->blocks_dir / "blocks.log" )) {
             auto block_log_genesis = block_log::extract_genesis_state(my->blocks_dir);
             if( block_log_genesis ) {
                const auto& block_log_chain_id = block_log_genesis->compute_chain_id();
@@ -783,7 +786,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          std::optional<genesis_state> block_log_genesis;
          std::optional<chain_id_type> block_log_chain_id;
 
-         if( fc::is_regular_file( my->blocks_dir / "blocks.log" ) ) {
+         if( std::filesystem::is_regular_file( my->blocks_dir / "blocks.log" ) ) {
             block_log_genesis = block_log::extract_genesis_state( my->blocks_dir );
             if( block_log_genesis ) {
                block_log_chain_id = block_log_genesis->compute_chain_id();
@@ -807,15 +810,15 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          }
 
          if( options.count( "genesis-json" ) ) {
-            bfs::path genesis_file = options.at( "genesis-json" ).as<bfs::path>();
+            std::filesystem::path genesis_file = options.at( "genesis-json" ).as<std::filesystem::path>();
             if( genesis_file.is_relative()) {
-               genesis_file = bfs::current_path() / genesis_file;
+               genesis_file = std::filesystem::current_path() / genesis_file;
             }
 
-            EOS_ASSERT( fc::is_regular_file( genesis_file ),
+            EOS_ASSERT( std::filesystem::is_regular_file( genesis_file ),
                         plugin_config_exception,
                        "Specified genesis file '${genesis}' does not exist.",
-                       ("genesis", genesis_file.generic_string()));
+                       ("genesis", genesis_file));
 
             genesis_state provided_genesis = fc::json::from_file( genesis_file ).as<genesis_state>();
 
@@ -823,9 +826,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                provided_genesis.initial_timestamp = calculate_genesis_timestamp( options.at( "genesis-timestamp" ).as<string>() );
 
                ilog( "Using genesis state provided in '${genesis}' but with adjusted genesis timestamp",
-                     ("genesis", genesis_file.generic_string()) );
+                     ("genesis", genesis_file) );
             } else {
-               ilog( "Using genesis state provided in '${genesis}'", ("genesis", genesis_file.generic_string()));
+               ilog( "Using genesis state provided in '${genesis}'", ("genesis", genesis_file));
             }
 
             if( block_log_genesis ) {
@@ -1229,13 +1232,13 @@ void chain_plugin::handle_guard_exception(const chain::guard_exception& e) {
    app().quit();
 }
 
-void chain_plugin::handle_db_exhaustion() {
+void chain_apis::api_base::handle_db_exhaustion() {
    elog("database memory exhausted: increase chain-state-db-size-mb");
    //return 1 -- it's what programs/nodeos/main.cpp considers "BAD_ALLOC"
    std::_Exit(1);
 }
 
-void chain_plugin::handle_bad_alloc() {
+void chain_apis::api_base::handle_bad_alloc() {
    elog("std::bad_alloc - memory exhausted");
    //return -2 -- it's what programs/nodeos/main.cpp reports for std::exception
    std::_Exit(-2);
@@ -1813,19 +1816,6 @@ read_only::get_producer_schedule_result read_only::get_producer_schedule( const 
    return result;
 }
 
-
-auto make_resolver(const controller& control, abi_serializer::yield_function_t yield) {
-   return [&control, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
-      const auto* accnt = control.db().template find<account_object, by_name>(name);
-      if (accnt != nullptr) {
-         if (abi_def abi; abi_serializer::to_abi(accnt->abi, abi)) {
-            return abi_serializer(std::move(abi), yield);
-         }
-      }
-      return {};
-   };
-}
-
 read_only::get_scheduled_transactions_result
 read_only::get_scheduled_transactions( const read_only::get_scheduled_transactions_params& p, const fc::time_point& deadline ) const {
 
@@ -1930,6 +1920,24 @@ chain::signed_block_ptr read_only::get_raw_block(const read_only::get_raw_block_
    return block;
 }
 
+std::function<chain::t_or_exception<fc::variant>()> read_only::get_block(const get_raw_block_params& params, const fc::time_point& deadline) const {
+   chain::signed_block_ptr block = get_raw_block(params, deadline);
+
+   auto yield = abi_serializer::create_yield_function(deadline - fc::time_point::now());
+   auto abi_cache = abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(block).get();
+   FC_CHECK_DEADLINE(deadline);
+
+   using return_type = t_or_exception<fc::variant>;
+   return [this,
+           remaining_time = deadline - fc::time_point::now(),
+           resolver       = abi_resolver(std::move(abi_cache)),
+           block          = std::move(block)]() mutable -> return_type {
+      try {
+         return convert_block(block, resolver, remaining_time);
+      } CATCH_AND_RETURN(return_type);
+   };
+}
+
 read_only::get_block_header_result read_only::get_block_header(const read_only::get_block_header_params& params, const fc::time_point& deadline) const{
    std::optional<uint64_t> block_num;
 
@@ -1971,48 +1979,17 @@ read_only::get_block_header_result read_only::get_block_header(const read_only::
 
 }
 
-std::unordered_map<account_name, std::optional<abi_serializer>>
+abi_resolver
 read_only::get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const {
-   auto yield = abi_serializer::create_yield_function( max_time );
-   auto resolver = make_resolver(db, yield );
-   std::unordered_map<account_name, std::optional<abi_serializer> > abi_cache;
-   auto add_to_cache = [&]( const chain::action& a ) {
-      auto it = abi_cache.find( a.account );
-      if( it == abi_cache.end() ) {
-         try {
-            abi_cache.emplace_hint( it, a.account, resolver( a.account ) );
-         } catch( ... ) {
-            // keep behavior of not throwing on invalid abi, will result in hex data
-         }
-      }
-   };
-   for( const auto& receipt: block->transactions ) {
-      if( std::holds_alternative<chain::packed_transaction>( receipt.trx ) ) {
-         const auto& pt = std::get<chain::packed_transaction>( receipt.trx );
-         const auto& t = pt.get_transaction();
-         for( const auto& a: t.actions )
-            add_to_cache( a );
-         for( const auto& a: t.context_free_actions )
-            add_to_cache( a );
-      }
-   }
-   return abi_cache;
+   auto yield = abi_serializer::create_yield_function(max_time);
+   return abi_resolver(abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(block).get());
 }
 
 fc::variant read_only::convert_block( const chain::signed_block_ptr& block,
-                                      std::unordered_map<account_name, std::optional<abi_serializer>> abi_cache,
+                                      abi_resolver& resolver,
                                       const fc::microseconds& max_time ) const {
-
-   auto abi_serializer_resolver = [&abi_cache](const account_name& account) -> std::optional<abi_serializer> {
-      auto it = abi_cache.find( account );
-      if( it != abi_cache.end() )
-         return it->second;
-      return {};
-   };
-
    fc::variant pretty_output;
-   abi_serializer::to_variant( *block, pretty_output, abi_serializer_resolver,
-                               abi_serializer::create_yield_function( max_time ) );
+   abi_serializer::to_variant( *block, pretty_output, resolver, abi_serializer::create_yield_function( max_time ) );
 
    const auto block_id = block->calculate_id();
    uint32_t ref_block_prefix = block_id._hash[1];
@@ -2079,9 +2056,9 @@ void read_write::push_block(read_write::push_block_params&& params, next_functio
    try {
       app().get_method<incoming::methods::block_sync>()(std::make_shared<signed_block>( std::move(params) ), std::optional<block_id_type>{}, block_state_ptr{});
    } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
+      handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
+      handle_bad_alloc();
    } FC_LOG_AND_DROP()
    next(read_write::push_block_results{});
 }
@@ -2162,9 +2139,9 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
          }
       });
    } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
+      handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
+      handle_bad_alloc();
    } CATCH_AND_CALL(next);
 }
 
@@ -2200,99 +2177,106 @@ void read_write::push_transactions(const read_write::push_transactions_params& p
 
       push_recurse(this, 0, params_copy, result, next);
    } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
+      handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
+      handle_bad_alloc();
    } CATCH_AND_CALL(next);
 }
 
-void read_write::send_transaction(const read_write::send_transaction_params& params, next_function<read_write::send_transaction_results> next) {
-
-   try {
-      auto pretty_input = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
-      try {
-         abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
-      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
-
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
-            [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
-         if (std::holds_alternative<fc::exception_ptr>(result)) {
-            next(std::get<fc::exception_ptr>(result));
-         } else {
-            auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
-            try {
-               fc::variant output;
-               try {
-                  output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
-               } catch( chain::abi_exception& ) {
-                  output = *trx_trace_ptr;
-               }
-
-               const chain::transaction_id_type& id = trx_trace_ptr->id;
-               next(read_write::send_transaction_results{id, output});
-            } CATCH_AND_CALL(next);
-         }
-      });
-   } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
-   } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
-   } CATCH_AND_CALL(next);
-}
-
-void read_write::send_transaction2(const read_write::send_transaction2_params& params, next_function<read_write::send_transaction_results> next) {
+template<class API, class Result>
+void api_base::send_transaction_gen(API &api, send_transaction_params_t params, next_function<Result> next) {
    try {
       auto ptrx = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      auto resolver = make_resolver(api.db, abi_serializer::create_yield_function( api.abi_serializer_max_time ));
       try {
-         abi_serializer::from_variant(params.transaction, *ptrx, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
-      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
+         abi_serializer::from_variant(params.transaction, *ptrx, resolver, abi_serializer::create_yield_function( api.abi_serializer_max_time ));
+      } EOS_RETHROW_EXCEPTIONS(packed_transaction_type_exception, "Invalid packed transaction")
 
-      bool retry = params.retry_trx;
-      std::optional<uint16_t> retry_num_blocks = params.retry_trx_num_blocks;
+      bool retry = false;
+      std::optional<uint16_t> retry_num_blocks;
 
-      EOS_ASSERT( !retry || trx_retry.has_value(), unsupported_feature, "Transaction retry not enabled on node" );
-      EOS_ASSERT( !retry || (ptrx->expiration() <= trx_retry->get_max_expiration_time()), tx_exp_too_far_exception,
-                  "retry transaction expiration ${e} larger than allowed ${m}",
-                  ("e", ptrx->expiration())("m", trx_retry->get_max_expiration_time()) );
+      if constexpr (std::is_same_v<API, read_write>) {
+         retry = params.retry_trx;
+         retry_num_blocks = params.retry_trx_num_blocks;
 
-      app().get_method<incoming::methods::transaction_async>()(ptrx, true, transaction_metadata::trx_type::input, static_cast<bool>(params.return_failure_trace),
-         [this, ptrx, next, retry, retry_num_blocks](const next_function_variant<transaction_trace_ptr>& result) -> void {
+         EOS_ASSERT( !retry || api.trx_retry.has_value(), unsupported_feature, "Transaction retry not enabled on node" );
+         EOS_ASSERT( !retry || (ptrx->expiration() <= api.trx_retry->get_max_expiration_time()), tx_exp_too_far_exception,
+                     "retry transaction expiration ${e} larger than allowed ${m}",
+                     ("e", ptrx->expiration())("m", api.trx_retry->get_max_expiration_time()) );
+      }
+
+      app().get_method<incoming::methods::transaction_async>()(ptrx, true, params.trx_type, params.return_failure_trace,
+            [&api, ptrx, next, retry, retry_num_blocks](const next_function_variant<transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                next( std::get<fc::exception_ptr>( result ) );
             } else {
                try {
                   auto trx_trace_ptr = std::get<transaction_trace_ptr>( result );
-                  if( retry && trx_retry.has_value() && !trx_trace_ptr->except) {
-                     // will be ack'ed via next later
-                     trx_retry->track_transaction( ptrx, retry_num_blocks,
-                        [ptrx, next](const next_function_variant<std::unique_ptr<fc::variant>>& result ) {
-                           if( std::holds_alternative<fc::exception_ptr>( result ) ) {
-                              next( std::get<fc::exception_ptr>( result ) );
-                           } else {
-                              fc::variant& output = *std::get<std::unique_ptr<fc::variant>>( result );
-                              next( read_write::send_transaction_results{ptrx->id(), std::move( output )} );
-                           }
-                        } );
-                  } else {
-                     fc::variant output;
-                     try {
-                        output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
-                     } catch( chain::abi_exception& ) {
-                        output = *trx_trace_ptr;
+                  bool retried = false;
+                  if constexpr (std::is_same_v<API, read_write>) {
+                     if( retry && api.trx_retry.has_value() && !trx_trace_ptr->except) {
+                        // will be ack'ed via next later
+                        api.trx_retry->track_transaction( ptrx, retry_num_blocks,
+                             [ptrx, next](const next_function_variant<std::unique_ptr<fc::variant>>& result ) {
+                                if( std::holds_alternative<fc::exception_ptr>( result ) ) {
+                                   next( std::get<fc::exception_ptr>( result ) );
+                                } else {
+                                   fc::variant& output = *std::get<std::unique_ptr<fc::variant>>( result );
+                                   next( Result{ptrx->id(), std::move( output )} );
+                                }
+                             } );
+                        retried = true;
                      }
-                     const chain::transaction_id_type& id = trx_trace_ptr->id;
-                     next( read_write::send_transaction_results{id, std::move( output )} );
+                  }
+                  else {
+                     (void)retry; // ref variable to avoid compilation warning
+                     (void)retry_num_blocks; // ref variable to avoid compilation warning
+                  }
+                  if (!retried) {
+                     // we are still on main thread here. The lambda passed to `next()` below will be executed on the http thread pool
+                     auto yield        = abi_serializer::create_yield_function(fc::microseconds::maximum());
+                     auto abi_cache    = abi_serializer_cache_builder(api_base::make_resolver(api.db, std::move(yield))).add_serializers(trx_trace_ptr).get();
+                     using return_type = t_or_exception<Result>;
+                     next([&api, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
+                        try {
+                           fc::variant output;
+                           try {
+                              abi_serializer::to_variant(*trx_trace_ptr, output, std::move(resolver),
+                                                         abi_serializer::create_yield_function(api.abi_serializer_max_time));
+                           } catch( abi_exception& ) {
+                              output = *trx_trace_ptr;
+                           }
+                           const transaction_id_type& id = trx_trace_ptr->id;
+                           return return_type(Result{id, std::move( output )});
+                        } CATCH_AND_RETURN(return_type);
+                     });
                   }
                } CATCH_AND_CALL( next );
             }
          });
    } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
+      handle_db_exhaustion();
    } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
+      handle_bad_alloc();
    } CATCH_AND_CALL(next);
+}
+
+void read_write::send_transaction(read_write::send_transaction_params params, next_function<read_write::send_transaction_results> next) {
+   send_transaction_params_t gen_params { .return_failure_trace = false,
+                                          .retry_trx            = false,
+                                          .retry_trx_num_blocks = std::nullopt,
+                                          .trx_type             = transaction_metadata::trx_type::input,
+                                          .transaction          = std::move(params) };
+   return send_transaction_gen(*this, std::move(gen_params), std::move(next));
+}
+
+void read_write::send_transaction2(read_write::send_transaction2_params params, next_function<read_write::send_transaction_results> next) {
+   send_transaction_params_t gen_params  { .return_failure_trace = params.return_failure_trace,
+                                           .retry_trx            = params.retry_trx,
+                                           .retry_trx_num_blocks = std::move(params.retry_trx_num_blocks),
+                                           .trx_type             = transaction_metadata::trx_type::input,
+                                           .transaction          = std::move(params.transaction) };
+   return send_transaction_gen(*this, std::move(gen_params), std::move(next));
 }
 
 read_only::get_abi_results read_only::get_abi( const get_abi_params& params, const fc::time_point& deadline )const {
@@ -2497,60 +2481,34 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "userres"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.total_resources = abis.binary_to_variant( "user_resources", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+      auto lookup_object = [&](const name& obj_name, const name& account_name, const char* type_name) -> std::optional<fc::variant> {
+         auto t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, account_name, obj_name ));
+         if (t_id != nullptr) {
+            const auto& idx = d.get_index<key_value_index, by_scope_primary>();
+            auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
+            if (it != idx.end()) {
+               vector<char> data;
+               copy_inline_row(*it, data);
+               return abis.binary_to_variant( type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+            }
          }
-      }
+         return {};
+      };
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "delband"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.self_delegated_bandwidth = abis.binary_to_variant( "delegated_bandwidth", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("userres"_n, params.account_name, "user_resources"); res)
+         result.total_resources = *res;
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, params.account_name, "refunds"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.refund_request = abis.binary_to_variant( "refund_request", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("delband"_n, params.account_name, "delegated_bandwidth"); res)
+         result.self_delegated_bandwidth = *res;
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "voters"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if ( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.voter_info = abis.binary_to_variant( "voter_info", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("refunds"_n, params.account_name, "refund_request"); res)
+         result.refund_request = *res;
 
-      t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, config::system_account_name, "rexbal"_n ));
-      if (t_id != nullptr) {
-         const auto &idx = d.get_index<key_value_index, by_scope_primary>();
-         auto it = idx.find(boost::make_tuple( t_id->id, params.account_name.to_uint64_t() ));
-         if( it != idx.end() ) {
-            vector<char> data;
-            copy_inline_row(*it, data);
-            result.rex_info = abis.binary_to_variant( "rex_balance", data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-         }
-      }
+      if (auto res = lookup_object("voters"_n, config::system_account_name, "voter_info"); res)
+         result.voter_info = *res;
+
+      if (auto res = lookup_object("rexbal"_n, config::system_account_name, "rex_balance"); res)
+         result.rex_info = *res;
    }
    return result;
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account info")
@@ -2569,51 +2527,25 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
    return result;
 }
 
-template<typename Params, typename Results>
-void read_only::send_transient_transaction(const Params& params, next_function<Results> next, chain::transaction_metadata::trx_type trx_type) const {
-   try {
-      auto pretty_input = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
-      try {
-         abi_serializer::from_variant(params.transaction, *pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
-      } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
-
-      app().get_method<incoming::methods::transaction_async>()(pretty_input, true /* api_trx */, trx_type, true /* return_failure_trace */,
-          [this, next](const next_function_variant<transaction_trace_ptr>& result) -> void {
-             if (std::holds_alternative<fc::exception_ptr>(result)) {
-                   next(std::get<fc::exception_ptr>(result));
-              } else {
-                 auto trx_trace_ptr = std::get<transaction_trace_ptr>(result);
-
-                 try {
-                    fc::variant output;
-                    try {
-                        output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
-                    } catch( chain::abi_exception& ) {
-                        output = *trx_trace_ptr;
-                    }
-
-                    const chain::transaction_id_type& id = trx_trace_ptr->id;
-                    next(Results{id, output});
-                 } CATCH_AND_CALL(next);
-              }
-      });
-   } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
-   } catch ( const std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
-   } CATCH_AND_CALL(next);
+void read_only::compute_transaction(compute_transaction_params params, next_function<compute_transaction_results> next) {
+   send_transaction_params_t gen_params { .return_failure_trace = false,
+                                          .retry_trx            = false,
+                                          .retry_trx_num_blocks = std::nullopt,
+                                          .trx_type             = transaction_metadata::trx_type::dry_run,
+                                          .transaction          = std::move(params.transaction) };
+   return send_transaction_gen(*this, std::move(gen_params), std::move(next));
 }
 
-void read_only::compute_transaction(const compute_transaction_params& params, next_function<compute_transaction_results> next) const {
-   return send_transient_transaction(params, next, transaction_metadata::trx_type::dry_run);
+void read_only::send_read_only_transaction(send_read_only_transaction_params params, next_function<send_read_only_transaction_results> next) {
+   send_transaction_params_t gen_params { .return_failure_trace = false,
+                                          .retry_trx            = false,
+                                          .retry_trx_num_blocks = std::nullopt,
+                                          .trx_type             = transaction_metadata::trx_type::read_only,
+                                          .transaction          = std::move(params.transaction) };
+   return send_transaction_gen(*this, std::move(gen_params), std::move(next));
 }
 
-void read_only::send_read_only_transaction(const send_read_only_transaction_params& params, next_function<send_read_only_transaction_results> next) const {
-   return send_transient_transaction(params, next, transaction_metadata::trx_type::read_only);
-}
-
-read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params, const fc::time_point& deadline)const {
+read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params, const fc::time_point& deadline) const {
    return params.id();
 }
 
@@ -2680,7 +2612,7 @@ fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_tra
     fc::variant pretty_output;
     try {
         abi_serializer::to_log_variant(trx_trace, pretty_output,
-                                       chain_apis::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
+                                       chain_apis::api_base::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
                                        abi_serializer::create_yield_function(get_abi_serializer_max_time()));
     } catch (...) {
         pretty_output = trx_trace;
@@ -2692,7 +2624,7 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
     fc::variant pretty_output;
     try {
         abi_serializer::to_log_variant(trx, pretty_output,
-                                       chain_apis::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
+                                       chain_apis::api_base::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
                                        abi_serializer::create_yield_function(get_abi_serializer_max_time()));
     } catch (...) {
         pretty_output = trx;

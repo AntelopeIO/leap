@@ -19,7 +19,6 @@
 
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/filesystem.hpp>
 #include <thread>
 #include <condition_variable>
 #include <deque>
@@ -197,7 +196,8 @@ auto make_block_state( uint32_t block_num, std::vector<chain::packed_transaction
 BOOST_AUTO_TEST_SUITE(trx_retry_db_test)
 
 BOOST_AUTO_TEST_CASE(trx_retry_logic) {
-   boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+   fc::temp_directory temp_dir;
+   const auto& temp = temp_dir.path();
 
    try {
       appbase::scoped_app app;
@@ -232,7 +232,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
          app->exec();
       } );
       (void)plugin_fut.get(); // wait for app to be started
-      
+
       size_t max_mem_usage_size = 5ul*1024*1024*1024;
       fc::microseconds retry_interval = fc::seconds(10);
       boost::posix_time::seconds pretry_interval = boost::posix_time::seconds(10);
@@ -622,10 +622,8 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       app_thread.join();
 
    } catch ( ... ) {
-      boost::filesystem::remove_all( temp );
       throw;
    }
-   boost::filesystem::remove_all( temp );
 }
 
 

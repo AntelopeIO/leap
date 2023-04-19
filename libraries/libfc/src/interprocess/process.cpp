@@ -12,41 +12,41 @@ namespace fc {
   namespace bp = boost::process;
   namespace io = boost::iostreams;
 
-fc::path find_executable_in_path( const fc::string name ) {
+std::filesystem::path find_executable_in_path( const fc::string name ) {
   try {
     return fc::string(bp::find_executable_in_path( std::string(name), "" ));
   } catch (...) {
     const char* p = std::getenv("PATH");
-    FC_THROW( "Unable to find executable ${exe} in path.", 
+    FC_THROW( "Unable to find executable ${exe} in path.",
       ("exe", name)
       ("inner", fc::except_str() )
       ("PATH", fc::string(p!=nullptr?p:"") ) );
   }
-  return fc::path();
+  return std::filesystem::path();
 }
 
 
-class process::impl 
+class process::impl
 {
   public:
   impl()
   :stat( fc::asio::default_io_service() ){}
 
-  ~impl() 
+  ~impl()
   {
-    try 
+    try
     {
       if( _in )
       {
          _in->close();
       }
-      if( _exited.valid() && !_exited.ready()) 
+      if( _exited.valid() && !_exited.ready())
       {
          //child->terminate();
          _exited.wait();
       }
     }
-    catch(...) 
+    catch(...)
     {
       wlog( "caught exception cleaning up process: ${except_str}", ("except_str",fc::except_str()) );
     }
@@ -72,17 +72,17 @@ process::process()
 :my( new process::impl() ){}
 process::~process(){}
 
-iprocess& process::exec( const fc::path& exe, 
-                         std::vector<std::string> args, 
-                         const fc::path& work_dir, int opt  ) 
+iprocess& process::exec( const std::filesystem::path& exe,
+                         std::vector<std::string> args,
+                         const std::filesystem::path& work_dir, int opt  )
 {
 
   my->pctx.work_dir = work_dir.string();
   my->pctx.suppress_console = (opt & suppress_console) != 0;
-    
+
   if( opt&open_stdout)
       my->pctx.streams[boost::process::stdout_id] = bp::behavior::async_pipe();
-  else 
+  else
       my->pctx.streams[boost::process::stdout_id] = bp::behavior::null();
 
 
@@ -100,7 +100,7 @@ iprocess& process::exec( const fc::path& exe,
   std::vector<std::string> a;
   a.reserve(size_t(args.size()));
   for( uint32_t i = 0; i < args.size(); ++i ) {
-    a.push_back( fc::move(args[i]) ); 
+    a.push_back( fc::move(args[i]) );
   }
   */
   my->child.reset( new bp::child( bp::create_child( exe.string(), fc::move(args), my->pctx ) ) );
@@ -128,9 +128,9 @@ iprocess& process::exec( const fc::path& exe,
           if( WIFEXITED(exit_code) ) p->set_value(  WEXITSTATUS(exit_code) );
           else
           {
-             p->set_exception( 
-                 fc::exception_ptr( new fc::exception( 
-                     FC_LOG_MESSAGE( error, "process exited with: ${message} ", 
+             p->set_exception(
+                 fc::exception_ptr( new fc::exception(
+                     FC_LOG_MESSAGE( error, "process exited with: ${message} ",
                                      ("message", strsignal(WTERMSIG(exit_code))) ) ) ) );
           }
           #else
@@ -139,9 +139,9 @@ iprocess& process::exec( const fc::path& exe,
        }
        else
        {
-          p->set_exception( 
-              fc::exception_ptr( new fc::exception( 
-                  FC_LOG_MESSAGE( error, "process exited with: ${message} ", 
+          p->set_exception(
+              fc::exception_ptr( new fc::exception(
+                  FC_LOG_MESSAGE( error, "process exited with: ${message} ",
                                   ("message", boost::system::system_error(ec).what())) ) ) );
        }
     });
@@ -182,7 +182,7 @@ fc::buffered_istream_ptr process::err_stream() {
   return my->_err;
 }
 
-int process::result(const microseconds& timeout /* = microseconds::maximum() */) 
+int process::result(const microseconds& timeout /* = microseconds::maximum() */)
 {
     return my->_exited.wait(timeout);
 }

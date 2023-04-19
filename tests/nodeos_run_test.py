@@ -696,7 +696,7 @@ try:
     trans=node.setPermission(testeraAccount, currencyAccount, pType, requirement, waitForTransBlock=True, exitOnError=True)
 
     Print("remove permission")
-    requirement="null"
+    requirement="NULL"
     trans=node.setPermission(testeraAccount, currencyAccount, pType, requirement, waitForTransBlock=True, exitOnError=True)
 
     Print("Locking all wallets.")

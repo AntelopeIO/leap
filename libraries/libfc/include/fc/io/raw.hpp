@@ -84,13 +84,13 @@ namespace fc {
     }
 
     template<typename Stream>
-    inline void pack( Stream& s, const fc::path& tp )
+    inline void pack( Stream& s, const std::filesystem::path& tp )
     {
        fc::raw::pack( s, tp.generic_string() );
     }
 
     template<typename Stream>
-    inline void unpack( Stream& s, fc::path& tp )
+    inline void unpack( Stream& s, std::filesystem::path& tp )
     {
        std::string p;
        fc::raw::unpack( s, p );

@@ -21,7 +21,7 @@ using next_t = eosio::producer_plugin::next_function<eosio::producer_plugin::sna
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(test_snapshot_information, SNAPSHOT_SUITE, snapshot_suites) {
    tester chain;
-   const chainbase::bfs::path parent_path = chain.get_config().blocks_dir.parent_path();
+   const std::filesystem::path parent_path = chain.get_config().blocks_dir.parent_path();
 
    chain.create_account("snapshot"_n);
    chain.produce_blocks(1);
@@ -40,9 +40,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_snapshot_information, SNAPSHOT_SUITE, snapsho
    chain.control->abort_block();
 
    // write snapshot
-   auto write_snapshot = [&]( const bfs::path& p ) -> void {
-      if ( !bfs::exists( p.parent_path() ) )
-         bfs::create_directory( p.parent_path() );
+   auto write_snapshot = [&]( const std::filesystem::path& p ) -> void {
+      if ( !std::filesystem::exists( p.parent_path() ) )
+         std::filesystem::create_directory( p.parent_path() );
 
       // create the snapshot
       auto snap_out = std::ofstream(p.generic_string(), (std::ios::out | std::ios::binary));

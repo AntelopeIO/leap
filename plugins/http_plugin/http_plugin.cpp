@@ -54,7 +54,7 @@ namespace eosio {
 
          std::optional<tcp::endpoint>  listen_endpoint;
 
-         std::optional<asio::local::stream_protocol::endpoint> unix_endpoint;
+         std::filesystem::path unix_sock_path;
 
          shared_ptr<beast_http_listener<plain_session, tcp, tcp_socket_t > >  beast_server;
          shared_ptr<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket > > beast_unix_server;
@@ -268,10 +268,11 @@ namespace eosio {
          }
 
          if( options.count( "unix-socket-path" ) && !options.at( "unix-socket-path" ).as<string>().empty()) {
-            boost::filesystem::path sock_path = options.at("unix-socket-path").as<string>();
+            std::filesystem::path sock_path = options.at("unix-socket-path").as<string>();
             if (sock_path.is_relative())
                sock_path = app().data_dir() / sock_path;
-            my->unix_endpoint = asio::local::stream_protocol::endpoint(sock_path.string());
+            
+            my->unix_sock_path = sock_path;
          }
 
          my->plugin_state->server_header = current_http_plugin_defaults.server_header;
@@ -310,20 +311,29 @@ namespace eosio {
                }
             }
 
-            if(my->unix_endpoint) {
+            if(!my->unix_sock_path.empty()) {
                try {
                   my->create_beast_server(true);
 
-                  my->beast_unix_server->listen(*my->unix_endpoint);
+                  // The maximum length of the socket path is defined by sockaddr_un::sun_path. On Linux,
+                  // according to unix(7), it is 108 bytes. On FreeBSD, according to unix(4), it is 104 bytes.
+                  // Therefore, we create the unix socket with the relative path to its parent path to avoid the problem.
+
+                  auto cwd = std::filesystem::current_path();
+                  std::filesystem::current_path(my->unix_sock_path.parent_path());
+                  asio::local::stream_protocol::endpoint endpoint(my->unix_sock_path.filename().string());
+                  my->beast_unix_server->listen(endpoint);
+                  std::filesystem::current_path(cwd);
+
                   my->beast_unix_server->start_accept();
                } catch ( const fc::exception& e ){
-                  fc_elog( logger(), "unix socket service (${path}) failed to start: ${e}", ("e", e.to_detail_string())("path",my->unix_endpoint->path()) );
+                  fc_elog( logger(), "unix socket service (${path}) failed to start: ${e}", ("e", e.to_detail_string())("path",my->unix_sock_path) );
                   throw;
                } catch ( const std::exception& e ){
-                  fc_elog( logger(), "unix socket service (${path}) failed to start: ${e}", ("e", e.what())("path",my->unix_endpoint->path()) );
+                  fc_elog( logger(), "unix socket service (${path}) failed to start: ${e}", ("e", e.what())("path",my->unix_sock_path) );
                   throw;
                } catch (...) {
-                  fc_elog( logger(), "error thrown from unix socket (${path}) io service", ("path",my->unix_endpoint->path()) );
+                  fc_elog( logger(), "error thrown from unix socket (${path}) io service", ("path",my->unix_sock_path) );
                   throw;
                }
             }
@@ -385,25 +395,35 @@ namespace eosio {
          boost::asio::post( my->plugin_state->thread_pool.get_executor(), f );
    }
 
-   void http_plugin::handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb) {
+   void http_plugin::handle_exception( const char* api_name, const char* call_name, const string& body, const url_response_callback& cb) {
       try {
          try {
             throw;
          } catch (chain::unknown_block_exception& e) {
             error_results results{400, "Unknown Block", error_results::error_info(e, verbose_http_errors)};
             cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Unknown block while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::invalid_http_request& e) {
             error_results results{400, "Invalid Request", error_results::error_info(e, verbose_http_errors)};
             cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Invalid http request while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::account_query_exception& e) {
             error_results results{400, "Account lookup", error_results::error_info(e, verbose_http_errors)};
             cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Account query exception while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::unsatisfied_authorization& e) {
             error_results results{401, "UnAuthorized", error_results::error_info(e, verbose_http_errors)};
             cb( 401, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Auth error while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::tx_duplicate& e) {
             error_results results{409, "Conflict", error_results::error_info(e, verbose_http_errors)};
             cb( 409, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Duplicate trx while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (fc::eof_exception& e) {
             error_results results{422, "Unprocessable Entity", error_results::error_info(e, verbose_http_errors)};
             cb( 422, fc::time_point::maximum(), fc::variant( results ));

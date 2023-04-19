@@ -2,6 +2,7 @@
 #include <eosio/producer_plugin/pending_snapshot.hpp>
 #include <eosio/producer_plugin/subjective_billing.hpp>
 #include <eosio/producer_plugin/snapshot_scheduler.hpp>
+#include <eosio/producer_plugin/block_timing_util.hpp>
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
@@ -48,9 +49,9 @@ using boost::signals2::scoped_connection;
    catch ( const guard_exception& e ) { \
       chain_plugin::handle_guard_exception(e); \
    } catch ( const std::bad_alloc& ) { \
-      chain_plugin::handle_bad_alloc(); \
+      chain_apis::api_base::handle_bad_alloc(); \
    } catch ( boost::interprocess::bad_alloc& ) { \
-      chain_plugin::handle_db_exhaustion(); \
+      chain_apis::api_base::handle_db_exhaustion(); \
    } catch( fc::exception& er ) { \
       wlog( "${details}", ("details",er.to_detail_string()) ); \
    } catch( const std::exception& e ) {  \
@@ -103,7 +104,8 @@ namespace {
       auto code = e.code();
       return (code == block_cpu_usage_exceeded::code_value) ||
              (code == block_net_usage_exceeded::code_value) ||
-             (code == deadline_exception::code_value);
+             (code == deadline_exception::code_value) ||
+             (code == ro_trx_vm_oc_compile_temporary_failure::code_value);
    }
 }
 
@@ -133,10 +135,6 @@ using pending_snapshot_index = multi_index_container<
    >
 >;
 
-enum class pending_block_mode {
-   producing,
-   speculating
-};
 
 namespace {
 
@@ -317,7 +315,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       {
       }
 
-      std::optional<fc::time_point> calculate_next_block_time(const account_name& producer_name, const block_timestamp_type& current_block_time) const;
+      uint32_t calculate_next_block_slot(const account_name& producer_name, uint32_t current_block_slot) const;
       void schedule_production_loop();
       void schedule_maybe_produce_block( bool exhausted );
       void produce_block();
@@ -371,8 +369,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       std::atomic<int32_t>                                      _max_transaction_time_ms; // modified by app thread, read by net_plugin thread pool
       std::atomic<uint32_t>                                     _received_block{0}; // modified by net_plugin thread pool
       fc::microseconds                                          _max_irreversible_block_age_us;
-      int32_t                                                   _produce_time_offset_us = 0;
-      int32_t                                                   _last_block_time_offset_us = 0;
+      int32_t                                                   _cpu_effort_us = 0;
+      fc::time_point                                            _pending_block_deadline;
       uint32_t                                                  _max_block_cpu_usage_threshold_us = 0;
       uint32_t                                                  _max_block_net_usage_threshold_bytes = 0;
       int32_t                                                   _max_scheduled_transaction_time_per_block_ms = 0;
@@ -420,7 +418,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       double _incoming_defer_ratio = 1.0; // 1:1
 
       // path to write the snapshots to
-      bfs::path _snapshots_dir;
+      std::filesystem::path _snapshots_dir;
 
       // async snapshot scheduler
       snapshot_scheduler _snapshot_scheduler;
@@ -621,9 +619,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             chain_plugin::handle_guard_exception(e);
             return false;
          } catch ( const std::bad_alloc& ) {
-            chain_plugin::handle_bad_alloc();
+            chain_apis::api_base::handle_bad_alloc();
          } catch ( boost::interprocess::bad_alloc& ) {
-            chain_plugin::handle_db_exhaustion();
+            chain_apis::api_base::handle_db_exhaustion();
          } catch ( const fork_database_exception& e ) {
             elog("Cannot recover from ${e}. Shutting down.", ("e", e.to_detail_string()));
             appbase::app().quit();
@@ -777,7 +775,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                return true;
             }
 
-            const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
+            const auto block_deadline = _pending_block_deadline;
             push_result pr = push_transaction( block_deadline, trx, api_trx, return_failure_trace, next );
 
             exhausted = pr.block_exhausted;
@@ -788,9 +786,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          } catch ( const guard_exception& e ) {
             chain_plugin::handle_guard_exception(e);
          } catch ( boost::interprocess::bad_alloc& ) {
-            chain_plugin::handle_db_exhaustion();
+            chain_apis::api_base::handle_db_exhaustion();
          } catch ( std::bad_alloc& ) {
-            chain_plugin::handle_bad_alloc();
+            chain_apis::api_base::handle_bad_alloc();
          } CATCH_AND_CALL(next);
 
          return !exhausted;
@@ -830,8 +828,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       inline bool should_interrupt_start_block( const fc::time_point& deadline, uint32_t pending_block_num ) const;
       start_block_result start_block();
 
-      fc::time_point calculate_pending_block_time() const;
-      fc::time_point calculate_block_deadline( const fc::time_point& ) const;
+      block_timestamp_type calculate_pending_block_time() const;
       void schedule_delayed_production_loop(const std::weak_ptr<producer_plugin_impl>& weak_this, std::optional<fc::time_point> wake_up_time);
       std::optional<fc::time_point> calculate_producer_wake_up_time( const block_timestamp_type& ref_block_time ) const;
 
@@ -892,14 +889,8 @@ void producer_plugin::set_program_options(
           "account that can not access to extended CPU/NET virtual resources")
          ("greylist-limit", boost::program_options::value<uint32_t>()->default_value(1000),
           "Limit (between 1 and 1000) on the multiple that CPU/NET virtual resources can extend during low usage (only enforced subjectively; use 1000 to not enforce any limit)")
-         ("produce-time-offset-us", boost::program_options::value<int32_t>()->default_value(0),
-          "Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval.")
-         ("last-block-time-offset-us", boost::program_options::value<int32_t>()->default_value(-200000),
-          "Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval.")
          ("cpu-effort-percent", bpo::value<uint32_t>()->default_value(config::default_block_cpu_effort_pct / config::percent_1),
           "Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%")
-         ("last-block-cpu-effort-percent", bpo::value<uint32_t>()->default_value(config::default_block_cpu_effort_pct / config::percent_1),
-          "Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80%")
          ("max-block-cpu-usage-threshold-us", bpo::value<uint32_t>()->default_value( 5000 ),
           "Threshold of CPU block production to consider block full; when within threshold of max-block-cpu-usage block can be produced immediately")
          ("max-block-net-usage-threshold-bytes", bpo::value<uint32_t>()->default_value( 1024 ),
@@ -928,7 +919,7 @@ void producer_plugin::set_program_options(
           "Disable subjective CPU billing for API transactions")
          ("producer-threads", bpo::value<uint16_t>()->default_value(my->_thread_pool_size),
           "Number of worker threads in producer thread pool")
-         ("snapshots-dir", bpo::value<bfs::path>()->default_value("snapshots"),
+         ("snapshots-dir", bpo::value<std::filesystem::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
          ("read-only-threads", bpo::value<uint32_t>(),
           "Number of worker threads in read-only execution thread pool. Max 8.")
@@ -1013,30 +1004,12 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>(),
                                                     subjective_account_max_failures_window_size );
 
-   my->_produce_time_offset_us = options.at("produce-time-offset-us").as<int32_t>();
-   EOS_ASSERT( my->_produce_time_offset_us <= 0 && my->_produce_time_offset_us >= -config::block_interval_us, plugin_config_exception,
-               "produce-time-offset-us ${o} must be 0 .. -${bi}", ("bi", config::block_interval_us)("o", my->_produce_time_offset_us) );
-
-   my->_last_block_time_offset_us = options.at("last-block-time-offset-us").as<int32_t>();
-   EOS_ASSERT( my->_last_block_time_offset_us <= 0 && my->_last_block_time_offset_us >= -config::block_interval_us, plugin_config_exception,
-               "last-block-time-offset-us ${o} must be 0 .. -${bi}", ("bi", config::block_interval_us)("o", my->_last_block_time_offset_us) );
-
    uint32_t cpu_effort_pct = options.at("cpu-effort-percent").as<uint32_t>();
    EOS_ASSERT( cpu_effort_pct >= 0 && cpu_effort_pct <= 100, plugin_config_exception,
                "cpu-effort-percent ${pct} must be 0 - 100", ("pct", cpu_effort_pct) );
       cpu_effort_pct *= config::percent_1;
-   int32_t cpu_effort_offset_us =
-         -EOS_PERCENT( config::block_interval_us, chain::config::percent_100 - cpu_effort_pct );
 
-   uint32_t last_block_cpu_effort_pct = options.at("last-block-cpu-effort-percent").as<uint32_t>();
-   EOS_ASSERT( last_block_cpu_effort_pct >= 0 && last_block_cpu_effort_pct <= 100, plugin_config_exception,
-               "last-block-cpu-effort-percent ${pct} must be 0 - 100", ("pct", last_block_cpu_effort_pct) );
-      last_block_cpu_effort_pct *= config::percent_1;
-   int32_t last_block_cpu_effort_offset_us =
-         -EOS_PERCENT( config::block_interval_us, chain::config::percent_100 - last_block_cpu_effort_pct );
-
-   my->_produce_time_offset_us = std::min( my->_produce_time_offset_us, cpu_effort_offset_us );
-   my->_last_block_time_offset_us = std::min( my->_last_block_time_offset_us, last_block_cpu_effort_offset_us );
+   my->_cpu_effort_us = EOS_PERCENT( config::block_interval_us, cpu_effort_pct );
 
    my->_max_block_cpu_usage_threshold_us = options.at( "max-block-cpu-usage-threshold-us" ).as<uint32_t>();
    EOS_ASSERT( my->_max_block_cpu_usage_threshold_us < config::block_interval_us, plugin_config_exception,
@@ -1093,18 +1066,18 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
                "producer-threads ${num} must be greater than 0", ("num", my->_thread_pool_size));
 
    if( options.count( "snapshots-dir" )) {
-      auto sd = options.at( "snapshots-dir" ).as<bfs::path>();
+      auto sd = options.at( "snapshots-dir" ).as<std::filesystem::path>();
       if( sd.is_relative()) {
          my->_snapshots_dir = app().data_dir() / sd;
-         if (!fc::exists(my->_snapshots_dir)) {
-            fc::create_directories(my->_snapshots_dir);
+         if (!std::filesystem::exists(my->_snapshots_dir)) {
+            std::filesystem::create_directories(my->_snapshots_dir);
          }
       } else {
          my->_snapshots_dir = sd;
       }
 
-      EOS_ASSERT( fc::is_directory(my->_snapshots_dir), snapshot_directory_not_found_exception,
-                  "No such directory '${dir}'", ("dir", my->_snapshots_dir.generic_string()) );
+      EOS_ASSERT( std::filesystem::is_directory(my->_snapshots_dir), snapshot_directory_not_found_exception,
+                  "No such directory '${dir}'", ("dir", my->_snapshots_dir) );
 
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
          resmon_plugin->monitor_directory(my->_snapshots_dir);
@@ -1298,9 +1271,9 @@ void producer_plugin::plugin_shutdown() {
    try {
       my->_timer.cancel();
    } catch ( const std::bad_alloc& ) {
-     chain_plugin::handle_bad_alloc();
+     chain_apis::api_base::handle_bad_alloc();
    } catch ( const boost::interprocess::bad_alloc& ) {
-     chain_plugin::handle_bad_alloc();
+     chain_apis::api_base::handle_bad_alloc();
    } catch(const fc::exception& e) {
       edump((e.to_detail_string()));
    } catch(const std::exception& e) {
@@ -1362,12 +1335,8 @@ void producer_plugin::update_runtime_options(const runtime_options& options) {
       check_speculating = true;
    }
 
-   if (options.produce_time_offset_us) {
-      my->_produce_time_offset_us = *options.produce_time_offset_us;
-   }
-
-   if (options.last_block_time_offset_us) {
-      my->_last_block_time_offset_us = *options.last_block_time_offset_us;
+   if (options.cpu_effort_us) {
+      my->_cpu_effort_us = *options.cpu_effort_us;
    }
 
    if (options.max_scheduled_transaction_time_per_block_ms) {
@@ -1396,8 +1365,7 @@ producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
    return {
       my->_max_transaction_time_ms,
       my->_max_irreversible_block_age_us.count() < 0 ? -1 : my->_max_irreversible_block_age_us.count() / 1'000'000,
-      my->_produce_time_offset_us,
-      my->_last_block_time_offset_us,
+      my->_cpu_effort_us,
       my->_max_scheduled_transaction_time_per_block_ms,
       my->chain_plug->chain().get_subjective_cpu_leeway() ?
             my->chain_plug->chain().get_subjective_cpu_leeway()->count() :
@@ -1490,13 +1458,13 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
    const auto& temp_path     = pending_snapshot::get_temp_path(head_id, my->_snapshots_dir);
 
    // maintain legacy exception if the snapshot exists
-   if( fc::is_regular_file(snapshot_path) ) {
-      auto ex = snapshot_exists_exception( FC_LOG_MESSAGE( error, "snapshot named ${name} already exists", ("name", snapshot_path.generic_string()) ) );
+   if( std::filesystem::is_regular_file(snapshot_path) ) {
+      auto ex = snapshot_exists_exception( FC_LOG_MESSAGE( error, "snapshot named ${name} already exists", ("name", snapshot_path) ) );
       next(ex.dynamic_copy_exception());
       return;
    }
 
-   auto write_snapshot = [&]( const bfs::path& p ) -> void {
+   auto write_snapshot = [&]( const std::filesystem::path& p ) -> void {
       auto reschedule = fc::make_scoped_exit([this](){
          my->schedule_production_loop();
       });
@@ -1508,7 +1476,7 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
          reschedule.cancel();
       }
 
-      bfs::create_directory( p.parent_path() );
+      std::filesystem::create_directory( p.parent_path() );
 
       // create the snapshot
       auto snap_out = std::ofstream(p.generic_string(), (std::ios::out | std::ios::binary));
@@ -1524,8 +1492,8 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
       try {
          write_snapshot( temp_path );
 
-         boost::system::error_code ec;
-         bfs::rename(temp_path, snapshot_path, ec);
+         std::error_code ec;
+         std::filesystem::rename(temp_path, snapshot_path, ec);
          EOS_ASSERT(!ec, snapshot_finalization_exception,
                "Unable to finalize valid snapshot of block number ${bn}: [code: ${ec}] ${message}",
                ("bn", head_block_num)
@@ -1556,8 +1524,8 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<producer_pl
       try {
          write_snapshot( temp_path ); // create a new pending snapshot
 
-         boost::system::error_code ec;
-         bfs::rename(temp_path, pending_path, ec);
+         std::error_code ec;
+         std::filesystem::rename(temp_path, pending_path, ec);
          EOS_ASSERT(!ec, snapshot_finalization_exception,
                "Unable to promote temp snapshot to pending for block number ${bn}: [code: ${ec}] ${message}",
                ("bn", head_block_num)
@@ -1762,7 +1730,7 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
 }
 
 
-std::optional<fc::time_point> producer_plugin_impl::calculate_next_block_time(const account_name& producer_name, const block_timestamp_type& current_block_time) const {
+uint32_t producer_plugin_impl::calculate_next_block_slot(const account_name& producer_name, uint32_t current_block_slot) const {
    chain::controller& chain = chain_plug->chain();
    const auto& hbs = chain.head_block_state();
    const auto& active_schedule = hbs->active_schedule.producers;
@@ -1771,7 +1739,7 @@ std::optional<fc::time_point> producer_plugin_impl::calculate_next_block_time(co
    auto itr = std::find_if(active_schedule.begin(), active_schedule.end(), [&](const auto& asp){ return asp.producer_name == producer_name; });
    if (itr == active_schedule.end()) {
       // this producer is not in the active producer set
-      return std::optional<fc::time_point>();
+      return UINT32_MAX;
    }
 
    size_t producer_index = itr - active_schedule.begin();
@@ -1780,7 +1748,7 @@ std::optional<fc::time_point> producer_plugin_impl::calculate_next_block_time(co
    // account for a watermark in the future which is disqualifying this producer for now
    // this is conservative assuming no blocks are dropped.  If blocks are dropped the watermark will
    // disqualify this producer for longer but it is assumed they will wake up, determine that they
-   // are disqualified for longer due to skipped blocks and re-caculate their next block with better
+   // are disqualified for longer due to skipped blocks and re-calculate their next block with better
    // information then
    auto current_watermark = get_watermark(producer_name);
    if (current_watermark) {
@@ -1793,18 +1761,18 @@ std::optional<fc::time_point> producer_plugin_impl::calculate_next_block_time(co
          // if I have a watermark block number then I need to wait until after that watermark
          minimum_offset = watermark.first - block_num + 1;
       }
-      if (watermark.second > current_block_time) {
+      if (watermark.second.slot > current_block_slot) {
           // if I have a watermark block timestamp then I need to wait until after that watermark timestamp
-          minimum_offset = std::max(minimum_offset, watermark.second.slot - current_block_time.slot + 1);
+          minimum_offset = std::max(minimum_offset, watermark.second.slot - current_block_slot + 1);
       }
    }
 
-   // this producers next opportuity to produce is the next time its slot arrives after or at the calculated minimum
-   uint32_t minimum_slot = current_block_time.slot + minimum_offset;
+   // this producers next opportunity to produce is the next time its slot arrives after or at the calculated minimum
+   uint32_t minimum_slot = current_block_slot + minimum_offset;
    size_t minimum_slot_producer_index = (minimum_slot % (active_schedule.size() * config::producer_repetitions)) / config::producer_repetitions;
    if ( producer_index == minimum_slot_producer_index ) {
       // this is the producer for the minimum slot, go with that
-      return block_timestamp_type(minimum_slot).to_time_point();
+      return minimum_slot;
    } else {
       // calculate how many rounds are between the minimum producer and the producer in question
       size_t producer_distance = producer_index - minimum_slot_producer_index;
@@ -1818,26 +1786,15 @@ std::optional<fc::time_point> producer_plugin_impl::calculate_next_block_time(co
 
       // offset the aligned minimum to the *earliest* next set of slots for this producer
       uint32_t next_block_slot = first_minimum_producer_slot  + (producer_distance * config::producer_repetitions);
-      return block_timestamp_type(next_block_slot).to_time_point();
+      return next_block_slot;
    }
 }
 
-fc::time_point producer_plugin_impl::calculate_pending_block_time() const {
+block_timestamp_type producer_plugin_impl::calculate_pending_block_time() const {
    const chain::controller& chain = chain_plug->chain();
    const fc::time_point now = fc::time_point::now();
    const fc::time_point base = std::max<fc::time_point>(now, chain.head_block_time());
-   const int64_t min_time_to_next_block = (config::block_interval_us) - (base.time_since_epoch().count() % (config::block_interval_us) );
-   fc::time_point block_time = base + fc::microseconds(min_time_to_next_block);
-   return block_time;
-}
-
-fc::time_point producer_plugin_impl::calculate_block_deadline( const fc::time_point& block_time ) const {
-   if( _pending_block_mode == pending_block_mode::producing ) {
-      bool last_block = ((block_timestamp_type( block_time ).slot % config::producer_repetitions) == config::producer_repetitions - 1);
-      return block_time + fc::microseconds(last_block ? _last_block_time_offset_us : _produce_time_offset_us);
-   } else {
-      return block_time + fc::microseconds(_produce_time_offset_us);
-   }
+   return block_timestamp_type(base).next();
 }
 
 bool producer_plugin_impl::should_interrupt_start_block( const fc::time_point& deadline, uint32_t pending_block_num ) const {
@@ -1864,11 +1821,9 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    }
 
    const fc::time_point now = fc::time_point::now();
-   const fc::time_point block_time = calculate_pending_block_time();
+   const block_timestamp_type block_time = calculate_pending_block_time();
    const uint32_t pending_block_num = hbs->block_num + 1;
-   const fc::time_point preprocess_deadline = calculate_block_deadline(block_time);
 
-   const pending_block_mode previous_pending_mode = _pending_block_mode;
    _pending_block_mode = pending_block_mode::producing;
 
    // Not our turn
@@ -1928,20 +1883,17 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          return start_block_result::waiting_for_block;
    }
 
-   if (_pending_block_mode == pending_block_mode::producing) {
-      const auto start_block_time = block_time - fc::microseconds( config::block_interval_us );
-      if( now < start_block_time ) {
-         fc_dlog(_log, "Not producing block waiting for production window ${n} ${bt}", ("n", pending_block_num)("bt", block_time) );
-         // start_block_time instead of block_time because schedule_delayed_production_loop calculates next block time from given time
-         schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(start_block_time));
+   _pending_block_deadline = block_timing_util::calculate_block_deadline(_cpu_effort_us, _pending_block_mode, block_time);
+   auto preprocess_deadline = _pending_block_deadline;
+   uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
+   if (production_round_index == 0) {
+       // first block of our round, wait for block production window
+      const auto start_block_time = block_time.to_time_point() - fc::microseconds( config::block_interval_us );
+      if (now < start_block_time) {
+         fc_dlog( _log, "Not starting block until ${bt}", ("bt", start_block_time) );
+         schedule_delayed_production_loop( weak_from_this(), start_block_time );
          return start_block_result::waiting_for_production;
       }
-   } else if (previous_pending_mode == pending_block_mode::producing) {
-      // just produced our last block of our round
-      const auto start_block_time = block_time - fc::microseconds( config::block_interval_us );
-      fc_dlog(_log, "Not starting speculative block until ${bt}", ("bt", start_block_time) );
-      schedule_delayed_production_loop( weak_from_this(), start_block_time);
-      return start_block_result::waiting_for_production;
    }
 
    fc_dlog(_log, "Starting block #${n} at ${time} producer ${p}",
@@ -1976,9 +1928,9 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          try {
             chain.validate_protocol_features( _protocol_features_to_activate );
          } catch ( const std::bad_alloc& ) {
-           chain_plugin::handle_bad_alloc();
+           chain_apis::api_base::handle_bad_alloc();
          } catch ( const boost::interprocess::bad_alloc& ) {
-           chain_plugin::handle_bad_alloc();
+           chain_apis::api_base::handle_bad_alloc();
          } catch( const fc::exception& e ) {
             wlog( "protocol features to activate are no longer all valid: ${details}",
                   ("details",e.to_detail_string()) );
@@ -2075,9 +2027,9 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          chain_plugin::handle_guard_exception(e);
          return start_block_result::failed;
       } catch ( std::bad_alloc& ) {
-         chain_plugin::handle_bad_alloc();
+         chain_apis::api_base::handle_bad_alloc();
       } catch ( boost::interprocess::bad_alloc& ) {
-         chain_plugin::handle_db_exhaustion();
+         chain_apis::api_base::handle_db_exhaustion();
       }
 
    }
@@ -2332,10 +2284,10 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
       }
       if( exception_is_exhausted( *trace->except ) ) {
          if( _pending_block_mode == pending_block_mode::producing ) {
-            fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
+            fc_dlog(trx->is_transient() ? _transient_trx_failed_trace_log : _trx_failed_trace_log, "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id()));
          } else {
-            fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution COULD NOT FIT tx: ${txid} RETRYING", ("txid", trx->id()));
+            fc_dlog(trx->is_transient() ? _transient_trx_failed_trace_log : _trx_failed_trace_log, "[TRX_TRACE] Speculative execution COULD NOT FIT tx: ${txid} RETRYING", ("txid", trx->id()));
          }
          if ( !trx->is_read_only() )
             pr.block_exhausted = block_is_exhausted(); // smaller trx might fit
@@ -2657,7 +2609,7 @@ void producer_plugin_impl::schedule_production_loop() {
       chain::controller& chain = chain_plug->chain();
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT( chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state" );
-      schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(chain.pending_block_time()));
+      schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(chain.pending_block_timestamp()));
    } else {
       fc_dlog(_log, "Speculative Block Created");
    }
@@ -2668,7 +2620,7 @@ void producer_plugin_impl::schedule_maybe_produce_block( bool exhausted ) {
 
    // we succeeded but block may be exhausted
    static const boost::posix_time::ptime epoch( boost::gregorian::date( 1970, 1, 1 ) );
-   auto deadline = calculate_block_deadline( chain.pending_block_time() );
+   auto deadline = block_timing_util::calculate_block_deadline(_cpu_effort_us, _pending_block_mode, chain.pending_block_time() );
 
    if( !exhausted && deadline > fc::time_point::now() ) {
       // ship this block off no later than its deadline
@@ -2697,28 +2649,22 @@ void producer_plugin_impl::schedule_maybe_produce_block( bool exhausted ) {
          } ) );
 }
 
+
+
 std::optional<fc::time_point> producer_plugin_impl::calculate_producer_wake_up_time( const block_timestamp_type& ref_block_time ) const {
+   auto ref_block_slot = ref_block_time.slot;
    // if we have any producers then we should at least set a timer for our next available slot
-   std::optional<fc::time_point> wake_up_time;
+   uint32_t wake_up_slot = UINT32_MAX;
    for (const auto& p : _producers) {
-      auto next_producer_block_time = calculate_next_block_time(p, ref_block_time);
-      if (next_producer_block_time) {
-         auto producer_wake_up_time = *next_producer_block_time - fc::microseconds(config::block_interval_us);
-         if (wake_up_time) {
-            // wake up with a full block interval to the deadline
-            if( producer_wake_up_time < *wake_up_time ) {
-               wake_up_time = producer_wake_up_time;
-            }
-         } else {
-            wake_up_time = producer_wake_up_time;
-         }
-      }
+      auto next_producer_block_slot = calculate_next_block_slot(p, ref_block_slot);
+      wake_up_slot = std::min(next_producer_block_slot, wake_up_slot);
    }
-   if( !wake_up_time ) {
+   if( wake_up_slot == UINT32_MAX ) {
       fc_dlog(_log, "Not Scheduling Speculative/Production, no local producers had valid wake up times");
+      return {};
    }
 
-   return wake_up_time;
+   return block_timing_util::production_round_block_start_time(_cpu_effort_us, block_timestamp_type(wake_up_slot));
 }
 
 void producer_plugin_impl::schedule_delayed_production_loop(const std::weak_ptr<producer_plugin_impl>& weak_this, std::optional<fc::time_point> wake_up_time) {
@@ -2768,7 +2714,6 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
 }
 
 void producer_plugin_impl::produce_block() {
-   //ilog("produce_block ${t}", ("t", fc::time_point::now())); // for testing _produce_time_offset_us
    auto start = fc::time_point::now();
    EOS_ASSERT(_pending_block_mode == pending_block_mode::producing, producer_exception, "called produce_block while not actually producing");
    chain::controller& chain = chain_plug->chain();
@@ -3019,7 +2964,7 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
       }
 
       // use read-window/write-window deadline if there are read/write windows, otherwise use block_deadline if only the app thead
-      auto window_deadline = (_ro_thread_pool_size != 0) ? _ro_window_deadline : calculate_block_deadline( chain.pending_block_time() );
+      auto window_deadline = (_ro_thread_pool_size != 0) ? _ro_window_deadline : _pending_block_deadline;
 
       // Ensure the trx to finish by the end of read-window or write-window or block_deadline depending on
       auto trace = chain.push_transaction( trx, window_deadline, _ro_max_trx_time_us, 0, false, 0 );
@@ -3038,9 +2983,9 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
    } catch ( const guard_exception& e ) {
       chain_plugin::handle_guard_exception(e);
    } catch ( boost::interprocess::bad_alloc& ) {
-      chain_plugin::handle_db_exhaustion();
+      chain_apis::api_base::handle_db_exhaustion();
    } catch ( std::bad_alloc& ) {
-      chain_plugin::handle_bad_alloc();
+      chain_apis::api_base::handle_bad_alloc();
    } CATCH_AND_CALL(next);
 
    return retry;

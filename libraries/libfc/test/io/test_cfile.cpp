@@ -14,7 +14,7 @@ BOOST_AUTO_TEST_SUITE(cfile_test_suite)
       t.set_file_path( tempdir.path() / "test" );
       t.open( "ab+" );
       BOOST_CHECK( t.is_open() );
-      BOOST_CHECK( fc::exists( tempdir.path() / "test") );
+      BOOST_CHECK( std::filesystem::exists( tempdir.path() / "test") );
 
       t.open( "rb+" );
       BOOST_CHECK( t.is_open() );
@@ -54,8 +54,8 @@ BOOST_AUTO_TEST_SUITE(cfile_test_suite)
       BOOST_CHECK_EQUAL( x, y );
 
       t.close();
-      fc::remove_all( t.get_file_path() );
-      BOOST_CHECK( !fc::exists( tempdir.path() / "test") );
+      std::filesystem::remove_all( t.get_file_path() );
+      BOOST_CHECK( !std::filesystem::exists( tempdir.path() / "test") );
    }
 
    BOOST_AUTO_TEST_CASE(test_hole_punching)
@@ -63,10 +63,9 @@ BOOST_AUTO_TEST_SUITE(cfile_test_suite)
       if(!cfile::supports_hole_punching())
          return;
 
-      fc::temp_file tmpfile;
-      cfile file;
-      file.set_file_path(tmpfile.path());
-      file.open("a+b");
+
+      temp_cfile tmp("a+b");
+      cfile& file = tmp.file();
       file.close();
       file.open("w+b");
 

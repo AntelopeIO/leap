@@ -76,10 +76,10 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       socket_type                 socket_;
       boost::asio::deadline_timer error_timer_;
    };
-   
+
    using tcp_acceptor  = generic_acceptor<boost::asio::ip::tcp::acceptor>;
    using unix_acceptor = generic_acceptor<boost::asio::local::stream_protocol::acceptor>;
-   
+
    using acceptor_type = std::variant<std::unique_ptr<tcp_acceptor>, std::unique_ptr<unix_acceptor>>;
    std::set<acceptor_type>          acceptors;
 
@@ -147,11 +147,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    time_point get_head_block_timestamp() const {
       std::lock_guard g(mtx);
       return head_timestamp;
-   }
-
-   template <typename Task>
-   void post_task_main_thread_medium(Task&& task) {
-      app().post(priority::medium, std::forward<Task>(task));
    }
 
    void listen() {
@@ -346,11 +341,11 @@ state_history_plugin::~state_history_plugin() = default;
 
 void state_history_plugin::set_program_options(options_description& cli, options_description& cfg) {
    auto options = cfg.add_options();
-   options("state-history-dir", bpo::value<bfs::path>()->default_value("state-history"),
+   options("state-history-dir", bpo::value<std::filesystem::path>()->default_value("state-history"),
            "the location of the state-history directory (absolute path or relative to application data dir)");
-   options("state-history-retained-dir", bpo::value<bfs::path>(),
+   options("state-history-retained-dir", bpo::value<std::filesystem::path>(),
            "the location of the state history retained directory (absolute path or relative to state-history dir).");
-   options("state-history-archive-dir", bpo::value<bfs::path>(),
+   options("state-history-archive-dir", bpo::value<std::filesystem::path>(),
            "the location of the state history archive directory (absolute path or relative to state-history dir).\n"
            "If the value is empty string, blocks files beyond the retained limit will be deleted.\n"
            "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.");
@@ -396,8 +391,8 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
       my->block_start_connection.emplace(
           chain.block_start.connect([&](uint32_t block_num) { my->on_block_start(block_num); }));
 
-      auto                    dir_option = options.at("state-history-dir").as<bfs::path>();
-      boost::filesystem::path state_history_dir;
+      auto                    dir_option = options.at("state-history-dir").as<std::filesystem::path>();
+      std::filesystem::path state_history_dir;
       if (dir_option.is_relative())
          state_history_dir = app().data_dir() / dir_option;
       else
@@ -418,7 +413,7 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
       }
 
       if (options.count("state-history-unix-socket-path")) {
-         boost::filesystem::path sock_path = options.at("state-history-unix-socket-path").as<string>();
+         std::filesystem::path sock_path = options.at("state-history-unix-socket-path").as<string>();
          if (sock_path.is_relative())
             sock_path = app().data_dir() / sock_path;
          my->unix_path = sock_path.generic_string();
@@ -426,9 +421,9 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
 
       if (options.at("delete-state-history").as<bool>()) {
          fc_ilog(_log, "Deleting state history");
-         boost::filesystem::remove_all(state_history_dir);
+         std::filesystem::remove_all(state_history_dir);
       }
-      boost::filesystem::create_directories(state_history_dir);
+      std::filesystem::create_directories(state_history_dir);
 
       if (options.at("trace-history-debug-mode").as<bool>()) {
          my->trace_debug_mode = true;
@@ -450,9 +445,9 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
       } else if (has_state_history_partition_options){
          auto& config  = ship_log_conf.emplace<state_history::partition_config>();
          if (options.count("state-history-retained-dir"))
-            config.retained_dir       = options.at("state-history-retained-dir").as<bfs::path>();
+            config.retained_dir       = options.at("state-history-retained-dir").as<std::filesystem::path>();
          if (options.count("state-history-archive-dir"))
-            config.archive_dir        = options.at("state-history-archive-dir").as<bfs::path>();
+            config.archive_dir        = options.at("state-history-archive-dir").as<std::filesystem::path>();
          if (options.count("state-history-stride"))
             config.stride             = options.at("state-history-stride").as<uint32_t>();
          if (options.count("max-retained-history-files"))

@@ -643,6 +643,8 @@ class NodeosQueries:
                         rtn = ex.read()
                     else:
                         unhandledEnumType(returnType)
+            elif returnType==ReturnType.raw:
+                return ex.code
             else:
                 return None
 
