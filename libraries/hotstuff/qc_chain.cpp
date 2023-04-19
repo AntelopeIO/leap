@@ -430,9 +430,9 @@ namespace eosio { namespace hotstuff {
                //if (_log) ilog(" === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
                _pending_proposal_block = NULL_BLOCK_ID;
 
-               send_hs_proposal_msg(proposal_candidate);
-
                _b_leaf = proposal_candidate.proposal_id;
+
+               send_hs_proposal_msg(proposal_candidate);
 
                //if (_log) ilog(" === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
             }
@@ -570,9 +570,9 @@ namespace eosio { namespace hotstuff {
 
                _pending_proposal_block = NULL_BLOCK_ID;
 
-               send_hs_proposal_msg(proposal_candidate);
-
                _b_leaf = proposal_candidate.proposal_id;
+
+               send_hs_proposal_msg(proposal_candidate);
 
                //if (_log) ilog(" === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
             }
