@@ -476,7 +476,7 @@ class Cluster(object):
             nodeNum = instance.index
             node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name), eosdcmd, unstarted=instance.dont_start, launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
             if nodeNum == -100:
-                biosNode = node
+                self.biosNode = node
             if node.popenProc and nodeNum != -100:
                 self.nodes.append(node)
             else:
@@ -495,12 +495,12 @@ class Cluster(object):
         #    self.unstartedNodes=self.discoverUnstartedLocalNodes(unstartedNodes, totalNodes)
 
         #biosNode=self.discoverBiosNode(timeout=Utils.systemWaitTimeout)
-        if not biosNode or not Utils.waitForBool(biosNode.checkPulse, Utils.systemWaitTimeout):
+        if not self.biosNode or not Utils.waitForBool(self.biosNode.checkPulse, Utils.systemWaitTimeout):
             Utils.Print("ERROR: Bios node doesn't appear to be running...")
             return False
 
         if onlyBios:
-            self.nodes=[biosNode]
+            self.nodes=[self.biosNode]
 
         # ensure cluster node are inter-connected by ensuring everyone has block 1
         Utils.Print("Cluster viability smoke test. Validate every cluster node has block 1. ")
@@ -510,17 +510,14 @@ class Cluster(object):
 
         if PFSetupPolicy.hasPreactivateFeature(pfSetupPolicy):
             Utils.Print("Activate Preactivate Feature.")
-            biosNode.activatePreactivateFeature()
+            self.biosNode.activatePreactivateFeature()
 
         if dontBootstrap:
             Utils.Print("Skipping bootstrap.")
-            self.biosNode=biosNode
             return True
 
         Utils.Print("Bootstrap cluster.")
-        self.biosNode=self.bootstrap(biosNode, startedNodes, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract)
-
-        if self.biosNode is None:
+        if not self.bootstrap(self.biosNode, startedNodes, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract):
             Utils.Print("ERROR: Bootstrap failed.")
             return False
 
@@ -1250,7 +1247,7 @@ class Cluster(object):
 
         Utils.Print("Cluster bootstrap done.")
 
-        return biosNode
+        return True
 
     @staticmethod
     def pgrepEosServers(timeout=None):
@@ -1341,6 +1338,8 @@ class Cluster(object):
                 #        os.kill(node.pid, signal.SIGKILL)
                 #except OSError as _:
                 #    pass
+            if self.onlyBios != self.nodes[0]:
+                self.biosNode.kill(signal.SIGTERM)
         else:
             Utils.Print('Cluster left running.')
 
