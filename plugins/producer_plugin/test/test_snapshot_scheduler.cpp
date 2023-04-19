@@ -57,7 +57,8 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
       });
    }
    {
-      boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+      fc::temp_directory temp_dir;
+      const auto& temp = temp_dir.path();
 
       try {
          std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
@@ -99,7 +100,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                BOOST_REQUIRE(it != snapshot_requests.end());
                auto& pending = it->pending_snapshots;
                if (pending.size()==1) {
-                  BOOST_CHECK_EQUAL(9, pending.begin()->head_block_num);   
+                  BOOST_CHECK_EQUAL(9, pending.begin()->head_block_num);
                }
             }
          });
@@ -140,10 +141,8 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          BOOST_CHECK_EQUAL(2, ssi.size());
          BOOST_CHECK_EQUAL(ssi.begin()->block_spacing, sri1.block_spacing);
       } catch(...) {
-         bfs::remove_all(temp);
          throw;
       }
-      bfs::remove_all(temp);
    }
 }
    BOOST_AUTO_TEST_SUITE_END()

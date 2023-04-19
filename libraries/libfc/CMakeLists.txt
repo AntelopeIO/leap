@@ -9,7 +9,6 @@ find_package(OpenSSL REQUIRED)
 
 set( fc_sources
      src/uint128.cpp
-     src/real128.cpp
      src/variant.cpp
      src/exception.cpp
      src/variant_object.cpp
@@ -94,7 +93,6 @@ endif()
 
 find_package(Boost 1.66 REQUIRED COMPONENTS
     date_time
-    filesystem
     chrono
     unit_test_framework
     iostreams)
@@ -132,7 +130,7 @@ if(APPLE)
   find_library(security_framework Security)
   find_library(corefoundation_framework CoreFoundation)
 endif()
-target_link_libraries( fc PUBLIC Boost::date_time Boost::filesystem Boost::chrono Boost::iostreams Threads::Threads
+target_link_libraries( fc PUBLIC Boost::date_time Boost::chrono Boost::iostreams Threads::Threads
                                  OpenSSL::Crypto ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework})
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access

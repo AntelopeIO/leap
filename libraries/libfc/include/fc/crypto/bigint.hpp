@@ -55,7 +55,7 @@ namespace fc {
       bigint operator--(int);
       bigint& operator--();
 
-      operator fc::string()const;
+      operator std::string()const;
 
       // returns bignum as bigendian bytes
       operator std::vector<char>()const;

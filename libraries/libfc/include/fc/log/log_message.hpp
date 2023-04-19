@@ -39,7 +39,7 @@ namespace fc
          log_level( values v = off ):value(v){}
          explicit log_level( int v ):value( static_cast<values>(v)){}
          operator int()const { return value; }
-         string to_string()const;
+         std::string to_string()const;
          values value;
    };
 
@@ -64,19 +64,19 @@ namespace fc
         explicit log_context( const variant& v );
         variant to_variant()const;
 
-        string        get_file()const;
+        std::string   get_file()const;
         uint64_t      get_line_number()const;
-        string        get_method()const;
-        string        get_thread_name()const;
-        string        get_task_name()const;
-        string        get_host_name()const;
+        std::string   get_method()const;
+        std::string   get_thread_name()const;
+        std::string   get_task_name()const;
+        std::string   get_host_name()const;
         time_point    get_timestamp()const;
         log_level     get_log_level()const;
-        string        get_context()const;
+        std::string   get_context()const;
 
-        void          append_context( const fc::string& c );
+        void          append_context( const std::string& c );
 
-        string        to_string()const;
+        std::string   to_string()const;
       private:
         std::shared_ptr<detail::log_context_impl> my;
    };
@@ -115,15 +115,15 @@ namespace fc
          log_message( const variant& v );
          variant        to_variant()const;
                               
-         string         get_message()const;
+         std::string    get_message()const;
          /**
           * A faster version of get_message which does limited formatting and excludes large variants
           * @return formatted message according to format and variant args
           */
-         string         get_limited_message()const;
+         std::string    get_limited_message()const;
                               
          log_context    get_context()const;
-         string         get_format()const;
+         std::string    get_format()const;
          variant_object get_data()const;
 
       private:

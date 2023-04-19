@@ -1,7 +1,6 @@
 #include <eosio/wallet_plugin/wallet_plugin.hpp>
 #include <eosio/wallet_plugin/wallet_manager.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <boost/filesystem/path.hpp>
 #include <chrono>
 
 #include <fc/io/json.hpp>
@@ -20,7 +19,7 @@ wallet_manager& wallet_plugin::get_wallet_manager() {
 
 void wallet_plugin::set_program_options(options_description& cli, options_description& cfg) {
    cfg.add_options()
-         ("wallet-dir", bpo::value<boost::filesystem::path>()->default_value("."),
+         ("wallet-dir", bpo::value<std::filesystem::path>()->default_value("."),
           "The path of the wallet files (absolute path or relative to application data dir)")
          ("unlock-timeout", bpo::value<int64_t>()->default_value(900),
           "Timeout for unlocked wallet in seconds (default 900 (15 minutes)). "
@@ -35,11 +34,11 @@ void wallet_plugin::plugin_initialize(const variables_map& options) {
       wallet_manager_ptr = std::make_unique<wallet_manager>();
 
       if (options.count("wallet-dir")) {
-         auto dir = options.at("wallet-dir").as<boost::filesystem::path>();
+         auto dir = options.at("wallet-dir").as<std::filesystem::path>();
          if (dir.is_relative())
             dir = app().data_dir() / dir;
-         if( !bfs::exists(dir) )
-            bfs::create_directories(dir);
+         if( !std::filesystem::exists(dir) )
+            std::filesystem::create_directories(dir);
          wallet_manager_ptr->set_dir(dir);
       }
       if (options.count("unlock-timeout")) {

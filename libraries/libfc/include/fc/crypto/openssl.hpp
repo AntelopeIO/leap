@@ -10,14 +10,12 @@
 #include <openssl/obj_mac.h>
 #include <openssl/bn.h>
 
-/** 
+/**
  * @file openssl.hpp
  * Provides common utility calls for wrapping openssl c api.
  */
-namespace fc 
+namespace fc
 {
-  class path;
-
     template <typename ssl_type>
     struct ssl_wrapper
     {

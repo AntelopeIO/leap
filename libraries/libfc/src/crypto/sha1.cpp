@@ -11,16 +11,16 @@ namespace fc
 {
 
 sha1::sha1() { memset( _hash, 0, sizeof(_hash) ); }
-sha1::sha1( const string& hex_str ) {
+sha1::sha1( const std::string& hex_str ) {
    auto bytes_written = fc::from_hex( hex_str, (char*)_hash, sizeof(_hash) );
    if( bytes_written < sizeof(_hash) )
       memset( (char*)_hash + bytes_written, 0, (sizeof(_hash) - bytes_written) ); 
 }
 
-string sha1::str()const {
+std::string sha1::str()const {
   return fc::to_hex( (char*)_hash, sizeof(_hash) );
 }
-sha1::operator string()const { return  str(); }
+sha1::operator std::string()const { return  str(); }
 
 char* sha1::data() { return (char*)&_hash[0]; }
 const char* sha1::data()const { return (char*)&_hash[0]; }
@@ -40,7 +40,7 @@ sha1 sha1::hash( const char* d, uint32_t dlen ) {
   e.write(d,dlen);
   return e.result();
 }
-sha1 sha1::hash( const string& s ) {
+sha1 sha1::hash( const std::string& s ) {
   return hash( s.c_str(), s.size() );
 }
 
