@@ -524,6 +524,9 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
         return fc::variant(packed_transaction(trx, compression));
       }
    }
+
+   EOSC_ASSERT( fasle, "control reaches end of push_transaction" );
+   return {};
 }
 
 fc::variant push_actions(std::vector<chain::action>&& actions, const std::vector<public_key_type>& signing_keys = std::vector<public_key_type>() ) {
