@@ -47,8 +47,9 @@ class session : public std::enable_shared_from_this<session>
     tcp::resolver resolver_;
     beast::tcp_stream stream_;
     beast::flat_buffer buffer_; // (Must persist between reads)
-    http::request<http::empty_body> req_;
+    http::request<http::string_body> req_;
     http::response<http::string_body> res_;
+    std::promise<http::response<http::string_body>> promised_response_;
 
 public:
     // Objects are constructed with a strand to
@@ -61,25 +62,33 @@ public:
     }
 
     // Start the asynchronous operation
-    void
+    std::future<http::response<http::string_body>>
     run(
         char const* host,
         char const* port,
         char const* target,
-        int version)
+        int version,
+        char const* content_type,
+        char const* request_body)
     {
         // Set up an HTTP GET request message
         req_.version(version);
-        req_.method(http::verb::get);
+        req_.method(http::verb::post);
         req_.target(target);
         req_.set(http::field::host, host);
         req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+        req_.set(http::field::content_type, content_type);
+        req_.body() = request_body;
+        req_.prepare_payload();
+
 
         // Look up the domain name
         resolver_.async_resolve(
             host,
             port,
             [self = this->shared_from_this()](beast::error_code ec, auto res) { self->on_resolve(ec, res); });
+
+        return promised_response_.get_future();
     }
 
     void
@@ -87,8 +96,10 @@ public:
         beast::error_code ec,
         tcp::resolver::results_type results)
     {
-        if(ec)
+        if(ec) {
+            promised_response_.set_exception(std::make_exception_ptr(ec));
             return fail(ec, "resolve");
+        }
 
         // Set a timeout on the operation
         stream_.expires_after(std::chrono::seconds(30));
@@ -102,8 +113,10 @@ public:
     void
     on_connect(beast::error_code ec, tcp::resolver::results_type::endpoint_type)
     {
-        if(ec)
+        if(ec) {
+            promised_response_.set_exception(std::make_exception_ptr(ec));
             return fail(ec, "connect");
+        }
 
         // Set a timeout on the operation
         stream_.expires_after(std::chrono::seconds(30));
@@ -120,8 +133,10 @@ public:
     {
         boost::ignore_unused(bytes_transferred);
 
-        if(ec)
+        if(ec) {
+            promised_response_.set_exception(std::make_exception_ptr(ec));
             return fail(ec, "write");
+        }
         
         // Receive the HTTP response
         http::async_read(stream_, buffer_, res_,
@@ -135,11 +150,13 @@ public:
     {
         boost::ignore_unused(bytes_transferred);
 
-        if(ec)
+        if(ec) {
+            promised_response_.set_exception(std::make_exception_ptr(ec));
             return fail(ec, "read");
+        }
 
-        // Write the message to standard out
-        std::cout << res_ << std::endl;
+        // Write the message to promise result
+        promised_response_.set_value(res_);
 
         // Gracefully close the socket
         stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
@@ -151,35 +168,3 @@ public:
         // If we get here then the connection is closed gracefully
     }
 };
-
-//------------------------------------------------------------------------------
-
-int main(int argc, char** argv)
-{
-    // Check command line arguments.
-    if(argc != 4 && argc != 5)
-    {
-        std::cerr <<
-            "Usage: http-client-async <host> <port> <target> [<HTTP version: 1.0 or 1.1(default)>]\n" <<
-            "Example:\n" <<
-            "    http-client-async www.example.com 80 /\n" <<
-            "    http-client-async www.example.com 80 / 1.0\n";
-        return EXIT_FAILURE;
-    }
-    auto const host = argv[1];
-    auto const port = argv[2];
-    auto const target = argv[3];
-    int version = argc == 5 && !std::strcmp("1.0", argv[4]) ? 10 : 11;
-
-    // The io_context is required for all I/O
-    net::io_context ioc;
-
-    // Launch the asynchronous operation
-    std::make_shared<session>(ioc)->run(host, port, target, version);
-
-    // Run the I/O service. The call will return when
-    // the get operation is complete.
-    ioc.run();
-
-    return EXIT_SUCCESS;
-}
