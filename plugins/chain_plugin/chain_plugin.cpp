@@ -2459,9 +2459,17 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    result.eosio_any_linked_actions = get_linked_actions(chain::config::eosio_any_name);
 
    const auto& code_account = db.db().get<account_object,by_name>( config::system_account_name );
+   struct http_params_t {
+      std::optional<vector<char>> total_resources;
+      std::optional<vector<char>> self_delegated_bandwidth;
+      std::optional<vector<char>> refund_request;
+      std::optional<vector<char>> voter_info;
+      std::optional<vector<char>> rex_info;
+   };
 
+   http_params_t http_params;
+   
    if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
-      abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
 
       const auto token_code = "eosio.token"_n;
 
@@ -2485,7 +2493,7 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
          }
       }
 
-      auto lookup_object = [&](const name& obj_name, const name& account_name, const char* type_name) -> std::optional<fc::variant> {
+      auto lookup_object = [&](const name& obj_name, const name& account_name) -> std::optional<vector<char>> {
          auto t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, account_name, obj_name ));
          if (t_id != nullptr) {
             const auto& idx = d.get_index<key_value_index, by_scope_primary>();
@@ -2493,26 +2501,35 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
             if (it != idx.end()) {
                vector<char> data;
                copy_inline_row(*it, data);
-               return abis.binary_to_variant( type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+               return data;
             }
          }
          return {};
       };
-
-      if (auto res = lookup_object("userres"_n, params.account_name, "user_resources"); res)
-         result.total_resources = *res;
-
-      if (auto res = lookup_object("delband"_n, params.account_name, "delegated_bandwidth"); res)
-         result.self_delegated_bandwidth = *res;
-
-      if (auto res = lookup_object("refunds"_n, params.account_name, "refund_request"); res)
-         result.refund_request = *res;
-
-      if (auto res = lookup_object("voters"_n, config::system_account_name, "voter_info"); res)
-         result.voter_info = *res;
-
-      if (auto res = lookup_object("rexbal"_n, config::system_account_name, "rex_balance"); res)
-         result.rex_info = *res;
+      
+      http_params.total_resources          = lookup_object("userres"_n, params.account_name);
+      http_params.self_delegated_bandwidth = lookup_object("delband"_n, params.account_name);
+      http_params.refund_request           = lookup_object("refunds"_n, params.account_name);
+      http_params.voter_info               = lookup_object("voters"_n, config::system_account_name);
+      http_params.rex_info                 = lookup_object("rexbal"_n, config::system_account_name);
+      
+      return [http_params = std::move(http_params), result = std::move(result), abi=std::move(abi), shorten_abi_errors=shorten_abi_errors,
+              abi_serializer_max_time=abi_serializer_max_time]() mutable ->  chain::t_or_exception<read_only::get_account_results> {
+         auto yield = [&]() { return abi_serializer::create_yield_function(abi_serializer_max_time); };
+         abi_serializer abis(std::move(abi), yield());
+         
+         if (http_params.total_resources)
+            result.total_resources = abis.binary_to_variant("user_resources", *http_params.total_resources, yield(), shorten_abi_errors);
+         if (http_params.self_delegated_bandwidth)
+            result.self_delegated_bandwidth = abis.binary_to_variant("delegated_bandwidth", *http_params.self_delegated_bandwidth, yield(), shorten_abi_errors);
+         if (http_params.refund_request)
+            result.refund_request = abis.binary_to_variant("refund_request", *http_params.refund_request, yield(), shorten_abi_errors);
+         if (http_params.voter_info)
+            result.voter_info = abis.binary_to_variant("voter_info", *http_params.voter_info, yield(), shorten_abi_errors);
+         if (http_params.rex_info)
+            result.rex_info = abis.binary_to_variant("rex_balance", *http_params.rex_info, yield(), shorten_abi_errors);
+         return std::move(result);
+      };
    }
    return [result = std::move(result)]() mutable -> chain::t_or_exception<read_only::get_account_results> {
       return std::move(result);
