@@ -1338,7 +1338,7 @@ class Cluster(object):
                 #        os.kill(node.pid, signal.SIGKILL)
                 #except OSError as _:
                 #    pass
-            if self.onlyBios != self.nodes[0]:
+            if self.biosNode != self.nodes[0]:
                 self.biosNode.kill(signal.SIGTERM)
         else:
             Utils.Print('Cluster left running.')
