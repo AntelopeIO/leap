@@ -187,7 +187,7 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
 
    // maintain legacy exception if the snapshot exists
    if(fc::is_regular_file(snapshot_path)) {
-      auto ex = snapshot_exists_exception(FC_LOG_MESSAGE(error, "snapshot named ${name} already exists", ("name", _snapshots_dir.generic_string())));
+      auto ex = snapshot_exists_exception(FC_LOG_MESSAGE(error, "snapshot named ${name} already exists", ("name", _snapshots_dir)));
       next(ex.dynamic_copy_exception());
       return;
    }
