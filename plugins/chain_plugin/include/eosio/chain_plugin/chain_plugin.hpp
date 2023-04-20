@@ -562,7 +562,7 @@ public:
    static uint64_t get_table_index_name(const read_only::get_table_rows_params& p, bool& primary);
 
    template <typename IndexType, typename SecKeyType, typename ConvFn>
-   get_table_rows_return_t  // normal return fc::variant(read_only::get_table_rows_result)
+   get_table_rows_return_t
    get_table_rows_by_seckey( const read_only::get_table_rows_params& p,
                              abi_def&& abi,
                              const fc::time_point& deadline,
