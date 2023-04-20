@@ -355,7 +355,7 @@ struct istream_json_snapshot_reader_impl {
 
 istream_json_snapshot_reader::~istream_json_snapshot_reader() = default;
 
-istream_json_snapshot_reader::istream_json_snapshot_reader(const fc::path& p)
+istream_json_snapshot_reader::istream_json_snapshot_reader(const std::filesystem::path& p)
    : impl{new istream_json_snapshot_reader_impl{0, 0, {}, {}}}
 {
    FILE* fp = fopen(p.string().c_str(), "rb");

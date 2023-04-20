@@ -40,7 +40,7 @@ namespace eosio { namespace chain {
              }
          }
 
-         wasm_interface(vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile);
+         wasm_interface(vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile);
          ~wasm_interface();
 
          // initialize exec per thread

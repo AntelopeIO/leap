@@ -18,11 +18,11 @@ public:
    snapshot_db_json() = default;
    ~snapshot_db_json() = default;
 
-   void set_path(bfs::path path) {
+   void set_path(std::filesystem::path path) {
       db_path = std::move(path);
    }
 
-   bfs::path get_json_path() const {
+   std::filesystem::path get_json_path() const {
       return db_path / "snapshot-schedule.json";
    }
 
@@ -85,7 +85,7 @@ public:
    }
 
 private:
-   bfs::path db_path;
+   std::filesystem::path db_path;
 };
 
 }// namespace chain

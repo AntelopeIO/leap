@@ -408,7 +408,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       double _incoming_defer_ratio = 1.0; // 1:1
 
       // path to write the snapshots to
-      bfs::path _snapshots_dir;
+      std::filesystem::path _snapshots_dir;
 
       // async snapshot scheduler
       snapshot_scheduler _snapshot_scheduler;
@@ -895,7 +895,7 @@ void producer_plugin::set_program_options(
           "Disable subjective CPU billing for API transactions")
          ("producer-threads", bpo::value<uint16_t>()->default_value(my->_thread_pool_size),
           "Number of worker threads in producer thread pool")
-         ("snapshots-dir", bpo::value<bfs::path>()->default_value("snapshots"),
+         ("snapshots-dir", bpo::value<std::filesystem::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
          ("read-only-threads", bpo::value<uint32_t>(),
           "Number of worker threads in read-only execution thread pool. Max 8.")
@@ -1042,18 +1042,18 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
                "producer-threads ${num} must be greater than 0", ("num", my->_thread_pool_size));
 
    if( options.count( "snapshots-dir" )) {
-      auto sd = options.at( "snapshots-dir" ).as<bfs::path>();
+      auto sd = options.at( "snapshots-dir" ).as<std::filesystem::path>();
       if( sd.is_relative()) {
          my->_snapshots_dir = app().data_dir() / sd;
-         if (!fc::exists(my->_snapshots_dir)) {
-            fc::create_directories(my->_snapshots_dir);
+         if (!std::filesystem::exists(my->_snapshots_dir)) {
+            std::filesystem::create_directories(my->_snapshots_dir);
          }
       } else {
          my->_snapshots_dir = sd;
       }
 
-      EOS_ASSERT( fc::is_directory(my->_snapshots_dir), snapshot_directory_not_found_exception,
-                  "No such directory '${dir}'", ("dir", my->_snapshots_dir.generic_string()) );
+      EOS_ASSERT( std::filesystem::is_directory(my->_snapshots_dir), snapshot_directory_not_found_exception,
+                  "No such directory '${dir}'", ("dir", my->_snapshots_dir) );
 
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
          resmon_plugin->monitor_directory(my->_snapshots_dir);

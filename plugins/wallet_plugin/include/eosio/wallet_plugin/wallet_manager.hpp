@@ -2,7 +2,6 @@
 #include <eosio/chain/transaction.hpp>
 #include <eosio/wallet_plugin/wallet_api.hpp>
 #include <boost/asio/deadline_timer.hpp>
-#include <boost/filesystem/path.hpp>
 #include <boost/interprocess/sync/file_lock.hpp>
 #include <chrono>
 
@@ -26,7 +25,7 @@ public:
 
    /// Set the path for location of wallet files.
    /// @param p path to override default ./ location of wallet files.
-   void set_dir(const boost::filesystem::path& p) {
+   void set_dir(const std::filesystem::path& p) {
       dir = p;
       initialize_lock();
    }
@@ -39,7 +38,7 @@ public:
    /// @see wallet_manager::set_timeout(const std::chrono::seconds& t)
    /// @param secs The timeout in seconds.
    void set_timeout(int64_t secs) { set_timeout(std::chrono::seconds(secs)); }
-      
+
    /// Sign transaction with the private keys specified via their public keys.
    /// Use chain_controller::get_required_keys to determine which keys are needed for txn.
    /// @param txn the transaction to sign.
@@ -135,8 +134,8 @@ private:
    std::map<std::string, std::unique_ptr<wallet_api>> wallets;
    std::chrono::seconds timeout = std::chrono::seconds::max(); ///< how long to wait before calling lock_all()
    mutable timepoint_t timeout_time = timepoint_t::max(); ///< when to call lock_all()
-   boost::filesystem::path dir = ".";
-   boost::filesystem::path lock_path = dir / "wallet.lock";
+   std::filesystem::path dir = ".";
+   std::filesystem::path lock_path = dir / "wallet.lock";
    std::unique_ptr<boost::interprocess::file_lock> wallet_dir_lock;
 
    void start_lock_watch(std::shared_ptr<boost::asio::deadline_timer> t);
@@ -145,5 +144,3 @@ private:
 
 } // namespace wallet
 } // namespace eosio
-
-

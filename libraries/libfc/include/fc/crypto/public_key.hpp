@@ -39,7 +39,7 @@ namespace fc { namespace crypto {
          size_t which()const;
 
          // serialize to/from string
-         explicit public_key(const string& base58str);
+         explicit public_key(const std::string& base58str);
          std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
 
          storage_type _storage;

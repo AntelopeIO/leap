@@ -1,10 +1,7 @@
 #include "subcommand.hpp"
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/config.hpp>
 
-namespace bfs = boost::filesystem;
 using namespace eosio::chain;
 
 struct blocklog_options {
@@ -29,9 +26,9 @@ public:
 
 protected:
    void initialize();
-   int trim_blocklog_end(bfs::path block_dir, uint32_t n);
-   bool trim_blocklog_front(bfs::path block_dir, uint32_t n);
-   void extract_block_range(bfs::path block_dir, bfs::path output_dir, uint32_t start, uint32_t last);
+   int trim_blocklog_end(std::filesystem::path block_dir, uint32_t n);
+   bool trim_blocklog_front(std::filesystem::path block_dir, uint32_t n);
+   void extract_block_range(std::filesystem::path block_dir, std::filesystem::path output_dir, uint32_t start, uint32_t last);
 
    int make_index();
    int trim_blocklog();

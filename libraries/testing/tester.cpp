@@ -272,7 +272,7 @@ namespace eosio { namespace testing {
       if( !expected_chain_id ) {
          expected_chain_id = controller::extract_chain_id_from_db( cfg.state_dir );
          if( !expected_chain_id ) {
-            if( fc::is_regular_file( cfg.blocks_dir / "blocks.log" ) ) {
+            if( std::filesystem::is_regular_file( cfg.blocks_dir / "blocks.log" ) ) {
                expected_chain_id = block_log::extract_chain_id( cfg.blocks_dir );
             } else {
                expected_chain_id = genesis_state().compute_chain_id();

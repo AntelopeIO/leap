@@ -8,7 +8,6 @@
 #include <fc/io/varint.hpp>
 #include <fc/io/enum_type.hpp>
 #include <fc/crypto/sha224.hpp>
-#include <fc/safe.hpp>
 #include <fc/container/flat.hpp>
 #include <fc/string.hpp>
 #include <fc/io/raw.hpp>
@@ -61,7 +60,7 @@ namespace eosio::chain {
    using                               std::to_string;
    using                               std::all_of;
 
-   using                               fc::path;
+   using                               std::filesystem::path;
    using                               fc::variant_object;
    using                               fc::variant;
    using                               fc::enum_type;
@@ -69,7 +68,6 @@ namespace eosio::chain {
    using                               fc::signed_int;
    using                               fc::time_point_sec;
    using                               fc::time_point;
-   using                               fc::safe;
    using                               fc::flat_map;
    using                               fc::flat_multimap;
    using                               fc::flat_set;

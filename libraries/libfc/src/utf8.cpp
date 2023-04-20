@@ -44,25 +44,25 @@ namespace fc {
    }
 
    // escape 0x80-0x9F C1 control characters
-   string prune_invalid_utf8( const std::string_view& str ) {
+   std::string prune_invalid_utf8( const std::string_view& str ) {
       const auto invalid_range = std::make_pair<uint32_t, uint32_t>(0x80, 0x9F);
       auto [itr, v] = find_invalid( str.begin(), str.end(), invalid_range );
       if( itr == str.end() ) return std::string( str );
 
-      string result;
+      std::string result;
       auto escape = [&result](uint32_t v) { // v is [0x80-0x9F]
          result += "\\u00";
          result += hex_digits[v >> 4u];
          result += hex_digits[v & 15u];
       };
 
-      result = string( str.begin(), itr );
+      result = std::string( str.begin(), itr );
       if( v != UINT32_MAX ) escape(v);
       while( itr != str.end() ) {
          ++itr;
          auto start = itr;
          std::tie(itr, v) = find_invalid( start, str.end(), invalid_range );
-         result += string( start, itr );
+         result += std::string( start, itr );
          if( v != UINT32_MAX ) escape(v);
       }
       return result;

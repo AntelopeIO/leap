@@ -17,16 +17,16 @@ namespace fc {
 	  FC_THROW_EXCEPTION( exception, "sha256: size mismatch" );
        memcpy(_hash, data, size );
     }
-    sha256::sha256( const string& hex_str ) {
+    sha256::sha256( const std::string& hex_str ) {
       auto bytes_written = fc::from_hex( hex_str, (char*)_hash, sizeof(_hash) );
       if( bytes_written < sizeof(_hash) )
          memset( (char*)_hash + bytes_written, 0, (sizeof(_hash) - bytes_written) );
     }
 
-    string sha256::str()const {
+    std::string sha256::str()const {
       return fc::to_hex( (char*)_hash, sizeof(_hash) );
     }
-    sha256::operator string()const { return  str(); }
+    sha256::operator std::string()const { return  str(); }
 
     const char* sha256::data()const { return (const char*)&_hash[0]; }
     char* sha256::data() { return (char*)&_hash[0]; }
@@ -47,7 +47,7 @@ namespace fc {
       return e.result();
     }
 
-    sha256 sha256::hash( const string& s ) {
+    sha256 sha256::hash( const std::string& s ) {
       return hash( s.c_str(), s.size() );
     }
 
