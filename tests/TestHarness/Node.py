@@ -327,7 +327,7 @@ class Node(Transactions):
 
     # pylint: disable=too-many-locals
     # If nodeosPath is equal to None, it will use the existing nodeos path
-    def relaunch(self, chainArg=None, newChain=False, skipGenesis=True, timeout=Utils.systemWaitTimeout, addSwapFlags=None, cachePopen=False, nodeosPath=None, waitForTerm=False):
+    def relaunch(self, chainArg=None, newChain=False, skipGenesis=True, timeout=Utils.systemWaitTimeout, addSwapFlags=None, nodeosPath=None, waitForTerm=False):
 
         assert(self.pid is None)
         assert(self.killed)
@@ -335,14 +335,12 @@ class Node(Transactions):
         if Utils.Debug: Utils.Print("Launching node process, Id: {}".format(self.nodeId))
 
         cmdArr=[]
-        splittedCmd=self.cmd[:]
-        if nodeosPath: splittedCmd[0] = nodeosPath
-        myCmd=" ".join(splittedCmd)
+        if nodeosPath: self.cmd[0] = nodeosPath
         toAddOrSwap=copy.deepcopy(addSwapFlags) if addSwapFlags is not None else {}
         if not newChain:
             skip=False
             swapValue=None
-            for i in splittedCmd:
+            for i in self.cmd:
                 Utils.Print("\"%s\"" % (i))
                 if skip:
                     skip=False
@@ -363,10 +361,9 @@ class Node(Transactions):
             for k,v in toAddOrSwap.items():
                 cmdArr.append(k)
                 cmdArr.append(v)
-            myCmd=" ".join(cmdArr)
 
-        cmd=myCmd + ("" if chainArg is None else (" " + chainArg))
-        self.launchCmd(cmd, self.data_dir, self.launch_time)
+        cmdArr.append("" if chainArg is None else " " + chainArg)
+        self.launchCmd(cmdArr, self.data_dir, self.launch_time)
 
         def isNodeAlive():
             """wait for node to be responsive."""
