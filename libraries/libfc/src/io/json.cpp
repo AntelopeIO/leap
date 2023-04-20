@@ -596,7 +596,7 @@ namespace fc
          {
               int64_t i = v.as_int64();
               if( format == json::output_formatting::stringify_large_ints_and_doubles &&
-                  (i * ((i>0)-(i<0)) > 0xffffffff))
+                  ((i > 0xffffffff) || (i < -0xffffffff)))
                  os << '"'<<v.as_string()<<'"';
               else
                  os << i;
