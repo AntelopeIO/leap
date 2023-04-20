@@ -246,6 +246,10 @@ class Cluster(object):
         loggingLevelDictString = json.dumps(self.loggingLevelDict, separators=(',', ':'))
         cmd=f'{sys.executable} {str(self.launcherPath)} -p {pnodes} -n {totalNodes} -d {delay} -i {datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]} -f {producerFlag} --unstarted-nodes {unstartedNodes} --logging-level {self.loggingLevel} --logging-level-map {loggingLevelDictString}'
         cmdArr=cmd.split()
+        cmdArr.append("--config-dir")
+        cmdArr.append(str(nodeosLogPath))
+        cmdArr.append("--data-dir")
+        cmdArr.append(str(nodeosLogPath))
         if self.staging:
             cmdArr.append("--nogen")
         nodeosArgs=""
@@ -311,8 +315,6 @@ class Cluster(object):
         else:
             cmdArr.append("--genesis")
             cmdArr.append(str(genesisPath))
-        cmdArr.append("--nodeos-log-path")
-        cmdArr.append(str(nodeosLogPath))
 
         if associatedNodeLabels is not None:
             for nodeNum,label in associatedNodeLabels.items():

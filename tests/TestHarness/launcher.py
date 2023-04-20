@@ -196,7 +196,6 @@ class cluster_generator:
         cfg.add_argument('--template', help='the startup script template', default='testnet.template')
         cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=200000)
         cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
-        cfg.add_argument('--nodeos-log-path', type=Path, help='path to nodeos log directory')
         cfg.add_argument('--logging-level', type=fc_log_level, help='Provide the "level" value to use in the logging.json file')
         cfg.add_argument('--logging-level-map', type=json.loads, help='JSON string of a logging level dictionary to use in the logging.json file for specific nodes, matching based on node number. Ex: {"bios":"off","00":"info"}')
         cfg.add_argument('--is-nodeos-v2', action='store_true', help='Toggles old nodeos compatibility', default=False)
@@ -233,7 +232,7 @@ class cluster_generator:
         if self.args.per_host == 0:
             for i in range(self.args.total_nodes):
                 index, node_name, cfg_name = self.assign_name(i == 0)
-                node = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.nodeos_log_path)
+                node = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
                 node.set_host(i == 0)
                 self.aliases.append(node.name)
                 self.network.nodes[node.name] = node
@@ -245,7 +244,7 @@ class cluster_generator:
             for i in range(self.args.total_nodes, 0, -1):
                 do_bios = False
                 index, node_name, cfg_name = self.assign_name(i == 0)
-                lhost = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.nodeos_log_path)
+                lhost = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
                 lhost.set_host(i == 0)
                 if ph_count == 0:
                     if host_ndx < num_prod_addr:
