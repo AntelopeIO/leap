@@ -595,13 +595,13 @@ namespace fc
          case variant::int64_type:
          {
               int64_t i = v.as_int64();
-              int64_t max_value(0xffffffff);
+              constexpr int64_t max_value(0xffffffff);
               if( format == json::output_formatting::stringify_large_ints_and_doubles &&
                   (i > max_value || i < -max_value))
                  os << '"'<<v.as_string()<<'"';
               else
                  os << i;
-                 
+
               return;
          }
          case variant::uint64_type:
