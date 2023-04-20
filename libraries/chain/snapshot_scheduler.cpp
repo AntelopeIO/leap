@@ -122,7 +122,7 @@ snapshot_scheduler::get_snapshot_requests_result snapshot_scheduler::get_snapsho
 void snapshot_scheduler::set_db_path(bfs::path db_path) {
    _snapshot_db.set_path(std::move(db_path));
    // init from db
-   if(fc::exists(_snapshot_db.get_json_path())) {
+   if(std::filesystem::exists(_snapshot_db.get_json_path())) {
       std::vector<snapshot_scheduler::snapshot_schedule_information> sr;
       _snapshot_db >> sr;
       // if db read succeeded, clear/load
@@ -186,7 +186,7 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
    const auto& temp_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_temp_path(head_id, _snapshots_dir);
 
    // maintain legacy exception if the snapshot exists
-   if(fc::is_regular_file(snapshot_path)) {
+   if(bfs::is_regular_file(snapshot_path)) {
       auto ex = snapshot_exists_exception(FC_LOG_MESSAGE(error, "snapshot named ${name} already exists", ("name", _snapshots_dir)));
       next(ex.dynamic_copy_exception());
       return;
@@ -207,7 +207,7 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
    if(chain.get_read_mode() == db_read_mode::IRREVERSIBLE) {
       try {
          write_snapshot(temp_path);
-         boost::system::error_code ec;
+         std::error_code ec;
          bfs::rename(temp_path, snapshot_path, ec);
          EOS_ASSERT(!ec, snapshot_finalization_exception,
                     "Unable to finalize valid snapshot of block number ${bn}: [code: ${ec}] ${message}",
@@ -238,7 +238,7 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
       try {
          write_snapshot(temp_path);// create a new pending snapshot
 
-         boost::system::error_code ec;
+         std::error_code ec;
          bfs::rename(temp_path, pending_path, ec);
          EOS_ASSERT(!ec, snapshot_finalization_exception,
                     "Unable to promote temp snapshot to pending for block number ${bn}: [code: ${ec}] ${message}",

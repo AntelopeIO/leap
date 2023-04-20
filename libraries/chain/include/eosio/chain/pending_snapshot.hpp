@@ -8,7 +8,7 @@
 namespace eosio {
 namespace chain {
 
-namespace bfs = boost::filesystem;
+namespace bfs = std::filesystem;
 
 template<typename T>
 class pending_snapshot {
@@ -37,7 +37,7 @@ public:
    T finalize(const chain::controller& chain) const {
       auto block_ptr = chain.fetch_block_by_id(block_id);
       auto in_chain = (bool) block_ptr;
-      boost::system::error_code ec;
+      std::error_code ec;
 
       if(!in_chain) {
          bfs::remove(bfs::path(pending_path), ec);

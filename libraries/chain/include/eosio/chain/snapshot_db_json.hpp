@@ -10,7 +10,7 @@
 namespace eosio {
 namespace chain {
 
-namespace bfs = boost::filesystem;
+namespace bfs = std::filesystem;
 
 /// this class designed to serialize/deserialize snapshot schedule to a filesystem so it can be restored after restart
 class snapshot_db_json {

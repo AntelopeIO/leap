@@ -22,7 +22,7 @@ namespace eosio {
 namespace chain {
 
 namespace bmi = boost::multi_index;
-namespace bfs = boost::filesystem;
+namespace bfs = std::filesystem;
 
 class snapshot_scheduler {
 public:
