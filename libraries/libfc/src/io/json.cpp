@@ -595,8 +595,9 @@ namespace fc
          case variant::int64_type:
          {
               int64_t i = v.as_int64();
+              constexpr int64_t max_value(0xffffffff);
               if( format == json::output_formatting::stringify_large_ints_and_doubles &&
-                  i > 0xffffffff )
+                  (i > max_value || i < -max_value))
                  os << '"'<<v.as_string()<<'"';
               else
                  os << i;
