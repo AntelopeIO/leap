@@ -450,9 +450,10 @@ namespace eosio {
    constexpr uint16_t proto_dup_goaway_resolution = 5;     // eosio 2.1: support peer address based duplicate connection resolution
    constexpr uint16_t proto_dup_node_id_goaway = 6;        // eosio 2.1: support peer node_id based duplicate connection resolution
    constexpr uint16_t proto_leap_initial = 7;            // leap client, needed because none of the 2.1 versions are supported
+   constexpr uint16_t proto_instant_finality = 8;        // instant finality
 #pragma GCC diagnostic pop
 
-   constexpr uint16_t net_version_max = proto_leap_initial;
+   constexpr uint16_t net_version_max = proto_instant_finality;
 
    /**
     * Index by start_block_num
@@ -2200,7 +2201,8 @@ namespace eosio {
       for_each_block_connection( [this, &msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
          cp->strand.post( [this, cp, msg_val]() {
-            cp->enqueue( msg_val );
+            if (cp->protocol_version >= proto_instant_finality)
+               cp->enqueue( msg_val );
          });
          return true;
       } );
@@ -2212,7 +2214,8 @@ namespace eosio {
       for_each_block_connection( [this, &msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
          cp->strand.post( [this, cp, msg_val]() {
-            cp->enqueue( msg_val );
+            if (cp->protocol_version >= proto_instant_finality)
+               cp->enqueue( msg_val );
          });
          return true;
       } );
@@ -2224,7 +2227,8 @@ namespace eosio {
       for_each_block_connection( [this, &msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
          cp->strand.post( [this, cp, msg_val]() {
-            cp->enqueue( msg_val );
+            if (cp->protocol_version >= proto_instant_finality)
+               cp->enqueue( msg_val );
          });
          return true;
       } );
@@ -2236,7 +2240,8 @@ namespace eosio {
       for_each_block_connection( [this, &msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
          cp->strand.post( [this, cp, msg_val]() {
-            cp->enqueue( msg_val );
+            if (cp->protocol_version >= proto_instant_finality)
+               cp->enqueue( msg_val );
          });
          return true;
       } );

@@ -148,7 +148,7 @@ namespace eosio { namespace hotstuff {
       return b;
    }
 
-   bool qc_chain::evaluate_quorum(extended_schedule es, fc::unsigned_int finalizers, fc::crypto::blslib::bls_signature agg_sig, hs_proposal_message proposal){
+   bool qc_chain::evaluate_quorum(const extended_schedule & es, fc::unsigned_int finalizers, const fc::crypto::blslib::bls_signature & agg_sig, const hs_proposal_message & proposal){
 
       bool first = true;
 
@@ -170,9 +170,13 @@ namespace eosio { namespace hotstuff {
          }
       }
 
-      fc::crypto::blslib::bls_signature justification_agg_sig;
-
-      if (proposal.justify.proposal_id != NULL_PROPOSAL_ID) justification_agg_sig = proposal.justify.active_agg_sig;
+      // ****************************************************************************************************
+      // FIXME/TODO/REVIEW: I removed this since it doesn't seem to be doing anything at the moment
+      // ****************************************************************************************************
+      //
+      //fc::crypto::blslib::bls_signature justification_agg_sig;
+      //
+      //if (proposal.justify.proposal_id != NULL_PROPOSAL_ID) justification_agg_sig = proposal.justify.active_agg_sig;
 
       digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
 
@@ -183,19 +187,21 @@ namespace eosio { namespace hotstuff {
       return ok;
    }
 
-   bool qc_chain::is_quorum_met(eosio::chain::quorum_certificate qc, extended_schedule schedule, hs_proposal_message proposal){
+   bool qc_chain::is_quorum_met(const eosio::chain::quorum_certificate & qc, const extended_schedule & schedule, const hs_proposal_message & proposal){
 
-      if (qc.quorum_met == true ) {
+      if (qc.quorum_met) {
          return true; //skip evaluation if we've already verified quorum was met
       }
       else {
          //ilog(" === qc : ${qc}", ("qc", qc));
 
-         bool quorum_met = evaluate_quorum(schedule, qc.active_finalizers, qc.active_agg_sig, proposal);
-
-         qc.quorum_met = quorum_met;
-
-         return qc.quorum_met;
+         // Caller has to update the quorum_met flag on its qc object based on the return value of this method -- fcecin
+         //
+         //bool quorum_met = evaluate_quorum(schedule, qc.active_finalizers, qc.active_agg_sig, proposal);
+         //qc.quorum_met = quorum_met;
+         //return qc.quorum_met;
+         //
+         return evaluate_quorum(schedule, qc.active_finalizers, qc.active_agg_sig, proposal);
       }
    }
 
@@ -239,7 +245,7 @@ namespace eosio { namespace hotstuff {
       return false;
    }
 
-   hs_vote_message qc_chain::sign_proposal(hs_proposal_message proposal, name finalizer){
+   hs_vote_message qc_chain::sign_proposal(const hs_proposal_message & proposal, name finalizer){
 
       _v_height = proposal.get_height();
 
@@ -253,7 +259,7 @@ namespace eosio { namespace hotstuff {
       return v_msg;
    }
 
-   void qc_chain::process_proposal(hs_proposal_message proposal){
+   void qc_chain::process_proposal(const hs_proposal_message & proposal){
 
       //auto start = fc::time_point::now();
 
@@ -318,6 +324,8 @@ namespace eosio { namespace hotstuff {
       bool node_safe = is_node_safe(proposal);
       bool signature_required = am_finalizer && node_safe;
 
+      std::vector<hs_vote_message> msgs;
+
       if (signature_required){
 
          //iterate over all my finalizers and sign / broadcast for each that is in the schedule
@@ -339,7 +347,8 @@ namespace eosio { namespace hotstuff {
                                         ("phase_counter", proposal.phase_counter)
                                         ("proposal_id", proposal.proposal_id));*/
 
-               send_hs_vote_msg(v_msg);
+               //send_hs_vote_msg(v_msg);
+               msgs.push_back(v_msg);
 
             };
 
@@ -356,6 +365,10 @@ namespace eosio { namespace hotstuff {
       //update internal state
       update(proposal);
 
+      for (auto &msg : msgs){
+         send_hs_vote_msg(msg);
+      }
+
       //check for leader change
       leader_rotation_check();
 
@@ -363,7 +376,7 @@ namespace eosio { namespace hotstuff {
       //if (_log) ilog(" ... process_proposal() total time : ${total_time}", ("total_time", total_time));
    }
 
-   void qc_chain::process_vote(hs_vote_message vote){
+   void qc_chain::process_vote(const hs_vote_message & vote){
 
       //auto start = fc::time_point::now();
 
@@ -443,36 +456,36 @@ namespace eosio { namespace hotstuff {
       //if (_log) ilog(" ... process_vote() total time : ${total_time}", ("total_time", total_time));
    }
 
-   void qc_chain::process_new_view(hs_new_view_message new_view){
+   void qc_chain::process_new_view(const hs_new_view_message & msg){
       //if (_log) ilog(" === ${id} process_new_view === ${qc}", ("qc", new_view.high_qc)("id", _id));
-      update_high_qc(new_view.high_qc);
+      update_high_qc(msg.high_qc);
    }
 
-   void qc_chain::process_new_block(hs_new_block_message msg){
+   void qc_chain::process_new_block(const hs_new_block_message & msg){
       //ilog(" === Process new block ===");
    }
 
-   void qc_chain::send_hs_proposal_msg(hs_proposal_message msg){
+   void qc_chain::send_hs_proposal_msg(const hs_proposal_message & msg){
       //ilog(" === broadcast_hs_proposal ===");
       //hs_proposal_message_ptr ptr = std::make_shared<hs_proposal_message>(msg);
       _pacemaker->send_hs_proposal_msg(_id, msg);
       process_proposal(msg);
    }
 
-   void qc_chain::send_hs_vote_msg(hs_vote_message msg){
+   void qc_chain::send_hs_vote_msg(const hs_vote_message & msg){
       //ilog(" === broadcast_hs_vote ===");
       //hs_vote_message_ptr ptr = std::make_shared<hs_vote_message>(msg);
       _pacemaker->send_hs_vote_msg(_id, msg);
       process_vote(msg);
    }
 
-   void qc_chain::send_hs_new_view_msg(hs_new_view_message msg){
+   void qc_chain::send_hs_new_view_msg(const hs_new_view_message & msg){
       //ilog(" === broadcast_hs_new_view ===");
       //hs_new_view_message_ptr ptr = std::make_shared<hs_new_view_message>(msg);
       _pacemaker->send_hs_new_view_msg(_id, msg);
    }
 
-   void qc_chain::send_hs_new_block_msg(hs_new_block_message msg){
+   void qc_chain::send_hs_new_block_msg(const hs_new_block_message & msg){
       //ilog(" === broadcast_hs_new_block ===");
       //hs_new_block_message_ptr ptr = std::make_shared<hs_new_block_message>(msg);
       _pacemaker->send_hs_new_block_msg(_id, msg);
@@ -599,7 +612,7 @@ namespace eosio { namespace hotstuff {
       handle_eptr(eptr);
    }
 
-   void qc_chain::update_high_qc(eosio::chain::quorum_certificate high_qc){
+   bool qc_chain::update_high_qc(const eosio::chain::quorum_certificate & high_qc){
 
       //ilog(" === check to update high qc ${proposal_id}", ("proposal_id", high_qc.proposal_id));
       // if new high QC is higher than current, update to new
@@ -619,8 +632,8 @@ namespace eosio { namespace hotstuff {
          old_high_qc_prop = _proposal_store.get<by_proposal_id>().find( _high_qc.proposal_id );
          new_high_qc_prop = _proposal_store.get<by_proposal_id>().find( high_qc.proposal_id );
 
-         if (old_high_qc_prop == _proposal_store.get<by_proposal_id>().end()) return; //ilog(" *** CAN'T FIND OLD HIGH QC PROPOSAL");
-         if (new_high_qc_prop == _proposal_store.get<by_proposal_id>().end()) return; //ilog(" *** CAN'T FIND NEW HIGH QC PROPOSAL");
+         if (old_high_qc_prop == _proposal_store.get<by_proposal_id>().end()) return false; //ilog(" *** CAN'T FIND OLD HIGH QC PROPOSAL");
+         if (new_high_qc_prop == _proposal_store.get<by_proposal_id>().end()) return false; //ilog(" *** CAN'T FIND NEW HIGH QC PROPOSAL");
 
          if (new_high_qc_prop->get_height()>old_high_qc_prop->get_height()){
 
@@ -628,17 +641,23 @@ namespace eosio { namespace hotstuff {
 
             if (quorum_met){
 
-               high_qc.quorum_met = true;
+               // "The caller does not need this updated on their high_qc structure -- g"
+               //high_qc.quorum_met = true;
 
                //ilog(" === updated high qc, now is : #${get_height}  ${proposal_id}", ("get_height", new_high_qc_prop->get_height())("proposal_id", new_high_qc_prop->proposal_id));
 
                _high_qc = high_qc;
+               _high_qc.quorum_met = true;
                _b_leaf = _high_qc.proposal_id;
 
                //if (_log) ilog(" === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
             }
+
+            return quorum_met;
          }
       }
+
+      return false;
    }
 
    void qc_chain::leader_rotation_check(){
@@ -672,7 +691,7 @@ namespace eosio { namespace hotstuff {
    }
 
    //safenode predicate
-   bool qc_chain::is_node_safe(hs_proposal_message proposal){
+   bool qc_chain::is_node_safe(const hs_proposal_message & proposal){
 
       //ilog(" === is_node_safe ===");
 
@@ -764,7 +783,7 @@ namespace eosio { namespace hotstuff {
    }
 
    //on proposal received, called from network thread
-   void qc_chain::on_hs_proposal_msg(hs_proposal_message msg){
+   void qc_chain::on_hs_proposal_msg(const hs_proposal_message & msg){
       std::exception_ptr eptr;
       try{
          //ilog(" === ${id} qc on_hs_proposal_msg ===", ("id", _id));
@@ -780,7 +799,7 @@ namespace eosio { namespace hotstuff {
    }
 
    //on vote received, called from network thread
-   void qc_chain::on_hs_vote_msg(hs_vote_message msg){
+   void qc_chain::on_hs_vote_msg(const hs_vote_message & msg){
       std::exception_ptr eptr;
       try{
          //ilog(" === ${id} qc on_hs_vote_msg ===", ("id", _id));
@@ -796,7 +815,7 @@ namespace eosio { namespace hotstuff {
    }
 
    //on new view received, called from network thread
-   void qc_chain::on_hs_new_view_msg(hs_new_view_message msg){
+   void qc_chain::on_hs_new_view_msg(const hs_new_view_message & msg){
       std::exception_ptr eptr;
       try{
          //ilog(" === ${id} qc on_hs_new_view_msg ===", ("id", _id));
@@ -812,7 +831,7 @@ namespace eosio { namespace hotstuff {
    }
 
    //on new block received, called from network thread
-   void qc_chain::on_hs_new_block_msg(hs_new_block_message msg){
+   void qc_chain::on_hs_new_block_msg(const hs_new_block_message & msg){
       std::exception_ptr eptr;
       try{
          //ilog(" === ${id} qc on_hs_new_block_msg ===", ("id", _id));
@@ -827,7 +846,7 @@ namespace eosio { namespace hotstuff {
       handle_eptr(eptr);
    }
 
-   void qc_chain::update(hs_proposal_message proposal){
+   void qc_chain::update(const hs_proposal_message & proposal){
       //ilog(" === update internal state ===");
       //if proposal has no justification, means we either just activated the feature or launched the chain, or the proposal is invalid
       if (proposal.justify.proposal_id == NULL_PROPOSAL_ID){
@@ -951,7 +970,7 @@ namespace eosio { namespace hotstuff {
       }
    }
 
-   void qc_chain::commit(hs_proposal_message proposal){
+   void qc_chain::commit(const hs_proposal_message & proposal){
 
 /*              ilog(" === attempting to commit proposal #${block_num} ${proposal_id} block_id : ${block_id} phase : ${phase_counter} parent_id : ${parent_id}",
                 ("block_num", proposal.block_num())

@@ -200,25 +200,25 @@ namespace eosio { namespace hotstuff {
       }
    };
 
-   void test_pacemaker::send_hs_proposal_msg(name id, hs_proposal_message msg){
+   void test_pacemaker::send_hs_proposal_msg(name id, const hs_proposal_message & msg){
       //ilog("queuing hs_proposal_message : ${proposal_id} ", ("proposal_id", msg.proposal_id) );
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_vote_msg(name id, hs_vote_message msg){
+   void test_pacemaker::send_hs_vote_msg(name id, const hs_vote_message & msg){
       //ilog("queuing hs_vote_message : ${proposal_id} ", ("proposal_id", msg.proposal_id) );
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_block_msg(name id, hs_new_block_message msg){
+   void test_pacemaker::send_hs_new_block_msg(name id, const hs_new_block_message & msg){
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_view_msg(name id, hs_new_view_message msg){
+   void test_pacemaker::send_hs_new_view_msg(name id, const hs_new_view_message & msg){
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::on_hs_proposal_msg(name id, hs_proposal_message msg){
+   void test_pacemaker::on_hs_proposal_msg(name id, const hs_proposal_message & msg){
       //ilog(" === on_hs_proposal_msg");
       auto qc_itr = _qcc_store.begin();
       while (qc_itr!=_qcc_store.end()){
@@ -234,7 +234,7 @@ namespace eosio { namespace hotstuff {
       //ilog(" === end on_hs_proposal_msg");
    }
 
-   void test_pacemaker::on_hs_vote_msg(name id, hs_vote_message msg){
+   void test_pacemaker::on_hs_vote_msg(name id, const hs_vote_message & msg){
       //ilog(" === on_hs_vote_msg");
       auto qc_itr = _qcc_store.begin();
       while (qc_itr!=_qcc_store.end()){
@@ -250,7 +250,7 @@ namespace eosio { namespace hotstuff {
       //ilog(" === end on_hs_vote_msg");
    }
 
-   void test_pacemaker::on_hs_new_block_msg(name id, hs_new_block_message msg){
+   void test_pacemaker::on_hs_new_block_msg(name id, const hs_new_block_message & msg){
       //ilog(" === on_hs_new_block_msg");
       auto qc_itr = _qcc_store.begin();
       while (qc_itr!=_qcc_store.end()){
@@ -266,7 +266,7 @@ namespace eosio { namespace hotstuff {
       //ilog(" === end on_hs_new_block_msg");
    }
 
-   void test_pacemaker::on_hs_new_view_msg(name id, hs_new_view_message msg){
+   void test_pacemaker::on_hs_new_view_msg(name id, const hs_new_view_message & msg){
       //ilog(" === on_hs_new_view_msg");
       auto qc_itr = _qcc_store.begin();
       while (qc_itr!=_qcc_store.end()){

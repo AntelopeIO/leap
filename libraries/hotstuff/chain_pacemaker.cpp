@@ -153,27 +153,27 @@ namespace eosio { namespace hotstuff {
       _qc_chain = &qcc;
    }
 
-   void chain_pacemaker::send_hs_proposal_msg(name id, hs_proposal_message msg){
+   void chain_pacemaker::send_hs_proposal_msg(name id, const hs_proposal_message & msg){
       hs_proposal_message_ptr msg_ptr = std::make_shared<hs_proposal_message>(msg);
       _chain->commit_hs_proposal_msg(msg_ptr);
    }
 
-   void chain_pacemaker::send_hs_vote_msg(name id, hs_vote_message msg){
+   void chain_pacemaker::send_hs_vote_msg(name id, const hs_vote_message & msg){
       hs_vote_message_ptr msg_ptr = std::make_shared<hs_vote_message>(msg);
       _chain->commit_hs_vote_msg(msg_ptr);
    }
 
-   void chain_pacemaker::send_hs_new_block_msg(name id, hs_new_block_message msg){
+   void chain_pacemaker::send_hs_new_block_msg(name id, const hs_new_block_message & msg){
       hs_new_block_message_ptr msg_ptr = std::make_shared<hs_new_block_message>(msg);
       _chain->commit_hs_new_block_msg(msg_ptr);
    }
 
-   void chain_pacemaker::send_hs_new_view_msg(name id, hs_new_view_message msg){
+   void chain_pacemaker::send_hs_new_view_msg(name id, const hs_new_view_message & msg){
       hs_new_view_message_ptr msg_ptr = std::make_shared<hs_new_view_message>(msg);
       _chain->commit_hs_new_view_msg(msg_ptr);
    }
 
-   void chain_pacemaker::on_hs_proposal_msg(name id, hs_proposal_message msg){
+   void chain_pacemaker::on_hs_proposal_msg(name id, const hs_proposal_message & msg){
       csc prof("prop");
       std::lock_guard g( this-> _hotstuff_state_mutex );
       prof.core_in();
@@ -181,7 +181,7 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::on_hs_vote_msg(name id, hs_vote_message msg){
+   void chain_pacemaker::on_hs_vote_msg(name id, const hs_vote_message & msg){
       csc prof("vote");
       std::lock_guard g( this-> _hotstuff_state_mutex );
       prof.core_in();
@@ -189,7 +189,7 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::on_hs_new_block_msg(name id, hs_new_block_message msg){
+   void chain_pacemaker::on_hs_new_block_msg(name id, const hs_new_block_message & msg){
       csc prof("nblk");
       std::lock_guard g( this-> _hotstuff_state_mutex );
       prof.core_in();
@@ -197,7 +197,7 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::on_hs_new_view_msg(name id, hs_new_view_message msg){
+   void chain_pacemaker::on_hs_new_view_msg(name id, const hs_new_view_message & msg){
       csc prof("view");
       std::lock_guard g( this-> _hotstuff_state_mutex );
       prof.core_in();

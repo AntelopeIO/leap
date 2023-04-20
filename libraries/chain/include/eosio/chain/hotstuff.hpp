@@ -27,9 +27,9 @@ namespace eosio { namespace chain {
 
    struct quorum_certificate {
       fc::sha256                          proposal_id = NULL_PROPOSAL_ID;
-      bool                                quorum_met = false;
       fc::unsigned_int                    active_finalizers; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
+      bool                                quorum_met = false;
    };
 
    struct hs_vote_message {
@@ -43,10 +43,10 @@ namespace eosio { namespace chain {
    struct hs_proposal_message {
       fc::sha256                          proposal_id = NULL_PROPOSAL_ID; //vote on proposal
       block_id_type                       block_id = NULL_BLOCK_ID;
-      uint8_t                             phase_counter = 0;
       fc::sha256                          parent_id = NULL_PROPOSAL_ID; //new proposal
       fc::sha256                          final_on_qc = NULL_PROPOSAL_ID;
       quorum_certificate                  justify; //justification
+      uint8_t                             phase_counter = 0;
 
       hs_proposal_message() = default;
 
@@ -80,6 +80,6 @@ namespace eosio { namespace chain {
 
 FC_REFLECT(eosio::chain::quorum_certificate, (proposal_id)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer)(sig));
-FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(phase_counter)(parent_id)(final_on_qc)(justify));
+FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::chain::hs_new_block_message, (block_id)(justify));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));

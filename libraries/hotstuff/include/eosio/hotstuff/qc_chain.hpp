@@ -113,13 +113,14 @@ namespace eosio { namespace hotstuff {
 
       void reset_qc(fc::sha256 proposal_id); //reset current internal qc
 
-      bool evaluate_quorum(extended_schedule es, fc::unsigned_int finalizers, fc::crypto::blslib::bls_signature agg_sig, hs_proposal_message proposal); //evaluate quorum for a proposal
+      bool evaluate_quorum(const extended_schedule & es, fc::unsigned_int finalizers, const fc::crypto::blslib::bls_signature & agg_sig, const hs_proposal_message & proposal); //evaluate quorum for a proposal
 
 /*                name get_proposer();
                   name get_leader();
                   name get_incoming_leader(); //get incoming leader*/
 
-      bool is_quorum_met(eosio::chain::quorum_certificate qc, extended_schedule schedule, hs_proposal_message proposal);  //check if quorum has been met over a proposal
+      // qc.quorum_met has to be updated by the caller (if it wants to) based on the return value of this method
+      bool is_quorum_met(const eosio::chain::quorum_certificate & qc, const extended_schedule & schedule, const hs_proposal_message & proposal);  //check if quorum has been met over a proposal
 
       std::vector<name> get_finalizers(); //get current finalizers set
 
@@ -132,43 +133,43 @@ namespace eosio { namespace hotstuff {
       bool am_i_leader(); //check if I am the current leader
       bool am_i_finalizer(); //check if I am one of the current finalizers
 
-      void process_proposal(hs_proposal_message msg); //handles proposal
-      void process_vote(hs_vote_message msg); //handles vote
-      void process_new_view(hs_new_view_message msg); //handles new view
-      void process_new_block(hs_new_block_message msg); //handles new block
+      void process_proposal(const hs_proposal_message & msg); //handles proposal
+      void process_vote(const hs_vote_message & msg); //handles vote
+      void process_new_view(const hs_new_view_message & msg); //handles new view
+      void process_new_block(const hs_new_block_message & msg); //handles new block
 
-      hs_vote_message sign_proposal(hs_proposal_message proposal, name finalizer); //sign proposal
+      hs_vote_message sign_proposal(const hs_proposal_message & proposal, name finalizer); //sign proposal
 
       bool extends(fc::sha256 descendant, fc::sha256 ancestor); //verify that a proposal descends from another
 
       void on_beat(); //handler for pacemaker beat()
 
-      void update_high_qc(eosio::chain::quorum_certificate high_qc); //check if update to our high qc is required
+      // returns true if quorum_met was recalculated in this call and it evaluated to true; returns false in all other cases
+      bool update_high_qc(const eosio::chain::quorum_certificate & high_qc); //check if update to our high qc is required
 
       void leader_rotation_check(); //check if leader rotation is required
 
-      bool is_node_safe(hs_proposal_message proposal); //verify if a proposal should be signed
+      bool is_node_safe(const hs_proposal_message & proposal); //verify if a proposal should be signed
 
       std::vector<hs_proposal_message> get_qc_chain(fc::sha256 proposal_id); //get 3-phase proposal justification
 
-      void send_hs_proposal_msg(hs_proposal_message msg); //send vote msg
-      void send_hs_vote_msg(hs_vote_message msg); //send proposal msg
-      void send_hs_new_view_msg(hs_new_view_message msg); //send new view msg
-      void send_hs_new_block_msg(hs_new_block_message msg); //send new block msg
+      void send_hs_proposal_msg(const hs_proposal_message & msg); //send vote msg
+      void send_hs_vote_msg(const hs_vote_message & msg); //send proposal msg
+      void send_hs_new_view_msg(const hs_new_view_message & msg); //send new view msg
+      void send_hs_new_block_msg(const hs_new_block_message & msg); //send new block msg
 
-      void on_hs_vote_msg(hs_vote_message msg); //vote msg event handler
-      void on_hs_proposal_msg(hs_proposal_message msg); //proposal msg event handler
-      void on_hs_new_view_msg(hs_new_view_message msg); //new view msg event handler
-      void on_hs_new_block_msg(hs_new_block_message msg); //new block msg event handler
+      void on_hs_vote_msg(const hs_vote_message & msg); //vote msg event handler
+      void on_hs_proposal_msg(const hs_proposal_message & msg); //proposal msg event handler
+      void on_hs_new_view_msg(const hs_new_view_message & msg); //new view msg event handler
+      void on_hs_new_block_msg(const hs_new_block_message & msg); //new block msg event handler
 
-      void update(hs_proposal_message proposal); //update internal state
-      void commit(hs_proposal_message proposal); //commit proposal (finality)
+      void update(const hs_proposal_message & proposal); //update internal state
+      void commit(const hs_proposal_message & proposal); //commit proposal (finality)
 
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
 
       qc_chain(){
          //ilog("_high_qc : ${qc_id}", ("qc_id", _high_qc.proposal_id));
-
       };
 
    private:
