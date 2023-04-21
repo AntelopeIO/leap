@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 
 import json
-import os
 import shutil
 import time
 import unittest
 import socket
 import re
+import shlex
+from pathlib import Path
 
 from TestHarness import Account, Node, TestHelper, Utils, WalletMgr, ReturnType
 
@@ -15,9 +16,8 @@ class PluginHttpTest(unittest.TestCase):
     base_wallet_cmd_str = f"http://{TestHelper.LOCAL_HOST}:{TestHelper.DEFAULT_WALLET_PORT}"
     keosd = WalletMgr(True, TestHelper.DEFAULT_PORT, TestHelper.LOCAL_HOST, TestHelper.DEFAULT_WALLET_PORT, TestHelper.LOCAL_HOST)
     node_id = 1
-    nodeos = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id, walletMgr=keosd)
-    data_dir = Utils.getNodeDataDir(node_id)
-    config_dir = Utils.getNodeConfigDir(node_id)
+    data_dir = Path(Utils.getNodeDataDir(node_id))
+    config_dir = Path(Utils.getNodeConfigDir(node_id))
     empty_content_dict = {}
     http_post_invalid_param = '{invalid}'
     EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
@@ -25,23 +25,21 @@ class PluginHttpTest(unittest.TestCase):
 
     # make a fresh data dir
     def createDataDir(self):
-        if os.path.exists(self.data_dir):
+        if self.data_dir.exists():
             shutil.rmtree(self.data_dir)
-        os.makedirs(self.data_dir)
+        self.data_dir.mkdir(parents=True)
 
     # make a fresh config dir
     def createConfigDir(self):
-        if os.path.exists(self.config_dir):
+        if self.config_dir.exists():
             shutil.rmtree(self.config_dir)
-        os.makedirs(self.config_dir)
+        self.config_dir.mkdir()
 
     # kill nodeos and keosd and clean up dirs
     def cleanEnv(self) :
-        self.keosd.killall(True)
-        WalletMgr.cleanup()
-        if os.path.exists(Utils.DataPath):
+        if self.data_dir.exists():
             shutil.rmtree(Utils.DataPath)
-        if os.path.exists(self.config_dir):
+        if self.config_dir.exists():
             shutil.rmtree(self.config_dir)
         time.sleep(self.sleep_s)
 
@@ -58,7 +56,7 @@ class PluginHttpTest(unittest.TestCase):
                         "--contracts-console --http-validate-host=%s --verbose-http-errors --max-transaction-time -1 --abi-serializer-max-time-ms 30000 --http-max-response-time-ms 30000 "
                         "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
         start_nodeos_cmd = ("%s -e -p eosio %s %s ") % (Utils.EosServerPath, nodeos_plugins, nodeos_flags)
-        self.nodeos.launchCmd(start_nodeos_cmd, self.node_id)
+        self.nodeos = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, self.node_id, self.data_dir, self.config_dir, shlex.split(start_nodeos_cmd), walletMgr=self.keosd)
         time.sleep(self.sleep_s*2)
         self.nodeos.waitForBlock(1, timeout=30)
 

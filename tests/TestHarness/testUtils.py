@@ -76,8 +76,8 @@ class Utils:
     DataRoot=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0]
     PID = os.getpid()
     DataPath= f"{TestLogRoot}/{DataRoot}{PID}"
-    DataDir= f"{DataPath}/"
-    ConfigDir=f"{str(Path.cwd().resolve())}/etc/eosio/"
+    DataDir=f"{DataPath}/"
+    ConfigDir=f"{DataPath}/"
 
     TimeFmt='%Y-%m-%dT%H:%M:%S.%f'
 
