@@ -549,8 +549,8 @@ class PerformanceTestBasic:
         producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
                                                 cpuEffortPercent=args.cpu_effort_percent,
                                                 producerThreads=args.producer_threads, maxTransactionTime=-1)
-        httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
-                                        httpThreads=args.http_threads)
+        httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb, httpMaxInFlightRequests=args.http_max_in_flight_requests,
+                                        httpMaxResponseTimeMs=args.http_max_response_time_ms, httpThreads=args.http_threads)
         netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
         nodeosVers=Utils.getNodeosVersion().split('.')[0]
         resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not nodeosVers == "v2")
@@ -595,6 +595,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help=argparse.SUPPRESS if suppressHelp else "Disable subjective CPU billing for API/P2P transactions", default=True)
         ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
         ptbBaseParserGroup.add_argument("--producer-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in producer thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--http-max-in-flight-requests", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum time for processing a request, -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-bytes-in-flight-mb", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429\
                                          error response when exceeded.", default=-1)
