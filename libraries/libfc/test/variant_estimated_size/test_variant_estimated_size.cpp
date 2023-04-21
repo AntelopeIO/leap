@@ -7,6 +7,7 @@
 #include <string>
 
 using namespace fc;
+using std::string;
 
 BOOST_AUTO_TEST_SUITE(variant_estimated_size_suite)
 BOOST_AUTO_TEST_CASE(null_variant_estimated_size_test)

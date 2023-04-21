@@ -1,8 +1,11 @@
 #include <eosio/chain/asset.hpp>
 #include <boost/rational.hpp>
 #include <fc/reflect/variant.hpp>
+#include <fc/safe.hpp>
 
 namespace eosio { namespace chain {
+
+using fc::safe;
 
 uint8_t asset::decimals()const {
    return sym.decimals();

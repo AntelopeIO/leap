@@ -20,7 +20,7 @@ namespace fc {
 /**
  * mapping of protocols to their standard ports
  */
-static const std::map<string,uint16_t> default_proto_ports = {
+static const std::map<std::string,uint16_t> default_proto_ports = {
    {"http", 80}
 };
 
@@ -31,7 +31,7 @@ public:
    using unix_socket_ptr = std::unique_ptr<local::stream_protocol::socket>;
    using connection = std::variant<raw_socket_ptr, unix_socket_ptr>;
    using connection_map = std::map<host_key, connection>;
-   using unix_url_split_map = std::map<string, fc::url>;
+   using unix_url_split_map = std::map<std::string, fc::url>;
    using error_code = boost::system::error_code;
    using deadline_type = boost::posix_time::ptime;
 
@@ -252,12 +252,12 @@ public:
       auto deadline = epoch + boost::posix_time::microseconds(_deadline.time_since_epoch().count());
       FC_ASSERT(dest.host(), "No host set on URL");
 
-      string path = dest.path() ? dest.path()->generic_string() : "/";
+      std::string path = dest.path() ? dest.path()->generic_string() : "/";
       if (dest.query()) {
          path = path + "?" + *dest.query();
       }
 
-      string host_str = *dest.host();
+      std::string host_str = *dest.host();
       if (dest.port()) {
          auto port = *dest.port();
          auto proto_iter = default_proto_ports.find(dest.proto());

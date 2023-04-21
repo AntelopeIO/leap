@@ -17,8 +17,8 @@ namespace fc
     {
       static const std::vector<std::string> reserved_field_names;
       static const std::regex user_field_name_pattern;
-      string endpoint = "127.0.0.1:12201";
-      string host = "fc"; // the name of the host, source or application that sent this message (just passed through to GELF server)
+      std::string endpoint = "127.0.0.1:12201";
+      std::string host = "fc"; // the name of the host, source or application that sent this message (just passed through to GELF server)
       variant_object user_fields = {};
     };
 
