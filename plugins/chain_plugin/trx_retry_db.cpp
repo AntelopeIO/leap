@@ -52,11 +52,14 @@ struct tracked_transaction {
    }
 
    size_t memory_size()const { return ptrx->get_estimated_size() + trx_trace_v.estimated_size() + sizeof(*this); }
-
+#if __cplusplus >= 202002L
+   [[no_unique_address]] noncopyable _;
+#else
    tracked_transaction(const tracked_transaction&) = delete;
    tracked_transaction() = delete;
    tracked_transaction& operator=(const tracked_transaction&) = delete;
    tracked_transaction(tracked_transaction&&) = default;
+#endif
 };
 
 struct by_trx_id;

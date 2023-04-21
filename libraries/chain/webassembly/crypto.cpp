@@ -118,14 +118,18 @@ namespace eosio { namespace chain { namespace webassembly {
 
    int32_t interface::alt_bn128_add(span<const char> op1, span<const char> op2, span<char> result ) const {
       if (op1.size() != 64 ||  op2.size() != 64 ||  result.size() < 64 ||
-         bn256::g1_add({(const uint8_t*)op1.data(), 64}, {(const uint8_t*)op2.data(), 64}, { (uint8_t*)result.data(), 64}) == -1)
+         bn256::g1_add(std::span<const uint8_t, 64>{(const uint8_t*)op1.data(), 64},
+                       std::span<const uint8_t, 64>{(const uint8_t*)op2.data(), 64},
+                       std::span<uint8_t, 64>{ (uint8_t*)result.data(), 64}) == -1)
          return return_code::failure;
       return return_code::success;
    }
 
    int32_t interface::alt_bn128_mul(span<const char> g1_point, span<const char> scalar, span<char> result) const {
       if (g1_point.size() != 64 ||  scalar.size() != 32 ||  result.size() < 64 ||
-         bn256::g1_scalar_mul({(const uint8_t*)g1_point.data(), 64}, {(const uint8_t*)scalar.data(), 32}, { (uint8_t*)result.data(), 64}) == -1)
+         bn256::g1_scalar_mul(std::span<const uint8_t, 64>{(const uint8_t*)g1_point.data(), 64},
+                              std::span<const uint8_t, 32>{(const uint8_t*)scalar.data(), 32},
+                              std::span<uint8_t, 64>{ (uint8_t*)result.data(), 64}) == -1)
          return return_code::failure;
       return return_code::success;
    }

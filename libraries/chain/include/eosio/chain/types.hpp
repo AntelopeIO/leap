@@ -87,6 +87,14 @@ namespace eosio::chain {
 #endif
    struct void_t{};
 
+   struct noncopyable {
+      noncopyable() = default;
+      noncopyable(noncopyable&&) = default;
+      noncopyable& operator=(noncopyable&&) = default;
+      noncopyable(const noncopyable&) = delete;
+      noncopyable& operator=(const noncopyable&) = delete;
+   };
+
    using chainbase::allocator;
    using shared_string = chainbase::shared_string;
    template<typename T>

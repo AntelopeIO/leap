@@ -37,11 +37,14 @@ struct unapplied_transaction {
 
    const transaction_id_type& id()const { return trx_meta->id(); }
    fc::time_point_sec expiration()const { return trx_meta->packed_trx()->expiration(); }
-
+#if __cplusplus >= 202002L
+   [[no_unique_address]] noncopyable _;
+#else
    unapplied_transaction(const unapplied_transaction&) = delete;
    unapplied_transaction() = delete;
    unapplied_transaction& operator=(const unapplied_transaction&) = delete;
    unapplied_transaction(unapplied_transaction&&) = default;
+#endif
 };
 
 /**
