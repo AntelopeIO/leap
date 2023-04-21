@@ -476,7 +476,7 @@ class Cluster(object):
             eosdcmd = launcher.construct_command_line(instance)
 
             nodeNum = instance.index
-            node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name), eosdcmd, unstarted=instance.dont_start, launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+            node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name), Path(instance.config_dir_name), eosdcmd, unstarted=instance.dont_start, launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
             if nodeNum == -100:
                 self.biosNode = node
             if node.popenProc and nodeNum != -100:

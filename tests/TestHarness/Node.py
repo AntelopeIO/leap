@@ -5,6 +5,7 @@ import time
 import os
 import re
 import json
+import shlex
 import signal
 import sys
 from pathlib import Path
@@ -25,9 +26,10 @@ class Node(Transactions):
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
-    def __init__(self, host, port, nodeId: int, data_dir: Path, cmd: List[str], unstarted=False, launch_time=None, walletMgr=None, nodeosVers=""):
+    def __init__(self, host, port, nodeId: int, data_dir: Path, config_dir: Path, cmd: List[str], unstarted=False, launch_time=None, walletMgr=None, nodeosVers=""):
         super().__init__(host, port, walletMgr)
         assert isinstance(data_dir, Path), 'data_dir must be a Path instance'
+        assert isinstance(config_dir, Path), 'config_dir must be a Path instance'
         assert isinstance(cmd, list), 'cmd must be a list'
         self.host=host
         self.port=port
@@ -38,6 +40,7 @@ class Node(Transactions):
             self.nodeId=nodeId
         if not unstarted:
             self.popenProc=self.launchCmd(self.cmd, data_dir, launch_time)
+            self.pid=self.popenProc.pid
         else:
             self.popenProc=None
             self.pid=None
@@ -55,6 +58,7 @@ class Node(Transactions):
         self.lastTrackedTransactionId=None
         self.nodeosVers=nodeosVers
         self.data_dir=data_dir
+        self.config_dir=config_dir
         self.launch_time=launch_time
         self.configureVersion()
 
@@ -259,27 +263,25 @@ class Node(Transactions):
 
     def kill(self, killSignal):
         if Utils.Debug: Utils.Print("Killing node: %s" % (self.cmd))
-        assert(self.pid is not None)
         try:
             if self.popenProc is not None:
-               self.popenProc.send_signal(killSignal)
-               self.popenProc.wait()
+                self.popenProc.send_signal(killSignal)
+                self.popenProc.wait()
             else:
-               os.kill(self.pid, killSignal)
+                os.kill(self.pid, killSignal)
+                 # wait for kill validation
+                def myFunc():
+                    try:
+                        os.kill(self.pid, 0) #check if process with pid is running
+                    except OSError as _:
+                        return True
+                    return False
+
+                if not Utils.waitForBool(myFunc):
+                    Utils.Print("ERROR: Failed to validate node shutdown.")
+                    return False
         except OSError as ex:
             Utils.Print("ERROR: Failed to kill node (%s)." % (self.cmd), ex)
-            return False
-
-        # wait for kill validation
-        def myFunc():
-            try:
-                os.kill(self.pid, 0) #check if process with pid is running
-            except OSError as _:
-                return True
-            return False
-
-        if not Utils.waitForBool(myFunc):
-            Utils.Print("ERROR: Failed to validate node shutdown.")
             return False
 
         # mark node as killed
@@ -332,7 +334,7 @@ class Node(Transactions):
         assert(self.pid is None)
         assert(self.killed)
 
-        if Utils.Debug: Utils.Print("Launching node process, Id: {}".format(self.nodeId))
+        if Utils.Debug: Utils.Print(f"Launching node process, Id: {self.nodeId}")
 
         cmdArr=[]
         if nodeosPath: self.cmd[0] = nodeosPath
@@ -362,8 +364,9 @@ class Node(Transactions):
                 cmdArr.append(k)
                 cmdArr.append(v)
 
-        cmdArr.append("" if chainArg is None else " " + chainArg)
-        self.launchCmd(cmdArr, self.data_dir, self.launch_time)
+        if chainArg:
+            cmdArr.append(shlex.split(chainArg))
+        self.popenProc=self.launchCmd(cmdArr, self.data_dir, self.launch_time)
 
         def isNodeAlive():
             """wait for node to be responsive."""
@@ -400,7 +403,7 @@ class Node(Transactions):
             self.pid=None
             return False
 
-        self.cmd=cmd
+        self.cmd=cmdArr
         self.killed=False
         return True
 
@@ -486,7 +489,7 @@ class Node(Transactions):
         self.processUrllibRequest("producer", "schedule_protocol_feature_activations", param)
 
     def modifyBuiltinPFSubjRestrictions(self, featureCodename, subjectiveRestriction={}):
-        jsonPath = os.path.join(Utils.getNodeConfigDir(self.nodeId),
+        jsonPath = os.path.join(self.config_dir,
                                 "protocol_features",
                                 "BUILTIN-{}.json".format(featureCodename))
         protocolFeatureJson = []
