@@ -86,7 +86,6 @@ macro(add_eosio_test_executable test_name)
        ${libir}
        ${libsoftfloat}
        ${liboscrypto}
-       ${libosssl}
        ${liblogging}
        ${libchainbase}
        ${libbuiltins}
