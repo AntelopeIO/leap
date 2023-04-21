@@ -52,7 +52,11 @@ so as to not adversely affect the producer's ability to process transactions by 
 ### Configuration
 
 Additional node included over the base configuration. This additional node will have the http_plugin enabled and will be the recipient of all generated transaction traffic.
-Configure unlimited `max_bytes_in_flight` and `max_messages_in_flight` and `max_requests_in_flight`.
+Configure unlimited:
+- `max_bytes_in_flight`
+- `max_messages_in_flight`
+- `max_requests_in_flight`
+- `http_max_response_time`
 
 ### Performance Measurements
 
@@ -60,3 +64,4 @@ Configure unlimited `max_bytes_in_flight` and `max_messages_in_flight` and `max_
 - How many read-only transactions can be processed by a single API node with defined number of threads (cur. limit max 8)
 - How many reads are possible (i.e. get table calls) by a single API node
 - Transaction Latency - Measured from time sent to block inclusion time (min, max, avg, std deviation, num samples)
+- HTTP response time statistics
