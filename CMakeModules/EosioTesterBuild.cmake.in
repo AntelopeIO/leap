@@ -62,8 +62,6 @@ find_library(liblogging Logging @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/Log
 find_library(libsoftfloat softfloat @CMAKE_BINARY_DIR@/libraries/softfloat NO_DEFAULT_PATH)
 get_filename_component(cryptodir @OPENSSL_CRYPTO_LIBRARY@ DIRECTORY)
 find_library(liboscrypto crypto "${cryptodir}" NO_DEFAULT_PATH)
-get_filename_component(ssldir @OPENSSL_SSL_LIBRARY@ DIRECTORY)
-find_library(libosssl ssl "${ssldir}" NO_DEFAULT_PATH)
 find_library(libchainbase chainbase @CMAKE_BINARY_DIR@/libraries/chainbase NO_DEFAULT_PATH)
 find_library(libbuiltins builtins @CMAKE_BINARY_DIR@/libraries/builtins NO_DEFAULT_PATH)
 
