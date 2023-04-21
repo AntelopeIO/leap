@@ -133,7 +133,7 @@ class session : public std::enable_shared_from_this<session> {
          return fail(ec, "read");
       }
 
-      // Write the message to promise result
+      // Write the response message to the callback
       response_callback_(ec, res_);
 
       // Gracefully close the socket
