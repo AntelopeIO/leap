@@ -29,18 +29,19 @@
 #include <memory>
 #include <string>
 
+//------------------------------------------------------------------------------
+
+namespace eosio {
+namespace http_client_async {
+
 namespace beast = boost::beast;         // from <boost/beast.hpp>
 namespace http  = beast::http;          // from <boost/beast/http.hpp>
 namespace net   = boost::asio;          // from <boost/asio.hpp>
 using tcp       = boost::asio::ip::tcp; // from <boost/asio/ip/tcp.hpp>
 
-//------------------------------------------------------------------------------
-
-namespace eosio {
-
 using response_callback_t = std::function<void(beast::error_code ec, http::response<http::string_body>)>;
 
-namespace http_client_async_details {
+namespace details {
 
 // Report a failure
 inline void fail(beast::error_code ec, char const* what) { std::cerr << what << ": " << ec.message() << "\n"; }
@@ -63,8 +64,8 @@ class session : public std::enable_shared_from_this<session> {
        , response_callback_(response_callback) {}
 
    // Start the asynchronous operation
-   void run(char const* host, char const* port, char const* target, int version, char const* content_type,
-            char const* request_body) {
+   void run(const std::string& host, const std::string& port, const std::string& target, int version,
+            const std::string& content_type, const std::string& request_body) {
       // Set up an HTTP GET request message
       req_.version(version);
       req_.method(http::verb::post);
@@ -146,21 +147,22 @@ class session : public std::enable_shared_from_this<session> {
       // If we get here then the connection is closed gracefully
    }
 };
-} // namespace http_client_async_details
+} // namespace details
 
 struct http_request_params {
-   net::io_context& ioc;
-   char const*      host;
-   char const*      port;
-   char const*      target;
-   int              version;
-   char const*      content_type;
+   net::io_context&  ioc;
+   const std::string host;
+   const std::string port;
+   const std::string target;
+   int               version;
+   const std::string content_type;
 };
 
-inline void initiate_async_http_request(http_request_params& req_params, char const* request_body,
-                                        const response_callback_t& response_callback) {
-   std::make_shared<http_client_async_details::session>(req_params.ioc, response_callback)
+inline void async_http_request(http_request_params& req_params, const std::string& request_body,
+                               const response_callback_t& response_callback) {
+   std::make_shared<details::session>(req_params.ioc, response_callback)
        ->run(req_params.host, req_params.port, req_params.target, req_params.version, req_params.content_type,
              request_body);
 };
+} // namespace http_client_async
 } // namespace eosio

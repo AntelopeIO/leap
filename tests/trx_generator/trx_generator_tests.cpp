@@ -8,11 +8,12 @@
 
 using namespace eosio;
 using namespace eosio::testing;
+using namespace std::literals::string_literals;
 
 static const char* api_name = "/v1/chain/test";
 
 namespace http = boost::beast::http;
-struct trx_gen_impl : rest::simple_server<trx_gen_impl> {
+struct echo_server_impl : rest::simple_server<echo_server_impl> {
 
    std::string server_header() const { return "/"; }
 
@@ -30,15 +31,16 @@ struct trx_gen_impl : rest::simple_server<trx_gen_impl> {
       res.set(http::field::server, server_header());
       res.set(http::field::content_type, "text/plain");
       res.keep_alive(req.keep_alive());
+      // echo request body back in response body
       res.body() = req.body();
       res.prepare_payload();
       return res;
    }
 
-   eosio::chain::named_thread_pool<struct prom> _trx_gen_server_thread_pool;
-   boost::asio::io_context::strand              _trx_gen_server_strand;
+   eosio::chain::named_thread_pool<struct trxgen> _trx_gen_server_thread_pool;
+   boost::asio::io_context::strand                _trx_gen_server_strand;
 
-   trx_gen_impl()
+   echo_server_impl()
        : _trx_gen_server_strand(_trx_gen_server_thread_pool.get_executor()) {}
 
    void start(boost::asio::ip::tcp::endpoint endpoint) {
@@ -49,7 +51,7 @@ struct trx_gen_impl : rest::simple_server<trx_gen_impl> {
 
    void shutdown() {
       _trx_gen_server_thread_pool.stop();
-      ilog("trx_gen_impl shutdown.");
+      ilog("echo_server_impl shutdown.");
    }
 };
 
@@ -485,12 +487,12 @@ BOOST_AUTO_TEST_CASE(account_name_generator_tests)
 
 BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
 
-   auto const host     = "127.0.0.1";
-   auto const port     = 8888;
-   auto const port_str = "8888";
+   const std::string host     = "127.0.0.1"s;
+   constexpr int     port     = 8888;
+   const std::string port_str = "8888"s;
 
    // Start Server
-   trx_gen_impl                   server = trx_gen_impl();
+   echo_server_impl               server = echo_server_impl();
    auto                           addr   = boost::asio::ip::address::from_string(host);
    boost::asio::ip::tcp::endpoint endpoint(addr, port);
 
@@ -499,16 +501,16 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
    // Start Client
 
    // The io_context is required for all I/O
-   net::io_context ioc;
-   auto const      target        = "/v1/chain/test";
-   int             version       = 11;
-   auto const      content_type  = "text/plain";
-   auto const      content_type2 = "application/json";
+   boost::asio::io_context ioc;
+   const std::string       target        = "/v1/chain/test"s;
+   const int               version       = 11;
+   const std::string       content_type  = "text/plain"s;
+   const std::string       content_type2 = "application/json"s;
 
-   http_request_params params{ioc, host, port_str, target, version, content_type};
+   http_client_async::http_request_params params{ioc, host, port_str, target, version, content_type};
 
-   auto const test_body = "test request body";
-   auto const test_body2 =
+   const std::string test_body = "test request body"s;
+   const std::string test_body2 =
        "{\"return_failure_trace\":true,\"retry_trx\":false,\"transaction\":{\"signatures\":[\"SIG_K1_"
        "JyzLqbvpdybyujtiN1YdY2FWcBBi8dWWiFgZ515qyyqgKJJ6892i4rXTHdw5KGYut6EBuXPR3ExRwPSioSZ2bZ1RjNUXVj\"],"
        "\"compression\":\"none\",\"packed_context_free_data\":\"\",\"packed_trx\":"
@@ -517,25 +519,25 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
        "00000100028dc3921705c71d30b0b26674536fff934f8e43890c980aa1d2c168f00f406539010000000000000000ea3055000000004873b"
        "d3e0160ae423ad15b974a00000000a8ed32322060ae423ad15b974a1042088a4dd350570094357700000000045359530000000000000000"
        "00ea305500003f2a1ba6a24a0160ae423ad15b974a00000000a8ed32323160ae423ad15b974a1042088a4dd3505740420f0000000000045"
-       "359530000000040420f000000000004535953000000000000\"}}";
+       "359530000000040420f000000000004535953000000000000\"}}"s;
 
    int callbackCalledCnt = 0;
 
    // Launch the asynchronous operation
    // std::future<http::response<http::string_body>> future_response = std::make_shared<session>(ioc)->run(host,
    // port_str, target, version, content_type, test_body);
-   initiate_async_http_request(
+   http_client_async::async_http_request(
        params, test_body,
-       [test_body, &callbackCalledCnt](beast::error_code ec, http::response<http::string_body> response) {
+       [test_body, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
           BOOST_REQUIRE(!ec);
           BOOST_REQUIRE_EQUAL(test_body, response.body());
           callbackCalledCnt++;
        });
 
-   params.content_type = content_type2;
-   initiate_async_http_request(
-       params, test_body2,
-       [test_body2, &callbackCalledCnt](beast::error_code ec, http::response<http::string_body> response) {
+   http_client_async::http_request_params params2{ioc, host, port_str, target, version, content_type2};
+   http_client_async::async_http_request(
+       params2, test_body2,
+       [test_body2, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
           BOOST_REQUIRE(!ec);
           BOOST_REQUIRE_EQUAL(test_body2, response.body());
           callbackCalledCnt++;
