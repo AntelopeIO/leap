@@ -53,10 +53,11 @@ so as to not adversely affect the producer's ability to process transactions by 
 
 Additional node included over the base configuration. This additional node will have the http_plugin enabled and will be the recipient of all generated transaction traffic.
 Configure unlimited:
-- `max_bytes_in_flight`
+- `chain_plugin`
+    - `max_bytes_in_flight`
+    - `max_requests_in_flight`
+    - `http_max_response_time`
 - `max_messages_in_flight`
-- `max_requests_in_flight`
-- `http_max_response_time`
 
 ### Performance Measurements
 
