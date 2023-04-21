@@ -57,7 +57,6 @@ Configure unlimited:
     - `max_bytes_in_flight`
     - `max_requests_in_flight`
     - `http_max_response_time`
-- `max_messages_in_flight`
 
 ### Performance Measurements
 
