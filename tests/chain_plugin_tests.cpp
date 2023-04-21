@@ -31,6 +31,14 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
+static auto get_account_full = [](chain_apis::read_only& plugin,
+                                  chain_apis::read_only::get_account_params& params,
+                                  const fc::time_point& deadline) -> chain_apis::read_only::get_account_results {   
+   auto res =  plugin.get_account(params, deadline)();
+   BOOST_REQUIRE(!std::holds_alternative<fc::exception_ptr>(res));
+   return std::get<chain_apis::read_only::get_account_results>(std::move(res));
+};
+
 BOOST_AUTO_TEST_SUITE(chain_plugin_tests)
 
 BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
@@ -182,7 +190,7 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
 
    chain_apis::read_only::get_account_params p{"alice"_n};
 
-   chain_apis::read_only::get_account_results result = plugin.read_only::get_account(p, fc::time_point::maximum());
+   chain_apis::read_only::get_account_results result = get_account_full(plugin, p, fc::time_point::maximum());
 
    auto check_result_basic = [](chain_apis::read_only::get_account_results result, eosio::name nm, bool isPriv) {
       BOOST_REQUIRE_EQUAL(nm, result.account_name);
@@ -222,7 +230,7 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
    // test link authority
    link_authority(name("alice"_n), name("bob"_n), name("active"_n), name("foo"_n));
    produce_block();
-   result = plugin.read_only::get_account(p, fc::time_point::maximum());
+   result = get_account_full(plugin, p, fc::time_point::maximum());
 
    check_result_basic(result, name("alice"_n), false);
    auto perm = result.permissions[0];
@@ -240,7 +248,7 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
    // test link authority to eosio.any
    link_authority(name("alice"_n), name("bob"_n), name("eosio.any"_n), name("foo"_n));
    produce_block();
-   result = plugin.read_only::get_account(p, fc::time_point::maximum());
+   result = get_account_full(plugin, p, fc::time_point::maximum());
    check_result_basic(result, name("alice"_n), false);
    // active permission should no longer have linked auth, as eosio.any replaces it
    perm = result.permissions[0];
