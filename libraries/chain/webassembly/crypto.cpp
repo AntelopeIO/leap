@@ -7,6 +7,7 @@
 #include <fc/crypto/sha3.hpp>
 #include <fc/crypto/k1_recover.hpp>
 #include <bn256/bn256.h>
+#include <fc/crypto/bls_utils.hpp>
 
 namespace {
     uint32_t ceil_log2(uint32_t n)
@@ -244,6 +245,107 @@ namespace eosio { namespace chain { namespace webassembly {
 
       std::memcpy( pub.data(), res.data(), res.size() );
       return return_code::success;
+   }
+
+   void interface::bls_g1_add(span<const char> op1, span<const char> op2, span<char> result) const
+   {
+       bls12_381::g1 a = bls12_381::g1::fromJacobianBytesLE({reinterpret_cast<const uint8_t*>(op1.data()), 144}, false, true);
+       bls12_381::g1 b = bls12_381::g1::fromJacobianBytesLE({reinterpret_cast<const uint8_t*>(op2.data()), 144}, false, true);
+       bls12_381::g1 c = a.add(b);
+       c.toJacobianBytesLE({reinterpret_cast<uint8_t*>(result.data()), 144}, true);
+   }
+
+   void interface::bls_g2_add(span<const char> op1, span<const char> op2, span<char> result) const
+   {
+       bls12_381::g2 a = bls12_381::g2::fromJacobianBytesLE({reinterpret_cast<const uint8_t*>(op1.data()), 288}, false, true);
+       bls12_381::g2 b = bls12_381::g2::fromJacobianBytesLE({reinterpret_cast<const uint8_t*>(op2.data()), 288}, false, true);
+       bls12_381::g2 c = a.add(b);
+       c.toJacobianBytesLE({reinterpret_cast<uint8_t*>(result.data()), 288}, true);
+   }
+
+   void interface::bls_g1_mul(span<const char> point, span<const char> scalar, span<char> result) const
+   {
+       bls12_381::g1 a = bls12_381::g1::fromJacobianBytesLE({reinterpret_cast<const uint8_t*>(point.data()), 144}, false, true);
+       std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>({reinterpret_cast<const uint8_t*>(scalar.data()), 32});
+       bls12_381::g1 c = a.mulScalar(b);
+       c.toJacobianBytesLE({reinterpret_cast<uint8_t*>(result.data()), 144}, true);
+   }
+
+   void interface::bls_g2_mul(span<const char> point, span<const char> scalar, span<char> result) const
+   {
+       bls12_381::g2 a = bls12_381::g2::fromJacobianBytesLE({reinterpret_cast<const uint8_t*>(point.data()), 288}, false, true);
+       std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>({reinterpret_cast<const uint8_t*>(scalar.data()), 32});
+       bls12_381::g2 c = a.mulScalar(b);
+       c.toJacobianBytesLE({reinterpret_cast<uint8_t*>(result.data()), 288}, true);
+   }
+
+   void interface::bls_g1_exp(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const
+   {
+       std::vector<bls12_381::g1> pv;
+       std::vector<std::array<uint64_t, 4>> sv;
+       pv.reserve(n);
+       sv.reserve(n);
+       for(uint32_t i = 0; i < n; i++)
+       {
+           bls12_381::g1 p = bls12_381::g1::fromJacobianBytesLE({reinterpret_cast<const uint8_t*>(points.data() + i*144), 144}, false, true);
+           std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>({reinterpret_cast<const uint8_t*>(scalars.data() + i*32), 32});
+           pv.push_back(p);
+           sv.push_back(s);
+       }
+       bls12_381::g1 r = bls12_381::g1::multiExp(pv, sv);
+       r.toJacobianBytesLE({reinterpret_cast<uint8_t*>(result.data()), 144}, true);
+   }
+
+   void interface::bls_g2_exp(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const
+   {
+       std::vector<bls12_381::g2> pv;
+       std::vector<std::array<uint64_t, 4>> sv;
+       pv.reserve(n);
+       sv.reserve(n);
+       for(uint32_t i = 0; i < n; i++)
+       {
+           bls12_381::g2 p = bls12_381::g2::fromJacobianBytesLE({reinterpret_cast<const uint8_t*>(points.data() + i*288), 288}, false, true);
+           std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>({reinterpret_cast<const uint8_t*>(scalars.data() + i*32), 32});
+           pv.push_back(p);
+           sv.push_back(s);
+       }
+       bls12_381::g2 r = bls12_381::g2::multiExp(pv, sv);
+       r.toJacobianBytesLE({reinterpret_cast<uint8_t*>(result.data()), 288}, true);
+   }
+
+   void interface::bls_pairing(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result) const
+   {
+       std::vector<std::tuple<bls12_381::g1, bls12_381::g2>> v;
+       v.reserve(n);
+       for(uint32_t i = 0; i < n; i++)
+       {
+           bls12_381::g1 p_g1 = bls12_381::g1::fromJacobianBytesLE({reinterpret_cast<const uint8_t*>(g1_points.data() + i*144), 144}, false, true);
+           bls12_381::g2 p_g2 = bls12_381::g2::fromJacobianBytesLE({reinterpret_cast<const uint8_t*>(g2_points.data() + i*288), 288}, false, true);
+           bls12_381::pairing::add_pair(v, p_g1, p_g2);
+       }
+       bls12_381::fp12 r = bls12_381::pairing::calculate(v);
+       r.toBytesLE({reinterpret_cast<uint8_t*>(result.data()), 576}, true);
+   }
+
+   void interface::bls_g1_map(span<const char> e, span<char> result) const
+   {
+       bls12_381::fp a = bls12_381::fp::fromBytesLE({reinterpret_cast<const uint8_t*>(e.data()), 48}, false, true);
+       bls12_381::g1 c = bls12_381::g1::mapToCurve(a);
+       c.toJacobianBytesLE({reinterpret_cast<uint8_t*>(result.data()), 144}, true);
+   }
+
+   void interface::bls_g2_map(span<const char> e, span<char> result) const
+   {
+       bls12_381::fp2 a = bls12_381::fp2::fromBytesLE({reinterpret_cast<const uint8_t*>(e.data()), 96}, false, true);
+       bls12_381::g2 c = bls12_381::g2::mapToCurve(a);
+       c.toJacobianBytesLE({reinterpret_cast<uint8_t*>(result.data()), 288}, true);
+   }
+
+   void interface::bls_fp_mod(span<const char> s, span<char> result) const
+   {
+       std::array<uint64_t, 8> k = bls12_381::scalar::fromBytesLE<8>({reinterpret_cast<const uint8_t*>(s.data()), 64});
+       bls12_381::fp e = bls12_381::fp::modPrime<8>(k);
+       e.toBytesLE({reinterpret_cast<uint8_t*>(result.data()), 48}, true);
    }
 
 }}} // ns eosio::chain::webassembly

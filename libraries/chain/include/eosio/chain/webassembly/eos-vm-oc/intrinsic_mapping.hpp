@@ -267,7 +267,17 @@ inline constexpr auto get_intrinsic_table() {
       "env.sha3",
       "env.blake2_f",
       "env.k1_recover",
-      "env.get_block_num"
+      "env.get_block_num",
+      "env.bls_g1_add",
+      "env.bls_g2_add",
+      "env.bls_g1_mul",
+      "env.bls_g2_mul",
+      "env.bls_g1_exp",
+      "env.bls_g2_exp",
+      "env.bls_g1_pairing",
+      "env.bls_g1_map",
+      "env.bls_g2_map",
+      "env.bls_fp_mod"
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {

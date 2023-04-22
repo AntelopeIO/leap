@@ -1,5 +1,6 @@
 add_subdirectory( secp256k1 )
 add_subdirectory( libraries/bn256/src )
+add_subdirectory( libraries/bls12_381 )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -55,6 +56,7 @@ set( fc_sources
      src/crypto/modular_arithmetic.cpp
      src/crypto/blake2.cpp
      src/crypto/k1_recover.cpp
+     src/crypto/bls_utils.cpp
      src/network/url.cpp
      src/network/http/http_client.cpp
      src/compress/zlib.cpp
@@ -131,7 +133,7 @@ if(APPLE)
   find_library(corefoundation_framework CoreFoundation)
 endif()
 target_link_libraries( fc PUBLIC Boost::date_time Boost::chrono Boost::iostreams Threads::Threads
-                                 OpenSSL::Crypto ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework})
+                                 OpenSSL::Crypto ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 bls12_381 ${security_framework} ${corefoundation_framework})
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access
 #  to some obsoleted AES functions in 3.0 too, since 3.0's API_COMPAT is effectively 3.0 by default

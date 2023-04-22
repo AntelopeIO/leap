@@ -126,6 +126,13 @@ namespace eosio { namespace chain {
       built_in_types.emplace("symbol_code",               pack_unpack<symbol_code>());
       built_in_types.emplace("asset",                     pack_unpack<asset>());
       built_in_types.emplace("extended_asset",            pack_unpack<extended_asset>());
+
+      built_in_types.emplace("bls_scalar",                pack_unpack_deadline<bls_scalar_type>());
+      built_in_types.emplace("bls_g1",                    pack_unpack_deadline<bls_g1_type>());
+      built_in_types.emplace("bls_g2",                    pack_unpack_deadline<bls_g2_type>());
+      built_in_types.emplace("bls_gt",                    pack_unpack_deadline<bls_gt_type>());
+      built_in_types.emplace("bls_fp",                    pack_unpack_deadline<bls_fp_type>());
+      built_in_types.emplace("bls_fp2",                   pack_unpack_deadline<bls_fp2_type>());
    }
 
    void abi_serializer::set_abi(abi_def abi, const yield_function_t& yield) {
