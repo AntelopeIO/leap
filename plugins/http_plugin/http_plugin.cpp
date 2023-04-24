@@ -474,16 +474,16 @@ namespace eosio {
       return result;
    }
 
-   void http_plugin::register_metrics_listener(chain::plugin_interface::metrics_listener listener) {
-      my->plugin_state->metrics.register_listener(std::move(listener));
-   }
-
    fc::microseconds http_plugin::get_max_response_time()const {
       return my->plugin_state->max_response_time;
    }
 
    size_t http_plugin::get_max_body_size()const {
       return my->plugin_state->max_body_size;
+   }
+
+   void  http_plugin::register_update_metrics(std::function<void(metrics)>&& fun) {
+      my->plugin_state->update_metrics = std::move(fun);
    }
 
 }
