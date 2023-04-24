@@ -192,8 +192,10 @@ protected:
             std::string body = req.body();
             auto content_type = handler_itr->second.content_type;
             set_content_type_header(content_type);
-            handler_itr->second.call_count.value++;
-            plugin_state_->metrics.post_metrics();
+
+            if (plugin_state_->update_metrics)
+               plugin_state_->update_metrics({resource});
+
             handler_itr->second.fn(derived().shared_from_this(),
                                 std::move(resource),
                                 std::move(body),
