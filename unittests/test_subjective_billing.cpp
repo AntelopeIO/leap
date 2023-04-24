@@ -1,8 +1,6 @@
-#define BOOST_TEST_MODULE subjective_billing
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
-#include <eosio/producer_plugin/subjective_billing.hpp>
-
+#include "eosio/chain/subjective_billing.hpp"
 #include <eosio/testing/tester.hpp>
 
 namespace {
@@ -41,7 +39,6 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
       BOOST_CHECK_EQUAL( 9, sub_bill.get_subjective_bill(b, now) );
 
       sub_bill.on_block(log, {}, now);
-      sub_bill.abort_block(); // they all failed so nothing in aborted block
 
       BOOST_CHECK_EQUAL( 13+11, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 9, sub_bill.get_subjective_bill(b, now) );
@@ -69,14 +66,12 @@ BOOST_AUTO_TEST_CASE( subjective_bill_test ) {
       BOOST_CHECK_EQUAL( 7, sub_bill.get_subjective_bill(b, now) );
 
       sub_bill.on_block(log, {}, now); // have not seen any of the transactions come back yet
-      sub_bill.abort_block();
 
       BOOST_CHECK_EQUAL( 23+19, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 7, sub_bill.get_subjective_bill(b, now) );
 
       sub_bill.on_block(log, {}, now);
       sub_bill.remove_subjective_billing( id1, 0 ); // simulate seeing id1 come back in block (this is what on_block would do)
-      sub_bill.abort_block();
 
       BOOST_CHECK_EQUAL( 19, sub_bill.get_subjective_bill(a, now) );
       BOOST_CHECK_EQUAL( 7, sub_bill.get_subjective_bill(b, now) );
