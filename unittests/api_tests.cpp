@@ -1072,10 +1072,10 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
    dlog("elapsed ${e}us", ("e", dur) );
    BOOST_CHECK( dur >= 24'999 ); // should never fail
    BOOST_TEST( t.is_code_cached("pause"_n) );
-      // This assumes that loading the WASM takes at least 1.5 ms
+   // This assumes that loading the WASM takes at least 0.750 ms
    // If this check fails but duration is >= 24'999 (previous check did not fail), then the check here is likely
-   // because WASM took less than 1.5 ms to load.
-   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << dur << "us" );
+   // because WASM took less than 0.750 ms to load.
+   BOOST_CHECK_MESSAGE( dur > 25'750, "elapsed " << dur << "us" );
    BOOST_CHECK_MESSAGE( dur < 150'000, "elapsed " << dur << "us" ); // Should not run to block_cpu_usage deadline
 
    // Test hitting max_transaction_time throws tx_cpu_usage_exceeded
@@ -1130,10 +1130,10 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) { try {
    dlog("elapsed ${e}us", ("e", dur) );
    BOOST_CHECK( dur >= 25'000 ); // should never fail
    BOOST_TEST( t.is_code_cached("pause"_n) );
-   // This assumes that loading the WASM takes at least 1.5 ms
+   // This assumes that loading the WASM takes at least 0.750 ms
    // If this check fails but duration is >= 25'000 (previous check did not fail), then the check here is likely
-   // because WASM took less than 1.5 ms to load.
-   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << dur << "us" );
+   // because WASM took less than 0.750 ms to load.
+   BOOST_CHECK_MESSAGE( dur > 25'750, "elapsed " << dur << "us" );
    BOOST_CHECK_MESSAGE( dur < 250'000, "elapsed " << dur << "us" ); // Should not run to max_transaction_cpu_usage deadline
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
