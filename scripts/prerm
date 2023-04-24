@@ -1,6 +1,6 @@
 #!/bin/sh
 
 # Cleanup symbolic links created during postinst
-Python_DISTLIB=$(python3 -c "import sysconfig; print(sysconfig.get_path('purelib'))" | sed 's/site-packages/dist-packages/')
-rm -f $Python_DISTLIB/TestHarness
+Python_SITELIB=$(python3 -c "from distutils import sysconfig;print(sysconfig.get_python_lib(plat_specific=False,standard_lib=False))")
+rm -f $Python_SITELIB/TestHarness
 rm -f @CMAKE_INSTALL_FULL_DATAROOTDIR@/leap_testing/bin

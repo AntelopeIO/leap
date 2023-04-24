@@ -1,9 +1,9 @@
 #!/bin/sh
 
 set -e
-Python_DISTLIB=$(python3 -c "import sysconfig; print(sysconfig.get_path('purelib'))" | sed 's/site-packages/dist-packages/')
-mkdir -p $Python_DISTLIB
-ln -sf @CMAKE_INSTALL_FULL_DATAROOTDIR@/leap_testing/tests/TestHarness $Python_DISTLIB/TestHarness
+Python_SITELIB=$(python3 -c "from distutils import sysconfig;print(sysconfig.get_python_lib(plat_specific=False,standard_lib=False))")
+mkdir -p $Python_SITELIB
+ln -sf @CMAKE_INSTALL_FULL_DATAROOTDIR@/leap_testing/tests/TestHarness $Python_SITELIB/TestHarness
 
 
 # leap_testing is part of the package so should already exist by the time postinst runs
