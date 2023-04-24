@@ -1349,7 +1349,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
 
         //hit deadline exception, but cache the contract
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
-                                          5000, 10, 10 ),
+                                          5000, 8, 8 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_TEST( is_code_cached("testapi"_n) );
