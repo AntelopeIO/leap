@@ -76,9 +76,8 @@ class PerformanceTestBasic:
             abiFile: str = "eosio.system.abi"
             account: Account = Account("eosio")
 
-        pnodes: int = 1
-        totalNodes: int = 2
-        topo: str = "mesh"
+        producerNodeCount: int = 1
+        validationNodeCount: int = 1
         extraNodeosArgs: ExtraNodeosArgs = field(default_factory=ExtraNodeosArgs)
         specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
@@ -90,20 +89,27 @@ class PerformanceTestBasic:
         nodeosVers: str = ""
         specificExtraNodeosArgs: dict = field(default_factory=dict)
         _totalNodes: int = 2
+        _pNodes: int = 1
+        _producerNodeIds: list = field(default_factory=list)
+        _validationNodeIds: list = field(default_factory=list)
         nonProdsEosVmOcEnable: bool = False
 
         def __post_init__(self):
-            self._totalNodes = self.pnodes + 1 if self.totalNodes <= self.pnodes else self.totalNodes
+            self._totalNodes = self.producerNodeCount + self.validationNodeCount
+            # Setup Expectations for Producer and Validation Node IDs
+            # Producer Nodes are index [0, producerNodeCount) and validation nodes (validationNodeCount)/non-producer nodes follow the producer nodes [producerNodeCount, _totalNodes)
+            self._producerNodeIds = list(range(0, self.producerNodeCount))
+            self._validationNodeIds = list(range(self.producerNodeCount, self.producerNodeCount + self.validationNodeCount))
             nonProdsSpecificNodeosStr = ""
             if not self.prodsEnableTraceApi:
                 nonProdsSpecificNodeosStr += "--plugin eosio::trace_api_plugin "
             if self.nonProdsEosVmOcEnable:
                 nonProdsSpecificNodeosStr += "--eos-vm-oc-enable "
-            self.specificExtraNodeosArgs.update({f"{node}" : nonProdsSpecificNodeosStr for node in range(self.pnodes, self._totalNodes)})
+            self.specificExtraNodeosArgs.update({f"{nodeId}" : nonProdsSpecificNodeosStr for nodeId in self._validationNodeIds})
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
                 self.writeTrx = lambda trxDataFile, blockNum, trx: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n")]
-                self.specificExtraNodeosArgs.update({f"{node}" : '--plugin eosio::history_api_plugin --filter-on "*"' for node in range(self.pnodes, self._totalNodes)})
+                self.specificExtraNodeosArgs.update({f"{nodeId}" : '--plugin eosio::history_api_plugin --filter-on "*"' for nodeId in self._validationNodeIds})
                 self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: log_reader.blockData(blockId=block["payload"]["id"], blockNum=block['payload']['block_num'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"])
                 self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction['trx']['id'], log_reader.trxData(blockNum, transaction['cpu_usage_us'],transaction['net_usage_words']))]))
             else:
@@ -164,11 +170,9 @@ class PerformanceTestBasic:
         self.blockTrxDataPath = self.blockDataLogDirPath/Path("blockTrxData.txt")
         self.reportPath = self.loggingConfig.logDirPath/Path("data.json")
 
-        # Setup Expectations for Producer and Validation Node IDs
-        # Producer Nodes are index [0, pnodes) and validation nodes/non-producer nodes [pnodes, _totalNodes)
         # Use first producer node and first non-producer node
-        self.producerNodeId = 0
-        self.validationNodeId = self.clusterConfig.pnodes
+        self.producerNodeId = self.clusterConfig._producerNodeIds[0]
+        self.validationNodeId = self.clusterConfig._validationNodeIds[0]
         pid = os.getpid()
         self.nodeosLogDir =  Path(self.loggingConfig.logDirPath)/"var"/f"{self.testNamePath}{pid}"
         self.nodeosLogPath = self.nodeosLogDir/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
@@ -276,9 +280,8 @@ class PerformanceTestBasic:
 
     def launchCluster(self):
         return self.cluster.launch(
-            pnodes=self.clusterConfig.pnodes,
+            pnodes=self.clusterConfig._pNodes,
             totalNodes=self.clusterConfig._totalNodes,
-            topo=self.clusterConfig.topo,
             genesisPath=self.clusterConfig.genesisPath,
             maximumP2pPerHost=self.clusterConfig.maximumP2pPerHost,
             maximumClients=self.clusterConfig.maximumClients,
@@ -343,8 +346,8 @@ class PerformanceTestBasic:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.connectionPairList = []
-        for producer in range(0, self.clusterConfig.pnodes):
-            self.connectionPairList.append(f"{self.cluster.getNode(producer).host}:{self.cluster.getNodeP2pPort(producer)}")
+        for producerId in self.clusterConfig._producerNodeIds:
+            self.connectionPairList.append(f"{self.cluster.getNode(producerId).host}:{self.cluster.getNodeP2pPort(producerId)}")
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         self.wallet = self.walletMgr.create('default')
         self.setupContract()
@@ -534,8 +537,7 @@ class PerformanceTestBasic:
 
     def setupTestHelperConfig(args) -> TestHelperConfig:
         return PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
-                                                                dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file,
-                                                                verbose=args.v)
+                                                                dumpErrorDetails=args.dump_error_details, delay=args.d, verbose=args.v)
 
     def setupClusterConfig(args) -> ClusterConfig:
 
@@ -559,7 +561,7 @@ class PerformanceTestBasic:
                             resourceMonitorPluginArgs=resourceMonitorPluginArgs)
         SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
         specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
-        return PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
+        return PerformanceTestBasic.ClusterConfig(producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, genesisPath=args.genesis,
                                                             prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                             specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
                                                             nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
@@ -567,8 +569,7 @@ class PerformanceTestBasic:
 class PtbArgumentsHandler(object):
     @staticmethod
     def createBaseArgumentParser(suppressHelp: bool=False):
-        testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-p","-n","-d","-s","--nodes-file"
-                                                            ,"--dump-error-details","-v","--leave-running"
+        testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-d","--dump-error-details","-v","--leave-running"
                                                             ,"--clean-run","--unshared"}, suppressHelp=suppressHelp)
         ptbBaseParser = argparse.ArgumentParser(parents=[testHelperArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -576,6 +577,8 @@ class PtbArgumentsHandler(object):
         ptbBaseGrpDescription="Performance Test Basic base configuration items."
         ptbBaseParserGroup = ptbBaseParser.add_argument_group(title=None if suppressHelp else ptbBaseGrpTitle, description=None if suppressHelp else ptbBaseGrpDescription)
 
+        ptbBaseParserGroup.add_argument("--producer-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "Producing nodes count", default=1)
+        ptbBaseParserGroup.add_argument("--validation-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "Validation nodes count", default=1)
         ptbBaseParserGroup.add_argument("--tps-limit-per-generator", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum amount of transactions per second a single generator can have.", default=4000)
         ptbBaseParserGroup.add_argument("--genesis", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to genesis.json", default="tests/performance_tests/genesis.json")
         ptbBaseParserGroup.add_argument("--num-blocks-to-prune", type=int, help=argparse.SUPPRESS if suppressHelp else ("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
