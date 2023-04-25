@@ -559,7 +559,7 @@ namespace eosio { namespace chain {
 
       }
 
-      if( !allow_unused_keys  || check_but_dont_fail) {
+      if( !allow_unused_keys  && !check_but_dont_fail) {
          EOS_ASSERT( checker.all_keys_used(), tx_irrelevant_sig,
                      "transaction bears irrelevant signatures from these keys: ${keys}",
                      ("keys", checker.unused_keys()) );
