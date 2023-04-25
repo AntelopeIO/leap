@@ -42,7 +42,7 @@ walletMgr=WalletMgr(True)
 cluster.setWalletMgr(walletMgr)
 
 def relaunchNode(node: Node, chainArg="", skipGenesis=True, relaunchAssertMessage="Fail to relaunch"):
-   isRelaunchSuccess=node.relaunch(chainArg=chainArg, timeout=relaunchTimeout, skipGenesis=skipGenesis, cachePopen=True)
+   isRelaunchSuccess=node.relaunch(chainArg=chainArg, timeout=relaunchTimeout, skipGenesis=skipGenesis)
    time.sleep(1) # Give a second to replay or resync if needed
    assert isRelaunchSuccess, relaunchAssertMessage
    return isRelaunchSuccess
