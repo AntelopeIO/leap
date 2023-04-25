@@ -306,26 +306,20 @@ class Node(Transactions):
     def verifyAlive(self, silent=False):
         logStatus=not silent and Utils.Debug
         pid=self.pid
-        if logStatus: Utils.Print("Checking if node(pid=%s) is alive(killed=%s): %s" % (self.pid, self.killed, self.cmd))
+        if logStatus: Utils.Print(f'Checking if node id {self.nodeId} (pid={self.pid}) is alive (killed={self.killed}): {self.cmd}')
         if self.killed or self.pid is None:
             self.killed=True
             self.pid=None
             return False
 
-        try:
-            os.kill(self.pid, 0)
-        except ProcessLookupError as ex:
-            # mark node as killed
+        if self.popenProc.poll() is not None:
             self.pid=None
             self.killed=True
-            if logStatus: Utils.Print("Determined node(formerly pid=%s) is killed" % (pid))
+            if logStatus: Utils.Print(f'Determined node id {self.nodeId} (formerly pid={pid}) is killed')
             return False
-        except PermissionError as ex:
-            if logStatus: Utils.Print("Determined node(formerly pid=%s) is alive" % (pid))
+        else:
+            if logStatus: Utils.Print(f'Determined node id {self.nodeId} (pid={pid}) is alive')
             return True
-
-        if logStatus: Utils.Print("Determined node(pid=%s) is alive" % (self.pid))
-        return True
 
     # pylint: disable=too-many-locals
     # If nodeosPath is equal to None, it will use the existing nodeos path
@@ -365,7 +359,7 @@ class Node(Transactions):
                 cmdArr.append(v)
 
         if chainArg:
-            cmdArr.append(shlex.split(chainArg))
+            cmdArr.extend(shlex.split(chainArg))
         self.popenProc=self.launchCmd(cmdArr, self.data_dir, self.launch_time)
 
         def isNodeAlive():
@@ -415,9 +409,9 @@ class Node(Transactions):
             Utils.errorExit("Cannot find unstarted node since %s file does not exist" % startFile)
         return startFile
 
-    def launchUnstarted(self, cachePopen=False):
+    def launchUnstarted(self):
         Utils.Print("launchUnstarted cmd: %s" % (self.cmd))
-        self.launchCmd(self.cmd, cachePopen)
+        self.launchCmd(self.cmd, self.data_dir, self.launch_time)
 
     def launchCmd(self, cmd: List[str], data_dir: Path, launch_time: str):
         dd = data_dir

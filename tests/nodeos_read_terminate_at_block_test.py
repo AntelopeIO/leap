@@ -54,7 +54,7 @@ def executeTest(cluster, testNodeId, testNodeArgs, resultMsgs):
 
         testNode = cluster.getNode(testNodeId)
         assert not testNode.verifyAlive() # resets pid so reluanch works
-        testNode.relaunch(addSwapFlags={"--terminate-at-block": "9999999"}, cachePopen=True)
+        testNode.relaunch(addSwapFlags={"--terminate-at-block": "9999999"})
 
         # Wait for node to start up.
         time.sleep(3)
@@ -125,7 +125,7 @@ def checkReplay(testNode, testNodeArgs):
     ]))
 
     assert not testNode.verifyAlive()
-    testNode.relaunch(chainArg="--replay-blockchain", addSwapFlags={"--terminate-at-block": "9999999"}, cachePopen=True)
+    testNode.relaunch(chainArg="--replay-blockchain", addSwapFlags={"--terminate-at-block": "9999999"})
 
     # Wait for node to finish up.
     time.sleep(3)
@@ -188,7 +188,6 @@ try:
         3 : "--read-mode speculative --terminate-at-block 125"
     }
 
-    # Kill any existing instances and launch cluster
     TestHelper.printSystemInfo("BEGIN")
     cluster.launch(
         prodCount=numOfProducers,
