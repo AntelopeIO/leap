@@ -1,7 +1,6 @@
 #pragma once
 
 #include <eosio/chain/pending_snapshot.hpp>
-#include <eosio/chain/snapshot_db_json.hpp>
 
 #include <eosio/chain/block_state.hpp>
 #include <eosio/chain/config.hpp>
@@ -17,6 +16,9 @@
 #include <boost/multi_index/random_access_index.hpp>
 #include <boost/multi_index_container.hpp>
 
+#include <boost/date_time/posix_time/posix_time.hpp>
+#include <boost/property_tree/json_parser.hpp>
+#include <boost/property_tree/ptree.hpp>
 
 namespace eosio::chain {
 
@@ -66,6 +68,76 @@ public:
                bmi::hashed_unique<tag<by_id>, BOOST_MULTI_INDEX_MEMBER(pending_snapshot<snapshot_information>, block_id_type, block_id)>,
                bmi::ordered_non_unique<tag<by_height>, BOOST_MULTI_INDEX_CONST_MEM_FUN(pending_snapshot<snapshot_information>, uint32_t, get_height)>>>;
 
+   class snapshot_db_json {
+   public:
+      snapshot_db_json() = default;
+      ~snapshot_db_json() = default;
+
+      void set_path(std::filesystem::path path) {
+         db_path = std::move(path);
+      }
+
+      std::filesystem::path get_json_path() const {
+         return db_path / "snapshot-schedule.json";
+      }
+
+      const snapshot_db_json& operator>>(std::vector<snapshot_schedule_information>& sr) {
+         boost::property_tree::ptree root;
+
+         try {
+            std::ifstream file(get_json_path().string());
+            file.exceptions(std::istream::failbit | std::istream::eofbit);
+            boost::property_tree::read_json(file, root);
+
+            // parse ptree
+            for(boost::property_tree::ptree::value_type& req: root.get_child("snapshot_requests")) {
+               snapshot_schedule_information ssi;
+               ssi.snapshot_request_id = req.second.get<uint32_t>("snapshot_request_id");
+               ssi.snapshot_description = req.second.get<std::string>("snapshot_description");
+               ssi.block_spacing = req.second.get<uint32_t>("block_spacing");
+               ssi.start_block_num = req.second.get<uint32_t>("start_block_num");
+               ssi.end_block_num = req.second.get<uint32_t>("end_block_num");
+               sr.push_back(ssi);
+            }
+         } catch(std::ifstream::failure& e) {
+            elog("unable to restore snapshots schedule from filesystem ${jsonpath}, details: ${details}",
+                 ("jsonpath", get_json_path().string())("details", e.what()));
+         }
+
+         return *this;
+      }
+
+      const snapshot_db_json& operator<<(const std::vector<snapshot_schedule_information>& sr) const {
+         boost::property_tree::ptree root;
+         boost::property_tree::ptree node_srs;
+
+         for(const auto& key: sr) {
+            boost::property_tree::ptree node;
+            node.put("snapshot_request_id", key.snapshot_request_id);
+            node.put("snapshot_description", key.snapshot_description);
+            node.put("block_spacing", key.block_spacing);
+            node.put("start_block_num", key.start_block_num);
+            node.put("end_block_num", key.end_block_num);
+            node_srs.push_back(std::make_pair("", node));
+         }
+
+         root.push_back(std::make_pair("snapshot_requests", node_srs));
+
+         try {
+            std::ofstream file(get_json_path().string());
+            file.exceptions(std::istream::failbit | std::istream::eofbit);
+            boost::property_tree::write_json(file, root);
+         } catch(std::ofstream::failure& e) {
+            elog("unable to store snapshots schedule to filesystem to ${jsonpath}, details: ${details}",
+                 ("jsonpath", get_json_path().string())("details", e.what()));
+         }
+
+         return *this;
+      }
+
+   private:
+      fs::path db_path;
+   };
 
 private:
    struct by_snapshot_id;
@@ -127,10 +199,12 @@ public:
    // former producer_plugin snapshot fn
    void create_snapshot(next_function<snapshot_information> next, chain::controller& chain, std::function<void(void)> predicate);
 };
+
+
 }// namespace eosio::chain
 
-FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_information, (head_block_id)(head_block_num)(head_block_time)(version)(snapshot_name))
-FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_request_information, (block_spacing)(start_block_num)(end_block_num)(snapshot_description))
+FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_information, (head_block_id) (head_block_num) (head_block_time) (version) (snapshot_name))
+FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_request_information, (block_spacing) (start_block_num) (end_block_num) (snapshot_description))
 FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_request_id_information, (snapshot_request_id))
 FC_REFLECT(eosio::chain::snapshot_scheduler::get_snapshot_requests_result, (snapshot_requests))
 FC_REFLECT_DERIVED(eosio::chain::snapshot_scheduler::snapshot_schedule_information, (eosio::chain::snapshot_scheduler::snapshot_request_id_information)(eosio::chain::snapshot_scheduler::snapshot_request_information), (pending_snapshots))

@@ -3,8 +3,8 @@
 
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
-#include <eosio/chain/snapshot_db_json.hpp>
 #include <eosio/testing/tester.hpp>
+
 namespace {
 
 using namespace eosio;
@@ -137,7 +137,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          app_thread.join();
 
          // lets check whether schedule can be read back after restart
-         snapshot_db_json db;
+         snapshot_scheduler::snapshot_db_json db;
          std::vector<snapshot_scheduler::snapshot_schedule_information> ssi;
          db.set_path(temp / "snapshots");
          db >> ssi;
