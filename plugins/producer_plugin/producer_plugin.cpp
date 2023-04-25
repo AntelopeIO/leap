@@ -1,19 +1,15 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
-#include <eosio/producer_plugin/pending_snapshot.hpp>
-#include <eosio/producer_plugin/snapshot_scheduler.hpp>
 #include <eosio/producer_plugin/block_timing_util.hpp>
-
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/snapshot.hpp>
+#include <eosio/chain/pending_snapshot.hpp>
+#include <eosio/chain/snapshot_scheduler.hpp>
 #include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/transaction_object.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/unapplied_transaction_queue.hpp>
-#include <eosio/chain/pending_snapshot.hpp>
-#include <eosio/chain/snapshot_scheduler.hpp>
-
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 
 #include <fc/io/json.hpp>
@@ -376,7 +372,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       incoming::methods::transaction_async::method_type::handle _incoming_transaction_async_provider;
 
       transaction_id_with_expiry_index                         _blacklisted_transactions;
-      pending_snapshot_index                                   _pending_snapshot_index;
       account_failures                                         _account_fails;
       block_time_tracker                                       _time_tracker;
 
