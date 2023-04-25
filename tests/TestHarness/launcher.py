@@ -490,8 +490,6 @@ class cluster_generator:
         a = lambda l, e: l.append(e) or l
 
         a(a(eosdcmd, '--blocks-dir'), block_dir)
-        a(a(eosdcmd, '--http-server-address'), f'{instance.host_name}:{instance.http_port}')
-        a(a(eosdcmd, '--http-validate-host'), 'false')
         a(a(eosdcmd, '--p2p-listen-endpoint'), f'{instance.listen_addr}:{instance.p2p_port}')
         a(a(eosdcmd, '--p2p-server-address'), f'{instance.p2p_endpoint}')
         if is_bios:
@@ -525,6 +523,12 @@ class cluster_generator:
         a(a(eosdcmd, '--genesis-json'), f'{instance.config_dir_name}/genesis.json')
         if self.args.timestamp:
             a(a(eosdcmd, '--genesis-timestamp'), self.args.timestamp)
+
+        if '--http-validate-host' not in eosdcmd:
+            a(a(eosdcmd, '--http-validate-host'), 'false')
+
+        if '--http-server-address' not in eosdcmd:
+            a(a(eosdcmd, '--http-server-address'), f'{instance.host_name}:{instance.http_port}')
 
         # Always enable a history query plugin on the bios node
         if is_bios:

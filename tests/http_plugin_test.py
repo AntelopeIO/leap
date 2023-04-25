@@ -15,7 +15,7 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 cmdError=Utils.cmdError
 
-args = TestHelper.parse_args({"-v", "--dump-error-details","--keep-logs","--unshared"})
+args = TestHelper.parse_args({"--leave-running","-v", "--dump-error-details","--keep-logs","--unshared"})
 debug=args.v
 dumpErrorDetails = dumpErrorDetails=args.dump_error_details
 
