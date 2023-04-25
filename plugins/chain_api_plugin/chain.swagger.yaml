@@ -809,3 +809,48 @@ paths:
             application/json:
               schema:
                 $ref: "https://eosio.github.io/schemata/v2.0/oas/TransactionStatus.yaml"
+
+  /send_transaction2:
+    post:
+      description: This method expects a transaction in JSON format and will attempt to apply it to the blockchain. It supports returning the full trace of a failed transaction and automatic nodeos-mediated retry if it is enabled on the node. When transaction retry is enabled on an API node, it will monitor incoming API transactions and ensure they are resubmitted additional times into the P2P network until they expire or are included in a block. Warning, full failure traces are now returned by default instead of exceptions. Be careful to not confuse a returned trace as an indication of speculative execution success. Verify 'receipt' and 'except' fields of the returned trace.
+      operationId: send_transaction2
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                return_failure_trace:
+                  type: boolean
+                  description: If true then embed transaction exceptions into the returned transaction trace.
+                retry_trx:
+                  type: boolean
+                  description: If true then request transaction retry on validated transaction.
+                retry_trx_num_blocks:
+                  type: integer
+                  description: If retry_trx is true, report trace at specified blocks from executed or lib if not specified.
+                transaction:
+                  type: object
+                  properties:
+                    signatures:
+                      type: array
+                      description: array of signatures required to authorize transaction.
+                      items:
+                        $ref: "https://docs.eosnetwork.com/openapi/v2.0/Signature.yaml"
+                    compression:
+                      type: boolean
+                      description: Compression used, usually false
+                    packed_context_free_data:
+                      type: string
+                      description: json to hex
+                    packed_trx:
+                      type: string
+                      description: Transaction object json to hex
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                description: Returns Nothing
+
