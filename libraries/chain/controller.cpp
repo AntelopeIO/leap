@@ -21,6 +21,7 @@
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/authorization_manager.hpp>
 #include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
@@ -232,6 +233,7 @@ struct controller_impl {
    block_state_ptr                 head;
    fork_database                   fork_db;
    resource_limits_manager         resource_limits;
+   subjective_billing              subjective_bill;
    authorization_manager           authorization;
    protocol_feature_manager        protocol_features;
    controller::config              conf;
@@ -2766,6 +2768,15 @@ const protocol_feature_manager& controller::get_protocol_feature_manager()const
 {
    return my->protocol_features;
 }
+
+const subjective_billing& controller::get_subjective_billing()const {
+   return my->subjective_bill;
+}
+
+subjective_billing& controller::get_mutable_subjective_billing() {
+   return my->subjective_bill;
+}
+
 
 uint32_t controller::get_max_nonprivileged_inline_action_size()const
 {

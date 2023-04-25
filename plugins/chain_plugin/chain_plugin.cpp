@@ -1,6 +1,5 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/chain_plugin/trx_retry_db.hpp>
-#include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -12,6 +11,7 @@
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/snapshot.hpp>
+#include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
@@ -184,7 +184,6 @@ public:
 
 
    std::optional<chain_apis::account_query_db>                        _account_query_db;
-   const producer_plugin* producer_plug;
    std::optional<chain_apis::trx_retry_db>                            _trx_retry_db;
    chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
 };
@@ -197,7 +196,7 @@ chain_plugin::chain_plugin()
    app().register_config_type<eosio::chain::wasm_interface::vm_type>();
 }
 
-chain_plugin::~chain_plugin(){}
+chain_plugin::~chain_plugin() = default;
 
 void chain_plugin::set_program_options(options_description& cli, options_description& cfg)
 {
@@ -1092,9 +1091,6 @@ void chain_plugin::plugin_startup()
    EOS_ASSERT( my->chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions(), plugin_config_exception,
                "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions" );
    try {
-      my->producer_plug = app().find_plugin<producer_plugin>();
-      EOS_ASSERT(my->producer_plug, plugin_exception, "Failed to find producer_plugin");
-
       auto shutdown = [](){ return app().quit(); };
       auto check_shutdown = [](){ return app().is_quiting(); };
       if (my->snapshot_path) {
@@ -1179,7 +1175,7 @@ chain_apis::read_write chain_plugin::get_read_write_api(const fc::microseconds& 
 }
 
 chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& http_max_response_time) const {
-   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), http_max_response_time, my->producer_plug, my->_trx_finality_status_processing.get());
+   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), http_max_response_time, my->_trx_finality_status_processing.get());
 }
 
 
@@ -2401,11 +2397,9 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    }
    result.ram_usage = rm.get_account_ram_usage( result.account_name );
 
-   if ( producer_plug ) {  // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
-      eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
-      subjective_cpu_bill_limit.used = producer_plug->get_subjective_bill( result.account_name, fc::time_point::now() );
-      result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;
-   }
+   eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
+   subjective_cpu_bill_limit.used = db.get_subjective_billing().get_subjective_bill( result.account_name, fc::time_point::now() );
+   result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;
 
    const auto linked_action_map = ([&](){
       const auto& links = d.get_index<permission_link_index,by_permission_name>();
