@@ -537,23 +537,6 @@ class Utils:
         return same
 
     @staticmethod
-    def rmFromFile(file: str, matchValue: str):
-        """Rm lines from file that match *matchValue*"""
-
-        lines = []
-        with open(file, "r") as f:
-            lines = f.readlines()
-
-        c = 0
-        with open(file, "w") as f:
-            for line in lines:
-                if matchValue not in line:
-                    f.write(line)
-                    c += 1
-
-        return c
-
-    @staticmethod
     def addAmount(assetStr: str, deltaStr: str) -> str:
         asset = assetStr.split()
         if len(asset) != 2:

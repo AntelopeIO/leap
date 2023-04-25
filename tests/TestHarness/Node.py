@@ -321,6 +321,21 @@ class Node(Transactions):
             if logStatus: Utils.Print(f'Determined node id {self.nodeId} (pid={pid}) is alive')
             return True
 
+    def rmFromCmd(self, matchValue: str):
+        '''Removes all instances of matchValue from cmd array and succeeding value if it's an option value string.'''
+        if not self.cmd:
+            return
+
+        while True:
+            try:
+                i = self.cmd.index(matchValue)
+                self.cmd.pop(i)
+                if len(self.cmd) > i:
+                    if self.cmd[i][0] != '-':
+                        self.cmd.pop(i)
+            except ValueError:
+                break
+
     # pylint: disable=too-many-locals
     # If nodeosPath is equal to None, it will use the existing nodeos path
     def relaunch(self, chainArg=None, newChain=False, skipGenesis=True, timeout=Utils.systemWaitTimeout, addSwapFlags=None, nodeosPath=None, waitForTerm=False):

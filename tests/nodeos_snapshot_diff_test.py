@@ -172,8 +172,8 @@ try:
     nodeProg.kill(signal.SIGTERM)
     output=cluster.getBlockLog(progNodeId, blockLogAction=BlockLogAction.trim, first=0, last=ret_head_block_num, throwException=True)
     removeState(progNodeId)
-    Utils.rmFromFile(Utils.getNodeConfigDir(progNodeId, "config.ini"), "p2p-peer-address")
-    isRelaunchSuccess = nodeProg.relaunch(chainArg="--replay", addSwapFlags={}, timeout=relaunchTimeout, cachePopen=True)
+    nodeProg.rmFromCmd('--p2p-peer-address')
+    isRelaunchSuccess = nodeProg.relaunch(chainArg="--replay", addSwapFlags={}, timeout=relaunchTimeout)
     assert isRelaunchSuccess, "Failed to relaunch programmable node"
 
     Print("Schedule snapshot (node 2)")
@@ -197,9 +197,9 @@ try:
 
     Print("Relaunch irreversible node in irreversible mode")
     removeState(irrNodeId)
-    Utils.rmFromFile(Utils.getNodeConfigDir(irrNodeId, "config.ini"), "p2p-peer-address")
+    nodeIrr.rmFromCmd('--p2p-peer-address')
     swapFlags = {"--read-mode":"irreversible", "--p2p-max-nodes-per-host":"0", "--max-clients":"0", "--allowed-connection":"none"}
-    isRelaunchSuccess = nodeIrr.relaunch(chainArg="--replay", addSwapFlags=swapFlags, timeout=relaunchTimeout, cachePopen=True)
+    isRelaunchSuccess = nodeIrr.relaunch(chainArg="--replay", addSwapFlags=swapFlags, timeout=relaunchTimeout)
     assert isRelaunchSuccess, "Failed to relaunch snapshot node"
 
     Print("Create snapshot from irreversible")
