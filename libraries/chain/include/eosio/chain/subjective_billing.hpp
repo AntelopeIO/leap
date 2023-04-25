@@ -13,7 +13,7 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-namespace eosio {
+namespace eosio::chain {
 
 class subjective_billing {
 private:
@@ -92,7 +92,7 @@ private:
 
 public: // public for tests
    static constexpr uint32_t subjective_time_interval_ms = 5'000;
-   size_t get_account_cache_size() {return _account_subjective_bill_cache.size();}
+   size_t get_account_cache_size() const {return _account_subjective_bill_cache.size();}
    void remove_subjective_billing( const chain::transaction_id_type& trx_id, uint32_t time_ordinal ) {
       auto& idx = _trx_cache_index.get<by_id>();
       auto itr = idx.find( trx_id );
@@ -149,9 +149,6 @@ public:
       }
    }
 
-   void abort_block() {
-   }
-
    void on_block( fc::logger& log, const chain::block_state_ptr& bsp, const fc::time_point& now ) {
       if( bsp == nullptr || _disabled ) return;
       const auto time_ordinal = time_ordinal_for(now);
@@ -200,4 +197,4 @@ public:
    }
 };
 
-} //eosio
+} //eosio::chain
