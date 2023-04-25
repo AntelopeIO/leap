@@ -7,10 +7,9 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
-namespace eosio {
-namespace chain {
+namespace eosio::chain {
 
-namespace bfs = std::filesystem;
+namespace fs = std::filesystem;
 
 /// this class designed to serialize/deserialize snapshot schedule to a filesystem so it can be restored after restart
 class snapshot_db_json {
@@ -48,7 +47,6 @@ public:
       } catch(std::ifstream::failure& e) {
          elog("unable to restore snapshots schedule from filesystem ${jsonpath}, details: ${details}",
               ("jsonpath", get_json_path().string())("details", e.what()));
-         // appbase::app().quit();
       }
 
       return *this;
@@ -78,15 +76,13 @@ public:
       } catch(std::ofstream::failure& e) {
          elog("unable to store snapshots schedule to filesystem to ${jsonpath}, details: ${details}",
               ("jsonpath", get_json_path().string())("details", e.what()));
-         // appbase::app().quit();
       }
 
       return *this;
    }
 
 private:
-   std::filesystem::path db_path;
+   fs::path db_path;
 };
 
-}// namespace chain
-}// namespace eosio
+}// namespace eosio::chain

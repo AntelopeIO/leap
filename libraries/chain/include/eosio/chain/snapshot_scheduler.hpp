@@ -18,11 +18,10 @@
 #include <boost/multi_index_container.hpp>
 
 
-namespace eosio {
-namespace chain {
+namespace eosio::chain {
 
 namespace bmi = boost::multi_index;
-namespace bfs = std::filesystem;
+namespace fs = std::filesystem;
 
 class snapshot_scheduler {
 public:
@@ -74,15 +73,15 @@ private:
    struct as_vector;
 
    using snapshot_requests = bmi::multi_index_container<
-         snapshot_scheduler::snapshot_schedule_information,
+         snapshot_schedule_information,
          indexed_by<
-               bmi::hashed_unique<tag<by_snapshot_id>, BOOST_MULTI_INDEX_MEMBER(snapshot_scheduler::snapshot_request_id_information, uint32_t, snapshot_request_id)>,
+               bmi::hashed_unique<tag<by_snapshot_id>, BOOST_MULTI_INDEX_MEMBER(snapshot_request_id_information, uint32_t, snapshot_request_id)>,
                bmi::random_access<tag<as_vector>>,
                bmi::ordered_unique<tag<by_snapshot_value>,
-                                   composite_key<snapshot_scheduler::snapshot_schedule_information,
-                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_scheduler::snapshot_request_information, uint32_t, block_spacing),
-                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_scheduler::snapshot_request_information, uint32_t, start_block_num),
-                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_scheduler::snapshot_request_information, uint32_t, end_block_num)>>>>;
+                                   composite_key<snapshot_schedule_information,
+                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, block_spacing),
+                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, start_block_num),
+                                                 BOOST_MULTI_INDEX_MEMBER(snapshot_request_information, uint32_t, end_block_num)>>>>;
    snapshot_requests _snapshot_requests;
    snapshot_db_json _snapshot_db;
    pending_snapshot_index _pending_snapshot_index;
@@ -91,11 +90,11 @@ private:
    uint32_t _inflight_sid = 0;
 
    // path to write the snapshots to
-   bfs::path _snapshots_dir;
+   fs::path _snapshots_dir;
 
    void x_serialize() {
       auto& vec = _snapshot_requests.get<as_vector>();
-      std::vector<snapshot_scheduler::snapshot_schedule_information> sr(vec.begin(), vec.end());
+      std::vector<snapshot_schedule_information> sr(vec.begin(), vec.end());
       _snapshot_db << sr;
    };
 
@@ -109,27 +108,26 @@ public:
    void on_irreversible_block(const signed_block_ptr& lib, const chain::controller& chain);
 
    // snapshot scheduler handlers
-   snapshot_scheduler::snapshot_schedule_result schedule_snapshot(const snapshot_scheduler::snapshot_request_information& sri);
-   snapshot_scheduler::snapshot_schedule_result unschedule_snapshot(uint32_t sri);
-   snapshot_scheduler::get_snapshot_requests_result get_snapshot_requests();
+   snapshot_schedule_result schedule_snapshot(const snapshot_request_information& sri);
+   snapshot_schedule_result unschedule_snapshot(uint32_t sri);
+   get_snapshot_requests_result get_snapshot_requests();
 
    // initialize with storage
-   void set_db_path(bfs::path db_path);
+   void set_db_path(fs::path db_path);
 
    // set snapshot path
-   void set_snapshots_path(bfs::path sn_path);
+   void set_snapshots_path(fs::path sn_path);
 
    // add pending snapshot info to inflight snapshot request
-   void add_pending_snapshot_info(const snapshot_scheduler::snapshot_information& si);
+   void add_pending_snapshot_info(const snapshot_information& si);
 
    // execute snapshot
    void execute_snapshot(uint32_t srid, chain::controller& chain);
 
    // former producer_plugin snapshot fn
-   void create_snapshot(snapshot_scheduler::next_function<snapshot_scheduler::snapshot_information> next, chain::controller& chain, std::function<void(void)> predicate);
+   void create_snapshot(next_function<snapshot_information> next, chain::controller& chain, std::function<void(void)> predicate);
 };
-}// namespace chain
-}// namespace eosio
+}// namespace eosio::chain
 
 FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_information, (head_block_id)(head_block_num)(head_block_time)(version)(snapshot_name))
 FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_request_information, (block_spacing)(start_block_num)(end_block_num)(snapshot_description))

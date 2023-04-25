@@ -4,8 +4,7 @@
 #include <eosio/chain/snapshot_scheduler.hpp>
 #include <fc/scoped_exit.hpp>
 
-namespace eosio {
-namespace chain {
+namespace eosio::chain {
 
 // snapshot_scheduler_listener
 void snapshot_scheduler::on_start_block(uint32_t height, chain::controller& chain) {
@@ -77,7 +76,7 @@ void snapshot_scheduler::on_irreversible_block(const signed_block_ptr& lib, cons
    }
 }
 
-snapshot_scheduler::snapshot_schedule_result snapshot_scheduler::schedule_snapshot(const snapshot_scheduler::snapshot_request_information& sri) {
+snapshot_scheduler::snapshot_schedule_result snapshot_scheduler::schedule_snapshot(const snapshot_request_information& sri) {
    auto& snapshot_by_value = _snapshot_requests.get<by_snapshot_value>();
    auto existing = snapshot_by_value.find(std::make_tuple(sri.block_spacing, sri.start_block_num, sri.end_block_num));
    EOS_ASSERT(existing == snapshot_by_value.end(), chain::duplicate_snapshot_request, "Duplicate snapshot request");
@@ -91,11 +90,11 @@ snapshot_scheduler::snapshot_schedule_result snapshot_scheduler::schedule_snapsh
       }
    }
 
-   _snapshot_requests.emplace(snapshot_scheduler::snapshot_schedule_information{{_snapshot_id++}, {sri.block_spacing, sri.start_block_num, sri.end_block_num, sri.snapshot_description}, {}});
+   _snapshot_requests.emplace(snapshot_schedule_information{{_snapshot_id++}, {sri.block_spacing, sri.start_block_num, sri.end_block_num, sri.snapshot_description}, {}});
    x_serialize();
 
    // returning snapshot_schedule_result
-   return snapshot_scheduler::snapshot_schedule_result{{_snapshot_id - 1}, {sri.block_spacing, sri.start_block_num, sri.end_block_num, sri.snapshot_description}};
+   return snapshot_schedule_result{{_snapshot_id - 1}, {sri.block_spacing, sri.start_block_num, sri.end_block_num, sri.snapshot_description}};
 }
 
 snapshot_scheduler::snapshot_schedule_result snapshot_scheduler::unschedule_snapshot(uint32_t sri) {
@@ -103,7 +102,7 @@ snapshot_scheduler::snapshot_schedule_result snapshot_scheduler::unschedule_snap
    auto existing = snapshot_by_id.find(sri);
    EOS_ASSERT(existing != snapshot_by_id.end(), chain::snapshot_request_not_found, "Snapshot request not found");
 
-   snapshot_scheduler::snapshot_schedule_result result{{existing->snapshot_request_id}, {existing->block_spacing, existing->start_block_num, existing->end_block_num, existing->snapshot_description}};
+   snapshot_schedule_result result{{existing->snapshot_request_id}, {existing->block_spacing, existing->start_block_num, existing->end_block_num, existing->snapshot_description}};
    _snapshot_requests.erase(existing);
    x_serialize();
 
@@ -112,18 +111,18 @@ snapshot_scheduler::snapshot_schedule_result snapshot_scheduler::unschedule_snap
 }
 
 snapshot_scheduler::get_snapshot_requests_result snapshot_scheduler::get_snapshot_requests() {
-   snapshot_scheduler::get_snapshot_requests_result result;
+   get_snapshot_requests_result result;
    auto& asvector = _snapshot_requests.get<as_vector>();
    result.snapshot_requests.reserve(asvector.size());
    result.snapshot_requests.insert(result.snapshot_requests.begin(), asvector.begin(), asvector.end());
    return result;
 }
 
-void snapshot_scheduler::set_db_path(bfs::path db_path) {
+void snapshot_scheduler::set_db_path(fs::path db_path) {
    _snapshot_db.set_path(std::move(db_path));
    // init from db
    if(std::filesystem::exists(_snapshot_db.get_json_path())) {
-      std::vector<snapshot_scheduler::snapshot_schedule_information> sr;
+      std::vector<snapshot_schedule_information> sr;
       _snapshot_db >> sr;
       // if db read succeeded, clear/load
       _snapshot_requests.get<by_snapshot_id>().clear();
@@ -131,11 +130,11 @@ void snapshot_scheduler::set_db_path(bfs::path db_path) {
    }
 }
 
-void snapshot_scheduler::set_snapshots_path(bfs::path sn_path) {
+void snapshot_scheduler::set_snapshots_path(fs::path sn_path) {
    _snapshots_dir = std::move(sn_path);
 }
 
-void snapshot_scheduler::add_pending_snapshot_info(const snapshot_scheduler::snapshot_information& si) {
+void snapshot_scheduler::add_pending_snapshot_info(const snapshot_information& si) {
    auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
    auto snapshot_req = snapshot_by_id.find(_inflight_sid);
    if(snapshot_req != snapshot_by_id.end()) {
@@ -147,7 +146,7 @@ void snapshot_scheduler::add_pending_snapshot_info(const snapshot_scheduler::sna
 
 void snapshot_scheduler::execute_snapshot(uint32_t srid, chain::controller& chain) {
    _inflight_sid = srid;
-   auto next = [srid, this](const chain::next_function_variant<snapshot_scheduler::snapshot_information>& result) {
+   auto next = [srid, this](const chain::next_function_variant<snapshot_information>& result) {
       if(std::holds_alternative<fc::exception_ptr>(result)) {
          try {
             std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();
@@ -162,14 +161,14 @@ void snapshot_scheduler::execute_snapshot(uint32_t srid, chain::controller& chai
          }
       } else {
          // success, snapshot finalized
-         auto snapshot_info = std::get<snapshot_scheduler::snapshot_information>(result);
+         auto snapshot_info = std::get<snapshot_information>(result);
          auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
          auto snapshot_req = snapshot_by_id.find(srid);
 
          if(snapshot_req != snapshot_by_id.end()) {
             _snapshot_requests.modify(snapshot_req, [&](auto& p) {
                auto& pending = p.pending_snapshots;
-               auto it = std::remove_if(pending.begin(), pending.end(), [&snapshot_info](const snapshot_scheduler::snapshot_information& s) { return s.head_block_num <= snapshot_info.head_block_num; });
+               auto it = std::remove_if(pending.begin(), pending.end(), [&snapshot_info](const snapshot_information& s) { return s.head_block_num <= snapshot_info.head_block_num; });
                pending.erase(it, pending.end());
             });
          }
@@ -178,23 +177,23 @@ void snapshot_scheduler::execute_snapshot(uint32_t srid, chain::controller& chai
    create_snapshot(next, chain, {});
 }
 
-void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snapshot_scheduler::snapshot_information> next, chain::controller& chain, std::function<void(void)> predicate) {
+void snapshot_scheduler::create_snapshot(next_function<snapshot_information> next, chain::controller& chain, std::function<void(void)> predicate) {
    auto head_id = chain.head_block_id();
    const auto head_block_num = chain.head_block_num();
    const auto head_block_time = chain.head_block_time();
-   const auto& snapshot_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_final_path(head_id, _snapshots_dir);
-   const auto& temp_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_temp_path(head_id, _snapshots_dir);
+   const auto& snapshot_path = pending_snapshot<snapshot_information>::get_final_path(head_id, _snapshots_dir);
+   const auto& temp_path = pending_snapshot<snapshot_information>::get_temp_path(head_id, _snapshots_dir);
 
    // maintain legacy exception if the snapshot exists
-   if(bfs::is_regular_file(snapshot_path)) {
+   if(fs::is_regular_file(snapshot_path)) {
       auto ex = snapshot_exists_exception(FC_LOG_MESSAGE(error, "snapshot named ${name} already exists", ("name", _snapshots_dir)));
       next(ex.dynamic_copy_exception());
       return;
    }
 
-   auto write_snapshot = [&](const bfs::path& p) -> void {
+   auto write_snapshot = [&](const fs::path& p) -> void {
       if(predicate) predicate();
-      bfs::create_directory(p.parent_path());
+      fs::create_directory(p.parent_path());
       auto snap_out = std::ofstream(p.generic_string(), (std::ios::out | std::ios::binary));
       auto writer = std::make_shared<ostream_snapshot_writer>(snap_out);
       chain.write_snapshot(writer);
@@ -208,7 +207,7 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
       try {
          write_snapshot(temp_path);
          std::error_code ec;
-         bfs::rename(temp_path, snapshot_path, ec);
+         fs::rename(temp_path, snapshot_path, ec);
          EOS_ASSERT(!ec, snapshot_finalization_exception,
                     "Unable to finalize valid snapshot of block number ${bn}: [code: ${ec}] ${message}",
                     ("bn", head_block_num)("ec", ec.value())("message", ec.message()));
@@ -227,28 +226,27 @@ void snapshot_scheduler::create_snapshot(snapshot_scheduler::next_function<snaps
    if(existing != pending_by_id.end()) {
       // if a snapshot at this block is already pending, attach this requests handler to it
       pending_by_id.modify(existing, [&next](auto& entry) {
-         entry.next = [prev = entry.next, next](const next_function_variant<snapshot_scheduler::snapshot_information>& res) {
+         entry.next = [prev = entry.next, next](const next_function_variant<snapshot_information>& res) {
             prev(res);
             next(res);
          };
       });
    } else {
-      const auto& pending_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_pending_path(head_id, _snapshots_dir);
+      const auto& pending_path = pending_snapshot<snapshot_information>::get_pending_path(head_id, _snapshots_dir);
 
       try {
          write_snapshot(temp_path);// create a new pending snapshot
 
          std::error_code ec;
-         bfs::rename(temp_path, pending_path, ec);
+         fs::rename(temp_path, pending_path, ec);
          EOS_ASSERT(!ec, snapshot_finalization_exception,
                     "Unable to promote temp snapshot to pending for block number ${bn}: [code: ${ec}] ${message}",
                     ("bn", head_block_num)("ec", ec.value())("message", ec.message()));
          _pending_snapshot_index.emplace(head_id, next, pending_path.generic_string(), snapshot_path.generic_string());
-         add_pending_snapshot_info(snapshot_scheduler::snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, pending_path.generic_string()});
+         add_pending_snapshot_info(snapshot_information{head_id, head_block_num, head_block_time, chain_snapshot_header::current_version, pending_path.generic_string()});
       }
       CATCH_AND_CALL(next);
    }
 }
 
-}// namespace chain
-}// namespace eosio
+}// namespace eosio::chain
