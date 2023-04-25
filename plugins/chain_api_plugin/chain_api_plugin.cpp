@@ -57,7 +57,7 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
 
 #define CHAIN_RO_CALL(call_name, http_response_code, params_type) CALL_WITH_400(chain, ro_api, chain_apis::read_only, call_name, http_response_code, params_type)
 #define CHAIN_RW_CALL(call_name, http_response_code, params_type) CALL_WITH_400(chain, rw_api, chain_apis::read_write, call_name, http_response_code, params_type)
-#define CHAIN_RO_CALL_POST(call_name, http_response_code, params_type) CALL_WITH_400_POST(chain, ro_api, chain_apis::read_only, call_name, http_response_code, params_type)
+#define CHAIN_RO_CALL_POST(call_name, call_result, http_response_code, params_type) CALL_WITH_400_POST(chain, ro_api, chain_apis::read_only, call_name, call_result, http_response_code, params_type)
 #define CHAIN_RO_CALL_ASYNC(call_name, call_result, http_response_code, params_type) CALL_ASYNC_WITH_400(chain, ro_api, chain_apis::read_only, call_name, call_result, http_response_code, params_type)
 #define CHAIN_RW_CALL_ASYNC(call_name, call_result, http_response_code, params_type) CALL_ASYNC_WITH_400(chain, rw_api, chain_apis::read_write, call_name, call_result, http_response_code, params_type)
 
@@ -79,17 +79,17 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(get_info, 200, http_params_types::no_params)}, appbase::exec_queue::read_only, appbase::priority::medium_high);
    _http_plugin.add_api({
       CHAIN_RO_CALL(get_activated_protocol_features, 200, http_params_types::possible_no_params),
-      CHAIN_RO_CALL_POST(get_block, 200, http_params_types::params_required), // _POST because get_block() returns a lambda to be executed on the http thread pool
+      CHAIN_RO_CALL_POST(get_block, fc::variant, 200, http_params_types::params_required), // _POST because get_block() returns a lambda to be executed on the http thread pool
       CHAIN_RO_CALL(get_block_info, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_block_header_state, 200, http_params_types::params_required),
-      CHAIN_RO_CALL(get_account, 200, http_params_types::params_required),
+      CHAIN_RO_CALL_POST(get_account, chain_apis::read_only::get_account_results, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_code, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_code_hash, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_consensus_parameters, 200, http_params_types::no_params),
       CHAIN_RO_CALL(get_abi, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_raw_code_and_abi, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_raw_abi, 200, http_params_types::params_required),
-      CHAIN_RO_CALL(get_table_rows, 200, http_params_types::params_required),
+      CHAIN_RO_CALL_POST(get_table_rows, chain_apis::read_only::get_table_rows_result, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_table_by_scope, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_currency_balance, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_currency_stats, 200, http_params_types::params_required),

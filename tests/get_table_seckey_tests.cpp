@@ -30,6 +30,15 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
+static auto get_table_rows_full = [](chain_apis::read_only& plugin,
+                                     chain_apis::read_only::get_table_rows_params& params,
+                                     const fc::time_point& deadline) -> chain_apis::read_only::get_table_rows_result {   
+   auto res_nm_v =  plugin.get_table_rows(params, deadline)();
+   BOOST_REQUIRE(!std::holds_alternative<fc::exception_ptr>(res_nm_v));
+   return std::get<chain_apis::read_only::get_table_rows_result>(std::move(res_nm_v));
+};
+   
+
 BOOST_AUTO_TEST_SUITE(get_table_seckey_tests)
 
 BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, TESTER ) try {
@@ -64,17 +73,19 @@ BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, TESTER ) try {
    params.index_position = "6";
    params.lower_bound = "a";
    params.upper_bound = "a";
-   auto res_nm = plugin.get_table_rows(params, fc::time_point::maximum());
+   
+   auto res_nm = get_table_rows_full(plugin, params, fc::time_point::maximum());
+   
    BOOST_REQUIRE(res_nm.rows.size() == 1);
 
    params.lower_bound = "a";
    params.upper_bound = "b";
-   res_nm = plugin.get_table_rows(params, fc::time_point::maximum());
+   res_nm = get_table_rows_full(plugin, params, fc::time_point::maximum());
    BOOST_REQUIRE(res_nm.rows.size() == 2);
 
    params.lower_bound = "a";
    params.upper_bound = "c";
-   res_nm = plugin.get_table_rows(params, fc::time_point::maximum());
+   res_nm = get_table_rows_full(plugin, params, fc::time_point::maximum());
    BOOST_REQUIRE(res_nm.rows.size() == 3);
 
    push_action("test"_n, "addnumobj"_n, "test"_n, mutable_variant_object()("input", 8)("nm", "1111"));
@@ -83,12 +94,12 @@ BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, TESTER ) try {
 
    params.lower_bound = "1111";
    params.upper_bound = "3333";
-   res_nm = plugin.get_table_rows(params, fc::time_point::maximum());
+   res_nm = get_table_rows_full(plugin, params, fc::time_point::maximum());
    BOOST_REQUIRE(res_nm.rows.size() == 3);
 
    params.lower_bound = "2222";
    params.upper_bound = "3333";
-   res_nm = plugin.get_table_rows(params, fc::time_point::maximum());
+   res_nm = get_table_rows_full(plugin, params, fc::time_point::maximum());
    BOOST_REQUIRE(res_nm.rows.size() == 2);
 
 } FC_LOG_AND_RETHROW() /// get_table_next_key_test

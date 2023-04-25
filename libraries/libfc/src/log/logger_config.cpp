@@ -151,7 +151,7 @@ namespace fc {
          }
 #else
          static int thread_count = 0;
-         thread_name = string( "thread-" ) + fc::to_string( thread_count++ );
+         thread_name = std::string( "thread-" ) + fc::to_string( thread_count++ );
 #endif
       }
       return thread_name;
