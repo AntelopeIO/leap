@@ -786,96 +786,26 @@ paths:
                         threshold:
                           type: "integer"
                           description: the sum of weights that must be met or exceeded to satisfy the permission
-  /send_transaction2:
-    post:
-      description: This method expects a transaction in JSON format and will attempt to apply it to the blockchain.
-      operationId: send_transaction2
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                signatures:
-                  type: array
-                  description: array of signatures required to authorize transaction
-                  items:
-                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Signature.yaml"
-                compression:
-                  type: boolean
-                  description: Compression used, usually false
-                packed_context_free_data:
-                  type: string
-                  description: json to hex
-                packed_trx:
-                  type: string
-                  description: Transaction object json to hex
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                description: Returns Nothing
+
   /get_transaction_status:
     post:
-      description: This method expects a transaction in JSON format and will attempt to apply it to the blockchain.
+      description: Gets current blockchain state and, if available, transaction information given the transaction id. For query to work, the transaction finality status feature must be enabled by configuring the chain plugin with the config option '--transaction-finality-status-max-storage-size-gb <size>' in nodeos.
       operationId: get_transaction_status
       requestBody:
         content:
           application/json:
             schema:
               type: object
+              required:
+                - id
               properties:
-                signatures:
-                  type: array
-                  description: array of signatures required to authorize transaction
-                  items:
-                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Signature.yaml"
-                compression:
-                  type: boolean
-                  description: Compression used, usually false
-                packed_context_free_data:
+                id:
                   type: string
-                  description: json to hex
-                packed_trx:
-                  type: string
-                  description: Transaction object json to hex
+                  description: The transaction ID of the transaction to retrieve the status for. 
       responses:
         "200":
           description: OK
           content:
             application/json:
               schema:
-                description: Returns Nothing
-  /compute_transaction:
-    post:
-      description: This method expects a transaction in JSON format and will attempt to apply it to the blockchain.
-      operationId: compute_transaction
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                signatures:
-                  type: array
-                  description: array of signatures required to authorize transaction
-                  items:
-                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Signature.yaml"
-                compression:
-                  type: boolean
-                  description: Compression used, usually false
-                packed_context_free_data:
-                  type: string
-                  description: json to hex
-                packed_trx:
-                  type: string
-                  description: Transaction object json to hex
-      responses:
-        "200":
-          description: OK
-          content:
-            application/json:
-              schema:
-                description: Returns Nothing
+                $ref: "https://eosio.github.io/schemata/v2.0/oas/TransactionStatus.yaml"
