@@ -78,6 +78,7 @@ class PerformanceTestBasic:
 
         producerNodeCount: int = 1
         validationNodeCount: int = 1
+        apiNodeCount: int = 0
         extraNodeosArgs: ExtraNodeosArgs = field(default_factory=ExtraNodeosArgs)
         specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
@@ -92,14 +93,16 @@ class PerformanceTestBasic:
         _pNodes: int = 1
         _producerNodeIds: list = field(default_factory=list)
         _validationNodeIds: list = field(default_factory=list)
+        _apiNodeIds: list = field(default_factory=list)
         nonProdsEosVmOcEnable: bool = False
 
         def __post_init__(self):
-            self._totalNodes = self.producerNodeCount + self.validationNodeCount
+            self._totalNodes = self.producerNodeCount + self.validationNodeCount + self.apiNodeCount
             # Setup Expectations for Producer and Validation Node IDs
-            # Producer Nodes are index [0, producerNodeCount) and validation nodes (validationNodeCount)/non-producer nodes follow the producer nodes [producerNodeCount, _totalNodes)
+            # Producer Nodes are index [0, producerNodeCount) and non-producer nodes (validationNodeCount, apiNodeCount) nodes follow the producer nodes [producerNodeCount, _totalNodes)
             self._producerNodeIds = list(range(0, self.producerNodeCount))
             self._validationNodeIds = list(range(self.producerNodeCount, self.producerNodeCount + self.validationNodeCount))
+            self._apiNodeIds = list(range(self.producerNodeCount + self.validationNodeCount, self.producerNodeCount + self.validationNodeCount + self.validationNodeCount))
 
             def configureValidationNodes():
                 validationNodeSpecificNodeosStr = ""
@@ -114,7 +117,14 @@ class PerformanceTestBasic:
                 if validationNodeSpecificNodeosStr:
                     self.specificExtraNodeosArgs.update({f"{nodeId}" : validationNodeSpecificNodeosStr for nodeId in self._validationNodeIds})
 
+            def configureApiNodes():
+                apiNodeSpecificNodeosStr = ""
+                apiNodeSpecificNodeosStr += "--plugin eosio::chain_api_plugin "
+                if apiNodeSpecificNodeosStr:
+                    self.specificExtraNodeosArgs.update({f"{nodeId}" : apiNodeSpecificNodeosStr for nodeId in self._apiNodeIds})
+
             configureValidationNodes()
+            configureApiNodes()
 
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
@@ -570,8 +580,8 @@ class PerformanceTestBasic:
                             resourceMonitorPluginArgs=resourceMonitorPluginArgs)
         SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
         specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
-        return PerformanceTestBasic.ClusterConfig(producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, genesisPath=args.genesis,
-                                                            prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
+        return PerformanceTestBasic.ClusterConfig(producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, apiNodeCount=args.api_nodes,
+                                                            genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                             specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
                                                             nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
 
@@ -588,6 +598,7 @@ class PtbArgumentsHandler(object):
 
         ptbBaseParserGroup.add_argument("--producer-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "Producing nodes count", default=1)
         ptbBaseParserGroup.add_argument("--validation-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "Validation nodes count", default=1)
+        ptbBaseParserGroup.add_argument("--api-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "API nodes count", default=0)
         ptbBaseParserGroup.add_argument("--tps-limit-per-generator", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum amount of transactions per second a single generator can have.", default=4000)
         ptbBaseParserGroup.add_argument("--genesis", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to genesis.json", default="tests/performance_tests/genesis.json")
         ptbBaseParserGroup.add_argument("--num-blocks-to-prune", type=int, help=argparse.SUPPRESS if suppressHelp else ("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
