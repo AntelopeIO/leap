@@ -745,7 +745,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "https://eosio.github.io/schemata/v2.0/oas/TransactionStatus.yaml"
+                $ref: "https://docs.eosnetwork.com/openapi/v2.0/TransactionStatus.yaml"
 
   /send_transaction2:
     post:
@@ -805,7 +805,7 @@ paths:
                   type: array
                   description: array of signatures required to authorize transaction
                   items:
-                    $ref: "https://eosio.github.io/schemata/v2.0/oas/Signature.yaml"
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/Signature.yaml"
                 compression:
                   type: boolean
                   description: Compression used, usually false
