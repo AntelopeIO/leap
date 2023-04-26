@@ -4,16 +4,19 @@
 #include <boost/filesystem.hpp>
 #include <boost/algorithm/string.hpp>
 
-#include <debug_eos_vm/debug_contract.hpp>
-
 #include <fc/io/json.hpp>
 #include <fc/network/url.hpp>
 #include <fc/network/http/http_client.hpp>
 
+#include <eosio/vm/backend.hpp>
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/application.hpp>
+#include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
+
+#include <eosio/chain/webassembly/interface.hpp>
+
 
 namespace http = boost::beast::http;
 
