@@ -100,16 +100,25 @@ class PerformanceTestBasic:
             # Producer Nodes are index [0, producerNodeCount) and validation nodes (validationNodeCount)/non-producer nodes follow the producer nodes [producerNodeCount, _totalNodes)
             self._producerNodeIds = list(range(0, self.producerNodeCount))
             self._validationNodeIds = list(range(self.producerNodeCount, self.producerNodeCount + self.validationNodeCount))
-            nonProdsSpecificNodeosStr = ""
-            if not self.prodsEnableTraceApi:
-                nonProdsSpecificNodeosStr += "--plugin eosio::trace_api_plugin "
-            if self.nonProdsEosVmOcEnable:
-                nonProdsSpecificNodeosStr += "--eos-vm-oc-enable "
-            self.specificExtraNodeosArgs.update({f"{nodeId}" : nonProdsSpecificNodeosStr for nodeId in self._validationNodeIds})
+
+            def configureValidationNodes():
+                validationNodeSpecificNodeosStr = ""
+                if self.nodeosVers == "v2":
+                    validationNodeSpecificNodeosStr += '--plugin eosio::history_api_plugin --filter-on "*" '
+                else:
+                    #If prodsEnableTraceApi, then Cluster configures all nodes with trace_api_plugin so no need to duplicate here
+                    if not self.prodsEnableTraceApi:
+                        validationNodeSpecificNodeosStr += "--plugin eosio::trace_api_plugin "
+                if self.nonProdsEosVmOcEnable:
+                    validationNodeSpecificNodeosStr += "--eos-vm-oc-enable "
+                if validationNodeSpecificNodeosStr:
+                    self.specificExtraNodeosArgs.update({f"{nodeId}" : validationNodeSpecificNodeosStr for nodeId in self._validationNodeIds})
+
+            configureValidationNodes()
+
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
                 self.writeTrx = lambda trxDataFile, blockNum, trx: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n")]
-                self.specificExtraNodeosArgs.update({f"{nodeId}" : '--plugin eosio::history_api_plugin --filter-on "*"' for nodeId in self._validationNodeIds})
                 self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: log_reader.blockData(blockId=block["payload"]["id"], blockNum=block['payload']['block_num'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"])
                 self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction['trx']['id'], log_reader.trxData(blockNum, transaction['cpu_usage_us'],transaction['net_usage_words']))]))
             else:
