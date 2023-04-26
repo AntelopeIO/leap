@@ -43,3 +43,17 @@ cleos create account eosio helloworld EOS7Sp9Z1ahCNpVGGsSPRJCtYDTg8YdqEzt63s7y8m
 cleos set contract helloworld . helloworld.wasm helloworld.abi -p helloworld@active 
 
 cleos push action helloworld hi "[]" -p eosio@active
+
+sleep 1
+
+cleos push action helloworld hi "[]" -p eosio@active
+
+sleep 1
+
+cleos push action helloworld hi "[]" -p eosio@active
+
+sleep 1
+
+cleos push action helloworld hi "[]" -p eosio@active
+
+sleep 1

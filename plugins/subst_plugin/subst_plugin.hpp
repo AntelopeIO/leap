@@ -9,13 +9,12 @@
 #include <fc/network/http/http_client.hpp>
 
 #include <eosio/vm/backend.hpp>
+
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/application.hpp>
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
-
-#include <eosio/chain/webassembly/interface.hpp>
 
 
 namespace http = boost::beast::http;

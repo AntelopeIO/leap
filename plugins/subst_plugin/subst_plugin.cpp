@@ -4,22 +4,18 @@ namespace eosio {
 
     static auto _subst_plugin = application::register_plugin<subst_plugin>();
 
-    using contract_backend = eosio::vm::backend<
-        eosio::chain::eos_vm_host_functions_t,
-        eosio::vm::jit_profile
-    >;
-
-    using wasm_module = std::unique_ptr<contract_backend>;
-
     struct subst_plugin_impl : std::enable_shared_from_this<subst_plugin_impl> {
 
         std::map<fc::sha256, fc::sha256> substitutions;
         std::map<fc::sha256, uint32_t> sub_from;
-
         std::map<fc::sha256, std::vector<uint8_t>> codes;
-        std::map<fc::sha256, wasm_module> cached_modules;
+
+        std::map<fc::sha256, fc::sha256> enabled_substitutions;
+
+        chainbase::database* db;
 
         fc::http_client httpc;
+        appbase::variables_map app_options;
 
         void debug_print_maps() {
             // print susbtitution maps for debug
@@ -43,32 +39,34 @@ namespace eosio {
             }
         }
 
-        wasm_module& get_module(const eosio::chain::digest_type& code_hash) {
-            if (auto it = cached_modules.find(code_hash); it != cached_modules.end())
-                return it->second;
+        void perform_replacement(
+            fc::sha256 og_hash,
+            fc::sha256 new_hash,
+            uint8_t vm_type,
+            uint8_t vm_version,
+            eosio::chain::apply_context& context
+        ) {
 
-            if (auto it = codes.find(code_hash); it != codes.end()) {
-                try {
-                    eosio::vm::wasm_code_ptr code(it->second.data(), it->second.size());
-                    auto bkend = std::make_unique<contract_backend>(code, it->second.size(), nullptr);
-                    eosio::chain::eos_vm_host_functions_t::resolve(bkend->get_module());
-                    return cached_modules[code_hash] = std::move(bkend);
-                } catch (eosio::vm::exception& e) {
-                    FC_THROW_EXCEPTION(eosio::chain::wasm_execution_error,
-                        "Error building eos-vm interp: ${e}", ("e", e.what()));
-                }
-            }
-            throw std::runtime_error{"missing code for substituted module"};
-        }  // get_module
+            const chain::code_object* target_entry = db->find<chain::code_object, chain::by_code_hash>(
+                boost::make_tuple(og_hash, vm_type, vm_type));
 
-        void perform_call(fc::sha256 hsum, eosio::chain::apply_context& context) {
-            auto& module = *get_module(hsum);
-            module.set_wasm_allocator(&context.control.get_wasm_allocator());
-            eosio::chain::webassembly::interface iface(context);
-            module.initialize(&iface);
-            module.call(iface, "env", "apply", context.get_receiver().to_uint64_t(),
-                        context.get_action().account.to_uint64_t(),
-                        context.get_action().name.to_uint64_t());
+            EOS_ASSERT(
+                target_entry,
+                fc::invalid_arg_exception,
+                "target entry for substitution doesn't exist"
+            );
+
+            auto code = codes[new_hash];
+
+            db->modify(*target_entry, [&](chain::code_object& o) {
+                o.code.assign(code.data(), code.size());
+                o.vm_type = 0;
+                o.vm_version = 0;
+            });
+
+            db->commit(context.control.pending_block_num());
+
+            enabled_substitutions[og_hash] = new_hash;
         }
 
         bool substitute_apply(
@@ -77,65 +75,52 @@ namespace eosio {
             uint8_t vm_version,
             eosio::chain::apply_context& context
         ) {
-            if (vm_type || vm_version)
+            auto it = enabled_substitutions.find(code_hash);
+            if (it != enabled_substitutions.end())
                 return false;
 
-            auto block_num = context.control.pending_block_num();
+            try {
+                auto block_num = context.control.pending_block_num();
 
-            // match by name
-            auto name_hash = fc::sha256::hash(context.get_receiver().to_string());
-            auto it = substitutions.find(name_hash);
-            if (it != substitutions.end()) {
-                if (auto bnum_it = sub_from.find(name_hash); bnum_it != sub_from.end()) {
-                    if (block_num >= bnum_it->second) {
-                        perform_call(it->second, context);
-                        return true;
+                // match by name
+                auto name_hash = fc::sha256::hash(context.get_receiver().to_string());
+                auto it = substitutions.find(name_hash);
+                if (it != substitutions.end()) {
+                    // check if substitution has a from block entry
+                    if (auto bnum_it = sub_from.find(name_hash); bnum_it != sub_from.end()) {
+                        if (block_num >= bnum_it->second) {
+                            perform_replacement(
+                                code_hash, it->second, vm_type, vm_version, context);
+                        }
+                    } else {
+                        perform_replacement(
+                            code_hash, it->second, vm_type, vm_version, context);
                     }
-                } else {
-                    perform_call(it->second, context);
-                    return true;
                 }
-            }
 
-            // match by hash
-            if (auto it = substitutions.find(code_hash); it != substitutions.end()) {
-                if (auto bnum_it = sub_from.find(code_hash); bnum_it != sub_from.end()) {
-                    if (block_num >= bnum_it->second) {
-                        perform_call(it->second, context);
-                        return true;
+                // match by hash
+                if (auto it = substitutions.find(code_hash); it != substitutions.end()) {
+                    // check if substitution has a from block entry
+                    if (auto bnum_it = sub_from.find(code_hash); bnum_it != sub_from.end()) {
+                        if (block_num >= bnum_it->second) {
+                            perform_replacement(
+                                code_hash, it->second, vm_type, vm_version, context);
+                        }
+                    } else {
+                        perform_replacement(
+                            code_hash, it->second, vm_type, vm_version, context);
                     }
-                } else {
-                    perform_call(it->second, context);
-                    return true;
                 }
-            }
 
-            // no matches for this call
-            return false;
+                // no matches for this call
+                return false;
+            } FC_LOG_AND_RETHROW()
         }
 
-        fc::sha256 store_code(std::vector<uint8_t> new_code) {
-            auto new_hash = fc::sha256::hash((const char*)new_code.data(), new_code.size());
-            codes[new_hash] = std::move(new_code);
-            return new_hash;
-        }
-
-        void subst(const fc::sha256 old_hash, std::vector<uint8_t> new_code, uint32_t from_block) {
-            auto new_hash = store_code(new_code);
-            substitutions[old_hash] = new_hash;
-            if (from_block > 0)
-                sub_from[old_hash] = from_block;
-        }
-
-        void subst(const eosio::name account_name, std::vector<uint8_t> new_code, uint32_t from_block) {
-            auto new_hash = store_code(new_code);
-            auto acc_hash = fc::sha256::hash(account_name.to_string());
-            substitutions[acc_hash] = new_hash;
-            if (from_block > 0)
-                sub_from[acc_hash] = from_block;
-        }
-
-        void subst(std::string& subst_info, std::vector<uint8_t> new_code) {
+        void register_substitution(
+            std::string subst_info,
+            std::vector<uint8_t> code
+        ) {
             std::vector<std::string> v;
             boost::split(v, subst_info, boost::is_any_of("-"));
 
@@ -146,14 +131,25 @@ namespace eosio {
                 from_block = std::stoul(v[1]);
             }
 
+            // store code in internal store
+            auto new_hash = fc::sha256::hash((const char*)code.data(), code.size());
+            codes[new_hash] = code;
+
+            fc::sha256 info_hash;
+
             // update substitution maps
             if (subst_info.size() < 16) {
                 // if smaller than 16 char assume its an account name
-                subst(eosio::name(subst_info), new_code, from_block);
+                auto account_name = eosio::name(subst_info);
+                info_hash = fc::sha256::hash(account_name.to_string());
             } else {
                 // if not assume its a code hash
-                subst(fc::sha256(subst_info), new_code, from_block);
+                info_hash = fc::sha256(subst_info);
             }
+            substitutions[info_hash] = new_hash;
+
+            if (from_block > 0)
+                sub_from[info_hash] = from_block;
 
         }
 
@@ -186,7 +182,7 @@ namespace eosio {
                     ilog("Done.");
 
                     std::string subst_info = subst_entry.key();
-                    subst(subst_info, new_code);
+                    register_substitution(subst_info, new_code);
                 }
             } else {
                 ilog("Manifest found but chain id not present.");
@@ -224,10 +220,34 @@ namespace eosio {
     void subst_plugin::plugin_initialize(const variables_map& options) {
         auto* chain_plug = app().find_plugin<chain_plugin>();
         auto& control = chain_plug->chain();
+
+        try {
+            control.get_wasm_interface().substitute_apply = [this](
+                const eosio::chain::digest_type& code_hash,
+                uint8_t vm_type, uint8_t vm_version,
+                eosio::chain::apply_context& context
+            ) {
+                return this->my->substitute_apply(code_hash, vm_type, vm_version, context);
+            };
+
+            my->db = &control.mutable_db();
+
+            my->app_options = options;
+
+            ilog("installed substitution hook");
+
+        } FC_LOG_AND_RETHROW()
+    }  // subst_plugin::plugin_initialize
+
+    void subst_plugin::plugin_startup() {
+
+        auto* chain_plug = app().find_plugin<chain_plugin>();
+        auto& control = chain_plug->chain();
+
         std::string chain_id = control.get_chain_id();
         try {
-            if (options.count("subst-by-name")) {
-                auto substs = options.at("subst-by-name").as<vector<string>>();
+            if (my->app_options.count("subst-by-name")) {
+                auto substs = my->app_options.at("subst-by-name").as<vector<string>>();
                 for (auto& s : substs) {
                     std::vector<std::string> v;
                     boost::split(v, s, boost::is_any_of(":"));
@@ -243,11 +263,11 @@ namespace eosio {
                     auto new_code_path = v[1];
 
                     std::vector<uint8_t> new_code = eosio::vm::read_wasm(new_code_path);
-                    my->subst(account_name, new_code);
+                    my->register_substitution(account_name, new_code);
                 }
             }
-            if (options.count("subst-by-hash")) {
-                auto substs = options.at("subst-by-hash").as<vector<string>>();
+            if (my->app_options.count("subst-by-hash")) {
+                auto substs = my->app_options.at("subst-by-hash").as<vector<string>>();
                 for (auto& s : substs) {
                     std::vector<std::string> v;
                     boost::split(v, s, boost::is_any_of(":"));
@@ -263,11 +283,11 @@ namespace eosio {
                     auto new_code_path = v[1];
 
                     std::vector<uint8_t> new_code = eosio::vm::read_wasm(new_code_path);
-                    my->subst(contract_hash, new_code);
+                    my->register_substitution(contract_hash, new_code);
                 }
             }
-            if (options.count("subst-manifest")) {
-                auto substs = options.at("subst-manifest").as<vector<string>>();
+            if (my->app_options.count("subst-manifest")) {
+                auto substs = my->app_options.at("subst-manifest").as<vector<string>>();
                 for (auto& s : substs) {
                     auto manifest_url = fc::url(s);
                     EOS_ASSERT(
@@ -280,20 +300,9 @@ namespace eosio {
             }
 
             my->debug_print_maps();
-
-            auto& iface = control.get_wasm_interface();
-            iface.substitute_apply = [this](
-                const eosio::chain::digest_type& code_hash,
-                uint8_t vm_type, uint8_t vm_version,
-                eosio::chain::apply_context& context
-            ) {
-                return this->my->substitute_apply(code_hash, vm_type, vm_version, context);
-            };
         }
         FC_LOG_AND_RETHROW()
-    }  // subst_plugin::plugin_initialize
-
-    void subst_plugin::plugin_startup() {}
+    }  // subst_plugin::plugin_startup
 
     void subst_plugin::plugin_shutdown() {}
 
