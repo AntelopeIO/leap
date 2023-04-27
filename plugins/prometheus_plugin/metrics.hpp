@@ -145,7 +145,7 @@ struct catalog_type {
    void register_update_handlers(boost::asio::io_context::strand& strand) {
       auto& http = app().get_plugin<http_plugin>();
       http.register_update_metrics(
-          [&strand, this](http_plugin::metrics metrics) { strand.post([metrics, this]() { update(metrics); }); });
+          [&strand, this](http_plugin::metrics metrics) { strand.post([metrics = std::move(metrics), this]() { update(metrics); }); });
 
       auto& net = app().get_plugin<net_plugin>();
 
@@ -153,8 +153,14 @@ struct catalog_type {
          strand.post([metrics, this]() { update(metrics); });
       });
 
-      net.register_increment_failed_p2p_connections([this]() { failed_p2p_connections.Increment(1); });
-      net.register_increment_dropped_trxs([this]() { dropped_trxs_total.Increment(1); });
+      net.register_increment_failed_p2p_connections([this]() {
+         // Increment is thread safe
+         failed_p2p_connections.Increment(1);
+      });
+      net.register_increment_dropped_trxs([this]() { 
+         // Increment is thread safe
+         dropped_trxs_total.Increment(1);
+      });
 
       auto& producer = app().get_plugin<producer_plugin>();
       producer.register_update_produced_block_metrics(

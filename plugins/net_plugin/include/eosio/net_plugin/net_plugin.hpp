@@ -35,8 +35,8 @@ namespace eosio {
         vector<connection_status>         connections()const;
 
         struct p2p_connections_metrics {
-           std::size_t num_peers;
-           std::size_t num_clients;
+           std::size_t num_peers   = 0;
+           std::size_t num_clients = 0;
         };
 
         void register_update_p2p_connection_metrics(std::function<void(p2p_connections_metrics)>&&);
