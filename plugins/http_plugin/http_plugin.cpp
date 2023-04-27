@@ -74,7 +74,7 @@ namespace eosio {
           * @return the constructed internal_url_handler
           */
          static detail::internal_url_handler make_app_thread_url_handler(const string& url, appbase::exec_queue to_queue, int priority, url_handler next, http_plugin_impl_ptr my, http_content_type content_type ) {
-            detail::internal_url_handler handler{url};
+            detail::internal_url_handler handler;
             handler.content_type = content_type;
             auto next_ptr = std::make_shared<url_handler>(std::move(next));
             handler.fn = [my=std::move(my), priority, to_queue, next_ptr=std::move(next_ptr)]
@@ -112,7 +112,7 @@ namespace eosio {
           * @return the constructed internal_url_handler
           */
          static detail::internal_url_handler make_http_thread_url_handler(const string& url, url_handler next, http_content_type content_type) {
-            detail::internal_url_handler handler{url};
+            detail::internal_url_handler handler;
             handler.content_type = content_type;
             handler.fn = [next=std::move(next)]( const detail::abstract_conn_ptr& conn, string&& r, string&& b, url_response_callback&& then ) mutable {
                try {

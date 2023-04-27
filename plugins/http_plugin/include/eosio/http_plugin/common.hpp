@@ -71,7 +71,6 @@ using internal_url_handler_fn = std::function<void(abstract_conn_ptr, string&&, 
 struct internal_url_handler {
    internal_url_handler_fn fn;
    http_content_type content_type = http_content_type::json;
-   explicit internal_url_handler(const string& url){}
 };
 /**
 * Helper method to calculate the "in flight" size of a fc::variant
