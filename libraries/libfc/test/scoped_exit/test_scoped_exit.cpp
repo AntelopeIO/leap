@@ -1,7 +1,6 @@
 #include <fc/scoped_exit.hpp>
 
-#define BOOST_TEST_MODULE scoped_exit
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 using namespace fc;
 

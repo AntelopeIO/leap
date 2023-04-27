@@ -1,12 +1,13 @@
-add_subdirectory( crypto )
-add_subdirectory( io )
-add_subdirectory( network )
-add_subdirectory( scoped_exit )
-add_subdirectory( static_variant )
-add_subdirectory( variant )
-add_subdirectory( variant_estimated_size )
+file(GLOB UNIT_TESTS
+        "*.cpp"
+        "crypto/*.cpp"
+        "io/*.cpp"
+        "network/*.cpp"
+        "scoped_exit/*.cpp"
+        "static_variant/*.cpp"
+        "variant/*.cpp"
+        "variant_estimated_size/*.cpp")
+add_executable( test_fc ${UNIT_TESTS} )
+target_link_libraries( test_fc fc )
 
-add_executable( test_base64 test_base64.cpp )
-target_link_libraries( test_base64 fc )
-
-add_test(NAME test_base64 COMMAND test_base64 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME test_fc COMMAND test_fc WORKING_DIRECTORY ${CMAKE_BINARY_DIR})

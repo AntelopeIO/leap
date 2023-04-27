@@ -1,4 +1,4 @@
-#define BOOST_TEST_MODULE base64
+#define BOOST_TEST_MODULE libfc
 #include <boost/test/included/unit_test.hpp>
 
 #include <fc/crypto/base64.hpp>
