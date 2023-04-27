@@ -68,7 +68,7 @@ try:
     if nodeArg != "":
         if chainSyncStrategyStr == "hardReplay":
             nodeArg += " --truncate-at-block %d" % terminate
-    if cluster.relaunchEosInstances(cachePopen=True, nodeArgs=nodeArg, waitForTerm=(terminate > 0)) is False:
+    if cluster.relaunchEosInstances(nodeArgs=nodeArg, waitForTerm=(terminate > 0)) is False:
         errorExit("Failed to relaunch Eos instance")
     Print("nodeos instance relaunched.")
 

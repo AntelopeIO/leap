@@ -345,7 +345,7 @@ class Node(Transactions):
 
         if Utils.Debug: Utils.Print(f"Launching node process, Id: {self.nodeId}")
 
-        cmdArr=[]
+        cmdArr=self.cmd[:]
         if nodeosPath: self.cmd[0] = nodeosPath
         toAddOrSwap=copy.deepcopy(addSwapFlags) if addSwapFlags is not None else {}
         if not newChain:
