@@ -5,6 +5,10 @@
 #include <cstdarg>
 #include <cstdlib>
 
+namespace WASM
+{
+	bool check_limits = true;
+}
 namespace Log
 {
 	static bool categoryEnabled[(Uptr)Category::num] =
