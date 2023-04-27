@@ -179,26 +179,25 @@ public:
    static void set_test_mode(bool m) { test_mode_ = m; }
 
    struct produced_block_metrics {
-      std::size_t unapplied_transactions_total;
-      std::size_t blacklisted_transactions_total;
-      std::size_t subjective_bill_account_size_total;
-      std::size_t scheduled_trxs_total;
-      std::size_t trxs_produced_total;
-      uint64_t    cpu_usage_us;
-      uint64_t    net_usage_us;
+      std::size_t unapplied_transactions_total       = 0;
+      std::size_t blacklisted_transactions_total     = 0;
+      std::size_t subjective_bill_account_size_total = 0;
+      std::size_t scheduled_trxs_total               = 0;
+      std::size_t trxs_produced_total                = 0;
+      uint64_t    cpu_usage_us                       = 0;
+      uint64_t    net_usage_us                       = 0;
 
-
-      uint32_t last_irreversible;
-      uint32_t head_block_num;
+      uint32_t last_irreversible = 0;
+      uint32_t head_block_num    = 0;
    };
 
    struct incoming_block_metrics {
-      std::size_t trxs_incoming_total;
-      uint64_t    cpu_usage_us;
-      uint64_t    net_usage_us;
-      
-      uint32_t    last_irreversible;
-      uint32_t    head_block_num;
+      std::size_t trxs_incoming_total = 0;
+      uint64_t    cpu_usage_us        = 0;
+      uint64_t    net_usage_us        = 0;
+
+      uint32_t last_irreversible = 0;
+      uint32_t head_block_num    = 0;
    };
 
    void register_update_produced_block_metrics(std::function<void(produced_block_metrics)>&&);
