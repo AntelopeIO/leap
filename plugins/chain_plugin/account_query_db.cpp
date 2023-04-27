@@ -266,7 +266,8 @@ namespace eosio::chain_apis {
             } else {
                const auto& po = *itr;
 
-               uint32_t last_updated_height = po.last_updated == bsp->header.timestamp ? bsp->block_num : last_updated_time_to_height(po.last_updated);
+               uint32_t last_updated_height = chain::block_timestamp_type(po.last_updated) == bsp->header.timestamp ?
+                  bsp->block_num : last_updated_time_to_height(po.last_updated);
 
                index.modify(index.iterator_to(pi), [&po, last_updated_height](auto& mutable_pi) {
                   mutable_pi.last_updated_height = last_updated_height;
