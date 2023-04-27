@@ -538,35 +538,8 @@ def main():
     args = PerfTestArgumentsHandler.parseArgs()
     Utils.Debug = args.v
 
-    testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
-                                                             dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file,
-                                                             verbose=args.v)
-
-    chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
-                                      chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,
-                                      wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
-                                      eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
-                                      blockLogRetainBlocks=args.block_log_retain_blocks,
-                                      chainStateDbSizeMb=args.chain_state_db_size_mb, abiSerializerMaxTimeMs=990000)
-
-    producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
-                                            cpuEffortPercent=args.cpu_effort_percent,
-                                            producerThreads=args.producer_threads, maxTransactionTime=-1)
-    httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
-                                    httpThreads=args.http_threads)
-    netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
-    nodeosVers=Utils.getNodeosVersion().split('.')[0]
-    resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not nodeosVers == "v2")
-    ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
-    extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
-                          resourceMonitorPluginArgs=resourceMonitorPluginArgs)
-    SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
-    specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
-    testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
-                                                           prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
-                                                           specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
-                                                           nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
-
+    testHelperConfig = PerformanceTestBasic.setupTestHelperConfig(args)
+    testClusterConfig = PerformanceTestBasic.setupClusterConfig(args)
 
     ptConfig = PerformanceTest.PtConfig(testDurationSec=args.test_iteration_duration_sec,
                                         finalDurationSec=args.final_iterations_duration_sec,
@@ -586,6 +559,7 @@ def main():
                                         userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
 
     myTest = PerformanceTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptConfig=ptConfig)
+
     perfRunSuccessful = myTest.runTest()
 
     exitCode = 0 if perfRunSuccessful else 1

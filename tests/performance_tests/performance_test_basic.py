@@ -76,9 +76,9 @@ class PerformanceTestBasic:
             abiFile: str = "eosio.system.abi"
             account: Account = Account("eosio")
 
-        pnodes: int = 1
-        totalNodes: int = 2
-        topo: str = "mesh"
+        producerNodeCount: int = 1
+        validationNodeCount: int = 1
+        apiNodeCount: int = 0
         extraNodeosArgs: ExtraNodeosArgs = field(default_factory=ExtraNodeosArgs)
         specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
@@ -90,20 +90,45 @@ class PerformanceTestBasic:
         nodeosVers: str = ""
         specificExtraNodeosArgs: dict = field(default_factory=dict)
         _totalNodes: int = 2
+        _pNodes: int = 1
+        _producerNodeIds: list = field(default_factory=list)
+        _validationNodeIds: list = field(default_factory=list)
+        _apiNodeIds: list = field(default_factory=list)
         nonProdsEosVmOcEnable: bool = False
 
         def __post_init__(self):
-            self._totalNodes = self.pnodes + 1 if self.totalNodes <= self.pnodes else self.totalNodes
-            nonProdsSpecificNodeosStr = ""
-            if not self.prodsEnableTraceApi:
-                nonProdsSpecificNodeosStr += "--plugin eosio::trace_api_plugin "
-            if self.nonProdsEosVmOcEnable:
-                nonProdsSpecificNodeosStr += "--eos-vm-oc-enable "
-            self.specificExtraNodeosArgs.update({f"{node}" : nonProdsSpecificNodeosStr for node in range(self.pnodes, self._totalNodes)})
+            self._totalNodes = self.producerNodeCount + self.validationNodeCount + self.apiNodeCount
+            # Setup Expectations for Producer and Validation Node IDs
+            # Producer Nodes are index [0, producerNodeCount) and non-producer nodes (validationNodeCount, apiNodeCount) nodes follow the producer nodes [producerNodeCount, _totalNodes)
+            self._producerNodeIds = list(range(0, self.producerNodeCount))
+            self._validationNodeIds = list(range(self.producerNodeCount, self.producerNodeCount + self.validationNodeCount))
+            self._apiNodeIds = list(range(self.producerNodeCount + self.validationNodeCount, self.producerNodeCount + self.validationNodeCount + self.validationNodeCount))
+
+            def configureValidationNodes():
+                validationNodeSpecificNodeosStr = ""
+                if self.nodeosVers == "v2":
+                    validationNodeSpecificNodeosStr += '--plugin eosio::history_api_plugin --filter-on "*" '
+                else:
+                    #If prodsEnableTraceApi, then Cluster configures all nodes with trace_api_plugin so no need to duplicate here
+                    if not self.prodsEnableTraceApi:
+                        validationNodeSpecificNodeosStr += "--plugin eosio::trace_api_plugin "
+                if self.nonProdsEosVmOcEnable:
+                    validationNodeSpecificNodeosStr += "--eos-vm-oc-enable "
+                if validationNodeSpecificNodeosStr:
+                    self.specificExtraNodeosArgs.update({f"{nodeId}" : validationNodeSpecificNodeosStr for nodeId in self._validationNodeIds})
+
+            def configureApiNodes():
+                apiNodeSpecificNodeosStr = ""
+                apiNodeSpecificNodeosStr += "--plugin eosio::chain_api_plugin "
+                if apiNodeSpecificNodeosStr:
+                    self.specificExtraNodeosArgs.update({f"{nodeId}" : apiNodeSpecificNodeosStr for nodeId in self._apiNodeIds})
+
+            configureValidationNodes()
+            configureApiNodes()
+
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
                 self.writeTrx = lambda trxDataFile, blockNum, trx: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n")]
-                self.specificExtraNodeosArgs.update({f"{node}" : '--plugin eosio::history_api_plugin --filter-on "*"' for node in range(self.pnodes, self._totalNodes)})
                 self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: log_reader.blockData(blockId=block["payload"]["id"], blockNum=block['payload']['block_num'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"])
                 self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction['trx']['id'], log_reader.trxData(blockNum, transaction['cpu_usage_us'],transaction['net_usage_words']))]))
             else:
@@ -164,11 +189,9 @@ class PerformanceTestBasic:
         self.blockTrxDataPath = self.blockDataLogDirPath/Path("blockTrxData.txt")
         self.reportPath = self.loggingConfig.logDirPath/Path("data.json")
 
-        # Setup Expectations for Producer and Validation Node IDs
-        # Producer Nodes are index [0, pnodes) and validation nodes/non-producer nodes [pnodes, _totalNodes)
         # Use first producer node and first non-producer node
-        self.producerNodeId = 0
-        self.validationNodeId = self.clusterConfig.pnodes
+        self.producerNodeId = self.clusterConfig._producerNodeIds[0]
+        self.validationNodeId = self.clusterConfig._validationNodeIds[0]
         pid = os.getpid()
         self.nodeosLogDir =  Path(self.loggingConfig.logDirPath)/"var"/f"{self.testNamePath}{pid}"
         self.nodeosLogPath = self.nodeosLogDir/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
@@ -276,9 +299,8 @@ class PerformanceTestBasic:
 
     def launchCluster(self):
         return self.cluster.launch(
-            pnodes=self.clusterConfig.pnodes,
+            pnodes=self.clusterConfig._pNodes,
             totalNodes=self.clusterConfig._totalNodes,
-            topo=self.clusterConfig.topo,
             genesisPath=self.clusterConfig.genesisPath,
             maximumP2pPerHost=self.clusterConfig.maximumP2pPerHost,
             maximumClients=self.clusterConfig.maximumClients,
@@ -343,8 +365,8 @@ class PerformanceTestBasic:
         completedRun = False
         self.producerNode = self.cluster.getNode(self.producerNodeId)
         self.connectionPairList = []
-        for producer in range(0, self.clusterConfig.pnodes):
-            self.connectionPairList.append(f"{self.cluster.getNode(producer).host}:{self.cluster.getNodeP2pPort(producer)}")
+        for producerId in self.clusterConfig._producerNodeIds:
+            self.connectionPairList.append(f"{self.cluster.getNode(producerId).host}:{self.cluster.getNodeP2pPort(producerId)}")
         self.validationNode = self.cluster.getNode(self.validationNodeId)
         self.wallet = self.walletMgr.create('default')
         self.setupContract()
@@ -532,11 +554,41 @@ class PerformanceTestBasic:
 
             return testSuccessful
 
+    def setupTestHelperConfig(args) -> TestHelperConfig:
+        return PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+                                                                dumpErrorDetails=args.dump_error_details, delay=args.d, verbose=args.v)
+
+    def setupClusterConfig(args) -> ClusterConfig:
+
+        chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
+                                        chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,
+                                        wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
+                                        eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
+                                        blockLogRetainBlocks=args.block_log_retain_blocks,
+                                        chainStateDbSizeMb=args.chain_state_db_size_mb, abiSerializerMaxTimeMs=990000)
+
+        producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
+                                                cpuEffortPercent=args.cpu_effort_percent,
+                                                producerThreads=args.producer_threads, maxTransactionTime=-1)
+        httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb, httpMaxInFlightRequests=args.http_max_in_flight_requests,
+                                        httpMaxResponseTimeMs=args.http_max_response_time_ms, httpThreads=args.http_threads)
+        netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
+        nodeosVers=Utils.getNodeosVersion().split('.')[0]
+        resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not nodeosVers == "v2")
+        ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
+        extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
+                            resourceMonitorPluginArgs=resourceMonitorPluginArgs)
+        SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
+        specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
+        return PerformanceTestBasic.ClusterConfig(producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, apiNodeCount=args.api_nodes,
+                                                            genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
+                                                            specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
+                                                            nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
+
 class PtbArgumentsHandler(object):
     @staticmethod
     def createBaseArgumentParser(suppressHelp: bool=False):
-        testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-p","-n","-d","-s","--nodes-file"
-                                                            ,"--dump-error-details","-v","--leave-running"
+        testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-d","--dump-error-details","-v","--leave-running"
                                                             ,"--clean-run","--unshared"}, suppressHelp=suppressHelp)
         ptbBaseParser = argparse.ArgumentParser(parents=[testHelperArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -544,6 +596,9 @@ class PtbArgumentsHandler(object):
         ptbBaseGrpDescription="Performance Test Basic base configuration items."
         ptbBaseParserGroup = ptbBaseParser.add_argument_group(title=None if suppressHelp else ptbBaseGrpTitle, description=None if suppressHelp else ptbBaseGrpDescription)
 
+        ptbBaseParserGroup.add_argument("--producer-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "Producing nodes count", default=1)
+        ptbBaseParserGroup.add_argument("--validation-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "Validation nodes count", default=1)
+        ptbBaseParserGroup.add_argument("--api-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "API nodes count", default=0)
         ptbBaseParserGroup.add_argument("--tps-limit-per-generator", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum amount of transactions per second a single generator can have.", default=4000)
         ptbBaseParserGroup.add_argument("--genesis", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to genesis.json", default="tests/performance_tests/genesis.json")
         ptbBaseParserGroup.add_argument("--num-blocks-to-prune", type=int, help=argparse.SUPPRESS if suppressHelp else ("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
@@ -563,6 +618,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help=argparse.SUPPRESS if suppressHelp else "Disable subjective CPU billing for API/P2P transactions", default=True)
         ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
         ptbBaseParserGroup.add_argument("--producer-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in producer thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--http-max-in-flight-requests", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum time for processing a request, -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-bytes-in-flight-mb", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429\
                                          error response when exceeded.", default=-1)
@@ -619,37 +675,13 @@ def main():
     args = PtbArgumentsHandler.parseArgs()
     Utils.Debug = args.v
 
-    testHelperConfig = PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
-                                                             dumpErrorDetails=args.dump_error_details, delay=args.d, nodesFile=args.nodes_file, verbose=args.v, unshared=args.unshared)
-
-    chainPluginArgs = ChainPluginArgs(signatureCpuBillablePct=args.signature_cpu_billable_pct,
-                                      chainThreads=args.chain_threads, databaseMapMode=args.database_map_mode,
-                                      wasmRuntime=args.wasm_runtime, contractsConsole=args.contracts_console,
-                                      eosVmOcCacheSizeMb=args.eos_vm_oc_cache_size_mb, eosVmOcCompileThreads=args.eos_vm_oc_compile_threads,
-                                      blockLogRetainBlocks=args.block_log_retain_blocks,
-                                      chainStateDbSizeMb=args.chain_state_db_size_mb, abiSerializerMaxTimeMs=990000)
-
-    producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
-                                            cpuEffortPercent=args.cpu_effort_percent,
-                                            producerThreads=args.producer_threads, maxTransactionTime=-1)
-    httpPluginArgs = HttpPluginArgs(httpMaxResponseTimeMs=args.http_max_response_time_ms, httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb,
-                                    httpThreads=args.http_threads)
-    netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
-    nodeosVers=Utils.getNodeosVersion().split('.')[0]
-    resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not nodeosVers == "v2")
-    ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
-    extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
-                          resourceMonitorPluginArgs=resourceMonitorPluginArgs)
-    SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
-    specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
-    testClusterConfig = PerformanceTestBasic.ClusterConfig(pnodes=args.p, totalNodes=args.n, topo=args.s, genesisPath=args.genesis,
-                                                           prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
-                                                           specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
-                                                           nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
+    testHelperConfig = PerformanceTestBasic.setupTestHelperConfig(args)
+    testClusterConfig = PerformanceTestBasic.setupClusterConfig(args)
 
     if args.contracts_console and testClusterConfig.loggingLevel != "debug" and testClusterConfig.loggingLevel != "all":
         print("Enabling contracts-console will not print anything unless debug level is 'debug' or higher."
               f" Current debug level is: {testClusterConfig.loggingLevel}")
+
     ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps,
                                                testTrxGenDurationSec=args.test_duration_sec,
                                                tpsLimitPerGenerator=args.tps_limit_per_generator,
@@ -659,6 +691,7 @@ def main():
                                                delPerfLogs=args.del_perf_logs,
                                                printMissingTransactions=args.print_missing_transactions,
                                                userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
+
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
 
     testSuccessful = myTest.runTest()
