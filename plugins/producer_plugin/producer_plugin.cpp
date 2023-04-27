@@ -1,12 +1,12 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/producer_plugin/pending_snapshot.hpp>
-#include <eosio/producer_plugin/subjective_billing.hpp>
 #include <eosio/producer_plugin/snapshot_scheduler.hpp>
 #include <eosio/producer_plugin/block_timing_util.hpp>
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/snapshot.hpp>
+#include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/transaction_object.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/unapplied_transaction_queue.hpp>
@@ -141,12 +141,7 @@ namespace {
 // track multiple failures on unapplied transactions
 class account_failures {
 public:
-
-   //lifetime of sb must outlive account_failures
-   explicit account_failures( const eosio::subjective_billing& sb )
-   : subjective_billing(sb)
-   {
-   }
+   account_failures() = default;
 
    void set_max_failures_per_account( uint32_t max_failures, uint32_t size ) {
       max_failures_per_account = max_failures;
@@ -162,17 +157,16 @@ public:
    // return true if exceeds max_failures_per_account and should be dropped
    bool failure_limit( const account_name& n ) {
       auto fitr = failed_accounts.find( n );
-      bool is_whitelisted = subjective_billing.is_account_disabled( n );
-      if( !is_whitelisted && fitr != failed_accounts.end() && fitr->second.num_failures >= max_failures_per_account ) {
+      if( fitr != failed_accounts.end() && fitr->second.num_failures >= max_failures_per_account ) {
          ++fitr->second.num_failures;
          return true;
       }
       return false;
    }
 
-   void report_and_clear(uint32_t block_num) {
+   void report_and_clear(uint32_t block_num, const chain::subjective_billing& sub_bill) {
       if (last_reset_block_num != block_num && (block_num % reset_window_size_in_num_blocks == 0) ) {
-         report(block_num);
+         report(block_num, sub_bill);
          failed_accounts.clear();
          last_reset_block_num = block_num;
       }
@@ -184,7 +178,7 @@ public:
    }
 
 private:
-   void report(uint32_t block_num) const {
+   void report(uint32_t block_num, const chain::subjective_billing& sub_bill) const {
       if( _log.is_enabled(fc::log_level::debug)) {
          auto now = fc::time_point::now();
          for ( const auto& e : failed_accounts ) {
@@ -203,7 +197,7 @@ private:
                reason += "other";
             }
             fc_dlog( _log, "Failed ${n} trxs, account: ${a}, sub bill: ${b}us, reason: ${r}",
-                     ("n", e.second.num_failures)("b", subjective_billing.get_subjective_bill(e.first, now))
+                     ("n", e.second.num_failures)("b", sub_bill.get_subjective_bill(e.first, now))
                      ("a", e.first)("r", reason) );
          }
       }
@@ -245,7 +239,6 @@ private:
    uint32_t max_failures_per_account = 3;
    uint32_t last_reset_block_num = 0;
    uint32_t reset_window_size_in_num_blocks = 1;
-   const eosio::subjective_billing& subjective_billing;
 };
 
 struct block_time_tracker {
@@ -339,7 +332,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       push_result handle_push_result( const transaction_metadata_ptr& trx,
                                       const next_function<transaction_trace_ptr>& next,
                                       const fc::time_point& start,
-                                      const chain::controller& chain,
+                                      chain::controller& chain,
                                       const transaction_trace_ptr& trace,
                                       bool return_failure_trace,
                                       bool disable_subjective_enforcement,
@@ -391,8 +384,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       transaction_id_with_expiry_index                         _blacklisted_transactions;
       pending_snapshot_index                                   _pending_snapshot_index;
-      subjective_billing                                       _subjective_billing;
-      account_failures                                         _account_fails{_subjective_billing};
+      account_failures                                         _account_fails;
       block_time_tracker                                       _time_tracker;
 
       std::optional<scoped_connection>                          _accepted_block_connection;
@@ -501,9 +493,10 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       }
 
       void on_block( const block_state_ptr& bsp ) {
+         auto& chain = chain_plug->chain();
          auto before = _unapplied_transactions.size();
          _unapplied_transactions.clear_applied( bsp );
-         _subjective_billing.on_block( _log, bsp, fc::time_point::now() );
+         chain.get_mutable_subjective_billing().on_block( _log, bsp, fc::time_point::now() );
          if (before > 0) {
             fc_dlog( _log, "Removed applied transactions before: ${before}, after: ${after}",
                      ("before", before)("after", _unapplied_transactions.size()) );
@@ -542,7 +535,6 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             _time_tracker.report( _idle_trx_time, chain.pending_block_num() );
          }
          _unapplied_transactions.add_aborted( chain.abort_block() );
-         _subjective_billing.abort_block();
          _idle_trx_time = fc::time_point::now();
       }
 
@@ -927,11 +919,6 @@ bool producer_plugin::is_producer_key(const chain::public_key_type& key) const
   return false;
 }
 
-int64_t producer_plugin::get_subjective_bill( const account_name& first_auth, const fc::time_point& now ) const
-{
-   return my->_subjective_billing.get_subjective_bill( first_auth, now );
-}
-
 chain::signature_type producer_plugin::sign_compact(const chain::public_key_type& key, const fc::sha256& digest) const
 {
   if(key != chain::public_key_type()) {
@@ -1014,7 +1001,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    fc::microseconds subjective_account_decay_time = fc::minutes(options.at( "subjective-account-decay-time-minutes" ).as<uint32_t>());
    EOS_ASSERT( subjective_account_decay_time.count() > 0, plugin_config_exception,
                "subjective-account-decay-time-minutes ${dt} must be greater than 0", ("dt", subjective_account_decay_time.to_seconds() / 60));
-   my->_subjective_billing.set_expired_accumulator_average_window( subjective_account_decay_time );
+   chain.get_mutable_subjective_billing().set_expired_accumulator_average_window( subjective_account_decay_time );
 
    my->_max_transaction_time_ms = options.at("max-transaction-time").as<int32_t>();
 
@@ -1040,7 +1027,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
        disable_subjective_billing = false;
    }
    if( disable_subjective_billing ) {
-       my->_subjective_billing.disable();
+      chain.get_mutable_subjective_billing().disable();
        ilog( "Subjective CPU billing disabled" );
    } else if( !my->_disable_subjective_p2p_billing && !my->_disable_subjective_api_billing ) {
        ilog( "Subjective CPU billing enabled" );
@@ -1167,7 +1154,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    if( options.count("disable-subjective-account-billing") ) {
       std::vector<std::string> accounts = options["disable-subjective-account-billing"].as<std::vector<std::string>>();
       for( const auto& a : accounts ) {
-         my->_subjective_billing.disable_account( account_name(a) );
+         chain.get_mutable_subjective_billing().disable_account( account_name(a) );
       }
    }
 
@@ -1966,15 +1953,16 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
 
       try {
-         _account_fails.report_and_clear(hbs->block_num);
+         chain::subjective_billing& subjective_bill = chain.get_mutable_subjective_billing();
+         _account_fails.report_and_clear(hbs->block_num, subjective_bill);
          _time_tracker.clear();
 
          if( !remove_expired_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
          if( !remove_expired_blacklisted_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
-         if( !_subjective_billing.remove_expired( _log, chain.pending_block_time(), fc::time_point::now(),
-                                                  [&](){ return should_interrupt_start_block( preprocess_deadline, pending_block_num ); } ) ) {
+         if( !subjective_bill.remove_expired( _log, chain.pending_block_time(), fc::time_point::now(),
+                                              [&](){ return should_interrupt_start_block( preprocess_deadline, pending_block_num ); } ) ) {
             return start_block_result::exhausted;
          }
 
@@ -2207,12 +2195,16 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
    auto start = fc::time_point::now();
    EOS_ASSERT(!trx->is_read_only(), producer_exception, "Unexpected read-only trx");
 
+   chain::controller& chain = chain_plug->chain();
+   chain::subjective_billing& subjective_bill = chain.get_mutable_subjective_billing();
+
+   auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
+
    bool disable_subjective_enforcement = (api_trx && _disable_subjective_api_billing)
                                          || (!api_trx && _disable_subjective_p2p_billing)
+                                         || subjective_bill.is_account_disabled( first_auth )
                                          || trx->is_transient();
 
-   chain::controller& chain = chain_plug->chain();
-   auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
    if( !disable_subjective_enforcement && _account_fails.failure_limit( first_auth ) ) {
       if( next ) {
          auto except_ptr = std::static_pointer_cast<fc::exception>( std::make_shared<tx_cpu_usage_exceeded>(
@@ -2231,12 +2223,12 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 
    int64_t sub_bill = 0;
    if( !disable_subjective_enforcement )
-      sub_bill = _subjective_billing.get_subjective_bill( first_auth, fc::time_point::now() );
+      sub_bill = subjective_bill.get_subjective_bill( first_auth, fc::time_point::now() );
 
    auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
    if( _pending_block_mode == pending_block_mode::producing && prev_billed_cpu_time_us > 0 ) {
       const auto& rl = chain.get_resource_limits_manager();
-      if ( !_subjective_billing.is_account_disabled( first_auth ) && !rl.is_unlimited_cpu( first_auth ) ) {
+      if ( !subjective_bill.is_account_disabled( first_auth ) && !rl.is_unlimited_cpu( first_auth ) ) {
          int64_t prev_billed_plus100_us = prev_billed_cpu_time_us + EOS_PERCENT( prev_billed_cpu_time_us, 100 * config::percent_1 );
          if( prev_billed_plus100_us < max_trx_time.count() ) max_trx_time = fc::microseconds( prev_billed_plus100_us );
       }
@@ -2251,7 +2243,7 @@ producer_plugin_impl::push_result
 producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
                                           const next_function<transaction_trace_ptr>& next,
                                           const fc::time_point& start,
-                                          const chain::controller& chain,
+                                          chain::controller& chain,
                                           const transaction_trace_ptr& trace,
                                           bool return_failure_trace,
                                           bool disable_subjective_enforcement,
@@ -2259,6 +2251,8 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
                                           int64_t sub_bill,
                                           uint32_t prev_billed_cpu_time_us) {
    auto end = fc::time_point::now();
+   chain::subjective_billing& subjective_bill = chain.get_mutable_subjective_billing();
+
    push_result pr;
    if( trace->except ) {
       // Transient trxs are dry-run or read-only.
@@ -2286,7 +2280,7 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
             fc_tlog( _log, "Subjective bill for failed ${a}: ${b} elapsed ${t}us, time ${r}us",
                      ("a",first_auth)("b",sub_bill)("t",trace->elapsed)("r", end - start));
             if (!disable_subjective_enforcement) // subjectively bill failure when producing since not in objective cpu account billing
-               _subjective_billing.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
+               subjective_bill.subjective_bill_failure( first_auth, trace->elapsed, fc::time_point::now() );
 
             log_trx_results( trx, trace, start );
             // this failed our configured maximum transaction time, we don't want to replay it
@@ -2319,7 +2313,7 @@ producer_plugin_impl::handle_push_result( const transaction_metadata_ptr& trx,
       log_trx_results( trx, trace, start );
       // if producing then trx is in objective cpu account billing
       if (!disable_subjective_enforcement && _pending_block_mode != pending_block_mode::producing) {
-         _subjective_billing.subjective_bill( trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed );
+         subjective_bill.subjective_bill( trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed );
       }
       if( next ) next( trace );
    }
@@ -2751,7 +2745,7 @@ void producer_plugin_impl::produce_block() {
       _update_produced_block_metrics(
           {.unapplied_transactions_total       = _unapplied_transactions.size(),
            .blacklisted_transactions_total     = _blacklisted_transactions.size(),
-           .subjective_bill_account_size_total = _subjective_billing.get_account_cache_size(),
+           .subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size(),
            .scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size(),
            .trxs_produced_total  = new_bs->block->transactions.size(),
            .cpu_usage_us         = br.total_cpu_usage_us,

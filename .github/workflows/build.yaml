@@ -103,12 +103,18 @@ jobs:
           zstdcat build.tar.zst | tar x
           cd build
           cpack
+      - name: Install dev package
+        run: |
+          apt update && apt upgrade -y
+          apt install -y ./build/leap_*.deb ./build/leap-dev*.deb
+      - name: Test using TestHarness
+        run: |
+          python3 -c "from TestHarness import Cluster"
       - name: Upload dev package
         uses: actions/upload-artifact@v3
         with:
           name: leap-dev-ubuntu20-amd64
           path: build/leap-dev*.deb
-
   tests:
     name: Tests
     needs: [d, Build]

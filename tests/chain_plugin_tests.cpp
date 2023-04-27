@@ -95,7 +95,7 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    char headnumstr[20];
    sprintf(headnumstr, "%d", headnum);
    chain_apis::read_only::get_raw_block_params param{headnumstr};
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
 
    // block should be decoded successfully
    auto block = plugin.get_raw_block(param, fc::time_point::maximum());
@@ -139,7 +139,7 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
 BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {
    produce_blocks(1);
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr, nullptr);
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr);
 
    auto parms = plugin.get_consensus_parameters({}, fc::time_point::maximum());
 
@@ -186,7 +186,7 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
 
    produce_block();
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr, nullptr);
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr);
 
    chain_apis::read_only::get_account_params p{"alice"_n};
 
