@@ -1,4 +1,6 @@
 #include <fc/string.hpp>
+#include <fc/utf8.hpp>
+#include <fc/io/json.hpp>
 #include <fc/exception/exception.hpp>
 #include <boost/lexical_cast.hpp>
 #include <boost/algorithm/string.hpp>
@@ -83,12 +85,41 @@ namespace fc  {
   std::string trim( const std::string& s )
   {
       return boost::algorithm::trim_copy(s);
-      /*
-      std::string cpy(s);
-      boost::algorithm::trim(cpy);
-      return cpy;
-      */
   }
+
+  std::pair<std::string&, bool> escape_str( std::string& str, bool escape_control_chars,
+                                            std::size_t max_len, const char* add_truncate_str )
+  {
+     bool modified = false, truncated = false;
+     // truncate early to speed up escape
+     if (str.size() > max_len) {
+        str.resize(max_len);
+        modified = truncated = true;
+     }
+     auto itr = escape_control_chars
+           ? std::find_if(str.begin(), str.end(),
+                          [](const auto& c) {
+              return c == '\x7f' || c == '\\' || c == '\"' ||  (c >= '\x00' && c <= '\x1f'); } )
+           : std::find_if(str.begin(), str.end(),
+                          [](const auto& c) {               // x09 = \t, x0a = \n,                   x0d = \r
+              return c == '\x7f' || (c >= '\x00' && c <= '\x08') || c == '\x0b' || c == '\x0c' || (c >= '\x0e' && c <= '\x1f'); } );
+
+     if (itr != str.end() || !fc::is_valid_utf8( str )) {
+        str = escape_string(str, nullptr, escape_control_chars);
+        modified = true;
+        if (str.size() > max_len) {
+           str.resize(max_len);
+           truncated = true;
+        }
+     }
+
+     if (truncated && add_truncate_str != nullptr ) {
+        str += add_truncate_str;
+     }
+
+     return std::make_pair(std::ref(str), modified);
+  }
+
 
 } // namespace fc
 
