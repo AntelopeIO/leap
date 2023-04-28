@@ -2097,8 +2097,8 @@ inline std::string get_detailed_contract_except_info(const packed_transaction_pt
    }
 
    std::string details = except_ptr ? except_ptr->top_message()
-                                    : (trace && trace->except) ? trace->except->top_message()
-                                                               : std::string();
+                                    : ((trace && trace->except) ? trace->except->top_message()
+                                                                : std::string());
    const bool escape_control_chars = true;
    fc::escape_str(details, escape_control_chars, 1024);
 
