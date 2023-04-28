@@ -74,7 +74,7 @@ namespace eosio {
           * @return the constructed internal_url_handler
           */
          static detail::internal_url_handler make_app_thread_url_handler(const string& url, appbase::exec_queue to_queue, int priority, url_handler next, http_plugin_impl_ptr my, http_content_type content_type ) {
-            detail::internal_url_handler handler{url};
+            detail::internal_url_handler handler;
             handler.content_type = content_type;
             auto next_ptr = std::make_shared<url_handler>(std::move(next));
             handler.fn = [my=std::move(my), priority, to_queue, next_ptr=std::move(next_ptr)]
@@ -112,7 +112,7 @@ namespace eosio {
           * @return the constructed internal_url_handler
           */
          static detail::internal_url_handler make_http_thread_url_handler(const string& url, url_handler next, http_content_type content_type) {
-            detail::internal_url_handler handler{url};
+            detail::internal_url_handler handler;
             handler.content_type = content_type;
             handler.fn = [next=std::move(next)]( const detail::abstract_conn_ptr& conn, string&& r, string&& b, url_response_callback&& then ) mutable {
                try {
@@ -474,16 +474,16 @@ namespace eosio {
       return result;
    }
 
-   void http_plugin::register_metrics_listener(chain::plugin_interface::metrics_listener listener) {
-      my->plugin_state->metrics.register_listener(std::move(listener));
-   }
-
    fc::microseconds http_plugin::get_max_response_time()const {
       return my->plugin_state->max_response_time;
    }
 
    size_t http_plugin::get_max_body_size()const {
       return my->plugin_state->max_body_size;
+   }
+
+   void  http_plugin::register_update_metrics(std::function<void(metrics)>&& fun) {
+      my->plugin_state->update_metrics = std::move(fun);
    }
 
 }

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <eosio/chain/plugin_metrics.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/chain/snapshot_scheduler.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
@@ -10,37 +9,6 @@
 namespace eosio {
 
 using boost::signals2::signal;
-
-using chain::plugin_interface::runtime_metric;
-using chain::plugin_interface::metric_type;
-using chain::plugin_interface::metrics_listener;
-using chain::plugin_interface::plugin_metrics;
-
-struct producer_plugin_metrics : public plugin_metrics {
-   runtime_metric unapplied_transactions{metric_type::gauge, "unapplied_transactions", "unapplied_transactions", 0};
-   runtime_metric blacklisted_transactions{metric_type::gauge, "blacklisted_transactions", "blacklisted_transactions", 0};
-   runtime_metric blocks_produced{metric_type::counter, "blocks_produced", "blocks_produced", 0};
-   runtime_metric trxs_produced{metric_type::counter, "trxs_produced", "trxs_produced", 0};
-   runtime_metric last_irreversible{metric_type::gauge, "last_irreversible", "last_irreversible", 0};
-   runtime_metric head_block_num{metric_type::gauge, "head_block_num", "head_block_num", 0};
-   runtime_metric subjective_bill_account_size{metric_type::gauge, "subjective_bill_account_size", "subjective_bill_account_size", 0};
-   runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
-
-   vector<runtime_metric> metrics() final {
-      vector<runtime_metric> metrics{
-            unapplied_transactions,
-            blacklisted_transactions,
-            blocks_produced,
-            trxs_produced,
-            last_irreversible,
-            head_block_num,
-            subjective_bill_account_size,
-            scheduled_trxs
-      };
-
-      return metrics;
-   }
-};
 
 class producer_plugin : public appbase::plugin<producer_plugin> {
 public:
@@ -170,7 +138,6 @@ public:
 
 
    void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
-   void register_metrics_listener(metrics_listener listener);
 
    // thread-safe, called when a new block is received
    void received_block(uint32_t block_num);
@@ -178,6 +145,32 @@ public:
    const std::set<account_name>& producer_accounts() const;
 
    static void set_test_mode(bool m) { test_mode_ = m; }
+
+   struct produced_block_metrics {
+      std::size_t unapplied_transactions_total       = 0;
+      std::size_t blacklisted_transactions_total     = 0;
+      std::size_t subjective_bill_account_size_total = 0;
+      std::size_t scheduled_trxs_total               = 0;
+      std::size_t trxs_produced_total                = 0;
+      uint64_t    cpu_usage_us                       = 0;
+      uint64_t    net_usage_us                       = 0;
+
+      uint32_t last_irreversible = 0;
+      uint32_t head_block_num    = 0;
+   };
+
+   struct incoming_block_metrics {
+      std::size_t trxs_incoming_total = 0;
+      uint64_t    cpu_usage_us        = 0;
+      uint64_t    net_usage_us        = 0;
+
+      uint32_t last_irreversible = 0;
+      uint32_t head_block_num    = 0;
+   };
+
+   void register_update_produced_block_metrics(std::function<void(produced_block_metrics)>&&);
+   void register_update_incoming_block_metrics(std::function<void(incoming_block_metrics)>&&);
+
  private:
    inline static bool test_mode_{false}; // to be moved into appbase (application_base)
 
