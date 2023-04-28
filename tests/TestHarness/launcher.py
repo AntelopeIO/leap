@@ -557,4 +557,7 @@ class cluster_generator:
                     pname = self.network.nodes[p].dot_label
                     f.write(f'"{node.dot_label}"->"{pname}" [dir="forward"];\n')
             f.write('}')
-        subprocess.run(['dot', '-Tpng', f'-o{Utils.DataDir}testnet.png', Utils.DataDir + 'testnet.dot'])
+        try:
+            subprocess.run(['dot', '-Tpng', f'-o{Utils.DataDir}testnet.png', Utils.DataDir + 'testnet.dot'])
+        except FileNotFoundError:
+            pass
