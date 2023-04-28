@@ -113,7 +113,7 @@ namespace fc  {
         }
      }
 
-     if (truncated && !add_truncate_str.empty()) {
+     if (truncated) {
         str += add_truncate_str;
      }
 
