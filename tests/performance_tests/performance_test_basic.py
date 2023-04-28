@@ -425,25 +425,9 @@ class PerformanceTestBasic:
 
     def captureLowLevelArtifacts(self):
         try:
-            pid = os.getpid()
             shutil.move(f"{self.cluster.nodeosLogPath}", f"{self.varLogsDirPath}")
         except Exception as e:
             print(f"Failed to move '{self.cluster.nodeosLogPath}' to '{self.varLogsDirPath}': {type(e)}: {e}")
-
-        etcEosioDir = Path("etc")/"eosio"
-        for path in os.listdir(etcEosioDir):
-            if path == "launcher":
-                try:
-                    # Need to copy here since testnet.template is only generated at compile time then reused, therefore
-                    # it needs to remain in etc/eosio/launcher for subsequent tests.
-                    shutil.copytree(etcEosioDir/Path(path), self.etcEosioLogsDirPath/Path(path))
-                except Exception as e:
-                    print(f"Failed to copy '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
-            else:
-                try:
-                    shutil.move(etcEosioDir/Path(path), self.etcEosioLogsDirPath/Path(path))
-                except Exception as e:
-                    print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
 
 
     def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
