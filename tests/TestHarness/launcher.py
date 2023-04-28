@@ -7,6 +7,7 @@ import math
 from pathlib import Path
 import shlex
 import string
+import subprocess
 from typing import ClassVar, Dict, List
 
 from .testUtils import Utils
@@ -549,11 +550,11 @@ class cluster_generator:
         return eosdcmd
 
     def write_dot_file(self):
-        with open('testnet.dot', 'w') as f:
+        with open(Utils.DataDir + 'testnet.dot', 'w') as f:
             f.write('digraph G\n{\nlayout="circo";\n')
             for node in self.network.nodes.values():
                 for p in node.peers:
                     pname = self.network.nodes[p].dot_label
                     f.write(f'"{node.dot_label}"->"{pname}" [dir="forward"];\n')
             f.write('}')
-
+        subprocess.run(['dot', '-Tpng', f'-o{Utils.DataDir}testnet.png', Utils.DataDir + 'testnet.dot'])
