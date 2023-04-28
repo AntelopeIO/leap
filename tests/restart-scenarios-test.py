@@ -95,7 +95,7 @@ try:
         errorExit("Cluster sync wait failed.")
 
     Print ("Relaunch dead cluster nodes instances.")
-    if cluster.relaunchEosInstances(cachePopen=True) is False:
+    if cluster.relaunchEosInstances() is False:
         errorExit("Failed to relaunch Eos instances")
     Print("nodeos instances relaunched.")
 
@@ -112,7 +112,7 @@ try:
     if not cluster.waitOnClusterSync():
         errorExit("Cluster sync wait failed.")
 
-    if killEosInstances:
+    if not args.leave_running:
         atLeastOne=False
         for node in cluster.getNodes():
             if node.popenProc is not None:
