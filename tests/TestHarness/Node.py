@@ -346,32 +346,26 @@ class Node(Transactions):
         if Utils.Debug: Utils.Print(f"Launching node process, Id: {self.nodeId}")
 
         cmdArr=self.cmd[:]
-        if nodeosPath: self.cmd[0] = nodeosPath
+        if nodeosPath: cmdArr[0] = nodeosPath
         toAddOrSwap=copy.deepcopy(addSwapFlags) if addSwapFlags is not None else {}
         if not newChain:
-            skip=False
-            swapValue=None
-            for i in self.cmd:
-                Utils.Print("\"%s\"" % (i))
-                if skip:
-                    skip=False
-                    continue
-                if skipGenesis and ("--genesis-json" == i or "--genesis-timestamp" == i):
-                    skip=True
-                    continue
-
-                if swapValue is None:
-                    cmdArr.append(i)
-                else:
-                    cmdArr.append(swapValue)
-                    swapValue=None
-
-                if i in toAddOrSwap:
-                    swapValue=toAddOrSwap[i]
-                    del toAddOrSwap[i]
+            if skipGenesis:
+                try:
+                    i = cmdArr.index('--genesis-json')
+                    cmdArr.pop(i)
+                    cmdArr.pop(i)
+                    i = cmdArr.index('--genesis-timestamp')
+                    cmdArr.pop(i)
+                    cmdArr.pop(i)
+                except ValueError:
+                    pass
             for k,v in toAddOrSwap.items():
-                cmdArr.append(k)
-                cmdArr.append(v)
+                try:
+                    i = cmdArr.index(k)
+                    cmdArr[i+1] = v
+                except ValueError:
+                    cmdArr.append(k)
+                    cmdArr.append(v)
 
         if chainArg:
             cmdArr.extend(shlex.split(chainArg))
