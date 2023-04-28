@@ -1984,23 +1984,21 @@ inline std::string get_detailed_contract_except_info(const packed_transaction_pt
 {
    std::string contract_name;
    std::string act_name;
-   std::string details;
-
    if( trace && !trace->action_traces.empty() ) {
       auto last_action_ordinal = trace->action_traces.size() - 1;
       contract_name = trace->action_traces[last_action_ordinal].receiver.to_string();
       act_name = trace->action_traces[last_action_ordinal].act.name.to_string();
    } else if ( trx ) {
       const auto& actions = trx->get_transaction().actions;
-      if( actions.empty() ) return details; // should not be possible
+      if( actions.empty() ) return {}; // should not be possible
       contract_name = actions[0].account.to_string();
       act_name = actions[0].name.to_string();
    }
 
-   details = except_ptr ? except_ptr->top_message() : (trace && trace->except) ? trace->except->top_message() : std::string();
-   if (!details.empty()) {
-      details = fc::format_string("${d}", fc::mutable_variant_object() ("d", details), true);  // true for limiting the formatted string size
-   }
+   std::string details = except_ptr ? except_ptr->top_message()
+                                    : ((trace && trace->except) ? trace->except->top_message()
+                                                                : std::string());
+   fc::escape_str(details, fc::escape_control_chars::on, 1024);
 
    // this format is parsed by external tools
    return "action: " + contract_name + ":" + act_name + ", " + details;

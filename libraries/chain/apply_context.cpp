@@ -19,15 +19,26 @@ namespace eosio { namespace chain {
 
 static inline void print_debug(account_name receiver, const action_trace& ar) {
    if (!ar.console.empty()) {
-      auto prefix = fc::format_string(
-                                      "\n[(${a},${n})->${r}]",
-                                      fc::mutable_variant_object()
-                                      ("a", ar.act.account)
-                                      ("n", ar.act.name)
-                                      ("r", receiver));
-      dlog(prefix + ": CONSOLE OUTPUT BEGIN =====================\n"
-           + ar.console
-           + prefix + ": CONSOLE OUTPUT END   =====================" );
+      if (fc::logger::get(DEFAULT_LOGGER).is_enabled( fc::log_level::debug )) {
+         std::string prefix;
+         prefix.reserve(3 + 13 + 1 + 13 + 3 + 13 + 1);
+         prefix += "\n[(";
+         prefix += ar.act.account.to_string();
+         prefix += ",";
+         prefix += ar.act.name.to_string();
+         prefix += ")->";
+         prefix += receiver.to_string();
+         prefix += "]";
+
+         std::string output;
+         output.reserve(512);
+         output += prefix;
+         output += ": CONSOLE OUTPUT BEGIN =====================\n";
+         output += ar.console;
+         output += prefix;
+         output += ": CONSOLE OUTPUT END   =====================";
+         dlog( std::move(output) );
+      }
    }
 }
 
