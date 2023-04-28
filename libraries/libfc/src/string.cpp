@@ -88,7 +88,7 @@ namespace fc  {
   }
 
   std::pair<std::string&, bool> escape_str( std::string& str, escape_control_chars escape_ctrl,
-                                            std::size_t max_len, const char* add_truncate_str )
+                                            std::size_t max_len, std::string_view add_truncate_str )
   {
      bool modified = false, truncated = false;
      // truncate early to speed up escape
@@ -113,7 +113,7 @@ namespace fc  {
         }
      }
 
-     if (truncated && add_truncate_str != nullptr ) {
+     if (truncated && !add_truncate_str.empty()) {
         str += add_truncate_str;
      }
 

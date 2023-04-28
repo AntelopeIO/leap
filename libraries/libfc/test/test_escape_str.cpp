@@ -30,7 +30,7 @@ BOOST_AUTO_TEST_CASE(empty) try {
    BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::on, 256, "").first, "");
 
    input = "";
-   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::off, 512, nullptr).first, "");
+   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::off, 512, {}).first, "");
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_CASE(truncate) try {
@@ -41,7 +41,7 @@ BOOST_AUTO_TEST_CASE(truncate) try {
    BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::on, 256, "").first, repeat_256_chars);
 
    input = repeat_512_chars;
-   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::on, 256, nullptr).first, repeat_256_chars);
+   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::on, 256, {}).first, repeat_256_chars);
 
    input = repeat_512_chars;
    BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::on, 256).first, repeat_256_chars + "...");
@@ -58,7 +58,7 @@ BOOST_AUTO_TEST_CASE(modify) try {
    BOOST_CHECK(escape_str(input, fc::escape_control_chars::on, 256, "").second);
 
    input = repeat_512_chars;
-   BOOST_CHECK(escape_str(input, fc::escape_control_chars::on, 256, nullptr).second);
+   BOOST_CHECK(escape_str(input, fc::escape_control_chars::on, 256, {}).second);
 
    input = repeat_512_chars;
    BOOST_CHECK(escape_str(input, fc::escape_control_chars::on, 256).second);
