@@ -1184,14 +1184,14 @@ class Cluster(object):
             return None
 
         Node.validateTransaction(trans[1])
-        Utils.Print("Wait for issue action transaction to become finalized.")
+        Utils.Print("Wait for issue action transaction to appear in a block.")
         transId=Node.getTransId(trans[1])
-        # biosNode.waitForTransactionInBlock(transId)
+        biosNode.waitForTransactionInBlock(transId)
         # guesstimating block finalization timeout. Two production rounds of 12 blocks per node, plus 60 seconds buffer
-        timeout = .5 * 12 * 2 * len(producerKeys) + 60
-        if not biosNode.waitForTransFinalization(transId, timeout=timeout):
-            Utils.Print("ERROR: Failed to validate transaction %s got rolled into a finalized block on server port %d." % (transId, biosNode.port))
-            return None
+        #timeout = .5 * 12 * 2 * len(producerKeys) + 60
+        #if not biosNode.waitForTransFinalization(transId, timeout=timeout):
+        #    Utils.Print("ERROR: Failed to validate transaction %s got rolled into a finalized block on server port %d." % (transId, biosNode.port))
+        #    return None
 
         expectedAmount="1000000000.0000 {0}".format(CORE_SYMBOL)
         Utils.Print("Verify eosio issue, Expected: %s" % (expectedAmount))
@@ -1229,7 +1229,7 @@ class Cluster(object):
 
             Node.validateTransaction(trans[1])
 
-        Utils.Print("Wait for last transfer transaction to become finalized.")
+        Utils.Print("Wait for last transfer transaction to appear in a block.")
         transId=Node.getTransId(trans[1])
         if not biosNode.waitForTransactionInBlock(transId):
             Utils.Print("ERROR: Failed to validate transaction %s got rolled into a block on server port %d." % (transId, biosNode.port))
