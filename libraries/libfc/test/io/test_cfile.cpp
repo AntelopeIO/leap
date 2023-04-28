@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE io
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/io/cfile.hpp>
 
