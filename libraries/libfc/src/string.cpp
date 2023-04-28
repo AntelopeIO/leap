@@ -87,7 +87,7 @@ namespace fc  {
       return boost::algorithm::trim_copy(s);
   }
 
-  std::pair<std::string&, bool> escape_str( std::string& str, bool escape_control_chars,
+  std::pair<std::string&, bool> escape_str( std::string& str, escape_control_chars escape_ctrl,
                                             std::size_t max_len, const char* add_truncate_str )
   {
      bool modified = false, truncated = false;
@@ -96,7 +96,7 @@ namespace fc  {
         str.resize(max_len);
         modified = truncated = true;
      }
-     auto itr = escape_control_chars
+     auto itr = escape_ctrl == escape_control_chars::on
            ? std::find_if(str.begin(), str.end(),
                           [](const auto& c) {
               return c == '\x7f' || c == '\\' || c == '\"' ||  (c >= '\x00' && c <= '\x1f'); } )
@@ -105,7 +105,7 @@ namespace fc  {
               return c == '\x7f' || (c >= '\x00' && c <= '\x08') || c == '\x0b' || c == '\x0c' || (c >= '\x0e' && c <= '\x1f'); } );
 
      if (itr != str.end() || !fc::is_valid_utf8( str )) {
-        str = escape_string(str, nullptr, escape_control_chars);
+        str = escape_string(str, nullptr, escape_ctrl == escape_control_chars::on);
         modified = true;
         if (str.size() > max_len) {
            str.resize(max_len);

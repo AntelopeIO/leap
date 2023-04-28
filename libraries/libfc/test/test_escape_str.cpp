@@ -21,16 +21,16 @@ BOOST_AUTO_TEST_CASE(escape_control_chars) try {
    escaped_str = "\\u0008\\u000c\n"
                  "\r\t\\\\u0001\\u0002\\u0003\\u0004\\u0005\\u0006\\u0007\\u0008\t\n"
                  "\\u000b\\u000c\r\\u000e\\u000f\\u0010\\u0011\\u0012\\u0013\\u0014\\u0015\\u0016\\u0017\\u0018\\u0019\\u001a\\u001b\\u001c\\u001d\\u001e\\u001f";
-   BOOST_CHECK_EQUAL(escape_str(input, false).first, escaped_str);
+   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::off).first, escaped_str);
 
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_CASE(empty) try {
    std::string input;
-   BOOST_CHECK_EQUAL(escape_str(input, true, 256, "").first, "");
+   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::on, 256, "").first, "");
 
    input = "";
-   BOOST_CHECK_EQUAL(escape_str(input, false, 512, nullptr).first, "");
+   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::off, 512, nullptr).first, "");
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_CASE(truncate) try {
@@ -38,16 +38,16 @@ BOOST_AUTO_TEST_CASE(truncate) try {
    const std::string repeat_256_chars(256, 'a');
 
    std::string input = repeat_512_chars;
-   BOOST_CHECK_EQUAL(escape_str(input, true, 256, "").first, repeat_256_chars);
+   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::on, 256, "").first, repeat_256_chars);
 
    input = repeat_512_chars;
-   BOOST_CHECK_EQUAL(escape_str(input, true, 256, nullptr).first, repeat_256_chars);
+   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::on, 256, nullptr).first, repeat_256_chars);
 
    input = repeat_512_chars;
-   BOOST_CHECK_EQUAL(escape_str(input, true, 256).first, repeat_256_chars + "...");
+   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::on, 256).first, repeat_256_chars + "...");
 
    input = repeat_512_chars;
-   BOOST_CHECK_EQUAL(escape_str(input, true, 256, "<-the end->").first, repeat_256_chars + "<-the end->");
+   BOOST_CHECK_EQUAL(escape_str(input, fc::escape_control_chars::on, 256, "<-the end->").first, repeat_256_chars + "<-the end->");
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_CASE(modify) try {
@@ -55,34 +55,34 @@ BOOST_AUTO_TEST_CASE(modify) try {
    const std::string repeat_256_chars(256, 'a');
 
    std::string input = repeat_512_chars;
-   BOOST_CHECK(escape_str(input, true, 256, "").second);
+   BOOST_CHECK(escape_str(input, fc::escape_control_chars::on, 256, "").second);
 
    input = repeat_512_chars;
-   BOOST_CHECK(escape_str(input, true, 256, nullptr).second);
+   BOOST_CHECK(escape_str(input, fc::escape_control_chars::on, 256, nullptr).second);
 
    input = repeat_512_chars;
-   BOOST_CHECK(escape_str(input, true, 256).second);
+   BOOST_CHECK(escape_str(input, fc::escape_control_chars::on, 256).second);
 
    input = repeat_512_chars;
-   BOOST_CHECK(!escape_str(input, true, 512).second);
+   BOOST_CHECK(!escape_str(input, fc::escape_control_chars::on, 512).second);
 
    input = repeat_512_chars;
-   BOOST_CHECK(!escape_str(input, true).second);
+   BOOST_CHECK(!escape_str(input, fc::escape_control_chars::on).second);
 
    input = repeat_512_chars;
-   BOOST_CHECK(!escape_str(input, true, 1024).second);
+   BOOST_CHECK(!escape_str(input, fc::escape_control_chars::on, 1024).second);
 
    input = "";
-   BOOST_CHECK(!escape_str(input, true, 1024).second);
+   BOOST_CHECK(!escape_str(input, fc::escape_control_chars::on, 1024).second);
 
    input = "hello";
-   BOOST_CHECK(!escape_str(input, true, 1024).second);
+   BOOST_CHECK(!escape_str(input, fc::escape_control_chars::on, 1024).second);
 
    input = "\n";
-   BOOST_CHECK(escape_str(input, true, 1024).second);
+   BOOST_CHECK(escape_str(input, fc::escape_control_chars::on, 1024).second);
 
    input ="\xb4";
-   BOOST_CHECK(escape_str(input, true, 1024).second);
+   BOOST_CHECK(escape_str(input, fc::escape_control_chars::on, 1024).second);
    BOOST_CHECK_EQUAL(input, "");
 
 } FC_LOG_AND_RETHROW();

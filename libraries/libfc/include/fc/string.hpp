@@ -30,13 +30,14 @@ namespace fc
    * All other characters unmolested.
    *
    * @param str input/output string to escape/truncate
-   * @param escape_control_chars if true escapes control chars in str
+   * @param escape_ctrl if on escapes control chars in str
    * @param max_len truncate string to max_len
    * @param add_truncate_str if truncated by max_len, add add_truncate_str to end of any truncated string,
    *                         new length with be max_len + strlen(add_truncate_str), nullptr allowed if no append wanted
    * @return pair<reference to possibly modified passed in str, true if modified>
    */
-  std::pair<std::string&, bool> escape_str( std::string& str, bool escape_control_chars = true,
+  enum class escape_control_chars { off, on };
+  std::pair<std::string&, bool> escape_str( std::string& str, escape_control_chars escape_ctrl = escape_control_chars::on,
                                             std::size_t max_len = std::numeric_limits<std::size_t>::max(),
                                             const char* add_truncate_str = "..." );
 }
