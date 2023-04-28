@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE libfc
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/crypto/base64.hpp>
 #include <fc/exception/exception.hpp>
