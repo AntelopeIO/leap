@@ -26,7 +26,7 @@ std::vector<block_id_type> alternate_ids{ block_id_type("00000001d49031dba775bd2
    block_id_type("00000003a5a001518358977e84a3f6abf87bf32a6e739ced9a7a3f6b0b8bf331")};
 
 //list of unique replicas for our test
-std::vector<name> unique_replicas{
+std::vector<name> unique_replicas {
    "bpa"_n, "bpb"_n, "bpc"_n,
    "bpd"_n, "bpe"_n, "bpf"_n,
    "bpg"_n, "bph"_n, "bpi"_n,
@@ -38,39 +38,34 @@ std::vector<name> unique_replicas{
 class hotstuff_test_handler {
 public:
 
-   std::vector<std::pair<name,qc_chain>> _qc_chains;
+   std::vector<std::pair<name, std::shared_ptr<qc_chain>>> _qc_chains;
 
    void initialize_qc_chains(test_pacemaker& tpm, std::vector<name> info_loggers, std::vector<name> error_loggers, std::vector<name> replicas){
 
       _qc_chains.clear();
 
-      for (name r : replicas){
+      // These used to be able to break the tests. Might be useful at some point.
+      _qc_chains.reserve( 100 );
+      //_qc_chains.reserve( 10000 );
+      //_qc_chains.reserve( 15 );
+      //_qc_chains.reserve( replicas.size() );
 
-         _qc_chains.push_back(std::make_pair(r, qc_chain()));
+      for (name r : replicas) {
 
+         bool log = std::find(info_loggers.begin(), info_loggers.end(), r) != info_loggers.end();
+         bool err = std::find(error_loggers.begin(), error_loggers.end(), r) != error_loggers.end();
+
+         //If you want to force logging everything
+         //log = err = true;
+
+         qc_chain *qcc_ptr = new qc_chain(r, &tpm, {r}, log, err);
+         std::shared_ptr<qc_chain> qcc_shared_ptr(qcc_ptr);
+
+         _qc_chains.push_back( std::make_pair(r, qcc_shared_ptr) );
+
+         tpm.register_qc_chain( r, qcc_shared_ptr );
       }
-
-      int counter = 0;
-
-      auto itr = _qc_chains.begin();
-
-      while (itr!=_qc_chains.end()){
-
-         bool log = false;
-         bool err = false;
-
-         auto i_found = std::find(info_loggers.begin(), info_loggers.end(), replicas[counter]);
-         auto e_found = std::find(error_loggers.begin(), error_loggers.end(), replicas[counter]);
-
-         if (i_found!=info_loggers.end()) log = true;
-         if (e_found!=error_loggers.end()) err = true;
-
-         itr->second.init(replicas[counter], tpm, {replicas[counter]}, log, err);
-
-         itr++;
-         counter++;
-      }
-   }
+  }
 
    void print_msgs(std::vector<test_pacemaker::hotstuff_message> msgs ){
 
@@ -123,28 +118,30 @@ public:
       std::cout << message;
       std::cout << "\n";
 
-      auto qcc = std::find_if(_qc_chains.begin(), _qc_chains.end(), [&](const auto& q){ return q.first == bp; });
+      auto qcc_entry = std::find_if(_qc_chains.begin(), _qc_chains.end(), [&](const auto& q){ return q.first == bp; });
 
-      auto leaf_itr = qcc->second._proposal_store.get<qc_chain::by_proposal_id>().find( qcc->second._b_leaf );
-      auto qc_itr = qcc->second._proposal_store.get<qc_chain::by_proposal_id>().find( qcc->second._high_qc.proposal_id );
-      auto lock_itr = qcc->second._proposal_store.get<qc_chain::by_proposal_id>().find( qcc->second._b_lock );
-      auto exec_itr = qcc->second._proposal_store.get<qc_chain::by_proposal_id>().find( qcc->second._b_exec );
+      qc_chain & qcc = *qcc_entry->second.get();
+      const hs_proposal_message *leaf = qcc.get_proposal( qcc._b_leaf );
+      const hs_proposal_message *qc   = qcc.get_proposal( qcc._high_qc.proposal_id );
+      const hs_proposal_message *lock = qcc.get_proposal( qcc._b_lock );
+      const hs_proposal_message *exec = qcc.get_proposal( qcc._b_exec );
 
-      if (leaf_itr != qcc->second._proposal_store.get<qc_chain::by_proposal_id>().end()) std::cout << "  - " << bp.to_string() << " current _b_leaf is : " << qcc->second._b_leaf.str() << " block_num : " << leaf_itr->block_num() << ", phase : " << unsigned(leaf_itr->phase_counter) << "\n";
+      if (leaf != nullptr) std::cout << "  - " << bp.to_string() << " current _b_leaf is : " << qcc._b_leaf.str() << " block_num : " << leaf->block_num() << ", phase : " << unsigned(leaf->phase_counter) << "\n";
       else std::cout << "  - No b_leaf value " << "\n";
 
-      if (qc_itr != qcc->second._proposal_store.get<qc_chain::by_proposal_id>().end()) std::cout << "  - " << bp.to_string() << " current high_qc is : " << qcc->second._high_qc.proposal_id.str() << " block_num : " << qc_itr->block_num() << ", phase : " << unsigned(qc_itr->phase_counter) <<  "\n";
+      if (qc != nullptr) std::cout << "  - " << bp.to_string() << " current high_qc is : " << qcc._high_qc.proposal_id.str() << " block_num : " << qc->block_num() << ", phase : " << unsigned(qc->phase_counter) <<  "\n";
       else std::cout << "  - No high_qc value " << "\n";
 
-      if (lock_itr != qcc->second._proposal_store.get<qc_chain::by_proposal_id>().end()) std::cout << "  - " << bp.to_string() << " current _b_lock is : " << qcc->second._b_lock.str() << " block_num : " << lock_itr->block_num() << ", phase : " << unsigned(lock_itr->phase_counter) <<  "\n";
+      if (lock != nullptr) std::cout << "  - " << bp.to_string() << " current _b_lock is : " << qcc._b_lock.str() << " block_num : " << lock->block_num() << ", phase : " << unsigned(lock->phase_counter) <<  "\n";
       else std::cout << "  - No b_lock value " << "\n";
 
-      if (exec_itr != qcc->second._proposal_store.get<qc_chain::by_proposal_id>().end()) std::cout << "  - " << bp.to_string() << " current _b_exec is : " << qcc->second._b_exec.str() << " block_num : " << exec_itr->block_num() << ", phase : " << unsigned(exec_itr->phase_counter) <<  "\n";
+      if (exec != nullptr) std::cout << "  - " << bp.to_string() << " current _b_exec is : " << qcc._b_exec.str() << " block_num : " << exec->block_num() << ", phase : " << unsigned(exec->phase_counter) <<  "\n";
       else std::cout << "  - No b_exec value " << "\n";
 
       std::cout << "\n";
    }
 };
+
 
 BOOST_AUTO_TEST_SUITE(hotstuff)
 
@@ -206,37 +203,37 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    ht.print_bp_state("bpa"_n, "");
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.dispatch(""); //send votes on proposal (prepareQC on first block)
 
    tpm.dispatch(""); //send proposal to replicas (precommit on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.dispatch(""); //propagating votes on new proposal (precommitQC on first block)
 
    tpm.dispatch(""); //send proposal to replicas (commit on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.dispatch(""); //propagating votes on new proposal (commitQC on first block)
 
    tpm.dispatch(""); //send proposal to replicas (decide on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
 
    tpm.dispatch(""); //propagating votes on new proposal (decide on first block)
 
@@ -246,51 +243,51 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    tpm.dispatch(""); //send proposal to replicas (prepare on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
 
    tpm.dispatch(""); //send votes on proposal (prepareQC on second block)
 
    tpm.dispatch(""); //send proposal to replicas (precommit on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
 
    tpm.dispatch(""); //propagating votes on new proposal (precommitQC on second block)
 
    tpm.dispatch(""); //send proposal to replicas (commit on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("ab04f499892ad5ebd209d54372fd5c0bda0288410a084b55c70eda40514044f3"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("ab04f499892ad5ebd209d54372fd5c0bda0288410a084b55c70eda40514044f3"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
 
    tpm.dispatch(""); //propagating votes on new proposal (commitQC on second block)
 
    tpm.dispatch(""); //send proposal to replicas (decide on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("ab04f499892ad5ebd209d54372fd5c0bda0288410a084b55c70eda40514044f3"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("ab04f499892ad5ebd209d54372fd5c0bda0288410a084b55c70eda40514044f3"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
 
    tpm.dispatch(""); //send proposal to replicas (decide on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
 
    //check bpb as well
-   BOOST_CHECK_EQUAL(qcc_bpb->second._high_qc.proposal_id.str(), std::string("ab04f499892ad5ebd209d54372fd5c0bda0288410a084b55c70eda40514044f3"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("ab04f499892ad5ebd209d54372fd5c0bda0288410a084b55c70eda40514044f3"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
 } FC_LOG_AND_RETHROW();
 
@@ -318,19 +315,19 @@ BOOST_AUTO_TEST_CASE(hotstuff_2) try {
 
    tpm.dispatch(""); //send proposal to replicas (prepare on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.dispatch(""); //send votes on proposal (prepareQC on first block)
 
    tpm.dispatch(""); //send proposal to replicas (precommit on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.set_current_block_id(ids[1]); //second block
 
@@ -338,19 +335,19 @@ BOOST_AUTO_TEST_CASE(hotstuff_2) try {
 
    tpm.dispatch(""); //send proposal to replicas (prepare on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.dispatch(""); //send votes on proposal (prepareQC on second block)
 
    tpm.dispatch(""); //send proposal to replicas (precommit on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
 
    tpm.set_current_block_id(ids[2]); //second block
 
@@ -358,26 +355,26 @@ BOOST_AUTO_TEST_CASE(hotstuff_2) try {
 
    tpm.dispatch(""); //propagating votes on new proposal (prepare on third block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
 
    tpm.dispatch(""); //send votes on proposal (prepareQC on third block)
 
    tpm.dispatch(""); //propagating votes on new proposal (precommitQC on third block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("0d77972a81cefce394736f23f8b4d97de3af5bd160376626bdd6a77de89ee324"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("0d77972a81cefce394736f23f8b4d97de3af5bd160376626bdd6a77de89ee324"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
 
    //check bpb as well
-   BOOST_CHECK_EQUAL(qcc_bpb->second._high_qc.proposal_id.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_lock.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
 } FC_LOG_AND_RETHROW();
 
@@ -406,28 +403,28 @@ BOOST_AUTO_TEST_CASE(hotstuff_3) try {
 
    tpm.dispatch(""); //send proposal to replicas (prepare on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.dispatch(""); //send votes on proposal (prepareQC on first block)
 
    tpm.dispatch(""); //send proposal to replicas (precommit on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.dispatch(""); //propagating votes on new proposal (precommitQC on first block)
 
    tpm.dispatch(""); //send proposal to replicas (commit on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.set_next_leader("bpb"_n); //leader is set to rotate on next block
 
@@ -435,10 +432,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_3) try {
 
    tpm.dispatch(""); //send proposal to replicas (decide on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
 
    tpm.dispatch(""); //propagating votes on new proposal (decide on first block)
 
@@ -451,49 +448,49 @@ BOOST_AUTO_TEST_CASE(hotstuff_3) try {
 
    tpm.dispatch(""); //send proposal to replicas (prepare on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_leaf.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_leaf.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
 
    tpm.dispatch(""); //send votes on proposal (prepareQC on second block)
 
    tpm.dispatch(""); //send proposal to replicas (precommit on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_leaf.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._high_qc.proposal_id.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_lock.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_leaf.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
 
    tpm.dispatch(""); //propagating votes on new proposal (precommitQC on second block)
 
    tpm.dispatch(""); //send proposal to replicas (commit on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_leaf.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._high_qc.proposal_id.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_lock.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_exec.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_leaf.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
 
    tpm.dispatch(""); //propagating votes on new proposal (commitQC on second block)
 
    tpm.dispatch(""); //send proposal to replicas (decide on second block)
 
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_leaf.str(), std::string("89f468a127dbadd81b59076067238e3e9c313782d7d83141b16d9da4f2c2b078"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_leaf.str(), std::string("89f468a127dbadd81b59076067238e3e9c313782d7d83141b16d9da4f2c2b078"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
 
    //check bpa as well
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
 
    //check bpc as well
-   BOOST_CHECK_EQUAL(qcc_bpc->second._high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
-   BOOST_CHECK_EQUAL(qcc_bpc->second._b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
-   BOOST_CHECK_EQUAL(qcc_bpc->second._b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(qcc_bpc->second->_high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(qcc_bpc->second->_b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(qcc_bpc->second->_b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
 } FC_LOG_AND_RETHROW();
 
@@ -522,19 +519,19 @@ BOOST_AUTO_TEST_CASE(hotstuff_4) try {
 
    tpm.dispatch(""); //send proposal to replicas (prepare on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.dispatch(""); //send votes on proposal (prepareQC on first block)
 
    tpm.dispatch(""); //send proposal to replicas (precommit on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.dispatch(""); //propagating votes on new proposal (precommitQC on first block)
 
@@ -550,10 +547,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_4) try {
 
    tpm.dispatch(""); //send proposal to replicas (commit on first block)
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.set_next_leader("bpi"_n); //leader is set to rotate on next block
 
@@ -561,10 +558,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_4) try {
 
 //ht.print_bp_state("bpa"_n, "before reactivate");
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.activate("bpb"_n);
    tpm.activate("bpc"_n);
@@ -586,30 +583,30 @@ BOOST_AUTO_TEST_CASE(hotstuff_4) try {
 //ht.print_bp_state("bpi"_n, "");
 
 //ht.print_bp_state("bpa"_n, "");
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm.dispatch(""); //send votes on proposal (prepareQC on second block)
 
    tpm.dispatch(""); //send proposal to replicas (precommit on second block)
 
 //ht.print_bp_state("bpa"_n, "");
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
 
    tpm.dispatch(""); //propagating votes on new proposal (precommitQC on second block)
 
    tpm.dispatch(""); //send proposal to replicas (commit on second block)
 
 //ht.print_bp_state("bpa"_n, "");
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
 
    tpm.dispatch(""); //propagating votes on new proposal (commitQC on second block)
 
@@ -617,23 +614,23 @@ BOOST_AUTO_TEST_CASE(hotstuff_4) try {
 
 //ht.print_bp_state("bpa"_n, "");
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_leaf.str(), std::string("747676c95a4c866c915ab2d2171dbcaf126a4f0aeef62bf9720c138f8e03add9"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._high_qc.proposal_id.str(), std::string("747676c95a4c866c915ab2d2171dbcaf126a4f0aeef62bf9720c138f8e03add9"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_lock.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_exec.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("747676c95a4c866c915ab2d2171dbcaf126a4f0aeef62bf9720c138f8e03add9"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("747676c95a4c866c915ab2d2171dbcaf126a4f0aeef62bf9720c138f8e03add9"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
 
 //ht.print_bp_state("bpb"_n, "");
    //check bpa as well
-   BOOST_CHECK_EQUAL(qcc_bpb->second._high_qc.proposal_id.str(), std::string("747676c95a4c866c915ab2d2171dbcaf126a4f0aeef62bf9720c138f8e03add9"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_lock.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
-   BOOST_CHECK_EQUAL(qcc_bpb->second._b_exec.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("747676c95a4c866c915ab2d2171dbcaf126a4f0aeef62bf9720c138f8e03add9"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
 
 //ht.print_bp_state("bpi"_n, "");
-   BOOST_CHECK_EQUAL(qcc_bpi->second._high_qc.proposal_id.str(), std::string("747676c95a4c866c915ab2d2171dbcaf126a4f0aeef62bf9720c138f8e03add9"));
-   BOOST_CHECK_EQUAL(qcc_bpi->second._b_lock.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
-   BOOST_CHECK_EQUAL(qcc_bpi->second._b_exec.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
+   BOOST_CHECK_EQUAL(qcc_bpi->second->_high_qc.proposal_id.str(), std::string("747676c95a4c866c915ab2d2171dbcaf126a4f0aeef62bf9720c138f8e03add9"));
+   BOOST_CHECK_EQUAL(qcc_bpi->second->_b_lock.str(), std::string("f1cc5d8add3db0c0f13271815c4e08eec5e8730b0e3ba24ab7b7990981b9b338"));
+   BOOST_CHECK_EQUAL(qcc_bpi->second->_b_exec.str(), std::string("a56ae5316e731168f5cfea5a85ffa3467b29094c2e5071019a1b89cd7fa49d98"));
 
-   BOOST_CHECK_EQUAL(qcc_bpa->second._b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
 } FC_LOG_AND_RETHROW();
 
@@ -720,10 +717,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
 //ht1.print_bp_state("bpe"_n, "");
 
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm1.dispatch("");
    tpm1.dispatch("");
@@ -733,10 +730,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
 //ht1.print_bp_state("bpe"_n, "");
 
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
 
    tpm1.dispatch("");
    tpm1.dispatch("");
@@ -746,10 +743,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
 //ht1.print_bp_state("bpe"_n, "");
 
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_leaf.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_leaf.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
 
    tpm1.dispatch("");
    tpm1.dispatch("");
@@ -759,10 +756,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
 //ht1.print_bp_state("bpe"_n, "");
 
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_leaf.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._high_qc.proposal_id.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_leaf.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_high_qc.proposal_id.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
 
    tpm1.set_current_block_id(ids[1]); //first block
    tpm2.set_current_block_id(alternate_ids[1]); //first block
@@ -778,10 +775,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
 //ht1.print_bp_state("bpe"_n, "");
 
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_leaf.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._high_qc.proposal_id.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_lock.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_exec.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_leaf.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_high_qc.proposal_id.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_lock.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_exec.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
 
    tpm1.pipe(tpm2.dispatch(""));
    tpm1.dispatch("");
@@ -791,10 +788,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
 //ht1.print_bp_state("bpe"_n, "");
 
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_leaf.str(), std::string("ab04f499892ad5ebd209d54372fd5c0bda0288410a084b55c70eda40514044f3"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._high_qc.proposal_id.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_lock.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_exec.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_leaf.str(), std::string("ab04f499892ad5ebd209d54372fd5c0bda0288410a084b55c70eda40514044f3"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_high_qc.proposal_id.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_lock.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_exec.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
 
    tpm1.pipe(tpm2.dispatch(""));
    tpm1.dispatch("");
@@ -804,10 +801,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
 //ht1.print_bp_state("bpe"_n, "");
 
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_leaf.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._high_qc.proposal_id.str(), std::string("ab04f499892ad5ebd209d54372fd5c0bda0288410a084b55c70eda40514044f3"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_leaf.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_high_qc.proposal_id.str(), std::string("ab04f499892ad5ebd209d54372fd5c0bda0288410a084b55c70eda40514044f3"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
 
    tpm1.pipe(tpm2.dispatch(""));
    tpm1.dispatch("");
@@ -817,12 +814,12 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
 //ht1.print_bp_state("bpe"_n, "");
 
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_leaf.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._high_qc.proposal_id.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_leaf.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_high_qc.proposal_id.str(), std::string("9eeffb58a16133517d8d2f6f90b8a3420269de3356362677055b225a44a7c151"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
 
-   BOOST_CHECK_EQUAL(qcc_bpe->second._b_finality_violation.str(), std::string("5585accc44c753636d1381067c7f915d7fff2d33846aae04820abc055d952860"));
+   BOOST_CHECK_EQUAL(qcc_bpe->second->_b_finality_violation.str(), std::string("5585accc44c753636d1381067c7f915d7fff2d33846aae04820abc055d952860"));
 
 } FC_LOG_AND_RETHROW();
 

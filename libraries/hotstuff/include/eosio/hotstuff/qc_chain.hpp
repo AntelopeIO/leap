@@ -22,6 +22,9 @@
 
 #include <fc/crypto/sha256.hpp>
 
+// Enable this to swap the multi-index proposal store with std::map
+//#define QC_CHAIN_SIMPLE_PROPOSAL_STORE
+
 namespace eosio { namespace hotstuff {
 
    using boost::multi_index_container;
@@ -29,21 +32,12 @@ namespace eosio { namespace hotstuff {
 
    using namespace eosio::chain;
 
-   //const uint32_t INTERUPT_TIMEOUT = 6; //sufficient timeout for new leader to be selected
-
    class qc_chain {
    public:
 
-      static void handle_eptr(std::exception_ptr eptr){
-         try {
-            if (eptr) {
-               std::rethrow_exception(eptr);
-            }
-         } catch(const std::exception& e) {
-            ilog("Caught exception ${ex}" , ("ex", e.what()));
-            std::exit(0);
-         }
-      };
+      qc_chain() = delete;
+
+      qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, bool info_logging, bool error_logging);
 
       //todo : remove. bls12-381 key used for testing purposes
       std::vector<uint8_t> _seed =
@@ -60,7 +54,7 @@ namespace eosio { namespace hotstuff {
          vote = 4
       };
 
-      bool _chained_mode = false ;
+      bool _chained_mode = false;
 
       fc::sha256 _b_leaf = NULL_PROPOSAL_ID;
       fc::sha256 _b_lock = NULL_PROPOSAL_ID;
@@ -72,38 +66,27 @@ namespace eosio { namespace hotstuff {
 
       block_id_type _pending_proposal_block = NULL_BLOCK_ID;
 
-      uint32_t _v_height;
-
-      bool _log = true;
-      bool _errors = true;
+      uint32_t _v_height = 0;
 
       eosio::chain::quorum_certificate _high_qc;
       eosio::chain::quorum_certificate _current_qc;
 
       eosio::chain::extended_schedule _schedule;
 
-      std::set<name> _my_producers;
-
       name _id;
 
-      struct by_proposal_id{};
-      struct by_proposal_height{};
+      base_pacemaker* _pacemaker = nullptr;
 
-      typedef multi_index_container<
-         hs_proposal_message,
-         indexed_by<
-            hashed_unique<
-               tag<by_proposal_id>,
-               BOOST_MULTI_INDEX_MEMBER(hs_proposal_message,fc::sha256,proposal_id)
-               >,
-            ordered_non_unique<
-               tag<by_proposal_height>,
-               BOOST_MULTI_INDEX_CONST_MEM_FUN(hs_proposal_message,uint64_t,get_height)
-               >
-            >
-         > proposal_store_type;
+      std::set<name> _my_producers;
 
-      proposal_store_type _proposal_store;  //internal proposals store
+      bool _log = true;
+      bool _errors = true;
+
+      // returns nullptr if not found
+      const hs_proposal_message* get_proposal(fc::sha256 proposal_id);
+
+      // returns false if proposal with that same ID already exists at the store of its height
+      bool insert_proposal(const hs_proposal_message & proposal);
 
       uint32_t positive_bits_count(fc::unsigned_int value);
 
@@ -115,10 +98,6 @@ namespace eosio { namespace hotstuff {
 
       bool evaluate_quorum(const extended_schedule & es, fc::unsigned_int finalizers, const fc::crypto::blslib::bls_signature & agg_sig, const hs_proposal_message & proposal); //evaluate quorum for a proposal
 
-/*                name get_proposer();
-                  name get_leader();
-                  name get_incoming_leader(); //get incoming leader*/
-
       // qc.quorum_met has to be updated by the caller (if it wants to) based on the return value of this method
       bool is_quorum_met(const eosio::chain::quorum_certificate & qc, const extended_schedule & schedule, const hs_proposal_message & proposal);  //check if quorum has been met over a proposal
 
@@ -126,8 +105,6 @@ namespace eosio { namespace hotstuff {
 
       hs_proposal_message new_proposal_candidate(block_id_type block_id, uint8_t phase_counter); //create new proposal message
       hs_new_block_message new_block_candidate(block_id_type block_id); //create new block message
-
-      void init(name id, base_pacemaker& pacemaker, std::set<name> my_producers, bool info_logging, bool error_logging); //initialize qc object and add reference to the pacemaker
 
       bool am_i_proposer(); //check if I am the current proposer
       bool am_i_leader(); //check if I am the current leader
@@ -168,13 +145,38 @@ namespace eosio { namespace hotstuff {
 
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
 
-      qc_chain(){
-         //ilog("_high_qc : ${qc_id}", ("qc_id", _high_qc.proposal_id));
-      };
+private:
 
-   private:
+#ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
+      // keep one proposal store (id -> proposal) by each height (height -> proposal store)
+      typedef map<fc::sha256, hs_proposal_message> proposal_store;
+      typedef map<fc::sha256, hs_proposal_message>::iterator ps_iterator;
+      typedef map<uint64_t, proposal_store>::iterator ps_height_iterator;
+      map<uint64_t, proposal_store> _proposal_stores_by_height;
 
-      base_pacemaker* _pacemaker = nullptr;
+      // get the height of a given proposal id
+      typedef map<fc::sha256, uint64_t>::iterator ph_iterator;
+      map<fc::sha256, uint64_t> _proposal_height;
+#else
+      struct by_proposal_id{};
+      struct by_proposal_height{};
+
+      typedef multi_index_container<
+         hs_proposal_message,
+         indexed_by<
+            hashed_unique<
+               tag<by_proposal_id>,
+               BOOST_MULTI_INDEX_MEMBER(hs_proposal_message,fc::sha256,proposal_id)
+               >,
+            ordered_non_unique<
+               tag<by_proposal_height>,
+               BOOST_MULTI_INDEX_CONST_MEM_FUN(hs_proposal_message,uint64_t,get_height)
+               >
+            >
+         > proposal_store_type;
+
+      proposal_store_type _proposal_store;  //internal proposals store
+#endif
 
    };
 }} /// eosio::qc_chain

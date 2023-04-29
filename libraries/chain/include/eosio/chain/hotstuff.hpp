@@ -12,24 +12,28 @@ namespace eosio { namespace chain {
    const block_id_type NULL_BLOCK_ID = block_id_type("00");
    const fc::sha256 NULL_PROPOSAL_ID = fc::sha256("00");
 
-   static uint32_t compute_block_num(block_id_type block_id){
+   static uint32_t compute_block_num(block_id_type block_id) {
       return fc::endian_reverse_u32(block_id._hash[0]);
    }
 
-   static uint64_t compute_height(uint32_t block_height, uint32_t phase_counter){
+   static uint64_t compute_height(uint32_t block_height, uint32_t phase_counter) {
       return (uint64_t{block_height} << 32) | phase_counter;
    }
 
    struct extended_schedule {
-      producer_authority_schedule producer_schedule;
-      std::map<name, fc::crypto::blslib::bls_public_key> bls_pub_keys;
+      producer_authority_schedule                          producer_schedule;
+      std::map<name, fc::crypto::blslib::bls_public_key>   bls_pub_keys;
+
+      extended_schedule() = default;
    };
 
    struct quorum_certificate {
       fc::sha256                          proposal_id = NULL_PROPOSAL_ID;
-      fc::unsigned_int                    active_finalizers; //bitset encoding, following canonical order
+      fc::unsigned_int                    active_finalizers = 0; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
       bool                                quorum_met = false;
+
+      quorum_certificate() = default;
    };
 
    struct hs_vote_message {
@@ -50,13 +54,8 @@ namespace eosio { namespace chain {
 
       hs_proposal_message() = default;
 
-      uint32_t block_num()const {
-         return compute_block_num(block_id);
-      }
-
-      uint64_t get_height()const {
-         return compute_height(compute_block_num(block_id), phase_counter);
-      };
+      uint32_t block_num() const { return compute_block_num(block_id); }
+      uint64_t get_height() const { return compute_height(compute_block_num(block_id), phase_counter); };
    };
 
    struct hs_new_block_message {
@@ -72,7 +71,6 @@ namespace eosio { namespace chain {
 
    using hs_proposal_message_ptr = std::shared_ptr<hs_proposal_message>;
    using hs_vote_message_ptr = std::shared_ptr<hs_vote_message>;
-
    using hs_new_view_message_ptr = std::shared_ptr<hs_new_view_message>;
    using hs_new_block_message_ptr = std::shared_ptr<hs_new_block_message>;
 

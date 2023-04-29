@@ -410,9 +410,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
 
       producer_plugin_metrics                                   _metrics;
 
-      eosio::hotstuff::qc_chain                                 _qc_chain;
-
-      eosio::hotstuff::chain_pacemaker                          _chain_pacemaker;
+      std::optional<eosio::hotstuff::chain_pacemaker>           _chain_pacemaker;
 
       /*
        * HACK ALERT
@@ -1224,9 +1222,10 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    my->_snapshot_scheduler.set_db_path(my->_snapshots_dir);
    my->_snapshot_scheduler.set_create_snapshot_fn([this](producer_plugin::next_function<producer_plugin::snapshot_information> next){create_snapshot(next);});
 
-   my->_chain_pacemaker.init(&chain);
+   EOS_ASSERT( !my->_chain_pacemaker, plugin_config_exception, "duplicate chain_pacemaker initialization" );
+   my->_chain_pacemaker.emplace(&chain, my->_producers, true, true);
 
-   my->_qc_chain.init("main"_n, my->_chain_pacemaker, my->_producers, true, true);
+   //my->_qc_chain.init("main"_n, my->_chain_pacemaker, my->_producers, true, true);
 
 } FC_LOG_AND_RETHROW() }
 
@@ -2800,20 +2799,24 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
 }
 
 
-void producer_plugin_impl::notify_hs_vote_message( const hs_vote_message_ptr& msg){
-   _chain_pacemaker.on_hs_vote_msg("main"_n, *msg);
+void producer_plugin_impl::notify_hs_vote_message( const hs_vote_message_ptr& msg ){
+   if (_chain_pacemaker)
+      _chain_pacemaker->on_hs_vote_msg(*msg);
 };
 
 void producer_plugin_impl::notify_hs_proposal_message( const hs_proposal_message_ptr& msg ){
-   _chain_pacemaker.on_hs_proposal_msg("main"_n, *msg);
+   if (_chain_pacemaker)
+      _chain_pacemaker->on_hs_proposal_msg(*msg);
 };
 
-void producer_plugin_impl::notify_hs_new_view_message( const hs_new_view_message_ptr& msg){
-   _chain_pacemaker.on_hs_new_view_msg("main"_n, *msg);
+void producer_plugin_impl::notify_hs_new_view_message( const hs_new_view_message_ptr& msg ){
+   if (_chain_pacemaker)
+      _chain_pacemaker->on_hs_new_view_msg(*msg);
 };
 
 void producer_plugin_impl::notify_hs_new_block_message( const hs_new_block_message_ptr& msg ){
-   _chain_pacemaker.on_hs_new_block_msg("main"_n, *msg);
+   if (_chain_pacemaker)
+      _chain_pacemaker->on_hs_new_block_msg(*msg);
 };
 
 
@@ -2872,7 +2875,8 @@ void producer_plugin_impl::produce_block() {
    //   _qc_chain.create_new_view(*hbs); //we create a new view
    //}
 
-   _chain_pacemaker.beat();
+   if (_chain_pacemaker)
+      _chain_pacemaker->beat();
 
    br.total_time += fc::time_point::now() - start;
 

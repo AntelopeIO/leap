@@ -9,35 +9,9 @@ namespace eosio { namespace hotstuff {
 
       //class-specific functions
 
-      struct indexed_qc_chain {
-         name       _name;
-         bool       _active    = true;
-         qc_chain*  _qc_chain  = nullptr;
-
-         uint64_t by_name() const { return _name.to_uint64_t(); };
-
-         indexed_qc_chain(const name & name, qc_chain* qc_chain, bool active = true)
-            : _name(name), _active(active), _qc_chain(qc_chain) { }
-         indexed_qc_chain() = delete;
-      };
-
-      struct by_name_id{};
-
-      typedef multi_index_container<
-         indexed_qc_chain,
-         indexed_by<
-            ordered_unique<
-               tag<by_name_id>,
-               BOOST_MULTI_INDEX_CONST_MEM_FUN(indexed_qc_chain, uint64_t, by_name)
-               >
-            >
-         > qc_chain_type;
-
-      qc_chain_type _qcc_store;
+      bool is_qc_chain_active(const name & qcc_name) { return _qcc_deactivated.find(qcc_name) == _qcc_deactivated.end(); }
 
       using hotstuff_message = std::pair<name, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
-
-      //void init(std::vector<name> unique_replicas);
 
       void set_proposer(name proposer);
 
@@ -55,8 +29,6 @@ namespace eosio { namespace hotstuff {
 
       void pipe(std::vector<test_pacemaker::hotstuff_message> messages);
 
-      // Remove unused return value
-      //std::vector<hotstuff_message>
       void dispatch(std::string memo, int count);
 
       std::vector<hotstuff_message> dispatch(std::string memo);
@@ -64,7 +36,15 @@ namespace eosio { namespace hotstuff {
       void activate(name replica);
       void deactivate(name replica);
 
-      //indexed_qc_chain get_qc_chain(name replica);
+      // must be called to register every qc_chain object created by the testcase
+      void register_qc_chain(name name, std::shared_ptr<qc_chain> qcc_ptr);
+
+      void beat();
+
+      void on_hs_vote_msg(const hs_vote_message & msg, name id); //confirmation msg event handler
+      void on_hs_proposal_msg(const hs_proposal_message & msg, name id); //consensus msg event handler
+      void on_hs_new_view_msg(const hs_new_view_message & msg, name id); //new view msg event handler
+      void on_hs_new_block_msg(const hs_new_block_message & msg, name id); //new block msg event handler
 
       //base_pacemaker interface functions
 
@@ -77,21 +57,18 @@ namespace eosio { namespace hotstuff {
 
       uint32_t get_quorum_threshold();
 
-      void assign_qc_chain(name name, qc_chain& qcc);
-
-      void beat();
-
-      void send_hs_proposal_msg(name id, const hs_proposal_message & msg);
-      void send_hs_vote_msg(name id, const hs_vote_message & msg);
-      void send_hs_new_block_msg(name id, const hs_new_block_message & msg);
-      void send_hs_new_view_msg(name id, const hs_new_view_message & msg);
-
-      void on_hs_vote_msg(name id, const hs_vote_message & msg); //confirmation msg event handler
-      void on_hs_proposal_msg(name id, const hs_proposal_message & msg); //consensus msg event handler
-      void on_hs_new_view_msg(name id, const hs_new_view_message & msg); //new view msg event handler
-      void on_hs_new_block_msg(name id, const hs_new_block_message & msg); //new block msg event handler
+      void send_hs_proposal_msg(const hs_proposal_message & msg, name id);
+      void send_hs_vote_msg(const hs_vote_message & msg, name id);
+      void send_hs_new_block_msg(const hs_new_block_message & msg, name id);
+      void send_hs_new_view_msg(const hs_new_view_message & msg, name id);
 
       std::vector<hotstuff_message> _pending_message_queue;
+
+      // qc_chain id to qc_chain object
+      map<name, std::shared_ptr<qc_chain>> _qcc_store;
+
+      // qc_chain ids in this set are currently deactivated
+      set<name>                            _qcc_deactivated;
 
    private:
 

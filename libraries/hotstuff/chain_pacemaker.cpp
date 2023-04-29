@@ -100,8 +100,10 @@ namespace eosio { namespace hotstuff {
 #endif
 //===============================================================================================
 
-   void chain_pacemaker::init(controller* chain){
-      _chain = chain;
+   chain_pacemaker::chain_pacemaker(controller* chain, std::set<name> my_producers, bool info_logging, bool error_logging)
+      : _chain(chain),
+        _qc_chain("default"_n, this, my_producers, info_logging, error_logging)
+   {
    }
 
    name chain_pacemaker::get_proposer(){
@@ -143,65 +145,61 @@ namespace eosio { namespace hotstuff {
 
    void chain_pacemaker::beat(){
       csc prof("beat");
-      std::lock_guard g( this-> _hotstuff_state_mutex );
+      std::lock_guard g( _hotstuff_state_mutex );
       prof.core_in();
-      _qc_chain->on_beat();
+      _qc_chain.on_beat();
       prof.core_out();
    }
 
-   void chain_pacemaker::assign_qc_chain(name name, qc_chain& qcc){
-      _qc_chain = &qcc;
-   }
-
-   void chain_pacemaker::send_hs_proposal_msg(name id, const hs_proposal_message & msg){
+   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message & msg, name id){
       hs_proposal_message_ptr msg_ptr = std::make_shared<hs_proposal_message>(msg);
       _chain->commit_hs_proposal_msg(msg_ptr);
    }
 
-   void chain_pacemaker::send_hs_vote_msg(name id, const hs_vote_message & msg){
+   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message & msg, name id){
       hs_vote_message_ptr msg_ptr = std::make_shared<hs_vote_message>(msg);
       _chain->commit_hs_vote_msg(msg_ptr);
    }
 
-   void chain_pacemaker::send_hs_new_block_msg(name id, const hs_new_block_message & msg){
+   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message & msg, name id){
       hs_new_block_message_ptr msg_ptr = std::make_shared<hs_new_block_message>(msg);
       _chain->commit_hs_new_block_msg(msg_ptr);
    }
 
-   void chain_pacemaker::send_hs_new_view_msg(name id, const hs_new_view_message & msg){
+   void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message & msg, name id){
       hs_new_view_message_ptr msg_ptr = std::make_shared<hs_new_view_message>(msg);
       _chain->commit_hs_new_view_msg(msg_ptr);
    }
 
-   void chain_pacemaker::on_hs_proposal_msg(name id, const hs_proposal_message & msg){
+   void chain_pacemaker::on_hs_proposal_msg(const hs_proposal_message & msg){
       csc prof("prop");
-      std::lock_guard g( this-> _hotstuff_state_mutex );
+      std::lock_guard g( _hotstuff_state_mutex );
       prof.core_in();
-      _qc_chain->on_hs_proposal_msg(msg);
+      _qc_chain.on_hs_proposal_msg(msg);
       prof.core_out();
    }
 
-   void chain_pacemaker::on_hs_vote_msg(name id, const hs_vote_message & msg){
+   void chain_pacemaker::on_hs_vote_msg(const hs_vote_message & msg){
       csc prof("vote");
-      std::lock_guard g( this-> _hotstuff_state_mutex );
+      std::lock_guard g( _hotstuff_state_mutex );
       prof.core_in();
-      _qc_chain->on_hs_vote_msg(msg);
+      _qc_chain.on_hs_vote_msg(msg);
       prof.core_out();
    }
 
-   void chain_pacemaker::on_hs_new_block_msg(name id, const hs_new_block_message & msg){
+   void chain_pacemaker::on_hs_new_block_msg(const hs_new_block_message & msg){
       csc prof("nblk");
-      std::lock_guard g( this-> _hotstuff_state_mutex );
+      std::lock_guard g( _hotstuff_state_mutex );
       prof.core_in();
-      _qc_chain->on_hs_new_block_msg(msg);
+      _qc_chain.on_hs_new_block_msg(msg);
       prof.core_out();
    }
 
-   void chain_pacemaker::on_hs_new_view_msg(name id, const hs_new_view_message & msg){
+   void chain_pacemaker::on_hs_new_view_msg(const hs_new_view_message & msg){
       csc prof("view");
-      std::lock_guard g( this-> _hotstuff_state_mutex );
+      std::lock_guard g( _hotstuff_state_mutex );
       prof.core_in();
-      _qc_chain->on_hs_new_view_msg(msg);
+      _qc_chain.on_hs_new_view_msg(msg);
       prof.core_out();
    }
 

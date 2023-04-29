@@ -12,10 +12,15 @@ namespace eosio { namespace hotstuff {
 
    class qc_chain;
 
+   // Abstract pacemaker; a reference of this type will only be used by qc_chain, as qc_chain
+   //   cannot know which environment it is in.
+   // All other pacemaker clients will be interacting with a reference to the concrete class:
+   // - Testers will access a test_pacemaker reference;
+   // - Real-world code will access a chain_pacemaker reference.
    class base_pacemaker {
    public:
 
-      //todo : discuss
+      //TODO: discuss
       virtual uint32_t get_quorum_threshold() = 0;
 
       virtual block_id_type get_current_block_id() = 0;
@@ -26,25 +31,11 @@ namespace eosio { namespace hotstuff {
       virtual name get_next_leader() = 0;
       virtual std::vector<name> get_finalizers() = 0;
 
-      //block / proposal API
-      virtual void beat() = 0;
-
-      //todo : abstract further
-
-      //qc_chain event subscription
-      virtual void assign_qc_chain(name name, qc_chain& qcc) = 0;
-
-      //outbound communications
-      virtual void send_hs_proposal_msg(name id, const hs_proposal_message & msg) = 0;
-      virtual void send_hs_vote_msg(name id, const hs_vote_message & msg) = 0;
-      virtual void send_hs_new_block_msg(name id, const hs_new_block_message & msg) = 0;
-      virtual void send_hs_new_view_msg(name id, const hs_new_view_message & msg) = 0;
-
-      //inbound communications
-      virtual void on_hs_vote_msg(name id, const hs_vote_message & msg) = 0; //confirmation msg event handler
-      virtual void on_hs_proposal_msg(name id, const hs_proposal_message & msg) = 0; //consensus msg event handler
-      virtual void on_hs_new_view_msg(name id, const hs_new_view_message & msg) = 0; //new view msg event handler
-      virtual void on_hs_new_block_msg(name id, const hs_new_block_message & msg) = 0; //new block msg event handler
+      //outbound communications; 'id' is the producer name (can be ignored if/when irrelevant to the implementer)
+      virtual void send_hs_proposal_msg(const hs_proposal_message & msg, name id) = 0;
+      virtual void send_hs_vote_msg(const hs_vote_message & msg, name id) = 0;
+      virtual void send_hs_new_view_msg(const hs_new_view_message & msg, name id) = 0;
+      virtual void send_hs_new_block_msg(const hs_new_block_message & msg, name id) = 0;
    };
 
 }}
