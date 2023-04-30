@@ -726,7 +726,7 @@ paths:
                           description: the sum of weights that must be met or exceeded to satisfy the permission
   /get_transaction_status:
     post:
-      description: Gets current blockchain state and, if available, transaction information given the transaction id. For query to work, the transaction finality status feature must be enabled by configuring the chain plugin with the config option '--transaction-finality-status-max-storage-size-gb <size>' in nodeos.
+      description: Gets current blockchain state and, if available, transaction information given the transaction id. For query to work, the transaction finality status feature must be enabled by configuring the chain plugin with the config option '--transaction-finality-status-max-storage-size-gb' in nodeos.
       operationId: get_transaction_status
       requestBody:
         content:
