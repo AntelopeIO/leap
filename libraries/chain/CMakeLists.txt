@@ -17,6 +17,9 @@ else()
    endif()
 endif()
 
+## llvm_11_patch contains a patched single header STLExtras.h, as the distributed one doesn't build with -std=c++20
+include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/llvm_11_patch)
+
 if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
    enable_language(ASM)
    set(CHAIN_EOSVMOC_SOURCES webassembly/runtimes/eos-vm-oc/code_cache.cpp
