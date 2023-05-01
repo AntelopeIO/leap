@@ -50,7 +50,6 @@ namespace eosio::testing {
       p2p_trx_provider(const provider_base_config& provider_config);
 
       void setup();
-      void send(const std::vector<chain::signed_transaction>& trxs);
       void send(const chain::signed_transaction& trx);
       void log_trxs(const std::string& log_dir);
       void teardown();

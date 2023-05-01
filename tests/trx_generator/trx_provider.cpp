@@ -65,12 +65,6 @@ namespace eosio::testing {
       _sent_trx_data.push_back(logged_trx_data(trx.id()));
    }
 
-   void p2p_trx_provider::send(const std::vector<chain::signed_transaction>& trxs) {
-      for(const auto& t : trxs ){
-         send(t);
-      }
-   }
-
    void p2p_trx_provider::log_trxs(const std::string& log_dir) {
       std::ostringstream fileName;
       fileName << log_dir << "/trx_data_output_" << getpid() << ".txt";
