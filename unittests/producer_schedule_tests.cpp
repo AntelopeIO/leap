@@ -5,12 +5,6 @@
 
 #include "fork_test_utilities.hpp"
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio::testing;
 using namespace eosio::chain;
 using mvo = fc::mutable_variant_object;
@@ -44,7 +38,7 @@ BOOST_AUTO_TEST_SUITE(producer_schedule_tests)
       return res;
    };
 #if 0
-   BOOST_FIXTURE_TEST_CASE( verify_producer_schedule, TESTER ) try {
+   BOOST_FIXTURE_TEST_CASE( verify_producer_schedule, validating_tester ) try {
 
       // Utility function to ensure that producer schedule work as expected
       const auto& confirm_schedule_correctness = [&](const vector<producer_key>& new_prod_schd, const uint64_t eff_new_prod_schd_block_num)  {
@@ -120,7 +114,7 @@ BOOST_AUTO_TEST_SUITE(producer_schedule_tests)
    } FC_LOG_AND_RETHROW()
 
 
-   BOOST_FIXTURE_TEST_CASE( verify_producers, TESTER ) try {
+   BOOST_FIXTURE_TEST_CASE( verify_producers, validating_tester ) try {
 
       vector<account_name> valid_producers = {
          "inita", "initb", "initc", "initd", "inite", "initf", "initg",
@@ -145,7 +139,7 @@ BOOST_AUTO_TEST_SUITE(producer_schedule_tests)
 
    } FC_LOG_AND_RETHROW()
 
-   BOOST_FIXTURE_TEST_CASE( verify_header_schedule_version, TESTER ) try {
+   BOOST_FIXTURE_TEST_CASE( verify_header_schedule_version, validating_tester ) try {
 
       // Utility function to ensure that producer schedule version in the header is correct
       const auto& confirm_header_schd_ver_correctness = [&](const uint64_t expected_version, const uint64_t eff_new_prod_schd_block_num)  {
@@ -199,7 +193,7 @@ BOOST_AUTO_TEST_SUITE(producer_schedule_tests)
 #endif
 
 
-BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n,"carol"_n} );
    while (control->head_block_num() < 3) {
       produce_block();
@@ -521,7 +515,7 @@ BOOST_AUTO_TEST_CASE( producer_watermark_test ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( producer_one_of_n_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( producer_one_of_n_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
 
@@ -539,7 +533,7 @@ BOOST_FIXTURE_TEST_CASE( producer_one_of_n_test, TESTER ) try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( producer_m_of_n_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( producer_m_of_n_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
 
@@ -560,7 +554,7 @@ BOOST_FIXTURE_TEST_CASE( producer_m_of_n_test, TESTER ) try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( satisfiable_msig_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( satisfiable_msig_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
 
@@ -578,7 +572,7 @@ BOOST_FIXTURE_TEST_CASE( satisfiable_msig_test, TESTER ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( duplicate_producers_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( duplicate_producers_test, validating_tester ) try {
    create_accounts( {"alice"_n} );
    produce_block();
 
@@ -597,7 +591,7 @@ BOOST_FIXTURE_TEST_CASE( duplicate_producers_test, TESTER ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( duplicate_keys_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( duplicate_keys_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
 
