@@ -21,6 +21,7 @@ eosio::chain::asset core_from_string(const std::string& s) {
 
 namespace eosio { namespace testing {
 
+   // required by boost::unit_test::data
    std::ostream& operator<<(std::ostream& os, setup_policy p) {
       switch(p) {
          case setup_policy::none:
@@ -41,6 +42,8 @@ namespace eosio { namespace testing {
          case setup_policy::full:
             os << "full";
             break;
+         default:
+            FC_ASSERT(false, "Unknown setup_policy");
       }
       return os;
    }
