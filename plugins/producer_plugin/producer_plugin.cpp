@@ -362,6 +362,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       boost::program_options::variables_map _options;
       bool     _production_enabled                 = false;
       bool     _pause_production                   = false;
+      bool     _enable_stale_production_config     = false;
 
       using signature_provider_type = signature_provider_plugin::signature_provider_type;
       std::map<chain::public_key_type, signature_provider_type> _signature_providers;
@@ -886,7 +887,7 @@ void producer_plugin::set_program_options(
    boost::program_options::options_description producer_options;
 
    producer_options.add_options()
-         ("enable-stale-production,e", boost::program_options::bool_switch()->notifier([this](bool e){my->_production_enabled = e;}), "Enable block production, even if the chain is stale.")
+      ("enable-stale-production,e", boost::program_options::bool_switch()->notifier([this](bool e){my->_production_enabled = e; my->_enable_stale_production_config = e;}), "Enable block production, even if the chain is stale.")
          ("pause-on-startup,x", boost::program_options::bool_switch()->notifier([this](bool p){my->_pause_production = p;}), "Start this node in a state where production is paused")
          ("max-transaction-time", bpo::value<int32_t>()->default_value(30),
           "Limits the maximum time (in milliseconds) that is allowed a pushed transaction's code to execute before being considered invalid")
@@ -1224,8 +1225,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    EOS_ASSERT( !my->_chain_pacemaker, plugin_config_exception, "duplicate chain_pacemaker initialization" );
    my->_chain_pacemaker.emplace(&chain, my->_producers, true, true);
-
-   //my->_qc_chain.init("main"_n, my->_chain_pacemaker, my->_producers, true, true);
 
 } FC_LOG_AND_RETHROW() }
 
@@ -2875,8 +2874,18 @@ void producer_plugin_impl::produce_block() {
    //   _qc_chain.create_new_view(*hbs); //we create a new view
    //}
 
-   if (_chain_pacemaker)
-      _chain_pacemaker->beat();
+   if (_chain_pacemaker) {
+
+      // FIXME/REVIEW: For now, we are not participating in the IF protocol as leaders
+      //   when we have the enable-stale-production plugin configuration option set.
+      // Real public networks will have a controlled activation of the feature, but
+      //   even then, it might be a good idea for stale-block proposing nodes to e.g.
+      //   self-exclude from being hotstuff leaders.
+      if (!_enable_stale_production_config)
+         _chain_pacemaker->beat();
+      else
+         ilog("producer plugin will not check for Instant Finality leader role due to enable-stale-production option set.");
+   }
 
    br.total_time += fc::time_point::now() - start;
 

@@ -601,10 +601,12 @@ namespace eosio { namespace hotstuff {
 
       //if (_log) ilog(" === ${id} on beat === ", ("id", _id));
 
-      // FIXME/TODO: this hardcoded string name check is probably not exactly what we want here.
-      name current_producer = _pacemaker->get_leader();
-      if (current_producer == "eosio"_n)
-         return;
+      // NOTE: These kinds of enable/disable decisions are now entirely pushed out
+      //       of the hotstuff core and into the caller's hands.
+      //
+      //name current_producer = _pacemaker->get_leader();
+      //if (current_producer == "eosio"_n)
+      //   return;
 
       block_id_type current_block_id = _pacemaker->get_current_block_id();
 
