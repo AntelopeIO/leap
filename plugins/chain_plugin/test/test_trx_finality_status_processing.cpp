@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE transaction_finality_status
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
