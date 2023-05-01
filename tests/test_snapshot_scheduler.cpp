@@ -1,11 +1,8 @@
-#define BOOST_TEST_MODULE snapshot_scheduler
-#include <boost/test/included/unit_test.hpp>
-
+#include <boost/test/unit_test.hpp>
+#include <eosio/chain/authority.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/testing/tester.hpp>
-
-namespace {
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -13,10 +10,9 @@ using namespace eosio::chain;
 using snapshot_request_information = snapshot_scheduler::snapshot_request_information;
 using snapshot_request_id_information = snapshot_scheduler::snapshot_request_id_information;
 
-BOOST_AUTO_TEST_SUITE(snapshot_scheduler_test)
+BOOST_AUTO_TEST_SUITE(producer_snapshot_scheduler_tests)
 
 BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
-
    fc::logger log;
    producer_plugin scheduler;
 
@@ -148,5 +144,5 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
       }
    }
 }
-   BOOST_AUTO_TEST_SUITE_END()
-}// namespace
+
+BOOST_AUTO_TEST_SUITE_END()

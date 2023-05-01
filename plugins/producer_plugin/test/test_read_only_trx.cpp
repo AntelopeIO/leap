@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE producer_read_only_trxs
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/testing/tester.hpp>
