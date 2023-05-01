@@ -17,7 +17,6 @@ apt-get install -y \
     libssl-dev \
     libtinfo-dev \
     libzstd-dev \
-    llvm-11-dev \
     python3 \
     python3-numpy \
     time \
