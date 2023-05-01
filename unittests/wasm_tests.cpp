@@ -28,12 +28,6 @@
 
 #include <test_contracts.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
@@ -73,7 +67,7 @@ BOOST_AUTO_TEST_SUITE(wasm_tests)
 /**
  * Prove that action reading and assertions are working
  */
-BOOST_FIXTURE_TEST_CASE( basic_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( basic_test, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"asserter"_n} );
@@ -132,7 +126,7 @@ BOOST_FIXTURE_TEST_CASE( basic_test, TESTER ) try {
 /**
  * Prove the modifications to global variables are wiped between runs
  */
-BOOST_FIXTURE_TEST_CASE( prove_mem_reset, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( prove_mem_reset, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"asserter"_n} );
@@ -162,7 +156,7 @@ BOOST_FIXTURE_TEST_CASE( prove_mem_reset, TESTER ) try {
 /**
  * Prove the modifications to global variables are wiped between runs
  */
-BOOST_FIXTURE_TEST_CASE( abi_from_variant, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( abi_from_variant, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"asserter"_n} );
@@ -212,7 +206,7 @@ BOOST_FIXTURE_TEST_CASE( abi_from_variant, TESTER ) try {
 } FC_LOG_AND_RETHROW() /// prove_mem_reset
 
 // test softfloat 32 bit operations
-BOOST_FIXTURE_TEST_CASE( f32_tests, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( f32_tests, validating_tester ) try {
    produce_blocks(2);
    produce_block();
    create_accounts( {"f32.tests"_n} );
@@ -235,7 +229,7 @@ BOOST_FIXTURE_TEST_CASE( f32_tests, TESTER ) try {
       get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
-BOOST_FIXTURE_TEST_CASE( f32_test_bitwise, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( f32_test_bitwise, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"f32.tests"_n} );
    produce_block();
@@ -258,7 +252,7 @@ BOOST_FIXTURE_TEST_CASE( f32_test_bitwise, TESTER ) try {
       get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
-BOOST_FIXTURE_TEST_CASE( f32_test_cmp, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( f32_test_cmp, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"f32.tests"_n} );
    produce_block();
@@ -283,7 +277,7 @@ BOOST_FIXTURE_TEST_CASE( f32_test_cmp, TESTER ) try {
 } FC_LOG_AND_RETHROW()
 
 // test softfloat 64 bit operations
-BOOST_FIXTURE_TEST_CASE( f64_tests, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( f64_tests, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"f.tests"_n} );
    produce_block();
@@ -306,7 +300,7 @@ BOOST_FIXTURE_TEST_CASE( f64_tests, TESTER ) try {
       get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
-BOOST_FIXTURE_TEST_CASE( f64_test_bitwise, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( f64_test_bitwise, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"f.tests"_n} );
    produce_block();
@@ -329,7 +323,7 @@ BOOST_FIXTURE_TEST_CASE( f64_test_bitwise, TESTER ) try {
       get_transaction_receipt(trx.id());
    }
 } FC_LOG_AND_RETHROW()
-BOOST_FIXTURE_TEST_CASE( f64_test_cmp, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( f64_test_cmp, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"f.tests"_n} );
    produce_block();
@@ -354,7 +348,7 @@ BOOST_FIXTURE_TEST_CASE( f64_test_cmp, TESTER ) try {
 } FC_LOG_AND_RETHROW()
 
 // test softfloat conversion operations
-BOOST_FIXTURE_TEST_CASE( f32_f64_conversion_tests, tester ) try {
+BOOST_FIXTURE_TEST_CASE( f32_f64_conversion_tests, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"ftests"_n} );
@@ -380,7 +374,7 @@ BOOST_FIXTURE_TEST_CASE( f32_f64_conversion_tests, tester ) try {
 } FC_LOG_AND_RETHROW()
 
 // test softfloat conversion operations
-BOOST_FIXTURE_TEST_CASE( f32_f64_overflow_tests, tester ) try {
+BOOST_FIXTURE_TEST_CASE( f32_f64_overflow_tests, validating_tester ) try {
    int count = 0;
    auto check = [&](const char *wast_template, const char *op, const char *param) -> bool {
       count+=16;
@@ -481,7 +475,7 @@ BOOST_FIXTURE_TEST_CASE( f32_f64_overflow_tests, tester ) try {
    BOOST_REQUIRE_EQUAL(false, check(i64_overflow_wast, "i64_trunc_u_f64", "f64.const 18446744073709551616"));
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(misaligned_tests, tester ) try {
+BOOST_FIXTURE_TEST_CASE(misaligned_tests, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"aligncheck"_n} );
    produce_block();
@@ -514,7 +508,7 @@ BOOST_FIXTURE_TEST_CASE(misaligned_tests, tester ) try {
 /**
  * Make sure WASM "start" method is used correctly
  */
-BOOST_FIXTURE_TEST_CASE( check_entry_behavior, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( check_entry_behavior, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"entrycheck"_n} );
    produce_block();
@@ -538,7 +532,7 @@ BOOST_FIXTURE_TEST_CASE( check_entry_behavior, TESTER ) try {
    BOOST_CHECK_EQUAL(transaction_receipt::executed, receipt.status);
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( check_entry_behavior_2, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( check_entry_behavior_2, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"entrycheck"_n} );
    produce_block();
@@ -562,7 +556,7 @@ BOOST_FIXTURE_TEST_CASE( check_entry_behavior_2, TESTER ) try {
    BOOST_CHECK_EQUAL(transaction_receipt::executed, receipt.status);
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( entry_import, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( entry_import, validating_tester ) try {
    create_accounts( {"enterimport"_n} );
    produce_block();
 
@@ -580,7 +574,7 @@ BOOST_FIXTURE_TEST_CASE( entry_import, TESTER ) try {
    BOOST_CHECK_THROW(push_transaction(trx), abort_called);
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( entry_db, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( entry_db, validating_tester ) try {
    create_accounts( {"entrydb"_n} );
    produce_block();
 
@@ -601,7 +595,7 @@ BOOST_FIXTURE_TEST_CASE( entry_db, TESTER ) try {
 /**
  * Ensure we can load a wasm w/o memory
  */
-BOOST_FIXTURE_TEST_CASE( simple_no_memory_check, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( simple_no_memory_check, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"nomem"_n} );
@@ -624,7 +618,7 @@ BOOST_FIXTURE_TEST_CASE( simple_no_memory_check, TESTER ) try {
 } FC_LOG_AND_RETHROW()
 
 //Make sure globals are all reset to their inital values
-BOOST_FIXTURE_TEST_CASE( check_global_reset, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( check_global_reset, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"globalreset"_n} );
@@ -712,7 +706,7 @@ BOOST_DATA_TEST_CASE( table_init_tests, bdata::make({setup_policy::preactivate_f
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( table_init_oob, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( table_init_oob, validating_tester ) try {
    create_accounts( {"tableinitoob"_n} );
    produce_block();
 
@@ -753,7 +747,7 @@ BOOST_FIXTURE_TEST_CASE( table_init_oob, TESTER ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( memory_init_border, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( memory_init_border, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"memoryborder"_n} );
@@ -767,7 +761,7 @@ BOOST_FIXTURE_TEST_CASE( memory_init_border, TESTER ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( imports, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( imports, validating_tester ) try {
    try {
       produce_blocks(2);
 
@@ -785,7 +779,7 @@ BOOST_FIXTURE_TEST_CASE( imports, TESTER ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( nested_limit_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( nested_limit_test, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"nested"_n} );
@@ -983,7 +977,7 @@ BOOST_AUTO_TEST_CASE( offset_check_old ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( offset_check, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( offset_check, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"offsets"_n} );
@@ -1028,7 +1022,7 @@ BOOST_FIXTURE_TEST_CASE( offset_check, TESTER ) try {
 } FC_LOG_AND_RETHROW()
 
 
-BOOST_FIXTURE_TEST_CASE(noop, TESTER) try {
+BOOST_FIXTURE_TEST_CASE(noop, validating_tester) try {
    produce_blocks(2);
    create_accounts( {"noop"_n, "alice"_n} );
    produce_block();
@@ -1096,7 +1090,7 @@ BOOST_FIXTURE_TEST_CASE(noop, TESTER) try {
 // abi_serializer::to_variant failed because eosio_system_abi modified via set_abi.
 // This test also verifies that chain_initializer::eos_contract_abi() does not conflict
 // with eosio_system_abi as they are not allowed to contain duplicates.
-BOOST_FIXTURE_TEST_CASE(eosio_abi, TESTER) try {
+BOOST_FIXTURE_TEST_CASE(eosio_abi, validating_tester) try {
    produce_blocks(2);
 
    const auto& accnt  = control->db().get<account_object,by_name>(config::system_account_name);
@@ -1205,7 +1199,7 @@ BOOST_AUTO_TEST_CASE( check_big_deserialization ) try {
 } FC_LOG_AND_RETHROW()
 
 
-BOOST_FIXTURE_TEST_CASE( check_table_maximum, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( check_table_maximum, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"tbl"_n} );
    produce_block();
@@ -1348,7 +1342,7 @@ BOOST_FIXTURE_TEST_CASE( check_table_maximum, TESTER ) try {
    }
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( protected_globals, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( protected_globals, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"gob"_n} );
@@ -1383,7 +1377,7 @@ BOOST_FIXTURE_TEST_CASE( protected_globals, TESTER ) try {
    produce_blocks(1);
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( apply_export_and_signature, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( apply_export_and_signature, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"bbb"_n} );
    produce_block();
@@ -1401,7 +1395,7 @@ BOOST_FIXTURE_TEST_CASE( apply_export_and_signature, TESTER ) try {
    produce_blocks(1);
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( trigger_serialization_errors, TESTER) try {
+BOOST_FIXTURE_TEST_CASE( trigger_serialization_errors, validating_tester) try {
    produce_blocks(2);
    const vector<uint8_t> proper_wasm = { 0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x0d, 0x02, 0x60, 0x03, 0x7f, 0x7f, 0x7f,
                                          0x00, 0x60, 0x03, 0x7e, 0x7e, 0x7e, 0x00, 0x02, 0x0e, 0x01, 0x03, 0x65, 0x6e, 0x76, 0x06, 0x73,
@@ -1425,7 +1419,7 @@ BOOST_FIXTURE_TEST_CASE( trigger_serialization_errors, TESTER) try {
    produce_blocks(1);
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( protect_injected, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( protect_injected, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"inj"_n} );
@@ -1435,7 +1429,7 @@ BOOST_FIXTURE_TEST_CASE( protect_injected, TESTER ) try {
    produce_blocks(1);
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( import_signature, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( import_signature, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"imp"_n} );
@@ -1445,7 +1439,7 @@ BOOST_FIXTURE_TEST_CASE( import_signature, TESTER ) try {
    produce_blocks(1);
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( mem_growth_memset, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( mem_growth_memset, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"grower"_n} );
@@ -1512,7 +1506,7 @@ INCBIN(deep_loops_ext_report, "deep_loops_ext_report.wasm");
 INCBIN(80k_deep_loop_with_ret, "80k_deep_loop_with_ret.wasm");
 INCBIN(80k_deep_loop_with_void, "80k_deep_loop_with_void.wasm");
 
-BOOST_FIXTURE_TEST_CASE( fuzz, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( fuzz, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"fuzzy"_n} );
@@ -1670,7 +1664,7 @@ BOOST_FIXTURE_TEST_CASE( fuzz, TESTER ) try {
    produce_blocks(1);
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( big_maligned_host_ptr, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( big_maligned_host_ptr, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"bigmaligned"_n} );
    produce_block();
@@ -1822,7 +1816,7 @@ static char reset_memory_fail3_wast[] = R"======(
 )
 )======";
 
-BOOST_FIXTURE_TEST_CASE( reset_memory_fail, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( reset_memory_fail, validating_tester ) try {
    produce_block();
    create_accounts( {"usemem"_n, "resetmem"_n, "accessmem"_n} );
    produce_block();
@@ -2080,7 +2074,7 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
 /**
  * various tests with wasm & 0 pages worth of memory
  */
-BOOST_FIXTURE_TEST_CASE( zero_memory_pages, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( zero_memory_pages, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"zero"_n} );
@@ -2125,7 +2119,7 @@ BOOST_FIXTURE_TEST_CASE( zero_memory_pages, TESTER ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( eosio_exit_in_start, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( eosio_exit_in_start, validating_tester ) try {
    produce_blocks(2);
    create_accounts( {"startexit"_n} );
    produce_block();
@@ -2146,7 +2140,7 @@ BOOST_FIXTURE_TEST_CASE( eosio_exit_in_start, TESTER ) try {
 } FC_LOG_AND_RETHROW()
 
 // memory.grow with a negative argument can shrink the available memory.
-BOOST_FIXTURE_TEST_CASE( negative_memory_grow, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( negative_memory_grow, validating_tester ) try {
    produce_blocks(2);
 
 

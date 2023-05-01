@@ -14,12 +14,6 @@
 #include <fc/log/logger.hpp>
 #include <eosio/chain/exceptions.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::chain_apis;
@@ -29,7 +23,7 @@ using namespace fc;
 
 using mvo = fc::mutable_variant_object;
 
-class chain_plugin_tester : public TESTER {
+class chain_plugin_tester : public validating_tester {
 public:
 
     action_result push_action( const account_name& signer, const action_name &name, const variant_object &data, bool auth = true ) {
@@ -324,7 +318,7 @@ public:
         }
         produce_blocks( 250);
 
-        auto trace_auth = TESTER::push_action(config::system_account_name, updateauth::get_name(), config::system_account_name, mvo()
+        auto trace_auth = validating_tester::push_action(config::system_account_name, updateauth::get_name(), config::system_account_name, mvo()
                 ("account", name(config::system_account_name).to_string())
                 ("permission", name(config::active_name).to_string())
                 ("parent", name(config::owner_name).to_string())

@@ -10,19 +10,13 @@
 #include <contracts.hpp>
 #include <test_contracts.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 
 using mvo = fc::mutable_variant_object;
 
-template<class Tester = TESTER>
+template<class Tester = validating_tester>
 class whitelist_blacklist_tester {
    public:
       whitelist_blacklist_tester() {}
@@ -385,7 +379,7 @@ BOOST_AUTO_TEST_CASE( deferred_blacklist_failure ) { try {
 
 
 BOOST_AUTO_TEST_CASE( blacklist_onerror ) { try {
-   whitelist_blacklist_tester<TESTER> tester1;
+   whitelist_blacklist_tester<validating_tester> tester1;
    tester1.init();
    tester1.chain->execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );

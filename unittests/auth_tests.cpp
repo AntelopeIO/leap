@@ -9,19 +9,13 @@
 
 #include <eosio/testing/tester_network.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 
 BOOST_AUTO_TEST_SUITE(auth_tests)
 
-BOOST_FIXTURE_TEST_CASE( missing_sigs, TESTER ) { try {
+BOOST_FIXTURE_TEST_CASE( missing_sigs, validating_tester ) { try {
    create_accounts( {"alice"_n} );
    produce_block();
 
@@ -33,7 +27,7 @@ BOOST_FIXTURE_TEST_CASE( missing_sigs, TESTER ) { try {
 
 } FC_LOG_AND_RETHROW() } /// missing_sigs
 
-BOOST_FIXTURE_TEST_CASE( missing_multi_sigs, TESTER ) { try {
+BOOST_FIXTURE_TEST_CASE( missing_multi_sigs, validating_tester ) { try {
     produce_block();
     create_account("alice"_n, config::system_account_name, true);
     produce_block();
@@ -46,7 +40,7 @@ BOOST_FIXTURE_TEST_CASE( missing_multi_sigs, TESTER ) { try {
 
  } FC_LOG_AND_RETHROW() } /// missing_multi_sigs
 
-BOOST_FIXTURE_TEST_CASE( missing_auths, TESTER ) { try {
+BOOST_FIXTURE_TEST_CASE( missing_auths, validating_tester ) { try {
    create_accounts( {"alice"_n, "bob"_n} );
    produce_block();
 
@@ -59,7 +53,7 @@ BOOST_FIXTURE_TEST_CASE( missing_auths, TESTER ) { try {
  *  This test case will attempt to allow one account to transfer on behalf
  *  of another account by updating the active authority.
  */
-BOOST_FIXTURE_TEST_CASE( delegate_auth, TESTER ) { try {
+BOOST_FIXTURE_TEST_CASE( delegate_auth, validating_tester ) { try {
    create_accounts( {"alice"_n,"bob"_n});
    produce_block();
 
@@ -95,7 +89,7 @@ BOOST_FIXTURE_TEST_CASE( delegate_auth, TESTER ) { try {
 
 BOOST_AUTO_TEST_CASE(update_auths) {
 try {
-   TESTER chain;
+   validating_tester chain;
    chain.create_account(name("alice"));
    chain.create_account(name("bob"));
 
@@ -228,7 +222,7 @@ try {
 
 BOOST_AUTO_TEST_CASE(update_auth_unknown_private_key) {
    try {
-      TESTER chain;
+      validating_tester chain;
       chain.create_account(name("alice"));
 
       // public key with no corresponding private key
@@ -262,7 +256,7 @@ BOOST_AUTO_TEST_CASE(update_auth_unknown_private_key) {
 }
 
 BOOST_AUTO_TEST_CASE(link_auths) { try {
-   TESTER chain;
+   validating_tester chain;
 
    chain.create_accounts({name("alice"),name("bob")});
 
@@ -305,7 +299,7 @@ BOOST_AUTO_TEST_CASE(link_auths) { try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(link_then_update_auth) { try {
-   TESTER chain;
+   validating_tester chain;
 
    chain.create_account(name("alice"));
 
@@ -332,7 +326,7 @@ BOOST_AUTO_TEST_CASE(link_then_update_auth) { try {
 
 BOOST_AUTO_TEST_CASE(create_account) {
 try {
-   TESTER chain;
+   validating_tester chain;
    chain.create_account(name("joe"));
    chain.produce_block();
 
@@ -370,7 +364,7 @@ try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE( any_auth ) { try {
-   TESTER chain;
+   validating_tester chain;
    chain.create_accounts( {name("alice"), name("bob")} );
    chain.produce_block();
 
@@ -466,7 +460,7 @@ try {
 
 BOOST_AUTO_TEST_CASE(stricter_auth) {
 try {
-   TESTER chain;
+   validating_tester chain;
 
    chain.produce_block();
 
@@ -515,7 +509,7 @@ try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE( linkauth_special ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
    std::vector<transaction_id_type> ids;
