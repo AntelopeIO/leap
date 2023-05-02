@@ -11,25 +11,18 @@ using namespace eosio;
 
 class test_control_api_plugin_impl {
 public:
-   test_control_api_plugin_impl(controller& db)
+   explicit test_control_api_plugin_impl(controller& db)
       : db(db) {}
 
    controller& db;
 };
 
 
-test_control_api_plugin::test_control_api_plugin(){}
-test_control_api_plugin::~test_control_api_plugin(){}
+test_control_api_plugin::test_control_api_plugin() = default;
+test_control_api_plugin::~test_control_api_plugin() = default;
 
 void test_control_api_plugin::set_program_options(options_description&, options_description&) {}
 void test_control_api_plugin::plugin_initialize(const variables_map&) {}
-
-struct async_result_visitor : public fc::visitor<std::string> {
-   template<typename T>
-   std::string operator()(const T& v) const {
-      return fc::json::to_string(v);
-   }
-};
 
 #define CALL_WITH_API_400(api_name, api_handle, api_namespace, call_name, http_response_code, params_type) \
 {std::string("/v1/" #api_name "/" #call_name), \
