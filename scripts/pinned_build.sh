@@ -30,8 +30,8 @@ DEP_DIR="$(realpath "$1")"
 LEAP_DIR="$2"
 JOBS="$3"
 CLANG_VER=11.0.1
-BOOST_VER=1.70.0
-LLVM_VER=7.1.0
+BOOST_VER=1.82.0
+LLVM_VER=11.0.1
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 START_DIR="$(pwd)"
 
@@ -69,7 +69,7 @@ install_clang() {
     if [ ! -d "${CLANG_DIR}" ]; then
         echo "Installing Clang ${CLANG_VER} @ ${CLANG_DIR}"
         mkdir -p "${CLANG_DIR}"
-        CLANG_FN="clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
+        CLANG_FN="clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-20.10.tar.xz"
         try wget -O "${CLANG_FN}" "https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VER}/${CLANG_FN}"
         try tar -xvf "${CLANG_FN}" -C "${CLANG_DIR}"
         pushdir "${CLANG_DIR}"
@@ -109,9 +109,8 @@ install_boost() {
         try wget -O "boost_${BOOST_VER//\./_}.tar.gz" "https://boostorg.jfrog.io/artifactory/main/release/${BOOST_VER}/source/boost_${BOOST_VER//\./_}.tar.gz"
         try tar --transform="s:^boost_${BOOST_VER//\./_}:boost_${BOOST_VER//\./_}patched:" -xvzf "boost_${BOOST_VER//\./_}.tar.gz" -C "${DEP_DIR}"
         pushdir "${BOOST_DIR}"
-        patch -p1 < "${SCRIPT_DIR}/0001-beast-fix-moved-from-executor.patch"
         try ./bootstrap.sh -with-toolset=clang --prefix="${BOOST_DIR}/bin"
-        ./b2 toolset=clang cxxflags="-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I\${CLANG_DIR}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE" linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -q -j "${JOBS}" install
+        ./b2 toolset=clang cxxflags="-stdlib=libc++ -D__STRICT_ANSI__ -nostdinc++ -I\${CLANG_DIR}/include/c++/v1 -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fPIE" linkflags='-stdlib=libc++ -pie' link=static threading=multi --with-iostreams --with-date_time --with-system --with-program_options --with-chrono --with-test -q -j "${JOBS}" install
         popdir "${DEP_DIR}"
         rm "boost_${BOOST_VER//\./_}.tar.gz"
     fi
