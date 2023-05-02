@@ -121,7 +121,7 @@ pushdir "${DEP_DIR}"
 
 install_clang "${DEP_DIR}/clang-${CLANG_VER}"
 install_llvm "${DEP_DIR}/llvm-${LLVM_VER}"
-install_boost "${DEP_DIR}/boost_${BOOST_VER//\./_}patched"
+install_boost "${DEP_DIR}/boost_${BOOST_VER//\./_}"
 
 # go back to the directory where the script starts
 popdir "${START_DIR}"
