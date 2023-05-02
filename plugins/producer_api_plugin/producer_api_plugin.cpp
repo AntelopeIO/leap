@@ -61,7 +61,8 @@ using namespace eosio;
      auto result = api_handle.call_name(std::move(params));
 
 #define INVOKE_R_R_D(api_handle, call_name, in_param) \
-     auto deadline = fc::time_point::now() + http_max_response_time; \
+     auto deadline = http_max_response_time == fc::microseconds::maximum() ? fc::time_point::maximum() \
+                                                                           : fc::time_point::now() + http_max_response_time; \
      auto params = parse_params<in_param, http_params_types::possible_no_params>(body);\
      auto result = api_handle.call_name(std::move(params), deadline);
 
