@@ -1624,6 +1624,14 @@ void producer_plugin::notify_hs_new_block_message( const hs_new_block_message_pt
    my->notify_hs_new_block_message(msg);
 };
 
+bool producer_plugin::get_finalizer_state( finalizer_state & fs ) const {
+   if (my->_chain_pacemaker) {
+      my->_chain_pacemaker->get_state( fs );
+      return true;
+   }
+   return false;
+}
+
 fc::variants producer_plugin::get_supported_protocol_features( const get_supported_protocol_features_params& params ) const {
    fc::variants results;
    const chain::controller& chain = my->chain_plug->chain();

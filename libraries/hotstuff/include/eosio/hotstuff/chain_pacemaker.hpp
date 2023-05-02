@@ -1,5 +1,7 @@
 #pragma once
+
 #include <eosio/hotstuff/base_pacemaker.hpp>
+
 #include <eosio/chain/controller.hpp>
 
 #include <eosio/hotstuff/qc_chain.hpp>
@@ -20,6 +22,8 @@ namespace eosio { namespace hotstuff {
       void on_hs_new_view_msg(const hs_new_view_message & msg); //new view msg event handler
       void on_hs_new_block_msg(const hs_new_block_message & msg); //new block msg event handler
 
+      void get_state( finalizer_state & fs );
+
       //base_pacemaker interface functions
 
       name get_proposer();
@@ -38,7 +42,11 @@ namespace eosio { namespace hotstuff {
 
    private:
 
-      std::mutex              _hotstuff_state_mutex;
+      // This serializes all messages (high-level requests) to the qc_chain core.
+      // For maximum safety, the qc_chain core will only process one request at a time.
+      // These requests can come directly from the net threads, or indirectly from a
+      //   dedicated finalizer thread (TODO: discuss).
+      std::mutex              _hotstuff_global_mutex;
 
       chain::controller*      _chain = nullptr;
 

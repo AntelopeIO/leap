@@ -716,6 +716,45 @@ public:
    };
    get_consensus_parameters_results get_consensus_parameters(const get_consensus_parameters_params&, const fc::time_point& deadline) const;
 
+   struct hs_complete_proposal_message {
+      fc::sha256                 proposal_id;
+      chain::block_id_type       block_id;
+      fc::sha256                 parent_id;
+      fc::sha256                 final_on_qc;
+      chain::quorum_certificate  justify;
+      uint8_t                    phase_counter;
+      uint32_t                   block_number;
+      uint64_t                   block_height;
+      hs_complete_proposal_message( chain::hs_proposal_message p ) {
+         proposal_id    = p.proposal_id;
+         block_id       = p.block_id;
+         parent_id      = p.parent_id;
+         final_on_qc    = p.final_on_qc;
+         justify        = p.justify;
+         phase_counter  = p.phase_counter;
+         block_number   = p.block_num();
+         block_height   = p.get_height();
+      }
+      hs_complete_proposal_message() = delete;
+   };
+
+   using get_finalizer_state_params = empty;
+   struct get_finalizer_state_results {
+      bool chained_mode = false;
+      fc::sha256 b_leaf = chain::NULL_PROPOSAL_ID;
+      fc::sha256 b_lock = chain::NULL_PROPOSAL_ID;
+      fc::sha256 b_exec = chain::NULL_PROPOSAL_ID;
+      fc::sha256 b_finality_violation = chain::NULL_PROPOSAL_ID;
+      chain::block_id_type block_exec = chain::NULL_BLOCK_ID;
+      chain::block_id_type pending_proposal_block = chain::NULL_BLOCK_ID;
+      uint32_t v_height = 0;
+      chain::quorum_certificate high_qc;
+      chain::quorum_certificate current_qc;
+      chain::extended_schedule schedule;
+      vector<hs_complete_proposal_message> proposals;
+   };
+   get_finalizer_state_results get_finalizer_state(const get_finalizer_state_params&, const fc::time_point& deadline) const;
+
 private:
    template<typename Params, typename Results>
    void send_transient_transaction(const Params& params, next_function<Results> next, chain::transaction_metadata::trx_type trx_type) const;
@@ -963,3 +1002,5 @@ FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_results, (transact
 FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_params, (transaction))
 FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_results, (transaction_id)(processed) )
 FC_REFLECT( eosio::chain_apis::read_only::get_consensus_parameters_results, (chain_config)(wasm_config))
+FC_REFLECT( eosio::chain_apis::read_only::hs_complete_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter)(block_number)(block_height))
+FC_REFLECT( eosio::chain_apis::read_only::get_finalizer_state_results, (chained_mode)(b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals))

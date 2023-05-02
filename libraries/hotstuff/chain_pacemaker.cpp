@@ -106,6 +106,10 @@ namespace eosio { namespace hotstuff {
    {
    }
 
+   void chain_pacemaker::get_state( finalizer_state & fs ) {
+      _qc_chain.get_state( fs ); // get_state() takes scare of finer-grained synchronization internally
+   }
+
    name chain_pacemaker::get_proposer(){
       const block_state_ptr& hbs = _chain->head_block_state();
       return hbs->header.producer;
@@ -145,7 +149,7 @@ namespace eosio { namespace hotstuff {
 
    void chain_pacemaker::beat(){
       csc prof("beat");
-      std::lock_guard g( _hotstuff_state_mutex );
+      std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
       _qc_chain.on_beat();
       prof.core_out();
@@ -173,7 +177,7 @@ namespace eosio { namespace hotstuff {
 
    void chain_pacemaker::on_hs_proposal_msg(const hs_proposal_message & msg){
       csc prof("prop");
-      std::lock_guard g( _hotstuff_state_mutex );
+      std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
       _qc_chain.on_hs_proposal_msg(msg);
       prof.core_out();
@@ -181,7 +185,7 @@ namespace eosio { namespace hotstuff {
 
    void chain_pacemaker::on_hs_vote_msg(const hs_vote_message & msg){
       csc prof("vote");
-      std::lock_guard g( _hotstuff_state_mutex );
+      std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
       _qc_chain.on_hs_vote_msg(msg);
       prof.core_out();
@@ -189,7 +193,7 @@ namespace eosio { namespace hotstuff {
 
    void chain_pacemaker::on_hs_new_block_msg(const hs_new_block_message & msg){
       csc prof("nblk");
-      std::lock_guard g( _hotstuff_state_mutex );
+      std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
       _qc_chain.on_hs_new_block_msg(msg);
       prof.core_out();
@@ -197,7 +201,7 @@ namespace eosio { namespace hotstuff {
 
    void chain_pacemaker::on_hs_new_view_msg(const hs_new_view_message & msg){
       csc prof("view");
-      std::lock_guard g( _hotstuff_state_mutex );
+      std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
       _qc_chain.on_hs_new_view_msg(msg);
       prof.core_out();

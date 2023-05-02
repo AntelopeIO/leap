@@ -2673,6 +2673,31 @@ read_only::get_consensus_parameters(const get_consensus_parameters_params&, cons
    return results;
 }
 
+read_only::get_finalizer_state_results
+read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time_point& deadline ) const {
+   get_finalizer_state_results results;
+   if ( producer_plug ) {  // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
+      finalizer_state fs;
+      producer_plug->get_finalizer_state( fs );
+      results.chained_mode           = fs.chained_mode;
+      results.b_leaf                 = fs.b_leaf;
+      results.b_lock                 = fs.b_lock;
+      results.b_exec                 = fs.b_exec;
+      results.b_finality_violation   = fs.b_finality_violation;
+      results.block_exec             = fs.block_exec;
+      results.pending_proposal_block = fs.pending_proposal_block;
+      results.v_height               = fs.v_height;
+      results.high_qc                = fs.high_qc;
+      results.current_qc             = fs.current_qc;
+      results.schedule               = fs.schedule;
+      for (auto proposal: fs.proposals) {
+         chain::hs_proposal_message & p = proposal.second;
+         results.proposals.push_back( hs_complete_proposal_message( p ) );
+      }
+   }
+   return results;
+}
+
 } // namespace chain_apis
 
 fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_trace ) const {

@@ -173,6 +173,8 @@ public:
    void notify_hs_new_view_message( const chain::hs_new_view_message_ptr& msg);
    void notify_hs_new_block_message( const chain::hs_new_block_message_ptr& msg );
 
+   bool get_finalizer_state(finalizer_state & fs) const;
+
    fc::variants get_supported_protocol_features( const get_supported_protocol_features_params& params ) const;
 
    get_account_ram_corrections_result  get_account_ram_corrections( const get_account_ram_corrections_params& params ) const;
@@ -216,7 +218,7 @@ public:
    static void set_test_mode(bool m) { test_mode_ = m; }
  private:
    inline static bool test_mode_{false}; // to be moved into appbase (application_base)
-   
+
    std::shared_ptr<class producer_plugin_impl> my;
 };
 

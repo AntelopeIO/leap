@@ -69,6 +69,24 @@ namespace eosio { namespace chain {
       hs_new_view_message() = default;
    };
 
+   struct finalizer_state {
+
+      bool chained_mode = false;
+      fc::sha256 b_leaf = NULL_PROPOSAL_ID;
+      fc::sha256 b_lock = NULL_PROPOSAL_ID;
+      fc::sha256 b_exec = NULL_PROPOSAL_ID;
+      fc::sha256 b_finality_violation = NULL_PROPOSAL_ID;
+      block_id_type block_exec = NULL_BLOCK_ID;
+      block_id_type pending_proposal_block = NULL_BLOCK_ID;
+      uint32_t v_height = 0;
+      eosio::chain::quorum_certificate high_qc;
+      eosio::chain::quorum_certificate current_qc;
+      eosio::chain::extended_schedule schedule;
+      map<fc::sha256, hs_proposal_message> proposals;
+
+      finalizer_state() = default;
+   };
+
    using hs_proposal_message_ptr = std::shared_ptr<hs_proposal_message>;
    using hs_vote_message_ptr = std::shared_ptr<hs_vote_message>;
    using hs_new_view_message_ptr = std::shared_ptr<hs_new_view_message>;
@@ -77,7 +95,9 @@ namespace eosio { namespace chain {
 }} //eosio::chain
 
 FC_REFLECT(eosio::chain::quorum_certificate, (proposal_id)(active_finalizers)(active_agg_sig));
+FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer)(sig));
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::chain::hs_new_block_message, (block_id)(justify));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
+FC_REFLECT(eosio::chain::finalizer_state, (chained_mode)(b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));

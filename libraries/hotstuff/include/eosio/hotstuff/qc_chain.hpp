@@ -29,7 +29,6 @@ namespace eosio { namespace hotstuff {
 
    using boost::multi_index_container;
    using namespace boost::multi_index;
-
    using namespace eosio::chain;
 
    class qc_chain {
@@ -87,6 +86,8 @@ namespace eosio { namespace hotstuff {
 
       // returns false if proposal with that same ID already exists at the store of its height
       bool insert_proposal(const hs_proposal_message & proposal);
+
+      void get_state( finalizer_state & fs );
 
       uint32_t positive_bits_count(fc::unsigned_int value);
 
@@ -146,6 +147,20 @@ namespace eosio { namespace hotstuff {
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
 
 private:
+
+      // This mutex synchronizes all writes to the data members of this qc_chain against
+      //   get_state() calls (which ultimately come from e.g. the HTTP plugin).
+      // This could result in a HTTP query that gets the state of the core while it is
+      //   in the middle of processing a given request, since this is not serializing
+      //   against high-level message or request processing borders.
+      // If that behavior is not desired, we can instead synchronize this against a
+      //   consistent past snapshot of the qc_chain's state for e.g. the HTTP plugin,
+      //   which would be updated at the end of processing every request to the core
+      //   that does alter the qc_chain (hotstuff protocol state).
+      // And if the chain_pacemaker::_hotstuff_global_mutex locking strategy is ever
+      //   changed, then this probably needs to be reviewed as well.
+      //
+      std::mutex     _state_mutex;
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       // keep one proposal store (id -> proposal) by each height (height -> proposal store)

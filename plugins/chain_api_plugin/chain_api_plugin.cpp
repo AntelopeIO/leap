@@ -128,6 +128,10 @@ void chain_api_plugin::plugin_startup() {
    }
 
    _http_plugin.add_api({
+      CHAIN_RO_CALL(get_finalizer_state, 200, http_params_types::no_params)
+   }, appbase::exec_queue::read_only);
+
+   _http_plugin.add_api({
       { std::string("/v1/chain/get_block"),
         [ro_api, &_http_plugin, max_time=std::min(chain.get_abi_serializer_max_time(),max_response_time)]
               ( string&&, string&& body, url_response_callback&& cb ) mutable {
