@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE trace_configuration_utils
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <list>
 
 #include <eosio/trace_api/configuration_utils.hpp>

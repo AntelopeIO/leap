@@ -1,6 +1,5 @@
-#define BOOST_TEST_MODULE account_query_db
+#include <boost/test/unit_test.hpp>
 #include <eosio/chain/permission_object.hpp>
-#include <boost/test/included/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/block_state.hpp>

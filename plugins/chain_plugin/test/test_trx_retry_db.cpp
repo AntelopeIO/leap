@@ -1,6 +1,5 @@
 #include "eosio/chain_plugin/chain_plugin.hpp"
-#define BOOST_TEST_MODULE transaction_retry
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/chain_plugin/trx_retry_db.hpp>
 
