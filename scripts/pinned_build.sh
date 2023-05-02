@@ -69,7 +69,7 @@ install_clang() {
     if [ ! -d "${CLANG_DIR}" ]; then
         echo "Installing Clang ${CLANG_VER} @ ${CLANG_DIR}"
         mkdir -p "${CLANG_DIR}"
-        CLANG_FN="clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-20.10.tar.xz"
+        CLANG_FN="clang+llvm-${CLANG_VER}-x86_64-linux-gnu-ubuntu-16.04.tar.xz"
         try wget -O "${CLANG_FN}" "https://github.com/llvm/llvm-project/releases/download/llvmorg-${CLANG_VER}/${CLANG_FN}"
         try tar -xvf "${CLANG_FN}" -C "${CLANG_DIR}"
         pushdir "${CLANG_DIR}"
@@ -93,7 +93,7 @@ install_llvm() {
         try cmake -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX="${LLVM_DIR}" -DCMAKE_BUILD_TYPE=Release -DLLVM_TARGETS_TO_BUILD=host -DLLVM_BUILD_TOOLS=Off -DLLVM_ENABLE_RTTI=On -DLLVM_ENABLE_TERMINFO=Off -DCMAKE_EXE_LINKER_FLAGS=-pthread -DCMAKE_SHARED_LINKER_FLAGS=-pthread -DLLVM_ENABLE_PIC=NO ..
         try make -j "${JOBS}"
         try make -j "${JOBS}" install
-        popdir "${LLVM_DIR}.src"
+        popdir "${LLVM_DIR}.src"ls
         popdir "${DEP_DIR}"
         rm -rf "${LLVM_DIR}.src"
         rm "llvm-${LLVM_VER}.src.tar.xz"
