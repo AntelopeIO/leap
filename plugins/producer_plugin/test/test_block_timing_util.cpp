@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE block_timing_util
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <eosio/producer_plugin/block_timing_util.hpp>
 #include <fc/mock_time.hpp>
 

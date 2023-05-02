@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE io_json
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/exception/exception.hpp>
@@ -72,23 +71,23 @@ BOOST_AUTO_TEST_CASE(to_string_test)
          BOOST_CHECK_EQUAL(length_exception_in_mid_str, "\"" + json_test_util::repeat_chars + "\"");
       }
       {
-         variant v(4294967296); // 0xFFFFFFFF + 1
+         variant v(4294967296LL); // 0xFFFFFFFF + 1
          std::string large_int = json::to_string( v, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit);
          BOOST_CHECK_EQUAL(large_int, "\"4294967296\"");
 
-         variant v1(4294967295); // 0xFFFFFFFF
+         variant v1(4294967295LL); // 0xFFFFFFFF
          std::string normal_int = json::to_string( v1, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit);
          BOOST_CHECK_EQUAL(normal_int, "4294967295");
 
-         variant v2(-4294967296); 
+         variant v2(-4294967296LL);
          std::string large_int_neg = json::to_string( v2, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit);
          BOOST_CHECK_EQUAL(large_int_neg, "\"-4294967296\"");
 
-         variant v3(-4294967295);
+         variant v3(-4294967295LL);
          std::string normal_int_neg = json::to_string( v3, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit);
          BOOST_CHECK_EQUAL(normal_int_neg, "-4294967295");
 
-         variant v4(-90909090909090909);
+         variant v4(-90909090909090909LL);
          std::string super_neg = json::to_string( v4, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit);
          BOOST_CHECK_EQUAL(super_neg, "\"-90909090909090909\"");
       }

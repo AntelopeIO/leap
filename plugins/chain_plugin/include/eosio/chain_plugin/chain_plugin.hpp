@@ -47,8 +47,6 @@ namespace eosio {
    using chain::abi_resolver;
    using chain::packed_transaction;
 
-class producer_plugin;
-
 namespace chain_apis {
 struct empty{};
 
@@ -128,7 +126,6 @@ class read_only : public api_base {
    const fc::microseconds abi_serializer_max_time;
    const fc::microseconds http_max_response_time;
    bool  shorten_abi_errors = true;
-   const producer_plugin* producer_plug;
    const trx_finality_status_processing* trx_finality_status_proc;
    friend class api_base;
    
@@ -137,13 +134,11 @@ public:
 
    read_only(const controller& db, const std::optional<account_query_db>& aqdb,
              const fc::microseconds& abi_serializer_max_time, const fc::microseconds& http_max_response_time,
-             const producer_plugin* producer_plug,
              const trx_finality_status_processing* trx_finality_status_proc)
       : db(db)
       , aqdb(aqdb)
       , abi_serializer_max_time(abi_serializer_max_time)
       , http_max_response_time(http_max_response_time)
-      , producer_plug(producer_plug)
       , trx_finality_status_proc(trx_finality_status_proc) {
    }
 
@@ -592,7 +587,7 @@ public:
       const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple(p.code, scope, p.table));
       const auto* index_t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple(p.code, scope, name(table_with_index)));
       if( t_id != nullptr && index_t_id != nullptr ) {
-         using secondary_key_type = std::result_of_t<decltype(conv)(SecKeyType)>;
+         using secondary_key_type = std::invoke_result_t<decltype(conv), SecKeyType>;
          static_assert( std::is_same<typename IndexType::value_type::secondary_key_type, secondary_key_type>::value, "Return type of conv does not match type of secondary key for IndexType" );
 
          const auto& secidx = d.get_index<IndexType, chain::by_secondary>();

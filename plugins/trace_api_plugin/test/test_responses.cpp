@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE trace_data_responses
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/variant_object.hpp>
 

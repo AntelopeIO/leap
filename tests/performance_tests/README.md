@@ -440,9 +440,9 @@ Advanced Configuration Options:
 
 ```
 usage: performance_test.py testBpOpMode overrideBasicTestConfig
-       [-h] [-p P] [-n N] [-d D] [--nodes-file NODES_FILE] [-s {mesh}]
-       [--dump-error-details] [-v] [--leave-running] [--clean-run]
-       [--unshared] [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
+       [-h] [-d D] [--dump-error-details] [-v] [--leave-running] [--clean-run] [--unshared]
+       [--producer-nodes PRODUCER_NODES] [--validation-nodes VALIDATION_NODES] [--api-nodes API_NODES]
+       [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
        [--genesis GENESIS] [--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE]
        [--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT]
        [--chain-threads CHAIN_THREADS]
@@ -452,6 +452,7 @@ usage: performance_test.py testBpOpMode overrideBasicTestConfig
        [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
        [--cpu-effort-percent CPU_EFFORT_PERCENT]
        [--producer-threads PRODUCER_THREADS]
+       [--http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS]
        [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
        [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
        [--del-perf-logs] [--del-report] [--quiet] [--prods-enable-trace-api]
@@ -479,12 +480,7 @@ optional arguments:
 Test Helper Arguments:
   Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
 
-  -p P                  producing nodes count
-  -n N                  total nodes
   -d D                  delay between nodes startup
-  --nodes-file NODES_FILE
-                        File containing nodes info in JSON format.
-  -s {mesh}             topology
   --dump-error-details  Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout
   -v                    verbose logging
   --leave-running       Leave cluster running after test finishes
@@ -494,6 +490,12 @@ Test Helper Arguments:
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
+  --producer-nodes PRODUCER_NODES
+                        Producing nodes count
+  --validation-nodes VALIDATION_NODES
+                        Validation nodes count
+  --api-nodes API_NODES
+                        API nodes count
   --tps-limit-per-generator TPS_LIMIT_PER_GENERATOR
                         Maximum amount of transactions per second a single generator can have.
   --genesis GENESIS     Path to genesis.json
@@ -522,6 +524,8 @@ Performance Test Basic Base:
                         Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%
   --producer-threads PRODUCER_THREADS
                         Number of worker threads in producer thread pool
+  --http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS
+                        Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited
   --http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS
                         Maximum time for processing a request, -1 for unlimited
   --http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB
@@ -576,10 +580,12 @@ The following scripts are typically used by the Performance Harness main script 
     <summary>Usage</summary>
 
   ```
-  usage: performance_test_basic.py [-h] [-p P] [-n N] [-d D]
-                                  [--nodes-file NODES_FILE] [-s {mesh}]
+  usage: performance_test_basic.py [-h] [-d D]
                                   [--dump-error-details] [-v] [--leave-running]
                                   [--clean-run] [--unshared]
+                                  [--producer-nodes PRODUCER_NODES]
+                                  [--validation-nodes VALIDATION_NODES]
+                                  [--api-nodes API_NODES]
                                   [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
                                   [--genesis GENESIS]
                                   [--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE]
@@ -591,6 +597,7 @@ The following scripts are typically used by the Performance Harness main script 
                                   [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
                                   [--cpu-effort-percent CPU_EFFORT_PERCENT]
                                   [--producer-threads PRODUCER_THREADS]
+                                  [--http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS]
                                   [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
                                   [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
                                   [--del-perf-logs] [--del-report] [--quiet]
@@ -624,12 +631,7 @@ optional arguments:
 Test Helper Arguments:
   Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
 
-  -p P                  producing nodes count (default: 1)
-  -n N                  total nodes (default: 0)
   -d D                  delay between nodes startup (default: 1)
-  --nodes-file NODES_FILE
-                        File containing nodes info in JSON format. (default: None)
-  -s {mesh}             topology (default: mesh)
   --dump-error-details  Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout (default: False)
   -v                    verbose logging (default: False)
   --leave-running       Leave cluster running after test finishes (default: False)
@@ -639,6 +641,12 @@ Test Helper Arguments:
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
+  --producer-nodes PRODUCER_NODES
+                        Producing nodes count (default: 1)
+  --validation-nodes VALIDATION_NODES
+                        Validation nodes count (default: 1)
+  --api-nodes API_NODES
+                        API nodes count (default: 0)
   --tps-limit-per-generator TPS_LIMIT_PER_GENERATOR
                         Maximum amount of transactions per second a single generator can have. (default: 4000)
   --genesis GENESIS     Path to genesis.json (default: tests/performance_tests/genesis.json)
@@ -666,6 +674,8 @@ Performance Test Basic Base:
                         Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80% (default: 100)
   --producer-threads PRODUCER_THREADS
                         Number of worker threads in producer thread pool (default: 2)
+  --http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS
+                        Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited (default: -1)
   --http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS
                         Maximum time for processing a request, -1 for unlimited (default: -1)
   --http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB
