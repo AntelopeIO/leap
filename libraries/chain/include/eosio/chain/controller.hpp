@@ -39,6 +39,7 @@ namespace eosio { namespace chain {
    class permission_object;
    class account_object;
    class deep_mind_handler;
+   class subjective_billing;
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
    using forked_branch_callback = std::function<void(const branch_type&)>;
@@ -197,6 +198,8 @@ namespace eosio { namespace chain {
          const authorization_manager&          get_authorization_manager()const;
          authorization_manager&                get_mutable_authorization_manager();
          const protocol_feature_manager&       get_protocol_feature_manager()const;
+         const subjective_billing&             get_subjective_billing()const;
+         subjective_billing&                   get_mutable_subjective_billing();
          uint32_t                              get_max_nonprivileged_inline_action_size()const;
 
          const flat_set<account_name>&   get_actor_whitelist() const;

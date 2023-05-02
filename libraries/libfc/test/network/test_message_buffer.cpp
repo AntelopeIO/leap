@@ -2,8 +2,7 @@
 
 #include <thread>
 
-#define BOOST_TEST_MODULE message_buffer
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 namespace {
 size_t mb_size(boost::asio::mutable_buffer& mb) {

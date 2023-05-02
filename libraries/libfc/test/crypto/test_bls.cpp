@@ -1,6 +1,5 @@
-#define BOOST_TEST_MODULE bls
+#include <boost/test/unit_test.hpp>
 
-#include <boost/test/included/unit_test.hpp>
 #include <fc/crypto/bls_utils.hpp>
 #include <fc/exception/exception.hpp>
 

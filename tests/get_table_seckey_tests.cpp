@@ -19,12 +19,6 @@
 #include <array>
 #include <utility>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
@@ -41,7 +35,7 @@ static auto get_table_rows_full = [](chain_apis::read_only& plugin,
 
 BOOST_AUTO_TEST_SUITE(get_table_seckey_tests)
 
-BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, validating_tester ) try {
    create_account("test"_n);
 
    // setup contract and abi
@@ -49,7 +43,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, TESTER ) try {
    set_abi( "test"_n, test_contracts::get_table_seckey_test_abi().data() );
    produce_block();
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
    chain_apis::read_only::get_table_rows_params params = []{
       chain_apis::read_only::get_table_rows_params params{};
       params.json=true;

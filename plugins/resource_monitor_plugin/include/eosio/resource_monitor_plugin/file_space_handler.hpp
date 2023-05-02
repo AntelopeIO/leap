@@ -138,7 +138,7 @@ namespace eosio::resource_monitor {
 
       timer.expires_from_now( boost::posix_time::seconds( sleep_time_in_secs ));
 
-      timer.async_wait([this](auto& ec) {
+      timer.async_wait([this](const auto& ec) {
          if ( ec ) {
             wlog("Exit due to error: ${ec}, message: ${message}",
                  ("ec", ec.value())

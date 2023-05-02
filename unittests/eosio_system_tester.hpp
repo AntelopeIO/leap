@@ -14,21 +14,13 @@ using namespace fc;
 
 using mvo = fc::mutable_variant_object;
 
-#ifndef TESTER
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-#endif
-
 namespace eosio_system {
 
-class eosio_system_tester : public TESTER {
+class eosio_system_tester : public validating_tester {
 public:
 
    eosio_system_tester()
-   : eosio_system_tester([](TESTER& ) {}){}
+   : eosio_system_tester([](validating_tester& ) {}){}
 
    template<typename Lambda>
    eosio_system_tester(Lambda setup) {
@@ -455,7 +447,7 @@ public:
       }
       produce_blocks( 250);
 
-      auto trace_auth = TESTER::push_action(config::system_account_name, updateauth::get_name(), config::system_account_name, mvo()
+      auto trace_auth = validating_tester::push_action(config::system_account_name, updateauth::get_name(), config::system_account_name, mvo()
                                             ("account", name(config::system_account_name).to_string())
                                             ("permission", name(config::active_name).to_string())
                                             ("parent", name(config::owner_name).to_string())

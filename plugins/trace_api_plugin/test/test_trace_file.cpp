@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE trace_trace_file
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <fc/io/cfile.hpp>
 #include <eosio/trace_api/test_common.hpp>
 #include <eosio/trace_api/store_provider.hpp>

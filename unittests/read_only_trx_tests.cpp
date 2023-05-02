@@ -5,12 +5,6 @@
 #include <fc/variant_object.hpp>
 #include <test_contracts.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
@@ -18,7 +12,7 @@ using namespace fc;
 
 using mvo = fc::mutable_variant_object;
 
-struct read_only_trx_tester : TESTER {
+struct read_only_trx_tester : validating_tester {
    read_only_trx_tester() {
       produce_block();
    };

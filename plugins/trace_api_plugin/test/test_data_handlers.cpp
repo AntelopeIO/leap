@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE trace_data_handlers
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/trace_api/abi_data_handler.hpp>
 
