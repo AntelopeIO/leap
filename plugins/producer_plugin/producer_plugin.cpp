@@ -1549,6 +1549,7 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
 
    fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
    fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+   params_deadline = std::min(deadline, params_deadline);
 
    auto& ua = my->_unapplied_transactions;
 
@@ -1588,8 +1589,7 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
    result.incoming_size = ua.incoming_size();
 
    uint32_t remaining = p.limit ? *p.limit : std::numeric_limits<uint32_t>::max();
-   while (itr != ua.end() && remaining > 0 && params_deadline > fc::time_point::now()) {
-      FC_CHECK_DEADLINE(deadline);
+   while (itr != ua.end() && remaining > 0) {
       auto& r = result.trxs.emplace_back();
       r.trx_id = itr->id();
       r.expiration = itr->expiration();
@@ -1607,6 +1607,8 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
 
       ++itr;
       remaining--;
+      if (params_deadline <= fc::time_point::now())
+         break;
    }
 
    if (itr != ua.end()) {

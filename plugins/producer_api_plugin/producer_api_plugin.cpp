@@ -1,8 +1,8 @@
 #include <eosio/producer_api_plugin/producer_api_plugin.hpp>
 #include <eosio/chain/exceptions.hpp>
 
+#include <fc/time.hpp>
 #include <fc/variant.hpp>
-#include <fc/io/json.hpp>
 
 #include <chrono>
 
@@ -20,20 +20,12 @@ namespace eosio {
 
 using namespace eosio;
 
-struct async_result_visitor : public fc::visitor<fc::variant> {
-   template<typename T>
-   fc::variant operator()(const T& v) const {
-      return fc::variant(v);
-   }
-};
-
 #define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
-   [&api_handle, http_max_response_time](string&&, string&& body, url_response_callback&& cb) mutable { \
+   [&](string&&, string&& body, url_response_callback&& cb) mutable { \
           try { \
-             auto deadline = fc::time_point::now() + http_max_response_time; \
              INVOKE \
-             cb(http_response_code, deadline, fc::variant(result)); \
+             cb(http_response_code, fc::time_point::maximum(), fc::variant(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \
@@ -69,6 +61,7 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
      auto result = api_handle.call_name(std::move(params));
 
 #define INVOKE_R_R_D(api_handle, call_name, in_param) \
+     auto deadline = fc::time_point::now() + http_max_response_time; \
      auto params = parse_params<in_param, http_params_types::possible_no_params>(body);\
      auto result = api_handle.call_name(std::move(params), deadline);
 
@@ -81,11 +74,6 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
 
 #define INVOKE_V_R(api_handle, call_name, in_param) \
      auto params = parse_params<in_param, http_params_types::params_required>(body);\
-     api_handle.call_name(std::move(params)); \
-     eosio::detail::producer_api_plugin_response result{"ok"};
-
-#define INVOKE_V_R_II(api_handle, call_name, in_param) \
-     auto params = parse_params<in_param, http_params_types::possible_no_params>(body);\
      api_handle.call_name(std::move(params)); \
      eosio::detail::producer_api_plugin_response result{"ok"};
 
