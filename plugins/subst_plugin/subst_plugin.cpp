@@ -64,8 +64,6 @@ namespace eosio {
                 o.vm_version = 0;
             });
 
-            db->commit(context.control.pending_block_num());
-
             enabled_substitutions[og_hash] = new_hash;
         }
 
