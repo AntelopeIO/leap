@@ -29,16 +29,30 @@ class cfile_datastream;
  * std::ios_base::failure exception thrown for errors.
  */
 class cfile {
+   friend class temp_cfile;
 public:
    cfile()
      : _file(nullptr, &fclose)
    {}
 
-   void set_file_path( fc::path file_path ) {
+   cfile(cfile&& other)
+     : _open(other._open)
+     , _file_path(std::move(other._file_path))
+     , _file_blk_size(other._file_blk_size)
+     , _file(std::move(other._file))
+   {}
+
+   cfile& operator=(cfile&& other){
+      swap(*this, other);
+      return *this;
+   }
+
+
+   void set_file_path( std::filesystem::path file_path ) {
       _file_path = std::move( file_path );
    }
 
-   fc::path get_file_path() const {
+   std::filesystem::path get_file_path() const {
       return _file_path;
    }
 
@@ -221,9 +235,41 @@ public:
 
 private:
    bool                  _open = false;
-   fc::path              _file_path;
+   std::filesystem::path _file_path;
    size_t                _file_blk_size = 4096;
    detail::unique_file   _file;
+};
+
+class temp_cfile {
+   cfile _impl;
+public:
+   explicit temp_cfile(const char* mode = "wb"){
+      std::filesystem::path template_path{ std::filesystem::temp_directory_path() / "fc-XXXXXX" };
+      std::string tmp = template_path.string();
+      int fd = mkstemp(tmp.data());
+      if (fd == -1)
+         throw std::system_error(errno, std::generic_category(), __PRETTY_FUNCTION__);
+      _impl.set_file_path(tmp);
+      _impl._file.reset(fdopen(fd, mode));
+      if( !_impl._file ) {
+         using namespace std::literals::string_literals;
+         throw std::ios_base::failure( "cfile unable to open: "s +  tmp + " in mode: " + std::string( mode ) );
+      }
+      _impl._open = true;
+   }
+   ~temp_cfile() {
+      _impl.close();
+      std::error_code ec;
+      std::filesystem::remove(_impl.get_file_path(), ec);
+   }
+
+   temp_cfile(temp_cfile&& other): _impl(std::move(other._impl)) { }
+   temp_cfile& operator = (temp_cfile&& other){
+      _impl = std::move(other._impl);
+      return *this;
+   }
+
+   cfile& file() { return _impl; }
 };
 
 /*

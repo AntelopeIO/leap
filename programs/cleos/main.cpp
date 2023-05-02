@@ -92,13 +92,13 @@ Options:
 
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
-#include <boost/dll/runtime_symbol_info.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/process.hpp>
 #include <boost/process/spawn.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/range/algorithm/copy.hpp>
+#define BOOST_DLL_USE_STD_FS
+#include <boost/dll/runtime_symbol_info.hpp>
 
 #pragma pop_macro("N")
 
@@ -119,7 +119,6 @@ using namespace eosio::client::help;
 using namespace eosio::client::http;
 using namespace eosio::client::localize;
 using namespace eosio::client::config;
-using namespace boost::filesystem;
 
 FC_DECLARE_EXCEPTION( explained_exception, 9000000, "explained exception, see error log" );
 FC_DECLARE_EXCEPTION( localized_exception, 10000000, "an error occured" );
@@ -135,9 +134,9 @@ FC_DECLARE_EXCEPTION( localized_exception, 10000000, "an error occured" );
   )
 
 //copy pasta from keosd's main.cpp
-bfs::path determine_home_directory()
+std::filesystem::path determine_home_directory()
 {
-   bfs::path home;
+   std::filesystem::path home;
    struct passwd* pwd = getpwuid(getuid());
    if(pwd) {
       home = pwd->pw_dir;
@@ -525,6 +524,9 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
         return fc::variant(packed_transaction(trx, compression));
       }
    }
+
+   EOSC_ASSERT( false, "control reaches end of push_transaction" );
+   return {};
 }
 
 fc::variant push_actions(std::vector<chain::action>&& actions, const std::vector<public_key_type>& signing_keys = std::vector<public_key_type>() ) {
@@ -604,7 +606,7 @@ fc::variant bin_to_variant( const account_name& account, const action_name& acti
 fc::variant json_from_file_or_string(const string& file_or_str, fc::json::parse_type ptype = fc::json::parse_type::legacy_parser)
 {
    regex r("^[ \t]*[\{\[]");
-   if ( !regex_search(file_or_str, r) && fc::is_regular_file(file_or_str) ) {
+   if ( !regex_search(file_or_str, r) && std::filesystem::is_regular_file(file_or_str) ) {
       try {
          return fc::json::from_file(file_or_str, ptype);
       } EOS_RETHROW_EXCEPTIONS(json_parse_exception, "Fail to parse JSON from file: ${file}", ("file", file_or_str));
@@ -1122,19 +1124,15 @@ void ensure_keosd_running(CLI::App* app) {
     if (local_port_used())
        return;
 
-    boost::filesystem::path binPath = boost::dll::program_location();
-    binPath.remove_filename();
-    // This extra check is necessary when running cleos like this: ./cleos ...
-    if (binPath.filename_is_dot())
-        binPath.remove_filename();
-    binPath.append(key_store_executable_name); // if cleos and keosd are in the same installation directory
-    if (!boost::filesystem::exists(binPath)) {
-        binPath.remove_filename().remove_filename().append("keosd").append(key_store_executable_name);
+    auto parent_path = boost::dll::program_location().parent_path();
+    auto binPath = parent_path / key_store_executable_name;
+    if (!std::filesystem::exists(binPath)) {
+        binPath = parent_path.parent_path() / "keosd"/ key_store_executable_name;
     }
 
-    if (boost::filesystem::exists(binPath)) {
+    if (std::filesystem::exists(binPath)) {
         namespace bp = boost::process;
-        binPath = boost::filesystem::canonical(binPath);
+        binPath = std::filesystem::canonical(binPath);
 
         vector<std::string> pargs;
         pargs.push_back("--http-server-address");
@@ -1142,7 +1140,7 @@ void ensure_keosd_running(CLI::App* app) {
         pargs.push_back("--unix-socket-path");
         pargs.push_back(string(key_store_executable_name) + ".sock");
 
-        ::boost::process::child keos(binPath, pargs,
+        ::boost::process::child keos(binPath.string(), pargs,
                                      bp::std_in.close(),
                                      bp::std_out > bp::null,
                                      bp::std_err > bp::null);
@@ -3473,12 +3471,12 @@ int main( int argc, char** argv ) {
       bytes code_bytes;
       if(!contract_clear){
         std::string wasm;
-        fc::path cpath = fc::canonical(fc::path(contractPath));
+        std::filesystem::path cpath = std::filesystem::canonical(std::filesystem::path(contractPath));
 
         if( wasmPath.empty() ) {
-           wasmPath = (cpath / fc::path(cpath.filename().generic_string()+".wasm")).generic_string();
-        } else if ( boost::filesystem::path(wasmPath).is_relative() ) {
-           wasmPath = (cpath / fc::path(wasmPath)).generic_string();
+           wasmPath = (cpath / std::filesystem::path(cpath.filename().generic_string()+".wasm")).generic_string();
+        } else if ( std::filesystem::path(wasmPath).is_relative() ) {
+           wasmPath = (cpath / std::filesystem::path(wasmPath)).generic_string();
         }
 
         std::cerr << localized(("Reading WASM from " + wasmPath + "...").c_str()) << std::endl;
@@ -3529,15 +3527,15 @@ int main( int argc, char** argv ) {
 
       bytes abi_bytes;
       if(!contract_clear){
-        fc::path cpath = fc::canonical(fc::path(contractPath));
+        std::filesystem::path cpath = std::filesystem::canonical(std::filesystem::path(contractPath));
 
         if( abiPath.empty() ) {
-           abiPath = (cpath / fc::path(cpath.filename().generic_string()+".abi")).generic_string();
-        } else if ( boost::filesystem::path(abiPath).is_relative() ) {
-           abiPath = (cpath / fc::path(abiPath)).generic_string();
+           abiPath = (cpath / std::filesystem::path(cpath.filename().generic_string()+".abi")).generic_string();
+        } else if ( std::filesystem::path(abiPath).is_relative() ) {
+           abiPath = (cpath / std::filesystem::path(abiPath)).generic_string();
         }
 
-        EOS_ASSERT( fc::exists( abiPath ), abi_file_not_found, "no abi file found ${f}", ("f", abiPath)  );
+        EOS_ASSERT( std::filesystem::exists( abiPath ), abi_file_not_found, "no abi file found ${f}", ("f", abiPath)  );
 
         abi_bytes = fc::raw::pack(fc::json::from_file(abiPath).as<abi_def>());
       } else {

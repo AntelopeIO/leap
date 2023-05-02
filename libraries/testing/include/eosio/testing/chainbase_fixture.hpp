@@ -21,7 +21,6 @@ struct chainbase_fixture {
    ~chainbase_fixture()
    {
       _db.reset();
-      _tempdir.remove();
    }
 
    fc::temp_directory                    _tempdir;

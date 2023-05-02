@@ -52,11 +52,6 @@ struct tracked_transaction {
    }
 
    size_t memory_size()const { return ptrx->get_estimated_size() + trx_trace_v.estimated_size() + sizeof(*this); }
-
-   tracked_transaction(const tracked_transaction&) = delete;
-   tracked_transaction() = delete;
-   tracked_transaction& operator=(const tracked_transaction&) = delete;
-   tracked_transaction(tracked_transaction&&) = default;
 };
 
 struct by_trx_id;

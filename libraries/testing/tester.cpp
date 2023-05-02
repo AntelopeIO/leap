@@ -20,6 +20,35 @@ eosio::chain::asset core_from_string(const std::string& s) {
 }
 
 namespace eosio { namespace testing {
+
+   // required by boost::unit_test::data
+   std::ostream& operator<<(std::ostream& os, setup_policy p) {
+      switch(p) {
+         case setup_policy::none:
+            os << "none";
+            break;
+         case setup_policy::old_bios_only:
+            os << "old_bios_only";
+            break;
+         case setup_policy::preactivate_feature_only:
+            os << "preactivate_feature_only";
+            break;
+         case setup_policy::preactivate_feature_and_new_bios:
+            os << "preactivate_feature_and_new_bios";
+            break;
+         case setup_policy::old_wasm_parser:
+            os << "old_wasm_parser";
+            break;
+         case setup_policy::full:
+            os << "full";
+            break;
+         default:
+            FC_ASSERT(false, "Unknown setup_policy");
+      }
+      return os;
+   }
+
+
    std::string read_wast( const char* fn ) {
       std::ifstream wast_file(fn);
       FC_ASSERT( wast_file.is_open(), "wast file cannot be found" );
@@ -272,7 +301,7 @@ namespace eosio { namespace testing {
       if( !expected_chain_id ) {
          expected_chain_id = controller::extract_chain_id_from_db( cfg.state_dir );
          if( !expected_chain_id ) {
-            if( fc::is_regular_file( cfg.blocks_dir / "blocks.log" ) ) {
+            if( std::filesystem::is_regular_file( cfg.blocks_dir / "blocks.log" ) ) {
                expected_chain_id = block_log::extract_chain_id( cfg.blocks_dir );
             } else {
                expected_chain_id = genesis_state().compute_chain_id();

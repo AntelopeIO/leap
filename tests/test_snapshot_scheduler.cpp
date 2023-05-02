@@ -1,26 +1,25 @@
-#define BOOST_TEST_MODULE snapshot_scheduler
-#include <boost/test/included/unit_test.hpp>
-
+#include <boost/test/unit_test.hpp>
+#include <eosio/chain/authority.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
-#include <eosio/producer_plugin/snapshot_db_json.hpp>
 #include <eosio/testing/tester.hpp>
-namespace {
 
 using namespace eosio;
 using namespace eosio::chain;
 
-BOOST_AUTO_TEST_SUITE(snapshot_scheduler_test)
+using snapshot_request_information = snapshot_scheduler::snapshot_request_information;
+using snapshot_request_id_information = snapshot_scheduler::snapshot_request_id_information;
+
+BOOST_AUTO_TEST_SUITE(producer_snapshot_scheduler_tests)
 
 BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
-
    fc::logger log;
    producer_plugin scheduler;
 
    {
       // add/remove test
-      producer_plugin::snapshot_request_information sri1 = {.block_spacing = 100, .start_block_num = 5000, .end_block_num = 10000, .snapshot_description = "Example of recurring snapshot"};
-      producer_plugin::snapshot_request_information sri2 = {.block_spacing = 0, .start_block_num = 5200, .end_block_num = 5200, .snapshot_description = "Example of one-time snapshot"};
+      snapshot_request_information sri1 = {.block_spacing = 100, .start_block_num = 5000, .end_block_num = 10000, .snapshot_description = "Example of recurring snapshot"};
+      snapshot_request_information sri2 = {.block_spacing = 0, .start_block_num = 5200, .end_block_num = 5200, .snapshot_description = "Example of one-time snapshot"};
 
       scheduler.schedule_snapshot(sri1);
       scheduler.schedule_snapshot(sri2);
@@ -31,33 +30,34 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          return e.to_detail_string().find("Duplicate snapshot request") != std::string::npos;
       });
 
-      producer_plugin::snapshot_request_id_information sri_delete_1 = {.snapshot_request_id = 0};
+      snapshot_request_id_information sri_delete_1 = {.snapshot_request_id = 0};
       scheduler.unschedule_snapshot(sri_delete_1);
 
       BOOST_CHECK_EQUAL(1, scheduler.get_snapshot_requests().snapshot_requests.size());
 
-      producer_plugin::snapshot_request_id_information sri_delete_none = {.snapshot_request_id = 2};
+      snapshot_request_id_information sri_delete_none = {.snapshot_request_id = 2};
       BOOST_CHECK_EXCEPTION(scheduler.unschedule_snapshot(sri_delete_none), snapshot_request_not_found, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("Snapshot request not found") != std::string::npos;
       });
 
-      producer_plugin::snapshot_request_id_information sri_delete_2 = {.snapshot_request_id = 1};
+      snapshot_request_id_information sri_delete_2 = {.snapshot_request_id = 1};
       scheduler.unschedule_snapshot(sri_delete_2);
 
       BOOST_CHECK_EQUAL(0, scheduler.get_snapshot_requests().snapshot_requests.size());
 
-      producer_plugin::snapshot_request_information sri_large_spacing = {.block_spacing = 1000, .start_block_num = 5000, .end_block_num = 5010};
+      snapshot_request_information sri_large_spacing = {.block_spacing = 1000, .start_block_num = 5000, .end_block_num = 5010};
       BOOST_CHECK_EXCEPTION(scheduler.schedule_snapshot(sri_large_spacing), invalid_snapshot_request, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("Block spacing exceeds defined by start and end range") != std::string::npos;
       });
 
-      producer_plugin::snapshot_request_information sri_start_end = {.block_spacing = 1000, .start_block_num = 50000, .end_block_num = 5000};
+      snapshot_request_information sri_start_end = {.block_spacing = 1000, .start_block_num = 50000, .end_block_num = 5000};
       BOOST_CHECK_EXCEPTION(scheduler.schedule_snapshot(sri_start_end), invalid_snapshot_request, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("End block number should be greater or equal to start block number") != std::string::npos;
       });
    }
    {
-      boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+      fc::temp_directory temp_dir;
+      const auto& temp = temp_dir.path();
 
       try {
          std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
@@ -94,19 +94,19 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
             // catching pending snapshot
             if (!pp->get_snapshot_requests().snapshot_requests.empty()) {
                const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
-               auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(), [](const producer_plugin::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
+               auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(), [](const snapshot_scheduler::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
                // we should have a pending snapshot for request id = 0
                BOOST_REQUIRE(it != snapshot_requests.end());
                auto& pending = it->pending_snapshots;
                if (pending.size()==1) {
-                  BOOST_CHECK_EQUAL(9, pending.begin()->head_block_num);   
+                  BOOST_CHECK_EQUAL(9, pending.begin()->head_block_num);
                }
             }
          });
 
-         producer_plugin::snapshot_request_information sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 1"};
-         producer_plugin::snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2 that will never happen"};
-         producer_plugin::snapshot_request_information sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 3 that will expire"};
+         snapshot_request_information sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 1"};
+         snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2 that will never happen"};
+         snapshot_request_information sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 3 that will expire"};
 
          pp->schedule_snapshot(sri1);
          pp->schedule_snapshot(sri2);
@@ -122,7 +122,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
 
          // check whether no pending snapshots present for a snapshot with id 0
          const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
-         auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(),[](const producer_plugin::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
+         auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(),[](const snapshot_scheduler::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
 
          // snapshot request with id = 0 should be found and should not have any pending snapshots
          BOOST_REQUIRE(it != snapshot_requests.end());
@@ -133,18 +133,16 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          app_thread.join();
 
          // lets check whether schedule can be read back after restart
-         snapshot_db_json db;
-         std::vector<producer_plugin::snapshot_schedule_information> ssi;
+         snapshot_scheduler::snapshot_db_json db;
+         std::vector<snapshot_scheduler::snapshot_schedule_information> ssi;
          db.set_path(temp / "snapshots");
          db >> ssi;
          BOOST_CHECK_EQUAL(2, ssi.size());
          BOOST_CHECK_EQUAL(ssi.begin()->block_spacing, sri1.block_spacing);
       } catch(...) {
-         bfs::remove_all(temp);
          throw;
       }
-      bfs::remove_all(temp);
    }
 }
-   BOOST_AUTO_TEST_SUITE_END()
-}// namespace
+
+BOOST_AUTO_TEST_SUITE_END()

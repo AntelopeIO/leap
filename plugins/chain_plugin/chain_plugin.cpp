@@ -1,6 +1,5 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/chain_plugin/trx_retry_db.hpp>
-#include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -12,6 +11,7 @@
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/snapshot.hpp>
+#include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
@@ -24,8 +24,6 @@
 #include <boost/signals2/connection.hpp>
 #include <boost/algorithm/string.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/filesystem.hpp>
-#include <boost/filesystem/path.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/variant.hpp>
@@ -38,7 +36,7 @@ FC_REFLECT_ENUM( chainbase::environment::arch_t,
                  (ARCH_X86_64)(ARCH_ARM)(ARCH_RISCV)(ARCH_OTHER) )
 FC_REFLECT(chainbase::environment, (debug)(os)(arch)(boost_version)(compiler) )
 
-const fc::string deep_mind_logger_name("deep-mind");
+const std::string deep_mind_logger_name("deep-mind");
 eosio::chain::deep_mind_handler _deep_mind_log;
 
 namespace eosio {
@@ -140,13 +138,13 @@ public:
    ,incoming_transaction_async_method(app().get_method<incoming::methods::transaction_async>())
    {}
 
-   bfs::path                        blocks_dir;
-   bfs::path                        state_dir;
-   bool                             readonly = false;
-   flat_map<uint32_t,block_id_type> loaded_checkpoints;
-   bool                             accept_transactions = false;
-   bool                             api_accept_transactions = true;
-   bool                             account_queries_enabled = false;
+   std::filesystem::path             blocks_dir;
+   std::filesystem::path             state_dir;
+   bool                              readonly = false;
+   flat_map<uint32_t, block_id_type> loaded_checkpoints;
+   bool                              accept_transactions     = false;
+   bool                              api_accept_transactions = true;
+   bool                              account_queries_enabled = false;
 
    std::optional<controller::config> chain_config;
    std::optional<controller>         chain;
@@ -154,7 +152,7 @@ public:
    //txn_msg_rate_limits              rate_limits;
    std::optional<vm_type>            wasm_runtime;
    fc::microseconds                  abi_serializer_max_time_us;
-   std::optional<bfs::path>          snapshot_path;
+   std::optional<std::filesystem::path>          snapshot_path;
 
 
    // retained references to channels for easy publication
@@ -186,7 +184,6 @@ public:
 
 
    std::optional<chain_apis::account_query_db>                        _account_query_db;
-   const producer_plugin* producer_plug;
    std::optional<chain_apis::trx_retry_db>                            _trx_retry_db;
    chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
 };
@@ -199,7 +196,7 @@ chain_plugin::chain_plugin()
    app().register_config_type<eosio::chain::wasm_interface::vm_type>();
 }
 
-chain_plugin::~chain_plugin(){}
+chain_plugin::~chain_plugin() = default;
 
 void chain_plugin::set_program_options(options_description& cli, options_description& cfg)
 {
@@ -228,7 +225,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
    std::string default_wasm_runtime_str= eosio::chain::wasm_interface::vm_type_string(eosio::chain::config::default_wasm_runtime);
 
    cfg.add_options()
-         ("blocks-dir", bpo::value<bfs::path>()->default_value("blocks"),
+         ("blocks-dir", bpo::value<std::filesystem::path>()->default_value("blocks"),
           "the location of the blocks directory (absolute path or relative to application data dir)")
          ("blocks-log-stride", bpo::value<uint32_t>(),
          "split the block log file when the head block number is the multiple of the stride\n"
@@ -239,16 +236,16 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "the maximum number of blocks files to retain so that the blocks in those files can be queried.\n"
           "When the number is reached, the oldest block file would be moved to archive dir or deleted if the archive dir is empty.\n"
           "The retained block log files should not be manipulated by users." )
-         ("blocks-retained-dir", bpo::value<bfs::path>(),
+         ("blocks-retained-dir", bpo::value<std::filesystem::path>(),
           "the location of the blocks retained directory (absolute path or relative to blocks dir).\n"
           "If the value is empty, it is set to the value of blocks dir.")
-         ("blocks-archive-dir", bpo::value<bfs::path>(),
+         ("blocks-archive-dir", bpo::value<std::filesystem::path>(),
           "the location of the blocks archive directory (absolute path or relative to blocks dir).\n"
           "If the value is empty, blocks files beyond the retained limit will be deleted.\n"
           "All files in the archive directory are completely under user's control, i.e. they won't be accessed by nodeos anymore.")
-         ("state-dir", bpo::value<bfs::path>()->default_value(config::default_state_dir_name),
+         ("state-dir", bpo::value<std::filesystem::path>()->default_value(config::default_state_dir_name),
           "the location of the state directory (absolute path or relative to application data dir)")
-         ("protocol-features-dir", bpo::value<bfs::path>()->default_value("protocol_features"),
+         ("protocol-features-dir", bpo::value<std::filesystem::path>()->default_value("protocol_features"),
           "the location of the protocol_features directory (absolute path or relative to application config dir)")
          ("checkpoint", bpo::value<vector<string>>()->composing(), "Pairs of [BLOCK_NUM,BLOCK_ID] that should be enforced as checkpoints.")
          ("wasm-runtime", bpo::value<eosio::chain::wasm_interface::vm_type>()->value_name("runtime")->notifier([](const auto& vm){
@@ -362,15 +359,15 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
            "Limits the maximum rate of transaction messages that an account's code is allowed each per-code-account-transaction-msg-rate-limit-time-frame-sec.")*/
 
    cli.add_options()
-         ("genesis-json", bpo::value<bfs::path>(), "File to read Genesis State from")
+         ("genesis-json", bpo::value<std::filesystem::path>(), "File to read Genesis State from")
          ("genesis-timestamp", bpo::value<string>(), "override the initial timestamp in the Genesis State file")
          ("print-genesis-json", bpo::bool_switch()->default_value(false),
           "extract genesis_state from blocks.log as JSON, print to console, and exit")
-         ("extract-genesis-json", bpo::value<bfs::path>(),
+         ("extract-genesis-json", bpo::value<std::filesystem::path>(),
           "extract genesis_state from blocks.log as JSON, write into specified file, and exit")
          ("print-build-info", bpo::bool_switch()->default_value(false),
           "print build environment information to console as JSON and exit")
-         ("extract-build-info", bpo::value<bfs::path>(),
+         ("extract-build-info", bpo::value<std::filesystem::path>(),
           "extract build environment information as JSON, write into specified file, and exit")
          ("force-all-checks", bpo::bool_switch()->default_value(false),
           "do not skip any validation checks while replaying blocks (useful for replaying blocks from untrusted source)")
@@ -386,7 +383,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "stop hard replay / block log recovery at this block number (if set to non-zero number)")
          ("terminate-at-block", bpo::value<uint32_t>()->default_value(0),
           "terminate after reaching this block number (if set to a non-zero number)")
-         ("snapshot", bpo::value<bfs::path>(), "File to read Snapshot State from")
+         ("snapshot", bpo::value<std::filesystem::path>(), "File to read Snapshot State from")
          ;
 
 }
@@ -419,45 +416,44 @@ fc::time_point calculate_genesis_timestamp( string tstr ) {
    return genesis_timestamp;
 }
 
-void clear_directory_contents( const fc::path& p ) {
-   using boost::filesystem::directory_iterator;
+void clear_directory_contents( const std::filesystem::path& p ) {
+   using std::filesystem::directory_iterator;
 
-   if( !fc::is_directory( p ) )
+   if( !std::filesystem::is_directory( p ) )
       return;
 
    for( directory_iterator enditr, itr{p}; itr != enditr; ++itr ) {
-      fc::remove_all( itr->path() );
+      std::filesystem::remove_all( itr->path() );
    }
 }
 
-void clear_chainbase_files( const fc::path& p ) {
-   if( !fc::is_directory( p ) )
+void clear_chainbase_files( const std::filesystem::path& p ) {
+   if( !std::filesystem::is_directory( p ) )
       return;
 
-   fc::remove( p / "shared_memory.bin" );
-   fc::remove( p / "shared_memory.meta" );
+   std::filesystem::remove( p / "shared_memory.bin" );
+   std::filesystem::remove( p / "shared_memory.meta" );
 }
 
 namespace {
   // This can be removed when versions of eosio that support reversible chainbase state file no longer supported.
   void upgrade_from_reversible_to_fork_db(chain_plugin_impl* my) {
-     namespace bfs = boost::filesystem;
-     bfs::path old_fork_db = my->chain_config->state_dir / config::forkdb_filename;
-     bfs::path new_fork_db = my->blocks_dir / config::reversible_blocks_dir_name / config::forkdb_filename;
-     if( bfs::exists( old_fork_db ) && bfs::is_regular_file( old_fork_db ) ) {
+          std::filesystem::path old_fork_db = my->chain_config->state_dir / config::forkdb_filename;
+     std::filesystem::path new_fork_db = my->blocks_dir / config::reversible_blocks_dir_name / config::forkdb_filename;
+     if( std::filesystem::exists( old_fork_db ) && std::filesystem::is_regular_file( old_fork_db ) ) {
         bool copy_file = false;
-        if( bfs::exists( new_fork_db ) && bfs::is_regular_file( new_fork_db ) ) {
-           if( bfs::last_write_time( old_fork_db ) > bfs::last_write_time( new_fork_db ) ) {
+        if( std::filesystem::exists( new_fork_db ) && std::filesystem::is_regular_file( new_fork_db ) ) {
+           if( std::filesystem::last_write_time( old_fork_db ) > std::filesystem::last_write_time( new_fork_db ) ) {
               copy_file = true;
            }
         } else {
            copy_file = true;
-           bfs::create_directories( my->blocks_dir / config::reversible_blocks_dir_name );
+           std::filesystem::create_directories( my->blocks_dir / config::reversible_blocks_dir_name );
         }
         if( copy_file ) {
-           fc::rename( old_fork_db, new_fork_db );
+           std::filesystem::rename( old_fork_db, new_fork_db );
         } else {
-           fc::remove( old_fork_db );
+           std::filesystem::remove( old_fork_db );
         }
      }
   }
@@ -490,18 +486,18 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             ilog( "Build environment JSON:\n${e}", ("e", json::to_pretty_string( chainbase::environment() )) );
          }
          if( options.count( "extract-build-info") ) {
-            auto p = options.at( "extract-build-info" ).as<bfs::path>();
+            auto p = options.at( "extract-build-info" ).as<std::filesystem::path>();
 
             if( p.is_relative()) {
-               p = bfs::current_path() / p;
+               p = std::filesystem::current_path() / p;
             }
 
             EOS_ASSERT( fc::json::save_to_file( chainbase::environment(), p, true ), misc_exception,
                         "Error occurred while writing build info JSON to '${path}'",
-                        ("path", p.generic_string())
+                        ("path", p)
             );
 
-            ilog( "Saved build info JSON to '${path}'", ("path", p.generic_string()) );
+            ilog( "Saved build info JSON to '${path}'", ("path", p) );
          }
 
          EOS_THROW( node_management_success, "reported build environment information" );
@@ -536,7 +532,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
 
       if( options.count( "blocks-dir" )) {
-         auto bld = options.at( "blocks-dir" ).as<bfs::path>();
+         auto bld = options.at( "blocks-dir" ).as<std::filesystem::path>();
          if( bld.is_relative())
             my->blocks_dir = app().data_dir() / bld;
          else
@@ -544,7 +540,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       }
 
       if( options.count( "state-dir" )) {
-         auto sd = options.at( "state-dir" ).as<bfs::path>();
+         auto sd = options.at( "state-dir" ).as<std::filesystem::path>();
          if( sd.is_relative())
             my->state_dir = app().data_dir() / sd;
          else
@@ -553,8 +549,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       protocol_feature_set pfs;
       {
-         fc::path protocol_features_dir;
-         auto pfd = options.at( "protocol-features-dir" ).as<bfs::path>();
+         std::filesystem::path protocol_features_dir;
+         auto pfd = options.at( "protocol-features-dir" ).as<std::filesystem::path>();
          if( pfd.is_relative())
             protocol_features_dir = app().config_dir() / pfd;
          else
@@ -647,16 +643,16 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "extract-genesis-json" ) || options.at( "print-genesis-json" ).as<bool>()) {
          std::optional<genesis_state> gs;
 
-         if( fc::exists( my->blocks_dir / "blocks.log" )) {
+         if( std::filesystem::exists( my->blocks_dir / "blocks.log" )) {
             gs = block_log::extract_genesis_state( my->blocks_dir );
             EOS_ASSERT( gs,
                         plugin_config_exception,
                         "Block log at '${path}' does not contain a genesis state, it only has the chain-id.",
-                        ("path", (my->blocks_dir / "blocks.log").generic_string())
+                        ("path", (my->blocks_dir / "blocks.log"))
             );
          } else {
             wlog( "No blocks.log found at '${p}'. Using default genesis state.",
-                  ("p", (my->blocks_dir / "blocks.log").generic_string()));
+                  ("p", (my->blocks_dir / "blocks.log")));
             gs.emplace();
          }
 
@@ -665,19 +661,19 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          }
 
          if( options.count( "extract-genesis-json" )) {
-            auto p = options.at( "extract-genesis-json" ).as<bfs::path>();
+            auto p = options.at( "extract-genesis-json" ).as<std::filesystem::path>();
 
             if( p.is_relative()) {
-               p = bfs::current_path() / p;
+               p = std::filesystem::current_path() / p;
             }
 
             EOS_ASSERT( fc::json::save_to_file( *gs, p, true ),
                         misc_exception,
                         "Error occurred while writing genesis JSON to '${path}'",
-                        ("path", p.generic_string())
+                        ("path", p)
             );
 
-            ilog( "Saved genesis JSON to '${path}'", ("path", p.generic_string()) );
+            ilog( "Saved genesis JSON to '${path}'", ("path", p) );
          }
 
          EOS_THROW( extract_genesis_state_exception, "extracted genesis state from blocks.log" );
@@ -696,10 +692,10 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       if (has_partitioned_block_log_options) {
          my->chain_config->blog = eosio::chain::partitioned_blocklog_config{
-            .retained_dir = options.count("blocks-retained-dir") ? options.at("blocks-retained-dir").as<bfs::path>()
-                                                                 : bfs::path(""),
-            .archive_dir  = options.count("blocks-archive-dir") ? options.at("blocks-archive-dir").as<bfs::path>()
-                                                                : bfs::path("archive"),
+            .retained_dir = options.count("blocks-retained-dir") ? options.at("blocks-retained-dir").as<std::filesystem::path>()
+                                                                 : std::filesystem::path(""),
+            .archive_dir  = options.count("blocks-archive-dir") ? options.at("blocks-archive-dir").as<std::filesystem::path>()
+                                                                : std::filesystem::path("archive"),
             .stride       = options.count("blocks-log-stride") ? options.at("blocks-log-stride").as<uint32_t>()
                                                                : UINT32_MAX,
             .max_retained_files = options.count("max-retained-block-files")
@@ -737,8 +733,8 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       std::optional<chain_id_type> chain_id;
       if (options.count( "snapshot" )) {
-         my->snapshot_path = options.at( "snapshot" ).as<bfs::path>();
-         EOS_ASSERT( fc::exists(*my->snapshot_path), plugin_config_exception,
+         my->snapshot_path = options.at( "snapshot" ).as<std::filesystem::path>();
+         EOS_ASSERT( std::filesystem::exists(*my->snapshot_path), plugin_config_exception,
                      "Cannot load snapshot, ${name} does not exist", ("name", my->snapshot_path->generic_string()) );
 
          // recover genesis information from the snapshot
@@ -757,11 +753,11 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                      "--snapshot is incompatible with --genesis-json as the snapshot contains genesis information");
 
          auto shared_mem_path = my->chain_config->state_dir / "shared_memory.bin";
-         EOS_ASSERT( !fc::is_regular_file(shared_mem_path),
+         EOS_ASSERT( !std::filesystem::is_regular_file(shared_mem_path),
                  plugin_config_exception,
                  "Snapshot can only be used to initialize an empty database." );
 
-         if( fc::is_regular_file( my->blocks_dir / "blocks.log" )) {
+         if( std::filesystem::is_regular_file( my->blocks_dir / "blocks.log" )) {
             auto block_log_genesis = block_log::extract_genesis_state(my->blocks_dir);
             if( block_log_genesis ) {
                const auto& block_log_chain_id = block_log_genesis->compute_chain_id();
@@ -789,7 +785,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          std::optional<genesis_state> block_log_genesis;
          std::optional<chain_id_type> block_log_chain_id;
 
-         if( fc::is_regular_file( my->blocks_dir / "blocks.log" ) ) {
+         if( std::filesystem::is_regular_file( my->blocks_dir / "blocks.log" ) ) {
             block_log_genesis = block_log::extract_genesis_state( my->blocks_dir );
             if( block_log_genesis ) {
                block_log_chain_id = block_log_genesis->compute_chain_id();
@@ -813,15 +809,15 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          }
 
          if( options.count( "genesis-json" ) ) {
-            bfs::path genesis_file = options.at( "genesis-json" ).as<bfs::path>();
+            std::filesystem::path genesis_file = options.at( "genesis-json" ).as<std::filesystem::path>();
             if( genesis_file.is_relative()) {
-               genesis_file = bfs::current_path() / genesis_file;
+               genesis_file = std::filesystem::current_path() / genesis_file;
             }
 
-            EOS_ASSERT( fc::is_regular_file( genesis_file ),
+            EOS_ASSERT( std::filesystem::is_regular_file( genesis_file ),
                         plugin_config_exception,
                        "Specified genesis file '${genesis}' does not exist.",
-                       ("genesis", genesis_file.generic_string()));
+                       ("genesis", genesis_file));
 
             genesis_state provided_genesis = fc::json::from_file( genesis_file ).as<genesis_state>();
 
@@ -829,9 +825,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                provided_genesis.initial_timestamp = calculate_genesis_timestamp( options.at( "genesis-timestamp" ).as<string>() );
 
                ilog( "Using genesis state provided in '${genesis}' but with adjusted genesis timestamp",
-                     ("genesis", genesis_file.generic_string()) );
+                     ("genesis", genesis_file) );
             } else {
-               ilog( "Using genesis state provided in '${genesis}'", ("genesis", genesis_file.generic_string()));
+               ilog( "Using genesis state provided in '${genesis}'", ("genesis", genesis_file));
             }
 
             if( block_log_genesis ) {
@@ -1095,9 +1091,6 @@ void chain_plugin::plugin_startup()
    EOS_ASSERT( my->chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions(), plugin_config_exception,
                "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions" );
    try {
-      my->producer_plug = app().find_plugin<producer_plugin>();
-      EOS_ASSERT(my->producer_plug, plugin_exception, "Failed to find producer_plugin");
-
       auto shutdown = [](){ return app().quit(); };
       auto check_shutdown = [](){ return app().is_quiting(); };
       if (my->snapshot_path) {
@@ -1182,7 +1175,7 @@ chain_apis::read_write chain_plugin::get_read_write_api(const fc::microseconds& 
 }
 
 chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& http_max_response_time) const {
-   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), http_max_response_time, my->producer_plug, my->_trx_finality_status_processing.get());
+   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), http_max_response_time, my->_trx_finality_status_processing.get());
 }
 
 
@@ -1543,7 +1536,8 @@ string get_table_type( const abi_def& abi, const name& table_name ) {
    EOS_ASSERT( false, chain::contract_table_query_exception, "Table ${table} is not specified in the ABI", ("table",table_name) );
 }
 
-read_only::get_table_rows_result read_only::get_table_rows( const read_only::get_table_rows_params& p, const fc::time_point& deadline )const {
+read_only::get_table_rows_return_t
+read_only::get_table_rows( const read_only::get_table_rows_params& p, const fc::time_point& deadline ) const {
    abi_def abi = eosio::chain_apis::get_abi( db, p.code );
    bool primary = false;
    auto table_with_index = get_table_index_name( p, primary );
@@ -2197,7 +2191,7 @@ void api_base::send_transaction_gen(API &api, send_transaction_params_t params, 
 
       bool retry = false;
       std::optional<uint16_t> retry_num_blocks;
-      
+
       if constexpr (std::is_same_v<API, read_write>) {
          retry = params.retry_trx;
          retry_num_blocks = params.retry_trx_num_blocks;
@@ -2207,7 +2201,7 @@ void api_base::send_transaction_gen(API &api, send_transaction_params_t params, 
                      "retry transaction expiration ${e} larger than allowed ${m}",
                      ("e", ptrx->expiration())("m", api.trx_retry->get_max_expiration_time()) );
       }
-      
+
       app().get_method<incoming::methods::transaction_async>()(ptrx, true, params.trx_type, params.return_failure_trace,
             [&api, ptrx, next, retry, retry_num_blocks](const next_function_variant<transaction_trace_ptr>& result) -> void {
             if( std::holds_alternative<fc::exception_ptr>( result ) ) {
@@ -2263,7 +2257,7 @@ void api_base::send_transaction_gen(API &api, send_transaction_params_t params, 
       handle_bad_alloc();
    } CATCH_AND_CALL(next);
 }
-   
+
 void read_write::send_transaction(read_write::send_transaction_params params, next_function<read_write::send_transaction_results> next) {
    send_transaction_params_t gen_params { .return_failure_trace = false,
                                           .retry_trx            = false,
@@ -2281,7 +2275,7 @@ void read_write::send_transaction2(read_write::send_transaction2_params params, 
                                            .transaction          = std::move(params.transaction) };
    return send_transaction_gen(*this, std::move(gen_params), std::move(next));
 }
-   
+
 read_only::get_abi_results read_only::get_abi( const get_abi_params& params, const fc::time_point& deadline )const {
    try {
    get_abi_results result;
@@ -2371,7 +2365,7 @@ read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params&
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account abi")
 }
 
-read_only::get_account_results read_only::get_account( const get_account_params& params, const fc::time_point& deadline )const {
+read_only::get_account_return_t read_only::get_account( const get_account_params& params, const fc::time_point& deadline ) const {
    try {
    get_account_results result;
    result.account_name = params.account_name;
@@ -2403,11 +2397,9 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    }
    result.ram_usage = rm.get_account_ram_usage( result.account_name );
 
-   if ( producer_plug ) {  // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
-      eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
-      subjective_cpu_bill_limit.used = producer_plug->get_subjective_bill( result.account_name, fc::time_point::now() );
-      result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;
-   }
+   eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
+   subjective_cpu_bill_limit.used = db.get_subjective_billing().get_subjective_bill( result.account_name, fc::time_point::now() );
+   result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;
 
    const auto linked_action_map = ([&](){
       const auto& links = d.get_index<permission_link_index,by_permission_name>();
@@ -2458,9 +2450,17 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    result.eosio_any_linked_actions = get_linked_actions(chain::config::eosio_any_name);
 
    const auto& code_account = db.db().get<account_object,by_name>( config::system_account_name );
+   struct http_params_t {
+      std::optional<vector<char>> total_resources;
+      std::optional<vector<char>> self_delegated_bandwidth;
+      std::optional<vector<char>> refund_request;
+      std::optional<vector<char>> voter_info;
+      std::optional<vector<char>> rex_info;
+   };
 
+   http_params_t http_params;
+   
    if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
-      abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
 
       const auto token_code = "eosio.token"_n;
 
@@ -2484,7 +2484,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      auto lookup_object = [&](const name& obj_name, const name& account_name, const char* type_name) -> std::optional<fc::variant> {
+      auto lookup_object = [&](const name& obj_name, const name& account_name) -> std::optional<vector<char>> {
          auto t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, account_name, obj_name ));
          if (t_id != nullptr) {
             const auto& idx = d.get_index<key_value_index, by_scope_primary>();
@@ -2492,28 +2492,39 @@ read_only::get_account_results read_only::get_account( const get_account_params&
             if (it != idx.end()) {
                vector<char> data;
                copy_inline_row(*it, data);
-               return abis.binary_to_variant( type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+               return data;
             }
          }
          return {};
       };
-
-      if (auto res = lookup_object("userres"_n, params.account_name, "user_resources"); res)
-         result.total_resources = *res;
-
-      if (auto res = lookup_object("delband"_n, params.account_name, "delegated_bandwidth"); res)
-         result.self_delegated_bandwidth = *res;
-
-      if (auto res = lookup_object("refunds"_n, params.account_name, "refund_request"); res)
-         result.refund_request = *res;
-
-      if (auto res = lookup_object("voters"_n, config::system_account_name, "voter_info"); res)
-         result.voter_info = *res;
-
-      if (auto res = lookup_object("rexbal"_n, config::system_account_name, "rex_balance"); res)
-         result.rex_info = *res;
+      
+      http_params.total_resources          = lookup_object("userres"_n, params.account_name);
+      http_params.self_delegated_bandwidth = lookup_object("delband"_n, params.account_name);
+      http_params.refund_request           = lookup_object("refunds"_n, params.account_name);
+      http_params.voter_info               = lookup_object("voters"_n, config::system_account_name);
+      http_params.rex_info                 = lookup_object("rexbal"_n, config::system_account_name);
+      
+      return [http_params = std::move(http_params), result = std::move(result), abi=std::move(abi), shorten_abi_errors=shorten_abi_errors,
+              abi_serializer_max_time=abi_serializer_max_time]() mutable ->  chain::t_or_exception<read_only::get_account_results> {
+         auto yield = [&]() { return abi_serializer::create_yield_function(abi_serializer_max_time); };
+         abi_serializer abis(std::move(abi), yield());
+         
+         if (http_params.total_resources)
+            result.total_resources = abis.binary_to_variant("user_resources", *http_params.total_resources, yield(), shorten_abi_errors);
+         if (http_params.self_delegated_bandwidth)
+            result.self_delegated_bandwidth = abis.binary_to_variant("delegated_bandwidth", *http_params.self_delegated_bandwidth, yield(), shorten_abi_errors);
+         if (http_params.refund_request)
+            result.refund_request = abis.binary_to_variant("refund_request", *http_params.refund_request, yield(), shorten_abi_errors);
+         if (http_params.voter_info)
+            result.voter_info = abis.binary_to_variant("voter_info", *http_params.voter_info, yield(), shorten_abi_errors);
+         if (http_params.rex_info)
+            result.rex_info = abis.binary_to_variant("rex_balance", *http_params.rex_info, yield(), shorten_abi_errors);
+         return std::move(result);
+      };
    }
-   return result;
+   return [result = std::move(result)]() mutable -> chain::t_or_exception<read_only::get_account_results> {
+      return std::move(result);
+   };
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account info")
 }
 

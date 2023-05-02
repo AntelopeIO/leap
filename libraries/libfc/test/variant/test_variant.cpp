@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE variant
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/variant_object.hpp>
 #include <fc/exception/exception.hpp>
@@ -7,6 +6,7 @@
 #include <string>
 
 using namespace fc;
+using std::string;
 
 BOOST_AUTO_TEST_SUITE(variant_test_suite)
 BOOST_AUTO_TEST_CASE(mutable_variant_object_test)

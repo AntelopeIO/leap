@@ -3,25 +3,26 @@
 #include <eosio/testing/tester.hpp>
 #include "snapshot_suites.hpp"
 #include <eosio/producer_plugin/producer_plugin.hpp>
-#include <eosio/producer_plugin/pending_snapshot.hpp>
+#include <eosio/chain/snapshot_scheduler.hpp>
 #include <test_contracts.hpp>
 #include <snapshots.hpp>
 
 using namespace eosio;
+using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace boost::system;
 
 namespace {
-    eosio::producer_plugin::snapshot_information test_snap_info;
+    snapshot_scheduler::snapshot_information test_snap_info;
 }
 
 BOOST_AUTO_TEST_SUITE(producer_snapshot_tests)
 
-using next_t = eosio::producer_plugin::next_function<eosio::producer_plugin::snapshot_information>;
+using next_t = eosio::producer_plugin::next_function<snapshot_scheduler::snapshot_information>;
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(test_snapshot_information, SNAPSHOT_SUITE, snapshot_suites) {
    tester chain;
-   const chainbase::bfs::path parent_path = chain.get_config().blocks_dir.parent_path();
+   const std::filesystem::path parent_path = chain.get_config().blocks_dir.parent_path();
 
    chain.create_account("snapshot"_n);
    chain.produce_blocks(1);
@@ -40,9 +41,9 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_snapshot_information, SNAPSHOT_SUITE, snapsho
    chain.control->abort_block();
 
    // write snapshot
-   auto write_snapshot = [&]( const bfs::path& p ) -> void {
-      if ( !bfs::exists( p.parent_path() ) )
-         bfs::create_directory( p.parent_path() );
+   auto write_snapshot = [&]( const std::filesystem::path& p ) -> void {
+      if ( !std::filesystem::exists( p.parent_path() ) )
+         std::filesystem::create_directory( p.parent_path() );
 
       // create the snapshot
       auto snap_out = std::ofstream(p.generic_string(), (std::ios::out | std::ios::binary));
@@ -53,12 +54,12 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_snapshot_information, SNAPSHOT_SUITE, snapsho
       snap_out.close();
    };
 
-   auto final_path = eosio::pending_snapshot::get_final_path(block2->previous, "../snapshots/");
-   auto pending_path = eosio::pending_snapshot::get_pending_path(block2->previous, "../snapshots/");
+   auto final_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_final_path(block2->previous, "../snapshots/");
+   auto pending_path = pending_snapshot<snapshot_scheduler::snapshot_information>::get_pending_path(block2->previous, "../snapshots/");
 
    write_snapshot( pending_path );
    next_t next;
-   eosio::pending_snapshot pending{ block2->previous, next, pending_path.generic_string(), final_path.generic_string() };
+   pending_snapshot pending{ block2->previous, next, pending_path.generic_string(), final_path.generic_string() };
    test_snap_info = pending.finalize(*chain.control);
    BOOST_REQUIRE_EQUAL(test_snap_info.head_block_num, 6);
    BOOST_REQUIRE_EQUAL(test_snap_info.version, chain_snapshot_header::current_version);

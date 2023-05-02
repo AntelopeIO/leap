@@ -1,7 +1,7 @@
 #pragma once
 
-#include <eosio/chain/plugin_metrics.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
+#include <eosio/chain/snapshot_scheduler.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
 #include <eosio/chain/application.hpp>
@@ -9,37 +9,6 @@
 namespace eosio {
 
 using boost::signals2::signal;
-
-using chain::plugin_interface::runtime_metric;
-using chain::plugin_interface::metric_type;
-using chain::plugin_interface::metrics_listener;
-using chain::plugin_interface::plugin_metrics;
-
-struct producer_plugin_metrics : public plugin_metrics {
-   runtime_metric unapplied_transactions{metric_type::gauge, "unapplied_transactions", "unapplied_transactions", 0};
-   runtime_metric blacklisted_transactions{metric_type::gauge, "blacklisted_transactions", "blacklisted_transactions", 0};
-   runtime_metric blocks_produced{metric_type::counter, "blocks_produced", "blocks_produced", 0};
-   runtime_metric trxs_produced{metric_type::counter, "trxs_produced", "trxs_produced", 0};
-   runtime_metric last_irreversible{metric_type::gauge, "last_irreversible", "last_irreversible", 0};
-   runtime_metric head_block_num{metric_type::gauge, "head_block_num", "head_block_num", 0};
-   runtime_metric subjective_bill_account_size{metric_type::gauge, "subjective_bill_account_size", "subjective_bill_account_size", 0};
-   runtime_metric scheduled_trxs{metric_type::gauge, "scheduled_trxs", "scheduled_trxs", 0};
-
-   vector<runtime_metric> metrics() final {
-      vector<runtime_metric> metrics{
-            unapplied_transactions,
-            blacklisted_transactions,
-            blocks_produced,
-            trxs_produced,
-            last_irreversible,
-            head_block_num,
-            subjective_bill_account_size,
-            scheduled_trxs
-      };
-
-      return metrics;
-   }
-};
 
 class producer_plugin : public appbase::plugin<producer_plugin> {
 public:
@@ -71,37 +40,6 @@ public:
    struct integrity_hash_information {
       chain::block_id_type head_block_id;
       chain::digest_type   integrity_hash;
-   };
-
-   struct snapshot_information {
-      chain::block_id_type head_block_id;
-      uint32_t             head_block_num;
-      fc::time_point       head_block_time;
-      uint32_t             version;
-      std::string          snapshot_name;
-   };
-
-   struct snapshot_request_information {
-      uint32_t             block_spacing = 0;
-      uint32_t             start_block_num = 0;
-      uint32_t             end_block_num = 0;
-      std::string          snapshot_description = "";
-
-   };
-
-   struct snapshot_request_id_information {
-      uint32_t snapshot_request_id = 0;
-   };
-
-   struct snapshot_schedule_result : public snapshot_request_id_information, public snapshot_request_information {
-   };
-
-   struct snapshot_schedule_information : public snapshot_request_id_information, public snapshot_request_information {
-      std::vector<snapshot_information> pending_snapshots;
-   };
-
-   struct get_snapshot_requests_result {
-       std::vector<snapshot_schedule_information>  snapshot_requests;
    };
 
    struct scheduled_protocol_feature_activations {
@@ -138,7 +76,6 @@ public:
 
    bool                   is_producer_key(const chain::public_key_type& key) const;
    chain::signature_type  sign_compact(const chain::public_key_type& key, const fc::sha256& digest) const;
-   int64_t get_subjective_bill( const account_name& first_auth, const fc::time_point& now ) const;
 
    virtual void plugin_initialize(const boost::program_options::variables_map& options);
    virtual void plugin_startup();
@@ -160,10 +97,10 @@ public:
 
    integrity_hash_information get_integrity_hash() const;
 
-   void create_snapshot(next_function<snapshot_information> next);
-   snapshot_schedule_result schedule_snapshot(const snapshot_request_information& schedule);
-   snapshot_schedule_result unschedule_snapshot(const snapshot_request_id_information& schedule);
-   get_snapshot_requests_result get_snapshot_requests() const;
+   void create_snapshot(next_function<chain::snapshot_scheduler::snapshot_information> next);
+   chain::snapshot_scheduler::snapshot_schedule_result schedule_snapshot(const chain::snapshot_scheduler::snapshot_request_information& schedule);
+   chain::snapshot_scheduler::snapshot_schedule_result unschedule_snapshot(const chain::snapshot_scheduler::snapshot_request_id_information& schedule);
+   chain::snapshot_scheduler::get_snapshot_requests_result get_snapshot_requests() const;
 
    scheduled_protocol_feature_activations get_scheduled_protocol_feature_activations() const;
    void schedule_protocol_feature_activations(const scheduled_protocol_feature_activations& schedule);
@@ -201,7 +138,6 @@ public:
 
 
    void log_failed_transaction(const transaction_id_type& trx_id, const chain::packed_transaction_ptr& packed_trx_ptr, const char* reason) const;
-   void register_metrics_listener(metrics_listener listener);
 
    // thread-safe, called when a new block is received
    void received_block(uint32_t block_num);
@@ -209,6 +145,32 @@ public:
    const std::set<account_name>& producer_accounts() const;
 
    static void set_test_mode(bool m) { test_mode_ = m; }
+
+   struct produced_block_metrics {
+      std::size_t unapplied_transactions_total       = 0;
+      std::size_t blacklisted_transactions_total     = 0;
+      std::size_t subjective_bill_account_size_total = 0;
+      std::size_t scheduled_trxs_total               = 0;
+      std::size_t trxs_produced_total                = 0;
+      uint64_t    cpu_usage_us                       = 0;
+      uint64_t    net_usage_us                       = 0;
+
+      uint32_t last_irreversible = 0;
+      uint32_t head_block_num    = 0;
+   };
+
+   struct incoming_block_metrics {
+      std::size_t trxs_incoming_total = 0;
+      uint64_t    cpu_usage_us        = 0;
+      uint64_t    net_usage_us        = 0;
+
+      uint32_t last_irreversible = 0;
+      uint32_t head_block_num    = 0;
+   };
+
+   void register_update_produced_block_metrics(std::function<void(produced_block_metrics)>&&);
+   void register_update_incoming_block_metrics(std::function<void(incoming_block_metrics)>&&);
+
  private:
    inline static bool test_mode_{false}; // to be moved into appbase (application_base)
 
@@ -221,12 +183,6 @@ FC_REFLECT(eosio::producer_plugin::runtime_options, (max_transaction_time)(max_i
 FC_REFLECT(eosio::producer_plugin::greylist_params, (accounts));
 FC_REFLECT(eosio::producer_plugin::whitelist_blacklist, (actor_whitelist)(actor_blacklist)(contract_whitelist)(contract_blacklist)(action_blacklist)(key_blacklist) )
 FC_REFLECT(eosio::producer_plugin::integrity_hash_information, (head_block_id)(integrity_hash))
-FC_REFLECT(eosio::producer_plugin::snapshot_information, (head_block_id)(head_block_num)(head_block_time)(version)(snapshot_name))
-FC_REFLECT(eosio::producer_plugin::snapshot_request_information, (block_spacing)(start_block_num)(end_block_num)(snapshot_description))
-FC_REFLECT(eosio::producer_plugin::snapshot_request_id_information, (snapshot_request_id))
-FC_REFLECT(eosio::producer_plugin::get_snapshot_requests_result, (snapshot_requests))
-FC_REFLECT_DERIVED(eosio::producer_plugin::snapshot_schedule_information, (eosio::producer_plugin::snapshot_request_id_information)(eosio::producer_plugin::snapshot_request_information), (pending_snapshots))
-FC_REFLECT_DERIVED(eosio::producer_plugin::snapshot_schedule_result, (eosio::producer_plugin::snapshot_request_id_information)(eosio::producer_plugin::snapshot_request_information),)
 FC_REFLECT(eosio::producer_plugin::scheduled_protocol_feature_activations, (protocol_features_to_activate))
 FC_REFLECT(eosio::producer_plugin::get_supported_protocol_features_params, (exclude_disabled)(exclude_unactivatable))
 FC_REFLECT(eosio::producer_plugin::get_account_ram_corrections_params, (lower_bound)(upper_bound)(limit)(reverse))

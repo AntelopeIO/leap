@@ -1,6 +1,5 @@
 #pragma once
 
-#include <boost/filesystem/path.hpp>
 #include <fc/io/cfile.hpp>
 
 namespace eosio {
@@ -14,11 +13,11 @@ class log_index {
    std::size_t num_blocks_ = 0;
  public:
    log_index() = default;
-   log_index(const boost::filesystem::path& path) {
+   log_index(const std::filesystem::path& path) {
       open(path);
    }
 
-   void open(const boost::filesystem::path& path) {
+   void open(const std::filesystem::path& path) {
       if (file_.is_open())
          file_.close();
       file_.set_file_path(path);
@@ -26,7 +25,7 @@ class log_index {
       file_.seek_end(0);
       num_blocks_ = file_.tellp()/ sizeof(uint64_t);
       EOS_ASSERT(file_.tellp() % sizeof(uint64_t) == 0, Exception,
-                 "The size of ${file} is not a multiple of sizeof(uint64_t)", ("file", path.generic_string()));
+                 "The size of ${file} is not a multiple of sizeof(uint64_t)", ("file", path));
    }
 
    bool is_open() const { return file_.is_open(); }
