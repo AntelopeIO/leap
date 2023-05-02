@@ -200,7 +200,7 @@ namespace eosio {
             ("http-max-in-flight-requests", bpo::value<int32_t>()->default_value(-1),
              "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded." )
             ("http-max-response-time-ms", bpo::value<int64_t>()->default_value(30),
-             "Maximum time for processing a request, -1 for unlimited")
+             "Maximum time on main thread for processing a request, -1 for unlimited")
             ("verbose-http-errors", bpo::bool_switch()->default_value(false),
              "Append the error log to HTTP responses")
             ("http-validate-host", boost::program_options::value<bool>()->default_value(true),
@@ -236,9 +236,8 @@ namespace eosio {
          int64_t max_reponse_time_ms = options.at("http-max-response-time-ms").as<int64_t>();
          EOS_ASSERT( max_reponse_time_ms == -1 || max_reponse_time_ms >= 0, chain::plugin_config_exception,
                      "http-max-response-time-ms must be -1, or non-negative: ${m}", ("m", max_reponse_time_ms) );
-         // set to one year for -1, unlimited, since this is added to fc::time_point::now() for a deadline
          my->plugin_state->max_response_time = max_reponse_time_ms == -1 ?
-               fc::days(365) : fc::microseconds( max_reponse_time_ms * 1000 );
+               fc::microseconds::maximum() : fc::microseconds( max_reponse_time_ms * 1000 );
 
          my->plugin_state->validate_host = options.at("http-validate-host").as<bool>();
          if( options.count( "http-alias" )) {

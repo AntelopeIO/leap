@@ -1,6 +1,7 @@
 #pragma once
 
 #include <eosio/http_plugin/common.hpp>
+#include <fc/time.hpp>
 #include <fc/io/json.hpp>
 
 #include <boost/iostreams/device/array.hpp>
@@ -421,7 +422,7 @@ public:
                error_results results{static_cast<uint16_t>(http::status::internal_server_error),
                                      "Internal Service Error",
                                      error_results::error_info( e, http_plugin::verbose_errors() )};
-               err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+               err_str = fc::json::to_string( results, plugin_state_->get_max_response_deadline() );
             }
          } catch(std::exception& e) {
             err_str = e.what();
@@ -431,7 +432,7 @@ public:
                                      "Internal Service Error",
                                      error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, err_str ) ),
                                                                 http_plugin::verbose_errors() )};
-               err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+               err_str = fc::json::to_string( results, plugin_state_->get_max_response_deadline() );
             }
          } catch(...) {
             err_str = "Unknown exception";
