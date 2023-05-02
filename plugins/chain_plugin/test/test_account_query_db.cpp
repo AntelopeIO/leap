@@ -1,17 +1,10 @@
-#define BOOST_TEST_MODULE account_query_db
+#include <boost/test/unit_test.hpp>
 #include <eosio/chain/permission_object.hpp>
-#include <boost/test/included/unit_test.hpp>
 #include <eosio/testing/tester.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/block_state.hpp>
 #include <eosio/chain_plugin/account_query_db.hpp>
 #include <eosio/chain/thread_utils.hpp>
-
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -39,7 +32,7 @@ bool find_account_auth(results rst, account_name name, permission_name perm){
 
 BOOST_AUTO_TEST_SUITE(account_query_db_tests)
 
-BOOST_FIXTURE_TEST_CASE(newaccount_test, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(newaccount_test, validating_tester) { try {
 
    // instantiate an account_query_db
    auto aq_db = account_query_db(*control);
@@ -64,7 +57,7 @@ BOOST_FIXTURE_TEST_CASE(newaccount_test, TESTER) { try {
 
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(updateauth_test, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(updateauth_test, validating_tester) { try {
 
     // instantiate an account_query_db
     auto aq_db = account_query_db(*control);
@@ -98,7 +91,7 @@ BOOST_FIXTURE_TEST_CASE(updateauth_test, TESTER) { try {
 
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(updateauth_test_multi_threaded, validating_tester) { try {
 
    // instantiate an account_query_db
    auto aq_db = account_query_db(*control);

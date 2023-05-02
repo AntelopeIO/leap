@@ -14,12 +14,6 @@
 
 #include <boost/test/unit_test.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio::chain;
 using namespace eosio::testing;
 
@@ -380,7 +374,7 @@ struct permission_visitor {
 
 BOOST_AUTO_TEST_CASE(authority_checker)
 { try {
-   testing::TESTER test;
+   testing::validating_tester test;
    auto a = test.get_public_key(name("a"), "active");
    auto b = test.get_public_key(name("b"), "active");
    auto c = test.get_public_key(name("c"), "active");
@@ -698,7 +692,7 @@ BOOST_AUTO_TEST_CASE(alphabetic_sort)
 
 BOOST_AUTO_TEST_CASE(transaction_test) { try {
 
-   testing::TESTER test;
+   testing::validating_tester test;
    signed_transaction trx;
 
    fc::variant pretty_trx = fc::mutable_variant_object()
@@ -863,7 +857,7 @@ BOOST_AUTO_TEST_CASE(signed_int_test) { try {
 
 BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
 
-   testing::TESTER test;
+   testing::validating_tester test;
    signed_transaction trx;
 
    fc::variant pretty_trx = fc::mutable_variant_object()

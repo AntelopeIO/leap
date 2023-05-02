@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE full_producer_trxs
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/producer_plugin/producer_plugin.hpp>
 
