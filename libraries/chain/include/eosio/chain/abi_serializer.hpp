@@ -120,7 +120,7 @@ struct abi_serializer {
    static constexpr size_t max_recursion_depth = 32; // arbitrary depth to prevent infinite recursion
 
    // create standard yield function that checks for max_serialization_time and max_recursion_depth.
-   // now() deadline caputered at time of this call
+   // now() deadline captured at time of this call
    static yield_function_t create_yield_function(const fc::microseconds& max_serialization_time) {
       fc::time_point deadline = fc::time_point::now();
       if( max_serialization_time > fc::microseconds::maximum() - deadline.time_since_epoch() ) {
@@ -128,12 +128,13 @@ struct abi_serializer {
       } else {
          deadline += max_serialization_time;
       }
-      return [max_serialization_time, deadline](size_t recursion_depth) {
+      return [max_serialization_time, last_call=deadline](size_t recursion_depth) mutable {
          EOS_ASSERT( recursion_depth < max_recursion_depth, abi_recursion_depth_exception,
                      "recursive definition, max_recursion_depth ${r} ", ("r", max_recursion_depth) );
 
-         EOS_ASSERT( fc::time_point::now() < deadline, abi_serialization_deadline_exception,
+         EOS_ASSERT( (fc::time_point::now() - last_call) < max_serialization_time, abi_serialization_deadline_exception,
                      "serialization time limit ${t}us exceeded", ("t", max_serialization_time) );
+         last_call = fc::time_point::now();
       };
    }
 
@@ -495,7 +496,7 @@ namespace impl {
                      _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
                      mvo( "data", abi._binary_to_variant( type, act.data, _ctx ));
                   } catch(...) {
-                     // any failure to serialize data, then leave as not serailzed
+                     // any failure to serialize data, then leave as not serialized
                      set_hex_data(mvo, "data", act.data);
                   }
                } else {
