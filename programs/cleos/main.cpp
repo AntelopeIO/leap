@@ -2369,6 +2369,10 @@ protocol_features_t get_supported_protocol_features() {
    return results;
 };
 
+eosio::chain_apis::read_only::get_finalizer_state_results get_finalizer_state() {
+   return call(::default_url, get_finalizer_state_func).as<eosio::chain_apis::read_only::get_finalizer_state_results>();
+}
+
 struct activate_subcommand {
    string feature_name_str;
    std::string account_str = "eosio";
@@ -3416,6 +3420,11 @@ int main( int argc, char** argv ) {
       protocol_features_t supported_features;
       supported_features = get_supported_protocol_features();
       std::cout << supported_features.names << std::endl;
+   });
+
+   // get finalizer state
+   get->add_subcommand("finalizer_state", localized("Get finalizer state"))->callback([] {
+      std::cout << fc::json::to_pretty_string(get_finalizer_state()) << std::endl;
    });
 
    // set subcommand

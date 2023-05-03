@@ -21,6 +21,7 @@ namespace eosio { namespace client { namespace http {
 
    const string chain_func_base = "/v1/chain";
    const string get_info_func = chain_func_base + "/get_info";
+   const string get_finalizer_state_func = chain_func_base + "/get_finalizer_state";
    const string get_transaction_status_func = chain_func_base + "/get_transaction_status";
    const string get_consensus_parameters_func = chain_func_base + "/get_consensus_parameters";
    const string send_txn_func = chain_func_base + "/send_transaction";

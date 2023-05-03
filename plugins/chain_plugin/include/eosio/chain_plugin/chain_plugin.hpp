@@ -717,14 +717,14 @@ public:
    get_consensus_parameters_results get_consensus_parameters(const get_consensus_parameters_params&, const fc::time_point& deadline) const;
 
    struct hs_complete_proposal_message {
-      fc::sha256                 proposal_id;
-      chain::block_id_type       block_id;
-      fc::sha256                 parent_id;
-      fc::sha256                 final_on_qc;
+      fc::sha256                 proposal_id     = chain::NULL_PROPOSAL_ID;
+      chain::block_id_type       block_id        = chain::NULL_BLOCK_ID;
+      fc::sha256                 parent_id       = chain::NULL_PROPOSAL_ID;
+      fc::sha256                 final_on_qc     = chain::NULL_PROPOSAL_ID;
       chain::quorum_certificate  justify;
-      uint8_t                    phase_counter;
-      uint32_t                   block_number;
-      uint64_t                   block_height;
+      uint8_t                    phase_counter   = 0;
+      uint32_t                   block_height    = 0;
+      uint64_t                   view_number     = 0;
       hs_complete_proposal_message( chain::hs_proposal_message p ) {
          proposal_id    = p.proposal_id;
          block_id       = p.block_id;
@@ -732,10 +732,10 @@ public:
          final_on_qc    = p.final_on_qc;
          justify        = p.justify;
          phase_counter  = p.phase_counter;
-         block_number   = p.block_num();
-         block_height   = p.get_height();
+         block_height   = p.block_num();
+         view_number    = p.get_height();
       }
-      hs_complete_proposal_message() = delete;
+      hs_complete_proposal_message() = default; // cleos requires this
    };
 
    using get_finalizer_state_params = empty;
@@ -1002,5 +1002,5 @@ FC_REFLECT( eosio::chain_apis::read_only::compute_transaction_results, (transact
 FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_params, (transaction))
 FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_results, (transaction_id)(processed) )
 FC_REFLECT( eosio::chain_apis::read_only::get_consensus_parameters_results, (chain_config)(wasm_config))
-FC_REFLECT( eosio::chain_apis::read_only::hs_complete_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter)(block_number)(block_height))
+FC_REFLECT( eosio::chain_apis::read_only::hs_complete_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter)(block_height)(view_number))
 FC_REFLECT( eosio::chain_apis::read_only::get_finalizer_state_results, (chained_mode)(b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals))
