@@ -897,7 +897,7 @@ namespace eosio { namespace chain {
 
          static void write_incomplete_block_data(const std::filesystem::path& blocks_dir, fc::time_point now, uint32_t block_num,
                                                  fc::cfile& strm) {
-            auto      tail_path = blocks_dir / std::string("blocks-bad-tail-").append(std::string(now)).append(".log");
+            auto      tail_path = blocks_dir / std::string("blocks-bad-tail-").append(now.to_string()).append(".log");
             fc::cfile tail;
             tail.set_file_path(tail_path);
             tail.open(fc::cfile::create_or_update_rw_mode);
@@ -1320,7 +1320,7 @@ namespace eosio { namespace chain {
       auto blocks_dir = std::filesystem::canonical(
             data_dir); // canonical always returns an absolute path that has no symbolic link, dot, or dot-dot elements
       auto blocks_dir_name = blocks_dir.filename();
-      auto backup_dir      = blocks_dir.parent_path() / blocks_dir_name.generic_string().append("-").append(now);
+      auto backup_dir      = blocks_dir.parent_path() / blocks_dir_name.generic_string().append("-").append(now.to_string());
 
       EOS_ASSERT(!std::filesystem::exists(backup_dir), block_log_backup_dir_exist,
                  "Cannot move existing blocks directory to already existing directory '${new_blocks_dir}'",

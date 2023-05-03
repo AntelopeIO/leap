@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
 
 
       // test get_max_expiration_time
-      BOOST_CHECK( fc::time_point::now() + fc::hours(1) == fc::time_point( trx_retry.get_max_expiration_time() ) );
+      BOOST_CHECK( fc::time_point::now() + fc::hours(1) == trx_retry.get_max_expiration_time().to_time_point() );
 
       //
       // test expired, not in a block

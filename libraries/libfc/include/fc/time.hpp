@@ -1,6 +1,6 @@
 #pragma once
-#include <stdint.h>
-#include <fc/string.hpp>
+#include <cstdint>
+#include <string>
 
 #ifdef _MSC_VER
   #pragma warning (push)
@@ -46,7 +46,7 @@ namespace fc {
         static constexpr time_point maximum() { return time_point( microseconds::maximum() ); }
         static constexpr time_point min() { return time_point();                      }
 
-        operator std::string()const;
+        std::string to_string()const;
         static time_point from_iso_string( const std::string& s );
 
         constexpr const microseconds& time_since_epoch()const { return elapsed; }
@@ -78,17 +78,16 @@ namespace fc {
         constexpr explicit time_point_sec(uint32_t seconds )
         :utc_seconds(seconds){}
 
-        constexpr time_point_sec( const time_point& t )
+        constexpr explicit time_point_sec( const time_point& t )
         :utc_seconds( t.time_since_epoch().count() / 1000000ll ){}
 
         static constexpr time_point_sec maximum() { return time_point_sec(0xffffffff); }
         static constexpr time_point_sec min() { return time_point_sec(0); }
 
-        constexpr operator time_point()const { return time_point( fc::seconds( utc_seconds) ); }
+        constexpr time_point to_time_point()const { return time_point( fc::seconds( utc_seconds) ); }
         constexpr uint32_t sec_since_epoch()const { return utc_seconds; }
 
-        constexpr time_point_sec operator = ( const fc::time_point& t )
-        {
+        constexpr time_point_sec& operator = ( const fc::time_point& t ) {
           utc_seconds = t.time_since_epoch().count() / 1000000ll;
           return *this;
         }
@@ -105,15 +104,14 @@ namespace fc {
         constexpr time_point_sec   operator +( uint32_t offset )const { return time_point_sec(utc_seconds + offset); }
         constexpr time_point_sec   operator -( uint32_t offset )const { return time_point_sec(utc_seconds - offset); }
 
-        friend constexpr time_point   operator + ( const time_point_sec& t, const microseconds& m )   { return time_point(t) + m;             }
-        friend constexpr time_point   operator - ( const time_point_sec& t, const microseconds& m )   { return time_point(t) - m;             }
-        friend constexpr microseconds operator - ( const time_point_sec& t, const time_point_sec& m ) { return time_point(t) - time_point(m); }
-        friend constexpr microseconds operator - ( const time_point& t, const time_point_sec& m ) { return time_point(t) - time_point(m); }
+        friend constexpr time_point   operator + ( const time_point_sec& t, const microseconds& m )   { return time_point{fc::seconds(t.utc_seconds) + m}; }
+        friend constexpr time_point   operator - ( const time_point_sec& t, const microseconds& m )   { return time_point{fc::seconds(t.utc_seconds) - m}; }
+        friend constexpr microseconds operator - ( const time_point_sec& t, const time_point_sec& m ) { return fc::seconds(t.utc_seconds) - fc::seconds(m.utc_seconds); }
+        friend constexpr microseconds operator - ( const time_point& t, const time_point_sec& m ) { return t.time_since_epoch() - fc::seconds(m.sec_since_epoch()); }
 
         std::string to_non_delimited_iso_string()const;
         std::string to_iso_string()const;
 
-        operator std::string()const;
         static time_point_sec from_iso_string( const std::string& s );
 
     private:
@@ -124,7 +122,7 @@ namespace fc {
    * e.g., "4 hours ago", "2 months ago", etc.
    */
   std::string get_approximate_relative_time_string(const time_point_sec& event_time,
-                                                   const time_point_sec& relative_to_time = fc::time_point::now(),
+                                                   const time_point_sec& relative_to_time = fc::time_point_sec{fc::time_point::now()},
                                                    const std::string& ago = " ago");
   std::string get_approximate_relative_time_string(const time_point& event_time,
                                                    const time_point& relative_to_time = fc::time_point::now(),

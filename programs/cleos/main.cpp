@@ -1718,7 +1718,7 @@ struct bidname_info_subcommand {
          const auto& row = result.rows[0];
          string time = row["last_bid_time"].as_string();
          try {
-             time = (string)fc::time_point(fc::microseconds(to_uint64(time)));
+             time = fc::time_point(fc::microseconds(to_uint64(time))).to_string();
          } catch (fc::parse_error_exception&) {
          }
          int64_t bid = row["high_bid"].as_int64();
@@ -2423,7 +2423,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          staked = asset( 0, res.core_liquid_balance->get_symbol() );    // Correct core symbol for staked asset.
       }
 
-      std::cout << "created: " << string(res.created) << std::endl;
+      std::cout << "created: " << res.created.to_string() << std::endl;
 
       if(res.privileged) std::cout << "privileged: true" << std::endl;
 
@@ -2666,7 +2666,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          if( unstaking > asset( 0, unstaking.get_symbol() ) ) {
             std::cout << std::fixed << setprecision(3);
             std::cout << "unstaking tokens:" << std::endl;
-            std::cout << indent << std::left << std::setw(25) << "time of unstake request:" << std::right << std::setw(20) << string(request_time);
+            std::cout << indent << std::left << std::setw(25) << "time of unstake request:" << std::right << std::setw(20) << request_time.to_iso_string();
             if( now >= refund_time ) {
                std::cout << " (available to claim now with 'eosio::refund' action)\n";
             } else {

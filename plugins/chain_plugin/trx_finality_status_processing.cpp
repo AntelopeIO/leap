@@ -128,7 +128,7 @@ namespace eosio::chain_apis {
       else {
          _storage.insert(
             finality_status_object{.trx_id = trx_id,
-                                   .trx_expiry = ptrx->expiration(),
+                                   .trx_expiry = ptrx->expiration().to_time_point(),
                                    .received = now,
                                    .block_id = block_id,
                                    .block_timestamp = block_timestamp});

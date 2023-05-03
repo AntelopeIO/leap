@@ -8,6 +8,8 @@
 #include <eosio/chain/resource_limits_private.hpp>
 #include <eosio/chain/config.hpp>
 
+#include <fc/time.hpp>
+
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -107,7 +109,7 @@ public:
    void disable_account( chain::account_name a ) { _disabled_accounts.emplace( a ); }
    bool is_account_disabled(const chain::account_name& a ) const { return _disabled || _disabled_accounts.count( a ); }
 
-   void subjective_bill( const chain::transaction_id_type& id, const fc::time_point& expire,
+   void subjective_bill( const chain::transaction_id_type& id, const fc::time_point_sec& expire,
                          const chain::account_name& first_auth, const fc::microseconds& elapsed )
    {
       if( !_disabled && !_disabled_accounts.count( first_auth ) ) {
@@ -116,7 +118,7 @@ public:
                trx_cache_entry{id,
                                first_auth,
                                bill,
-                               expire} );
+                               expire.to_time_point()} );
          if( p.second ) {
             _account_subjective_bill_cache[first_auth].pending_cpu_us += bill;
          }

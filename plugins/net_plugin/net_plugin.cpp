@@ -13,10 +13,10 @@
 #include <fc/network/message_buffer.hpp>
 #include <fc/io/json.hpp>
 #include <fc/io/raw.hpp>
-#include <fc/log/appender.hpp>
 #include <fc/reflect/variant.hpp>
 #include <fc/crypto/rand.hpp>
 #include <fc/exception/exception.hpp>
+#include <fc/time.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/host_name.hpp>
@@ -279,7 +279,7 @@ namespace eosio {
       void rm_block(const block_id_type& blkid);
 
       bool add_peer_txn( const transaction_id_type& id, const time_point_sec& trx_expires, uint32_t connection_id,
-                         const time_point_sec& now = time_point::now() );
+                         const time_point_sec& now = time_point_sec(time_point::now()) );
       bool have_txn( const transaction_id_type& tid ) const;
       void expire_txns();
 
@@ -2211,7 +2211,7 @@ namespace eosio {
       bool added = (tptr == local_txns.end());
       if( added ) {
          // expire at either transaction expiration or configured max expire time whichever is less
-         time_point_sec expires = now + my_impl->p2p_dedup_cache_expire_time_us;
+         time_point_sec expires{now + my_impl->p2p_dedup_cache_expire_time_us};
          expires = std::min( trx_expires, expires );
          local_txns.insert( node_transaction_state{
             .id = id,
@@ -2229,12 +2229,13 @@ namespace eosio {
 
    void dispatch_manager::expire_txns() {
       size_t start_size = 0, end_size = 0;
+      fc::time_point_sec now{time_point::now()};
 
       std::unique_lock<std::mutex> g( local_txns_mtx );
       start_size = local_txns.size();
       auto& old = local_txns.get<by_expiry>();
       auto ex_lo = old.lower_bound( fc::time_point_sec( 0 ) );
-      auto ex_up = old.upper_bound( time_point::now() );
+      auto ex_up = old.upper_bound( now );
       old.erase( ex_lo, ex_up );
       g.unlock();
 
@@ -2305,7 +2306,7 @@ namespace eosio {
    // called from any thread
    void dispatch_manager::bcast_transaction(const packed_transaction_ptr& trx) {
       trx_buffer_factory buff_factory;
-      const auto now = fc::time_point::now();
+      const fc::time_point_sec now{fc::time_point::now()};
       for_each_connection( [this, &trx, &now, &buff_factory]( auto& cp ) {
          if( cp->is_blocks_only_connection() || !cp->current() ) {
             return true;
