@@ -15,7 +15,7 @@ auto unique_trx_meta_data( fc::time_point expire = fc::time_point::now() + fc::s
 
    signed_transaction trx;
    account_name creator = config::system_account_name;
-   trx.expiration = expire;
+   trx.expiration = fc::time_point_sec{expire};
    trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
                              onerror{ nextid, "test", 4 });
    return transaction_metadata::create_no_recover_keys( std::make_shared<packed_transaction>( std::move(trx) ),

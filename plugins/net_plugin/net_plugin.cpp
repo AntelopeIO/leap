@@ -2211,7 +2211,7 @@ namespace eosio {
       bool added = (tptr == local_txns.end());
       if( added ) {
          // expire at either transaction expiration or configured max expire time whichever is less
-         time_point_sec expires{now + my_impl->p2p_dedup_cache_expire_time_us};
+         time_point_sec expires{now.to_time_point() + my_impl->p2p_dedup_cache_expire_time_us};
          expires = std::min( trx_expires, expires );
          local_txns.insert( node_transaction_state{
             .id = id,

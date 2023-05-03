@@ -63,7 +63,7 @@ auto make_unique_trx( const fc::microseconds& expiration ) {
    account_name creator = config::system_account_name;
    signed_transaction trx;
    const auto now_exp = fc::time_point::now() + expiration;
-   trx.expiration = now_exp;
+   trx.expiration = fc::time_point_sec{now_exp};
    trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}},
                              testit{ unique_id } );
    trx.sign( get_private_key("test"_n), chain_id );

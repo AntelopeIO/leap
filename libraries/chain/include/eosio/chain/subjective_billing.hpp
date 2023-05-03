@@ -109,7 +109,7 @@ public:
    void disable_account( chain::account_name a ) { _disabled_accounts.emplace( a ); }
    bool is_account_disabled(const chain::account_name& a ) const { return _disabled || _disabled_accounts.count( a ); }
 
-   void subjective_bill( const chain::transaction_id_type& id, const fc::time_point_sec& expire,
+   void subjective_bill( const chain::transaction_id_type& id, fc::time_point_sec expire,
                          const chain::account_name& first_auth, const fc::microseconds& elapsed )
    {
       if( !_disabled && !_disabled_accounts.count( first_auth ) ) {

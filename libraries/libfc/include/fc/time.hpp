@@ -87,27 +87,12 @@ namespace fc {
         constexpr time_point to_time_point()const { return time_point( fc::seconds( utc_seconds) ); }
         constexpr uint32_t sec_since_epoch()const { return utc_seconds; }
 
-        constexpr time_point_sec& operator = ( const fc::time_point& t ) {
-          utc_seconds = t.time_since_epoch().count() / 1000000ll;
-          return *this;
-        }
         constexpr friend bool      operator < ( const time_point_sec& a, const time_point_sec& b )  { return a.utc_seconds < b.utc_seconds; }
         constexpr friend bool      operator > ( const time_point_sec& a, const time_point_sec& b )  { return a.utc_seconds > b.utc_seconds; }
         constexpr friend bool      operator <= ( const time_point_sec& a, const time_point_sec& b )  { return a.utc_seconds <= b.utc_seconds; }
         constexpr friend bool      operator >= ( const time_point_sec& a, const time_point_sec& b )  { return a.utc_seconds >= b.utc_seconds; }
         constexpr friend bool      operator == ( const time_point_sec& a, const time_point_sec& b ) { return a.utc_seconds == b.utc_seconds; }
         constexpr friend bool      operator != ( const time_point_sec& a, const time_point_sec& b ) { return a.utc_seconds != b.utc_seconds; }
-        constexpr time_point_sec&  operator += ( uint32_t m ) { utc_seconds+=m; return *this; }
-        constexpr time_point_sec&  operator += ( microseconds m ) { utc_seconds+=m.to_seconds(); return *this; }
-        constexpr time_point_sec&  operator -= ( uint32_t m ) { utc_seconds-=m; return *this; }
-        constexpr time_point_sec&  operator -= ( microseconds m ) { utc_seconds-=m.to_seconds(); return *this; }
-        constexpr time_point_sec   operator +( uint32_t offset )const { return time_point_sec(utc_seconds + offset); }
-        constexpr time_point_sec   operator -( uint32_t offset )const { return time_point_sec(utc_seconds - offset); }
-
-        friend constexpr time_point   operator + ( const time_point_sec& t, const microseconds& m )   { return time_point{fc::seconds(t.utc_seconds) + m}; }
-        friend constexpr time_point   operator - ( const time_point_sec& t, const microseconds& m )   { return time_point{fc::seconds(t.utc_seconds) - m}; }
-        friend constexpr microseconds operator - ( const time_point_sec& t, const time_point_sec& m ) { return fc::seconds(t.utc_seconds) - fc::seconds(m.utc_seconds); }
-        friend constexpr microseconds operator - ( const time_point& t, const time_point_sec& m ) { return t.time_since_epoch() - fc::seconds(m.sec_since_epoch()); }
 
         std::string to_non_delimited_iso_string()const;
         std::string to_iso_string()const;

@@ -35,7 +35,7 @@ auto make_unique_trx( const chain_id_type& chain_id ) {
    ++nextid;
    account_name creator = config::system_account_name;
    signed_transaction trx;
-   trx.expiration = fc::time_point::now() + fc::seconds( nextid % 50 == 0 ? 0 : 60 ); // fail some transactions via expired
+   trx.expiration = fc::time_point_sec{fc::time_point::now() + fc::seconds( nextid % 50 == 0 ? 0 : 60 )}; // fail some transactions via expired
    if( nextid % 10 == 0 ) {
       // fail some for authorization (read-only transaction should not have authorization)
       trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}}, testit{nextid} );
