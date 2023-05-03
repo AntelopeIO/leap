@@ -77,7 +77,7 @@ namespace eosio::testing {
       std::ofstream out(fileName.str());
 
       for (logged_trx_data data : _sent_trx_data) {
-         out << std::string(data._trx_id) << ","<< data._sent_timestamp.to_string() << "\n";
+         out << std::string(data._trx_id) << ","<< data._sent_timestamp.to_iso_string() << "\n";
       }
       out.close();
    }

@@ -1718,7 +1718,7 @@ struct bidname_info_subcommand {
          const auto& row = result.rows[0];
          string time = row["last_bid_time"].as_string();
          try {
-             time = fc::time_point(fc::microseconds(to_uint64(time))).to_string();
+             time = fc::time_point(fc::microseconds(to_uint64(time))).to_iso_string();
          } catch (fc::parse_error_exception&) {
          }
          int64_t bid = row["high_bid"].as_int64();
@@ -2423,7 +2423,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          staked = asset( 0, res.core_liquid_balance->get_symbol() );    // Correct core symbol for staked asset.
       }
 
-      std::cout << "created: " << res.created.to_string() << std::endl;
+      std::cout << "created: " << res.created.to_iso_string() << std::endl;
 
       if(res.privileged) std::cout << "privileged: true" << std::endl;
 

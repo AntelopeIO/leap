@@ -42,7 +42,7 @@ namespace fc {
       return fc::time_point_sec( (pt - epoch).total_seconds() );
   } FC_RETHROW_EXCEPTIONS( warn, "unable to convert ISO-formatted string to fc::time_point_sec" ) }
 
-   std::string time_point::to_string()const
+   std::string time_point::to_iso_string()const
    {
       auto count = elapsed.count();
       if (count >= 0) {
@@ -73,7 +73,7 @@ namespace fc {
   } FC_RETHROW_EXCEPTIONS( warn, "unable to convert ISO-formatted string to fc::time_point" ) }
 
   void to_variant( const fc::time_point& t, variant& v ) {
-    v = t.to_string();
+    v = t.to_iso_string();
   }
   void from_variant( const fc::variant& v, fc::time_point& t ) {
     t = fc::time_point::from_iso_string( v.as_string() );

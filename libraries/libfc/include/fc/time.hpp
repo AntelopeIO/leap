@@ -46,7 +46,7 @@ namespace fc {
         static constexpr time_point maximum() { return time_point( microseconds::maximum() ); }
         static constexpr time_point min() { return time_point();                      }
 
-        std::string to_string()const;
+        std::string to_iso_string()const;
         static time_point from_iso_string( const std::string& s );
 
         constexpr const microseconds& time_since_epoch()const { return elapsed; }
