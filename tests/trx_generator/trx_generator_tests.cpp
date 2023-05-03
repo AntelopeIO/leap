@@ -488,8 +488,7 @@ BOOST_AUTO_TEST_CASE(account_name_generator_tests)
 BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
 
    const std::string host     = "127.0.0.1"s;
-   constexpr int     port     = 8888;
-   const std::string port_str = "8888"s;
+   constexpr unsigned short     port     = 8888;
 
    // Start Server
    echo_server_impl               server = echo_server_impl();
@@ -507,7 +506,7 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
    const std::string       content_type  = "text/plain"s;
    const std::string       content_type2 = "application/json"s;
 
-   http_client_async::http_request_params params{ioc, host, port_str, target, version, content_type};
+   http_client_async::http_request_params params{ioc, host, port, target, version, content_type};
 
    const std::string test_body = "test request body"s;
    const std::string test_body2 =
@@ -534,7 +533,7 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
           callbackCalledCnt++;
        });
 
-   http_client_async::http_request_params params2{ioc, host, port_str, target, version, content_type2};
+   http_client_async::http_request_params params2{ioc, host, port, target, version, content_type2};
    http_client_async::async_http_request(
        params2, test_body2,
        [test_body2, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {

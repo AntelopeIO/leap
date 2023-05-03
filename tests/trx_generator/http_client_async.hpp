@@ -64,7 +64,7 @@ class session : public std::enable_shared_from_this<session> {
        , response_callback_(response_callback) {}
 
    // Start the asynchronous operation
-   void run(const std::string& host, const std::string& port, const std::string& target, int version,
+   void run(const std::string& host, const unsigned short port, const std::string& target, int version,
             const std::string& content_type, const std::string& request_body) {
       // Set up an HTTP GET request message
       req_.version(version);
@@ -78,7 +78,7 @@ class session : public std::enable_shared_from_this<session> {
 
       // Look up the domain name
       resolver_.async_resolve(
-          host, port, [self = this->shared_from_this()](beast::error_code ec, auto res) { self->on_resolve(ec, res); });
+          host, std::to_string(port), [self = this->shared_from_this()](beast::error_code ec, auto res) { self->on_resolve(ec, res); });
    }
 
    void on_resolve(beast::error_code ec, tcp::resolver::results_type results) {
@@ -152,7 +152,7 @@ class session : public std::enable_shared_from_this<session> {
 struct http_request_params {
    net::io_context&  ioc;
    const std::string host;
-   const std::string port;
+   const unsigned short port;
    const std::string target;
    int               version;
    const std::string content_type;
