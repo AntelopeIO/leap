@@ -342,7 +342,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/component/schema/Error"
+                $ref: "#/components/schemas/Error"
   /producer/schedule_snapshot:
     post:
       summary: schedule_snapshot
@@ -407,7 +407,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/component/schema/Error"
+                $ref: "#/components/schemas/Error"
   /producer/get_snapshot_requests:
     post:
       summary: get_snapshot_requests
@@ -487,7 +487,7 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/component/schema/Error"
+                $ref: "#/components/schemas/Error"
   /producer/unschedule_snapshot:
     post:
       summary: unschedule_snapshot
