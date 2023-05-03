@@ -17,10 +17,15 @@ else()
    endif()
 endif()
 
-## llvm_11_patch contains a patched single header STLExtras.h, as the distributed one doesn't build with -std=c++20
-include_directories(SYSTEM ${CMAKE_CURRENT_SOURCE_DIR}/llvm_11_patch)
-
 if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
+   find_package(Patch REQUIRED)  #good thing is that patch looks like it's included with build-essential
+   set(override_path ${CMAKE_CURRENT_BINARY_DIR}/override/llvm/ADT)
+   file(MAKE_DIRECTORY ${override_path})
+   add_custom_command(OUTPUT ${override_path}/STLExtras.h
+                      COMMAND ${Patch_EXECUTABLE}
+                      ARGS -o ${override_path}/STLExtras.h ${LLVM_INCLUDE_DIRS}/llvm/ADT/STLExtras.h ${CMAKE_CURRENT_SOURCE_DIR}/llvm_11_stlextra.patch)
+   include_directories(SYSTEM ${CMAKE_CURRENT_BINARY_DIR}/override)
+
    enable_language(ASM)
    set(CHAIN_EOSVMOC_SOURCES webassembly/runtimes/eos-vm-oc/code_cache.cpp
                              webassembly/runtimes/eos-vm-oc/executor.cpp
@@ -35,7 +40,8 @@ if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
                              webassembly/runtimes/eos-vm-oc/stack.cpp
                              webassembly/runtimes/eos-vm-oc/switch_stack_linux.s
                              webassembly/runtimes/eos-vm-oc.cpp
-                             webassembly/runtimes/eos-vm-oc/default_real_main.cpp)
+                             webassembly/runtimes/eos-vm-oc/default_real_main.cpp
+                             ${override_path}/STLExtras.h) ## needs to be a dependency to be created by add_custom_command above
 
    if(LLVM_VERSION VERSION_LESS 7.1 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
       enable_language(ASM-LLVMWAR)
