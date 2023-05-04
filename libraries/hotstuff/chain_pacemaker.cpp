@@ -112,12 +112,77 @@ namespace eosio { namespace hotstuff {
 
    name chain_pacemaker::get_proposer(){
       const block_state_ptr& hbs = _chain->head_block_state();
-      return hbs->header.producer;
+      name n = hbs->header.producer;
+      return n;
    }
 
    name chain_pacemaker::get_leader(){
       const block_state_ptr& hbs = _chain->head_block_state();
-      return hbs->header.producer;
+      name n = hbs->header.producer;
+
+/*
+      // FIXME/REMOVE: simple device to test proposer/leader
+      //   separation using the net code.
+      // Given the name of who's going to be the proposer
+      //   (which is the head block's producer), we swap the
+      //   leader name here for someone else.
+      // This depends on your configuration files for the
+      //   various nodeos instances you are using to test,
+      //   specifically the producer names associated with
+      //   each nodeos instance.
+      // This works for a setup with 21 producer names
+      //   interleaved between two nodeos test instances.
+      //   i.e. nodeos #1 has bpa, bpc, bpe ...
+      //        nodeos #2 has bpb, bpd, bpf ...
+      if (n == "bpa"_n) {
+         n = "bpb"_n;
+      } else if (n == "bpb"_n) {
+         n = "bpa"_n;
+      } else if (n == "bpc"_n) {
+         n = "bpd"_n;
+      } else if (n == "bpd"_n) {
+         n = "bpc"_n;
+      } else if (n == "bpe"_n) {
+         n = "bpf"_n;
+      } else if (n == "bpf"_n) {
+         n = "bpe"_n;
+      } else if (n == "bpg"_n) {
+         n = "bph"_n;
+      } else if (n == "bph"_n) {
+         n = "bpg"_n;
+      } else if (n == "bpi"_n) {
+         n = "bpj"_n;
+      } else if (n == "bpj"_n) {
+         n = "bpi"_n;
+      } else if (n == "bpk"_n) {
+         n = "bpl"_n;
+      } else if (n == "bpl"_n) {
+         n = "bpk"_n;
+      } else if (n == "bpm"_n) {
+         n = "bpn"_n;
+      } else if (n == "bpn"_n) {
+         n = "bpm"_n;
+      } else if (n == "bpo"_n) {
+         n = "bpp"_n;
+      } else if (n == "bpp"_n) {
+         n = "bpo"_n;
+      } else if (n == "bpq"_n) {
+         n = "bpr"_n;
+      } else if (n == "bpr"_n) {
+         n = "bpq"_n;
+      } else if (n == "bps"_n) {
+         n = "bpt"_n;
+      } else if (n == "bpt"_n) {
+         n = "bps"_n;
+      } else if (n == "bpu"_n) {
+         // odd one out; can be whomever that is not in the same nodeos (it does not
+         //   actually matter; we just want to make sure we are stressing the system by
+         //   never allowing the proposer and leader to fall on the same nodeos instance).
+         n = "bpt"_n;
+      }
+*/
+
+      return n;
    }
 
    name chain_pacemaker::get_next_leader(){

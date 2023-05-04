@@ -725,7 +725,7 @@ public:
       uint8_t                    phase_counter   = 0;
       uint32_t                   block_height    = 0;
       uint64_t                   view_number     = 0;
-      hs_complete_proposal_message( chain::hs_proposal_message p ) {
+      hs_complete_proposal_message( const chain::hs_proposal_message & p ) {
          proposal_id    = p.proposal_id;
          block_id       = p.block_id;
          parent_id      = p.parent_id;

@@ -823,4 +823,127 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
 } FC_LOG_AND_RETHROW();
 
+BOOST_AUTO_TEST_CASE(hotstuff_6) try {
+
+   //test simple separation between the (single) proposer and the leader; includes one leader rotation
+
+   test_pacemaker tpm;
+
+   hotstuff_test_handler ht;
+
+   ht.initialize_qc_chains(tpm, {"bpa"_n, "bpb"_n}, {"bpa"_n, "bpb"_n},unique_replicas);
+
+   tpm.set_proposer("bpg"_n); // can be any proposer that's not the leader for this test
+   tpm.set_leader("bpa"_n);
+   tpm.set_next_leader("bpa"_n);
+   tpm.set_finalizers(unique_replicas);
+
+   auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
+   auto qcc_bpb = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpb"_n; });
+   auto qcc_bpc = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpc"_n; });
+
+   tpm.set_current_block_id(ids[0]); //first block
+
+   tpm.beat(); //produce first block
+
+   ilog("getting first ");
+
+   tpm.dispatch(""); //get the first block from the proposer to the leader
+
+   tpm.dispatch(""); //send proposal to replicas (prepare on first block)
+
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+
+   tpm.dispatch(""); //send votes on proposal (prepareQC on first block)
+
+   tpm.dispatch(""); //send proposal to replicas (precommit on first block)
+
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+
+   tpm.dispatch(""); //propagating votes on new proposal (precommitQC on first block)
+
+   tpm.dispatch(""); //send proposal to replicas (commit on first block)
+
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+
+   tpm.set_next_leader("bpb"_n); //leader is set to rotate on next block
+
+   tpm.dispatch(""); //propagating votes on new proposal (commitQC on first block)
+
+   tpm.dispatch(""); //send proposal to replicas (decide on first block)
+
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_leaf.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+
+   tpm.dispatch(""); //propagating votes on new proposal (decide on first block)
+
+   tpm.set_proposer("bpm"_n); // can be any proposer that's not the leader for this test
+   tpm.set_leader("bpb"_n);   //leader has rotated
+
+   tpm.set_current_block_id(ids[1]); //second block
+
+   tpm.beat(); //produce second block
+
+   tpm.dispatch(""); //get the second block from the proposer to the leader
+
+   tpm.dispatch(""); //send proposal to replicas (prepare on second block)
+
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_leaf.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+
+   tpm.dispatch(""); //send votes on proposal (prepareQC on second block)
+
+   tpm.dispatch(""); //send proposal to replicas (precommit on second block)
+
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_leaf.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+
+   tpm.dispatch(""); //propagating votes on new proposal (precommitQC on second block)
+
+   tpm.dispatch(""); //send proposal to replicas (commit on second block)
+
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_leaf.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+
+   tpm.dispatch(""); //propagating votes on new proposal (commitQC on second block)
+
+   tpm.dispatch(""); //send proposal to replicas (decide on second block)
+
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_leaf.str(), std::string("89f468a127dbadd81b59076067238e3e9c313782d7d83141b16d9da4f2c2b078"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(qcc_bpb->second->_b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+
+   //check bpa as well
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+
+   //check bpc as well
+   BOOST_CHECK_EQUAL(qcc_bpc->second->_high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(qcc_bpc->second->_b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(qcc_bpc->second->_b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+
+   BOOST_CHECK_EQUAL(qcc_bpa->second->_b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+
+} FC_LOG_AND_RETHROW();
+
+
 BOOST_AUTO_TEST_SUITE_END()

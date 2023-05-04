@@ -579,7 +579,81 @@ namespace eosio { namespace hotstuff {
    }
 
    void qc_chain::process_new_block(const hs_new_block_message & msg){
-      //ilog(" === Process new block ===");
+
+      // If I'm not a leader, I probably don't care about hs-new-block messages.
+      // TODO: check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
+      if (! am_i_leader()) {
+
+         //FIXME delete
+         ilog(" === ${id} process_new_block === discarding because I'm not the leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
+
+         return;
+      }
+
+      //FIXME comment out
+      //if (_log)
+      ilog(" === ${id} process_new_block === am leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
+
+
+
+      // FIXME/REVIEW/TODO: What to do with the received msg.justify?
+      //
+      //------------------------------------
+      //
+      // This triggers with the simple networked test:
+      //
+      //if (_high_qc.proposal_id != msg.justify.proposal_id) {
+      //   ilog(" === discarding hs_new_block message, _high_qc is different: ${qc}", ("qc",_high_qc));
+      //   return;
+      //}
+      //
+      //------------------------------------
+      //
+      // This makes it work "better", sometimes completing the 3rd phase for an ever-increasing block number,
+      //   but doesn't look like it is doing what we want:
+      //
+      update_high_qc(msg.justify);
+
+
+
+      if (_current_qc.proposal_id != NULL_PROPOSAL_ID && _current_qc.quorum_met == false) {
+
+         //FIXME comment out
+         if (_log) ilog(" === ${id} pending proposal found ${proposal_id} : quorum met ${quorum_met}",
+                        ("id", _id)
+                        ("proposal_id", _current_qc.proposal_id)
+                        ("quorum_met", _current_qc.quorum_met));
+         if (_log) ilog(" === ${id} setting _pending_proposal_block to ${block_id} (on_beat)", ("id", _id)("block_id", msg.block_id));
+
+         std::unique_lock state_lock( _state_mutex );
+         _pending_proposal_block = msg.block_id;
+         state_lock.unlock();
+
+      } else {
+
+         //FIXME comment out
+         if (_log) ilog(" === ${id} preparing new proposal ${proposal_id} : quorum met ${quorum_met}",
+                        ("id", _id)
+                        ("proposal_id", _current_qc.proposal_id)
+                        ("quorum_met", _current_qc.quorum_met));
+
+         hs_proposal_message proposal_candidate = new_proposal_candidate( msg.block_id, 0 );
+
+         reset_qc(proposal_candidate.proposal_id);
+
+         //FIXME comment out
+         if (_log) ilog(" === ${id} setting _pending_proposal_block to null (process_new_block)", ("id", _id));
+
+         std::unique_lock state_lock( _state_mutex );
+         _pending_proposal_block = NULL_BLOCK_ID;
+         _b_leaf = proposal_candidate.proposal_id;
+         state_lock.unlock();
+
+         send_hs_proposal_msg(proposal_candidate);
+
+         //FIXME comment out
+         if (_log) ilog(" === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
+      }
    }
 
    void qc_chain::send_hs_proposal_msg(const hs_proposal_message & msg){
@@ -639,90 +713,50 @@ namespace eosio { namespace hotstuff {
       return false;
    }
 
+   // Invoked when we could perhaps make a proposal to the network (or to ourselves, if we are the leader).
    void qc_chain::on_beat(){
 
-      //auto start = fc::time_point::now();
-
-      //if (_log) ilog(" === ${id} on beat === ", ("id", _id));
-
-      // NOTE: These kinds of enable/disable decisions are now entirely pushed out
-      //       of the hotstuff core and into the caller's hands.
+      // Non-proposing leaders do not care about beat(void), because leaders react to a block proposal
+      //   which comes from processing an incoming new block message from a proposer instead.
+      // beat(void) is called by the pacemaker, which decides when it's time to check whether we are
+      //   proposers that should check whether as proposers we should propose a new hotstuff block to
+      //   the network (or to ourselves, which is faster and doesn't require the bandwidth of an additional
+      //   gossip round for a new proposed block).
+      // The current criteria for a leader selecting a proposal among all proposals it receives is to go
+      //   with the first valid one that it receives. So if a proposer is also a leader, it silently goes
+      //   with its own proposal, which is hopefully valid at the point of generation which is also the
+      //   point of consumption.
       //
-      //name current_producer = _pacemaker->get_leader();
-      //if (current_producer == "eosio"_n)
-      //   return;
+      if (! am_i_proposer())
+         return;
 
       block_id_type current_block_id = _pacemaker->get_current_block_id();
 
-      //ilog(" === qc chain on_beat ${my_producers}", ("my_producers", _my_producers));
+      hs_new_block_message block_candidate = new_block_candidate( current_block_id );
 
-      bool am_proposer = am_i_proposer();
-      bool am_leader = am_i_leader();
+      if (am_i_leader()) {
 
-      //if (_log) ilog(" === ${id} am_proposer = ${am_proposer}", ("am_proposer", am_proposer)("id", _id));
-      //if (_log) ilog(" === ${id} am_leader = ${am_leader}", ("am_leader", am_leader)("id", _id));
+         // I am the proposer; so this assumes that no additional proposal validation is required.
 
-      if (!am_proposer && !am_leader){
-         return; //nothing to do
-      }
+         //FIXME delete
+         ilog(" === I am a leader-proposer that is proposing a block for itself to lead");
 
-      //if I am the leader
-      if (am_leader) {
-
-         //if I'm not also the proposer, perform block validation as required
-         if (!am_proposer){
-            //TODO: extra validation?
-         }
-
-         if (_current_qc.proposal_id != NULL_PROPOSAL_ID && _current_qc.quorum_met == false) {
-
-            //if (_log) ilog(" === ${id} pending proposal found ${proposal_id} : quorum met ${quorum_met}",
-            //               ("id", _id)
-            //               ("proposal_id", _current_qc.proposal_id)
-            //               ("quorum_met", _current_qc.quorum_met));
-            //if (_log) ilog(" === ${id} setting _pending_proposal_block to ${block_id} (on_beat)", ("id", _id)("block_id", current_block_id));
-            std::unique_lock state_lock( _state_mutex );
-            _pending_proposal_block = current_block_id;
-            state_lock.unlock();
-
-         } else {
-
-            //if (_log) ilog(" === ${id} preparing new proposal ${proposal_id} : quorum met ${quorum_met}",
-            //               ("id", _id)
-            //               ("proposal_id", _current_qc.proposal_id)
-            //               ("quorum_met", _current_qc.quorum_met));
-
-            hs_proposal_message proposal_candidate = new_proposal_candidate(current_block_id, 0 );
-
-            reset_qc(proposal_candidate.proposal_id);
-
-            //if (_log) ilog(" === ${id} setting _pending_proposal_block to null (on_beat)", ("id", _id));
-
-            std::unique_lock state_lock( _state_mutex );
-            _pending_proposal_block = NULL_BLOCK_ID;
-            _b_leaf = proposal_candidate.proposal_id;
-            state_lock.unlock();
-
-            send_hs_proposal_msg(proposal_candidate);
-
-            //if (_log) ilog(" === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
-         }
+         // Hardwired consumption by self; no networking.
+         process_new_block( block_candidate );
 
       } else {
-         //if I'm only a proposer and not the leader, I send a new block message
-         hs_new_block_message block_candidate = new_block_candidate(current_block_id);
 
-         //ilog(" === broadcasting new block = #${block_height} ${proposal_id}", ("proposal_id", block_candidate.block_id)("block_height",compute_block_num(block_candidate.block_id) ));
+         // I'm only a proposer and not the leader; send a new-block-proposal message out to
+         //   the network, until it reaches the leader.
 
-         send_hs_new_block_msg(block_candidate);
+         //FIXME comment out
+         ilog(" === broadcasting new block = #${block_height} ${proposal_id}", ("proposal_id", block_candidate.block_id)("block_height",compute_block_num(block_candidate.block_id) ));
+
+         send_hs_new_block_msg( block_candidate );
       }
-
-      //auto total_time = fc::time_point::now() - start;
-      //if (_log) ilog(" ... on_beat() total time : ${total_time}", ("total_time", total_time));
-      //ilog(" === end of on_beat");
    }
 
-   bool qc_chain::update_high_qc(const eosio::chain::quorum_certificate & high_qc){
+   void qc_chain::update_high_qc(const eosio::chain::quorum_certificate & high_qc){
 
       //ilog(" === check to update high qc ${proposal_id}", ("proposal_id", high_qc.proposal_id));
       // if new high QC is higher than current, update to new
@@ -735,40 +769,31 @@ namespace eosio { namespace hotstuff {
          state_lock.unlock();
 
          //if (_log) ilog(" === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
-      }
-      else {
-
+      } else {
          const hs_proposal_message *old_high_qc_prop = get_proposal( _high_qc.proposal_id );
          const hs_proposal_message *new_high_qc_prop = get_proposal( high_qc.proposal_id );
          if (old_high_qc_prop == nullptr)
-            return false; //ilog(" *** CAN'T FIND OLD HIGH QC PROPOSAL");
+            return;
          if (new_high_qc_prop == nullptr)
-            return false; //ilog(" *** CAN'T FIND NEW HIGH QC PROPOSAL");
+            return;
 
-         if (new_high_qc_prop->get_height() > old_high_qc_prop->get_height()) {
+         if (new_high_qc_prop->get_height() > old_high_qc_prop->get_height()
+             && is_quorum_met(high_qc, _schedule, *new_high_qc_prop))
+         {
+            // "The caller does not need this updated on their high_qc structure" -- g
+            //high_qc.quorum_met = true;
 
-            bool quorum_met = is_quorum_met(high_qc, _schedule, *new_high_qc_prop);
+            //ilog(" === updated high qc, now is : #${get_height}  ${proposal_id}", ("get_height", new_high_qc_prop->get_height())("proposal_id", new_high_qc_prop->proposal_id));
 
-            if (quorum_met) {
+            std::unique_lock state_lock( _state_mutex );
+            _high_qc = high_qc;
+            _high_qc.quorum_met = true;
+            _b_leaf = _high_qc.proposal_id;
+            state_lock.unlock();
 
-               // "The caller does not need this updated on their high_qc structure -- g"
-               //high_qc.quorum_met = true;
-
-               //ilog(" === updated high qc, now is : #${get_height}  ${proposal_id}", ("get_height", new_high_qc_prop->get_height())("proposal_id", new_high_qc_prop->proposal_id));
-
-               std::unique_lock state_lock( _state_mutex );
-               _high_qc = high_qc;
-               _high_qc.quorum_met = true;
-               _b_leaf = _high_qc.proposal_id;
-               state_lock.unlock();
-               //if (_log) ilog(" === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
-            }
-
-            return quorum_met;
+            //if (_log) ilog(" === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
          }
       }
-
-      return false;
    }
 
    void qc_chain::leader_rotation_check(){

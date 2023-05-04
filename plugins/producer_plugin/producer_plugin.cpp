@@ -2884,15 +2884,16 @@ void producer_plugin_impl::produce_block() {
 
    if (_chain_pacemaker) {
 
-      // FIXME/REVIEW: For now, we are not participating in the IF protocol as leaders
+      // FIXME/REVIEW: For now, we are not participating in the IF protocol as proposers
       //   when we have the enable-stale-production plugin configuration option set.
-      // Real public networks will have a controlled activation of the feature, but
-      //   even then, it might be a good idea for stale-block proposing nodes to e.g.
-      //   self-exclude from being hotstuff leaders.
+      // NOTE: This entire feature will likely disappear (deleted) before delivery, as
+      //   hotstuff activation only takes place, realistically, after the
+      //   stale-block-production producing/proposing boot node has been gone.
+      // Stale producing nodes being hotstuff leaders is probably fine.
       if (!_enable_stale_production_config)
          _chain_pacemaker->beat();
       else
-         ilog("producer plugin will not check for Instant Finality leader role due to enable-stale-production option set.");
+         ilog("producer plugin will not check for Instant Finality proposer (and maybe also leader) role due to enable-stale-production option set.");
    }
 
    br.total_time += fc::time_point::now() - start;

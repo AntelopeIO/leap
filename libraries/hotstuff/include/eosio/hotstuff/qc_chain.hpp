@@ -122,8 +122,7 @@ namespace eosio { namespace hotstuff {
 
       void on_beat(); //handler for pacemaker beat()
 
-      // returns true if quorum_met was recalculated in this call and it evaluated to true; returns false in all other cases
-      bool update_high_qc(const eosio::chain::quorum_certificate & high_qc); //check if update to our high qc is required
+      void update_high_qc(const eosio::chain::quorum_certificate & high_qc); //check if update to our high qc is required
 
       void leader_rotation_check(); //check if leader rotation is required
 
