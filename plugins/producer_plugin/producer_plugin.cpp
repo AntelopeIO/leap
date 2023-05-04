@@ -1171,14 +1171,20 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       // Add _ro_read_window_minimum_time_us for safety margin.
       if ( my->_max_transaction_time_ms.load() > 0 ) {
          EOS_ASSERT( my->_ro_read_window_time_us > ( fc::milliseconds(my->_max_transaction_time_ms.load()) + my->_ro_read_window_minimum_time_us ), plugin_config_exception, "--read-only-read-window-time-us (${read} us) must be greater than --max-transaction-time (${trx_time} us) plus ${min} us, required: ${read} us > (${trx_time} us + ${min} us).", ("read", my->_ro_read_window_time_us) ("trx_time", my->_max_transaction_time_ms.load() * 1000) ("min", my->_ro_read_window_minimum_time_us) );
-         my->_ro_max_trx_time_us = fc::milliseconds(my->_max_transaction_time_ms.load());
-      } else {
-         // _max_transaction_time_ms can be set to negative in testing (for unlimited)
-         my->_ro_max_trx_time_us = my->_ro_read_window_effective_time_us;
       }
-      ilog("ro_thread_pool_size ${s}, ro_write_window_time_us ${ww}, ro_read_window_time_us ${rw}, ro_max_trx_time_us ${t}, ro_read_window_effective_time_us ${w}",
-           ("s", my->_ro_thread_pool_size)("ww", my->_ro_write_window_time_us)("rw", my->_ro_read_window_time_us)("t", my->_ro_max_trx_time_us)("w", my->_ro_read_window_effective_time_us));
+      ilog("ro_write_window_time_us ${ww}, ro_read_window_time_us ${rw}, ro_read_window_effective_time_us ${w}",
+           ("ww", my->_ro_write_window_time_us)("rw", my->_ro_read_window_time_us)("w", my->_ro_read_window_effective_time_us));
    }
+
+   // Make sure _ro_max_trx_time_us is alwasys set.
+   if ( my->_max_transaction_time_ms.load() > 0 ) {
+      my->_ro_max_trx_time_us = fc::milliseconds(my->_max_transaction_time_ms.load());
+   } else {
+      // In integration tests, _max_transaction_time_ms can be set to negative
+      // for unlimited time
+     my->_ro_max_trx_time_us = fc::microseconds::maximum();
+   }
+   ilog("ro_thread_pool_size ${s}, ro_max_trx_time_us ${t}}", ("s", my->_ro_thread_pool_size)("t", my->_ro_max_trx_time_us));
 
    my->_incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
          [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
