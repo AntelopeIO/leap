@@ -611,7 +611,7 @@ BOOST_FIXTURE_TEST_CASE( simple_no_memory_check, validating_tester ) try {
    act.name = ""_n;
    act.authorization = vector<permission_level>{{"nomem"_n,config::active_name}};
    trx.actions.push_back(act);
-   trx.expiration = control->head_block_time();
+   trx.expiration = fc::time_point_sec{control->head_block_time()};
    set_transaction_headers(trx);
    trx.sign(get_private_key( "nomem"_n, "active" ), control->get_chain_id());
    BOOST_CHECK_THROW(push_transaction( trx ), wasm_execution_error);
