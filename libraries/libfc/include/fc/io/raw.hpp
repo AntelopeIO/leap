@@ -109,7 +109,7 @@ namespace fc {
     { try {
        uint32_t sec;
        s.read( (char*)&sec, sizeof(sec) );
-       tp = fc::time_point() + fc::seconds(sec);
+       tp = fc::time_point_sec{sec};
     } FC_RETHROW_EXCEPTIONS( warn, "" ) }
 
     template<typename Stream>
