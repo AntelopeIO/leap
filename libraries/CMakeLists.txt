@@ -5,6 +5,10 @@ set(SOFTFLOAT_INSTALL_COMPONENT "dev")
 set(EOSVM_INSTALL_COMPONENT "dev")
 set(BN256_INSTALL_COMPONENT "dev")
 
+set( BOOST_INCLUDE_LIBRARIES iostreams date_time system program_options chrono test )
+add_subdirectory( boost EXCLUDE_FROM_ALL )
+#set( Boost_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/boost )
+
 add_subdirectory( libfc )
 add_subdirectory( builtins )
 add_subdirectory( softfloat )

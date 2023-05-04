@@ -91,7 +91,7 @@ if(APPLE)
   add_library(zstd INTERFACE)
 endif()
 
-find_package(Boost 1.66 REQUIRED COMPONENTS
+find_package(Boost REQUIRED COMPONENTS
     date_time
     chrono
     unit_test_framework
