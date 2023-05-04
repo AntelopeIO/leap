@@ -2379,7 +2379,7 @@ BOOST_FIXTURE_TEST_CASE( delay_expired, validating_tester) { try {
                              });
    set_transaction_headers(trx);
    trx.delay_sec = 3;
-   trx.expiration = control->head_block_time() + fc::microseconds(1000000);
+   trx.expiration = fc::time_point_sec{control->head_block_time() + fc::microseconds(1000000)};
    trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
 
    auto trace = push_transaction( trx );

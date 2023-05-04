@@ -139,7 +139,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          10,
          5,
          std::vector<chain::signature_type>{ chain::signature_type() },
-         { chain::time_point(), 1, 0, 100, 50, 0 }
+         { chain::time_point_sec(), 1, 0, 100, 50, 0 }
       };
 
       auto block_trace = block_trace_v1 {
@@ -241,7 +241,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
                10,
                5,
                std::vector<chain::signature_type>{ chain::signature_type() },
-               { chain::time_point(), 1, 0, 100, 50, 0 }
+               { chain::time_point_sec(), 1, 0, 100, 50, 0 }
             }
          }
       };
@@ -344,7 +344,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
                10,
                5,
                { chain::signature_type() },
-               { chain::time_point(), 1, 0, 100, 50, 0 }
+               { chain::time_point_sec(), 1, 0, 100, 50, 0 }
             }
          }
       };
@@ -610,7 +610,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          10,  // cpu_usage_us
          5,    // net_usage_words
          std::vector<chain::signature_type>{ chain::signature_type() },  // signatures
-         { chain::time_point(), 1, 0, 100, 50, 0 }  //   trx_header
+         { chain::time_point_sec(), 1, 0, 100, 50, 0 }  //   trx_header
       };// trn end
 
       auto block_trace = block_trace_v2 {
@@ -703,7 +703,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          10,
          5,
          std::vector<chain::signature_type>{ chain::signature_type() },
-         { chain::time_point(), 1, 0, 100, 50, 0 }
+         { chain::time_point_sec(), 1, 0, 100, 50, 0 }
       };
 
       auto block_trace = block_trace_v2 {
@@ -815,7 +815,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          10,
          5,
          { chain::signature_type() },
-         { chain::time_point(), 1, 0, 100, 50, 0 }
+         { chain::time_point_sec(), 1, 0, 100, 50, 0 }
       };
 
       auto block_trace = block_trace_v2 {

@@ -705,7 +705,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             const auto& id = trx->id();
 
             fc::time_point bt = chain.is_building_block() ? chain.pending_block_time() : chain.head_block_time();
-            const fc::time_point expire = trx->packed_trx()->expiration();
+            const fc::time_point expire = trx->packed_trx()->expiration().to_time_point();
             if( expire < bt ) {
                auto except_ptr = std::static_pointer_cast<fc::exception>(
                      std::make_shared<expired_tx_exception>(
