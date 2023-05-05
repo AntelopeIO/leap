@@ -21,6 +21,7 @@
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
 #include <fc/static_variant.hpp>
+#include <fc/time.hpp>
 
 namespace fc { class variant; }
 
@@ -92,6 +93,7 @@ class read_write;
    
 class api_base {
 public:
+   static constexpr uint32_t max_return_items = 1000;
    static void handle_db_exhaustion();
    static void handle_bad_alloc();
 
@@ -147,7 +149,8 @@ public:
    // return deadline for call
    fc::time_point start() const {
       validate();
-      return fc::time_point::now() + http_max_response_time;
+      return http_max_response_time == fc::microseconds::maximum() ? fc::time_point::maximum()
+                                                                   : fc::time_point::now() + http_max_response_time;
    }
 
    void set_shorten_abi_errors( bool f ) { shorten_abi_errors = f; }
@@ -371,8 +374,7 @@ public:
 
    // call from any thread
    fc::variant convert_block( const chain::signed_block_ptr& block,
-                              abi_resolver& resolver,
-                              const fc::microseconds& max_time ) const;
+                              abi_resolver& resolver ) const;
 
    struct get_block_header_params {
       string block_num_or_id;
@@ -564,7 +566,7 @@ public:
                              ConvFn conv ) const {
 
       fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-      fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+      fc::time_point params_deadline = std::min(fc::time_point::now().safe_add(params_time_limit), deadline);
 
       struct http_params_t {
          name table;
@@ -632,16 +634,17 @@ public:
             };
 
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
-            auto cur_time = fc::time_point::now();
             vector<char> data;
-            for( unsigned int count = 0;
-                 cur_time <= params_deadline && count < p.limit && itr != end_itr;
-                 ++count, ++itr, cur_time = fc::time_point::now() ) {
-               FC_CHECK_DEADLINE(deadline);
+            uint32_t limit = p.limit;
+            if (deadline != fc::time_point::maximum() && limit > max_return_items)
+               limit = max_return_items;
+            for( unsigned int count = 0; count < limit && itr != end_itr; ++count, ++itr ) {
                const auto* itr2 = d.find<chain::key_value_object, chain::by_scope_primary>( boost::make_tuple(t_id->id, itr->primary_key) );
                if( itr2 == nullptr ) continue;
                copy_inline_row(*itr2, data);
                http_params.rows.emplace_back(std::move(data), itr->payer);
+               if (fc::time_point::now() >= params_deadline)
+                  break;
             }
             if( itr != end_itr ) {
                http_params.more = true;
@@ -696,7 +699,7 @@ public:
                       const fc::time_point& deadline ) const {
 
       fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-      fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+      fc::time_point params_deadline = std::min(fc::time_point::now().safe_add(params_time_limit), deadline);
 
       struct http_params_t {
          name table;
@@ -746,14 +749,15 @@ public:
             };
 
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
-            auto cur_time = fc::time_point::now();
             vector<char> data;
-            for( unsigned int count = 0;
-                 cur_time <= params_deadline && count < p.limit && itr != end_itr;
-                 ++count, ++itr, cur_time = fc::time_point::now() ) {
-               FC_CHECK_DEADLINE(deadline);
+            uint32_t limit = p.limit;
+            if (deadline != fc::time_point::maximum() && limit > max_return_items)
+               limit = max_return_items;
+            for( unsigned int count = 0; count < limit && itr != end_itr; ++count, ++itr ) {
                copy_inline_row(*itr, data);
                http_params.rows.emplace_back(std::move(data), itr->payer);
+               if (fc::time_point::now() >= params_deadline)
+                  break;
             }
             if( itr != end_itr ) {
                http_params.more = true;
@@ -832,7 +836,8 @@ public:
    // return deadline for call
    fc::time_point start() const {
       validate();
-      return fc::time_point::now() + http_max_response_time;
+      return http_max_response_time == fc::microseconds::maximum() ? fc::time_point::maximum()
+                                                                   : fc::time_point::now() + http_max_response_time;
    }
 
    using push_block_params = chain::signed_block;
