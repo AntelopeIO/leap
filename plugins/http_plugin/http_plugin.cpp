@@ -225,6 +225,7 @@ namespace eosio {
                   }
 
                   EOS_ASSERT (listened > 0, chain::plugin_config_exception, "none of the resolved address can be listened" );
+                  plugin_state->valid_hosts.insert(host);
                }
             } catch (const fc::exception& e) {
                fc_elog(logger(), "http service failed to start for ${addr}: ${e}",
@@ -376,8 +377,6 @@ namespace eosio {
                my->plugin_state->valid_hosts.insert(host);
             }
          }
-
-         my->plugin_state->valid_hosts.insert("localhost");
 
          my->plugin_state->keep_alive = options.at("http-keep-alive").as<bool>();
 

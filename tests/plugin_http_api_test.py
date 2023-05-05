@@ -1504,7 +1504,7 @@ class PluginHttpTest(unittest.TestCase):
 
     
 if __name__ == "__main__":
-    test_category = True if os.environ["PLUGIN_HTTP_TEST_CATEGORY"] == "ON" else False
+    test_category = True if os.environ.get("PLUGIN_HTTP_TEST_CATEGORY") == "ON" else False
     category_config = HttpCategoryConfig(test_category)
 
     unittest.main()
