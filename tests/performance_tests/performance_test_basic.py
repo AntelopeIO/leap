@@ -370,7 +370,7 @@ class PerformanceTestBasic:
         def configureConnections():
             if(self.ptbConfig.endpointApi == "http"):
                 for apiNodeId in self.clusterConfig._apiNodeIds:
-                    self.connectionPairList.append(f"{self.cluster.getNode(apiNodeId).host}:{self.cluster.getNodeHttpPort(apiNodeId)}")
+                    self.connectionPairList.append(f"{self.cluster.getNode(apiNodeId).host}:{self.cluster.getNode(apiNodeId).port}")
             else: # endpointApi == p2p
                 for producerId in self.clusterConfig._producerNodeIds:
                     self.connectionPairList.append(f"{self.cluster.getNode(producerId).host}:{self.cluster.getNodeP2pPort(producerId)}")

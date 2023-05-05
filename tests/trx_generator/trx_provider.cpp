@@ -58,11 +58,15 @@ namespace eosio::testing {
    void http_connection::disconnect() {
       int max    = 30;
       int waited = 0;
-      while (_sent != _acknowledged && waited < max) {
+      while (_sent.load() != _acknowledged.load() && waited < max) {
          ilog("http_connection::disconnect waiting on ack - sent ${s} | acked ${a} | waited ${w}",
-              ("s", _sent)("a", _acknowledged)("w", waited));
+              ("s", _sent.load())("a", _acknowledged.load())("w", waited));
          sleep(1);
          ++waited;
+         if (waited == max) {
+            elog("http_connection::disconnect failed to receive all acks in time - sent ${s} | acked ${a} | waited ${w}",
+                 ("s", _sent.load())("a", _acknowledged.load())("w", waited));
+         }
       }
    }
 
@@ -73,8 +77,7 @@ namespace eosio::testing {
 
       bool        retry                = false;
       bool        tx_rtn_failure_trace = true;
-      auto        to_send              = fc::mutable_variant_object()("return_failure_trace",
-                                                  tx_rtn_failure_trace)("retry_trx", retry)("transaction", trx);
+      auto        to_send              = fc::mutable_variant_object()("return_failure_trace", tx_rtn_failure_trace)("retry_trx", retry)("transaction", trx);
       std::string msg_body             = fc::json::to_string(to_send, fc::time_point::maximum());
 
       http_client_async::http_request_params params{_connection_thread_pool.get_executor(),
@@ -84,10 +87,13 @@ namespace eosio::testing {
                                                     http_version,
                                                     content_type};
       http_client_async::async_http_request(
-          params, msg_body,
+          params, std::move(msg_body),
           [msg_body, &acked = _acknowledged](boost::beast::error_code                                      ec,
                                              boost::beast::http::response<boost::beast::http::string_body> response) {
              ++acked;
+             if (response.result() != boost::beast::http::status::accepted) {
+                elog("async_http_request Failed with response http status code: ${status}", ("status", response.result_int()));
+             }
           });
       ++_sent;
    }

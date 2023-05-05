@@ -60,8 +60,8 @@ namespace eosio::testing {
    };
 
    struct http_connection : public provider_connection {
-      uint64_t _acknowledged = 0;
-      uint64_t _sent         = 0;
+      std::atomic<uint64_t> _acknowledged{0};
+      std::atomic<uint64_t> _sent{0};
 
       http_connection(const provider_base_config& provider_config)
           : provider_connection(provider_config) {}

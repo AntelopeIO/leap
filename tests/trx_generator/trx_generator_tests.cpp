@@ -378,7 +378,7 @@ BOOST_AUTO_TEST_CASE(trx_generator_constructor)
                                     "\"eosio\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\"}";
    user_specified_trx_config trx_config{abi_file, actions_data, action_auths};
 
-   auto generator = trx_generator(tg_config, p_config, trx_config);
+   auto generator = std::make_shared<trx_generator>(tg_config, p_config, trx_config);
 }
 
 BOOST_AUTO_TEST_CASE(account_name_generator_tests)
@@ -523,10 +523,8 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
    int callbackCalledCnt = 0;
 
    // Launch the asynchronous operation
-   // std::future<http::response<http::string_body>> future_response = std::make_shared<session>(ioc)->run(host,
-   // port_str, target, version, content_type, test_body);
    http_client_async::async_http_request(
-       params, test_body,
+       params, std::move(test_body),
        [test_body, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
           BOOST_REQUIRE(!ec);
           BOOST_REQUIRE_EQUAL(test_body, response.body());
@@ -535,7 +533,7 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
 
    http_client_async::http_request_params params2{ioc, host, port, target, version, content_type2};
    http_client_async::async_http_request(
-       params2, test_body2,
+       params2, std::move(test_body2),
        [test_body2, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
           BOOST_REQUIRE(!ec);
           BOOST_REQUIRE_EQUAL(test_body2, response.body());

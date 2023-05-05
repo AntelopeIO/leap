@@ -65,7 +65,7 @@ class session : public std::enable_shared_from_this<session> {
 
    // Start the asynchronous operation
    void run(const std::string& host, const unsigned short port, const std::string& target, int version,
-            const std::string& content_type, const std::string& request_body) {
+            const std::string& content_type, const std::string&& request_body) {
       // Set up an HTTP GET request message
       req_.version(version);
       req_.method(http::verb::post);
@@ -158,11 +158,11 @@ struct http_request_params {
    const std::string content_type;
 };
 
-inline void async_http_request(http_request_params& req_params, const std::string& request_body,
+inline void async_http_request(http_request_params& req_params, const std::string&& request_body,
                                const response_callback_t& response_callback) {
    std::make_shared<details::session>(req_params.ioc, response_callback)
        ->run(req_params.host, req_params.port, req_params.target, req_params.version, req_params.content_type,
-             request_body);
+             std::move(request_body));
 };
 } // namespace http_client_async
 } // namespace eosio
