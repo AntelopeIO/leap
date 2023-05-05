@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE transaction_finality_status
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
@@ -64,7 +63,7 @@ auto make_unique_trx( const fc::microseconds& expiration ) {
    account_name creator = config::system_account_name;
    signed_transaction trx;
    const auto now_exp = fc::time_point::now() + expiration;
-   trx.expiration = now_exp;
+   trx.expiration = fc::time_point_sec{now_exp};
    trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}},
                              testit{ unique_id } );
    trx.sign( get_private_key("test"_n), chain_id );
@@ -203,29 +202,29 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    op_ts ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    // Simulate situation where the last 2 trxs do not make it into the block.
@@ -271,44 +270,44 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
    BOOST_CHECK(fc::time_point_sec(ts->expiration) == (std::get<1>(trx_pairs_20[1])->expiration()));
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
 
@@ -334,50 +333,50 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_21->id);
-   BOOST_CHECK(ts->block_timestamp == bs_21->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_21_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
 
@@ -404,57 +403,57 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_21->id);
-   BOOST_CHECK(ts->block_timestamp == bs_21->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_21_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_22->id);
-   BOOST_CHECK(ts->block_timestamp == bs_22->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_22_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
 
@@ -482,64 +481,64 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_21->id);
-   BOOST_CHECK(ts->block_timestamp == bs_21->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_21_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_22->id);
-   BOOST_CHECK(ts->block_timestamp == bs_22->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_22_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22_alt[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_22_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_22_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_22_alt_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_alt_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
 
@@ -567,72 +566,72 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_20->id);
-   BOOST_CHECK(ts->block_timestamp == bs_20->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_20->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_21->id);
-   BOOST_CHECK(ts->block_timestamp == bs_21->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_21_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
    ts = status.get_trx_state(std::get<1>(trx_pairs_22[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_22->id);
-   BOOST_CHECK(ts->block_timestamp == bs_22->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_22_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_time);
    BOOST_CHECK_EQUAL(ts->status, "FAILED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22_alt[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_22_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_22_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_22_alt_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_alt_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_19[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_19_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_19_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
 
@@ -675,72 +674,72 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_21->id);
-   BOOST_CHECK(ts->block_timestamp == bs_21->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_21_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
    ts = status.get_trx_state(std::get<1>(trx_pairs_22[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_22->id);
-   BOOST_CHECK(ts->block_timestamp == bs_22->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_22_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22_alt[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_22_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_22_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_22_alt_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_alt_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_19[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_19_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_19_time);
    BOOST_CHECK_EQUAL(ts->status, "IN_BLOCK");
 
 
@@ -763,72 +762,72 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[2])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_20[3])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
 
    ts = status.get_trx_state(std::get<1>(hold_pairs[1])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == eosio::chain::block_id_type{});
-   BOOST_CHECK(ts->block_timestamp == eosio::chain::block_timestamp_type{});
-   BOOST_CHECK_EQUAL(std::string(ts->received), pre_block_20_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == eosio::chain::block_timestamp_type{});
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), pre_block_20_time);
    BOOST_CHECK_EQUAL(ts->status, "LOCALLY_APPLIED");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_21[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_21->id);
-   BOOST_CHECK(ts->block_timestamp == bs_21->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_21_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_21->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_21_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
    ts = status.get_trx_state(std::get<1>(trx_pairs_22[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_22->id);
-   BOOST_CHECK(ts->block_timestamp == bs_22->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_22_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_22_alt[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_22_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_22_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_22_alt_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_22_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_22_alt_time);
    BOOST_CHECK_EQUAL(ts->status, "FORKED_OUT");
 
    ts = status.get_trx_state(std::get<1>(trx_pairs_19[0])->id());
    BOOST_REQUIRE(ts);
    BOOST_CHECK(ts->block_id == bs_19_alt->id);
-   BOOST_CHECK(ts->block_timestamp == bs_19_alt->block->timestamp);
-   BOOST_CHECK_EQUAL(std::string(ts->received), block_19_time);
+   BOOST_CHECK(block_timestamp_type(ts->block_timestamp) == bs_19_alt->block->timestamp);
+   BOOST_CHECK_EQUAL(ts->received.to_iso_string(), block_19_time);
    BOOST_CHECK_EQUAL(ts->status, "IRREVERSIBLE");
 
 } FC_LOG_AND_RETHROW() }

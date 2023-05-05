@@ -67,6 +67,8 @@ namespace eosio { namespace testing {
       full
    };
 
+   std::ostream& operator<<(std::ostream& os, setup_policy p);
+
    std::vector<uint8_t> read_wasm( const char* fn );
    std::vector<char>    read_abi( const char* fn );
    std::string          read_wast( const char* fn );
@@ -528,7 +530,7 @@ namespace eosio { namespace testing {
       }
       controller::config vcfg;
 
-      validating_tester(const flat_set<account_name>& trusted_producers = flat_set<account_name>(), deep_mind_handler* dmlog = nullptr) {
+      validating_tester(const flat_set<account_name>& trusted_producers = flat_set<account_name>(), deep_mind_handler* dmlog = nullptr, setup_policy p = setup_policy::full) {
          auto def_conf = default_config(tempdir);
 
          vcfg = def_conf.first;
@@ -538,7 +540,7 @@ namespace eosio { namespace testing {
          validating_node = create_validating_node(vcfg, def_conf.second, true, dmlog);
 
          init(def_conf.first, def_conf.second);
-         execute_setup_policy(setup_policy::full);
+         execute_setup_policy(p);
       }
 
       static void config_validator(controller::config& vcfg) {

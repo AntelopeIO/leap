@@ -14,7 +14,7 @@ namespace eosio::testing {
    namespace chain = eosio::chain;
 
    void trx_generator_base::set_transaction_headers(chain::transaction& trx, const chain::block_id_type& last_irr_block_id, const fc::microseconds& expiration, uint32_t delay_sec) {
-      trx.expiration = fc::time_point::now() + expiration;
+      trx.expiration = fc::time_point_sec{fc::time_point::now() + expiration};
       trx.set_reference_block(last_irr_block_id);
 
       trx.max_net_usage_words = 0;// No limit

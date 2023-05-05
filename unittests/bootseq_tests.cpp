@@ -8,13 +8,6 @@
 #include <contracts.hpp>
 #include <test_contracts.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
@@ -62,7 +55,7 @@ std::vector<genesis_account> test_genesis( {
   {"masses"_n,   800'000'000'0000ll}
 });
 
-class bootseq_tester : public TESTER {
+class bootseq_tester : public validating_tester {
 public:
    void deploy_contract( bool call_init = true ) {
       set_code( config::system_account_name, test_contracts::eosio_system_wasm() );

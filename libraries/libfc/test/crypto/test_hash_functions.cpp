@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE hash_functions
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/crypto/hex.hpp>
 #include <fc/crypto/sha3.hpp>

@@ -168,7 +168,7 @@ namespace WASM
 	using namespace IR;
 	using namespace Serialization;
 
-	bool check_limits = true;
+	extern bool check_limits;
 
 	enum
 	{

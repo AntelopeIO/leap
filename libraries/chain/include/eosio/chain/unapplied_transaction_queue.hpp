@@ -37,11 +37,6 @@ struct unapplied_transaction {
 
    const transaction_id_type& id()const { return trx_meta->id(); }
    fc::time_point_sec expiration()const { return trx_meta->packed_trx()->expiration(); }
-
-   unapplied_transaction(const unapplied_transaction&) = delete;
-   unapplied_transaction() = delete;
-   unapplied_transaction& operator=(const unapplied_transaction&) = delete;
-   unapplied_transaction(unapplied_transaction&&) = default;
 };
 
 /**
@@ -99,7 +94,7 @@ public:
       auto& persisted_by_expiry = queue.get<by_expiry>();
       while( !persisted_by_expiry.empty() ) {
          const auto& itr = persisted_by_expiry.begin();
-         if( itr->expiration() > pending_block_time ) {
+         if( itr->expiration().to_time_point() > pending_block_time ) {
             break;
          }
          if( yield() ) {

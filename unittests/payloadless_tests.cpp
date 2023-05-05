@@ -13,18 +13,12 @@
 
 #include <test_contracts.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
-class payloadless_tester : public TESTER {
+class payloadless_tester : public validating_tester {
 
 };
 

@@ -16,7 +16,7 @@ namespace block_timing_util {
    // example, given block_interval=500 ms and cpu effort=400 ms, assuming the our round start at time point 0; in the
    // past, the block start time points would be at time point -500, 0, 500, 1000, 1500, 2000 ....  With this new
    // approach, the block time points would become -500, -100, 300, 700, 1200 ...
-   fc::time_point production_round_block_start_time(uint32_t cpu_effort_us, chain::block_timestamp_type block_time) {
+   inline fc::time_point production_round_block_start_time(uint32_t cpu_effort_us, chain::block_timestamp_type block_time) {
       uint32_t block_slot = block_time.slot;
       uint32_t production_round_start_block_slot =
             (block_slot / chain::config::producer_repetitions) * chain::config::producer_repetitions;
@@ -25,7 +25,7 @@ namespace block_timing_util {
              fc::microseconds(cpu_effort_us * production_round_index);
    }
 
-   fc::time_point calculate_block_deadline(uint32_t cpu_effort_us, pending_block_mode mode, chain::block_timestamp_type block_time) {
+   inline fc::time_point calculate_block_deadline(uint32_t cpu_effort_us, pending_block_mode mode, chain::block_timestamp_type block_time) {
       const auto hard_deadline =
                   block_time.to_time_point() - fc::microseconds(chain::config::block_interval_us - cpu_effort_us);
       if (mode == pending_block_mode::producing) {
