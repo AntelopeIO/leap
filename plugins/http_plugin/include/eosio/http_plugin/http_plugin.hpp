@@ -13,9 +13,9 @@ namespace eosio {
     * @brief A callback function provided to a URL handler to
     * allow it to specify the HTTP response code and body
     *
-    * Arguments: response_code, deadline, response_body
+    * Arguments: response_code, response_body
     */
-   using url_response_callback = std::function<void(int,fc::time_point,std::optional<fc::variant>)>;
+   using url_response_callback = std::function<void(int,std::optional<fc::variant>)>;
 
    /**
     * @brief Callback type for a URL handler

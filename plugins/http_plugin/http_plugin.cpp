@@ -84,8 +84,8 @@ namespace eosio {
                   return;
                }
 
-               url_response_callback wrapped_then = [then=std::move(then)](int code, const fc::time_point& deadline, std::optional<fc::variant> resp) {
-                  then(code, deadline, std::move(resp));
+               url_response_callback wrapped_then = [then=std::move(then)](int code, std::optional<fc::variant> resp) {
+                  then(code, std::move(resp));
                };
 
                // post to the app thread taking shared ownership of next (via std::shared_ptr),
@@ -342,7 +342,7 @@ namespace eosio {
                [&](string&&, string&& body, url_response_callback&& cb) {
                   try {
                      auto result = (*this).get_supported_apis();
-                     cb(200, fc::time_point::maximum(), fc::variant(result));
+                     cb(200, fc::variant(result));
                   } catch (...) {
                      handle_exception("node", "get_supported_apis", body.empty() ? "{}" : body, cb);
                   }
@@ -400,48 +400,48 @@ namespace eosio {
             throw;
          } catch (chain::unknown_block_exception& e) {
             error_results results{400, "Unknown Block", error_results::error_info(e, verbose_http_errors)};
-            cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            cb( 400, fc::variant( results ));
             fc_dlog( logger(), "Unknown block while processing ${api}.${call}: ${e}",
                      ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::invalid_http_request& e) {
             error_results results{400, "Invalid Request", error_results::error_info(e, verbose_http_errors)};
-            cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            cb( 400, fc::variant( results ));
             fc_dlog( logger(), "Invalid http request while processing ${api}.${call}: ${e}",
                      ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::account_query_exception& e) {
             error_results results{400, "Account lookup", error_results::error_info(e, verbose_http_errors)};
-            cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            cb( 400, fc::variant( results ));
             fc_dlog( logger(), "Account query exception while processing ${api}.${call}: ${e}",
                      ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::unsatisfied_authorization& e) {
             error_results results{401, "UnAuthorized", error_results::error_info(e, verbose_http_errors)};
-            cb( 401, fc::time_point::maximum(), fc::variant( results ));
+            cb( 401, fc::variant( results ));
             fc_dlog( logger(), "Auth error while processing ${api}.${call}: ${e}",
                      ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::tx_duplicate& e) {
             error_results results{409, "Conflict", error_results::error_info(e, verbose_http_errors)};
-            cb( 409, fc::time_point::maximum(), fc::variant( results ));
+            cb( 409, fc::variant( results ));
             fc_dlog( logger(), "Duplicate trx while processing ${api}.${call}: ${e}",
                      ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (fc::eof_exception& e) {
             error_results results{422, "Unprocessable Entity", error_results::error_info(e, verbose_http_errors)};
-            cb( 422, fc::time_point::maximum(), fc::variant( results ));
+            cb( 422, fc::variant( results ));
             fc_elog( logger(), "Unable to parse arguments to ${api}.${call}", ("api", api_name)( "call", call_name ) );
             fc_dlog( logger(), "Bad arguments: ${args}", ("args", body) );
          } catch (fc::exception& e) {
             error_results results{500, "Internal Service Error", error_results::error_info(e, verbose_http_errors)};
-            cb( 500, fc::time_point::maximum(), fc::variant( results ));
+            cb( 500, fc::variant( results ));
             fc_dlog( logger(), "Exception while processing ${api}.${call}: ${e}",
                      ("api", api_name)( "call", call_name )("e", e.to_detail_string()) );
          } catch (std::exception& e) {
             error_results results{500, "Internal Service Error", error_results::error_info(fc::exception( FC_LOG_MESSAGE( error, e.what())), verbose_http_errors)};
-            cb( 500, fc::time_point::maximum(), fc::variant( results ));
+            cb( 500, fc::variant( results ));
             fc_dlog( logger(), "STD Exception encountered while processing ${api}.${call}: ${e}",
                      ("api", api_name)("call", call_name)("e", e.what()) );
          } catch (...) {
             error_results results{500, "Internal Service Error",
                error_results::error_info(fc::exception( FC_LOG_MESSAGE( error, "Unknown Exception" )), verbose_http_errors)};
-            cb( 500, fc::time_point::maximum(), fc::variant( results ));
+            cb( 500, fc::variant( results ));
             fc_elog( logger(), "Unknown Exception encountered while processing ${api}.${call}",
                      ("api", api_name)( "call", call_name ) );
          }
