@@ -377,7 +377,9 @@ struct http_response_for {
 
    http_response_for(std::filesystem::path addr, const char* path) {
       using unix_stream =
-          beast::basic_stream<boost::asio::local::stream_protocol, net::executor, beast::unlimited_rate_policy>;
+          beast::basic_stream<boost::asio::local::stream_protocol, 
+                              beast::tcp_stream::executor_type, 
+                              beast::unlimited_rate_policy>;
 
       unix_stream stream(ioc);
       stream.connect(addr.c_str());
