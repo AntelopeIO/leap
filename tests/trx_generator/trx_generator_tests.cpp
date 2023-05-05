@@ -527,7 +527,7 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
    // Launch the asynchronous operation
    http_client_async::async_http_request(
        params, std::move(test_body),
-       [test_body_copy, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
+       [&test_body_copy, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
           BOOST_REQUIRE(!ec);
           BOOST_REQUIRE_EQUAL(test_body_copy, response.body());
           callbackCalledCnt++;
@@ -536,7 +536,7 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
    http_client_async::http_request_params params2{ioc, host, port, target, version, content_type2};
    http_client_async::async_http_request(
        params2, std::move(test_body2),
-       [test_body2_copy, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
+       [&test_body2_copy, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
           BOOST_REQUIRE(!ec);
           BOOST_REQUIRE_EQUAL(test_body2_copy, response.body());
           callbackCalledCnt++;

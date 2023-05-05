@@ -158,7 +158,7 @@ struct http_request_params {
    const std::string content_type;
 };
 
-inline void async_http_request(http_request_params& req_params, const std::string&& request_body,
+inline void async_http_request(http_request_params& req_params, std::string&& request_body,
                                const response_callback_t& response_callback) {
    std::make_shared<details::session>(req_params.ioc, response_callback)
        ->run(req_params.host, req_params.port, req_params.target, req_params.version, req_params.content_type,
