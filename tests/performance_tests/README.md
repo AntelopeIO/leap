@@ -289,7 +289,7 @@ The Performance Harness main script `performance_test.py` can be configured usin
     <summary>Usage</summary>
 
 ```
-usage: performance_test.py [-h] {testBpOpMode} ...
+usage: performance_test.py [-h] {testBpOpMode,testApiOpMode} ...
 ```
 
 </details>
@@ -308,16 +308,30 @@ Operational Modes:
   operational mode use, pass --help to the sub-command. Eg:
   performance_test.py testBpOpMode --help
 
-  {testBpOpMode}  Currently supported operational mode sub-commands.
-    testBpOpMode  Test the Block Producer Operational Mode.
+  {testBpOpMode,testApiOpMode}
+                        Currently supported operational mode sub-commands.
+    testBpOpMode        Test the Block Producer Operational Mode.
+    testApiOpMode       Test the API Node Operational Mode.
 ```
 
 </details>
 
 ### Operational Modes
 
-#### Block Producer Mode
+- Block Producer Mode
+  - Transactions are sent to the p2p endpoint of the block producer node
+  - Topology:
+    - Default Producer Node Count=1
+    - Default Validation Node Count=1
+- Api Node Mode
+  - Transactions are sent to the http api endpoint of the api node
+  - Topology:
+    - Default Producer Node Count=1
+    - Default Validation Node Count=1
+    - Default API Node Count=1
 
+### Operations Mode Usage/Configuration
+<br/>
 <details>
     <summary>Usage</summary>
 
@@ -432,15 +446,17 @@ Advanced Configuration Options:
 ```
 
 </details>
+<br/>
 
-#### Advance Configuration: OverrideBasicTestConfig sub-command
-
+#### Advanced Configuration: OverrideBasicTestConfig sub-command
+<br/>
 <details>
     <summary>Usage</summary>
 
 ```
 usage: performance_test.py testBpOpMode overrideBasicTestConfig
        [-h] [-d D] [--dump-error-details] [-v] [--leave-running] [--clean-run] [--unshared]
+       [--endpoint-api {p2p,http}]
        [--producer-nodes PRODUCER_NODES] [--validation-nodes VALIDATION_NODES] [--api-nodes API_NODES]
        [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
        [--genesis GENESIS] [--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE]
@@ -490,6 +506,8 @@ Test Helper Arguments:
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
+  --endpoint-api {p2p,http}
+                        Endpointt API mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
   --producer-nodes PRODUCER_NODES
                         Producing nodes count
   --validation-nodes VALIDATION_NODES
@@ -567,6 +585,7 @@ Performance Test Basic Base:
 ```
 
 </details>
+<br/>
 
 # Support Scripts
 
@@ -583,6 +602,7 @@ The following scripts are typically used by the Performance Harness main script 
   usage: performance_test_basic.py [-h] [-d D]
                                   [--dump-error-details] [-v] [--leave-running]
                                   [--clean-run] [--unshared]
+                                  [--endpoint-api {p2p,http}]
                                   [--producer-nodes PRODUCER_NODES]
                                   [--validation-nodes VALIDATION_NODES]
                                   [--api-nodes API_NODES]
@@ -641,6 +661,9 @@ Test Helper Arguments:
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
+  --endpoint-api {p2p,http}
+                        Endpointt API mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
+                        (default: p2p)
   --producer-nodes PRODUCER_NODES
                         Producing nodes count (default: 1)
   --validation-nodes VALIDATION_NODES

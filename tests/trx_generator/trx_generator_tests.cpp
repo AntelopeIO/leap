@@ -370,7 +370,7 @@ BOOST_AUTO_TEST_CASE(trx_generator_constructor)
 {
    trx_generator_base_config tg_config{1, chain::chain_id_type("999"), chain::name("eosio"), fc::seconds(3600),
                                        fc::variant("00000062989f69fd251df3e0b274c3364ffc2f4fce73de3f1c7b5e11a4c92f21").as<chain::block_id_type>(), ".", true};
-   provider_base_config p_config{"127.0.0.1", 9876};
+   provider_base_config p_config{"p2p", "127.0.0.1", 9876};
    const std::string abi_file = "../../unittests/contracts/eosio.token/eosio.token.abi";
    const std::string actions_data = "[{\"actionAuthAcct\": \"testacct1\",\"actionName\": \"transfer\",\"authorization\": {\"actor\": \"testacct1\",\"permission\": \"active\"},"
                                     "\"actionData\": {\"from\": \"testacct1\",\"to\": \"testacct2\",\"quantity\": \"0.0001 CUR\",\"memo\": \"transaction specified\"}}]";

@@ -160,7 +160,7 @@ namespace eosio::testing {
 
    struct trx_generator_base {
       const trx_generator_base_config& _config;
-      p2p_trx_provider _provider;
+      trx_provider _provider;
 
       uint64_t _total_us = 0;
       uint64_t _txcount = 0;

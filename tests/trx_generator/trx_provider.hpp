@@ -23,39 +23,82 @@ namespace eosio::testing {
    };
 
    struct provider_base_config {
-      std::string _peer_endpoint = "127.0.0.1";
-      unsigned short _port = 9876;
+      std::string    _peer_endpoint_type = "p2p";
+      std::string    _peer_endpoint      = "127.0.0.1";
+      unsigned short _port               = 9876;
 
       std::string to_string() const {
          std::ostringstream ss;
-         ss << "peer_endpoint: " << _peer_endpoint << " port: " << _port;
+         ss << "endpoint type: " << _peer_endpoint_type << "peer_endpoint: " << _peer_endpoint << " port: " << _port;
          return std::move(ss).str();
       }
    };
 
-   struct p2p_connection {
-      const provider_base_config& _config;
-      boost::asio::io_service _p2p_service;
-      boost::asio::ip::tcp::socket _p2p_socket;
+   struct provider_connection {
+      const provider_base_config&                                 _config;
+      eosio::chain::named_thread_pool<struct provider_connection> _connection_thread_pool;
 
-      p2p_connection(const provider_base_config& provider_config) :
-            _config(provider_config), _p2p_service(), _p2p_socket(_p2p_service) {}
+      provider_connection(const provider_base_config& provider_config)
+          : _config(provider_config) {}
 
-      void connect();
-      void disconnect();
-      void send_transaction(const chain::packed_transaction& trx);
+      void init_and_connect() {
+         _connection_thread_pool.start(
+             1, [](const fc::exception& e) { elog("provider_connection exception ${e}", ("e", e)); });
+         connect();
+      };
+
+      void cleanup_and_disconnect() {
+         disconnect();
+         _connection_thread_pool.stop();
+      };
+
+      virtual void send_transaction(const chain::packed_transaction& trx) = 0;
+
+    private:
+      virtual void connect()    = 0;
+      virtual void disconnect() = 0;
    };
 
-   struct p2p_trx_provider {
-      p2p_trx_provider(const provider_base_config& provider_config);
+   struct http_connection : public provider_connection {
+      uint64_t _acknowledged = 0;
+      uint64_t _sent         = 0;
+
+      http_connection(const provider_base_config& provider_config)
+          : provider_connection(provider_config) {}
+
+      void send_transaction(const chain::packed_transaction& trx);
+
+    private:
+      void connect();
+      void disconnect();
+   };
+
+   struct p2p_connection : public provider_connection {
+      boost::asio::ip::tcp::socket _p2p_socket;
+
+      p2p_connection(const provider_base_config& provider_config)
+          : provider_connection(provider_config)
+          , _p2p_socket(_connection_thread_pool.get_executor()) {}
+
+      void send_transaction(const chain::packed_transaction& trx);
+
+    private:
+      void connect();
+      void disconnect();
+   };
+
+   struct trx_provider {
+      trx_provider(const provider_base_config& provider_config);
 
       void setup();
       void send(const chain::signed_transaction& trx);
       void log_trxs(const std::string& log_dir);
       void teardown();
 
-   private:
-      p2p_connection _peer_connection;
+    private:
+      http_connection              _http_conn;
+      p2p_connection               _p2p_conn;
+      provider_connection*         _peer_connection;
       std::vector<logged_trx_data> _sent_trx_data;
    };
 
