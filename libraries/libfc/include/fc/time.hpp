@@ -49,6 +49,16 @@ namespace fc {
         std::string to_iso_string()const;
         static time_point from_iso_string( const std::string& s );
 
+        // protect against overflow
+        constexpr time_point& safe_add( const microseconds& m ) {
+           if (m.count() > 0 && elapsed > fc::microseconds::maximum() - m) {
+              elapsed = microseconds::maximum();
+           } else { // does not guard against underflow
+              elapsed += m;
+           }
+           return *this;
+        }
+
         constexpr const microseconds& time_since_epoch()const { return elapsed; }
         constexpr uint32_t            sec_since_epoch()const  { return elapsed.count() / 1000000; }
         constexpr bool   operator > ( const time_point& t )const                              { return elapsed._count > t.elapsed._count; }
