@@ -481,7 +481,21 @@ BOOST_AUTO_TEST_CASE(valid_category_addresses) {
 
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/node/hello").body(), world_string);
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8889", "/v1/node/hello").body(), world_string);
-   BOOST_CHECK_EQUAL(http_response_for("[::1]:8889", "/v1/node/hello").body(), world_string);
+
+   bool ip_v6_enabled = [] {
+      try {
+         net::io_context                    ioc;
+         tcp::socket s(ioc, tcp::endpoint{ net::ip::address::from_string("::1"), 9999});
+         return true;
+      } catch(...) {
+         return false;
+      }
+   }();
+
+   if (ip_v6_enabled) {
+      BOOST_CHECK_EQUAL(http_response_for("[::1]:8889", "/v1/node/hello").body(), world_string);
+   }
+   
 
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/chain_ro/hello").body(), world_string);
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/net_ro/hello").body(), world_string);
