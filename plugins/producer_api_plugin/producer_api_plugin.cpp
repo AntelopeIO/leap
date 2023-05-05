@@ -25,7 +25,7 @@ using namespace eosio;
    [&](string&&, string&& body, url_response_callback&& cb) mutable { \
           try { \
              INVOKE \
-             cb(http_response_code, fc::time_point::maximum(), fc::variant(result)); \
+             cb(http_response_code, fc::variant(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \
@@ -43,7 +43,7 @@ using namespace eosio;
                http_plugin::handle_exception(#api_name, #call_name, body, cb);\
             }\
          } else if (std::holds_alternative<call_result>(result)) { \
-            cb(http_response_code, fc::time_point::maximum(), fc::variant(std::get<call_result>(result)));\
+            cb(http_response_code, fc::variant(std::get<call_result>(result)));\
          } else { \
             assert(0); \
          } \

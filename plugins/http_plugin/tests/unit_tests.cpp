@@ -38,18 +38,18 @@ public:
       p.add_api({
             {  std::string("/hello"),
                [&](string&&, string&& body, url_response_callback&& cb) {
-                  cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                  cb(200, fc::variant("world!"));
                }
             },
             {  std::string("/echo"),
                [&](string&&, string&& body, url_response_callback&& cb) {
-                  cb(200, fc::time_point::maximum(), fc::variant(body));
+                  cb(200, fc::variant(body));
                }
             },
             {  std::string("/check_ones"), // returns "yes" if body only has only '1' chars, "no" otherwise
                [&](string&&, string&& body, url_response_callback&& cb) {
                   bool ok = std::all_of(body.begin(), body.end(), [](char c) { return c == '1'; });
-                  cb(200, fc::time_point::maximum(), fc::variant(ok ? string("yes") : string("no")));
+                  cb(200, fc::variant(ok ? string("yes") : string("no")));
                }
             },
          }, appbase::exec_queue::read_write);

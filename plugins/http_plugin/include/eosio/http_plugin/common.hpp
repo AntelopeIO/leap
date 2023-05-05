@@ -2,18 +2,11 @@
 
 #include <eosio/chain/thread_utils.hpp>// for thread pool
 #include <eosio/http_plugin/http_plugin.hpp>
-#include <fc/utility.hpp>
-
-#include <atomic>
-#include <map>
-#include <optional>
-#include <regex>
-#include <set>
-#include <string>
 
 #include <fc/io/raw.hpp>
 #include <fc/log/logger_config.hpp>
 #include <fc/time.hpp>
+#include <fc/utility.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/asio/bind_executor.hpp>
@@ -32,6 +25,13 @@
 #include <boost/asio/basic_socket_iostream.hpp>
 #include <boost/asio/basic_stream_socket.hpp>
 #include <boost/asio/detail/config.hpp>
+
+#include <atomic>
+#include <map>
+#include <optional>
+#include <regex>
+#include <set>
+#include <string>
 
 namespace eosio {
 static uint16_t const uri_default_port = 80;
@@ -153,27 +153,22 @@ struct http_plugin_state {
 */
 auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state, detail::abstract_conn_ptr session_ptr, http_content_type content_type) {
    return [plugin_state{std::move(plugin_state)},
-           session_ptr{std::move(session_ptr)}, content_type](int code, fc::time_point deadline, std::optional<fc::variant> response) {
+           session_ptr{std::move(session_ptr)}, content_type](int code, std::optional<fc::variant> response) {
       auto payload_size = detail::in_flight_sizeof(response);
       if(auto error_str = session_ptr->verify_max_bytes_in_flight(payload_size); !error_str.empty()) {
          session_ptr->send_busy_response(std::move(error_str));
          return;
       }
 
-      auto start = fc::time_point::now();
-      if (deadline == fc::time_point::maximum()) { // no caller supplied deadline so use http configured deadline
-         deadline = start + plugin_state->max_response_time;
-      }
-
       plugin_state->bytes_in_flight += payload_size;
 
       // post back to an HTTP thread to allow the response handler to be called from any thread
       boost::asio::post(plugin_state->thread_pool.get_executor(),
-                        [plugin_state, session_ptr, code, deadline, start, payload_size, response = std::move(response), content_type]() {
+                        [plugin_state, session_ptr, code, payload_size, response = std::move(response), content_type]() {
                            try {
                               plugin_state->bytes_in_flight -= payload_size;
                               if (response.has_value()) {
-                                 std::string json = (content_type == http_content_type::plaintext) ? response->as_string() : fc::json::to_string(*response, deadline + (fc::time_point::now() - start));
+                                 std::string json = (content_type == http_content_type::plaintext) ? response->as_string() : fc::json::to_string(*response, fc::time_point::maximum());
                                  if (auto error_str = session_ptr->verify_max_bytes_in_flight(json.size()); error_str.empty())
                                     session_ptr->send_response(std::move(json), code);
                                  else

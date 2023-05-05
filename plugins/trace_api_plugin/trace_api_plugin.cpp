@@ -263,7 +263,7 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
 
          if (!block_number) {
             error_results results{400, "Bad or missing block_num"};
-            cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            cb( 400, fc::variant( results ));
             return;
          }
 
@@ -272,9 +272,9 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
             auto resp = that->req_handler->get_block_trace(*block_number);
             if (resp.is_null()) {
                error_results results{404, "Trace API: block trace missing"};
-               cb( 404, fc::time_point::maximum(), fc::variant( results ));
+               cb( 404, fc::variant( results ));
             } else {
-               cb( 200, fc::time_point::maximum(), std::move(resp) );
+               cb( 200, std::move(resp) );
             }
          } catch (...) {
             http_plugin::handle_exception("trace_api", "get_block", body, cb);
@@ -308,7 +308,7 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
 
          if (!trx_id) {
             error_results results{400, "Bad or missing transaction ID"};
-            cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            cb( 400, fc::variant( results ));
             return;
          }
 
@@ -317,14 +317,14 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
             get_block_n blk_num = common->store->get_trx_block_number(*trx_id, common->minimum_irreversible_history_blocks);
             if (!blk_num.has_value()){
                error_results results{404, "Trace API: transaction id missing in the transaction id log files"};
-               cb( 404, fc::time_point::maximum(), fc::variant( results ));
+               cb( 404, fc::variant( results ));
             } else {
                auto resp = that->req_handler->get_transaction_trace(*trx_id, *blk_num);
                if (resp.is_null()) {
                   error_results results{404, "Trace API: transaction trace missing"};
-                  cb( 404, fc::time_point::maximum(), fc::variant( results ));
+                  cb( 404, fc::variant( results ));
                } else {
-                  cb( 200, fc::time_point::maximum(), std::move(resp) );
+                  cb( 200, std::move(resp) );
                }
             }
           } catch (...) {
