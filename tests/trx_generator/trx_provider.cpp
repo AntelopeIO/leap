@@ -98,13 +98,13 @@ namespace eosio::testing {
       ++_sent;
    }
 
-   trx_provider::trx_provider(const provider_base_config& provider_config)
-       : _http_conn(provider_config)
-       , _p2p_conn(provider_config) {
+   trx_provider::trx_provider(const provider_base_config& provider_config) {
       if (provider_config._peer_endpoint_type == "http") {
-         _peer_connection = &_http_conn;
+         _conn.emplace<http_connection>(provider_config);
+         _peer_connection = &std::get<http_connection>(_conn);
       } else {
-         _peer_connection = &_p2p_conn;
+         _conn.emplace<p2p_connection>(provider_config);
+         _peer_connection = &std::get<p2p_connection>(_conn);
       }
    }
 

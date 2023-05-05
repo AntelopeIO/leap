@@ -1,6 +1,5 @@
 #pragma once
 
-#include<vector>
 #include<eosio/chain/transaction.hpp>
 #include<eosio/chain/block.hpp>
 #include<boost/asio/ip/tcp.hpp>
@@ -8,6 +7,8 @@
 #include<eosio/chain/thread_utils.hpp>
 #include<chrono>
 #include<thread>
+#include<variant>
+#include<vector>
 
 using namespace std::chrono_literals;
 
@@ -18,7 +19,7 @@ namespace eosio::testing {
       eosio::chain::transaction_id_type _trx_id;
       fc::time_point _sent_timestamp;
 
-      logged_trx_data(eosio::chain::transaction_id_type trx_id, fc::time_point sent=fc::time_point::now()) :
+      explicit logged_trx_data(eosio::chain::transaction_id_type trx_id, fc::time_point sent=fc::time_point::now()) :
          _trx_id(trx_id), _sent_timestamp(sent) {}
    };
 
@@ -38,8 +39,10 @@ namespace eosio::testing {
       const provider_base_config&                                 _config;
       eosio::chain::named_thread_pool<struct provider_connection> _connection_thread_pool;
 
-      provider_connection(const provider_base_config& provider_config)
+      explicit provider_connection(const provider_base_config& provider_config)
           : _config(provider_config) {}
+
+      virtual ~provider_connection() = default;
 
       void init_and_connect() {
          _connection_thread_pool.start(
@@ -63,32 +66,32 @@ namespace eosio::testing {
       std::atomic<uint64_t> _acknowledged{0};
       std::atomic<uint64_t> _sent{0};
 
-      http_connection(const provider_base_config& provider_config)
+      explicit http_connection(const provider_base_config& provider_config)
           : provider_connection(provider_config) {}
 
       void send_transaction(const chain::packed_transaction& trx);
 
     private:
-      void connect();
-      void disconnect();
+      void connect() final;
+      void disconnect() final;
    };
 
    struct p2p_connection : public provider_connection {
       boost::asio::ip::tcp::socket _p2p_socket;
 
-      p2p_connection(const provider_base_config& provider_config)
+      explicit p2p_connection(const provider_base_config& provider_config)
           : provider_connection(provider_config)
           , _p2p_socket(_connection_thread_pool.get_executor()) {}
 
       void send_transaction(const chain::packed_transaction& trx);
 
     private:
-      void connect();
-      void disconnect();
+      void connect() final;
+      void disconnect() final;
    };
 
    struct trx_provider {
-      trx_provider(const provider_base_config& provider_config);
+      explicit trx_provider(const provider_base_config& provider_config);
 
       void setup();
       void send(const chain::signed_transaction& trx);
@@ -96,8 +99,7 @@ namespace eosio::testing {
       void teardown();
 
     private:
-      http_connection              _http_conn;
-      p2p_connection               _p2p_conn;
+      std::variant<std::monostate, http_connection, p2p_connection> _conn;
       provider_connection*         _peer_connection;
       std::vector<logged_trx_data> _sent_trx_data;
    };
@@ -133,7 +135,7 @@ namespace eosio::testing {
       bool                                _terminated_early;
       std::optional<fc::time_point>       _violation_start_time;
 
-      tps_performance_monitor(int64_t spin_up_time=default_spin_up_time_us, uint32_t max_lag_per=default_max_lag_per,
+      explicit tps_performance_monitor(int64_t spin_up_time=default_spin_up_time_us, uint32_t max_lag_per=default_max_lag_per,
                               int64_t max_lag_duration_us=default_max_lag_duration_us) : _spin_up_time(spin_up_time),
                               _max_lag_per(max_lag_per), _max_lag_duration_us(max_lag_duration_us), _terminated_early(false) {}
 
@@ -158,7 +160,7 @@ namespace eosio::testing {
       std::shared_ptr<M> _monitor;
       trx_tps_tester_config _config;
 
-      trx_tps_tester(std::shared_ptr<G> generator, std::shared_ptr<M> monitor, const trx_tps_tester_config& tester_config) :
+      explicit trx_tps_tester(std::shared_ptr<G> generator, std::shared_ptr<M> monitor, const trx_tps_tester_config& tester_config) :
             _generator(generator), _monitor(monitor), _config(tester_config) {
       }
 
