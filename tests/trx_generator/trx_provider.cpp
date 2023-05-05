@@ -88,8 +88,8 @@ namespace eosio::testing {
                                                     content_type};
       http_client_async::async_http_request(
           params, std::move(msg_body),
-          [msg_body, &acked = _acknowledged](boost::beast::error_code                                      ec,
-                                             boost::beast::http::response<boost::beast::http::string_body> response) {
+          [&acked = _acknowledged](boost::beast::error_code                                      ec,
+                                   boost::beast::http::response<boost::beast::http::string_body> response) {
              ++acked;
              if (response.result() != boost::beast::http::status::accepted) {
                 elog("async_http_request Failed with response http status code: ${status}", ("status", response.result_int()));

@@ -65,7 +65,7 @@ class session : public std::enable_shared_from_this<session> {
 
    // Start the asynchronous operation
    void run(const std::string& host, const unsigned short port, const std::string& target, int version,
-            const std::string& content_type, const std::string&& request_body) {
+            const std::string& content_type, std::string&& request_body) {
       // Set up an HTTP GET request message
       req_.version(version);
       req_.method(http::verb::post);
@@ -73,7 +73,7 @@ class session : public std::enable_shared_from_this<session> {
       req_.set(http::field::host, host);
       req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
       req_.set(http::field::content_type, content_type);
-      req_.body() = request_body;
+      req_.body() = std::move(request_body);
       req_.prepare_payload();
 
       // Look up the domain name

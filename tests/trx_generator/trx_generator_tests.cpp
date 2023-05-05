@@ -509,6 +509,7 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
    http_client_async::http_request_params params{ioc, host, port, target, version, content_type};
 
    const std::string test_body = "test request body"s;
+   const std::string test_body_copy = test_body;
    const std::string test_body2 =
        "{\"return_failure_trace\":true,\"retry_trx\":false,\"transaction\":{\"signatures\":[\"SIG_K1_"
        "JyzLqbvpdybyujtiN1YdY2FWcBBi8dWWiFgZ515qyyqgKJJ6892i4rXTHdw5KGYut6EBuXPR3ExRwPSioSZ2bZ1RjNUXVj\"],"
@@ -519,24 +520,25 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
        "d3e0160ae423ad15b974a00000000a8ed32322060ae423ad15b974a1042088a4dd350570094357700000000045359530000000000000000"
        "00ea305500003f2a1ba6a24a0160ae423ad15b974a00000000a8ed32323160ae423ad15b974a1042088a4dd3505740420f0000000000045"
        "359530000000040420f000000000004535953000000000000\"}}"s;
+   const std::string test_body2_copy = test_body2;
 
    int callbackCalledCnt = 0;
 
    // Launch the asynchronous operation
    http_client_async::async_http_request(
        params, std::move(test_body),
-       [test_body, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
+       [test_body_copy, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
           BOOST_REQUIRE(!ec);
-          BOOST_REQUIRE_EQUAL(test_body, response.body());
+          BOOST_REQUIRE_EQUAL(test_body_copy, response.body());
           callbackCalledCnt++;
        });
 
    http_client_async::http_request_params params2{ioc, host, port, target, version, content_type2};
    http_client_async::async_http_request(
        params2, std::move(test_body2),
-       [test_body2, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
+       [test_body2_copy, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
           BOOST_REQUIRE(!ec);
-          BOOST_REQUIRE_EQUAL(test_body2, response.body());
+          BOOST_REQUIRE_EQUAL(test_body2_copy, response.body());
           callbackCalledCnt++;
        });
 
