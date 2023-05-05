@@ -3,6 +3,7 @@
 
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/state_history/types.hpp>
+#include <eosio/state_history/log.hpp>
 
 namespace fc {
 class variant;
@@ -11,7 +12,6 @@ class variant;
 namespace eosio {
 using chain::bytes;
 using std::shared_ptr;
-
 typedef shared_ptr<struct state_history_plugin_impl> state_history_ptr;
 
 class state_history_plugin : public plugin<state_history_plugin> {
@@ -28,6 +28,8 @@ class state_history_plugin : public plugin<state_history_plugin> {
    void plugin_shutdown();
 
    void handle_sighup() override;
+
+   const state_history_log_config* trace_log_config() const;
 
  private:
    state_history_ptr my;

@@ -886,6 +886,8 @@ public:
    // return variant of trx for logging, trace is modified to minimize log output
    fc::variant get_log_trx(const transaction& trx) const;
 
+   const controller::config* chain_config() const;
+
 private:
    static void log_guard_exception(const chain::guard_exception& e);
 
