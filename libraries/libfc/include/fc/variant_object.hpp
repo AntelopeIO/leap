@@ -228,11 +228,20 @@ namespace fc
 
       mutable_variant_object( mutable_variant_object&& );
       mutable_variant_object( const mutable_variant_object& );
-      mutable_variant_object( const variant_object& );
+      explicit mutable_variant_object( const variant_object& );
+      /*
+       * Use with care as the internal shared state of variant_object is moved.
+       */
+      explicit mutable_variant_object( variant_object&& );
 
       mutable_variant_object& operator=( mutable_variant_object&& );
       mutable_variant_object& operator=( const mutable_variant_object& );
       mutable_variant_object& operator=( const variant_object& );
+      /**
+       * Use with care as the internal shared state of variant_object is moved.
+       */
+      mutable_variant_object& operator=( variant_object&& );
+
    private:
       std::unique_ptr< std::vector< entry > > _key_value;
       friend class variant_object;
