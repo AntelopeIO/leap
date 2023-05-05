@@ -780,9 +780,6 @@ class Cluster(object):
     def getNodeP2pPort(self, nodeId: int):
         return self.p2pBasePort + nodeId
 
-    def getNodeHttpPort(self, nodeId: int):
-        return self.port + nodeId
-
     def getNode(self, nodeId=0, exitOnError=True):
         if exitOnError and nodeId >= len(self.nodes):
             Utils.cmdError("cluster never created node %d" % (nodeId))
