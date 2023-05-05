@@ -247,7 +247,8 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
       auto& http = app().get_plugin<http_plugin>();
       fc::microseconds max_response_time = http.get_max_response_time();
 
-      http.add_async_handler("/v1/trace_api/get_block",
+      http.add_async_handler({"/v1/trace_api/get_block",
+            api_category::trace_api,
             [wthis=weak_from_this(), max_response_time](std::string, std::string body, url_response_callback cb)
       {
          auto that = wthis.lock();
@@ -292,10 +293,11 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
          } catch (...) {
             http_plugin::handle_exception("trace_api", "get_block", body, cb);
          }
-      });
+      }});
 
 
-      http.add_async_handler("/v1/trace_api/get_transaction_trace",
+      http.add_async_handler({"/v1/trace_api/get_transaction_trace",
+            api_category::trace_api,
             [wthis=weak_from_this(), max_response_time, this](std::string, std::string body, url_response_callback cb)
       {
          auto that = wthis.lock();
@@ -345,7 +347,7 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
           } catch (...) {
              http_plugin::handle_exception("trace_api", "get_transaction", body, cb);
           }
-      });
+      }});
    }
 
    void plugin_shutdown() {

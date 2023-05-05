@@ -70,6 +70,7 @@ using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
 using internal_url_handler_fn = std::function<void(abstract_conn_ptr, string&&, string&&, url_response_callback&&)>;
 struct internal_url_handler {
    internal_url_handler_fn fn;
+   api_category category;
    http_content_type content_type = http_content_type::json;
 };
 /**
@@ -136,6 +137,17 @@ struct http_plugin_state {
 
    explicit http_plugin_state(fc::logger& log)
        : logger(log) {}
+
+   http_plugin::get_supported_apis_result get_supported_apis(api_category_set set) const {
+      http_plugin::get_supported_apis_result result;
+
+      for (const auto& handler : url_handlers) {
+         if (set.contains(handler.second.category))
+            result.apis.emplace_back(handler.first);
+      }
+
+      return result;
+   }
 };
 
 /**
@@ -146,7 +158,7 @@ struct http_plugin_state {
 * @param session_ptr - beast_http_session object on which to invoke send_response
 * @return lambda suitable for url_response_callback
 */
-auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state, detail::abstract_conn_ptr session_ptr, http_content_type content_type) {
+inline auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state, detail::abstract_conn_ptr session_ptr, http_content_type content_type) {
    return [plugin_state{std::move(plugin_state)},
            session_ptr{std::move(session_ptr)}, content_type](int code, fc::time_point deadline, std::optional<fc::variant> response) {
       auto payload_size = detail::in_flight_sizeof(response);
@@ -184,30 +196,32 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
 
 }
 
-bool host_port_is_valid(const http_plugin_state& plugin_state,
-                        const std::string& header_host_port,
-                        const string& endpoint_local_host_port) {
-   return !plugin_state.validate_host || header_host_port == endpoint_local_host_port || plugin_state.valid_hosts.find(header_host_port) != plugin_state.valid_hosts.end();
+inline std::pair<std::string, std::string> split_host_port(std::string_view endpoint) {
+   std::string::size_type colon_pos = endpoint.rfind(':');
+   if(colon_pos != std::string::npos) {
+      auto port = endpoint.substr(colon_pos + 1);
+      auto hostname = (endpoint[0] == '[' && colon_pos >= 2)  ? endpoint.substr( 1, colon_pos-2 ) : endpoint.substr( 0, colon_pos );
+      return {std::string(hostname), std::string(port)};
+   } else {
+      return {std::string(endpoint), {}};
+   }
 }
 
-bool host_is_valid(const http_plugin_state& plugin_state,
-                   const std::string& host,
-                   const string& endpoint_local_host_port,
-                   bool secure) {
+inline bool host_is_valid(const http_plugin_state& plugin_state,
+                   const std::string& header_host_port,
+                   const asio::ip::address& addr) {
    if(!plugin_state.validate_host) {
       return true;
    }
 
-   // normalise the incoming host so that it always has the explicit port
-   static auto has_port_expr = std::regex("[^:]:[0-9]+$");/// ends in :<number> without a preceeding colon which implies ipv6
-   if(std::regex_search(host, has_port_expr)) {
-      return host_port_is_valid(plugin_state, host, endpoint_local_host_port);
-   } else {
-      // according to RFC 2732 ipv6 addresses should always be enclosed with brackets so we shouldn't need to special case here
-      return host_port_is_valid(plugin_state,
-                                host + ":" + std::to_string(secure ? uri_default_secure_port : uri_default_port),
-                                endpoint_local_host_port);
+   auto [hostname, port] = split_host_port(header_host_port);
+   boost::system::error_code ec;
+   auto                      header_addr = boost::asio::ip::make_address(hostname, ec);
+   if (ec)
+      return plugin_state.valid_hosts.count(hostname);
+   if (header_addr.is_v4() && addr.is_v6()) {
+      header_addr = boost::asio::ip::address_v6::v4_mapped(header_addr.to_v4());
    }
+   return header_addr == addr;
 }
-
 }// end namespace eosio

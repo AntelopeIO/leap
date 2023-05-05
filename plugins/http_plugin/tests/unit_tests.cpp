@@ -1,5 +1,6 @@
 #include <eosio/chain/application.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
+#include <eosio/http_plugin/common.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/beast/core.hpp>
@@ -7,6 +8,8 @@
 #include <boost/beast/version.hpp>
 
 #include <boost/asio/basic_stream_socket.hpp>
+#include <boost/asio/local/stream_protocol.hpp>
+#include <fc/scoped_exit.hpp>
 
 #define BOOST_TEST_MODULE http_plugin unit tests
 #include <boost/test/included/unit_test.hpp>
@@ -37,16 +40,19 @@ public:
    void add_api(http_plugin& p) {
       p.add_api({
             {  std::string("/hello"),
+               api_category::node,
                [&](string&&, string&& body, url_response_callback&& cb) {
                   cb(200, fc::time_point::maximum(), fc::variant("world!"));
                }
             },
             {  std::string("/echo"),
+               api_category::node,
                [&](string&&, string&& body, url_response_callback&& cb) {
                   cb(200, fc::time_point::maximum(), fc::variant(body));
                }
             },
             {  std::string("/check_ones"), // returns "yes" if body only has only '1' chars, "no" otherwise
+               api_category::node,
                [&](string&&, string&& body, url_response_callback&& cb) {
                   bool ok = std::all_of(body.begin(), body.end(), [](char c) { return c == '1'; });
                   cb(200, fc::time_point::maximum(), fc::variant(ok ? string("yes") : string("no")));
@@ -243,23 +249,25 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
    
    BOOST_CHECK(app->initialize<http_plugin>(sizeof(argv) / sizeof(char*), const_cast<char**>(argv)));
 
-   std::promise<http_plugin&> plugin_promise;
-   std::future<http_plugin&> plugin_fut = plugin_promise.get_future();
+   std::promise<http_plugin*> plugin_promise;
    std::thread app_thread( [&]() {
-      app->startup();
-      plugin_promise.set_value(app->get_plugin<http_plugin>());
-      app->exec();
+      try {
+         app->startup();
+         app->get_plugin<http_plugin>().set_plugin_promise(&plugin_promise);
+         app->exec();
+      } catch (...) {
+         plugin_promise.set_value(nullptr);
+      }
    } );
 
-   auto http_plugin = plugin_fut.get();
-   BOOST_CHECK(http_plugin.get_state() == abstract_plugin::started);
-
-   std::this_thread::sleep_for(std::chrono::milliseconds(100));
+   auto http_plugin = plugin_promise.get_future().get();
+   BOOST_REQUIRE(http_plugin);
+   BOOST_CHECK(http_plugin->get_state() == abstract_plugin::started);
    
    Db db;
-   db.add_api(http_plugin);
+   db.add_api(*http_plugin);
 
-   size_t max_body_size = http_plugin.get_max_body_size();
+   size_t max_body_size = http_plugin->get_max_body_size();
    
    try
    {
@@ -296,4 +304,199 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
 
    app->quit();
    app_thread.join();
+}
+
+class app_log {
+   std::string result;
+   int         fork_app_and_redirect_stderr(int argc, const char** argv, const char* redirect_filename) {
+      int pid = fork();
+      if (pid == 0) {
+         freopen(redirect_filename, "w", stderr);
+         appbase::scoped_app app;
+         bool                ret = app->initialize<http_plugin>(argc, const_cast<char**>(argv));
+         fclose(stderr);
+         exit(ret ? 0 : 1);
+      } else {
+         int chld_state;
+         waitpid(pid, &chld_state, 0);
+         BOOST_CHECK(WIFEXITED(chld_state));
+         return WEXITSTATUS(chld_state);
+      }
+   }
+
+ public:
+   template <typename Args>
+   app_log(Args&& args) {
+      const char* log = "test.stderr";
+      BOOST_CHECK(fork_app_and_redirect_stderr(args.size(), args.data(), log));
+      std::ifstream file(log);
+      result.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
+      std::error_code ec;
+      std::filesystem::remove(log, ec);
+   }
+
+   bool contains(const char* str) const { return result.find(str) != std::string::npos; }
+};
+
+BOOST_AUTO_TEST_CASE(invalid_category_addresses) {
+   http_plugin::set_defaults({.default_unix_socket_path = "", .default_http_port = 8888, .server_header = "/"});
+
+   const char* test_name = bu::framework::current_test_case().p_name->c_str();
+
+   BOOST_TEST(app_log(std::array{test_name, "--http-category-address", "chain_ro,localhost:8889"})
+                  .contains("http-server-address must be set as `http-category-address`"));
+
+   BOOST_TEST(app_log(std::array{test_name, "--http-server-address", "http-category-address", "--unix-socket-path",
+                                  "/tmp/tmp.sock", "--http-category-address", "chain_ro,localhost:8889"}).contains(
+                       "`unix-socket-path` must be left unspecified"));
+
+   BOOST_TEST(app_log(std::array{test_name, "--http-server-address", "http-category-address",
+                                  "--http-category-address", "node,localhost:8889"}).contains(
+                       "invalid category name"));
+
+   BOOST_TEST(app_log(std::array{test_name, "--http-server-address", "http-category-address",
+                                  "--http-category-address", "chain_ro,127.0.0.1:8889",
+                                  "--http-category-address", "chain_rw,localhost:8889"}).contains(
+                       "unable to listen to port 8889"));
+}
+
+struct http_response_for {
+   net::io_context                    ioc;
+   http::response<http::dynamic_body> response;
+   http_response_for(const char* addr, const char* path) {
+      auto [host, port] = eosio::split_host_port(addr);
+      // These objects perform our I/O
+      tcp::resolver     resolver(ioc);
+      beast::tcp_stream stream(ioc);
+
+      // Look up IP and connect to it
+      auto const results = resolver.resolve(host, port);
+      stream.connect(results);
+      initiate(stream, addr, path);
+   }
+
+   http_response_for(std::filesystem::path addr, const char* path) {
+      using unix_stream =
+          beast::basic_stream<boost::asio::local::stream_protocol, net::executor, beast::unlimited_rate_policy>;
+
+      unix_stream stream(ioc);
+      stream.connect(addr.c_str());
+      initiate(stream, "", path);
+   }
+
+   template <typename Stream>
+   void initiate(Stream&& stream, const char* addr, const char* path) {
+      int                              http_version = 11;
+      http::request<http::string_body> req{http::verb::post, path, http_version};
+      if (addr)
+         req.set(http::field::host, addr);
+      req.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
+      BOOST_CHECK(http::write(stream, req) != 0);
+
+      beast::flat_buffer buffer;
+      http::read(stream, buffer, response);
+   }
+
+   http::status status() const {
+      return response.result();
+   }
+
+   std::string body() const {
+      return beast::buffers_to_string(response.body().data());
+   }
+};
+
+BOOST_AUTO_TEST_CASE(valid_category_addresses) {
+   http_plugin::set_defaults({.default_unix_socket_path = "", .default_http_port = 8888, .server_header = "/"});
+   fc::temp_directory dir;
+   auto data_dir = dir.path()/"data";
+
+   // clang-format off
+   std::array args = {bu::framework::current_test_case().p_name->c_str(),
+                      "--data-dir", data_dir.c_str(),
+                      "--http-server-address", "http-category-address",
+                      "--http-category-address", "chain_ro,127.0.0.1:8890",
+                      "--http-category-address", "chain_rw,:8889",
+                      "--http-category-address", "net_ro,127.0.0.1:8890",
+                      "--http-category-address", "net_rw,:8889",
+                      "--http-category-address", "producer_ro,./producer_ro.sock",
+                      "--http-category-address", "producer_rw,../producer_rw.sock"
+                      };
+   // clang-format on
+   appbase::scoped_app app;
+   BOOST_REQUIRE(app->initialize<http_plugin>(args.size(), const_cast<char**>(args.data())));
+
+   std::promise<http_plugin*> plugin_promise;
+   std::thread                app_thread([&]() {
+      try {
+         app->startup();
+         app->get_plugin<http_plugin>().set_plugin_promise(&plugin_promise);
+         app->exec();
+      } catch (...) {
+         plugin_promise.set_value(nullptr);
+      }
+   });
+
+   auto on_exit = fc::make_scoped_exit([&app, &app_thread] {
+      app->quit();
+      app_thread.join();
+   });
+
+   auto http_plugin = plugin_promise.get_future().get();
+   BOOST_REQUIRE(http_plugin);
+
+   http_plugin->add_api({{std::string("/v1/node/hello"), api_category::node,
+                         [&](string&&, string&& body, url_response_callback&& cb) {
+                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                         }},
+                        {std::string("/v1/chain_ro/hello"), api_category::chain_ro,
+                         [&](string&&, string&& body, url_response_callback&& cb) {
+                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                         }},
+                        {std::string("/v1/chain_rw/hello"), api_category::chain_rw,
+                         [&](string&&, string&& body, url_response_callback&& cb) {
+                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                         }},
+                        {std::string("/v1/net_ro/hello"), api_category::net_ro,
+                         [&](string&&, string&& body, url_response_callback&& cb) {
+                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                         }},
+                        {std::string("/v1/net_rw/hello"), api_category::net_rw,
+                         [&](string&&, string&& body, url_response_callback&& cb) {
+                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                         }},
+                         {std::string("/v1/producer_ro/hello"), api_category::producer_ro,
+                         [&](string&&, string&& body, url_response_callback&& cb) {
+                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                         }},
+                         {std::string("/v1/producer_rw/hello"), api_category::producer_rw,
+                         [&](string&&, string&& body, url_response_callback&& cb) {
+                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                         }}},
+                       appbase::exec_queue::read_write);
+
+   std::string world_string = "\"world!\"";
+
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/node/hello").body(), world_string);
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8889", "/v1/node/hello").body(), world_string);
+   BOOST_CHECK_EQUAL(http_response_for("[::1]:8889", "/v1/node/hello").body(), world_string);
+
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/chain_ro/hello").body(), world_string);
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/net_ro/hello").body(), world_string);
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/chain_rw/hello").status(), http::status::not_found);
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/net_rw/hello").status(), http::status::not_found);
+
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8889", "/v1/chain_ro/hello").status(), http::status::not_found);
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8889", "/v1/net_ro/hello").status(), http::status::not_found);
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8889", "/v1/chain_rw/hello").body(), world_string);
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8889", "/v1/net_rw/hello").body(), world_string);
+
+   BOOST_CHECK_EQUAL(http_response_for( data_dir / "./producer_ro.sock", "/v1/producer_ro/hello").body(), world_string);
+   BOOST_CHECK_EQUAL(http_response_for( data_dir / "../producer_rw.sock", "/v1/producer_rw/hello").body(), world_string);
+
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/node/get_supported_apis").body(),
+                     R"({"apis":["/v1/chain_ro/hello","/v1/net_ro/hello","/v1/node/hello"]})");
+
+   BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8889", "/v1/node/get_supported_apis").body(),
+                     R"({"apis":["/v1/chain_rw/hello","/v1/net_rw/hello","/v1/node/hello"]})");
 }

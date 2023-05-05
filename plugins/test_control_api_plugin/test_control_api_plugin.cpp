@@ -33,6 +33,7 @@ struct async_result_visitor : public fc::visitor<std::string> {
 
 #define CALL_WITH_API_400(api_name, api_handle, api_namespace, call_name, http_response_code, params_type) \
 {std::string("/v1/" #api_name "/" #call_name), \
+   api_category::test_control, \
    [api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
           try { \
              auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\

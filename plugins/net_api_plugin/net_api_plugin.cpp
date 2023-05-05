@@ -19,8 +19,9 @@ namespace eosio {
 
 using namespace eosio;
 
-#define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
+#define CALL_WITH_400(api_name, category, api_handle, call_name, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
+   api_category::category, \
    [&api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
           try { \
              INVOKE \
@@ -54,13 +55,13 @@ void net_api_plugin::plugin_startup() {
    // lifetime of plugin is lifetime of application
    auto& net_mgr = app().get_plugin<net_plugin>();
    app().get_plugin<http_plugin>().add_async_api({
-       CALL_WITH_400(net, net_mgr, connect,
+       CALL_WITH_400(net, net_rw, net_mgr, connect,
             INVOKE_R_R(net_mgr, connect, std::string), 201),
-       CALL_WITH_400(net, net_mgr, disconnect,
+       CALL_WITH_400(net, net_rw, net_mgr, disconnect,
             INVOKE_R_R(net_mgr, disconnect, std::string), 201),
-       CALL_WITH_400(net, net_mgr, status,
+       CALL_WITH_400(net, net_ro, net_mgr, status,
             INVOKE_R_R(net_mgr, status, std::string), 201),
-       CALL_WITH_400(net, net_mgr, connections,
+       CALL_WITH_400(net, net_ro, net_mgr, connections,
             INVOKE_R_V(net_mgr, connections), 201),
    } );
 }
@@ -68,11 +69,11 @@ void net_api_plugin::plugin_startup() {
 void net_api_plugin::plugin_initialize(const variables_map& options) {
    try {
       const auto& _http_plugin = app().get_plugin<http_plugin>();
-      if( !_http_plugin.is_on_loopback()) {
+      if( !_http_plugin.is_on_loopback(api_category::net_rw)) {
          wlog( "\n"
                "**********SECURITY WARNING**********\n"
                "*                                  *\n"
-               "* --         Net API            -- *\n"
+               "* --        Net RW API          -- *\n"
                "* - EXPOSED to the LOCAL NETWORK - *\n"
                "* - USE ONLY ON SECURE NETWORKS! - *\n"
                "*                                  *\n"

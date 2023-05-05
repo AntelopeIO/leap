@@ -5,6 +5,7 @@
 
 #include <fc/log/logger_config.hpp>
 #include <fc/reflect/variant.hpp>
+#include <fc/scoped_exit.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/optional.hpp>
@@ -31,6 +32,7 @@ namespace eosio {
 
    static http_plugin_defaults current_http_plugin_defaults;
    static bool verbose_http_errors = false;
+   static std::promise<http_plugin*>* plugin_promise;
 
    void http_plugin::set_defaults(const http_plugin_defaults& config) {
       current_http_plugin_defaults = config;
@@ -42,6 +44,21 @@ namespace eosio {
 
    using http_plugin_impl_ptr = std::shared_ptr<class http_plugin_impl>;
 
+   api_category to_category(std::string_view name) {
+      if (name == "chain_ro") return api_category::chain_ro;
+      if (name == "chain_rw") return api_category::chain_rw;
+      if (name == "db_size") return api_category::db_size;
+      if (name == "net_ro") return api_category::net_ro;
+      if (name == "net_rw") return api_category::net_rw;
+      if (name == "producer_ro") return api_category::producer_ro;
+      if (name == "producer_rw") return api_category::producer_rw;
+      if (name == "snapshot") return api_category::snapshot;
+      if (name == "trace_api") return api_category::trace_api;
+      if (name == "prometheus") return api_category::prometheus;
+      if (name == "test_control") return api_category::test_control;
+      return api_category::unknown;
+   }
+
    class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       public:
          http_plugin_impl() = default;
@@ -52,12 +69,12 @@ namespace eosio {
          http_plugin_impl& operator=(const http_plugin_impl&) = delete;
          http_plugin_impl& operator=(http_plugin_impl&&) = delete;
 
-         std::optional<tcp::endpoint>  listen_endpoint;
+         std::string           http_server_address;
+         std::string           unix_sock_path;
 
-         std::filesystem::path unix_sock_path;
+         std::map<std::string, api_category_set> categories_by_address;
 
-         shared_ptr<beast_http_listener<plain_session, tcp, tcp_socket_t > >  beast_server;
-         shared_ptr<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket > > beast_unix_server;
+         // std::vector<shared_ptr<void>>  beast_servers;
 
          shared_ptr<http_plugin_state> plugin_state = std::make_shared<http_plugin_state>(logger());
 
@@ -73,10 +90,11 @@ namespace eosio {
           * @param content_type - json or plain txt
           * @return the constructed internal_url_handler
           */
-         static detail::internal_url_handler make_app_thread_url_handler(const string& url, appbase::exec_queue to_queue, int priority, url_handler next, http_plugin_impl_ptr my, http_content_type content_type ) {
+         static detail::internal_url_handler make_app_thread_url_handler(api_entry&& entry, appbase::exec_queue to_queue, int priority, http_plugin_impl_ptr my, http_content_type content_type ) {
             detail::internal_url_handler handler;
             handler.content_type = content_type;
-            auto next_ptr = std::make_shared<url_handler>(std::move(next));
+            handler.category = entry.category;
+            auto next_ptr = std::make_shared<url_handler>(std::move(entry.handler));
             handler.fn = [my=std::move(my), priority, to_queue, next_ptr=std::move(next_ptr)]
                        ( detail::abstract_conn_ptr conn, string&& r, string&& b, url_response_callback&& then ) {
                if (auto error_str = conn->verify_max_bytes_in_flight(b.size()); !error_str.empty()) {
@@ -111,10 +129,11 @@ namespace eosio {
           * @param next - the next handler for responses
           * @return the constructed internal_url_handler
           */
-         static detail::internal_url_handler make_http_thread_url_handler(const string& url, url_handler next, http_content_type content_type) {
+         static detail::internal_url_handler make_http_thread_url_handler(api_entry&& entry, http_content_type content_type) {
             detail::internal_url_handler handler;
             handler.content_type = content_type;
-            handler.fn = [next=std::move(next)]( const detail::abstract_conn_ptr& conn, string&& r, string&& b, url_response_callback&& then ) mutable {
+            handler.category = entry.category;
+            handler.fn = [next=std::move(entry.handler)]( const detail::abstract_conn_ptr& conn, string&& r, string&& b, url_response_callback&& then ) mutable {
                try {
                   next(std::move(r), std::move(b), std::move(then));
                } catch( ... ) {
@@ -124,20 +143,99 @@ namespace eosio {
             return handler;
          }
 
-         void add_aliases_for_endpoint( const tcp::endpoint& ep, const string& host, const string& port ) {
-            auto resolved_port_str = std::to_string(ep.port());
-            plugin_state->valid_hosts.emplace(host + ":" + port);
-            plugin_state->valid_hosts.emplace(host + ":" + resolved_port_str);
-         }
 
-         void create_beast_server(bool isUnix) {
-            if(isUnix) {
-               beast_unix_server = std::make_shared<beast_http_listener<unix_socket_session, stream_protocol, stream_protocol::socket> >(plugin_state);
-               fc_ilog( logger(), "created beast UNIX socket listener");
-            }
-            else {
-               beast_server = std::make_shared<beast_http_listener<plain_session, tcp, tcp_socket_t> >(plugin_state);
-               fc_ilog( logger(), "created beast HTTP listener");
+         void create_beast_server(std::string address, api_category_set categories) {
+
+            EOS_ASSERT(address.size() >= 2, chain::plugin_config_exception, "Invalid http server address: ${addr}",
+                       ("addr", address));
+
+            try {
+               if (address[0] == '/' ||
+                   (address[0] == '.' &&
+                    (address[1] == '/' || (address.size() >= 3 && address[1] == '.' && address[2] == '/')))) {
+
+                  auto                  cwd       = std::filesystem::current_path();
+                  std::filesystem::path sock_path = address;
+                  if (sock_path.is_relative())
+                     sock_path = std::filesystem::weakly_canonical(app().data_dir() / sock_path);
+                  ::unlink(sock_path.c_str());
+                  std::filesystem::create_directories(sock_path.parent_path());
+                  // The maximum length of the socket path is defined by sockaddr_un::sun_path. On Linux,
+                  // according to unix(7), it is 108 bytes. On FreeBSD, according to unix(4), it is 104 bytes.
+                  // Therefore, we create the unix socket with the relative path to its parent path to avoid the problem.
+                  std::filesystem::current_path(sock_path.parent_path());
+                  auto restore = fc::make_scoped_exit([cwd]{
+                     std::filesystem::current_path(cwd);
+                  });
+
+                  using stream_protocol = asio::local::stream_protocol;
+                  auto server = std::make_shared<beast_http_listener<stream_protocol::socket>>(
+                        plugin_state, categories, stream_protocol::endpoint{ sock_path.filename().string() });
+                  server->do_accept();
+                  // beast_servers.push_back(server);
+                  fc_ilog(logger(), "created beast UNIX socket listener at ${addr}", ("addr", sock_path));
+               } else {
+
+                  auto [host, port] = split_host_port(address);
+                  EOS_ASSERT(port.size(), chain::plugin_config_exception, "port is not specified");
+
+                  boost::system::error_code ec;
+                  tcp::resolver resolver( app().get_io_service());
+                  auto endpoints = resolver.resolve(host, port, boost::asio::ip::tcp::resolver::passive, ec);
+                  EOS_ASSERT(!ec, chain::plugin_config_exception, "failed to resolve address: ${msg}",
+                             ("msg", ec.message()));
+
+                  int listened = 0;
+                  std::optional<boost::asio::ip::tcp::endpoint> unspecified_ipv4_addr;
+                  bool has_unspecified_ipv6_only = false;
+
+                  auto create_ip_server = [&](auto endpoint) {
+                     const auto& ip_addr = endpoint.address();
+                     try {
+                        auto server = std::make_shared<beast_http_listener<tcp_socket_t>>(
+                              plugin_state, categories, endpoint);
+                        server->do_accept();
+                        ++listened;
+                        fc_ilog(logger(), "start listening on ${ip_addr}:${port} for http requests (boost::beast)",
+                                ("ip_addr", ip_addr.to_string())("port", endpoint.port()));
+                        has_unspecified_ipv6_only = ip_addr.is_unspecified() && ip_addr.is_v6() &&
+                            server->is_ip_v6_only();
+                        
+                     } catch (boost::system::system_error& ex) {
+                        fc_wlog(logger(), "unable to listen on ${ip_addr}:${port} resolved from ${address}: ${msg}",
+                                ("ip_addr", ip_addr.to_string())("port", endpoint.port())("address", address)("msg",
+                                                                                                           ex.what()));
+                     }
+                  };
+
+                  for (auto ep: endpoints) {
+                     const auto& endpoint = ep.endpoint();
+                     const auto& ip_addr = endpoint.address();
+                     if (ip_addr.is_unspecified() && ip_addr.is_v4() && endpoints.size() > 1) {
+                        // it is an error to bind a socket to the same port for both ipv6 and ipv4 INADDR_ANY address when
+                        // the system has ipv4-mapped ipv6 enabled by default, we just skip the ipv4 for now.
+                        unspecified_ipv4_addr = endpoint;
+                        continue;
+                     }
+                     create_ip_server(endpoint);
+                  }
+
+                  if (unspecified_ipv4_addr.has_value() && has_unspecified_ipv6_only) {
+                     create_ip_server(*unspecified_ipv4_addr);
+                  }
+
+                  EOS_ASSERT (listened > 0, chain::plugin_config_exception, "none of the resolved address can be listened" );
+               }
+            } catch (const fc::exception& e) {
+               fc_elog(logger(), "http service failed to start for ${addr}: ${e}",
+                       ("addr", address)("e", e.to_detail_string()));
+               throw;
+            } catch (const std::exception& e) {
+               fc_elog(logger(), "http service failed to start for ${addr}: ${e}", ("addr", address)("e", e.what()));
+               throw;
+            } catch (...) {
+               fc_elog(logger(), "error thrown from http io service");
+               throw;
             }
          }
    };
@@ -164,6 +262,36 @@ namespace eosio {
          cfg.add_options()
             ("http-server-address", bpo::value<string>(),
              "The local IP and port to listen for incoming http connections; leave blank to disable.");
+
+      if (current_http_plugin_defaults.support_categories) {
+         cfg.add_options()
+            ("http-category-address", bpo::value<std::vector<string>>(), 
+             "The local IP and port to listen for incoming http category connections."
+             "  Syntax: category,address\n"
+             "    Where the address can be <hostname>:port, <ipaddress>:port or unix socket path;\n"
+             "    in addition, unix socket path must starts with '/', './' or '../'. When relative path\n"
+             "    is used, it is relative to the data path.\n\n"
+             "    Valid categories include chain_ro, chain_rw, db_size, net_ro, net_rw, producer_ro\n"
+             "    producer_rw, snapshot, trace_api, prometheus and test_control.\n\n"
+             "    A single `hostname:port` specification can be used by multiple categories\n" 
+             "    However, two specifications having the same port with different hostname strings\n" 
+             "    are always considered as configuration error regardless whether they can be resolved\n"
+             "    into the same set of IP addresses.\n\n"
+             "  Examples:\n"
+             "    chain_ro,127.0.0.1:8080\n"
+             "    chain_ro,127.0.0.1:8081\n"
+             "    chain_rw,localhost:8081 # ERROR!, same port with different addresses\n"
+             "    chain_rw,[::1]:8082\n"
+             "    net_ro, localhost:8083\n"
+             "    net_rw, server.domain.net:8084\n"
+             "    producer_ro,/tmp/absolute_unix_path.sock\n"
+             "    producer_rw,./relative_unix_path.sock\n"
+             "    trace_api,:8086 # listen on all network interfaces\n\n"
+             "  Notice that the behavor for `[::1]` is platform dependent. For system with IPv4 mapped IPv6 networking\n"
+             "  is enabled, using `[::1]` will listen on both IPv4 and IPv6; other systems like FreeBSD, it will only\n"
+             "  listen on IPv6. On the other hand, the specfications without hostnames like `:8086` will always listen on\n"
+             "  both IPv4 and IPv6 on all platforms.");
+      }
 
       cfg.add_options()
             ("access-control-allow-origin", bpo::value<string>()->notifier([this](const string& v) {
@@ -206,7 +334,7 @@ namespace eosio {
             ("http-validate-host", boost::program_options::value<bool>()->default_value(true),
              "If set to false, then any incoming \"Host\" header is considered valid")
             ("http-alias", bpo::value<std::vector<string>>()->composing(),
-             "Additionaly acceptable values for the \"Host\" header of incoming HTTP requests, can be specified multiple times.  Includes http/s_server_address by default.")
+             "Additionally acceptable values for the \"Host\" header of incoming HTTP requests, can be specified multiple times.  Includes http/s_server_address by default.")
             ("http-threads", bpo::value<uint16_t>()->default_value( my->plugin_state->thread_pool_size ),
              "Number of worker threads in http thread pool")
             ("http-keep-alive", bpo::value<bool>()->default_value(true),
@@ -243,36 +371,50 @@ namespace eosio {
          my->plugin_state->validate_host = options.at("http-validate-host").as<bool>();
          if( options.count( "http-alias" )) {
             const auto& aliases = options["http-alias"].as<vector<string>>();
-            my->plugin_state->valid_hosts.insert(aliases.begin(), aliases.end());
+            for (const auto& alias : aliases ) {
+               auto [host, port] = split_host_port(alias);
+               my->plugin_state->valid_hosts.insert(host);
+            }
          }
+
+         my->plugin_state->valid_hosts.insert("localhost");
 
          my->plugin_state->keep_alive = options.at("http-keep-alive").as<bool>();
 
-         tcp::resolver resolver( app().get_io_service());
-         if( options.count( "http-server-address" ) && options.at( "http-server-address" ).as<string>().length()) {
-            string lipstr = options.at( "http-server-address" ).as<string>();
-            string host = lipstr.substr( 0, lipstr.find( ':' ));
-            string port = lipstr.substr( host.size() + 1, lipstr.size());
-            try {
-               my->listen_endpoint = *resolver.resolve( tcp::v4(), host, port );
-               fc_ilog(logger(),  "configured http to listen on ${h}:${p}", ("h", host)( "p", port ));
-            } catch ( const boost::system::system_error& ec ) {
-               fc_elog(logger(),  "failed to configure http to listen on ${h}:${p} (${m})",
-                     ("h", host)( "p", port )( "m", ec.what()));
-            }
+         if (options.count("http-server-address"))
+            my->http_server_address = options.at("http-server-address").as<string>();
 
-            // add in resolved hosts and ports as well
-            if (my->listen_endpoint) {
-               my->add_aliases_for_endpoint(*my->listen_endpoint, host, port);
-            }
+         if (options.count("unix-socket-path") && !options.at("unix-socket-path").as<string>().empty()) {
+            my->unix_sock_path = options.at("unix-socket-path").as<string>();
+            if (my->unix_sock_path.size() && my->unix_sock_path[0] != '/')
+               my->unix_sock_path = "./" + my->unix_sock_path;
          }
 
-         if( options.count( "unix-socket-path" ) && !options.at( "unix-socket-path" ).as<string>().empty()) {
-            std::filesystem::path sock_path = options.at("unix-socket-path").as<string>();
-            if (sock_path.is_relative())
-               sock_path = app().data_dir() / sock_path;
-            
-            my->unix_sock_path = sock_path;
+         if (options.count("http-category-address") != 0) {
+            EOS_ASSERT(my->http_server_address == "http-category-address" && options.count("unix-socket-path") == 0,
+                chain::plugin_config_exception,
+                "when http-category-address is specified, http-server-address must be set as "
+                "`http-category-address` and `unix-socket-path` must be left unspecified");
+
+            std::map<std::string, std::string> hostnames;
+            auto addresses = options["http-category-address"].as<vector<string>>();
+            for (const auto& spec : addresses) {
+               auto comma_pos = spec.find(',');
+               EOS_ASSERT(comma_pos > 0 && comma_pos != std::string_view::npos, chain::plugin_config_exception,
+               "http-category-address '${spec}' does not contain a required comma to separate the category and address", ("spec", spec));
+               auto category_name = spec.substr(0, comma_pos);
+               auto category = to_category(category_name);
+               auto address = spec.substr(comma_pos+1);
+               EOS_ASSERT(category != api_category::unknown, chain::plugin_config_exception, 
+                  "invalid category name `${name}` for http_category_address", ("name", std::string(category_name)));
+               auto [host, port] = split_host_port(address);
+               if (port.size()) {
+                  auto [itr, inserted] = hostnames.try_emplace(port, host);
+                  EOS_ASSERT(inserted || host == itr->second, chain::plugin_config_exception, "unable to listen to port ${port} for both ${host} and ${prev}",
+                  ("port", std::string(port))("host", std::string(host))("prev", std::string(itr->second)));
+               }
+               my->categories_by_address[address].insert(category);
+            }
          }
 
          my->plugin_state->server_header = current_http_plugin_defaults.server_header;
@@ -291,64 +433,23 @@ namespace eosio {
                app().quit();
             } );
 
-            if(my->listen_endpoint) {
-               try {
-                  my->create_beast_server(false);
+            if (my->http_server_address != "http-category-address") {
+               if (my->http_server_address.size()) {
+                  my->create_beast_server(my->http_server_address, api_category_set::all());
+               }
 
-                  fc_ilog( logger(), "start listening for http requests (boost::beast)" );
-
-                  my->beast_server->listen(*my->listen_endpoint);
-                  my->beast_server->start_accept();
-               } catch ( const fc::exception& e ){
-                  fc_elog( logger(), "http service failed to start: ${e}", ("e", e.to_detail_string()) );
-                  throw;
-               } catch ( const std::exception& e ){
-                  fc_elog( logger(), "http service failed to start: ${e}", ("e", e.what()) );
-                  throw;
-               } catch (...) {
-                  fc_elog( logger(), "error thrown from http io service" );
-                  throw;
+               if (my->unix_sock_path.size()) {
+                  my->create_beast_server(my->unix_sock_path, api_category_set::all());
+               }
+            } else {
+               for (const auto& [address, categories]: my->categories_by_address) {
+                  my->create_beast_server(address, categories);
                }
             }
 
-            if(!my->unix_sock_path.empty()) {
-               try {
-                  my->create_beast_server(true);
-
-                  // The maximum length of the socket path is defined by sockaddr_un::sun_path. On Linux,
-                  // according to unix(7), it is 108 bytes. On FreeBSD, according to unix(4), it is 104 bytes.
-                  // Therefore, we create the unix socket with the relative path to its parent path to avoid the problem.
-
-                  auto cwd = std::filesystem::current_path();
-                  std::filesystem::current_path(my->unix_sock_path.parent_path());
-                  asio::local::stream_protocol::endpoint endpoint(my->unix_sock_path.filename().string());
-                  my->beast_unix_server->listen(endpoint);
-                  std::filesystem::current_path(cwd);
-
-                  my->beast_unix_server->start_accept();
-               } catch ( const fc::exception& e ){
-                  fc_elog( logger(), "unix socket service (${path}) failed to start: ${e}", ("e", e.to_detail_string())("path",my->unix_sock_path) );
-                  throw;
-               } catch ( const std::exception& e ){
-                  fc_elog( logger(), "unix socket service (${path}) failed to start: ${e}", ("e", e.what())("path",my->unix_sock_path) );
-                  throw;
-               } catch (...) {
-                  fc_elog( logger(), "error thrown from unix socket (${path}) io service", ("path",my->unix_sock_path) );
-                  throw;
-               }
+            if (plugin_promise) {
+               plugin_promise->set_value(this);
             }
-
-            add_api({{
-               std::string("/v1/node/get_supported_apis"),
-               [&](string&&, string&& body, url_response_callback&& cb) {
-                  try {
-                     auto result = (*this).get_supported_apis();
-                     cb(200, fc::time_point::maximum(), fc::variant(result));
-                  } catch (...) {
-                     handle_exception("node", "get_supported_apis", body.empty() ? "{}" : body, cb);
-                  }
-               }
-            }}, appbase::exec_queue::read_only);
 
          } catch (...) {
             fc_elog(logger(), "http_plugin startup fails, shutting down");
@@ -362,15 +463,7 @@ namespace eosio {
    }
 
    void http_plugin::plugin_shutdown() {
-      if(my->beast_server)
-         my->beast_server->stop_listening();
-      if(my->beast_unix_server)
-         my->beast_unix_server->stop_listening();
-
       my->plugin_state->thread_pool.stop();
-
-      my->beast_server.reset();
-      my->beast_unix_server.reset();
 
       // release http_plugin_impl_ptr shared_ptrs captured in url handlers
       my->plugin_state->url_handlers.clear();
@@ -378,16 +471,18 @@ namespace eosio {
       fc_ilog( logger(), "exit shutdown");
    }
 
-   void http_plugin::add_handler(const string& url, const url_handler& handler, appbase::exec_queue q, int priority, http_content_type content_type) {
-      fc_ilog( logger(), "add api url: ${c}", ("c", url) );
-      auto p = my->plugin_state->url_handlers.emplace(url, my->make_app_thread_url_handler(url, q, priority, handler, my, content_type));
-      EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", url) );
+   void http_plugin::add_handler(api_entry&& entry, appbase::exec_queue q, int priority, http_content_type content_type) {
+      std::string path = entry.path;
+      fc_ilog( logger(), "add api url: ${c}", ("c", path) );
+      auto p = my->plugin_state->url_handlers.emplace(entry.path, my->make_app_thread_url_handler(std::move(entry), q, priority, my, content_type));
+      EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", path) );
    }
 
-   void http_plugin::add_async_handler(const string& url, const url_handler& handler, http_content_type content_type) {
-      fc_ilog( logger(), "add api url: ${c}", ("c", url) );
-      auto p = my->plugin_state->url_handlers.emplace(url, my->make_http_thread_url_handler(url, handler, content_type));
-      EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", url) );
+   void http_plugin::add_async_handler(api_entry&& entry, http_content_type content_type) {
+      std::string path = entry.path;
+      fc_ilog( logger(), "add api url: ${c}", ("c", path) );
+      auto p = my->plugin_state->url_handlers.emplace(entry.path, my->make_http_thread_url_handler(std::move(entry), content_type));
+      EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", path) );
    }
 
    void http_plugin::post_http_thread_pool(std::function<void()> f) {
@@ -451,27 +546,13 @@ namespace eosio {
       }
    }
 
-   bool http_plugin::is_on_loopback() const {
-      return (!my->listen_endpoint || my->listen_endpoint->address().is_loopback());
-   }
-
-   bool http_plugin::is_secure() const {
-      return (!my->listen_endpoint || my->listen_endpoint->address().is_loopback());
+   bool http_plugin::is_on_loopback(api_category category) const {
+      // return (!my->listen_endpoint || my->listen_endpoint->address().is_loopback());
+      return false;
    }
 
    bool http_plugin::verbose_errors() {
       return verbose_http_errors;
-   }
-
-   http_plugin::get_supported_apis_result http_plugin::get_supported_apis()const {
-      get_supported_apis_result result;
-
-      for (const auto& handler : my->plugin_state->url_handlers) {
-         if (handler.first != "/v1/node/get_supported_apis")
-            result.apis.emplace_back(handler.first);
-      }
-
-      return result;
    }
 
    fc::microseconds http_plugin::get_max_response_time()const {
@@ -484,6 +565,10 @@ namespace eosio {
 
    void  http_plugin::register_update_metrics(std::function<void(metrics)>&& fun) {
       my->plugin_state->update_metrics = std::move(fun);
+   }
+
+   void http_plugin::set_plugin_promise(std::promise<http_plugin*>* promise) {
+      plugin_promise = promise;
    }
 
 }
