@@ -63,10 +63,10 @@ namespace eosio::testing {
               ("s", _sent.load())("a", _acknowledged.load())("w", waited));
          sleep(1);
          ++waited;
-         if (waited == max) {
-            elog("http_connection::disconnect failed to receive all acks in time - sent ${s} | acked ${a} | waited ${w}",
-                 ("s", _sent.load())("a", _acknowledged.load())("w", waited));
-         }
+      }
+      if (waited == max) {
+         elog("http_connection::disconnect failed to receive all acks in time - sent ${s} | acked ${a} | waited ${w}",
+               ("s", _sent.load())("a", _acknowledged.load())("w", waited));
       }
    }
 
