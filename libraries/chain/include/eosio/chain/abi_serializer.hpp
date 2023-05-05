@@ -122,19 +122,15 @@ struct abi_serializer {
    // create standard yield function that checks for max_serialization_time and max_recursion_depth.
    // now() deadline captured at time of this call
    static yield_function_t create_yield_function(const fc::microseconds& max_serialization_time) {
-      fc::time_point deadline = fc::time_point::now();
-      if( max_serialization_time > fc::microseconds::maximum() - deadline.time_since_epoch() ) {
-         deadline = fc::time_point::maximum();
-      } else {
-         deadline += max_serialization_time;
-      }
-      return [max_serialization_time, last_call=deadline](size_t recursion_depth) mutable {
+      return [max_serialization_time, last_call=fc::time_point::now()](size_t recursion_depth) mutable {
          EOS_ASSERT( recursion_depth < max_recursion_depth, abi_recursion_depth_exception,
                      "recursive definition, max_recursion_depth ${r} ", ("r", max_recursion_depth) );
 
-         EOS_ASSERT( (fc::time_point::now() - last_call) < max_serialization_time, abi_serialization_deadline_exception,
-                     "serialization time limit ${t}us exceeded", ("t", max_serialization_time) );
+         auto prev_call = last_call;
          last_call = fc::time_point::now();
+         // recursion_depth 0 is flag used to indicate a reset of deadline
+         EOS_ASSERT( recursion_depth == 0 || (last_call - prev_call) < max_serialization_time, abi_serialization_deadline_exception,
+                     "serialization time limit ${t}us exceeded", ("t", max_serialization_time) );
       };
    }
 
@@ -183,12 +179,13 @@ namespace impl {
 
       void check_deadline()const { yield( recursion_depth ); }
       abi_serializer::yield_function_t get_yield_function() { return yield; }
+      void reset_deadline() { yield(0); }
 
       fc::scoped_exit<std::function<void()>> enter_scope();
 
    protected:
       abi_serializer::yield_function_t  yield;
-      size_t                            recursion_depth = 0;
+      size_t                            recursion_depth = 1;
       bool                              log = false;
    };
 
@@ -509,6 +506,7 @@ namespace impl {
             set_hex_data(mvo, "data", act.data);
          }
          set_hex_data(mvo, "hex_data", act.data);
+         ctx.reset_deadline();
          out(name, std::move(mvo));
       }
 
@@ -525,6 +523,7 @@ namespace impl {
       static void add( mutable_variant_object& out, const char* name, const action_trace& act_trace, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<action_trace>::total_member_count == 17);
+         ctx.reset_deadline();
          auto h = ctx.enter_scope();
          mutable_variant_object mvo;
 
@@ -542,9 +541,11 @@ namespace impl {
          mvo("block_time", act_trace.block_time);
          mvo("producer_block_id", act_trace.producer_block_id);
          mvo("account_ram_deltas", act_trace.account_ram_deltas);
+         ctx.reset_deadline();
          mvo("except", act_trace.except);
          mvo("error_code", act_trace.error_code);
 
+         ctx.reset_deadline();
          mvo("return_value_hex_data", act_trace.return_value);
          auto act = act_trace.act;
          try {
@@ -553,6 +554,7 @@ namespace impl {
                const abi_serializer& abi = *abi_optional;
                auto type = abi.get_action_result_type(act.name);
                if (!type.empty()) {
+                  ctx.reset_deadline();
                   binary_to_variant_context _ctx(abi, ctx, type);
                   _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
                   mvo( "return_value_data", abi._binary_to_variant( type, act_trace.return_value, _ctx ));
@@ -575,16 +577,23 @@ namespace impl {
       static void add( mutable_variant_object &out, const char* name, const packed_transaction& ptrx, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<packed_transaction>::total_member_count == 4);
+         ctx.reset_deadline();
          auto h = ctx.enter_scope();
          mutable_variant_object mvo;
          auto trx = ptrx.get_transaction();
          mvo("id", trx.id());
+         ctx.reset_deadline();
          mvo("signatures", ptrx.get_signatures());
+         ctx.reset_deadline();
          mvo("compression", ptrx.get_compression());
+         ctx.reset_deadline();
          mvo("packed_context_free_data", ptrx.get_packed_context_free_data());
+         ctx.reset_deadline();
          mvo("context_free_data", ptrx.get_context_free_data());
+         ctx.reset_deadline();
          if( !ctx.is_logging() )
             mvo("packed_trx", ptrx.get_packed_transaction());
+         ctx.reset_deadline();
          add(mvo, "transaction", trx, resolver, ctx);
 
          out(name, std::move(mvo));
@@ -599,6 +608,7 @@ namespace impl {
       static void add( mutable_variant_object &out, const char* name, const transaction& trx, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<transaction>::total_member_count == 9);
+         ctx.reset_deadline();
          auto h = ctx.enter_scope();
          mutable_variant_object mvo;
          mvo("expiration", trx.expiration);
@@ -607,7 +617,9 @@ namespace impl {
          mvo("max_net_usage_words", trx.max_net_usage_words);
          mvo("max_cpu_usage_ms", trx.max_cpu_usage_ms);
          mvo("delay_sec", trx.delay_sec);
+         ctx.reset_deadline();
          add(mvo, "context_free_actions", trx.context_free_actions, resolver, ctx);
+         ctx.reset_deadline();
          add(mvo, "actions", trx.actions, resolver, ctx);
 
          // process contents of block.transaction_extensions
@@ -630,6 +642,7 @@ namespace impl {
       static void add( mutable_variant_object &out, const char* name, const signed_block& block, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<signed_block>::total_member_count == 12);
+         ctx.reset_deadline();
          auto h = ctx.enter_scope();
          mutable_variant_object mvo;
          mvo("timestamp", block.timestamp);
@@ -661,7 +674,9 @@ namespace impl {
             mvo("new_producer_schedule", new_producer_schedule);
          }
 
+         ctx.reset_deadline();
          mvo("producer_signature", block.producer_signature);
+         ctx.reset_deadline();
          add(mvo, "transactions", block.transactions, resolver, ctx);
 
          // process contents of block.block_extensions
@@ -672,6 +687,7 @@ namespace impl {
             mvo("additional_signatures", additional_signatures);
          }
 
+         ctx.reset_deadline();
          out(name, std::move(mvo));
       }
    };
@@ -977,7 +993,7 @@ using abi_serializer_cache_t = std::unordered_map<account_name, std::optional<ab
    
 class abi_resolver {
 public:
-   abi_resolver(abi_serializer_cache_t&& abi_serializers) :
+   explicit abi_resolver(abi_serializer_cache_t&& abi_serializers) :
       abi_serializers(std::move(abi_serializers))
    {}
 
@@ -994,7 +1010,7 @@ private:
 
 class abi_serializer_cache_builder {
 public:
-   abi_serializer_cache_builder(std::function<std::optional<abi_serializer>(const account_name& name)> resolver) :
+   explicit abi_serializer_cache_builder(std::function<std::optional<abi_serializer>(const account_name& name)> resolver) :
       resolver_(std::move(resolver))
    {
    }
