@@ -664,7 +664,7 @@ namespace impl {
             for (auto feature : new_protocol_features) {
                mutable_variant_object feature_mvo;
                add(feature_mvo, "feature_digest", feature, resolver, ctx);
-               pf_array.push_back(feature_mvo);
+               pf_array.push_back(std::move(feature_mvo));
             }
             mvo("new_protocol_features", pf_array);
          }

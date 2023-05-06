@@ -2111,7 +2111,7 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
                   fc::mutable_variant_object output_mvo(output);
                   output_mvo["action_traces"] = convert_act_trace_to_tree_struct(0);
 
-                  output = output_mvo;
+                  output = std::move(output_mvo);
                } catch( chain::abi_exception& ) {
                   output = *trx_trace_ptr;
                }

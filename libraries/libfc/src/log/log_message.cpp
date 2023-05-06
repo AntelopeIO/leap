@@ -57,7 +57,7 @@ namespace fc
    log_context::log_context( const variant& v )
    :my( std::make_shared<detail::log_context_impl>() )
    {
-       auto obj = v.get_object();
+       const auto& obj = v.get_object();
        my->level        = obj["level"].as<log_level>();
        my->file         = obj["file"].as_string();
        my->line         = obj["line"].as_uint64();

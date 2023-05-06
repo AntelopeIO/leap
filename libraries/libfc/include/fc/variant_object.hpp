@@ -212,7 +212,7 @@ namespace fc
       explicit mutable_variant_object( T&& v )
       :_key_value( new std::vector<entry>() )
       {
-          *this = variant(fc::forward<T>(v)).get_object();
+          *this = std::move(variant(fc::forward<T>(v)).get_object());
       }
 
       mutable_variant_object();
