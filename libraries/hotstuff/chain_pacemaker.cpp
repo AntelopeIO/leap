@@ -116,10 +116,7 @@ namespace eosio { namespace hotstuff {
       return n;
    }
 
-   name chain_pacemaker::get_leader(){
-      const block_state_ptr& hbs = _chain->head_block_state();
-      name n = hbs->header.producer;
-
+   name chain_pacemaker::debug_leader_remap(name n) {
 /*
       // FIXME/REMOVE: simple device to test proposer/leader
       //   separation using the net code.
@@ -181,6 +178,15 @@ namespace eosio { namespace hotstuff {
          n = "bpt"_n;
       }
 */
+      return n;
+   }
+
+   name chain_pacemaker::get_leader(){
+      const block_state_ptr& hbs = _chain->head_block_state();
+      name n = hbs->header.producer;
+
+      // FIXME/REMOVE: testing leader/proposer separation
+      n = debug_leader_remap(n);
 
       return n;
    }
@@ -189,7 +195,12 @@ namespace eosio { namespace hotstuff {
       const block_state_ptr& hbs = _chain->head_block_state();
       block_timestamp_type next_block_time = hbs->header.timestamp.next();
       producer_authority p_auth = hbs->get_scheduled_producer(next_block_time);
-      return p_auth.producer_name;
+      name n = p_auth.producer_name;
+
+      // FIXME/REMOVE: testing leader/proposer separation
+      n = debug_leader_remap(n);
+
+      return n;
    }
 
    std::vector<name> chain_pacemaker::get_finalizers(){

@@ -42,6 +42,10 @@ namespace eosio { namespace hotstuff {
 
    private:
 
+      //FIXME/REMOVE: for testing/debugging only
+      name debug_leader_remap(name n);
+
+
       // This serializes all messages (high-level requests) to the qc_chain core.
       // For maximum safety, the qc_chain core will only process one request at a time.
       // These requests can come directly from the net threads, or indirectly from a

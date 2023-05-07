@@ -846,8 +846,6 @@ BOOST_AUTO_TEST_CASE(hotstuff_6) try {
 
    tpm.beat(); //produce first block
 
-   ilog("getting first ");
-
    tpm.dispatch(""); //get the first block from the proposer to the leader
 
    tpm.dispatch(""); //send proposal to replicas (prepare on first block)
