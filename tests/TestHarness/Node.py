@@ -365,7 +365,8 @@ class Node(Transactions):
                     cmdArr[i+1] = v
                 except ValueError:
                     cmdArr.append(k)
-                    cmdArr.append(v)
+                    if v:
+                        cmdArr.append(v)
 
         if chainArg:
             cmdArr.extend(shlex.split(chainArg))
