@@ -193,7 +193,7 @@ namespace eosio {
                      const auto& ip_addr = endpoint.address();
                      try {
                         auto server = std::make_shared<beast_http_listener<tcp_socket_t>>(
-                              plugin_state, categories, endpoint);
+                              plugin_state, categories, endpoint, host);
                         server->do_accept();
                         ++listened;
                         fc_ilog(logger(), "start listening on ${ip_addr}:${port} for http requests (boost::beast)",
@@ -225,7 +225,6 @@ namespace eosio {
                   }
 
                   EOS_ASSERT (listened > 0, chain::plugin_config_exception, "none of the resolved address can be listened" );
-                  plugin_state->valid_hosts.insert(host);
                }
             } catch (const fc::exception& e) {
                fc_elog(logger(), "http service failed to start for ${addr}: ${e}",

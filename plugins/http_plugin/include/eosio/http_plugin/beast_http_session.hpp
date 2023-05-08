@@ -41,12 +41,11 @@ void fail(beast::error_code ec, char const* what, fc::logger& logger, char const
 }
 
 
-bool allow_host(const http::request<http::string_body>& req, tcp_socket_t& socket,
+bool allow_host(const std::string& host_str, tcp_socket_t& socket,
                 const std::shared_ptr<http_plugin_state>& plugin_state) {
 
    auto& lowest_layer = beast::get_lowest_layer(socket);
    auto local_endpoint = lowest_layer.local_endpoint();
-   const std::string host_str(req["host"]);
    if(host_str.empty() || !host_is_valid(*plugin_state,
                                          host_str,
                                          local_endpoint.address())) {
@@ -99,6 +98,7 @@ class beast_http_session : public detail::abstract_conn,
 
    std::shared_ptr<http_plugin_state> plugin_state_;
    std::string remote_endpoint_;
+   std::string local_host_;
 
    // whether response should be sent back to client when an exception occurs
    bool is_send_exception_response_ = true;
@@ -261,9 +261,9 @@ public:
    beast_http_session() = default;
 
    beast_http_session(Socket&& socket, std::shared_ptr<http_plugin_state> plugin_state, std::string remote_endpoint,
-                      api_category_set categories)
+                      api_category_set categories, const std::string& local_host)
        : socket_(std::move(socket)), categories_(categories), plugin_state_(std::move(plugin_state)),
-         remote_endpoint_(std::move(remote_endpoint)) {
+         remote_endpoint_(std::move(remote_endpoint)), local_host_(local_host) {
       plugin_state_->requests_in_flight += 1;
       req_parser_.emplace();
       req_parser_->body_limit(plugin_state_->max_body_size);
@@ -520,8 +520,11 @@ public:
 
 
    bool allow_host(const http::request<http::string_body>& req) {
-      if constexpr(std::is_same_v<Socket,tcp_socket_t>)
-         return eosio::allow_host(req, socket_, plugin_state_);
+      if constexpr(std::is_same_v<Socket,tcp_socket_t>) {
+         const std::string host_str(req["host"]);
+         if (host_str != local_host_)
+            return eosio::allow_host(host_str, socket_, plugin_state_);
+      }
       return true;
    }
 

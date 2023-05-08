@@ -24,6 +24,7 @@ private:
    using protocol_type = typename socket_type::protocol_type;
    typename protocol_type::acceptor acceptor_;
    socket_type socket_;
+   std::string local_host_;
 
    boost::asio::deadline_timer accept_error_timer_;
    api_category_set categories_ = {};
@@ -36,9 +37,10 @@ public:
    beast_http_listener& operator=(beast_http_listener&&) = delete;
 
    beast_http_listener(std::shared_ptr<http_plugin_state> plugin_state, api_category_set categories,
-                       typename protocol_type::endpoint endpoint)
+                       typename protocol_type::endpoint endpoint,
+                       const std::string& host="")
        : plugin_state_(std::move(plugin_state)), acceptor_(plugin_state_->thread_pool.get_executor(), endpoint),
-         socket_(plugin_state_->thread_pool.get_executor()),
+         socket_(plugin_state_->thread_pool.get_executor()), local_host_(host),
          accept_error_timer_(plugin_state_->thread_pool.get_executor()), categories_(categories) {
    }
 
@@ -65,7 +67,8 @@ public:
                   std::move(self->socket_),
                   self->plugin_state_,
                   std::move(remote_endpoint),
-                  self->categories_)
+                  self->categories_, 
+                  self->local_host_)
                   ->run_session();
             }
             
