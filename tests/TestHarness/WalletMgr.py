@@ -13,7 +13,7 @@ from .testUtils import Utils
 Wallet=namedtuple("Wallet", "name password host port")
 # pylint: disable=too-many-instance-attributes
 class WalletMgr(object):
-    __walletDataDir=f"{Utils.TestLogRoot}/test_wallet_0"
+    __walletDataDir=f"{Utils.DataPath}/test_wallet_0"
     __walletLogOutFile=f"{__walletDataDir}/test_keosd_out.log"
     __walletLogErrFile=f"{__walletDataDir}/test_keosd_err.log"
     __MaxPort=9999
