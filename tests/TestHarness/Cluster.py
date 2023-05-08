@@ -167,7 +167,7 @@ class Cluster(object):
     # pylint: disable=too-many-return-statements
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
-    def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=21, topo="mesh", delay=1, onlyBios=False, dontBootstrap=False,
+    def launch(self, pnodes=1, unstartedNodes=0, totalNodes=1, prodCount=21, topo="mesh", delay=2, onlyBios=False, dontBootstrap=False,
                totalProducers=None, sharedProducers=0, extraNodeosArgs="", specificExtraNodeosArgs=None, specificNodeosInstances=None, onlySetProds=False,
                pfSetupPolicy=PFSetupPolicy.FULL, alternateVersionLabelsFile=None, associatedNodeLabels=None, loadSystemContract=True, nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}'), genesisPath=None,
                maximumP2pPerHost=0, maximumClients=25, prodsEnableTraceApi=True):
@@ -961,7 +961,7 @@ class Cluster(object):
         pattern=r"\s*--producer-name\s*\W*(\w+)"
         producerMatches=re.findall(pattern, configStr)
         if producerMatches is None:
-            if Utils.Debug: Utils.Print("Failed to find producers.")
+            if Utils.Debug: Utils.Print(f'No producers found in node_{nodeNum}.')
             return None
         if Utils.Debug: Utils.Print(f'Found producers {producerMatches}')
         return producerMatches
@@ -1083,23 +1083,18 @@ class Cluster(object):
                         return None
             else:
                 counts=dict.fromkeys(range(totalNodes), 0) #initialize node prods count to 0
-                setProdsStr='{"schedule": ['
-                firstTime=True
+                setProdsStr='{"schedule": '
+                prodStanzas=[]
                 prodNames=[]
-                for name, keys in producerKeys.items():
+                for name, keys in list(producerKeys.items())[:21]:
                     if counts[keys["node"]] >= prodCount:
                         Utils.Print(f'Count for this node exceeded: {counts[keys["node"]]}')
                         continue
-                    if firstTime:
-                        firstTime = False
-                    else:
-                        setProdsStr += ','
-
-                    setProdsStr += ' { "producer_name": "%s", "block_signing_key": "%s" }' % (keys["name"], keys["public"])
+                    prodStanzas.append({ 'producer_name': keys['name'], 'block_signing_key': keys['public'] })
                     prodNames.append(keys["name"])
                     counts[keys["node"]] += 1
-
-                setProdsStr += ' ] }'
+                setProdsStr += json.dumps(prodStanzas)
+                setProdsStr += ' }'
                 if Utils.Debug: Utils.Print("setprods: %s" % (setProdsStr))
                 Utils.Print("Setting producers: %s." % (", ".join(prodNames)))
                 opts="--permission eosio@active"
