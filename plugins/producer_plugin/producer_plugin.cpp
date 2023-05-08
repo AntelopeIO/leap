@@ -705,7 +705,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             const auto& id = trx->id();
 
             fc::time_point bt = chain.is_building_block() ? chain.pending_block_time() : chain.head_block_time();
-            const fc::time_point expire = trx->packed_trx()->expiration();
+            const fc::time_point expire = trx->packed_trx()->expiration().to_time_point();
             if( expire < bt ) {
                auto except_ptr = std::static_pointer_cast<fc::exception>(
                      std::make_shared<expired_tx_exception>(
@@ -1045,7 +1045,8 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          }
       }
    }
-   EOS_ASSERT( test_mode_ || my->_ro_thread_pool_size == 0 || my->_producers.empty(), plugin_config_exception, "--read-only-threads not allowed on producer node" );
+   EOS_ASSERT( test_mode_ || my->_ro_thread_pool_size == 0 || my->_producers.empty(), plugin_config_exception, "read-only-threads not allowed on producer node" );
+
    // only initialize other read-only options when read-only thread pool is enabled
    if ( my->_ro_thread_pool_size > 0 ) {
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
@@ -1075,30 +1076,34 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          num_threads_supported -= 2;
          auto actual_threads_allowed = std::min(my->_ro_max_threads_allowed, num_threads_supported);
          ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported) ("max", my->_ro_max_threads_allowed)("actual", actual_threads_allowed));
-         EOS_ASSERT( my->_ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})", ("th", my->_ro_thread_pool_size) ("allowed", actual_threads_allowed) );
+         EOS_ASSERT( my->_ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception, "read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})", ("th", my->_ro_thread_pool_size) ("allowed", actual_threads_allowed) );
       }
 #endif
-      EOS_ASSERT( my->_ro_thread_pool_size <= my->_ro_max_threads_allowed, plugin_config_exception, "--read-only-threads (${th}) greater than number of threads allowed (${allowed})", ("th", my->_ro_thread_pool_size) ("allowed", my->_ro_max_threads_allowed) );
+      EOS_ASSERT( my->_ro_thread_pool_size <= my->_ro_max_threads_allowed, plugin_config_exception, "read-only-threads (${th}) greater than the number of threads allowed (${allowed})", ("th", my->_ro_thread_pool_size) ("allowed", my->_ro_max_threads_allowed) );
+
+      my->_ro_write_window_time_us = fc::microseconds( options.at( "read-only-write-window-time-us" ).as<uint32_t>() );
+      my->_ro_read_window_time_us = fc::microseconds( options.at( "read-only-read-window-time-us" ).as<uint32_t>() );
+      EOS_ASSERT( my->_ro_read_window_time_us > my->_ro_read_window_minimum_time_us, plugin_config_exception, "read-only-read-window-time-us (${read}) must be at least greater than  ${min} us", ("read", my->_ro_read_window_time_us) ("min", my->_ro_read_window_minimum_time_us) );
+      my->_ro_read_window_effective_time_us = my->_ro_read_window_time_us - my->_ro_read_window_minimum_time_us;
+
+      // Make sure a read-only transaction can finish within the read
+      // window if scheduled at the very beginning of the window.
+      // Add _ro_read_window_minimum_time_us for safety margin.
+      if ( my->_max_transaction_time_ms.load() > 0 ) {
+         EOS_ASSERT( my->_ro_read_window_time_us > ( fc::milliseconds(my->_max_transaction_time_ms.load()) + my->_ro_read_window_minimum_time_us ), plugin_config_exception, "read-only-read-window-time-us (${read} us) must be greater than max-transaction-time (${trx_time} us) plus ${min} us, required: ${read} us > (${trx_time} us + ${min} us).", ("read", my->_ro_read_window_time_us) ("trx_time", my->_max_transaction_time_ms.load() * 1000) ("min", my->_ro_read_window_minimum_time_us) );
+      }
+      ilog("read-only-write-window-time-us: ${ww} us, read-only-read-window-time-us: ${rw} us, effective read window time to be used: ${w} us",
+           ("ww", my->_ro_write_window_time_us)("rw", my->_ro_read_window_time_us)("w", my->_ro_read_window_effective_time_us));
    }
 
-   my->_ro_write_window_time_us = fc::microseconds( options.at( "read-only-write-window-time-us" ).as<uint32_t>() );
-   my->_ro_read_window_time_us = fc::microseconds( options.at( "read-only-read-window-time-us" ).as<uint32_t>() );
-   EOS_ASSERT( my->_ro_read_window_time_us > my->_ro_read_window_minimum_time_us, plugin_config_exception, "minimum of --read-only-read-window-time-us (${read}) must be ${min} microseconds", ("read", my->_ro_read_window_time_us) ("min", my->_ro_read_window_minimum_time_us) );
-   my->_ro_read_window_effective_time_us = my->_ro_read_window_time_us - my->_ro_read_window_minimum_time_us;
-
-   // Make sure a read-only transaction can finish within the read
-   // window if scheduled at the very beginning of the window.
-   // Use _ro_read_window_effective_time_us instead of _ro_read_window_time_us
-   // for safety margin
+   // Make sure _ro_max_trx_time_us is alwasys set.
    if ( my->_max_transaction_time_ms.load() > 0 ) {
-      EOS_ASSERT( my->_ro_read_window_effective_time_us > fc::milliseconds(my->_max_transaction_time_ms.load()), plugin_config_exception, "--read-only-read-window-time-us (${read}) must be greater than --max-transaction-time ${trx_time} ms plus a margin of ${min} us", ("read", my->_ro_read_window_time_us) ("trx_time", my->_max_transaction_time_ms.load()) ("min", my->_ro_read_window_minimum_time_us) );
       my->_ro_max_trx_time_us = fc::milliseconds(my->_max_transaction_time_ms.load());
    } else {
-      // _max_transaction_time_ms can be set to negative in testing (for unlimited)
-      my->_ro_max_trx_time_us = my->_ro_read_window_effective_time_us;
+      // max-transaction-time can be set to negative for unlimited time
+     my->_ro_max_trx_time_us = fc::microseconds::maximum();
    }
-   ilog("ro_thread_pool_size ${s}, ro_write_window_time_us ${ww}, ro_read_window_time_us ${rw}, ro_max_trx_time_us ${t}, ro_read_window_effective_time_us ${w}",
-        ("s", my->_ro_thread_pool_size)("ww", my->_ro_write_window_time_us)("rw", my->_ro_read_window_time_us)("t", my->_ro_max_trx_time_us)("w", my->_ro_read_window_effective_time_us));
+   ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us}", ("s", my->_ro_thread_pool_size)("t", my->_ro_max_trx_time_us));
 
    my->_incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
          [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {

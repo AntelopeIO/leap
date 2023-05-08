@@ -31,11 +31,6 @@ namespace fc {
     return boost::posix_time::to_iso_extended_string( ptime );
   }
 
-  time_point_sec::operator std::string()const
-  {
-      return this->to_iso_string();
-  }
-
   time_point_sec time_point_sec::from_iso_string( const std::string& s )
   { try {
       static boost::posix_time::ptime epoch = boost::posix_time::from_time_t( 0 );
@@ -47,18 +42,18 @@ namespace fc {
       return fc::time_point_sec( (pt - epoch).total_seconds() );
   } FC_RETHROW_EXCEPTIONS( warn, "unable to convert ISO-formatted string to fc::time_point_sec" ) }
 
-   time_point::operator std::string()const
+   std::string time_point::to_iso_string()const
    {
       auto count = elapsed.count();
       if (count >= 0) {
          uint64_t secs = (uint64_t)count / 1000000ULL;
          uint64_t msec = ((uint64_t)count % 1000000ULL) / 1000ULL;
-         std::string padded_ms = to_string((uint64_t)(msec + 1000ULL)).substr(1);
+         std::string padded_ms = fc::to_string((uint64_t)(msec + 1000ULL)).substr(1);
          const auto ptime = boost::posix_time::from_time_t(time_t(secs));
          return boost::posix_time::to_iso_extended_string(ptime) + "." + padded_ms;
       } else {
          // negative time_points serialized as "durations" in the ISO form with boost
-         // this is not very human readable but fits the precedent set by the above
+         // this is not very human-readable but fits the precedent set by the above
          auto as_duration = boost::posix_time::microseconds(count);
          return boost::posix_time::to_iso_string(as_duration);
       }
@@ -68,23 +63,23 @@ namespace fc {
   { try {
       auto dot = s.find( '.' );
       if( dot == std::string::npos )
-         return time_point( time_point_sec::from_iso_string( s ) );
+         return time_point_sec::from_iso_string( s ).to_time_point();
       else {
          auto ms = s.substr( dot );
          ms[0] = '1';
          while( ms.size() < 4 ) ms.push_back('0');
-         return time_point( time_point_sec::from_iso_string( s ) ) + milliseconds( to_int64(ms) - 1000 );
+         return time_point_sec::from_iso_string( s ).to_time_point() + milliseconds( to_int64(ms) - 1000 );
       }
   } FC_RETHROW_EXCEPTIONS( warn, "unable to convert ISO-formatted string to fc::time_point" ) }
 
   void to_variant( const fc::time_point& t, variant& v ) {
-    v = std::string( t );
+    v = t.to_iso_string();
   }
   void from_variant( const fc::variant& v, fc::time_point& t ) {
     t = fc::time_point::from_iso_string( v.as_string() );
   }
   void to_variant( const fc::time_point_sec& t, variant& v ) {
-    v = std::string( t );
+    v = t.to_iso_string();
   }
   void from_variant( const fc::variant& v, fc::time_point_sec& t ) {
     t = fc::time_point_sec::from_iso_string( v.as_string() );

@@ -94,7 +94,7 @@ public:
       auto& persisted_by_expiry = queue.get<by_expiry>();
       while( !persisted_by_expiry.empty() ) {
          const auto& itr = persisted_by_expiry.begin();
-         if( itr->expiration() > pending_block_time ) {
+         if( itr->expiration().to_time_point() > pending_block_time ) {
             break;
          }
          if( yield() ) {

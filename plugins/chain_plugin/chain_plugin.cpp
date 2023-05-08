@@ -1116,7 +1116,7 @@ void chain_plugin::plugin_startup()
 
    if (my->genesis) {
       ilog("Blockchain started; head block is #${num}, genesis timestamp is ${ts}",
-           ("num", my->chain->head_block_num())("ts", (std::string)my->genesis->initial_timestamp));
+           ("num", my->chain->head_block_num())("ts", my->genesis->initial_timestamp));
    }
    else {
       ilog("Blockchain started; head block is #${num}", ("num", my->chain->head_block_num()));
@@ -1305,7 +1305,7 @@ read_only::get_transaction_status(const read_only::get_transaction_status_params
       trx_block_valid ? std::optional<uint32_t>(chain::block_header::num_from_id(trx_st->block_id)) : std::optional<uint32_t>{},
       trx_block_valid ? std::optional<chain::block_id_type>(trx_st->block_id) : std::optional<chain::block_id_type>{},
       trx_block_valid ? std::optional<fc::time_point>(trx_st->block_timestamp) : std::optional<fc::time_point>{},
-      trx_st ? std::optional<fc::time_point_sec>(trx_st->expiration) : std::optional<fc::time_point_sec>{},
+      trx_st ? std::optional<fc::time_point>(trx_st->expiration) : std::optional<fc::time_point>{},
       chain::block_header::num_from_id(ch_state.head_id),
       ch_state.head_id,
       ch_state.head_block_timestamp,
