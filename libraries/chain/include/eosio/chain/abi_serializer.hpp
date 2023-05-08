@@ -126,10 +126,10 @@ struct abi_serializer {
          EOS_ASSERT( recursion_depth < max_recursion_depth, abi_recursion_depth_exception,
                      "recursive definition, max_recursion_depth ${r} ", ("r", max_recursion_depth) );
 
-         auto prev_call = last_call;
-         last_call = fc::time_point::now();
+         auto now = fc::time_point::now();
          // recursion_depth 0 is flag used to indicate a reset of deadline
-         EOS_ASSERT( recursion_depth == 0 || (last_call - prev_call) < max_serialization_time, abi_serialization_deadline_exception,
+         if (recursion_depth == 0) last_call = now;
+         EOS_ASSERT( (now - last_call) < max_serialization_time, abi_serialization_deadline_exception,
                      "serialization time limit ${t}us exceeded", ("t", max_serialization_time) );
       };
    }
