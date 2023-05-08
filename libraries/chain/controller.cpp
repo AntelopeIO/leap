@@ -343,6 +343,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::aggregate_signatures>();
+      set_activation_handler<builtin_protocol_feature_t::instant_finality>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
          get_wasm_interface().current_lib(bsp->block_num);
@@ -3861,6 +3862,14 @@ void controller_impl::on_activation<builtin_protocol_feature_t::aggregate_signat
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_aggregate_verify" );
    } );
 }
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::instant_finality>() {
+   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
+      // FIXME/TODO: host functions to set proposers, leaders, finalizers/validators
+   } );
+}
+
 /// End of protocol feature activation handlers
 
 } } /// eosio::chain

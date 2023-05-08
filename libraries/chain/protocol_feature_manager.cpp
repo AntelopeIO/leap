@@ -270,6 +270,15 @@ Builtin protocol feature: AGGREGATE_SIGNATURES
 */
             {}
          } )
+         (  builtin_protocol_feature_t::instant_finality, builtin_protocol_feature_spec{
+            "INSTANT_FINALITY",
+            fc::variant("bc726a24928ea2d71ba294b70c5c9efc515c1542139bcf9e42f8bc174f2e72ff").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
+/*
+Builtin protocol feature: INSTANT_FINALITY
+*/
+            {}
+         } )
    ;
 
 

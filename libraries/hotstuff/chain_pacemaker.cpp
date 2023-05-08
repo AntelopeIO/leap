@@ -106,8 +106,15 @@ namespace eosio { namespace hotstuff {
    {
    }
 
+   // Called internally by the chain_pacemaker to decide whether it should do something or not, based on feature activation.
+   // Only methods called by the outside need to call this; methods called by qc_chain only don't need to check for enable().
+   bool chain_pacemaker::enabled() {
+      return _chain->is_builtin_activated( builtin_protocol_feature_t::instant_finality );
+   }
+
    void chain_pacemaker::get_state( finalizer_state & fs ) {
-      _qc_chain.get_state( fs ); // get_state() takes scare of finer-grained synchronization internally
+      if (enabled())
+         _qc_chain.get_state( fs ); // get_state() takes scare of finer-grained synchronization internally
    }
 
    name chain_pacemaker::get_proposer(){
@@ -224,6 +231,9 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::beat(){
+      if (! enabled())
+         return;
+
       csc prof("beat");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
@@ -252,6 +262,9 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::on_hs_proposal_msg(const hs_proposal_message & msg){
+      if (! enabled())
+         return;
+
       csc prof("prop");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
@@ -260,6 +273,9 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::on_hs_vote_msg(const hs_vote_message & msg){
+      if (! enabled())
+         return;
+
       csc prof("vote");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
@@ -268,6 +284,9 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::on_hs_new_block_msg(const hs_new_block_message & msg){
+      if (! enabled())
+         return;
+
       csc prof("nblk");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
@@ -276,6 +295,9 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::on_hs_new_view_msg(const hs_new_view_message & msg){
+      if (! enabled())
+         return;
+
       csc prof("view");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();

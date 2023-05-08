@@ -730,9 +730,9 @@ namespace eosio { namespace hotstuff {
    // Invoked when we could perhaps make a proposal to the network (or to ourselves, if we are the leader).
    void qc_chain::on_beat(){
 
-      // Non-proposing leaders do not care about beat(void), because leaders react to a block proposal
+      // Non-proposing leaders do not care about on_beat(), because leaders react to a block proposal
       //   which comes from processing an incoming new block message from a proposer instead.
-      // beat(void) is called by the pacemaker, which decides when it's time to check whether we are
+      // on_beat() is called by the pacemaker, which decides when it's time to check whether we are
       //   proposers that should check whether as proposers we should propose a new hotstuff block to
       //   the network (or to ourselves, which is faster and doesn't require the bandwidth of an additional
       //   gossip round for a new proposed block).

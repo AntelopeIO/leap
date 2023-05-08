@@ -45,6 +45,8 @@ namespace eosio { namespace hotstuff {
       //FIXME/REMOVE: for testing/debugging only
       name debug_leader_remap(name n);
 
+      // Check if consensus upgrade feature is activated
+      bool enabled();
 
       // This serializes all messages (high-level requests) to the qc_chain core.
       // For maximum safety, the qc_chain core will only process one request at a time.
