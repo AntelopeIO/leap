@@ -2108,7 +2108,7 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
                      return restructured_act_traces;
                   };
 
-                  fc::mutable_variant_object output_mvo(output);
+                  fc::mutable_variant_object output_mvo(std::move(output.get_object()));
                   output_mvo["action_traces"] = convert_act_trace_to_tree_struct(0);
 
                   output = std::move(output_mvo);
