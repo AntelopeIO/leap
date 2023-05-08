@@ -104,12 +104,7 @@ endif()
 set( Boost_USE_MULTITHREADED      ON )
 set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
 
-#set( BOOST_INCLUDE_LIBRARIES headers iostreams date_time system program_options chrono test interprocess multi_index lexical_cast asio thread serialization multiprecision beast unit_test_framework )
 add_subdirectory( libraries/boost )
-
-# Most boost deps get implictly picked up via fc, as just about everything links to fc. In addition we pick up
-# the pthread dependency through fc.
-#find_package(Boost 1.71 REQUIRED COMPONENTS program_options unit_test_framework system)
 
 if( APPLE AND UNIX )
 # Apple Specific Options Here
