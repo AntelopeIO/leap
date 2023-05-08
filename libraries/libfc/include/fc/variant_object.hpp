@@ -206,9 +206,15 @@ namespace fc
       ///@}
 
 
+      explicit mutable_variant_object( variant v )
+            :_key_value( new std::vector<entry>() )
+      {
+         *this = v.get_object();
+      }
+
       template<typename T,
-               typename = std::enable_if_t<!std::is_base_of<mutable_variant_object,
-                                                            std::decay_t<T>>::value>>
+               typename = std::enable_if_t<!std::is_base_of<mutable_variant_object, std::decay_t<T>>::value &&
+                                           !std::is_base_of<variant, std::decay_t<T>>::value>>
       explicit mutable_variant_object( T&& v )
       :_key_value( new std::vector<entry>() )
       {

@@ -152,7 +152,7 @@ namespace eosio::testing {
    void update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key,
                                                             const std::string& key_word) {
       if (action_mvo.find(action_inner_key) != action_mvo.end()) {
-         auto inner = action_mvo[action_inner_key].get_object();
+         const auto& inner = action_mvo[action_inner_key].get_object();
          if (inner.find(key) != inner.end()) {
             fc::mutable_variant_object inner_mvo = fc::mutable_variant_object(inner);
             inner_mvo.set(key, key_word);
@@ -235,7 +235,7 @@ namespace eosio::testing {
 
       const std::string gen_acct_name_per_trx("ACCT_PER_TRX");
 
-      auto action_array = unpacked_actions_data_json.get_array();
+      const auto& action_array = unpacked_actions_data_json.get_array();
       _unpacked_actions.reserve(action_array.size());
       std::transform(action_array.begin(), action_array.end(), std::back_inserter(_unpacked_actions),
                      [&](const auto& var) {
