@@ -369,7 +369,7 @@ class Node(Transactions):
 
         if chainArg:
             cmdArr.extend(shlex.split(chainArg))
-        self.popenProc=self.launchCmd(cmdArr, self.data_dir, self.launch_time)
+        self.popenProc=self.launchCmd(cmdArr, self.data_dir, launch_time=datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
 
         def isNodeAlive():
             """wait for node to be responsive."""
