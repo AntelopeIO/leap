@@ -1172,7 +1172,7 @@ struct controller_impl {
          etrx.ref_block_num = 0;
          etrx.ref_block_prefix = 0;
       } else {
-         etrx.expiration = self.pending_block_time() + fc::microseconds(999'999); // Round up to nearest second to avoid appearing expired
+         etrx.expiration = time_point_sec{self.pending_block_time() + fc::microseconds(999'999)}; // Round up to nearest second to avoid appearing expired
          etrx.set_reference_block( self.head_block_id() );
       }
 
@@ -2488,7 +2488,7 @@ struct controller_impl {
       auto now = self.is_building_block() ? self.pending_block_time() : self.head_block_time();
       const auto total = dedupe_index.size();
       uint32_t num_removed = 0;
-      while( (!dedupe_index.empty()) && ( now > fc::time_point(dedupe_index.begin()->expiration) ) ) {
+      while( (!dedupe_index.empty()) && ( now > dedupe_index.begin()->expiration.to_time_point() ) ) {
          transaction_idx.remove(*dedupe_index.begin());
          ++num_removed;
          if( deadline <= fc::time_point::now() ) {
@@ -2663,7 +2663,7 @@ struct controller_impl {
          trx.ref_block_num = 0;
          trx.ref_block_prefix = 0;
       } else {
-         trx.expiration = self.pending_block_time() + fc::microseconds(999'999); // Round up to nearest second to avoid appearing expired
+         trx.expiration = time_point_sec{self.pending_block_time() + fc::microseconds(999'999)}; // Round up to nearest second to avoid appearing expired
          trx.set_reference_block( self.head_block_id() );
       }
 
@@ -3484,12 +3484,12 @@ uint32_t controller::configured_subjective_signature_length_limit()const {
 void controller::validate_expiration( const transaction& trx )const { try {
    const auto& chain_configuration = get_global_properties().configuration;
 
-   EOS_ASSERT( time_point(trx.expiration) >= pending_block_time(),
+   EOS_ASSERT( trx.expiration.to_time_point() >= pending_block_time(),
                expired_tx_exception,
                "transaction has expired, "
                "expiration is ${trx.expiration} and pending block time is ${pending_block_time}",
                ("trx.expiration",trx.expiration)("pending_block_time",pending_block_time()));
-   EOS_ASSERT( time_point(trx.expiration) <= pending_block_time() + fc::seconds(chain_configuration.max_transaction_lifetime),
+   EOS_ASSERT( trx.expiration.to_time_point() <= pending_block_time() + fc::seconds(chain_configuration.max_transaction_lifetime),
                tx_exp_too_far_exception,
                "Transaction expiration is too far in the future relative to the reference time of ${reference_time}, "
                "expiration is ${trx.expiration} and the maximum transaction lifetime is ${max_til_exp} seconds",

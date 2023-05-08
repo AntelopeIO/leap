@@ -84,16 +84,12 @@ namespace eosio::chain {
    using bls_gt_type      = bls12_381::fp12;
    using bls_fp_type      = bls12_381::fp;
    using bls_fp2_type     = bls12_381::fp2;
-
-#if BOOST_VERSION >= 107100
-      // configurable boost deque performs much better than std::deque in our use cases
-      using block_1024_option_t = boost::container::deque_options< boost::container::block_size<1024u> >::type;
-      template<typename T>
-      using deque = boost::container::deque< T, void, block_1024_option_t >;
-#else
-      template<typename T>
-    using deque = std::deque<T>;
-#endif
+   
+   // configurable boost deque (for boost >= 1.71) performs much better than std::deque in our use cases
+   using block_1024_option_t = boost::container::deque_options< boost::container::block_size<1024u> >::type;
+   template<typename T>
+   using deque = boost::container::deque< T, void, block_1024_option_t >;
+   
    struct void_t{};
 
    using chainbase::allocator;
