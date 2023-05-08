@@ -193,11 +193,11 @@ namespace eosio {
                      const auto& ip_addr = endpoint.address();
                      try {
                         auto server = std::make_shared<beast_http_listener<tcp_socket_t>>(
-                              plugin_state, categories, endpoint, host);
+                              plugin_state, categories, endpoint, address);
                         server->do_accept();
                         ++listened;
-                        fc_ilog(logger(), "start listening on ${ip_addr}:${port} for http requests (boost::beast)",
-                                ("ip_addr", ip_addr.to_string())("port", endpoint.port()));
+                        fc_ilog(logger(), "start listening on ${ip_addr}:${port} resolved from ${address} for http requests (boost::beast)",
+                                ("ip_addr", ip_addr.to_string())("port", endpoint.port())("address", address));
                         has_unspecified_ipv6_only = ip_addr.is_unspecified() && ip_addr.is_v6() &&
                             server->is_ip_v6_only();
                         
