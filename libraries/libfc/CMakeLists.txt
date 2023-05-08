@@ -91,11 +91,9 @@ if(APPLE)
   add_library(zstd INTERFACE)
 endif()
 
-find_package(Boost REQUIRED COMPONENTS
-    date_time
-    chrono
-    unit_test_framework
-    iostreams)
+if(NOT boost_headers_SOURCE_DIR)
+   find_package(Boost REQUIRED COMPONENTS date_time chrono unit_test_framework iostreams)
+endif()
 
 find_path(GMP_INCLUDE_DIR NAMES gmp.h)
 find_library(GMP_LIBRARY gmp)
@@ -130,7 +128,8 @@ if(APPLE)
   find_library(security_framework Security)
   find_library(corefoundation_framework CoreFoundation)
 endif()
-target_link_libraries( fc PUBLIC Boost::date_time Boost::chrono Boost::iostreams Threads::Threads
+target_link_libraries( fc PUBLIC Boost::date_time Boost::chrono Boost::iostreams Boost::interprocess Boost::multi_index
+                                 Boost::multiprecision Boost::beast Boost::asio Boost::thread Boost::unit_test_framework Threads::Threads
                                  OpenSSL::Crypto ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework})
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access

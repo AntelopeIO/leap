@@ -13,7 +13,7 @@ set(LOCALEDOMAIN ${CLI_CLIENT_EXECUTABLE_NAME})
 target_include_directories(${CLI_CLIENT_EXECUTABLE_NAME} PUBLIC ${CMAKE_CURRENT_BINARY_DIR} ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_link_libraries( ${CLI_CLIENT_EXECUTABLE_NAME}
-                       PRIVATE appbase version leap-cli11 chain_api_plugin producer_plugin chain_plugin http_plugin eosio_chain fc ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS} )
+                       PRIVATE appbase version leap-cli11 chain_api_plugin producer_plugin chain_plugin http_plugin eosio_chain fc ${CMAKE_DL_LIBS} ${PLATFORM_SPECIFIC_LIBS} Boost::process Boost::dll )
 
 if (CURL_FOUND)
   target_sources(${CLI_CLIENT_EXECUTABLE_NAME} PRIVATE do_http_post_libcurl.cpp)
