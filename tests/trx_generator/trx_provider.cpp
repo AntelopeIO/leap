@@ -1,7 +1,9 @@
 #include <trx_provider.hpp>
+#include <http_client_async.hpp>
 
 #include <fc/io/raw.hpp>
 #include <fc/log/appender.hpp>
+#include <fc/io/json.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -9,6 +11,7 @@
 
 namespace eosio::testing {
    using namespace boost::asio;
+   using namespace std::literals::string_literals;
    using ip::tcp;
 
    constexpr auto message_header_size = sizeof(uint32_t);
@@ -33,7 +36,7 @@ namespace eosio::testing {
 
    void p2p_connection::connect() {
       ilog("Attempting P2P connection to ${ip}:${port}.", ("ip", _config._peer_endpoint)("port", _config._port));
-      tcp::resolver r(_p2p_service);
+      tcp::resolver r(_connection_thread_pool.get_executor());
       auto i = r.resolve(tcp::v4(), _config._peer_endpoint, std::to_string(_config._port));
       boost::asio::connect(_p2p_socket, i);
       ilog("Connected to ${ip}:${port}.", ("ip", _config._peer_endpoint)("port", _config._port));
@@ -50,28 +53,70 @@ namespace eosio::testing {
       _p2p_socket.send(boost::asio::buffer(*msg));
    }
 
-   p2p_trx_provider::p2p_trx_provider(const provider_base_config& provider_config) :
-      _peer_connection(provider_config) {
+   void http_connection::connect() {}
 
-   }
-
-   void p2p_trx_provider::setup() {
-      _peer_connection.connect();
-   }
-
-   void p2p_trx_provider::send(const chain::signed_transaction& trx) {
-      chain::packed_transaction pt(trx);
-      _peer_connection.send_transaction(pt);
-      _sent_trx_data.push_back(logged_trx_data(trx.id()));
-   }
-
-   void p2p_trx_provider::send(const std::vector<chain::signed_transaction>& trxs) {
-      for(const auto& t : trxs ){
-         send(t);
+   void http_connection::disconnect() {
+      int max    = 30;
+      int waited = 0;
+      while (_sent.load() != _acknowledged.load() && waited < max) {
+         ilog("http_connection::disconnect waiting on ack - sent ${s} | acked ${a} | waited ${w}",
+              ("s", _sent.load())("a", _acknowledged.load())("w", waited));
+         sleep(1);
+         ++waited;
+      }
+      if (waited == max) {
+         elog("http_connection::disconnect failed to receive all acks in time - sent ${s} | acked ${a} | waited ${w}",
+               ("s", _sent.load())("a", _acknowledged.load())("w", waited));
       }
    }
 
-   void p2p_trx_provider::log_trxs(const std::string& log_dir) {
+   void http_connection::send_transaction(const chain::packed_transaction& trx) {
+      const std::string target       = "/v1/chain/send_transaction2"s;
+      const int         http_version = 11;
+      const std::string content_type = "application/json"s;
+
+      bool        retry                = false;
+      bool        tx_rtn_failure_trace = true;
+      auto        to_send              = fc::mutable_variant_object()("return_failure_trace", tx_rtn_failure_trace)("retry_trx", retry)("transaction", trx);
+      std::string msg_body             = fc::json::to_string(to_send, fc::time_point::maximum());
+
+      http_client_async::http_request_params params{_connection_thread_pool.get_executor(),
+                                                    _config._peer_endpoint,
+                                                    _config._port,
+                                                    target,
+                                                    http_version,
+                                                    content_type};
+      http_client_async::async_http_request(
+          params, std::move(msg_body),
+          [&acked = _acknowledged](boost::beast::error_code                                      ec,
+                                   boost::beast::http::response<boost::beast::http::string_body> response) {
+             ++acked;
+             if (response.result() != boost::beast::http::status::accepted) {
+                elog("async_http_request Failed with response http status code: ${status}", ("status", response.result_int()));
+             }
+          });
+      ++_sent;
+   }
+
+   trx_provider::trx_provider(const provider_base_config& provider_config) {
+      if (provider_config._peer_endpoint_type == "http") {
+         _conn.emplace<http_connection>(provider_config);
+         _peer_connection = &std::get<http_connection>(_conn);
+      } else {
+         _conn.emplace<p2p_connection>(provider_config);
+         _peer_connection = &std::get<p2p_connection>(_conn);
+      }
+   }
+
+   void trx_provider::setup() { _peer_connection->init_and_connect(); }
+
+   void trx_provider::send(const chain::signed_transaction& trx) {
+      chain::packed_transaction pt(trx);
+      _peer_connection->send_transaction(pt);
+      _sent_trx_data.push_back(logged_trx_data(trx.id()));
+   }
+
+   void trx_provider::log_trxs(const std::string& log_dir) {
       std::ostringstream fileName;
       fileName << log_dir << "/trx_data_output_" << getpid() << ".txt";
       std::ofstream out(fileName.str());
@@ -82,8 +127,8 @@ namespace eosio::testing {
       out.close();
    }
 
-   void p2p_trx_provider::teardown() {
-      _peer_connection.disconnect();
+   void trx_provider::teardown() {
+      _peer_connection->cleanup_and_disconnect();
    }
 
    bool tps_performance_monitor::monitor_test(const tps_test_stats &stats) {

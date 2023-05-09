@@ -62,7 +62,7 @@ class PerformanceTest:
         calcChainThreads: str="none"
         calcNetThreads: str="none"
         userTrxDataFile: Path=None
-
+        endpointApi: str="p2p"
 
     @dataclass
     class TpsTestResult:
@@ -118,7 +118,7 @@ class PerformanceTest:
             scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                        numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=logDirRoot, delReport=delReport,
-                                                       quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile)
+                                                       quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointApi=self.ptConfig.endpointApi)
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
             testSuccessful = myTest.runTest()
@@ -161,9 +161,9 @@ class PerformanceTest:
             scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=searchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                     numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport,
-                                                    quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile)
+                                                    quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointApi=self.ptConfig.endpointApi)
 
-            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig, testNamePath="performance_test")
             testSuccessful = myTest.runTest()
             if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
                 maxTpsAchieved = searchTarget
@@ -500,8 +500,8 @@ class PerfTestArgumentsHandler(object):
 
         # Create 2 versions of the PTB Parser, one with help suppressed to go on the top level operational mode sub-commands parsers where the help message is pared down
         # and the second with help message not suppressed to be the parent of the overrideBasicTestConfig sub-command where configuration help should be displayed
-        ptbArgParserNoHelp = PtbArgumentsHandler.createBaseArgumentParser(suppressHelp=True)
-        ptbArgParser = PtbArgumentsHandler.createBaseArgumentParser()
+        ptbBpModeArgParserNoHelp = PtbArgumentsHandler.createBaseBpP2pArgumentParser(suppressHelp=True)
+        ptbBpModeArgParser = PtbArgumentsHandler.createBaseBpP2pArgumentParser()
 
         phParser = argparse.ArgumentParser(add_help=True, parents=[ptParserNoHelp], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -515,15 +515,31 @@ class PerfTestArgumentsHandler(object):
                                                      required=True, help="Currently supported operational mode sub-commands.")
 
         #Create the Block Producer Operational Mode Sub-Command and Parsers
-        bpModeParser = ptParserSubparsers.add_parser(name="testBpOpMode", parents=[ptParser, ptbArgParserNoHelp], add_help=False, help="Test the Block Producer Operational Mode.")
+        bpModeParser = ptParserSubparsers.add_parser(name="testBpOpMode", parents=[ptParser, ptbBpModeArgParserNoHelp], add_help=False, help="Test the Block Producer Operational Mode.")
         bpModeAdvDesc=("Block Producer Operational Mode Advanced Configuration Options allow low level adjustments to the basic test configuration as well as the node topology being tested.\
                         For additional information on available advanced configuration options, pass --help to the sub-command.\
                         Eg:  performance_test.py testBpOpMode overrideBasicTestConfig --help")
         bpModeParserSubparsers = bpModeParser.add_subparsers(title="Advanced Configuration Options",
                                                              description=bpModeAdvDesc,
                                                              help="sub-command to allow overriding advanced configuration options")
-        bpModeParserSubparsers.add_parser(name="overrideBasicTestConfig", parents=[ptbArgParser], add_help=False,
+        bpModeParserSubparsers.add_parser(name="overrideBasicTestConfig", parents=[ptbBpModeArgParser], add_help=False,
                                           help="Use this sub-command to override low level controls for basic test, logging, node topology, etc.")
+
+        # Create 2 versions of the PTB Parser, one with help suppressed to go on the top level operational mode sub-commands parsers where the help message is pared down
+        # and the second with help message not suppressed to be the parent of the overrideBasicTestConfig sub-command where configuration help should be displayed
+        ptbApiModeArgParserNoHelp = PtbArgumentsHandler.createBaseApiHttpArgumentParser(suppressHelp=True)
+        ptbApiModeArgParser = PtbArgumentsHandler.createBaseApiHttpArgumentParser()
+
+        #Create the API Node Operational Mode Sub-Command and Parsers
+        apiModeParser = ptParserSubparsers.add_parser(name="testApiOpMode", parents=[ptParser, ptbApiModeArgParserNoHelp], add_help=False, help="Test the API Node Operational Mode.")
+        apiModeAdvDesc=("API Node Operational Mode Advanced Configuration Options allow low level adjustments to the basic test configuration as well as the node topology being tested.\
+                        For additional information on available advanced configuration options, pass --help to the sub-command.\
+                        Eg:  performance_test.py testApiOpMode overrideBasicTestConfig --help")
+        apiModeParserSubparsers = apiModeParser.add_subparsers(title="Advanced Configuration Options",
+                                                               description=apiModeAdvDesc,
+                                                               help="sub-command to allow overriding advanced configuration options")
+        apiModeParserSubparsers.add_parser(name="overrideBasicTestConfig", parents=[ptbApiModeArgParser], add_help=False,
+                                           help="Use this sub-command to override low level controls for basic test, logging, node topology, etc.")
 
         return phParser
 
@@ -556,7 +572,8 @@ def main():
                                         calcProducerThreads=args.calc_producer_threads,
                                         calcChainThreads=args.calc_chain_threads,
                                         calcNetThreads=args.calc_net_threads,
-                                        userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
+                                        userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None,
+                                        endpointApi=args.endpoint_api)
 
     myTest = PerformanceTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptConfig=ptConfig)
 
