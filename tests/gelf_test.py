@@ -91,7 +91,7 @@ config_dir = Utils.getNodeConfigDir(node_id)
 if os.path.exists(data_dir):
     shutil.rmtree(data_dir)
 os.makedirs(data_dir)
-if not os.path.exists(data_dir):
+if not os.path.exists(config_dir):
     os.makedirs(config_dir)
 
 with open(config_dir+"/logging.json", "w") as textFile:
