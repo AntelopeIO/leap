@@ -36,8 +36,10 @@ class Node(Transactions):
         self.cmd=cmd
         if nodeId == -100:
             self.nodeId='bios'
+            self.name='node_bios'
         else:
             self.nodeId=nodeId
+            self.name=f'node_{str(nodeId).zfill(2)}'
         if not unstarted:
             self.popenProc=self.launchCmd(self.cmd, data_dir, launch_time)
             self.pid=self.popenProc.pid
