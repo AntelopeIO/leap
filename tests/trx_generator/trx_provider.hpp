@@ -30,7 +30,7 @@ namespace eosio::testing {
 
       std::string to_string() const {
          std::ostringstream ss;
-         ss << "endpoint type: " << _peer_endpoint_type << "peer_endpoint: " << _peer_endpoint << " port: " << _port;
+         ss << "endpoint type: " << _peer_endpoint_type << " peer_endpoint: " << _peer_endpoint << " port: " << _port;
          return std::move(ss).str();
       }
    };
@@ -72,8 +72,8 @@ namespace eosio::testing {
       void send_transaction(const chain::packed_transaction& trx);
 
     private:
-      void connect() final;
-      void disconnect() final;
+      void connect() override final;
+      void disconnect() override final;
    };
 
    struct p2p_connection : public provider_connection {
@@ -86,8 +86,8 @@ namespace eosio::testing {
       void send_transaction(const chain::packed_transaction& trx);
 
     private:
-      void connect() final;
-      void disconnect() final;
+      void connect() override final;
+      void disconnect() override final;
    };
 
    struct trx_provider {
