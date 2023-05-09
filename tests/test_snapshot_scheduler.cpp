@@ -72,7 +72,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
             app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**) &argv[0]);
             app->startup();
             plugin_promise.set_value(
-                  {appbase::app().find_plugin<producer_plugin>(), appbase::app().find_plugin<chain_plugin>()});
+                  {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()});
             app->exec();
          });
 
@@ -80,7 +80,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          std::deque<block_state_ptr> all_blocks;
          std::promise<void> empty_blocks_promise;
          std::future<void> empty_blocks_fut = empty_blocks_promise.get_future();
-         auto pp = appbase::app().find_plugin<producer_plugin>();
+         auto pp = app->find_plugin<producer_plugin>();
        
          auto bs = chain_plug->chain().block_start.connect([&pp](uint32_t bn) {
             // catching pending snapshot
