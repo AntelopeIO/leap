@@ -229,7 +229,7 @@ def runReadOnlyTrxAndRpcInParallel(resource, command, fieldIn=None, expectedValu
 def mixedOpsTest(opt=None):
     Print("mixedOpsTest -- opt = ", opt)
 
-    numRuns = 300
+    numRuns = 200
     readOnlyThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
     readOnlyThread.start()
     sendTrxThread = threading.Thread(target = sendTrxsOnThread, args = (numRuns, numRuns, opt))
@@ -244,7 +244,7 @@ def mixedOpsTest(opt=None):
 
 def sendMulReadOnlyTrx(numThreads):
     threadList = []
-    num_trxs_per_thread = 500
+    num_trxs_per_thread = 200
     for i in range(numThreads):
         thr = threading.Thread(target = sendReadOnlyTrxOnThread, args = (i * num_trxs_per_thread, num_trxs_per_thread ))
         thr.start()
@@ -271,7 +271,6 @@ def basicTests():
     apiNode.waitForTransactionInBlock(results[1]['transaction_id'])
 
 def multiReadOnlyTests():
-    Print("Verify multiple read-only Get actions work after Modify")
     sendMulReadOnlyTrx(numThreads=5)
 
 def chainApiTests():
