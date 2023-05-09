@@ -67,8 +67,9 @@ producerNode = None
 apiNode = None
 testAccountName = "test"
 userAccountName = "user"
+payloadlessAccountName = "payloadless"
 
-try:
+def startCluster():
     global total_nodes
     global producerNode
     global apiNode
@@ -123,13 +124,11 @@ try:
 
 def deployTestContracts():
     Utils.Print("create test accounts")
-    testAccountName = "test"
     testAccount = Account(testAccountName)
     testAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     testAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     cluster.createAccountAndVerify(testAccount, cluster.eosioAccount, buyRAM=500000) # 95632 bytes required for test contract
 
-    userAccountName = "user"
     userAccount = Account(userAccountName)
     userAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
     userAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
@@ -141,10 +140,20 @@ def deployTestContracts():
     Utils.Print("Publish no_auth_table contract")
     producerNode.publishContract(testAccount, noAuthTableContractDir,noAuthTableWasmFile, noAuthTableAbiFile, waitForTransBlock=True)
 
-def sendTransaction(action, data, auth=[], opts=None):
+    Utils.Print("Create payloadless account and deploy payloadless contract")
+    payloadlessAccount = Account(payloadlessAccountName)
+    payloadlessAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    payloadlessAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    cluster.createAccountAndVerify(payloadlessAccount, cluster.eosioAccount, buyRAM=100000)
+    payloadlessContractDir="unittests/test-contracts/payloadless"
+    payloadlessWasmFile="payloadless.wasm"
+    payloadlessAbiFile="payloadless.abi"
+    producerNode.publishContract(payloadlessAccount, payloadlessContractDir, payloadlessWasmFile, payloadlessAbiFile, waitForTransBlock=True)
+
+def sendTransaction(account, action, data, auth=[], opts=None):
     trx = {
        "actions": [{
-          "account": testAccountName,
+          "account": account,
           "name": action,
           "authorization": auth,
           "data": data
@@ -152,6 +161,10 @@ def sendTransaction(action, data, auth=[], opts=None):
     }
     return apiNode.pushTransaction(trx, opts)
 
+def sendReadOnlyPayloadless():
+    return sendTransaction('payloadless', action='doit', data={}, auth=[], opts='--read')
+
+# Send read-only trxs from mutltiple threads to bump load
 def sendReadOnlyTrxOnThread(startId, numTrxs):
     Print("start sendReadOnlyTrxOnThread")
 
@@ -159,13 +172,18 @@ def sendReadOnlyTrxOnThread(startId, numTrxs):
     errorInThread = False
     try:
        for i in range(numTrxs):
-           results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, opts='--read')
+           results = sendTransaction(testAccountName, 'age', {"user": userAccountName, "id": startId + i}, opts='--read')
            assert(results[0])
            assert(results[1]['processed']['action_traces'][0]['return_value_data'] == 25)
+
+           results = sendReadOnlyPayloadless()
+           assert(results[0])
+           assert(results[1]['processed']['action_traces'][0]['console'] == "Im a payloadless action")
     except Exception as e:
         Print("Exception in sendReadOnlyTrxOnThread: ", e)
         errorInThread = True
 
+# Send regular trxs from mutltiple threads to bump load
 def sendTrxsOnThread(startId, numTrxs, opts=None):
     Print("sendTrxsOnThread: ", startId, numTrxs, opts)
 
@@ -173,7 +191,7 @@ def sendTrxsOnThread(startId, numTrxs, opts=None):
     errorInThread = False
     try:
         for i in range(numTrxs):
-            results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, auth=[{"actor": userAccountName, "permission":"active"}], opts=opts)
+            results = sendTransaction(testAccountName, 'age', {"user": userAccountName, "id": startId + i}, auth=[{"actor": userAccountName, "permission":"active"}], opts=opts)
             assert(results[0])
     except Exception as e:
         Print("Exception in sendTrxsOnThread: ", e)
@@ -236,19 +254,19 @@ def sendMulReadOnlyTrx(numThreads):
 
 def basicTests():
     Print("Insert a user")
-    results = sendTransaction('insert', {"user": userAccountName, "id": 1, "age": 10}, auth=[{"actor": userAccountName, "permission":"active"}])
+    results = sendTransaction(testAccountName, 'insert', {"user": userAccountName, "id": 1, "age": 10}, auth=[{"actor": userAccountName, "permission":"active"}])
     assert(results[0])
     apiNode.waitForTransactionInBlock(results[1]['transaction_id'])
 
     # verify the return value (age) from read-only is the same as created.
     Print("Send a read-only Get transaction to verify previous Insert")
-    results = sendTransaction('getage', {"user": userAccountName}, opts='--read')
+    results = sendTransaction(testAccountName, 'getage', {"user": userAccountName}, opts='--read')
     assert(results[0])
     assert(results[1]['processed']['action_traces'][0]['return_value_data'] == 10)
 
     # verify non-read-only modification works
     Print("Send a non-read-only Modify transaction")
-    results = sendTransaction('modify', {"user": userAccountName, "age": 25}, auth=[{"actor": userAccountName, "permission": "active"}])
+    results = sendTransaction(testAccountName, 'modify', {"user": userAccountName, "age": 25}, auth=[{"actor": userAccountName, "permission": "active"}])
     assert(results[0])
     apiNode.waitForTransactionInBlock(results[1]['transaction_id'])
 
@@ -299,7 +317,6 @@ def runEverythingParallel():
         thr.join()
 
 try:
-
     startCluster()
     deployTestContracts()
 
