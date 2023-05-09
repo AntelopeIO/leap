@@ -2693,8 +2693,9 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
     return pretty_output;
 }
 
-const controller::config* chain_plugin::chain_config() const {
-   return my->chain_config.has_value() ? std::addressof(*my->chain_config) : nullptr;
+const controller::config& chain_plugin::chain_config() const {
+   EOS_ASSERT(my->chain_config.has_value(), plugin_exception, "chain_config not initialized");
+   return *my->chain_config;
 }
 } // namespace eosio
 

@@ -16,8 +16,7 @@ BOOST_AUTO_TEST_CASE(chain_plugin_default_tests) {
    BOOST_CHECK(app->initialize<eosio::chain_plugin>(args.size(), const_cast<char**>(args.data())));
    auto& plugin = app->get_plugin<eosio::chain_plugin>();
 
-   BOOST_REQUIRE(plugin.chain_config());
-   auto* config = std::get_if<eosio::chain::partitioned_blocklog_config>(&plugin.chain_config()->blog);
+   auto* config = std::get_if<eosio::chain::partitioned_blocklog_config>(&plugin.chain_config().blog);
    BOOST_REQUIRE(config);
    BOOST_CHECK_EQUAL(config->max_retained_files, UINT32_MAX);
 }

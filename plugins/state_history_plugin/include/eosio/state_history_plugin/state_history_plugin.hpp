@@ -29,7 +29,7 @@ class state_history_plugin : public plugin<state_history_plugin> {
 
    void handle_sighup() override;
 
-   const state_history_log_config* trace_log_config() const;
+   const state_history_log* trace_log() const;
 
  private:
    state_history_ptr my;

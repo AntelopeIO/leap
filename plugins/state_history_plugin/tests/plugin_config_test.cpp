@@ -16,8 +16,8 @@ BOOST_AUTO_TEST_CASE(state_history_plugin_default_tests) {
    BOOST_CHECK(app->initialize<eosio::state_history_plugin>(args.size(), const_cast<char**>(args.data())));
    auto& plugin = app->get_plugin<eosio::state_history_plugin>();
 
-   BOOST_REQUIRE(plugin.trace_log_config());
-   auto* config = std::get_if<eosio::state_history::partition_config>(plugin.trace_log_config());
+   BOOST_REQUIRE(plugin.trace_log());
+   auto* config = std::get_if<eosio::state_history::partition_config>(&plugin.trace_log()->config());
    BOOST_REQUIRE(config);
    BOOST_CHECK_EQUAL(config->max_retained_files, UINT32_MAX);
 }

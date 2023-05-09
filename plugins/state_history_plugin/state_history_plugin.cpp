@@ -512,8 +512,8 @@ void state_history_plugin::handle_sighup() {
    fc::logger::update(logger_name, _log);
 }
 
-const state_history_log_config* state_history_plugin::trace_log_config() const {
-   return my->trace_log ? &my->trace_log->config() : nullptr;
+const state_history_log* state_history_plugin::trace_log() const {
+   return my->trace_log ? std::addressof(*my->trace_log) : nullptr;
 }
 
 } // namespace eosio
