@@ -184,7 +184,7 @@ try:
             addSwapFlags["--enable-stale-production"]=""   # just enable stale production for the first node
             enabledStaleProduction=True
         if not nodes[nodeIndex].relaunch("", newChain=False, addSwapFlags=addSwapFlags):
-            Utils.cmdError("Failed to restart node0 with new capacity %s" % (maxRAMValue))
+            Utils.cmdError(f'Failed to restart {nodes[nodeIndex].name} with new capacity {maxRAMValue}')
             errorExit("Failure - Node should have restarted")
         addSwapFlags={}
         maxRAMValue=currentMinimumMaxRAM+30
