@@ -63,7 +63,16 @@ walletMgr=WalletMgr(True)
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
 EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
 
+producerNode = None
+apiNode = None
+testAccountName = "test"
+userAccountName = "user"
+
 try:
+    global total_nodes
+    global producerNode
+    global apiNode
+
     TestHelper.printSystemInfo("BEGIN")
     cluster.setWalletMgr(walletMgr)
 
@@ -112,6 +121,7 @@ try:
     producerNode = cluster.getNode()
     apiNode = cluster.nodes[-1]
 
+def deployTestContracts():
     Utils.Print("create test accounts")
     testAccountName = "test"
     testAccount = Account(testAccountName)
@@ -131,162 +141,167 @@ try:
     Utils.Print("Publish no_auth_table contract")
     producerNode.publishContract(testAccount, noAuthTableContractDir,noAuthTableWasmFile, noAuthTableAbiFile, waitForTransBlock=True)
 
-    def sendTransaction(action, data, auth=[], opts=None):
-        trx = {
-           "actions": [{
-              "account": testAccountName,
-              "name": action,
-              "authorization": auth,
-              "data": data
-          }]
-        }
-        return apiNode.pushTransaction(trx, opts)
+def sendTransaction(action, data, auth=[], opts=None):
+    trx = {
+       "actions": [{
+          "account": testAccountName,
+          "name": action,
+          "authorization": auth,
+          "data": data
+      }]
+    }
+    return apiNode.pushTransaction(trx, opts)
 
-    def sendReadOnlyTrxOnThread(startId, numTrxs):
-        Print("start sendReadOnlyTrxOnThread")
+def sendReadOnlyTrxOnThread(startId, numTrxs):
+    Print("start sendReadOnlyTrxOnThread")
 
-        global errorInThread
-        errorInThread = False
-        try:
-           for i in range(numTrxs):
-               results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, opts='--read')
-               assert(results[0])
-               assert(results[1]['processed']['action_traces'][0]['return_value_data'] == 25)
-        except Exception as e:
-            Print("Exception in sendReadOnlyTrxOnThread: ", e)
-            errorInThread = True
+    global errorInThread
+    errorInThread = False
+    try:
+       for i in range(numTrxs):
+           results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, opts='--read')
+           assert(results[0])
+           assert(results[1]['processed']['action_traces'][0]['return_value_data'] == 25)
+    except Exception as e:
+        Print("Exception in sendReadOnlyTrxOnThread: ", e)
+        errorInThread = True
 
-    def sendTrxsOnThread(startId, numTrxs, opts=None):
-        Print("sendTrxsOnThread: ", startId, numTrxs, opts)
+def sendTrxsOnThread(startId, numTrxs, opts=None):
+    Print("sendTrxsOnThread: ", startId, numTrxs, opts)
 
-        global errorInThread
-        errorInThread = False
-        try:
-            for i in range(numTrxs):
-                results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, auth=[{"actor": userAccountName, "permission":"active"}], opts=opts)
-                assert(results[0])
-        except Exception as e:
-            Print("Exception in sendTrxsOnThread: ", e)
-            errorInThread = True
+    global errorInThread
+    errorInThread = False
+    try:
+        for i in range(numTrxs):
+            results = sendTransaction('age', {"user": userAccountName, "id": startId + i}, auth=[{"actor": userAccountName, "permission":"active"}], opts=opts)
+            assert(results[0])
+    except Exception as e:
+        Print("Exception in sendTrxsOnThread: ", e)
+        errorInThread = True
 
-    def doRpc(resource, command, numRuns, fieldIn, expectedValue, code, payload={}):
-        global errorInThread
-        errorInThread = False
-        try:
-            for i in range(numRuns):
-                ret_json = apiNode.processUrllibRequest(resource, command, payload)
-                if code is None:
-                    assert(ret_json["payload"][fieldIn] is not None)
-                    if expectedValue is not None:
-                        assert(ret_json["payload"][fieldIn] == expectedValue)
-                else:
-                    assert(ret_json["code"] == code)
-        except Exception as e:
-            Print("Exception in doRpc: ", e)
-            errorInThread = True
+def doRpc(resource, command, numRuns, fieldIn, expectedValue, code, payload={}):
+    global errorInThread
+    errorInThread = False
+    try:
+        for i in range(numRuns):
+            ret_json = apiNode.processUrllibRequest(resource, command, payload)
+            if code is None:
+                assert(ret_json["payload"][fieldIn] is not None)
+                if expectedValue is not None:
+                    assert(ret_json["payload"][fieldIn] == expectedValue)
+            else:
+                assert(ret_json["code"] == code)
+    except Exception as e:
+        Print("Exception in doRpc: ", e)
+        errorInThread = True
 
-    def runReadOnlyTrxAndRpcInParallel(resource, command, fieldIn=None, expectedValue=None, code=None, payload={}):
-        Print("runReadOnlyTrxAndRpcInParallel: ", command)
+def runReadOnlyTrxAndRpcInParallel(resource, command, fieldIn=None, expectedValue=None, code=None, payload={}):
+    Print("runReadOnlyTrxAndRpcInParallel: ", command)
 
-        numRuns = 10
-        trxThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
-        rpcThread = threading.Thread(target = doRpc, args = (resource, command, numRuns, fieldIn, expectedValue, code, payload))
-        trxThread.start()
-        rpcThread.start()
+    numRuns = 10
+    trxThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
+    rpcThread = threading.Thread(target = doRpc, args = (resource, command, numRuns, fieldIn, expectedValue, code, payload))
+    trxThread.start()
+    rpcThread.start()
 
-        trxThread.join()
-        rpcThread.join()
-        assert(not errorInThread)
+    trxThread.join()
+    rpcThread.join()
+    assert(not errorInThread)
 
-    def mixedOpsTest(opt=None):
-        Print("mixedOpsTest -- opt = ", opt)
+def mixedOpsTest(opt=None):
+    Print("mixedOpsTest -- opt = ", opt)
 
-        numRuns = 300
-        readOnlyThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
-        readOnlyThread.start()
-        sendTrxThread = threading.Thread(target = sendTrxsOnThread, args = (numRuns, numRuns, opt))
-        sendTrxThread.start()
-        pushBlockThread = threading.Thread(target = doRpc, args = ("chain", "push_block", numRuns, None, None, 202, {"block":"signed_block"}))
-        pushBlockThread.start()
+    numRuns = 300
+    readOnlyThread = threading.Thread(target = sendReadOnlyTrxOnThread, args = (0, numRuns ))
+    readOnlyThread.start()
+    sendTrxThread = threading.Thread(target = sendTrxsOnThread, args = (numRuns, numRuns, opt))
+    sendTrxThread.start()
+    pushBlockThread = threading.Thread(target = doRpc, args = ("chain", "push_block", numRuns, None, None, 202, {"block":"signed_block"}))
+    pushBlockThread.start()
 
-        readOnlyThread.join()
-        sendTrxThread.join()
-        pushBlockThread.join()
-        assert(not errorInThread)
+    readOnlyThread.join()
+    sendTrxThread.join()
+    pushBlockThread.join()
+    assert(not errorInThread)
 
-    def sendMulReadOnlyTrx(numThreads):
-        threadList = []
-        num_trxs_per_thread = 500
-        for i in range(numThreads):
-            thr = threading.Thread(target = sendReadOnlyTrxOnThread, args = (i * num_trxs_per_thread, num_trxs_per_thread ))
-            thr.start()
-            threadList.append(thr)
-        for thr in threadList:
-            thr.join()
+def sendMulReadOnlyTrx(numThreads):
+    threadList = []
+    num_trxs_per_thread = 500
+    for i in range(numThreads):
+        thr = threading.Thread(target = sendReadOnlyTrxOnThread, args = (i * num_trxs_per_thread, num_trxs_per_thread ))
+        thr.start()
+        threadList.append(thr)
+    for thr in threadList:
+        thr.join()
 
-    def basicTests():
-        Print("Insert a user")
-        results = sendTransaction('insert', {"user": userAccountName, "id": 1, "age": 10}, auth=[{"actor": userAccountName, "permission":"active"}])
-        assert(results[0])
-        apiNode.waitForTransactionInBlock(results[1]['transaction_id'])
+def basicTests():
+    Print("Insert a user")
+    results = sendTransaction('insert', {"user": userAccountName, "id": 1, "age": 10}, auth=[{"actor": userAccountName, "permission":"active"}])
+    assert(results[0])
+    apiNode.waitForTransactionInBlock(results[1]['transaction_id'])
 
-        # verify the return value (age) from read-only is the same as created.
-        Print("Send a read-only Get transaction to verify previous Insert")
-        results = sendTransaction('getage', {"user": userAccountName}, opts='--read')
-        assert(results[0])
-        assert(results[1]['processed']['action_traces'][0]['return_value_data'] == 10)
+    # verify the return value (age) from read-only is the same as created.
+    Print("Send a read-only Get transaction to verify previous Insert")
+    results = sendTransaction('getage', {"user": userAccountName}, opts='--read')
+    assert(results[0])
+    assert(results[1]['processed']['action_traces'][0]['return_value_data'] == 10)
 
-        # verify non-read-only modification works
-        Print("Send a non-read-only Modify transaction")
-        results = sendTransaction('modify', {"user": userAccountName, "age": 25}, auth=[{"actor": userAccountName, "permission": "active"}])
-        assert(results[0])
-        apiNode.waitForTransactionInBlock(results[1]['transaction_id'])
+    # verify non-read-only modification works
+    Print("Send a non-read-only Modify transaction")
+    results = sendTransaction('modify', {"user": userAccountName, "age": 25}, auth=[{"actor": userAccountName, "permission": "active"}])
+    assert(results[0])
+    apiNode.waitForTransactionInBlock(results[1]['transaction_id'])
 
-    def multiReadOnlyTests():
-        Print("Verify multiple read-only Get actions work after Modify")
-        sendMulReadOnlyTrx(numThreads=5)
+def multiReadOnlyTests():
+    Print("Verify multiple read-only Get actions work after Modify")
+    sendMulReadOnlyTrx(numThreads=5)
 
-    def chainApiTests():
-        # verify chain APIs can run in parallel with read-ony transactions
-        runReadOnlyTrxAndRpcInParallel("chain", "get_info", "server_version")
-        runReadOnlyTrxAndRpcInParallel("chain", "get_consensus_parameters", "chain_config")
-        runReadOnlyTrxAndRpcInParallel("chain", "get_activated_protocol_features", "activated_protocol_features")
-        runReadOnlyTrxAndRpcInParallel("chain", "get_block", "block_num", expectedValue=1, payload={"block_num_or_id":1})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_block_info", "block_num", expectedValue=1, payload={"block_num":1})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_account", "account_name", expectedValue=userAccountName, payload = {"account_name":userAccountName})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_code", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_code_hash", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_raw_code_and_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_raw_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_producers", "rows", payload = {"json":"true","lower_bound":""})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_table_rows", "rows", payload = {"json":"true","code":"eosio","scope":"eosio","table":"global"})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_table_by_scope", fieldIn="rows", payload = {"json":"true","table":"noauth"})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_currency_balance", code=200, payload = {"code":"eosio.token", "account":testAccountName})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_currency_stats", fieldIn="SYS", payload = {"code":"eosio.token", "symbol":"SYS"})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_required_keys", code=400)
-        runReadOnlyTrxAndRpcInParallel("chain", "get_transaction_id", code=200, payload = {"ref_block_num":"1"})
-        runReadOnlyTrxAndRpcInParallel("chain", "push_block", code=202, payload = {"block":"signed_block"})
-        runReadOnlyTrxAndRpcInParallel("chain", "get_producer_schedule", "active")
-        runReadOnlyTrxAndRpcInParallel("chain", "get_scheduled_transactions", "transactions", payload = {"json":"true","lower_bound":""})
+def chainApiTests():
+    # verify chain APIs can run in parallel with read-ony transactions
+    runReadOnlyTrxAndRpcInParallel("chain", "get_info", "server_version")
+    runReadOnlyTrxAndRpcInParallel("chain", "get_consensus_parameters", "chain_config")
+    runReadOnlyTrxAndRpcInParallel("chain", "get_activated_protocol_features", "activated_protocol_features")
+    runReadOnlyTrxAndRpcInParallel("chain", "get_block", "block_num", expectedValue=1, payload={"block_num_or_id":1})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_block_info", "block_num", expectedValue=1, payload={"block_num":1})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_account", "account_name", expectedValue=userAccountName, payload = {"account_name":userAccountName})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_code", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_code_hash", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_raw_code_and_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_raw_abi", "account_name", expectedValue=testAccountName, payload = {"account_name":testAccountName})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_producers", "rows", payload = {"json":"true","lower_bound":""})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_table_rows", "rows", payload = {"json":"true","code":"eosio","scope":"eosio","table":"global"})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_table_by_scope", fieldIn="rows", payload = {"json":"true","table":"noauth"})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_currency_balance", code=200, payload = {"code":"eosio.token", "account":testAccountName})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_currency_stats", fieldIn="SYS", payload = {"code":"eosio.token", "symbol":"SYS"})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_required_keys", code=400)
+    runReadOnlyTrxAndRpcInParallel("chain", "get_transaction_id", code=200, payload = {"ref_block_num":"1"})
+    runReadOnlyTrxAndRpcInParallel("chain", "push_block", code=202, payload = {"block":"signed_block"})
+    runReadOnlyTrxAndRpcInParallel("chain", "get_producer_schedule", "active")
+    runReadOnlyTrxAndRpcInParallel("chain", "get_scheduled_transactions", "transactions", payload = {"json":"true","lower_bound":""})
 
-    def netApiTests():
-        # NET APIs
-        runReadOnlyTrxAndRpcInParallel("net", "status", code=201, payload = "localhost")
-        runReadOnlyTrxAndRpcInParallel("net", "connections", code=201)
-        runReadOnlyTrxAndRpcInParallel("net", "connect", code=201, payload = "localhost")
-        runReadOnlyTrxAndRpcInParallel("net", "disconnect", code=201, payload = "localhost")
+def netApiTests():
+    # NET APIs
+    runReadOnlyTrxAndRpcInParallel("net", "status", code=201, payload = "localhost")
+    runReadOnlyTrxAndRpcInParallel("net", "connections", code=201)
+    runReadOnlyTrxAndRpcInParallel("net", "connect", code=201, payload = "localhost")
+    runReadOnlyTrxAndRpcInParallel("net", "disconnect", code=201, payload = "localhost")
 
-    def runEverythingParallel():
-        threadList = []
-        threadList.append(threading.Thread(target = multiReadOnlyTests))
-        threadList.append(threading.Thread(target = chainApiTests))
-        threadList.append(threading.Thread(target = netApiTests))
-        threadList.append(threading.Thread(target = mixedOpsTest))
-        for thr in threadList:
-            thr.start()
-        for thr in threadList:
-            thr.join()
+def runEverythingParallel():
+    threadList = []
+    threadList.append(threading.Thread(target = multiReadOnlyTests))
+    threadList.append(threading.Thread(target = chainApiTests))
+    threadList.append(threading.Thread(target = netApiTests))
+    threadList.append(threading.Thread(target = mixedOpsTest))
+    for thr in threadList:
+        thr.start()
+    for thr in threadList:
+        thr.join()
+
+try:
+
+    startCluster()
+    deployTestContracts()
 
     basicTests()
 
