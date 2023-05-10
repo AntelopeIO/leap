@@ -50,7 +50,9 @@ auto make_unique_trx( const chain_id_type& chain_id ) {
 
 BOOST_AUTO_TEST_SUITE(read_only_trxs)
 
-void error_handling_common(std::vector<const char*>& specific_args) {
+enum class app_init_status { failed, succeeded };
+
+void test_configs_common(std::vector<const char*>& specific_args, app_init_status expected_status) {
    appbase::scoped_app app;
    fc::temp_directory temp;
    auto temp_dir_str = temp.path().string();
@@ -59,19 +61,30 @@ void error_handling_common(std::vector<const char*>& specific_args) {
    std::vector<const char*> argv =
       {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str()};
    argv.insert( argv.end(), specific_args.begin(), specific_args.end() );
-   BOOST_CHECK_EQUAL( app->initialize<producer_plugin>( argv.size(), (char**) &argv[0]), false );
+
+   // app->initialize() returns a boolean. BOOST_CHECK_EQUAL cannot compare
+   // a boolean with a app_init_status directly
+   bool rc = (expected_status == app_init_status::succeeded) ? true : false;
+   BOOST_CHECK_EQUAL( app->initialize<producer_plugin>( argv.size(), (char**) &argv[0]), rc );
 }
 
 // --read-only-thread not allowed on producer node
 BOOST_AUTO_TEST_CASE(read_only_on_producer) {
    std::vector<const char*> specific_args = {"-p", "eosio", "-e", "--read-only-threads", "2" };
-   error_handling_common(specific_args);
+   test_configs_common(specific_args, app_init_status::failed);
 }
 
 // read_window_time must be greater than max_transaction_time + 10ms
 BOOST_AUTO_TEST_CASE(invalid_read_window_time) {
    std::vector<const char*> specific_args = { "--read-only-threads", "2", "--max-transaction-time", "10", "--read-only-write-window-time-us", "50000", "--read-only-read-window-time-us", "20000" }; // 20000 not greater than --max-transaction-time (10ms) + 10000us (minimum margin)
-   error_handling_common(specific_args);
+   test_configs_common(specific_args, app_init_status::failed);
+}
+
+// if --read-only-threads is not configured, read-only trx related configs should
+// not be checked
+BOOST_AUTO_TEST_CASE(not_check_configs_if_no_read_only_threads) {
+   std::vector<const char*> specific_args = { "--max-transaction-time", "10", "--read-only-write-window-time-us", "50000", "--read-only-read-window-time-us", "20000" }; // 20000 not greater than --max-transaction-time (10ms) + 10000us (minimum margin)
+   test_configs_common(specific_args, app_init_status::succeeded);
 }
 
 void test_trxs_common(std::vector<const char*>& specific_args) {

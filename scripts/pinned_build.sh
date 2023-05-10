@@ -57,11 +57,45 @@ popdir() {
 }
 
 try(){
+    echo "$ $*"
     "$@"
     res=$?
     if [[ ${res} -ne 0 ]]; then
-        exit 255
+        exit $res
     fi
+}
+
+install_dependencies() {
+    echo 'Installing package dependencies.'
+    if [[ "$(uname)" == 'Linux' && -f /etc/debian_version ]]; then
+        if [[ "$(id -u)" != '0' ]]; then # if not root, use sudo for the package manager
+            if dpkg -s sudo &>/dev/null; then # guard against sudo not being installed
+                SUDO_CMD='sudo'
+            else
+                printf '\033[1;31mERROR: This script must be run as root or sudo must be installed!\n\033[0m'
+                exit 2
+            fi
+        else
+            unset SUDO_CMD
+        fi
+        DEPENDENCIES=()
+        while IFS='' read -r LINE; do
+            DEPENDENCIES+=("$LINE");
+        done < <(cat "$SCRIPT_DIR/pinned_deps.txt")
+        echo 'Checking for missing package dependencies.'
+        if dpkg -s "${DEPENDENCIES[@]}" &> /dev/null; then
+            echo 'All package dependencies are already installed.'
+        else
+            echo 'Some package dependencies are missing, installing...'
+            try $SUDO_CMD apt-get update
+            try $SUDO_CMD apt-get update --fix-missing
+            export DEBIAN_FRONTEND='noninteractive'
+            try $SUDO_CMD apt-get install "${DEPENDENCIES[@]}"
+        fi
+    else
+        printf '\033[1;33mWARNING: Skipping package manager dependency installations because this is not a Debian-family operating system!\nWe currently only support Ubuntu.\033[0m\n'
+    fi
+    echo 'Done installing package dependencies.'
 }
 
 install_clang() {
@@ -117,6 +151,8 @@ install_boost() {
     fi
     export BOOST_DIR="${BOOST_DIR}"
 }
+
+install_dependencies
 
 pushdir "${DEP_DIR}"
 

@@ -106,22 +106,23 @@ When building C/C++ software, often the build is performed in parallel via a com
 If you are in an Ubuntu docker container, omit `sudo` from all commands because you run as `root` by default. Most other docker containers also exclude `sudo`, especially Debian-family containers. If your shell prompt is a hash tag (`#`), omit `sudo`.
 
 #### Pinned Build
-Make sure you are in the root of the `leap` repo, then run the `install_depts.sh` script to install dependencies:
-```bash
-sudo scripts/install_deps.sh
-```
-
-Next, run the pinned build script. You have to give it three arguments in the following order:
+Make sure you are in the root of the `leap` repo, then run the pinned build script. You have to give it three arguments in the following order:
 1. A temporary folder, for all dependencies that need to be built from source.
 1. A build folder, where the binaries you need to install will be built to.
 1. The number of jobs or CPU cores/threads to use (note the [jobs flag](#step-3---build) warning above).
 
-> 🔒 You do not need to run this script with `sudo` or as root.
+> 🔒 You do not need to run this script with `sudo` or as root. On Debian-family operating systems such as Ubuntu, the script will determine if all package dependencies are installed and only invoke `apt-get` if you are missing packages. In that case, you may be prompted for your password if `apt-get` needs additional permissions from `sudo`. You should not run this script with `sudo` or as root because you do not need to.
 
 For example, the following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads:
 ```bash
 scripts/pinned_build.sh deps build "$(nproc)"
 ```
+If you want to by-pass the `[Y/n]` prompt from `apt-get install`, you can pass `y` to the script like this.
+```bash
+echo 'y' | scripts/pinned_build.sh deps build "$(nproc)"
+```
+All other script behavior remains unchanged.
+
 Now you can optionally [test](#step-4---test) your build, or [install](#step-5---install) the `*.deb` binary packages, which will be in the root of your build directory.
 
 #### Unpinned Build

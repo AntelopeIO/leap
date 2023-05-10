@@ -28,12 +28,16 @@ namespace eosio {
    using std::regex;
    using boost::asio::ip::tcp;
    using std::shared_ptr;
-   
+
    static http_plugin_defaults current_http_plugin_defaults;
    static bool verbose_http_errors = false;
 
    void http_plugin::set_defaults(const http_plugin_defaults& config) {
       current_http_plugin_defaults = config;
+   }
+
+   std::string http_plugin::get_server_header() {
+      return current_http_plugin_defaults.server_header;
    }
 
    using http_plugin_impl_ptr = std::shared_ptr<class http_plugin_impl>;
@@ -47,9 +51,9 @@ namespace eosio {
 
          http_plugin_impl& operator=(const http_plugin_impl&) = delete;
          http_plugin_impl& operator=(http_plugin_impl&&) = delete;
-         
+
          std::optional<tcp::endpoint>  listen_endpoint;
-         
+
          std::optional<asio::local::stream_protocol::endpoint> unix_endpoint;
 
          shared_ptr<beast_http_listener<plain_session, tcp, tcp_socket_t > >  beast_server;
@@ -272,7 +276,7 @@ namespace eosio {
 
          my->plugin_state->server_header = current_http_plugin_defaults.server_header;
 
-         
+
          //watch out for the returns above when adding new code here
       } FC_LOG_AND_RETHROW()
    }
@@ -309,7 +313,7 @@ namespace eosio {
             if(my->unix_endpoint) {
                try {
                   my->create_beast_server(true);
-                  
+
                   my->beast_unix_server->listen(*my->unix_endpoint);
                   my->beast_unix_server->start_accept();
                } catch ( const fc::exception& e ){
@@ -335,7 +339,7 @@ namespace eosio {
                   }
                }
             }}, appbase::exec_queue::read_only);
-            
+
          } catch (...) {
             fc_elog(logger(), "http_plugin startup fails, shutting down");
             app().quit();
@@ -381,22 +385,30 @@ namespace eosio {
          boost::asio::post( my->plugin_state->thread_pool.get_executor(), f );
    }
 
-   void http_plugin::handle_exception( const char *api_name, const char *call_name, const string& body, const url_response_callback& cb) {
+   void http_plugin::handle_exception( const char* api_name, const char* call_name, const string& body, const url_response_callback& cb) {
       try {
          try {
             throw;
          } catch (chain::unknown_block_exception& e) {
             error_results results{400, "Unknown Block", error_results::error_info(e, verbose_http_errors)};
             cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Unknown block while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::invalid_http_request& e) {
             error_results results{400, "Invalid Request", error_results::error_info(e, verbose_http_errors)};
             cb( 400, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Invalid http request while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::unsatisfied_authorization& e) {
             error_results results{401, "UnAuthorized", error_results::error_info(e, verbose_http_errors)};
             cb( 401, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Auth error while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (chain::tx_duplicate& e) {
             error_results results{409, "Conflict", error_results::error_info(e, verbose_http_errors)};
             cb( 409, fc::time_point::maximum(), fc::variant( results ));
+            fc_dlog( logger(), "Duplicate trx while processing ${api}.${call}: ${e}",
+                     ("api", api_name)("call", call_name)("e", e.to_detail_string()) );
          } catch (fc::eof_exception& e) {
             error_results results{422, "Unprocessable Entity", error_results::error_info(e, verbose_http_errors)};
             cb( 422, fc::time_point::maximum(), fc::variant( results ));
@@ -454,9 +466,9 @@ namespace eosio {
    fc::microseconds http_plugin::get_max_response_time()const {
       return my->plugin_state->max_response_time;
    }
-   
+
    size_t http_plugin::get_max_body_size()const {
       return my->plugin_state->max_body_size;
    }
-   
+
 }

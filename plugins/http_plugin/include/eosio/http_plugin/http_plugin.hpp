@@ -78,6 +78,7 @@ namespace eosio {
 
         //must be called before initialize
         static void set_defaults(const http_plugin_defaults& config);
+        static std::string get_server_header();
 
         APPBASE_PLUGIN_REQUIRES()
         void set_program_options(options_description&, options_description& cfg) override;
@@ -121,7 +122,7 @@ namespace eosio {
         void register_metrics_listener(chain::plugin_interface::metrics_listener listener);
 
         size_t get_max_body_size()const;
-      
+
    private:
         std::shared_ptr<class http_plugin_impl> my;
    };
@@ -175,7 +176,7 @@ namespace eosio {
    };
 
    /**
-    * @brief Used to trim whitespace from body. 
+    * @brief Used to trim whitespace from body.
     * Returned string_view valid only for lifetime of body
     */
    inline std::string_view make_trimmed_string_view(const std::string& body) {
