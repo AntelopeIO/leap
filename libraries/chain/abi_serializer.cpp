@@ -24,12 +24,11 @@ namespace eosio { namespace chain {
 
    template <typename T>
    inline fc::variant variant_from_stream(fc::datastream<const char*>& stream, const abi_serializer::yield_function_t& yield) {
-      yield(0); // reset deadline
-      fc::yield_function_t y = [yield](){ yield(1); }; // create yield function matching fc::variant requirements, 0 for recursive depth
       T temp;
       fc::raw::unpack( stream, temp );
-      y();
-      return fc::variant( temp, y );
+      yield(0);
+      // create yield function matching fc::variant requirements, 0 for recursive depth
+      return fc::variant( temp, [yield](){ yield(0); } );
    }
 
    template <typename T>
