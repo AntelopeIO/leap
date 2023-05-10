@@ -130,7 +130,7 @@ class beast_http_session : public detail::abstract_conn,
 
       // Request path must be absolute and not contain "..".
       if(req.target().empty() || req.target()[0] != '/' || req.target().find("..") != beast::string_view::npos) {
-         fc_ilog( plugin_state_->logger, "Return bad_reqest:  ${target}",  ("target", std::string(req.target())) );
+         fc_dlog( plugin_state_->logger, "Return bad_reqest:  ${target}",  ("target", std::string(req.target())) );
          error_results results{static_cast<uint16_t>(http::status::bad_request), "Illegal request-target"};
          send_response( fc::json::to_string( results, fc::time_point::maximum() ),
                         static_cast<unsigned int>(http::status::bad_request) );
@@ -139,7 +139,7 @@ class beast_http_session : public detail::abstract_conn,
 
       try {
          if(!allow_host(req)) {
-            fc_ilog( plugin_state_->logger, "bad host:  ${HOST}", ("HOST", std::string(req["host"])));
+            fc_dlog( plugin_state_->logger, "bad host:  ${HOST}", ("HOST", std::string(req["host"])));
             error_results results{static_cast<uint16_t>(http::status::bad_request), "Disallowed HTTP HOST header in the request"};
             send_response( fc::json::to_string( results, fc::time_point::maximum() ),
                         static_cast<unsigned int>(http::status::bad_request) );
@@ -186,8 +186,12 @@ class beast_http_session : public detail::abstract_conn,
                                 std::move(body),
                                 make_http_response_handler(plugin_state_, this->shared_from_this(), content_type));
          } else if (resource == "/v1/node/get_supported_apis") {
-            auto results = plugin_state_->get_supported_apis(categories_);
-            send_response(fc::json::to_string(fc::variant(results), fc::time_point::maximum()), 200);
+            http_plugin::get_supported_apis_result result;
+            for (const auto& handler : plugin_state_->url_handlers) {
+               if (categories_.contains(handler.second.category))
+                  result.apis.push_back(handler.first);
+            }
+            send_response(fc::json::to_string(fc::variant(result), fc::time_point::maximum()), 200);
          } else {
             fc_dlog( plugin_state_->logger, "404 - not found: ${ep}", ("ep", resource) );
             error_results results{static_cast<uint16_t>(http::status::not_found), "Not Found",

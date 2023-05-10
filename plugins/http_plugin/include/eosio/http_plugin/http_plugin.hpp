@@ -60,6 +60,8 @@ namespace eosio {
       //If set, a Server header will be added to the HTTP reply with this value
       string server_header;
       bool   support_categories = true;
+      // Issues warnings when the contained categories listen on non-loopback addresses.
+      api_category_set warn_on_nonloopback;
    };
 
    /**
@@ -119,8 +121,6 @@ namespace eosio {
            vector<string> apis;
         };
 
-        get_supported_apis_result get_supported_apis()const;
-
         /// @return the configured http-max-response-time-ms
         fc::microseconds get_max_response_time()const;
 
@@ -132,8 +132,7 @@ namespace eosio {
 
         void register_update_metrics(std::function<void(metrics)>&& fun);
 
-        void set_plugin_promise(std::promise<http_plugin*>* plugin_promise);
-
+        std::condition_variable& startup_condition();
    private:
         std::shared_ptr<class http_plugin_impl> my;
    };

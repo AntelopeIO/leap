@@ -1,6 +1,6 @@
 #pragma once
 #include <stdint.h>
-
+#include <eosio/chain/types.hpp>
 namespace eosio {
 
 enum class api_category : uint32_t {
@@ -25,8 +25,16 @@ class api_category_set {
 public:
    constexpr api_category_set() = default;
    constexpr explicit api_category_set(api_category c) : data(static_cast<uint32_t>(c)){}
-   constexpr bool contains(api_category category) const { return (data & static_cast<uint32_t>(category)) != 0; }
-   constexpr void insert(api_category category) { data |= static_cast<uint32_t>(category); }
+   constexpr api_category_set(std::initializer_list<api_category> l) {
+      for (auto c: l)
+         insert(c);
+   }
+   constexpr bool contains(api_category category) const { 
+      return eosio::chain::has_field(data, category);
+   }
+   constexpr void insert(api_category category) { 
+      data = eosio::chain::set_field(data, category, true);
+   }
 
    constexpr static api_category_set all() {
       return api_category_set(api_category::node);

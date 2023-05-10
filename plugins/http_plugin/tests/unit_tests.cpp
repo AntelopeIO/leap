@@ -36,7 +36,7 @@ using tcp       = net::ip::tcp;     // from <boost/asio/ip/tcp.hpp>
 // -------------------------------------------------------------------------
 class Db
 {
-public:
+ public:
    void add_api(http_plugin& p) {
       p.add_api({
             {  std::string("/hello"),
@@ -57,11 +57,11 @@ public:
                   bool ok = std::all_of(body.begin(), body.end(), [](char c) { return c == '1'; });
                   cb(200, fc::time_point::maximum(), fc::variant(ok ? string("yes") : string("no")));
                }
-            },
+          },
          }, appbase::exec_queue::read_write);
    }
 
-private:
+ private:
 };
 
 // --------------------------------------------------------------------------
@@ -134,7 +134,7 @@ struct Expect100ContinueProtocol : public ProtocolCommon<Results>
             req.set(http::field::expect, "100-continue");
             req.body() = body;
             req.prepare_payload();
-      
+
             http::request_serializer<http::string_body> sr{req};
             beast::error_code ec;
             http::write_header(this->stream, sr, ec);
@@ -142,7 +142,7 @@ struct Expect100ContinueProtocol : public ProtocolCommon<Results>
                BOOST_CHECK_MESSAGE(expect_fail, "write_header failed");
                return false;
             }
-            
+
             {
                http::response<http::string_body> res {};
                beast::flat_buffer buffer;
@@ -165,7 +165,7 @@ struct Expect100ContinueProtocol : public ProtocolCommon<Results>
             // Server is OK with the request, send the body
             http::write(this->stream, sr, ec);
             return !ec;
-         } 
+         }
          return http::write(this->stream, req) != 0;
       }
       catch(std::exception const& e)
@@ -223,52 +223,97 @@ void run_test(Protocol& p, size_t max_body_size)
       test_str.resize(max_body_size + 1, '1');
       check_request(p, "/check_ones", test_str.c_str(), {}); // we don't expect a response
    }
-}   
+}
 
-// -------------------------------------------------------------------------
-// -------------------------------------------------------------------------
-BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
-{
+namespace eosio {
+class chain_api_plugin : public appbase::plugin<chain_api_plugin> {
+ public:
+   APPBASE_PLUGIN_REQUIRES();
+   virtual void set_program_options(options_description& cli, options_description& cfg) override {}
+   void         plugin_initialize(const variables_map& options) {}
+   void         plugin_startup() {}
+   void         plugin_shutdown() {}
+};
+
+class net_api_plugin : public appbase::plugin<net_api_plugin> {
+ public:
+   APPBASE_PLUGIN_REQUIRES();
+   virtual void set_program_options(options_description& cli, options_description& cfg) override {}
+   void         plugin_initialize(const variables_map& options) {}
+   void         plugin_startup() {}
+   void         plugin_shutdown() {}
+};
+
+class producer_api_plugin : public appbase::plugin<producer_api_plugin> {
+ public:
+   APPBASE_PLUGIN_REQUIRES();
+   virtual void set_program_options(options_description& cli, options_description& cfg) override {}
+   void         plugin_initialize(const variables_map& options) {}
+   void         plugin_startup() {}
+   void         plugin_shutdown() {}
+};
+
+static auto _chain_api_plugin    = application::register_plugin<chain_api_plugin>();
+static auto _net_api_plugin      = application::register_plugin<net_api_plugin>();
+static auto _producer_api_plugin = application::register_plugin<producer_api_plugin>();
+} // namespace eosio
+
+struct http_plugin_test_fixture {
    appbase::scoped_app app;
+   std::thread         app_thread;
 
-   
-   const uint16_t default_port { 8888 };
-   const char* port = "8888";
-   const char* host = "127.0.0.1";
-   
-   http_plugin::set_defaults({
-         .default_unix_socket_path = "",
-         .default_http_port = default_port,
-         .server_header = "/"
-      });
+   http_plugin* init(std::initializer_list<const char*> args) {
+      if (app->initialize<http_plugin>(args.size(), const_cast<char**>(args.begin()))) {
+         auto                       plugin  = app->find_plugin<http_plugin>();
+         std::condition_variable& started = plugin->startup_condition();
+         app_thread = std::thread([&]() {
+            try {
+               app->startup();
+               app->exec();
+            } catch (...) {
+               plugin = nullptr;
+               started.notify_all();
+            }
+         });
 
-   const char* argv[] = { bu::framework::current_test_case().p_name->c_str(),
-                          "--http-validate-host", "false",
-                          "--http-threads", "4", 
-                          "--http-max-response-time-ms", "50" };
-   
-   BOOST_CHECK(app->initialize<http_plugin>(sizeof(argv) / sizeof(char*), const_cast<char**>(argv)));
-
-   std::promise<http_plugin*> plugin_promise;
-   std::thread app_thread( [&]() {
-      try {
-         app->startup();
-         app->get_plugin<http_plugin>().set_plugin_promise(&plugin_promise);
-         app->exec();
-      } catch (...) {
-         plugin_promise.set_value(nullptr);
+         std::mutex                   cv_m;
+         std::unique_lock<std::mutex> lk(cv_m);
+         started.wait(lk);
+         return plugin;
       }
-   } );
+      return nullptr;
+   }
 
-   auto http_plugin = plugin_promise.get_future().get();
+   ~http_plugin_test_fixture() {
+      if (app_thread.joinable()) {
+         app->quit();
+         app_thread.join();
+      }
+   }
+};
+
+// -------------------------------------------------------------------------
+// -------------------------------------------------------------------------
+BOOST_FIXTURE_TEST_CASE(http_plugin_unit_tests, http_plugin_test_fixture) {
+
+   const uint16_t default_port{8888};
+   const char*    port = "8888";
+   const char*    host = "127.0.0.1";
+
+   http_plugin::set_defaults({.default_unix_socket_path = "", .default_http_port = default_port, .server_header = "/"});
+
+   auto http_plugin =
+       init({bu::framework::current_test_case().p_name->c_str(), "--plugin", "eosio::http_plugin",
+             "--http-validate-host", "false", "--http-threads", "4", "--http-max-response-time-ms", "50"});
+
    BOOST_REQUIRE(http_plugin);
    BOOST_CHECK(http_plugin->get_state() == abstract_plugin::started);
-   
+
    Db db;
    db.add_api(*http_plugin);
 
    size_t max_body_size = http_plugin->get_max_body_size();
-   
+
    try
    {
       net::io_context ioc;
@@ -301,19 +346,20 @@ BOOST_AUTO_TEST_CASE(http_plugin_unit_tests)
    {
       std::cerr << "Error: " << e.what() << std::endl;
    }
-
-   app->quit();
-   app_thread.join();
 }
 
 class app_log {
    std::string result;
-   int         fork_app_and_redirect_stderr(int argc, const char** argv, const char* redirect_filename) {
+   int         fork_app_and_redirect_stderr(const char* redirect_filename, std::initializer_list<const char*> args) {
       int pid = fork();
       if (pid == 0) {
          freopen(redirect_filename, "w", stderr);
-         appbase::scoped_app app;
-         bool                ret = app->initialize<http_plugin>(argc, const_cast<char**>(argv));
+         bool ret = 0;
+         try {
+            appbase::scoped_app app;
+            ret = app->initialize<http_plugin>(args.size(), const_cast<char**>(args.begin()));
+         } catch (...) {
+         }
          fclose(stderr);
          exit(ret ? 0 : 1);
       } else {
@@ -325,17 +371,23 @@ class app_log {
    }
 
  public:
-   template <typename Args>
-   app_log(Args&& args) {
+   app_log(std::initializer_list<const char*> args) {
       const char* log = "test.stderr";
-      BOOST_CHECK(fork_app_and_redirect_stderr(args.size(), args.data(), log));
+      BOOST_CHECK(fork_app_and_redirect_stderr(log, args));
       std::ifstream file(log);
       result.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
       std::error_code ec;
       std::filesystem::remove(log, ec);
    }
 
-   bool contains(const char* str) const { return result.find(str) != std::string::npos; }
+   boost::test_tools::predicate_result contains(const char* str) const {
+      if (result.find(str) == std::string::npos) {
+         boost::test_tools::predicate_result res(false);
+         res.message() << "\nlog result: " << result << "\n";
+         return res;
+      }
+      return true;
+   }
 };
 
 BOOST_AUTO_TEST_CASE(invalid_category_addresses) {
@@ -343,21 +395,27 @@ BOOST_AUTO_TEST_CASE(invalid_category_addresses) {
 
    const char* test_name = bu::framework::current_test_case().p_name->c_str();
 
-   BOOST_TEST(app_log(std::array{test_name, "--http-category-address", "chain_ro,localhost:8889"})
+   BOOST_TEST(app_log({test_name, "--plugin=eosio::http_plugin", "--http-server-address",
+                                 "http-category-address", "--http-category-address", "chain_ro,localhost:8889"})
+                  .contains("--plugin=eosio::chain_api_plugin is required"));
+
+   BOOST_TEST(app_log({test_name, "--plugin=eosio::chain_api_plugin", "--http-category-address",
+                                 "chain_ro,localhost:8889"})
                   .contains("http-server-address must be set as `http-category-address`"));
 
-   BOOST_TEST(app_log(std::array{test_name, "--http-server-address", "http-category-address", "--unix-socket-path",
-                                  "/tmp/tmp.sock", "--http-category-address", "chain_ro,localhost:8889"}).contains(
-                       "`unix-socket-path` must be left unspecified"));
+   BOOST_TEST(app_log({test_name, "--plugin=eosio::chain_api_plugin", "--http-server-address",
+                                 "http-category-address", "--unix-socket-path", "/tmp/tmp.sock",
+                                 "--http-category-address", "chain_ro,localhost:8889"})
+                  .contains("`unix-socket-path` must be left unspecified"));
 
-   BOOST_TEST(app_log(std::array{test_name, "--http-server-address", "http-category-address",
-                                  "--http-category-address", "node,localhost:8889"}).contains(
-                       "invalid category name"));
+   BOOST_TEST(app_log({test_name, "--plugin=eosio::chain_api_plugin", "--http-server-address",
+                                 "http-category-address", "--http-category-address", "node,localhost:8889"})
+                  .contains("invalid category name"));
 
-   BOOST_TEST(app_log(std::array{test_name, "--http-server-address", "http-category-address",
-                                  "--http-category-address", "chain_ro,127.0.0.1:8889",
-                                  "--http-category-address", "chain_rw,localhost:8889"}).contains(
-                       "unable to listen to port 8889"));
+   BOOST_TEST(app_log({test_name, "--plugin=eosio::chain_api_plugin", "--http-server-address",
+                                 "http-category-address", "--http-category-address", "chain_ro,127.0.0.1:8889",
+                                 "--http-category-address", "chain_rw,localhost:8889"})
+                  .contains("unable to listen to port 8889"));
 }
 
 struct http_response_for {
@@ -376,10 +434,8 @@ struct http_response_for {
    }
 
    http_response_for(std::filesystem::path addr, const char* path) {
-      using unix_stream =
-          beast::basic_stream<boost::asio::local::stream_protocol, 
-                              beast::tcp_stream::executor_type, 
-                              beast::unlimited_rate_policy>;
+      using unix_stream = beast::basic_stream<boost::asio::local::stream_protocol, beast::tcp_stream::executor_type,
+                                              beast::unlimited_rate_policy>;
 
       unix_stream stream(ioc);
       stream.connect(addr.c_str());
@@ -399,23 +455,22 @@ struct http_response_for {
       http::read(stream, buffer, response);
    }
 
-   http::status status() const {
-      return response.result();
-   }
+   http::status status() const { return response.result(); }
 
-   std::string body() const {
-      return beast::buffers_to_string(response.body().data());
-   }
+   std::string body() const { return beast::buffers_to_string(response.body().data()); }
 };
 
-BOOST_AUTO_TEST_CASE(valid_category_addresses) {
+BOOST_FIXTURE_TEST_CASE(valid_category_addresses, http_plugin_test_fixture) {
    http_plugin::set_defaults({.default_unix_socket_path = "", .default_http_port = 8888, .server_header = "/"});
    fc::temp_directory dir;
-   auto data_dir = dir.path()/"data";
+   auto               data_dir = dir.path() / "data";
 
    // clang-format off
-   std::array args = {bu::framework::current_test_case().p_name->c_str(),
+   auto http_plugin = init({bu::framework::current_test_case().p_name->c_str(),
                       "--data-dir", data_dir.c_str(),
+                      "--plugin=eosio::chain_api_plugin",
+                      "--plugin=eosio::net_api_plugin",
+                      "--plugin=eosio::producer_api_plugin",
                       "--http-server-address", "http-category-address",
                       "--http-category-address", "chain_ro,127.0.0.1:8890",
                       "--http-category-address", "chain_rw,:8889",
@@ -423,59 +478,47 @@ BOOST_AUTO_TEST_CASE(valid_category_addresses) {
                       "--http-category-address", "net_rw,:8889",
                       "--http-category-address", "producer_ro,./producer_ro.sock",
                       "--http-category-address", "producer_rw,../producer_rw.sock"
-                      };
+                      });
    // clang-format on
-   appbase::scoped_app app;
-   BOOST_REQUIRE(app->initialize<http_plugin>(args.size(), const_cast<char**>(args.data())));
 
-   std::promise<http_plugin*> plugin_promise;
-   std::thread                app_thread([&]() {
-      try {
-         app->startup();
-         app->get_plugin<http_plugin>().set_plugin_promise(&plugin_promise);
-         app->exec();
-      } catch (...) {
-         plugin_promise.set_value(nullptr);
-      }
-   });
-
-   auto on_exit = fc::make_scoped_exit([&app, &app_thread] {
-      app->quit();
-      app_thread.join();
-   });
-
-   auto http_plugin = plugin_promise.get_future().get();
    BOOST_REQUIRE(http_plugin);
 
    http_plugin->add_api({{std::string("/v1/node/hello"), api_category::node,
-                         [&](string&&, string&& body, url_response_callback&& cb) {
-                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
-                         }},
-                        {std::string("/v1/chain_ro/hello"), api_category::chain_ro,
-                         [&](string&&, string&& body, url_response_callback&& cb) {
-                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
-                         }},
-                        {std::string("/v1/chain_rw/hello"), api_category::chain_rw,
-                         [&](string&&, string&& body, url_response_callback&& cb) {
-                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
-                         }},
-                        {std::string("/v1/net_ro/hello"), api_category::net_ro,
-                         [&](string&&, string&& body, url_response_callback&& cb) {
-                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
-                         }},
-                        {std::string("/v1/net_rw/hello"), api_category::net_rw,
-                         [&](string&&, string&& body, url_response_callback&& cb) {
-                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
-                         }},
+                          [&](string&&, string&& body, url_response_callback&& cb) {
+                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                          }},
+                         {std::string("/v1/chain_ro/hello"), api_category::chain_ro,
+                          [&](string&&, string&& body, url_response_callback&& cb) {
+                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                          }},
+                         {std::string("/v1/chain_rw/hello"), api_category::chain_rw,
+                          [&](string&&, string&& body, url_response_callback&& cb) {
+                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                          }},
+                         {std::string("/v1/net_ro/hello"), api_category::net_ro,
+                          [&](string&&, string&& body, url_response_callback&& cb) {
+                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                          }},
+                         {std::string("/v1/net_rw/hello"), api_category::net_rw,
+                          [&](string&&, string&& body, url_response_callback&& cb) {
+                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                          }},
                          {std::string("/v1/producer_ro/hello"), api_category::producer_ro,
-                         [&](string&&, string&& body, url_response_callback&& cb) {
-                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
-                         }},
+                          [&](string&&, string&& body, url_response_callback&& cb) {
+                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                          }},
                          {std::string("/v1/producer_rw/hello"), api_category::producer_rw,
-                         [&](string&&, string&& body, url_response_callback&& cb) {
-                            cb(200, fc::time_point::maximum(), fc::variant("world!"));
-                         }}},
-                       appbase::exec_queue::read_write);
+                          [&](string&&, string&& body, url_response_callback&& cb) {
+                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                          }}},
+                        appbase::exec_queue::read_write);
+
+   BOOST_CHECK(http_plugin->is_on_loopback(api_category::chain_ro));
+   BOOST_CHECK(http_plugin->is_on_loopback(api_category::net_ro));
+   BOOST_CHECK(http_plugin->is_on_loopback(api_category::producer_ro));
+   BOOST_CHECK(http_plugin->is_on_loopback(api_category::producer_rw));
+   BOOST_CHECK(!http_plugin->is_on_loopback(api_category::chain_rw));
+   BOOST_CHECK(!http_plugin->is_on_loopback(api_category::net_rw));
 
    std::string world_string = "\"world!\"";
 
@@ -484,10 +527,10 @@ BOOST_AUTO_TEST_CASE(valid_category_addresses) {
 
    bool ip_v6_enabled = [] {
       try {
-         net::io_context                    ioc;
-         tcp::socket s(ioc, tcp::endpoint{ net::ip::address::from_string("::1"), 9999});
+         net::io_context ioc;
+         tcp::socket     s(ioc, tcp::endpoint{net::ip::address::from_string("::1"), 9999});
          return true;
-      } catch(...) {
+      } catch (...) {
          return false;
       }
    }();
@@ -495,9 +538,9 @@ BOOST_AUTO_TEST_CASE(valid_category_addresses) {
    if (ip_v6_enabled) {
       BOOST_CHECK_EQUAL(http_response_for("[::1]:8889", "/v1/node/hello").body(), world_string);
    }
-   
 
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/chain_ro/hello").body(), world_string);
+   BOOST_CHECK_EQUAL(http_response_for("localhost:8890", "/v1/chain_ro/hello").status(), http::status::bad_request);
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/net_ro/hello").body(), world_string);
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/chain_rw/hello").status(), http::status::not_found);
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/net_rw/hello").status(), http::status::not_found);
@@ -507,8 +550,8 @@ BOOST_AUTO_TEST_CASE(valid_category_addresses) {
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8889", "/v1/chain_rw/hello").body(), world_string);
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8889", "/v1/net_rw/hello").body(), world_string);
 
-   BOOST_CHECK_EQUAL(http_response_for( data_dir / "./producer_ro.sock", "/v1/producer_ro/hello").body(), world_string);
-   BOOST_CHECK_EQUAL(http_response_for( data_dir / "../producer_rw.sock", "/v1/producer_rw/hello").body(), world_string);
+   BOOST_CHECK_EQUAL(http_response_for(data_dir / "./producer_ro.sock", "/v1/producer_ro/hello").body(), world_string);
+   BOOST_CHECK_EQUAL(http_response_for(data_dir / "../producer_rw.sock", "/v1/producer_rw/hello").body(), world_string);
 
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8890", "/v1/node/get_supported_apis").body(),
                      R"({"apis":["/v1/chain_ro/hello","/v1/net_ro/hello","/v1/node/hello"]})");

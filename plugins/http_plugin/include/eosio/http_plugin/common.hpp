@@ -138,16 +138,6 @@ struct http_plugin_state {
    explicit http_plugin_state(fc::logger& log)
        : logger(log) {}
 
-   http_plugin::get_supported_apis_result get_supported_apis(api_category_set set) const {
-      http_plugin::get_supported_apis_result result;
-
-      for (const auto& handler : url_handlers) {
-         if (set.contains(handler.second.category))
-            result.apis.emplace_back(handler.first);
-      }
-
-      return result;
-   }
 };
 
 /**
