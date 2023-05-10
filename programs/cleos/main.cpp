@@ -514,7 +514,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       if (!tx_return_packed) {
          if( tx_unpack_data ) {
             fc::variant unpacked_data_trx;
-            abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer::create_yield_function(abi_serializer_max_time));
+            abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer_max_time);
             return unpacked_data_trx;
          } else {
             return fc::variant(trx);
@@ -2903,7 +2903,7 @@ int main( int argc, char** argv ) {
       signed_transaction strx = packed_trx.get_signed_transaction();
       fc::variant trx_var;
       if( unpack_action_data_flag ) {
-         abi_serializer::to_variant( strx, trx_var, abi_serializer_resolver, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+         abi_serializer::to_variant( strx, trx_var, abi_serializer_resolver, abi_serializer_max_time );
       } else {
          trx_var = strx;
       }

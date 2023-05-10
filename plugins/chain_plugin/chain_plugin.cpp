@@ -1840,7 +1840,7 @@ read_only::get_scheduled_transactions( const read_only::get_scheduled_transactio
 
    read_only::get_scheduled_transactions_result result;
 
-   auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
+   auto resolver = make_resolver(db, abi_serializer_max_time, throw_on_yield::no);
 
    uint32_t remaining = p.limit;
    if (deadline != fc::time_point::maximum() && remaining > max_return_items)
@@ -1863,7 +1863,7 @@ read_only::get_scheduled_transactions( const read_only::get_scheduled_transactio
          fc::datastream<const char*> ds( itr->packed_trx.data(), itr->packed_trx.size() );
          fc::raw::unpack(ds,trx);
 
-         abi_serializer::to_variant(trx, pretty_transaction, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
+         abi_serializer::to_variant(trx, pretty_transaction, resolver, abi_serializer_max_time);
          row("transaction", pretty_transaction);
       } else {
          auto packed_transaction = bytes(itr->packed_trx.begin(), itr->packed_trx.end());
@@ -1913,8 +1913,7 @@ chain::signed_block_ptr read_only::get_raw_block(const read_only::get_raw_block_
 std::function<chain::t_or_exception<fc::variant>()> read_only::get_block(const get_raw_block_params& params, const fc::time_point& deadline) const {
    chain::signed_block_ptr block = get_raw_block(params, deadline);
 
-   auto yield = abi_serializer::create_yield_function(abi_serializer_max_time);
-   auto abi_cache = abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(block).get();
+   auto abi_cache = abi_serializer_cache_builder(make_resolver(db, abi_serializer_max_time, throw_on_yield::no)).add_serializers(block).get();
 
    using return_type = t_or_exception<fc::variant>;
    return [this,
@@ -1966,13 +1965,12 @@ read_only::get_block_header_result read_only::get_block_header(const read_only::
 
 abi_resolver
 read_only::get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const {
-   auto yield = abi_serializer::create_yield_function(max_time);
-   return abi_resolver(abi_serializer_cache_builder(make_resolver(db, std::move(yield))).add_serializers(block).get());
+   return abi_resolver(abi_serializer_cache_builder(make_resolver(db, max_time, throw_on_yield::no)).add_serializers(block).get());
 }
 
 fc::variant read_only::convert_block( const chain::signed_block_ptr& block, abi_resolver& resolver ) const {
    fc::variant pretty_output;
-   abi_serializer::to_variant( *block, pretty_output, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+   abi_serializer::to_variant( *block, pretty_output, resolver, abi_serializer_max_time );
 
    const auto block_id = block->calculate_id();
    uint32_t ref_block_prefix = block_id._hash[1];
@@ -2049,7 +2047,7 @@ void read_write::push_block(read_write::push_block_params&& params, next_functio
 void read_write::push_transaction(const read_write::push_transaction_params& params, next_function<read_write::push_transaction_results> next) {
    try {
       auto pretty_input = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      auto resolver = make_resolver(db, abi_serializer_max_time, throw_on_yield::yes);
       try {
          abi_serializer::from_variant(params, *pretty_input, std::move( resolver ), abi_serializer::create_yield_function( abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
@@ -2064,7 +2062,9 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
             try {
                fc::variant output;
                try {
-                  output = db.to_variant_with_abi( *trx_trace_ptr, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+                  auto abi_cache = abi_serializer_cache_builder(make_resolver(db, abi_serializer_max_time, throw_on_yield::no)).add_serializers(trx_trace_ptr).get();
+                  auto resolver = abi_resolver(std::move(abi_cache));
+                  abi_serializer::to_variant(*trx_trace_ptr, output, std::move(resolver), abi_serializer_max_time);
 
                   // Create map of (closest_unnotified_ancestor_action_ordinal, global_sequence) with action trace
                   std::map< std::pair<uint32_t, uint64_t>, fc::mutable_variant_object > act_traces_map;
@@ -2170,7 +2170,7 @@ template<class API, class Result>
 void api_base::send_transaction_gen(API &api, send_transaction_params_t params, next_function<Result> next) {
    try {
       auto ptrx = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(api.db, abi_serializer::create_yield_function( api.abi_serializer_max_time ));
+      auto resolver = make_resolver(api.db, api.abi_serializer_max_time, throw_on_yield::yes);
       try {
          abi_serializer::from_variant(params.transaction, *ptrx, resolver, abi_serializer::create_yield_function( api.abi_serializer_max_time ));
       } EOS_RETHROW_EXCEPTIONS(packed_transaction_type_exception, "Invalid packed transaction")
@@ -2217,15 +2217,13 @@ void api_base::send_transaction_gen(API &api, send_transaction_params_t params, 
                   }
                   if (!retried) {
                      // we are still on main thread here. The lambda passed to `next()` below will be executed on the http thread pool
-                     auto yield        = abi_serializer::create_yield_function(fc::microseconds::maximum());
-                     auto abi_cache    = abi_serializer_cache_builder(api_base::make_resolver(api.db, std::move(yield))).add_serializers(trx_trace_ptr).get();
+                     auto abi_cache    = abi_serializer_cache_builder(make_resolver(api.db, api.abi_serializer_max_time, throw_on_yield::no)).add_serializers(trx_trace_ptr).get();
                      using return_type = t_or_exception<Result>;
                      next([&api, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
                         try {
                            fc::variant output;
                            try {
-                              abi_serializer::to_variant(*trx_trace_ptr, output, std::move(resolver),
-                                                         abi_serializer::create_yield_function(api.abi_serializer_max_time));
+                              abi_serializer::to_variant(*trx_trace_ptr, output, std::move(resolver), api.abi_serializer_max_time);
                            } catch( abi_exception& ) {
                               output = *trx_trace_ptr;
                            }
@@ -2516,7 +2514,7 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
 
 read_only::get_required_keys_result read_only::get_required_keys( const get_required_keys_params& params, const fc::time_point& )const {
    transaction pretty_input;
-   auto resolver = make_resolver(db, abi_serializer::create_yield_function( abi_serializer_max_time ));
+   auto resolver = make_resolver(db, abi_serializer_max_time, throw_on_yield::yes);
    try {
       abi_serializer::from_variant(params.transaction, pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
    } EOS_RETHROW_EXCEPTIONS(chain::transaction_type_exception, "Invalid transaction")
@@ -2612,8 +2610,8 @@ fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_tra
     fc::variant pretty_output;
     try {
         abi_serializer::to_log_variant(trx_trace, pretty_output,
-                                       chain_apis::api_base::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
-                                       abi_serializer::create_yield_function(get_abi_serializer_max_time()));
+                                       make_resolver(chain(), get_abi_serializer_max_time(), throw_on_yield::no),
+                                       get_abi_serializer_max_time());
     } catch (...) {
         pretty_output = trx_trace;
     }
@@ -2624,8 +2622,8 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
     fc::variant pretty_output;
     try {
         abi_serializer::to_log_variant(trx, pretty_output,
-                                       chain_apis::api_base::make_resolver(chain(), abi_serializer::create_yield_function(get_abi_serializer_max_time())),
-                                       abi_serializer::create_yield_function(get_abi_serializer_max_time()));
+                                       make_resolver(chain(), get_abi_serializer_max_time(), throw_on_yield::no),
+                                       get_abi_serializer_max_time());
     } catch (...) {
         pretty_output = trx;
     }

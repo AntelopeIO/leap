@@ -1116,7 +1116,10 @@ BOOST_FIXTURE_TEST_CASE(eosio_abi, validating_tester) try {
    // verify to_variant works on eos native contract type: newaccount
    // see abi_serializer::to_abi()
    abi_serializer::to_variant(*result, pretty_output, get_resolver(), abi_serializer::create_yield_function( abi_serializer_max_time ));
+   BOOST_TEST(fc::json::to_string(pretty_output, fc::time_point::now() + abi_serializer_max_time).find("newaccount") != std::string::npos);
 
+   pretty_output.clear();
+   abi_serializer::to_variant(*result, pretty_output, get_resolver(), abi_serializer_max_time);
    BOOST_TEST(fc::json::to_string(pretty_output, fc::time_point::now() + abi_serializer_max_time).find("newaccount") != std::string::npos);
 
    produce_block();

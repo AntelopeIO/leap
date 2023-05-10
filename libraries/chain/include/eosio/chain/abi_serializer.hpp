@@ -6,6 +6,7 @@
 #include <utility>
 #include <fc/variant_object.hpp>
 #include <fc/scoped_exit.hpp>
+#include <fc/time.hpp>
 
 namespace eosio::chain {
 
@@ -48,7 +49,6 @@ struct abi_serializer {
    bool      is_szarray(const std::string_view& type)const;
    bool      is_optional(const std::string_view& type)const;
    bool      is_type( const std::string_view& type, const yield_function_t& yield )const;
-   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
    bool      is_type(const std::string_view& type, const fc::microseconds& max_serialization_time)const;
    bool      is_builtin_type(const std::string_view& type)const;
    bool      is_integer(const std::string_view& type) const;
@@ -67,33 +67,29 @@ struct abi_serializer {
    std::optional<string>  get_error_message( uint64_t error_code )const;
 
    fc::variant binary_to_variant( const std::string_view& type, const bytes& binary, const yield_function_t& yield, bool short_path = false )const;
-   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
-   fc::variant binary_to_variant( const std::string_view& type, const bytes& binary, const fc::microseconds& max_serialization_time, bool short_path = false )const;
+   fc::variant binary_to_variant( const std::string_view& type, const bytes& binary, const fc::microseconds& max_action_data_serialization_time, bool short_path = false )const;
    fc::variant binary_to_variant( const std::string_view& type, fc::datastream<const char*>& binary, const yield_function_t& yield, bool short_path = false )const;
-   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
-   fc::variant binary_to_variant( const std::string_view& type, fc::datastream<const char*>& binary, const fc::microseconds& max_serialization_time, bool short_path = false )const;
+   fc::variant binary_to_variant( const std::string_view& type, fc::datastream<const char*>& binary, const fc::microseconds& max_action_data_serialization_time, bool short_path = false )const;
 
-   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
-   bytes       variant_to_binary( const std::string_view& type, const fc::variant& var, const fc::microseconds& max_serialization_time, bool short_path = false )const;
+   bytes       variant_to_binary( const std::string_view& type, const fc::variant& var, const fc::microseconds& max_action_data_serialization_time, bool short_path = false )const;
    bytes       variant_to_binary( const std::string_view& type, const fc::variant& var, const yield_function_t& yield, bool short_path = false )const;
-   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
-   void        variant_to_binary( const std::string_view& type, const fc::variant& var, fc::datastream<char*>& ds, const fc::microseconds& max_serialization_time, bool short_path = false )const;
+   void        variant_to_binary( const std::string_view& type, const fc::variant& var, fc::datastream<char*>& ds, const fc::microseconds& max_action_data_serialization_time, bool short_path = false )const;
    void        variant_to_binary( const std::string_view& type, const fc::variant& var, fc::datastream<char*>& ds, const yield_function_t& yield, bool short_path = false )const;
 
    template<typename T, typename Resolver>
    static void to_variant( const T& o, fc::variant& vo, const Resolver& resolver, const yield_function_t& yield );
    template<typename T, typename Resolver>
-   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
-   static void to_variant( const T& o, fc::variant& vo, const Resolver& resolver, const fc::microseconds& max_serialization_time );
+   static void to_variant( const T& o, fc::variant& vo, const Resolver& resolver, const fc::microseconds& max_action_data_serialization_time );
 
    template<typename T, typename Resolver>
    static void to_log_variant( const T& o, fc::variant& vo, const Resolver& resolver, const yield_function_t& yield );
+   template<typename T, typename Resolver>
+   static void to_log_variant( const T& o, fc::variant& vo, const Resolver& resolver, const fc::microseconds& max_action_data_serialization_time );
 
    template<typename T, typename Resolver>
    static void from_variant( const fc::variant& v, T& o, const Resolver& resolver, const yield_function_t& yield );
    template<typename T, typename Resolver>
-   [[deprecated("use the overload with yield_function_t[=create_yield_function(max_serialization_time)]")]]
-   static void from_variant( const fc::variant& v, T& o, const Resolver& resolver, const fc::microseconds& max_serialization_time );
+   static void from_variant( const fc::variant& v, T& o, const Resolver& resolver, const fc::microseconds& max_action_data_serialization_time );
 
    template<typename Vec>
    static bool is_empty_abi(const Vec& abi_vec)
@@ -120,17 +116,23 @@ struct abi_serializer {
    static constexpr size_t max_recursion_depth = 32; // arbitrary depth to prevent infinite recursion
 
    // create standard yield function that checks for max_serialization_time and max_recursion_depth.
+   // restricts serialization time from creation of yield function until serialization is complete.
    // now() deadline captured at time of this call
    static yield_function_t create_yield_function(const fc::microseconds& max_serialization_time) {
-      return [max_serialization_time, last_call=fc::time_point::now()](size_t recursion_depth) mutable {
+      fc::time_point deadline = fc::time_point::now().safe_add(max_serialization_time);
+      return [max_serialization_time, deadline](size_t recursion_depth) {
          EOS_ASSERT( recursion_depth < max_recursion_depth, abi_recursion_depth_exception,
                      "recursive definition, max_recursion_depth ${r} ", ("r", max_recursion_depth) );
 
-         auto now = fc::time_point::now();
-         // recursion_depth 0 is flag used to indicate a reset of deadline
-         if (recursion_depth == 0) last_call = now;
-         EOS_ASSERT( (now - last_call) < max_serialization_time, abi_serialization_deadline_exception,
+         EOS_ASSERT( fc::time_point::now() < deadline, abi_serialization_deadline_exception,
                      "serialization time limit ${t}us exceeded", ("t", max_serialization_time) );
+      };
+   }
+
+   static yield_function_t create_depth_yield_function() {
+      return [](size_t recursion_depth) {
+         EOS_ASSERT( recursion_depth < max_recursion_depth, abi_recursion_depth_exception,
+                     "recursive definition, max_recursion_depth ${r} ", ("r", max_recursion_depth) );
       };
    }
 
@@ -169,8 +171,9 @@ private:
 namespace impl {
    const static size_t hex_log_max_size = 64;
    struct abi_traverse_context {
-      explicit abi_traverse_context( abi_serializer::yield_function_t yield )
+      abi_traverse_context( abi_serializer::yield_function_t yield, fc::microseconds max_action_data_serialization )
       : yield(std::move( yield ))
+      , max_action_serialization_time(max_action_data_serialization)
       {
       }
 
@@ -179,12 +182,24 @@ namespace impl {
 
       void check_deadline()const { yield( recursion_depth ); }
       abi_serializer::yield_function_t get_yield_function() { return yield; }
-      void reset_deadline() { yield(0); }
+
+      void start_action_serialization() {
+         if (max_action_serialization_time.count() > 0) {
+            fc::time_point deadline = fc::time_point::now().safe_add(max_action_serialization_time);
+            yield = [deadline, y=yield, max=max_action_serialization_time](size_t depth) {
+               y(depth); // call provided yield that might include an overall time limit or not
+               EOS_ASSERT( fc::time_point::now() < deadline, abi_serialization_deadline_exception,
+                           "serialization action data time limit ${t}us exceeded", ("t", max) );
+            };
+         }
+      }
 
       fc::scoped_exit<std::function<void()>> enter_scope();
 
    protected:
       abi_serializer::yield_function_t  yield;
+      // if set then restricts each individual action data serialization
+      fc::microseconds                  max_action_serialization_time;
       size_t                            recursion_depth = 1;
       bool                              log = false;
    };
@@ -224,8 +239,8 @@ namespace impl {
    using path_item = std::variant<empty_path_item, array_index_path_item, field_path_item, variant_path_item>;
 
    struct abi_traverse_context_with_path : public abi_traverse_context {
-      abi_traverse_context_with_path( const abi_serializer& abis, abi_serializer::yield_function_t yield, const std::string_view& type )
-      : abi_traverse_context( std::move( yield ) ), abis(abis)
+      abi_traverse_context_with_path( const abi_serializer& abis, abi_serializer::yield_function_t yield, fc::microseconds max_action_data_serialization_time, const std::string_view& type )
+      : abi_traverse_context( std::move( yield ), max_action_data_serialization_time ), abis(abis)
       {
          set_path_root(type);
       }
@@ -491,6 +506,7 @@ namespace impl {
                   try {
                      binary_to_variant_context _ctx(abi, ctx, type);
                      _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
+                     _ctx.start_action_serialization();
                      mvo( "data", abi._binary_to_variant( type, act.data, _ctx ));
                   } catch(...) {
                      // any failure to serialize data, then leave as not serialized
@@ -506,7 +522,6 @@ namespace impl {
             set_hex_data(mvo, "data", act.data);
          }
          set_hex_data(mvo, "hex_data", act.data);
-         ctx.reset_deadline();
          out(name, std::move(mvo));
       }
 
@@ -523,7 +538,6 @@ namespace impl {
       static void add( mutable_variant_object& out, const char* name, const action_trace& act_trace, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<action_trace>::total_member_count == 17);
-         ctx.reset_deadline();
          auto h = ctx.enter_scope();
          mutable_variant_object mvo;
 
@@ -541,11 +555,9 @@ namespace impl {
          mvo("block_time", act_trace.block_time);
          mvo("producer_block_id", act_trace.producer_block_id);
          mvo("account_ram_deltas", act_trace.account_ram_deltas);
-         ctx.reset_deadline();
          mvo("except", act_trace.except);
          mvo("error_code", act_trace.error_code);
 
-         ctx.reset_deadline();
          mvo("return_value_hex_data", act_trace.return_value);
          auto act = act_trace.act;
          try {
@@ -554,9 +566,9 @@ namespace impl {
                const abi_serializer& abi = *abi_optional;
                auto type = abi.get_action_result_type(act.name);
                if (!type.empty()) {
-                  ctx.reset_deadline();
                   binary_to_variant_context _ctx(abi, ctx, type);
                   _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
+                  _ctx.start_action_serialization();
                   mvo( "return_value_data", abi._binary_to_variant( type, act_trace.return_value, _ctx ));
                }
             }
@@ -577,23 +589,16 @@ namespace impl {
       static void add( mutable_variant_object &out, const char* name, const packed_transaction& ptrx, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<packed_transaction>::total_member_count == 4);
-         ctx.reset_deadline();
          auto h = ctx.enter_scope();
          mutable_variant_object mvo;
          auto trx = ptrx.get_transaction();
          mvo("id", trx.id());
-         ctx.reset_deadline();
          mvo("signatures", ptrx.get_signatures());
-         ctx.reset_deadline();
          mvo("compression", ptrx.get_compression());
-         ctx.reset_deadline();
          mvo("packed_context_free_data", ptrx.get_packed_context_free_data());
-         ctx.reset_deadline();
          mvo("context_free_data", ptrx.get_context_free_data());
-         ctx.reset_deadline();
          if( !ctx.is_logging() )
             mvo("packed_trx", ptrx.get_packed_transaction());
-         ctx.reset_deadline();
          add(mvo, "transaction", trx, resolver, ctx);
 
          out(name, std::move(mvo));
@@ -608,7 +613,6 @@ namespace impl {
       static void add( mutable_variant_object &out, const char* name, const transaction& trx, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<transaction>::total_member_count == 9);
-         ctx.reset_deadline();
          auto h = ctx.enter_scope();
          mutable_variant_object mvo;
          mvo("expiration", trx.expiration);
@@ -617,9 +621,7 @@ namespace impl {
          mvo("max_net_usage_words", trx.max_net_usage_words);
          mvo("max_cpu_usage_ms", trx.max_cpu_usage_ms);
          mvo("delay_sec", trx.delay_sec);
-         ctx.reset_deadline();
          add(mvo, "context_free_actions", trx.context_free_actions, resolver, ctx);
-         ctx.reset_deadline();
          add(mvo, "actions", trx.actions, resolver, ctx);
 
          // process contents of block.transaction_extensions
@@ -642,7 +644,6 @@ namespace impl {
       static void add( mutable_variant_object &out, const char* name, const signed_block& block, const Resolver& resolver, abi_traverse_context& ctx )
       {
          static_assert(fc::reflector<signed_block>::total_member_count == 12);
-         ctx.reset_deadline();
          auto h = ctx.enter_scope();
          mutable_variant_object mvo;
          mvo("timestamp", block.timestamp);
@@ -674,9 +675,7 @@ namespace impl {
             mvo("new_producer_schedule", new_producer_schedule);
          }
 
-         ctx.reset_deadline();
          mvo("producer_signature", block.producer_signature);
-         ctx.reset_deadline();
          add(mvo, "transactions", block.transactions, resolver, ctx);
 
          // process contents of block.block_extensions
@@ -687,7 +686,6 @@ namespace impl {
             mvo("additional_signatures", additional_signatures);
          }
 
-         ctx.reset_deadline();
          out(name, std::move(mvo));
       }
    };
@@ -958,36 +956,48 @@ namespace impl {
 template<typename T, typename Resolver>
 void abi_serializer::to_variant( const T& o, fc::variant& vo, const Resolver& resolver, const yield_function_t& yield ) try {
    mutable_variant_object mvo;
-   impl::abi_traverse_context ctx( yield );
+   impl::abi_traverse_context ctx( yield, fc::microseconds{} );
    impl::abi_to_variant::add(mvo, "_", o, resolver, ctx);
    vo = std::move(mvo["_"]);
 } FC_RETHROW_EXCEPTIONS(error, "Failed to serialize: ${type}", ("type", boost::core::demangle( typeid(o).name() ) ))
 
 template<typename T, typename Resolver>
-void abi_serializer::to_variant( const T& o, fc::variant& vo, const Resolver& resolver, const fc::microseconds& max_serialization_time ) {
-   to_variant( o, vo, resolver, create_yield_function(max_serialization_time) );
-}
+void abi_serializer::to_variant( const T& o, fc::variant& vo, const Resolver& resolver, const fc::microseconds& max_action_data_serialization_time ) try {
+   mutable_variant_object mvo;
+   impl::abi_traverse_context ctx( create_depth_yield_function(), max_action_data_serialization_time );
+   impl::abi_to_variant::add(mvo, "_", o, resolver, ctx);
+   vo = std::move(mvo["_"]);
+} FC_RETHROW_EXCEPTIONS(error, "Failed to serialize: ${type}", ("type", boost::core::demangle( typeid(o).name() ) ))
 
 template<typename T, typename Resolver>
 void abi_serializer::to_log_variant( const T& o, fc::variant& vo, const Resolver& resolver, const yield_function_t& yield ) try {
     mutable_variant_object mvo;
-    impl::abi_traverse_context ctx( yield );
+    impl::abi_traverse_context ctx( yield, fc::microseconds{} );
     ctx.logging();
     impl::abi_to_variant::add(mvo, "_", o, resolver, ctx);
     vo = std::move(mvo["_"]);
 } FC_RETHROW_EXCEPTIONS(error, "Failed to serialize: ${type}", ("type", boost::core::demangle( typeid(o).name() ) ))
 
+template<typename T, typename Resolver>
+void abi_serializer::to_log_variant( const T& o, fc::variant& vo, const Resolver& resolver, const fc::microseconds& max_action_data_serialization_time ) try {
+   mutable_variant_object mvo;
+   impl::abi_traverse_context ctx( create_depth_yield_function(), max_action_data_serialization_time );
+   ctx.logging();
+   impl::abi_to_variant::add(mvo, "_", o, resolver, ctx);
+   vo = std::move(mvo["_"]);
+} FC_RETHROW_EXCEPTIONS(error, "Failed to serialize: ${type}", ("type", boost::core::demangle( typeid(o).name() ) ))
 
 template<typename T, typename Resolver>
 void abi_serializer::from_variant( const fc::variant& v, T& o, const Resolver& resolver, const yield_function_t& yield ) try {
-   impl::abi_traverse_context ctx( yield );
+   impl::abi_traverse_context ctx( yield, fc::microseconds{} );
    impl::abi_from_variant::extract(v, o, resolver, ctx);
 } FC_RETHROW_EXCEPTIONS(error, "Failed to deserialize variant", ("variant",v))
 
 template<typename T, typename Resolver>
-void abi_serializer::from_variant( const fc::variant& v, T& o, const Resolver& resolver, const fc::microseconds& max_serialization_time ) {
-   from_variant( v, o, resolver, create_yield_function(max_serialization_time) );
-}
+void abi_serializer::from_variant( const fc::variant& v, T& o, const Resolver& resolver, const fc::microseconds& max_action_data_serialization_time ) try {
+   impl::abi_traverse_context ctx( create_depth_yield_function(), max_action_data_serialization_time );
+   impl::abi_from_variant::extract(v, o, resolver, ctx);
+} FC_RETHROW_EXCEPTIONS(error, "Failed to deserialize variant", ("variant",v))
 
 using abi_serializer_cache_t = std::unordered_map<account_name, std::optional<abi_serializer>>;
    

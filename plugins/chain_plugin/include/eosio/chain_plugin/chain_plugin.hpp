@@ -48,6 +48,26 @@ namespace eosio {
    using chain::abi_resolver;
    using chain::packed_transaction;
 
+   enum class throw_on_yield { no, yes };
+   inline auto make_resolver(const controller& control, fc::microseconds abi_serializer_max_time, throw_on_yield yield_throw ) {
+      return [&control, abi_serializer_max_time, yield_throw](const account_name& name) -> std::optional<abi_serializer> {
+         if (name.good()) {
+            const auto* accnt = control.db().template find<chain::account_object, chain::by_name>( name );
+            if( accnt != nullptr ) {
+               try {
+                  if( abi_def abi; abi_serializer::to_abi( accnt->abi, abi ) ) {
+                     return abi_serializer( std::move( abi ), abi_serializer::create_yield_function( abi_serializer_max_time ) );
+                  }
+               } catch( ... ) {
+                  if( yield_throw == throw_on_yield::yes )
+                     throw;
+               }
+            }
+         }
+         return {};
+      };
+   }
+
 namespace chain_apis {
 struct empty{};
 
@@ -96,18 +116,6 @@ public:
    static constexpr uint32_t max_return_items = 1000;
    static void handle_db_exhaustion();
    static void handle_bad_alloc();
-
-   static auto make_resolver(const controller& control, abi_serializer::yield_function_t yield) {
-      return [&control, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
-         const auto* accnt = control.db().template find<chain::account_object, chain::by_name>(name);
-         if (accnt != nullptr) {
-            if (abi_def abi; abi_serializer::to_abi(accnt->abi, abi)) {
-               return abi_serializer(std::move(abi), yield);
-            }
-         }
-         return {};
-      };
-   }
 
 protected:
    struct send_transaction_params_t {
