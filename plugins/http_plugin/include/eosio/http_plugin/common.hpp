@@ -136,11 +136,6 @@ struct http_plugin_state {
 
    explicit http_plugin_state(fc::logger& log)
        : logger(log) {}
-
-   fc::time_point get_max_response_deadline() const {
-      return max_response_time == fc::microseconds::maximum() ? fc::time_point::maximum()
-                                                              : fc::time_point::now() + max_response_time;
-   }
 };
 
 /**
