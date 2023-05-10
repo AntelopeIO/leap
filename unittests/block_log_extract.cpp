@@ -58,7 +58,9 @@ BOOST_FIXTURE_TEST_CASE(extract_from_middle, block_log_extract_fixture) try {
    block_log new_log(output_dir.path());
 
    auto id = gs.compute_chain_id();
-   BOOST_REQUIRE_EQUAL(new_log.extract_chain_id(output_dir.path()), id);
+   auto extracted_id = new_log.extract_chain_id(output_dir.path());
+   BOOST_REQUIRE(extracted_id.has_value());
+   BOOST_REQUIRE_EQUAL(*extracted_id, id);
    BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 3);
    BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 7);
 
@@ -74,7 +76,9 @@ BOOST_FIXTURE_TEST_CASE(extract_from_start, block_log_extract_fixture) try {
    block_log new_log(output_dir.path());
 
    auto id = gs.compute_chain_id();
-   BOOST_REQUIRE_EQUAL(new_log.extract_chain_id(output_dir.path()), id);
+   auto extracted_id = new_log.extract_chain_id(output_dir.path());
+   BOOST_REQUIRE(extracted_id.has_value());
+   BOOST_REQUIRE_EQUAL(*extracted_id, id);
    BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 1);
    BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 7);
 
@@ -93,7 +97,9 @@ BOOST_FIXTURE_TEST_CASE(reextract_from_start, block_log_extract_fixture) try {
    block_log new_log(output_dir2.path());
 
    auto id = gs.compute_chain_id();
-   BOOST_REQUIRE_EQUAL(new_log.extract_chain_id(output_dir2.path()), id);
+   auto extracted_id = new_log.extract_chain_id(output_dir2.path());
+   BOOST_REQUIRE(extracted_id.has_value());
+   BOOST_REQUIRE_EQUAL(*extracted_id, id);
    BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 1);
    BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 6);
 
@@ -108,7 +114,9 @@ BOOST_FIXTURE_TEST_CASE(extract_to_end, block_log_extract_fixture) try {
    block_log new_log(output_dir.path());
 
    auto id = gs.compute_chain_id();
-   BOOST_REQUIRE_EQUAL(new_log.extract_chain_id(output_dir.path()), id);
+   auto extracted_id = new_log.extract_chain_id(output_dir.path());
+   BOOST_REQUIRE(extracted_id.has_value());
+   BOOST_REQUIRE_EQUAL(*extracted_id, id);
    BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 5);
    BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 12);
 

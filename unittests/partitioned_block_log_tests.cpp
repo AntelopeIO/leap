@@ -21,6 +21,17 @@ void remove_existing_states(eosio::chain::controller::config& config) {
    fc::create_directories(state_path);
 }
 
+fc::path get_retained_dir(const eosio::chain::controller::config& cfg) {
+   fc::path retained_dir;
+   auto     paritioned_config = std::get_if<eosio::chain::partitioned_blocklog_config>(&cfg.blog);
+   if (paritioned_config) {
+      retained_dir = paritioned_config->retained_dir;
+      if (retained_dir.is_relative())
+         retained_dir = cfg.blocks_dir / retained_dir;
+   }
+   return retained_dir;
+}
+
 struct restart_from_block_log_test_fixture {
    eosio::testing::tester chain;
    uint32_t               cutoff_block_num;
@@ -47,11 +58,12 @@ struct restart_from_block_log_test_fixture {
    void restart_chain() {
       eosio::chain::controller::config copied_config = chain.get_config();
 
+      auto genesis = eosio::chain::block_log::extract_genesis_state(copied_config.blocks_dir, 
+                                                                    get_retained_dir(copied_config));
+      BOOST_REQUIRE(genesis);
+
       copied_config.blog =
             eosio::chain::basic_blocklog_config{};
-
-      auto genesis = eosio::chain::block_log::extract_genesis_state(chain.get_config().blocks_dir);
-      BOOST_REQUIRE(genesis);
 
       // remove the state files to make sure we are starting from block log
       remove_existing_states(copied_config);
@@ -177,7 +189,8 @@ BOOST_AUTO_TEST_CASE(test_split_log_util1) {
    uint32_t head_block_num = chain.control->head_block_num();
 
    eosio::chain::controller::config copied_config = chain.get_config();
-   auto genesis = eosio::chain::block_log::extract_genesis_state(chain.get_config().blocks_dir);
+   auto genesis = eosio::chain::block_log::extract_genesis_state(chain.get_config().blocks_dir,
+                                                                 get_retained_dir(chain.get_config()));
    BOOST_REQUIRE(genesis);
 
    chain.close();
@@ -275,8 +288,9 @@ void split_log_replay(uint32_t replay_max_retained_block_files) {
          true);
    chain.produce_blocks(150);
 
-   eosio::chain::controller::config copied_config = chain.get_config();
-   auto genesis = eosio::chain::block_log::extract_genesis_state(chain.get_config().blocks_dir);
+   auto copied_config = chain.get_config();
+   auto genesis =
+       eosio::chain::block_log::extract_genesis_state(copied_config.blocks_dir, get_retained_dir(copied_config));
    BOOST_REQUIRE(genesis);
 
    chain.close();
@@ -333,7 +347,7 @@ BOOST_AUTO_TEST_CASE(test_restart_without_blocks_log_file) {
    chain.produce_blocks(160);
 
    eosio::chain::controller::config copied_config = chain.get_config();
-   auto genesis = eosio::chain::block_log::extract_genesis_state(chain.get_config().blocks_dir);
+   auto genesis = eosio::chain::block_log::extract_genesis_state(chain.get_config().blocks_dir, get_retained_dir(copied_config));
    BOOST_REQUIRE(genesis);
 
    chain.close();

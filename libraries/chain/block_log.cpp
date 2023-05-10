@@ -6,6 +6,7 @@
 #include <eosio/chain/log_index.hpp>
 #include <fc/bitutil.hpp>
 #include <fc/io/raw.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 #include <mutex>
 
 #if defined(__BYTE_ORDER__)
@@ -1370,16 +1371,54 @@ namespace eosio { namespace chain {
    }
 
    // static
-   std::optional<genesis_state> block_log::extract_genesis_state(const fc::path& block_dir) {
-      boost::filesystem::path p(block_dir / "blocks.log");
-      for_each_file_in_dir_matches(block_dir, R"(blocks-1-\d+\.log)",
-                                   [&p](boost::filesystem::path log_path) { p = std::move(log_path); });
-      return block_log_data(p).get_genesis_state();
+   std::optional<genesis_state> block_log::extract_genesis_state(const fc::path& block_dir, const fc::path& retained_dir) {
+      boost::filesystem::path firs_block_file;
+      bool                    has_block_files = false;
+      if (!retained_dir.empty()) {
+         for_each_file_in_dir_matches(retained_dir, R"(blocks-\d+-\d+\.log)",
+                                      [&](boost::filesystem::path log_path) {
+                                         has_block_files = true;
+                                         using boost::algorithm::starts_with;
+                                         if (starts_with(log_path.filename().string(), "blocks-1-"))
+                                            firs_block_file = std::move(log_path);
+                                      });
+      }
+
+      if (!has_block_files && fc::exists(block_dir / "blocks.log")) {
+         firs_block_file = block_dir / "blocks.log";
+         has_block_files = true;
+      }
+      
+      if (!has_block_files) {
+         wlog( "No blocks.log found at '${p}'. Using default genesis state.",
+                  ("p", (block_dir / "blocks.log").generic_string()));
+         return genesis_state{};
+      }
+      if (!firs_block_file.empty())
+         return block_log_data(firs_block_file).get_genesis_state();
+      return {};
    }
 
    // static
-   chain_id_type block_log::extract_chain_id(const fc::path& data_dir) {
-      return block_log_data(data_dir / "blocks.log").chain_id();
+   std::optional<chain_id_type> block_log::extract_chain_id(const fc::path& data_dir, const fc::path& retained_dir) {
+      if (fc::exists(data_dir / "blocks.log"))
+         return block_log_data(data_dir / "blocks.log").chain_id();
+
+      if (!retained_dir.empty()) {
+         const std::regex        my_filter(R"(blocks-\d+-\d+\.log)");
+         std::smatch             what;
+         bfs::directory_iterator end_itr; // Default ctor yields past-the-end
+         for (bfs::directory_iterator p(retained_dir); p != end_itr; ++p) {
+            // Skip if not a file
+            if (!bfs::is_regular_file(p->status()))
+               continue;
+            // skip if it does not match the pattern
+            if (!std::regex_match(p->path().filename().string(), what, my_filter))
+               continue;
+            return block_log_data(p->path()).chain_id();
+         }
+      }
+      return {};
    }
 
    // static
@@ -1537,7 +1576,7 @@ namespace eosio { namespace chain {
       ilog("blocks.log and blocks.index agree on number of blocks");
 
       if (interval == 0) {
-         interval = std::max((log_bundle.log_index.num_blocks() + 7) >> 3, 1);
+         interval = std::max((log_bundle.log_index.num_blocks() + 7) >> 3, 1U);
       }
       uint32_t expected_block_num = log_bundle.log_data.first_block_num();
 
