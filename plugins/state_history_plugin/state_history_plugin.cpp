@@ -516,4 +516,8 @@ const state_history_log* state_history_plugin::trace_log() const {
    return my->trace_log ? std::addressof(*my->trace_log) : nullptr;
 }
 
+const state_history_log* state_history_plugin::chain_state_log() const {
+   return my->chain_state_log ? std::addressof(*my->chain_state_log) : nullptr;
+}
+
 } // namespace eosio
