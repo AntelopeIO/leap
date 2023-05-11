@@ -6,6 +6,6 @@ add_executable( test_trx_retry_db test_trx_retry_db.cpp )
 target_link_libraries( test_trx_retry_db chain_plugin eosio_testing)
 add_test(NAME test_trx_retry_db COMMAND plugins/chain_plugin/test/test_trx_retry_db WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
-add_executable( test_trx_finality_status_processing test_trx_finality_status_processing.cpp )
+add_executable( test_trx_finality_status_processing test_trx_finality_status_processing.cpp plugin_config_test.cpp)
 target_link_libraries( test_trx_finality_status_processing chain_plugin eosio_testing)
 add_test(NAME test_trx_finality_status_processing COMMAND plugins/chain_plugin/test/test_trx_finality_status_processing WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
