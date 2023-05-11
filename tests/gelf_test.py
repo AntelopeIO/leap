@@ -64,8 +64,7 @@ logging = logging.replace("GELF_PORT", str(GELF_PORT))
 nodeos_run_time_in_sec = 5
 
 node_id = 1
-num_received_logs = 0
-last_received_log = ""
+received_logs = []
 BUFFER_SIZE = 1024
 
 def gelfServer(stop):
@@ -78,8 +77,7 @@ def gelfServer(stop):
         message = zlib.decompress(data, zlib.MAX_WBITS|32)
         entry = json.loads(message.decode())
         global num_received_logs, last_received_log
-        num_received_logs += 1
-        last_received_log = entry["short_message"]
+        received_logs.append(entry["short_message"])
     except socket.timeout:
         pass
   s.close()
@@ -114,12 +112,14 @@ finally:
 # find the stderr log file
 stderr_file = glob.glob(os.path.join(data_dir, 'stderr.*.txt'))
 with open(stderr_file[0], "r") as f:
-    lines = f.readlines()
+    stderr_lines = f.readlines()
 
 #Less one line because the GELF appender does not transmit 'opened GELF socket to endpoint...
-assert len(lines)-1 == num_received_logs, "number of log entry received from GELF does not match stderr"
-assert last_received_log in lines[-1], "last received GELF log entry does not match that of from stderr"
+assert len(stderr_lines)-1 == len(received_logs), "number of log entry received from GELF does not match stderr"
+
+stderr_lines.pop(0)
+for (stderr_line, received_log) in zip(stderr_lines, received_logs):
+  assert received_log in stderr_line, "received GELF log entry does not match that of from stderr"
 
 if os.path.exists(Utils.DataPath):
     shutil.rmtree(Utils.DataPath)
-    
