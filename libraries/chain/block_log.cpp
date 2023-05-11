@@ -1374,7 +1374,7 @@ namespace eosio { namespace chain {
    std::optional<genesis_state> block_log::extract_genesis_state(const fc::path& block_dir, const fc::path& retained_dir) {
       boost::filesystem::path firs_block_file;
       bool                    has_block_files = false;
-      if (!retained_dir.empty()) {
+      if (fc::exists(retained_dir) && !retained_dir.empty()) {
          for_each_file_in_dir_matches(retained_dir, R"(blocks-\d+-\d+\.log)",
                                       [&](boost::filesystem::path log_path) {
                                          has_block_files = true;
@@ -1404,7 +1404,7 @@ namespace eosio { namespace chain {
       if (fc::exists(data_dir / "blocks.log"))
          return block_log_data(data_dir / "blocks.log").chain_id();
 
-      if (!retained_dir.empty()) {
+      if (fc::exists(retained_dir) && !retained_dir.empty()) {
          const std::regex        my_filter(R"(blocks-\d+-\d+\.log)");
          std::smatch             what;
          bfs::directory_iterator end_itr; // Default ctor yields past-the-end
