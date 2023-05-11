@@ -74,7 +74,7 @@ def gelfServer(stop):
   s.bind((TestHelper.LOCAL_HOST, GELF_PORT))
   while not stop():
     try:
-        data, clienaddr = s.recvfrom(BUFFER_SIZE)
+        data, _ = s.recvfrom(BUFFER_SIZE)
         message = zlib.decompress(data, zlib.MAX_WBITS|32)
         entry = json.loads(message.decode())
         global num_received_logs, last_received_log
@@ -116,8 +116,10 @@ stderr_file = glob.glob(os.path.join(data_dir, 'stderr.*.txt'))
 with open(stderr_file[0], "r") as f:
     lines = f.readlines()
 
+#Less one line because the GELF appender does not transmit 'opened GELF socket to endpoint...
 assert len(lines)-1 == num_received_logs, "number of log entry received from GELF does not match stderr"
 assert last_received_log in lines[-1], "last received GELF log entry does not match that of from stderr"
 
 if os.path.exists(Utils.DataPath):
     shutil.rmtree(Utils.DataPath)
+    
