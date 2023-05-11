@@ -265,20 +265,21 @@ struct http_plugin_test_fixture {
    http_plugin* init(std::initializer_list<const char*> args) {
       if (app->initialize<http_plugin>(args.size(), const_cast<char**>(args.begin()))) {
          auto                       plugin  = app->find_plugin<http_plugin>();
-         std::condition_variable& started = plugin->startup_condition();
+         std::atomic<bool>& listening_or_failed = plugin->listening();
          app_thread = std::thread([&]() {
             try {
                app->startup();
                app->exec();
             } catch (...) {
                plugin = nullptr;
-               started.notify_all();
+               listening_or_failed.store(true);
             }
          });
 
-         std::mutex                   cv_m;
-         std::unique_lock<std::mutex> lk(cv_m);
-         started.wait(lk);
+         while (!listening_or_failed.load()) {
+            using namespace std::chrono_literals;
+            std::this_thread::sleep_for(10ms);
+         }
          return plugin;
       }
       return nullptr;
@@ -344,7 +345,7 @@ BOOST_FIXTURE_TEST_CASE(http_plugin_unit_tests, http_plugin_test_fixture) {
    }
    catch(std::exception const& e)
    {
-      std::cerr << "Error: " << e.what() << std::endl;
+      std::cerr << "Error: " << e.what() << "\n";
    }
 }
 
@@ -391,7 +392,6 @@ class app_log {
 };
 
 BOOST_AUTO_TEST_CASE(invalid_category_addresses) {
-   http_plugin::set_defaults({.default_unix_socket_path = "", .default_http_port = 8888, .server_header = "/"});
 
    const char* test_name = bu::framework::current_test_case().p_name->c_str();
 
@@ -461,7 +461,6 @@ struct http_response_for {
 };
 
 BOOST_FIXTURE_TEST_CASE(valid_category_addresses, http_plugin_test_fixture) {
-   http_plugin::set_defaults({.default_unix_socket_path = "", .default_http_port = 8888, .server_header = "/"});
    fc::temp_directory dir;
    auto               data_dir = dir.path() / "data";
 
@@ -558,4 +557,19 @@ BOOST_FIXTURE_TEST_CASE(valid_category_addresses, http_plugin_test_fixture) {
 
    BOOST_CHECK_EQUAL(http_response_for("127.0.0.1:8889", "/v1/node/get_supported_apis").body(),
                      R"({"apis":["/v1/chain_rw/hello","/v1/net_rw/hello","/v1/node/hello"]})");
+}
+
+
+bool on_loopback(std::initializer_list<const char*> args){
+   appbase::scoped_app app;
+   BOOST_REQUIRE(app->initialize<http_plugin>(args.size(), const_cast<char**>(args.begin())));
+   return app->get_plugin<http_plugin>().is_on_loopback(api_category::chain_rw);
+}
+
+BOOST_AUTO_TEST_CASE(test_on_loopback) {
+   BOOST_CHECK(on_loopback({"test", "--plugin=eosio::http_plugin", "--http-server-address", "", "--unix-socket-path=a"}));
+   BOOST_CHECK(on_loopback({"test", "--plugin=eosio::http_plugin", "--http-server-address", "127.0.0.1:8888"}));
+   BOOST_CHECK(on_loopback({"test", "--plugin=eosio::http_plugin", "--http-server-address", "localhost:8888"}));
+   BOOST_CHECK(!on_loopback({"test", "--plugin=eosio::http_plugin", "--http-server-address", ":8888"}));
+   BOOST_CHECK(!on_loopback({"test", "--plugin=eosio::http_plugin", "--http-server-address", "example.com:8888"}));
 }

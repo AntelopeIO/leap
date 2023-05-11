@@ -130,7 +130,7 @@ namespace eosio {
 
         void register_update_metrics(std::function<void(metrics)>&& fun);
 
-        std::condition_variable& startup_condition();
+        std::atomic<bool>& listening();
    private:
         std::shared_ptr<class http_plugin_impl> my;
    };

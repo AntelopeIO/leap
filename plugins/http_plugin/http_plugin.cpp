@@ -8,7 +8,7 @@
 #include <fc/scoped_exit.hpp>
 
 #include <boost/asio.hpp>
-#include <boost/optional.hpp>
+#include <boost/algorithm/string/predicate.hpp>
 
 #include <memory>
 #include <regex>
@@ -42,7 +42,6 @@ namespace eosio {
 
    using http_plugin_impl_ptr = std::shared_ptr<class http_plugin_impl>;
 
-   [[gnu::const]] 
    api_category to_category(std::string_view name) {
       if (name == "chain_ro") return api_category::chain_ro;
       if (name == "chain_rw") return api_category::chain_rw;
@@ -58,7 +57,24 @@ namespace eosio {
       return api_category::unknown;
    }
 
-   [[gnu::const]] 
+   const char* from_category(api_category category) {
+      if (category == api_category::chain_ro) return "chain_ro";
+      if (category == api_category::chain_rw) return "chain_rw";
+      if (category == api_category::db_size) return "db_size";
+      if (category == api_category::net_ro) return "net_ro";
+      if (category == api_category::net_rw) return "net_rw";
+      if (category == api_category::producer_ro) return "producer_ro";
+      if (category == api_category::producer_rw) return "producer_rw";
+      if (category == api_category::snapshot) return "snapshot";
+      if (category == api_category::trace_api) return "trace_api";
+      if (category == api_category::prometheus) return "prometheus";
+      if (category == api_category::test_control) return "test_control";
+      if (category == api_category::node) return "node";
+      // It's a programming error when the control flow reaches this point, 
+      // please make sure all the category names are returned from above statements.
+      assert(false && "No correspding category name for the category value");
+   }
+
    std::string category_plugin_name(api_category category) {
       if (category == api_category::db_size)
          return "eosio::db_size_api_plugin";
@@ -77,7 +93,7 @@ namespace eosio {
          return "eosio::producer_api_plugin";
       // It's a programming error when the control flow reaches this point, 
       // please make sure all the plugin names are returned from above statements.
-      throw std::runtime_error("No correspding plugin for the category value");
+      assert(false && "No correspding plugin for the category value");
    }
 
    class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
@@ -96,7 +112,7 @@ namespace eosio {
          std::map<std::string, api_category_set> categories_by_address;
 
          shared_ptr<http_plugin_state> plugin_state   = std::make_shared<http_plugin_state>(logger());
-         std::condition_variable   startup_condition;
+         std::atomic<bool> listening;
 
 
          /**
@@ -165,9 +181,8 @@ namespace eosio {
          }
          
          bool is_unix_socket_address(const std::string& address) const {
-            return address[0] == '/' ||
-                   (address[0] == '.' &&
-                    (address[1] == '/' || (address.size() >= 3 && address[1] == '.' && address[2] == '/')));
+            using boost::algorithm::starts_with;
+            return starts_with(address, "/") || starts_with(address, "./") || starts_with(address, "../");
          }
 
          bool on_loopback_only(const std::string& address) {
@@ -226,13 +241,17 @@ namespace eosio {
 
                   auto create_ip_server = [&](auto endpoint) {
                      const auto& ip_addr = endpoint.address();
+                     std::string ip_addr_string = ip_addr.to_string();
+                     if (ip_addr.is_v6()) {
+                        ip_addr_string = "[" + ip_addr_string + "]";
+                     }
                      try {
                         auto server = std::make_shared<beast_http_listener<tcp_socket_t>>(
                               plugin_state, categories, endpoint, address);
                         server->do_accept();
                         ++listened;
                         fc_ilog(logger(), "start listening on ${ip_addr}:${port} resolved from ${address} for http requests",
-                                ("ip_addr", ip_addr.to_string())("port", endpoint.port())("address", address));
+                                ("ip_addr", ip_addr_string)("port", endpoint.port())("address", address));
                         has_unspecified_ipv6_only = ip_addr.is_unspecified() && ip_addr.is_v6() &&
                             server->is_ip_v6_only();
                         
@@ -457,8 +476,7 @@ namespace eosio {
             for (const auto& spec : addresses) {
                auto comma_pos = spec.find(',');
                EOS_ASSERT(comma_pos > 0 && comma_pos != std::string_view::npos, chain::plugin_config_exception,
-                          "http-category-address '${spec}' does not contain a required comma to separate the category "
-                          "and address",
+                          "http-category-address '${spec}' does not contain a required comma to separate the category and address",
                           ("spec", spec));
                auto category_name = spec.substr(0, comma_pos);
                auto category = to_category(category_name);
@@ -512,8 +530,7 @@ namespace eosio {
                }
             }
 
-            my->startup_condition.notify_all();
-
+            my->listening.store(true);
          } catch (...) {
             fc_elog(logger(), "http_plugin startup fails, shutting down");
             app().quit();
@@ -534,16 +551,26 @@ namespace eosio {
       fc_ilog( logger(), "exit shutdown");
    }
 
+   void log_add_handler(http_plugin_impl* my, api_entry& entry) {
+      auto addrs = my->addresses_for_category(entry.category);
+      if (addrs.size())
+         addrs = "on " + addrs;
+      else
+         addrs = "disabled for category address not configured";
+      fc_ilog(logger(), "add ${category} api url: ${c} ${addrs}",
+              ("category", from_category(entry.category))("c", entry.path)("addrs", addrs));
+   }
+
    void http_plugin::add_handler(api_entry&& entry, appbase::exec_queue q, int priority, http_content_type content_type) {
-      std::string path = entry.path;
-      fc_ilog( logger(), "add api url: ${c} for ${addrs}", ("c", path)("addrs", my->addresses_for_category(entry.category)));
+      log_add_handler(my.get(), entry);
+      std::string path  = entry.path;
       auto p = my->plugin_state->url_handlers.emplace(path, my->make_app_thread_url_handler(std::move(entry), q, priority, my, content_type));
       EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", path) );
    }
 
    void http_plugin::add_async_handler(api_entry&& entry, http_content_type content_type) {
-      std::string path = entry.path;
-      fc_ilog( logger(), "add api url: ${c} for ${addrs}", ("c", path)("addrs", my->addresses_for_category(entry.category)) );
+      log_add_handler(my.get(), entry);
+      std::string path  = entry.path;
       auto p = my->plugin_state->url_handlers.emplace(path, my->make_http_thread_url_handler(std::move(entry), content_type));
       EOS_ASSERT( p.second, chain::plugin_config_exception, "http url ${u} is not unique", ("u", path) );
    }
@@ -610,7 +637,10 @@ namespace eosio {
    }
 
    bool http_plugin::is_on_loopback(api_category category) const {
-      return std::all_of(my->categories_by_address.begin(), my->categories_by_address.end(),
+      if (my->http_server_address != "http-category-address")
+         return my->http_server_address.empty() || my->on_loopback_only(my->http_server_address);
+      return my->categories_by_address.empty() ||
+             std::all_of(my->categories_by_address.begin(), my->categories_by_address.end(),
                          [&category, this](const auto& entry) {
                             const auto& [address, categories] = entry;
                             return !categories.contains(category) || my->on_loopback_only(address);
@@ -633,7 +663,7 @@ namespace eosio {
       my->plugin_state->update_metrics = std::move(fun);
    }
 
-   std::condition_variable& http_plugin::startup_condition() {
-      return my->startup_condition;
+   std::atomic<bool>& http_plugin::listening() {
+      return my->listening;
    }
 }
