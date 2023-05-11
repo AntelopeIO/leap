@@ -69,7 +69,7 @@ namespace eosio::testing {
       explicit http_connection(const provider_base_config& provider_config)
           : provider_connection(provider_config) {}
 
-      void send_transaction(const chain::packed_transaction& trx);
+      void send_transaction(const chain::packed_transaction& trx) final;
 
     private:
       void connect() override final;
@@ -83,7 +83,7 @@ namespace eosio::testing {
           : provider_connection(provider_config)
           , _p2p_socket(_connection_thread_pool.get_executor()) {}
 
-      void send_transaction(const chain::packed_transaction& trx);
+      void send_transaction(const chain::packed_transaction& trx) final;
 
     private:
       void connect() override final;
