@@ -372,12 +372,12 @@ class app_log {
 
  public:
    app_log(std::initializer_list<const char*> args) {
-      const char* log = "test.stderr";
-      BOOST_CHECK(fork_app_and_redirect_stderr(log, args));
-      std::ifstream file(log);
+      fc::temp_directory dir;
+      std::filesystem::path log = dir.path()/"test.stderr";
+      BOOST_CHECK(fork_app_and_redirect_stderr(log.c_str(), args));
+      std::ifstream file(log.c_str());
       result.assign(std::istreambuf_iterator<char>(file), std::istreambuf_iterator<char>());
-      std::error_code ec;
-      std::filesystem::remove(log, ec);
+      std::filesystem::remove(log);
    }
 
    boost::test_tools::predicate_result contains(const char* str) const {

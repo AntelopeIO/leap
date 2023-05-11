@@ -60,8 +60,6 @@ namespace eosio {
       //If set, a Server header will be added to the HTTP reply with this value
       string server_header;
       bool   support_categories = true;
-      // Issues warnings when the contained categories listen on non-loopback addresses.
-      api_category_set warn_on_nonloopback;
    };
 
    /**

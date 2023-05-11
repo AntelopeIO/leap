@@ -276,11 +276,17 @@ namespace eosio {
 
          std::string addresses_for_category(api_category category) const {
             std::string result;
-            for (const auto& [address, categories] : categories_by_address) {
-               if (categories.contains(category)) {
-                  result += address;
-                  result += " ";
+            if (http_server_address == "http-category-address") {
+               for (const auto& [address, categories] : categories_by_address) {
+                  if (categories.contains(category)) {
+                     result += address;
+                     result += " ";
+                  }
                }
+            } else {
+               result += http_server_address;
+               if (result.size()) result += " ";
+               result += unix_sock_path;
             }
             return result;
          }
@@ -435,12 +441,12 @@ namespace eosio {
                my->unix_sock_path = "./" + my->unix_sock_path;
          }
 
-         auto plugins    = options["plugin"].as<std::vector<std::string>>();
-         auto has_plugin = [&plugins](const std::string& s) {
-            return std::find(plugins.begin(), plugins.end(), s) != plugins.end();
-         };
-
          if (options.count("http-category-address") != 0) {
+            auto plugins    = options["plugin"].as<std::vector<std::string>>();
+            auto has_plugin = [&plugins](const std::string& s) {
+               return std::find(plugins.begin(), plugins.end(), s) != plugins.end();
+            };
+
             EOS_ASSERT(my->http_server_address == "http-category-address" && options.count("unix-socket-path") == 0,
                 chain::plugin_config_exception,
                 "when http-category-address is specified, http-server-address must be set as "
