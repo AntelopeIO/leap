@@ -2645,6 +2645,11 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
     }
     return pretty_output;
 }
+
+const controller::config& chain_plugin::chain_config() const {
+   EOS_ASSERT(my->chain_config.has_value(), plugin_exception, "chain_config not initialized");
+   return *my->chain_config;
+}
 } // namespace eosio
 
 FC_REFLECT( eosio::chain_apis::detail::ram_market_exchange_state_t, (ignore1)(ignore2)(ignore3)(core_symbol)(ignore4) )
