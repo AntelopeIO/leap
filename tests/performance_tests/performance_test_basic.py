@@ -539,7 +539,7 @@ class PerformanceTestBasic:
             return testSuccessful
 
     def setupTestHelperConfig(args) -> TestHelperConfig:
-        return PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+        return PerformanceTestBasic.TestHelperConfig(dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
                                                                 dumpErrorDetails=args.dump_error_details, delay=args.d, verbose=args.v)
 
     def setupClusterConfig(args) -> ClusterConfig:
@@ -573,7 +573,7 @@ class PtbArgumentsHandler(object):
     @staticmethod
     def _createBaseArgumentParser(defEndpointApiDef: str, defProdNodeCnt: int, defValidationNodeCnt: int, defApiNodeCnt: int, suppressHelp: bool=False):
         testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-d","--dump-error-details","-v","--leave-running"
-                                                            ,"--clean-run","--unshared"}, suppressHelp=suppressHelp)
+                                                            ,"--unshared"}, suppressHelp=suppressHelp)
         ptbBaseParser = argparse.ArgumentParser(parents=[testHelperArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
         ptbBaseGrpTitle="Performance Test Basic Base"
