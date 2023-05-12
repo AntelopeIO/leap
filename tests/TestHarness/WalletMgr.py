@@ -91,7 +91,7 @@ class WalletMgr(object):
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         if not os.path.isdir(WalletMgr.__walletDataDir):
             if Utils.Debug: Utils.Print(f"Creating dir {WalletMgr.__walletDataDir} in dir: {os.getcwd()}")
-            os.mkdir(WalletMgr.__walletDataDir)
+            os.makedirs(WalletMgr.__walletDataDir)
         with open(WalletMgr.__walletLogOutFile, 'w') as sout, open(WalletMgr.__walletLogErrFile, 'w') as serr:
             self.popenProc=subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
             self.walletPid=self.popenProc.pid
