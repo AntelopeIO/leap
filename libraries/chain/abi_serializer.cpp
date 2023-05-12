@@ -659,9 +659,7 @@ namespace eosio { namespace chain {
    namespace impl {
 
       fc::scoped_exit<std::function<void()>> abi_traverse_context::enter_scope() {
-         std::function<void()> callback = [old_recursion_depth=recursion_depth, this](){
-            recursion_depth = old_recursion_depth;
-         };
+         std::function<void()> callback = [this](){ --recursion_depth; };
 
          ++recursion_depth;
          yield( recursion_depth );
