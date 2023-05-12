@@ -14,7 +14,7 @@ namespace eosio::testing {
    namespace chain = eosio::chain;
 
    void trx_generator_base::set_transaction_headers(chain::transaction& trx, const chain::block_id_type& last_irr_block_id, const fc::microseconds& expiration, uint32_t delay_sec) {
-      trx.expiration = fc::time_point::now() + expiration;
+      trx.expiration = fc::time_point_sec{fc::time_point::now() + expiration};
       trx.set_reference_block(last_irr_block_id);
 
       trx.max_net_usage_words = 0;// No limit
@@ -294,7 +294,7 @@ namespace eosio::testing {
       try {
          if (_trxs.size()) {
             size_t index_to_send = _txcount % _trxs.size();
-            push_transaction(_provider, _trxs.at(index_to_send), ++_nonce_prefix, _nonce, _config._trx_expiration_us, _config._chain_id,
+            push_transaction(_trxs.at(index_to_send), ++_nonce_prefix, _nonce, _config._trx_expiration_us, _config._chain_id,
                              _config._last_irr_block_id);
             ++_txcount;
          } else {
@@ -321,13 +321,13 @@ namespace eosio::testing {
       out.close();
    }
 
-   void trx_generator_base::push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce,
+   void trx_generator_base::push_transaction(signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce,
                                              const fc::microseconds& trx_expiration, const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
       update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
       if (_txcount == 0) {
          log_first_trx(_config._log_dir, trx._trx);
       }
-      provider.send(trx._trx);
+      _provider.send(trx._trx);
    }
 
    void trx_generator_base::stop_generation() {

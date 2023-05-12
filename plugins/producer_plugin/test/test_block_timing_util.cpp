@@ -1,10 +1,9 @@
-#define BOOST_TEST_MODULE block_timing_util
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <eosio/producer_plugin/block_timing_util.hpp>
 #include <fc/mock_time.hpp>
 
 namespace fc {
-std::ostream& boost_test_print_type(std::ostream& os, const time_point& t) { return os << (std::string)t; }
+std::ostream& boost_test_print_type(std::ostream& os, const time_point& t) { return os << t.to_iso_string(); }
 } // namespace fc
 
 static_assert(eosio::chain::config::block_interval_ms == 500);

@@ -1,6 +1,5 @@
 #include "eosio/chain_plugin/chain_plugin.hpp"
-#define BOOST_TEST_MODULE transaction_retry
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/chain_plugin/trx_retry_db.hpp>
 
@@ -99,7 +98,7 @@ auto make_unique_trx( const chain_id_type& chain_id, const fc::microseconds& exp
 
    account_name creator = config::system_account_name;
    signed_transaction trx;
-   trx.expiration = fc::time_point::now() + expiration;
+   trx.expiration = fc::time_point_sec{fc::time_point::now() + expiration};
    trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}},
                              testit{ id } );
    trx.sign( get_private_key("test"_n), chain_id );
@@ -250,7 +249,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
 
 
       // test get_max_expiration_time
-      BOOST_CHECK( fc::time_point::now() + fc::hours(1) == fc::time_point( trx_retry.get_max_expiration_time() ) );
+      BOOST_CHECK( fc::time_point::now() + fc::hours(1) == trx_retry.get_max_expiration_time().to_time_point() );
 
       //
       // test expired, not in a block

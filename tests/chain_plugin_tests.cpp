@@ -20,20 +20,22 @@
 #include <array>
 #include <utility>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
+static auto get_account_full = [](chain_apis::read_only& plugin,
+                                  chain_apis::read_only::get_account_params& params,
+                                  const fc::time_point& deadline) -> chain_apis::read_only::get_account_results {   
+   auto res =  plugin.get_account(params, deadline)();
+   BOOST_REQUIRE(!std::holds_alternative<fc::exception_ptr>(res));
+   return std::get<chain_apis::read_only::get_account_results>(std::move(res));
+};
+
 BOOST_AUTO_TEST_SUITE(chain_plugin_tests)
 
-BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"asserter"_n} );
@@ -87,7 +89,7 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    char headnumstr[20];
    sprintf(headnumstr, "%d", headnum);
    chain_apis::read_only::get_raw_block_params param{headnumstr};
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
 
    // block should be decoded successfully
    auto block = plugin.get_raw_block(param, fc::time_point::maximum());
@@ -128,10 +130,10 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
 
 } FC_LOG_AND_RETHROW() /// get_block_with_invalid_abi
 
-BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, validating_tester ) try {
    produce_blocks(1);
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr, nullptr);
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr);
 
    auto parms = plugin.get_consensus_parameters({}, fc::time_point::maximum());
 
@@ -170,7 +172,7 @@ BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {
 
 } FC_LOG_AND_RETHROW() //get_consensus_parameters
 
-BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( get_account, validating_tester ) try {
    produce_blocks(2);
 
    std::vector<account_name> accs{{ "alice"_n, "bob"_n, "cindy"_n}};
@@ -178,11 +180,11 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
 
    produce_block();
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr, nullptr);
+   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr);
 
    chain_apis::read_only::get_account_params p{"alice"_n};
 
-   chain_apis::read_only::get_account_results result = plugin.read_only::get_account(p, fc::time_point::maximum());
+   chain_apis::read_only::get_account_results result = get_account_full(plugin, p, fc::time_point::maximum());
 
    auto check_result_basic = [](chain_apis::read_only::get_account_results result, eosio::name nm, bool isPriv) {
       BOOST_REQUIRE_EQUAL(nm, result.account_name);
@@ -222,7 +224,7 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
    // test link authority
    link_authority(name("alice"_n), name("bob"_n), name("active"_n), name("foo"_n));
    produce_block();
-   result = plugin.read_only::get_account(p, fc::time_point::maximum());
+   result = get_account_full(plugin, p, fc::time_point::maximum());
 
    check_result_basic(result, name("alice"_n), false);
    auto perm = result.permissions[0];
@@ -240,7 +242,7 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
    // test link authority to eosio.any
    link_authority(name("alice"_n), name("bob"_n), name("eosio.any"_n), name("foo"_n));
    produce_block();
-   result = plugin.read_only::get_account(p, fc::time_point::maximum());
+   result = get_account_full(plugin, p, fc::time_point::maximum());
    check_result_basic(result, name("alice"_n), false);
    // active permission should no longer have linked auth, as eosio.any replaces it
    perm = result.permissions[0];

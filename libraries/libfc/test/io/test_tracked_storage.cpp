@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE tracked_storage
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <fc/container/tracked_storage.hpp>
 #include <fc/io/persistence_util.hpp>
 #include <boost/multi_index_container.hpp>

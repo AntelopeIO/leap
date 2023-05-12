@@ -52,11 +52,6 @@ struct tracked_transaction {
    }
 
    size_t memory_size()const { return ptrx->get_estimated_size() + trx_trace_v.estimated_size() + sizeof(*this); }
-
-   tracked_transaction(const tracked_transaction&) = delete;
-   tracked_transaction() = delete;
-   tracked_transaction& operator=(const tracked_transaction&) = delete;
-   tracked_transaction(tracked_transaction&&) = default;
 };
 
 struct by_trx_id;
@@ -267,7 +262,7 @@ private:
       auto& idx = _tracked_trxs.index().get<by_expiry>();
       while( !idx.empty() ) {
          auto itr = idx.begin();
-         if( itr->expiry() > block_time ) {
+         if( itr->expiry().to_time_point() > block_time ) {
             break;
          }
          itr->next( std::static_pointer_cast<fc::exception>(
@@ -304,7 +299,7 @@ void trx_retry_db::track_transaction( chain::packed_transaction_ptr ptrx, std::o
 
 fc::time_point_sec trx_retry_db::get_max_expiration_time()const {
    // conversion from time_point to time_point_sec rounds down, round up to nearest second to avoid appearing expired
-   return fc::time_point::now() + _impl->get_max_expiration() + fc::microseconds(999'999);
+   return fc::time_point_sec{fc::time_point::now() + _impl->get_max_expiration() + fc::microseconds(999'999)};
 }
 
 size_t trx_retry_db::size()const {

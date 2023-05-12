@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE static_variant
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/static_variant.hpp>
 #include <fc/variant.hpp>

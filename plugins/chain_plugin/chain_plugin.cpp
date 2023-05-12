@@ -1,6 +1,5 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/chain_plugin/trx_retry_db.hpp>
-#include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -12,6 +11,7 @@
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/snapshot.hpp>
+#include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
@@ -184,7 +184,6 @@ public:
 
 
    std::optional<chain_apis::account_query_db>                        _account_query_db;
-   const producer_plugin* producer_plug;
    std::optional<chain_apis::trx_retry_db>                            _trx_retry_db;
    chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
 };
@@ -197,7 +196,7 @@ chain_plugin::chain_plugin()
    app().register_config_type<eosio::chain::wasm_interface::vm_type>();
 }
 
-chain_plugin::~chain_plugin(){}
+chain_plugin::~chain_plugin() = default;
 
 void chain_plugin::set_program_options(options_description& cli, options_description& cfg)
 {
@@ -1092,9 +1091,6 @@ void chain_plugin::plugin_startup()
    EOS_ASSERT( my->chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions(), plugin_config_exception,
                "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions" );
    try {
-      my->producer_plug = app().find_plugin<producer_plugin>();
-      EOS_ASSERT(my->producer_plug, plugin_exception, "Failed to find producer_plugin");
-
       auto shutdown = [](){ return app().quit(); };
       auto check_shutdown = [](){ return app().is_quiting(); };
       if (my->snapshot_path) {
@@ -1120,7 +1116,7 @@ void chain_plugin::plugin_startup()
 
    if (my->genesis) {
       ilog("Blockchain started; head block is #${num}, genesis timestamp is ${ts}",
-           ("num", my->chain->head_block_num())("ts", (std::string)my->genesis->initial_timestamp));
+           ("num", my->chain->head_block_num())("ts", my->genesis->initial_timestamp));
    }
    else {
       ilog("Blockchain started; head block is #${num}", ("num", my->chain->head_block_num()));
@@ -1179,7 +1175,7 @@ chain_apis::read_write chain_plugin::get_read_write_api(const fc::microseconds& 
 }
 
 chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& http_max_response_time) const {
-   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), http_max_response_time, my->producer_plug, my->_trx_finality_status_processing.get());
+   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), http_max_response_time, my->_trx_finality_status_processing.get());
 }
 
 
@@ -1309,7 +1305,7 @@ read_only::get_transaction_status(const read_only::get_transaction_status_params
       trx_block_valid ? std::optional<uint32_t>(chain::block_header::num_from_id(trx_st->block_id)) : std::optional<uint32_t>{},
       trx_block_valid ? std::optional<chain::block_id_type>(trx_st->block_id) : std::optional<chain::block_id_type>{},
       trx_block_valid ? std::optional<fc::time_point>(trx_st->block_timestamp) : std::optional<fc::time_point>{},
-      trx_st ? std::optional<fc::time_point_sec>(trx_st->expiration) : std::optional<fc::time_point_sec>{},
+      trx_st ? std::optional<fc::time_point>(trx_st->expiration) : std::optional<fc::time_point>{},
       chain::block_header::num_from_id(ch_state.head_id),
       ch_state.head_id,
       ch_state.head_block_timestamp,
@@ -1540,7 +1536,8 @@ string get_table_type( const abi_def& abi, const name& table_name ) {
    EOS_ASSERT( false, chain::contract_table_query_exception, "Table ${table} is not specified in the ABI", ("table",table_name) );
 }
 
-read_only::get_table_rows_result read_only::get_table_rows( const read_only::get_table_rows_params& p, const fc::time_point& deadline )const {
+read_only::get_table_rows_return_t
+read_only::get_table_rows( const read_only::get_table_rows_params& p, const fc::time_point& deadline ) const {
    abi_def abi = eosio::chain_apis::get_abi( db, p.code );
    bool primary = false;
    auto table_with_index = get_table_index_name( p, primary );
@@ -2368,7 +2365,7 @@ read_only::get_raw_abi_results read_only::get_raw_abi( const get_raw_abi_params&
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account abi")
 }
 
-read_only::get_account_results read_only::get_account( const get_account_params& params, const fc::time_point& deadline )const {
+read_only::get_account_return_t read_only::get_account( const get_account_params& params, const fc::time_point& deadline ) const {
    try {
    get_account_results result;
    result.account_name = params.account_name;
@@ -2400,11 +2397,9 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    }
    result.ram_usage = rm.get_account_ram_usage( result.account_name );
 
-   if ( producer_plug ) {  // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
-      eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
-      subjective_cpu_bill_limit.used = producer_plug->get_subjective_bill( result.account_name, fc::time_point::now() );
-      result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;
-   }
+   eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
+   subjective_cpu_bill_limit.used = db.get_subjective_billing().get_subjective_bill( result.account_name, fc::time_point::now() );
+   result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;
 
    const auto linked_action_map = ([&](){
       const auto& links = d.get_index<permission_link_index,by_permission_name>();
@@ -2455,9 +2450,17 @@ read_only::get_account_results read_only::get_account( const get_account_params&
    result.eosio_any_linked_actions = get_linked_actions(chain::config::eosio_any_name);
 
    const auto& code_account = db.db().get<account_object,by_name>( config::system_account_name );
+   struct http_params_t {
+      std::optional<vector<char>> total_resources;
+      std::optional<vector<char>> self_delegated_bandwidth;
+      std::optional<vector<char>> refund_request;
+      std::optional<vector<char>> voter_info;
+      std::optional<vector<char>> rex_info;
+   };
 
+   http_params_t http_params;
+   
    if( abi_def abi; abi_serializer::to_abi(code_account.abi, abi) ) {
-      abi_serializer abis( std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
 
       const auto token_code = "eosio.token"_n;
 
@@ -2481,7 +2484,7 @@ read_only::get_account_results read_only::get_account( const get_account_params&
          }
       }
 
-      auto lookup_object = [&](const name& obj_name, const name& account_name, const char* type_name) -> std::optional<fc::variant> {
+      auto lookup_object = [&](const name& obj_name, const name& account_name) -> std::optional<vector<char>> {
          auto t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple( config::system_account_name, account_name, obj_name ));
          if (t_id != nullptr) {
             const auto& idx = d.get_index<key_value_index, by_scope_primary>();
@@ -2489,28 +2492,39 @@ read_only::get_account_results read_only::get_account( const get_account_params&
             if (it != idx.end()) {
                vector<char> data;
                copy_inline_row(*it, data);
-               return abis.binary_to_variant( type_name, data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
+               return data;
             }
          }
          return {};
       };
-
-      if (auto res = lookup_object("userres"_n, params.account_name, "user_resources"); res)
-         result.total_resources = *res;
-
-      if (auto res = lookup_object("delband"_n, params.account_name, "delegated_bandwidth"); res)
-         result.self_delegated_bandwidth = *res;
-
-      if (auto res = lookup_object("refunds"_n, params.account_name, "refund_request"); res)
-         result.refund_request = *res;
-
-      if (auto res = lookup_object("voters"_n, config::system_account_name, "voter_info"); res)
-         result.voter_info = *res;
-
-      if (auto res = lookup_object("rexbal"_n, config::system_account_name, "rex_balance"); res)
-         result.rex_info = *res;
+      
+      http_params.total_resources          = lookup_object("userres"_n, params.account_name);
+      http_params.self_delegated_bandwidth = lookup_object("delband"_n, params.account_name);
+      http_params.refund_request           = lookup_object("refunds"_n, params.account_name);
+      http_params.voter_info               = lookup_object("voters"_n, config::system_account_name);
+      http_params.rex_info                 = lookup_object("rexbal"_n, config::system_account_name);
+      
+      return [http_params = std::move(http_params), result = std::move(result), abi=std::move(abi), shorten_abi_errors=shorten_abi_errors,
+              abi_serializer_max_time=abi_serializer_max_time]() mutable ->  chain::t_or_exception<read_only::get_account_results> {
+         auto yield = [&]() { return abi_serializer::create_yield_function(abi_serializer_max_time); };
+         abi_serializer abis(std::move(abi), yield());
+         
+         if (http_params.total_resources)
+            result.total_resources = abis.binary_to_variant("user_resources", *http_params.total_resources, yield(), shorten_abi_errors);
+         if (http_params.self_delegated_bandwidth)
+            result.self_delegated_bandwidth = abis.binary_to_variant("delegated_bandwidth", *http_params.self_delegated_bandwidth, yield(), shorten_abi_errors);
+         if (http_params.refund_request)
+            result.refund_request = abis.binary_to_variant("refund_request", *http_params.refund_request, yield(), shorten_abi_errors);
+         if (http_params.voter_info)
+            result.voter_info = abis.binary_to_variant("voter_info", *http_params.voter_info, yield(), shorten_abi_errors);
+         if (http_params.rex_info)
+            result.rex_info = abis.binary_to_variant("rex_balance", *http_params.rex_info, yield(), shorten_abi_errors);
+         return std::move(result);
+      };
    }
-   return result;
+   return [result = std::move(result)]() mutable -> chain::t_or_exception<read_only::get_account_results> {
+      return std::move(result);
+   };
    } EOS_RETHROW_EXCEPTIONS(chain::account_query_exception, "unable to retrieve account info")
 }
 
