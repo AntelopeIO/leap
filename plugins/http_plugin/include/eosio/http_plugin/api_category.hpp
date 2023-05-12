@@ -39,6 +39,10 @@ public:
    constexpr static api_category_set all() {
       return api_category_set(api_category::node);
    }
+
+   constexpr bool operator == (const api_category_set& other) const {
+      return data == other.data;
+   }
 };
 
 }

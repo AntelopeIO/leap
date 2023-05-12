@@ -96,6 +96,18 @@ namespace eosio {
       assert(false && "No correspding plugin for the category value");
    }
 
+   std::string category_names(api_category_set set) {
+      if (set == api_category_set::all()) return "all";
+      std::string result;
+      for (uint32_t i = 1; i <= static_cast<uint32_t>(api_category::test_control); i<<=1) {
+         if (set.contains(api_category(i))) {
+            result += from_category(api_category(i));
+            result += " ";
+         }
+      }
+      return result;
+   }
+
    class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       public:
          http_plugin_impl() = default;
@@ -220,7 +232,8 @@ namespace eosio {
                   auto server = std::make_shared<beast_http_listener<stream_protocol::socket>>(
                         plugin_state, categories, stream_protocol::endpoint{ sock_path.filename().string() });
                   server->do_accept();
-                  fc_ilog(logger(), "created UNIX socket listener at ${addr}", ("addr", sock_path));
+                  fc_ilog(logger(), "created UNIX socket listener at ${addr} for API categories: ${cat}", 
+                     ("addr", sock_path)("cat", category_names(categories)));
                } else {
 
                   auto [host, port] = split_host_port(address);
@@ -247,11 +260,14 @@ namespace eosio {
                               plugin_state, categories, endpoint, address);
                         server->do_accept();
                         ++listened;
-                        fc_ilog(logger(), "start listening on ${ip_addr}:${port} resolved from ${address} for http requests",
-                                ("ip_addr", ip_addr_string)("port", endpoint.port())("address", address));
-                        has_unspecified_ipv6_only = ip_addr.is_unspecified() && ip_addr.is_v6() &&
-                            server->is_ip_v6_only();
-                        
+                        fc_ilog(
+                            logger(),
+                            "start listening on ${ip_addr}:${port} resolved from ${address} for API categories: ${cat}",
+                            ("ip_addr", ip_addr_string)("port", endpoint.port())("address", address)(
+                                "cat", category_names(categories)));
+                        has_unspecified_ipv6_only =
+                            ip_addr.is_unspecified() && ip_addr.is_v6() && server->is_ip_v6_only();
+
                      } catch (boost::system::system_error& ex) {
                         fc_wlog(logger(), "unable to listen on ${ip_addr}:${port} resolved from ${address}: ${msg}",
                                 ("ip_addr", ip_addr.to_string())("port", endpoint.port())("address", address)("msg",
