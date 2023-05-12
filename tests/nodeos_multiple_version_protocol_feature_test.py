@@ -33,7 +33,7 @@ def restartNode(node: Node, chainArg=None, addSwapFlags=None, nodeosPath=None):
     if not node.killed:
         node.kill(signal.SIGTERM)
     isRelaunchSuccess = node.relaunch(chainArg, addSwapFlags=addSwapFlags,
-                                      timeout=5, cachePopen=True, nodeosPath=nodeosPath)
+                                      timeout=5, nodeosPath=nodeosPath)
     assert isRelaunchSuccess, "Fail to relaunch"
 
 def shouldNodeContainPreactivateFeature(node):

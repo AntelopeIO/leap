@@ -1,6 +1,5 @@
 #pragma once
 
-#include<vector>
 #include<eosio/chain/transaction.hpp>
 #include<eosio/chain/block.hpp>
 #include<boost/asio/ip/tcp.hpp>
@@ -8,6 +7,8 @@
 #include<eosio/chain/thread_utils.hpp>
 #include<chrono>
 #include<thread>
+#include<variant>
+#include<vector>
 
 using namespace std::chrono_literals;
 
@@ -18,45 +19,88 @@ namespace eosio::testing {
       eosio::chain::transaction_id_type _trx_id;
       fc::time_point _sent_timestamp;
 
-      logged_trx_data(eosio::chain::transaction_id_type trx_id, fc::time_point sent=fc::time_point::now()) :
+      explicit logged_trx_data(eosio::chain::transaction_id_type trx_id, fc::time_point sent=fc::time_point::now()) :
          _trx_id(trx_id), _sent_timestamp(sent) {}
    };
 
    struct provider_base_config {
-      std::string _peer_endpoint = "127.0.0.1";
-      unsigned short _port = 9876;
+      std::string    _peer_endpoint_type = "p2p";
+      std::string    _peer_endpoint      = "127.0.0.1";
+      unsigned short _port               = 9876;
 
       std::string to_string() const {
          std::ostringstream ss;
-         ss << "peer_endpoint: " << _peer_endpoint << " port: " << _port;
+         ss << "endpoint type: " << _peer_endpoint_type << " peer_endpoint: " << _peer_endpoint << " port: " << _port;
          return std::move(ss).str();
       }
    };
 
-   struct p2p_connection {
-      const provider_base_config& _config;
-      boost::asio::io_service _p2p_service;
-      boost::asio::ip::tcp::socket _p2p_socket;
+   struct provider_connection {
+      const provider_base_config&                                 _config;
+      eosio::chain::named_thread_pool<struct provider_connection> _connection_thread_pool;
 
-      p2p_connection(const provider_base_config& provider_config) :
-            _config(provider_config), _p2p_service(), _p2p_socket(_p2p_service) {}
+      explicit provider_connection(const provider_base_config& provider_config)
+          : _config(provider_config) {}
 
-      void connect();
-      void disconnect();
-      void send_transaction(const chain::packed_transaction& trx);
+      virtual ~provider_connection() = default;
+
+      void init_and_connect() {
+         _connection_thread_pool.start(
+             1, [](const fc::exception& e) { elog("provider_connection exception ${e}", ("e", e)); });
+         connect();
+      };
+
+      void cleanup_and_disconnect() {
+         disconnect();
+         _connection_thread_pool.stop();
+      };
+
+      virtual void send_transaction(const chain::packed_transaction& trx) = 0;
+
+    private:
+      virtual void connect()    = 0;
+      virtual void disconnect() = 0;
    };
 
-   struct p2p_trx_provider {
-      p2p_trx_provider(const provider_base_config& provider_config);
+   struct http_connection : public provider_connection {
+      std::atomic<uint64_t> _acknowledged{0};
+      std::atomic<uint64_t> _sent{0};
+
+      explicit http_connection(const provider_base_config& provider_config)
+          : provider_connection(provider_config) {}
+
+      void send_transaction(const chain::packed_transaction& trx) final;
+
+    private:
+      void connect() override final;
+      void disconnect() override final;
+   };
+
+   struct p2p_connection : public provider_connection {
+      boost::asio::ip::tcp::socket _p2p_socket;
+
+      explicit p2p_connection(const provider_base_config& provider_config)
+          : provider_connection(provider_config)
+          , _p2p_socket(_connection_thread_pool.get_executor()) {}
+
+      void send_transaction(const chain::packed_transaction& trx) final;
+
+    private:
+      void connect() override final;
+      void disconnect() override final;
+   };
+
+   struct trx_provider {
+      explicit trx_provider(const provider_base_config& provider_config);
 
       void setup();
-      void send(const std::vector<chain::signed_transaction>& trxs);
       void send(const chain::signed_transaction& trx);
       void log_trxs(const std::string& log_dir);
       void teardown();
 
-   private:
-      p2p_connection _peer_connection;
+    private:
+      std::variant<std::monostate, http_connection, p2p_connection> _conn;
+      provider_connection*         _peer_connection;
       std::vector<logged_trx_data> _sent_trx_data;
    };
 
@@ -91,7 +135,7 @@ namespace eosio::testing {
       bool                                _terminated_early;
       std::optional<fc::time_point>       _violation_start_time;
 
-      tps_performance_monitor(int64_t spin_up_time=default_spin_up_time_us, uint32_t max_lag_per=default_max_lag_per,
+      explicit tps_performance_monitor(int64_t spin_up_time=default_spin_up_time_us, uint32_t max_lag_per=default_max_lag_per,
                               int64_t max_lag_duration_us=default_max_lag_duration_us) : _spin_up_time(spin_up_time),
                               _max_lag_per(max_lag_per), _max_lag_duration_us(max_lag_duration_us), _terminated_early(false) {}
 
@@ -116,7 +160,7 @@ namespace eosio::testing {
       std::shared_ptr<M> _monitor;
       trx_tps_tester_config _config;
 
-      trx_tps_tester(std::shared_ptr<G> generator, std::shared_ptr<M> monitor, const trx_tps_tester_config& tester_config) :
+      explicit trx_tps_tester(std::shared_ptr<G> generator, std::shared_ptr<M> monitor, const trx_tps_tester_config& tester_config) :
             _generator(generator), _monitor(monitor), _config(tester_config) {
       }
 

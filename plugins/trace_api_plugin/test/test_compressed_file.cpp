@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE trace_compressed_file
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <list>
 
 #include <eosio/trace_api/compressed_file.hpp>

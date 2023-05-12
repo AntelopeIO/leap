@@ -61,8 +61,8 @@ try {
          stream.pipe(packer.entry(header, next));
       }).on('finish', () => {packer.finalize()});
 
-      child_process.spawn("docker", ["export", tests[i]]).stdout.pipe(extractor);
-      stream.promises.pipeline(packer, zlib.createGzip(), fs.createWriteStream(`${log_tarball_prefix}-${tests[i]}-logs.tar.gz`));
+      child_process.spawn("docker", ["export", tests[i].name]).stdout.pipe(extractor);
+      stream.promises.pipeline(packer, zlib.createGzip(), fs.createWriteStream(`${log_tarball_prefix}-${tests[i].name}-logs.tar.gz`));
    }
 } catch(e) {
    core.setFailed(`Uncaught exception ${e.message}`);

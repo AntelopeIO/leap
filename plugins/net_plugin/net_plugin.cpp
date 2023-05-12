@@ -13,10 +13,10 @@
 #include <fc/network/message_buffer.hpp>
 #include <fc/io/json.hpp>
 #include <fc/io/raw.hpp>
-#include <fc/log/appender.hpp>
 #include <fc/reflect/variant.hpp>
 #include <fc/crypto/rand.hpp>
 #include <fc/exception/exception.hpp>
+#include <fc/time.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/host_name.hpp>
@@ -279,7 +279,7 @@ namespace eosio {
       void rm_block(const block_id_type& blkid);
 
       bool add_peer_txn( const transaction_id_type& id, const time_point_sec& trx_expires, uint32_t connection_id,
-                         const time_point_sec& now = time_point::now() );
+                         const time_point_sec& now = time_point_sec(time_point::now()) );
       bool have_txn( const transaction_id_type& tid ) const;
       void expire_txns();
 
@@ -395,7 +395,6 @@ namespace eosio {
 
       boost::asio::deadline_timer           accept_error_timer{thread_pool.get_executor()};
 
-      net_plugin_metrics   metrics;
 
       struct chain_info_t {
          uint32_t      lib_num = 0;
@@ -404,6 +403,11 @@ namespace eosio {
          block_id_type head_id;
       };
 
+      
+      std::function<void(net_plugin::p2p_connections_metrics)> update_p2p_connection_metrics;
+      std::function<void()> increment_failed_p2p_connections;
+      std::function<void()> increment_dropped_trxs;
+      
    private:
       alignas(hardware_destructive_interference_size)
       mutable std::mutex            chain_info_mtx; // protects chain_info_t
@@ -2207,7 +2211,7 @@ namespace eosio {
       bool added = (tptr == local_txns.end());
       if( added ) {
          // expire at either transaction expiration or configured max expire time whichever is less
-         time_point_sec expires = now + my_impl->p2p_dedup_cache_expire_time_us;
+         time_point_sec expires{now.to_time_point() + my_impl->p2p_dedup_cache_expire_time_us};
          expires = std::min( trx_expires, expires );
          local_txns.insert( node_transaction_state{
             .id = id,
@@ -2225,12 +2229,13 @@ namespace eosio {
 
    void dispatch_manager::expire_txns() {
       size_t start_size = 0, end_size = 0;
+      fc::time_point_sec now{time_point::now()};
 
       std::unique_lock<std::mutex> g( local_txns_mtx );
       start_size = local_txns.size();
       auto& old = local_txns.get<by_expiry>();
       auto ex_lo = old.lower_bound( fc::time_point_sec( 0 ) );
-      auto ex_up = old.upper_bound( time_point::now() );
+      auto ex_up = old.upper_bound( now );
       old.erase( ex_lo, ex_up );
       g.unlock();
 
@@ -2301,7 +2306,7 @@ namespace eosio {
    // called from any thread
    void dispatch_manager::bcast_transaction(const packed_transaction_ptr& trx) {
       trx_buffer_factory buff_factory;
-      const auto now = fc::time_point::now();
+      const fc::time_point_sec now{fc::time_point::now()};
       for_each_connection( [this, &trx, &now, &buff_factory]( auto& cp ) {
          if( cp->is_blocks_only_connection() || !cp->current() ) {
             return true;
@@ -2470,6 +2475,9 @@ namespace eosio {
             } else {
                fc_elog( logger, "connection failed to ${a}, ${error}", ("a", c->peer_address())( "error", err.message()));
                c->close( false );
+               if (my_impl->increment_failed_p2p_connections) {
+                  my_impl->increment_failed_p2p_connections();
+               }
             }
       } ) );
    }
@@ -2798,13 +2806,14 @@ namespace eosio {
       shared_ptr<packed_transaction> ptr = std::make_shared<packed_transaction>();
       fc::raw::unpack( ds, *ptr );
       if( trx_in_progress_sz > def_max_trx_in_progress_size) {
-         ++my_impl->metrics.dropped_trxs.value;
          char reason[72];
          snprintf(reason, 72, "Dropping trx, too many trx in progress %lu bytes", trx_in_progress_sz);
          my_impl->producer_plug->log_failed_transaction(ptr->id(), ptr, reason);
          if (fc::time_point::now() - fc::seconds(1) >= last_dropped_trx_msg_time) {
             last_dropped_trx_msg_time = fc::time_point::now();
-            my_impl->metrics.post_metrics();
+            if (my_impl->increment_dropped_trxs) {
+               my_impl->increment_dropped_trxs();
+            }
             peer_wlog(this, reason);
          }
          return true;
@@ -3584,9 +3593,9 @@ namespace eosio {
       }
       g.unlock();
 
-      metrics.num_clients.value = num_clients;
-      metrics.num_peers.value = num_peers;
-      metrics.post_metrics();
+      if (update_p2p_connection_metrics) {
+         update_p2p_connection_metrics({.num_peers = num_peers, .num_clients = num_clients});
+      }
 
       if( num_clients > 0 || num_peers > 0 )
          fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}, block producer peers: ${num_bp_peers}",
@@ -4031,10 +4040,6 @@ namespace eosio {
       FC_CAPTURE_AND_RETHROW()
    }
 
-   void net_plugin::register_metrics_listener(metrics_listener listener) {
-      my->metrics.register_listener(std::move(listener));
-   }
-
    /**
     *  Used to trigger a new connection from RPC API
     */
@@ -4109,6 +4114,18 @@ namespace eosio {
 
    bool net_plugin_impl::in_sync() const {
       return sync_master->is_in_sync();
+   }
+
+   void net_plugin::register_update_p2p_connection_metrics(std::function<void(net_plugin::p2p_connections_metrics)>&& fun){
+      my->update_p2p_connection_metrics = std::move(fun);
+   }
+
+   void net_plugin::register_increment_failed_p2p_connections(std::function<void()>&& fun){
+      my->increment_failed_p2p_connections = std::move(fun);
+   }
+
+   void net_plugin::register_increment_dropped_trxs(std::function<void()>&& fun){
+      my->increment_dropped_trxs = std::move(fun);
    }
 
 }

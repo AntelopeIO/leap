@@ -5,7 +5,7 @@ list(REMOVE_ITEM UNIT_TESTS ship_client.cpp)
 list(REMOVE_ITEM UNIT_TESTS ship_streamer.cpp)
 
 add_executable( plugin_test ${UNIT_TESTS} )
-target_link_libraries( plugin_test eosio_testing eosio_chain chainbase chain_plugin wallet_plugin fc state_history ${PLATFORM_SPECIFIC_LIBS} )
+target_link_libraries( plugin_test eosio_testing eosio_chain chainbase chain_plugin producer_plugin wallet_plugin fc state_history ${PLATFORM_SPECIFIC_LIBS} )
 
 target_include_directories( plugin_test PUBLIC
                             ${CMAKE_SOURCE_DIR}/plugins/net_plugin/include
@@ -126,9 +126,9 @@ add_test(NAME compute_transaction_test COMMAND tests/compute_transaction_test.py
 set_property(TEST compute_transaction_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME read-only-trx-basic-test COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --read-only-threads 0 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST read-only-trx-basic-test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME read-only-trx-parallel-test COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --read-only-threads 3 --num-test-runs 3 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME read-only-trx-parallel-test COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --read-only-threads 6 --num-test-runs 3 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST read-only-trx-parallel-test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME read-only-trx-parallel-eos-vm-oc-test COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --eos-vm-oc-enable --read-only-threads 3 --num-test-runs 3 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME read-only-trx-parallel-eos-vm-oc-test COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --eos-vm-oc-enable --read-only-threads 6 --num-test-runs 3 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST read-only-trx-parallel-eos-vm-oc-test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME subjective_billing_test COMMAND tests/subjective_billing_test.py -v -p 2 -n 4 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST subjective_billing_test PROPERTY LABELS nonparallelizable_tests)

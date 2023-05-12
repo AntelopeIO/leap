@@ -8,12 +8,14 @@
 #include <eosio/chain/resource_limits_private.hpp>
 #include <eosio/chain/config.hpp>
 
+#include <fc/time.hpp>
+
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 
-namespace eosio {
+namespace eosio::chain {
 
 class subjective_billing {
 private:
@@ -92,7 +94,7 @@ private:
 
 public: // public for tests
    static constexpr uint32_t subjective_time_interval_ms = 5'000;
-   size_t get_account_cache_size() {return _account_subjective_bill_cache.size();}
+   size_t get_account_cache_size() const {return _account_subjective_bill_cache.size();}
    void remove_subjective_billing( const chain::transaction_id_type& trx_id, uint32_t time_ordinal ) {
       auto& idx = _trx_cache_index.get<by_id>();
       auto itr = idx.find( trx_id );
@@ -107,7 +109,7 @@ public:
    void disable_account( chain::account_name a ) { _disabled_accounts.emplace( a ); }
    bool is_account_disabled(const chain::account_name& a ) const { return _disabled || _disabled_accounts.count( a ); }
 
-   void subjective_bill( const chain::transaction_id_type& id, const fc::time_point& expire,
+   void subjective_bill( const chain::transaction_id_type& id, fc::time_point_sec expire,
                          const chain::account_name& first_auth, const fc::microseconds& elapsed )
    {
       if( !_disabled && !_disabled_accounts.count( first_auth ) ) {
@@ -116,7 +118,7 @@ public:
                trx_cache_entry{id,
                                first_auth,
                                bill,
-                               expire} );
+                               expire.to_time_point()} );
          if( p.second ) {
             _account_subjective_bill_cache[first_auth].pending_cpu_us += bill;
          }
@@ -147,9 +149,6 @@ public:
       } else {
          return 0;
       }
-   }
-
-   void abort_block() {
    }
 
    void on_block( fc::logger& log, const chain::block_state_ptr& bsp, const fc::time_point& now ) {
@@ -200,4 +199,4 @@ public:
    }
 };
 
-} //eosio
+} //eosio::chain

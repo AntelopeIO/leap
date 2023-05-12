@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE trace_data_extraction
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/contract_types.hpp>

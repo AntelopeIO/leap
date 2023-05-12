@@ -8,12 +8,6 @@
 #include <contracts.hpp>
 #include <test_contracts.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
@@ -85,7 +79,7 @@ BOOST_FIXTURE_TEST_CASE( delay_error_create_account, validating_tester) { try {
 } FC_LOG_AND_RETHROW() }
 
 
-asset get_currency_balance(const TESTER& chain, account_name account) {
+asset get_currency_balance(const validating_tester& chain, account_name account) {
    return chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), account);
 }
 
@@ -93,7 +87,7 @@ const std::string eosio_token = name("eosio.token"_n).to_string();
 
 // test link to permission with delay directly on it
 BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -231,7 +225,7 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
 
 
 BOOST_AUTO_TEST_CASE(delete_auth_test) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -368,7 +362,7 @@ BOOST_AUTO_TEST_CASE(delete_auth_test) { try {
 
 // test link to permission with delay on permission which is parent of min permission (special logic in permission_object::satisfies)
 BOOST_AUTO_TEST_CASE( link_delay_direct_parent_permission_test ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -506,7 +500,7 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_parent_permission_test ) { try {
 
 // test link to permission with delay on permission between min permission and authorizing permission it
 BOOST_AUTO_TEST_CASE( link_delay_direct_walk_parent_permissions_test ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -650,7 +644,7 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_walk_parent_permissions_test ) { try {
 
 // test removing delay on permission
 BOOST_AUTO_TEST_CASE( link_delay_permission_change_test ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -841,7 +835,7 @@ BOOST_AUTO_TEST_CASE( link_delay_permission_change_test ) { try {
 
 // test removing delay on permission based on heirarchy delay
 BOOST_AUTO_TEST_CASE( link_delay_permission_change_with_delay_heirarchy_test ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -1038,7 +1032,7 @@ BOOST_AUTO_TEST_CASE( link_delay_permission_change_with_delay_heirarchy_test ) {
 
 // test moving link with delay on permission
 BOOST_AUTO_TEST_CASE( link_delay_link_change_test ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -1240,7 +1234,7 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_test ) { try {
 
 // test link with unlink
 BOOST_AUTO_TEST_CASE( link_delay_unlink_test ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -1429,7 +1423,7 @@ BOOST_AUTO_TEST_CASE( link_delay_unlink_test ) { try {
 
 // test moving link with delay on permission's parent
 BOOST_AUTO_TEST_CASE( link_delay_link_change_heirarchy_test ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -1620,7 +1614,7 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_heirarchy_test ) { try {
 
 // test delay_sec field imposing unneeded delay
 BOOST_AUTO_TEST_CASE( mindelay_test ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    chain.produce_blocks();
    chain.create_account("eosio.token"_n);
@@ -1750,7 +1744,7 @@ BOOST_AUTO_TEST_CASE( mindelay_test ) { try {
 
 // test canceldelay action cancelling a delayed transaction
 BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
-   TESTER chain;
+   validating_tester chain;
    const auto& tester_account = "tester"_n;
    std::vector<transaction_id_type> ids;
 
@@ -1987,7 +1981,7 @@ BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
 
 // test canceldelay action under different permission levels
 BOOST_AUTO_TEST_CASE( canceldelay_test2 ) { try {
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -2254,7 +2248,7 @@ BOOST_AUTO_TEST_CASE( canceldelay_test2 ) { try {
 
 BOOST_AUTO_TEST_CASE( max_transaction_delay_create ) { try {
    //assuming max transaction delay is 45 days (default in config.hpp)
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -2276,7 +2270,7 @@ BOOST_AUTO_TEST_CASE( max_transaction_delay_create ) { try {
 
 BOOST_AUTO_TEST_CASE( max_transaction_delay_execute ) { try {
    //assuming max transaction delay is 45 days (default in config.hpp)
-   TESTER chain;
+   validating_tester chain;
 
    const auto& tester_account = "tester"_n;
 
@@ -2385,7 +2379,7 @@ BOOST_FIXTURE_TEST_CASE( delay_expired, validating_tester) { try {
                              });
    set_transaction_headers(trx);
    trx.delay_sec = 3;
-   trx.expiration = control->head_block_time() + fc::microseconds(1000000);
+   trx.expiration = fc::time_point_sec{control->head_block_time() + fc::microseconds(1000000)};
    trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
 
    auto trace = push_transaction( trx );

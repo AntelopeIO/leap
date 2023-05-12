@@ -2,7 +2,6 @@
 
 #include <eosio/chain/application.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <eosio/chain/plugin_metrics.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/reflect/reflect.hpp>
 #include <fc/io/json.hpp>
@@ -120,9 +119,13 @@ namespace eosio {
         /// @return the configured http-max-response-time-ms
         fc::microseconds get_max_response_time()const;
 
-        void register_metrics_listener(chain::plugin_interface::metrics_listener listener);
-
         size_t get_max_body_size()const;
+
+        struct metrics {
+           std::string target;
+        };
+
+        void register_update_metrics(std::function<void(metrics)>&& fun);
 
    private:
         std::shared_ptr<class http_plugin_impl> my;

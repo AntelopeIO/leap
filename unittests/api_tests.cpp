@@ -91,12 +91,6 @@ FC_REFLECT( u128_action, (values) )
 FC_REFLECT( dtt_action, (payer)(deferred_account)(deferred_action)(permission_name)(delay_sec) )
 FC_REFLECT( invalid_access_action, (code)(val)(index)(store) )
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::testing;
 using namespace chain;
@@ -183,7 +177,7 @@ string U128Str(unsigned __int128 i)
 }
 
 template <typename T>
-transaction_trace_ptr CallAction(TESTER& test, T ac, const vector<account_name>& scope = {"testapi"_n}) {
+transaction_trace_ptr CallAction(validating_tester& test, T ac, const vector<account_name>& scope = {"testapi"_n}) {
    signed_transaction trx;
 
 
@@ -302,7 +296,7 @@ struct MySink : public bio::sink
 };
 uint32_t last_fnc_err = 0;
 
-BOOST_FIXTURE_TEST_CASE(action_receipt_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(action_receipt_tests, validating_tester) { try {
    produce_blocks(2);
    create_account( "test"_n );
    set_code( "test"_n, test_contracts::payloadless_wasm() );
@@ -408,7 +402,7 @@ BOOST_FIXTURE_TEST_CASE(action_receipt_tests, TESTER) { try {
 /*************************************************************************************
  * action_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(action_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(action_tests, validating_tester) { try {
 	produce_blocks(2);
 	create_account( "testapi"_n );
 	create_account( "acc1"_n );
@@ -561,7 +555,7 @@ BOOST_FIXTURE_TEST_CASE(action_tests, TESTER) { try {
 } FC_LOG_AND_RETHROW() }
 
 // test require_recipient loop (doesn't cause infinite loop)
-BOOST_FIXTURE_TEST_CASE(require_notice_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(require_notice_tests, validating_tester) { try {
       produce_blocks(2);
       create_account( "testapi"_n );
       create_account( "acc5"_n );
@@ -617,7 +611,7 @@ BOOST_AUTO_TEST_CASE(ram_billing_in_notify_tests) { try {
 /*************************************************************************************
  * context free action tests
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(cf_action_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(cf_action_tests, validating_tester) { try {
       produce_blocks(2);
       create_account( "testapi"_n );
       create_account( "dummy"_n );
@@ -723,7 +717,7 @@ BOOST_FIXTURE_TEST_CASE(cf_action_tests, TESTER) { try {
 } FC_LOG_AND_RETHROW() }
 
 
-BOOST_FIXTURE_TEST_CASE(cfa_tx_signature, TESTER)  try {
+BOOST_FIXTURE_TEST_CASE(cfa_tx_signature, validating_tester)  try {
 
    action cfa({}, cf_action());
 
@@ -743,7 +737,7 @@ BOOST_FIXTURE_TEST_CASE(cfa_tx_signature, TESTER)  try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(cfa_stateful_api, TESTER)  try {
+BOOST_FIXTURE_TEST_CASE(cfa_stateful_api, validating_tester)  try {
 
    create_account( "testapi"_n );
 	produce_blocks(1);
@@ -773,7 +767,7 @@ BOOST_FIXTURE_TEST_CASE(cfa_stateful_api, TESTER)  try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(deferred_cfa_failed, TESTER)  try {
+BOOST_FIXTURE_TEST_CASE(deferred_cfa_failed, validating_tester)  try {
 
    create_account( "testapi"_n );
 	produce_blocks(1);
@@ -809,7 +803,7 @@ BOOST_FIXTURE_TEST_CASE(deferred_cfa_failed, TESTER)  try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(deferred_cfa_success, TESTER)  try {
+BOOST_FIXTURE_TEST_CASE(deferred_cfa_success, validating_tester)  try {
 
    create_account( "testapi"_n );
 	produce_blocks(1);
@@ -932,7 +926,7 @@ BOOST_AUTO_TEST_CASE(light_validation_skip_cfa) try {
 /*************************************************************************************
  * checktime_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(checktime_pass_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(checktime_pass_tests, validating_tester) { try {
 	produce_blocks(2);
 	create_account( "testapi"_n );
 	produce_blocks(10);
@@ -985,7 +979,7 @@ void call_test(Tester& test, T ac, uint32_t billed_cpu_time_us , uint32_t max_cp
 }
 
 BOOST_AUTO_TEST_CASE(checktime_fail_tests) { try {
-   TESTER t;
+   validating_tester t;
    t.produce_blocks(2);
 
    ilog( "create account" );
@@ -1072,10 +1066,10 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_cpu_extended_test) { try {
    dlog("elapsed ${e}us", ("e", dur) );
    BOOST_CHECK( dur >= 24'999 ); // should never fail
    BOOST_TEST( t.is_code_cached("pause"_n) );
-      // This assumes that loading the WASM takes at least 1.5 ms
+   // This assumes that loading the WASM takes at least 0.750 ms
    // If this check fails but duration is >= 24'999 (previous check did not fail), then the check here is likely
-   // because WASM took less than 1.5 ms to load.
-   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << dur << "us" );
+   // because WASM took less than 0.750 ms to load.
+   BOOST_CHECK_MESSAGE( dur > 25'750, "elapsed " << dur << "us" );
    BOOST_CHECK_MESSAGE( dur < 150'000, "elapsed " << dur << "us" ); // Should not run to block_cpu_usage deadline
 
    // Test hitting max_transaction_time throws tx_cpu_usage_exceeded
@@ -1130,10 +1124,10 @@ BOOST_AUTO_TEST_CASE(checktime_pause_max_trx_extended_test) { try {
    dlog("elapsed ${e}us", ("e", dur) );
    BOOST_CHECK( dur >= 25'000 ); // should never fail
    BOOST_TEST( t.is_code_cached("pause"_n) );
-   // This assumes that loading the WASM takes at least 1.5 ms
+   // This assumes that loading the WASM takes at least 0.750 ms
    // If this check fails but duration is >= 25'000 (previous check did not fail), then the check here is likely
-   // because WASM took less than 1.5 ms to load.
-   BOOST_CHECK_MESSAGE( dur > 26'500, "elapsed " << dur << "us" );
+   // because WASM took less than 0.750 ms to load.
+   BOOST_CHECK_MESSAGE( dur > 25'750, "elapsed " << dur << "us" );
    BOOST_CHECK_MESSAGE( dur < 250'000, "elapsed " << dur << "us" ); // Should not run to max_transaction_cpu_usage deadline
 
    BOOST_REQUIRE_EQUAL( t.validate(), true );
@@ -1238,7 +1232,7 @@ BOOST_AUTO_TEST_CASE(checktime_pause_block_deadline_not_extended_while_loading_t
    BOOST_REQUIRE_EQUAL( t.validate(), true );
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, validating_tester) { try {
 	produce_blocks(2);
 	create_account( "testapi"_n );
 	produce_blocks(10);
@@ -1299,7 +1293,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_intrinsic, TESTER) { try {
                                deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, validating_tester) { try {
 	produce_blocks(2);
 	create_account( "testapi"_n );
 	produce_blocks(10);
@@ -1338,7 +1332,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, TESTER) { try {
                                deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, validating_tester) { try {
 	produce_blocks(2);
 	create_account( "testapi"_n );
 	produce_blocks(10);
@@ -1349,7 +1343,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
 
         //hit deadline exception, but cache the contract
         BOOST_CHECK_EXCEPTION( call_test( *this, test_api_action<TEST_METHOD("test_checktime", "checktime_sha1_failure")>{},
-                                          5000, 10, 10 ),
+                                          5000, 8, 8 ),
                                deadline_exception, is_deadline_exception );
 
         BOOST_TEST( is_code_cached("testapi"_n) );
@@ -1391,7 +1385,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, TESTER) { try {
 } FC_LOG_AND_RETHROW() }
 
 
-BOOST_FIXTURE_TEST_CASE(checktime_start, TESTER) try {
+BOOST_FIXTURE_TEST_CASE(checktime_start, validating_tester) try {
    const char checktime_start_wast[] = R"=====(
 (module
  (func $start (loop (br 0)))
@@ -1413,7 +1407,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_start, TESTER) try {
 /*************************************************************************************
  * transaction_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(transaction_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(transaction_tests, validating_tester) { try {
    produce_blocks(2);
    create_account( "testapi"_n );
    produce_blocks(100);
@@ -1690,7 +1684,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit) { try {
 
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester) { try {
    produce_blocks(2);
    create_accounts( {"testapi"_n, "testapi2"_n, "alice"_n} );
    set_code( "testapi"_n, test_contracts::test_api_wasm() );
@@ -2059,7 +2053,7 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) { try {
 /*************************************************************************************
  * chain_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(chain_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(chain_tests, validating_tester) { try {
    produce_blocks(2);
 
    create_account( "testapi"_n );
@@ -2106,7 +2100,7 @@ BOOST_FIXTURE_TEST_CASE(chain_tests, TESTER) { try {
 /*************************************************************************************
  * db_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(db_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(db_tests, validating_tester) { try {
    produce_blocks(2);
    create_account( "testapi"_n );
    create_account( "testapi2"_n );
@@ -2213,7 +2207,7 @@ BOOST_FIXTURE_TEST_CASE(db_tests, TESTER) { try {
 } FC_LOG_AND_RETHROW() }
 
 // The multi_index iterator cache is preserved across notifications for the same action.
-BOOST_FIXTURE_TEST_CASE(db_notify_tests, TESTER) {
+BOOST_FIXTURE_TEST_CASE(db_notify_tests, validating_tester) {
    create_accounts( {"notifier"_n,"notified"_n } );
    const char notifier[] = R"=====(
 (module
@@ -2267,7 +2261,7 @@ BOOST_FIXTURE_TEST_CASE(db_notify_tests, TESTER) {
 /*************************************************************************************
  * multi_index_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(multi_index_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(multi_index_tests, validating_tester) { try {
    produce_blocks(1);
    create_account( "testapi"_n );
    produce_blocks(1);
@@ -2323,7 +2317,7 @@ BOOST_FIXTURE_TEST_CASE(multi_index_tests, TESTER) { try {
 /*************************************************************************************
  * crypto_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(crypto_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(crypto_tests, validating_tester) { try {
    produce_block();
    create_account("testapi"_n );
    produce_block();
@@ -2536,7 +2530,7 @@ static const char memset_pass_wast[] = R"======(
 )
 )======";
 
-BOOST_FIXTURE_TEST_CASE(memory_tests, TESTER) {
+BOOST_FIXTURE_TEST_CASE(memory_tests, validating_tester) {
    produce_block();
    create_accounts( { "memcpy"_n, "memcpy2"_n, "memcpy3"_n, "memmove"_n, "memcmp"_n, "memset"_n } );
    set_code( "memcpy"_n, memcpy_pass_wast );
@@ -2577,7 +2571,7 @@ static const char cstr_wast[] = R"======(
 )
 )======";
 
-BOOST_FIXTURE_TEST_CASE(cstr_tests, TESTER) {
+BOOST_FIXTURE_TEST_CASE(cstr_tests, validating_tester) {
    produce_block();
    create_accounts( { "cstr"_n } );
    set_code( "cstr"_n, cstr_wast );
@@ -2594,7 +2588,7 @@ BOOST_FIXTURE_TEST_CASE(cstr_tests, TESTER) {
 /*************************************************************************************
  * print_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(print_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(print_tests, validating_tester) { try {
 	produce_blocks(2);
 	create_account("testapi"_n );
 	produce_blocks(1000);
@@ -2720,7 +2714,7 @@ BOOST_FIXTURE_TEST_CASE(print_tests, TESTER) { try {
 /*************************************************************************************
  * types_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(types_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(types_tests, validating_tester) { try {
 	produce_blocks(1000);
 	create_account( "testapi"_n );
 
@@ -2738,7 +2732,7 @@ BOOST_FIXTURE_TEST_CASE(types_tests, TESTER) { try {
 /*************************************************************************************
  * permission_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(permission_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(permission_tests, validating_tester) { try {
    produce_blocks(1);
    create_account( "testapi"_n );
 
@@ -2895,7 +2889,7 @@ static const char get_resource_limits_null_cpu_wast[] = R"=====(
 )
 )=====";
 
-BOOST_FIXTURE_TEST_CASE(resource_limits_tests, TESTER) {
+BOOST_FIXTURE_TEST_CASE(resource_limits_tests, validating_tester) {
    create_accounts( { "rlimits"_n, "testacnt"_n } );
    set_code("rlimits"_n, resource_limits_wast);
    push_action( "eosio"_n, "setpriv"_n, "eosio"_n, mutable_variant_object()("account", "rlimits"_n)("is_priv", 1));
@@ -2988,7 +2982,7 @@ BOOST_FIXTURE_TEST_CASE(privileged_tests, tester) { try {
 /*************************************************************************************
  * real_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(datastream_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(datastream_tests, validating_tester) { try {
    produce_blocks(1000);
    create_account("testapi"_n );
    produce_blocks(1000);
@@ -3003,7 +2997,7 @@ BOOST_FIXTURE_TEST_CASE(datastream_tests, TESTER) { try {
 /*************************************************************************************
  * permission_usage_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(permission_usage_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(permission_usage_tests, validating_tester) { try {
    produce_block();
    create_accounts( {"testapi"_n, "alice"_n, "bob"_n} );
    produce_block();
@@ -3084,7 +3078,7 @@ BOOST_FIXTURE_TEST_CASE(permission_usage_tests, TESTER) { try {
 /*************************************************************************************
  * account_creation_time_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(account_creation_time_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(account_creation_time_tests, validating_tester) { try {
    produce_block();
    create_account( "testapi"_n );
    produce_block();
@@ -3111,7 +3105,7 @@ BOOST_FIXTURE_TEST_CASE(account_creation_time_tests, TESTER) { try {
 /*************************************************************************************
  * extended_symbol_api_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(extended_symbol_api_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(extended_symbol_api_tests, validating_tester) { try {
    name n0{"1"};
    name n1{"5"};
    name n2{"a"};
@@ -3146,7 +3140,7 @@ BOOST_FIXTURE_TEST_CASE(extended_symbol_api_tests, TESTER) { try {
 /*************************************************************************************
  * eosio_assert_code_tests test cases
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(eosio_assert_code_tests, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(eosio_assert_code_tests, validating_tester) { try {
    produce_block();
    create_account( "testapi"_n );
    produce_block();
@@ -3225,7 +3219,7 @@ BOOST_FIXTURE_TEST_CASE(eosio_assert_code_tests, TESTER) { try {
 /*************************************************************************************
 + * action_ordinal_test test cases
 + *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(action_ordinal_test, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(action_ordinal_test, validating_tester) { try {
 
    produce_blocks(1);
    create_account("testapi"_n );
@@ -3408,7 +3402,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_test, TESTER) { try {
 /*************************************************************************************
 + * action_ordinal_failtest1 test cases
 + *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest1, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest1, validating_tester) { try {
 
    produce_blocks(1);
    create_account("testapi"_n );
@@ -3476,7 +3470,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest1, TESTER) { try {
 /*************************************************************************************
 + * action_ordinal_failtest2 test cases
 + *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest2, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest2, validating_tester) { try {
 
    produce_blocks(1);
    create_account("testapi"_n );
@@ -3597,7 +3591,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest2, TESTER) { try {
 /*************************************************************************************
 + * action_ordinal_failtest3 test cases
 + *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest3, TESTER) { try {
+BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest3, validating_tester) { try {
 
    produce_blocks(1);
    create_account("testapi"_n );
@@ -3752,7 +3746,7 @@ BOOST_FIXTURE_TEST_CASE(action_ordinal_failtest3, TESTER) { try {
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_CASE(action_results_tests) { try {
-   TESTER t;
+   validating_tester t;
    t.produce_blocks(2);
    t.create_account( "test"_n );
    t.set_code( "test"_n, test_contracts::action_results_wasm() );
@@ -3861,7 +3855,7 @@ static const char get_code_hash_wast[] = R"=====(
 )=====";
 
 BOOST_AUTO_TEST_CASE(get_code_hash_tests) { try {
-   TESTER t;
+   validating_tester t;
    t.produce_blocks(2);
    t.create_account("gethash"_n);
    t.create_account("test"_n);

@@ -75,7 +75,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
    buyrambytes(config::system_account_name, "testram11111"_n, more_ram);
    buyrambytes(config::system_account_name, "testram22222"_n, more_ram);
 
-   TESTER* tester = this;
+   validating_tester* tester = this;
    // allocate just under the allocated bytes
    tester->push_action( "testram11111"_n, "setentry"_n, "testram11111"_n, mvo()
                         ("payer", "testram11111")
