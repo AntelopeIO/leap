@@ -77,7 +77,7 @@ class Node(Transactions):
             self.fetchTransactionFromTrace = lambda trx: trx['id']
             self.fetchBlock = lambda blockNum: self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
             self.fetchKeyCommand = lambda: "[transaction][transaction_header][ref_block_num]"
-            self.fetchRefBlock = lambda trans: trans["transaction_header"]["ref_block_num"]
+            self.fetchRefBlock = lambda trans: trans["block_num"]
             self.cleosLimit = "--time-limit 999"
             self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
 
