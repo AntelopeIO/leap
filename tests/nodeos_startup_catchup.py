@@ -170,7 +170,7 @@ try:
             waitForBlock(node0, catchupHead+5, timeout=twoRoundsTimeout*2, blockType=BlockType.lib)
 
         Print("Restart catchup node")
-        catchupNode.relaunch(cachePopen=True)
+        catchupNode.relaunch()
         waitForNodeStarted(catchupNode)
         lastCatchupLibNum=lib(catchupNode)
 
