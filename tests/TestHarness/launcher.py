@@ -121,6 +121,11 @@ class nodeDefinition:
 class testnetDefinition:
     name: str
     nodes: Dict[str, nodeDefinition] = field(init=False, default_factory=dict)
+    def __post_init__(self):
+        nodeDefinition.p2p_count = 0
+        nodeDefinition.http_count = 0
+        nodeDefinition.p2p_port_generator = None
+        nodeDefinition.http_port_generator = None
 
 def producer_name(producer_number: int, shared_producer: bool = False):
     '''For first 26 return "defproducera" ... "defproducerz".
