@@ -123,16 +123,12 @@ private:
                // Create the session object and run it
                boost::system::error_code re_ec;
                auto re = self->socket_.remote_endpoint(re_ec);
-               if (re_ec) {
-                  fail(re_ec, "remote_endpoint", self->plugin_state_->logger, "closing connection");
-               } else {
-                  std::string remote_endpoint = boost::lexical_cast<std::string>(re);
-                  std::make_shared<session_type>(
-                     std::move(self->socket_),
-                     self->plugin_state_,
-                     std::move(remote_endpoint))
-                     ->run_session();
-               }
+               std::string remote_endpoint = re_ec ? "unknown" : boost::lexical_cast<std::string>(re);
+               std::make_shared<session_type>(
+                  std::move(self->socket_),
+                  self->plugin_state_,
+                  std::move(remote_endpoint))
+                  ->run_session();
             }
             
             // Accept another connection
