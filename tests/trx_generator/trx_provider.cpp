@@ -89,9 +89,9 @@ namespace eosio::testing {
                                                     content_type};
       http_client_async::async_http_request(
           params, std::move(msg_body),
-          [this, &acked = _acknowledged, trx_id = trx.id()](
+          [this, trx_id = trx.id()](
               boost::beast::error_code ec, boost::beast::http::response<boost::beast::http::string_body> response) {
-             ++acked;
+             ++this->_acknowledged;
              trx_acknowledged(trx_id, fc::time_point::now());
              if (response.result() != boost::beast::http::status::accepted) {
                 elog("async_http_request Failed with response http status code: ${status}",
@@ -124,7 +124,7 @@ namespace eosio::testing {
       fileName << log_dir << "/trx_data_output_" << getpid() << ".txt";
       std::ofstream out(fileName.str());
 
-      for (logged_trx_data data : _sent_trx_data) {
+      for (const logged_trx_data& data : _sent_trx_data) {
          fc::time_point   acked = _peer_connection->get_trx_ack_time(data._trx_id);
          std::string      acked_str;
          fc::microseconds ack_round_trip_us;

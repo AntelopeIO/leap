@@ -489,7 +489,7 @@ class PerformanceTestBasic:
                                                  numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed,
                                                  targetTpsPerGenList=testResult.targetTpsPerGenList, quiet=self.ptbConfig.quiet)
         self.report = log_reader.calcAndReport(data=self.data, tpsTestConfig=tpsTestConfig, artifacts=artifactsLocate, argsDict=args, testStart=self.testStart,
-                                               completedRun=testResult.completedRun,nodeosVers=self.clusterConfig.nodeosVers, targetApiEndpoint=self.ptbConfig.endpointApi)
+                                               completedRun=testResult.completedRun, nodeosVers=self.clusterConfig.nodeosVers, targetApiEndpoint=self.ptbConfig.endpointApi)
 
         jsonReport = None
         if not self.ptbConfig.quiet or not self.ptbConfig.delReport:

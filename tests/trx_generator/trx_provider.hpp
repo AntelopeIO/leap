@@ -9,6 +9,7 @@
 #include<thread>
 #include<variant>
 #include<vector>
+#include<mutex>
 
 using namespace std::chrono_literals;
 
@@ -60,7 +61,7 @@ namespace eosio::testing {
 
       fc::time_point get_trx_ack_time(const eosio::chain::transaction_id_type& _trx_id) {
          fc::time_point time_acked;
-         _trx_ack_map_lock.lock();
+         std::lock_guard g(_trx_ack_map_lock);
          auto search = _trxs_ack_time_map.find(_trx_id);
          if (search != _trxs_ack_time_map.end()) {
             time_acked = search->second;
@@ -68,16 +69,14 @@ namespace eosio::testing {
             elog("get_trx_ack_time - Transaction acknowledge time not found for transaction with id: ${id}", ("id", _trx_id));
             time_acked = fc::time_point::min();
          }
-         _trx_ack_map_lock.unlock();
          return time_acked;
       }
 
       virtual void send_transaction(const chain::packed_transaction& trx) = 0;
 
       void trx_acknowledged(const eosio::chain::transaction_id_type _trx_id, const fc::time_point ack_time) {
-         _trx_ack_map_lock.lock();
+         std::lock_guard g(_trx_ack_map_lock);
          _trxs_ack_time_map[_trx_id] = ack_time;
-         _trx_ack_map_lock.unlock();
       }
 
     private:
