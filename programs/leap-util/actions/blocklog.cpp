@@ -169,32 +169,33 @@ int blocklog_actions::extract_blocks() {
 }
 
 int blocklog_actions::do_genesis() {
-   std::optional<genesis_state> gs;
    bfs::path bld = opt->blocks_dir;
-   auto full_path = (bld / "blocks.log").generic_string();
 
-   if(fc::exists(bld / "blocks.log")) {
-      gs = block_log::extract_genesis_state(opt->blocks_dir);
-      if(!gs) {
-         std::cerr << "Block log at '" << full_path
-                   << "' does not contain a genesis state, it only has the chain-id." << std::endl;
-         return -1;
-      }
-   } else {
-      std::cerr << "No blocks.log found at '" << full_path << "'." << std::endl;
+   auto context = block_log::extract_chain_context(opt->blocks_dir,opt->blocks_dir);
+   
+   if (!context) {
+      std::cerr << "No blocks log found at '" << opt->blocks_dir.c_str() << "'." << std::endl;
       return -1;
    }
 
+   if(!std::holds_alternative<genesis_state>(*context)) {
+      std::cerr << "Block log at '" << opt->blocks_dir.c_str()
+                  << "' does not contain a genesis state, it only has the chain-id." << std::endl;
+      return -1;
+   } 
+
+   const genesis_state& gs = std::get<genesis_state>(*context);
+
    // just print if output not set
    if(opt->output_file.empty()) {
-      std::cout << json::to_pretty_string(*gs) << std::endl;
+      std::cout << json::to_pretty_string(gs) << std::endl;
    } else {
       bfs::path p = opt->output_file;
       if(p.is_relative()) {
          p = bfs::current_path() / p;
       }
 
-      if(!fc::json::save_to_file(*gs, p, true)) {
+      if(!fc::json::save_to_file(gs, p, true)) {
          std::cerr << "Error occurred while writing genesis JSON to '" << p.generic_string() << "'" << std::endl;
          return -1;
       }
