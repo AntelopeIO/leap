@@ -1371,39 +1371,23 @@ namespace eosio { namespace chain {
    }
 
    // static
-   std::optional<genesis_state> block_log::extract_genesis_state(const fc::path& block_dir, const fc::path& retained_dir) {
+   std::optional<block_log::chain_context> block_log::extract_chain_context( const fc::path& block_dir, const fc::path& retained_dir) {
       boost::filesystem::path firs_block_file;
-      bool                    has_block_files = false;
       if (!retained_dir.empty() && fc::exists(retained_dir)) {
-         for_each_file_in_dir_matches(retained_dir, R"(blocks-\d+-\d+\.log)",
+         for_each_file_in_dir_matches(retained_dir, R"(blocks-1-\d+\.log)",
                                       [&](boost::filesystem::path log_path) {
-                                         has_block_files = true;
-                                         using boost::algorithm::starts_with;
-                                         if (starts_with(log_path.filename().string(), "blocks-1-"))
-                                            firs_block_file = std::move(log_path);
+                                          firs_block_file = std::move(log_path);
                                       });
       }
 
-      if (!has_block_files && fc::exists(block_dir / "blocks.log")) {
+      if (firs_block_file.empty() && fc::exists(block_dir / "blocks.log")) {
          firs_block_file = block_dir / "blocks.log";
-         has_block_files = true;
+      }
+
+      if (!firs_block_file.empty()) {
+         return block_log_data(firs_block_file).get_preamble().chain_context;
       }
       
-      if (!has_block_files) {
-         wlog( "No blocks.log found at '${p}'. Using default genesis state.",
-                  ("p", (block_dir / "blocks.log").generic_string()));
-         return genesis_state{};
-      }
-      if (!firs_block_file.empty())
-         return block_log_data(firs_block_file).get_genesis_state();
-      return {};
-   }
-
-   // static
-   std::optional<chain_id_type> block_log::extract_chain_id(const fc::path& data_dir, const fc::path& retained_dir) {
-      if (fc::exists(data_dir / "blocks.log"))
-         return block_log_data(data_dir / "blocks.log").chain_id();
-
       if (!retained_dir.empty() && fc::exists(retained_dir)) {
          const std::regex        my_filter(R"(blocks-\d+-\d+\.log)");
          std::smatch             what;
@@ -1419,6 +1403,25 @@ namespace eosio { namespace chain {
          }
       }
       return {};
+   }
+
+   // static
+   std::optional<genesis_state> block_log::extract_genesis_state(const fc::path& block_dir, const fc::path& retained_dir) {
+      auto context = extract_chain_context(block_dir, retained_dir);
+      if (!context || std::holds_alternative<chain_id_type>(*context))
+         return {};
+      return std::get<genesis_state>(*context);
+   }
+
+   // static
+   std::optional<chain_id_type> block_log::extract_chain_id(const fc::path& block_dir, const fc::path& retained_dir) {
+      auto context = extract_chain_context(block_dir, retained_dir);
+      if (!context)
+         return {};
+      return std::visit(overloaded{
+         [](const chain_id_type& id){ return id; },
+         [](const genesis_state& gs){ return gs.compute_chain_id(); }
+          } , *context);
    }
 
    // static

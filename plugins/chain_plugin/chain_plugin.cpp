@@ -776,28 +776,34 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
          chain_id = controller::extract_chain_id_from_db( my->chain_config->state_dir );
 
+         auto chain_context = block_log::extract_chain_context( my->blocks_dir, retained_dir );
          std::optional<genesis_state> block_log_genesis;
-         std::optional<chain_id_type> block_log_chain_id;
+         std::optional<chain_id_type> block_log_chain_id;  
 
-         block_log_genesis = block_log::extract_genesis_state( my->blocks_dir, retained_dir );
-         if( block_log_genesis ) {
-            block_log_chain_id = block_log_genesis->compute_chain_id();
-         } else {
-            block_log_chain_id = block_log::extract_chain_id( my->blocks_dir, retained_dir );
-         }
+         if (chain_context) {
+            std::visit(overloaded {
+               [&](const genesis_state& gs) {
+                  block_log_genesis = gs;
+                  block_log_chain_id = gs.compute_chain_id();
+               },
+               [&](const chain_id_type& id) {
+                  block_log_chain_id = id;
+               } 
+            }, *chain_context);
 
-         if( chain_id ) {
-            EOS_ASSERT( *block_log_chain_id == *chain_id, block_log_exception,
-                        "Chain ID in blocks.log (${block_log_chain_id}) does not match the existing "
-                        " chain ID in state (${state_chain_id}).",
-                        ("block_log_chain_id", *block_log_chain_id)
-                        ("state_chain_id", *chain_id)
-            );
-         } else if (block_log_genesis) {
-            ilog( "Starting fresh blockchain state using genesis state extracted from blocks.log." );
-            my->genesis = block_log_genesis;
-            // Delay setting chain_id until later so that the code handling genesis-json below can know
-            // that chain_id still only represents a chain ID extracted from the state (assuming it exists).
+            if( chain_id ) {
+               EOS_ASSERT( *block_log_chain_id == *chain_id, block_log_exception,
+                           "Chain ID in blocks.log (${block_log_chain_id}) does not match the existing "
+                           " chain ID in state (${state_chain_id}).",
+                           ("block_log_chain_id", *block_log_chain_id)
+                           ("state_chain_id", *chain_id)
+               );
+            } else if (block_log_genesis) {
+               ilog( "Starting fresh blockchain state using genesis state extracted from blocks.log." );
+               my->genesis = block_log_genesis;
+               // Delay setting chain_id until later so that the code handling genesis-json below can know
+               // that chain_id still only represents a chain ID extracted from the state (assuming it exists).
+            }
          }
 
          if( options.count( "genesis-json" ) ) {
@@ -823,15 +829,11 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             }
 
             if( block_log_genesis ) {
-               if (block_log_genesis != genesis_state{}) {
-                  EOS_ASSERT( *block_log_genesis == provided_genesis, plugin_config_exception,
-                              "Genesis state, provided via command line arguments, does not match the existing genesis state"
-                              " in blocks.log. It is not necessary to provide genesis state arguments when a full blocks.log "
-                              "file already exists."
-                  );
-               } else {
-                  block_log_genesis = provided_genesis;
-               }
+               EOS_ASSERT( *block_log_genesis == provided_genesis, plugin_config_exception,
+                           "Genesis state, provided via command line arguments, does not match the existing genesis state"
+                           " in blocks.log. It is not necessary to provide genesis state arguments when a full blocks.log "
+                           "file already exists."
+               );
             } else {
                const auto& provided_genesis_chain_id = provided_genesis.compute_chain_id();
                if( chain_id ) {

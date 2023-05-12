@@ -82,6 +82,9 @@ namespace eosio { namespace chain {
 
          static fc::path repair_log( const fc::path& data_dir, uint32_t truncate_at_block = 0, const char* reversible_block_dir_name="" );
 
+         using chain_context = std::variant<genesis_state, chain_id_type>;
+         static std::optional<chain_context> extract_chain_context( const fc::path& data_dir, const fc::path& retained_dir);
+
          static std::optional<genesis_state> extract_genesis_state( const fc::path& data_dir, const fc::path& retained_dir = fc::path{});
 
          static std::optional<chain_id_type> extract_chain_id( const fc::path& data_dir, const fc::path& retained_dir = fc::path{});
