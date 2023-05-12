@@ -456,11 +456,14 @@ class PerformanceTestBasic:
         self.testDirsCleanup()
         self.testDirsSetup()
 
+        self.walletMgr.launch()
         if self.launchCluster() == False:
             self.errorExit('Failed to stand up cluster.')
 
     def postTpsTestSteps(self):
         self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
+        self.cluster.shutdown()
+        self.walletMgr.shutdown()
 
     def runTest(self) -> bool:
         testSuccessful = False
