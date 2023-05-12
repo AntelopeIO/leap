@@ -24,6 +24,7 @@ namespace impl {
    struct abi_traverse_context_with_path;
    struct binary_to_variant_context;
    struct variant_to_binary_context;
+   struct action_data_to_variant_context;
 }
 
 /**
@@ -183,17 +184,6 @@ namespace impl {
       void check_deadline()const { yield( recursion_depth ); }
       abi_serializer::yield_function_t get_yield_function() { return yield; }
 
-      void start_action_serialization() {
-         if (max_action_serialization_time.count() > 0) {
-            fc::time_point deadline = fc::time_point::now().safe_add(max_action_serialization_time);
-            yield = [deadline, y=yield, max=max_action_serialization_time](size_t depth) {
-               y(depth); // call provided yield that might include an overall time limit or not
-               EOS_ASSERT( fc::time_point::now() < deadline, abi_serialization_deadline_exception,
-                           "serialization action data time limit ${t}us exceeded", ("t", max) );
-            };
-         }
-      }
-
       fc::scoped_exit<std::function<void()>> enter_scope();
 
    protected:
@@ -274,6 +264,22 @@ namespace impl {
 
    struct binary_to_variant_context : public abi_traverse_context_with_path {
       using abi_traverse_context_with_path::abi_traverse_context_with_path;
+   };
+
+   struct action_data_to_variant_context : public binary_to_variant_context {
+      action_data_to_variant_context( const abi_serializer& abis, const abi_traverse_context& ctx, const std::string_view& type )
+            : binary_to_variant_context(abis, ctx, type)
+      {
+         short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
+         if (max_action_serialization_time.count() > 0) {
+            fc::time_point deadline = fc::time_point::now().safe_add(max_action_serialization_time);
+            yield = [deadline, y=yield, max=max_action_serialization_time](size_t depth) {
+               y(depth); // call provided yield that might include an overall time limit or not
+               EOS_ASSERT( fc::time_point::now() < deadline, abi_serialization_deadline_exception,
+                           "serialization action data time limit ${t}us exceeded", ("t", max) );
+            };
+         }
+      }
    };
 
    struct variant_to_binary_context : public abi_traverse_context_with_path {
@@ -504,9 +510,7 @@ namespace impl {
                auto type = abi.get_action_type(act.name);
                if (!type.empty()) {
                   try {
-                     binary_to_variant_context _ctx(abi, ctx, type);
-                     _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
-                     _ctx.start_action_serialization();
+                     action_data_to_variant_context _ctx(abi, ctx, type);
                      mvo( "data", abi._binary_to_variant( type, act.data, _ctx ));
                   } catch(...) {
                      // any failure to serialize data, then leave as not serialized
@@ -566,9 +570,7 @@ namespace impl {
                const abi_serializer& abi = *abi_optional;
                auto type = abi.get_action_result_type(act.name);
                if (!type.empty()) {
-                  binary_to_variant_context _ctx(abi, ctx, type);
-                  _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
-                  _ctx.start_action_serialization();
+                  action_data_to_variant_context _ctx(abi, ctx, type);
                   mvo( "return_value_data", abi._binary_to_variant( type, act_trace.return_value, _ctx ));
                }
             }
