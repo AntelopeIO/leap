@@ -63,6 +63,10 @@ class PerformanceTest:
         calcNetThreads: str="none"
         userTrxDataFile: Path=None
         endpointApi: str="p2p"
+        opModeCmd: str=""
+
+        def __post_init__(self):
+            self.opModeDesc = "Block Producer Operational Mode" if self.opModeCmd == "testBpOpMode" else "API Node Operational Mode" if self.opModeCmd == "testApiOpMode" else "Undefined Operational Mode"
 
     @dataclass
     class TpsTestResult:
@@ -290,6 +294,7 @@ class PerformanceTest:
         report = {}
         report['perfTestsBegin'] = self.testsStart
         report['perfTestsFinish'] = self.testsFinish
+        report['operationalMode'] = self.ptConfig.opModeDesc
         if tpsTestResult is not None:
             report.update(self.createTpsTestReport(tpsTestResult))
 
@@ -511,7 +516,7 @@ class PerfTestArgumentsHandler(object):
                     Eg:  performance_test.py testBpOpMode --help")
         ptParserSubparsers = phParser.add_subparsers(title="Operational Modes",
                                                      description=opModeDesc,
-                                                     dest="Operational Mode sub-command",
+                                                     dest="op_mode_sub_cmd",
                                                      required=True, help="Currently supported operational mode sub-commands.")
 
         #Create the Block Producer Operational Mode Sub-Command and Parsers
@@ -550,7 +555,6 @@ class PerfTestArgumentsHandler(object):
         return args
 
 def main():
-
     args = PerfTestArgumentsHandler.parseArgs()
     Utils.Debug = args.v
 
@@ -573,7 +577,8 @@ def main():
                                         calcChainThreads=args.calc_chain_threads,
                                         calcNetThreads=args.calc_net_threads,
                                         userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None,
-                                        endpointApi=args.endpoint_api)
+                                        endpointApi=args.endpoint_api,
+                                        opModeCmd=args.op_mode_sub_cmd)
 
     myTest = PerformanceTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptConfig=ptConfig)
 

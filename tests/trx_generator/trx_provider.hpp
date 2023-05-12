@@ -17,10 +17,10 @@ namespace eosio::testing {
 
    struct logged_trx_data {
       eosio::chain::transaction_id_type _trx_id;
-      fc::time_point _sent_timestamp;
+      fc::time_point _timestamp;
 
-      explicit logged_trx_data(eosio::chain::transaction_id_type trx_id, fc::time_point sent=fc::time_point::now()) :
-         _trx_id(trx_id), _sent_timestamp(sent) {}
+      explicit logged_trx_data(eosio::chain::transaction_id_type trx_id, fc::time_point time_of_interest=fc::time_point::now()) :
+         _trx_id(trx_id), _timestamp(time_of_interest) {}
    };
 
    struct provider_base_config {
@@ -39,6 +39,9 @@ namespace eosio::testing {
       const provider_base_config&                                 _config;
       eosio::chain::named_thread_pool<struct provider_connection> _connection_thread_pool;
 
+      std::mutex _trx_ack_map_lock;
+      std::map<eosio::chain::transaction_id_type, fc::time_point> _trxs_ack_time_map;
+
       explicit provider_connection(const provider_base_config& provider_config)
           : _config(provider_config) {}
 
@@ -55,7 +58,27 @@ namespace eosio::testing {
          _connection_thread_pool.stop();
       };
 
+      fc::time_point get_trx_ack_time(const eosio::chain::transaction_id_type& _trx_id) {
+         fc::time_point time_acked;
+         _trx_ack_map_lock.lock();
+         auto search = _trxs_ack_time_map.find(_trx_id);
+         if (search != _trxs_ack_time_map.end()) {
+            time_acked = search->second;
+         } else {
+            elog("get_trx_ack_time - Transaction acknowledge time not found for transaction with id: ${id}", ("id", _trx_id));
+            time_acked = fc::time_point::min();
+         }
+         _trx_ack_map_lock.unlock();
+         return time_acked;
+      }
+
       virtual void send_transaction(const chain::packed_transaction& trx) = 0;
+
+      void trx_acknowledged(const eosio::chain::transaction_id_type _trx_id, const fc::time_point ack_time) {
+         _trx_ack_map_lock.lock();
+         _trxs_ack_time_map[_trx_id] = ack_time;
+         _trx_ack_map_lock.unlock();
+      }
 
     private:
       virtual void connect()    = 0;
