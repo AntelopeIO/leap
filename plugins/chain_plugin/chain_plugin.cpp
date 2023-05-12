@@ -823,11 +823,15 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             }
 
             if( block_log_genesis ) {
-               EOS_ASSERT( *block_log_genesis == provided_genesis, plugin_config_exception,
-                           "Genesis state, provided via command line arguments, does not match the existing genesis state"
-                           " in blocks.log. It is not necessary to provide genesis state arguments when a full blocks.log "
-                           "file already exists."
-               );
+               if (block_log_genesis != genesis_state{}) {
+                  EOS_ASSERT( *block_log_genesis == provided_genesis, plugin_config_exception,
+                              "Genesis state, provided via command line arguments, does not match the existing genesis state"
+                              " in blocks.log. It is not necessary to provide genesis state arguments when a full blocks.log "
+                              "file already exists."
+                  );
+               } else {
+                  block_log_genesis = provided_genesis;
+               }
             } else {
                const auto& provided_genesis_chain_id = provided_genesis.compute_chain_id();
                if( chain_id ) {
