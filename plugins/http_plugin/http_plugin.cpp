@@ -291,7 +291,7 @@ namespace eosio {
                      create_ip_server(*unspecified_ipv4_addr);
                   }
 
-                  EOS_ASSERT (listened > 0, chain::plugin_config_exception, "none of the resolved address can be listened to" );
+                  EOS_ASSERT (listened > 0, chain::plugin_config_exception, "none of the resolved addresses can be listened to" );
                }
             } catch (const fc::exception& e) {
                fc_elog(logger(), "http service failed to start for ${addr}: ${e}",
