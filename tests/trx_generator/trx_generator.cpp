@@ -278,8 +278,8 @@ namespace eosio::testing {
    }
 
    bool trx_generator_base::tear_down() {
-      _provider.log_trxs(_config._log_dir);
       _provider.teardown();
+      _provider.log_trxs(_config._log_dir);
 
       ilog("Sent transactions: ${cnt}", ("cnt", _txcount));
       ilog("Tear down p2p transaction provider");
