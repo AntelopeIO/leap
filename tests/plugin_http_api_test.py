@@ -92,7 +92,6 @@ class PluginHttpTest(unittest.TestCase):
                         "--p2p-peer-address localhost:9011 --resource-monitor-not-shutdown-on-threshold-exceeded ") % (self.data_dir, self.config_dir, self.data_dir, "\'*\'", "false")
         nodeos_flags += category_config.nodeosArgs()
 
-        print("nodeos_flags = ", nodeos_flags)
         start_nodeos_cmd = ("%s -e -p eosio %s %s ") % (Utils.EosServerPath, nodeos_plugins, nodeos_flags)
         self.nodeos.launchCmd(start_nodeos_cmd, self.node_id)
         time.sleep(self.sleep_s*2)

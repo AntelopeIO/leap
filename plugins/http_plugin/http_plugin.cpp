@@ -106,9 +106,6 @@ namespace eosio {
          http_plugin_impl& operator=(const http_plugin_impl&) = delete;
          http_plugin_impl& operator=(http_plugin_impl&&) = delete;
 
-         std::string           http_server_address;
-         std::string           unix_sock_path;
-
          std::map<std::string, api_category_set> categories_by_address;
 
          shared_ptr<http_plugin_state> plugin_state   = std::make_shared<http_plugin_state>(logger());
@@ -205,25 +202,25 @@ namespace eosio {
 
             try {
                if (is_unix_socket_address(address)) {
-                  auto                  cwd       = std::filesystem::current_path();
-                  std::filesystem::path sock_path = address;
+                  namespace fs       = std::filesystem;
+                  auto     cwd       = fs::current_path();
+                  fs::path sock_path = address;
                   if (sock_path.is_relative())
-                     sock_path = std::filesystem::weakly_canonical(app().data_dir() / sock_path);
-                  std::filesystem::remove(sock_path);
-                  std::filesystem::create_directories(sock_path.parent_path());
+                     sock_path = fs::weakly_canonical(app().data_dir() / sock_path);
+                  fs::remove(sock_path);
+                  fs::create_directories(sock_path.parent_path());
                   // The maximum length of the socket path is defined by sockaddr_un::sun_path. On Linux,
                   // according to unix(7), it is 108 bytes. On FreeBSD, according to unix(4), it is 104 bytes.
-                  // Therefore, we create the unix socket with the relative path to its parent path to avoid the problem.
-                  std::filesystem::current_path(sock_path.parent_path());
-                  auto restore = fc::make_scoped_exit([cwd]{
-                     std::filesystem::current_path(cwd);
-                  });
+                  // Therefore, we create the unix socket with the relative path to its parent path to avoid the
+                  // problem.
+                  fs::current_path(sock_path.parent_path());
+                  auto restore = fc::make_scoped_exit([cwd] { fs::current_path(cwd); });
 
                   using stream_protocol = asio::local::stream_protocol;
                   auto server = std::make_shared<beast_http_listener<stream_protocol::socket>>(
                         plugin_state, categories, stream_protocol::endpoint{ sock_path.filename().string() });
                   server->do_accept();
-                  fc_ilog(logger(), "created beast UNIX socket listener at ${addr}", ("addr", sock_path));
+                  fc_ilog(logger(), "created UNIX socket listener at ${addr}", ("addr", sock_path));
                } else {
 
                   auto [host, port] = split_host_port(address);
@@ -239,7 +236,7 @@ namespace eosio {
                   std::optional<boost::asio::ip::tcp::endpoint> unspecified_ipv4_addr;
                   bool has_unspecified_ipv6_only = false;
 
-                  auto create_ip_server = [&](auto endpoint) {
+                  auto create_ip_server = [&](const auto& endpoint) {
                      const auto& ip_addr = endpoint.address();
                      std::string ip_addr_string = ip_addr.to_string();
                      if (ip_addr.is_v6()) {
@@ -278,7 +275,7 @@ namespace eosio {
                      create_ip_server(*unspecified_ipv4_addr);
                   }
 
-                  EOS_ASSERT (listened > 0, chain::plugin_config_exception, "none of the resolved address can be listened" );
+                  EOS_ASSERT (listened > 0, chain::plugin_config_exception, "none of the resolved address can be listened to" );
                }
             } catch (const fc::exception& e) {
                fc_elog(logger(), "http service failed to start for ${addr}: ${e}",
@@ -295,17 +292,11 @@ namespace eosio {
 
          std::string addresses_for_category(api_category category) const {
             std::string result;
-            if (http_server_address == "http-category-address") {
-               for (const auto& [address, categories] : categories_by_address) {
-                  if (categories.contains(category)) {
-                     result += address;
-                     result += " ";
-                  }
+            for (const auto& [address, categories] : categories_by_address) {
+               if (categories.contains(category)) {
+                  result += address;
+                  result += " ";
                }
-            } else {
-               result += http_server_address;
-               if (result.size()) result += " ";
-               result += unix_sock_path;
             }
             return result;
          }
@@ -347,7 +338,7 @@ namespace eosio {
              "    producer_rw, snapshot, trace_api, prometheus, and test_control.\n\n"
              "    A single `hostname:port` specification can be used by multiple categories\n" 
              "    However, two specifications having the same port with different hostname strings\n" 
-             "    are always considered as configuration error regardless whether they can be resolved\n"
+             "    are always considered as configuration error regardless of whether they can be resolved\n"
              "    into the same set of IP addresses.\n\n"
              "  Examples:\n"
              "    chain_ro,127.0.0.1:8080\n"
@@ -359,7 +350,7 @@ namespace eosio {
              "    producer_ro,/tmp/absolute_unix_path.sock\n"
              "    producer_rw,./relative_unix_path.sock\n"
              "    trace_api,:8086 # listen on all network interfaces\n\n"
-             "  Notice that the behavor for `[::1]` is platform dependent. For system with IPv4 mapped IPv6 networking\n"
+             "  Notice that the behavior for `[::1]` is platform dependent. For system with IPv4 mapped IPv6 networking\n"
              "  is enabled, using `[::1]` will listen on both IPv4 and IPv6; other systems like FreeBSD, it will only\n"
              "  listen on IPv6. On the other hand, the specfications without hostnames like `:8086` will always listen on\n"
              "  both IPv4 and IPv6 on all platforms.");
@@ -451,13 +442,20 @@ namespace eosio {
 
          my->plugin_state->keep_alive = options.at("http-keep-alive").as<bool>();
 
-         if (options.count("http-server-address"))
-            my->http_server_address = options.at("http-server-address").as<string>();
+         std::string http_server_address;
+         if (options.count("http-server-address")) {
+            http_server_address = options.at("http-server-address").as<string>();
+            if (http_server_address.size() && http_server_address != "http-category-address") {
+               my->categories_by_address[http_server_address].insert(api_category::node);
+            }
+         }
 
          if (options.count("unix-socket-path") && !options.at("unix-socket-path").as<string>().empty()) {
-            my->unix_sock_path = options.at("unix-socket-path").as<string>();
-            if (my->unix_sock_path.size() && my->unix_sock_path[0] != '/')
-               my->unix_sock_path = "./" + my->unix_sock_path;
+            std::string unix_sock_path = options.at("unix-socket-path").as<string>();
+            if (unix_sock_path.size()) {
+               if (unix_sock_path[0] != '/') unix_sock_path = "./" + unix_sock_path;
+               my->categories_by_address[unix_sock_path].insert(api_category::node);
+            } 
          }
 
          if (options.count("http-category-address") != 0) {
@@ -466,7 +464,7 @@ namespace eosio {
                return std::find(plugins.begin(), plugins.end(), s) != plugins.end();
             };
 
-            EOS_ASSERT(my->http_server_address == "http-category-address" && options.count("unix-socket-path") == 0,
+            EOS_ASSERT(http_server_address == "http-category-address" && options.count("unix-socket-path") == 0,
                 chain::plugin_config_exception,
                 "when http-category-address is specified, http-server-address must be set as "
                 "`http-category-address` and `unix-socket-path` must be left unspecified");
@@ -516,18 +514,8 @@ namespace eosio {
                app().quit();
             } );
 
-            if (my->http_server_address != "http-category-address") {
-               if (my->http_server_address.size()) {
-                  my->create_beast_server(my->http_server_address, api_category_set::all());
-               }
-
-               if (my->unix_sock_path.size()) {
-                  my->create_beast_server(my->unix_sock_path, api_category_set::all());
-               }
-            } else {
-               for (const auto& [address, categories]: my->categories_by_address) {
-                  my->create_beast_server(address, categories);
-               }
+            for (const auto& [address, categories]: my->categories_by_address) {
+               my->create_beast_server(address, categories);
             }
 
             my->listening.store(true);
@@ -637,10 +625,7 @@ namespace eosio {
    }
 
    bool http_plugin::is_on_loopback(api_category category) const {
-      if (my->http_server_address != "http-category-address")
-         return my->http_server_address.empty() || my->on_loopback_only(my->http_server_address);
-      return my->categories_by_address.empty() ||
-             std::all_of(my->categories_by_address.begin(), my->categories_by_address.end(),
+      return std::all_of(my->categories_by_address.begin(), my->categories_by_address.end(),
                          [&category, this](const auto& entry) {
                             const auto& [address, categories] = entry;
                             return !categories.contains(category) || my->on_loopback_only(address);
