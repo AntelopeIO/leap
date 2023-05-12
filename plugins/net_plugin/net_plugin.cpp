@@ -3997,7 +3997,7 @@ namespace eosio {
                app().quit();
                return;
             }
-            fc_ilog( logger, "starting listener, max clients is ${mc}",("mc",my->max_client_count) );
+            fc_ilog( logger, "starting listener ${addr}:${port}, max clients is ${mc}",("addr",listen_endpoint.address().to_string())("port",listen_endpoint.port())("mc",my->max_client_count) );
             my->start_listen_loop();
          }
 
