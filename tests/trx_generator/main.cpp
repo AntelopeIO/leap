@@ -62,6 +62,7 @@ int main(int argc, char** argv) {
          ("abi-file", bpo::value<std::string>(&user_trx_config._abi_data_file_path), "The path to the contract abi file to use for the supplied transaction action data")
          ("actions-data", bpo::value<std::string>(&user_trx_config._actions_data_json_file_or_str), "The json actions data file or json actions data description string to use")
          ("actions-auths", bpo::value<std::string>(&user_trx_config._actions_auths_json_file_or_str), "The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.")
+         ("peer-endpoint-type", bpo::value<std::string>(&provider_config._peer_endpoint_type)->default_value("p2p"), "Identify the peer endpoint api type to determine how to send transactions. Allowable 'p2p' and 'http'. Default: 'p2p'")
          ("peer-endpoint", bpo::value<std::string>(&provider_config._peer_endpoint)->default_value("127.0.0.1"), "set the peer endpoint to send transactions to")
          ("port", bpo::value<uint16_t>(&provider_config._port)->default_value(9876), "set the peer endpoint port to send transactions to")
          ("help,h", "print this list")
@@ -169,6 +170,12 @@ int main(int argc, char** argv) {
 
       if(max_lag_per > 100) {
          ilog("Initialization error: max-lag-percent must be between 0 and 100");
+         cli.print(std::cerr);
+         return INITIALIZE_FAIL;
+      }
+
+      if (!(provider_config._peer_endpoint_type == "p2p" || provider_config._peer_endpoint_type == "http")) {
+         ilog("Initialization error: peer-endpoint-type must be either 'p2p', or 'http'");
          cli.print(std::cerr);
          return INITIALIZE_FAIL;
       }
