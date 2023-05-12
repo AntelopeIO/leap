@@ -6,7 +6,6 @@
 #include <eosio/chain/log_index.hpp>
 #include <fc/bitutil.hpp>
 #include <fc/io/raw.hpp>
-#include <boost/algorithm/string/predicate.hpp>
 #include <mutex>
 
 #if defined(__BYTE_ORDER__)
