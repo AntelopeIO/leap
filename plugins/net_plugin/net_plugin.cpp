@@ -1591,7 +1591,7 @@ namespace eosio {
          sync_known_lib_num = highest_lib_num;
 
          // if closing the connection we are currently syncing from, then reset our last requested and next expected.
-         if( c == sync_source ) {
+         if( !sync_source || c == sync_source ) {
             reset_last_requested_num(g);
             // if starting to sync need to always start from lib as we might be on our own fork
             uint32_t lib_num = my_impl->get_chain_lib_num();
@@ -3252,18 +3252,6 @@ namespace eosio {
       uint32_t blk_num = block_header::num_from_id(blk_id);
       // use c in this method instead of this to highlight that all methods called on c-> must be thread safe
       connection_ptr c = shared_from_this();
-
-      // if we have closed connection then stop processing
-      if( !c->socket_is_open() ) {
-         if( bsp ) {
-            // valid bsp means add_peer_block already called, need to remove it since we are not going to process the block
-            // call on dispatch strand to serialize with the add_peer_block calls
-            my_impl->dispatcher->strand.post( [blk_id]() {
-               my_impl->dispatcher->rm_block( blk_id );
-            } );
-         }
-         return;
-      }
 
       try {
          if( cc.fetch_block_by_id(blk_id) ) {
