@@ -927,7 +927,7 @@ class Cluster(object):
         m=re.search(pattern, startStr)
         regMsg="None" if m is None else "NOT None"
         if m is None:
-            if Utils.Debug: Utils.Print("Failed to find producer keys")
+            if Utils.Debug: Utils.Print(f'No producer keys found in node {nodeName}')
             return None
 
         pubKey=m.group(1)
