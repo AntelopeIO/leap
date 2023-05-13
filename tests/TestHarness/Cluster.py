@@ -739,14 +739,14 @@ class Cluster(object):
         nodes += self.getNodes()
         return nodes
 
-    def launchUnstarted(self, numToLaunch=1, cachePopen=False):
+    def launchUnstarted(self, numToLaunch=1):
         assert(isinstance(numToLaunch, int))
         assert(numToLaunch>0)
         launchList=self.unstartedNodes[:numToLaunch]
         del self.unstartedNodes[:numToLaunch]
         for node in launchList:
             # the node number is indexed off of the started nodes list
-            node.launchUnstarted(cachePopen=cachePopen)
+            node.launchUnstarted()
             self.nodes.append(node)
 
     # Spread funds across accounts with transactions spread through cluster nodes.
