@@ -293,7 +293,7 @@ class Node(Transactions):
 
     def interruptAndVerifyExitStatus(self, timeout=60):
         if Utils.Debug: Utils.Print("terminating node: %s" % (self.cmd))
-        assert self.popenProc is not None, f"node: '{self.cmd}' does not have a popenProc, this may be because it is only set after a relaunch."
+        assert self.popenProc is not None, f"node: '{self.cmd}' does not have a popenProc."
         self.popenProc.send_signal(signal.SIGINT)
         try:
             outs, _ = self.popenProc.communicate(timeout=timeout)
@@ -423,7 +423,7 @@ class Node(Transactions):
 
     def launchUnstarted(self):
         Utils.Print("launchUnstarted cmd: %s" % (self.cmd))
-        self.launchCmd(self.cmd, self.data_dir, self.launch_time)
+        self.popenProc = self.launchCmd(self.cmd, self.data_dir, self.launch_time)
 
     def launchCmd(self, cmd: List[str], data_dir: Path, launch_time: str):
         dd = data_dir
