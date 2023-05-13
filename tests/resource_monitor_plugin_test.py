@@ -208,15 +208,8 @@ seed=1
 Utils.Debug=debug
 testSuccessful=False
 
-cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
-
 try:
     TestHelper.printSystemInfo("BEGIN")
-
-    cluster.setChainStrategy(chainSyncStrategyStr)
-
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo,delay=delay, dontBootstrap=True) is False:
-        errorExit("Failed to stand up eos cluster.")
 
     testAll()
 
@@ -224,7 +217,6 @@ try:
 finally:
     if debug: Print("Cleanup in finally block.")
     cleanDirectories()
-    TestHelper.shutdown(cluster, None, testSuccessful, dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 if debug: Print("Exiting test, exit value %d." % (exitCode))
