@@ -238,6 +238,7 @@ namespace fc
       explicit mutable_variant_object( const variant_object& );
       /*
        * Use with care as the internal shared state of variant_object is moved.
+       * asserts on exclusive ownership of variant_object shared state. Not thread safe.
        */
       explicit mutable_variant_object( variant_object&& );
 
@@ -246,6 +247,7 @@ namespace fc
       mutable_variant_object& operator=( const variant_object& );
       /**
        * Use with care as the internal shared state of variant_object is moved.
+       * asserts on exclusive ownership of variant_object shared state. Not thread safe.
        */
       mutable_variant_object& operator=( variant_object&& );
 
