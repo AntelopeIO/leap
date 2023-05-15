@@ -1531,6 +1531,10 @@ namespace eosio { namespace chain {
 
       block_log_bundle log_bundle(block_dir);
 
+      ilog("block log version= ${version}",("version", log_bundle.log_data.version()));
+      ilog("first block= ${first}",("first", log_bundle.log_data.first_block_num()));
+      ilog("last block= ${last}",("last", log_bundle.log_data.last_block_num()));
+
       ilog("blocks.log and blocks.index agree on number of blocks");
 
       if (interval == 0) {
