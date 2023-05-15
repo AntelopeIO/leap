@@ -217,10 +217,10 @@ public:
    struct get_activated_protocol_features_params {
       std::optional<uint32_t>  lower_bound;
       std::optional<uint32_t>  upper_bound;
-      uint32_t                 limit = 10;
+      uint32_t                 limit = std::numeric_limits<uint32_t>::max(); // ignored
       bool                     search_by_block_num = false;
       bool                     reverse = false;
-      std::optional<uint32_t>  time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t>  time_limit_ms; // ignored
    };
 
    struct get_activated_protocol_features_results {

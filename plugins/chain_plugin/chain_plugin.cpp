@@ -1326,9 +1326,6 @@ read_only::get_activated_protocol_features( const read_only::get_activated_proto
    if( upper_bound_value < lower_bound_value )
       return result;
 
-   fc::microseconds params_time_limit = params.time_limit_ms ? fc::milliseconds(*params.time_limit_ms) : fc::milliseconds(10);
-   fc::time_point params_deadline = std::min(fc::time_point::now().safe_add(params_time_limit), deadline);
-
    auto walk_range = [&]( auto itr, auto end_itr, auto&& convert_iterator ) {
       fc::mutable_variant_object mvo;
       mvo( "activation_ordinal", 0 );
@@ -1337,18 +1334,13 @@ read_only::get_activated_protocol_features( const read_only::get_activated_proto
       auto& activation_ordinal_value   = mvo["activation_ordinal"];
       auto& activation_block_num_value = mvo["activation_block_num"];
 
-      // activated protocol features unlikely to ever reach max_return_items
-      for( unsigned int count = 0; count < params.limit && itr != end_itr; ++itr, ++count ) {
+      // activated protocol features are naturally limited and unlikely to ever reach max_return_items
+      for( ; itr != end_itr; ++itr ) {
          const auto& conv_itr = convert_iterator( itr );
          activation_ordinal_value   = conv_itr.activation_ordinal();
          activation_block_num_value = conv_itr.activation_block_num();
 
          result.activated_protocol_features.emplace_back( conv_itr->to_variant( false, &mvo ) );
-         if (fc::time_point::now() >= params_deadline)
-            break;
-      }
-      if( itr != end_itr ) {
-         result.more = convert_iterator( itr ).activation_ordinal() ;
       }
    };
 
