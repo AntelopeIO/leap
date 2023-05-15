@@ -1762,7 +1762,7 @@ read_only::get_producers( const read_only::get_producers_params& params, const f
       if (fc::time_point::now() >= params_deadline)
          break;
    }
-   if( it != secondary_index_by_secondary.end() ) {
+   if( it != secondary_index_by_secondary.end() && it->t_id == secondary_table_id->id ) {
       result.more = name{it->primary_key}.to_string();
    }
 
