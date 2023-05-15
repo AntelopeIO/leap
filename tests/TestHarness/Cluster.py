@@ -479,10 +479,11 @@ class Cluster(object):
             node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name), Path(instance.config_dir_name), eosdcmd, unstarted=instance.dont_start, launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
             if nodeNum == -100:
                 self.biosNode = node
-            if node.popenProc and nodeNum != -100:
-                self.nodes.append(node)
-            else:
-                self.unstartedNodes.append(node)
+            if nodeNum != -100:
+                if node.popenProc:
+                    self.nodes.append(node)
+                else:
+                    self.unstartedNodes.append(node)
             time.sleep(delay)
 
         startedNodes=totalNodes-unstartedNodes
