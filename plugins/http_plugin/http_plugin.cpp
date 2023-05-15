@@ -408,7 +408,7 @@ namespace eosio {
              "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429 error response when exceeded." )
             ("http-max-in-flight-requests", bpo::value<int32_t>()->default_value(-1),
              "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded." )
-            ("http-max-response-time-ms", bpo::value<int64_t>()->default_value(30),
+            ("http-max-response-time-ms", bpo::value<int64_t>()->default_value(15),
              "Maximum time on main thread for processing a request, -1 for unlimited")
             ("verbose-http-errors", bpo::bool_switch()->default_value(false),
              "Append the error log to HTTP responses")
