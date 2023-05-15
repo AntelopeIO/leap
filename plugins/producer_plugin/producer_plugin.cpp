@@ -1552,8 +1552,7 @@ producer_plugin::get_account_ram_corrections( const get_account_ram_corrections_
 producer_plugin::get_unapplied_transactions_result
 producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_params& p, const fc::time_point& deadline ) const {
 
-   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-   fc::time_point params_deadline = std::min(fc::time_point::now() + params_time_limit, deadline);
+   fc::time_point params_deadline = p.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*p.time_limit_ms)), deadline) : deadline;
 
    auto& ua = my->_unapplied_transactions;
 

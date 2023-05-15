@@ -1585,8 +1585,7 @@ read_only::get_table_rows( const read_only::get_table_rows_params& p, const fc::
 read_only::get_table_by_scope_result read_only::get_table_by_scope( const read_only::get_table_by_scope_params& p,
                                                                     const fc::time_point& deadline )const {
 
-   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-   fc::time_point params_deadline = std::min(fc::time_point::now().safe_add(params_time_limit), deadline);
+   fc::time_point params_deadline = p.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*p.time_limit_ms)), deadline) : deadline;
 
    read_only::get_table_by_scope_result result;
    const auto& d = db.db();
@@ -1739,8 +1738,7 @@ read_only::get_producers( const read_only::get_producers_params& params, const f
                boost::make_tuple(secondary_table_id->id, lower.to_uint64_t())));
    }();
 
-   fc::microseconds params_time_limit = params.time_limit_ms ? fc::milliseconds(*params.time_limit_ms) : fc::milliseconds(10);
-   fc::time_point params_deadline = std::min(fc::time_point::now().safe_add(params_time_limit), deadline);
+   fc::time_point params_deadline = params.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*params.time_limit_ms)), deadline) : deadline;
    uint32_t limit = params.limit;
    if (deadline != fc::time_point::maximum() && limit > max_return_items)
       limit = max_return_items;
@@ -1799,8 +1797,7 @@ read_only::get_producer_schedule_result read_only::get_producer_schedule( const 
 read_only::get_scheduled_transactions_result
 read_only::get_scheduled_transactions( const read_only::get_scheduled_transactions_params& p, const fc::time_point& deadline ) const {
 
-   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-   fc::time_point params_deadline = std::min(fc::time_point::now().safe_add(params_time_limit), deadline);
+   fc::time_point params_deadline = p.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*p.time_limit_ms)), deadline) : deadline;
 
    const auto& d = db.db();
 

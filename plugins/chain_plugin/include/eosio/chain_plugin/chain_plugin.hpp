@@ -422,7 +422,7 @@ public:
       string               encode_type{"dec"}; //dec, hex , default=dec
       std::optional<bool>  reverse;
       std::optional<bool>  show_payer; // show RAM payer
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
     };
 
    struct get_table_rows_result {
@@ -442,7 +442,7 @@ public:
       string               upper_bound; // upper bound of scope, optional
       uint32_t             limit = 10;
       std::optional<bool>  reverse;
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
    };
    struct get_table_by_scope_result_row {
       name        code;
@@ -484,7 +484,7 @@ public:
       bool        json = false;
       string      lower_bound;
       uint32_t    limit = 50;
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
    };
 
    struct get_producers_result {
@@ -510,7 +510,7 @@ public:
       bool        json = false;
       string      lower_bound;  /// timestamp OR transaction ID
       uint32_t    limit = 50;
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
    };
 
    struct get_scheduled_transactions_result {
@@ -572,8 +572,7 @@ public:
                              const fc::time_point& deadline,
                              ConvFn conv ) const {
 
-      fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-      fc::time_point params_deadline = std::min(fc::time_point::now().safe_add(params_time_limit), deadline);
+      fc::time_point params_deadline = p.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*p.time_limit_ms)), deadline) : deadline;
 
       struct http_params_t {
          name table;
@@ -705,8 +704,7 @@ public:
                       abi_def&& abi,
                       const fc::time_point& deadline ) const {
 
-      fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-      fc::time_point params_deadline = std::min(fc::time_point::now().safe_add(params_time_limit), deadline);
+      fc::time_point params_deadline = p.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*p.time_limit_ms)), deadline) : deadline;
 
       struct http_params_t {
          name table;
