@@ -143,14 +143,8 @@ class PluginHttpTest(unittest.TestCase):
               allFeatureCodenames.append(s['specification'][0]['value'])
         self.assertEqual(len(allFeatureDigests), len(allFeatureCodenames))
 
-        # Default limit set in get_activated_protocol_features_params
-        ACT_FEATURE_DEFAULT_LIMIT = 10 if len(allFeatureCodenames) > 10 else len(allFeatureCodenames)
-
         # Actual expected activated features total
         ACT_FEATURE_CURRENT_EXPECTED_TOTAL = len(allFeatureCodenames)
-
-        # Extemely high value to attempt to always get full list of activated features
-        ACT_FEATURE_EXTREME = 10000
 
         # get_consensus_parameters without parameter
         command = "get_consensus_parameters"
@@ -169,14 +163,14 @@ class PluginHttpTest(unittest.TestCase):
         command = "get_activated_protocol_features"
         ret_json = self.nodeos.processUrllibRequest(resource, command, endpoint=endpoint)
         self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
         for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
         # get_activated_protocol_features with empty content parameter
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict, endpoint=endpoint)
         self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
         for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
         for index, _ in enumerate(ret_json["payload"]["activated_protocol_features"]):
@@ -191,7 +185,7 @@ class PluginHttpTest(unittest.TestCase):
         payload = {"lower_bound":1}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL-1) # -1 since lower_bound=1
         for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
@@ -199,7 +193,7 @@ class PluginHttpTest(unittest.TestCase):
         payload = {"upper_bound":1000}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
         for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
@@ -213,15 +207,15 @@ class PluginHttpTest(unittest.TestCase):
             self.assertTrue(dict_feature['activation_ordinal'] <= upper_bound_param)
 
         # get_activated_protocol_features with 3rd param
-        payload = {"limit":1}
+        payload = {"limit":1} # ignored by nodeos
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), 1)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
         for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
         # get_activated_protocol_features with 3rd param to get expected full list of activated features
-        payload = {"limit":ACT_FEATURE_CURRENT_EXPECTED_TOTAL}
+        payload = {"limit":ACT_FEATURE_CURRENT_EXPECTED_TOTAL} # ignored by nodeos
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
         self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
@@ -232,9 +226,8 @@ class PluginHttpTest(unittest.TestCase):
         for digest in allFeatureDigests:
             assert digest in str(ret_json["payload"]["activated_protocol_features"]), f"ERROR: Expected active feature \'{feature}\' not found in returned list."
 
-        # get_activated_protocol_features with 3rd param set extremely high to attempt to catch the
-        # addition of new features and fail and cause this test to be updated.
-        payload = {"limit":ACT_FEATURE_EXTREME}
+        # get_activated_protocol_features with 3rd param set extremely high
+        payload = {"limit":999999} # ignored by nodeos
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
         self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
@@ -245,7 +238,7 @@ class PluginHttpTest(unittest.TestCase):
         payload = {"search_by_block_num":"true"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
         for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
 
@@ -253,7 +246,7 @@ class PluginHttpTest(unittest.TestCase):
         payload = {"reverse":"true"}
         ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
         self.assertEqual(type(ret_json["payload"]["activated_protocol_features"]), list)
-        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_DEFAULT_LIMIT)
+        self.assertEqual(len(ret_json["payload"]["activated_protocol_features"]), ACT_FEATURE_CURRENT_EXPECTED_TOTAL)
         for dict_feature in ret_json["payload"]["activated_protocol_features"]:
             self.assertTrue(dict_feature['feature_digest'] in allFeatureDigests)
         for index, _ in enumerate(ret_json["payload"]["activated_protocol_features"]):
