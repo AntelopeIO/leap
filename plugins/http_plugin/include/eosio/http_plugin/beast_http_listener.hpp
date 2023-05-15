@@ -62,7 +62,9 @@ public:
                fail(ec, "accept", self->plugin_state_->logger, "closing connection");
             } else {
                // Create the session object and run it
-               std::string remote_endpoint = boost::lexical_cast<std::string>(self->socket_.remote_endpoint());
+               boost::system::error_code re_ec;
+               auto re = self->socket_.remote_endpoint(re_ec);
+               std::string remote_endpoint = re_ec ? "unknown" : boost::lexical_cast<std::string>(re);
                std::make_shared<beast_http_session<socket_type>>(
                   std::move(self->socket_),
                   self->plugin_state_,
