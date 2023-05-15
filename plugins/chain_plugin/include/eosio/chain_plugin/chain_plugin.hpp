@@ -157,8 +157,7 @@ public:
    // return deadline for call
    fc::time_point start() const {
       validate();
-      return http_max_response_time == fc::microseconds::maximum() ? fc::time_point::maximum()
-                                                                   : fc::time_point::now() + http_max_response_time;
+      return fc::time_point::now().safe_add(http_max_response_time);
    }
 
    void set_shorten_abi_errors( bool f ) { shorten_abi_errors = f; }
