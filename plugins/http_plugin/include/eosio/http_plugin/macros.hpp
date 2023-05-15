@@ -7,8 +7,9 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
    }
 };
 
-#define CALL_ASYNC_WITH_400(api_name, api_handle, api_namespace, call_name, call_result, http_resp_code, params_type) \
+#define CALL_ASYNC_WITH_400(api_name, category, api_handle, api_namespace, call_name, call_result, http_resp_code, params_type) \
 { std::string("/v1/" #api_name "/" #call_name),                                                                 \
+  api_category::category,                                                                                       \
   [api_handle, &_http_plugin](string&&, string&& body, url_response_callback&& cb) mutable {                    \
      auto deadline = api_handle.start();                                                                        \
      try {                                                                                                      \
@@ -57,8 +58,9 @@ struct async_result_visitor : public fc::visitor<fc::variant> {
 // call an API which returns either fc::exception_ptr, or a function to be posted on the http thread pool
 // for execution (typically doing the final serialization)
 // ------------------------------------------------------------------------------------------------------
-#define CALL_WITH_400_POST(api_name, api_handle, api_namespace, call_name, call_result, http_resp_code, params_type) \
+#define CALL_WITH_400_POST(api_name, category, api_handle, api_namespace, call_name, call_result, http_resp_code, params_type) \
 {std::string("/v1/" #api_name "/" #call_name),                                                                  \
+      api_category::category,                                                                                   \
       [api_handle, &_http_plugin](string&&, string&& body, url_response_callback&& cb) {                        \
           auto deadline = api_handle.start();                                                                   \
           try {                                                                                                 \
