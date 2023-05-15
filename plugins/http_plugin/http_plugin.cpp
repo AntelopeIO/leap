@@ -201,18 +201,20 @@ namespace eosio {
             boost::system::error_code ec;
             tcp::resolver             resolver(plugin_state->thread_pool.get_executor());
             auto endpoints = resolver.resolve(host, port, boost::asio::ip::tcp::resolver::passive, ec);
-            EOS_ASSERT(!ec, chain::plugin_config_exception, "failed to resolve address: ${msg}", ("msg", ec.message()));
+            if (ec) {
+               fc_wlog(logger(), "Cannot resolve address ${addr}: ${msg}", ("addr", address)("msg", ec.message()));
+               return false;
+            }
             return std::all_of(endpoints.begin(), endpoints.end(), [](const auto& ep) {
                return ep.endpoint().address().is_loopback();
             });
          }
 
          void create_beast_server(const std::string& address, api_category_set categories) {
-
-            EOS_ASSERT(address.size() >= 2, chain::plugin_config_exception, "Invalid http server address: ${addr}",
+            try {
+               EOS_ASSERT(address.size() >= 2, chain::plugin_config_exception, "Invalid http server address: ${addr}",
                        ("addr", address));
 
-            try {
                if (is_unix_socket_address(address)) {
                   namespace fs       = std::filesystem;
                   auto     cwd       = fs::current_path();
@@ -524,6 +526,7 @@ namespace eosio {
    void http_plugin::plugin_startup() {
       app().executor().post(appbase::priority::high, [this] ()
       {
+         // The reason we post here is because we want blockchain replay to happen before we start listening.
          try {
             my->plugin_state->thread_pool.start( my->plugin_state->thread_pool_size, [](const fc::exception& e) {
                fc_elog( logger(), "Exception in http thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
@@ -535,6 +538,12 @@ namespace eosio {
             }
 
             my->listening.store(true);
+         } catch(fc::exception& e) {
+            fc_elog(logger(), "http_plugin startup fails for ${e}", ("e", e.to_detail_string()));
+            app().quit();
+         } catch(std::exception& e) {
+            fc_elog(logger(), "http_plugin startup fails for ${e}", ("e", e.what()));
+            app().quit();
          } catch (...) {
             fc_elog(logger(), "http_plugin startup fails, shutting down");
             app().quit();
