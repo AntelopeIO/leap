@@ -484,31 +484,31 @@ BOOST_FIXTURE_TEST_CASE(valid_category_addresses, http_plugin_test_fixture) {
 
    http_plugin->add_api({{std::string("/v1/node/hello"), api_category::node,
                           [&](string&&, string&& body, url_response_callback&& cb) {
-                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                             cb(200, fc::variant("world!"));
                           }},
                          {std::string("/v1/chain_ro/hello"), api_category::chain_ro,
                           [&](string&&, string&& body, url_response_callback&& cb) {
-                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                             cb(200, fc::variant("world!"));
                           }},
                          {std::string("/v1/chain_rw/hello"), api_category::chain_rw,
                           [&](string&&, string&& body, url_response_callback&& cb) {
-                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                             cb(200, fc::variant("world!"));
                           }},
                          {std::string("/v1/net_ro/hello"), api_category::net_ro,
                           [&](string&&, string&& body, url_response_callback&& cb) {
-                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                             cb(200, fc::variant("world!"));
                           }},
                          {std::string("/v1/net_rw/hello"), api_category::net_rw,
                           [&](string&&, string&& body, url_response_callback&& cb) {
-                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                             cb(200, fc::variant("world!"));
                           }},
                          {std::string("/v1/producer_ro/hello"), api_category::producer_ro,
                           [&](string&&, string&& body, url_response_callback&& cb) {
-                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                             cb(200, fc::variant("world!"));
                           }},
                          {std::string("/v1/producer_rw/hello"), api_category::producer_rw,
                           [&](string&&, string&& body, url_response_callback&& cb) {
-                             cb(200, fc::time_point::maximum(), fc::variant("world!"));
+                             cb(200, fc::variant("world!"));
                           }}},
                         appbase::exec_queue::read_write);
 
