@@ -51,6 +51,7 @@ namespace eosio::testing {
    void p2p_connection::send_transaction(const chain::packed_transaction& trx) {
       send_buffer_type msg = create_send_buffer(trx);
       _p2p_socket.send(boost::asio::buffer(*msg));
+      trx_acknowledged(trx.id(), fc::time_point::min()); //using min to identify ack time as not applicable for p2p
    }
 
    void http_connection::connect() {}
@@ -88,11 +89,13 @@ namespace eosio::testing {
                                                     content_type};
       http_client_async::async_http_request(
           params, std::move(msg_body),
-          [&acked = _acknowledged](boost::beast::error_code                                      ec,
-                                   boost::beast::http::response<boost::beast::http::string_body> response) {
-             ++acked;
+          [this, trx_id = trx.id()](
+              boost::beast::error_code ec, boost::beast::http::response<boost::beast::http::string_body> response) {
+             ++this->_acknowledged;
+             trx_acknowledged(trx_id, fc::time_point::now());
              if (response.result() != boost::beast::http::status::accepted) {
-                elog("async_http_request Failed with response http status code: ${status}", ("status", response.result_int()));
+                elog("async_http_request Failed with response http status code: ${status}",
+                     ("status", response.result_int()));
              }
           });
       ++_sent;
@@ -121,8 +124,19 @@ namespace eosio::testing {
       fileName << log_dir << "/trx_data_output_" << getpid() << ".txt";
       std::ofstream out(fileName.str());
 
-      for (logged_trx_data data : _sent_trx_data) {
-         out << std::string(data._trx_id) << ","<< data._sent_timestamp.to_iso_string() << "\n";
+      for (const logged_trx_data& data : _sent_trx_data) {
+         fc::time_point   acked = _peer_connection->get_trx_ack_time(data._trx_id);
+         std::string      acked_str;
+         fc::microseconds ack_round_trip_us;
+         if (fc::time_point::min() == acked) {
+            acked_str         = "NA";
+            ack_round_trip_us = fc::microseconds(-1);
+         } else {
+            acked_str         = acked.to_iso_string();
+            ack_round_trip_us = acked - data._timestamp;
+         }
+         out << std::string(data._trx_id) << "," << data._timestamp.to_iso_string() << "," << acked_str << ","
+             << ack_round_trip_us.count() << "\n";
       }
       out.close();
    }

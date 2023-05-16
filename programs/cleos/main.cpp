@@ -514,7 +514,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       if (!tx_return_packed) {
          if( tx_unpack_data ) {
             fc::variant unpacked_data_trx;
-            abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer::create_yield_function(abi_serializer_max_time));
+            abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer_max_time);
             return unpacked_data_trx;
          } else {
             return fc::variant(trx);
@@ -1458,7 +1458,7 @@ struct unapprove_producer_subcommand {
 struct list_producers_subcommand {
    bool print_json = false;
    uint32_t limit = 50;
-   uint32_t time_limit_ms = 10;
+   uint32_t time_limit_ms = 0;
    std::string lower;
 
    list_producers_subcommand(CLI::App* actionRoot) {
@@ -1466,11 +1466,11 @@ struct list_producers_subcommand {
       list_producers->add_flag("--json,-j", print_json, localized("Output in JSON format"));
       list_producers->add_option("-l,--limit", limit, localized("The maximum number of rows to return"));
       list_producers->add_option("-L,--lower", lower, localized("Lower bound value of key, defaults to first"));
-      list_producers->add_option("--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds, defaults to 10ms"));
+      list_producers->add_option("--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds"));
       list_producers->callback([this] {
          fc::mutable_variant_object mo;
          mo("json", true)("lower_bound", lower)("limit", limit);
-         if( time_limit_ms != 10 ) mo("time_limit_ms", time_limit_ms);
+         if( time_limit_ms != 0 ) mo("time_limit_ms", time_limit_ms);
          auto rawResult = call(get_producers_func, mo);
          if ( print_json ) {
             std::cout << fc::json::to_pretty_string(rawResult) << std::endl;
@@ -1555,7 +1555,7 @@ struct get_transaction_id_subcommand {
                // if actions.data & actions.hex_data provided, use the hex_data since only currently support unexploded data
                if( vo.contains("actions") ) {
                   if( vo["actions"].is_array() ) {
-                     fc::mutable_variant_object mvo = vo;
+                     fc::mutable_variant_object mvo{vo};
                      fc::variants& action_variants = mvo["actions"].get_array();
                      for( auto& action_v : action_variants ) {
                         if( !action_v.is_object() ) {
@@ -1564,7 +1564,7 @@ struct get_transaction_id_subcommand {
                         }
                         fc::variant_object& action_vo = action_v.get_object();
                         if( action_vo.contains( "data" ) && action_vo.contains( "hex_data" ) ) {
-                           fc::mutable_variant_object maction_vo = action_vo;
+                           fc::mutable_variant_object maction_vo{action_vo};
                            maction_vo["data"] = maction_vo["hex_data"];
                            action_vo = maction_vo;
                            vo = mvo;
@@ -2903,7 +2903,7 @@ int main( int argc, char** argv ) {
       signed_transaction strx = packed_trx.get_signed_transaction();
       fc::variant trx_var;
       if( unpack_action_data_flag ) {
-         abi_serializer::to_variant( strx, trx_var, abi_serializer_resolver, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+         abi_serializer::to_variant( strx, trx_var, abi_serializer_resolver, abi_serializer_max_time );
       } else {
          trx_var = strx;
       }
@@ -3142,7 +3142,7 @@ int main( int argc, char** argv ) {
    string encode_type{"dec"};
    bool binary = false;
    uint32_t limit = 10;
-   uint32_t time_limit_ms = 10;
+   uint32_t time_limit_ms = 0;
    string index_position;
    bool reverse = false;
    bool show_payer = false;
@@ -3151,7 +3151,7 @@ int main( int argc, char** argv ) {
    getTable->add_option( "scope", scope, localized("The scope within the contract in which the table is found") )->required();
    getTable->add_option( "table", table, localized("The name of the table as specified by the contract abi") )->required();
    getTable->add_option( "-l,--limit", limit, localized("The maximum number of rows to return") );
-   getTable->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds, defaults to 10ms"));
+   getTable->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds"));
    getTable->add_option( "-k,--key", table_key, localized("Deprecated") );
    getTable->add_option( "-L,--lower", lower, localized("JSON representation of lower bound value of key, defaults to first") );
    getTable->add_option( "-U,--upper", upper, localized("JSON representation of upper bound value of key, defaults to last") );
@@ -3184,7 +3184,7 @@ int main( int argc, char** argv ) {
         ( "encode_type", encode_type )
         ( "reverse", reverse )
         ( "show_payer", show_payer );
-      if( time_limit_ms != 10 ) mo( "time_limit_ms", time_limit_ms );
+      if( time_limit_ms != 0 ) mo( "time_limit_ms", time_limit_ms );
       auto result = call( get_table_func, mo );
 
       std::cout << fc::json::to_pretty_string(result)
@@ -3195,7 +3195,7 @@ int main( int argc, char** argv ) {
    getScope->add_option( "contract", code, localized("The contract who owns the table") )->required();
    getScope->add_option( "-t,--table", table, localized("The name of the table as filter") );
    getScope->add_option( "-l,--limit", limit, localized("The maximum number of rows to return") );
-   getScope->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds, defaults to 10ms"));
+   getScope->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds"));
    getScope->add_option( "-L,--lower", lower, localized("Lower bound of scope") );
    getScope->add_option( "-U,--upper", upper, localized("Upper bound of scope") );
    getScope->add_flag("-r,--reverse", reverse, localized("Iterate in reverse order"));
@@ -3207,7 +3207,7 @@ int main( int argc, char** argv ) {
         ( "upper_bound", upper )
         ( "limit", limit )
         ( "reverse", reverse );
-      if( time_limit_ms != 10 ) mo( "time_limit_ms", time_limit_ms );
+      if( time_limit_ms != 0 ) mo( "time_limit_ms", time_limit_ms );
       auto result = call( get_table_by_scope_func, mo );
 
       std::cout << fc::json::to_pretty_string(result)

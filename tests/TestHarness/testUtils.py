@@ -88,16 +88,18 @@ class Utils:
     @staticmethod
     def checkOutputFileWrite(time, cmd, output, error):
         stop=Utils.timestamp()
+        if not os.path.isdir(Utils.TestLogRoot):
+            if Utils.Debug: Utils.Print("TestLogRoot creating dir %s in dir: %s" % (Utils.TestLogRoot, os.getcwd()))
+            os.mkdir(Utils.TestLogRoot)
+        if not os.path.isdir(Utils.DataPath):
+            if Utils.Debug: Utils.Print("DataPath creating dir %s in dir: %s" % (Utils.DataPath, os.getcwd()))
+            os.mkdir(Utils.DataPath)
         if not hasattr(Utils, "checkOutputFile"):
-            if not os.path.isdir(Utils.TestLogRoot):
-                if Utils.Debug: Utils.Print("TestLogRoot creating dir %s in dir: %s" % (Utils.TestLogRoot, os.getcwd()))
-                os.mkdir(Utils.TestLogRoot)
-            if not os.path.isdir(Utils.DataPath):
-                if Utils.Debug: Utils.Print("DataPath creating dir %s in dir: %s" % (Utils.DataPath, os.getcwd()))
-                os.mkdir(Utils.DataPath)
-            filename=f"{Utils.DataPath}/subprocess_results.log"
-            if Utils.Debug: Utils.Print("opening %s in dir: %s" % (filename, os.getcwd()))
-            Utils.checkOutputFile=open(filename,"w")
+            Utils.checkOutputFilename=f"{Utils.DataPath}/subprocess_results.log"
+            if Utils.Debug: Utils.Print("opening %s in dir: %s" % (Utils.checkOutputFilename, os.getcwd()))
+            Utils.checkOutputFile=open(Utils.checkOutputFilename,"w")
+        else:
+            Utils.checkOutputFile=open(Utils.checkOutputFilename,"a")
 
         Utils.checkOutputFile.write(Utils.FileDivider + "\n")
         Utils.checkOutputFile.write("start={%s}\n" % (time))

@@ -606,7 +606,7 @@ namespace fc { namespace json_relaxed
             in.get();
             return obj;
          }
-         FC_THROW_EXCEPTION( parse_error_exception, "Expected '}' after ${variant}", ("variant", obj ) );
+         FC_THROW_EXCEPTION( parse_error_exception, "Expected '}' after ${variant}", ("variant", std::move(obj) ) );
       }
       catch( const fc::eof_exception& e )
       {

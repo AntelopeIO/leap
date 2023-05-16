@@ -1,7 +1,10 @@
 #pragma once
 
 #include <eosio/http_plugin/common.hpp>
+#include <eosio/http_plugin/api_category.hpp>
+
 #include <fc/io/json.hpp>
+#include <fc/time.hpp>
 
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
@@ -40,20 +43,14 @@ void fail(beast::error_code ec, char const* what, fc::logger& logger, char const
 }
 
 
-template<class T>
-bool allow_host(const http::request<http::string_body>& req, T& session,
+bool allow_host(const std::string& host_str, tcp_socket_t& socket,
                 const std::shared_ptr<http_plugin_state>& plugin_state) {
-   auto is_conn_secure = session.is_secure();
 
-   auto& socket = session.socket();
    auto& lowest_layer = beast::get_lowest_layer(socket);
    auto local_endpoint = lowest_layer.local_endpoint();
-   auto local_socket_host_port = local_endpoint.address().to_string() + ":" + std::to_string(local_endpoint.port());
-   const std::string host_str(req["host"]);
    if(host_str.empty() || !host_is_valid(*plugin_state,
                                          host_str,
-                                         local_socket_host_port,
-                                         is_conn_secure)) {
+                                         local_endpoint.address())) {
       return false;
    }
 
@@ -84,9 +81,11 @@ std::string to_log_string(const T& req, size_t max_size = 1024) {
 
 // use the Curiously Recurring Template Pattern so that
 // the same code works with both regular TCP sockets and UNIX sockets
-template<class Derived>
-class beast_http_session : public detail::abstract_conn {
-protected:
+template <class Socket>
+class beast_http_session : public detail::abstract_conn,
+                           public std::enable_shared_from_this<beast_http_session<Socket>> {
+   Socket             socket_;
+   api_category_set   categories_;
    beast::flat_buffer buffer_;
 
    // time points for timeout measurement and perf metrics
@@ -101,6 +100,7 @@ protected:
 
    std::shared_ptr<http_plugin_state> plugin_state_;
    std::string remote_endpoint_;
+   std::string local_address_;
 
    // whether response should be sent back to client when an exception occurs
    bool is_send_exception_response_ = true;
@@ -132,6 +132,7 @@ protected:
 
       // Request path must be absolute and not contain "..".
       if(req.target().empty() || req.target()[0] != '/' || req.target().find("..") != beast::string_view::npos) {
+         fc_dlog( plugin_state_->logger, "Return bad_reqest:  ${target}",  ("target", std::string(req.target())) );
          error_results results{static_cast<uint16_t>(http::status::bad_request), "Illegal request-target"};
          send_response( fc::json::to_string( results, fc::time_point::maximum() ),
                         static_cast<unsigned int>(http::status::bad_request) );
@@ -139,7 +140,8 @@ protected:
       }
 
       try {
-         if(!derived().allow_host(req)) {
+         if(!allow_host(req)) {
+            fc_dlog( plugin_state_->logger, "bad host:  ${HOST}", ("HOST", std::string(req["host"])));
             error_results results{static_cast<uint16_t>(http::status::bad_request), "Disallowed HTTP HOST header in the request"};
             send_response( fc::json::to_string( results, fc::time_point::maximum() ),
                         static_cast<unsigned int>(http::status::bad_request) );
@@ -171,7 +173,7 @@ protected:
          std::string resource = std::string(req.target());
          // look for the URL handler to handle this resource
          auto handler_itr = plugin_state_->url_handlers.find(resource);
-         if(handler_itr != plugin_state_->url_handlers.end()) {
+         if(handler_itr != plugin_state_->url_handlers.end() && categories_.contains(handler_itr->second.category)) {
             if(plugin_state_->logger.is_enabled(fc::log_level::all))
                plugin_state_->logger.log(FC_LOG_MESSAGE(all, "resource: ${ep}", ("ep", resource)));
             std::string body = req.body();
@@ -181,10 +183,17 @@ protected:
             if (plugin_state_->update_metrics)
                plugin_state_->update_metrics({resource});
 
-            handler_itr->second.fn(derived().shared_from_this(),
+            handler_itr->second.fn(this->shared_from_this(),
                                 std::move(resource),
                                 std::move(body),
-                                make_http_response_handler(plugin_state_, derived().shared_from_this(), content_type));
+                                make_http_response_handler(plugin_state_, this->shared_from_this(), content_type));
+         } else if (resource == "/v1/node/get_supported_apis") {
+            http_plugin::get_supported_apis_result result;
+            for (const auto& handler : plugin_state_->url_handlers) {
+               if (categories_.contains(handler.second.category))
+                  result.apis.push_back(handler.first);
+            }
+            send_response(fc::json::to_string(fc::variant(result), fc::time_point::maximum()), 200);
          } else {
             fc_dlog( plugin_state_->logger, "404 - not found: ${ep}", ("ep", resource) );
             error_results results{static_cast<uint16_t>(http::status::not_found), "Not Found",
@@ -213,9 +222,9 @@ private:
       res->set(http::field::server, plugin_state_->server_header);
       
       http::async_write(
-         derived().stream(),
+         socket_,
          *res,
-         [self = derived().shared_from_this(), res](beast::error_code ec, std::size_t bytes_transferred) {
+         [self = this->shared_from_this(), res](beast::error_code ec, std::size_t bytes_transferred) {
             self->on_write(ec, bytes_transferred, false);
          });
    }
@@ -253,19 +262,14 @@ public:
       return {};
    }
 
-   // Access the derived class, this is part of
-   // the Curiously Recurring Template Pattern idiom.
-   Derived& derived() {
-      return static_cast<Derived&>(*this);
-   }
-
 public:
    // shared_from_this() requires default constructor
    beast_http_session() = default;
 
-   beast_http_session(std::shared_ptr<http_plugin_state> plugin_state, std::string remote_endpoint)
-       : plugin_state_(std::move(plugin_state)),
-         remote_endpoint_(std::move(remote_endpoint)) {
+   beast_http_session(Socket&& socket, std::shared_ptr<http_plugin_state> plugin_state, std::string remote_endpoint,
+                      api_category_set categories, const std::string& local_address)
+       : socket_(std::move(socket)), categories_(categories), plugin_state_(std::move(plugin_state)),
+         remote_endpoint_(std::move(remote_endpoint)), local_address_(local_address) {
       plugin_state_->requests_in_flight += 1;
       req_parser_.emplace();
       req_parser_->body_limit(plugin_state_->max_body_size);
@@ -296,10 +300,10 @@ public:
 
       // Read a request
       http::async_read_header(
-            derived().stream(),
+            socket_,
             buffer_,
             *req_parser_,
-            [self = derived().shared_from_this()](beast::error_code ec, std::size_t bytes_transferred) {
+            [self = this->shared_from_this()](beast::error_code ec, std::size_t bytes_transferred) {
                self->on_read_header(ec, bytes_transferred);
             });
    }
@@ -307,7 +311,7 @@ public:
    void on_read_header(beast::error_code ec, std::size_t /* bytes_transferred */) {
       if(ec) {
          if(ec == http::error::end_of_stream) // other side closed the connection
-            return derived().do_eof();
+            return do_eof();
          
          return fail(ec, "read_header", plugin_state_->logger, "closing connection");
       }
@@ -331,10 +335,10 @@ public:
    void do_read() {
       // Read a request
       http::async_read(
-            derived().stream(),
+            socket_,
             buffer_,
             *req_parser_,
-            [self = derived().shared_from_this()](beast::error_code ec, std::size_t bytes_transferred) {
+            [self = this->shared_from_this()](beast::error_code ec, std::size_t bytes_transferred) {
                self->on_read(ec, bytes_transferred);
             });
    }
@@ -347,7 +351,7 @@ public:
          // on another read. If the client disconnects, we may get
          // http::error::end_of_stream or asio::error::connection_reset.
          if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
-            return derived().do_eof();
+            return do_eof();
 
          return fail(ec, "read", plugin_state_->logger, "closing connection");
       }
@@ -377,7 +381,7 @@ public:
       if(close) {
          // This means we should close the connection, usually because
          // the response indicated the "Connection: close" semantic.
-         return derived().do_eof();
+         return do_eof();
       }
 
       // create a new response object
@@ -393,7 +397,7 @@ public:
       case continue_state_t::reject:
          // request body too large. After issuing 401 response, close connection
          continue_state_ = continue_state_t::none;
-         derived().do_eof();
+         do_eof();
          break;
          
       default:
@@ -421,7 +425,7 @@ public:
                error_results results{static_cast<uint16_t>(http::status::internal_server_error),
                                      "Internal Service Error",
                                      error_results::error_info( e, http_plugin::verbose_errors() )};
-               err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+               err_str = fc::json::to_string( results, fc::time_point::now().safe_add(plugin_state_->max_response_time) );
             }
          } catch(std::exception& e) {
             err_str = e.what();
@@ -431,7 +435,7 @@ public:
                                      "Internal Service Error",
                                      error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, err_str ) ),
                                                                 http_plugin::verbose_errors() )};
-               err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+               err_str = fc::json::to_string( results, fc::time_point::now().safe_add(plugin_state_->max_response_time) );
             }
          } catch(...) {
             err_str = "Unknown exception";
@@ -460,7 +464,7 @@ public:
          res_->set(http::field::server, BOOST_BEAST_VERSION_STRING);
 
          send_response(std::move(err_str), static_cast<unsigned int>(http::status::internal_server_error));
-         derived().do_eof();
+         do_eof();
       }
    }
 
@@ -491,9 +495,9 @@ public:
 
       // Write the response
       http::async_write(
-         derived().stream(),
+         socket_,
          *res_,
-         [self = derived().shared_from_this(), payload_size, close](beast::error_code ec, std::size_t bytes_transferred) {
+         [self = this->shared_from_this(), payload_size, close](beast::error_code ec, std::size_t bytes_transferred) {
             self->decrement_bytes_in_flight(payload_size);
             self->on_write(ec, bytes_transferred, close);
          });
@@ -502,103 +506,34 @@ public:
    void run_session() {
       if(auto error_str = verify_max_requests_in_flight(); !error_str.empty()) {
          send_busy_response(std::move(error_str));
-         return derived().do_eof();
+         return do_eof();
       }
 
-      derived().run();
-   }
-};// end class beast_http_session
-
-// Handles a plain HTTP connection
-class plain_session
-    : public beast_http_session<plain_session>,
-      public std::enable_shared_from_this<plain_session> {
-   tcp_socket_t socket_;
-
-public:
-   // Create the session
-   plain_session(
-         tcp_socket_t socket,
-         std::shared_ptr<http_plugin_state> plugin_state,
-         std::string remote_endpoint)
-       : beast_http_session<plain_session>(std::move(plugin_state), std::move(remote_endpoint)), socket_(std::move(socket)) {}
-
-   tcp_socket_t& stream() { return socket_; }
-   tcp_socket_t& socket() { return socket_; }
-
-   // Start the asynchronous operation
-   void run() {
       do_read_header();
-   }
-
-   void do_eof() {
-      is_send_exception_response_ = false;
-      try {
-         // Send a TCP shutdown
-         beast::error_code ec;
-         socket_.shutdown(tcp::socket::shutdown_send, ec);
-         // At this point the connection is closed gracefully
-      } catch(...) {
-         handle_exception();
-      }
-   }
-
-   bool is_secure() { return false; };
-
-   bool allow_host(const http::request<http::string_body>& req) {
-      return eosio::allow_host(req, *this, plugin_state_);
-   }
-
-   static constexpr auto name() {
-      return "plain_session";
-   }
-};// end class plain_session
-
-// unix domain sockets
-class unix_socket_session
-    : public std::enable_shared_from_this<unix_socket_session>,
-      public beast_http_session<unix_socket_session> {
-
-   // The socket used to communicate with the client.
-   stream_protocol::socket socket_;
-
-public:
-   unix_socket_session(stream_protocol::socket sock,
-                       std::shared_ptr<http_plugin_state> plugin_state,
-                       std::string remote_endpoint)
-       : beast_http_session(std::move(plugin_state), std::move(remote_endpoint)), socket_(std::move(sock)) {}
-
-   virtual ~unix_socket_session() = default;
-
-   bool allow_host(const http::request<http::string_body>& req) {
-      // always allow local hosts
-      return true;
    }
 
    void do_eof() {
       is_send_exception_response_ = false;
       try {
          // Send a shutdown signal
-         boost::system::error_code ec;
-         socket_.shutdown(stream_protocol::socket::shutdown_send, ec);
+         beast::error_code ec;
+         socket_.shutdown(Socket::shutdown_send, ec);
          // At this point the connection is closed gracefully
       } catch(...) {
          handle_exception();
       }
    }
 
-   bool is_secure() { return false; };
 
-   void run() {
-      do_read_header();
+   bool allow_host(const http::request<http::string_body>& req) {
+      if constexpr(std::is_same_v<Socket,tcp_socket_t>) {
+         const std::string host_str(req["host"]);
+         if (host_str != local_address_)
+            return eosio::allow_host(host_str, socket_, plugin_state_);
+      }
+      return true;
    }
 
-   stream_protocol::socket& stream() { return socket_; }
-   stream_protocol::socket& socket() { return socket_; }
-
-   static constexpr auto name() {
-      return "unix_socket_session";
-   }
-};// end class unix_socket_session
+}; // end class beast_http_session
 
 }// namespace eosio

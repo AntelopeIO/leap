@@ -112,7 +112,7 @@ public:
    struct get_unapplied_transactions_params {
       string      lower_bound;  /// transaction id
       std::optional<uint32_t>    limit = 100;
-      std::optional<uint32_t>    time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t>    time_limit_ms; // defaults to http-max-response-time-ms
    };
 
    struct unapplied_trx {

@@ -133,7 +133,7 @@ namespace fc
    }
    void          from_variant( const variant& v, exception& ll )
    {
-      auto obj = v.get_object();
+      const auto& obj = v.get_object();
       if( obj.contains( "stack" ) )
          ll.my->_elog =  obj["stack"].as<log_messages>();
       if( obj.contains( "code" ) )
