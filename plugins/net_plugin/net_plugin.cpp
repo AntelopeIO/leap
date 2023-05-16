@@ -1715,8 +1715,8 @@ namespace eosio {
          } );
          sync_known_lib_num = highest_lib_num;
 
-         // if closing the connection we are currently syncing from, then reset our last requested and next expected.
-         if( c == sync_source ) {
+         // if closing the connection we are currently syncing from or not syncing, then reset our last requested and next expected.
+         if( !sync_source || c == sync_source ) {
             sync_last_requested_num = 0;
             // if starting to sync need to always start from lib as we might be on our own fork
             uint32_t lib_num = my_impl->get_chain_lib_num();
