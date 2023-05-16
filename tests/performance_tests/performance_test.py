@@ -50,6 +50,7 @@ class PerformanceTest:
         finalDurationSec: int=300
         delPerfLogs: bool=False
         maxTpsToTest: int=50000
+        minTpsToTest: int=1
         testIterationMinStep: int=500
         tpsLimitPerGenerator: int=4000
         delReport: bool=False
@@ -67,6 +68,12 @@ class PerformanceTest:
 
         def __post_init__(self):
             self.opModeDesc = "Block Producer Operational Mode" if self.opModeCmd == "testBpOpMode" else "API Node Operational Mode" if self.opModeCmd == "testApiOpMode" else "Undefined Operational Mode"
+            if self.maxTpsToTest < 1:
+                self.maxTpsToTest = 1
+            if self.minTpsToTest < 1:
+                self.minTpsToTest = 1
+            if self.maxTpsToTest < self.minTpsToTest:
+                self.minTpsToTest = self.maxTpsToTest
 
     @dataclass
     class TpsTestResult:
@@ -107,7 +114,7 @@ class PerformanceTest:
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
     def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
-        floor = 1
+        floor = self.ptConfig.minTpsToTest
         ceiling = self.ptConfig.maxTpsToTest
         binSearchTarget = self.ptConfig.maxTpsToTest
         minStep = self.ptConfig.testIterationMinStep
@@ -145,9 +152,9 @@ class PerformanceTest:
 
     def performPtbReverseLinearSearch(self, tpsInitial: int) -> TpsTestResult.PerfTestSearchResults:
 
-        # Default - Decrementing Max TPS in range [1, tpsInitial]
-        absFloor = 1
-        tpsInitial = absFloor if tpsInitial <= 0 else tpsInitial
+        # Default - Decrementing Max TPS in range [minTpsToTest (def=1), tpsInitial]
+        absFloor = self.ptConfig.minTpsToTest
+        tpsInitial = absFloor if tpsInitial <= 0 or tpsInitial < absFloor else tpsInitial
         absCeiling = tpsInitial
 
         step = self.ptConfig.testIterationMinStep
@@ -492,6 +499,7 @@ class PerfTestArgumentsHandler(object):
             ptTpsParserGroup = ptParser.add_argument_group(title=None if suppressHelp else ptTpsGrpTitle, description=None if suppressHelp else ptTpsGrpDescription)
 
             ptTpsParserGroup.add_argument("--max-tps-to-test", type=int, help=argparse.SUPPRESS if suppressHelp else "The max target transfers realistic as ceiling of test range", default=50000)
+            ptTpsParserGroup.add_argument("--min-tps-to-test", type=int, help=argparse.SUPPRESS if suppressHelp else "The min target transfers to use as floor of test range", default=1)
             ptTpsParserGroup.add_argument("--test-iteration-duration-sec", type=int, help=argparse.SUPPRESS if suppressHelp else "The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=150)
             ptTpsParserGroup.add_argument("--test-iteration-min-step", type=int, help=argparse.SUPPRESS if suppressHelp else "The step size determining granularity of tps result during initial search", default=500)
             ptTpsParserGroup.add_argument("--final-iterations-duration-sec", type=int, help=argparse.SUPPRESS if suppressHelp else "The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=300)
@@ -565,6 +573,7 @@ def main():
                                         finalDurationSec=args.final_iterations_duration_sec,
                                         delPerfLogs=args.del_perf_logs,
                                         maxTpsToTest=args.max_tps_to_test,
+                                        minTpsToTest=args.min_tps_to_test,
                                         testIterationMinStep=args.test_iteration_min_step,
                                         tpsLimitPerGenerator=args.tps_limit_per_generator,
                                         delReport=args.del_report,

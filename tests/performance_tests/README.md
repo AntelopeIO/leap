@@ -342,6 +342,7 @@ usage: performance_test.py testBpOpMode [--skip-tps-test]
                                         [--calc-net-threads {none,lmax,full}]
                                         [--del-test-report]
                                         [--max-tps-to-test MAX_TPS_TO_TEST]
+                                        [--min-tps-to-test MIN_TPS_TO_TEST]
                                         [--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC]
                                         [--test-iteration-min-step TEST_ITERATION_MIN_STEP]
                                         [--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC]
@@ -418,6 +419,8 @@ Performance Harness - TPS Test Config:
   --max-tps-to-test MAX_TPS_TO_TEST
                         The max target transfers realistic as ceiling of test
                         range
+  --min-tps-to-test MIN_TPS_TO_TEST
+                        The min target transfers to use as floor of test range
   --test-iteration-duration-sec TEST_ITERATION_DURATION_SEC
                         The duration of transfer trx generation for each
                         iteration of the test during the initial search
@@ -830,7 +833,7 @@ The report begins by delivering the max TPS results of the performance run.
 * `InitialMaxTpsAchieved` - the max TPS throughput achieved during initial, short duration test scenarios to narrow search window
 * `LongRunningMaxTpsAchieved` - the max TPS throughput achieved during final, longer duration test scenarios to zero in on sustainable max TPS
 
-Next, a summary of the search scenario conducted and respective results is included.  Each summary includes information on the current state of the overarching search as well as basic results of the individual test that are used to determine whether the basic test was considered successful. The list of summary results are included in `InitialSearchResults` and `LongRunningSearchResults`. The number of entries in each list will vary depending on the TPS range tested (`--max-tps-to-test`) and the configured `--test-iteration-min-step`.
+Next, a summary of the search scenario conducted and respective results is included.  Each summary includes information on the current state of the overarching search as well as basic results of the individual test that are used to determine whether the basic test was considered successful. The list of summary results are included in `InitialSearchResults` and `LongRunningSearchResults`. The number of entries in each list will vary depending on the TPS range tested (`--min-tps-to-test` & `--max-tps-to-test`) and the configured `--test-iteration-min-step`.
 <details>
     <summary>Expand Search Scenario Summary Example</summary>
 
@@ -1638,6 +1641,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "finalDurationSec": 30,
     "delPerfLogs": false,
     "maxTpsToTest": 50000,
+    "minTpsToTest": 1,
     "testIterationMinStep": 500,
     "tpsLimitPerGenerator": 4000,
     "delReport": false,
