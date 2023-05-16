@@ -79,6 +79,7 @@ try:
     Print("Kill cluster nodes.")
     for node in cluster.nodes:
         node.kill(signal.SIGKILL)
+    cluster.biosNode.kill(signal.SIGKILL)
 
     Print("Restart nodeos repeatedly to ensure dirty database flag sticks.")
     timeout=6
