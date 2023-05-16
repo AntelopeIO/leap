@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import os, shutil, time
+import atexit, os, signal, shlex, shutil, time
 import socket, threading
 import zlib, json, glob
+from pathlib import Path
 from TestHarness import Node, TestHelper, Utils
 
 ###############################################################################################
@@ -83,35 +84,40 @@ def gelfServer(stop):
   s.close()
 
 
-nodeos = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id)
-data_dir = Utils.getNodeDataDir(node_id)
-config_dir = Utils.getNodeConfigDir(node_id)
+data_dir = Path(Utils.getNodeDataDir(node_id))
+config_dir = Path(Utils.getNodeConfigDir(node_id))
+start_nodeos_cmd = shlex.split(f"{Utils.EosServerPath} -e -p eosio --data-dir={data_dir} --config-dir={config_dir}")
 if os.path.exists(data_dir):
     shutil.rmtree(data_dir)
 os.makedirs(data_dir)
 if not os.path.exists(config_dir):
     os.makedirs(config_dir)
+nodeos = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id, config_dir, data_dir, start_nodeos_cmd, unstarted=True)
 
-with open(config_dir+"/logging.json", "w") as textFile:
+with open(config_dir / 'logging.json', 'w') as textFile:
     print(logging,file=textFile)
 
-try:
-    stop_threads = False
-    t1 = threading.Thread(target = gelfServer, args =(lambda : stop_threads, ))
-    t1.start()
+stop_threads = False
+t1 = threading.Thread(target = gelfServer, args =(lambda : stop_threads, ))
 
-    start_nodeos_cmd = f"{Utils.EosServerPath} -e -p eosio --data-dir={data_dir} --config-dir={config_dir}"
-    nodeos.launchCmd(start_nodeos_cmd, node_id)
-    time.sleep(nodeos_run_time_in_sec)
+try:
+  @atexit.register
+  def cleanup():
+      nodeos.kill(signal.SIGINT)
+      global stop_threads
+      stop_threads = True
+      t1.join()
+
+  t1.start()
+
+  nodeos.launchUnstarted()
+  time.sleep(nodeos_run_time_in_sec)
 finally:
-    #clean up
-    Node.killAllNodeos()
-    stop_threads = True
-    t1.join()
+   cleanup()
 
 # find the stderr log file
-stderr_file = glob.glob(os.path.join(data_dir, 'stderr.*.txt'))
-with open(stderr_file[0], "r") as f:
+stderr_file = data_dir / 'stderr.txt'
+with open(stderr_file, "r") as f:
     stderr_lines = f.readlines()
 
 #Less one line because the GELF appender does not transmit 'opened GELF socket to endpoint...
@@ -119,7 +125,7 @@ assert len(stderr_lines)-1 == len(received_logs), "number of log entry received 
 
 stderr_lines.pop(0)
 for (stderr_line, received_log) in zip(stderr_lines, received_logs):
-  assert received_log in stderr_line, "received GELF log entry does not match that of from stderr"
+  assert received_log in stderr_line, "received GELF log entry does not match that of stderr"
 
 if os.path.exists(Utils.DataPath):
     shutil.rmtree(Utils.DataPath)
