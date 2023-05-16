@@ -28,7 +28,7 @@ try:
     nodeos.relaunch(chainArg="--replay-blockchain")
 
     time.sleep(2)
-    assert nodeos.verifyAlive()
+    assert nodeos.waitForBlock(31)
 finally:
     # clean up
     Node.killAllNodeos()

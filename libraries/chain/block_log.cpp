@@ -1371,20 +1371,20 @@ namespace eosio { namespace chain {
 
    // static
    std::optional<block_log::chain_context> block_log::extract_chain_context( const fc::path& block_dir, const fc::path& retained_dir) {
-      boost::filesystem::path firs_block_file;
+      boost::filesystem::path first_block_file;
       if (!retained_dir.empty() && fc::exists(retained_dir)) {
          for_each_file_in_dir_matches(retained_dir, R"(blocks-1-\d+\.log)",
                                       [&](boost::filesystem::path log_path) {
-                                          firs_block_file = std::move(log_path);
+                                          first_block_file = std::move(log_path);
                                       });
       }
 
-      if (firs_block_file.empty() && fc::exists(block_dir / "blocks.log")) {
-         firs_block_file = block_dir / "blocks.log";
+      if (first_block_file.empty() && fc::exists(block_dir / "blocks.log")) {
+         first_block_file = block_dir / "blocks.log";
       }
 
-      if (!firs_block_file.empty()) {
-         return block_log_data(firs_block_file).get_preamble().chain_context;
+      if (!first_block_file.empty()) {
+         return block_log_data(first_block_file).get_preamble().chain_context;
       }
       
       if (!retained_dir.empty() && fc::exists(retained_dir)) {
