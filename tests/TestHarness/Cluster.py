@@ -463,11 +463,6 @@ class Cluster(object):
                     break
         Cluster.__LauncherCmdArr = cmdArr.copy()
 
-        #s=" ".join([("'{0}'".format(element) if (' ' in element) else element) for element in cmdArr.copy()])
-        #if Utils.Debug: Utils.Print("cmd: %s" % (s))
-        #if 0 != subprocess.call(cmdArr):
-        #    Utils.Print("ERROR: Launcher failed to launch. failed cmd: %s" % (s))
-        #    return False
         launcher = cluster_generator(cmdArr[2:])
         launcher.define_network()
         launcher.generate()
@@ -488,16 +483,11 @@ class Cluster(object):
 
         startedNodes=totalNodes-unstartedNodes
 
-        #nodes=self.discoverLocalNodes(startedNodes, timeout=Utils.systemWaitTimeout)
         if self.nodes is None or startedNodes != len(self.nodes):
             Utils.Print("ERROR: Unable to validate %s instances, expected: %d, actual: %d" %
                           (Utils.EosServerName, startedNodes, len(self.nodes)))
             return False
 
-        #if unstartedNodes > 0:
-        #    self.unstartedNodes=self.discoverUnstartedLocalNodes(unstartedNodes, totalNodes)
-
-        #biosNode=self.discoverBiosNode(timeout=Utils.systemWaitTimeout)
         if not self.biosNode or not Utils.waitForBool(self.biosNode.checkPulse, Utils.systemWaitTimeout):
             Utils.Print("ERROR: Bios node doesn't appear to be running...")
             return False
@@ -1331,11 +1321,6 @@ class Cluster(object):
             Utils.Print('Cluster shutting down.')
             for node in self.nodes:
                 node.kill(signal.SIGTERM)
-                #try:
-                #    if node.pid is not None:
-                #        os.kill(node.pid, signal.SIGKILL)
-                #except OSError as _:
-                #    pass
             if len(self.nodes) and self.biosNode != self.nodes[0]:
                 self.biosNode.kill(signal.SIGTERM)
         else:
