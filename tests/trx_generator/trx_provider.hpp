@@ -61,7 +61,7 @@ namespace eosio::testing {
 
       fc::time_point get_trx_ack_time(const eosio::chain::transaction_id_type& _trx_id) {
          fc::time_point time_acked;
-         std::lock_guard g(_trx_ack_map_lock);
+         std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
          auto search = _trxs_ack_time_map.find(_trx_id);
          if (search != _trxs_ack_time_map.end()) {
             time_acked = search->second;
@@ -75,7 +75,7 @@ namespace eosio::testing {
       virtual void send_transaction(const chain::packed_transaction& trx) = 0;
 
       void trx_acknowledged(const eosio::chain::transaction_id_type _trx_id, const fc::time_point ack_time) {
-         std::lock_guard g(_trx_ack_map_lock);
+         std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
          _trxs_ack_time_map[_trx_id] = ack_time;
       }
 
