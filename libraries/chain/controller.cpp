@@ -407,7 +407,7 @@ struct controller_impl {
       // where transient transactions are not possible, and by push_transaction
       // only when the transaction is not transient
       if (auto dm_logger = get_deep_mind_logger(false)) {
-         if (trx && !trx->actions.empty() && trx->actions[0].name == "onblock"_n)
+         if (trx && is_onblock(*t))
             dm_logger->on_onblock(*trx);
          dm_logger->on_applied_transaction(self.head_block_num() + 1, t);
       }
@@ -1629,7 +1629,7 @@ struct controller_impl {
                        emit(self.accepted_transaction, trx);
                    }
 
-                   dmlog_applied_transaction(trace, &trx->packed_trx()->get_signed_transaction());
+                   dmlog_applied_transaction(trace, &trn);
                    emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
                 }
             }
