@@ -8,6 +8,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 
 include( GNUInstallDirs )
 include( MASSigning )
+include( CPM )
 
 set( CMAKE_CXX_STANDARD 17 )
 set( CMAKE_CXX_EXTENSIONS ON )
@@ -102,10 +103,28 @@ else()
 endif()
 
 set(Boost_USE_MULTITHREADED      ON)
-set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
+set(Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
+
+# this is the minimum required version of Boost
+# if system already has boost of such or greater version installed, it will be used
+# if system has no boost or older boost installed, it will be downloaded and built from github automatically by CPM 
+set(Boost_MINIMUM_VERSION "1.82.0")
+set(CPM_USE_LOCAL_PACKAGES TRUE)
+
 # Most boost deps get implictly picked up via fc, as just about everything links to fc. In addition we pick up
 # the pthread dependency through fc.
-find_package(Boost 1.71 REQUIRED COMPONENTS program_options unit_test_framework system)
+#find_package(Boost 1.71 REQUIRED COMPONENTS program_options unit_test_framework system)
+CPMAddPackage(
+  NAME Boost
+  VERSION ${Boost_MINIMUM_VERSION}
+  GITHUB_REPOSITORY "boostorg/boost"
+  GIT_TAG "boost-${Boost_MINIMUM_VERSION}"
+)
+
+# in case of using local package
+if(NOT CPM_PACKAGE_ALREADY_ADDED)
+   find_package(Boost ${Boost_MINIMUM_VERSION} REQUIRED COMPONENTS program_options unit_test_framework system)
+endif()
 
 if( APPLE AND UNIX )
 # Apple Specific Options Here
