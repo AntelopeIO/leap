@@ -2,7 +2,9 @@
 
 #include <eosio/http_plugin/common.hpp>
 #include <eosio/http_plugin/api_category.hpp>
+
 #include <fc/io/json.hpp>
+#include <fc/time.hpp>
 
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
@@ -423,7 +425,7 @@ public:
                error_results results{static_cast<uint16_t>(http::status::internal_server_error),
                                      "Internal Service Error",
                                      error_results::error_info( e, http_plugin::verbose_errors() )};
-               err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+               err_str = fc::json::to_string( results, fc::time_point::now().safe_add(plugin_state_->max_response_time) );
             }
          } catch(std::exception& e) {
             err_str = e.what();
@@ -433,7 +435,7 @@ public:
                                      "Internal Service Error",
                                      error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, err_str ) ),
                                                                 http_plugin::verbose_errors() )};
-               err_str = fc::json::to_string( results, fc::time_point::now() + plugin_state_->max_response_time );
+               err_str = fc::json::to_string( results, fc::time_point::now().safe_add(plugin_state_->max_response_time) );
             }
          } catch(...) {
             err_str = "Unknown exception";

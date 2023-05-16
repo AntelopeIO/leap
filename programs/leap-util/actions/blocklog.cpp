@@ -306,13 +306,12 @@ int blocklog_actions::read_log() {
    uint32_t block_num = (opt->first_block < 1) ? 1 : opt->first_block;
    signed_block_ptr next;
    fc::variant pretty_output;
-   const fc::microseconds deadline = fc::seconds(10);
    auto print_block = [&](signed_block_ptr& next) {
       abi_serializer::to_variant(
             *next,
             pretty_output,
             [](account_name n) { return std::optional<abi_serializer>(); },
-            abi_serializer::create_yield_function(deadline));
+            fc::seconds(1));
       const auto block_id = next->calculate_id();
       const uint32_t ref_block_prefix = block_id._hash[1];
       const auto enhanced_object = fc::mutable_variant_object("block_num", next->block_num())("id", block_id)("ref_block_prefix", ref_block_prefix)(pretty_output.get_object());

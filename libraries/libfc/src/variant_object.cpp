@@ -286,6 +286,16 @@ namespace fc
    {
    }
 
+   mutable_variant_object::mutable_variant_object( variant_object&& obj )
+      : _key_value( new std::vector<entry>() )
+   {
+      assert(obj._key_value.use_count() == 1); // should only be used if data not shared
+      if (obj._key_value.use_count() == 1)
+         *_key_value = std::move(*obj._key_value);
+      else
+         *_key_value = *obj._key_value;
+   }
+
    mutable_variant_object::mutable_variant_object( const mutable_variant_object& obj )
       : _key_value( new std::vector<entry>(*obj._key_value) )
    {
@@ -299,6 +309,16 @@ namespace fc
    mutable_variant_object& mutable_variant_object::operator=( const variant_object& obj )
    {
       *_key_value = *obj._key_value;
+      return *this;
+   }
+
+   mutable_variant_object& mutable_variant_object::operator=( variant_object&& obj )
+   {
+      assert(obj._key_value.use_count() == 1); // should only be used if data not shared
+      if (obj._key_value.use_count() == 1)
+         *_key_value = std::move(*obj._key_value);
+      else
+         *_key_value = *obj._key_value;
       return *this;
    }
 

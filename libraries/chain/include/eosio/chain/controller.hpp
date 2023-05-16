@@ -348,26 +348,6 @@ namespace eosio { namespace chain {
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
          wasm_interface& get_wasm_interface();
 
-
-         std::optional<abi_serializer> get_abi_serializer( account_name n, const abi_serializer::yield_function_t& yield )const {
-            if( n.good() ) {
-               try {
-                  const auto& a = get_account( n );
-                  if( abi_def abi; abi_serializer::to_abi( a.abi, abi ))
-                     return abi_serializer( std::move(abi), yield );
-               } FC_CAPTURE_AND_LOG((n))
-            }
-            return std::optional<abi_serializer>();
-         }
-
-         template<typename T>
-         fc::variant to_variant_with_abi( const T& obj, const abi_serializer::yield_function_t& yield )const {
-            fc::variant pretty_output;
-            abi_serializer::to_variant( obj, pretty_output,
-                                        [&]( account_name n ){ return get_abi_serializer( n, yield ); }, yield );
-            return pretty_output;
-         }
-
       static chain_id_type extract_chain_id(snapshot_reader& snapshot);
 
       static std::optional<chain_id_type> extract_chain_id_from_db( const path& state_dir );

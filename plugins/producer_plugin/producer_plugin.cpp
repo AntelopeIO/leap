@@ -6,7 +6,6 @@
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/snapshot_scheduler.hpp>
 #include <eosio/chain/subjective_billing.hpp>
-#include <eosio/chain/transaction_object.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/unapplied_transaction_queue.hpp>
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
@@ -18,10 +17,6 @@
 
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-
-#include <iostream>
-#include <algorithm>
-#include <mutex>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/range/adaptor/map.hpp>
 #include <boost/multi_index_container.hpp>
@@ -29,6 +24,11 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/signals2/connection.hpp>
+
+#include <cstdint>
+#include <iostream>
+#include <algorithm>
+#include <mutex>
 
 namespace bmi = boost::multi_index;
 using bmi::indexed_by;
@@ -1552,8 +1552,7 @@ producer_plugin::get_account_ram_corrections( const get_account_ram_corrections_
 producer_plugin::get_unapplied_transactions_result
 producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_params& p, const fc::time_point& deadline ) const {
 
-   fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-   fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+   fc::time_point params_deadline = p.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*p.time_limit_ms)), deadline) : deadline;
 
    auto& ua = my->_unapplied_transactions;
 
@@ -1593,8 +1592,9 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
    result.incoming_size = ua.incoming_size();
 
    uint32_t remaining = p.limit ? *p.limit : std::numeric_limits<uint32_t>::max();
-   while (itr != ua.end() && remaining > 0 && params_deadline > fc::time_point::now()) {
-      FC_CHECK_DEADLINE(deadline);
+   if (deadline != fc::time_point::maximum() && remaining > 1000)
+      remaining = 1000;
+   while (itr != ua.end() && remaining > 0) {
       auto& r = result.trxs.emplace_back();
       r.trx_id = itr->id();
       r.expiration = itr->expiration();
@@ -1612,6 +1612,8 @@ producer_plugin::get_unapplied_transactions( const get_unapplied_transactions_pa
 
       ++itr;
       remaining--;
+      if (fc::time_point::now() >= params_deadline)
+         break;
    }
 
    if (itr != ua.end()) {

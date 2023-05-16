@@ -206,13 +206,20 @@ namespace fc
       ///@}
 
 
+      explicit mutable_variant_object( variant v )
+            :_key_value( new std::vector<entry>() )
+      {
+         *this = v.get_object();
+      }
+
       template<typename T,
-               typename = std::enable_if_t<!std::is_base_of<mutable_variant_object,
-                                                            std::decay_t<T>>::value>>
+               typename = std::enable_if_t<!std::is_base_of<mutable_variant_object, std::decay_t<T>>::value &&
+                                           !std::is_base_of<variant, std::decay_t<T>>::value &&
+                                           !std::is_base_of<variant_object, std::decay_t<T>>::value>>
       explicit mutable_variant_object( T&& v )
       :_key_value( new std::vector<entry>() )
       {
-          *this = variant(fc::forward<T>(v)).get_object();
+          *this = std::move(variant(fc::forward<T>(v)).get_object());
       }
 
       mutable_variant_object();
@@ -228,11 +235,22 @@ namespace fc
 
       mutable_variant_object( mutable_variant_object&& );
       mutable_variant_object( const mutable_variant_object& );
-      mutable_variant_object( const variant_object& );
+      explicit mutable_variant_object( const variant_object& );
+      /*
+       * Use with care as the internal shared state of variant_object is moved.
+       * asserts on exclusive ownership of variant_object shared state. Not thread safe.
+       */
+      explicit mutable_variant_object( variant_object&& );
 
       mutable_variant_object& operator=( mutable_variant_object&& );
       mutable_variant_object& operator=( const mutable_variant_object& );
       mutable_variant_object& operator=( const variant_object& );
+      /**
+       * Use with care as the internal shared state of variant_object is moved.
+       * asserts on exclusive ownership of variant_object shared state. Not thread safe.
+       */
+      mutable_variant_object& operator=( variant_object&& );
+
    private:
       std::unique_ptr< std::vector< entry > > _key_value;
       friend class variant_object;

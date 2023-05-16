@@ -111,7 +111,7 @@ int main(int argc, char** argv)
       http.add_handler({"/v1/" + keosd::config::key_store_executable_name + "/stop",
                        api_category::node,
                        [&a=app](string, string, url_response_callback cb) {
-         cb(200, fc::time_point::maximum(), fc::variant(fc::variant_object()));
+         cb(200, fc::variant(fc::variant_object()));
          a->quit();
       }}, appbase::exec_queue::read_write );
       app->startup();

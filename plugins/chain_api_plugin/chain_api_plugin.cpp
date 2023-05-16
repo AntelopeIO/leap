@@ -1,6 +1,7 @@
 #include <eosio/chain_api_plugin/chain_api_plugin.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/http_plugin/macros.hpp>
+#include <fc/time.hpp>
 #include <fc/io/json.hpp>
 
 namespace eosio {
@@ -11,15 +12,15 @@ using namespace eosio;
 
 class chain_api_plugin_impl {
 public:
-   chain_api_plugin_impl(controller& db)
+   explicit chain_api_plugin_impl(controller& db)
       : db(db) {}
 
    controller& db;
 };
 
 
-chain_api_plugin::chain_api_plugin(){}
-chain_api_plugin::~chain_api_plugin(){}
+chain_api_plugin::chain_api_plugin() = default;
+chain_api_plugin::~chain_api_plugin() = default;
 
 void chain_api_plugin::set_program_options(options_description&, options_description&) {}
 void chain_api_plugin::plugin_initialize(const variables_map&) {}
@@ -48,9 +49,8 @@ parse_params<chain_apis::read_only::get_transaction_status_params, http_params_t
           auto deadline = api_handle.start(); \
           try { \
              auto params = parse_params<api_namespace::call_name ## _params, params_type>(body);\
-             FC_CHECK_DEADLINE(deadline);\
              fc::variant result( api_handle.call_name( std::move(params), deadline ) ); \
-             cb(http_response_code, deadline, std::move(result)); \
+             cb(http_response_code, std::move(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \
