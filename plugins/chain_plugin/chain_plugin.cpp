@@ -1902,12 +1902,10 @@ chain::signed_block_ptr read_only::get_raw_block(const read_only::get_raw_block_
 std::function<chain::t_or_exception<fc::variant>()> read_only::get_block(const get_raw_block_params& params, const fc::time_point& deadline) const {
    chain::signed_block_ptr block = get_raw_block(params, deadline);
 
-   auto abi_cache = abi_serializer_cache_builder(make_resolver(db, abi_serializer_max_time, throw_on_yield::no)).add_serializers(block).get();
-
    using return_type = t_or_exception<fc::variant>;
    return [this,
-           resolver       = abi_resolver(std::move(abi_cache)),
-           block          = std::move(block)]() mutable -> return_type {
+           resolver = get_serializers_cache(db, block, abi_serializer_max_time),
+           block    = std::move(block)]() mutable -> return_type {
       try {
          return convert_block(block, resolver);
       } CATCH_AND_RETURN(return_type);
@@ -1954,7 +1952,7 @@ read_only::get_block_header_result read_only::get_block_header(const read_only::
 
 abi_resolver
 read_only::get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const {
-   return abi_resolver(abi_serializer_cache_builder(make_resolver(db, max_time, throw_on_yield::no)).add_serializers(block).get());
+   return get_serializers_cache(db, block, max_time);
 }
 
 fc::variant read_only::convert_block( const chain::signed_block_ptr& block, abi_resolver& resolver ) const {
@@ -2051,9 +2049,8 @@ void read_write::push_transaction(const read_write::push_transaction_params& par
             try {
                fc::variant output;
                try {
-                  auto abi_cache = abi_serializer_cache_builder(make_resolver(db, abi_serializer_max_time, throw_on_yield::no)).add_serializers(trx_trace_ptr).get();
-                  auto resolver = abi_resolver(std::move(abi_cache));
-                  abi_serializer::to_variant(*trx_trace_ptr, output, std::move(resolver), abi_serializer_max_time);
+                  auto resolver = get_serializers_cache(db, trx_trace_ptr, abi_serializer_max_time);
+                  abi_serializer::to_variant(*trx_trace_ptr, output, resolver, abi_serializer_max_time);
 
                   // Create map of (closest_unnotified_ancestor_action_ordinal, global_sequence) with action trace
                   std::map< std::pair<uint32_t, uint64_t>, fc::mutable_variant_object > act_traces_map;
@@ -2206,13 +2203,14 @@ void api_base::send_transaction_gen(API &api, send_transaction_params_t params, 
                   }
                   if (!retried) {
                      // we are still on main thread here. The lambda passed to `next()` below will be executed on the http thread pool
-                     auto abi_cache    = abi_serializer_cache_builder(make_resolver(api.db, api.abi_serializer_max_time, throw_on_yield::no)).add_serializers(trx_trace_ptr).get();
                      using return_type = t_or_exception<Result>;
-                     next([&api, trx_trace_ptr, resolver = abi_resolver(std::move(abi_cache))]() mutable {
+                     next([&api,
+                           trx_trace_ptr,
+                           resolver = get_serializers_cache(api.db, trx_trace_ptr, api.abi_serializer_max_time)]() mutable {
                         try {
                            fc::variant output;
                            try {
-                              abi_serializer::to_variant(*trx_trace_ptr, output, std::move(resolver), api.abi_serializer_max_time);
+                              abi_serializer::to_variant(*trx_trace_ptr, output, resolver, api.abi_serializer_max_time);
                            } catch( abi_exception& ) {
                               output = *trx_trace_ptr;
                            }
