@@ -99,6 +99,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    std::set<acceptor_type>          acceptors;
 
    named_thread_pool<struct ship> thread_pool;
+   bool                           thread_pool_started = false;
 
    static fc::logger& logger() { return _log; }
 
@@ -292,9 +293,13 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              "the process");
       }
 
-      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), &block_state]() {
-         self->session_mgr.send_update(block_state);
-      });
+      // avoid accumulating all these posts during replay before ship threads started
+      // this is safe as there are no clients connected untill after replay is complete 
+      if (thread_pool_started) {
+         boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
+            self->session_mgr.send_update(block_state);
+         });
+      }
 
    }
 
@@ -495,7 +500,10 @@ void state_history_plugin::plugin_startup() {
       my->thread_pool.start( 1, [](const fc::exception& e) {
          fc_elog( _log, "Exception in SHiP thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          app().quit();
-      } );
+      },
+      [this]() {
+         my->thread_pool_started = true;
+      });
    } catch (std::exception& ex) {
       appbase::app().quit();
    }
