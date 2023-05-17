@@ -273,9 +273,9 @@ namespace eosio { namespace testing {
          expected_chain_id = controller::extract_chain_id_from_db( cfg.state_dir );
          if( !expected_chain_id ) {
             fc::path retained_dir;
-            auto paritioned_config = std::get_if<partitioned_blocklog_config>(&cfg.blog);
-            if (paritioned_config) {
-               retained_dir = paritioned_config->retained_dir;
+            auto partitioned_config = std::get_if<partitioned_blocklog_config>(&cfg.blog);
+            if (partitioned_config) {
+               retained_dir = partitioned_config->retained_dir;
                if (retained_dir.is_relative())
                   retained_dir = cfg.blocks_dir/retained_dir;
             }
