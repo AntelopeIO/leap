@@ -295,7 +295,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       }
 
       // avoid accumulating all these posts during replay before ship threads started
-      // this is safe as there are no clients connected untill after replay is complete 
+      // this is safe as there are no clients connected until after replay is complete 
       if (plugin_started) {
          boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
             self->session_mgr.send_update(block_state);
