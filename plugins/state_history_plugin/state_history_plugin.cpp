@@ -292,7 +292,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              "the process");
       }
 
-      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
+      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), &block_state]() {
          self->session_mgr.send_update(block_state);
       });
 
