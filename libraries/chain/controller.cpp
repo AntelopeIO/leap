@@ -402,7 +402,7 @@ struct controller_impl {
       }
    }
 
-   void dmlog_applied_transaction(const transaction_trace_ptr& t, const signed_transaction *trx = nullptr) {
+   void dmlog_applied_transaction(const transaction_trace_ptr& t, const signed_transaction* trx = nullptr) {
       // dmlog_applied_transaction is called by push_scheduled_transaction
       // where transient transactions are not possible, and by push_transaction
       // only when the transaction is not transient
