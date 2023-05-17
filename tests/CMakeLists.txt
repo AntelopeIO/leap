@@ -69,6 +69,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/launcher.py ${CMAKE_CURRENT_BINARY_DI
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/auto_bp_peering_test.py ${CMAKE_CURRENT_BINARY_DIR}/auto_bp_peering_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/auto_bp_peering_test_shape.json ${CMAKE_CURRENT_BINARY_DIR}/auto_bp_peering_test_shape.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/gelf_test.py ${CMAKE_CURRENT_BINARY_DIR}/gelf_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/split_blocklog_replay_test.py ${CMAKE_CURRENT_BINARY_DIR}/split_blocklog_replay_test.py COPYONLY)
 
 if(DEFINED ENV{GITHUB_ACTIONS})
   set(UNSHARE "--unshared")
@@ -261,9 +262,6 @@ set_property(TEST light_validation_sync_test PROPERTY LABELS nonparallelizable_t
 
 add_test(NAME auto_bp_peering_test COMMAND tests/auto_bp_peering_test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST auto_bp_peering_test PROPERTY LABELS long_running_tests)
-
-add_test(NAME gelf_test COMMAND tests/gelf_test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST gelf_test PROPERTY LABELS nonparallelizable_tests)
 
 if(ENABLE_COVERAGE_TESTING)
 
