@@ -13,7 +13,7 @@ sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent)
 from TestHarness import Utils, Account
 from dataclasses import dataclass, asdict, field
 from platform import release, system
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List
 from pathlib import Path
 
@@ -437,6 +437,7 @@ def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats
     report['targetApiEndpoint'] = targetApiEndpoint
     report['testStart'] = testStart
     report['testFinish'] = testFinish
+    report['testDuration'] = testFinish - testStart
     report['Analysis'] = {}
     report['Analysis']['BlockSize'] = asdict(blockSizeStats)
     report['Analysis']['BlocksGuide'] = asdict(guide)
@@ -475,6 +476,8 @@ class LogReaderEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.isoformat()
+        if isinstance(obj, timedelta):
+            return str(obj)
         if isinstance(obj, PurePath):
             return str(obj)
         if obj is None:

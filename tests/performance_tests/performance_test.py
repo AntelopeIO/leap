@@ -24,25 +24,11 @@ class PerformanceTest:
 
     @dataclass
     class PerfTestSearchIndivResult:
-        @dataclass
-        class PerfTestBasicResult:
-            targetTPS: int = 0
-            resultAvgTps: float = 0
-            expectedTxns: int = 0
-            resultTxns: int = 0
-            tpsExpectMet: bool = False
-            trxExpectMet: bool = False
-            basicTestSuccess: bool = False
-            testAnalysisBlockCnt: int = 0
-            logsDir: Path = Path("")
-            testStart: datetime = None
-            testEnd: datetime = None
-
         success: bool = False
         searchTarget: int = 0
         searchFloor: int = 0
         searchCeiling: int = 0
-        basicTestResult: PerfTestBasicResult = field(default_factory=PerfTestBasicResult)
+        basicTestResult: PerformanceTestBasic.PerfTestBasicResult = field(default_factory=PerformanceTestBasic.PerfTestBasicResult)
 
     @dataclass
     class PtConfig:
@@ -125,15 +111,14 @@ class PerformanceTest:
 
         while ceiling >= floor:
             print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
-            ptbResult = PerformanceTest.PerfTestSearchIndivResult.PerfTestBasicResult()
-            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
+            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                        numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=logDirRoot, delReport=delReport,
                                                        quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointApi=self.ptConfig.endpointApi)
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
-            testSuccessful = myTest.runTest()
-            if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
+            myTest.runTest()
+            if myTest.testResult.subjectiveSuccess:
                 maxTpsAchieved = binSearchTarget
                 maxTpsReport = myTest.report
                 floor = binSearchTarget + minStep
@@ -141,7 +126,7 @@ class PerformanceTest:
             else:
                 ceiling = binSearchTarget - minStep
 
-            scenarioResult.basicTestResult = ptbResult
+            scenarioResult.basicTestResult = myTest.testResult
             searchResults.append(scenarioResult)
             if not self.ptConfig.quiet:
                 print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
@@ -168,15 +153,14 @@ class PerformanceTest:
 
         while not maxFound:
             print(f"Running scenario: floor {absFloor} searchTarget {searchTarget} ceiling {absCeiling}")
-            ptbResult = PerformanceTest.PerfTestSearchIndivResult.PerfTestBasicResult()
-            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
+            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=searchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                     numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport,
                                                     quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointApi=self.ptConfig.endpointApi)
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig, testNamePath="performance_test")
-            testSuccessful = myTest.runTest()
-            if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
+            myTest.runTest()
+            if myTest.testResult.subjectiveSuccess:
                 maxTpsAchieved = searchTarget
                 maxTpsReport = myTest.report
                 scenarioResult.success = True
@@ -187,32 +171,12 @@ class PerformanceTest:
                     maxFound = True
                 searchTarget = max(searchTarget - step, absFloor)
 
-            scenarioResult.basicTestResult = ptbResult
+            scenarioResult.basicTestResult = myTest.testResult
             searchResults.append(scenarioResult)
             if not self.ptConfig.quiet:
                 print(f"searchResult: {searchTarget} : {searchResults[-1]}")
 
         return PerformanceTest.TpsTestResult.PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
-
-    def evaluateSuccess(self, test: PerformanceTestBasic, testSuccessful: bool, result: PerfTestSearchIndivResult.PerfTestBasicResult) -> bool:
-        result.targetTPS = test.ptbConfig.targetTps
-        result.expectedTxns = test.ptbConfig.expectedTransactionsSent
-        reportDict = test.report
-        result.testStart = reportDict["testStart"]
-        result.testEnd = reportDict["testFinish"]
-        result.resultAvgTps = reportDict["Analysis"]["TPS"]["avg"]
-        result.resultTxns = reportDict["Analysis"]["TrxLatency"]["samples"]
-        print(f"targetTPS: {result.targetTPS} expectedTxns: {result.expectedTxns} resultAvgTps: {result.resultAvgTps} resultTxns: {result.resultTxns}")
-
-        result.tpsExpectMet = True if result.resultAvgTps >= result.targetTPS else abs(result.targetTPS - result.resultAvgTps) < 100
-        result.trxExpectMet = result.expectedTxns == result.resultTxns
-        result.basicTestSuccess = testSuccessful
-        result.testAnalysisBlockCnt = reportDict["Analysis"]["BlocksGuide"]["testAnalysisBlockCnt"]
-        result.logsDir = test.loggingConfig.logDirPath
-
-        print(f"basicTestSuccess: {result.basicTestSuccess} tpsExpectationMet: {result.tpsExpectMet} trxExpectationMet: {result.trxExpectMet}")
-
-        return result.basicTestSuccess and result.tpsExpectMet and result.trxExpectMet
 
     class PluginThreadOpt(Enum):
         PRODUCER = "producer"
@@ -290,6 +254,9 @@ class PerformanceTest:
         report['LongRunningMaxTpsAchieved'] = tpsTestResult.longRunningSearchResults.maxTpsAchieved
         report['tpsTestStart'] = tpsTestResult.tpsTestStart
         report['tpsTestFinish'] = tpsTestResult.tpsTestFinish
+        report['tpsTestDuration'] = tpsTestResult.tpsTestFinish - tpsTestResult.tpsTestStart
+        report['InitialSearchScenariosSummary'] =  {tpsTestResult.binSearchResults.searchResults[x].searchTarget : "PASS" if tpsTestResult.binSearchResults.searchResults[x].success else "FAIL" for x in range(len(tpsTestResult.binSearchResults.searchResults))}
+        report['LongRunningSearchScenariosSummary'] =  {tpsTestResult.longRunningSearchResults.searchResults[x].searchTarget : "PASS" if tpsTestResult.longRunningSearchResults.searchResults[x].success else "FAIL" for x in range(len(tpsTestResult.longRunningSearchResults.searchResults))}
         report['InitialSearchResults'] =  {x: asdict(tpsTestResult.binSearchResults.searchResults[x]) for x in range(len(tpsTestResult.binSearchResults.searchResults))}
         report['InitialMaxTpsReport'] =  tpsTestResult.binSearchResults.maxTpsReport
         report['LongRunningSearchResults'] =  {x: asdict(tpsTestResult.longRunningSearchResults.searchResults[x]) for x in range(len(tpsTestResult.longRunningSearchResults.searchResults))}
@@ -301,6 +268,7 @@ class PerformanceTest:
         report = {}
         report['perfTestsBegin'] = self.testsStart
         report['perfTestsFinish'] = self.testsFinish
+        report['perfTestsDuration'] = self.testsFinish - self.testsStart
         report['operationalMode'] = self.ptConfig.opModeDesc
         if tpsTestResult is not None:
             report.update(self.createTpsTestReport(tpsTestResult))

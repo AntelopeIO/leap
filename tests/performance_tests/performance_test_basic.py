@@ -31,6 +31,21 @@ class PerformanceTestBasic:
         trxGenExitCodes: list = field(default_factory=list)
 
     @dataclass
+    class PerfTestBasicResult:
+        targetTPS: int = 0
+        resultAvgTps: float = 0
+        expectedTxns: int = 0
+        resultTxns: int = 0
+        tpsExpectMet: bool = False
+        trxExpectMet: bool = False
+        objectiveSuccess: bool = False
+        subjectiveSuccess: bool = False
+        testAnalysisBlockCnt: int = 0
+        logsDir: Path = Path("")
+        testStart: datetime = None
+        testEnd: datetime = None
+
+    @dataclass
     class TestHelperConfig:
         killAll: bool = True # clean_run
         dontKill: bool = False # leave_running
@@ -168,6 +183,10 @@ class PerformanceTestBasic:
         self.clusterConfig = clusterConfig
         self.ptbConfig = ptbConfig
 
+        #Results
+        self.ptbTpsTestResult = PerformanceTestBasic.PtbTpsTestResult()
+        self.testResult = PerformanceTestBasic.PerfTestBasicResult()
+
         self.testHelperConfig.keepLogs = not self.ptbConfig.delPerfLogs
 
         Utils.Debug = self.testHelperConfig.verbose
@@ -202,6 +221,33 @@ class PerformanceTestBasic:
         self.cluster=Cluster(walletd=True, loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
                              nodeosVers=self.clusterConfig.nodeosVers,unshared=self.testHelperConfig.unshared)
         self.cluster.setWalletMgr(self.walletMgr)
+
+    def evaluateSuccess(self):
+        self.testResult.targetTPS = self.ptbConfig.targetTps
+        self.testResult.expectedTxns = self.ptbConfig.expectedTransactionsSent
+        reportDict = self.report
+        self.testResult.testStart = reportDict["testStart"]
+        self.testResult.testEnd = reportDict["testFinish"]
+        self.testResult.resultAvgTps = reportDict["Analysis"]["TPS"]["avg"]
+        self.testResult.resultTxns = reportDict["Analysis"]["TrxLatency"]["samples"]
+        print(f"targetTPS: {self.testResult.targetTPS} expectedTxns: {self.testResult.expectedTxns} resultAvgTps: {self.testResult.resultAvgTps} resultTxns: {self.testResult.resultTxns}")
+
+        self.testResult.tpsExpectMet = True if self.testResult.resultAvgTps >= self.testResult.targetTPS else abs(self.testResult.targetTPS - self.testResult.resultAvgTps) < 100
+        self.testResult.trxExpectMet = self.testResult.expectedTxns == self.testResult.resultTxns
+
+        if not self.ptbTpsTestResult.completedRun:
+            for exitCode in self.ptbTpsTestResult.trxGenExitCodes:
+                if exitCode != 0:
+                    print(f"Error: Transaction Generator exited with error {exitCode}")
+
+        if self.ptbTpsTestResult.completedRun and self.ptbConfig.expectedTransactionsSent != self.data.totalTransactions:
+            print(f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.ptbConfig.expectedTransactionsSent}")
+
+        self.testResult.objectiveSuccess = self.ptbTpsTestResult.completedRun and self.ptbConfig.expectedTransactionsSent == self.data.totalTransactions
+        self.testResult.testAnalysisBlockCnt = reportDict["Analysis"]["BlocksGuide"]["testAnalysisBlockCnt"]
+        self.testResult.logsDir = self.loggingConfig.logDirPath
+        self.testResult.subjectiveSuccess = self.testResult.objectiveSuccess and self.testResult.tpsExpectMet and self.testResult.trxExpectMet
+        print(f"objectiveSuccess: {self.testResult.objectiveSuccess} subjectiveSuccess: {self.testResult.subjectiveSuccess} tpsExpectationMet: {self.testResult.tpsExpectMet} trxExpectationMet: {self.testResult.trxExpectMet}")
 
     def cleanupOldClusters(self):
         self.cluster.killall(allInstances=self.testHelperConfig.killAll)
@@ -515,30 +561,19 @@ class PerformanceTestBasic:
         self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
 
     def runTest(self) -> bool:
-        testSuccessful = False
 
         try:
             # Kill any existing instances and launch cluster
             TestHelper.printSystemInfo("BEGIN")
             self.preTestSpinup()
 
-            self.ptbTestResult = self.runTpsTest()
+            self.ptbTpsTestResult = self.runTpsTest()
 
             self.postTpsTestSteps()
 
             self.captureLowLevelArtifacts()
-            self.analyzeResultsAndReport(self.ptbTestResult)
-
-            testSuccessful = self.ptbTestResult.completedRun
-
-            if not self.PtbTpsTestResult.completedRun:
-                for exitCode in self.ptbTestResult.trxGenExitCodes:
-                    if exitCode != 0:
-                        print(f"Error: Transaction Generator exited with error {exitCode}")
-
-            if testSuccessful and self.ptbConfig.expectedTransactionsSent != self.data.totalTransactions:
-                testSuccessful = False
-                print(f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.ptbConfig.expectedTransactionsSent}")
+            self.analyzeResultsAndReport(self.ptbTpsTestResult)
+            self.evaluateSuccess()
 
         except:
             traceback.print_exc()
@@ -549,7 +584,7 @@ class PerformanceTestBasic:
             TestHelper.shutdown(
                 cluster=self.cluster,
                 walletMgr=self.walletMgr,
-                testSuccessful=testSuccessful,
+                testSuccessful=self.testResult.objectiveSuccess,
                 killEosInstances=self.testHelperConfig._killEosInstances,
                 killWallet=self.testHelperConfig._killWallet,
                 keepLogs=False,
@@ -561,7 +596,7 @@ class PerformanceTestBasic:
                 print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
                 self.testDirsCleanup(self.ptbConfig.delReport)
 
-            return testSuccessful
+            return self.testResult.objectiveSuccess
 
     def setupTestHelperConfig(args) -> TestHelperConfig:
         return PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
