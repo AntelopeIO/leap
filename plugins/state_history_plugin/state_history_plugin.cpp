@@ -243,8 +243,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    // called from main thread
    void on_applied_transaction(const transaction_trace_ptr& p, const packed_transaction_ptr& t) {
-      if (trace_log)
-         trace_converter.add_transaction(p, t);
+     if (trace_log)
+        trace_converter.add_transaction(p, t);
    }
 
    // called from main thread
@@ -272,7 +272,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              "the process");
       }
 
-      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
+      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), &block_state]() {
          self->session_mgr.send_update(block_state);
       });
 
