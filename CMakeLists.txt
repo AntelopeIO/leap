@@ -113,7 +113,6 @@ set(CPM_USE_LOCAL_PACKAGES TRUE)
 
 # Most boost deps get implictly picked up via fc, as just about everything links to fc. In addition we pick up
 # the pthread dependency through fc.
-#find_package(Boost 1.71 REQUIRED COMPONENTS program_options unit_test_framework system)
 CPMAddPackage(
   NAME Boost
   VERSION ${Boost_MINIMUM_VERSION}
@@ -122,9 +121,9 @@ CPMAddPackage(
 )
 
 # in case of using local package
-if(NOT CPM_PACKAGE_ALREADY_ADDED)
-   find_package(Boost ${Boost_MINIMUM_VERSION} REQUIRED COMPONENTS program_options unit_test_framework system)
-endif()
+#if(NOT CPM_PACKAGE_ALREADY_ADDED)
+#   find_package(Boost ${Boost_MINIMUM_VERSION} REQUIRED COMPONENTS program_options unit_test_framework system)
+#endif()
 
 if( APPLE AND UNIX )
 # Apple Specific Options Here
