@@ -91,6 +91,12 @@ if(APPLE)
   add_library(zstd INTERFACE)
 endif()
 
+find_package(Boost 1.66 REQUIRED COMPONENTS
+    date_time
+    chrono
+    unit_test_framework
+    iostreams)
+
 find_path(GMP_INCLUDE_DIR NAMES gmp.h)
 find_library(GMP_LIBRARY gmp)
 if(NOT GMP_LIBRARY MATCHES ${CMAKE_SHARED_LIBRARY_SUFFIX})
