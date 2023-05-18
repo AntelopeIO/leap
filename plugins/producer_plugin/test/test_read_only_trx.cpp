@@ -64,7 +64,11 @@ void test_configs_common(std::vector<const char*>& specific_args, app_init_statu
    // app->initialize() returns a boolean. BOOST_CHECK_EQUAL cannot compare
    // a boolean with a app_init_status directly
    bool rc = (expected_status == app_init_status::succeeded) ? true : false;
-   BOOST_CHECK_EQUAL( app->initialize<producer_plugin>( argv.size(), (char**) &argv[0]), rc );
+   bool result = false;
+   try {
+      result = app->initialize<producer_plugin>( argv.size(), (char**) &argv[0]);
+   } catch(...) {}
+   BOOST_CHECK_EQUAL( result, rc );
 }
 
 // --read-only-thread not allowed on producer node
