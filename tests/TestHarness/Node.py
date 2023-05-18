@@ -274,6 +274,7 @@ class Node(Transactions):
                 self.popenProc.wait()
             else:
                 os.kill(self.pid, killSignal)
+
                  # wait for kill validation
                 def myFunc():
                     try:
