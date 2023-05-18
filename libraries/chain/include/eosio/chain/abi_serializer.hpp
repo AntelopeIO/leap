@@ -1090,13 +1090,20 @@ public:
 
    std::optional<std::reference_wrapper<const abi_serializer>> operator()(const account_name& account) const {
       auto it = abi_serializers.find(account);
-      if (it != abi_serializers.end() && it->second)
-         return *it->second;
+      if (it != abi_serializers.end()) {
+         if (it->second)
+            return *it->second;
+         return {};
+      }
       try {
          auto serializer = resolver_(account);
-         auto& dest = abi_serializers[account];
-         dest = abi_serializer_cache_t::mapped_type{std::move(serializer)};
-         return *dest;
+         auto& dest = abi_serializers[account]; // add entry regardless
+         if (serializer) {
+            // we got a serializer, so move it into the cache
+            dest = abi_serializer_cache_t::mapped_type{std::move(*serializer)};
+            return *dest; // and return a reference to it
+         }
+         return {}; 
       } catch( ... ) {
          throw; // throw if embedded resolver throws
       }
