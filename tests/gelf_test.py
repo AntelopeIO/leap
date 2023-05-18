@@ -116,7 +116,7 @@ with open(stderr_file[0], "r") as f:
 
 assert len(received_logs) > 10, "Not enough gelf logs are received"
 for received_log in received_logs:
-  assert received_log in stderr_txt, "received GELF log entry does not match that of from stderr"
+  assert received_log in stderr_txt, "received GELF log entry does not match that of stderr"
 
 if os.path.exists(Utils.DataPath):
     shutil.rmtree(Utils.DataPath)
