@@ -629,21 +629,57 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "terminate-at-block" ))
          my->chain_config->terminate_at_block = options.at( "terminate-at-block" ).as<uint32_t>();
 
+      // move fork_db to new location
+      upgrade_from_reversible_to_fork_db( my.get() );
+
+      bool has_partitioned_block_log_options = options.count("blocks-retained-dir") ||  options.count("blocks-archive-dir")
+         || options.count("blocks-log-stride") || options.count("max-retained-block-files");
+      bool has_retain_blocks_option = options.count("block-log-retain-blocks");
+
+      EOS_ASSERT(!has_partitioned_block_log_options || !has_retain_blocks_option, plugin_config_exception,
+         "block-log-retain-blocks cannot be specified together with blocks-retained-dir, blocks-archive-dir or blocks-log-stride or max-retained-block-files.");
+
+      std::filesystem::path retained_dir;
+      if (has_partitioned_block_log_options) {
+         retained_dir = options.count("blocks-retained-dir") ? options.at("blocks-retained-dir").as<std::filesystem::path>()
+                                                                 : std::filesystem::path("");
+         if (retained_dir.is_relative())
+            retained_dir = std::filesystem::path{my->blocks_dir}/retained_dir;
+            
+         my->chain_config->blog = eosio::chain::partitioned_blocklog_config{
+            .retained_dir = retained_dir,
+            .archive_dir  = options.count("blocks-archive-dir") ? options.at("blocks-archive-dir").as<std::filesystem::path>()
+                                                               : std::filesystem::path("archive"),
+            .stride       = options.count("blocks-log-stride") ? options.at("blocks-log-stride").as<uint32_t>()
+                                                               : UINT32_MAX,
+            .max_retained_files = options.count("max-retained-block-files")
+                                       ? options.at("max-retained-block-files").as<uint32_t>()
+                                       : UINT32_MAX,
+         };
+      } else if(has_retain_blocks_option) {
+         uint32_t block_log_retain_blocks = options.at("block-log-retain-blocks").as<uint32_t>();
+         if (block_log_retain_blocks == 0)
+            my->chain_config->blog = eosio::chain::empty_blocklog_config{};
+         else {
+            EOS_ASSERT(cfile::supports_hole_punching(), plugin_config_exception,
+                       "block-log-retain-blocks cannot be greater than 0 because the file system does not support hole "
+                       "punching");
+            my->chain_config->blog = eosio::chain::prune_blocklog_config{ .prune_blocks = block_log_retain_blocks };
+         }
+      }
+
+      
+
       if( options.count( "extract-genesis-json" ) || options.at( "print-genesis-json" ).as<bool>()) {
          std::optional<genesis_state> gs;
-
-         if( std::filesystem::exists( my->blocks_dir / "blocks.log" )) {
-            gs = block_log::extract_genesis_state( my->blocks_dir );
-            EOS_ASSERT( gs,
-                        plugin_config_exception,
-                        "Block log at '${path}' does not contain a genesis state, it only has the chain-id.",
-                        ("path", (my->blocks_dir / "blocks.log"))
-            );
-         } else {
-            wlog( "No blocks.log found at '${p}'. Using default genesis state.",
-                  ("p", (my->blocks_dir / "blocks.log")));
-            gs.emplace();
-         }
+         
+         gs = block_log::extract_genesis_state( my->blocks_dir, retained_dir );
+         EOS_ASSERT( gs,
+                     plugin_config_exception,
+                     "Block log at '${path}' does not contain a genesis state, it only has the chain-id.",
+                     ("path", (my->blocks_dir / "blocks.log").generic_string())
+         );
+         
 
          if( options.at( "print-genesis-json" ).as<bool>()) {
             ilog( "Genesis JSON:\n${genesis}", ("genesis", json::to_pretty_string( *gs )));
@@ -659,48 +695,13 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             EOS_ASSERT( fc::json::save_to_file( *gs, p, true ),
                         misc_exception,
                         "Error occurred while writing genesis JSON to '${path}'",
-                        ("path", p)
+                        ("path", p.generic_string())
             );
 
-            ilog( "Saved genesis JSON to '${path}'", ("path", p) );
+            ilog( "Saved genesis JSON to '${path}'", ("path", p.generic_string()) );
          }
 
          EOS_THROW( extract_genesis_state_exception, "extracted genesis state from blocks.log" );
-      }
-
-      // move fork_db to new location
-      upgrade_from_reversible_to_fork_db( my.get() );
-
-      bool has_partitioned_block_log_options = options.count("blocks-retained-dir") ||  options.count("blocks-archive-dir")
-         || options.count("blocks-log-stride") || options.count("max-retained-block-files");
-      bool has_retain_blocks_option = options.count("block-log-retain-blocks");
-
-      EOS_ASSERT(!has_partitioned_block_log_options || !has_retain_blocks_option, plugin_config_exception,
-         "block-log-retain-blocks cannot be specified together with blocks-retained-dir, blocks-archive-dir or blocks-log-stride or max-retained-block-files.");
-
-
-      if (has_partitioned_block_log_options) {
-         my->chain_config->blog = eosio::chain::partitioned_blocklog_config{
-            .retained_dir = options.count("blocks-retained-dir") ? options.at("blocks-retained-dir").as<std::filesystem::path>()
-                                                                 : std::filesystem::path(""),
-            .archive_dir  = options.count("blocks-archive-dir") ? options.at("blocks-archive-dir").as<std::filesystem::path>()
-                                                                : std::filesystem::path("archive"),
-            .stride       = options.count("blocks-log-stride") ? options.at("blocks-log-stride").as<uint32_t>()
-                                                               : UINT32_MAX,
-            .max_retained_files = options.count("max-retained-block-files")
-                                        ? options.at("max-retained-block-files").as<uint32_t>()
-                                        : UINT32_MAX,
-         };
-      } else if(has_retain_blocks_option) {
-         uint32_t block_log_retain_blocks = options.at("block-log-retain-blocks").as<uint32_t>();
-         if (block_log_retain_blocks == 0)
-            my->chain_config->blog = eosio::chain::empty_blocklog_config{};
-         else {
-            EOS_ASSERT(cfile::supports_hole_punching(), plugin_config_exception,
-                       "block-log-retain-blocks cannot be greater than 0 because the file system does not support hole "
-                       "punching");
-            my->chain_config->blog = eosio::chain::prune_blocklog_config{ .prune_blocks = block_log_retain_blocks };
-         }
       }
 
       if( options.at( "delete-all-blocks" ).as<bool>()) {
@@ -746,41 +747,35 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                  plugin_config_exception,
                  "Snapshot can only be used to initialize an empty database." );
 
-         if( std::filesystem::is_regular_file( my->blocks_dir / "blocks.log" )) {
-            auto block_log_genesis = block_log::extract_genesis_state(my->blocks_dir);
-            if( block_log_genesis ) {
-               const auto& block_log_chain_id = block_log_genesis->compute_chain_id();
-               EOS_ASSERT( *chain_id == block_log_chain_id,
-                           plugin_config_exception,
-                           "snapshot chain ID (${snapshot_chain_id}) does not match the chain ID from the genesis state in the block log (${block_log_chain_id})",
-                           ("snapshot_chain_id",  *chain_id)
-                           ("block_log_chain_id", block_log_chain_id)
-               );
-            } else {
-               const auto& block_log_chain_id = block_log::extract_chain_id(my->blocks_dir);
-               EOS_ASSERT( *chain_id == block_log_chain_id,
+         auto block_log_chain_id = block_log::extract_chain_id(my->blocks_dir, retained_dir);
+
+         if (block_log_chain_id) {
+            EOS_ASSERT( *chain_id == *block_log_chain_id,
                            plugin_config_exception,
                            "snapshot chain ID (${snapshot_chain_id}) does not match the chain ID (${block_log_chain_id}) in the block log",
                            ("snapshot_chain_id",  *chain_id)
-                           ("block_log_chain_id", block_log_chain_id)
+                           ("block_log_chain_id", *block_log_chain_id)
                );
-            }
          }
 
       } else {
 
          chain_id = controller::extract_chain_id_from_db( my->chain_config->state_dir );
 
+         auto chain_context = block_log::extract_chain_context( my->blocks_dir, retained_dir );
          std::optional<genesis_state> block_log_genesis;
-         std::optional<chain_id_type> block_log_chain_id;
+         std::optional<chain_id_type> block_log_chain_id;  
 
-         if( std::filesystem::is_regular_file( my->blocks_dir / "blocks.log" ) ) {
-            block_log_genesis = block_log::extract_genesis_state( my->blocks_dir );
-            if( block_log_genesis ) {
-               block_log_chain_id = block_log_genesis->compute_chain_id();
-            } else {
-               block_log_chain_id = block_log::extract_chain_id( my->blocks_dir );
-            }
+         if (chain_context) {
+            std::visit(overloaded {
+               [&](const genesis_state& gs) {
+                  block_log_genesis = gs;
+                  block_log_chain_id = gs.compute_chain_id();
+               },
+               [&](const chain_id_type& id) {
+                  block_log_chain_id = id;
+               } 
+            }, *chain_context);
 
             if( chain_id ) {
                EOS_ASSERT( *block_log_chain_id == *chain_id, block_log_exception,
