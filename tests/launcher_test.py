@@ -47,7 +47,7 @@ try:
         pnodes=4
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs=" --trace-rpc-abi eosio.token=" + abs_path
-        if cluster.launch(pnodes=pnodes, totalNodes=pnodes, extraNodeosArgs=traceNodeosArgs) is False:
+        if cluster.launch(pnodes=pnodes, totalNodes=pnodes, prodCount=1, extraNodeosArgs=traceNodeosArgs) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:
