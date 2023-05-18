@@ -983,7 +983,7 @@ class Cluster(object):
         """Create 'prodCount' init accounts and deposits 10000000000 SYS in each. If prodCount is -1 will initialize all possible producers.
         Ensure nodes are inter-connected prior to this call. One way to validate this will be to check if every node has block 1."""
 
-        Utils.Print("Starting cluster bootstrap of %d producers." % prodCount)
+        Utils.Print(f'Starting cluster bootstrap of {prodCount} producers.')
         assert PFSetupPolicy.isValid(pfSetupPolicy)
         if totalProducers is None:
             totalProducers=totalNodes
