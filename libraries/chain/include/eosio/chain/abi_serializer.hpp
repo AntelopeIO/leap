@@ -1095,18 +1095,14 @@ public:
             return *it->second;
          return {};
       }
-      try {
-         auto serializer = resolver_(account);
-         auto& dest = abi_serializers[account]; // add entry regardless
-         if (serializer) {
-            // we got a serializer, so move it into the cache
-            dest = abi_serializer_cache_t::mapped_type{std::move(*serializer)};
-            return *dest; // and return a reference to it
-         }
-         return {}; 
-      } catch( ... ) {
-         throw; // throw if embedded resolver throws
+      auto serializer = resolver_(account);
+      auto& dest = abi_serializers[account]; // add entry regardless
+      if (serializer) {
+         // we got a serializer, so move it into the cache
+         dest = abi_serializer_cache_t::mapped_type{std::move(*serializer)};
+         return *dest; // and return a reference to it
       }
+      return {}; 
    };
 
 private:
