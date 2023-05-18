@@ -5,7 +5,6 @@ import copy
 import math
 import os
 import sys
-import json
 import shutil
 
 from pathlib import Path, PurePath
@@ -18,7 +17,7 @@ from platform import release, system
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from enum import Enum
-from log_reader import LogReaderEncoder
+from log_reader import JsonReportHandler
 
 class PerformanceTest:
 
@@ -118,7 +117,7 @@ class PerformanceTest:
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
             myTest.runTest()
-            if myTest.testResult.subjectiveSuccess:
+            if myTest.testResult.testPassed:
                 maxTpsAchieved = binSearchTarget
                 maxTpsReport = myTest.report
                 floor = binSearchTarget + minStep
@@ -129,7 +128,7 @@ class PerformanceTest:
             scenarioResult.basicTestResult = myTest.testResult
             searchResults.append(scenarioResult)
             if not self.ptConfig.quiet:
-                print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
+                print(f"binary search result -- target: {binSearchTarget} | result: {searchResults[-1]}")
 
             binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
 
@@ -160,7 +159,7 @@ class PerformanceTest:
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig, testNamePath="performance_test")
             myTest.runTest()
-            if myTest.testResult.subjectiveSuccess:
+            if myTest.testResult.testPassed:
                 maxTpsAchieved = searchTarget
                 maxTpsReport = myTest.report
                 scenarioResult.success = True
@@ -174,7 +173,7 @@ class PerformanceTest:
             scenarioResult.basicTestResult = myTest.testResult
             searchResults.append(scenarioResult)
             if not self.ptConfig.quiet:
-                print(f"searchResult: {searchTarget} : {searchResults[-1]}")
+                print(f"reverse linear search result -- target: {searchTarget} | result: {searchResults[-1]}")
 
         return PerformanceTest.TpsTestResult.PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
 
@@ -286,13 +285,6 @@ class PerformanceTest:
         report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
         report['nodeosVersion'] = nodeosVers
         return report
-
-    def reportAsJSON(self, report: dict) -> json:
-        return json.dumps(report, indent=2, cls=LogReaderEncoder)
-
-    def exportReportAsJSON(self, report: json, exportPath):
-        with open(exportPath, 'wt') as f:
-            f.write(report)
 
     def testDirsCleanup(self):
         try:
@@ -417,13 +409,13 @@ class PerformanceTest:
         self.testsFinish = datetime.utcnow()
 
         self.report = self.createReport(producerThreadResult=prodResults, chainThreadResult=chainResults, netThreadResult=netResults, tpsTestResult=tpsTestResult, nodeosVers=self.clusterConfig.nodeosVers)
-        jsonReport = self.reportAsJSON(self.report)
+        jsonReport = JsonReportHandler.reportAsJSON(self.report)
 
         if not self.ptConfig.quiet:
             print(f"Full Performance Test Report: {jsonReport}")
 
         if not self.ptConfig.delReport:
-            self.exportReportAsJSON(jsonReport, self.loggingConfig.logDirPath/Path("report.json"))
+            JsonReportHandler.exportReportAsJSON(jsonReport, self.loggingConfig.logDirPath/Path("report.json"))
 
         if self.ptConfig.delPerfLogs:
             print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")

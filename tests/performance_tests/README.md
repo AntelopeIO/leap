@@ -833,29 +833,52 @@ The report begins by delivering the max TPS results of the performance run.
 * `InitialMaxTpsAchieved` - the max TPS throughput achieved during initial, short duration test scenarios to narrow search window
 * `LongRunningMaxTpsAchieved` - the max TPS throughput achieved during final, longer duration test scenarios to zero in on sustainable max TPS
 
+Next, a high level summary of the search scenario target and results is included.  Each line item shows a target tps search scenario and whether that scenario passed or failed.
+<details>
+    <summary>Expand Search Scenario Results Summary Example</summary>
+
+``` json
+  "InitialSearchScenariosSummary": {
+    "50000": "FAIL",
+    "25001": "FAIL",
+    "12501": "PASS",
+    "19001": "FAIL",
+    "16001": "FAIL",
+    "14501": "FAIL",
+    "13501": "PASS",
+    "14001": "PASS"
+  },
+  "LongRunningSearchScenariosSummary": {
+    "14001": "PASS"
+  },
+```
+</details>
+
 Next, a summary of the search scenario conducted and respective results is included.  Each summary includes information on the current state of the overarching search as well as basic results of the individual test that are used to determine whether the basic test was considered successful. The list of summary results are included in `InitialSearchResults` and `LongRunningSearchResults`. The number of entries in each list will vary depending on the TPS range tested (`--min-tps-to-test` & `--max-tps-to-test`) and the configured `--test-iteration-min-step`.
 <details>
     <summary>Expand Search Scenario Summary Example</summary>
 
 ``` json
-    "1": {
+    "2": {
       "success": true,
-      "searchTarget": 12001,
+      "searchTarget": 12501,
       "searchFloor": 1,
-      "searchCeiling": 12501,
+      "searchCeiling": 24501,
       "basicTestResult": {
-        "targetTPS": 12001,
-        "resultAvgTps": 12011.8125,
-        "expectedTxns": 120010,
-        "resultTxns": 120010,
+        "testStart": "2023-05-17T22:57:41.801991",
+        "testEnd": "2023-05-17T22:58:57.941356",
+        "testDuration": "0:01:16.139365",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "objectiveSuccess": true,
-        "subjectiveSuccess": true,
+        "targetTPS": 12501,
+        "resultAvgTps": 12530.375,
+        "expectedTxns": 125010,
+        "resultTxns": 125010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-42-34-12001",
-        "testStart": "2023-05-17T17:42:34.573995",
-        "testEnd": "2023-05-17T17:43:53.872423"
+        "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_22-57-41-12501"
       }
     }
 ```
@@ -869,6 +892,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
 ``` json
 "InitialMaxTpsReport": {
     <truncated>
+    "Result": {
+      <truncated>
+    },
     "Analysis": {
       <truncated>
     },
@@ -888,15 +914,15 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ``` json
 {
-  "perfTestsBegin": "2023-05-17T16:25:33.640352",
-  "perfTestsFinish": "2023-05-17T17:43:54.030512",
-  "perfTestsDuration": "1:18:20.390160",
+  "perfTestsBegin": "2023-05-17T21:28:39.926423",
+  "perfTestsFinish": "2023-05-17T23:07:02.076216",
+  "perfTestsDuration": "1:38:22.149793",
   "operationalMode": "Block Producer Operational Mode",
-  "InitialMaxTpsAchieved": 12501,
-  "LongRunningMaxTpsAchieved": 12001,
-  "tpsTestStart": "2023-05-17T17:29:41.774799",
-  "tpsTestFinish": "2023-05-17T17:43:54.030495",
-  "tpsTestDuration": "0:14:12.255696",
+  "InitialMaxTpsAchieved": 14001,
+  "LongRunningMaxTpsAchieved": 14001,
+  "tpsTestStart": "2023-05-17T22:54:38.770858",
+  "tpsTestFinish": "2023-05-17T23:07:02.076202",
+  "tpsTestDuration": "0:12:23.305344",
   "InitialSearchScenariosSummary": {
     "50000": "FAIL",
     "25001": "FAIL",
@@ -904,12 +930,11 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "19001": "FAIL",
     "16001": "FAIL",
     "14501": "FAIL",
-    "13501": "FAIL",
-    "13001": "FAIL"
+    "13501": "PASS",
+    "14001": "PASS"
   },
   "LongRunningSearchScenariosSummary": {
-    "12501": "FAIL",
-    "12001": "PASS"
+    "14001": "PASS"
   },
   "InitialSearchResults": {
     "0": {
@@ -918,18 +943,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 1,
       "searchCeiling": 50000,
       "basicTestResult": {
-        "targetTPS": 50000,
-        "resultAvgTps": 11906.818181818182,
-        "expectedTxns": 500000,
-        "resultTxns": 287326,
+        "testStart": "2023-05-17T22:54:38.770895",
+        "testEnd": "2023-05-17T22:56:13.025658",
+        "testDuration": "0:01:34.254763",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
         "trxExpectMet": false,
-        "objectiveSuccess": false,
-        "subjectiveSuccess": false,
-        "testAnalysisBlockCnt": 45,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-29-41-50000",
-        "testStart": "2023-05-17T17:29:41.774841",
-        "testEnd": "2023-05-17T17:31:27.322249"
+        "targetTPS": 50000,
+        "resultAvgTps": 12108.542857142857,
+        "expectedTxns": 500000,
+        "resultTxns": 242869,
+        "testAnalysisBlockCnt": 36,
+        "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_22-54-38-50000"
       }
     },
     "1": {
@@ -938,18 +965,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 1,
       "searchCeiling": 49500,
       "basicTestResult": {
-        "targetTPS": 25001,
-        "resultAvgTps": 12464.555555555555,
-        "expectedTxns": 250010,
-        "resultTxns": 249957,
+        "testStart": "2023-05-17T22:56:13.130264",
+        "testEnd": "2023-05-17T22:57:41.712682",
+        "testDuration": "0:01:28.582418",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
         "trxExpectMet": false,
-        "objectiveSuccess": false,
-        "subjectiveSuccess": false,
-        "testAnalysisBlockCnt": 37,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-31-27-25001",
-        "testStart": "2023-05-17T17:31:27.506077",
-        "testEnd": "2023-05-17T17:32:59.797340"
+        "targetTPS": 25001,
+        "resultAvgTps": 14207.161290322581,
+        "expectedTxns": 250010,
+        "resultTxns": 249688,
+        "testAnalysisBlockCnt": 32,
+        "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_22-56-13-25001"
       }
     },
     "2": {
@@ -958,18 +987,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 1,
       "searchCeiling": 24501,
       "basicTestResult": {
-        "targetTPS": 12501,
-        "resultAvgTps": 12404.3125,
-        "expectedTxns": 125010,
-        "resultTxns": 125010,
+        "testStart": "2023-05-17T22:57:41.801991",
+        "testEnd": "2023-05-17T22:58:57.941356",
+        "testDuration": "0:01:16.139365",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "objectiveSuccess": true,
-        "subjectiveSuccess": true,
+        "targetTPS": 12501,
+        "resultAvgTps": 12530.375,
+        "expectedTxns": 125010,
+        "resultTxns": 125010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-32-59-12501",
-        "testStart": "2023-05-17T17:32:59.921137",
-        "testEnd": "2023-05-17T17:34:18.321854"
+        "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_22-57-41-12501"
       }
     },
     "3": {
@@ -978,18 +1009,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 13001,
       "searchCeiling": 24501,
       "basicTestResult": {
-        "targetTPS": 19001,
-        "resultAvgTps": 12358.037037037036,
-        "expectedTxns": 190010,
-        "resultTxns": 189485,
+        "testStart": "2023-05-17T22:58:58.035578",
+        "testEnd": "2023-05-17T23:00:21.801656",
+        "testDuration": "0:01:23.766078",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
         "trxExpectMet": false,
-        "objectiveSuccess": false,
-        "subjectiveSuccess": false,
-        "testAnalysisBlockCnt": 28,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-34-18-19001",
-        "testStart": "2023-05-17T17:34:18.441506",
-        "testEnd": "2023-05-17T17:35:46.462749"
+        "targetTPS": 19001,
+        "resultAvgTps": 14720.045454545454,
+        "expectedTxns": 190010,
+        "resultTxns": 190008,
+        "testAnalysisBlockCnt": 23,
+        "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_22-58-58-19001"
       }
     },
     "4": {
@@ -998,18 +1031,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 13001,
       "searchCeiling": 18501,
       "basicTestResult": {
-        "targetTPS": 16001,
-        "resultAvgTps": 12409.363636363636,
-        "expectedTxns": 160010,
-        "resultTxns": 159957,
+        "testStart": "2023-05-17T23:00:21.902609",
+        "testEnd": "2023-05-17T23:01:42.674652",
+        "testDuration": "0:01:20.772043",
+        "testPassed": false,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
-        "trxExpectMet": false,
-        "objectiveSuccess": false,
-        "subjectiveSuccess": false,
-        "testAnalysisBlockCnt": 23,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-35-46-16001",
-        "testStart": "2023-05-17T17:35:46.584843",
-        "testEnd": "2023-05-17T17:37:10.646572"
+        "trxExpectMet": true,
+        "targetTPS": 16001,
+        "resultAvgTps": 13972.578947368422,
+        "expectedTxns": 160010,
+        "resultTxns": 160010,
+        "testAnalysisBlockCnt": 20,
+        "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_23-00-21-16001"
       }
     },
     "5": {
@@ -1018,63 +1053,72 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 13001,
       "searchCeiling": 15501,
       "basicTestResult": {
-        "targetTPS": 14501,
-        "resultAvgTps": 12306.105263157895,
-        "expectedTxns": 145010,
-        "resultTxns": 144929,
+        "testStart": "2023-05-17T23:01:42.780751",
+        "testEnd": "2023-05-17T23:03:02.321649",
+        "testDuration": "0:01:19.540898",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
         "trxExpectMet": false,
-        "objectiveSuccess": false,
-        "subjectiveSuccess": false,
-        "testAnalysisBlockCnt": 20,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-37-10-14501",
-        "testStart": "2023-05-17T17:37:10.769728",
-        "testEnd": "2023-05-17T17:38:33.127293"
+        "targetTPS": 14501,
+        "resultAvgTps": 13710.176470588236,
+        "expectedTxns": 145010,
+        "resultTxns": 144729,
+        "testAnalysisBlockCnt": 18,
+        "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_23-01-42-14501"
       }
     },
     "6": {
-      "success": false,
+      "success": true,
       "searchTarget": 13501,
       "searchFloor": 13001,
       "searchCeiling": 14001,
       "basicTestResult": {
+        "testStart": "2023-05-17T23:03:02.417778",
+        "testEnd": "2023-05-17T23:04:20.138769",
+        "testDuration": "0:01:17.720991",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
+        "tpsExpectMet": true,
+        "trxExpectMet": true,
         "targetTPS": 13501,
-        "resultAvgTps": 12278.111111111111,
+        "resultAvgTps": 13508.4375,
         "expectedTxns": 135010,
-        "resultTxns": 134965,
-        "tpsExpectMet": false,
-        "trxExpectMet": false,
-        "objectiveSuccess": false,
-        "subjectiveSuccess": false,
-        "testAnalysisBlockCnt": 19,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-38-33-13501",
-        "testStart": "2023-05-17T17:38:33.246467",
-        "testEnd": "2023-05-17T17:39:54.553904"
+        "resultTxns": 135010,
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_23-03-02-13501"
       }
     },
     "7": {
-      "success": false,
-      "searchTarget": 13001,
-      "searchFloor": 13001,
-      "searchCeiling": 13001,
+      "success": true,
+      "searchTarget": 14001,
+      "searchFloor": 14001,
+      "searchCeiling": 14001,
       "basicTestResult": {
-        "targetTPS": 13001,
-        "resultAvgTps": 11662.333333333334,
-        "expectedTxns": 130010,
-        "resultTxns": 130010,
-        "tpsExpectMet": false,
+        "testStart": "2023-05-17T23:04:20.234990",
+        "testEnd": "2023-05-17T23:05:38.702787",
+        "testDuration": "0:01:18.467797",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
+        "tpsExpectMet": true,
         "trxExpectMet": true,
-        "objectiveSuccess": true,
-        "subjectiveSuccess": false,
-        "testAnalysisBlockCnt": 19,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-39-54-13001",
-        "testStart": "2023-05-17T17:39:54.665686",
-        "testEnd": "2023-05-17T17:41:15.350158"
+        "targetTPS": 14001,
+        "resultAvgTps": 13935.3125,
+        "expectedTxns": 140010,
+        "resultTxns": 140010,
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_23-04-20-14001"
       }
     }
   },
   "InitialMaxTpsReport": {
     <truncated>
+    "Result": {
+      <truncated>
+    },
     "Analysis": {
       <truncated>
     },
@@ -1088,48 +1132,33 @@ Finally, the full detail test report for each of the determined max TPS throughp
   },
   "LongRunningSearchResults": {
     "0": {
-      "success": false,
-      "searchTarget": 12501,
-      "searchFloor": 1,
-      "searchCeiling": 12501,
-      "basicTestResult": {
-        "targetTPS": 12501,
-        "resultAvgTps": 12258.1875,
-        "expectedTxns": 125010,
-        "resultTxns": 125010,
-        "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "objectiveSuccess": true,
-        "subjectiveSuccess": false,
-        "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-41-15-12501",
-        "testStart": "2023-05-17T17:41:15.506652",
-        "testEnd": "2023-05-17T17:42:34.457130"
-      }
-    },
-    "1": {
       "success": true,
-      "searchTarget": 12001,
+      "searchTarget": 14001,
       "searchFloor": 1,
-      "searchCeiling": 12501,
+      "searchCeiling": 14001,
       "basicTestResult": {
-        "targetTPS": 12001,
-        "resultAvgTps": 12011.8125,
-        "expectedTxns": 120010,
-        "resultTxns": 120010,
+        "testStart": "2023-05-17T23:05:38.835496",
+        "testEnd": "2023-05-17T23:07:01.937623",
+        "testDuration": "0:01:23.102127",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "objectiveSuccess": true,
-        "subjectiveSuccess": true,
+        "targetTPS": 14001,
+        "resultAvgTps": 13977.4375,
+        "expectedTxns": 140010,
+        "resultTxns": 140010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-42-34-12001",
-        "testStart": "2023-05-17T17:42:34.573995",
-        "testEnd": "2023-05-17T17:43:53.872423"
+        "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_23-05-38-14001"
       }
     }
   },
   "LongRunningMaxTpsReport": {
     <truncated>
+    "Result": {
+      <truncated>
+    },
     "Analysis": {
       <truncated>
     },
@@ -1142,31 +1171,33 @@ Finally, the full detail test report for each of the determined max TPS throughp
     <truncated>
   },
   "ProducerThreadAnalysis": {
-    "recommendedThreadCount": 2,
+    "recommendedThreadCount": 3,
     "threadToMaxTpsDict": {
-      "2": 14501,
-      "3": 12501
+      "2": 13001,
+      "3": 13501,
+      "4": 11501
     },
-    "analysisStart": "2023-05-17T16:25:33.669652",
-    "analysisFinish": "2023-05-17T16:47:32.104702"
+    "analysisStart": "2023-05-17T21:28:39.947138",
+    "analysisFinish": "2023-05-17T22:01:33.079889"
   },
   "ChainThreadAnalysis": {
     "recommendedThreadCount": 2,
     "threadToMaxTpsDict": {
-      "2": 14501,
-      "3": 14001
+      "2": 13501,
+      "3": 13001
     },
-    "analysisStart": "2023-05-17T16:47:32.105470",
-    "analysisFinish": "2023-05-17T17:09:23.291700"
+    "analysisStart": "2023-05-17T22:01:33.080513",
+    "analysisFinish": "2023-05-17T22:23:35.604304"
   },
   "NetThreadAnalysis": {
-    "recommendedThreadCount": 4,
+    "recommendedThreadCount": 5,
     "threadToMaxTpsDict": {
-      "4": 13001,
-      "5": 10501
+      "4": 12001,
+      "5": 14001,
+      "6": 10001
     },
-    "analysisStart": "2023-05-17T17:09:23.292470",
-    "analysisFinish": "2023-05-17T17:29:41.774353"
+    "analysisStart": "2023-05-17T22:23:35.605115",
+    "analysisFinish": "2023-05-17T22:54:38.770570"
   },
   "args": {
     "rawCmdLine ": "./tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
@@ -1703,10 +1734,10 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "endpointApi": "p2p",
     "opModeCmd": "testBpOpMode",
     "logDirBase": "performance_test",
-    "logDirTimestamp": "2023-05-17_16-25-33",
-    "logDirPath": "performance_test/2023-05-17_16-25-33",
-    "ptbLogsDirPath": "performance_test/2023-05-17_16-25-33/testRunLogs",
-    "pluginThreadOptLogsDirPath": "performance_test/2023-05-17_16-25-33/pluginThreadOptRunLogs"
+    "logDirTimestamp": "2023-05-17_21-28-39",
+    "logDirPath": "performance_test/2023-05-17_21-28-39",
+    "ptbLogsDirPath": "performance_test/2023-05-17_21-28-39/testRunLogs",
+    "pluginThreadOptLogsDirPath": "performance_test/2023-05-17_21-28-39/pluginThreadOptRunLogs"
   },
   "env": {
     "system": "Linux",
@@ -1729,81 +1760,94 @@ The Performance Test Basic generates, by default, a report that details results 
 
 ``` json
 {
-  "completedRun": true,
   "targetApiEndpoint": "p2p",
-  "testStart": "2023-05-17T17:42:34.573995",
-  "testFinish": "2023-05-17T17:43:53.872423",
-  "testDuration": "0:01:19.298428",
+  "Result": {
+    "testStart": "2023-05-17T23:05:38.835496",
+    "testEnd": "2023-05-17T23:07:01.937623",
+    "testDuration": "0:01:23.102127",
+    "testPassed": true,
+    "testRunSuccessful": true,
+    "testRunCompleted": true,
+    "tpsExpectMet": true,
+    "trxExpectMet": true,
+    "targetTPS": 14001,
+    "resultAvgTps": 13977.4375,
+    "expectedTxns": 140010,
+    "resultTxns": 140010,
+    "testAnalysisBlockCnt": 17,
+    "logsDir": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_23-05-38-14001"
+  },
   "Analysis": {
     "BlockSize": {
-      "min": 117720,
-      "max": 158184,
-      "avg": 144139.76470588235,
-      "sigma": 8642.141833715092,
+      "min": 153909,
+      "max": 192200,
+      "avg": 173840.70588235295,
+      "sigma": 9231.908863633565,
       "emptyBlocks": 0,
       "numBlocks": 17
     },
     "BlocksGuide": {
-      "firstBlockNum": 113,
-      "lastBlockNum": 145,
-      "totalBlocks": 33,
-      "testStartBlockNum": 113,
-      "testEndBlockNum": 145,
+      "firstBlockNum": 112,
+      "lastBlockNum": 152,
+      "totalBlocks": 41,
+      "testStartBlockNum": 112,
+      "testEndBlockNum": 152,
       "setupBlocksCnt": 0,
       "tearDownBlocksCnt": 0,
       "leadingEmptyBlocksCnt": 1,
-      "trailingEmptyBlocksCnt": 11,
+      "trailingEmptyBlocksCnt": 19,
       "configAddlDropCnt": 2,
       "testAnalysisBlockCnt": 17
     },
     "TPS": {
-      "min": 10902,
-      "max": 13103,
-      "avg": 12011.8125,
-      "sigma": 470.80187164427247,
+      "min": 13234,
+      "max": 14812,
+      "avg": 13977.4375,
+      "sigma": 398.5379481225721,
       "emptyBlocks": 0,
       "numBlocks": 17,
-      "configTps": 12001,
+      "configTps": 14001,
       "configTestDuration": 10,
       "tpsPerGenerator": [
-        3000,
-        3000,
-        3000,
-        3001
+        3500,
+        3500,
+        3500,
+        3501
       ],
       "generatorCount": 4
     },
     "TrxCPU": {
-      "min": 8.0,
-      "max": 1290.0,
-      "avg": 30.405516206982753,
-      "sigma": 22.773736466513444,
-      "samples": 120010
+      "min": 7.0,
+      "max": 3649.0,
+      "avg": 26.156724519677166,
+      "sigma": 21.41749466859243,
+      "samples": 140010
     },
     "TrxLatency": {
       "min": 0.0009999275207519531,
-      "max": 0.5929999351501465,
-      "avg": 0.263244096365246,
-      "sigma": 0.14615065734619484,
-      "samples": 120010,
+      "max": 0.5820000171661377,
+      "avg": 0.2768004499855284,
+      "sigma": 0.1456695649820771,
+      "samples": 140010,
       "units": "seconds"
     },
     "TrxNet": {
       "min": 24.0,
-      "max": 24.0,
-      "avg": 24.0,
-      "sigma": 0.0,
-      "samples": 120010
+      "max": 25.0,
+      "avg": 24.85718162988358,
+      "sigma": 0.3498875294629824,
+      "samples": 140010
     },
     "TrxAckResponseTime": {
       "min": -1.0,
       "max": -1.0,
       "avg": -1.0,
       "sigma": 0.0,
-      "samples": 120010,
+      "samples": 140010,
       "measurementApplicable": "NOT APPLICABLE",
       "units": "microseconds"
     },
+    "ExpectedTransactions": 140010,
     "DroppedTransactions": 0,
     "ProductionWindowsTotal": 0,
     "ProductionWindowsAverageSize": 0,
@@ -2340,22 +2384,22 @@ The Performance Test Basic generates, by default, a report that details results 
       2
     ],
     "nonProdsEosVmOcEnable": false,
-    "targetTps": 12001,
+    "targetTps": 14001,
     "testTrxGenDurationSec": 10,
     "tpsLimitPerGenerator": 4000,
     "numAddlBlocksToPrune": 2,
-    "logDirRoot": "performance_test/2023-05-17_16-25-33/testRunLogs",
+    "logDirRoot": "performance_test/2023-05-17_21-28-39/testRunLogs",
     "delReport": false,
     "quiet": false,
     "delPerfLogs": false,
-    "expectedTransactionsSent": 120010,
+    "expectedTransactionsSent": 140010,
     "printMissingTransactions": false,
     "userTrxDataFile": null,
     "endpointApi": "p2p",
-    "logDirBase": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test",
-    "logDirTimestamp": "2023-05-17_17-42-34",
-    "logDirTimestampedOptSuffix": "-12001",
-    "logDirPath": "performance_test/2023-05-17_16-25-33/testRunLogs/performance_test/2023-05-17_17-42-34-12001"
+    "logDirBase": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test",
+    "logDirTimestamp": "2023-05-17_23-05-38",
+    "logDirTimestampedOptSuffix": "-14001",
+    "logDirPath": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test/2023-05-17_23-05-38-14001"
   },
   "env": {
     "system": "Linux",
