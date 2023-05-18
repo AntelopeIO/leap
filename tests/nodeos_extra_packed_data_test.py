@@ -39,7 +39,8 @@ cluster=Cluster(host=server,
                 defproduceraPrvtKey=defproduceraPrvtKey, 
                 defproducerbPrvtKey=defproducerbPrvtKey,
                 unshared=args.unshared,
-                keepRunning=args.leave_running, keepLogs=args.keep_logs)
+                keepRunning=args.leave_running,
+                keepLogs=args.keep_logs)
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
 dontBootstrap=sanityTest # intent is to limit the scope of the sanity test to just verifying that nodes can be started

@@ -243,7 +243,10 @@ class Cluster(object):
             tries = tries - 1
             time.sleep(2)
         loggingLevelDictString = json.dumps(self.loggingLevelDict, separators=(',', ':'))
-        cmd=f'{sys.executable} {str(self.launcherPath)} -p {pnodes} -n {totalNodes} -d {delay} -i {datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]} -f {producerFlag} --unstarted-nodes {unstartedNodes} --logging-level {self.loggingLevel} --logging-level-map {loggingLevelDictString}'
+        cmd=(f'{sys.executable} {str(self.launcherPath)} -p {pnodes} -n {totalNodes} -d {delay} '
+             f'-i {datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]} -f {producerFlag} '
+             f'--unstarted-nodes {unstartedNodes} --logging-level {self.loggingLevel} '
+             f'--logging-level-map {loggingLevelDictString}')
         cmdArr=cmd.split()
         cmdArr.append("--config-dir")
         cmdArr.append(str(nodeosLogPath))
@@ -470,7 +473,9 @@ class Cluster(object):
             eosdcmd = launcher.construct_command_line(instance)
 
             nodeNum = instance.index
-            node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name), Path(instance.config_dir_name), eosdcmd, unstarted=instance.dont_start, launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
+            node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name),
+                        Path(instance.config_dir_name), eosdcmd, unstarted=instance.dont_start,
+                        launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
             if nodeNum == Node.biosNodeId:
                 self.biosNode = node
             else:
