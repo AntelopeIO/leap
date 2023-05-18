@@ -32,19 +32,11 @@ class PerformanceTestBasic:
 
     @dataclass
     class TestHelperConfig:
-        dontKill: bool = False # leave_running
-        keepLogs: bool = True
         dumpErrorDetails: bool = False
         delay: int = 1
         nodesFile: str = None
         verbose: bool = False
         unshared: bool = False
-        _killEosInstances: bool = True
-        _killWallet: bool = True
-
-        def __post_init__(self):
-            self._killEosInstances = not self.dontKill
-            self._killWallet = not self.dontKill
 
     @dataclass
     class ClusterConfig:
@@ -78,11 +70,13 @@ class PerformanceTestBasic:
         producerNodeCount: int = 1
         validationNodeCount: int = 1
         apiNodeCount: int = 0
+        dontKill: bool = False # leave_running
         extraNodeosArgs: ExtraNodeosArgs = field(default_factory=ExtraNodeosArgs)
         specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
+        keepLogs: bool = True
         loggingLevel: str = "info"
         loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
         prodsEnableTraceApi: bool = False
@@ -94,8 +88,12 @@ class PerformanceTestBasic:
         _validationNodeIds: list = field(default_factory=list)
         _apiNodeIds: list = field(default_factory=list)
         nonProdsEosVmOcEnable: bool = False
+        _killEosInstances: bool = True
+        _killWallet: bool = True
 
         def __post_init__(self):
+            self._killEosInstances = not self.dontKill
+            self._killWallet = not self.dontKill
             self._totalNodes = self.producerNodeCount + self.validationNodeCount + self.apiNodeCount
             # Setup Expectations for Producer and Validation Node IDs
             # Producer Nodes are index [0, producerNodeCount) and non-producer nodes (validationNodeCount, apiNodeCount) nodes follow the producer nodes [producerNodeCount, _totalNodes)
@@ -200,7 +198,7 @@ class PerformanceTestBasic:
         self.walletMgr=WalletMgr(True)
         self.cluster=Cluster(loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
                              nodeosVers=self.clusterConfig.nodeosVers,unshared=self.testHelperConfig.unshared,
-                             keepRunning=self.testHelperConfig.dontKill, keepLogs=self.testHelperConfig.keepLogs)
+                             keepRunning=self.clusterConfig.dontKill, keepLogs=self.clusterConfig.keepLogs)
         self.cluster.setWalletMgr(self.walletMgr)
 
     def testDirsCleanup(self, delReport: bool=False):
@@ -542,8 +540,7 @@ class PerformanceTestBasic:
             return testSuccessful
 
     def setupTestHelperConfig(args) -> TestHelperConfig:
-        return PerformanceTestBasic.TestHelperConfig(dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
-                                                                dumpErrorDetails=args.dump_error_details, delay=args.d, verbose=args.v)
+        return PerformanceTestBasic.TestHelperConfig(dumpErrorDetails=args.dump_error_details, delay=args.d, verbose=args.v)
 
     def setupClusterConfig(args) -> ClusterConfig:
 
@@ -567,7 +564,8 @@ class PerformanceTestBasic:
                             resourceMonitorPluginArgs=resourceMonitorPluginArgs)
         SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
         specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
-        return PerformanceTestBasic.ClusterConfig(producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, apiNodeCount=args.api_nodes,
+        return PerformanceTestBasic.ClusterConfig(dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+                                                            producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, apiNodeCount=args.api_nodes,
                                                             genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                             specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
                                                             nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
