@@ -17,8 +17,6 @@ namespace eosio {
 
 using std::chrono::steady_clock;
 
-typedef asio::basic_stream_socket<asio::ip::tcp, asio::io_context::executor_type> tcp_socket_t;
-
 using boost::asio::local::stream_protocol;
 
 #if BOOST_VERSION < 107300
@@ -43,7 +41,7 @@ void fail(beast::error_code ec, char const* what, fc::logger& logger, char const
 }
 
 
-bool allow_host(const std::string& host_str, tcp_socket_t& socket,
+bool allow_host(const std::string& host_str, tcp::socket& socket,
                 const http_plugin_state* plugin_state) {
 
    auto& lowest_layer = beast::get_lowest_layer(socket);
@@ -526,7 +524,7 @@ public:
 
 
    bool allow_host(const http::request<http::string_body>& req) {
-      if constexpr(std::is_same_v<Socket,tcp_socket_t>) {
+      if constexpr(std::is_same_v<Socket, tcp::socket>) {
          const std::string host_str(req["host"]);
          if (host_str != local_address_)
             return eosio::allow_host(host_str, socket_, plugin_state_);
