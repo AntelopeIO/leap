@@ -245,12 +245,12 @@ class NodeosQueries:
         cmdDesc=self.fetchTransactionCommand()
         cmd="%s %s" % (cmdDesc, transId)
         msg="(transaction id=%s)" % (transId);
-        for i in range(0,(int(60/timeout)*4 - 1)):
+        for i in range(0,(int(60/timeout) - 1)):
             trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=True, exitOnError=exitOnErrorForDelayed, exitMsg=msg)
             if trans is not None or not delayedRetry:
                 return trans
             if Utils.Debug: Utils.Print("Could not find transaction with id %s, delay and retry" % (transId))
-            time.sleep(250/1000)
+            time.sleep(timeout)
 
         self.missingTransaction=True
         # either it is there or the transaction has timed out
