@@ -1371,16 +1371,61 @@ namespace eosio { namespace chain {
    }
 
    // static
-   std::optional<genesis_state> block_log::extract_genesis_state(const std::filesystem::path& block_dir) {
-      std::filesystem::path p(block_dir / "blocks.log");
-      for_each_file_in_dir_matches(block_dir, R"(blocks-1-\d+\.log)",
-                                   [&p](std::filesystem::path log_path) { p = std::move(log_path); });
-      return block_log_data(p).get_genesis_state();
+   std::optional<block_log::chain_context> block_log::extract_chain_context(const std::filesystem::path& block_dir,
+                                                                            const std::filesystem::path& retained_dir) {
+      std::filesystem::path first_block_file;
+      if (!retained_dir.empty() && std::filesystem::exists(retained_dir)) {
+         for_each_file_in_dir_matches(retained_dir, R"(blocks-1-\d+\.log)",
+                                      [&](std::filesystem::path log_path) {
+                                          first_block_file = std::move(log_path);
+                                      });
+      }
+
+      if (first_block_file.empty() && std::filesystem::exists(block_dir / "blocks.log")) {
+         first_block_file = block_dir / "blocks.log";
+      }
+
+      if (!first_block_file.empty()) {
+         return block_log_data(first_block_file).get_preamble().chain_context;
+      }
+      
+      if (!retained_dir.empty() && std::filesystem::exists(retained_dir)) {
+         const std::regex        my_filter(R"(blocks-\d+-\d+\.log)");
+         std::smatch             what;
+         std::filesystem::directory_iterator end_itr; // Default ctor yields past-the-end
+         for (std::filesystem::directory_iterator p(retained_dir); p != end_itr; ++p) {
+            // Skip if not a file
+            if (!std::filesystem::is_regular_file(p->status()))
+               continue;
+            // skip if it does not match the pattern
+            std::string file = p->path().filename().string();
+            if (!std::regex_match(file, what, my_filter))
+               continue;
+            return block_log_data(p->path()).chain_id();
+         }
+      }
+      return {};
    }
 
    // static
-   chain_id_type block_log::extract_chain_id(const std::filesystem::path& data_dir) {
-      return block_log_data(data_dir / "blocks.log").chain_id();
+   std::optional<genesis_state> block_log::extract_genesis_state(const std::filesystem::path& block_dir,
+                                                                 const std::filesystem::path& retained_dir) {
+      auto context = extract_chain_context(block_dir, retained_dir);
+      if (!context || std::holds_alternative<chain_id_type>(*context))
+         return {};
+      return std::get<genesis_state>(*context);
+   }
+
+   // static
+   std::optional<chain_id_type> block_log::extract_chain_id(const std::filesystem::path& block_dir,
+                                                            const std::filesystem::path& retained_dir) {
+      auto context = extract_chain_context(block_dir, retained_dir);
+      if (!context)
+         return {};
+      return std::visit(overloaded{
+         [](const chain_id_type& id){ return id; },
+         [](const genesis_state& gs){ return gs.compute_chain_id(); }
+          } , *context);
    }
 
    // static
@@ -1538,7 +1583,7 @@ namespace eosio { namespace chain {
       ilog("blocks.log and blocks.index agree on number of blocks");
 
       if (interval == 0) {
-         interval = std::max((log_bundle.log_index.num_blocks() + 7u) >> 3, 1u);
+         interval = std::max((log_bundle.log_index.num_blocks() + 7) >> 3, 1U);
       }
       uint32_t expected_block_num = log_bundle.log_data.first_block_num();
 
