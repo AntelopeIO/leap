@@ -23,6 +23,7 @@ from .testUtils import ReturnType
 
 # pylint: disable=too-many-public-methods
 class Node(Transactions):
+    biosNodeId = -100
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
@@ -34,7 +35,7 @@ class Node(Transactions):
         self.host=host
         self.port=port
         self.cmd=cmd
-        if nodeId == -100:
+        if nodeId == Node.biosNodeId:
             self.nodeId='bios'
             self.name='node_bios'
         else:

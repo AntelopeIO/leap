@@ -471,9 +471,9 @@ class Cluster(object):
 
             nodeNum = instance.index
             node = Node(self.host, self.port + nodeNum, nodeNum, Path(instance.data_dir_name), Path(instance.config_dir_name), eosdcmd, unstarted=instance.dont_start, launch_time=launcher.launch_time, walletMgr=self.walletMgr, nodeosVers=self.nodeosVers)
-            if nodeNum == -100:
+            if nodeNum == Node.biosNodeId:
                 self.biosNode = node
-            if nodeNum != -100:
+            else:
                 if node.popenProc:
                     self.nodes.append(node)
                 else:
@@ -1172,11 +1172,6 @@ class Cluster(object):
         Utils.Print("Wait for issue action transaction to appear in a block.")
         transId=Node.getTransId(trans[1])
         biosNode.waitForTransactionInBlock(transId)
-        # guesstimating block finalization timeout. Two production rounds of 12 blocks per node, plus 60 seconds buffer
-        #timeout = .5 * 12 * 2 * len(producerKeys) + 60
-        #if not biosNode.waitForTransFinalization(transId, timeout=timeout):
-        #    Utils.Print("ERROR: Failed to validate transaction %s got rolled into a finalized block on server port %d." % (transId, biosNode.port))
-        #    return None
 
         expectedAmount="1000000000.0000 {0}".format(CORE_SYMBOL)
         Utils.Print("Verify eosio issue, Expected: %s" % (expectedAmount))
