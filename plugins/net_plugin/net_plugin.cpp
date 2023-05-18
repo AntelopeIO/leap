@@ -386,7 +386,7 @@ namespace eosio {
       vector<connection_status> connection_statuses() const;
 
       // return the next connection after current in collection that has blocks above
-      connection_ptr round_robin_next(const connection_ptr& current, uint32_t sync_known_lib_num) const;
+      connection_ptr round_robin_next(const connection_ptr& current, uint32_t sync_next_expected_num) const;
 
       template <typename Function>
       void for_each_connection(Function&& f) const;
@@ -869,6 +869,7 @@ namespace eosio {
 
       bool connected() const;
       bool current() const;
+      bool should_sync_from(uint32_t sync_next_expected_num) const;
 
       /// @param reconnect true if we should try and reconnect immediately after close
       /// @param shutdown true only if plugin is shutting down
@@ -1177,6 +1178,18 @@ namespace eosio {
 
    bool connection::current() const {
       return (connected() && !syncing);
+   }
+
+   bool connection::should_sync_from(uint32_t sync_next_expected_num) const {
+      if (!is_transactions_only_connection() && current()) {
+         if (no_retry == go_away_reason::no_reason) {
+            std::lock_guard g(conn_mtx);
+            if (last_handshake_recv.head_num >= sync_next_expected_num) {
+               return true;
+            }
+         }
+      }
+      return false;
    }
 
    void connection::flush_queues() {
@@ -1799,11 +1812,11 @@ namespace eosio {
       if (conn && conn->current() ) {
          new_sync_source = conn;
       } else {
-         new_sync_source = my_impl->connections.round_robin_next(new_sync_source, sync_known_lib_num);
+         new_sync_source = my_impl->connections.round_robin_next(new_sync_source, sync_next_expected_num);
       }
 
       // verify there is an available source
-      if( !new_sync_source || !new_sync_source->current() || new_sync_source->is_transactions_only_connection() ) {
+      if( !new_sync_source ) {
          fc_elog( logger, "Unable to continue syncing at this time");
          if( !new_sync_source ) sync_source.reset();
          sync_known_lib_num = chain_info.lib_num;
@@ -4030,7 +4043,7 @@ namespace eosio {
       connections.clear();
    }
 
-   connection_ptr connections_manager::round_robin_next( const connection_ptr& current, uint32_t sync_known_lib_num ) const {
+   connection_ptr connections_manager::round_robin_next( const connection_ptr& current, uint32_t sync_next_expected_num ) const {
       connection_ptr new_sync_source = current;
       std::shared_lock g( connections_mtx );
       if( connections.empty() ) {
@@ -4064,20 +4077,15 @@ namespace eosio {
          if( cptr != connections.end() ) {
             auto cstart_it = cptr;
             do {
-            // select the first one which is current and has lib above current and break out.
-            if( !(*cptr)->is_transactions_only_connection() && (*cptr)->current() ) {
-               std::lock_guard<std::mutex> g_conn( (*cptr)->conn_mtx );
-               // TODO: change to a better heuristic than lib >= sync_known_lib_num
-               if( (*cptr)->last_handshake_recv.last_irreversible_block_num >= sync_known_lib_num ) {
+               // select the first one which we should be able to sync from
+               if ((*cptr)->should_sync_from(sync_next_expected_num)) {
                   new_sync_source = *cptr;
                   break;
                }
-            }
-            if( ++cptr == connections.end() )
-               cptr = connections.begin();
+               if( ++cptr == connections.end() )
+                  cptr = connections.begin();
             } while( cptr != cstart_it );
          }
-
          // no need to check the result, either source advanced or the whole list was checked and the old source is reused.
       }
       return new_sync_source;
@@ -4180,17 +4188,19 @@ namespace eosio {
             ++num_peers;
          }
 
-         if( !(*it)->socket_is_open() && !(*it)->connecting) {
-            if( !(*it)->incoming() ) {
-            if( !(*it)->resolve_and_connect() ) {
-               it = connections.erase(it);
-               --num_peers; ++num_rm;
-               continue;
-            }
+         if (!(*it)->socket_is_open() && !(*it)->connecting) {
+            if (!(*it)->incoming()) {
+               if (!(*it)->resolve_and_connect()) {
+                  it = connections.erase(it);
+                  --num_peers;
+                  ++num_rm;
+                  continue;
+               }
             } else {
-            --num_clients; ++num_rm;
-            it = connections.erase(it);
-            continue;
+               --num_clients;
+               ++num_rm;
+               it = connections.erase(it);
+               continue;
             }
          }
          ++it;
