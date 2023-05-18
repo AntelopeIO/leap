@@ -73,6 +73,7 @@ namespace eosio {
       // It's a programming error when the control flow reaches this point, 
       // please make sure all the category names are returned from above statements.
       assert(false && "No correspding category name for the category value");
+      return "";
    }
 
    std::string category_plugin_name(api_category category) {
@@ -94,6 +95,7 @@ namespace eosio {
       // It's a programming error when the control flow reaches this point, 
       // please make sure all the plugin names are returned from above statements.
       assert(false && "No correspding plugin for the category value");
+      return {};
    }
 
    std::string category_names(api_category_set set) {
