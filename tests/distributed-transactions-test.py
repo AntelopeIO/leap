@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import random
+import signal
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
@@ -102,7 +103,11 @@ try:
 
     print("Funds spread validated")
 
-    print("NOTE: Skip killing nodes, block log verification will be limited")
+    if not args.leave_running:
+        for node in cluster.getAllNodes():
+            node.kill(signal.SIGTERM)
+    else:
+        print("NOTE: Skip killing nodes, block log verification will be limited")
 
     cluster.compareBlockLogs()
 
