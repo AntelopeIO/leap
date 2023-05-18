@@ -313,7 +313,7 @@ class Node(Transactions):
         logStatus=not silent and Utils.Debug
         pid=self.pid
         if logStatus: Utils.Print(f'Checking if node id {self.nodeId} (pid={self.pid}) is alive (killed={self.killed}): {self.cmd}')
-        if self.killed or self.pid is None:
+        if self.killed or self.pid is None or self.popenProc is None:
             self.killed=True
             self.pid=None
             return False
