@@ -275,7 +275,7 @@ class Node(Transactions):
             else:
                 os.kill(self.pid, killSignal)
 
-                 # wait for kill validation
+                # wait for kill validation
                 def myFunc():
                     try:
                         os.kill(self.pid, 0) #check if process with pid is running
