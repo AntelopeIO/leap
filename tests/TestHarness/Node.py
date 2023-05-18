@@ -23,6 +23,8 @@ from .testUtils import ReturnType
 
 # pylint: disable=too-many-public-methods
 class Node(Transactions):
+    # Node number is used as an addend to determine the node listen ports.
+    # This value extends that pattern to all nodes, not just the numbered nodes.
     biosNodeId = -100
 
     # pylint: disable=too-many-instance-attributes
