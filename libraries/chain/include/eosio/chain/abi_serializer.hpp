@@ -736,7 +736,7 @@ namespace impl {
        * and can be degraded to the normal ::from_variant(...) processing
        */
       template<typename M, typename Resolver, not_require_abi_t<M> = 1>
-      static void extract( const fc::variant& v, M& o, Resolver, abi_traverse_context& ctx )
+      static void extract( const fc::variant& v, M& o, const Resolver&, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          from_variant(v, o);
@@ -1084,13 +1084,18 @@ public:
    {
    }
 
+   // make it non-copiable (we should only move it for performance reasons)
+   caching_resolver(const caching_resolver&) = delete;
+   caching_resolver& operator=(const caching_resolver&) = delete;
+
    std::optional<std::reference_wrapper<const abi_serializer>> operator()(const account_name& account) const {
       auto it = abi_serializers.find(account);
       if (it != abi_serializers.end() && it->second)
          return *it->second;
       try {
+         auto serializer = resolver_(account);
          auto& dest = abi_serializers[account];
-         dest = resolver_(account);
+         dest = abi_serializer_cache_t::mapped_type{std::move(serializer)};
          return *dest;
       } catch( ... ) {
          throw; // throw if embedded resolver throws
