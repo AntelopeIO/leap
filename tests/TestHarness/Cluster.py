@@ -24,7 +24,6 @@ from .Node import Node
 from .WalletMgr import WalletMgr
 from .launch_transaction_generators import TransactionGeneratorsLauncher, TpsTrxGensConfig
 from .launcher import cluster_generator
-from . import accounts
 try:
     from .libc import unshare, CLONE_NEWNET
     from .interfaces import getInterfaceFlags, setInterfaceUp, IFF_LOOPBACK
