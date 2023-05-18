@@ -116,7 +116,7 @@ finally:
    cleanup()
 
 stderr_file = data_dir / 'stderr.txt'
-with open(stderr_file[0], "r") as f:
+with open(stderr_file, "r") as f:
     stderr_txt = f.read().rstrip()
 
 assert len(received_logs) > 10, "Not enough gelf logs are received"
