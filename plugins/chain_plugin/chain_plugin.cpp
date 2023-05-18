@@ -2034,9 +2034,9 @@ void read_write::push_block(read_write::push_block_params&& params, next_functio
 void read_write::push_transaction(const read_write::push_transaction_params& params, next_function<read_write::push_transaction_results> next) {
    try {
       auto pretty_input = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(db, abi_serializer_max_time, throw_on_yield::yes);
+      auto resolver = caching_resolver(make_resolver(db, abi_serializer_max_time, throw_on_yield::yes));
       try {
-         abi_serializer::from_variant(params, *pretty_input, std::move( resolver ), abi_serializer::create_yield_function( abi_serializer_max_time ));
+         abi_serializer::from_variant(params, *pretty_input, resolver, abi_serializer_max_time);
       } EOS_RETHROW_EXCEPTIONS(chain::packed_transaction_type_exception, "Invalid packed transaction")
 
       app().get_method<incoming::methods::transaction_async>()(pretty_input, true, transaction_metadata::trx_type::input, false,
@@ -2158,7 +2158,7 @@ void api_base::send_transaction_gen(API &api, send_transaction_params_t params, 
       auto ptrx = std::make_shared<packed_transaction>();
       auto resolver = make_resolver(api.db, api.abi_serializer_max_time, throw_on_yield::yes);
       try {
-         abi_serializer::from_variant(params.transaction, *ptrx, resolver, abi_serializer::create_yield_function( api.abi_serializer_max_time ));
+         abi_serializer::from_variant(params.transaction, *ptrx, resolver, api.abi_serializer_max_time);
       } EOS_RETHROW_EXCEPTIONS(packed_transaction_type_exception, "Invalid packed transaction")
 
       bool retry = false;
@@ -2503,7 +2503,7 @@ read_only::get_required_keys_result read_only::get_required_keys( const get_requ
    transaction pretty_input;
    auto resolver = make_resolver(db, abi_serializer_max_time, throw_on_yield::yes);
    try {
-      abi_serializer::from_variant(params.transaction, pretty_input, resolver, abi_serializer::create_yield_function( abi_serializer_max_time ));
+      abi_serializer::from_variant(params.transaction, pretty_input, resolver, abi_serializer_max_time);
    } EOS_RETHROW_EXCEPTIONS(chain::transaction_type_exception, "Invalid transaction")
 
    auto required_keys_set = db.get_authorization_manager().get_required_keys( pretty_input, params.available_keys, fc::seconds( pretty_input.delay_sec ));

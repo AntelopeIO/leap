@@ -70,7 +70,7 @@ namespace eosio {
    }
 
    template<class T>
-   inline abi_resolver get_serializers_cache( const controller& db, const T& obj, const fc::microseconds& max_time ) {
+   inline abi_resolver get_serializers_cache(const controller& db, const T& obj, const fc::microseconds& max_time) {
       return abi_resolver(abi_serializer_cache_builder(make_resolver(db, max_time, throw_on_yield::no)).add_serializers(obj).get());
    }
 
