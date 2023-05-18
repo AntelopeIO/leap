@@ -2156,7 +2156,7 @@ template<class API, class Result>
 void api_base::send_transaction_gen(API &api, send_transaction_params_t params, next_function<Result> next) {
    try {
       auto ptrx = std::make_shared<packed_transaction>();
-      auto resolver = make_resolver(api.db, api.abi_serializer_max_time, throw_on_yield::yes);
+      auto resolver = caching_resolver(make_resolver(api.db, api.abi_serializer_max_time, throw_on_yield::yes));
       try {
          abi_serializer::from_variant(params.transaction, *ptrx, resolver, api.abi_serializer_max_time);
       } EOS_RETHROW_EXCEPTIONS(packed_transaction_type_exception, "Invalid packed transaction")
@@ -2501,7 +2501,7 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
 
 read_only::get_required_keys_result read_only::get_required_keys( const get_required_keys_params& params, const fc::time_point& )const {
    transaction pretty_input;
-   auto resolver = make_resolver(db, abi_serializer_max_time, throw_on_yield::yes);
+   auto resolver = caching_resolver(make_resolver(db, abi_serializer_max_time, throw_on_yield::yes));
    try {
       abi_serializer::from_variant(params.transaction, pretty_input, resolver, abi_serializer_max_time);
    } EOS_RETHROW_EXCEPTIONS(chain::transaction_type_exception, "Invalid transaction")
@@ -2597,7 +2597,7 @@ fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_tra
     fc::variant pretty_output;
     try {
         abi_serializer::to_log_variant(trx_trace, pretty_output,
-                                       make_resolver(chain(), get_abi_serializer_max_time(), throw_on_yield::no),
+                                       caching_resolver(make_resolver(chain(), get_abi_serializer_max_time(), throw_on_yield::no)),
                                        get_abi_serializer_max_time());
     } catch (...) {
         pretty_output = trx_trace;
@@ -2609,7 +2609,7 @@ fc::variant chain_plugin::get_log_trx(const transaction& trx) const {
     fc::variant pretty_output;
     try {
         abi_serializer::to_log_variant(trx, pretty_output,
-                                       make_resolver(chain(), get_abi_serializer_max_time(), throw_on_yield::no),
+                                       caching_resolver(make_resolver(chain(), get_abi_serializer_max_time(), throw_on_yield::no)),
                                        get_abi_serializer_max_time());
     } catch (...) {
         pretty_output = trx;
