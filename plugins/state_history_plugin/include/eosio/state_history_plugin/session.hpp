@@ -315,7 +315,7 @@ public:
    }
 
    void start() {
-      fc_ilog(plugin->logger(), "incoming connection from ${a}", ("a", description));
+      fc_ilog(plugin->get_logger(), "incoming connection from ${a}", ("a", description));
       socket_stream->auto_fragment(false);
       socket_stream->binary(true);
       if constexpr (std::is_same_v<SocketType, boost::asio::ip::tcp::socket>) {
@@ -395,7 +395,7 @@ private:
    }
 
    void process(state_history::get_status_request_v0&) {
-      fc_dlog(plugin->logger(), "received get_status_request_v0");
+      fc_dlog(plugin->get_logger(), "received get_status_request_v0");
 
       auto self = this->shared_from_this();
       auto entry_ptr = std::make_unique<status_result_send_queue_entry<session>>(self);
@@ -403,7 +403,7 @@ private:
    }
 
    void process(state_history::get_blocks_request_v0& req) {
-      fc_dlog(plugin->logger(), "received get_blocks_request_v0 = ${req}", ("req", req));
+      fc_dlog(plugin->get_logger(), "received get_blocks_request_v0 = ${req}", ("req", req));
 
       auto self = this->shared_from_this();
       auto entry_ptr = std::make_unique<blocks_request_send_queue_entry<session>>(self, std::move(req));
@@ -411,9 +411,9 @@ private:
    }
 
    void process(state_history::get_blocks_ack_request_v0& req) {
-      fc_dlog(plugin->logger(), "received get_blocks_ack_request_v0 = ${req}", ("req", req));
+      fc_dlog(plugin->get_logger(), "received get_blocks_ack_request_v0 = ${req}", ("req", req));
       if (!current_request) {
-         fc_dlog(plugin->logger(), " no current get_blocks_request_v0, discarding the get_blocks_ack_request_v0");
+         fc_dlog(plugin->get_logger(), " no current get_blocks_request_v0, discarding the get_blocks_ack_request_v0");
          return;
       }
 
@@ -423,7 +423,7 @@ private:
    }
 
    state_history::get_status_result_v0 get_status_result() {
-      fc_dlog(plugin->logger(), "replying get_status_request_v0");
+      fc_dlog(plugin->get_logger(), "replying get_status_request_v0");
       state_history::get_status_result_v0 result;
       result.head              = plugin->get_block_head();
       result.last_irreversible = plugin->get_last_irreversible();
@@ -440,13 +440,13 @@ private:
          result.chain_state_begin_block = r.first;
          result.chain_state_end_block   = r.second;
       }
-      fc_dlog(plugin->logger(), "pushing get_status_result_v0 to send queue");
+      fc_dlog(plugin->get_logger(), "pushing get_status_result_v0 to send queue");
 
       return result;
    }
 
    void update_current_request(state_history::get_blocks_request_v0& req) {
-      fc_dlog(plugin->logger(), "replying get_blocks_request_v0 = ${req}", ("req", req));
+      fc_dlog(plugin->get_logger(), "replying get_blocks_request_v0 = ${req}", ("req", req));
       to_send_block_num = req.start_block_num;
       for (auto& cp : req.have_positions) {
          if (req.start_block_num <= cp.block_num)
@@ -457,14 +457,14 @@ private:
 
          if (!id) {
             to_send_block_num = std::min(to_send_block_num, cp.block_num);
-            fc_dlog(plugin->logger(), "block ${block_num} is not available", ("block_num", cp.block_num));
+            fc_dlog(plugin->get_logger(), "block ${block_num} is not available", ("block_num", cp.block_num));
          } else if (*id != cp.block_id) {
             to_send_block_num = std::min(to_send_block_num, cp.block_num);
-            fc_dlog(plugin->logger(), "the id for block ${block_num} in block request have_positions does not match the existing",
+            fc_dlog(plugin->get_logger(), "the id for block ${block_num} in block request have_positions does not match the existing",
                     ("block_num", cp.block_num));
          }
       }
-      fc_dlog(plugin->logger(), "  get_blocks_request_v0 start_block_num set to ${num}", ("num", to_send_block_num));
+      fc_dlog(plugin->get_logger(), "  get_blocks_request_v0 start_block_num set to ${num}", ("num", to_send_block_num));
 
       if( !req.have_positions.empty() ) {
          position_it = req.have_positions.begin();
@@ -485,7 +485,7 @@ private:
             current_request->irreversible_only ? result.last_irreversible.block_num : result.head.block_num;
 
       if (to_send_block_num > current || to_send_block_num >= current_request->end_block_num) {
-         fc_dlog( plugin->logger(), "Not sending, to_send_block_num: ${s}, current: ${c} current_request.end_block_num: ${b}",
+         fc_dlog( plugin->get_logger(), "Not sending, to_send_block_num: ${s}, current: ${c} current_request.end_block_num: ${b}",
                   ("s", to_send_block_num)("c", current)("b", current_request->end_block_num) );
          session_mgr.pop_entry(false);
          return;
@@ -527,7 +527,7 @@ private:
       // during syncing if block is older than 5 min, log every 1000th block
       bool fresh_block = fc::time_point::now() - plugin->get_head_block_timestamp() < fc::minutes(5);
       if (fresh_block || (result.this_block && result.this_block->block_num % 1000 == 0)) {
-         fc_ilog(plugin->logger(),
+         fc_ilog(plugin->get_logger(),
                  "pushing result "
                  "{\"head\":{\"block_num\":${head}},\"last_irreversible\":{\"block_num\":${last_irr}},\"this_block\":{"
                  "\"block_num\":${this_block}}} to send queue",
@@ -571,26 +571,26 @@ private:
             f();
             return;
          } catch( const fc::exception& e ) {
-            fc_elog( plugin->logger(), "${e}", ("e", e.to_detail_string()) );
+            fc_elog( plugin->get_logger(), "${e}", ("e", e.to_detail_string()) );
          } catch( const std::exception& e ) {
-            fc_elog( plugin->logger(), "${e}", ("e", e.what()) );
+            fc_elog( plugin->get_logger(), "${e}", ("e", e.what()) );
          } catch( ... ) {
-            fc_elog( plugin->logger(), "unknown exception" );
+            fc_elog( plugin->get_logger(), "unknown exception" );
          }
       } else {
          if (ec == boost::asio::error::operation_aborted ||
              ec == boost::asio::error::connection_reset ||
              ec == boost::asio::error::eof ||
              ec == boost::beast::websocket::error::closed) {
-            fc_dlog(plugin->logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
+            fc_dlog(plugin->get_logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
          } else {
-            fc_elog(plugin->logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
+            fc_elog(plugin->get_logger(), "${w}: ${m}", ("w", what)("m", ec.message()));
          }
       }
 
       // on exception allow session to be destroyed
 
-      fc_ilog(plugin->logger(), "Closing connection from ${a}", ("a", description));
+      fc_ilog(plugin->get_logger(), "Closing connection from ${a}", ("a", description));
       session_mgr.remove( this->shared_from_this(), active_entry );
    }
 };

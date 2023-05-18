@@ -33,6 +33,8 @@
 #include <set>
 #include <string>
 
+#include <fc/network/listener.hpp>
+
 namespace eosio {
 static uint16_t const uri_default_port = 80;
 /// Default port for wss://
@@ -135,6 +137,8 @@ struct http_plugin_state {
    fc::logger& logger;
    std::function<void(http_plugin::metrics)> update_metrics;
 
+   fc::logger& get_logger() { return logger; }
+
    explicit http_plugin_state(fc::logger& log)
        : logger(log) {}
 
@@ -148,8 +152,8 @@ struct http_plugin_state {
 * @param session_ptr - beast_http_session object on which to invoke send_response
 * @return lambda suitable for url_response_callback
 */
-inline auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state, detail::abstract_conn_ptr session_ptr, http_content_type content_type) {
-   return [plugin_state{std::move(plugin_state)},
+inline auto make_http_response_handler(http_plugin_state* plugin_state, detail::abstract_conn_ptr session_ptr, http_content_type content_type) {
+   return [plugin_state = plugin_state,
            session_ptr{std::move(session_ptr)}, content_type](int code, std::optional<fc::variant> response) {
       auto payload_size = detail::in_flight_sizeof(response);
       if(auto error_str = session_ptr->verify_max_bytes_in_flight(payload_size); !error_str.empty()) {
@@ -181,17 +185,6 @@ inline auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin
 
 }
 
-inline std::pair<std::string, std::string> split_host_port(std::string_view endpoint) {
-   std::string::size_type colon_pos = endpoint.rfind(':');
-   if(colon_pos != std::string::npos) {
-      auto port = endpoint.substr(colon_pos + 1);
-      auto hostname = (endpoint[0] == '[' && colon_pos >= 2)  ? endpoint.substr( 1, colon_pos-2 ) : endpoint.substr( 0, colon_pos );
-      return {std::string(hostname), std::string(port)};
-   } else {
-      return {std::string(endpoint), {}};
-   }
-}
-
 inline bool host_is_valid(const http_plugin_state& plugin_state,
                    const std::string& header_host_port,
                    const asio::ip::address& addr) {
@@ -199,7 +192,7 @@ inline bool host_is_valid(const http_plugin_state& plugin_state,
       return true;
    }
 
-   auto [hostname, port] = split_host_port(header_host_port);
+   auto [hostname, port] = fc::split_host_port(header_host_port);
    boost::system::error_code ec;
    auto                      header_addr = boost::asio::ip::make_address(hostname, ec);
    if (ec)

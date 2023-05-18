@@ -118,7 +118,7 @@ struct mock_state_history_plugin {
       log.emplace("ship", log_dir.path(), conf);
    }
 
-   fc::logger logger() { return fc::logger::get(DEFAULT_LOGGER); }
+   fc::logger get_logger() { return fc::logger::get(DEFAULT_LOGGER); }
 
    void get_block(uint32_t block_num, const eosio::chain::block_state_ptr& block_state,
                   std::optional<eosio::chain::bytes>& result) const {
@@ -664,4 +664,3 @@ BOOST_FIXTURE_TEST_CASE(test_session_fork, state_history_test_fixture) {
    }
    FC_LOG_AND_RETHROW()
 }
-
