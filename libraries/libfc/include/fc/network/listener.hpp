@@ -37,6 +37,7 @@ inline std::pair<std::string, std::string> split_host_port(std::string_view endp
 /// fc::listener is template class to simplify the code for accepting new socket connections. 
 /// It can be used for both tcp or Unix socket connection.
 ///
+/// Example Usage:
 /// \code{.cpp}
 /// 
 /// class shared_state_type;
@@ -83,6 +84,7 @@ inline std::pair<std::string, std::string> split_host_port(std::string_view endp
 ///    shared_state_type shared_state{...};
 ///
 ///    // usage for accepting tcp connection
+///    // notice that it only throws std::system_error, not fc::exception
 ///    example_listener<boost::asio::ip::tcp>::create(executor, logger, "localhost:8080", std::ref(shared_state));
 ///
 ///    // usage for accepting unix socket connection
@@ -154,9 +156,14 @@ struct listener : std::enable_shared_from_this<T> {
          info = "Unix socket " + local_address;
       }
       info += static_cast<T*>(this)->extra_listening_log_info();
-      fc_ilog(logger_, "start listening on ${ep}", ("info", info));
+      fc_ilog(logger_, "start listening on ${info}", ("info", info));
    }
 
+
+   /// @brief Create listeners to listen on endpoints resolved from address
+   /// @param ...args  The arguments to forward to the listener constructor so that they can be accessed
+   ///                 from create_session() to construct the customized session objects.
+   /// @throws std::system_error
    template <typename... Args>
    static void create(boost::asio::io_context& executor, logger& logger, const std::string& address,
                       Args&&... args) {
