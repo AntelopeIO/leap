@@ -31,7 +31,6 @@ walletMgr=WalletMgr(True)
 
 try:
     TestHelper.printSystemInfo("BEGIN")
-    cluster.setWalletMgr(walletMgr)
 
     cluster.setWalletMgr(walletMgr)
 
