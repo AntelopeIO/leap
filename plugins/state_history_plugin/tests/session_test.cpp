@@ -182,6 +182,7 @@ struct test_server : mock_state_history_plugin {
       stopping = true;
       ship_ioc_work.reset();
       main_ioc_work.reset();
+      ship_ioc.stop();
 
       for (auto& thr : threads) {
          thr.join();
