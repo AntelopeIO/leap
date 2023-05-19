@@ -234,8 +234,8 @@ struct ship_listener : fc::listener<ship_listener<Protocol>, Protocol> {
 
    ship_listener(boost::asio::io_context& executor, logger& logger, const std::string& local_address,
                  const typename Protocol::endpoint& endpoint, state_history_plugin_impl& state)
-       : fc::listener<ship_listener<Protocol>, Protocol>(executor, logger,
-                                                         boost::posix_time::milliseconds(accept_timeout_ms), endpoint)
+       : fc::listener<ship_listener<Protocol>, Protocol>(
+             executor, logger, boost::posix_time::milliseconds(accept_timeout_ms), local_address, endpoint)
        , state_(state) {}
 
    void create_session(socket_type&& socket) {

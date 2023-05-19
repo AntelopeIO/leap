@@ -150,10 +150,10 @@ struct listener : fc::listener<listener, tcp> {
 
    listener(boost::asio::io_context& executor, fc::logger& logger, const std::string& local_address,
             tcp::endpoint& endpoint, mock_state_history_plugin& server)
-       : fc::listener<listener, tcp>(executor, logger, boost::posix_time::milliseconds(100), endpoint)
+       : fc::listener<listener, tcp>(executor, logger, boost::posix_time::milliseconds(100), local_address, endpoint)
        , server_(server) {
-         endpoint = acceptor_.local_endpoint();
-       }
+      endpoint = acceptor_.local_endpoint();
+   }
 
    void create_session(tcp::socket&& peer_socket) {
       auto s = std::make_shared<session_type>(server_, std::move(peer_socket), server_.session_mgr);

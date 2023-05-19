@@ -117,7 +117,6 @@ namespace eosio {
       using socket_type = typename Protocol::socket;
 
       static constexpr uint32_t accept_timeout_ms = 500;
-      std::string               local_address_;
       http_plugin_state&        state_;
       api_category_set          categories_ = {};
 
@@ -125,8 +124,8 @@ namespace eosio {
                           const typename Protocol::endpoint& endpoint, http_plugin_state& plugin_state,
                           api_category_set categories)
           : fc::listener<beast_http_listener<Protocol>, Protocol>(
-                  executor, logger, boost::posix_time::milliseconds(accept_timeout_ms), endpoint),
-            local_address_(local_address), state_(plugin_state), categories_(categories) {}
+                  executor, logger, boost::posix_time::milliseconds(accept_timeout_ms), local_address, endpoint),
+            state_(plugin_state), categories_(categories) {}
 
       std::string extra_listening_log_info() { return " for API categories: " + category_names(categories_); }
 
@@ -135,7 +134,7 @@ namespace eosio {
          auto                      re              = socket.remote_endpoint(re_ec);
          std::string               remote_endpoint = re_ec ? "unknown" : boost::lexical_cast<std::string>(re);
          std::make_shared<beast_http_session<socket_type>>(std::move(socket), this->state_, std::move(remote_endpoint),
-                                                           categories_, local_address_)
+                                                           categories_, this->local_address_)
                ->run_session();
       }
    };

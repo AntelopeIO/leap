@@ -1016,7 +1016,7 @@ namespace eosio {
       string port = peer_add.substr( colon + 1, colon2 == string::npos ? string::npos : colon2 - (colon + 1));
       string type = colon2 == string::npos ? "" : end == string::npos ?
          peer_add.substr( colon2 + 1 ) : peer_add.substr( colon2 + 1, end - (colon2 + 1) );
-      return {host, port, type};
+      return {std::move(host), std::move(port), std::move(type)};
    }
 
 
@@ -2497,7 +2497,7 @@ namespace eosio {
       p2p_listener(boost::asio::io_context& executor, fc::logger& logger, const std::string& local_address,
                    const tcp::endpoint& endpoint, eosio::net_plugin_impl* impl)
           : fc::listener<p2p_listener, tcp>(executor, logger, boost::posix_time::milliseconds(accept_timeout_ms),
-                                            endpoint),
+                                            local_address, endpoint),
             state_(impl) {}
 
       std::string extra_listening_log_info() {

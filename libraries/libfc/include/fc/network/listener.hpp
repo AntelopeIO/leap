@@ -34,14 +34,14 @@ inline std::pair<std::string, std::string> split_host_port(std::string_view endp
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 ///
-/// fc::listener is template class to simplify the code for accepting new socket connections. 
+/// fc::listener is template class to simplify the code for accepting new socket connections.
 /// It can be used for both tcp or Unix socket connection.
 ///
 /// Example Usage:
 /// \code{.cpp}
-/// 
+///
 /// class shared_state_type;
-/// 
+///
 /// template <typename Protocol>
 /// struct example_session : std::enable_shared_from_this<example_session<Protocol>> {
 ///    using socket_type = Protocol::socket;
@@ -49,7 +49,7 @@ inline std::pair<std::string, std::string> split_host_port(std::string_view endp
 ///    shared_state_type& shared_state_;
 ///    example_session(socket_type&& socket, shared_state_type& shared_state)
 ///      : socket_(std::move(socket)), shared_state_(shared_state_) {}
-///   
+///
 ///    // ...
 ///    void start();
 /// };
@@ -60,18 +60,18 @@ inline std::pair<std::string, std::string> split_host_port(std::string_view endp
 ///    shared_state_type& shared_state_;
 ///
 ///    example_listener(boost::asio::io_context& executor,
-///                     logger& logger, 
-///                     const std::string& local_address,  
+///                     logger& logger,
+///                     const std::string& local_address,
 ///                     const typename Protocol::endpoint& endpoint,
-///                     shared_state_type& shared_state) 
+///                     shared_state_type& shared_state)
 ///    : fc::listener<example_listener<Protocol>, Protocol>
-///        (executor, logger, boost::posix_time::milliseconds(accept_timeout_ms), endpoint)
+///        (executor, logger, boost::posix_time::milliseconds(accept_timeout_ms), local_address, endpoint)
 ///    , shared_state_(shared_state) {}
 ///
 ///    std::string extra_listening_log_info() {
 ///       return shared_state_.info_to_be_printed_after_address_is_resolved_and_listening;
 ///    }
-///    
+///
 ///    void create_session(Protocol::socket&& sock) {
 ///        auto session = std::make_shared<example_session>(std::move(sock), shared_state_);
 ///        session->start();
@@ -88,7 +88,8 @@ inline std::pair<std::string, std::string> split_host_port(std::string_view endp
 ///    example_listener<boost::asio::ip::tcp>::create(executor, logger, "localhost:8080", std::ref(shared_state));
 ///
 ///    // usage for accepting unix socket connection
-///    example_listener<boost::asio::local::stream_protocol>::create(executor, logger, "tmp.sock", std::ref(shared_state));
+///    example_listener<boost::asio::local::stream_protocol>::create(executor, logger, "tmp.sock",
+///    std::ref(shared_state));
 ///
 ///    ioc.run();
 ///    return 0;
@@ -101,20 +102,29 @@ template <typename T, typename Protocol>
 struct listener : std::enable_shared_from_this<T> {
    using endpoint_type = typename Protocol::endpoint;
 
-   typename Protocol::acceptor acceptor_;
-   boost::asio::deadline_timer accept_error_timer_;
+   typename Protocol::acceptor      acceptor_;
+   boost::asio::deadline_timer      accept_error_timer_;
    boost::posix_time::time_duration accept_timeout_;
-   logger&                     logger_;
+   logger&                          logger_;
+   std::string                      local_address_;
 
    listener(boost::asio::io_context& executor, logger& logger, boost::posix_time::time_duration accept_timeout,
-            const endpoint_type& endpoint)
-       : acceptor_(executor, endpoint), accept_error_timer_(executor), accept_timeout_(accept_timeout),
-         logger_(logger) {}
+            const std::string& local_address, const endpoint_type& endpoint)
+       : acceptor_(executor, endpoint), accept_error_timer_(executor), accept_timeout_(accept_timeout), logger_(logger),
+         local_address_(std::is_same_v<Protocol, boost::asio::ip::tcp>
+                              ? local_address
+                              : std::filesystem::absolute(local_address).string()) {}
+
+   ~listener() {
+      if constexpr (std::is_same_v<Protocol, boost::asio::local::stream_protocol>) {
+         std::filesystem::remove(local_address_);
+      }
+   }
 
    void do_accept() {
       acceptor_.async_accept([self = this->shared_from_this()](boost::system::error_code ec, auto&& peer_socket) {
-                                self->on_accept(ec, std::forward<decltype(peer_socket)>(peer_socket));
-                             });
+         self->on_accept(ec, std::forward<decltype(peer_socket)>(peer_socket));
+      });
    }
 
    template <typename Socket>
@@ -124,7 +134,8 @@ struct listener : std::enable_shared_from_this<T> {
          do_accept();
       } else if (ec == boost::system::errc::too_many_files_open) {
          // retry accept() after timeout to avoid cpu loop on accept
-         fc_elog(logger_, "open file limit reached: not accepting new connections for next ${timeout}ms", ("timeout", accept_timeout_.total_milliseconds()));
+         fc_elog(logger_, "open file limit reached: not accepting new connections for next ${timeout}ms",
+                 ("timeout", accept_timeout_.total_milliseconds()));
          accept_error_timer_.expires_from_now(accept_timeout_);
          accept_error_timer_.async_wait([self = this->shared_from_this()](boost::system::error_code ec) {
             if (!ec)
@@ -159,14 +170,12 @@ struct listener : std::enable_shared_from_this<T> {
       fc_ilog(logger_, "start listening on ${info}", ("info", info));
    }
 
-
    /// @brief Create listeners to listen on endpoints resolved from address
    /// @param ...args  The arguments to forward to the listener constructor so that they can be accessed
    ///                 from create_session() to construct the customized session objects.
    /// @throws std::system_error
    template <typename... Args>
-   static void create(boost::asio::io_context& executor, logger& logger, const std::string& address,
-                      Args&&... args) {
+   static void create(boost::asio::io_context& executor, logger& logger, const std::string& address, Args&&... args) {
       using tcp = boost::asio::ip::tcp;
       if constexpr (std::is_same_v<Protocol, tcp>) {
          auto [host, port] = split_host_port(address);
