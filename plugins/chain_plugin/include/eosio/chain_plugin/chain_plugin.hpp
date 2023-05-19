@@ -45,6 +45,7 @@ namespace eosio {
    using chain::action_name;
    using chain::abi_def;
    using chain::abi_serializer;
+   using chain::abi_serializer_cache_builder;
    using chain::abi_resolver;
    using chain::packed_transaction;
 
@@ -66,6 +67,11 @@ namespace eosio {
          }
          return {};
       };
+   }
+
+   template<class T>
+   inline abi_resolver get_serializers_cache(const controller& db, const T& obj, const fc::microseconds& max_time) {
+      return abi_resolver(abi_serializer_cache_builder(make_resolver(db, max_time, throw_on_yield::no)).add_serializers(obj).get());
    }
 
 namespace chain_apis {

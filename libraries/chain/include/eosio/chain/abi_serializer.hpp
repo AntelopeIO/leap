@@ -736,7 +736,7 @@ namespace impl {
        * and can be degraded to the normal ::from_variant(...) processing
        */
       template<typename M, typename Resolver, not_require_abi_t<M> = 1>
-      static void extract( const fc::variant& v, M& o, Resolver, abi_traverse_context& ctx )
+      static void extract( const fc::variant& v, M& o, const Resolver&, abi_traverse_context& ctx )
       {
          auto h = ctx.enter_scope();
          from_variant(v, o);
@@ -825,13 +825,14 @@ namespace impl {
                from_variant(data, act.data);
                valid_empty_data = act.data.empty();
             } else if ( data.is_object() ) {
-               auto abi = resolver(act.account);
-               if (abi) {
-                  auto type = abi->get_action_type(act.name);
+               auto abi_optional = resolver(act.account);
+               if (abi_optional) {
+                  const abi_serializer& abi = *abi_optional;
+                  auto type = abi.get_action_type(act.name);
                   if (!type.empty()) {
-                     variant_to_binary_context _ctx(*abi, ctx, type);
+                     variant_to_binary_context _ctx(abi, ctx, type);
                      _ctx.short_path = true; // Just to be safe while avoiding the complexity of threading an override boolean all over the place
-                     act.data = std::move( abi->_variant_to_binary( type, data, _ctx ));
+                     act.data = abi._variant_to_binary( type, data, _ctx );
                      valid_empty_data = act.data.empty();
                   }
                }
@@ -1002,6 +1003,7 @@ void abi_serializer::from_variant( const fc::variant& v, T& o, const Resolver& r
 } FC_RETHROW_EXCEPTIONS(error, "Failed to deserialize variant", ("variant",v))
 
 using abi_serializer_cache_t = std::unordered_map<account_name, std::optional<abi_serializer>>;
+using resolver_fn_t = std::function<std::optional<abi_serializer>(const account_name& name)>;
    
 class abi_resolver {
 public:
@@ -1022,7 +1024,7 @@ private:
 
 class abi_serializer_cache_builder {
 public:
-   explicit abi_serializer_cache_builder(std::function<std::optional<abi_serializer>(const account_name& name)> resolver) :
+   explicit abi_serializer_cache_builder(resolver_fn_t resolver) :
       resolver_(std::move(resolver))
    {
    }
@@ -1066,8 +1068,47 @@ private:
       }
    }
 
-   std::function<std::optional<abi_serializer>(const account_name& name)> resolver_;
+   resolver_fn_t resolver_;
    abi_serializer_cache_t abi_serializers;
 };
+
+/*
+ * This is equivalent to a resolver, except that everytime the abi_serializer for an account 
+ * is retrieved, it is stored in an unordered_map, so we won't waste time retrieving it again.
+ * This is handy when parsing packed_transactions received in a fc::variant.
+ */
+class caching_resolver {
+public:
+   explicit caching_resolver(resolver_fn_t resolver) :
+      resolver_(std::move(resolver))
+   {
+   }
+
+   // make it non-copiable (we should only move it for performance reasons)
+   caching_resolver(const caching_resolver&) = delete;
+   caching_resolver& operator=(const caching_resolver&) = delete;
+
+   std::optional<std::reference_wrapper<const abi_serializer>> operator()(const account_name& account) const {
+      auto it = abi_serializers.find(account);
+      if (it != abi_serializers.end()) {
+         if (it->second)
+            return *it->second;
+         return {};
+      }
+      auto serializer = resolver_(account);
+      auto& dest = abi_serializers[account]; // add entry regardless
+      if (serializer) {
+         // we got a serializer, so move it into the cache
+         dest = abi_serializer_cache_t::mapped_type{std::move(*serializer)};
+         return *dest; // and return a reference to it
+      }
+      return {}; 
+   };
+
+private:
+   const resolver_fn_t resolver_;
+   mutable abi_serializer_cache_t abi_serializers;
+};
+      
 
 } // eosio::chain
