@@ -247,7 +247,6 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests/TestHarness DESTINATION ${CM
         PATTERN "*.json"
         PATTERN "__pycache__" EXCLUDE
         PATTERN "CMakeFiles" EXCLUDE)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tests/launcher.py DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/tests COMPONENT dev EXCLUDE_FROM_ALL)
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
    # Cmake versions < 3.21 did not support installing symbolic links to a directory via install(FILES ...)
