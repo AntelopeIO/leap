@@ -114,7 +114,6 @@ class Cluster(object):
         self.nodeosVers=nodeosVers
         self.nodeosLogPath=Path(Utils.TestLogRoot) / Path(f'{Path(sys.argv[0]).stem}{os.getpid()}')
 
-        self.launcherPath = Path(__file__).resolve().parents[1] / "launcher.py"
         self.libTestingContractsPath = Path(__file__).resolve().parents[2] / "libraries" / "testing" / "contracts"
         self.unittestsContractsPath = Path(__file__).resolve().parents[2] / "unittests" / "contracts"
 
@@ -243,17 +242,17 @@ class Cluster(object):
             tries = tries - 1
             time.sleep(2)
         loggingLevelDictString = json.dumps(self.loggingLevelDict, separators=(',', ':'))
-        cmd=(f'{sys.executable} {str(self.launcherPath)} -p {pnodes} -n {totalNodes} -d {delay} '
-             f'-i {datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]} -f {producerFlag} '
-             f'--unstarted-nodes {unstartedNodes} --logging-level {self.loggingLevel} '
-             f'--logging-level-map {loggingLevelDictString}')
-        cmdArr=cmd.split()
-        cmdArr.append("--config-dir")
-        cmdArr.append(str(nodeosLogPath))
-        cmdArr.append("--data-dir")
-        cmdArr.append(str(nodeosLogPath))
+        args=(f'-p {pnodes} -n {totalNodes} -d {delay} '
+              f'-i {datetime.datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%f")[:-3]} -f {producerFlag} '
+              f'--unstarted-nodes {unstartedNodes} --logging-level {self.loggingLevel} '
+              f'--logging-level-map {loggingLevelDictString}')
+        argsArr=args.split()
+        argsArr.append("--config-dir")
+        argsArr.append(str(nodeosLogPath))
+        argsArr.append("--data-dir")
+        argsArr.append(str(nodeosLogPath))
         if self.staging:
-            cmdArr.append("--nogen")
+            argsArr.append("--nogen")
         nodeosArgs=""
         if "--max-transaction-time" not in extraNodeosArgs:
             nodeosArgs += " --max-transaction-time -1"
@@ -279,24 +278,24 @@ class Cluster(object):
                 assert(isinstance(arg, str))
                 if not len(arg):
                     continue
-                cmdArr.append("--specific-num")
-                cmdArr.append(str(nodeNum))
-                cmdArr.append("--specific-nodeos")
+                argsArr.append("--specific-num")
+                argsArr.append(str(nodeNum))
+                argsArr.append("--specific-nodeos")
                 if arg.find("--http-max-response-time-ms") != -1:
                     httpMaxResponseTimeSet = True
                 if arg[0] != "'" and arg[-1] != "'":
-                    cmdArr.append("'" + arg + "'")
+                    argsArr.append("'" + arg + "'")
                 else:
-                    cmdArr.append(arg)
+                    argsArr.append(arg)
         if specificNodeosInstances is not None:
             assert(isinstance(specificNodeosInstances, dict))
             for nodeNum,arg in specificNodeosInstances.items():
                 assert(isinstance(nodeNum, (str,int)))
                 assert(isinstance(arg, str))
-                cmdArr.append("--spcfc-inst-num")
-                cmdArr.append(str(nodeNum))
-                cmdArr.append("--spcfc-inst-nodeos")
-                cmdArr.append(arg)
+                argsArr.append("--spcfc-inst-num")
+                argsArr.append(str(nodeNum))
+                argsArr.append("--spcfc-inst-nodeos")
+                argsArr.append(arg)
 
         if not httpMaxResponseTimeSet and extraNodeosArgs.find("--http-max-response-time-ms") == -1:
             extraNodeosArgs+=" --http-max-response-time-ms 990000 "
@@ -306,17 +305,17 @@ class Cluster(object):
             nodeosArgs += extraNodeosArgs
 
         if nodeosArgs:
-            cmdArr.append("--nodeos")
-            cmdArr.append(nodeosArgs)
+            argsArr.append("--nodeos")
+            argsArr.append(nodeosArgs)
 
         if genesisPath is None:
-            cmdArr.append("--max-block-cpu-usage")
-            cmdArr.append(str(500000))
-            cmdArr.append("--max-transaction-cpu-usage")
-            cmdArr.append(str(475000))
+            argsArr.append("--max-block-cpu-usage")
+            argsArr.append(str(500000))
+            argsArr.append("--max-transaction-cpu-usage")
+            argsArr.append(str(475000))
         else:
-            cmdArr.append("--genesis")
-            cmdArr.append(str(genesisPath))
+            argsArr.append("--genesis")
+            argsArr.append(str(genesisPath))
 
         if associatedNodeLabels is not None:
             for nodeNum,label in associatedNodeLabels.items():
@@ -325,26 +324,25 @@ class Cluster(object):
                 path=self.alternateVersionLabels.get(label)
                 if path is None:
                     Utils.errorExit("associatedNodeLabels passed in indicates label %s for node num %s, but it was not identified in %s" % (label, nodeNum, alternateVersionLabelsFile))
-                cmdArr.append("--spcfc-inst-num")
-                cmdArr.append(str(nodeNum))
-                cmdArr.append("--spcfc-inst-nodeos")
-                cmdArr.append(path)
+                argsArr.append("--spcfc-inst-num")
+                argsArr.append(str(nodeNum))
+                argsArr.append("--spcfc-inst-nodeos")
+                argsArr.append(path)
 
         # must be last cmdArr.append before subprocess.call, so that everything is on the command line
         # before constructing the shape.json file for "bridge"
         if topo=="bridge":
             shapeFilePrefix="shape_bridge"
             shapeFile=shapeFilePrefix+".json"
-            cmdArrForOutput=copy.deepcopy(cmdArr)
+            cmdArrForOutput=copy.deepcopy(argsArr)
             cmdArrForOutput.append("--output")
             cmdArrForOutput.append(str(nodeosLogPath / shapeFile))
             cmdArrForOutput.append("--shape")
             cmdArrForOutput.append("line")
             s=" ".join(cmdArrForOutput)
-            if Utils.Debug: Utils.Print("cmd: %s" % (s))
-            if 0 != subprocess.call(cmdArrForOutput):
-                Utils.Print("ERROR: Launcher failed to create shape file \"%s\"." % (shapeFile))
-                return False
+            bridgeLauncher = cluster_generator(cmdArrForOutput)
+            bridgeLauncher.define_network()
+            bridgeLauncher.generate()
 
             Utils.Print(f"opening {topo} shape file: {nodeosLogPath / shapeFile}")
             f = open(nodeosLogPath / shapeFile, "r")
@@ -452,20 +450,20 @@ class Cluster(object):
             f.write(json.dumps(shapeFileObject, indent=4, sort_keys=True))
             f.close()
 
-            cmdArr.append("--shape")
-            cmdArr.append(shapeFile)
+            argsArr.append("--shape")
+            argsArr.append(shapeFile)
         else:
-            cmdArr.append("--shape")
-            cmdArr.append(topo)
+            argsArr.append("--shape")
+            argsArr.append(topo)
 
         if type(specificExtraNodeosArgs) is dict:
             for args in specificExtraNodeosArgs.values():
                 if "--plugin eosio::history_api_plugin" in args:
-                    cmdArr.append("--is-nodeos-v2")
+                    argsArr.append("--is-nodeos-v2")
                     break
-        Cluster.__LauncherCmdArr = cmdArr.copy()
+        Cluster.__LauncherCmdArr = argsArr.copy()
 
-        launcher = cluster_generator(cmdArr[2:])
+        launcher = cluster_generator(argsArr)
         launcher.define_network()
         launcher.generate()
         self.nodes = []
