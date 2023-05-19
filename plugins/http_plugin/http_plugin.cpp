@@ -1,5 +1,4 @@
 
-#include <fc/network/listener.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
 #include <eosio/http_plugin/common.hpp>
 #include <eosio/http_plugin/beast_http_session.hpp>
@@ -7,7 +6,7 @@
 
 #include <fc/log/logger_config.hpp>
 #include <fc/reflect/variant.hpp>
-#include <fc/scoped_exit.hpp>
+#include <fc/network/listener.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/algorithm/string/predicate.hpp>
@@ -114,17 +113,20 @@ namespace eosio {
 
    template <typename Protocol>
    struct beast_http_listener
-       : fc::listener<beast_http_listener<Protocol>, Protocol, http_plugin_state*> {
+       : fc::listener<beast_http_listener<Protocol>, Protocol> {
       using socket_type = typename Protocol::socket;
 
       static constexpr uint32_t accept_timeout_ms = 500;
       std::string               local_address_;
+      http_plugin_state&        state_;
       api_category_set          categories_ = {};
 
-      beast_http_listener(http_plugin_state* plugin_state, const typename Protocol::endpoint& endpoint,
-                          const std::string& local_address, api_category_set categories)
-          : fc::listener<beast_http_listener<Protocol>, Protocol, http_plugin_state*>(plugin_state, endpoint),
-            local_address_(local_address), categories_(categories) {}
+      beast_http_listener(boost::asio::io_context& executor, fc::logger& logger, const std::string& local_address,
+                          const typename Protocol::endpoint& endpoint, http_plugin_state& plugin_state,
+                          api_category_set categories)
+          : fc::listener<beast_http_listener<Protocol>, Protocol>(
+                  executor, logger, boost::posix_time::milliseconds(accept_timeout_ms), endpoint),
+            local_address_(local_address), state_(plugin_state), categories_(categories) {}
 
       std::string extra_listening_log_info() { return " for API categories: " + category_names(categories_); }
 
@@ -247,9 +249,11 @@ namespace eosio {
                   fs::path sock_path = address;
                   if (sock_path.is_relative())
                      sock_path = fs::weakly_canonical(app().data_dir() / sock_path);
-                  beast_http_listener<stream_protocol>::create(&plugin_state, sock_path.string(), categories);
+                  beast_http_listener<boost::asio::local::stream_protocol>::create(plugin_state.thread_pool.get_executor(), logger(),
+                                                               sock_path.string(), std::ref(plugin_state), categories);
                } else {
-                  beast_http_listener<tcp>::create(&plugin_state, address, categories);
+                  beast_http_listener<tcp>::create(plugin_state.thread_pool.get_executor(), logger(), address,
+                                                   std::ref(plugin_state), categories);
                }
             } catch (const fc::exception& e) {
                fc_elog(logger(), "http service failed to start for ${addr}: ${e}",

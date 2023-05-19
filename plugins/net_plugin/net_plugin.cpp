@@ -705,8 +705,6 @@ namespace eosio {
    public:
       explicit connection( const string& endpoint );
       explicit connection( tcp::socket&& socket );
-      connection();
-
       ~connection() = default;
 
       bool start_session();
@@ -1070,18 +1068,6 @@ namespace eosio {
         last_handshake_sent()
    {
       set_heartbeat_timeout(my_impl->heartbeat_timeout);
-      fc_dlog( logger, "new connection object created" );
-   }
-
-   connection::connection()
-      : peer_addr(),
-        strand( my_impl->thread_pool.get_executor() ),
-        socket( new tcp::socket( my_impl->thread_pool.get_executor() ) ),
-        connection_id( ++my_impl->current_connection_id ),
-        response_expected_timer( my_impl->thread_pool.get_executor() ),
-        last_handshake_recv(),
-        last_handshake_sent()
-   {
       fc_dlog( logger, "new connection object created" );
    }
 
@@ -2504,11 +2490,15 @@ namespace eosio {
       } ) );
    }
 
-   struct p2p_listener : public fc::listener<p2p_listener, tcp, eosio::net_plugin_impl*> {
-      static constexpr uint32_t accept_timeout_ms = 100;
+   struct p2p_listener : public fc::listener<p2p_listener, tcp> {
+      static constexpr uint32_t accept_timeout_ms = 100; 
+      eosio::net_plugin_impl* state_;
 
-      p2p_listener(eosio::net_plugin_impl* impl, const tcp::endpoint& endpoint, const std::string& addr)
-          : fc::listener<p2p_listener, tcp, eosio::net_plugin_impl*>(impl, endpoint) {}
+      p2p_listener(boost::asio::io_context& executor, fc::logger& logger, const std::string& local_address,
+                   const tcp::endpoint& endpoint, eosio::net_plugin_impl* impl)
+          : fc::listener<p2p_listener, tcp>(executor, logger, boost::posix_time::milliseconds(accept_timeout_ms),
+                                            endpoint),
+            state_(impl) {}
 
       std::string extra_listening_log_info() {
          return ", max clients is " + std::to_string(state_->max_client_count);
@@ -3987,7 +3977,7 @@ namespace eosio {
       app().executor().post(priority::highest, [my=my, address = std::move(listen_address)](){
          if (address.size()) {
             try {
-               p2p_listener::create(my.get(), address);
+               p2p_listener::create(my->thread_pool.get_executor(), logger, address, my.get());
             } catch (const std::exception& e) {
                fc_elog( logger, "net_plugin::plugin_startup failed to listen on ${addr}, ${what}",
                      ("addr", address)("what", e.what()) );

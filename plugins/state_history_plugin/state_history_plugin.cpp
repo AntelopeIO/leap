@@ -225,22 +225,25 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 }; // state_history_plugin_impl
 
 template <typename Protocol>
-struct ship_listener : fc::listener<ship_listener<Protocol>, Protocol, state_history_plugin_impl*> {
+struct ship_listener : fc::listener<ship_listener<Protocol>, Protocol> {
    using socket_type = typename Protocol::socket;
 
    static constexpr uint32_t accept_timeout_ms = 200;
 
-   ship_listener(state_history_plugin_impl* state, const typename Protocol::endpoint& endpoint,
-                 const std::string& local_address)
-       : fc::listener<ship_listener<Protocol>, Protocol, state_history_plugin_impl*>(state, endpoint){
-   }
+   state_history_plugin_impl& state_;
+
+   ship_listener(boost::asio::io_context& executor, logger& logger, const std::string& local_address,
+                 const typename Protocol::endpoint& endpoint, state_history_plugin_impl& state)
+       : fc::listener<ship_listener<Protocol>, Protocol>(executor, logger,
+                                                         boost::posix_time::milliseconds(accept_timeout_ms), endpoint)
+       , state_(state) {}
 
    void create_session(socket_type&& socket) {
       // Create a session object and run it
       catch_and_log([&] {
-         auto s = std::make_shared<session<state_history_plugin_impl*, socket_type>>(
-             this->state_, std::move(socket), this->state_->session_mgr);
-         this->state_->session_mgr.insert(s);
+         auto s = std::make_shared<session<state_history_plugin_impl, socket_type>>(
+             state_, std::move(socket), state_.session_mgr);
+         state_.session_mgr.insert(s);
          s->start();
       });
    }
@@ -249,10 +252,10 @@ struct ship_listener : fc::listener<ship_listener<Protocol>, Protocol, state_his
 void state_history_plugin_impl::listen() {
    try {
       if (!endpoint_address.empty()) {
-         ship_listener<boost::asio::ip::tcp>::create(this, endpoint_address);
+         ship_listener<boost::asio::ip::tcp>::create(thread_pool.get_executor(), _log, endpoint_address, *this);
       }
       if (!unix_path.empty()) {
-         ship_listener<boost::asio::local::stream_protocol>::create(this, unix_path);
+         ship_listener<boost::asio::local::stream_protocol>::create(thread_pool.get_executor(), _log, unix_path, *this);
       }
    } catch (std::exception&) {
       FC_THROW_EXCEPTION(plugin_exception, "unable to open listen socket");

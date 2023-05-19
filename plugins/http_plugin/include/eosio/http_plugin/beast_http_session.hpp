@@ -17,19 +17,6 @@ namespace eosio {
 
 using std::chrono::steady_clock;
 
-using boost::asio::local::stream_protocol;
-
-#if BOOST_VERSION < 107300
-using local_stream = beast::basic_stream<
-      stream_protocol,
-      asio::executor,
-      beast::unlimited_rate_policy>;
-#else
-using local_stream = beast::basic_stream<
-      stream_protocol,
-      asio::any_io_executor,
-      beast::unlimited_rate_policy>;
-#endif
 
 //------------------------------------------------------------------------------
 // fail()
@@ -42,11 +29,11 @@ void fail(beast::error_code ec, char const* what, fc::logger& logger, char const
 
 
 bool allow_host(const std::string& host_str, tcp::socket& socket,
-                const http_plugin_state* plugin_state) {
+                const http_plugin_state& plugin_state) {
 
    auto& lowest_layer = beast::get_lowest_layer(socket);
    auto local_endpoint = lowest_layer.local_endpoint();
-   if(host_str.empty() || !host_is_valid(*plugin_state,
+   if(host_str.empty() || !host_is_valid(plugin_state,
                                          host_str,
                                          local_endpoint.address())) {
       return false;
@@ -96,7 +83,7 @@ class beast_http_session : public detail::abstract_conn,
    // HTTP response object
    std::optional<http::response<http::string_body>> res_;
 
-   http_plugin_state* plugin_state_;
+   http_plugin_state& plugin_state_;
    std::string remote_endpoint_;
    std::string local_address_;
 
@@ -125,12 +112,12 @@ class beast_http_session : public detail::abstract_conn,
       res_->version(req.version());
       res_->set(http::field::content_type, "application/json");
       res_->keep_alive(req.keep_alive());
-      if(plugin_state_->server_header.size())
-         res_->set(http::field::server, plugin_state_->server_header);
+      if(plugin_state_.server_header.size())
+         res_->set(http::field::server, plugin_state_.server_header);
 
       // Request path must be absolute and not contain "..".
       if(req.target().empty() || req.target()[0] != '/' || req.target().find("..") != beast::string_view::npos) {
-         fc_dlog( plugin_state_->get_logger(), "Return bad_reqest:  ${target}",  ("target", std::string(req.target())) );
+         fc_dlog( plugin_state_.get_logger(), "Return bad_reqest:  ${target}",  ("target", std::string(req.target())) );
          error_results results{static_cast<uint16_t>(http::status::bad_request), "Illegal request-target"};
          send_response( fc::json::to_string( results, fc::time_point::maximum() ),
                         static_cast<unsigned int>(http::status::bad_request) );
@@ -139,23 +126,23 @@ class beast_http_session : public detail::abstract_conn,
 
       try {
          if(!allow_host(req)) {
-            fc_dlog( plugin_state_->get_logger(), "bad host:  ${HOST}", ("HOST", std::string(req["host"])));
+            fc_dlog( plugin_state_.get_logger(), "bad host:  ${HOST}", ("HOST", std::string(req["host"])));
             error_results results{static_cast<uint16_t>(http::status::bad_request), "Disallowed HTTP HOST header in the request"};
             send_response( fc::json::to_string( results, fc::time_point::maximum() ),
                         static_cast<unsigned int>(http::status::bad_request) );
             return;
          }
 
-         if(!plugin_state_->access_control_allow_origin.empty()) {
-            res_->set("Access-Control-Allow-Origin", plugin_state_->access_control_allow_origin);
+         if(!plugin_state_.access_control_allow_origin.empty()) {
+            res_->set("Access-Control-Allow-Origin", plugin_state_.access_control_allow_origin);
          }
-         if(!plugin_state_->access_control_allow_headers.empty()) {
-            res_->set("Access-Control-Allow-Headers", plugin_state_->access_control_allow_headers);
+         if(!plugin_state_.access_control_allow_headers.empty()) {
+            res_->set("Access-Control-Allow-Headers", plugin_state_.access_control_allow_headers);
          }
-         if(!plugin_state_->access_control_max_age.empty()) {
-            res_->set("Access-Control-Max-Age", plugin_state_->access_control_max_age);
+         if(!plugin_state_.access_control_max_age.empty()) {
+            res_->set("Access-Control-Max-Age", plugin_state_.access_control_max_age);
          }
-         if(plugin_state_->access_control_allow_credentials) {
+         if(plugin_state_.access_control_allow_credentials) {
             res_->set("Access-Control-Allow-Credentials", "true");
          }
 
@@ -165,35 +152,35 @@ class beast_http_session : public detail::abstract_conn,
             return;
          }
 
-         fc_dlog( plugin_state_->get_logger(), "Request:  ${ep} ${r}",
+         fc_dlog( plugin_state_.get_logger(), "Request:  ${ep} ${r}",
                   ("ep", remote_endpoint_)("r", to_log_string(req)) );
 
          std::string resource = std::string(req.target());
          // look for the URL handler to handle this resource
-         auto handler_itr = plugin_state_->url_handlers.find(resource);
-         if(handler_itr != plugin_state_->url_handlers.end() && categories_.contains(handler_itr->second.category)) {
-            if(plugin_state_->get_logger().is_enabled(fc::log_level::all))
-               plugin_state_->get_logger().log(FC_LOG_MESSAGE(all, "resource: ${ep}", ("ep", resource)));
+         auto handler_itr = plugin_state_.url_handlers.find(resource);
+         if(handler_itr != plugin_state_.url_handlers.end() && categories_.contains(handler_itr->second.category)) {
+            if(plugin_state_.get_logger().is_enabled(fc::log_level::all))
+               plugin_state_.get_logger().log(FC_LOG_MESSAGE(all, "resource: ${ep}", ("ep", resource)));
             std::string body = req.body();
             auto content_type = handler_itr->second.content_type;
             set_content_type_header(content_type);
 
-            if (plugin_state_->update_metrics)
-               plugin_state_->update_metrics({resource});
+            if (plugin_state_.update_metrics)
+               plugin_state_.update_metrics({resource});
 
             handler_itr->second.fn(this->shared_from_this(),
                                 std::move(resource),
                                 std::move(body),
-                                make_http_response_handler(plugin_state_, this->shared_from_this(), content_type));
+                                make_http_response_handler(&plugin_state_, this->shared_from_this(), content_type));
          } else if (resource == "/v1/node/get_supported_apis") {
             http_plugin::get_supported_apis_result result;
-            for (const auto& handler : plugin_state_->url_handlers) {
+            for (const auto& handler : plugin_state_.url_handlers) {
                if (categories_.contains(handler.second.category))
                   result.apis.push_back(handler.first);
             }
             send_response(fc::json::to_string(fc::variant(result), fc::time_point::maximum()), 200);
          } else {
-            fc_dlog( plugin_state_->get_logger(), "404 - not found: ${ep}", ("ep", resource) );
+            fc_dlog( plugin_state_.get_logger(), "404 - not found: ${ep}", ("ep", resource) );
             error_results results{static_cast<uint16_t>(http::status::not_found), "Not Found",
                                   error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, "Unknown Endpoint" ) ),
                                                              http_plugin::verbose_errors() )};
@@ -217,7 +204,7 @@ private:
          res->result(http::status::unauthorized);
          continue_state_ = continue_state_t::reject;
       }
-      res->set(http::field::server, plugin_state_->server_header);
+      res->set(http::field::server, plugin_state_.server_header);
       
       http::async_write(
          socket_,
@@ -240,21 +227,21 @@ public:
    }
    
    virtual std::string verify_max_bytes_in_flight(size_t extra_bytes) final {
-      auto bytes_in_flight_size = plugin_state_->bytes_in_flight.load() + extra_bytes;
-      if(bytes_in_flight_size > plugin_state_->max_bytes_in_flight) {
-         fc_dlog(plugin_state_->get_logger(), "429 - too many bytes in flight: ${bytes}", ("bytes", bytes_in_flight_size));
+      auto bytes_in_flight_size = plugin_state_.bytes_in_flight.load() + extra_bytes;
+      if(bytes_in_flight_size > plugin_state_.max_bytes_in_flight) {
+         fc_dlog(plugin_state_.get_logger(), "429 - too many bytes in flight: ${bytes}", ("bytes", bytes_in_flight_size));
          return "Too many bytes in flight: " + std::to_string( bytes_in_flight_size );
       }
       return {};
    }
 
    virtual std::string verify_max_requests_in_flight() final {
-      if(plugin_state_->max_requests_in_flight < 0)
+      if(plugin_state_.max_requests_in_flight < 0)
          return {};
 
-      auto requests_in_flight_num = plugin_state_->requests_in_flight.load();
-      if(requests_in_flight_num > plugin_state_->max_requests_in_flight) {
-         fc_dlog(plugin_state_->get_logger(), "429 - too many requests in flight: ${requests}", ("requests", requests_in_flight_num));
+      auto requests_in_flight_num = plugin_state_.requests_in_flight.load();
+      if(requests_in_flight_num > plugin_state_.max_requests_in_flight) {
+         fc_dlog(plugin_state_.get_logger(), "429 - too many requests in flight: ${requests}", ("requests", requests_in_flight_num));
          return "Too many requests in flight: " + std::to_string( requests_in_flight_num );
       }
       return {};
@@ -264,13 +251,13 @@ public:
    // shared_from_this() requires default constructor
    beast_http_session() = default;
 
-   beast_http_session(Socket&& socket, http_plugin_state* plugin_state, std::string remote_endpoint,
+   beast_http_session(Socket&& socket, http_plugin_state& plugin_state, std::string remote_endpoint,
                       api_category_set categories, const std::string& local_address)
        : socket_(std::move(socket)), categories_(categories), plugin_state_(plugin_state),
          remote_endpoint_(std::move(remote_endpoint)), local_address_(local_address) {
-      plugin_state_->requests_in_flight += 1;
+      plugin_state_.requests_in_flight += 1;
       req_parser_.emplace();
-      req_parser_->body_limit(plugin_state_->max_body_size);
+      req_parser_->body_limit(plugin_state_.max_body_size);
       res_.emplace();
 
       session_begin_ = steady_clock::now();
@@ -282,14 +269,14 @@ public:
 
    virtual ~beast_http_session() {
       is_send_exception_response_ = false;
-      plugin_state_->requests_in_flight -= 1;
-      if(plugin_state_->get_logger().is_enabled(fc::log_level::all)) {
+      plugin_state_.requests_in_flight -= 1;
+      if(plugin_state_.get_logger().is_enabled(fc::log_level::all)) {
          auto session_time = steady_clock::now() - session_begin_;
          auto session_time_us = std::chrono::duration_cast<std::chrono::microseconds>(session_time).count();
-         plugin_state_->get_logger().log(FC_LOG_MESSAGE(all, "session time    ${t}", ("t", session_time_us)));
-         plugin_state_->get_logger().log(FC_LOG_MESSAGE(all, "        read    ${t}", ("t", read_time_us_)));
-         plugin_state_->get_logger().log(FC_LOG_MESSAGE(all, "        handle  ${t}", ("t", handle_time_us_)));
-         plugin_state_->get_logger().log(FC_LOG_MESSAGE(all, "        write   ${t}", ("t", write_time_us_)));
+         plugin_state_.get_logger().log(FC_LOG_MESSAGE(all, "session time    ${t}", ("t", session_time_us)));
+         plugin_state_.get_logger().log(FC_LOG_MESSAGE(all, "        read    ${t}", ("t", read_time_us_)));
+         plugin_state_.get_logger().log(FC_LOG_MESSAGE(all, "        handle  ${t}", ("t", handle_time_us_)));
+         plugin_state_.get_logger().log(FC_LOG_MESSAGE(all, "        write   ${t}", ("t", write_time_us_)));
       }
    }
 
@@ -311,7 +298,7 @@ public:
          if(ec == http::error::end_of_stream) // other side closed the connection
             return do_eof();
          
-         return fail(ec, "read_header", plugin_state_->get_logger(), "closing connection");
+         return fail(ec, "read_header", plugin_state_.get_logger(), "closing connection");
       }
 
       // Check for the Expect field value
@@ -319,7 +306,7 @@ public:
          bool do_continue = true;
          auto sv = req_parser_->get()[http::field::content_length];
          if (uint64_t sz; !sv.empty() && std::from_chars(sv.data(), sv.data() + sv.size(), sz).ec == std::errc() &&
-             sz > plugin_state_->max_body_size) {
+             sz > plugin_state_.max_body_size) {
             do_continue = false;
          }
          send_100_continue_response(do_continue);
@@ -351,7 +338,7 @@ public:
          if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
             return do_eof();
 
-         return fail(ec, "read", plugin_state_->get_logger(), "closing connection");
+         return fail(ec, "read", plugin_state_.get_logger(), "closing connection");
       }
 
       auto req = req_parser_->release();
@@ -370,7 +357,7 @@ public:
       boost::ignore_unused(bytes_transferred);
 
       if(ec) {
-         return fail(ec, "write", plugin_state_->get_logger(), "closing connection");
+         return fail(ec, "write", plugin_state_.get_logger(), "closing connection");
       }
 
       auto dt = steady_clock::now() - write_begin_;
@@ -403,7 +390,7 @@ public:
          
          // create a new parser to clear state
          req_parser_.emplace();
-         req_parser_->body_limit(plugin_state_->max_body_size);
+         req_parser_->body_limit(plugin_state_.max_body_size);
 
          // Read another request
          do_read_header();
@@ -418,26 +405,26 @@ public:
             throw;
          } catch(const fc::exception& e) {
             err_str = e.to_detail_string();
-            fc_elog(plugin_state_->get_logger(), "fc::exception: ${w}", ("w", err_str));
+            fc_elog(plugin_state_.get_logger(), "fc::exception: ${w}", ("w", err_str));
             if( is_send_exception_response_ ) {
                error_results results{static_cast<uint16_t>(http::status::internal_server_error),
                                      "Internal Service Error",
                                      error_results::error_info( e, http_plugin::verbose_errors() )};
-               err_str = fc::json::to_string( results, fc::time_point::now().safe_add(plugin_state_->max_response_time) );
+               err_str = fc::json::to_string( results, fc::time_point::now().safe_add(plugin_state_.max_response_time) );
             }
          } catch(std::exception& e) {
             err_str = e.what();
-            fc_elog(plugin_state_->get_logger(), "std::exception: ${w}", ("w", err_str));
+            fc_elog(plugin_state_.get_logger(), "std::exception: ${w}", ("w", err_str));
             if( is_send_exception_response_ ) {
                error_results results{static_cast<uint16_t>(http::status::internal_server_error),
                                      "Internal Service Error",
                                      error_results::error_info( fc::exception( FC_LOG_MESSAGE( error, err_str ) ),
                                                                 http_plugin::verbose_errors() )};
-               err_str = fc::json::to_string( results, fc::time_point::now().safe_add(plugin_state_->max_response_time) );
+               err_str = fc::json::to_string( results, fc::time_point::now().safe_add(plugin_state_.max_response_time) );
             }
          } catch(...) {
             err_str = "Unknown exception";
-            fc_elog(plugin_state_->get_logger(), err_str);
+            fc_elog(plugin_state_.get_logger(), err_str);
             if( is_send_exception_response_ ) {
                error_results results{static_cast<uint16_t>(http::status::internal_server_error),
                                      "Internal Service Error",
@@ -448,10 +435,10 @@ public:
             }
          }
       } catch (fc::timeout_exception& e) {
-         fc_elog( plugin_state_->get_logger(), "Timeout exception ${te} attempting to handle exception: ${e}", ("te", e.to_detail_string())("e", err_str) );
+         fc_elog( plugin_state_.get_logger(), "Timeout exception ${te} attempting to handle exception: ${e}", ("te", e.to_detail_string())("e", err_str) );
          err_str = R"xxx({"message": "Internal Server Error"})xxx";
       } catch (...) {
-         fc_elog( plugin_state_->get_logger(), "Exception attempting to handle exception: ${e}", ("e", err_str) );
+         fc_elog( plugin_state_.get_logger(), "Exception attempting to handle exception: ${e}", ("e", err_str) );
          err_str = R"xxx({"message": "Internal Server Error"})xxx";
       }
 
@@ -467,11 +454,11 @@ public:
    }
 
    void increment_bytes_in_flight(size_t sz) {
-      plugin_state_->bytes_in_flight += sz;
+      plugin_state_.bytes_in_flight += sz;
    }
 
    void decrement_bytes_in_flight(size_t sz) {
-      plugin_state_->bytes_in_flight -= sz;
+      plugin_state_.bytes_in_flight -= sz;
    }
 
    virtual void send_response(std::string&& json, unsigned int code) final {
@@ -486,9 +473,9 @@ public:
       res_->prepare_payload();
 
       // Determine if we should close the connection after
-      bool close = !(plugin_state_->keep_alive) || res_->need_eof();
+      bool close = !(plugin_state_.keep_alive) || res_->need_eof();
 
-      fc_dlog( plugin_state_->get_logger(), "Response: ${ep} ${b}",
+      fc_dlog( plugin_state_.get_logger(), "Response: ${ep} ${b}",
                ("ep", remote_endpoint_)("b", to_log_string(*res_)) );
 
       // Write the response

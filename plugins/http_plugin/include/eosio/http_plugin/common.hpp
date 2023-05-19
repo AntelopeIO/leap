@@ -7,6 +7,7 @@
 #include <fc/log/logger_config.hpp>
 #include <fc/time.hpp>
 #include <fc/utility.hpp>
+#include <fc/network/listener.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/asio/bind_executor.hpp>
@@ -33,7 +34,6 @@
 #include <set>
 #include <string>
 
-#include <fc/network/listener.hpp>
 
 namespace eosio {
 static uint16_t const uri_default_port = 80;
