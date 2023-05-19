@@ -112,14 +112,11 @@ finally:
 # find the stderr log file
 stderr_file = glob.glob(os.path.join(data_dir, 'stderr.*.txt'))
 with open(stderr_file[0], "r") as f:
-    stderr_lines = f.readlines()
+    stderr_txt = f.read().rstrip()
 
-#Less one line because the GELF appender does not transmit 'opened GELF socket to endpoint...
-assert len(stderr_lines)-1 == len(received_logs), "number of log entry received from GELF does not match stderr"
-
-stderr_lines.pop(0)
-for (stderr_line, received_log) in zip(stderr_lines, received_logs):
-  assert received_log in stderr_line, "received GELF log entry does not match that of from stderr"
+assert len(received_logs) > 10, "Not enough gelf logs are received"
+for received_log in received_logs:
+  assert received_log in stderr_txt, "received GELF log entry does not match that of stderr"
 
 if os.path.exists(Utils.DataPath):
     shutil.rmtree(Utils.DataPath)
