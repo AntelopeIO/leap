@@ -88,12 +88,8 @@ class PerformanceTestBasic:
         _validationNodeIds: list = field(default_factory=list)
         _apiNodeIds: list = field(default_factory=list)
         nonProdsEosVmOcEnable: bool = False
-        _killEosInstances: bool = True
-        _killWallet: bool = True
 
         def __post_init__(self):
-            self._killEosInstances = not self.dontKill
-            self._killWallet = not self.dontKill
             self._totalNodes = self.producerNodeCount + self.validationNodeCount + self.apiNodeCount
             # Setup Expectations for Producer and Validation Node IDs
             # Producer Nodes are index [0, producerNodeCount) and non-producer nodes (validationNodeCount, apiNodeCount) nodes follow the producer nodes [producerNodeCount, _totalNodes)
