@@ -127,16 +127,16 @@ namespace eosio::testing {
    };
 
    struct tps_test_stats {
-      uint32_t          total_trxs = 0;
-      uint32_t          trxs_left = 0;
-      uint32_t          trxs_sent = 0;
-      fc::time_point        start_time;
-      fc::time_point        expected_end_time;
-      fc::time_point        last_run;
-      fc::time_point        next_run;
-      int64_t           time_to_next_trx_us = 0;
-      fc::microseconds  trx_interval;
-      uint32_t          expected_sent;
+      uint32_t         total_trxs = 0;
+      uint32_t         trxs_left  = 0;
+      uint32_t         trxs_sent  = 0;
+      fc::time_point   start_time;
+      fc::time_point   expected_end_time;
+      fc::time_point   last_run;
+      fc::time_point   next_run;
+      int64_t          time_to_next_trx_us = 0;
+      fc::microseconds trx_interval;
+      uint32_t         expected_sent;
    };
 
    constexpr int64_t min_sleep_us                  = 1;
