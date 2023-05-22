@@ -4147,7 +4147,7 @@ namespace eosio {
 
    // called from any thread
    void connections_manager::start_conn_timer() {
-      start_conn_timer(connector_period, {});
+      start_conn_timer(connector_period, {}); // this locks mutex
    }
 
    // called from any thread
@@ -4197,17 +4197,19 @@ namespace eosio {
             ++num_peers;
          }
 
-         if( !(*it)->socket_is_open() && !(*it)->connecting) {
-            if( !(*it)->incoming() ) {
-            if( !(*it)->resolve_and_connect() ) {
-               it = connections.erase(it);
-               --num_peers; ++num_rm;
-               continue;
-            }
+         if (!(*it)->socket_is_open() && !(*it)->connecting) {
+            if (!(*it)->incoming()) {
+               if (!(*it)->resolve_and_connect()) {
+                  it = connections.erase(it);
+                  --num_peers;
+                  ++num_rm;
+                  continue;
+               }
             } else {
-            --num_clients; ++num_rm;
-            it = connections.erase(it);
-            continue;
+               --num_clients;
+               ++num_rm;
+               it = connections.erase(it);
+               continue;
             }
          }
          ++it;
