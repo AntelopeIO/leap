@@ -17,11 +17,11 @@
 #include <fc/crypto/rand.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/time.hpp>
+#include <fc/network/listener.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/steady_timer.hpp>
-#include <fc/network/listener.hpp>
 
 #include <atomic>
 #include <cmath>
