@@ -7,6 +7,7 @@
 #include <fc/log/logger_config.hpp>
 #include <fc/time.hpp>
 #include <fc/utility.hpp>
+#include <fc/network/listener.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/asio/bind_executor.hpp>
@@ -32,6 +33,7 @@
 #include <regex>
 #include <set>
 #include <string>
+
 
 namespace eosio {
 static uint16_t const uri_default_port = 80;
@@ -135,6 +137,8 @@ struct http_plugin_state {
    fc::logger& logger;
    std::function<void(http_plugin::metrics)> update_metrics;
 
+   fc::logger& get_logger() { return logger; }
+
    explicit http_plugin_state(fc::logger& log)
        : logger(log) {}
 
@@ -148,8 +152,8 @@ struct http_plugin_state {
 * @param session_ptr - beast_http_session object on which to invoke send_response
 * @return lambda suitable for url_response_callback
 */
-inline auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state, detail::abstract_conn_ptr session_ptr, http_content_type content_type) {
-   return [plugin_state{std::move(plugin_state)},
+inline auto make_http_response_handler(http_plugin_state& plugin_state, detail::abstract_conn_ptr session_ptr, http_content_type content_type) {
+   return [&plugin_state,
            session_ptr{std::move(session_ptr)}, content_type](int code, std::optional<fc::variant> response) {
       auto payload_size = detail::in_flight_sizeof(response);
       if(auto error_str = session_ptr->verify_max_bytes_in_flight(payload_size); !error_str.empty()) {
@@ -157,13 +161,13 @@ inline auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin
          return;
       }
 
-      plugin_state->bytes_in_flight += payload_size;
+      plugin_state.bytes_in_flight += payload_size;
 
       // post back to an HTTP thread to allow the response handler to be called from any thread
-      boost::asio::post(plugin_state->thread_pool.get_executor(),
-                        [plugin_state, session_ptr, code, payload_size, response = std::move(response), content_type]() {
+      boost::asio::post(plugin_state.thread_pool.get_executor(),
+                        [&plugin_state, session_ptr, code, payload_size, response = std::move(response), content_type]() {
                            try {
-                              plugin_state->bytes_in_flight -= payload_size;
+                              plugin_state.bytes_in_flight -= payload_size;
                               if (response.has_value()) {
                                  std::string json = (content_type == http_content_type::plaintext) ? response->as_string() : fc::json::to_string(*response, fc::time_point::maximum());
                                  if (auto error_str = session_ptr->verify_max_bytes_in_flight(json.size()); error_str.empty())
@@ -181,17 +185,6 @@ inline auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin
 
 }
 
-inline std::pair<std::string, std::string> split_host_port(std::string_view endpoint) {
-   std::string::size_type colon_pos = endpoint.rfind(':');
-   if(colon_pos != std::string::npos) {
-      auto port = endpoint.substr(colon_pos + 1);
-      auto hostname = (endpoint[0] == '[' && colon_pos >= 2)  ? endpoint.substr( 1, colon_pos-2 ) : endpoint.substr( 0, colon_pos );
-      return {std::string(hostname), std::string(port)};
-   } else {
-      return {std::string(endpoint), {}};
-   }
-}
-
 inline bool host_is_valid(const http_plugin_state& plugin_state,
                    const std::string& header_host_port,
                    const asio::ip::address& addr) {
@@ -199,7 +192,7 @@ inline bool host_is_valid(const http_plugin_state& plugin_state,
       return true;
    }
 
-   auto [hostname, port] = split_host_port(header_host_port);
+   auto [hostname, port] = fc::split_host_port(header_host_port);
    boost::system::error_code ec;
    auto                      header_addr = boost::asio::ip::make_address(hostname, ec);
    if (ec)
