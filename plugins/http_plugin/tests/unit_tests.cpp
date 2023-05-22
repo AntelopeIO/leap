@@ -422,7 +422,7 @@ struct http_response_for {
    net::io_context                    ioc;
    http::response<http::dynamic_body> response;
    http_response_for(const char* addr, const char* path) {
-      auto [host, port] = eosio::split_host_port(addr);
+      auto [host, port] = fc::split_host_port(addr);
       // These objects perform our I/O
       tcp::resolver     resolver(ioc);
       beast::tcp_stream stream(ioc);
