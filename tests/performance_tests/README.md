@@ -458,7 +458,7 @@ Advanced Configuration Options:
 
 ```
 usage: performance_test.py testBpOpMode overrideBasicTestConfig
-       [-h] [-d D] [--dump-error-details] [-v] [--leave-running] [--clean-run] [--unshared]
+       [-h] [-d D] [--dump-error-details] [-v] [--leave-running] [--unshared]
        [--endpoint-api {p2p,http}]
        [--producer-nodes PRODUCER_NODES] [--validation-nodes VALIDATION_NODES] [--api-nodes API_NODES]
        [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
@@ -503,7 +503,6 @@ Test Helper Arguments:
   --dump-error-details  Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout
   -v                    verbose logging
   --leave-running       Leave cluster running after test finishes
-  --clean-run           Kill all nodeos and keosd instances
   --unshared            Run test in isolated network namespace
 
 Performance Test Basic Base:
@@ -604,7 +603,7 @@ The following scripts are typically used by the Performance Harness main script 
   ```
   usage: performance_test_basic.py [-h] [-d D]
                                   [--dump-error-details] [-v] [--leave-running]
-                                  [--clean-run] [--unshared]
+                                  [--unshared]
                                   [--endpoint-api {p2p,http}]
                                   [--producer-nodes PRODUCER_NODES]
                                   [--validation-nodes VALIDATION_NODES]
@@ -658,7 +657,6 @@ Test Helper Arguments:
   --dump-error-details  Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout (default: False)
   -v                    verbose logging (default: False)
   --leave-running       Leave cluster running after test finishes (default: False)
-  --clean-run           Kill all nodeos and keosd instances (default: False)
   --unshared            Run test in isolated network namespace (default: False)
 
 Performance Test Basic Base:
