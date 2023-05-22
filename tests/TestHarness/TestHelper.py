@@ -85,7 +85,7 @@ class TestHelper(object):
             thGrp.add_argument("--wallet-port", type=int, help=argparse.SUPPRESS if suppressHelp else "%s port" % Utils.EosWalletName,
                                      default=TestHelper.DEFAULT_WALLET_PORT)
         if "--prod-count" in includeArgs:
-            thGrp.add_argument("-c", "--prod-count", type=int, help=argparse.SUPPRESS if suppressHelp else "Per node producer count", default=1)
+            thGrp.add_argument("-c", "--prod-count", type=int, help=argparse.SUPPRESS if suppressHelp else "Per node producer count", default=21)
         if "--defproducera_prvt_key" in includeArgs:
             thGrp.add_argument("--defproducera_prvt_key", type=str, help=argparse.SUPPRESS if suppressHelp else "defproducera private key.")
         if "--defproducerb_prvt_key" in includeArgs:
@@ -106,8 +106,6 @@ class TestHelper(object):
             thGrp.add_argument("--leave-running", help=argparse.SUPPRESS if suppressHelp else "Leave cluster running after test finishes", action='store_true')
         if "--only-bios" in includeArgs:
             thGrp.add_argument("--only-bios", help=argparse.SUPPRESS if suppressHelp else "Limit testing to bios node.", action='store_true')
-        if "--clean-run" in includeArgs:
-            thGrp.add_argument("--clean-run", help=argparse.SUPPRESS if suppressHelp else "Kill all nodeos and keosd instances", action='store_true')
         if "--sanity-test" in includeArgs:
             thGrp.add_argument("--sanity-test", help=argparse.SUPPRESS if suppressHelp else "Validates nodeos and keosd are in path and can be started up.", action='store_true')
         if "--alternate-version-labels-file" in includeArgs:
@@ -149,17 +147,13 @@ class TestHelper(object):
         Utils.Print("OS name: %s" % (platform.platform()))
     
     @staticmethod
-    # pylint: disable=too-many-arguments
-    def shutdown(cluster, walletMgr, testSuccessful=True, killEosInstances=True, killWallet=True, keepLogs=False, cleanRun=True, dumpErrorDetails=False):
+    def shutdown(cluster, walletMgr, testSuccessful=True, dumpErrorDetails=False):
         """Cluster and WalletMgr shutdown and cleanup."""
         assert(cluster)
         assert(isinstance(cluster, Cluster))
         if walletMgr:
             assert(isinstance(walletMgr, WalletMgr))
         assert(isinstance(testSuccessful, bool))
-        assert(isinstance(killEosInstances, bool))
-        assert(isinstance(killWallet, bool))
-        assert(isinstance(cleanRun, bool))
         assert(isinstance(dumpErrorDetails, bool))
 
         Utils.ShuttingDown=True
@@ -187,17 +181,6 @@ class TestHelper(object):
             # for now report these to know how many blocks we are missing production windows for
             reportProductionAnalysis(thresholdMs=200)
 
-        if killEosInstances:
-            Utils.Print("Shut down the cluster.")
-            cluster.killall(allInstances=cleanRun, kill=testSuccessful)
-            if testSuccessful and not keepLogs:
-                Utils.Print("Cleanup cluster data.")
-                cluster.cleanup()
-
-        if walletMgr and killWallet:
-            Utils.Print("Shut down the wallet.")
-            walletMgr.killall(allInstances=cleanRun)
-            if testSuccessful and not keepLogs:
-                Utils.Print("Cleanup wallet data.")
-                walletMgr.cleanup()
-
+        cluster.testFailed = not testSuccessful
+        if walletMgr:
+            walletMgr.testFailed = not testSuccessful

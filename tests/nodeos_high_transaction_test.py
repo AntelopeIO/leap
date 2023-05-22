@@ -5,7 +5,7 @@ import time
 import json
 
 from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
-from TestHarness.Cluster import NamedAccounts
+from TestHarness.accounts import NamedAccounts
 from TestHarness.TestHelper import AppArgs
 
 ###############################################################
@@ -27,7 +27,7 @@ extraArgs = appArgs.add(flag="--num-transactions", type=int, help="How many tota
 extraArgs = appArgs.add(flag="--max-transactions-per-second", type=int, help="How many transactions per second should be sent", default=500)
 extraArgs = appArgs.add(flag="--total-accounts", type=int, help="How many accounts should be involved in sending transfers.  Must be greater than %d" % (minTotalAccounts), default=100)
 extraArgs = appArgs.add_bool(flag="--send-duplicates", help="If identical transactions should be sent to all nodes")
-args = TestHelper.parse_args({"-p", "-n","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"}, applicationSpecificArgs=appArgs)
+args = TestHelper.parse_args({"-p", "-n","--dump-error-details","--keep-logs","-v","--leave-running","--unshared"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
 totalProducerNodes=args.p
@@ -37,11 +37,8 @@ if totalNodes<=totalProducerNodes:
 totalNonProducerNodes=totalNodes-totalProducerNodes
 maxActiveProducers=totalProducerNodes
 totalProducers=totalProducerNodes
-cluster=Cluster(walletd=True,unshared=args.unshared)
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-dontKill=args.leave_running
-killAll=args.clean_run
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 walletPort=TestHelper.DEFAULT_WALLET_PORT
 blocksPerSec=2
 transBlocksBehind=args.transaction_time_delta * blocksPerSec
@@ -58,8 +55,6 @@ numRounds = int(numTransactions / args.total_accounts)
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 ClientName="cleos"
@@ -71,8 +66,6 @@ try:
     TestHelper.printSystemInfo("BEGIN")
 
     cluster.setWalletMgr(walletMgr)
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     Print("Stand up cluster")
 
     if cluster.launch(pnodes=totalProducerNodes,
@@ -381,7 +374,7 @@ try:
 
     testSuccessful = not delayedReportError
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if not testSuccessful:
         Print(Utils.FileDivider)
         Print("Compare Blocklog")

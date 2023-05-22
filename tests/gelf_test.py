@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
-import os, shutil, time
+import atexit, os, signal, shlex, shutil, time
 import socket, threading
 import zlib, json, glob
+from pathlib import Path
 from TestHarness import Node, TestHelper, Utils
 
 ###############################################################################################
@@ -83,35 +84,39 @@ def gelfServer(stop):
   s.close()
 
 
-nodeos = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id)
-data_dir = Utils.getNodeDataDir(node_id)
-config_dir = Utils.getNodeConfigDir(node_id)
+data_dir = Path(Utils.getNodeDataDir(node_id))
+config_dir = Path(Utils.getNodeConfigDir(node_id))
+start_nodeos_cmd = shlex.split(f"{Utils.EosServerPath} -e -p eosio --data-dir={data_dir} --config-dir={config_dir}")
 if os.path.exists(data_dir):
     shutil.rmtree(data_dir)
 os.makedirs(data_dir)
 if not os.path.exists(config_dir):
     os.makedirs(config_dir)
+nodeos = Node(TestHelper.LOCAL_HOST, TestHelper.DEFAULT_PORT, node_id, config_dir, data_dir, start_nodeos_cmd, unstarted=True)
 
-with open(config_dir+"/logging.json", "w") as textFile:
+with open(config_dir / 'logging.json', 'w') as textFile:
     print(logging,file=textFile)
 
+stop_threads = False
+t1 = threading.Thread(target = gelfServer, args =(lambda : stop_threads, ))
+
 try:
-    stop_threads = False
-    t1 = threading.Thread(target = gelfServer, args =(lambda : stop_threads, ))
-    t1.start()
+  @atexit.register
+  def cleanup():
+      nodeos.kill(signal.SIGINT)
+      global stop_threads
+      stop_threads = True
+      t1.join()
 
-    start_nodeos_cmd = f"{Utils.EosServerPath} -e -p eosio --data-dir={data_dir} --config-dir={config_dir}"
-    nodeos.launchCmd(start_nodeos_cmd, node_id)
-    time.sleep(nodeos_run_time_in_sec)
+  t1.start()
+
+  nodeos.launchUnstarted()
+  time.sleep(nodeos_run_time_in_sec)
 finally:
-    #clean up
-    Node.killAllNodeos()
-    stop_threads = True
-    t1.join()
+   cleanup()
 
-# find the stderr log file
-stderr_file = glob.glob(os.path.join(data_dir, 'stderr.*.txt'))
-with open(stderr_file[0], "r") as f:
+stderr_file = data_dir / 'stderr.txt'
+with open(stderr_file, "r") as f:
     stderr_txt = f.read().rstrip()
 
 assert len(received_logs) > 10, "Not enough gelf logs are received"

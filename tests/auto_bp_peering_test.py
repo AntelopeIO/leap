@@ -25,7 +25,6 @@ totalNodes = producerNodes
 # Parse command line arguments
 args = TestHelper.parse_args({
     "-v",
-    "--clean-run",
     "--dump-error-details",
     "--leave-running",
     "--keep-logs",
@@ -33,16 +32,12 @@ args = TestHelper.parse_args({
 })
 
 Utils.Debug = args.v
-killAll = args.clean_run
 dumpErrorDetails = args.dump_error_details
-dontKill = args.leave_running
-killEosInstances = not dontKill
-killWallet = not dontKill
 keepLogs = args.keep_logs
 
 # Setup cluster and it's wallet manager
 walletMgr = WalletMgr(True)
-cluster = Cluster(walletd=True)
+cluster = Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 cluster.setWalletMgr(walletMgr)
 
 
@@ -76,10 +71,7 @@ try:
     for nodeId in range(0, producerNodes):
         specificNodeosArgs[nodeId] = auto_bp_peer_args
 
-    # Kill any existing instances and launch cluster
     TestHelper.printSystemInfo("BEGIN")
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     cluster.launch(
         prodCount=producerCountInEachNode,
         totalNodes=totalNodes,
@@ -127,17 +119,13 @@ try:
                 name, expected_peers, peers))
             connection_check_failures = connection_check_failures+1
 
-    testSuccessful = (connection_check_failures == 0)
+    testSuccessful = connection_check_failures == 0
 
 finally:
     TestHelper.shutdown(
         cluster,
         walletMgr,
         testSuccessful,
-        killEosInstances,
-        killWallet,
-        keepLogs,
-        killAll,
         dumpErrorDetails
     )
 

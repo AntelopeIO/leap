@@ -6,25 +6,16 @@ import time
 import unittest
 import os
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
 
 testSuccessful = True
 
 class TraceApiPluginTest(unittest.TestCase):
     sleep_s = 1
-    cluster=Cluster(walletd=True, defproduceraPrvtKey=None)
+    cluster=Cluster(defproduceraPrvtKey=None)
     walletMgr=WalletMgr(True)
     accounts = []
     cluster.setWalletMgr(walletMgr)
-
-    # kill nodeos and keosd and clean up dir
-    def cleanEnv(self, shouldCleanup: bool) :
-        self.cluster.killall(allInstances=True)
-        if shouldCleanup:
-            self.cluster.cleanup()
-        self.walletMgr.killall(allInstances=True)
-        if shouldCleanup:
-            self.walletMgr.cleanup()
 
     # start keosd and nodeos
     def startEnv(self) :
@@ -36,7 +27,7 @@ class TraceApiPluginTest(unittest.TestCase):
         testWalletName="testwallet"
         testWallet=self.walletMgr.create(testWalletName, [self.cluster.eosioAccount, self.cluster.defproduceraAccount])
         self.cluster.validateAccounts(None)
-        self.accounts=Cluster.createAccountKeys(len(account_names))
+        self.accounts=createAccountKeys(len(account_names))
         node = self.cluster.getNode(0)
         for idx in range(len(account_names)):
             self.accounts[idx].name =  account_names[idx]
@@ -108,12 +99,11 @@ class TraceApiPluginTest(unittest.TestCase):
 
     @classmethod
     def setUpClass(self):
-        self.cleanEnv(self, shouldCleanup=True)
         self.startEnv(self)
 
     @classmethod
     def tearDownClass(self):
-        self.cleanEnv(self, shouldCleanup=testSuccessful)
+        TraceApiPluginTest.cluster.testFailed = not testSuccessful
 
 if __name__ == "__main__":
     unittest.main()

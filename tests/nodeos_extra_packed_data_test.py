@@ -3,7 +3,7 @@
 import json
 import copy
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
 from TestHarness.Cluster import PFSetupPolicy
 from TestHarness.TestHelper import AppArgs
 
@@ -19,7 +19,7 @@ errorExit=Utils.errorExit
 cmdError=Utils.cmdError
 
 args = TestHelper.parse_args({"--host","--port","-p","--defproducera_prvt_key","--defproducerb_prvt_key"
-                              ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--clean-run"
+                              ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running"
                               ,"--sanity-test","--wallet-port","--unshared"})
 server=args.host
 port=args.port
@@ -27,11 +27,8 @@ debug=args.v
 defproduceraPrvtKey=args.defproducera_prvt_key
 defproducerbPrvtKey=args.defproducerb_prvt_key
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
 dontLaunch=args.dont_launch
-dontKill=args.leave_running
 pnodes=args.p
-killAll=args.clean_run
 sanityTest=args.sanity_test
 walletPort=args.wallet_port
 
@@ -39,14 +36,13 @@ Utils.Debug=debug
 localTest=True if server == TestHelper.LOCAL_HOST else False
 cluster=Cluster(host=server, 
                 port=port, 
-                walletd=True,
                 defproduceraPrvtKey=defproduceraPrvtKey, 
                 defproducerbPrvtKey=defproducerbPrvtKey,
-                unshared=args.unshared)
+                unshared=args.unshared,
+                keepRunning=args.leave_running,
+                keepLogs=args.keep_logs)
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 dontBootstrap=sanityTest # intent is to limit the scope of the sanity test to just verifying that nodes can be started
 
 WalletdName=Utils.EosWalletName
@@ -61,8 +57,6 @@ try:
     Print("PORT: %d" % (port))
 
     if localTest and not dontLaunch:
-        cluster.killall(allInstances=killAll)
-        cluster.cleanup()
         Print("Stand up cluster")
         specificExtraNodeosArgs = {}
         associatedNodeLabels = {}
@@ -82,10 +76,7 @@ try:
     else:
         Print("Collecting cluster info.")
         cluster.initializeNodes(defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey)
-        killEosInstances=False
         Print("Stand up %s" % (WalletdName))
-        walletMgr.killall(allInstances=killAll)
-        walletMgr.cleanup()
         print("Stand up walletd")
         if walletMgr.launch() is False:
             cmdError("%s" % (WalletdName))
@@ -98,7 +89,7 @@ try:
     Print("Validating system accounts after bootstrap")
     cluster.validateAccounts(None)
 
-    accounts=Cluster.createAccountKeys(2)
+    accounts=createAccountKeys(2)
     if accounts is None:
         errorExit("FAILURE - create keys")
     testeraAccount=accounts[0]
@@ -182,4 +173,7 @@ try:
     
     testSuccessful=True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful, dumpErrorDetails)
+
+errorCode = 0 if testSuccessful else 1
+exit(errorCode)

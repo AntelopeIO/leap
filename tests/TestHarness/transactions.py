@@ -7,7 +7,7 @@ import time
 from .core_symbol import CORE_SYMBOL
 from .depresolver import dep
 from .queries import NodeosQueries
-from .testUtils import Account
+from .accounts import Account
 from .testUtils import Utils
 
 class Transactions(NodeosQueries):

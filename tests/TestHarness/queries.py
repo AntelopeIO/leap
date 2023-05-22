@@ -11,7 +11,7 @@ import urllib.parse
 import urllib.error
 
 from .core_symbol import CORE_SYMBOL
-from .testUtils import Account
+from .accounts import Account
 from .testUtils import EnumType
 from .testUtils import addEnum
 from .testUtils import ReturnType
@@ -297,7 +297,7 @@ class NodeosQueries:
         try:
             key = self.fetchKeyCommand()
             refBlockNum = self.fetchRefBlock(trans)
-            refBlockNum=int(refBlockNum)+1
+            refBlockNum=int(refBlockNum)
         except (TypeError, ValueError, KeyError) as _:
             Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
             return None

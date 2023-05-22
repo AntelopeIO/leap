@@ -32,20 +32,11 @@ class PerformanceTestBasic:
 
     @dataclass
     class TestHelperConfig:
-        killAll: bool = True # clean_run
-        dontKill: bool = False # leave_running
-        keepLogs: bool = True
         dumpErrorDetails: bool = False
         delay: int = 1
         nodesFile: str = None
         verbose: bool = False
         unshared: bool = False
-        _killEosInstances: bool = True
-        _killWallet: bool = True
-
-        def __post_init__(self):
-            self._killEosInstances = not self.dontKill
-            self._killWallet = not self.dontKill
 
     @dataclass
     class ClusterConfig:
@@ -79,11 +70,13 @@ class PerformanceTestBasic:
         producerNodeCount: int = 1
         validationNodeCount: int = 1
         apiNodeCount: int = 0
+        dontKill: bool = False # leave_running
         extraNodeosArgs: ExtraNodeosArgs = field(default_factory=ExtraNodeosArgs)
         specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
+        keepLogs: bool = True
         loggingLevel: str = "info"
         loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
         prodsEnableTraceApi: bool = False
@@ -199,13 +192,10 @@ class PerformanceTestBasic:
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
-        self.cluster=Cluster(walletd=True, loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
-                             nodeosVers=self.clusterConfig.nodeosVers,unshared=self.testHelperConfig.unshared)
+        self.cluster=Cluster(loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
+                             nodeosVers=self.clusterConfig.nodeosVers,unshared=self.testHelperConfig.unshared,
+                             keepRunning=self.clusterConfig.dontKill, keepLogs=self.clusterConfig.keepLogs)
         self.cluster.setWalletMgr(self.walletMgr)
-
-    def cleanupOldClusters(self):
-        self.cluster.killall(allInstances=self.testHelperConfig.killAll)
-        self.cluster.cleanup()
 
     def testDirsCleanup(self, delReport: bool=False):
         try:
@@ -460,25 +450,9 @@ class PerformanceTestBasic:
 
     def captureLowLevelArtifacts(self):
         try:
-            pid = os.getpid()
             shutil.move(f"{self.cluster.nodeosLogPath}", f"{self.varLogsDirPath}")
         except Exception as e:
             print(f"Failed to move '{self.cluster.nodeosLogPath}' to '{self.varLogsDirPath}': {type(e)}: {e}")
-
-        etcEosioDir = Path("etc")/"eosio"
-        for path in os.listdir(etcEosioDir):
-            if path == "launcher":
-                try:
-                    # Need to copy here since testnet.template is only generated at compile time then reused, therefore
-                    # it needs to remain in etc/eosio/launcher for subsequent tests.
-                    shutil.copytree(etcEosioDir/Path(path), self.etcEosioLogsDirPath/Path(path))
-                except Exception as e:
-                    print(f"Failed to copy '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
-            else:
-                try:
-                    shutil.move(etcEosioDir/Path(path), self.etcEosioLogsDirPath/Path(path))
-                except Exception as e:
-                    print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
 
 
     def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
@@ -504,15 +478,17 @@ class PerformanceTestBasic:
             log_reader.exportReportAsJSON(jsonReport, self.reportPath)
 
     def preTestSpinup(self):
-        self.cleanupOldClusters()
         self.testDirsCleanup()
         self.testDirsSetup()
 
+        self.walletMgr.launch()
         if self.launchCluster() == False:
             self.errorExit('Failed to stand up cluster.')
 
     def postTpsTestSteps(self):
         self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
+        self.cluster.shutdown()
+        self.walletMgr.shutdown()
 
     def runTest(self) -> bool:
         testSuccessful = False
@@ -550,10 +526,6 @@ class PerformanceTestBasic:
                 cluster=self.cluster,
                 walletMgr=self.walletMgr,
                 testSuccessful=testSuccessful,
-                killEosInstances=self.testHelperConfig._killEosInstances,
-                killWallet=self.testHelperConfig._killWallet,
-                keepLogs=False,
-                cleanRun=self.testHelperConfig.killAll,
                 dumpErrorDetails=self.testHelperConfig.dumpErrorDetails
                 )
 
@@ -564,8 +536,7 @@ class PerformanceTestBasic:
             return testSuccessful
 
     def setupTestHelperConfig(args) -> TestHelperConfig:
-        return PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
-                                                                dumpErrorDetails=args.dump_error_details, delay=args.d, verbose=args.v)
+        return PerformanceTestBasic.TestHelperConfig(dumpErrorDetails=args.dump_error_details, delay=args.d, verbose=args.v)
 
     def setupClusterConfig(args) -> ClusterConfig:
 
@@ -589,7 +560,8 @@ class PerformanceTestBasic:
                             resourceMonitorPluginArgs=resourceMonitorPluginArgs)
         SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
         specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
-        return PerformanceTestBasic.ClusterConfig(producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, apiNodeCount=args.api_nodes,
+        return PerformanceTestBasic.ClusterConfig(dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+                                                            producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, apiNodeCount=args.api_nodes,
                                                             genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                             specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
                                                             nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
@@ -598,7 +570,7 @@ class PtbArgumentsHandler(object):
     @staticmethod
     def _createBaseArgumentParser(defEndpointApiDef: str, defProdNodeCnt: int, defValidationNodeCnt: int, defApiNodeCnt: int, suppressHelp: bool=False):
         testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-d","--dump-error-details","-v","--leave-running"
-                                                            ,"--clean-run","--unshared"}, suppressHelp=suppressHelp)
+                                                            ,"--unshared"}, suppressHelp=suppressHelp)
         ptbBaseParser = argparse.ArgumentParser(parents=[testHelperArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
         ptbBaseGrpTitle="Performance Test Basic Base"

@@ -280,9 +280,6 @@ def produceNewAccounts():
             print(i, name)
             f.write('        {"name":"%s", "pvt":"%s", "pub":"%s"},\n' % (name, r[1], r[2]))
 
-def stepKillAll():
-    run('killall keosd nodeos || true')
-    sleep(1.5)
 def stepStartWallet():
     startWallet()
     importKeys()
@@ -394,7 +391,6 @@ def stepLog():
 parser = argparse.ArgumentParser()
 
 commands = [
-    ('k', 'kill',               stepKillAll,                True,    "Kill all nodeos and keosd processes"),
     ('w', 'wallet',             stepStartWallet,            True,    "Start keosd, create wallet, fill with keys"),
     ('b', 'boot',               stepStartBoot,              True,    "Start boot node"),
     ('s', 'sys',                createSystemAccounts,       True,    "Create system accounts (eosio.*)"),
