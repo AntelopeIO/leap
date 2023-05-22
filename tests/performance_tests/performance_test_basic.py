@@ -18,7 +18,7 @@ from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, Pro
 from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr, TransactionGeneratorsLauncher, TpsTrxGensConfig
 from TestHarness.TestHelper import AppArgs
 from dataclasses import dataclass, asdict, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from platform import release, system
 
@@ -34,7 +34,7 @@ class PerformanceTestBasic:
     class PerfTestBasicResult:
         testStart: datetime = None
         testEnd: datetime = None
-        testDuration: datetime = None
+        testDuration: timedelta = None
         testPassed: bool = False
         testRunSuccessful: bool = False
         testRunCompleted: bool = False
