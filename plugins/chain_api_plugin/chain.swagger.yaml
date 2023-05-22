@@ -345,29 +345,18 @@ paths:
               schema:
                 title: "GetProducersResponse"
                 type: object
-                additionalProperties: false
-                minProperties:  3
-                required:
-                  - active
-                  - pending
-                  - proposed
                 properties:
-                  active:
+                  rows:
                     type: array
                     nullable: true
                     items:
-                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/ProducerSchedule.yaml"
-                  pending:
-                    type: array
-                    nullable: true
-                    items:
-                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/ProducerSchedule.yaml"
-                  proposed:
-                    type: array
-                    nullable: true
-                    items:
-                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/ProducerSchedule.yaml"
-
+                      $ref: "https://docs.eosnetwork.com/openapi/v2.0/Producer.yaml"
+                  total_producer_vote_weight: 
+                    type: string
+                    description: The sum of all producer votes.
+                  more:
+                    type: string
+                    description: If not all producers were returned with the first request, more contains the lower bound to use for the next request.
 
   /get_raw_code_and_abi:
     post:
@@ -793,7 +782,7 @@ paths:
 
   /compute_transaction:
     post:
-      description: Executes specified transaction and creates a transaction trace, including resource usage, and then reverts all state changes but not contribute to the subjective billing for the account. If the transaction has signatures, they are processed, but any failures are ignored. Transactions which fail always include the transaction failure trace. Warning, users with exposed nodes who have enabled the compute_transaction endpoint should implement some sort of throttling to protect from Denial of Service attacks.
+      description: Executes specified transaction and creates a transaction trace, including resource usage, and then reverts all state changes but not contribute to the subjective billing for the account. If the transaction has signatures, they are processed, but any failures are ignored. Transactions which fail always include the transaction failure trace. Warning, users with exposed nodes who have enabled the compute_transaction endpoint should implement some throttling to protect from Denial of Service attacks.
       operationId: compute_transaction
       requestBody:
         content:
@@ -815,7 +804,123 @@ paths:
                 packed_trx:
                   type: string
                   description: Transaction object, JSON to hex
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                description: Returns Nothing
 
+  /get_code_hash:
+    post:
+      description: Retrieves the code hash for a smart contract deployed on the blockchain. Once you have the code hash of a contract, you can compare it with a known or expected value to ensure that the contract code has not been modified or tampered with.
+      operationId: get_code_hash
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                account_name:
+                  description: The name of the account for which you want to retrieve the code hash. It represents the account that owns the smart contract code.
+                  type: string
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  account_name:
+                    description: The name of the account where the smart contract was deployed.
+                    type: string
+                  code_hash:
+                    type: string
+                    description: A string that represents the hash value of the specified account's smart contract code.
+
+  /get_transaction_id:
+    post:
+      description: Retrieves the transaction ID (also known as the transaction hash) of a specified transaction on the blockchain.
+      operationId: get_transaction_id
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              description: The transaction in JSON format for which the ID should be retrieved.
+              $ref: "https://docs.eosnetwork.com/openapi/v2.0/Transaction.yaml"
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                description: The transaction ID.
+
+  /get_producer_schedule:
+    post:
+      description: Retrieves the current producer schedule from the blockchain, which includes the list of active producers and their respective rotation schedule.
+      operationId: get_producer_schedule
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  active:
+                    description: A JSON object that encapsulates the list of active producers schedule and its version.
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/ProducerSchedule.yaml"                              
+                  pending:
+                    description: A JSON object that encapsulates the list of pending producers schedule and its version.
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/ProducerSchedule.yaml"
+                  proposed:
+                    description: A JSON object that encapsulates the list of proposed producers schedule and its version.
+                    $ref: "https://docs.eosnetwork.com/openapi/v2.0/ProducerSchedule.yaml"
+
+  /send_read_only_transaction:
+    post:
+      description: Sends a read-only transaction in JSON format to the blockchain. This transaction is not intended for inclusion in the blockchain. When a user sends a transaction with this option enabled, the connected node will fail the transaction.
+      operationId: send_read_only_transaction
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                transaction:
+                  type: object
+                  properties:
+                    compression:
+                      type: boolean
+                      description: Compression used, usually false
+                    packed_context_free_data:
+                      type: string
+                      description: JSON to hex
+                    packed_trx:
+                      type: string
+                      description: Transaction object JSON to hex
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                description: Returns Nothing
+
+  /push_block:
+    post:
+      description: Sends a block to the blockchain.
+      operationId: push_block
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "https://docs.eosnetwork.com/openapi/v2.0/Block.yaml"
       responses:
         "200":
           description: OK
