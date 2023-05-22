@@ -4075,7 +4075,7 @@ namespace eosio {
                cptr = connections.begin();
             } else {
                // was found - advance the start to the next. cend is the old source.
-               if( ++cptr == connections.end() && cend != connections.end() ) {
+               if( ++cptr == connections.end() ) {
                   cptr = connections.begin();
                }
             }
