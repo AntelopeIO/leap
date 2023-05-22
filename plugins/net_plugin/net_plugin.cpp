@@ -317,9 +317,9 @@ namespace eosio {
 
    class connections_manager {
       alignas(hardware_destructive_interference_size)
-      mutable std::shared_mutex connections_mtx;
-      std::set<connection_ptr>  connections;
-      chain::flat_set<string>   supplied_peers;
+      mutable std::shared_mutex        connections_mtx;
+      chain::flat_set<connection_ptr>  connections;
+      chain::flat_set<string>          supplied_peers;
 
       alignas(hardware_destructive_interference_size)
       std::mutex                            connector_check_timer_mtx;
@@ -340,38 +340,21 @@ namespace eosio {
       void connection_monitor(const std::weak_ptr<connection>& from_connection);
 
    public:
-      void add_supplied_peers(const vector<string>& peers ) {
-         std::lock_guard g(connections_mtx);
-         supplied_peers.insert( peers.begin(), peers.end() );
-      }
+      void add_supplied_peers(const vector<string>& peers );
 
       // not thread safe, only call on startup
-      void init( std::chrono::milliseconds heartbeat_timeout_ms,
+      void init(std::chrono::milliseconds heartbeat_timeout_ms,
                 fc::microseconds conn_max_cleanup_time,
                 boost::asio::steady_timer::duration conn_period,
-                uint32_t maximum_client_count ) {
-         heartbeat_timeout = heartbeat_timeout_ms;
-         max_cleanup_time = conn_max_cleanup_time;
-         connector_period = conn_period;
-         max_client_count = maximum_client_count;
-      }
+                uint32_t maximum_client_count);
 
       uint32_t get_max_client_count() const { return max_client_count; }
-      fc::microseconds get_connector_period() const {
-         auto connector_period_us = std::chrono::duration_cast<std::chrono::microseconds>( connector_period );
-         return fc::microseconds{ connector_period_us.count() };
-      }
 
-      void register_update_p2p_connection_metrics(std::function<void(net_plugin::p2p_connections_metrics)>&& fun){
-         update_p2p_connection_metrics = std::move(fun);
-      }
+      fc::microseconds get_connector_period() const;
 
-      void connect_supplied_peers() {
-         std::lock_guard g(connections_mtx);
-         for (const auto& seed_node : supplied_peers) {
-            connect_impl(seed_node);
-         }
-      }
+      void register_update_p2p_connection_metrics(std::function<void(net_plugin::p2p_connections_metrics)>&& fun);
+
+      void connect_supplied_peers();
 
       void start_conn_timer();
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
@@ -1059,7 +1042,7 @@ namespace eosio {
    void connections_manager::for_each_connection( Function&& f ) const {
       std::shared_lock<std::shared_mutex> g( connections_mtx );
       for( auto& c :connections ) {
-         if( !f( c ) ) return;
+         if( !std::forward<Function>(f)( c ) ) return;
       }
    }
 
@@ -1068,7 +1051,7 @@ namespace eosio {
       std::shared_lock<std::shared_mutex> g( connections_mtx );
       for( auto& c : connections ) {
          if( c->is_transactions_only_connection() ) continue;
-         if( !f( c ) ) return;
+         if( !std::forward<Function>(f)( c ) ) return;
       }
    }
 
@@ -3994,20 +3977,55 @@ namespace eosio {
 
    //----------------------------------------------------------------------------
 
+   void connections_manager::add_supplied_peers(const vector<string>& peers ) {
+      std::lock_guard g(connections_mtx);
+      supplied_peers.insert( peers.begin(), peers.end() );
+   }
+
+   // not thread safe, only call on startup
+   void connections_manager::init( std::chrono::milliseconds heartbeat_timeout_ms,
+             fc::microseconds conn_max_cleanup_time,
+             boost::asio::steady_timer::duration conn_period,
+             uint32_t maximum_client_count ) {
+      heartbeat_timeout = heartbeat_timeout_ms;
+      max_cleanup_time = conn_max_cleanup_time;
+      connector_period = conn_period;
+      max_client_count = maximum_client_count;
+   }
+
+   fc::microseconds connections_manager::get_connector_period() const {
+      auto connector_period_us = std::chrono::duration_cast<std::chrono::microseconds>( connector_period );
+      return fc::microseconds{ connector_period_us.count() };
+   }
+
+   void connections_manager::register_update_p2p_connection_metrics(std::function<void(net_plugin::p2p_connections_metrics)>&& fun){
+      update_p2p_connection_metrics = std::move(fun);
+   }
+
+   void connections_manager::connect_supplied_peers() {
+      std::lock_guard g(connections_mtx);
+      for (const auto& peer : supplied_peers) {
+         connect_impl(peer);
+      }
+   }
+
    void connections_manager::add( connection_ptr c ) {
       std::lock_guard g( connections_mtx );
       add_impl( std::move(c) );
    }
 
+   // called by API
    string connections_manager::connect( const string& host ) {
       std::lock_guard g( connections_mtx );
       if( find_connection_impl( host ) )
          return "already connected";
 
       connect_impl( host );
+      supplied_peers.insert(host);
       return "added connection";
    }
 
+   // called by API
    string connections_manager::disconnect( const string& host ) {
       std::lock_guard g( connections_mtx );
       if( auto c = find_connection_impl( host ) ) {
@@ -4113,7 +4131,6 @@ namespace eosio {
 
    // call with connections_mtx
    void connections_manager::connect_impl( const string& host ) {
-      supplied_peers.insert(host);
       connection_ptr c = std::make_shared<connection>( host );
       fc_dlog( logger, "calling active connector: ${h}", ("h", host) );
       if( c->resolve_and_connect() ) {
