@@ -61,7 +61,7 @@ namespace eosio::testing {
 
       fc::time_point get_trx_ack_time(const eosio::chain::transaction_id_type& _trx_id) {
          fc::time_point time_acked;
-         std::lock_guard g(_trx_ack_map_lock);
+         std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
          auto search = _trxs_ack_time_map.find(_trx_id);
          if (search != _trxs_ack_time_map.end()) {
             time_acked = search->second;
@@ -75,7 +75,7 @@ namespace eosio::testing {
       virtual void send_transaction(const chain::packed_transaction& trx) = 0;
 
       void trx_acknowledged(const eosio::chain::transaction_id_type _trx_id, const fc::time_point ack_time) {
-         std::lock_guard g(_trx_ack_map_lock);
+         std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
          _trxs_ack_time_map[_trx_id] = ack_time;
       }
 
@@ -126,19 +126,17 @@ namespace eosio::testing {
       std::vector<logged_trx_data> _sent_trx_data;
    };
 
-   using fc::time_point;
-
    struct tps_test_stats {
-      uint32_t          total_trxs = 0;
-      uint32_t          trxs_left = 0;
-      uint32_t          trxs_sent = 0;
-      time_point        start_time;
-      time_point        expected_end_time;
-      time_point        last_run;
-      time_point        next_run;
-      int64_t           time_to_next_trx_us = 0;
-      fc::microseconds  trx_interval;
-      uint32_t          expected_sent;
+      uint32_t         total_trxs = 0;
+      uint32_t         trxs_left  = 0;
+      uint32_t         trxs_sent  = 0;
+      fc::time_point   start_time;
+      fc::time_point   expected_end_time;
+      fc::time_point   last_run;
+      fc::time_point   next_run;
+      int64_t          time_to_next_trx_us = 0;
+      fc::microseconds trx_interval;
+      uint32_t         expected_sent;
    };
 
    constexpr int64_t min_sleep_us                  = 1;
