@@ -378,16 +378,10 @@ namespace eosio {
       void for_each_block_connection(Function&& f) const;
 
       template <typename UnaryPredicate>
-      bool any_of_connections(UnaryPredicate&& p) const {
-         std::shared_lock g(connections_mtx);
-         return std::any_of(connections.cbegin(), connections.cend(), std::forward<UnaryPredicate>(p));
-      }
+      bool any_of_connections(UnaryPredicate&& p) const;
 
       template <typename UnaryPredicate>
-      bool any_of_block_connections(UnaryPredicate&& p) const {
-         std::shared_lock g(connections_mtx);
-         return std::any_of(connections.cbegin(), connections.cend(), std::forward<UnaryPredicate>(p));
-      }
+      bool any_of_block_connections(UnaryPredicate&& p) const;
    };
 
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl>,
@@ -1064,6 +1058,24 @@ namespace eosio {
          f( c );
       }
    }
+
+   template <typename UnaryPredicate>
+   bool connections_manager::any_of_connections(UnaryPredicate&& p) const {
+      std::shared_lock g(connections_mtx);
+      return std::any_of(connections.cbegin(), connections.cend(), std::forward<UnaryPredicate>(p));
+   }
+
+   template <typename UnaryPredicate>
+   bool connections_manager::any_of_block_connections(UnaryPredicate&& p) const {
+      std::shared_lock g( connections_mtx );
+      for( auto& c : connections ) {
+         if( c->is_transactions_only_connection() ) continue;
+         if (p(c))
+            return true;
+      }
+      return false;
+   }
+
 
    //---------------------------------------------------------------------------
 
