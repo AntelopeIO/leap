@@ -884,7 +884,7 @@ paths:
 
   /send_read_only_transaction:
     post:
-      description: Sends a read-only transaction in JSON format to the blockchain. This transaction is not intended for inclusion in the blockchain. When a user sends a transaction with this option enabled, the connected node will fail the transaction.
+      description: Sends a read-only transaction in JSON format to the blockchain. This transaction is not intended for inclusion in the blockchain. When a user sends a transaction, which modifies the blockchain state, the connected node will fail the transaction.
       operationId: send_read_only_transaction
       requestBody:
         content:
