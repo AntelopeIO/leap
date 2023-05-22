@@ -376,6 +376,12 @@ namespace eosio {
 
       template <typename Function>
       void for_each_block_connection(Function&& f) const;
+
+      template <typename UnaryPredicate>
+      bool any_of_connections(UnaryPredicate&& p) const {
+         std::shared_lock g(connections_mtx);
+         return std::find_if(connections.cbegin(), connections.cend(), std::forward<UnaryPredicate>(p)) != connections.cend();
+      }
    };
 
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl>,
@@ -1040,7 +1046,7 @@ namespace eosio {
 
    template<typename Function>
    void connections_manager::for_each_connection( Function&& f ) const {
-      std::shared_lock<std::shared_mutex> g( connections_mtx );
+      std::shared_lock g( connections_mtx );
       for( auto& c :connections ) {
          if( !std::forward<Function>(f)( c ) ) return;
       }
@@ -1048,7 +1054,7 @@ namespace eosio {
 
    template<typename Function>
    void connections_manager::for_each_block_connection( Function&& f ) const {
-      std::shared_lock<std::shared_mutex> g( connections_mtx );
+      std::shared_lock g( connections_mtx );
       for( auto& c : connections ) {
          if( c->is_transactions_only_connection() ) continue;
          if( !std::forward<Function>(f)( c ) ) return;
@@ -2961,10 +2967,9 @@ namespace eosio {
             auto c_time = last_handshake_sent.time;
             g_conn.unlock();
             peer_dlog( this, "checking for duplicate" );
-            bool dup = false;
-            my_impl->connections.for_each_connection([&](const auto& check) {
+            auto is_duplicate = [&](const auto& check) {
                if(check.get() == this)
-                  return true;
+                  return false;
                std::unique_lock<std::mutex> g_check_conn( check->conn_mtx );
                fc_dlog( logger, "dup check: connected ${c}, ${l} =? ${r}",
                         ("c", check->connected())("l", check->last_handshake_recv.node_id)("r", msg.node_id) );
@@ -2978,29 +2983,27 @@ namespace eosio {
                      auto check_time = check->last_handshake_sent.time + check->last_handshake_recv.time;
                      g_check_conn.unlock();
                      if (msg.time + c_time <= check_time)
-                        return true;
+                        return false;
                   } else if (net_version < proto_dup_node_id_goaway || msg.network_version < proto_dup_node_id_goaway) {
                      if (my_impl->p2p_address < msg.p2p_address) {
                         fc_dlog( logger, "my_impl->p2p_address '${lhs}' < msg.p2p_address '${rhs}'",
                                  ("lhs", my_impl->p2p_address)( "rhs", msg.p2p_address ) );
                         // only the connection from lower p2p_address to higher p2p_address will be considered as a duplicate,
                         // so there is no chance for both connections to be closed
-                        return true;
+                        return false;
                      }
                   } else if (my_impl->node_id < msg.node_id) {
                      fc_dlog( logger, "not duplicate, my_impl->node_id '${lhs}' < msg.node_id '${rhs}'",
                               ("lhs", my_impl->node_id)("rhs", msg.node_id) );
                      // only the connection from lower node_id to higher node_id will be considered as a duplicate,
                      // so there is no chance for both connections to be closed
-                     return true;
+                     return false;
                   }
-
-                  dup = true;
-                  return false;
+                  return true;
                }
-               return true;
-            });
-            if (dup) {
+               return false;
+            };
+            if (my_impl->connections.any_of_connections(std::move(is_duplicate))) {
                peer_dlog( this, "sending go_away duplicate, msg.p2p_address: ${add}", ("add", msg.p2p_address) );
                go_away_message gam(duplicate);
                gam.node_id = conn_node_id;
