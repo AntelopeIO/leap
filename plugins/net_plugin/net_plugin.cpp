@@ -333,9 +333,9 @@ namespace eosio {
       std::function<void(net_plugin::p2p_connections_metrics)> update_p2p_connection_metrics;
 
    private: // must call with held mutex
-      connection_ptr find_connection_impl(const string& host) const;
-      void add_impl(connection_ptr&& c);
-      void connect_impl(const string& peer);
+      connection_ptr find_connection_i(const string& host) const;
+      void add_i(connection_ptr&& c);
+      void connect_i(const string& peer);
 
       void connection_monitor(const std::weak_ptr<connection>& from_connection);
 
@@ -906,7 +906,7 @@ namespace eosio {
       /** @} */
 
       void blk_send_branch( const block_id_type& msg_head_id );
-      void blk_send_branch_impl( uint32_t msg_head_num, uint32_t lib_num, uint32_t head_num );
+      void blk_send_branch( uint32_t msg_head_num, uint32_t lib_num, uint32_t head_num );
       void blk_send(const block_id_type& blkid);
       void stop_send();
 
@@ -1256,12 +1256,12 @@ namespace eosio {
       } else {
          if( on_fork ) msg_head_num = 0;
          // if peer on fork, start at their last lib, otherwise we can start at msg_head+1
-         blk_send_branch_impl( msg_head_num, lib_num, head_num );
+         blk_send_branch( msg_head_num, lib_num, head_num );
       }
    }
 
    // called from connection strand
-   void connection::blk_send_branch_impl( uint32_t msg_head_num, uint32_t lib_num, uint32_t head_num ) {
+   void connection::blk_send_branch( uint32_t msg_head_num, uint32_t lib_num, uint32_t head_num ) {
       if( !peer_requested ) {
          auto last = msg_head_num != 0 ? msg_head_num : lib_num;
          peer_requested = peer_sync_state( last+1, head_num, last );
@@ -4005,22 +4005,22 @@ namespace eosio {
    void connections_manager::connect_supplied_peers() {
       std::lock_guard g(connections_mtx);
       for (const auto& peer : supplied_peers) {
-         connect_impl(peer);
+         connect_i(peer);
       }
    }
 
    void connections_manager::add( connection_ptr c ) {
       std::lock_guard g( connections_mtx );
-      add_impl( std::move(c) );
+      add_i( std::move(c) );
    }
 
    // called by API
    string connections_manager::connect( const string& host ) {
       std::lock_guard g( connections_mtx );
-      if( find_connection_impl( host ) )
+      if( find_connection_i( host ) )
          return "already connected";
 
-      connect_impl( host );
+      connect_i( host );
       supplied_peers.insert(host);
       return "added connection";
    }
@@ -4028,7 +4028,7 @@ namespace eosio {
    // called by API
    string connections_manager::disconnect( const string& host ) {
       std::lock_guard g( connections_mtx );
-      if( auto c = find_connection_impl( host ) ) {
+      if( auto c = find_connection_i( host ) ) {
          fc_ilog( logger, "disconnecting: ${cid}", ("cid", c->connection_id) );
          c->close();
          connections.erase(c);
@@ -4082,17 +4082,17 @@ namespace eosio {
          if( cptr != connections.end() ) {
             auto cstart_it = cptr;
             do {
-            // select the first one which is current and has lib above current and break out.
-            if( !(*cptr)->is_transactions_only_connection() && (*cptr)->current() ) {
-               std::lock_guard<std::mutex> g_conn( (*cptr)->conn_mtx );
-               // TODO: change to a better heuristic than lib >= sync_known_lib_num
-               if( (*cptr)->last_handshake_recv.last_irreversible_block_num >= sync_known_lib_num ) {
-                  new_sync_source = *cptr;
-                  break;
+               // select the first one which is current and has lib above current and break out.
+               if( !(*cptr)->is_transactions_only_connection() && (*cptr)->current() ) {
+                  std::lock_guard<std::mutex> g_conn( (*cptr)->conn_mtx );
+                  // TODO: change to a better heuristic than lib >= sync_known_lib_num
+                  if( (*cptr)->last_handshake_recv.last_irreversible_block_num >= sync_known_lib_num ) {
+                     new_sync_source = *cptr;
+                     break;
+                  }
                }
-            }
-            if( ++cptr == connections.end() )
-               cptr = connections.begin();
+               if( ++cptr == connections.end() )
+                  cptr = connections.begin();
             } while( cptr != cstart_it );
          }
 
@@ -4103,7 +4103,7 @@ namespace eosio {
 
    std::optional<connection_status> connections_manager::status( const string& host )const {
       std::shared_lock g( connections_mtx );
-      auto con = find_connection_impl( host );
+      auto con = find_connection_i( host );
       if( con ) {
          return con->get_status();
       }
@@ -4121,7 +4121,7 @@ namespace eosio {
    }
 
    // call with connections_mtx
-   connection_ptr connections_manager::find_connection_impl( const string& host )const {
+   connection_ptr connections_manager::find_connection_i( const string& host )const {
       for( const auto& c : connections ) {
          if (c->peer_address() == host)
             return c;
@@ -4130,17 +4130,17 @@ namespace eosio {
    }
 
    // call with connections_mtx
-   void connections_manager::connect_impl( const string& host ) {
+   void connections_manager::connect_i( const string& host ) {
       connection_ptr c = std::make_shared<connection>( host );
       fc_dlog( logger, "calling active connector: ${h}", ("h", host) );
       if( c->resolve_and_connect() ) {
          fc_dlog( logger, "adding new connection to the list: ${host} ${cid}", ("host", host)("cid", c->connection_id) );
-         add_impl( std::move(c) );
+         add_i( std::move(c) );
       }
    }
 
    // call with connections_mtx
-   void connections_manager::add_impl(connection_ptr&& c) {
+   void connections_manager::add_i(connection_ptr&& c) {
       c->set_heartbeat_timeout( heartbeat_timeout );
       connections.insert( std::move(c) );
    }
