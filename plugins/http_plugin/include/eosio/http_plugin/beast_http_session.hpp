@@ -171,7 +171,7 @@ class beast_http_session : public detail::abstract_conn,
             handler_itr->second.fn(this->shared_from_this(),
                                 std::move(resource),
                                 std::move(body),
-                                make_http_response_handler(&plugin_state_, this->shared_from_this(), content_type));
+                                make_http_response_handler(plugin_state_, this->shared_from_this(), content_type));
          } else if (resource == "/v1/node/get_supported_apis") {
             http_plugin::get_supported_apis_result result;
             for (const auto& handler : plugin_state_.url_handlers) {
