@@ -9,7 +9,6 @@ import shutil
 import signal
 import json
 import log_reader
-import inspect
 import traceback
 
 from pathlib import Path, PurePath
@@ -19,8 +18,9 @@ from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, Pro
 from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr, TransactionGeneratorsLauncher, TpsTrxGensConfig
 from TestHarness.TestHelper import AppArgs
 from dataclasses import dataclass, asdict, field
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
+from platform import release, system
 
 class PerformanceTestBasic:
     @dataclass
@@ -31,21 +31,36 @@ class PerformanceTestBasic:
         trxGenExitCodes: list = field(default_factory=list)
 
     @dataclass
+    class PerfTestBasicResult:
+        testStart: datetime = None
+        testEnd: datetime = None
+        testDuration: timedelta = None
+        testPassed: bool = False
+        testRunSuccessful: bool = False
+        testRunCompleted: bool = False
+        tpsExpectMet: bool = False
+        trxExpectMet: bool = False
+        targetTPS: int = 0
+        resultAvgTps: float = 0
+        expectedTxns: int = 0
+        resultTxns: int = 0
+        testAnalysisBlockCnt: int = 0
+        logsDir: Path = Path("")
+
+        def __post_init__(self):
+            self.testDuration = None if self.testStart is None or self.testEnd is None else self.testEnd - self.testStart
+            self.tpsExpectMet=True if self.resultAvgTps >= self.targetTPS else abs(self.targetTPS - self.resultAvgTps) < 100
+            self.trxExpectMet=self.expectedTxns == self.resultTxns
+            self.testRunSuccessful = self.testRunCompleted and self.expectedTxns == self.resultTxns
+            self.testPassed = self.testRunSuccessful and self.tpsExpectMet and self.trxExpectMet
+
+    @dataclass
     class TestHelperConfig:
-        killAll: bool = True # clean_run
-        dontKill: bool = False # leave_running
-        keepLogs: bool = True
         dumpErrorDetails: bool = False
         delay: int = 1
         nodesFile: str = None
         verbose: bool = False
         unshared: bool = False
-        _killEosInstances: bool = True
-        _killWallet: bool = True
-
-        def __post_init__(self):
-            self._killEosInstances = not self.dontKill
-            self._killWallet = not self.dontKill
 
     @dataclass
     class ClusterConfig:
@@ -79,11 +94,13 @@ class PerformanceTestBasic:
         producerNodeCount: int = 1
         validationNodeCount: int = 1
         apiNodeCount: int = 0
+        dontKill: bool = False # leave_running
         extraNodeosArgs: ExtraNodeosArgs = field(default_factory=ExtraNodeosArgs)
         specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
         genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
+        keepLogs: bool = True
         loggingLevel: str = "info"
         loggingDict: dict = field(default_factory=lambda: { "bios": "off" })
         prodsEnableTraceApi: bool = False
@@ -168,6 +185,10 @@ class PerformanceTestBasic:
         self.clusterConfig = clusterConfig
         self.ptbConfig = ptbConfig
 
+        #Results
+        self.ptbTpsTestResult = PerformanceTestBasic.PtbTpsTestResult()
+        self.testResult = PerformanceTestBasic.PerfTestBasicResult()
+
         self.testHelperConfig.keepLogs = not self.ptbConfig.delPerfLogs
 
         Utils.Debug = self.testHelperConfig.verbose
@@ -175,6 +196,7 @@ class PerformanceTestBasic:
         self.emptyBlockGoal = 1
 
         self.testStart = datetime.utcnow()
+        self.testEnd = self.testStart
         self.testNamePath = testNamePath
         self.loggingConfig = PerformanceTestBasic.LoggingConfig(logDirBase=Path(self.ptbConfig.logDirRoot)/self.testNamePath,
                                                                 logDirTimestamp=f"{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}",
@@ -199,13 +221,10 @@ class PerformanceTestBasic:
 
         # Setup cluster and its wallet manager
         self.walletMgr=WalletMgr(True)
-        self.cluster=Cluster(walletd=True, loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
-                             nodeosVers=self.clusterConfig.nodeosVers,unshared=self.testHelperConfig.unshared)
+        self.cluster=Cluster(loggingLevel=self.clusterConfig.loggingLevel, loggingLevelDict=self.clusterConfig.loggingDict,
+                             nodeosVers=self.clusterConfig.nodeosVers,unshared=self.testHelperConfig.unshared,
+                             keepRunning=self.clusterConfig.dontKill, keepLogs=self.clusterConfig.keepLogs)
         self.cluster.setWalletMgr(self.walletMgr)
-
-    def cleanupOldClusters(self):
-        self.cluster.killall(allInstances=self.testHelperConfig.killAll)
-        self.cluster.cleanup()
 
     def testDirsCleanup(self, delReport: bool=False):
         try:
@@ -460,40 +479,83 @@ class PerformanceTestBasic:
 
     def captureLowLevelArtifacts(self):
         try:
-            pid = os.getpid()
             shutil.move(f"{self.cluster.nodeosLogPath}", f"{self.varLogsDirPath}")
         except Exception as e:
             print(f"Failed to move '{self.cluster.nodeosLogPath}' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
-        etcEosioDir = Path("etc")/"eosio"
-        for path in os.listdir(etcEosioDir):
-            if path == "launcher":
-                try:
-                    # Need to copy here since testnet.template is only generated at compile time then reused, therefore
-                    # it needs to remain in etc/eosio/launcher for subsequent tests.
-                    shutil.copytree(etcEosioDir/Path(path), self.etcEosioLogsDirPath/Path(path))
-                except Exception as e:
-                    print(f"Failed to copy '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
-            else:
-                try:
-                    shutil.move(etcEosioDir/Path(path), self.etcEosioLogsDirPath/Path(path))
-                except Exception as e:
-                    print(f"Failed to move '{etcEosioDir}/{path}' to '{self.etcEosioLogsDirPath}/{path}': {type(e)}: {e}")
-
+    def createReport(self, logAnalysis: log_reader.LogAnalysis, tpsTestConfig: log_reader.TpsTestConfig, argsDict: dict, nodeosVers: str,
+                     targetApiEndpoint: str, testResult: PerfTestBasicResult) -> dict:
+        report = {}
+        report['targetApiEndpoint'] = targetApiEndpoint
+        report['Result'] = asdict(testResult)
+        report['Analysis'] = {}
+        report['Analysis']['BlockSize'] = asdict(logAnalysis.blockSizeStats)
+        report['Analysis']['BlocksGuide'] = asdict(logAnalysis.guide)
+        report['Analysis']['TPS'] = asdict(logAnalysis.tpsStats)
+        report['Analysis']['TPS']['configTps'] = tpsTestConfig.targetTps
+        report['Analysis']['TPS']['configTestDuration'] = tpsTestConfig.testDurationSec
+        report['Analysis']['TPS']['tpsPerGenerator'] = tpsTestConfig.targetTpsPerGenList
+        report['Analysis']['TPS']['generatorCount'] = tpsTestConfig.numTrxGensUsed
+        report['Analysis']['TrxCPU'] = asdict(logAnalysis.trxCpuStats)
+        report['Analysis']['TrxLatency'] = asdict(logAnalysis.trxLatencyStats)
+        report['Analysis']['TrxLatency']['units'] = "seconds"
+        report['Analysis']['TrxNet'] = asdict(logAnalysis.trxNetStats)
+        report['Analysis']['TrxAckResponseTime'] = asdict(logAnalysis.trxAckStats)
+        report['Analysis']['TrxAckResponseTime']['measurementApplicable'] = logAnalysis.trxAckStatsApplicable
+        report['Analysis']['TrxAckResponseTime']['units'] = "microseconds"
+        report['Analysis']['ExpectedTransactions'] = testResult.expectedTxns
+        report['Analysis']['DroppedTransactions'] = len(logAnalysis.notFound)
+        report['Analysis']['ProductionWindowsTotal'] = logAnalysis.prodWindows.totalWindows
+        report['Analysis']['ProductionWindowsAverageSize'] = logAnalysis.prodWindows.averageWindowSize
+        report['Analysis']['ProductionWindowsMissed'] = logAnalysis.prodWindows.missedWindows
+        report['Analysis']['ForkedBlocks'] = {}
+        report['Analysis']['ForksCount'] = {}
+        report['Analysis']['DroppedBlocks'] = {}
+        report['Analysis']['DroppedBlocksCount'] = {}
+        for nodeNum in range(0, self.data.numNodes):
+            formattedNodeNum = str(nodeNum).zfill(2)
+            report['Analysis']['ForkedBlocks'][formattedNodeNum] = self.data.forkedBlocks[formattedNodeNum]
+            report['Analysis']['ForksCount'][formattedNodeNum] = len(self.data.forkedBlocks[formattedNodeNum])
+            report['Analysis']['DroppedBlocks'][formattedNodeNum] = self.data.droppedBlocks[formattedNodeNum]
+            report['Analysis']['DroppedBlocksCount'][formattedNodeNum] = len(self.data.droppedBlocks[formattedNodeNum])
+        report['args'] =  argsDict
+        report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
+        report['nodeosVersion'] = nodeosVers
+        return report
 
     def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
         args = self.prepArgs()
         artifactsLocate = log_reader.ArtifactPaths(nodeosLogDir=self.nodeosLogDir, nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                    blockDataPath=self.blockDataPath, transactionMetricsDataPath=self.transactionMetricsDataPath)
         tpsTestConfig = log_reader.TpsTestConfig(targetTps=self.ptbConfig.targetTps, testDurationSec=self.ptbConfig.testTrxGenDurationSec, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator,
-                                                 numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed,
-                                                 targetTpsPerGenList=testResult.targetTpsPerGenList, quiet=self.ptbConfig.quiet)
-        self.report = log_reader.calcAndReport(data=self.data, tpsTestConfig=tpsTestConfig, artifacts=artifactsLocate, argsDict=args, testStart=self.testStart,
-                                               completedRun=testResult.completedRun, nodeosVers=self.clusterConfig.nodeosVers, targetApiEndpoint=self.ptbConfig.endpointApi)
+                                                 numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed, targetTpsPerGenList=testResult.targetTpsPerGenList,
+                                                 quiet=self.ptbConfig.quiet, printMissingTransactions=self.ptbConfig.printMissingTransactions)
+        self.logAnalysis = log_reader.analyzeLogResults(data=self.data, tpsTestConfig=tpsTestConfig, artifacts=artifactsLocate)
+        self.testEnd = datetime.utcnow()
+
+        self.testResult = PerformanceTestBasic.PerfTestBasicResult(targetTPS=self.ptbConfig.targetTps, resultAvgTps=self.logAnalysis.tpsStats.avg, expectedTxns=self.ptbConfig.expectedTransactionsSent,
+                                                                   resultTxns=self.logAnalysis.trxLatencyStats.samples, testRunCompleted=self.ptbTpsTestResult.completedRun,
+                                                                   testAnalysisBlockCnt=self.logAnalysis.guide.testAnalysisBlockCnt, logsDir=self.loggingConfig.logDirPath,
+                                                                   testStart=self.testStart, testEnd=self.testEnd)
+
+        print(f"targetTPS: {self.testResult.targetTPS} expectedTxns: {self.testResult.expectedTxns} resultAvgTps: {self.testResult.resultAvgTps} resultTxns: {self.testResult.resultTxns}")
+
+        if not self.ptbTpsTestResult.completedRun:
+            for exitCode in self.ptbTpsTestResult.trxGenExitCodes:
+                if exitCode != 0:
+                    print(f"Error: Transaction Generator exited with error {exitCode}")
+
+        if self.ptbTpsTestResult.completedRun and self.ptbConfig.expectedTransactionsSent != self.data.totalTransactions:
+            print(f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.ptbConfig.expectedTransactionsSent}")
+
+        print(f"testRunSuccessful: {self.testResult.testRunSuccessful} testPassed: {self.testResult.testPassed} tpsExpectationMet: {self.testResult.tpsExpectMet} trxExpectationMet: {self.testResult.trxExpectMet}")
+
+        self.report = self.createReport(logAnalysis=self.logAnalysis, tpsTestConfig=tpsTestConfig, argsDict=args, nodeosVers=self.clusterConfig.nodeosVers,
+                                        targetApiEndpoint=self.ptbConfig.endpointApi, testResult=self.testResult)
 
         jsonReport = None
         if not self.ptbConfig.quiet or not self.ptbConfig.delReport:
-            jsonReport = log_reader.reportAsJSON(self.report)
+            jsonReport = log_reader.JsonReportHandler.reportAsJSON(self.report)
 
         if not self.ptbConfig.quiet:
             print(self.data)
@@ -501,44 +563,34 @@ class PerformanceTestBasic:
             print(f"Report:\n{jsonReport}")
 
         if not self.ptbConfig.delReport:
-            log_reader.exportReportAsJSON(jsonReport, self.reportPath)
+            log_reader.JsonReportHandler.exportReportAsJSON(jsonReport, self.reportPath)
 
     def preTestSpinup(self):
-        self.cleanupOldClusters()
         self.testDirsCleanup()
         self.testDirsSetup()
 
+        self.walletMgr.launch()
         if self.launchCluster() == False:
             self.errorExit('Failed to stand up cluster.')
 
     def postTpsTestSteps(self):
         self.queryBlockTrxData(self.validationNode, self.blockDataPath, self.blockTrxDataPath, self.data.startBlock, self.data.ceaseBlock)
+        self.cluster.shutdown()
+        self.walletMgr.shutdown()
 
     def runTest(self) -> bool:
-        testSuccessful = False
 
         try:
             # Kill any existing instances and launch cluster
             TestHelper.printSystemInfo("BEGIN")
             self.preTestSpinup()
 
-            self.ptbTestResult = self.runTpsTest()
+            self.ptbTpsTestResult = self.runTpsTest()
 
             self.postTpsTestSteps()
 
             self.captureLowLevelArtifacts()
-            self.analyzeResultsAndReport(self.ptbTestResult)
-
-            testSuccessful = self.ptbTestResult.completedRun
-
-            if not self.PtbTpsTestResult.completedRun:
-                for exitCode in self.ptbTestResult.trxGenExitCodes:
-                    if exitCode != 0:
-                        print(f"Error: Transaction Generator exited with error {exitCode}")
-
-            if testSuccessful and self.ptbConfig.expectedTransactionsSent != self.data.totalTransactions:
-                testSuccessful = False
-                print(f"Error: Transactions received: {self.data.totalTransactions} did not match expected total: {self.ptbConfig.expectedTransactionsSent}")
+            self.analyzeResultsAndReport(self.ptbTpsTestResult)
 
         except:
             traceback.print_exc()
@@ -549,11 +601,7 @@ class PerformanceTestBasic:
             TestHelper.shutdown(
                 cluster=self.cluster,
                 walletMgr=self.walletMgr,
-                testSuccessful=testSuccessful,
-                killEosInstances=self.testHelperConfig._killEosInstances,
-                killWallet=self.testHelperConfig._killWallet,
-                keepLogs=False,
-                cleanRun=self.testHelperConfig.killAll,
+                testSuccessful=self.testResult.testRunSuccessful,
                 dumpErrorDetails=self.testHelperConfig.dumpErrorDetails
                 )
 
@@ -561,11 +609,10 @@ class PerformanceTestBasic:
                 print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
                 self.testDirsCleanup(self.ptbConfig.delReport)
 
-            return testSuccessful
+            return self.testResult.testRunSuccessful
 
     def setupTestHelperConfig(args) -> TestHelperConfig:
-        return PerformanceTestBasic.TestHelperConfig(killAll=args.clean_run, dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
-                                                                dumpErrorDetails=args.dump_error_details, delay=args.d, verbose=args.v)
+        return PerformanceTestBasic.TestHelperConfig(dumpErrorDetails=args.dump_error_details, delay=args.d, verbose=args.v)
 
     def setupClusterConfig(args) -> ClusterConfig:
 
@@ -589,7 +636,8 @@ class PerformanceTestBasic:
                             resourceMonitorPluginArgs=resourceMonitorPluginArgs)
         SC = PerformanceTestBasic.ClusterConfig.SpecifiedContract
         specifiedContract=SC(contractDir=args.contract_dir, wasmFile=args.wasm_file, abiFile=args.abi_file, account=Account(args.account_name))
-        return PerformanceTestBasic.ClusterConfig(producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, apiNodeCount=args.api_nodes,
+        return PerformanceTestBasic.ClusterConfig(dontKill=args.leave_running, keepLogs=not args.del_perf_logs,
+                                                            producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, apiNodeCount=args.api_nodes,
                                                             genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                             specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
                                                             nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
@@ -598,7 +646,7 @@ class PtbArgumentsHandler(object):
     @staticmethod
     def _createBaseArgumentParser(defEndpointApiDef: str, defProdNodeCnt: int, defValidationNodeCnt: int, defApiNodeCnt: int, suppressHelp: bool=False):
         testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-d","--dump-error-details","-v","--leave-running"
-                                                            ,"--clean-run","--unshared"}, suppressHelp=suppressHelp)
+                                                            ,"--unshared"}, suppressHelp=suppressHelp)
         ptbBaseParser = argparse.ArgumentParser(parents=[testHelperArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
         ptbBaseGrpTitle="Performance Test Basic Base"

@@ -2,8 +2,8 @@
 
 import time
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
-from TestHarness.Cluster import NamedAccounts
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
+from TestHarness.accounts import NamedAccounts
 
 ###############################################################
 # nodeos_under_min_avail_ram
@@ -18,20 +18,15 @@ from TestHarness.Cluster import NamedAccounts
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--wallet-port","--unshared"})
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--wallet-port","--unshared"})
 Utils.Debug=args.v
 totalNodes=4
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-dontKill=args.leave_running
-killAll=args.clean_run
 walletPort=args.wallet_port
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 ClientName="cleos"
@@ -40,8 +35,6 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.setWalletMgr(walletMgr)
 
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     Print("Stand up cluster")
     minRAMFlag="--chain-state-db-guard-size-mb"
     minRAMValue=1002
@@ -89,7 +82,7 @@ try:
         nodes[0].transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
         trans=nodes[0].delegatebw(account, 1000000.0000, 68000000.0000, waitForTransBlock=True, exitOnError=True)
 
-    contractAccount=cluster.createAccountKeys(1)[0]
+    contractAccount=createAccountKeys(1)[0]
     contractAccount.name="contracttest"
     walletMgr.importKey(contractAccount, testWallet)
     Print("Create new account %s via %s" % (contractAccount.name, cluster.eosioAccount.name))
@@ -191,7 +184,7 @@ try:
             addSwapFlags["--enable-stale-production"]=""   # just enable stale production for the first node
             enabledStaleProduction=True
         if not nodes[nodeIndex].relaunch("", newChain=False, addSwapFlags=addSwapFlags):
-            Utils.cmdError("Failed to restart node0 with new capacity %s" % (maxRAMValue))
+            Utils.cmdError(f'Failed to restart {nodes[nodeIndex].name} with new capacity {maxRAMValue}')
             errorExit("Failure - Node should have restarted")
         addSwapFlags={}
         maxRAMValue=currentMinimumMaxRAM+30
@@ -302,7 +295,7 @@ try:
 
     testSuccessful=True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

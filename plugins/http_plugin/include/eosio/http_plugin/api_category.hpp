@@ -1,6 +1,6 @@
 #pragma once
-#include <stdint.h>
 #include <eosio/chain/types.hpp>
+#include <stdint.h>
 namespace eosio {
 
 enum class api_category : uint32_t {
@@ -18,7 +18,6 @@ enum class api_category : uint32_t {
    test_control = 1 << 10,
    node        = UINT32_MAX
 };
-
 
 class api_category_set {
    uint32_t data = {};

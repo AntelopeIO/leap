@@ -7,8 +7,8 @@
 #include <eosio/state_history/log.hpp>
 #include <eosio/state_history/serialization.hpp>
 #include <eosio/state_history/trace_converter.hpp>
-#include <eosio/state_history_plugin/state_history_plugin.hpp>
 #include <eosio/state_history_plugin/session.hpp>
+#include <eosio/state_history_plugin/state_history_plugin.hpp>
 
 #include <boost/asio/bind_executor.hpp>
 #include <boost/asio/ip/host_name.hpp>
@@ -19,9 +19,9 @@
 #include <boost/signals2/connection.hpp>
 #include <mutex>
 
+#include <fc/network/listener.hpp>
 
 namespace ws = boost::beast::websocket;
-
 
 namespace eosio {
 using namespace chain;
@@ -29,7 +29,7 @@ using namespace state_history;
 using boost::signals2::scoped_connection;
 namespace bio = boost::iostreams;
 
-   static auto _state_history_plugin = application::register_plugin<state_history_plugin>();
+static auto _state_history_plugin = application::register_plugin<state_history_plugin>();
 
 const std::string logger_name("state_history");
 fc::logger        _log;
@@ -56,36 +56,22 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    std::optional<scoped_connection> block_start_connection;
    std::optional<scoped_connection> accepted_block_connection;
    string                           endpoint_address;
-   uint16_t                         endpoint_port = 8080;
    string                           unix_path;
    state_history::trace_converter   trace_converter;
    session_manager                  session_mgr;
 
    mutable std::mutex mtx;
-   block_id_type head_id;
-   block_id_type lib_id;
-   time_point head_timestamp;
+   block_id_type      head_id;
+   block_id_type      lib_id;
+   time_point         head_timestamp;
 
-   constexpr static uint64_t default_frame_size =  1024 * 1024;
-
-   template <class ACCEPTOR>
-   struct generic_acceptor  {
-      using socket_type = typename ACCEPTOR::protocol_type::socket;
-      explicit generic_acceptor(boost::asio::io_context& ioc) : acceptor_(ioc), socket_(ioc), error_timer_(ioc) {}
-      ACCEPTOR                    acceptor_;
-      socket_type                 socket_;
-      boost::asio::deadline_timer error_timer_;
-   };
-
-   using tcp_acceptor  = generic_acceptor<boost::asio::ip::tcp::acceptor>;
-   using unix_acceptor = generic_acceptor<boost::asio::local::stream_protocol::acceptor>;
-
-   using acceptor_type = std::variant<std::unique_ptr<tcp_acceptor>, std::unique_ptr<unix_acceptor>>;
-   std::set<acceptor_type>          acceptors;
+   constexpr static uint64_t default_frame_size = 1024 * 1024;
 
    named_thread_pool<struct ship> thread_pool;
 
-   static fc::logger& logger() { return _log; }
+   bool  plugin_started = false;
+
+   static fc::logger& get_logger() { return _log; }
 
    std::optional<state_history_log>& get_trace_log() { return trace_log; }
    std::optional<state_history_log>& get_chain_state_log(){ return chain_state_log; }
@@ -149,97 +135,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
       return head_timestamp;
    }
 
-   void listen() {
-      boost::system::error_code ec;
-
-      auto check_ec = [&](const char* what) {
-         if (!ec)
-            return;
-         fc_elog(_log, "${w}: ${m}", ("w", what)("m", ec.message()));
-         FC_THROW_EXCEPTION(plugin_exception, "unable to open listen socket");
-      };
-
-      auto init_tcp_acceptor  = [&]() { acceptors.insert(std::make_unique<tcp_acceptor>(thread_pool.get_executor())); };
-      auto init_unix_acceptor = [&]() {
-         // take a sniff and see if anything is already listening at the given socket path, or if the socket path exists
-         //  but nothing is listening
-         {
-            boost::system::error_code test_ec;
-            boost::asio::local::stream_protocol::socket test_socket(app().get_io_service());
-            test_socket.connect(unix_path.c_str(), test_ec);
-
-            // looks like a service is already running on that socket, don't touch it... fail out
-            if (test_ec == boost::system::errc::success)
-               ec = boost::system::errc::make_error_code(boost::system::errc::address_in_use);
-            // socket exists but no one home, go ahead and remove it and continue on
-            else if (test_ec == boost::system::errc::connection_refused)
-               ::unlink(unix_path.c_str());
-            else if (test_ec != boost::system::errc::no_such_file_or_directory)
-               ec = test_ec;
-         }
-         check_ec("open");
-         acceptors.insert(std::make_unique<unix_acceptor>(thread_pool.get_executor()));
-      };
-
-      // create and configure acceptors, can be both
-      if (!endpoint_address.empty()) init_tcp_acceptor();
-      if (!unix_path.empty())        init_unix_acceptor();
-
-      // start it
-      std::for_each(acceptors.begin(), acceptors.end(), [&](const acceptor_type& acc) {
-         std::visit(overloaded{[&](const std::unique_ptr<tcp_acceptor>& tcp_acc) {
-                                auto address  = boost::asio::ip::make_address(endpoint_address);
-                                auto endpoint = boost::asio::ip::tcp::endpoint{address, endpoint_port};
-                                tcp_acc->acceptor_.open(endpoint.protocol(), ec);
-                                check_ec("open");
-                                tcp_acc->acceptor_.set_option(boost::asio::socket_base::reuse_address(true));
-                                tcp_acc->acceptor_.bind(endpoint, ec);
-                                check_ec("bind");
-                                tcp_acc->acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
-                                check_ec("listen");
-                                do_accept(*tcp_acc);
-                             },
-                             [&](const std::unique_ptr<unix_acceptor>& unx_acc) {
-                                unx_acc->acceptor_.open(boost::asio::local::stream_protocol::acceptor::protocol_type(), ec);
-                                check_ec("open");
-                                unx_acc->acceptor_.bind(unix_path.c_str(), ec);
-                                check_ec("bind");
-                                unx_acc->acceptor_.listen(boost::asio::socket_base::max_listen_connections, ec);
-                                check_ec("listen");
-                                do_accept(*unx_acc);
-                             }},
-                    acc);
-      });
-   }
-
-   template <typename Acceptor>
-   void do_accept(Acceptor& acc) {
-      // &acceptor kept alive by self, reference into acceptors set
-      acc.acceptor_.async_accept(acc.socket_, [self = shared_from_this(), &acc](const boost::system::error_code& ec) {
-         if (ec == boost::system::errc::too_many_files_open) {
-            fc_elog(_log, "ship accept() error: too many files open - waiting 200ms");
-            acc.error_timer_.expires_from_now(boost::posix_time::milliseconds(200));
-            acc.error_timer_.async_wait([self = self->shared_from_this(), &acc](const boost::system::error_code& ec) {
-               if (!ec)
-                  catch_and_log([&] { self->do_accept(acc); });
-            });
-         } else {
-            if (ec)
-               fc_elog(_log, "ship accept() error: ${m} - closing connection", ("m", ec.message()));
-            else {
-               // Create a session object and run it
-               catch_and_log([&] {
-                  auto s = std::make_shared<session<std::shared_ptr<state_history_plugin_impl>, typename Acceptor::socket_type>>(self, std::move(acc.socket_), self->session_mgr);
-                  self->session_mgr.insert(s);
-                  s->start();
-               });
-            }
-
-            // Accept another connection
-            catch_and_log([&] { self->do_accept(acc); });
-         }
-      });
-   }
+   void listen();
 
    // called from main thread
    void on_applied_transaction(const transaction_trace_ptr& p, const packed_transaction_ptr& t) {
@@ -272,9 +168,15 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
              "the process");
       }
 
-      boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
-         self->session_mgr.send_update(block_state);
-      });
+      // avoid accumulating all these posts during replay before ship threads started
+      // that can lead to a large memory consumption and failures
+      // this is safe as there are no clients connected until after replay is complete
+      // this method is called from the main thread and "plugin_started" is set on the main thread as well when plugin is started 
+      if (plugin_started) {
+         boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
+            self->session_mgr.send_update(block_state);
+         });
+      }
 
    }
 
@@ -318,21 +220,47 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    } // store_chain_state
 
    ~state_history_plugin_impl() {
-      std::for_each(acceptors.begin(), acceptors.end(), [&](const acceptor_type& acc) {
-         std::visit(overloaded{
-            []( const std::unique_ptr<unix_acceptor>& a ) {
-               boost::system::error_code ec;
-               if( const auto ep = a->acceptor_.local_endpoint( ec ); !ec )
-                  ::unlink( ep.path().c_str() );
-            },
-            []( const std::unique_ptr<tcp_acceptor>& a) {}
-         }, acc);
-      });
    }
 
-};   // state_history_plugin_impl
+}; // state_history_plugin_impl
 
+template <typename Protocol>
+struct ship_listener : fc::listener<ship_listener<Protocol>, Protocol> {
+   using socket_type = typename Protocol::socket;
 
+   static constexpr uint32_t accept_timeout_ms = 200;
+
+   state_history_plugin_impl& state_;
+
+   ship_listener(boost::asio::io_context& executor, logger& logger, const std::string& local_address,
+                 const typename Protocol::endpoint& endpoint, state_history_plugin_impl& state)
+       : fc::listener<ship_listener<Protocol>, Protocol>(
+             executor, logger, boost::posix_time::milliseconds(accept_timeout_ms), local_address, endpoint)
+       , state_(state) {}
+
+   void create_session(socket_type&& socket) {
+      // Create a session object and run it
+      catch_and_log([&] {
+         auto s = std::make_shared<session<state_history_plugin_impl, socket_type>>(
+             state_, std::move(socket), state_.session_mgr);
+         state_.session_mgr.insert(s);
+         s->start();
+      });
+   }
+};
+
+void state_history_plugin_impl::listen() {
+   try {
+      if (!endpoint_address.empty()) {
+         ship_listener<boost::asio::ip::tcp>::create(thread_pool.get_executor(), _log, endpoint_address, *this);
+      }
+      if (!unix_path.empty()) {
+         ship_listener<boost::asio::local::stream_protocol>::create(thread_pool.get_executor(), _log, unix_path, *this);
+      }
+   } catch (std::exception&) {
+      FC_THROW_EXCEPTION(plugin_exception, "unable to open listen socket");
+   }
+}
 
 state_history_plugin::state_history_plugin()
     : my(std::make_shared<state_history_plugin_impl>()) {}
@@ -400,17 +328,7 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>())
          resmon_plugin->monitor_directory(state_history_dir);
 
-      auto ip_port = options.at("state-history-endpoint").as<string>();
-
-      if (!ip_port.empty()) {
-         auto port            = ip_port.substr(ip_port.find(':') + 1, ip_port.size());
-         auto host            = ip_port.substr(0, ip_port.find(':'));
-         my->endpoint_address = host;
-         my->endpoint_port    = std::stoi(port);
-
-         fc_dlog(_log, "PLUGIN_INITIALIZE ${ip_port} ${host} ${port}",
-                 ("ip_port", ip_port)("host", host)("port", port));
-      }
+      my->endpoint_address = options.at("state-history-endpoint").as<string>();
 
       if (options.count("state-history-unix-socket-path")) {
          std::filesystem::path sock_path = options.at("state-history-unix-socket-path").as<string>();
@@ -475,7 +393,8 @@ void state_history_plugin::plugin_startup() {
       my->thread_pool.start( 1, [](const fc::exception& e) {
          fc_elog( _log, "Exception in SHiP thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          app().quit();
-      } );
+      });
+      my->plugin_started = true; 
    } catch (std::exception& ex) {
       appbase::app().quit();
    }

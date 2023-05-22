@@ -5,7 +5,7 @@ import decimal
 import math
 import re
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, createAccountKeys
 
 ###############################################################
 # nodeos_producer_watermark_test
@@ -147,22 +147,17 @@ def verifyProductionRounds(trans, node, prodsActive, rounds):
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run",
+args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running",
                               "--wallet-port","--unshared"})
 Utils.Debug=args.v
 totalNodes=3
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-dontKill=args.leave_running
 prodCount=args.prod_count
-killAll=args.clean_run
 walletPort=args.wallet_port
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 ClientName="cleos"
@@ -173,8 +168,6 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.setWalletMgr(walletMgr)
 
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     Print("Stand up cluster")
     if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes, onlySetProds=True, sharedProducers=1) is False:
         Utils.cmdError("launcher")
@@ -220,7 +213,7 @@ try:
     verifyProductionRounds(trans, node0, prodsActive, 1)
 
     # change signing key of shrproducera that no one can sign
-    accounts = cluster.createAccountKeys(1)
+    accounts = createAccountKeys(1)
     Print("change producer signing key of shrproducera that none of the node has")
     shracc_node1.activePublicKey = accounts[0].activePublicKey
     del prodsActive["shrproducera"]
@@ -247,7 +240,7 @@ try:
 
     testSuccessful=True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

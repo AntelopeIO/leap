@@ -76,8 +76,8 @@ class Utils:
     DataRoot=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0]
     PID = os.getpid()
     DataPath= f"{TestLogRoot}/{DataRoot}{PID}"
-    DataDir= f"{DataPath}/"
-    ConfigDir=f"{str(Path.cwd().resolve())}/etc/eosio/"
+    DataDir=f"{DataPath}/"
+    ConfigDir=f"{DataPath}/"
 
     TimeFmt='%Y-%m-%dT%H:%M:%S.%f'
 
@@ -233,7 +233,7 @@ class Utils:
         Utils.Print(msg)
 
     @staticmethod
-    def waitForObj(lam, timeout=None, sleepTime=3, reporter=None):
+    def waitForObj(lam, timeout=None, sleepTime=1, reporter=None):
         if timeout is None:
             timeout=60
 
@@ -261,13 +261,13 @@ class Utils:
         return None
 
     @staticmethod
-    def waitForBool(lam, timeout=None, sleepTime=3, reporter=None):
+    def waitForBool(lam, timeout=None, sleepTime=1, reporter=None):
         myLam = lambda: True if lam() else None
         ret=Utils.waitForObj(myLam, timeout, sleepTime, reporter=reporter)
         return False if ret is None else ret
 
     @staticmethod
-    def waitForBoolWithArg(lam, arg, timeout=None, sleepTime=3, reporter=None):
+    def waitForBoolWithArg(lam, arg, timeout=None, sleepTime=1, reporter=None):
         myLam = lambda: True if lam(arg, timeout) else None
         ret=Utils.waitForObj(myLam, timeout, sleepTime, reporter=reporter)
         return False if ret is None else ret
@@ -539,23 +539,6 @@ class Utils:
         return same
 
     @staticmethod
-    def rmFromFile(file: str, matchValue: str):
-        """Rm lines from file that match *matchValue*"""
-
-        lines = []
-        with open(file, "r") as f:
-            lines = f.readlines()
-
-        c = 0
-        with open(file, "w") as f:
-            for line in lines:
-                if matchValue not in line:
-                    f.write(line)
-                    c += 1
-
-        return c
-
-    @staticmethod
     def addAmount(assetStr: str, deltaStr: str) -> str:
         asset = assetStr.split()
         if len(asset) != 2:
@@ -628,23 +611,3 @@ class Utils:
     @staticmethod
     def getNodeosVersion():
         return os.popen(f"{Utils.EosServerPath} --version").read().replace("\n", "")
-
-
-###########################################################################################
-class Account(object):
-    # pylint: disable=too-few-public-methods
-
-    def __init__(self, name):
-        self.name=name
-
-        self.ownerPrivateKey=None
-        self.ownerPublicKey=None
-        self.activePrivateKey=None
-        self.activePublicKey=None
-
-
-    def __str__(self):
-        return "Name: %s" % (self.name)
-
-    def __repr__(self):
-        return "Name: %s" % (self.name)
