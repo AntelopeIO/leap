@@ -214,8 +214,10 @@ namespace eosio {
       uint32_t       sync_known_lib_num{0};
       uint32_t       sync_last_requested_num{0};
       uint32_t       sync_next_expected_num{0};
-      uint32_t       sync_req_span{0};
       connection_ptr sync_source;
+
+      const uint32_t       sync_req_span{0};
+      const uint32_t       sync_peer_limit{0};
 
       alignas(hardware_destructive_interference_size)
       std::atomic<stages> sync_state{in_sync};
@@ -229,7 +231,7 @@ namespace eosio {
       bool verify_catchup( const connection_ptr& c, uint32_t num, const block_id_type& id );
 
    public:
-      explicit sync_manager( uint32_t span );
+      explicit sync_manager( uint32_t span, uint32_t sync_peer_limit );
       static void send_handshakes();
       bool syncing_with_peer() const { return sync_state == lib_catchup; }
       bool is_in_sync() const { return sync_state == in_sync; }
@@ -309,7 +311,7 @@ namespace eosio {
    constexpr auto     def_conn_retry_wait = 30;
    constexpr auto     def_txn_expire_wait = std::chrono::seconds(3);
    constexpr auto     def_resp_expected_wait = std::chrono::seconds(5);
-   constexpr auto     def_sync_fetch_span = 100;
+   constexpr auto     def_sync_fetch_span = 1000;
    constexpr auto     def_keepalive_interval = 10000;
 
    constexpr auto     message_header_size = sizeof(uint32_t);
@@ -1740,12 +1742,13 @@ namespace eosio {
    }
    //-----------------------------------------------------------
 
-    sync_manager::sync_manager( uint32_t req_span )
+    sync_manager::sync_manager( uint32_t span, uint32_t sync_peer_limit )
       :sync_known_lib_num( 0 )
       ,sync_last_requested_num( 0 )
       ,sync_next_expected_num( 1 )
-      ,sync_req_span( req_span )
       ,sync_source()
+      ,sync_req_span( span )
+      ,sync_peer_limit( sync_peer_limit )
       ,sync_state(in_sync)
    {
    }
@@ -3694,7 +3697,10 @@ namespace eosio {
          ( "p2p-dedup-cache-expire-time-sec", bpo::value<uint32_t>()->default_value(10), "Maximum time to track transaction for duplicate optimization")
          ( "net-threads", bpo::value<uint16_t>()->default_value(my->thread_pool_size),
            "Number of worker threads in net_plugin thread pool" )
-         ( "sync-fetch-span", bpo::value<uint32_t>()->default_value(def_sync_fetch_span), "number of blocks to retrieve in a chunk from any individual peer during synchronization")
+         ( "sync-fetch-span", bpo::value<uint32_t>()->default_value(def_sync_fetch_span),
+           "Number of blocks to retrieve in a chunk from any individual peer during synchronization")
+         ( "sync-peer-limit", bpo::value<uint32_t>()->default_value(3),
+           "Number of peers to sync from")
          ( "use-socket-read-watermark", bpo::value<bool>()->default_value(false), "Enable experimental socket read watermark optimization")
          ( "peer-log-format", bpo::value<string>()->default_value( "[\"${_name}\" - ${_cid} ${_ip}:${_port}] " ),
            "The string used to format peers when logging messages about them.  Variables are escaped with ${<variable name>}.\n"
@@ -3724,7 +3730,9 @@ namespace eosio {
 
          peer_log_format = options.at( "peer-log-format" ).as<string>();
 
-         my->sync_master = std::make_unique<sync_manager>( options.at( "sync-fetch-span" ).as<uint32_t>());
+         my->sync_master = std::make_unique<sync_manager>(
+             options.at( "sync-fetch-span" ).as<uint32_t>(),
+             options.at( "sync-peer-limit" ).as<uint32_t>() );
 
          my->txn_exp_period = def_txn_expire_wait;
          my->p2p_dedup_cache_expire_time_us = fc::seconds( options.at( "p2p-dedup-cache-expire-time-sec" ).as<uint32_t>() );
