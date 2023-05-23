@@ -62,6 +62,9 @@ namespace eosio {
    using connection_ptr = std::shared_ptr<connection>;
    using connection_wptr = std::weak_ptr<connection>;
 
+   static constexpr int64_t block_interval_ns =
+      std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(config::block_interval_ms)).count();
+
    const std::string logger_name("net_plugin_impl");
    fc::logger logger;
    std::string peer_log_format;
@@ -206,9 +209,6 @@ namespace eosio {
          in_sync
       };
 
-      static constexpr int64_t block_interval_ns =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(config::block_interval_ms)).count();
-
       alignas(hardware_destructive_interference_size)
       std::mutex     sync_mtx;
       uint32_t       sync_known_lib_num{0};
@@ -240,7 +240,7 @@ namespace eosio {
       void rejected_block( const connection_ptr& c, uint32_t blk_num );
       void sync_recv_block( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied );
       void sync_update_expected( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied );
-      void recv_handshake( const connection_ptr& c, const handshake_message& msg );
+      void recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency );
       void sync_recv_notice( const connection_ptr& c, const notice_message& msg );
       inline void reset_last_requested_num() {
          std::lock_guard g(sync_mtx);
@@ -752,13 +752,18 @@ namespace eosio {
       explicit connection( tcp::socket&& socket );
       ~connection() = default;
 
+      connection( const connection& ) = delete;
+      connection( connection&& ) = delete;
+      connection& operator=( const connection& ) = delete;
+      connection& operator=( connection&& ) = delete;
+
       bool start_session();
 
       bool socket_is_open() const { return socket_open.load(); } // thread safe, atomic
       const string& peer_address() const { return peer_addr; } // thread safe, const
 
       void set_connection_type( const string& peer_addr );
-      bool is_transactions_only_connection()const { return connection_type == transactions_only; }
+      bool is_transactions_only_connection()const { return connection_type == transactions_only; } // thread safe, atomic
       bool is_blocks_only_connection()const { return connection_type == blocks_only; }
       void set_heartbeat_timeout(std::chrono::milliseconds msec) {
          std::chrono::system_clock::duration dur = msec;
@@ -768,7 +773,7 @@ namespace eosio {
    private:
       static const string unknown;
 
-      void update_endpoints();
+      std::atomic<uint64_t> net_latency_ns = std::numeric_limits<uint64_t>::max();
 
       std::optional<peer_sync_state> peer_requested;  // this peer is requesting info from us
 
@@ -867,6 +872,7 @@ namespace eosio {
 
       bool process_next_block_message(uint32_t message_length);
       bool process_next_trx_message(uint32_t message_length);
+      void update_endpoints();
    public:
 
       bool populate_handshake( handshake_message& hello ) const;
@@ -921,7 +927,7 @@ namespace eosio {
       void enqueue_buffer( const std::shared_ptr<std::vector<char>>& send_buffer,
                            go_away_reason close_after_send,
                            bool to_sync_queue = false);
-      void cancel_sync(go_away_reason);
+      void cancel_sync(go_away_reason reason);
       void flush_queues();
       bool enqueue_sync_block();
       void request_sync_blocks(uint32_t start, uint32_t end);
@@ -965,7 +971,10 @@ namespace eosio {
       void handle_message( const packed_transaction& msg ) = delete; // packed_transaction_ptr overload used instead
       void handle_message( packed_transaction_ptr trx );
 
-      void process_signed_block( const block_id_type& id, signed_block_ptr msg, block_state_ptr bsp );
+      // returns calculated number of blocks combined latency
+      uint32_t update_latency(const handshake_message& msg);
+
+      void process_signed_block( const block_id_type& id, signed_block_ptr block, block_state_ptr bsp );
 
       fc::variant_object get_logger_variant() const {
          fc::mutable_variant_object mvo;
@@ -1189,14 +1198,17 @@ namespace eosio {
       }
    }
 
+   // thread safe, all atomics
    bool connection::connected() const {
       return socket_is_open() && !connecting && !closing;
    }
 
+   // thread safe, all atomics
    bool connection::current() const {
       return (connected() && !syncing);
    }
 
+   // thread safe
    bool connection::should_sync_from(uint32_t sync_next_expected_num) const {
       if (!is_transactions_only_connection() && current()) {
          if (no_retry == go_away_reason::no_reason) {
@@ -1924,27 +1936,13 @@ namespace eosio {
    }
 
    // called from c's connection strand
-   void sync_manager::recv_handshake( const connection_ptr& c, const handshake_message& msg ) {
+   void sync_manager::recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency ) {
 
       if( c->is_transactions_only_connection() ) return;
 
       auto chain_info = my_impl->get_chain_info();
 
       sync_reset_lib_num(c, false);
-
-      auto current_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
-      int64_t network_latency_ns = current_time_ns - msg.time; // net latency in nanoseconds
-      if( network_latency_ns < 0 ) {
-         peer_wlog(c, "Peer sent a handshake with a timestamp skewed by at least ${t}ms", ("t", network_latency_ns/1000000));
-         network_latency_ns = 0;
-      }
-      // number of blocks syncing node is behind from a peer node, round up
-      uint32_t nblk_behind_by_net_latency = std::lround( static_cast<double>(network_latency_ns) / static_cast<double>(block_interval_ns) );
-      // 2x for time it takes for message to reach back to peer node
-      uint32_t nblk_combined_latency = 2 * nblk_behind_by_net_latency;
-      // message in the log below is used in p2p_high_latency_test.py test
-      peer_dlog(c, "Network latency is ${lat}ms, ${num} blocks discrepancy by network latency, ${tot_num} blocks discrepancy expected once message received",
-                ("lat", network_latency_ns/1000000)("num", nblk_behind_by_net_latency)("tot_num", nblk_combined_latency));
 
       //--------------------------------
       // sync need checks; (lib == last irreversible block)
@@ -2936,6 +2934,7 @@ namespace eosio {
       peer_dlog(this, "received chain_size_message");
    }
 
+   // called from connection strand
    void connection::handle_message( const handshake_message& msg ) {
       peer_dlog( this, "received handshake_message" );
       if( !is_valid( msg ) ) {
@@ -3098,7 +3097,29 @@ namespace eosio {
          }
       }
 
-      my_impl->sync_master->recv_handshake( shared_from_this(), msg );
+      uint32_t nblk_combined_latency = update_latency(msg);
+      my_impl->sync_master->recv_handshake( shared_from_this(), msg, nblk_combined_latency );
+   }
+
+   // called from connection strand
+   uint32_t connection::update_latency(const handshake_message& msg) {
+      auto current_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+      int64_t network_latency_ns = current_time_ns - msg.time; // net latency in nanoseconds
+      if( network_latency_ns < 0 ) {
+         peer_wlog(this, "Peer sent a handshake with a timestamp skewed by at least ${t}ms", ("t", network_latency_ns/1000000));
+         network_latency_ns = 0;
+      }
+      // number of blocks syncing node is behind from a peer node, round up
+      uint32_t nblk_behind_by_net_latency = std::lround( static_cast<double>(network_latency_ns) / static_cast<double>(block_interval_ns) );
+      // 2x for time it takes for message to reach back to peer node
+      uint32_t nblk_combined_latency = 2 * nblk_behind_by_net_latency;
+      // message in the log below is used in p2p_high_latency_test.py test
+      peer_dlog(this, "Network latency is ${lat}ms, ${num} blocks discrepancy by network latency, ${tot_num} blocks discrepancy expected once message received",
+                ("lat", network_latency_ns/1000000)("num", nblk_behind_by_net_latency)("tot_num", nblk_combined_latency));
+
+      net_latency_ns = network_latency_ns <= 0 ? std::numeric_limits<uint64_t>::max() : network_latency_ns;
+
+      return nblk_combined_latency;
    }
 
    void connection::handle_message( const go_away_message& msg ) {
