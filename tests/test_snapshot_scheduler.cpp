@@ -68,7 +68,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
             fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
             std::vector<const char*> argv =
                   {"test", "--data-dir", temp.c_str(), "--config-dir", temp.c_str(),
-                   "-p", "eosio", "-e", "--disable-subjective-billing=true"};
+                   "-p", "eosio", "-e"};
             app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**) &argv[0]);
             app->startup();
             plugin_promise.set_value(

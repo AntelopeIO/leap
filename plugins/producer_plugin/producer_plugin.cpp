@@ -862,8 +862,6 @@ void producer_plugin::set_program_options(
           "ratio between incoming transactions and deferred transactions when both are queued for execution")
          ("incoming-transaction-queue-size-mb", bpo::value<uint16_t>()->default_value( 1024 ),
           "Maximum size (in MiB) of the incoming transaction queue. Exceeding this value will subjectively drop transaction with resource exhaustion.")
-         ("disable-subjective-billing", bpo::value<bool>()->default_value(true),
-          "Disable subjective CPU billing for API/P2P transactions")
          ("disable-subjective-account-billing", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "Account which is excluded from subjective CPU billing")
          ("disable-subjective-p2p-billing", bpo::value<bool>()->default_value(true),
@@ -989,19 +987,13 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 
    my->_incoming_defer_ratio = options.at("incoming-defer-ratio").as<double>();
 
-   bool disable_subjective_billing = options.at("disable-subjective-billing").as<bool>();
    my->_disable_subjective_p2p_billing = options.at("disable-subjective-p2p-billing").as<bool>();
    my->_disable_subjective_api_billing = options.at("disable-subjective-api-billing").as<bool>();
-   dlog( "disable-subjective-billing: ${s}, disable-subjective-p2p-billing: ${p2p}, disable-subjective-api-billing: ${api}",
-         ("s", disable_subjective_billing)("p2p", my->_disable_subjective_p2p_billing)("api", my->_disable_subjective_api_billing) );
-   if( !disable_subjective_billing ) {
-       my->_disable_subjective_p2p_billing = my->_disable_subjective_api_billing = false;
-   } else if( !my->_disable_subjective_p2p_billing || !my->_disable_subjective_api_billing ) {
-       disable_subjective_billing = false;
-   }
-   if( disable_subjective_billing ) {
+   dlog( "disable-subjective-p2p-billing: ${p2p}, disable-subjective-api-billing: ${api}",
+         ("p2p", my->_disable_subjective_p2p_billing)("api", my->_disable_subjective_api_billing) );
+   if( my->_disable_subjective_p2p_billing && my->_disable_subjective_api_billing ) {
       chain.get_mutable_subjective_billing().disable();
-       ilog( "Subjective CPU billing disabled" );
+      ilog( "Subjective CPU billing disabled" );
    } else if( !my->_disable_subjective_p2p_billing && !my->_disable_subjective_api_billing ) {
        ilog( "Subjective CPU billing enabled" );
    } else {
