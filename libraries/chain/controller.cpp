@@ -33,6 +33,7 @@
 #include <fc/log/logger_config.hpp>
 #include <fc/scoped_exit.hpp>
 #include <fc/variant_object.hpp>
+#include <bls12_381.hpp>
 
 #include <new>
 #include <shared_mutex>

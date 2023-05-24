@@ -1,6 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
-#include <fc/crypto/bls_utils.hpp>
+#include <bls12_381.hpp>
 #include <fc/exception/exception.hpp>
 
 using namespace std;

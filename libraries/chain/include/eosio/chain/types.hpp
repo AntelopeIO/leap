@@ -15,7 +15,6 @@
 #include <fc/crypto/ripemd160.hpp>
 #include <fc/fixed_string.hpp>
 #include <fc/crypto/private_key.hpp>
-#include <fc/crypto/bls_utils.hpp>
 
 #include <boost/version.hpp>
 #include <boost/container/deque.hpp>
@@ -78,13 +77,6 @@ namespace eosio::chain {
    using private_key_type = fc::crypto::private_key;
    using signature_type   = fc::crypto::signature;
 
-   using bls_scalar_type  = std::array<uint64_t, 4>;
-   using bls_g1_type      = bls12_381::g1;
-   using bls_g2_type      = bls12_381::g2;
-   using bls_gt_type      = bls12_381::fp12;
-   using bls_fp_type      = bls12_381::fp;
-   using bls_fp2_type     = bls12_381::fp2;
-   
    // configurable boost deque (for boost >= 1.71) performs much better than std::deque in our use cases
    using block_1024_option_t = boost::container::deque_options< boost::container::block_size<1024u> >::type;
    template<typename T>
