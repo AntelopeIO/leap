@@ -10,6 +10,7 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/chain/contract_types.hpp>
 
+#include <fc/bitutil.hpp>
 #include <fc/network/message_buffer.hpp>
 #include <fc/io/json.hpp>
 #include <fc/io/raw.hpp>
@@ -221,12 +222,14 @@ namespace eosio {
 
       alignas(hardware_destructive_interference_size)
       std::atomic<stages> sync_state{in_sync};
+      std::atomic<uint32_t> sync_ordinal{0};
 
    private:
       constexpr static auto stage_str( stages s );
       bool set_state( stages newstate );
       bool is_sync_required( uint32_t fork_head_block_num );
       void request_next_chunk( std::unique_lock<std::mutex> g_sync, const connection_ptr& conn = connection_ptr() );
+      connection_ptr find_next_sync_node();
       void start_sync( const connection_ptr& c, uint32_t target );
       bool verify_catchup( const connection_ptr& c, uint32_t num, const block_id_type& id );
 
@@ -370,9 +373,6 @@ namespace eosio {
 
       std::optional<connection_status> status(const string& host) const;
       vector<connection_status> connection_statuses() const;
-
-      // return the next connection after current in collection that has blocks above
-      connection_ptr round_robin_next(const connection_ptr& current, uint32_t sync_next_expected_num) const;
 
       template <typename Function>
       void for_each_connection(Function&& f) const;
@@ -592,7 +592,8 @@ namespace eosio {
    constexpr uint16_t proto_heartbeat_interval = 4;        // eosio 2.1: supports configurable heartbeat interval
    constexpr uint16_t proto_dup_goaway_resolution = 5;     // eosio 2.1: support peer address based duplicate connection resolution
    constexpr uint16_t proto_dup_node_id_goaway = 6;        // eosio 2.1: support peer node_id based duplicate connection resolution
-   constexpr uint16_t proto_leap_initial = 7;            // leap client, needed because none of the 2.1 versions are supported
+   constexpr uint16_t proto_leap_initial = 7;              // leap client, needed because none of the 2.1 versions are supported
+   constexpr uint16_t proto_block_range = 8;               // include block range in notice_message
 #pragma GCC diagnostic pop
 
    constexpr uint16_t net_version_max = proto_leap_initial;
@@ -770,6 +771,8 @@ namespace eosio {
          hb_timeout = dur.count();
       }
 
+      uint64_t get_net_latency_ns() const { return net_latency_ns; }
+
    private:
       static const string unknown;
 
@@ -787,7 +790,9 @@ namespace eosio {
          blocks_only
       };
 
-      std::atomic<connection_types>             connection_type{both};
+      std::atomic<connection_types>   connection_type{both};
+      std::atomic<uint32_t>           peer_start_block_num{0};
+      std::atomic<uint32_t>           peer_head_block_num{0};
 
    public:
       boost::asio::io_context::strand           strand;
@@ -807,6 +812,8 @@ namespace eosio {
       string                  local_endpoint_port;
       // kept in sync with last_handshake_recv.last_irreversible_block_num, only accessed from connection strand
       uint32_t                peer_lib_num = 0;
+
+      std::atomic<uint32_t>   sync_ordinal{0};
 
       alignas(hardware_destructive_interference_size)
       std::atomic<uint32_t>   trx_in_progress_size{0};
@@ -862,7 +869,7 @@ namespace eosio {
 
       bool connected() const;
       bool current() const;
-      bool should_sync_from(uint32_t sync_next_expected_num) const;
+      bool should_sync_from(uint32_t sync_next_expected_num, uint32_t sync_known_lib_num) const;
 
       /// @param reconnect true if we should try and reconnect immediately after close
       /// @param shutdown true only if plugin is shutting down
@@ -1209,12 +1216,14 @@ namespace eosio {
    }
 
    // thread safe
-   bool connection::should_sync_from(uint32_t sync_next_expected_num) const {
+   bool connection::should_sync_from(uint32_t sync_next_expected_num, uint32_t sync_known_lib_num) const {
       if (!is_transactions_only_connection() && current()) {
          if (no_retry == go_away_reason::no_reason) {
-            std::lock_guard g(conn_mtx);
-            if (last_handshake_recv.head_num >= sync_next_expected_num) {
-               return true;
+            if (peer_start_block_num <= sync_next_expected_num) {
+               std::lock_guard<std::mutex> g_conn( conn_mtx );
+               if (last_handshake_recv.last_irreversible_block_num >= sync_known_lib_num) {
+                  return true;
+               }
             }
          }
       }
@@ -1817,6 +1826,42 @@ namespace eosio {
       }
    }
 
+   connection_ptr sync_manager::find_next_sync_node() {
+      std::deque<connection_ptr> conns;
+      my_impl->connections.for_each_block_connection([&](const auto& c) {
+         if (c->should_sync_from(sync_next_expected_num, sync_known_lib_num)) {
+            conns.push_back(c);
+         }
+      });
+      std::sort(conns.begin(), conns.end(), [](const connection_ptr& lhs, const connection_ptr& rhs) {
+         return lhs->get_net_latency_ns() < rhs->get_net_latency_ns();
+      });
+
+      if (conns.empty()) {
+         return {};
+      }
+      if (conns.size() == 1) { // only one available
+         ++sync_ordinal;
+         conns.front()->sync_ordinal = sync_ordinal.load();
+         return conns.front();
+      }
+
+      ++sync_ordinal;
+      // example: sync_ordinal is 6 after inc above then there may be connections with 3,4,5.
+      // Choose from the lowest sync_ordinal of the sync_peer_limit of lowest latency, note 0 means not synced from yet
+      size_t the_one = 0;
+      uint32_t lowest_ordinal = std::numeric_limits<uint32_t>::max();
+      for (size_t i = 0; i < conns.size() && i < sync_peer_limit && lowest_ordinal != 0; ++i) {
+         uint32_t sync_ord = conns[i]->sync_ordinal;
+         if (sync_ord < lowest_ordinal) {
+            the_one = i;
+            lowest_ordinal = sync_ordinal;
+         }
+      }
+      conns[the_one]->sync_ordinal = sync_ordinal.load();
+      return conns[the_one];
+   }
+
    // call with g_sync locked, called from conn's connection strand
    void sync_manager::request_next_chunk( std::unique_lock<std::mutex> g_sync, const connection_ptr& conn ) {
       auto chain_info = my_impl->get_chain_info();
@@ -1837,11 +1882,11 @@ namespace eosio {
        * otherwise select the next available from the list, round-robin style.
        */
 
-      connection_ptr new_sync_source = sync_source;
+      connection_ptr new_sync_source;
       if (conn && conn->current() ) {
          new_sync_source = conn;
       } else {
-         new_sync_source = my_impl->connections.round_robin_next(new_sync_source, sync_next_expected_num);
+         new_sync_source = find_next_sync_node();
       }
 
       // verify there is an available source
@@ -1935,6 +1980,12 @@ namespace eosio {
       }
    }
 
+   inline block_id_type make_block_id( uint32_t block_num ) {
+      chain::block_id_type block_id;
+      block_id._hash[0] += fc::endian_reverse_u32(block_num);
+      return block_id;
+   }
+
    // called from c's connection strand
    void sync_manager::recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency ) {
 
@@ -1984,11 +2035,17 @@ namespace eosio {
                     ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))
                     ("h", chain_info.head_num)("l", chain_info.lib_num) );
          if (msg.generation > 1 || c->protocol_version > proto_base) {
+            controller& cc = my_impl->chain_plug->chain();
             notice_message note;
             note.known_trx.pending = chain_info.lib_num;
             note.known_trx.mode = last_irr_catch_up;
             note.known_blocks.mode = last_irr_catch_up;
             note.known_blocks.pending = chain_info.head_num;
+            note.known_blocks.ids.push_back(chain_info.head_id);
+            if (c->protocol_version >= proto_block_range) {
+               // begin, more efficient to encode a block num instead of retrieving actual block id
+               note.known_blocks.ids.push_back(make_block_id(cc.earliest_available_block_num()));
+            }
             c->enqueue( note );
          }
          c->syncing = true;
@@ -2007,11 +2064,16 @@ namespace eosio {
                     ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))
                     ("h", chain_info.head_num)("l", chain_info.lib_num) );
          if (msg.generation > 1 ||  c->protocol_version > proto_base) {
+            controller& cc = my_impl->chain_plug->chain();
             notice_message note;
             note.known_trx.mode = none;
             note.known_blocks.mode = catch_up;
             note.known_blocks.pending = chain_info.head_num;
             note.known_blocks.ids.push_back(chain_info.head_id);
+            if (c->protocol_version >= proto_block_range) {
+               // begin, more efficient to encode a block num instead of retrieving actual block id
+               note.known_blocks.ids.push_back(make_block_id(cc.earliest_available_block_num()));
+            }
             c->enqueue( note );
          }
          c->syncing = false;
@@ -3190,7 +3252,7 @@ namespace eosio {
       //
       peer_dlog( this, "received notice_message" );
       connecting = false;
-      if( msg.known_blocks.ids.size() > 1 ) {
+      if( msg.known_blocks.ids.size() > 2 ) {
          peer_elog( this, "Invalid notice_message, known_blocks.ids.size ${s}, closing connection",
                     ("s", msg.known_blocks.ids.size()) );
          close( false );
@@ -3231,6 +3293,12 @@ namespace eosio {
       }
       case last_irr_catch_up:
       case catch_up: {
+         if (msg.known_blocks.ids.size() > 1) {
+            peer_start_block_num = block_header::num_from_id(msg.known_blocks.ids[1]);
+         }
+         if (msg.known_blocks.ids.size() > 0) {
+            peer_head_block_num = block_header::num_from_id(msg.known_blocks.ids[0]);
+         }
          my_impl->sync_master->sync_recv_notice( shared_from_this(), msg );
          break;
       }
@@ -4080,54 +4148,6 @@ namespace eosio {
          con->close( false, true );
       }
       connections.clear();
-   }
-
-   connection_ptr connections_manager::round_robin_next( const connection_ptr& current, uint32_t sync_next_expected_num ) const {
-      connection_ptr new_sync_source = current;
-      std::shared_lock g( connections_mtx );
-      if( connections.empty() ) {
-         new_sync_source.reset();
-      } else if( connections.size() == 1 ) {
-         if (!new_sync_source) {
-            new_sync_source = *connections.begin();
-         }
-      } else {
-         // init to a linear array search
-         auto cptr = connections.begin();
-         auto cend = connections.end();
-         // do we remember the previous source?
-         if (current) {
-            //try to find it in the list
-            cptr = connections.find( current );
-            cend = cptr;
-            if( cptr == connections.end() ) {
-               // not there - must have been closed! cend is now connections.end, so just flatten the ring.
-               new_sync_source.reset();
-               cptr = connections.begin();
-            } else {
-               // was found - advance the start to the next. cend is the old source.
-               if( ++cptr == connections.end() ) {
-                  cptr = connections.begin();
-               }
-            }
-         }
-
-         // scan the list of peers looking for another able to provide sync blocks.
-         if( cptr != connections.end() ) {
-            auto cstart_it = cptr;
-            do {
-               // select the first one which we should be able to sync from
-               if ((*cptr)->should_sync_from(sync_next_expected_num)) {
-                  new_sync_source = *cptr;
-                  break;
-               }
-               if( ++cptr == connections.end() )
-                  cptr = connections.begin();
-            } while( cptr != cstart_it );
-         }
-         // no need to check the result, either source advanced or the whole list was checked and the old source is reused.
-      }
-      return new_sync_source;
    }
 
    std::optional<connection_status> connections_manager::status( const string& host )const {
