@@ -1103,7 +1103,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       // max-transaction-time can be set to negative for unlimited time
      my->_ro_max_trx_time_us = fc::microseconds::maximum();
    }
-   ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us}", ("s", my->_ro_thread_pool_size)("t", my->_ro_max_trx_time_us));
+   ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us", ("s", my->_ro_thread_pool_size)("t", my->_ro_max_trx_time_us));
 
    my->_incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
          [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
