@@ -18,7 +18,7 @@ errorExit=Utils.errorExit
 cmdError=Utils.cmdError
 
 args = TestHelper.parse_args({"--host","--port","--defproducera_prvt_key","--defproducerb_prvt_key"
-                              ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios","--clean-run"
+                              ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios"
                               ,"--sanity-test","--wallet-port","--unshared"})
 server=args.host
 port=args.port
@@ -26,22 +26,17 @@ debug=args.v
 defproduceraPrvtKey=args.defproducera_prvt_key
 defproducerbPrvtKey=args.defproducerb_prvt_key
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
 dontLaunch=args.dont_launch
-dontKill=args.leave_running
 prodCount=2
 onlyBios=args.only_bios
-killAll=args.clean_run
 sanityTest=args.sanity_test
 walletPort=args.wallet_port
 
 Utils.Debug=debug
 localTest=True
-cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey, unshared=args.unshared)
+cluster=Cluster(host=server, port=port, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey, unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 dontBootstrap=sanityTest
 
 WalletdName=Utils.EosWalletName
@@ -54,8 +49,6 @@ try:
     Print("PORT: %d" % (port))
 
     if localTest and not dontLaunch:
-        cluster.killall(allInstances=killAll)
-        cluster.cleanup()
         Print("Stand up cluster")
         if cluster.launch(pnodes=prodCount, totalNodes=prodCount, prodCount=1, onlyBios=onlyBios,
                          dontBootstrap=dontBootstrap,
@@ -168,7 +161,7 @@ try:
 
     testSuccessful=True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful, dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

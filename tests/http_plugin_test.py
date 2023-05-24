@@ -15,16 +15,13 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 cmdError=Utils.cmdError
 
-args = TestHelper.parse_args({"-v","--clean-run", "--dump-error-details","--keep-logs","--unshared"})
+args = TestHelper.parse_args({"--leave-running","-v", "--dump-error-details","--keep-logs","--unshared"})
 debug=args.v
-killAll=args.clean_run
-killEosInstances = True
-keepLogs = args.keep_logs
 dumpErrorDetails = dumpErrorDetails=args.dump_error_details
 
 
 Utils.Debug=debug
-cluster=Cluster(host="127.0.0.1",walletd=True,unshared=args.unshared)
+cluster=Cluster(host="127.0.0.1", unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 
 testSuccessful=False
 
@@ -63,7 +60,8 @@ try:
     testSuccessful = True
 
 finally:
-    TestHelper.shutdown(cluster, None, testSuccessful, killEosInstances, True, keepLogs, killAll, dumpErrorDetails)
+    TestHelper.shutdown(cluster, None, testSuccessful, dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)
+        

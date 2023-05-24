@@ -58,6 +58,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
    {
       fc::temp_directory temp_dir;
       const auto& temp = temp_dir.path();
+      appbase::scoped_app app;
 
       try {
          std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
@@ -68,57 +69,60 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
             std::vector<const char*> argv =
                   {"test", "--data-dir", temp.c_str(), "--config-dir", temp.c_str(),
                    "-p", "eosio", "-e", "--disable-subjective-billing=true"};
-            appbase::app().initialize<chain_plugin, producer_plugin>(argv.size(), (char**) &argv[0]);
-            appbase::app().startup();
+            app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**) &argv[0]);
+            app->startup();
             plugin_promise.set_value(
-                  {appbase::app().find_plugin<producer_plugin>(), appbase::app().find_plugin<chain_plugin>()});
-            appbase::app().exec();
+                  {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()});
+            app->exec();
          });
 
          auto [prod_plug, chain_plug] = plugin_fut.get();
          std::deque<block_state_ptr> all_blocks;
          std::promise<void> empty_blocks_promise;
          std::future<void> empty_blocks_fut = empty_blocks_promise.get_future();
-         auto ab = chain_plug->chain().accepted_block.connect([&](const block_state_ptr& bsp) {
-            static int num_empty = std::numeric_limits<int>::max();
-            all_blocks.push_back(bsp);
-            if(bsp->block->transactions.empty()) {
-               --num_empty;
-               if(num_empty == 0) empty_blocks_promise.set_value();
-            } else {// we want a few empty blocks after we have some non-empty blocks
-               num_empty = 10;
-            }
-         });
-         auto pp = appbase::app().find_plugin<producer_plugin>();
+         auto pp = app->find_plugin<producer_plugin>();
+       
          auto bs = chain_plug->chain().block_start.connect([&pp](uint32_t bn) {
             // catching pending snapshot
             if (!pp->get_snapshot_requests().snapshot_requests.empty()) {
                const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
-               auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(), [](const snapshot_scheduler::snapshot_schedule_information& obj) {return obj.snapshot_request_id == 0;});
-               // we should have a pending snapshot for request id = 0
-               BOOST_REQUIRE(it != snapshot_requests.end());
-               auto& pending = it->pending_snapshots;
-               if (pending.size()==1) {
-                  BOOST_CHECK_EQUAL(9, pending.begin()->head_block_num);
-               }
+
+               auto validate_snapshot_request = [&](uint32_t sid, uint32_t block_num) {                  
+                  auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(), [sid](const snapshot_scheduler::snapshot_schedule_information& obj) {return obj.snapshot_request_id == sid;});
+                  if (it != snapshot_requests.end()) {
+                     auto& pending = it->pending_snapshots;
+                     if (pending.size()==1) {
+                        BOOST_CHECK_EQUAL(block_num, pending.begin()->head_block_num);
+                     }
+                     return true;
+                  }
+                  return false;                  
+               };
+
+               BOOST_REQUIRE(validate_snapshot_request(0, 9));  // snapshot #0 should have pending snapshot at block #9 (8 + 1) and it never expires
+               BOOST_REQUIRE(validate_snapshot_request(4, 12)); // snapshot #4 should have pending snapshot at block # at the moment of scheduling (2) plus 10 = 12
             }
          });
 
          snapshot_request_information sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 1"};
          snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2 that will never happen"};
          snapshot_request_information sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 3 that will expire"};
+         snapshot_request_information sri4 = {.start_block_num = 1, .snapshot_description = "One time snapshot on first block"};
+         snapshot_request_information sri5 = {.block_spacing = 10, .snapshot_description = "Recurring every 10 blocks snapshot starting now"};
 
          pp->schedule_snapshot(sri1);
          pp->schedule_snapshot(sri2);
          pp->schedule_snapshot(sri3);
+         pp->schedule_snapshot(sri4);
+         pp->schedule_snapshot(sri5);
 
-         // all three snapshot requests should be present now
+         // all five snapshot requests should be present now
+         BOOST_CHECK_EQUAL(5, pp->get_snapshot_requests().snapshot_requests.size());
+
+         empty_blocks_fut.wait_for(std::chrono::seconds(6));
+
+         // two of the snapshots are done here and requests, corresponding to them should be deleted
          BOOST_CHECK_EQUAL(3, pp->get_snapshot_requests().snapshot_requests.size());
-
-         empty_blocks_fut.wait_for(std::chrono::seconds(5));
-
-         // one of the snapshots is done here and request, corresponding to it should be deleted
-         BOOST_CHECK_EQUAL(2, pp->get_snapshot_requests().snapshot_requests.size());
 
          // check whether no pending snapshots present for a snapshot with id 0
          const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
@@ -129,7 +133,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          BOOST_CHECK(!it->pending_snapshots.size());
 
          // quit app
-         appbase::app().quit();
+         app->quit();
          app_thread.join();
 
          // lets check whether schedule can be read back after restart
@@ -137,7 +141,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          std::vector<snapshot_scheduler::snapshot_schedule_information> ssi;
          db.set_path(temp / "snapshots");
          db >> ssi;
-         BOOST_CHECK_EQUAL(2, ssi.size());
+         BOOST_CHECK_EQUAL(3, ssi.size());
          BOOST_CHECK_EQUAL(ssi.begin()->block_spacing, sri1.block_spacing);
       } catch(...) {
          throw;

@@ -5,7 +5,6 @@ import copy
 import math
 import os
 import sys
-import json
 import shutil
 
 from pathlib import Path, PurePath
@@ -18,31 +17,17 @@ from platform import release, system
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from enum import Enum
-from log_reader import LogReaderEncoder
+from log_reader import JsonReportHandler
 
 class PerformanceTest:
 
     @dataclass
     class PerfTestSearchIndivResult:
-        @dataclass
-        class PerfTestBasicResult:
-            targetTPS: int = 0
-            resultAvgTps: float = 0
-            expectedTxns: int = 0
-            resultTxns: int = 0
-            tpsExpectMet: bool = False
-            trxExpectMet: bool = False
-            basicTestSuccess: bool = False
-            testAnalysisBlockCnt: int = 0
-            logsDir: Path = Path("")
-            testStart: datetime = None
-            testEnd: datetime = None
-
         success: bool = False
         searchTarget: int = 0
         searchFloor: int = 0
         searchCeiling: int = 0
-        basicTestResult: PerfTestBasicResult = field(default_factory=PerfTestBasicResult)
+        basicTestResult: PerformanceTestBasic.PerfTestBasicResult = field(default_factory=PerformanceTestBasic.PerfTestBasicResult)
 
     @dataclass
     class PtConfig:
@@ -50,6 +35,7 @@ class PerformanceTest:
         finalDurationSec: int=300
         delPerfLogs: bool=False
         maxTpsToTest: int=50000
+        minTpsToTest: int=1
         testIterationMinStep: int=500
         tpsLimitPerGenerator: int=4000
         delReport: bool=False
@@ -62,7 +48,17 @@ class PerformanceTest:
         calcChainThreads: str="none"
         calcNetThreads: str="none"
         userTrxDataFile: Path=None
+        endpointApi: str="p2p"
+        opModeCmd: str=""
 
+        def __post_init__(self):
+            self.opModeDesc = "Block Producer Operational Mode" if self.opModeCmd == "testBpOpMode" else "API Node Operational Mode" if self.opModeCmd == "testApiOpMode" else "Undefined Operational Mode"
+            if self.maxTpsToTest < 1:
+                self.maxTpsToTest = 1
+            if self.minTpsToTest < 1:
+                self.minTpsToTest = 1
+            if self.maxTpsToTest < self.minTpsToTest:
+                self.minTpsToTest = self.maxTpsToTest
 
     @dataclass
     class TpsTestResult:
@@ -103,7 +99,7 @@ class PerformanceTest:
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
     def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
-        floor = 1
+        floor = self.ptConfig.minTpsToTest
         ceiling = self.ptConfig.maxTpsToTest
         binSearchTarget = self.ptConfig.maxTpsToTest
         minStep = self.ptConfig.testIterationMinStep
@@ -114,15 +110,14 @@ class PerformanceTest:
 
         while ceiling >= floor:
             print(f"Running scenario: floor {floor} binSearchTarget {binSearchTarget} ceiling {ceiling}")
-            ptbResult = PerformanceTest.PerfTestSearchIndivResult.PerfTestBasicResult()
-            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling, basicTestResult=ptbResult)
+            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                        numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=logDirRoot, delReport=delReport,
-                                                       quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile)
+                                                       quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointApi=self.ptConfig.endpointApi)
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
-            testSuccessful = myTest.runTest()
-            if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
+            myTest.runTest()
+            if myTest.testResult.testPassed:
                 maxTpsAchieved = binSearchTarget
                 maxTpsReport = myTest.report
                 floor = binSearchTarget + minStep
@@ -130,10 +125,10 @@ class PerformanceTest:
             else:
                 ceiling = binSearchTarget - minStep
 
-            scenarioResult.basicTestResult = ptbResult
+            scenarioResult.basicTestResult = myTest.testResult
             searchResults.append(scenarioResult)
             if not self.ptConfig.quiet:
-                print(f"searchResult: {binSearchTarget} : {searchResults[-1]}")
+                print(f"binary search result -- target: {binSearchTarget} | result: {searchResults[-1]}")
 
             binSearchTarget = floor + (math.ceil(((ceiling - floor) / minStep) / 2) * minStep)
 
@@ -141,9 +136,9 @@ class PerformanceTest:
 
     def performPtbReverseLinearSearch(self, tpsInitial: int) -> TpsTestResult.PerfTestSearchResults:
 
-        # Default - Decrementing Max TPS in range [1, tpsInitial]
-        absFloor = 1
-        tpsInitial = absFloor if tpsInitial <= 0 else tpsInitial
+        # Default - Decrementing Max TPS in range [minTpsToTest (def=1), tpsInitial]
+        absFloor = self.ptConfig.minTpsToTest
+        tpsInitial = absFloor if tpsInitial <= 0 or tpsInitial < absFloor else tpsInitial
         absCeiling = tpsInitial
 
         step = self.ptConfig.testIterationMinStep
@@ -157,15 +152,14 @@ class PerformanceTest:
 
         while not maxFound:
             print(f"Running scenario: floor {absFloor} searchTarget {searchTarget} ceiling {absCeiling}")
-            ptbResult = PerformanceTest.PerfTestSearchIndivResult.PerfTestBasicResult()
-            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling, basicTestResult=ptbResult)
+            scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=searchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                     numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport,
-                                                    quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile)
+                                                    quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointApi=self.ptConfig.endpointApi)
 
-            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
-            testSuccessful = myTest.runTest()
-            if self.evaluateSuccess(myTest, testSuccessful, ptbResult):
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig, testNamePath="performance_test")
+            myTest.runTest()
+            if myTest.testResult.testPassed:
                 maxTpsAchieved = searchTarget
                 maxTpsReport = myTest.report
                 scenarioResult.success = True
@@ -176,32 +170,12 @@ class PerformanceTest:
                     maxFound = True
                 searchTarget = max(searchTarget - step, absFloor)
 
-            scenarioResult.basicTestResult = ptbResult
+            scenarioResult.basicTestResult = myTest.testResult
             searchResults.append(scenarioResult)
             if not self.ptConfig.quiet:
-                print(f"searchResult: {searchTarget} : {searchResults[-1]}")
+                print(f"reverse linear search result -- target: {searchTarget} | result: {searchResults[-1]}")
 
         return PerformanceTest.TpsTestResult.PerfTestSearchResults(maxTpsAchieved=maxTpsAchieved, searchResults=searchResults, maxTpsReport=maxTpsReport)
-
-    def evaluateSuccess(self, test: PerformanceTestBasic, testSuccessful: bool, result: PerfTestSearchIndivResult.PerfTestBasicResult) -> bool:
-        result.targetTPS = test.ptbConfig.targetTps
-        result.expectedTxns = test.ptbConfig.expectedTransactionsSent
-        reportDict = test.report
-        result.testStart = reportDict["testStart"]
-        result.testEnd = reportDict["testFinish"]
-        result.resultAvgTps = reportDict["Analysis"]["TPS"]["avg"]
-        result.resultTxns = reportDict["Analysis"]["TrxLatency"]["samples"]
-        print(f"targetTPS: {result.targetTPS} expectedTxns: {result.expectedTxns} resultAvgTps: {result.resultAvgTps} resultTxns: {result.resultTxns}")
-
-        result.tpsExpectMet = True if result.resultAvgTps >= result.targetTPS else abs(result.targetTPS - result.resultAvgTps) < 100
-        result.trxExpectMet = result.expectedTxns == result.resultTxns
-        result.basicTestSuccess = testSuccessful
-        result.testAnalysisBlockCnt = reportDict["Analysis"]["BlocksGuide"]["testAnalysisBlockCnt"]
-        result.logsDir = test.loggingConfig.logDirPath
-
-        print(f"basicTestSuccess: {result.basicTestSuccess} tpsExpectationMet: {result.tpsExpectMet} trxExpectationMet: {result.trxExpectMet}")
-
-        return result.basicTestSuccess and result.tpsExpectMet and result.trxExpectMet
 
     class PluginThreadOpt(Enum):
         PRODUCER = "producer"
@@ -279,6 +253,9 @@ class PerformanceTest:
         report['LongRunningMaxTpsAchieved'] = tpsTestResult.longRunningSearchResults.maxTpsAchieved
         report['tpsTestStart'] = tpsTestResult.tpsTestStart
         report['tpsTestFinish'] = tpsTestResult.tpsTestFinish
+        report['tpsTestDuration'] = tpsTestResult.tpsTestFinish - tpsTestResult.tpsTestStart
+        report['InitialSearchScenariosSummary'] =  {tpsTestResult.binSearchResults.searchResults[x].searchTarget : "PASS" if tpsTestResult.binSearchResults.searchResults[x].success else "FAIL" for x in range(len(tpsTestResult.binSearchResults.searchResults))}
+        report['LongRunningSearchScenariosSummary'] =  {tpsTestResult.longRunningSearchResults.searchResults[x].searchTarget : "PASS" if tpsTestResult.longRunningSearchResults.searchResults[x].success else "FAIL" for x in range(len(tpsTestResult.longRunningSearchResults.searchResults))}
         report['InitialSearchResults'] =  {x: asdict(tpsTestResult.binSearchResults.searchResults[x]) for x in range(len(tpsTestResult.binSearchResults.searchResults))}
         report['InitialMaxTpsReport'] =  tpsTestResult.binSearchResults.maxTpsReport
         report['LongRunningSearchResults'] =  {x: asdict(tpsTestResult.longRunningSearchResults.searchResults[x]) for x in range(len(tpsTestResult.longRunningSearchResults.searchResults))}
@@ -290,6 +267,8 @@ class PerformanceTest:
         report = {}
         report['perfTestsBegin'] = self.testsStart
         report['perfTestsFinish'] = self.testsFinish
+        report['perfTestsDuration'] = self.testsFinish - self.testsStart
+        report['operationalMode'] = self.ptConfig.opModeDesc
         if tpsTestResult is not None:
             report.update(self.createTpsTestReport(tpsTestResult))
 
@@ -306,13 +285,6 @@ class PerformanceTest:
         report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
         report['nodeosVersion'] = nodeosVers
         return report
-
-    def reportAsJSON(self, report: dict) -> json:
-        return json.dumps(report, indent=2, cls=LogReaderEncoder)
-
-    def exportReportAsJSON(self, report: json, exportPath):
-        with open(exportPath, 'wt') as f:
-            f.write(report)
 
     def testDirsCleanup(self):
         try:
@@ -437,13 +409,13 @@ class PerformanceTest:
         self.testsFinish = datetime.utcnow()
 
         self.report = self.createReport(producerThreadResult=prodResults, chainThreadResult=chainResults, netThreadResult=netResults, tpsTestResult=tpsTestResult, nodeosVers=self.clusterConfig.nodeosVers)
-        jsonReport = self.reportAsJSON(self.report)
+        jsonReport = JsonReportHandler.reportAsJSON(self.report)
 
         if not self.ptConfig.quiet:
             print(f"Full Performance Test Report: {jsonReport}")
 
         if not self.ptConfig.delReport:
-            self.exportReportAsJSON(jsonReport, self.loggingConfig.logDirPath/Path("report.json"))
+            JsonReportHandler.exportReportAsJSON(jsonReport, self.loggingConfig.logDirPath/Path("report.json"))
 
         if self.ptConfig.delPerfLogs:
             print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
@@ -487,6 +459,7 @@ class PerfTestArgumentsHandler(object):
             ptTpsParserGroup = ptParser.add_argument_group(title=None if suppressHelp else ptTpsGrpTitle, description=None if suppressHelp else ptTpsGrpDescription)
 
             ptTpsParserGroup.add_argument("--max-tps-to-test", type=int, help=argparse.SUPPRESS if suppressHelp else "The max target transfers realistic as ceiling of test range", default=50000)
+            ptTpsParserGroup.add_argument("--min-tps-to-test", type=int, help=argparse.SUPPRESS if suppressHelp else "The min target transfers to use as floor of test range", default=1)
             ptTpsParserGroup.add_argument("--test-iteration-duration-sec", type=int, help=argparse.SUPPRESS if suppressHelp else "The duration of transfer trx generation for each iteration of the test during the initial search (seconds)", default=150)
             ptTpsParserGroup.add_argument("--test-iteration-min-step", type=int, help=argparse.SUPPRESS if suppressHelp else "The step size determining granularity of tps result during initial search", default=500)
             ptTpsParserGroup.add_argument("--final-iterations-duration-sec", type=int, help=argparse.SUPPRESS if suppressHelp else "The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)", default=300)
@@ -500,8 +473,8 @@ class PerfTestArgumentsHandler(object):
 
         # Create 2 versions of the PTB Parser, one with help suppressed to go on the top level operational mode sub-commands parsers where the help message is pared down
         # and the second with help message not suppressed to be the parent of the overrideBasicTestConfig sub-command where configuration help should be displayed
-        ptbArgParserNoHelp = PtbArgumentsHandler.createBaseArgumentParser(suppressHelp=True)
-        ptbArgParser = PtbArgumentsHandler.createBaseArgumentParser()
+        ptbBpModeArgParserNoHelp = PtbArgumentsHandler.createBaseBpP2pArgumentParser(suppressHelp=True)
+        ptbBpModeArgParser = PtbArgumentsHandler.createBaseBpP2pArgumentParser()
 
         phParser = argparse.ArgumentParser(add_help=True, parents=[ptParserNoHelp], formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 
@@ -511,19 +484,35 @@ class PerfTestArgumentsHandler(object):
                     Eg:  performance_test.py testBpOpMode --help")
         ptParserSubparsers = phParser.add_subparsers(title="Operational Modes",
                                                      description=opModeDesc,
-                                                     dest="Operational Mode sub-command",
+                                                     dest="op_mode_sub_cmd",
                                                      required=True, help="Currently supported operational mode sub-commands.")
 
         #Create the Block Producer Operational Mode Sub-Command and Parsers
-        bpModeParser = ptParserSubparsers.add_parser(name="testBpOpMode", parents=[ptParser, ptbArgParserNoHelp], add_help=False, help="Test the Block Producer Operational Mode.")
+        bpModeParser = ptParserSubparsers.add_parser(name="testBpOpMode", parents=[ptParser, ptbBpModeArgParserNoHelp], add_help=False, help="Test the Block Producer Operational Mode.")
         bpModeAdvDesc=("Block Producer Operational Mode Advanced Configuration Options allow low level adjustments to the basic test configuration as well as the node topology being tested.\
                         For additional information on available advanced configuration options, pass --help to the sub-command.\
                         Eg:  performance_test.py testBpOpMode overrideBasicTestConfig --help")
         bpModeParserSubparsers = bpModeParser.add_subparsers(title="Advanced Configuration Options",
                                                              description=bpModeAdvDesc,
                                                              help="sub-command to allow overriding advanced configuration options")
-        bpModeParserSubparsers.add_parser(name="overrideBasicTestConfig", parents=[ptbArgParser], add_help=False,
+        bpModeParserSubparsers.add_parser(name="overrideBasicTestConfig", parents=[ptbBpModeArgParser], add_help=False,
                                           help="Use this sub-command to override low level controls for basic test, logging, node topology, etc.")
+
+        # Create 2 versions of the PTB Parser, one with help suppressed to go on the top level operational mode sub-commands parsers where the help message is pared down
+        # and the second with help message not suppressed to be the parent of the overrideBasicTestConfig sub-command where configuration help should be displayed
+        ptbApiModeArgParserNoHelp = PtbArgumentsHandler.createBaseApiHttpArgumentParser(suppressHelp=True)
+        ptbApiModeArgParser = PtbArgumentsHandler.createBaseApiHttpArgumentParser()
+
+        #Create the API Node Operational Mode Sub-Command and Parsers
+        apiModeParser = ptParserSubparsers.add_parser(name="testApiOpMode", parents=[ptParser, ptbApiModeArgParserNoHelp], add_help=False, help="Test the API Node Operational Mode.")
+        apiModeAdvDesc=("API Node Operational Mode Advanced Configuration Options allow low level adjustments to the basic test configuration as well as the node topology being tested.\
+                        For additional information on available advanced configuration options, pass --help to the sub-command.\
+                        Eg:  performance_test.py testApiOpMode overrideBasicTestConfig --help")
+        apiModeParserSubparsers = apiModeParser.add_subparsers(title="Advanced Configuration Options",
+                                                               description=apiModeAdvDesc,
+                                                               help="sub-command to allow overriding advanced configuration options")
+        apiModeParserSubparsers.add_parser(name="overrideBasicTestConfig", parents=[ptbApiModeArgParser], add_help=False,
+                                           help="Use this sub-command to override low level controls for basic test, logging, node topology, etc.")
 
         return phParser
 
@@ -534,7 +523,6 @@ class PerfTestArgumentsHandler(object):
         return args
 
 def main():
-
     args = PerfTestArgumentsHandler.parseArgs()
     Utils.Debug = args.v
 
@@ -545,6 +533,7 @@ def main():
                                         finalDurationSec=args.final_iterations_duration_sec,
                                         delPerfLogs=args.del_perf_logs,
                                         maxTpsToTest=args.max_tps_to_test,
+                                        minTpsToTest=args.min_tps_to_test,
                                         testIterationMinStep=args.test_iteration_min_step,
                                         tpsLimitPerGenerator=args.tps_limit_per_generator,
                                         delReport=args.del_report,
@@ -556,7 +545,9 @@ def main():
                                         calcProducerThreads=args.calc_producer_threads,
                                         calcChainThreads=args.calc_chain_threads,
                                         calcNetThreads=args.calc_net_threads,
-                                        userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None)
+                                        userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None,
+                                        endpointApi=args.endpoint_api,
+                                        opModeCmd=args.op_mode_sub_cmd)
 
     myTest = PerformanceTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptConfig=ptConfig)
 

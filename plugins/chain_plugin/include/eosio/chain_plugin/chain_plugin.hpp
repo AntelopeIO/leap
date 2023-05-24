@@ -21,6 +21,7 @@
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
 #include <fc/static_variant.hpp>
+#include <fc/time.hpp>
 
 namespace fc { class variant; }
 
@@ -44,8 +45,34 @@ namespace eosio {
    using chain::action_name;
    using chain::abi_def;
    using chain::abi_serializer;
+   using chain::abi_serializer_cache_builder;
    using chain::abi_resolver;
    using chain::packed_transaction;
+
+   enum class throw_on_yield { no, yes };
+   inline auto make_resolver(const controller& control, fc::microseconds abi_serializer_max_time, throw_on_yield yield_throw ) {
+      return [&control, abi_serializer_max_time, yield_throw](const account_name& name) -> std::optional<abi_serializer> {
+         if (name.good()) {
+            const auto* accnt = control.db().template find<chain::account_object, chain::by_name>( name );
+            if( accnt != nullptr ) {
+               try {
+                  if( abi_def abi; abi_serializer::to_abi( accnt->abi, abi ) ) {
+                     return abi_serializer( std::move( abi ), abi_serializer::create_yield_function( abi_serializer_max_time ) );
+                  }
+               } catch( ... ) {
+                  if( yield_throw == throw_on_yield::yes )
+                     throw;
+               }
+            }
+         }
+         return {};
+      };
+   }
+
+   template<class T>
+   inline abi_resolver get_serializers_cache(const controller& db, const T& obj, const fc::microseconds& max_time) {
+      return abi_resolver(abi_serializer_cache_builder(make_resolver(db, max_time, throw_on_yield::no)).add_serializers(obj).get());
+   }
 
 namespace chain_apis {
 struct empty{};
@@ -92,20 +119,9 @@ class read_write;
    
 class api_base {
 public:
+   static constexpr uint32_t max_return_items = 1000;
    static void handle_db_exhaustion();
    static void handle_bad_alloc();
-
-   static auto make_resolver(const controller& control, abi_serializer::yield_function_t yield) {
-      return [&control, yield{std::move(yield)}](const account_name &name) -> std::optional<abi_serializer> {
-         const auto* accnt = control.db().template find<chain::account_object, chain::by_name>(name);
-         if (accnt != nullptr) {
-            if (abi_def abi; abi_serializer::to_abi(accnt->abi, abi)) {
-               return abi_serializer(std::move(abi), yield);
-            }
-         }
-         return {};
-      };
-   }
 
 protected:
    struct send_transaction_params_t {
@@ -147,7 +163,7 @@ public:
    // return deadline for call
    fc::time_point start() const {
       validate();
-      return fc::time_point::now() + http_max_response_time;
+      return fc::time_point::now().safe_add(http_max_response_time);
    }
 
    void set_shorten_abi_errors( bool f ) { shorten_abi_errors = f; }
@@ -207,10 +223,10 @@ public:
    struct get_activated_protocol_features_params {
       std::optional<uint32_t>  lower_bound;
       std::optional<uint32_t>  upper_bound;
-      uint32_t                 limit = 10;
+      uint32_t                 limit = std::numeric_limits<uint32_t>::max(); // ignored
       bool                     search_by_block_num = false;
       bool                     reverse = false;
-      std::optional<uint32_t>  time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t>  time_limit_ms; // ignored
    };
 
    struct get_activated_protocol_features_results {
@@ -371,8 +387,7 @@ public:
 
    // call from any thread
    fc::variant convert_block( const chain::signed_block_ptr& block,
-                              abi_resolver& resolver,
-                              const fc::microseconds& max_time ) const;
+                              abi_resolver& resolver ) const;
 
    struct get_block_header_params {
       string block_num_or_id;
@@ -413,7 +428,7 @@ public:
       string               encode_type{"dec"}; //dec, hex , default=dec
       std::optional<bool>  reverse;
       std::optional<bool>  show_payer; // show RAM payer
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
     };
 
    struct get_table_rows_result {
@@ -433,7 +448,7 @@ public:
       string               upper_bound; // upper bound of scope, optional
       uint32_t             limit = 10;
       std::optional<bool>  reverse;
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
    };
    struct get_table_by_scope_result_row {
       name        code;
@@ -475,7 +490,7 @@ public:
       bool        json = false;
       string      lower_bound;
       uint32_t    limit = 50;
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
    };
 
    struct get_producers_result {
@@ -501,7 +516,7 @@ public:
       bool        json = false;
       string      lower_bound;  /// timestamp OR transaction ID
       uint32_t    limit = 50;
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
    };
 
    struct get_scheduled_transactions_result {
@@ -563,8 +578,7 @@ public:
                              const fc::time_point& deadline,
                              ConvFn conv ) const {
 
-      fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-      fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+      fc::time_point params_deadline = p.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*p.time_limit_ms)), deadline) : deadline;
 
       struct http_params_t {
          name table;
@@ -632,16 +646,17 @@ public:
             };
 
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
-            auto cur_time = fc::time_point::now();
             vector<char> data;
-            for( unsigned int count = 0;
-                 cur_time <= params_deadline && count < p.limit && itr != end_itr;
-                 ++count, ++itr, cur_time = fc::time_point::now() ) {
-               FC_CHECK_DEADLINE(deadline);
+            uint32_t limit = p.limit;
+            if (deadline != fc::time_point::maximum() && limit > max_return_items)
+               limit = max_return_items;
+            for( unsigned int count = 0; count < limit && itr != end_itr; ++count, ++itr ) {
                const auto* itr2 = d.find<chain::key_value_object, chain::by_scope_primary>( boost::make_tuple(t_id->id, itr->primary_key) );
                if( itr2 == nullptr ) continue;
                copy_inline_row(*itr2, data);
                http_params.rows.emplace_back(std::move(data), itr->payer);
+               if (fc::time_point::now() >= params_deadline)
+                  break;
             }
             if( itr != end_itr ) {
                http_params.more = true;
@@ -695,8 +710,7 @@ public:
                       abi_def&& abi,
                       const fc::time_point& deadline ) const {
 
-      fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-      fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+      fc::time_point params_deadline = p.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*p.time_limit_ms)), deadline) : deadline;
 
       struct http_params_t {
          name table;
@@ -746,14 +760,15 @@ public:
             };
 
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
-            auto cur_time = fc::time_point::now();
             vector<char> data;
-            for( unsigned int count = 0;
-                 cur_time <= params_deadline && count < p.limit && itr != end_itr;
-                 ++count, ++itr, cur_time = fc::time_point::now() ) {
-               FC_CHECK_DEADLINE(deadline);
+            uint32_t limit = p.limit;
+            if (deadline != fc::time_point::maximum() && limit > max_return_items)
+               limit = max_return_items;
+            for( unsigned int count = 0; count < limit && itr != end_itr; ++count, ++itr ) {
                copy_inline_row(*itr, data);
                http_params.rows.emplace_back(std::move(data), itr->payer);
+               if (fc::time_point::now() >= params_deadline)
+                  break;
             }
             if( itr != end_itr ) {
                http_params.more = true;
@@ -832,7 +847,8 @@ public:
    // return deadline for call
    fc::time_point start() const {
       validate();
-      return fc::time_point::now() + http_max_response_time;
+      return http_max_response_time == fc::microseconds::maximum() ? fc::time_point::maximum()
+                                                                   : fc::time_point::now() + http_max_response_time;
    }
 
    using push_block_params = chain::signed_block;
@@ -978,6 +994,8 @@ public:
    fc::variant get_log_trx_trace(const chain::transaction_trace_ptr& trx_trace) const;
    // return variant of trx for logging, trace is modified to minimize log output
    fc::variant get_log_trx(const transaction& trx) const;
+
+   const controller::config& chain_config() const;
 
 private:
    static void log_guard_exception(const chain::guard_exception& e);

@@ -19,7 +19,7 @@ from pathlib import Path
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run","--unshared"})
+args = TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--unshared"})
 debug=args.v
 pnodes=1
 topo="mesh"
@@ -29,10 +29,7 @@ total_nodes = pnodes
 killCount=1
 killSignal=Utils.SigKillTag
 
-killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-killAll=args.clean_run
 
 seed=1
 Utils.Debug=debug
@@ -63,15 +60,12 @@ def runNodeosAndGetOutput(myTimeout=3, nodeosLogPath=f"{Utils.TestLogRoot}"):
     return (True, output)
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 
 try:
     TestHelper.printSystemInfo("BEGIN")
 
     cluster.setChainStrategy(chainSyncStrategyStr)
-
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
 
     Print ("producing nodes: %d, topology: %s, delay between nodes launch(seconds): %d, chain sync strategy: %s" % (
         pnodes, topo, delay, chainSyncStrategyStr))
@@ -83,7 +77,9 @@ try:
     node=cluster.getNode(0)
 
     Print("Kill cluster nodes.")
-    cluster.killall(allInstances=killAll)
+    for node in cluster.nodes:
+        node.kill(signal.SIGKILL)
+    cluster.biosNode.kill(signal.SIGKILL)
 
     Print("Restart nodeos repeatedly to ensure dirty database flag sticks.")
     timeout=6
@@ -111,7 +107,7 @@ try:
     testSuccessful=True
 finally:
     if debug: Print("Cleanup in finally block.")
-    TestHelper.shutdown(cluster, None, testSuccessful, killEosInstances, False, keepLogs, killAll, dumpErrorDetails)
+    TestHelper.shutdown(cluster, None, testSuccessful, dumpErrorDetails)
 
 if debug: Print("Exiting test, exit value 0.")
 

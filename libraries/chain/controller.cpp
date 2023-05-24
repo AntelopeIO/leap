@@ -404,11 +404,13 @@ struct controller_impl {
       }
    }
 
-   void dmlog_applied_transaction(const transaction_trace_ptr& t) {
+   void dmlog_applied_transaction(const transaction_trace_ptr& t, const signed_transaction* trx = nullptr) {
       // dmlog_applied_transaction is called by push_scheduled_transaction
       // where transient transactions are not possible, and by push_transaction
       // only when the transaction is not transient
       if (auto dm_logger = get_deep_mind_logger(false)) {
+         if (trx && is_onblock(*t))
+            dm_logger->on_onblock(*trx);
          dm_logger->on_applied_transaction(self.head_block_num() + 1, t);
       }
    }
@@ -1629,7 +1631,7 @@ struct controller_impl {
                        emit(self.accepted_transaction, trx);
                    }
 
-                   dmlog_applied_transaction(trace);
+                   dmlog_applied_transaction(trace, &trn);
                    emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
                 }
             }
@@ -2665,11 +2667,6 @@ struct controller_impl {
       } else {
          trx.expiration = time_point_sec{self.pending_block_time() + fc::microseconds(999'999)}; // Round up to nearest second to avoid appearing expired
          trx.set_reference_block( self.head_block_id() );
-      }
-
-      // onblock transaction cannot be transient
-      if (auto dm_logger = get_deep_mind_logger(false)) {
-         dm_logger->on_onblock(trx);
       }
 
       return trx;
