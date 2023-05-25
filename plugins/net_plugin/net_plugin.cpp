@@ -346,6 +346,7 @@ namespace eosio {
       void connection_monitor(const std::weak_ptr<connection>& from_connection);
 
    public:
+      size_t number_connections() const;
       void add_supplied_peers(const vector<string>& peers );
 
       // not thread safe, only call on startup
@@ -1217,11 +1218,14 @@ namespace eosio {
 
    // thread safe
    bool connection::should_sync_from(uint32_t sync_next_expected_num, uint32_t sync_known_lib_num) const {
+      fc_wlog(logger, "id: ${id} trx_only: ${t} current: ${c} socket_open: ${so} syncing: ${s} connecting: ${con} closing: ${close} peer_start_block: ${sb} peer_head: ${h} latency: ${lat}us no_retry: ${g}",
+              ("id", connection_id)("t", is_transactions_only_connection())
+              ("c", current())("so", socket_is_open())("s", syncing.load())("con", connecting.load())("close", closing.load())
+              ("sb", peer_start_block_num.load())("h", peer_head_block_num.load())("lat", get_net_latency_ns()/1000)("g", reason_str(no_retry)));
       if (!is_transactions_only_connection() && current()) {
          if (no_retry == go_away_reason::no_reason) {
-            if (peer_start_block_num <= sync_next_expected_num) {
-               std::lock_guard<std::mutex> g_conn( conn_mtx );
-               if (last_handshake_recv.last_irreversible_block_num >= sync_known_lib_num) {
+            if (peer_start_block_num <= sync_next_expected_num) { // has blocks we want
+               if (peer_head_block_num >= sync_known_lib_num) { // is in sync
                   return true;
                }
             }
@@ -1833,9 +1837,13 @@ namespace eosio {
             conns.push_back(c);
          }
       });
-      std::sort(conns.begin(), conns.end(), [](const connection_ptr& lhs, const connection_ptr& rhs) {
-         return lhs->get_net_latency_ns() < rhs->get_net_latency_ns();
-      });
+      if (conns.size() > sync_peer_limit) {
+         std::partial_sort(conns.begin(), conns.begin() + sync_peer_limit, conns.end(), [](const connection_ptr& lhs, const connection_ptr& rhs) {
+            return lhs->get_net_latency_ns() < rhs->get_net_latency_ns();
+         });
+      }
+
+      fc_dlog(logger, "Valid sync peers ${s}, sync_ordinal ${so}", ("s", conns.size())("so", sync_ordinal.load()));
 
       if (conns.empty()) {
          return {};
@@ -1855,7 +1863,7 @@ namespace eosio {
          uint32_t sync_ord = conns[i]->sync_ordinal;
          if (sync_ord < lowest_ordinal) {
             the_one = i;
-            lowest_ordinal = sync_ordinal;
+            lowest_ordinal = sync_ord;
          }
       }
       conns[the_one]->sync_ordinal = sync_ordinal.load();
@@ -2998,7 +3006,6 @@ namespace eosio {
 
    // called from connection strand
    void connection::handle_message( const handshake_message& msg ) {
-      peer_dlog( this, "received handshake_message" );
       if( !is_valid( msg ) ) {
          peer_elog( this, "bad handshake message");
          no_retry = go_away_reason::fatal_other;
@@ -3009,6 +3016,7 @@ namespace eosio {
                  ("g", msg.generation)("lib", msg.last_irreversible_block_num)("head", msg.head_num) );
 
       peer_lib_num = msg.last_irreversible_block_num;
+      peer_head_block_num = msg.head_num;
       std::unique_lock<std::mutex> g_conn( conn_mtx );
       last_handshake_recv = msg;
       g_conn.unlock();
@@ -4078,6 +4086,11 @@ namespace eosio {
    }
 
    //----------------------------------------------------------------------------
+
+   size_t connections_manager::number_connections() const {
+      std::lock_guard g(connections_mtx);
+      return connections.size();
+   }
 
    void connections_manager::add_supplied_peers(const vector<string>& peers ) {
       std::lock_guard g(connections_mtx);
