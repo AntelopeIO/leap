@@ -331,9 +331,11 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void log_trx_results( const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr );
       void log_trx_results( const packed_transaction_ptr& trx, const transaction_trace_ptr& trace,
                             const fc::exception_ptr& except_ptr, uint32_t billed_cpu_us, const fc::time_point& start, bool is_transient );
-
+      void add_greylist_accounts(const producer_plugin::greylist_params& params);
+   
       void plugin_shutdown();
       void plugin_startup();
+      void plugin_initialize(const boost::program_options::variables_map& options);
    
       boost::program_options::variables_map _options;
       bool     _production_enabled                 = false;
@@ -921,23 +923,21 @@ if( options.count(op_name) ) { \
    } \
 }
 
-void producer_plugin::plugin_initialize(const boost::program_options::variables_map& options)
-{ try {
-   handle_sighup(); // Sets loggers
+void producer_plugin_impl::plugin_initialize(const boost::program_options::variables_map& options)
+{ 
+   chain_plug = app().find_plugin<chain_plugin>();
+   EOS_ASSERT( chain_plug, plugin_config_exception, "chain_plugin not found" );
+   _options = &options;
+   LOAD_VALUE_SET(options, "producer-name", _producers)
 
-   my->chain_plug = app().find_plugin<chain_plugin>();
-   EOS_ASSERT( my->chain_plug, plugin_config_exception, "chain_plugin not found" );
-   my->_options = &options;
-   LOAD_VALUE_SET(options, "producer-name", my->_producers)
-
-   chain::controller& chain = my->chain_plug->chain();
+   chain::controller& chain = chain_plug->chain();
 
    if( options.count("signature-provider") ) {
       const std::vector<std::string> key_spec_pairs = options["signature-provider"].as<std::vector<std::string>>();
       for (const auto& key_spec_pair : key_spec_pairs) {
          try {
             const auto& [pubkey, provider] = app().get_plugin<signature_provider_plugin>().signature_provider_for_specification(key_spec_pair);
-            my->_signature_providers[pubkey] = provider;
+            _signature_providers[pubkey] = provider;
          } catch(secure_enclave_exception& e) {
             elog("Error with Secure Enclave signature provider: ${e}; ignoring ${val}", ("e", e.top_message())("val", key_spec_pair));
          } catch (fc::exception& e) {
@@ -952,7 +952,7 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
    EOS_ASSERT( subjective_account_max_failures_window_size > 0, plugin_config_exception,
                "subjective-account-max-failures-window-size ${s} must be greater than 0", ("s", subjective_account_max_failures_window_size) );
 
-   my->_account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>(),
+   _account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>(),
                                                     subjective_account_max_failures_window_size );
 
    uint32_t cpu_effort_pct = options.at("cpu-effort-percent").as<uint32_t>();
@@ -960,15 +960,15 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
                "cpu-effort-percent ${pct} must be 0 - 100", ("pct", cpu_effort_pct) );
       cpu_effort_pct *= config::percent_1;
 
-   my->_cpu_effort_us = EOS_PERCENT( config::block_interval_us, cpu_effort_pct );
+   _cpu_effort_us = EOS_PERCENT( config::block_interval_us, cpu_effort_pct );
 
-   my->_max_block_cpu_usage_threshold_us = options.at( "max-block-cpu-usage-threshold-us" ).as<uint32_t>();
-   EOS_ASSERT( my->_max_block_cpu_usage_threshold_us < config::block_interval_us, plugin_config_exception,
-               "max-block-cpu-usage-threshold-us ${t} must be 0 .. ${bi}", ("bi", config::block_interval_us)("t", my->_max_block_cpu_usage_threshold_us) );
+   _max_block_cpu_usage_threshold_us = options.at( "max-block-cpu-usage-threshold-us" ).as<uint32_t>();
+   EOS_ASSERT( _max_block_cpu_usage_threshold_us < config::block_interval_us, plugin_config_exception,
+               "max-block-cpu-usage-threshold-us ${t} must be 0 .. ${bi}", ("bi", config::block_interval_us)("t", _max_block_cpu_usage_threshold_us) );
 
-   my->_max_block_net_usage_threshold_bytes = options.at( "max-block-net-usage-threshold-bytes" ).as<uint32_t>();
+   _max_block_net_usage_threshold_bytes = options.at( "max-block-net-usage-threshold-bytes" ).as<uint32_t>();
 
-   my->_max_scheduled_transaction_time_per_block_ms = options.at("max-scheduled-transaction-time-per-block-ms").as<int32_t>();
+   _max_scheduled_transaction_time_per_block_ms = options.at("max-scheduled-transaction-time-per-block-ms").as<int32_t>();
 
    if( options.at( "subjective-cpu-leeway-us" ).as<int32_t>() != config::default_subjective_cpu_leeway_us ) {
       chain.set_subjective_cpu_leeway( fc::microseconds( options.at( "subjective-cpu-leeway-us" ).as<int32_t>() ) );
@@ -979,79 +979,79 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
                "subjective-account-decay-time-minutes ${dt} must be greater than 0", ("dt", subjective_account_decay_time.to_seconds() / 60));
    chain.get_mutable_subjective_billing().set_expired_accumulator_average_window( subjective_account_decay_time );
 
-   my->_max_transaction_time_ms = options.at("max-transaction-time").as<int32_t>();
+   _max_transaction_time_ms = options.at("max-transaction-time").as<int32_t>();
 
-   my->_max_irreversible_block_age_us = fc::seconds(options.at("max-irreversible-block-age").as<int32_t>());
+   _max_irreversible_block_age_us = fc::seconds(options.at("max-irreversible-block-age").as<int32_t>());
 
    auto max_incoming_transaction_queue_size = options.at("incoming-transaction-queue-size-mb").as<uint16_t>() * 1024*1024;
 
    EOS_ASSERT( max_incoming_transaction_queue_size > 0, plugin_config_exception,
                "incoming-transaction-queue-size-mb ${mb} must be greater than 0", ("mb", max_incoming_transaction_queue_size) );
 
-   my->_unapplied_transactions.set_max_transaction_queue_size( max_incoming_transaction_queue_size );
+   _unapplied_transactions.set_max_transaction_queue_size( max_incoming_transaction_queue_size );
 
-   my->_incoming_defer_ratio = options.at("incoming-defer-ratio").as<double>();
+   _incoming_defer_ratio = options.at("incoming-defer-ratio").as<double>();
 
    bool disable_subjective_billing = options.at("disable-subjective-billing").as<bool>();
-   my->_disable_subjective_p2p_billing = options.at("disable-subjective-p2p-billing").as<bool>();
-   my->_disable_subjective_api_billing = options.at("disable-subjective-api-billing").as<bool>();
+   _disable_subjective_p2p_billing = options.at("disable-subjective-p2p-billing").as<bool>();
+   _disable_subjective_api_billing = options.at("disable-subjective-api-billing").as<bool>();
    dlog( "disable-subjective-billing: ${s}, disable-subjective-p2p-billing: ${p2p}, disable-subjective-api-billing: ${api}",
-         ("s", disable_subjective_billing)("p2p", my->_disable_subjective_p2p_billing)("api", my->_disable_subjective_api_billing) );
+         ("s", disable_subjective_billing)("p2p", _disable_subjective_p2p_billing)("api", _disable_subjective_api_billing) );
    if( !disable_subjective_billing ) {
-       my->_disable_subjective_p2p_billing = my->_disable_subjective_api_billing = false;
-   } else if( !my->_disable_subjective_p2p_billing || !my->_disable_subjective_api_billing ) {
+       _disable_subjective_p2p_billing = _disable_subjective_api_billing = false;
+   } else if( !_disable_subjective_p2p_billing || !_disable_subjective_api_billing ) {
        disable_subjective_billing = false;
    }
    if( disable_subjective_billing ) {
       chain.get_mutable_subjective_billing().disable();
        ilog( "Subjective CPU billing disabled" );
-   } else if( !my->_disable_subjective_p2p_billing && !my->_disable_subjective_api_billing ) {
+   } else if( !_disable_subjective_p2p_billing && !_disable_subjective_api_billing ) {
        ilog( "Subjective CPU billing enabled" );
    } else {
-       if( my->_disable_subjective_p2p_billing ) ilog( "Subjective CPU billing of P2P trxs disabled " );
-       if( my->_disable_subjective_api_billing ) ilog( "Subjective CPU billing of API trxs disabled " );
+       if( _disable_subjective_p2p_billing ) ilog( "Subjective CPU billing of P2P trxs disabled " );
+       if( _disable_subjective_api_billing ) ilog( "Subjective CPU billing of API trxs disabled " );
    }
 
-   my->_thread_pool_size = options.at( "producer-threads" ).as<uint16_t>();
-   EOS_ASSERT( my->_thread_pool_size > 0, plugin_config_exception,
-               "producer-threads ${num} must be greater than 0", ("num", my->_thread_pool_size));
+   _thread_pool_size = options.at( "producer-threads" ).as<uint16_t>();
+   EOS_ASSERT( _thread_pool_size > 0, plugin_config_exception,
+               "producer-threads ${num} must be greater than 0", ("num", _thread_pool_size));
 
    if( options.count( "snapshots-dir" )) {
       auto sd = options.at( "snapshots-dir" ).as<std::filesystem::path>();
       if( sd.is_relative()) {
-         my->_snapshots_dir = app().data_dir() / sd;
-         if (!std::filesystem::exists(my->_snapshots_dir)) {
-            std::filesystem::create_directories(my->_snapshots_dir);
+         _snapshots_dir = app().data_dir() / sd;
+         if (!std::filesystem::exists(_snapshots_dir)) {
+            std::filesystem::create_directories(_snapshots_dir);
          }
       } else {
-         my->_snapshots_dir = sd;
+         _snapshots_dir = sd;
       }
 
-      EOS_ASSERT( std::filesystem::is_directory(my->_snapshots_dir), snapshot_directory_not_found_exception,
-                  "No such directory '${dir}'", ("dir", my->_snapshots_dir) );
+      EOS_ASSERT( std::filesystem::is_directory(_snapshots_dir), snapshot_directory_not_found_exception,
+                  "No such directory '${dir}'", ("dir", _snapshots_dir) );
 
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
-         resmon_plugin->monitor_directory(my->_snapshots_dir);
+         resmon_plugin->monitor_directory(_snapshots_dir);
       }
    }
 
    if ( options.count( "read-only-threads" ) ) {
-      my->_ro_thread_pool_size = options.at( "read-only-threads" ).as<uint32_t>();
-   } else if ( my->_producers.empty() ) {
+      _ro_thread_pool_size = options.at( "read-only-threads" ).as<uint32_t>();
+   } else if ( _producers.empty() ) {
       if( options.count( "plugin" ) ) {
          const auto& v = options.at( "plugin" ).as<std::vector<std::string>>();
          auto i = std::find_if( v.cbegin(), v.cend(), []( const std::string& p ) { return p == "eosio::chain_api_plugin"; } );
          if( i != v.cend() ) {
             // default to 3 threads for non producer nodes running chain_api_plugin if not specified
-            my->_ro_thread_pool_size = 3;
-            ilog( "chain_api_plugin configured, defaulting read-only-threads to ${t}", ("t", my->_ro_thread_pool_size) );
+            _ro_thread_pool_size = 3;
+            ilog( "chain_api_plugin configured, defaulting read-only-threads to ${t}", ("t", _ro_thread_pool_size) );
          }
       }
    }
-   EOS_ASSERT( test_mode_ || my->_ro_thread_pool_size == 0 || my->_producers.empty(), plugin_config_exception, "read-only-threads not allowed on producer node" );
+   EOS_ASSERT( producer_plugin::test_mode_ || _ro_thread_pool_size == 0 || _producers.empty(), plugin_config_exception, "read-only-threads not allowed on producer node" );
 
    // only initialize other read-only options when read-only thread pool is enabled
-   if ( my->_ro_thread_pool_size > 0 ) {
+   if ( _ro_thread_pool_size > 0 ) {
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if (chain.is_eos_vm_oc_enabled()) {
          // EOS VM OC requires 4.2TB Virtual for each executing thread. Make sure the memory
@@ -1077,50 +1077,50 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
          // reserve 1 for the app thread, 1 for anything else which might use VM
          EOS_ASSERT( num_threads_supported > 2, plugin_config_exception, "With the EOS VM OC configured, there is not enough system virtual memory to support the required minimum of 3 threads (1 for main thread, 1 for read-only, and 1 for anything else), vm total: ${t}, vm used: ${u}", ("t", vm_total_kb)("u", vm_used_kb));
          num_threads_supported -= 2;
-         auto actual_threads_allowed = std::min(my->_ro_max_threads_allowed, num_threads_supported);
-         ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported) ("max", my->_ro_max_threads_allowed)("actual", actual_threads_allowed));
-         EOS_ASSERT( my->_ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception, "read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})", ("th", my->_ro_thread_pool_size) ("allowed", actual_threads_allowed) );
+         auto actual_threads_allowed = std::min(_ro_max_threads_allowed, num_threads_supported);
+         ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported) ("max", _ro_max_threads_allowed)("actual", actual_threads_allowed));
+         EOS_ASSERT( _ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception, "read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})", ("th", _ro_thread_pool_size) ("allowed", actual_threads_allowed) );
       }
 #endif
-      EOS_ASSERT( my->_ro_thread_pool_size <= my->_ro_max_threads_allowed, plugin_config_exception, "read-only-threads (${th}) greater than the number of threads allowed (${allowed})", ("th", my->_ro_thread_pool_size) ("allowed", my->_ro_max_threads_allowed) );
+      EOS_ASSERT( _ro_thread_pool_size <= _ro_max_threads_allowed, plugin_config_exception, "read-only-threads (${th}) greater than the number of threads allowed (${allowed})", ("th", _ro_thread_pool_size) ("allowed", _ro_max_threads_allowed) );
 
-      my->_ro_write_window_time_us = fc::microseconds( options.at( "read-only-write-window-time-us" ).as<uint32_t>() );
-      my->_ro_read_window_time_us = fc::microseconds( options.at( "read-only-read-window-time-us" ).as<uint32_t>() );
-      EOS_ASSERT( my->_ro_read_window_time_us > my->_ro_read_window_minimum_time_us, plugin_config_exception, "read-only-read-window-time-us (${read}) must be at least greater than  ${min} us", ("read", my->_ro_read_window_time_us) ("min", my->_ro_read_window_minimum_time_us) );
-      my->_ro_read_window_effective_time_us = my->_ro_read_window_time_us - my->_ro_read_window_minimum_time_us;
+      _ro_write_window_time_us = fc::microseconds( options.at( "read-only-write-window-time-us" ).as<uint32_t>() );
+      _ro_read_window_time_us = fc::microseconds( options.at( "read-only-read-window-time-us" ).as<uint32_t>() );
+      EOS_ASSERT( _ro_read_window_time_us > _ro_read_window_minimum_time_us, plugin_config_exception, "read-only-read-window-time-us (${read}) must be at least greater than  ${min} us", ("read", _ro_read_window_time_us) ("min", _ro_read_window_minimum_time_us) );
+      _ro_read_window_effective_time_us = _ro_read_window_time_us - _ro_read_window_minimum_time_us;
 
       // Make sure a read-only transaction can finish within the read
       // window if scheduled at the very beginning of the window.
       // Add _ro_read_window_minimum_time_us for safety margin.
-      if ( my->_max_transaction_time_ms.load() > 0 ) {
-         EOS_ASSERT( my->_ro_read_window_time_us > ( fc::milliseconds(my->_max_transaction_time_ms.load()) + my->_ro_read_window_minimum_time_us ), plugin_config_exception, "read-only-read-window-time-us (${read} us) must be greater than max-transaction-time (${trx_time} us) plus ${min} us, required: ${read} us > (${trx_time} us + ${min} us).", ("read", my->_ro_read_window_time_us) ("trx_time", my->_max_transaction_time_ms.load() * 1000) ("min", my->_ro_read_window_minimum_time_us) );
+      if ( _max_transaction_time_ms.load() > 0 ) {
+         EOS_ASSERT( _ro_read_window_time_us > ( fc::milliseconds(_max_transaction_time_ms.load()) + _ro_read_window_minimum_time_us ), plugin_config_exception, "read-only-read-window-time-us (${read} us) must be greater than max-transaction-time (${trx_time} us) plus ${min} us, required: ${read} us > (${trx_time} us + ${min} us).", ("read", _ro_read_window_time_us) ("trx_time", _max_transaction_time_ms.load() * 1000) ("min", _ro_read_window_minimum_time_us) );
       }
       ilog("read-only-write-window-time-us: ${ww} us, read-only-read-window-time-us: ${rw} us, effective read window time to be used: ${w} us",
-           ("ww", my->_ro_write_window_time_us)("rw", my->_ro_read_window_time_us)("w", my->_ro_read_window_effective_time_us));
+           ("ww", _ro_write_window_time_us)("rw", _ro_read_window_time_us)("w", _ro_read_window_effective_time_us));
    }
 
    // Make sure _ro_max_trx_time_us is alwasys set.
-   if ( my->_max_transaction_time_ms.load() > 0 ) {
-      my->_ro_max_trx_time_us = fc::milliseconds(my->_max_transaction_time_ms.load());
+   if ( _max_transaction_time_ms.load() > 0 ) {
+      _ro_max_trx_time_us = fc::milliseconds(_max_transaction_time_ms.load());
    } else {
       // max-transaction-time can be set to negative for unlimited time
-     my->_ro_max_trx_time_us = fc::microseconds::maximum();
+     _ro_max_trx_time_us = fc::microseconds::maximum();
    }
-   ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us}", ("s", my->_ro_thread_pool_size)("t", my->_ro_max_trx_time_us));
+   ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us}", ("s", _ro_thread_pool_size)("t", _ro_max_trx_time_us));
 
-   my->_incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
+   _incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
          [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
-      return my->on_incoming_block(block, block_id, bsp);
+      return on_incoming_block(block, block_id, bsp);
    });
 
-   my->_incoming_transaction_async_provider = app().get_method<incoming::methods::transaction_async>().register_provider(
+   _incoming_transaction_async_provider = app().get_method<incoming::methods::transaction_async>().register_provider(
          [this](const packed_transaction_ptr& trx, bool api_trx, transaction_metadata::trx_type trx_type, bool return_failure_traces, next_function<transaction_trace_ptr> next) -> void {
-      return my->on_incoming_transaction_async(trx, api_trx, trx_type, return_failure_traces, next );
+      return on_incoming_transaction_async(trx, api_trx, trx_type, return_failure_traces, next );
    });
 
    if (options.count("greylist-account")) {
       std::vector<std::string> greylist = options["greylist-account"].as<std::vector<std::string>>();
-      greylist_params param;
+      producer_plugin::greylist_params param;
       for (auto &a : greylist) {
          param.accounts.push_back(account_name(a));
       }
@@ -1139,9 +1139,17 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
       }
    }
 
-   my->_snapshot_scheduler.set_db_path(my->_snapshots_dir);
-   my->_snapshot_scheduler.set_snapshots_path(my->_snapshots_dir);  
-} FC_LOG_AND_RETHROW() }
+   _snapshot_scheduler.set_db_path(_snapshots_dir);
+   _snapshot_scheduler.set_snapshots_path(_snapshots_dir);  
+} 
+
+void producer_plugin::plugin_initialize(const boost::program_options::variables_map& options)
+{
+   try {
+      handle_sighup(); // Sets loggers
+      my->plugin_initialize(options);
+   } FC_LOG_AND_RETHROW()
+}
 
 using namespace std::chrono_literals;
 void producer_plugin_impl::plugin_startup()
@@ -1338,13 +1346,17 @@ producer_plugin::runtime_options producer_plugin::get_runtime_options() const {
    };
 }
 
-void producer_plugin::add_greylist_accounts(const greylist_params& params) {
+void producer_plugin_impl::add_greylist_accounts(const producer_plugin::greylist_params& params) {
    EOS_ASSERT(params.accounts.size() > 0, chain::invalid_http_request, "At least one account is required");
 
-   chain::controller& chain = my->chain_plug->chain();
+   chain::controller& chain = chain_plug->chain();
    for (auto &acc : params.accounts) {
       chain.add_resource_greylist(acc);
    }
+}
+
+void producer_plugin::add_greylist_accounts(const greylist_params& params) {
+   my->add_greylist_accounts(params);
 }
 
 void producer_plugin::remove_greylist_accounts(const greylist_params& params) {
