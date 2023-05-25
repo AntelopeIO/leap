@@ -3389,6 +3389,11 @@ namespace eosio {
    // called from connection strand
    void connection::handle_message( packed_transaction_ptr trx ) {
       const auto& tid = trx->id();
+      if (my_impl->sync_master->syncing_with_peer()) {
+         peer_wlog(this, "syncing, dropping trx ${id}", ("id", tid));
+         return;
+      }
+
       peer_dlog( this, "received packed_transaction ${id}", ("id", tid) );
 
       size_t trx_size = calc_trx_size( trx );
