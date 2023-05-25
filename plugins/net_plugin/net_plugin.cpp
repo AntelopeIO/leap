@@ -3835,7 +3835,7 @@ namespace eosio {
                      "p2p-keepalive_interval-ms must be greater than 0" );
 
          my->connections.init( std::chrono::milliseconds( options.at("p2p-keepalive-interval-ms").as<int>() * 2 ),
-                               fc::microseconds( options.at("max-cleanup-time-msec").as<uint32_t>() ),
+                               fc::milliseconds( options.at("max-cleanup-time-msec").as<uint32_t>() ),
                                std::chrono::seconds( options.at("connection-cleanup-period").as<int>() ),
                                options.at("max-clients").as<uint32_t>() );
 
