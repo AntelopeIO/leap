@@ -332,6 +332,9 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void log_trx_results( const packed_transaction_ptr& trx, const transaction_trace_ptr& trace,
                             const fc::exception_ptr& except_ptr, uint32_t billed_cpu_us, const fc::time_point& start, bool is_transient );
 
+      void plugin_shutdown();
+      void plugin_startup();
+   
       boost::program_options::variables_map _options;
       bool     _production_enabled                 = false;
       bool     _pause_production                   = false;
@@ -1141,34 +1144,34 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 } FC_LOG_AND_RETHROW() }
 
 using namespace std::chrono_literals;
-void producer_plugin::plugin_startup()
+void producer_plugin_impl::plugin_startup()
 { try {
    try {
    ilog("producer plugin:  plugin_startup() begin");
 
-   my->_thread_pool.start( my->_thread_pool_size, []( const fc::exception& e ) {
+   _thread_pool.start(_thread_pool_size, [](const fc::exception& e) {
       fc_elog( _log, "Exception in producer thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
       app().quit();
    } );
 
 
-   chain::controller& chain = my->chain_plug->chain();
-   EOS_ASSERT( my->_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
+   chain::controller& chain = chain_plug->chain();
+   EOS_ASSERT( _producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
               "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"" );
 
-   EOS_ASSERT( my->_producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL, plugin_config_exception,
+   EOS_ASSERT( _producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL, plugin_config_exception,
               "node cannot have any producer-name configured because block production is not safe when validation_mode is not \"full\"" );
 
-   EOS_ASSERT( my->_producers.empty() || my->chain_plug->accept_transactions(), plugin_config_exception,
+   EOS_ASSERT( _producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
               "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions" );
 
-   my->_accepted_block_connection.emplace(chain.accepted_block.connect( [this]( const auto& bsp ){ my->on_block( bsp ); } ));
-   my->_accepted_block_header_connection.emplace(chain.accepted_block_header.connect( [this]( const auto& bsp ){ my->on_block_header( bsp ); } ));
-   my->_irreversible_block_connection.emplace(chain.irreversible_block.connect( [this]( const auto& bsp ){ my->on_irreversible_block( bsp->block ); } ));
+   _accepted_block_connection.emplace(chain.accepted_block.connect( [this]( const auto& bsp ){ on_block( bsp ); } ));
+   _accepted_block_header_connection.emplace(chain.accepted_block_header.connect( [this]( const auto& bsp ){ on_block_header( bsp ); } ));
+   _irreversible_block_connection.emplace(chain.irreversible_block.connect( [this]( const auto& bsp ){ on_irreversible_block( bsp->block ); } ));
   
-   my->_block_start_connection.emplace(chain.block_start.connect( [this, &chain]( uint32_t bs ) { 
+   _block_start_connection.emplace(chain.block_start.connect( [this, &chain]( uint32_t bs ) { 
       try {
-         my->_snapshot_scheduler.on_start_block(bs, chain);
+         _snapshot_scheduler.on_start_block(bs, chain);
       }
       catch (const snapshot_execution_exception & e) {
          fc_elog( _log, "Exception during snapshot execution: ${e}", ("e", e.to_detail_string()) );
@@ -1179,24 +1182,24 @@ void producer_plugin::plugin_startup()
    const auto lib_num = chain.last_irreversible_block_num();
    const auto lib = chain.fetch_block_by_number(lib_num);
    if (lib) {
-      my->on_irreversible_block(lib);
+      on_irreversible_block(lib);
    } else {
-      my->_irreversible_block_time = fc::time_point::maximum();
+      _irreversible_block_time = fc::time_point::maximum();
    }
 
-   if (!my->_producers.empty()) {
-      ilog("Launching block production for ${n} producers at ${time}.", ("n", my->_producers.size())("time",fc::time_point::now()));
+   if (!_producers.empty()) {
+      ilog("Launching block production for ${n} producers at ${time}.", ("n", _producers.size())("time",fc::time_point::now()));
 
-      if (my->_production_enabled) {
+      if (_production_enabled) {
          if (chain.head_block_num() == 0) {
             new_chain_banner(chain);
          }
       }
    }
 
-   if ( my->_ro_thread_pool_size > 0 ) {
+   if ( _ro_thread_pool_size > 0 ) {
       std::atomic<uint32_t> num_threads_started = 0;
-      my->_ro_thread_pool.start( my->_ro_thread_pool_size,
+      _ro_thread_pool.start( _ro_thread_pool_size,
          []( const fc::exception& e ) {
             fc_elog( _log, "Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
             app().quit();
@@ -1210,16 +1213,16 @@ void producer_plugin::plugin_startup()
       // when C++20 is used.
       auto time_slept_ms = 0;
       constexpr auto max_time_slept_ms = 1000;
-      while ( num_threads_started.load() < my->_ro_thread_pool_size && time_slept_ms < max_time_slept_ms ) {
+      while ( num_threads_started.load() < _ro_thread_pool_size && time_slept_ms < max_time_slept_ms ) {
          std::this_thread::sleep_for( 1ms );
          ++time_slept_ms;
       }
-      EOS_ASSERT(num_threads_started.load() == my->_ro_thread_pool_size, producer_exception, "read-only threads failed to start. num_threads_started: ${n}, time_slept_ms: ${t}ms", ("n", num_threads_started.load())("t", time_slept_ms));
+      EOS_ASSERT(num_threads_started.load() == _ro_thread_pool_size, producer_exception, "read-only threads failed to start. num_threads_started: ${n}, time_slept_ms: ${t}ms", ("n", num_threads_started.load())("t", time_slept_ms));
 
-      my->start_write_window();
+      start_write_window();
    }
 
-   my->schedule_production_loop();
+   schedule_production_loop();
 
    ilog("producer plugin:  plugin_startup() end");
    } catch( ... ) {
@@ -1229,25 +1232,23 @@ void producer_plugin::plugin_startup()
    }
 } FC_CAPTURE_AND_RETHROW() }
 
-void producer_plugin::plugin_shutdown() {
-   try {
-      my->_timer.cancel();
-   } catch ( const std::bad_alloc& ) {
-     chain_apis::api_base::handle_bad_alloc();
-   } catch ( const boost::interprocess::bad_alloc& ) {
-     chain_apis::api_base::handle_bad_alloc();
-   } catch(const fc::exception& e) {
-      edump((e.to_detail_string()));
-   } catch(const std::exception& e) {
-      edump((fc::std_exception_wrapper::from_current_exception(e).to_detail_string()));
-   }
+void producer_plugin::plugin_startup() {
+   my->plugin_startup();
+}
 
-   my->_thread_pool.stop();
+void producer_plugin_impl::plugin_shutdown() {
+   boost::system::error_code ec;
+   _timer.cancel(ec);
+   _thread_pool.stop();
+   _unapplied_transactions.clear();
 
-   my->_unapplied_transactions.clear();
+   app().executor().post( 0, [me = shared_from_this()](){} ); // keep my pointer alive until queue is drained
 
-   app().executor().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
    fc_ilog(_log, "exit shutdown");
+}
+
+void producer_plugin::plugin_shutdown() {
+   my->plugin_shutdown();
 }
 
 void producer_plugin::handle_sighup() {
