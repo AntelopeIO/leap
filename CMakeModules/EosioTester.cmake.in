@@ -43,7 +43,6 @@ endif ( APPLE )
 
 set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
 add_subdirectory( @CMAKE_SOURCE_DIR@/libraries/boost ${PROJECT_BINARY_DIR}/libraries/boost)
-include_directories(${boostorg_SOURCE_DIR})
 
 find_library(libtester eosio_testing @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libchain eosio_chain @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
