@@ -410,6 +410,9 @@ public:
          chain_plug->chain().get_greylist_limit()
       };
    }
+
+   void schedule_protocol_feature_activations(const producer_plugin::scheduled_protocol_feature_activations& schedule);
+   
    void plugin_shutdown();
    void plugin_startup();
    void plugin_initialize(const boost::program_options::variables_map& options);
@@ -1489,47 +1492,21 @@ void producer_plugin::set_whitelist_blacklist(const producer_plugin::whitelist_b
 }
 
 producer_plugin::integrity_hash_information producer_plugin::get_integrity_hash() const {
-   chain::controller& chain = my->chain_plug->chain();
-
-   auto reschedule = fc::make_scoped_exit([this](){
-      my->schedule_production_loop();
-   });
-
-   if (chain.is_building_block()) {
-      // abort the pending block
-      my->abort_block();
-   } else {
-      reschedule.cancel();
-   }
-
-   return {chain.head_block_id(), chain.calculate_integrity_hash()};
+   return my->get_integrity_hash();
 }
 
 void producer_plugin::create_snapshot(producer_plugin::next_function<chain::snapshot_scheduler::snapshot_information> next) {
-   chain::controller& chain = my->chain_plug->chain();
-   
-   auto reschedule = fc::make_scoped_exit([this](){
-      my->schedule_production_loop();
-   });
-
-   auto predicate = [&]() -> void {
-      if (chain.is_building_block()) {
-         // abort the pending block
-         my->abort_block();
-      } else {
-         reschedule.cancel();
-      }
-   };
- 
-   my->_snapshot_scheduler.create_snapshot(next, chain, predicate);
+   my->create_snapshot(std::move(next));
 }
 
-chain::snapshot_scheduler::snapshot_schedule_result producer_plugin::schedule_snapshot(const chain::snapshot_scheduler::snapshot_request_information& sri)
+chain::snapshot_scheduler::snapshot_schedule_result
+producer_plugin::schedule_snapshot(const chain::snapshot_scheduler::snapshot_request_information& sri)
 {
    return my->_snapshot_scheduler.schedule_snapshot(sri);
 }
 
-chain::snapshot_scheduler::snapshot_schedule_result producer_plugin::unschedule_snapshot(const chain::snapshot_scheduler::snapshot_request_id_information& sri)
+chain::snapshot_scheduler::snapshot_schedule_result
+producer_plugin::unschedule_snapshot(const chain::snapshot_scheduler::snapshot_request_id_information& sri)
 {
    return my->_snapshot_scheduler.unschedule_snapshot(sri.snapshot_request_id);
 }
@@ -1544,8 +1521,8 @@ producer_plugin::get_scheduled_protocol_feature_activations()const {
    return {my->_protocol_features_to_activate};
 }
 
-void producer_plugin::schedule_protocol_feature_activations( const scheduled_protocol_feature_activations& schedule ) {
-   const chain::controller& chain = my->chain_plug->chain();
+void producer_plugin_impl::schedule_protocol_feature_activations(const producer_plugin::scheduled_protocol_feature_activations& schedule) {
+   const chain::controller& chain = chain_plug->chain();
    std::set<digest_type> set_of_features_to_activate( schedule.protocol_features_to_activate.begin(),
                                                       schedule.protocol_features_to_activate.end() );
    EOS_ASSERT( set_of_features_to_activate.size() == schedule.protocol_features_to_activate.size(),
@@ -1558,8 +1535,12 @@ void producer_plugin::schedule_protocol_feature_activations( const scheduled_pro
                   "protocol feature requires preactivation: ${digest}",
                   ("digest", feature_digest));
    }
-   my->_protocol_features_to_activate = schedule.protocol_features_to_activate;
-   my->_protocol_features_signaled = false;
+   _protocol_features_to_activate = schedule.protocol_features_to_activate;
+   _protocol_features_signaled = false;
+}
+
+void producer_plugin::schedule_protocol_feature_activations( const scheduled_protocol_feature_activations& schedule ) {
+   my->schedule_protocol_feature_activations(schedule);
 }
 
 fc::variants producer_plugin::get_supported_protocol_features( const get_supported_protocol_features_params& params ) const {
