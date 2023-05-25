@@ -950,16 +950,17 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
 
    auto subjective_account_max_failures_window_size = options.at("subjective-account-max-failures-window-size").as<uint32_t>();
    EOS_ASSERT( subjective_account_max_failures_window_size > 0, plugin_config_exception,
-               "subjective-account-max-failures-window-size ${s} must be greater than 0", ("s", subjective_account_max_failures_window_size) );
+               "subjective-account-max-failures-window-size ${s} must be greater than 0",
+               ("s", subjective_account_max_failures_window_size) );
 
    _account_fails.set_max_failures_per_account( options.at("subjective-account-max-failures").as<uint32_t>(),
-                                                    subjective_account_max_failures_window_size );
+                                                subjective_account_max_failures_window_size );
 
    uint32_t cpu_effort_pct = options.at("cpu-effort-percent").as<uint32_t>();
    EOS_ASSERT( cpu_effort_pct >= 0 && cpu_effort_pct <= 100, plugin_config_exception,
                "cpu-effort-percent ${pct} must be 0 - 100", ("pct", cpu_effort_pct) );
-      cpu_effort_pct *= config::percent_1;
-
+   cpu_effort_pct *= config::percent_1;
+   
    _cpu_effort_us = EOS_PERCENT( config::block_interval_us, cpu_effort_pct );
 
    _max_block_cpu_usage_threshold_us = options.at( "max-block-cpu-usage-threshold-us" ).as<uint32_t>();
@@ -1008,7 +1009,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    } else if( !_disable_subjective_p2p_billing && !_disable_subjective_api_billing ) {
        ilog( "Subjective CPU billing enabled" );
    } else {
-       if( _disable_subjective_p2p_billing ) ilog( "Subjective CPU billing of P2P trxs disabled " );
+      if( _disable_subjective_p2p_billing ) ilog( "Subjective CPU billing of P2P trxs disabled " );
        if( _disable_subjective_api_billing ) ilog( "Subjective CPU billing of API trxs disabled " );
    }
 
@@ -1071,29 +1072,49 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
             meminfo_file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
          }
 
-         EOS_ASSERT( vm_total_kb > 0, plugin_config_exception, "Unable to get system virtual memory size (not a Linux?), therefore cannot determine if the system has enough virtual memory for multi-threaded read-only transactions on EOS VM OC");
-         EOS_ASSERT( vm_total_kb > vm_used_kb, plugin_config_exception, "vm total (${t}) must be greater than vm used (${u})", ("t", vm_total_kb)("u", vm_used_kb));
+         EOS_ASSERT( vm_total_kb > 0, plugin_config_exception,
+                     "Unable to get system virtual memory size (not a Linux?), therefore cannot determine if the system has enough "
+                     "virtual memory for multi-threaded read-only transactions on EOS VM OC");
+         EOS_ASSERT( vm_total_kb > vm_used_kb, plugin_config_exception,
+                     "vm total (${t}) must be greater than vm used (${u})", ("t", vm_total_kb)("u", vm_used_kb));
          uint32_t num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000;
          // reserve 1 for the app thread, 1 for anything else which might use VM
-         EOS_ASSERT( num_threads_supported > 2, plugin_config_exception, "With the EOS VM OC configured, there is not enough system virtual memory to support the required minimum of 3 threads (1 for main thread, 1 for read-only, and 1 for anything else), vm total: ${t}, vm used: ${u}", ("t", vm_total_kb)("u", vm_used_kb));
+         EOS_ASSERT( num_threads_supported > 2, plugin_config_exception,
+                     "With the EOS VM OC configured, there is not enough system virtual memory to support the required minimum of "
+                     "3 threads (1 for main thread, 1 for read-only, and 1 for anything else), vm total: ${t}, vm used: ${u}",
+                     ("t", vm_total_kb)("u", vm_used_kb));
          num_threads_supported -= 2;
          auto actual_threads_allowed = std::min(_ro_max_threads_allowed, num_threads_supported);
-         ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported ((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}", ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported) ("max", _ro_max_threads_allowed)("actual", actual_threads_allowed));
-         EOS_ASSERT( _ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception, "read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})", ("th", _ro_thread_pool_size) ("allowed", actual_threads_allowed) );
+         ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported "
+              "((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}",
+              ("total", vm_total_kb) ("used", vm_used_kb) ("supp", num_threads_supported)
+              ("max", _ro_max_threads_allowed)("actual", actual_threads_allowed));
+         EOS_ASSERT( _ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception,
+                     "read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})",
+                     ("th", _ro_thread_pool_size) ("allowed", actual_threads_allowed) );
       }
 #endif
-      EOS_ASSERT( _ro_thread_pool_size <= _ro_max_threads_allowed, plugin_config_exception, "read-only-threads (${th}) greater than the number of threads allowed (${allowed})", ("th", _ro_thread_pool_size) ("allowed", _ro_max_threads_allowed) );
+      EOS_ASSERT( _ro_thread_pool_size <= _ro_max_threads_allowed, plugin_config_exception,
+                  "read-only-threads (${th}) greater than the number of threads allowed (${allowed})",
+                  ("th", _ro_thread_pool_size) ("allowed", _ro_max_threads_allowed) );
 
       _ro_write_window_time_us = fc::microseconds( options.at( "read-only-write-window-time-us" ).as<uint32_t>() );
       _ro_read_window_time_us = fc::microseconds( options.at( "read-only-read-window-time-us" ).as<uint32_t>() );
-      EOS_ASSERT( _ro_read_window_time_us > _ro_read_window_minimum_time_us, plugin_config_exception, "read-only-read-window-time-us (${read}) must be at least greater than  ${min} us", ("read", _ro_read_window_time_us) ("min", _ro_read_window_minimum_time_us) );
+      EOS_ASSERT( _ro_read_window_time_us > _ro_read_window_minimum_time_us, plugin_config_exception,
+                  "read-only-read-window-time-us (${read}) must be at least greater than  ${min} us",
+                  ("read", _ro_read_window_time_us) ("min", _ro_read_window_minimum_time_us) );
       _ro_read_window_effective_time_us = _ro_read_window_time_us - _ro_read_window_minimum_time_us;
 
       // Make sure a read-only transaction can finish within the read
       // window if scheduled at the very beginning of the window.
       // Add _ro_read_window_minimum_time_us for safety margin.
       if ( _max_transaction_time_ms.load() > 0 ) {
-         EOS_ASSERT( _ro_read_window_time_us > ( fc::milliseconds(_max_transaction_time_ms.load()) + _ro_read_window_minimum_time_us ), plugin_config_exception, "read-only-read-window-time-us (${read} us) must be greater than max-transaction-time (${trx_time} us) plus ${min} us, required: ${read} us > (${trx_time} us + ${min} us).", ("read", _ro_read_window_time_us) ("trx_time", _max_transaction_time_ms.load() * 1000) ("min", _ro_read_window_minimum_time_us) );
+         EOS_ASSERT( _ro_read_window_time_us > ( fc::milliseconds(_max_transaction_time_ms.load()) + _ro_read_window_minimum_time_us ),
+                     plugin_config_exception,
+                     "read-only-read-window-time-us (${read} us) must be greater than max-transaction-time (${trx_time} us) "
+                     "plus ${min} us, required: ${read} us > (${trx_time} us + ${min} us).",
+                     ("read", _ro_read_window_time_us) ("trx_time", _max_transaction_time_ms.load() * 1000)
+                     ("min", _ro_read_window_minimum_time_us) );
       }
       ilog("read-only-write-window-time-us: ${ww} us, read-only-read-window-time-us: ${rw} us, effective read window time to be used: ${w} us",
            ("ww", _ro_write_window_time_us)("rw", _ro_read_window_time_us)("w", _ro_read_window_effective_time_us));
@@ -1109,14 +1130,15 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us}", ("s", _ro_thread_pool_size)("t", _ro_max_trx_time_us));
 
    _incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
-         [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
-      return on_incoming_block(block, block_id, bsp);
-   });
+      [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
+         return on_incoming_block(block, block_id, bsp);
+      });
 
    _incoming_transaction_async_provider = app().get_method<incoming::methods::transaction_async>().register_provider(
-         [this](const packed_transaction_ptr& trx, bool api_trx, transaction_metadata::trx_type trx_type, bool return_failure_traces, next_function<transaction_trace_ptr> next) -> void {
-      return on_incoming_transaction_async(trx, api_trx, trx_type, return_failure_traces, next );
-   });
+      [this](const packed_transaction_ptr& trx, bool api_trx, transaction_metadata::trx_type trx_type,
+             bool return_failure_traces, next_function<transaction_trace_ptr> next) -> void {
+         return on_incoming_transaction_async(trx, api_trx, trx_type, return_failure_traces, next );
+      });
 
    if (options.count("greylist-account")) {
       std::vector<std::string> greylist = options["greylist-account"].as<std::vector<std::string>>();
