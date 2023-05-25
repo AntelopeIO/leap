@@ -978,8 +978,6 @@ void producer_plugin::set_program_options(
           "ratio between incoming transactions and deferred transactions when both are queued for execution")
          ("incoming-transaction-queue-size-mb", bpo::value<uint16_t>()->default_value( 1024 ),
           "Maximum size (in MiB) of the incoming transaction queue. Exceeding this value will subjectively drop transaction with resource exhaustion.")
-         ("disable-subjective-billing", bpo::value<bool>()->default_value(true),
-          "Disable subjective CPU billing for API/P2P transactions")
          ("disable-subjective-account-billing", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "Account which is excluded from subjective CPU billing")
          ("disable-subjective-p2p-billing", bpo::value<bool>()->default_value(true),
@@ -1093,19 +1091,13 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
 
    _incoming_defer_ratio = options.at("incoming-defer-ratio").as<double>();
 
-   bool disable_subjective_billing = options.at("disable-subjective-billing").as<bool>();
    _disable_subjective_p2p_billing = options.at("disable-subjective-p2p-billing").as<bool>();
    _disable_subjective_api_billing = options.at("disable-subjective-api-billing").as<bool>();
-   dlog( "disable-subjective-billing: ${s}, disable-subjective-p2p-billing: ${p2p}, disable-subjective-api-billing: ${api}",
-         ("s", disable_subjective_billing)("p2p", _disable_subjective_p2p_billing)("api", _disable_subjective_api_billing) );
-   if( !disable_subjective_billing ) {
-       _disable_subjective_p2p_billing = _disable_subjective_api_billing = false;
-   } else if( !_disable_subjective_p2p_billing || !_disable_subjective_api_billing ) {
-       disable_subjective_billing = false;
-   }
-   if( disable_subjective_billing ) {
+   dlog( "disable-subjective-p2p-billing: ${p2p}, disable-subjective-api-billing: ${api}",
+         ("p2p", _disable_subjective_p2p_billing)("api", _disable_subjective_api_billing) );
+   if( _disable_subjective_p2p_billing && _disable_subjective_api_billing ) {
       chain.get_mutable_subjective_billing().disable();
-       ilog( "Subjective CPU billing disabled" );
+      ilog( "Subjective CPU billing disabled" );
    } else if( !_disable_subjective_p2p_billing && !_disable_subjective_api_billing ) {
        ilog( "Subjective CPU billing enabled" );
    } else {
@@ -1227,7 +1219,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
       // max-transaction-time can be set to negative for unlimited time
      _ro_max_trx_time_us = fc::microseconds::maximum();
    }
-   ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us}", ("s", _ro_thread_pool_size)("t", _ro_max_trx_time_us));
+   ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us", ("s", _ro_thread_pool_size)("t", _ro_max_trx_time_us));
 
    _incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
       [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {

@@ -596,7 +596,7 @@ class NodeosQueries:
 
         return trans
 
-    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, method="POST", endpoint=None):
+    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, method="POST", endpoint=None, prettyPrint=False, printReturnLimit=1024):
         if not endpoint:
             endpoint = self.endpointHttp
         cmd = f"{endpoint}/v1/{resource}/{command}"
@@ -625,8 +625,10 @@ class NodeosQueries:
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-                printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
-                Utils.Print("cmd returned: %s" % (printReturn[:1024]))
+                indent = 2 if prettyPrint else None
+                separators = (', ',': ') if prettyPrint else (',',':')
+                printReturn=json.dumps(rtn, indent=indent, separators=separators) if returnType==ReturnType.json else rtn
+                Utils.Print("cmd returned: %s" % (printReturn[:printReturnLimit]))
         except urllib.error.HTTPError as ex:
             if not silentErrors:
                 end=time.perf_counter()
