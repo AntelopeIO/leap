@@ -44,29 +44,29 @@ using std::string;
 using std::vector;
 
 #undef FC_LOG_AND_DROP
-#define LOG_AND_DROP()                                                                                                                     \
-   catch (const guard_exception& e) {                                                                                                      \
-      chain_plugin::handle_guard_exception(e);                                                                                             \
-   }                                                                                                                                       \
-   catch (const std::bad_alloc&) {                                                                                                         \
-      chain_apis::api_base::handle_bad_alloc();                                                                                            \
-   }                                                                                                                                       \
-   catch (boost::interprocess::bad_alloc&) {                                                                                               \
-      chain_apis::api_base::handle_db_exhaustion();                                                                                        \
-   }                                                                                                                                       \
-   catch (fc::exception & er) {                                                                                                            \
-      wlog("${details}", ("details", er.to_detail_string()));                                                                              \
-   }                                                                                                                                       \
-   catch (const std::exception& e) {                                                                                                       \
-      fc::exception fce(FC_LOG_MESSAGE(warn, "std::exception: ${what}: ", ("what", e.what())),                                             \
-                        fc::std_exception_code,                                                                                            \
-                        BOOST_CORE_TYPEID(e).name(),                                                                                       \
-                        e.what());                                                                                                         \
-      wlog("${details}", ("details", fce.to_detail_string()));                                                                             \
-   }                                                                                                                                       \
-   catch (...) {                                                                                                                           \
-      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "unknown: ", ), std::current_exception());                                            \
-      wlog("${details}", ("details", e.to_detail_string()));                                                                               \
+#define LOG_AND_DROP()                                                                         \
+   catch (const guard_exception& e) {                                                          \
+      chain_plugin::handle_guard_exception(e);                                                 \
+   }                                                                                           \
+   catch (const std::bad_alloc&) {                                                             \
+      chain_apis::api_base::handle_bad_alloc();                                                \
+   }                                                                                           \
+   catch (boost::interprocess::bad_alloc&) {                                                   \
+      chain_apis::api_base::handle_db_exhaustion();                                            \
+   }                                                                                           \
+   catch (fc::exception & er) {                                                                \
+      wlog("${details}", ("details", er.to_detail_string()));                                  \
+   }                                                                                           \
+   catch (const std::exception& e) {                                                           \
+      fc::exception fce(FC_LOG_MESSAGE(warn, "std::exception: ${what}: ", ("what", e.what())), \
+                        fc::std_exception_code,                                                \
+                        BOOST_CORE_TYPEID(e).name(),                                           \
+                        e.what());                                                             \
+      wlog("${details}", ("details", fce.to_detail_string()));                                 \
+   }                                                                                           \
+   catch (...) {                                                                               \
+      fc::unhandled_exception e(FC_LOG_MESSAGE(warn, "unknown: ", ), std::current_exception());\
+      wlog("${details}", ("details", e.to_detail_string()));                                   \
    }
 
 const std::string logger_name("producer_plugin");
