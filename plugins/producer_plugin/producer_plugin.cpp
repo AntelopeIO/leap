@@ -2234,16 +2234,17 @@ producer_plugin_impl::push_result producer_plugin_impl::push_transaction(const f
       trx, next, start, chain, trace, return_failure_trace, disable_subjective_enforcement, first_auth, sub_bill, prev_billed_cpu_time_us);
 }
 
-producer_plugin_impl::push_result producer_plugin_impl::handle_push_result(const transaction_metadata_ptr&             trx,
-                                                                           const next_function<transaction_trace_ptr>& next,
-                                                                           const fc::time_point&                       start,
-                                                                           chain::controller&                          chain,
-                                                                           const transaction_trace_ptr&                trace,
-                                                                           bool                                        return_failure_trace,
-                                                                           bool         disable_subjective_enforcement,
-                                                                           account_name first_auth,
-                                                                           int64_t      sub_bill,
-                                                                           uint32_t     prev_billed_cpu_time_us) {
+producer_plugin_impl::push_result
+producer_plugin_impl::handle_push_result(const transaction_metadata_ptr&             trx,
+                                         const next_function<transaction_trace_ptr>& next,
+                                         const fc::time_point&                       start,
+                                         chain::controller&                          chain,
+                                         const transaction_trace_ptr&                trace,
+                                         bool                                        return_failure_trace,
+                                         bool         disable_subjective_enforcement,
+                                         account_name first_auth,
+                                         int64_t      sub_bill,
+                                         uint32_t     prev_billed_cpu_time_us) {
    auto                       end             = fc::time_point::now();
    chain::subjective_billing& subjective_bill = chain.get_mutable_subjective_billing();
 
@@ -2746,15 +2747,16 @@ void producer_plugin_impl::produce_block() {
    br.total_time += fc::time_point::now() - start;
 
    if (_update_produced_block_metrics) {
-      _update_produced_block_metrics({.unapplied_transactions_total       = _unapplied_transactions.size(),
-                                      .blacklisted_transactions_total     = _blacklisted_transactions.size(),
-                                      .subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size(),
-                                      .scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size(),
-                                      .trxs_produced_total  = new_bs->block->transactions.size(),
-                                      .cpu_usage_us         = br.total_cpu_usage_us,
-                                      .net_usage_us         = br.total_net_usage,
-                                      .last_irreversible    = chain.last_irreversible_block_num(),
-                                      .head_block_num       = chain.head_block_num()});
+      _update_produced_block_metrics(
+         {.unapplied_transactions_total       = _unapplied_transactions.size(),
+          .blacklisted_transactions_total     = _blacklisted_transactions.size(),
+          .subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size(),
+          .scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size(),
+          .trxs_produced_total  = new_bs->block->transactions.size(),
+          .cpu_usage_us         = br.total_cpu_usage_us,
+          .net_usage_us         = br.total_net_usage,
+          .last_irreversible    = chain.last_irreversible_block_num(),
+          .head_block_num       = chain.head_block_num()});
    }
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
@@ -2958,11 +2960,7 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
       // Ensure the trx to finish by the end of read-window or write-window or block_deadline depending on
       auto trace = chain.push_transaction(trx, window_deadline, _ro_max_trx_time_us, 0, false, 0);
       _ro_all_threads_exec_time_us += (fc::time_point::now() - start).count();
-      auto pr = handle_push_result(trx,
-                                   next,
-                                   start,
-                                   chain,
-                                   trace,
+      auto pr = handle_push_result(trx, next, start, chain, trace,
                                    true /*return_failure_trace*/,
                                    true /*disable_subjective_enforcement*/,
                                    {} /*first_auth*/,
