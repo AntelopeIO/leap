@@ -1218,7 +1218,7 @@ namespace eosio {
 
    // thread safe
    bool connection::should_sync_from(uint32_t sync_next_expected_num, uint32_t sync_known_lib_num) const {
-      fc_wlog(logger, "id: ${id} trx_only: ${t} current: ${c} socket_open: ${so} syncing: ${s} connecting: ${con} closing: ${close} peer_start_block: ${sb} peer_head: ${h} latency: ${lat}us no_retry: ${g}",
+      fc_dlog(logger, "id: ${id} trx_only: ${t} current: ${c} socket_open: ${so} syncing: ${s} connecting: ${con} closing: ${close} peer_start_block: ${sb} peer_head: ${h} latency: ${lat}us no_retry: ${g}",
               ("id", connection_id)("t", is_transactions_only_connection())
               ("c", current())("so", socket_is_open())("s", syncing.load())("con", connecting.load())("close", closing.load())
               ("sb", peer_start_block_num.load())("h", peer_head_block_num.load())("lat", get_net_latency_ns()/1000)("g", reason_str(no_retry)));
@@ -1406,13 +1406,14 @@ namespace eosio {
                close(false);
             }
             return;
-         } else {
-            const tstamp timeout = std::max(hb_timeout/2, 2*std::chrono::milliseconds(config::block_interval_ms).count());
-            if ( current_time > latest_blk_time + timeout ) {
-               send_handshake();
-               return;
-            }
          }
+         const tstamp timeout = std::max(hb_timeout/2, 2*std::chrono::milliseconds(config::block_interval_ms).count());
+         if ( current_time > latest_blk_time + timeout ) {
+            peer_dlog(this, "half heartbeat timed out, sending handshake");
+            send_handshake();
+            return;
+         }
+
       }
 
       send_time();
@@ -1831,6 +1832,8 @@ namespace eosio {
    }
 
    connection_ptr sync_manager::find_next_sync_node() {
+      fc_dlog(logger, "Number connections ${s}, sync_next_expected_num: ${e}, sync_known_lib_num: ${l}",
+              ("s", my_impl->connections.number_connections())("e", sync_next_expected_num)("l", sync_known_lib_num));
       std::deque<connection_ptr> conns;
       my_impl->connections.for_each_block_connection([&](const auto& c) {
          if (c->should_sync_from(sync_next_expected_num, sync_known_lib_num)) {
@@ -1861,11 +1864,14 @@ namespace eosio {
       uint32_t lowest_ordinal = std::numeric_limits<uint32_t>::max();
       for (size_t i = 0; i < conns.size() && i < sync_peer_limit && lowest_ordinal != 0; ++i) {
          uint32_t sync_ord = conns[i]->sync_ordinal;
+         fc_dlog(logger, "compare sync ords, conn: ${lcid}, ord: ${l} < ${r}, latency: ${lat}us",
+                 ("lcid", conns[i]->connection_id)("l", sync_ord)("r", lowest_ordinal)("lat", conns[i]->get_net_latency_ns()/1000));
          if (sync_ord < lowest_ordinal) {
             the_one = i;
             lowest_ordinal = sync_ord;
          }
       }
+      fc_dlog(logger, "sync from ${c}", ("c", conns[the_one]->connection_id));
       conns[the_one]->sync_ordinal = sync_ordinal.load();
       return conns[the_one];
    }
@@ -1878,10 +1884,16 @@ namespace eosio {
                ("r", sync_last_requested_num)("e", sync_next_expected_num)("k", sync_known_lib_num)("s", sync_req_span) );
 
       if( chain_info.head_num < sync_last_requested_num && sync_source && sync_source->current() ) {
-         fc_ilog( logger, "ignoring request, head is ${h} last req = ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, source connection ${c}",
+         fc_dlog( logger, "ignoring request, head is ${h} last req = ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, source connection ${c}",
                   ("h", chain_info.head_num)("r", sync_last_requested_num)("e", sync_next_expected_num)
                   ("k", sync_known_lib_num)("s", sync_req_span)("c", sync_source->connection_id) );
          return;
+      }
+
+      if (conn) {
+         // p2p_high_latency_test.py test depends on this exact log statement.
+         peer_ilog(conn, "Catching up with chain, our last req is ${cc}, theirs is ${t}, next expected ${n}",
+                   ("cc", sync_last_requested_num)("t", sync_known_lib_num)("n", sync_next_expected_num));
       }
 
       /* ----------
@@ -1926,6 +1938,7 @@ namespace eosio {
       }
       if( !request_sent ) {
          g_sync.unlock();
+         fc_dlog(logger, "Unable to request range, sending handshakes to everyone");
          send_handshakes();
       }
    }
@@ -1967,10 +1980,6 @@ namespace eosio {
          set_state( lib_catchup );
       }
       sync_next_expected_num = std::max( chain_info.lib_num + 1, sync_next_expected_num );
-
-      // p2p_high_latency_test.py test depends on this exact log statement.
-      peer_ilog( c, "Catching up with chain, our last req is ${cc}, theirs is ${t}, next expected ${n}",
-                 ("cc", sync_last_requested_num)("t", target)("n", sync_next_expected_num) );
 
       request_next_chunk( std::move( g_sync ), c );
    }
@@ -2164,6 +2173,7 @@ namespace eosio {
                verify_catchup( c, msg.known_blocks.pending, id );
             } else {
                // we already have the block, so update peer with our view of the world
+               peer_dlog(c, "Already have block, sending handshake");
                c->send_handshake();
             }
          }
@@ -2190,6 +2200,7 @@ namespace eosio {
          c->close();
       } else {
          g.unlock();
+         peer_dlog(c, "rejected block, sending handshake");
          c->send_handshake();
       }
    }
@@ -2247,10 +2258,12 @@ namespace eosio {
 
          if( set_state_to_head_catchup ) {
             if( set_state( head_catchup ) ) {
-                send_handshakes();
+               peer_dlog( c, "Switching to head_catchup, sending handshakes" );
+               send_handshakes();
             }
          } else {
             set_state( in_sync );
+            peer_dlog( c, "Switching to in_sync, sending handshakes" );
             send_handshakes();
          }
       } else if( state == lib_catchup ) {
@@ -2824,9 +2837,10 @@ namespace eosio {
          pending_message_buffer.advance_read_ptr( message_length );
          return true;
       }
-      peer_dlog( this, "received block ${num}, id ${id}..., latency: ${latency}",
+      peer_dlog( this, "received block ${num}, id ${id}..., latency: ${latency}ms, head ${h}",
                  ("num", bh.block_num())("id", blk_id.str().substr(8,16))
-                 ("latency", (fc::time_point::now() - bh.timestamp).count()/1000) );
+                 ("latency", (fc::time_point::now() - bh.timestamp).count()/1000)
+                 ("h", my_impl->get_chain_head_num()));
       if( !my_impl->sync_master->syncing_with_peer() ) { // guard against peer thinking it needs to send us old blocks
          uint32_t lib_num = my_impl->get_chain_lib_num();
          if( blk_num < lib_num ) {
@@ -3181,7 +3195,7 @@ namespace eosio {
       int64_t network_latency_ns = current_time_ns - msg.time; // net latency in nanoseconds
       if( network_latency_ns < 0 ) {
          peer_wlog(this, "Peer sent a handshake with a timestamp skewed by at least ${t}ms", ("t", network_latency_ns/1000000));
-         network_latency_ns = 0;
+         network_latency_ns = -network_latency_ns; // use absolute value because it might be this node with the skew
       }
       // number of blocks syncing node is behind from a peer node, round up
       uint32_t nblk_behind_by_net_latency = std::lround( static_cast<double>(network_latency_ns) / static_cast<double>(block_interval_ns) );
@@ -3191,7 +3205,7 @@ namespace eosio {
       peer_dlog(this, "Network latency is ${lat}ms, ${num} blocks discrepancy by network latency, ${tot_num} blocks discrepancy expected once message received",
                 ("lat", network_latency_ns/1000000)("num", nblk_behind_by_net_latency)("tot_num", nblk_combined_latency));
 
-      net_latency_ns = network_latency_ns <= 0 ? std::numeric_limits<uint64_t>::max() : network_latency_ns;
+      net_latency_ns = network_latency_ns;
 
       return nblk_combined_latency;
    }
@@ -3420,8 +3434,6 @@ namespace eosio {
 
    // called from connection strand
    void connection::handle_message( const block_id_type& id, signed_block_ptr ptr ) {
-      peer_dlog( this, "received signed_block ${num}, id ${id}", ("num", block_header::num_from_id(id))("id", id) );
-
       // post to dispatcher strand so that we don't have multiple threads validating the block header
       my_impl->dispatcher->strand.post([id, c{shared_from_this()}, ptr{std::move(ptr)}, cid=connection_id]() mutable {
          controller& cc = my_impl->chain_plug->chain();
