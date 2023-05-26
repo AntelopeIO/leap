@@ -2224,10 +2224,9 @@ producer_plugin_impl::push_result producer_plugin_impl::push_transaction(const f
    if (!disable_subjective_enforcement && _account_fails.failure_limit(first_auth)) {
       if (next) {
          auto except_ptr = std::static_pointer_cast<fc::exception>(std::make_shared<tx_cpu_usage_exceeded>(
-            FC_LOG_MESSAGE(error,
-                           "transaction ${id} exceeded failure limit for account ${a} until ${next_reset_time}",
-                           ("id", trx->id())("a", first_auth)(
-                              "next_reset_time", _account_fails.next_reset_timepoint(chain.head_block_num(), chain.head_block_time())))));
+            FC_LOG_MESSAGE(error, "transaction ${id} exceeded failure limit for account ${a} until ${next_reset_time}",
+                           ("id", trx->id())("a", first_auth)
+                           ("next_reset_time", _account_fails.next_reset_timepoint(chain.head_block_num(), chain.head_block_time())))));
          log_trx_results(trx, except_ptr);
          next(except_ptr);
       }
@@ -2485,8 +2484,7 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs(const fc::time_po
                }
             } else {
                fc_dlog(_trx_failed_trace_log,
-                       "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${txid}, time: ${r}, auth: ${a} : "
-                       "${details}",
+                       "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${txid}, time: ${r}, auth: ${a} : ${details}",
                        ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx_id)("r", end - start)
                        ("a", get_first_authorizer(trace))("details", get_detailed_contract_except_info(nullptr, trace, nullptr)));
                fc_dlog(_trx_trace_failure_log,
@@ -2500,8 +2498,7 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs(const fc::time_po
          } else {
             _time_tracker.add_success_time(end - start, false); // delayed transaction cannot be transient
             fc_dlog(_trx_successful_trace_log,
-                    "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${txid}, time: ${r}, auth: ${a}, cpu: "
-                    "${cpu}",
+                    "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${txid}, time: ${r}, auth: ${a}, cpu: ${cpu}",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx_id)("r", end - start)
                     ("a", get_first_authorizer(trace))("cpu", trace->receipt ? trace->receipt->cpu_usage_us : 0));
             fc_dlog(_trx_trace_success_log,
