@@ -2798,12 +2798,10 @@ void producer_plugin::received_block(uint32_t block_num) {
 void producer_plugin::log_failed_transaction(const transaction_id_type&    trx_id,
                                              const packed_transaction_ptr& packed_trx_ptr,
                                              const char*                   reason) const {
-   fc_dlog(_trx_log,
-           "[TRX_TRACE] Speculative execution is REJECTING tx: ${trx}",
+   fc_dlog(_trx_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${trx}",
            ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
    fc_dlog(_trx_failed_trace_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${txid} : ${why}", ("txid", trx_id)("why", reason));
-   fc_dlog(_trx_trace_failure_log,
-           "[TRX_TRACE] Speculative execution is REJECTING tx: ${entire_trx}",
+   fc_dlog(_trx_trace_failure_log, "[TRX_TRACE] Speculative execution is REJECTING tx: ${entire_trx}",
            ("entire_trx", packed_trx_ptr ? my->chain_plug->get_log_trx(packed_trx_ptr->get_transaction()) : fc::variant{trx_id}));
 }
 
@@ -2823,8 +2821,7 @@ void producer_plugin_impl::switch_to_write_window() {
       return;
    }
 
-   EOS_ASSERT(_ro_num_active_exec_tasks.load() == 0 && _ro_exec_tasks_fut.empty(),
-              producer_exception,
+   EOS_ASSERT(_ro_num_active_exec_tasks.load() == 0 && _ro_exec_tasks_fut.empty(), producer_exception,
               "no read-only tasks should be running before switching to write window");
 
    start_write_window();
@@ -2858,8 +2855,7 @@ void producer_plugin_impl::start_write_window() {
 void producer_plugin_impl::switch_to_read_window() {
    chain::controller& chain = chain_plug->chain();
    EOS_ASSERT(chain.is_write_window(), producer_exception, "expected to be in write window");
-   EOS_ASSERT(
-      _ro_num_active_exec_tasks.load() == 0 && _ro_exec_tasks_fut.empty(), producer_exception, "_ro_exec_tasks_fut expected to be empty");
+   EOS_ASSERT(_ro_num_active_exec_tasks.load() == 0 && _ro_exec_tasks_fut.empty(), producer_exception, "_ro_exec_tasks_fut expected to be empty");
 
    _time_tracker.add_idle_time(fc::time_point::now() - _idle_trx_time);
 
