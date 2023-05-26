@@ -381,23 +381,19 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
 } // state_history_plugin::plugin_initialize
 
 void state_history_plugin::plugin_startup() {
-   try {
-      auto bsp = my->chain_plug->chain().head_block_state();
-      if( bsp && my->chain_state_log && my->chain_state_log->empty() ) {
-         fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
-         my->store_chain_state( bsp );
-         fc_ilog( _log, "Done storing initial state on startup" );
-      }
-      my->listen();
-      // use of executor assumes only one thread
-      my->thread_pool.start( 1, [](const fc::exception& e) {
-         fc_elog( _log, "Exception in SHiP thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
-         app().quit();
-      });
-      my->plugin_started = true; 
-   } catch (std::exception& ex) {
-      appbase::app().quit();
+   auto bsp = my->chain_plug->chain().head_block_state();
+   if( bsp && my->chain_state_log && my->chain_state_log->empty() ) {
+      fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
+      my->store_chain_state( bsp );
+      fc_ilog( _log, "Done storing initial state on startup" );
    }
+   my->listen();
+   // use of executor assumes only one thread
+   my->thread_pool.start( 1, [](const fc::exception& e) {
+      fc_elog( _log, "Exception in SHiP thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+      app().quit();
+   });
+   my->plugin_started = true; 
 }
 
 void state_history_plugin::plugin_shutdown() {
