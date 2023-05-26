@@ -1216,8 +1216,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
             "plus ${min} us, required: ${read} us > (${trx_time} us + ${min} us).",
             ("read", _ro_read_window_time_us)("trx_time", _max_transaction_time_ms.load() * 1000)("min", _ro_read_window_minimum_time_us));
       }
-      ilog("read-only-write-window-time-us: ${ww} us, read-only-read-window-time-us: ${rw} us, effective read window time to be used: ${w} "
-           "us",
+      ilog("read-only-write-window-time-us: ${ww} us, read-only-read-window-time-us: ${rw} us, effective read window time to be used: ${w} us",
            ("ww", _ro_write_window_time_us)("rw", _ro_read_window_time_us)("w", _ro_read_window_effective_time_us));
    }
 
@@ -1891,14 +1890,12 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          if (current_watermark) {
             auto watermark_bn = current_watermark->first;
             if (watermark_bn < hbs->block_num) {
-               blocks_to_confirm =
-                  (uint16_t)(std::min<uint32_t>(std::numeric_limits<uint16_t>::max(), (uint32_t)(hbs->block_num - watermark_bn)));
+               blocks_to_confirm = (uint16_t)(std::min<uint32_t>(std::numeric_limits<uint16_t>::max(), (uint32_t)(hbs->block_num - watermark_bn)));
             }
          }
 
          // can not confirm irreversible blocks
-         blocks_to_confirm =
-            (uint16_t)(std::min<uint32_t>(blocks_to_confirm, (uint32_t)(hbs->block_num - hbs->dpos_irreversible_blocknum)));
+         blocks_to_confirm = (uint16_t)(std::min<uint32_t>(blocks_to_confirm, (uint32_t)(hbs->block_num - hbs->dpos_irreversible_blocknum)));
       }
 
       abort_block();
@@ -2194,8 +2191,10 @@ producer_plugin_impl::push_result producer_plugin_impl::push_transaction(const f
 
    auto first_auth = trx->packed_trx()->get_transaction().first_authorizer();
 
-   bool disable_subjective_enforcement = (api_trx && _disable_subjective_api_billing) || (!api_trx && _disable_subjective_p2p_billing) ||
-                                         subjective_bill.is_account_disabled(first_auth) || trx->is_transient();
+   bool disable_subjective_enforcement = (api_trx && _disable_subjective_api_billing) ||
+                                         (!api_trx && _disable_subjective_p2p_billing) ||
+                                         subjective_bill.is_account_disabled(first_auth) ||
+                                         trx->is_transient();
 
    if (!disable_subjective_enforcement && _account_fails.failure_limit(first_auth)) {
       if (next) {
@@ -2961,11 +2960,11 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
       auto trace = chain.push_transaction(trx, window_deadline, _ro_max_trx_time_us, 0, false, 0);
       _ro_all_threads_exec_time_us += (fc::time_point::now() - start).count();
       auto pr = handle_push_result(trx, next, start, chain, trace,
-                                   true /*return_failure_trace*/,
-                                   true /*disable_subjective_enforcement*/,
-                                   {} /*first_auth*/,
-                                   0 /*sub_bill*/,
-                                   0 /*prev_billed_cpu_time_us*/);
+                                   true, // return_failure_trace
+                                   true, // disable_subjective_enforcement
+                                   {},   // first_auth
+                                   0,    // sub_bill
+                                   0);   // prev_billed_cpu_time_us
       // If a transaction was exhausted, that indicates we are close to
       // the end of read window. Retry in next round.
       retry = pr.trx_exhausted;
