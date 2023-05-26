@@ -2876,8 +2876,12 @@ namespace eosio {
    // called from connection strand
    bool connection::process_next_trx_message(uint32_t message_length) {
       if( !my_impl->p2p_accept_transactions ) {
-         peer_dlog( this, "p2p-accept-transaction=false - dropping txn" );
+         peer_dlog( this, "p2p-accept-transaction=false - dropping trx" );
          pending_message_buffer.advance_read_ptr( message_length );
+         return true;
+      }
+      if (my_impl->sync_master->syncing_with_peer()) {
+         peer_wlog(this, "syncing, dropping trx");
          return true;
       }
 
@@ -3389,10 +3393,6 @@ namespace eosio {
    // called from connection strand
    void connection::handle_message( packed_transaction_ptr trx ) {
       const auto& tid = trx->id();
-      if (my_impl->sync_master->syncing_with_peer()) {
-         peer_wlog(this, "syncing, dropping trx ${id}", ("id", tid));
-         return;
-      }
 
       peer_dlog( this, "received packed_transaction ${id}", ("id", tid) );
 
