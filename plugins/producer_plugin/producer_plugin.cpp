@@ -103,8 +103,10 @@ using namespace eosio::chain::plugin_interface;
 namespace {
 bool exception_is_exhausted(const fc::exception& e) {
    auto code = e.code();
-   return (code == block_cpu_usage_exceeded::code_value) || (code == block_net_usage_exceeded::code_value) ||
-          (code == deadline_exception::code_value) || (code == ro_trx_vm_oc_compile_temporary_failure::code_value);
+   return (code == block_cpu_usage_exceeded::code_value) ||
+          (code == block_net_usage_exceeded::code_value) ||
+          (code == deadline_exception::code_value) ||
+          (code == ro_trx_vm_oc_compile_temporary_failure::code_value);
 }
 } // namespace
 
@@ -324,6 +326,7 @@ public:
                                   account_name                                first_auth,
                                   int64_t                                     sub_bill,
                                   uint32_t                                    prev_billed_cpu_time_us);
+   
    void        log_trx_results(const transaction_metadata_ptr& trx, const transaction_trace_ptr& trace, const fc::time_point& start);
    void        log_trx_results(const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr);
    void        log_trx_results(const packed_transaction_ptr& trx,
@@ -332,6 +335,7 @@ public:
                                uint32_t                      billed_cpu_us,
                                const fc::time_point&         start,
                                bool                          is_transient);
+   
    void        add_greylist_accounts(const producer_plugin::greylist_params& params) {
       EOS_ASSERT(params.accounts.size() > 0, chain::invalid_http_request, "At least one account is required");
 
@@ -671,18 +675,18 @@ public:
          ilog("Received block ${id}... #${n} @ ${t} signed by ${p} "
               "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: "
               "${latency} ms]",
-              ("p", block->producer)("id", id.str().substr(8, 16))("n", blk_num)("t", block->timestamp)(
-                 "count", block->transactions.size())("lib", chain.last_irreversible_block_num())("confs", block->confirmed)(
-                 "net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("elapsed", br.total_elapsed_time)("time", br.total_time)(
-                 "latency", (now - block->timestamp).count() / 1000));
+              ("p", block->producer)("id", id.str().substr(8, 16))("n", blk_num)("t", block->timestamp)
+              ("count", block->transactions.size())("lib", chain.last_irreversible_block_num())
+              ("confs", block->confirmed)("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
+              ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (now - block->timestamp).count() / 1000));
          if (chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hbs->id != id && hbs->block != nullptr) { // not applied to head
             ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
                  "[trxs: ${count}, dpos: ${dpos}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, "
                  "latency: ${latency} ms]",
-                 ("p", hbs->block->producer)("id", hbs->id.str().substr(8, 16))("n", hbs->block_num)("t", hbs->block->timestamp)(
-                    "count", hbs->block->transactions.size())("dpos", hbs->dpos_irreversible_blocknum)("confs", hbs->block->confirmed)(
-                    "net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("elapsed", br.total_elapsed_time)("time", br.total_time)(
-                    "latency", (now - hbs->block->timestamp).count() / 1000));
+                 ("p", hbs->block->producer)("id", hbs->id.str().substr(8, 16))("n", hbs->block_num)("t", hbs->block->timestamp)
+                 ("count", hbs->block->transactions.size())("dpos", hbs->dpos_irreversible_blocknum)("confs", hbs->block->confirmed)
+                 ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("elapsed", br.total_elapsed_time)("time", br.total_time)
+                 ("latency", (now - hbs->block->timestamp).count() / 1000));
          }
       }
       if (_update_incoming_block_metrics) {
@@ -1211,8 +1215,8 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
          auto actual_threads_allowed = std::min(_ro_max_threads_allowed, num_threads_supported);
          ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported "
               "((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}",
-              ("total", vm_total_kb)("used", vm_used_kb)("supp", num_threads_supported)("max", _ro_max_threads_allowed)(
-                 "actual", actual_threads_allowed));
+              ("total", vm_total_kb)("used", vm_used_kb)("supp", num_threads_supported)("max", _ro_max_threads_allowed)
+              ("actual", actual_threads_allowed));
          EOS_ASSERT(_ro_thread_pool_size <= actual_threads_allowed,
                     plugin_config_exception,
                     "read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})",
@@ -2824,9 +2828,9 @@ void producer_plugin_impl::produce_block() {
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
-        ("p", new_bs->header.producer)("id", new_bs->id.str().substr(8, 16))("n", new_bs->block_num)("t", new_bs->header.timestamp)(
-           "count", new_bs->block->transactions.size())("lib", chain.last_irreversible_block_num())("net", br.total_net_usage)(
-           "cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_bs->header.confirmed));
+        ("p", new_bs->header.producer)("id", new_bs->id.str().substr(8, 16))("n", new_bs->block_num)("t", new_bs->header.timestamp)
+        ("count", new_bs->block->transactions.size())("lib", chain.last_irreversible_block_num())("net", br.total_net_usage)
+        ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_bs->header.confirmed));
 }
 
 void producer_plugin::received_block(uint32_t block_num) {
