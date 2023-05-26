@@ -145,7 +145,7 @@ public:
    // return true if exceeds max_failures_per_account and should be dropped
    bool failure_limit( const account_name& n ) {
       auto fitr = failed_accounts.find( n );
-      if( fitr != failed_accounts.end() && fitr->second.num_failures >= max_failures_per_account ) {
+      if (fitr != failed_accounts.end() && fitr->second.num_failures >= max_failures_per_account) {
          ++fitr->second.num_failures;
          return true;
       }
@@ -167,26 +167,25 @@ public:
 
 private:
    void report(uint32_t block_num, const chain::subjective_billing& sub_bill) const {
-      if( _log.is_enabled(fc::log_level::debug)) {
+      if (_log.is_enabled(fc::log_level::debug)) {
          auto now = fc::time_point::now();
-         for ( const auto& e : failed_accounts ) {
+         for (const auto& e : failed_accounts) {
             std::string reason;
-            if( e.second.is_deadline() ) reason += "deadline";
-            if( e.second.is_tx_cpu_usage() ) {
-               if( !reason.empty() ) reason += ", ";
+            if (e.second.is_deadline()) reason += "deadline";
+            if (e.second.is_tx_cpu_usage()) {
+               if (!reason.empty()) reason += ", ";
                reason += "tx_cpu_usage";
             }
-            if( e.second.is_eosio_assert() ) {
-               if( !reason.empty() ) reason += ", ";
+            if (e.second.is_eosio_assert()) {
+               if (!reason.empty()) reason += ", ";
                reason += "assert";
             }
-            if( e.second.is_other() ) {
-               if( !reason.empty() ) reason += ", ";
+            if (e.second.is_other()) {
+               if (!reason.empty()) reason += ", ";
                reason += "other";
             }
-            fc_dlog( _log, "Failed ${n} trxs, account: ${a}, sub bill: ${b}us, reason: ${r}",
-                     ("n", e.second.num_failures)("b", sub_bill.get_subjective_bill(e.first, now))
-                     ("a", e.first)("r", reason) );
+            fc_dlog(_log, "Failed ${n} trxs, account: ${a}, sub bill: ${b}us, reason: ${r}",
+                    ("n", e.second.num_failures)("b", sub_bill.get_subjective_bill(e.first, now))("a", e.first)("r", reason));
          }
       }
    }
@@ -198,19 +197,18 @@ private:
          ex_other_exception = 8
       };
 
-      void add( const account_name& n, const fc::exception& e ) {
+      void add(const account_name& n, const fc::exception& e) {
          auto exception_code = e.code();
-         if( exception_code == tx_cpu_usage_exceeded::code_value ) {
-            ex_flags = set_field( ex_flags, ex_fields::ex_tx_cpu_usage_exceeded );
-         } else if( exception_code == deadline_exception::code_value ) {
-            ex_flags = set_field( ex_flags, ex_fields::ex_deadline_exception );
-         } else if( exception_code == eosio_assert_message_exception::code_value ||
-                    exception_code == eosio_assert_code_exception::code_value ) {
-            ex_flags = set_field( ex_flags, ex_fields::ex_eosio_assert_exception );
+         if (exception_code == tx_cpu_usage_exceeded::code_value) {
+            ex_flags = set_field(ex_flags, ex_fields::ex_tx_cpu_usage_exceeded);
+         } else if (exception_code == deadline_exception::code_value) {
+            ex_flags = set_field(ex_flags, ex_fields::ex_deadline_exception);
+         } else if (exception_code == eosio_assert_message_exception::code_value ||
+                    exception_code == eosio_assert_code_exception::code_value) {
+            ex_flags = set_field(ex_flags, ex_fields::ex_eosio_assert_exception);
          } else {
-            ex_flags = set_field( ex_flags, ex_fields::ex_other_exception );
-            fc_dlog( _log, "Failed trx, account: ${a}, reason: ${r}, except: ${e}",
-                     ("a", n)("r", exception_code)("e", e) );
+            ex_flags = set_field(ex_flags, ex_fields::ex_other_exception);
+            fc_dlog(_log, "Failed trx, account: ${a}, reason: ${r}, except: ${e}", ("a", n)("r", exception_code)("e", e));
          }
       }
 
@@ -235,8 +233,8 @@ struct block_time_tracker {
       block_idle_time += idle;
    }
 
-   void add_fail_time( const fc::microseconds& fail_time, bool is_transient ) {
-      if( is_transient ) {
+   void add_fail_time(const fc::microseconds& fail_time, bool is_transient) {
+      if (is_transient) {
          // transient time includes both success and fail time
          transient_trx_time += fail_time;
          ++transient_trx_num;
@@ -246,8 +244,8 @@ struct block_time_tracker {
       }
    }
 
-   void add_success_time( const fc::microseconds& time, bool is_transient ) {
-      if( is_transient ) {
+   void add_success_time(const fc::microseconds& time, bool is_transient) {
+      if (is_transient) {
          transient_trx_time += time;
          ++transient_trx_num;
       } else {
@@ -257,15 +255,16 @@ struct block_time_tracker {
    }
 
    void report( const fc::time_point& idle_trx_time, uint32_t block_num ) {
-      if( _log.is_enabled( fc::log_level::debug ) ) {
+      if (_log.is_enabled(fc::log_level::debug)) {
          auto now = fc::time_point::now();
-         add_idle_time( now - idle_trx_time );
-         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, transient: ${trans_trx_num}, ${trans_trx_time}us, other: ${o}us",
-                  ("n", block_num)
-                  ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
-                  ("fn", trx_fail_num)("f", trx_fail_time)
-                  ("trans_trx_num", transient_trx_num)("trans_trx_time", transient_trx_time)
-                  ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time - transient_trx_time) );
+         add_idle_time(now - idle_trx_time);
+         fc_dlog(_log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, "
+                 "transient: ${trans_trx_num}, ${trans_trx_time}us, other: ${o}us",
+                 ("n", block_num)
+                 ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
+                 ("fn", trx_fail_num)("f", trx_fail_time)
+                 ("trans_trx_num", transient_trx_num)("trans_trx_time", transient_trx_time)
+                 ("o", (now - clear_time) - block_idle_time - trx_success_time - trx_fail_time - transient_trx_time) );
       }
    }
 
@@ -313,33 +312,40 @@ public:
       bool trx_exhausted = false;
       bool failed = false;
    };
-   push_result push_transaction( const fc::time_point& block_deadline,
-                                 const transaction_metadata_ptr& trx,
-                                 bool api_trx, bool return_failure_trace,
-                                 const next_function<transaction_trace_ptr>& next );
-   push_result handle_push_result( const transaction_metadata_ptr& trx,
-                                   const next_function<transaction_trace_ptr>& next,
-                                   const fc::time_point& start,
-                                   chain::controller& chain,
-                                   const transaction_trace_ptr& trace,
-                                   bool return_failure_trace,
-                                   bool disable_subjective_enforcement,
-                                   account_name first_auth,
-                                   int64_t sub_bill,
-                                   uint32_t prev_billed_cpu_time_us );
-   void log_trx_results( const transaction_metadata_ptr& trx, const transaction_trace_ptr& trace, const fc::time_point& start );
-   void log_trx_results( const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr );
-   void log_trx_results( const packed_transaction_ptr& trx, const transaction_trace_ptr& trace,
-                         const fc::exception_ptr& except_ptr, uint32_t billed_cpu_us, const fc::time_point& start, bool is_transient );
+   push_result push_transaction(const fc::time_point& block_deadline,
+                                const transaction_metadata_ptr& trx,
+                                bool api_trx,
+                                bool return_failure_trace,
+                                const next_function<transaction_trace_ptr>& next);
+   push_result handle_push_result(const transaction_metadata_ptr& trx,
+                                  const next_function<transaction_trace_ptr>& next,
+                                  const fc::time_point& start,
+                                  chain::controller& chain,
+                                  const transaction_trace_ptr& trace,
+                                  bool return_failure_trace,
+                                  bool disable_subjective_enforcement,
+                                  account_name first_auth,
+                                  int64_t sub_bill,
+                                  uint32_t prev_billed_cpu_time_us);
+   void log_trx_results(const transaction_metadata_ptr& trx,
+                        const transaction_trace_ptr& trace,
+                        const fc::time_point& start);
+   void log_trx_results(const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr);
+   void log_trx_results(const packed_transaction_ptr& trx,
+                        const transaction_trace_ptr& trace,
+                        const fc::exception_ptr& except_ptr,
+                        uint32_t billed_cpu_us,
+                        const fc::time_point& start,
+                        bool is_transient);
    void add_greylist_accounts(const producer_plugin::greylist_params& params) {
       EOS_ASSERT(params.accounts.size() > 0, chain::invalid_http_request, "At least one account is required");
 
       chain::controller& chain = chain_plug->chain();
-      for (auto &acc : params.accounts) {
+      for (auto& acc : params.accounts) {
          chain.add_resource_greylist(acc);
       }
    }
-   
+
    void remove_greylist_accounts(const producer_plugin::greylist_params& params) {
       EOS_ASSERT(params.accounts.size() > 0, chain::invalid_http_request, "At least one account is required");
 
