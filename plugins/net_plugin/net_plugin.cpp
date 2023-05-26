@@ -3819,8 +3819,6 @@ namespace eosio {
    }
 
    void net_plugin::plugin_startup() {
-      try {
-
       fc_ilog( logger, "my node_id is ${id}", ("id", my->node_id ));
 
       my->producer_plug = app().find_plugin<producer_plugin>();
@@ -3900,12 +3898,6 @@ namespace eosio {
          my->update_chain_info();
          my->connections.connect_supplied_peers();
       });
-
-      } catch( ... ) {
-         // always want plugin_shutdown even on exception
-         plugin_shutdown();
-         throw;
-      }
    }
 
    void net_plugin::handle_sighup() {
