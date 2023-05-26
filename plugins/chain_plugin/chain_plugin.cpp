@@ -1129,7 +1129,6 @@ void chain_plugin::plugin_shutdown() {
    my->block_start_connection.reset();
    if(app().is_quiting())
       my->chain->get_wasm_interface().indicate_shutting_down();
-   my->chain.reset();
 }
 
 void chain_plugin::handle_sighup() {
