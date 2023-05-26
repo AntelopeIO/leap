@@ -608,10 +608,7 @@ public:
       if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) // only log every 1000 during sync
          fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
 
-      EOS_ASSERT(block->timestamp < (now + fc::seconds(7)),
-                 block_from_the_future,
-                 "received a block from the future, ignoring it: ${id}",
-                 ("id", id));
+      EOS_ASSERT(block->timestamp < (now + fc::seconds(7)), block_from_the_future, "received a block from the future, ignoring it: ${id}", ("id", id));
 
       /* de-dupe here... no point in aborting block if we already know the block */
       auto existing = chain.fetch_block_by_id(id);
@@ -864,10 +861,8 @@ public:
    chain::signature_type sign_compact(const chain::public_key_type& key, const fc::sha256& digest) const {
       if (key != chain::public_key_type()) {
          auto private_key_itr = _signature_providers.find(key);
-         EOS_ASSERT(private_key_itr != _signature_providers.end(),
-                    producer_priv_key_not_found,
-                    "Local producer has no private key in config.ini corresponding to public key ${key}",
-                    ("key", key));
+         EOS_ASSERT(private_key_itr != _signature_providers.end(), producer_priv_key_not_found,
+                    "Local producer has no private key in config.ini corresponding to public key ${key}", ("key", key));
 
          return private_key_itr->second(digest);
       } else {
@@ -1050,19 +1045,15 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    }
 
    auto subjective_account_max_failures_window_size = options.at("subjective-account-max-failures-window-size").as<uint32_t>();
-   EOS_ASSERT(subjective_account_max_failures_window_size > 0,
-              plugin_config_exception,
-              "subjective-account-max-failures-window-size ${s} must be greater than 0",
-              ("s", subjective_account_max_failures_window_size));
+   EOS_ASSERT(subjective_account_max_failures_window_size > 0, plugin_config_exception,
+              "subjective-account-max-failures-window-size ${s} must be greater than 0", ("s", subjective_account_max_failures_window_size));
 
    _account_fails.set_max_failures_per_account(options.at("subjective-account-max-failures").as<uint32_t>(),
                                                subjective_account_max_failures_window_size);
 
    uint32_t cpu_effort_pct = options.at("cpu-effort-percent").as<uint32_t>();
-   EOS_ASSERT(cpu_effort_pct >= 0 && cpu_effort_pct <= 100,
-              plugin_config_exception,
-              "cpu-effort-percent ${pct} must be 0 - 100",
-              ("pct", cpu_effort_pct));
+   EOS_ASSERT(cpu_effort_pct >= 0 && cpu_effort_pct <= 100, plugin_config_exception,
+              "cpu-effort-percent ${pct} must be 0 - 100", ("pct", cpu_effort_pct));
    cpu_effort_pct *= config::percent_1;
 
    _cpu_effort_us = EOS_PERCENT(config::block_interval_us, cpu_effort_pct);
@@ -1094,10 +1085,8 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
 
    auto max_incoming_transaction_queue_size = options.at("incoming-transaction-queue-size-mb").as<uint16_t>() * 1024 * 1024;
 
-   EOS_ASSERT(max_incoming_transaction_queue_size > 0,
-              plugin_config_exception,
-              "incoming-transaction-queue-size-mb ${mb} must be greater than 0",
-              ("mb", max_incoming_transaction_queue_size));
+   EOS_ASSERT(max_incoming_transaction_queue_size > 0, plugin_config_exception,
+              "incoming-transaction-queue-size-mb ${mb} must be greater than 0", ("mb", max_incoming_transaction_queue_size));
 
    _unapplied_transactions.set_max_transaction_queue_size(max_incoming_transaction_queue_size);
 
@@ -1156,8 +1145,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
          }
       }
    }
-   EOS_ASSERT(producer_plugin::test_mode_ || _ro_thread_pool_size == 0 || _producers.empty(),
-              plugin_config_exception,
+   EOS_ASSERT(producer_plugin::test_mode_ || _ro_thread_pool_size == 0 || _producers.empty(), plugin_config_exception,
               "read-only-threads not allowed on producer node");
 
    // only initialize other read-only options when read-only thread pool is enabled
@@ -1181,18 +1169,15 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
             meminfo_file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
          }
 
-         EOS_ASSERT(vm_total_kb > 0,
-                    plugin_config_exception,
+         EOS_ASSERT(vm_total_kb > 0, plugin_config_exception,
                     "Unable to get system virtual memory size (not a Linux?), therefore cannot determine if the system has enough "
                     "virtual memory for multi-threaded read-only transactions on EOS VM OC");
-         EOS_ASSERT(vm_total_kb > vm_used_kb,
-                    plugin_config_exception,
+         EOS_ASSERT(vm_total_kb > vm_used_kb, plugin_config_exception,
                     "vm total (${t}) must be greater than vm used (${u})",
                     ("t", vm_total_kb)("u", vm_used_kb));
          uint32_t num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000;
          // reserve 1 for the app thread, 1 for anything else which might use VM
-         EOS_ASSERT(num_threads_supported > 2,
-                    plugin_config_exception,
+         EOS_ASSERT(num_threads_supported > 2, plugin_config_exception,
                     "With the EOS VM OC configured, there is not enough system virtual memory to support the required minimum of "
                     "3 threads (1 for main thread, 1 for read-only, and 1 for anything else), vm total: ${t}, vm used: ${u}",
                     ("t", vm_total_kb)("u", vm_used_kb));
@@ -1202,8 +1187,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
               "((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}",
               ("total", vm_total_kb)("used", vm_used_kb)("supp", num_threads_supported)("max", _ro_max_threads_allowed)
               ("actual", actual_threads_allowed));
-         EOS_ASSERT(_ro_thread_pool_size <= actual_threads_allowed,
-                    plugin_config_exception,
+         EOS_ASSERT(_ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception,
                     "read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})",
                     ("th", _ro_thread_pool_size)("allowed", actual_threads_allowed));
       }
@@ -1304,18 +1288,14 @@ void producer_plugin_impl::plugin_startup() {
 
 
          chain::controller& chain = chain_plug->chain();
-         EOS_ASSERT(_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE,
-                    plugin_config_exception,
+         EOS_ASSERT(_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
                     "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"");
 
-         EOS_ASSERT(_producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL,
-                    plugin_config_exception,
+         EOS_ASSERT(_producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL, plugin_config_exception,
                     "node cannot have any producer-name configured because block production is not safe when validation_mode is not \"full\"");
 
-         EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(),
-                    plugin_config_exception,
-                    "node cannot have any producer-name configured because no block production is possible with no "
-                    "[api|p2p]-accepted-transactions");
+         EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
+                    "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
 
          _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
          _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));
@@ -1370,8 +1350,7 @@ void producer_plugin_impl::plugin_startup() {
                std::this_thread::sleep_for(1ms);
                ++time_slept_ms;
             }
-            EOS_ASSERT(num_threads_started.load() == _ro_thread_pool_size,
-                       producer_exception,
+            EOS_ASSERT(num_threads_started.load() == _ro_thread_pool_size, producer_exception,
                        "read-only threads failed to start. num_threads_started: ${n}, time_slept_ms: ${t}ms",
                        ("n", num_threads_started.load())("t", time_slept_ms));
 
@@ -1554,17 +1533,14 @@ void producer_plugin_impl::schedule_protocol_feature_activations(const producer_
    const chain::controller& chain = chain_plug->chain();
    std::set<digest_type>    set_of_features_to_activate(schedule.protocol_features_to_activate.begin(),
                                                      schedule.protocol_features_to_activate.end());
-   EOS_ASSERT(set_of_features_to_activate.size() == schedule.protocol_features_to_activate.size(),
-              invalid_protocol_features_to_activate,
+   EOS_ASSERT(set_of_features_to_activate.size() == schedule.protocol_features_to_activate.size(), invalid_protocol_features_to_activate,
               "duplicate digests");
    chain.validate_protocol_features(schedule.protocol_features_to_activate);
    const auto& pfs = chain.get_protocol_feature_manager().get_protocol_feature_set();
    for (auto& feature_digest : set_of_features_to_activate) {
       const auto& pf = pfs.get_protocol_feature(feature_digest);
-      EOS_ASSERT(!pf.preactivation_required,
-                 protocol_feature_exception,
-                 "protocol feature requires preactivation: ${digest}",
-                 ("digest", feature_digest));
+      EOS_ASSERT(!pf.preactivation_required, protocol_feature_exception,
+                 "protocol feature requires preactivation: ${digest}", ("digest", feature_digest));
    }
    _protocol_features_to_activate = schedule.protocol_features_to_activate;
    _protocol_features_signaled    = false;
@@ -2722,11 +2698,9 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
 
 void producer_plugin_impl::produce_block() {
    auto start = fc::time_point::now();
-   EOS_ASSERT(
-      _pending_block_mode == pending_block_mode::producing, producer_exception, "called produce_block while not actually producing");
+   EOS_ASSERT(_pending_block_mode == pending_block_mode::producing, producer_exception, "called produce_block while not actually producing");
    chain::controller& chain = chain_plug->chain();
-   EOS_ASSERT(chain.is_building_block(),
-              missing_pending_block_state,
+   EOS_ASSERT(chain.is_building_block(), missing_pending_block_state,
               "pending_block_state does not exist but it should, another plugin may have corrupted it");
 
    const auto&                                                        auth = chain.pending_block_signing_authority();
@@ -2741,8 +2715,7 @@ void producer_plugin_impl::produce_block() {
       }
    });
 
-   EOS_ASSERT(relevant_providers.size() > 0,
-              producer_priv_key_not_found,
+   EOS_ASSERT(relevant_providers.size() > 0, producer_priv_key_not_found,
               "Attempting to produce a block for which we don't have any relevant private keys");
 
    if (_protocol_features_signaled) {
