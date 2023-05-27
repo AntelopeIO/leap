@@ -242,6 +242,7 @@ namespace eosio {
       void sync_reassign_fetch( const connection_ptr& c, go_away_reason reason );
       void rejected_block( const connection_ptr& c, uint32_t blk_num );
       void sync_recv_block( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied );
+      void sync_net_recv_block( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num ); // not processed
       void sync_update_expected( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied );
       void recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency );
       void sync_recv_notice( const connection_ptr& c, const notice_message& msg );
@@ -1883,8 +1884,8 @@ namespace eosio {
       fc_dlog( logger, "sync_last_requested_num: ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}",
                ("r", sync_last_requested_num)("e", sync_next_expected_num)("k", sync_known_lib_num)("s", sync_req_span) );
 
-      if( chain_info.head_num < sync_last_requested_num && sync_source && sync_source->current() ) {
-         fc_dlog( logger, "ignoring request, head is ${h} last req = ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, source connection ${c}",
+      if( chain_info.head_num + sync_req_span < sync_last_requested_num && sync_source && sync_source->current() ) {
+         fc_wlog( logger, "ignoring request, head is ${h} last req = ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, source connection ${c}",
                   ("h", chain_info.head_num)("r", sync_last_requested_num)("e", sync_next_expected_num)
                   ("k", sync_known_lib_num)("s", sync_req_span)("c", sync_source->connection_id) );
          return;
@@ -2229,9 +2230,11 @@ namespace eosio {
          return;
       }
       c->block_status_monitor_.accepted();
-      sync_update_expected( c, blk_id, blk_num, blk_applied );
-      std::unique_lock<std::mutex> g_sync( sync_mtx );
       stages state = sync_state;
+      if (state != lib_catchup) {
+         sync_update_expected(c, blk_id, blk_num, blk_applied);
+      }
+      std::unique_lock<std::mutex> g_sync( sync_mtx );
       peer_dlog( c, "state ${s}", ("s", stage_str( state )) );
       if( state == head_catchup ) {
          peer_dlog( c, "sync_manager in head_catchup state" );
@@ -2278,6 +2281,19 @@ namespace eosio {
             g_sync.unlock();
             peer_dlog( c, "calling sync_wait" );
             c->sync_wait();
+         }
+      }
+   }
+
+   void sync_manager::sync_net_recv_block( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num ) {
+      uint32_t head = my_impl->get_chain_head_num();
+      std::unique_lock g_sync( sync_mtx );
+      if (head + sync_req_span > sync_last_requested_num) { // don't allow to get too far head (one sync_req_span)
+         if (blk_num < sync_known_lib_num && blk_num >= sync_last_requested_num) {
+            fc_elog( logger, "requesting chunk ahead of time, head: ${h} blk_num: ${bn} sync_next_expected_num ${nen} sync_last_requested_num: ${lrn} ",
+                    ("h", head)("bn", blk_num)("nen", sync_next_expected_num)("lrn", sync_last_requested_num));
+            sync_next_expected_num = blk_num + 1;
+            request_next_chunk(std::move(g_sync));
          }
       }
    }
@@ -2858,6 +2874,8 @@ namespace eosio {
             pending_message_buffer.advance_read_ptr( message_length );
             return true;
          }
+      } else {
+         my_impl->sync_master->sync_net_recv_block(shared_from_this(), blk_id, blk_num);
       }
 
       auto ds = pending_message_buffer.create_datastream();
