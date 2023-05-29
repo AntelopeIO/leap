@@ -111,34 +111,6 @@ namespace eosio {
       return result;
    }
 
-   template <typename Protocol>
-   struct beast_http_listener
-       : fc::listener<beast_http_listener<Protocol>, Protocol> {
-      using socket_type = typename Protocol::socket;
-
-      static constexpr uint32_t accept_timeout_ms = 500;
-      http_plugin_state&        state_;
-      api_category_set          categories_ = {};
-
-      beast_http_listener(boost::asio::io_context& executor, fc::logger& logger, const std::string& local_address,
-                          const typename Protocol::endpoint& endpoint, http_plugin_state& plugin_state,
-                          api_category_set categories)
-          : fc::listener<beast_http_listener<Protocol>, Protocol>(
-                  executor, logger, boost::posix_time::milliseconds(accept_timeout_ms), local_address, endpoint),
-            state_(plugin_state), categories_(categories) {}
-
-      std::string extra_listening_log_info() { return " for API categories: " + category_names(categories_); }
-
-      void create_session(socket_type&& socket) {
-         boost::system::error_code re_ec;
-         auto                      re              = socket.remote_endpoint(re_ec);
-         std::string               remote_endpoint = re_ec ? "unknown" : boost::lexical_cast<std::string>(re);
-         std::make_shared<beast_http_session<socket_type>>(std::move(socket), this->state_, std::move(remote_endpoint),
-                                                           categories_, this->local_address_)
-               ->run_session();
-      }
-   };
-
    class http_plugin_impl : public std::enable_shared_from_this<http_plugin_impl> {
       public:
          http_plugin_impl() = default;
@@ -241,6 +213,30 @@ namespace eosio {
             });
          }
 
+         template <typename Protocol>
+         void create_listener(const std::string& address, api_category_set categories) {
+            const boost::posix_time::milliseconds accept_timeout(500);
+            auto extra_listening_log_info = " for API categories: " + category_names(categories);
+            using socket_type = typename Protocol::socket; 
+            auto create_session = [this, categories, address](socket_type&& socket) {
+               std::string               remote_endpoint;
+               if constexpr (std::is_same_v<socket_type, tcp>) {
+                  boost::system::error_code re_ec;
+                  auto                      re = socket.remote_endpoint(re_ec);
+                  remote_endpoint              = re_ec ? "unknown" : fc::to_string(re);
+               } else {
+                  remote_endpoint = address;
+               }
+               std::make_shared<beast_http_session<socket_type>>(
+                     std::move(socket), plugin_state, std::move(remote_endpoint), categories, address)
+                     ->run_session();
+            };
+
+            fc::create_listener<Protocol>(plugin_state.thread_pool.get_executor(), logger(), accept_timeout,
+                                                               address, extra_listening_log_info, create_session);
+
+         }
+
          void create_beast_server(const std::string& address, api_category_set categories) {
             try {
                if (is_unix_socket_address(address)) {
@@ -248,11 +244,9 @@ namespace eosio {
                   fs::path sock_path = address;
                   if (sock_path.is_relative())
                      sock_path = fs::weakly_canonical(app().data_dir() / sock_path);
-                  beast_http_listener<boost::asio::local::stream_protocol>::create(plugin_state.thread_pool.get_executor(), logger(),
-                                                               sock_path.string(), std::ref(plugin_state), categories);
+                  create_listener<boost::asio::local::stream_protocol>(sock_path.string(), categories);
                } else {
-                  beast_http_listener<tcp>::create(plugin_state.thread_pool.get_executor(), logger(), address,
-                                                   std::ref(plugin_state), categories);
+                  create_listener<tcp>(address, categories);
                }
             } catch (const fc::exception& e) {
                fc_elog(logger(), "http service failed to start for ${addr}: ${e}",

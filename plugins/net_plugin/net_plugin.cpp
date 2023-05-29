@@ -518,6 +518,8 @@ namespace eosio {
       void plugin_shutdown();
       bool in_sync() const;
       fc::logger& get_logger() { return logger; }
+
+      void create_session(tcp::socket&& socket);
    };
 
    // peer_[x]log must be called from thread in connection strand
@@ -2498,68 +2500,57 @@ namespace eosio {
       } ) );
    }
 
-   struct p2p_listener : public fc::listener<p2p_listener, tcp> {
-      static constexpr uint32_t accept_timeout_ms = 100; 
-      eosio::net_plugin_impl* state_;
+   
 
-      p2p_listener(boost::asio::io_context& executor, fc::logger& logger, const std::string& local_address,
-                   const tcp::endpoint& endpoint, eosio::net_plugin_impl* impl)
-          : fc::listener<p2p_listener, tcp>(executor, logger, boost::posix_time::milliseconds(accept_timeout_ms),
-                                            local_address, endpoint),
-            state_(impl) {}
+      
 
-      std::string extra_listening_log_info() {
-         return ", max clients is " + std::to_string(state_->connections.get_max_client_count());
-      }
-
-      void create_session(tcp::socket&& socket) {
-         uint32_t                  visitors  = 0;
-         uint32_t                  from_addr = 0;
-         boost::system::error_code rec;
-         const auto&               paddr_add = socket.remote_endpoint(rec).address();
-         string                    paddr_str;
-         if (rec) {
-            fc_elog(logger, "Error getting remote endpoint: ${m}", ("m", rec.message()));
-         } else {
-            paddr_str        = paddr_add.to_string();
-            state_->connections.for_each_connection([&visitors, &from_addr, &paddr_str](auto& conn) {
-               if (conn->socket_is_open()) {
-                  if (conn->peer_address().empty()) {
-                     ++visitors;
-                     std::lock_guard<std::mutex> g_conn(conn->conn_mtx);
-                     if (paddr_str == conn->remote_endpoint_ip) {
-                        ++from_addr;
-                     }
+   void net_plugin_impl::create_session(tcp::socket&& socket) {
+      uint32_t                  visitors  = 0;
+      uint32_t                  from_addr = 0;
+      boost::system::error_code rec;
+      const auto&               paddr_add = socket.remote_endpoint(rec).address();
+      string                    paddr_str;
+      if (rec) {
+         fc_elog(logger, "Error getting remote endpoint: ${m}", ("m", rec.message()));
+      } else {
+         paddr_str        = paddr_add.to_string();
+         connections.for_each_connection([&visitors, &from_addr, &paddr_str](auto& conn) {
+            if (conn->socket_is_open()) {
+               if (conn->peer_address().empty()) {
+                  ++visitors;
+                  std::lock_guard<std::mutex> g_conn(conn->conn_mtx);
+                  if (paddr_str == conn->remote_endpoint_ip) {
+                     ++from_addr;
                   }
+               }
+            }
+         });
+         if (from_addr < max_nodes_per_host &&
+               (auto_bp_peering_enabled() || connections.get_max_client_count() == 0 ||
+               visitors < connections.get_max_client_count())) {
+            fc_ilog(logger, "Accepted new connection: " + paddr_str);
+
+            connection_ptr new_connection = std::make_shared<connection>(std::move(socket));
+            new_connection->strand.post([new_connection, this]() {
+               if (new_connection->start_session()) {
+                  connections.add(new_connection);
                }
             });
-            if (from_addr < state_->max_nodes_per_host &&
-                (state_->auto_bp_peering_enabled() || state_->connections.get_max_client_count() == 0 ||
-                 visitors < state_->connections.get_max_client_count())) {
-               fc_ilog(logger, "Accepted new connection: " + paddr_str);
 
-               connection_ptr new_connection = std::make_shared<connection>(std::move(socket));
-               new_connection->strand.post([new_connection, state = state_]() {
-                  if (new_connection->start_session()) {
-                     state->connections.add(new_connection);
-                  }
-               });
-
+         } else {
+            if (from_addr >= max_nodes_per_host) {
+               fc_dlog(logger, "Number of connections (${n}) from ${ra} exceeds limit ${l}",
+                        ("n", from_addr + 1)("ra", paddr_str)("l", max_nodes_per_host));
             } else {
-               if (from_addr >= state_->max_nodes_per_host) {
-                  fc_dlog(logger, "Number of connections (${n}) from ${ra} exceeds limit ${l}",
-                          ("n", from_addr + 1)("ra", paddr_str)("l", state_->max_nodes_per_host));
-               } else {
-                  fc_dlog(logger, "max_client_count ${m} exceeded", ("m", state_->connections.get_max_client_count()));
-               }
-               // new_connection never added to connections and start_session not called, lifetime will end
-               boost::system::error_code ec;
-               socket.shutdown(tcp::socket::shutdown_both, ec);
-               socket.close(ec);
+               fc_dlog(logger, "max_client_count ${m} exceeded", ("m", connections.get_max_client_count()));
             }
+            // new_connection never added to connections and start_session not called, lifetime will end
+            boost::system::error_code ec;
+            socket.shutdown(tcp::socket::shutdown_both, ec);
+            socket.close(ec);
          }
       }
-   };
+   }
 
    // only called from strand thread
    void connection::start_read_message() {
@@ -2949,8 +2940,8 @@ namespace eosio {
 
          my_impl->mark_bp_connection(this);
          if (my_impl->exceeding_connection_limit(this)) {
-            // When auto bp peering is enabled, the p2p_listener check doesn't have enough information to determine
-            // if a client is a BP peer. In p2p_listener, it only has the peer address which a node is connecting
+            // When auto bp peering is enabled, create_session() check doesn't have enough information to determine
+            // if a client is a BP peer. In create_session(), it only has the peer address which a node is connecting
             // from, but it would be different from the address it is listening. The only way to make sure is when the
             // first handshake message is received with the p2p_address information in the message. Thus the connection
             // limit checking has to be here when auto bp peering is enabled.
@@ -3886,7 +3877,14 @@ namespace eosio {
       app().executor().post(priority::highest, [my=my, address = std::move(listen_address)](){
          if (address.size()) {
             try {
-               p2p_listener::create(my->thread_pool.get_executor(), logger, address, my.get());
+               const boost::posix_time::milliseconds accept_timeout(100);
+
+               std::string extra_listening_log_info =
+                     ", max clients is " + std::to_string(my->connections.get_max_client_count());
+                     
+               fc::create_listener<tcp>(
+                     my->thread_pool.get_executor(), logger, accept_timeout, address, extra_listening_log_info,
+                     [my = my](tcp::socket&& socket) { my->create_session(std::move(socket)); });
             } catch (const std::exception& e) {
                fc_elog( logger, "net_plugin::plugin_startup failed to listen on ${addr}, ${what}",
                      ("addr", address)("what", e.what()) );

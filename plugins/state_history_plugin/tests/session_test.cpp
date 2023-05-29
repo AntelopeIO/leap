@@ -145,23 +145,6 @@ struct mock_state_history_plugin {
 
 using session_type = eosio::session<mock_state_history_plugin, tcp::socket>;
 
-struct listener : fc::listener<listener, tcp> {
-   mock_state_history_plugin& server_;
-
-   listener(boost::asio::io_context& executor, fc::logger& logger, const std::string& local_address,
-            tcp::endpoint& endpoint, mock_state_history_plugin& server)
-       : fc::listener<listener, tcp>(executor, logger, boost::posix_time::milliseconds(100), local_address, endpoint)
-       , server_(server) {
-      endpoint = acceptor_.local_endpoint();
-   }
-
-   void create_session(tcp::socket&& peer_socket) {
-      auto s = std::make_shared<session_type>(server_, std::move(peer_socket), server_.session_mgr);
-      s->start();
-      server_.add_session(s);
-   }
-};
-
 struct test_server : mock_state_history_plugin {
    std::vector<std::thread> threads;
    tcp::endpoint            local_address{net::ip::make_address("127.0.0.1"), 0};
@@ -174,8 +157,17 @@ struct test_server : mock_state_history_plugin {
       threads.emplace_back([this]{ main_ioc.run(); });
       threads.emplace_back([this]{ ship_ioc.run(); });
 
+      auto create_session = [this](tcp::socket&& peer_socket) {
+         auto s = std::make_shared<session_type>(*this, std::move(peer_socket), session_mgr);
+         s->start();
+         add_session(s);
+      };
+
       // Create and launch a listening port
-      std::make_shared<listener>(ship_ioc, logger, "", local_address, *this)->do_accept();
+      auto server = std::make_shared<fc::listener<tcp, decltype(create_session)>>(
+                        ship_ioc, logger, boost::posix_time::milliseconds(100), "", local_address, "", create_session);
+      server->do_accept();
+      local_address = server->acceptor_.local_endpoint();
    }
 
    ~test_server() {
