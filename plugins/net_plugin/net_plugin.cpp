@@ -236,7 +236,7 @@ namespace eosio {
    public:
       explicit sync_manager( uint32_t span, uint32_t sync_peer_limit );
       static void send_handshakes();
-      bool syncing_with_peer() const { return sync_state == lib_catchup; }
+      bool syncing_from_peer() const { return sync_state == lib_catchup; }
       bool is_in_sync() const { return sync_state == in_sync; }
       void sync_reset_lib_num( const connection_ptr& conn, bool closing );
       void sync_reassign_fetch( const connection_ptr& c, go_away_reason reason );
@@ -751,6 +751,8 @@ namespace eosio {
 
    class connection : public std::enable_shared_from_this<connection> {
    public:
+      enum class connection_state { connecting, connected, closing, closed  };
+
       explicit connection( const string& endpoint );
       explicit connection( tcp::socket&& socket );
       ~connection() = default;
@@ -763,11 +765,16 @@ namespace eosio {
       bool start_session();
 
       bool socket_is_open() const { return socket_open.load(); } // thread safe, atomic
+      connection_state state() const { return conn_state.load(); } // thread safe atomic
+      void set_state(connection_state s);
+      static std::string state_str(connection_state s);
       const string& peer_address() const { return peer_addr; } // thread safe, const
 
       void set_connection_type( const string& peer_addr );
       bool is_transactions_only_connection()const { return connection_type == transactions_only; } // thread safe, atomic
       bool is_blocks_only_connection()const { return connection_type == blocks_only; }
+      bool is_transactions_connection() const { return connection_type != blocks_only; } // thread safe, atomic
+      bool is_blocks_connection() const { return connection_type != transactions_only; } // thread safe, atomic
       void set_heartbeat_timeout(std::chrono::milliseconds msec) {
          std::chrono::system_clock::duration dur = msec;
          hb_timeout = dur.count();
@@ -784,6 +791,8 @@ namespace eosio {
 
       alignas(hardware_destructive_interference_size)
       std::atomic<bool> socket_open{false};
+
+      std::atomic<connection_state> conn_state{connection_state::connecting};
 
       const string            peer_addr;
       enum connection_types : char {
@@ -825,9 +834,7 @@ namespace eosio {
       int16_t                 sent_handshake_count = 0;
 
       alignas(hardware_destructive_interference_size)
-      std::atomic<bool>       connecting{true};
-      std::atomic<bool>       syncing{false};
-      std::atomic<bool>       closing{false};
+      std::atomic<bool>       peer_syncing_from_us{false};
 
       std::atomic<uint16_t>   protocol_version = 0;
       uint16_t                net_version = net_version_max;
@@ -870,6 +877,7 @@ namespace eosio {
       tstamp                         latest_blk_time{0};
 
       bool connected() const;
+      bool closed() const; // socket is not open or is closed or closing, thread safe
       bool current() const;
       bool should_sync_from(uint32_t sync_next_expected_num, uint32_t sync_known_lib_num) const;
 
@@ -1094,8 +1102,9 @@ namespace eosio {
    void connections_manager::for_each_block_connection( Function&& f ) const {
       std::shared_lock g( connections_mtx );
       for( auto& c : connections ) {
-         if( c->is_transactions_only_connection() ) continue;
-         f( c );
+         if (c->is_blocks_connection()) {
+            f(c);
+         }
       }
    }
 
@@ -1109,9 +1118,10 @@ namespace eosio {
    bool connections_manager::any_of_block_connections(UnaryPredicate&& p) const {
       std::shared_lock g( connections_mtx );
       for( auto& c : connections ) {
-         if( c->is_transactions_only_connection() ) continue;
-         if (p(c))
-            return true;
+         if( c->is_blocks_connection() ) {
+            if (p(c))
+              return true;
+         }
       }
       return false;
    }
@@ -1176,11 +1186,36 @@ namespace eosio {
       }
    }
 
+   std::string connection::state_str(connection_state s) {
+      switch (s) {
+      case connection_state::connecting:
+         return "connecting";
+      case connection_state::connected:
+         return "connected";
+      case connection_state::closing:
+         return "closing";
+      case connection_state::closed:
+         return "closed";
+      }
+      return "unknown";
+   }
+
+   void connection::set_state(connection_state s) {
+      auto curr = state();
+      if (curr == s)
+         return;
+      if (s == connection_state::connected && curr != connection_state::connecting)
+         return;
+      peer_dlog(this, "old connection state ${os} becoming ${ns}", ("os", state_str(curr))("ns", state_str(s)));
+
+      conn_state = s;
+   }
+
    connection_status connection::get_status()const {
       connection_status stat;
       stat.peer = peer_addr;
-      stat.connecting = connecting;
-      stat.syncing = syncing;
+      stat.connecting = state() == connection_state::connecting;
+      stat.syncing = peer_syncing_from_us;
       stat.is_bp_peer = is_bp_connection;
       std::lock_guard<std::mutex> g( conn_mtx );
       stat.last_handshake = last_handshake_recv;
@@ -1209,21 +1244,27 @@ namespace eosio {
 
    // thread safe, all atomics
    bool connection::connected() const {
-      return socket_is_open() && !connecting && !closing;
+      return socket_is_open() && state() == connection_state::connected;
+   }
+
+   bool connection::closed() const {
+      return !socket_is_open()
+             || state() == connection_state::closing
+             || state() == connection_state::closed;
    }
 
    // thread safe, all atomics
    bool connection::current() const {
-      return (connected() && !syncing);
+      return (connected() && !peer_syncing_from_us);
    }
 
    // thread safe
    bool connection::should_sync_from(uint32_t sync_next_expected_num, uint32_t sync_known_lib_num) const {
-      fc_dlog(logger, "id: ${id} trx_only: ${t} current: ${c} socket_open: ${so} syncing: ${s} connecting: ${con} closing: ${close} peer_start_block: ${sb} peer_head: ${h} latency: ${lat}us no_retry: ${g}",
-              ("id", connection_id)("t", is_transactions_only_connection())
-              ("c", current())("so", socket_is_open())("s", syncing.load())("con", connecting.load())("close", closing.load())
+      fc_dlog(logger, "id: ${id} blocks conn: ${t} current: ${c} socket_open: ${so} syncing from us: ${s} state: ${con} peer_start_block: ${sb} peer_head: ${h} latency: ${lat}us no_retry: ${g}",
+              ("id", connection_id)("t", is_blocks_connection())
+              ("c", current())("so", socket_is_open())("s", peer_syncing_from_us.load())("con", state_str(state()))
               ("sb", peer_start_block_num.load())("h", peer_head_block_num.load())("lat", get_net_latency_ns()/1000)("g", reason_str(no_retry)));
-      if (!is_transactions_only_connection() && current()) {
+      if (is_blocks_connection() && current()) {
          if (no_retry == go_away_reason::no_reason) {
             if (peer_start_block_num <= sync_next_expected_num) { // has blocks we want
                if (peer_head_block_num >= sync_known_lib_num) { // is in sync
@@ -1240,7 +1281,7 @@ namespace eosio {
    }
 
    void connection::close( bool reconnect, bool shutdown ) {
-      closing = true;
+      set_state(connection_state::closing);
       strand.post( [self = shared_from_this(), reconnect, shutdown]() {
          connection::_close( self.get(), reconnect, shutdown );
       });
@@ -1256,8 +1297,7 @@ namespace eosio {
       }
       self->socket.reset( new tcp::socket( my_impl->thread_pool.get_executor() ) );
       self->flush_queues();
-      self->connecting = false;
-      self->syncing = false;
+      self->peer_syncing_from_us = false;
       self->block_status_monitor_.reset();
       ++self->consecutive_immediate_connection_close;
       bool has_last_req = false;
@@ -1278,7 +1318,7 @@ namespace eosio {
       if( !shutdown) my_impl->sync_master->sync_reset_lib_num( self->shared_from_this(), true );
       peer_ilog( self, "closing" );
       self->cancel_wait();
-      self->closing = false;
+      self->set_state(connection_state::closed);
 
       if( reconnect && !shutdown ) {
          my_impl->connections.start_conn_timer( std::chrono::milliseconds( 100 ), connection_wptr() );
@@ -1371,11 +1411,11 @@ namespace eosio {
    }
 
    void connection::stop_send() {
-      syncing = false;
+      peer_syncing_from_us = false;
    }
 
    void connection::send_handshake() {
-      if (closing)
+      if (closed())
          return;
       strand.post( [c = shared_from_this()]() {
          std::unique_lock<std::mutex> g_conn( c->conn_mtx );
@@ -1453,7 +1493,7 @@ namespace eosio {
 
    // called from connection strand
    void connection::do_queue_write() {
-      if( !buffer_queue.ready_to_send() || closing )
+      if( !buffer_queue.ready_to_send() || closed() )
          return;
       connection_ptr c(shared_from_this());
 
@@ -1835,7 +1875,7 @@ namespace eosio {
    connection_ptr sync_manager::find_next_sync_node() {
       fc_dlog(logger, "Number connections ${s}, sync_next_expected_num: ${e}, sync_known_lib_num: ${l}",
               ("s", my_impl->connections.number_connections())("e", sync_next_expected_num)("l", sync_known_lib_num));
-      std::deque<connection_ptr> conns;
+      deque<connection_ptr> conns;
       my_impl->connections.for_each_block_connection([&](const auto& c) {
          if (c->should_sync_from(sync_next_expected_num, sync_known_lib_num)) {
             conns.push_back(c);
@@ -1845,6 +1885,7 @@ namespace eosio {
          std::partial_sort(conns.begin(), conns.begin() + sync_peer_limit, conns.end(), [](const connection_ptr& lhs, const connection_ptr& rhs) {
             return lhs->get_net_latency_ns() < rhs->get_net_latency_ns();
          });
+         conns.resize(sync_peer_limit);
       }
 
       fc_dlog(logger, "Valid sync peers ${s}, sync_ordinal ${so}", ("s", conns.size())("so", sync_ordinal.load()));
@@ -1858,12 +1899,13 @@ namespace eosio {
          return conns.front();
       }
 
+      // keep track of which node was synced from last; round-robin among the current (sync_peer_limit) lowest latency peers
       ++sync_ordinal;
-      // example: sync_ordinal is 6 after inc above then there may be connections with 3,4,5.
+      // example: sync_ordinal is 6 after inc above then there may be connections with 3,4,5 (5 being the last synced from)
       // Choose from the lowest sync_ordinal of the sync_peer_limit of lowest latency, note 0 means not synced from yet
       size_t the_one = 0;
       uint32_t lowest_ordinal = std::numeric_limits<uint32_t>::max();
-      for (size_t i = 0; i < conns.size() && i < sync_peer_limit && lowest_ordinal != 0; ++i) {
+      for (size_t i = 0; i < conns.size() && lowest_ordinal != 0; ++i) {
          uint32_t sync_ord = conns[i]->sync_ordinal;
          fc_dlog(logger, "compare sync ords, conn: ${lcid}, ord: ${l} < ${r}, latency: ${lat}us",
                  ("lcid", conns[i]->connection_id)("l", sync_ord)("r", lowest_ordinal)("lat", conns[i]->get_net_latency_ns()/1000));
@@ -1903,17 +1945,13 @@ namespace eosio {
        * otherwise select the next available from the list, round-robin style.
        */
 
-      connection_ptr new_sync_source;
-      if (conn && conn->current() ) {
-         new_sync_source = conn;
-      } else {
-         new_sync_source = find_next_sync_node();
-      }
+      connection_ptr new_sync_source = (conn && conn->current()) ? conn :
+                                                                 find_next_sync_node();
 
       // verify there is an available source
       if( !new_sync_source ) {
          fc_elog( logger, "Unable to continue syncing at this time");
-         if( !new_sync_source ) sync_source.reset();
+         sync_source.reset();
          sync_known_lib_num = chain_info.lib_num;
          sync_last_requested_num = 0;
          set_state( in_sync ); // probably not, but we can't do anything else
@@ -2000,14 +2038,15 @@ namespace eosio {
 
    inline block_id_type make_block_id( uint32_t block_num ) {
       chain::block_id_type block_id;
-      block_id._hash[0] += fc::endian_reverse_u32(block_num);
+      block_id._hash[0] = fc::endian_reverse_u32(block_num);
       return block_id;
    }
 
    // called from c's connection strand
    void sync_manager::recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency ) {
 
-      if( c->is_transactions_only_connection() ) return;
+      if (!c->is_blocks_connection())
+         return;
 
       auto chain_info = my_impl->get_chain_info();
 
@@ -2030,7 +2069,7 @@ namespace eosio {
       if (chain_info.head_id == msg.head_id) {
          peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 0, lib ${l}",
                     ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))("l", chain_info.lib_num) );
-         c->syncing = false;
+         c->peer_syncing_from_us = false;
          notice_message note;
          note.known_blocks.mode = none;
          note.known_trx.mode = catch_up;
@@ -2042,7 +2081,7 @@ namespace eosio {
          peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 1, head ${h}, lib ${l}",
                     ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))
                     ("h", chain_info.head_num)("l", chain_info.lib_num) );
-         c->syncing = false;
+         c->peer_syncing_from_us = false;
          if (c->sent_handshake_count > 0) {
             c->send_handshake();
          }
@@ -2066,7 +2105,7 @@ namespace eosio {
             }
             c->enqueue( note );
          }
-         c->syncing = true;
+         c->peer_syncing_from_us = true;
          return;
       }
 
@@ -2074,7 +2113,7 @@ namespace eosio {
          peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 3, head ${h}, lib ${l}",
                     ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))
                     ("h", chain_info.head_num)("l", chain_info.lib_num) );
-         c->syncing = false;
+         c->peer_syncing_from_us = false;
          verify_catchup(c, msg.head_num, msg.head_id);
          return;
       } else if(chain_info.head_num >= msg.head_num + nblk_combined_latency) {
@@ -2094,7 +2133,7 @@ namespace eosio {
             }
             c->enqueue( note );
          }
-         c->syncing = false;
+         c->peer_syncing_from_us = false;
          bool on_fork = true;
          try {
             controller& cc = my_impl->chain_plug->chain();
@@ -2386,13 +2425,13 @@ namespace eosio {
    void dispatch_manager::bcast_block(const signed_block_ptr& b, const block_id_type& id) {
       fc_dlog( logger, "bcast block ${b}", ("b", b->block_num()) );
 
-      if( my_impl->sync_master->syncing_with_peer() ) return;
+      if(my_impl->sync_master->syncing_from_peer() ) return;
 
       block_buffer_factory buff_factory;
       const auto bnum = b->block_num();
       my_impl->connections.for_each_block_connection( [this, &id, &bnum, &b, &buff_factory]( auto& cp ) {
-         fc_dlog( logger, "socket_is_open ${s}, connecting ${c}, syncing ${ss}, connection ${cid}",
-                  ("s", cp->socket_is_open())("c", cp->connecting.load())("ss", cp->syncing.load())("cid", cp->connection_id) );
+         fc_dlog( logger, "socket_is_open ${s}, state ${c}, syncing ${ss}, connection ${cid}",
+                  ("s", cp->socket_is_open())("c", connection::state_str(cp->state()))("ss", cp->peer_syncing_from_us.load())("cid", cp->connection_id) );
          if( !cp->current() ) return;
 
          if( !add_peer_block( id, cp->connection_id ) ) {
@@ -2439,7 +2478,7 @@ namespace eosio {
       trx_buffer_factory buff_factory;
       const fc::time_point_sec now{fc::time_point::now()};
       my_impl->connections.for_each_connection( [this, &trx, &now, &buff_factory]( auto& cp ) {
-         if( cp->is_blocks_only_connection() || !cp->current() ) {
+         if( !cp->is_transactions_connection() || !cp->current() ) {
             return;
          }
          if( !add_peer_txn(trx->id(), trx->expiration(), cp->connection_id, now) ) {
@@ -2581,7 +2620,7 @@ namespace eosio {
                } else {
                   fc_elog( logger, "Unable to resolve ${host}:${port} ${error}",
                            ("host", host)("port", port)( "error", err.message() ) );
-                  c->connecting = false;
+                  c->set_state(connection_state::closed);
                   ++c->consecutive_immediate_connection_close;
                }
          } ) );
@@ -2591,7 +2630,7 @@ namespace eosio {
 
    // called from connection strand
    void connection::connect( const std::shared_ptr<tcp::resolver>& resolver, const tcp::resolver::results_type& endpoints ) {
-      connecting = true;
+      set_state(connection_state::connecting);
       pending_message_buffer.reset();
       buffer_queue.clear_out_queue();
       boost::asio::async_connect( *socket, endpoints,
@@ -2857,7 +2896,8 @@ namespace eosio {
                  ("num", bh.block_num())("id", blk_id.str().substr(8,16))
                  ("latency", (fc::time_point::now() - bh.timestamp).count()/1000)
                  ("h", my_impl->get_chain_head_num()));
-      if( !my_impl->sync_master->syncing_with_peer() ) { // guard against peer thinking it needs to send us old blocks
+      if( !my_impl->sync_master
+               ->syncing_from_peer() ) { // guard against peer thinking it needs to send us old blocks
          uint32_t lib_num = my_impl->get_chain_lib_num();
          if( blk_num < lib_num ) {
             std::unique_lock<std::mutex> g( conn_mtx );
@@ -2912,7 +2952,7 @@ namespace eosio {
          pending_message_buffer.advance_read_ptr( message_length );
          return true;
       }
-      if (my_impl->sync_master->syncing_with_peer()) {
+      if (my_impl->sync_master->syncing_from_peer()) {
          peer_wlog(this, "syncing, dropping trx");
          return true;
       }
@@ -3057,7 +3097,7 @@ namespace eosio {
       last_handshake_recv = msg;
       g_conn.unlock();
 
-      connecting = false;
+      set_state(connection_state::connected);
       if (msg.generation == 1) {
          if( msg.node_id == my_impl->node_id) {
             peer_elog( this, "Self connection detected node_id ${id}. Closing connection", ("id", msg.node_id) );
@@ -3295,7 +3335,7 @@ namespace eosio {
       // notices of previously unknown blocks or txns,
       //
       peer_dlog( this, "received notice_message" );
-      connecting = false;
+      set_state(connection_state::connected);
       if( msg.known_blocks.ids.size() > 2 ) {
          peer_elog( this, "Invalid notice_message, known_blocks.ids.size ${s}, closing connection",
                     ("s", msg.known_blocks.ids.size()) );
@@ -4294,7 +4334,7 @@ namespace eosio {
             ++num_peers;
          }
 
-         if (!(*it)->socket_is_open() && !(*it)->connecting) {
+         if (!(*it)->socket_is_open() && (*it)->state() != connection::connection_state::connecting) {
             if (!(*it)->incoming()) {
                if (!(*it)->resolve_and_connect()) {
                   it = connections.erase(it);
