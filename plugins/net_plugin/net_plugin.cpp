@@ -1999,7 +1999,7 @@ namespace eosio {
 
    inline block_id_type make_block_id( uint32_t block_num ) {
       chain::block_id_type block_id;
-      block_id._hash[0] += fc::endian_reverse_u32(block_num);
+      block_id._hash[0] = fc::endian_reverse_u32(block_num);
       return block_id;
    }
 
