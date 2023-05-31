@@ -1511,7 +1511,18 @@ void producer_plugin::create_snapshot(producer_plugin::next_function<chain::snap
 }
 
 chain::snapshot_scheduler::snapshot_schedule_result
-producer_plugin::schedule_snapshot(const chain::snapshot_scheduler::snapshot_request_information& sri) {
+producer_plugin::schedule_snapshot(const chain::snapshot_scheduler::snapshot_request_params& srp) {
+   chain::controller& chain = my->chain_plug->chain();
+   const auto head_block_num = chain.head_block_num();
+
+  // missing start/end is set to head block num, missing end to UINT32_MAX
+  chain::snapshot_scheduler::snapshot_request_information sri = {
+      .block_spacing   = srp.block_spacing ? *srp.block_spacing : 0, 
+      .start_block_num = srp.start_block_num ? *srp.start_block_num : head_block_num,
+      .end_block_num   = srp.end_block_num ? *srp.end_block_num : UINT32_MAX - 1,
+      .snapshot_description = srp.snapshot_description ? *srp.snapshot_description : ""
+   };
+
    return my->_snapshot_scheduler.schedule_snapshot(sri);
 }
 

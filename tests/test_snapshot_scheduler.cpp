@@ -8,13 +8,14 @@ using namespace eosio;
 using namespace eosio::chain;
 
 using snapshot_request_information = snapshot_scheduler::snapshot_request_information;
+using snapshot_request_params = snapshot_scheduler::snapshot_request_params;
 using snapshot_request_id_information = snapshot_scheduler::snapshot_request_id_information;
 
 BOOST_AUTO_TEST_SUITE(producer_snapshot_scheduler_tests)
 
 BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
    fc::logger log;
-   producer_plugin scheduler;
+   snapshot_scheduler scheduler;
 
    {
       // add/remove test
@@ -30,19 +31,14 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          return e.to_detail_string().find("Duplicate snapshot request") != std::string::npos;
       });
 
-      snapshot_request_id_information sri_delete_1 = {.snapshot_request_id = 0};
-      scheduler.unschedule_snapshot(sri_delete_1);
-
+      scheduler.unschedule_snapshot(0);
       BOOST_CHECK_EQUAL(1, scheduler.get_snapshot_requests().snapshot_requests.size());
 
-      snapshot_request_id_information sri_delete_none = {.snapshot_request_id = 2};
-      BOOST_CHECK_EXCEPTION(scheduler.unschedule_snapshot(sri_delete_none), snapshot_request_not_found, [](const fc::assert_exception& e) {
+      BOOST_CHECK_EXCEPTION(scheduler.unschedule_snapshot(0), snapshot_request_not_found, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("Snapshot request not found") != std::string::npos;
       });
 
-      snapshot_request_id_information sri_delete_2 = {.snapshot_request_id = 1};
-      scheduler.unschedule_snapshot(sri_delete_2);
-
+      scheduler.unschedule_snapshot(1);
       BOOST_CHECK_EQUAL(0, scheduler.get_snapshot_requests().snapshot_requests.size());
 
       snapshot_request_information sri_large_spacing = {.block_spacing = 1000, .start_block_num = 5000, .end_block_num = 5010};
@@ -104,11 +100,11 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
             }
          });
 
-         snapshot_request_information sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 1"};
-         snapshot_request_information sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2 that will never happen"};
-         snapshot_request_information sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 3 that will expire"};
-         snapshot_request_information sri4 = {.start_block_num = 1, .snapshot_description = "One time snapshot on first block"};
-         snapshot_request_information sri5 = {.block_spacing = 10, .snapshot_description = "Recurring every 10 blocks snapshot starting now"};
+         snapshot_request_params sri1 = {.block_spacing = 8, .start_block_num = 1, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 1"};
+         snapshot_request_params sri2 = {.block_spacing = 5000, .start_block_num = 100000, .end_block_num = 300000, .snapshot_description = "Example of recurring snapshot 2 that will never happen"};
+         snapshot_request_params sri3 = {.block_spacing = 2, .start_block_num = 0, .end_block_num = 3, .snapshot_description = "Example of recurring snapshot 3 that will expire"};
+         snapshot_request_params sri4 = {.start_block_num = 1, .snapshot_description = "One time snapshot on first block"};
+         snapshot_request_params sri5 = {.block_spacing = 10, .snapshot_description = "Recurring every 10 blocks snapshot starting now"};
 
          pp->schedule_snapshot(sri1);
          pp->schedule_snapshot(sri2);
@@ -142,7 +138,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          db.set_path(temp / "snapshots");
          db >> ssi;
          BOOST_CHECK_EQUAL(3, ssi.size());
-         BOOST_CHECK_EQUAL(ssi.begin()->block_spacing, sri1.block_spacing);
+         BOOST_CHECK_EQUAL(ssi.begin()->block_spacing, *sri1.block_spacing);
       } catch(...) {
          throw;
       }

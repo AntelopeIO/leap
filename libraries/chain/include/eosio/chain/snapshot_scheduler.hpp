@@ -38,8 +38,17 @@ public:
    struct snapshot_request_information {
       uint32_t block_spacing = 0;
       uint32_t start_block_num = 0;
-      uint32_t end_block_num = 0;
+      uint32_t end_block_num = UINT32_MAX - 1;
       std::string snapshot_description = "";
+   };
+
+   // this struct used to hold request params in api call
+   // it is differentiate between 0 and empty values
+   struct snapshot_request_params {
+      std::optional<uint32_t> block_spacing;
+      std::optional<uint32_t> start_block_num;
+      std::optional<uint32_t> end_block_num;
+      std::optional<std::string> snapshot_description;
    };
 
    struct snapshot_request_id_information {
@@ -205,6 +214,7 @@ public:
 
 FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_information, (head_block_id) (head_block_num) (head_block_time) (version) (snapshot_name))
 FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_request_information, (block_spacing) (start_block_num) (end_block_num) (snapshot_description))
+FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_request_params, (block_spacing) (start_block_num) (end_block_num) (snapshot_description))
 FC_REFLECT(eosio::chain::snapshot_scheduler::snapshot_request_id_information, (snapshot_request_id))
 FC_REFLECT(eosio::chain::snapshot_scheduler::get_snapshot_requests_result, (snapshot_requests))
 FC_REFLECT_DERIVED(eosio::chain::snapshot_scheduler::snapshot_schedule_information, (eosio::chain::snapshot_scheduler::snapshot_request_id_information)(eosio::chain::snapshot_scheduler::snapshot_request_information), (pending_snapshots))
