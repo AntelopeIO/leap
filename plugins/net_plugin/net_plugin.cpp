@@ -876,6 +876,7 @@ namespace eosio {
       tstamp                         latest_blk_time{0};
 
       bool connected() const;
+      bool closed() const; // socket is not open or is closed or closing, thread safe
       bool current() const;
       bool should_sync_from(uint32_t sync_next_expected_num, uint32_t sync_known_lib_num) const;
 
@@ -1245,6 +1246,12 @@ namespace eosio {
       return socket_is_open() && state() == connection_state::connected;
    }
 
+   bool connection::closed() const {
+      return !socket_is_open()
+             || state() == connection_state::closing
+             || state() == connection_state::closed;
+   }
+
    // thread safe, all atomics
    bool connection::current() const {
       return (connected() && !peer_syncing_from_us);
@@ -1407,7 +1414,7 @@ namespace eosio {
    }
 
    void connection::send_handshake() {
-      if (!connected())
+      if (closed())
          return;
       strand.post( [c = shared_from_this()]() {
          std::unique_lock<std::mutex> g_conn( c->conn_mtx );
@@ -1485,7 +1492,7 @@ namespace eosio {
 
    // called from connection strand
    void connection::do_queue_write() {
-      if( !buffer_queue.ready_to_send() || !connected() )
+      if( !buffer_queue.ready_to_send() || closed() )
          return;
       connection_ptr c(shared_from_this());
 
