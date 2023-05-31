@@ -1518,7 +1518,7 @@ producer_plugin::schedule_snapshot(const chain::snapshot_scheduler::snapshot_req
   // missing start/end is set to head block num, missing end to UINT32_MAX
   chain::snapshot_scheduler::snapshot_request_information sri = {
       .block_spacing   = srp.block_spacing ? *srp.block_spacing : 0, 
-      .start_block_num = srp.start_block_num ? *srp.start_block_num : head_block_num,
+      .start_block_num = srp.start_block_num ? *srp.start_block_num : head_block_num + 1,
       .end_block_num   = srp.end_block_num ? *srp.end_block_num : UINT32_MAX - 1,
       .snapshot_description = srp.snapshot_description ? *srp.snapshot_description : ""
    };
