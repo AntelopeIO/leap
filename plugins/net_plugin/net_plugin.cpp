@@ -767,6 +767,8 @@ namespace eosio {
       void set_connection_type( const string& peer_addr );
       bool is_transactions_only_connection()const { return connection_type == transactions_only; } // thread safe, atomic
       bool is_blocks_only_connection()const { return connection_type == blocks_only; }
+      bool is_transactions_connection() const { return connection_type != blocks_only; } // thread safe, atomic
+      bool is_blocks_connection() const { return connection_type != transactions_only; } // thread safe, atomic
       void set_heartbeat_timeout(std::chrono::milliseconds msec) {
          std::chrono::system_clock::duration dur = msec;
          hb_timeout = dur.count();
@@ -1093,8 +1095,9 @@ namespace eosio {
    void connections_manager::for_each_block_connection( Function&& f ) const {
       std::shared_lock g( connections_mtx );
       for( auto& c : connections ) {
-         if( c->is_transactions_only_connection() ) continue;
-         f( c );
+         if (c->is_blocks_connection()) {
+            f(c);
+         }
       }
    }
 
@@ -1108,9 +1111,10 @@ namespace eosio {
    bool connections_manager::any_of_block_connections(UnaryPredicate&& p) const {
       std::shared_lock g( connections_mtx );
       for( auto& c : connections ) {
-         if( c->is_transactions_only_connection() ) continue;
-         if (p(c))
-            return true;
+         if( c->is_blocks_connection() ) {
+            if (p(c))
+              return true;
+         }
       }
       return false;
    }
@@ -1218,11 +1222,11 @@ namespace eosio {
 
    // thread safe
    bool connection::should_sync_from(uint32_t sync_next_expected_num, uint32_t sync_known_lib_num) const {
-      fc_dlog(logger, "id: ${id} trx_only: ${t} current: ${c} socket_open: ${so} syncing: ${s} connecting: ${con} closing: ${close} peer_start_block: ${sb} peer_head: ${h} latency: ${lat}us no_retry: ${g}",
-              ("id", connection_id)("t", is_transactions_only_connection())
+      fc_dlog(logger, "id: ${id} blocks conn: ${t} current: ${c} socket_open: ${so} syncing: ${s} connecting: ${con} closing: ${close} peer_start_block: ${sb} peer_head: ${h} latency: ${lat}us no_retry: ${g}",
+              ("id", connection_id)("t", is_blocks_connection())
               ("c", current())("so", socket_is_open())("s", syncing.load())("con", connecting.load())("close", closing.load())
               ("sb", peer_start_block_num.load())("h", peer_head_block_num.load())("lat", get_net_latency_ns()/1000)("g", reason_str(no_retry)));
-      if (!is_transactions_only_connection() && current()) {
+      if (is_blocks_connection() && current()) {
          if (no_retry == go_away_reason::no_reason) {
             if (peer_start_block_num <= sync_next_expected_num) { // has blocks we want
                if (peer_head_block_num >= sync_known_lib_num) { // is in sync
@@ -1834,7 +1838,7 @@ namespace eosio {
    connection_ptr sync_manager::find_next_sync_node() {
       fc_dlog(logger, "Number connections ${s}, sync_next_expected_num: ${e}, sync_known_lib_num: ${l}",
               ("s", my_impl->connections.number_connections())("e", sync_next_expected_num)("l", sync_known_lib_num));
-      std::deque<connection_ptr> conns;
+      deque<connection_ptr> conns;
       my_impl->connections.for_each_block_connection([&](const auto& c) {
          if (c->should_sync_from(sync_next_expected_num, sync_known_lib_num)) {
             conns.push_back(c);
@@ -1857,6 +1861,7 @@ namespace eosio {
          return conns.front();
       }
 
+      // keep track of which node was synced from last; round-robin among the current (sync_peer_limit) lowest latency peers
       ++sync_ordinal;
       // example: sync_ordinal is 6 after inc above then there may be connections with 3,4,5.
       // Choose from the lowest sync_ordinal of the sync_peer_limit of lowest latency, note 0 means not synced from yet
@@ -2002,7 +2007,8 @@ namespace eosio {
    // called from c's connection strand
    void sync_manager::recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency ) {
 
-      if( c->is_transactions_only_connection() ) return;
+      if (!c->is_blocks_connection())
+         return;
 
       auto chain_info = my_impl->get_chain_info();
 
@@ -2419,7 +2425,7 @@ namespace eosio {
       trx_buffer_factory buff_factory;
       const fc::time_point_sec now{fc::time_point::now()};
       my_impl->connections.for_each_connection( [this, &trx, &now, &buff_factory]( auto& cp ) {
-         if( cp->is_blocks_only_connection() || !cp->current() ) {
+         if( !cp->is_transactions_connection() || !cp->current() ) {
             return;
          }
          if( !add_peer_txn(trx->id(), trx->expiration(), cp->connection_id, now) ) {
