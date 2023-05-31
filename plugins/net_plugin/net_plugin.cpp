@@ -1902,17 +1902,13 @@ namespace eosio {
        * otherwise select the next available from the list, round-robin style.
        */
 
-      connection_ptr new_sync_source;
-      if (conn && conn->current() ) {
-         new_sync_source = conn;
-      } else {
-         new_sync_source = find_next_sync_node();
-      }
+      connection_ptr new_sync_source = (conn && conn->current()) ? conn :
+                                                                 find_next_sync_node();
 
       // verify there is an available source
       if( !new_sync_source ) {
          fc_elog( logger, "Unable to continue syncing at this time");
-         if( !new_sync_source ) sync_source.reset();
+         sync_source.reset();
          sync_known_lib_num = chain_info.lib_num;
          sync_last_requested_num = 0;
          set_state( in_sync ); // probably not, but we can't do anything else
