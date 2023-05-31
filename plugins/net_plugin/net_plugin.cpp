@@ -1877,6 +1877,7 @@ namespace eosio {
          std::partial_sort(conns.begin(), conns.begin() + sync_peer_limit, conns.end(), [](const connection_ptr& lhs, const connection_ptr& rhs) {
             return lhs->get_net_latency_ns() < rhs->get_net_latency_ns();
          });
+         conns.resize(sync_peer_limit);
       }
 
       fc_dlog(logger, "Valid sync peers ${s}, sync_ordinal ${so}", ("s", conns.size())("so", sync_ordinal.load()));
@@ -1896,7 +1897,7 @@ namespace eosio {
       // Choose from the lowest sync_ordinal of the sync_peer_limit of lowest latency, note 0 means not synced from yet
       size_t the_one = 0;
       uint32_t lowest_ordinal = std::numeric_limits<uint32_t>::max();
-      for (size_t i = 0; i < conns.size() && i < sync_peer_limit && lowest_ordinal != 0; ++i) {
+      for (size_t i = 0; i < conns.size() && lowest_ordinal != 0; ++i) {
          uint32_t sync_ord = conns[i]->sync_ordinal;
          fc_dlog(logger, "compare sync ords, conn: ${lcid}, ord: ${l} < ${r}, latency: ${lat}us",
                  ("lcid", conns[i]->connection_id)("l", sync_ord)("r", lowest_ordinal)("lat", conns[i]->get_net_latency_ns()/1000));
