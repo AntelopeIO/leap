@@ -1266,26 +1266,33 @@ void producer_plugin::plugin_startup()
    }
 
    if ( my->_ro_thread_pool_size > 0 ) {
-      std::atomic<uint32_t> num_threads_started = 0;
+      std::atomic<uint32_t> threads_remaining = my->_ro_thread_pool_size;
+      std::exception_ptr ep;
+      std::mutex ep_mutex;
+      std::promise<void> done_promise;
+
       my->_ro_thread_pool.start( my->_ro_thread_pool_size,
          []( const fc::exception& e ) {
             fc_elog( _log, "Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
             app().quit();
          },
          [&]() {
-            chain.init_thread_local_data();
-            ++num_threads_started;
-         });
+            try {
+               chain.init_thread_local_data();
+            }
+            catch(...) {
+               std::lock_guard<std::mutex> l(ep_mutex);
+               ep = std::current_exception();
+            }
 
-      // This will be changed with std::latch or std::atomic<>::wait
-      // when C++20 is used.
-      auto time_slept_ms = 0;
-      constexpr auto max_time_slept_ms = 1000;
-      while ( num_threads_started.load() < my->_ro_thread_pool_size && time_slept_ms < max_time_slept_ms ) {
-         std::this_thread::sleep_for( 1ms );
-         ++time_slept_ms;
-      }
-      EOS_ASSERT(num_threads_started.load() == my->_ro_thread_pool_size, producer_exception, "read-only threads failed to start. num_threads_started: ${n}, time_slept_ms: ${t}ms", ("n", num_threads_started.load())("t", time_slept_ms));
+            if(threads_remaining.fetch_sub(1u) == 1u) {
+               if(ep)
+                  done_promise.set_exception(ep);
+               else
+                  done_promise.set_value();
+            }
+         });
+      done_promise.get_future().wait();
 
       my->start_write_window();
    }
