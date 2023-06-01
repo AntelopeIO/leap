@@ -31,3 +31,6 @@
 [submodule "libraries/cli11/cli11"]
 	path = libraries/cli11/cli11
 	url = https://github.com/AntelopeIO/CLI11.git
+[submodule "libraries/libfc/external/boringssl"]
+	path = libraries/libfc/external/boringssl
+	url = https://boringssl.googlesource.com/boringssl

@@ -1,0 +1,7 @@
+add_subdirectory(boringssl EXCLUDE_FROM_ALL)
+target_compile_options(fipsmodule PRIVATE -Wno-error)
+target_compile_options(crypto PRIVATE -Wno-error)
+target_compile_options(decrepit PRIVATE -Wno-error)
+add_library(boringssl INTERFACE)
+target_link_libraries(boringssl INTERFACE crypto decrepit)
+target_include_directories(boringssl INTERFACE boringssl/include)
