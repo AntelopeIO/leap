@@ -985,7 +985,6 @@ public:
    void enable_accept_transactions();
 
    static void handle_guard_exception(const chain::guard_exception& e);
-   void do_hard_replay(const variables_map& options);
 
    bool account_queries_enabled() const;
    bool transaction_finality_status_enabled() const;
@@ -996,9 +995,7 @@ public:
    fc::variant get_log_trx(const transaction& trx) const;
 
    const controller::config& chain_config() const;
-
 private:
-   static void log_guard_exception(const chain::guard_exception& e);
 
    unique_ptr<class chain_plugin_impl> my;
 };
