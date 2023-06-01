@@ -242,8 +242,6 @@ namespace eosio {
       void sync_reassign_fetch( const connection_ptr& c, go_away_reason reason );
       void rejected_block( const connection_ptr& c, uint32_t blk_num );
       void sync_recv_block( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied );
-      void sync_net_recv_block( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num ); // not processed
-      void sync_update_expected( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied );
       void recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency );
       void sync_recv_notice( const connection_ptr& c, const notice_message& msg );
       inline void reset_last_requested_num() {
@@ -1997,7 +1995,7 @@ namespace eosio {
                ("head", fork_head_block_num ) );
 
       return( sync_last_requested_num < sync_known_lib_num ||
-              fork_head_block_num < sync_last_requested_num );
+              sync_next_expected_num < sync_last_requested_num );
    }
 
    // called from c's connection strand
@@ -2224,7 +2222,9 @@ namespace eosio {
             c->last_handshake_recv.last_irreversible_block_num = msg.known_trx.pending;
          }
          sync_reset_lib_num(c, false);
-         start_sync(c, msg.known_trx.pending);
+         if (is_in_sync()) {
+            start_sync(c, msg.known_trx.pending);
+         }
       }
    }
 
@@ -2245,22 +2245,6 @@ namespace eosio {
       }
    }
 
-   // called from connection strand
-   void sync_manager::sync_update_expected( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied ) {
-      std::unique_lock<std::mutex> g_sync( sync_mtx );
-      if( blk_num <= sync_last_requested_num ) {
-         peer_dlog( c, "sync_last_requested_num: ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}",
-                  ("r", sync_last_requested_num)("e", sync_next_expected_num)("k", sync_known_lib_num)("s", sync_req_span) );
-         if (blk_num != sync_next_expected_num && !blk_applied) {
-            auto sync_next_expected = sync_next_expected_num;
-            g_sync.unlock();
-            peer_dlog( c, "expected block ${ne} but got ${bn}", ("ne", sync_next_expected)("bn", blk_num) );
-            return;
-         }
-         sync_next_expected_num = blk_num + 1;
-      }
-   }
-
    // called from c's connection strand
    void sync_manager::sync_recv_block(const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied) {
       peer_dlog( c, "got block ${bn}", ("bn", blk_num) );
@@ -2270,12 +2254,9 @@ namespace eosio {
       }
       c->block_status_monitor_.accepted();
       stages state = sync_state;
-      if (state != lib_catchup) {
-         sync_update_expected(c, blk_id, blk_num, blk_applied);
-      }
-      std::unique_lock<std::mutex> g_sync( sync_mtx );
       peer_dlog( c, "state ${s}", ("s", stage_str( state )) );
       if( state == head_catchup ) {
+         std::unique_lock g_sync( sync_mtx );
          peer_dlog( c, "sync_manager in head_catchup state" );
          sync_source.reset();
          g_sync.unlock();
@@ -2309,30 +2290,31 @@ namespace eosio {
             send_handshakes();
          }
       } else if( state == lib_catchup ) {
-         if( blk_num >= sync_known_lib_num ) {
+         std::unique_lock g_sync( sync_mtx );
+         if( blk_applied && blk_num >= sync_known_lib_num ) {
             peer_dlog( c, "All caught up with last known last irreversible block resending handshake" );
             set_state( in_sync );
             g_sync.unlock();
             send_handshakes();
-         } else if( blk_num >= sync_last_requested_num ) {
+         } else if( blk_applied && blk_num >= sync_last_requested_num ) {
+            sync_next_expected_num = blk_num + 1;
             request_next_chunk( std::move( g_sync) );
          } else {
+            sync_next_expected_num = blk_num + 1;
+            uint32_t head = my_impl->get_chain_head_num();
+            if (head + sync_req_span > sync_last_requested_num) { // don't allow to get too far head (one sync_req_span)
+               if (blk_num >= sync_last_requested_num && sync_last_requested_num < sync_known_lib_num) {
+                  if (head < blk_num - sync_req_span) {
+                     fc_elog(logger, "requesting chunk ahead of time, head: ${h} blk_num: ${bn} sync_next_expected_num ${nen} sync_last_requested_num: ${lrn}",
+                             ("h", head)("bn", blk_num)("nen", sync_next_expected_num)("lrn", sync_last_requested_num));
+                  }
+                  request_next_chunk(std::move(g_sync));
+               }
+            }
+
             g_sync.unlock();
             peer_dlog( c, "calling sync_wait" );
             c->sync_wait();
-         }
-      }
-   }
-
-   void sync_manager::sync_net_recv_block( const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num ) {
-      uint32_t head = my_impl->get_chain_head_num();
-      std::unique_lock g_sync( sync_mtx );
-      if (head + sync_req_span > sync_last_requested_num) { // don't allow to get too far head (one sync_req_span)
-         if (blk_num < sync_known_lib_num && blk_num >= sync_last_requested_num) {
-            fc_elog( logger, "requesting chunk ahead of time, head: ${h} blk_num: ${bn} sync_next_expected_num ${nen} sync_last_requested_num: ${lrn} ",
-                    ("h", head)("bn", blk_num)("nen", sync_next_expected_num)("lrn", sync_last_requested_num));
-            sync_next_expected_num = blk_num + 1;
-            request_next_chunk(std::move(g_sync));
          }
       }
    }
@@ -2896,8 +2878,7 @@ namespace eosio {
                  ("num", bh.block_num())("id", blk_id.str().substr(8,16))
                  ("latency", (fc::time_point::now() - bh.timestamp).count()/1000)
                  ("h", my_impl->get_chain_head_num()));
-      if( !my_impl->sync_master
-               ->syncing_from_peer() ) { // guard against peer thinking it needs to send us old blocks
+      if( !my_impl->sync_master->syncing_from_peer() ) { // guard against peer thinking it needs to send us old blocks
          uint32_t lib_num = my_impl->get_chain_lib_num();
          if( blk_num < lib_num ) {
             std::unique_lock<std::mutex> g( conn_mtx );
@@ -2915,7 +2896,7 @@ namespace eosio {
             return true;
          }
       } else {
-         my_impl->sync_master->sync_net_recv_block(shared_from_this(), blk_id, blk_num);
+         my_impl->sync_master->sync_recv_block(shared_from_this(), blk_id, blk_num, false);
       }
 
       auto ds = pending_message_buffer.create_datastream();
@@ -3560,7 +3541,7 @@ namespace eosio {
             c->strand.post( [sync_master = my_impl->sync_master.get(),
                              dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num]() {
                dispatcher->add_peer_block( blk_id, c->connection_id );
-               sync_master->sync_recv_block( c, blk_id, blk_num, false );
+               sync_master->sync_recv_block( c, blk_id, blk_num, true );
             });
             return;
          }
