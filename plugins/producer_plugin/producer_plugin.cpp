@@ -1024,9 +1024,9 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    chain_plug = app().find_plugin<chain_plugin>();
    EOS_ASSERT(chain_plug, plugin_config_exception, "chain_plugin not found" );
    _options = &options;
-   LOAD_VALUE_SET(options, "producer-name", _producers)
+   LOAD_VALUE_SET(options, "producer-name", _producers);
 
-      chain::controller& chain = chain_plug->chain();
+   chain::controller& chain = chain_plug->chain();
 
    if (options.count("signature-provider")) {
       const std::vector<std::string> key_spec_pairs = options["signature-provider"].as<std::vector<std::string>>();
@@ -1277,93 +1277,86 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 using namespace std::chrono_literals;
 void producer_plugin_impl::plugin_startup() {
    try {
-      try {
-         ilog("producer plugin:  plugin_startup() begin");
+      ilog("producer plugin:  plugin_startup() begin");
 
-         _thread_pool.start(_thread_pool_size, [](const fc::exception& e) {
-            fc_elog(_log, "Exception in producer thread pool, exiting: ${e}", ("e", e.to_detail_string()));
+      _thread_pool.start(_thread_pool_size, [](const fc::exception& e) {
+         fc_elog(_log, "Exception in producer thread pool, exiting: ${e}", ("e", e.to_detail_string()));
+         app().quit();
+      });
+
+
+      chain::controller& chain = chain_plug->chain();
+      EOS_ASSERT(_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
+                 "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"");
+
+      EOS_ASSERT(_producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL, plugin_config_exception,
+                 "node cannot have any producer-name configured because block production is not safe when validation_mode is not \"full\"");
+
+      EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
+                 "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
+
+      _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
+      _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));
+      _irreversible_block_connection.emplace(chain.irreversible_block.connect([this](const auto& bsp) { on_irreversible_block(bsp->block); }));
+
+      _block_start_connection.emplace(chain.block_start.connect([this, &chain](uint32_t bs) {
+         try {
+            _snapshot_scheduler.on_start_block(bs, chain);
+         } catch (const snapshot_execution_exception& e) {
+            fc_elog(_log, "Exception during snapshot execution: ${e}", ("e", e.to_detail_string()));
             app().quit();
-         });
-
-
-         chain::controller& chain = chain_plug->chain();
-         EOS_ASSERT(_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
-                    "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"");
-
-         EOS_ASSERT(_producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL, plugin_config_exception,
-                    "node cannot have any producer-name configured because block production is not safe when validation_mode is not \"full\"");
-
-         EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
-                    "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
-
-         _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
-         _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));
-         _irreversible_block_connection.emplace(
-            chain.irreversible_block.connect([this](const auto& bsp) { on_irreversible_block(bsp->block); }));
-
-         _block_start_connection.emplace(chain.block_start.connect([this, &chain](uint32_t bs) {
-            try {
-               _snapshot_scheduler.on_start_block(bs, chain);
-            } catch (const snapshot_execution_exception& e) {
-               fc_elog(_log, "Exception during snapshot execution: ${e}", ("e", e.to_detail_string()));
-               app().quit();
-            }
-         }));
-
-         const auto lib_num = chain.last_irreversible_block_num();
-         const auto lib     = chain.fetch_block_by_number(lib_num);
-         if (lib) {
-            on_irreversible_block(lib);
-         } else {
-            _irreversible_block_time = fc::time_point::maximum();
          }
+      }));
 
-         if (!_producers.empty()) {
-            ilog("Launching block production for ${n} producers at ${time}.", ("n", _producers.size())("time", fc::time_point::now()));
-
-            if (_production_enabled) {
-               if (chain.head_block_num() == 0) {
-                  new_chain_banner(chain);
-               }
-            }
-         }
-
-         if (_ro_thread_pool_size > 0) {
-            std::atomic<uint32_t> num_threads_started = 0;
-            _ro_thread_pool.start(
-               _ro_thread_pool_size,
-               [](const fc::exception& e) {
-                  fc_elog(_log, "Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()));
-                  app().quit();
-               },
-               [&]() {
-                  chain.init_thread_local_data();
-                  ++num_threads_started;
-               });
-
-            // This will be changed with std::latch or std::atomic<>::wait
-            // when C++20 is used.
-            auto           time_slept_ms     = 0;
-            constexpr auto max_time_slept_ms = 1000;
-            while (num_threads_started.load() < _ro_thread_pool_size && time_slept_ms < max_time_slept_ms) {
-               std::this_thread::sleep_for(1ms);
-               ++time_slept_ms;
-            }
-            EOS_ASSERT(num_threads_started.load() == _ro_thread_pool_size, producer_exception,
-                       "read-only threads failed to start. num_threads_started: ${n}, time_slept_ms: ${t}ms",
-                       ("n", num_threads_started.load())("t", time_slept_ms));
-
-            start_write_window();
-         }
-
-         schedule_production_loop();
-
-         ilog("producer plugin:  plugin_startup() end");
-      } catch (...) {
-         // always call plugin_shutdown, even on exception
-         plugin_shutdown();
-         throw;
+      const auto lib_num = chain.last_irreversible_block_num();
+      const auto lib     = chain.fetch_block_by_number(lib_num);
+      if (lib) {
+         on_irreversible_block(lib);
+      } else {
+         _irreversible_block_time = fc::time_point::maximum();
       }
+
+      if (!_producers.empty()) {
+         ilog("Launching block production for ${n} producers at ${time}.", ("n", _producers.size())("time", fc::time_point::now()));
+
+         if (_production_enabled) {
+            if (chain.head_block_num() == 0) {
+               new_chain_banner(chain);
+            }
+         }
+      }
+
+      if (_ro_thread_pool_size > 0) {
+         std::atomic<uint32_t> num_threads_started = 0;
+         _ro_thread_pool.start(
+            _ro_thread_pool_size,
+            [](const fc::exception& e) {
+               fc_elog(_log, "Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()));
+               app().quit();
+            },
+            [&]() {
+               chain.init_thread_local_data();
+               ++num_threads_started;
+            });
+
+         // This will be changed with std::latch or std::atomic<>::wait
+         // when C++20 is used.
+         auto           time_slept_ms     = 0;
+         constexpr auto max_time_slept_ms = 1000;
+         while (num_threads_started.load() < _ro_thread_pool_size && time_slept_ms < max_time_slept_ms) {
+            std::this_thread::sleep_for(1ms);
+            ++time_slept_ms;
+         }
+         EOS_ASSERT(num_threads_started.load() == _ro_thread_pool_size, producer_exception,
+                    "read-only threads failed to start. num_threads_started: ${n}, time_slept_ms: ${t}ms",
+                    ("n", num_threads_started.load())("t", time_slept_ms));
+
+         start_write_window();
+      }
+
+      schedule_production_loop();
+
+      ilog("producer plugin:  plugin_startup() end");
    }
    FC_CAPTURE_AND_RETHROW()
 }
