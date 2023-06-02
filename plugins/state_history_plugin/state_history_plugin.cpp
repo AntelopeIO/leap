@@ -76,7 +76,7 @@ public:
    void plugin_initialize(const variables_map& options);
    void plugin_startup();
    void plugin_shutdown();
-   session_manager& session_manager() { return session_mgr; }
+   session_manager& get_session_manager() { return session_mgr; }
 
    static fc::logger& get_logger() { return _log; }
 
@@ -181,7 +181,7 @@ public:
       // this method is called from the main thread and "plugin_started" is set on the main thread as well when plugin is started 
       if (plugin_started) {
          boost::asio::post(get_ship_executor(), [self = this->shared_from_this(), block_state]() {
-            self->session_manager().send_update(block_state);
+            self->get_session_manager().send_update(block_state);
          });
       }
 
@@ -249,8 +249,8 @@ struct ship_listener : fc::listener<ship_listener<Protocol>, Protocol> {
       // Create a session object and run it
       catch_and_log([&] {
          auto s = std::make_shared<session<state_history_plugin_impl, socket_type>>(
-            state_, std::move(socket), state_.session_manager());
-         state_.session_manager().insert(s);
+            state_, std::move(socket), state_.get_session_manager());
+         state_.get_session_manager().insert(s);
          s->start();
       });
    }
