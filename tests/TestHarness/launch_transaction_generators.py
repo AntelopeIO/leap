@@ -16,7 +16,7 @@ Print = Utils.Print
 
 class TpsTrxGensConfig:
 
-    def __init__(self, targetTps: int, tpsLimitPerGenerator: int, connectionPairList: list, endpointApi: str):
+    def __init__(self, targetTps: int, tpsLimitPerGenerator: int, connectionPairList: list, endpointApiType: str):
         self.targetTps: int = targetTps
         self.tpsLimitPerGenerator: int = tpsLimitPerGenerator
         self.connectionPairList = connectionPairList
@@ -27,7 +27,7 @@ class TpsTrxGensConfig:
         self.modTps = self.targetTps % self.numGenerators
         self.cleanlyDivisible = self.modTps == 0
         self.incrementPoint = self.numGenerators + 1 - self.modTps
-        self.endpointApi = endpointApi
+        self.endpointApiType = endpointApiType
 
         self.targetTpsPerGenList = []
         curTps = self.initialTpsPerGenerator
@@ -68,7 +68,7 @@ class TransactionGeneratorsLauncher:
                                 '--trx-gen-duration', f'{self.trxGenDurationSec}',
                                 '--target-tps', f'{targetTps}',
                                 '--log-dir', f'{self.logDir}',
-                                '--peer-endpoint-type', f'{self.tpsTrxGensConfig.endpointApi}',
+                                '--peer-endpoint-type', f'{self.tpsTrxGensConfig.endpointApiType}',
                                 '--peer-endpoint', f'{connectionPair[0]}',
                                 '--port', f'{connectionPair[1]}']
             if self.abiFile is not None and self.actionsData is not None and self.actionsAuths is not None:
@@ -106,10 +106,11 @@ def parseArgs():
     parser.add_argument("actions_data", type=str, help="The json actions data file or json actions data description string to use")
     parser.add_argument("actions_auths", type=str, help="The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.")
     parser.add_argument("connection_pair_list", type=str, help="Comma separated list of endpoint:port combinations to send transactions to", default="localhost:9876")
-    parser.add_argument("endpoint_api", type=str, help="Endpoint API mode (\"p2p\", \"http\"). \
-                                                        In \"p2p\" mode transactions will be directed to the p2p endpoint on a producer node. \
-                                                        In \"http\" mode transactions will be directed to the http endpoint on an api node.",
-                                                        choices=["p2p", "http"], default="p2p")
+    parser.add_argument("endpoint_api_type", type=str, help="Endpoint API mode (\"p2p\", \"http\"). \
+                                                            In \"p2p\" mode transactions will be directed to the p2p endpoint on a producer node. \
+                                                            In \"http\" mode transactions will be directed to the http endpoint on an api node.",
+                                                            choices=["p2p", "http"], default="p2p")
+
     args = parser.parse_args()
     return args
 
@@ -123,7 +124,7 @@ def main():
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
                                                    abiFile=args.abi_file, actionsData=args.actions_data, actionsAuths=args.actions_auths,
                                                    tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                                                                     connectionPairList=connectionPairList, endpointApi=args.endpoint_api))
+                                                                                     connectionPairList=connectionPairList, endpointApiType=args.endpoint_api_type))
 
 
     exit_codes = trxGenLauncher.launch()

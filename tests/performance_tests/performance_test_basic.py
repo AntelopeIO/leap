@@ -165,7 +165,7 @@ class PerformanceTestBasic:
         expectedTransactionsSent: int = field(default_factory=int, init=False)
         printMissingTransactions: bool=False
         userTrxDataFile: Path=None
-        endpointApi: str="p2p"
+        endpointApiType: str="p2p"
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
@@ -387,10 +387,10 @@ class PerformanceTestBasic:
         self.connectionPairList = []
 
         def configureConnections():
-            if(self.ptbConfig.endpointApi == "http"):
+            if(self.ptbConfig.endpointApiType == "http"):
                 for apiNodeId in self.clusterConfig._apiNodeIds:
                     self.connectionPairList.append(f"{self.cluster.getNode(apiNodeId).host}:{self.cluster.getNode(apiNodeId).port}")
-            else: # endpointApi == p2p
+            else: # endpointApiType == p2p
                 for producerId in self.clusterConfig._producerNodeIds:
                     self.connectionPairList.append(f"{self.cluster.getNode(producerId).host}:{self.cluster.getNodeP2pPort(producerId)}")
 
@@ -439,7 +439,7 @@ class PerformanceTestBasic:
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
-        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator, connectionPairList=self.connectionPairList, endpointApi=self.ptbConfig.endpointApi)
+        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator, connectionPairList=self.connectionPairList, endpointApiType=self.ptbConfig.endpointApiType)
 
         self.cluster.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.account.name,
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
@@ -484,9 +484,9 @@ class PerformanceTestBasic:
             print(f"Failed to move '{self.cluster.nodeosLogPath}' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
     def createReport(self, logAnalysis: log_reader.LogAnalysis, tpsTestConfig: log_reader.TpsTestConfig, argsDict: dict, nodeosVers: str,
-                     targetApiEndpoint: str, testResult: PerfTestBasicResult) -> dict:
+                     targetApiEndpointType: str, testResult: PerfTestBasicResult) -> dict:
         report = {}
-        report['targetApiEndpoint'] = targetApiEndpoint
+        report['targetApiEndpointType'] = targetApiEndpointType
         report['Result'] = asdict(testResult)
         report['Analysis'] = {}
         report['Analysis']['BlockSize'] = asdict(logAnalysis.blockSizeStats)
@@ -551,7 +551,7 @@ class PerformanceTestBasic:
         print(f"testRunSuccessful: {self.testResult.testRunSuccessful} testPassed: {self.testResult.testPassed} tpsExpectationMet: {self.testResult.tpsExpectMet} trxExpectationMet: {self.testResult.trxExpectMet}")
 
         self.report = self.createReport(logAnalysis=self.logAnalysis, tpsTestConfig=tpsTestConfig, argsDict=args, nodeosVers=self.clusterConfig.nodeosVers,
-                                        targetApiEndpoint=self.ptbConfig.endpointApi, testResult=self.testResult)
+                                        targetApiEndpointType=self.ptbConfig.endpointApiType, testResult=self.testResult)
 
         jsonReport = None
         if not self.ptbConfig.quiet or not self.ptbConfig.delReport:
@@ -653,7 +653,7 @@ class PtbArgumentsHandler(object):
         ptbBaseGrpDescription="Performance Test Basic base configuration items."
         ptbBaseParserGroup = ptbBaseParser.add_argument_group(title=None if suppressHelp else ptbBaseGrpTitle, description=None if suppressHelp else ptbBaseGrpDescription)
 
-        ptbBaseParserGroup.add_argument("--endpoint-api", type=str, help=argparse.SUPPRESS if suppressHelp else "Endpointt API mode (\"p2p\", \"http\"). \
+        ptbBaseParserGroup.add_argument("--endpoint-api-type", type=str, help=argparse.SUPPRESS if suppressHelp else "Endpointt API mode (\"p2p\", \"http\"). \
                                                                 In \"p2p\" mode transactions will be directed to the p2p endpoint on a producer node. \
                                                                 In \"http\" mode transactions will be directed to the http endpoint on an api node.",
                                                                 choices=["p2p", "http"], default=defEndpointApiDef)
@@ -760,7 +760,7 @@ def main():
                                                delPerfLogs=args.del_perf_logs,
                                                printMissingTransactions=args.print_missing_transactions,
                                                userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None,
-                                               endpointApi=args.endpoint_api)
+                                               endpointApiType=args.endpoint_api_type)
 
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
 

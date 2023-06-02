@@ -459,7 +459,7 @@ Advanced Configuration Options:
 ```
 usage: performance_test.py testBpOpMode overrideBasicTestConfig
        [-h] [-d D] [--dump-error-details] [-v] [--leave-running] [--unshared]
-       [--endpoint-api {p2p,http}]
+       [--endpoint-api-type {p2p,http}]
        [--producer-nodes PRODUCER_NODES] [--validation-nodes VALIDATION_NODES] [--api-nodes API_NODES]
        [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
        [--genesis GENESIS] [--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE]
@@ -508,7 +508,7 @@ Test Helper Arguments:
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
-  --endpoint-api {p2p,http}
+  --endpoint-api-type {p2p,http}
                         Endpointt API mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
   --producer-nodes PRODUCER_NODES
                         Producing nodes count
@@ -604,7 +604,7 @@ The following scripts are typically used by the Performance Harness main script 
   usage: performance_test_basic.py [-h] [-d D]
                                   [--dump-error-details] [-v] [--leave-running]
                                   [--unshared]
-                                  [--endpoint-api {p2p,http}]
+                                  [--endpoint-api-type {p2p,http}]
                                   [--producer-nodes PRODUCER_NODES]
                                   [--validation-nodes VALIDATION_NODES]
                                   [--api-nodes API_NODES]
@@ -662,7 +662,7 @@ Test Helper Arguments:
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
-  --endpoint-api {p2p,http}
+  --endpoint-api-type {p2p,http}
                         Endpointt API mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
                         (default: p2p)
   --producer-nodes PRODUCER_NODES
@@ -1729,7 +1729,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "calcChainThreads": "lmax",
     "calcNetThreads": "lmax",
     "userTrxDataFile": null,
-    "endpointApi": "p2p",
+    "endpointApiType": "p2p",
     "opModeCmd": "testBpOpMode",
     "logDirBase": "performance_test",
     "logDirTimestamp": "2023-05-17_21-28-39",
@@ -1758,7 +1758,7 @@ The Performance Test Basic generates, by default, a report that details results 
 
 ``` json
 {
-  "targetApiEndpoint": "p2p",
+  "targetApiEndpointType": "p2p",
   "Result": {
     "testStart": "2023-05-17T23:05:38.835496",
     "testEnd": "2023-05-17T23:07:01.937623",
@@ -2393,7 +2393,7 @@ The Performance Test Basic generates, by default, a report that details results 
     "expectedTransactionsSent": 140010,
     "printMissingTransactions": false,
     "userTrxDataFile": null,
-    "endpointApi": "p2p",
+    "endpointApiType": "p2p",
     "logDirBase": "performance_test/2023-05-17_21-28-39/testRunLogs/performance_test",
     "logDirTimestamp": "2023-05-17_23-05-38",
     "logDirTimestampedOptSuffix": "-14001",
