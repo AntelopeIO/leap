@@ -153,9 +153,9 @@ struct listener : listener_base<Protocol>, std::enable_shared_from_this<listener
 /// @tparam Protocol either \c boost::asio::ip::tcp or \c boost::asio::local::stream_protocol
 /// @throws std::system_error or boost::system::system_error
 template <typename Protocol, typename CreateSession>
-void create_listener(boost::asio::io_context& executor, logger& logger,
-                            boost::posix_time::time_duration accept_timeout, const std::string& address,
-                            const std::string& extra_listening_log_info, const CreateSession& create_session) {
+void create_listener(boost::asio::io_context& executor, logger& logger, boost::posix_time::time_duration accept_timeout,
+                     const std::string& address, const std::string& extra_listening_log_info,
+                     const CreateSession& create_session) {
    using tcp = boost::asio::ip::tcp;
    if constexpr (std::is_same_v<Protocol, tcp>) {
       auto [host, port] = split_host_port(address);
@@ -245,8 +245,9 @@ void create_listener(boost::asio::io_context& executor, logger& logger,
          throw std::system_error(std::make_error_code(std::errc::address_in_use));
       }
       // socket exists but no one home, go ahead and remove it and continue on
-      else if (ec == boost::system::errc::connection_refused)
+      else if (ec == boost::system::errc::connection_refused) {
          fs::remove(sock_path);
+      }
 
       auto listener = std::make_shared<fc::listener<stream_protocol, CreateSession>>(
             executor, logger, accept_timeout, address, endpoint, extra_listening_log_info, create_session);
