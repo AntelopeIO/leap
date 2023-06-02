@@ -24,17 +24,18 @@ void snapshot_scheduler::on_start_block(uint32_t height, chain::controller& chai
    std::vector<uint32_t> unschedule_snapshot_request_ids;
    for(const auto& req: _snapshot_requests.get<0>()) {
       // -1 since its called from start block
-      bool recurring_snapshot = req.block_spacing && (height >= req.start_block_num + 1) && (!((height - req.start_block_num - 1) % req.block_spacing));
-      bool onetime_snapshot = (!req.block_spacing) && (height == req.start_block_num + 1);
+      bool recurring_snapshot  = req.block_spacing && (height >= req.start_block_num + 1) && (!((height - req.start_block_num - 1) % req.block_spacing));
+      bool onetime_snapshot    = (!req.block_spacing) && (height == req.start_block_num + 1);
+      
+      bool marked_for_deletion = ((!req.block_spacing) && (height >= req.start_block_num + 1)) || // if one time snapshot executed or scheduled for the past, it should be gone
+                                 (height > 0 && ((height-1) >= req.end_block_num));               // any snapshot can expire by end block num (end_block_num can be max value)
 
       if(recurring_snapshot || onetime_snapshot) {
          execute_snapshot_with_log(req);
       }
 
       // cleanup - remove expired (or invalid) request
-      if((!req.start_block_num && !req.block_spacing) ||
-         (!req.block_spacing && height >= (req.start_block_num + 1)) ||
-         (req.end_block_num > 0 && height >= (req.end_block_num + 1))) {
+      if(marked_for_deletion) {
          unschedule_snapshot_request_ids.push_back(req.snapshot_request_id);
       }
    }

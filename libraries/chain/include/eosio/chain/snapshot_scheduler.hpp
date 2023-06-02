@@ -20,6 +20,8 @@
 #include <boost/property_tree/json_parser.hpp>
 #include <boost/property_tree/ptree.hpp>
 
+#include <limits>
+
 namespace eosio::chain {
 
 namespace bmi = boost::multi_index;
@@ -38,7 +40,7 @@ public:
    struct snapshot_request_information {
       uint32_t block_spacing = 0;
       uint32_t start_block_num = 0;
-      uint32_t end_block_num = UINT32_MAX - 1;
+      uint32_t end_block_num = std::numeric_limits<uint32_t>::max();
       std::string snapshot_description = "";
    };
 
