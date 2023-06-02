@@ -1266,33 +1266,14 @@ void producer_plugin::plugin_startup()
    }
 
    if ( my->_ro_thread_pool_size > 0 ) {
-      std::atomic<uint32_t> threads_remaining = my->_ro_thread_pool_size;
-      std::exception_ptr ep;
-      std::mutex ep_mutex;
-      std::promise<void> done_promise;
-
       my->_ro_thread_pool.start( my->_ro_thread_pool_size,
          []( const fc::exception& e ) {
             fc_elog( _log, "Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
             app().quit();
          },
          [&]() {
-            try {
-               chain.init_thread_local_data();
-            }
-            catch(...) {
-               std::lock_guard<std::mutex> l(ep_mutex);
-               ep = std::current_exception();
-            }
-
-            if(threads_remaining.fetch_sub(1u) == 1u) {
-               if(ep)
-                  done_promise.set_exception(ep);
-               else
-                  done_promise.set_value();
-            }
+            chain.init_thread_local_data();
          });
-      done_promise.get_future().wait();
 
       my->start_write_window();
    }
