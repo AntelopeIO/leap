@@ -2322,10 +2322,8 @@ namespace eosio {
             uint32_t head = my_impl->get_chain_head_num();
             if (head + sync_req_span > sync_last_requested_num) { // don't allow to get too far head (one sync_req_span)
                if (sync_next_expected_num > sync_last_requested_num && sync_last_requested_num < sync_known_lib_num) {
-                  if (head < sync_next_expected_num - sync_req_span) {
-                     fc_elog(logger, "requesting chunk ahead of time, head: ${h} blk_num: ${bn} sync_next_expected_num ${nen} sync_last_requested_num: ${lrn}",
-                             ("h", head)("bn", blk_num)("nen", sync_next_expected_num)("lrn", sync_last_requested_num));
-                  }
+                  fc_dlog(logger, "Requesting range ahead, head: ${h} blk_num: ${bn} sync_next_expected_num ${nen} sync_last_requested_num: ${lrn}",
+                          ("h", head)("bn", blk_num)("nen", sync_next_expected_num)("lrn", sync_last_requested_num));
                   request_next_chunk(std::move(g_sync));
                }
             }
