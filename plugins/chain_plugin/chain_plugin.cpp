@@ -185,6 +185,16 @@ public:
    std::optional<chain_apis::account_query_db>                        _account_query_db;
    std::optional<chain_apis::trx_retry_db>                            _trx_retry_db;
    chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
+
+   static void handle_guard_exception(const chain::guard_exception& e);
+   void do_hard_replay(const variables_map& options);
+   void enable_accept_transactions();
+   void plugin_initialize(const variables_map& options);
+   void plugin_startup();
+   void plugin_shutdown();
+
+private:
+   static void log_guard_exception(const chain::guard_exception& e);
 };
 
 chain_plugin::chain_plugin()
@@ -449,15 +459,14 @@ namespace {
 }
 
 void
-chain_plugin::do_hard_replay(const variables_map& options) {
+chain_plugin_impl::do_hard_replay(const variables_map& options) {
          ilog( "Hard replay requested: deleting state database" );
-         clear_directory_contents( my->chain_config->state_dir );
-         auto backup_dir = block_log::repair_log( my->blocks_dir, options.at( "truncate-at-block" ).as<uint32_t>(), config::reversible_blocks_dir_name);
+         clear_directory_contents( chain_config->state_dir );
+         auto backup_dir = block_log::repair_log( blocks_dir, options.at( "truncate-at-block" ).as<uint32_t>(), config::reversible_blocks_dir_name);
 }
 
-void chain_plugin::plugin_initialize(const variables_map& options) {
+void chain_plugin_impl::plugin_initialize(const variables_map& options) {
    try {
-      handle_sighup(); // Sets loggers
       ilog("initializing chain plugin");
 
       try {
@@ -468,7 +477,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          throw;
       }
 
-      my->chain_config = controller::config();
+      chain_config = controller::config();
 
       if( options.at( "print-build-info" ).as<bool>() || options.count( "extract-build-info") ) {
          if( options.at( "print-build-info" ).as<bool>() ) {
@@ -492,17 +501,17 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          EOS_THROW( node_management_success, "reported build environment information" );
       }
 
-      LOAD_VALUE_SET( options, "sender-bypass-whiteblacklist", my->chain_config->sender_bypass_whiteblacklist );
-      LOAD_VALUE_SET( options, "actor-whitelist", my->chain_config->actor_whitelist );
-      LOAD_VALUE_SET( options, "actor-blacklist", my->chain_config->actor_blacklist );
-      LOAD_VALUE_SET( options, "contract-whitelist", my->chain_config->contract_whitelist );
-      LOAD_VALUE_SET( options, "contract-blacklist", my->chain_config->contract_blacklist );
+      LOAD_VALUE_SET( options, "sender-bypass-whiteblacklist", chain_config->sender_bypass_whiteblacklist );
+      LOAD_VALUE_SET( options, "actor-whitelist", chain_config->actor_whitelist );
+      LOAD_VALUE_SET( options, "actor-blacklist", chain_config->actor_blacklist );
+      LOAD_VALUE_SET( options, "contract-whitelist", chain_config->contract_whitelist );
+      LOAD_VALUE_SET( options, "contract-blacklist", chain_config->contract_blacklist );
 
-      LOAD_VALUE_SET( options, "trusted-producer", my->chain_config->trusted_producers );
+      LOAD_VALUE_SET( options, "trusted-producer", chain_config->trusted_producers );
 
       if( options.count( "action-blacklist" )) {
          const std::vector<std::string>& acts = options["action-blacklist"].as<std::vector<std::string>>();
-         auto& list = my->chain_config->action_blacklist;
+         auto& list = chain_config->action_blacklist;
          for( const auto& a : acts ) {
             auto pos = a.find( "::" );
             EOS_ASSERT( pos != std::string::npos, plugin_config_exception, "Invalid entry in action-blacklist: '${a}'", ("a", a));
@@ -514,7 +523,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       if( options.count( "key-blacklist" )) {
          const std::vector<std::string>& keys = options["key-blacklist"].as<std::vector<std::string>>();
-         auto& list = my->chain_config->key_blacklist;
+         auto& list = chain_config->key_blacklist;
          for( const auto& key_str : keys ) {
             list.emplace( key_str );
          }
@@ -523,17 +532,17 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "blocks-dir" )) {
          auto bld = options.at( "blocks-dir" ).as<std::filesystem::path>();
          if( bld.is_relative())
-            my->blocks_dir = app().data_dir() / bld;
+            blocks_dir = app().data_dir() / bld;
          else
-            my->blocks_dir = bld;
+            blocks_dir = bld;
       }
 
       if( options.count( "state-dir" )) {
          auto sd = options.at( "state-dir" ).as<std::filesystem::path>();
          if( sd.is_relative())
-            my->state_dir = app().data_dir() / sd;
+            state_dir = app().data_dir() / sd;
          else
-            my->state_dir = sd;
+            state_dir = sd;
       }
 
       protocol_feature_set pfs;
@@ -550,87 +559,87 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       if( options.count("checkpoint") ) {
          auto cps = options.at("checkpoint").as<vector<string>>();
-         my->loaded_checkpoints.reserve(cps.size());
+         loaded_checkpoints.reserve(cps.size());
          for( const auto& cp : cps ) {
             auto item = fc::json::from_string(cp).as<std::pair<uint32_t,block_id_type>>();
-            auto itr = my->loaded_checkpoints.find(item.first);
-            if( itr != my->loaded_checkpoints.end() ) {
+            auto itr = loaded_checkpoints.find(item.first);
+            if( itr != loaded_checkpoints.end() ) {
                EOS_ASSERT( itr->second == item.second,
                            plugin_config_exception,
                           "redefining existing checkpoint at block number ${num}: original: ${orig} new: ${new}",
                           ("num", item.first)("orig", itr->second)("new", item.second)
                );
             } else {
-               my->loaded_checkpoints[item.first] = item.second;
+               loaded_checkpoints[item.first] = item.second;
             }
          }
       }
 
       if( options.count( "wasm-runtime" ))
-         my->wasm_runtime = options.at( "wasm-runtime" ).as<vm_type>();
+         wasm_runtime = options.at( "wasm-runtime" ).as<vm_type>();
 
-      LOAD_VALUE_SET( options, "profile-account", my->chain_config->profile_accounts );
+      LOAD_VALUE_SET( options, "profile-account", chain_config->profile_accounts );
 
-      my->abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
+      abi_serializer_max_time_us = fc::microseconds(options.at("abi-serializer-max-time-ms").as<uint32_t>() * 1000);
 
-      my->chain_config->blocks_dir = my->blocks_dir;
-      my->chain_config->state_dir = my->state_dir;
-      my->chain_config->read_only = my->readonly;
+      chain_config->blocks_dir = blocks_dir;
+      chain_config->state_dir = state_dir;
+      chain_config->read_only = readonly;
 
       if (auto resmon_plugin = app().find_plugin<resource_monitor_plugin>()) {
-        resmon_plugin->monitor_directory(my->chain_config->blocks_dir);
-        resmon_plugin->monitor_directory(my->chain_config->state_dir);
+        resmon_plugin->monitor_directory(chain_config->blocks_dir);
+        resmon_plugin->monitor_directory(chain_config->state_dir);
       }
 
       if( options.count( "chain-state-db-size-mb" ))
-         my->chain_config->state_size = options.at( "chain-state-db-size-mb" ).as<uint64_t>() * 1024 * 1024;
+         chain_config->state_size = options.at( "chain-state-db-size-mb" ).as<uint64_t>() * 1024 * 1024;
 
       if( options.count( "chain-state-db-guard-size-mb" ))
-         my->chain_config->state_guard_size = options.at( "chain-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
+         chain_config->state_guard_size = options.at( "chain-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
 
       if( options.count( "max-nonprivileged-inline-action-size" ))
-         my->chain_config->max_nonprivileged_inline_action_size = options.at( "max-nonprivileged-inline-action-size" ).as<uint32_t>();
+         chain_config->max_nonprivileged_inline_action_size = options.at( "max-nonprivileged-inline-action-size" ).as<uint32_t>();
 
       if( options.count( "transaction-finality-status-max-storage-size-gb" )) {
          const uint64_t max_storage_size = options.at( "transaction-finality-status-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
          if (max_storage_size > 0) {
             const fc::microseconds success_duration = fc::seconds(options.at( "transaction-finality-status-success-duration-sec" ).as<uint64_t>());
             const fc::microseconds failure_duration = fc::seconds(options.at( "transaction-finality-status-failure-duration-sec" ).as<uint64_t>());
-            my->_trx_finality_status_processing.reset(
+            _trx_finality_status_processing.reset(
                new chain_apis::trx_finality_status_processing(max_storage_size, success_duration, failure_duration));
          }
       }
 
       if( options.count( "chain-threads" )) {
-         my->chain_config->thread_pool_size = options.at( "chain-threads" ).as<uint16_t>();
-         EOS_ASSERT( my->chain_config->thread_pool_size > 0, plugin_config_exception,
-                     "chain-threads ${num} must be greater than 0", ("num", my->chain_config->thread_pool_size) );
+         chain_config->thread_pool_size = options.at( "chain-threads" ).as<uint16_t>();
+         EOS_ASSERT( chain_config->thread_pool_size > 0, plugin_config_exception,
+                     "chain-threads ${num} must be greater than 0", ("num", chain_config->thread_pool_size) );
       }
 
-      my->chain_config->sig_cpu_bill_pct = options.at("signature-cpu-billable-pct").as<uint32_t>();
-      EOS_ASSERT( my->chain_config->sig_cpu_bill_pct >= 0 && my->chain_config->sig_cpu_bill_pct <= 100, plugin_config_exception,
-                  "signature-cpu-billable-pct must be 0 - 100, ${pct}", ("pct", my->chain_config->sig_cpu_bill_pct) );
-      my->chain_config->sig_cpu_bill_pct *= config::percent_1;
+      chain_config->sig_cpu_bill_pct = options.at("signature-cpu-billable-pct").as<uint32_t>();
+      EOS_ASSERT( chain_config->sig_cpu_bill_pct >= 0 && chain_config->sig_cpu_bill_pct <= 100, plugin_config_exception,
+                  "signature-cpu-billable-pct must be 0 - 100, ${pct}", ("pct", chain_config->sig_cpu_bill_pct) );
+      chain_config->sig_cpu_bill_pct *= config::percent_1;
 
-      if( my->wasm_runtime )
-         my->chain_config->wasm_runtime = *my->wasm_runtime;
+      if( wasm_runtime )
+         chain_config->wasm_runtime = *wasm_runtime;
 
-      my->chain_config->force_all_checks = options.at( "force-all-checks" ).as<bool>();
-      my->chain_config->disable_replay_opts = options.at( "disable-replay-opts" ).as<bool>();
-      my->chain_config->contracts_console = options.at( "contracts-console" ).as<bool>();
-      my->chain_config->allow_ram_billing_in_notify = options.at( "disable-ram-billing-notify-checks" ).as<bool>();
+      chain_config->force_all_checks = options.at( "force-all-checks" ).as<bool>();
+      chain_config->disable_replay_opts = options.at( "disable-replay-opts" ).as<bool>();
+      chain_config->contracts_console = options.at( "contracts-console" ).as<bool>();
+      chain_config->allow_ram_billing_in_notify = options.at( "disable-ram-billing-notify-checks" ).as<bool>();
 
 #ifdef EOSIO_DEVELOPER
-      my->chain_config->disable_all_subjective_mitigations = options.at( "disable-all-subjective-mitigations" ).as<bool>();
+      chain_config->disable_all_subjective_mitigations = options.at( "disable-all-subjective-mitigations" ).as<bool>();
 #endif
 
-      my->chain_config->maximum_variable_signature_length = options.at( "maximum-variable-signature-length" ).as<uint32_t>();
+      chain_config->maximum_variable_signature_length = options.at( "maximum-variable-signature-length" ).as<uint32_t>();
 
       if( options.count( "terminate-at-block" ))
-         my->chain_config->terminate_at_block = options.at( "terminate-at-block" ).as<uint32_t>();
+         chain_config->terminate_at_block = options.at( "terminate-at-block" ).as<uint32_t>();
 
       // move fork_db to new location
-      upgrade_from_reversible_to_fork_db( my.get() );
+      upgrade_from_reversible_to_fork_db( this );
 
       bool has_partitioned_block_log_options = options.count("blocks-retained-dir") ||  options.count("blocks-archive-dir")
          || options.count("blocks-log-stride") || options.count("max-retained-block-files");
@@ -644,9 +653,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          retained_dir = options.count("blocks-retained-dir") ? options.at("blocks-retained-dir").as<std::filesystem::path>()
                                                                  : std::filesystem::path("");
          if (retained_dir.is_relative())
-            retained_dir = std::filesystem::path{my->blocks_dir}/retained_dir;
+            retained_dir = std::filesystem::path{blocks_dir}/retained_dir;
             
-         my->chain_config->blog = eosio::chain::partitioned_blocklog_config{
+         chain_config->blog = eosio::chain::partitioned_blocklog_config{
             .retained_dir = retained_dir,
             .archive_dir  = options.count("blocks-archive-dir") ? options.at("blocks-archive-dir").as<std::filesystem::path>()
                                                                : std::filesystem::path("archive"),
@@ -659,12 +668,12 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       } else if(has_retain_blocks_option) {
          uint32_t block_log_retain_blocks = options.at("block-log-retain-blocks").as<uint32_t>();
          if (block_log_retain_blocks == 0)
-            my->chain_config->blog = eosio::chain::empty_blocklog_config{};
+            chain_config->blog = eosio::chain::empty_blocklog_config{};
          else {
             EOS_ASSERT(cfile::supports_hole_punching(), plugin_config_exception,
                        "block-log-retain-blocks cannot be greater than 0 because the file system does not support hole "
                        "punching");
-            my->chain_config->blog = eosio::chain::prune_blocklog_config{ .prune_blocks = block_log_retain_blocks };
+            chain_config->blog = eosio::chain::prune_blocklog_config{ .prune_blocks = block_log_retain_blocks };
          }
       }
 
@@ -673,11 +682,11 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
       if( options.count( "extract-genesis-json" ) || options.at( "print-genesis-json" ).as<bool>()) {
          std::optional<genesis_state> gs;
          
-         gs = block_log::extract_genesis_state( my->blocks_dir, retained_dir );
+         gs = block_log::extract_genesis_state( blocks_dir, retained_dir );
          EOS_ASSERT( gs,
                      plugin_config_exception,
                      "Block log at '${path}' does not contain a genesis state, it only has the chain-id.",
-                     ("path", (my->blocks_dir / "blocks.log").generic_string())
+                     ("path", (blocks_dir / "blocks.log").generic_string())
          );
          
 
@@ -708,28 +717,28 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          ilog( "Deleting state database and blocks" );
          if( options.at( "truncate-at-block" ).as<uint32_t>() > 0 )
             wlog( "The --truncate-at-block option does not make sense when deleting all blocks." );
-         clear_directory_contents( my->chain_config->state_dir );
-         clear_directory_contents( my->blocks_dir );
+         clear_directory_contents( chain_config->state_dir );
+         clear_directory_contents( blocks_dir );
       } else if( options.at( "hard-replay-blockchain" ).as<bool>()) {
          do_hard_replay(options);
       } else if( options.at( "replay-blockchain" ).as<bool>()) {
          ilog( "Replay requested: deleting state database" );
          if( options.at( "truncate-at-block" ).as<uint32_t>() > 0 )
             wlog( "The --truncate-at-block option does not work for a regular replay of the blockchain." );
-         clear_chainbase_files( my->chain_config->state_dir );
+         clear_chainbase_files( chain_config->state_dir );
       } else if( options.at( "truncate-at-block" ).as<uint32_t>() > 0 ) {
          wlog( "The --truncate-at-block option can only be used with --hard-replay-blockchain." );
       }
 
       std::optional<chain_id_type> chain_id;
       if (options.count( "snapshot" )) {
-         my->snapshot_path = options.at( "snapshot" ).as<std::filesystem::path>();
-         EOS_ASSERT( std::filesystem::exists(*my->snapshot_path), plugin_config_exception,
-                     "Cannot load snapshot, ${name} does not exist", ("name", my->snapshot_path->generic_string()) );
+         snapshot_path = options.at( "snapshot" ).as<std::filesystem::path>();
+         EOS_ASSERT( std::filesystem::exists(*snapshot_path), plugin_config_exception,
+                     "Cannot load snapshot, ${name} does not exist", ("name", snapshot_path->generic_string()) );
 
          // recover genesis information from the snapshot
          // used for validation code below
-         auto infile = std::ifstream(my->snapshot_path->generic_string(), (std::ios::in | std::ios::binary));
+         auto infile = std::ifstream(snapshot_path->generic_string(), (std::ios::in | std::ios::binary));
          istream_snapshot_reader reader(infile);
          reader.validate();
          chain_id = controller::extract_chain_id(reader);
@@ -742,12 +751,12 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                      plugin_config_exception,
                      "--snapshot is incompatible with --genesis-json as the snapshot contains genesis information");
 
-         auto shared_mem_path = my->chain_config->state_dir / "shared_memory.bin";
+         auto shared_mem_path = chain_config->state_dir / "shared_memory.bin";
          EOS_ASSERT( !std::filesystem::is_regular_file(shared_mem_path),
                  plugin_config_exception,
                  "Snapshot can only be used to initialize an empty database." );
 
-         auto block_log_chain_id = block_log::extract_chain_id(my->blocks_dir, retained_dir);
+         auto block_log_chain_id = block_log::extract_chain_id(blocks_dir, retained_dir);
 
          if (block_log_chain_id) {
             EOS_ASSERT( *chain_id == *block_log_chain_id,
@@ -760,9 +769,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
 
       } else {
 
-         chain_id = controller::extract_chain_id_from_db( my->chain_config->state_dir );
+         chain_id = controller::extract_chain_id_from_db( chain_config->state_dir );
 
-         auto chain_context = block_log::extract_chain_context( my->blocks_dir, retained_dir );
+         auto chain_context = block_log::extract_chain_context( blocks_dir, retained_dir );
          std::optional<genesis_state> block_log_genesis;
          std::optional<chain_id_type> block_log_chain_id;  
 
@@ -786,7 +795,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                );
             } else if (block_log_genesis) {
                ilog( "Starting fresh blockchain state using genesis state extracted from blocks.log." );
-               my->genesis = block_log_genesis;
+               genesis = block_log_genesis;
                // Delay setting chain_id until later so that the code handling genesis-json below can know
                // that chain_id still only represents a chain ID extracted from the state (assuming it exists).
             }
@@ -843,7 +852,7 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                   chain_id = provided_genesis_chain_id;
 
                   ilog( "Starting fresh blockchain state using provided genesis state." );
-                  my->genesis = std::move(provided_genesis);
+                  genesis = std::move(provided_genesis);
                }
             }
          } else {
@@ -853,9 +862,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          }
 
          if( !chain_id ) {
-            if( my->genesis ) {
+            if( genesis ) {
                // Uninitialized state database and genesis state extracted from block log
-               chain_id = my->genesis->compute_chain_id();
+               chain_id = genesis->compute_chain_id();
             } else {
                // Uninitialized state database and no genesis state provided
 
@@ -866,48 +875,48 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
                );
 
                ilog( "Starting fresh blockchain state using default genesis state." );
-               my->genesis.emplace();
-               chain_id = my->genesis->compute_chain_id();
+               genesis.emplace();
+               chain_id = genesis->compute_chain_id();
             }
          }
       }
 
       if ( options.count("read-mode") ) {
-         my->chain_config->read_mode = options.at("read-mode").as<db_read_mode>();
+         chain_config->read_mode = options.at("read-mode").as<db_read_mode>();
       }
-      my->api_accept_transactions = options.at( "api-accept-transactions" ).as<bool>();
+      api_accept_transactions = options.at( "api-accept-transactions" ).as<bool>();
 
-      if( my->chain_config->read_mode == db_read_mode::IRREVERSIBLE ) {
-         if( my->api_accept_transactions ) {
-            my->api_accept_transactions = false;
+      if( chain_config->read_mode == db_read_mode::IRREVERSIBLE ) {
+         if( api_accept_transactions ) {
+            api_accept_transactions = false;
             wlog( "api-accept-transactions set to false due to read-mode: irreversible" );
          }
       }
-      if( my->api_accept_transactions ) {
+      if( api_accept_transactions ) {
          enable_accept_transactions();
       }
 
       if ( options.count("validation-mode") ) {
-         my->chain_config->block_validation_mode = options.at("validation-mode").as<validation_mode>();
+         chain_config->block_validation_mode = options.at("validation-mode").as<validation_mode>();
       }
 
-      my->chain_config->db_map_mode = options.at("database-map-mode").as<pinnable_mapped_file::map_mode>();
+      chain_config->db_map_mode = options.at("database-map-mode").as<pinnable_mapped_file::map_mode>();
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if( options.count("eos-vm-oc-cache-size-mb") )
-         my->chain_config->eosvmoc_config.cache_size = options.at( "eos-vm-oc-cache-size-mb" ).as<uint64_t>() * 1024u * 1024u;
+         chain_config->eosvmoc_config.cache_size = options.at( "eos-vm-oc-cache-size-mb" ).as<uint64_t>() * 1024u * 1024u;
       if( options.count("eos-vm-oc-compile-threads") )
-         my->chain_config->eosvmoc_config.threads = options.at("eos-vm-oc-compile-threads").as<uint64_t>();
+         chain_config->eosvmoc_config.threads = options.at("eos-vm-oc-compile-threads").as<uint64_t>();
       if( options["eos-vm-oc-enable"].as<bool>() )
-         my->chain_config->eosvmoc_tierup = true;
+         chain_config->eosvmoc_tierup = true;
 #endif
 
-      my->account_queries_enabled = options.at("enable-account-queries").as<bool>();
+      account_queries_enabled = options.at("enable-account-queries").as<bool>();
 
-      my->chain_config->integrity_hash_on_start = options.at("integrity-hash-on-start").as<bool>();
-      my->chain_config->integrity_hash_on_stop = options.at("integrity-hash-on-stop").as<bool>();
+      chain_config->integrity_hash_on_start = options.at("integrity-hash-on-start").as<bool>();
+      chain_config->integrity_hash_on_stop = options.at("integrity-hash-on-stop").as<bool>();
 
-      my->chain.emplace( *my->chain_config, std::move(pfs), *chain_id );
+      chain.emplace( *chain_config, std::move(pfs), *chain_id );
 
       if( options.count( "transaction-retry-max-storage-size-gb" )) {
          EOS_ASSERT( !options.count( "producer-name"), plugin_config_exception,
@@ -923,9 +932,9 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             EOS_ASSERT( trx_retry_max_expire > trx_retry_interval, plugin_config_exception,
                         "transaction-retry-max-expiration-sec ${m} should be configured larger than transaction-retry-interval-sec ${i}",
                         ("m", trx_retry_max_expire)("i", trx_retry_interval) );
-            my->_trx_retry_db.emplace( *my->chain, max_storage_size,
+            _trx_retry_db.emplace( *chain, max_storage_size,
                                        fc::seconds(trx_retry_interval), fc::seconds(trx_retry_max_expire),
-                                       my->abi_serializer_max_time_us );
+                                       abi_serializer_max_time_us );
          }
       }
 
@@ -962,33 +971,33 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
          EOS_ASSERT( options.at("p2p-accept-transactions").as<bool>() == false, plugin_config_exception,
             "p2p-accept-transactions must be set to false in order to enable deep-mind logging.");
 
-         my->chain->enable_deep_mind( &_deep_mind_log );
+         chain->enable_deep_mind( &_deep_mind_log );
       }
 
       // set up method providers
-      my->get_block_by_number_provider = app().get_method<methods::get_block_by_number>().register_provider(
+      get_block_by_number_provider = app().get_method<methods::get_block_by_number>().register_provider(
             [this]( uint32_t block_num ) -> signed_block_ptr {
-               return my->chain->fetch_block_by_number( block_num );
+               return chain->fetch_block_by_number( block_num );
             } );
 
-      my->get_block_by_id_provider = app().get_method<methods::get_block_by_id>().register_provider(
+      get_block_by_id_provider = app().get_method<methods::get_block_by_id>().register_provider(
             [this]( block_id_type id ) -> signed_block_ptr {
-               return my->chain->fetch_block_by_id( id );
+               return chain->fetch_block_by_id( id );
             } );
 
-      my->get_head_block_id_provider = app().get_method<methods::get_head_block_id>().register_provider( [this]() {
-         return my->chain->head_block_id();
+      get_head_block_id_provider = app().get_method<methods::get_head_block_id>().register_provider( [this]() {
+         return chain->head_block_id();
       } );
 
-      my->get_last_irreversible_block_number_provider = app().get_method<methods::get_last_irreversible_block_number>().register_provider(
+      get_last_irreversible_block_number_provider = app().get_method<methods::get_last_irreversible_block_number>().register_provider(
             [this]() {
-               return my->chain->last_irreversible_block_num();
+               return chain->last_irreversible_block_num();
             } );
 
       // relay signals to channels
-      my->pre_accepted_block_connection = my->chain->pre_accepted_block.connect([this](const signed_block_ptr& blk) {
-         auto itr = my->loaded_checkpoints.find( blk->block_num() );
-         if( itr != my->loaded_checkpoints.end() ) {
+      pre_accepted_block_connection = chain->pre_accepted_block.connect([this](const signed_block_ptr& blk) {
+         auto itr = loaded_checkpoints.find( blk->block_num() );
+         if( itr != loaded_checkpoints.end() ) {
             auto id = blk->calculate_id();
             EOS_ASSERT( itr->second == id, checkpoint_exception,
                         "Checkpoint does not match for block number ${num}: expected: ${expected} actual: ${actual}",
@@ -996,139 +1005,153 @@ void chain_plugin::plugin_initialize(const variables_map& options) {
             );
          }
 
-         my->pre_accepted_block_channel.publish(priority::medium, blk);
+         pre_accepted_block_channel.publish(priority::medium, blk);
       });
 
-      my->accepted_block_header_connection = my->chain->accepted_block_header.connect(
+      accepted_block_header_connection = chain->accepted_block_header.connect(
             [this]( const block_state_ptr& blk ) {
-               my->accepted_block_header_channel.publish( priority::medium, blk );
+               accepted_block_header_channel.publish( priority::medium, blk );
             } );
 
-      my->accepted_block_connection = my->chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
-         if (my->_account_query_db) {
-            my->_account_query_db->commit_block(blk);
+      accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
+         if (_account_query_db) {
+            _account_query_db->commit_block(blk);
          }
 
-         if (my->_trx_retry_db) {
-            my->_trx_retry_db->on_accepted_block(blk);
+         if (_trx_retry_db) {
+            _trx_retry_db->on_accepted_block(blk);
          }
 
-         if (my->_trx_finality_status_processing) {
-            my->_trx_finality_status_processing->signal_accepted_block(blk);
+         if (_trx_finality_status_processing) {
+            _trx_finality_status_processing->signal_accepted_block(blk);
          }
 
-         my->accepted_block_channel.publish( priority::high, blk );
+         accepted_block_channel.publish( priority::high, blk );
       } );
 
-      my->irreversible_block_connection = my->chain->irreversible_block.connect( [this]( const block_state_ptr& blk ) {
-         if (my->_trx_retry_db) {
-            my->_trx_retry_db->on_irreversible_block(blk);
+      irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_state_ptr& blk ) {
+         if (_trx_retry_db) {
+            _trx_retry_db->on_irreversible_block(blk);
          }
 
-         if (my->_trx_finality_status_processing) {
-            my->_trx_finality_status_processing->signal_irreversible_block(blk);
+         if (_trx_finality_status_processing) {
+            _trx_finality_status_processing->signal_irreversible_block(blk);
          }
 
-         my->irreversible_block_channel.publish( priority::low, blk );
+         irreversible_block_channel.publish( priority::low, blk );
       } );
 
-      my->accepted_transaction_connection = my->chain->accepted_transaction.connect(
+      accepted_transaction_connection = chain->accepted_transaction.connect(
             [this]( const transaction_metadata_ptr& meta ) {
-               my->accepted_transaction_channel.publish( priority::low, meta );
+               accepted_transaction_channel.publish( priority::low, meta );
             } );
 
-      my->applied_transaction_connection = my->chain->applied_transaction.connect(
+      applied_transaction_connection = chain->applied_transaction.connect(
             [this]( std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t ) {
-               if (my->_account_query_db) {
-                  my->_account_query_db->cache_transaction_trace(std::get<0>(t));
+               if (_account_query_db) {
+                  _account_query_db->cache_transaction_trace(std::get<0>(t));
                }
 
-               if (my->_trx_retry_db) {
-                  my->_trx_retry_db->on_applied_transaction(std::get<0>(t), std::get<1>(t));
+               if (_trx_retry_db) {
+                  _trx_retry_db->on_applied_transaction(std::get<0>(t), std::get<1>(t));
                }
 
-               if (my->_trx_finality_status_processing) {
-                  my->_trx_finality_status_processing->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
+               if (_trx_finality_status_processing) {
+                  _trx_finality_status_processing->signal_applied_transaction(std::get<0>(t), std::get<1>(t));
                }
 
-               my->applied_transaction_channel.publish( priority::low, std::get<0>(t) );
+               applied_transaction_channel.publish( priority::low, std::get<0>(t) );
             } );
 
-      if (my->_trx_finality_status_processing || my->_trx_retry_db) {
-         my->block_start_connection = my->chain->block_start.connect(
+      if (_trx_finality_status_processing || _trx_retry_db) {
+         block_start_connection = chain->block_start.connect(
             [this]( uint32_t block_num ) {
-               if (my->_trx_retry_db) {
-                  my->_trx_retry_db->on_block_start(block_num);
+               if (_trx_retry_db) {
+                  _trx_retry_db->on_block_start(block_num);
                }
-               if (my->_trx_finality_status_processing) {
-                  my->_trx_finality_status_processing->signal_block_start( block_num );
+               if (_trx_finality_status_processing) {
+                  _trx_finality_status_processing->signal_block_start( block_num );
                }
             } );
       }
-      my->chain->add_indices();
+      chain->add_indices();
    } FC_LOG_AND_RETHROW()
 
 }
 
-void chain_plugin::plugin_startup()
+void chain_plugin::plugin_initialize(const variables_map& options) {
+   handle_sighup(); // Sets loggers
+   my->plugin_initialize(options);
+}
+
+void chain_plugin_impl::plugin_startup()
 { try {
-   EOS_ASSERT( my->chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions(), plugin_config_exception,
+   EOS_ASSERT( chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions, plugin_config_exception,
                "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions" );
    try {
       auto shutdown = [](){ return app().quit(); };
       auto check_shutdown = [](){ return app().is_quiting(); };
-      if (my->snapshot_path) {
-         auto infile = std::ifstream(my->snapshot_path->generic_string(), (std::ios::in | std::ios::binary));
+      if (snapshot_path) {
+         auto infile = std::ifstream(snapshot_path->generic_string(), (std::ios::in | std::ios::binary));
          auto reader = std::make_shared<istream_snapshot_reader>(infile);
-         my->chain->startup(shutdown, check_shutdown, reader);
+         chain->startup(shutdown, check_shutdown, reader);
          infile.close();
-      } else if( my->genesis ) {
-         my->chain->startup(shutdown, check_shutdown, *my->genesis);
+      } else if( genesis ) {
+         chain->startup(shutdown, check_shutdown, *genesis);
       } else {
-         my->chain->startup(shutdown, check_shutdown);
+         chain->startup(shutdown, check_shutdown);
       }
    } catch (const database_guard_exception& e) {
       log_guard_exception(e);
       // make sure to properly close the db
-      my->chain.reset();
+      chain.reset();
       throw;
    }
 
-   if(!my->readonly) {
+   if(!readonly) {
       ilog("starting chain in read/write mode");
    }
 
-   if (my->genesis) {
+   if (genesis) {
       ilog("Blockchain started; head block is #${num}, genesis timestamp is ${ts}",
-           ("num", my->chain->head_block_num())("ts", my->genesis->initial_timestamp));
+           ("num", chain->head_block_num())("ts", genesis->initial_timestamp));
    }
    else {
-      ilog("Blockchain started; head block is #${num}", ("num", my->chain->head_block_num()));
+      ilog("Blockchain started; head block is #${num}", ("num", chain->head_block_num()));
    }
 
-   my->chain_config.reset();
+   chain_config.reset();
 
-   if (my->account_queries_enabled) {
-      my->account_queries_enabled = false;
+   if (account_queries_enabled) {
+      account_queries_enabled = false;
       try {
-         my->_account_query_db.emplace(*my->chain);
-         my->account_queries_enabled = true;
+         _account_query_db.emplace(*chain);
+         account_queries_enabled = true;
       } FC_LOG_AND_DROP(("Unable to enable account queries"));
    }
 
 
 } FC_CAPTURE_AND_RETHROW() }
 
-void chain_plugin::plugin_shutdown() {
-   my->pre_accepted_block_connection.reset();
-   my->accepted_block_header_connection.reset();
-   my->accepted_block_connection.reset();
-   my->irreversible_block_connection.reset();
-   my->accepted_transaction_connection.reset();
-   my->applied_transaction_connection.reset();
-   my->block_start_connection.reset();
+void chain_plugin::plugin_startup() {
+   my->plugin_startup();
+}
+
+void chain_plugin_impl::plugin_shutdown() {
+   pre_accepted_block_connection.reset();
+   accepted_block_header_connection.reset();
+   accepted_block_connection.reset();
+   irreversible_block_connection.reset();
+   accepted_transaction_connection.reset();
+   applied_transaction_connection.reset();
+   block_start_connection.reset();
    if(app().is_quiting())
-      my->chain->get_wasm_interface().indicate_shutting_down();
+      chain->get_wasm_interface().indicate_shutting_down();
+   chain.reset();
+}
+
+void chain_plugin::plugin_shutdown() {
+   my->plugin_shutdown();
 }
 
 void chain_plugin::handle_sighup() {
@@ -1189,12 +1212,16 @@ bool chain_plugin::accept_transactions() const {
    return my->accept_transactions;
 }
 
+void chain_plugin_impl::enable_accept_transactions() {
+   accept_transactions = true;
+}
+
 void chain_plugin::enable_accept_transactions() {
-   my->accept_transactions = true;
+   my->enable_accept_transactions();
 }
 
 
-void chain_plugin::log_guard_exception(const chain::guard_exception&e ) {
+void chain_plugin_impl::log_guard_exception(const chain::guard_exception&e ) {
    if (e.code() == chain::database_guard_exception::code_value) {
       elog("Database has reached an unsafe level of usage, shutting down to avoid corrupting the database.  "
            "Please increase the value set for \"chain-state-db-size-mb\" and restart the process!");
@@ -1203,12 +1230,16 @@ void chain_plugin::log_guard_exception(const chain::guard_exception&e ) {
    dlog("Details: ${details}", ("details", e.to_detail_string()));
 }
 
-void chain_plugin::handle_guard_exception(const chain::guard_exception& e) {
+void chain_plugin_impl::handle_guard_exception(const chain::guard_exception& e) {
    log_guard_exception(e);
 
    elog("database chain::guard_exception, quitting..."); // log string searched for in: tests/nodeos_under_min_avail_ram.py
    // quit the app
    app().quit();
+}
+
+void chain_plugin::handle_guard_exception(const chain::guard_exception& e) {
+   chain_plugin_impl::handle_guard_exception(e);
 }
 
 void chain_apis::api_base::handle_db_exhaustion() {
