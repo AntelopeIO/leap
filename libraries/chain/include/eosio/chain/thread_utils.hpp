@@ -57,9 +57,17 @@ namespace eosio { namespace chain {
          std::exception_ptr pending_exception;
          std::mutex pending_exception_mutex;
 
-         for( size_t i = 0; i < num_threads; ++i ) {
-            _thread_pool.emplace_back( std::thread( &named_thread_pool::run_thread, this, i, on_except, init, std::ref(start_complete),
-                                                    std::ref(threads_remaining), std::ref(pending_exception), std::ref(pending_exception_mutex) ) );
+         try {
+            for( size_t i = 0; i < num_threads; ++i ) {
+               _thread_pool.emplace_back( std::thread( &named_thread_pool::run_thread, this, i, on_except, init, std::ref(start_complete),
+                                                       std::ref(threads_remaining), std::ref(pending_exception), std::ref(pending_exception_mutex) ) );
+            }
+         }
+         catch( ... ) {
+            /// only an exception from std::thread's ctor should end up here. shut down all threads to ensure no
+            ///  potential access to the promise, atomic, etc above performed after throwing out of start
+            stop();
+            throw;
          }
          start_complete.get_future().get();
       }
