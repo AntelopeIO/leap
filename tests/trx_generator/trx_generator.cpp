@@ -146,6 +146,9 @@ namespace eosio::testing {
       for (size_t i = 0; i < action_array.size(); ++i) {
          auto action_mvo = fc::mutable_variant_object(action_array[i]);
          locate_key_words_in_action_mvo(acct_gen_fields_out[i], action_mvo, key_word);
+         if(acct_gen_fields_out[i].empty()) {
+            acct_gen_fields_out.erase(i);
+         }
       }
    }
 
