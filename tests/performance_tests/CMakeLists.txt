@@ -33,5 +33,6 @@ set_property(TEST performance_test_basic_ex_transfer_trx_spec PROPERTY LABELS no
 set_property(TEST performance_test_basic_ex_new_acct_trx_spec PROPERTY LABELS nonparallelizable_tests)
 set_property(TEST performance_test_basic_ex_cpu_trx_spec PROPERTY LABELS nonparallelizable_tests)
 set_property(TEST performance_test_basic_ex_ram_trx_spec PROPERTY LABELS nonparallelizable_tests)
+set_property(TEST performance_test_basic_ex_read_only_trxs PROPERTY LABELS nonparallelizable_tests)
 
 add_subdirectory( NodeosPluginArgs )
