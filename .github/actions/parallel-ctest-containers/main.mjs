@@ -12,8 +12,10 @@ const log_tarball_prefix = core.getInput('log-tarball-prefix', {required: true})
 const tests_label = core.getInput('tests-label', {required: true});
 const test_timeout = core.getInput('test-timeout', {required: true});
 
+const repo_name = process.env.GITHUB_REPOSITORY.split('/')[1];
+
 try {
-   if(child_process.spawnSync("docker", ["run", "--name", "base", "-v", `${process.cwd()}/build.tar.zst:/build.tar.zst`, "--workdir", "/__w/leap/leap", container, "sh", "-c", "zstdcat /build.tar.zst | tar x"], {stdio:"inherit"}).status)
+   if(child_process.spawnSync("docker", ["run", "--name", "base", "-v", `${process.cwd()}/build.tar.zst:/build.tar.zst`, "--workdir", `/__w/${repo_name}/${repo_name}`, container, "sh", "-c", "zstdcat /build.tar.zst | tar x"], {stdio:"inherit"}).status)
       throw new Error("Failed to create base container");
    if(child_process.spawnSync("docker", ["commit", "base", "baseimage"], {stdio:"inherit"}).status)
       throw new Error("Failed to create base image");
@@ -45,13 +47,13 @@ try {
       let packer = tar.pack();
 
       extractor.on('entry', (header, stream, next) => {
-         if(!header.name.startsWith(`__w/leap/leap/build`)) {
+         if(!header.name.startsWith(`__w/${repo_name}/${repo_name}/build`)) {
             stream.on('end', () => next());
             stream.resume();
             return;
          }
 
-         header.name = header.name.substring(`__w/leap/leap/`.length);
+         header.name = header.name.substring(`__w/${repo_name}/${repo_name}/`.length);
          if(header.name !== "build/" && error_log_paths.filter(p => header.name.startsWith(p)).length === 0) {
             stream.on('end', () => next());
             stream.resume();
