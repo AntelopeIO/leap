@@ -1,6 +1,6 @@
 add_subdirectory( secp256k1 )
 add_subdirectory( libraries/bn256/src )
-add_subdirectory( external )
+add_subdirectory( third_party )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
