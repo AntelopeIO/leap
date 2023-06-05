@@ -169,9 +169,13 @@ class PerformanceTestBasic:
         printMissingTransactions: bool=False
         userTrxDataFile: Path=None
         endpointApiType: str="p2p"
+        apiEndpoint: str=None
+
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
+            if (self.endpointApiType == "http"):
+                self.apiEndpoint="/v1/chain/send_transaction2"
 
     @dataclass
     class LoggingConfig:
@@ -419,8 +423,8 @@ class PerformanceTestBasic:
                 self.setupWalletAndAccounts(accountCnt=len(self.userTrxDataDict['initAccounts']), accountNames=self.userTrxDataDict['initAccounts'])
             abiFile = self.userTrxDataDict['abiFile']
             if 'apiEndpoint' in self.userTrxDataDict:
-                self.apiEndpoint = self.userTrxDataDict['apiEndpoint']
-                print(f'API Endpoint specified: {self.apiEndpoint}')
+                self.ptbConfig.apiEndpoint = self.userTrxDataDict['apiEndpoint']
+                print(f'API Endpoint specified: {self.ptbConfig.apiEndpoint}')
 
             actionsDataJson = json.dumps(self.userTrxDataDict['actions'])
 
@@ -445,13 +449,13 @@ class PerformanceTestBasic:
         self.cluster.biosNode.kill(signal.SIGTERM)
 
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
-        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator, connectionPairList=self.connectionPairList, endpointApiType=self.ptbConfig.endpointApiType)
+        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator, connectionPairList=self.connectionPairList)
 
         self.cluster.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.account.name,
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
                                                        trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
                                                        abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,
-                                                       tpsTrxGensConfig=tpsTrxGensConfig, apiEndpoint=self.apiEndpoint)
+                                                       tpsTrxGensConfig=tpsTrxGensConfig, endpointApiType=self.ptbConfig.endpointApiType, apiEndpoint=self.ptbConfig.apiEndpoint)
 
         trxGenExitCodes = self.cluster.trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
@@ -492,7 +496,7 @@ class PerformanceTestBasic:
     def createReport(self, logAnalysis: log_reader.LogAnalysis, tpsTestConfig: log_reader.TpsTestConfig, argsDict: dict, testResult: PerfTestBasicResult) -> dict:
         report = {}
         report['targetApiEndpointType'] = self.ptbConfig.endpointApiType
-        report['targetApiEndpoint'] = self.apiEndpoint if self.apiEndpoint is not None else '/v1/chain/send_transaction2' if self.ptbConfig.endpointApiType == "http" else "NA for P2P"
+        report['targetApiEndpoint'] = self.ptbConfig.apiEndpoint if self.ptbConfig.apiEndpoint is not None else "NA for P2P"
         report['Result'] = asdict(testResult)
         report['Analysis'] = {}
         report['Analysis']['BlockSize'] = asdict(logAnalysis.blockSizeStats)

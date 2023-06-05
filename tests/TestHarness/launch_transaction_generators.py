@@ -16,7 +16,7 @@ Print = Utils.Print
 
 class TpsTrxGensConfig:
 
-    def __init__(self, targetTps: int, tpsLimitPerGenerator: int, connectionPairList: list, endpointApiType: str):
+    def __init__(self, targetTps: int, tpsLimitPerGenerator: int, connectionPairList: list):
         self.targetTps: int = targetTps
         self.tpsLimitPerGenerator: int = tpsLimitPerGenerator
         self.connectionPairList = connectionPairList
@@ -27,7 +27,6 @@ class TpsTrxGensConfig:
         self.modTps = self.targetTps % self.numGenerators
         self.cleanlyDivisible = self.modTps == 0
         self.incrementPoint = self.numGenerators + 1 - self.modTps
-        self.endpointApiType = endpointApiType
 
         self.targetTpsPerGenList = []
         curTps = self.initialTpsPerGenerator
@@ -39,7 +38,7 @@ class TpsTrxGensConfig:
 class TransactionGeneratorsLauncher:
 
     def __init__(self, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str, trxGenDurationSec: int, logDir: str,
-                 abiFile: Path, actionsData, actionsAuths, tpsTrxGensConfig: TpsTrxGensConfig, apiEndpoint: str=None):
+                 abiFile: Path, actionsData, actionsAuths, tpsTrxGensConfig: TpsTrxGensConfig, endpointApiType: str, apiEndpoint: str=None):
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.contractOwnerAccount  = contractOwnerAccount
@@ -51,6 +50,7 @@ class TransactionGeneratorsLauncher:
         self.abiFile = abiFile
         self.actionsData = actionsData
         self.actionsAuths = actionsAuths
+        self.endpointApiType = endpointApiType
         self.apiEndpoint = apiEndpoint
 
     def launch(self, waitToComplete=True):
@@ -69,7 +69,7 @@ class TransactionGeneratorsLauncher:
                                 '--trx-gen-duration', f'{self.trxGenDurationSec}',
                                 '--target-tps', f'{targetTps}',
                                 '--log-dir', f'{self.logDir}',
-                                '--peer-endpoint-type', f'{self.tpsTrxGensConfig.endpointApiType}',
+                                '--peer-endpoint-type', f'{self.endpointApiType}',
                                 '--peer-endpoint', f'{connectionPair[0]}',
                                 '--port', f'{connectionPair[1]}']
             if self.abiFile is not None and self.actionsData is not None and self.actionsAuths is not None:
@@ -130,8 +130,8 @@ def main():
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
                                                    abiFile=args.abi_file, actionsData=args.actions_data, actionsAuths=args.actions_auths,
                                                    tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                                                                     connectionPairList=connectionPairList, endpointApiType=args.endpoint_api_type),
-                                                   apiEndpoint=args.api_endpoint)
+                                                                                     connectionPairList=connectionPairList),
+                                                   endpointApiType=args.endpoint_api_type, apiEndpoint=args.api_endpoint)
 
 
     exit_codes = trxGenLauncher.launch()
