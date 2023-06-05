@@ -244,8 +244,8 @@ void create_listener(boost::asio::io_context& executor, logger& logger, boost::p
          fc_elog(logger, "The unix socket path ${addr} is already in use", ("addr", address));
          throw std::system_error(std::make_error_code(std::errc::address_in_use));
       }
-      // socket exists but no one home, go ahead and remove it and continue on
       else if (ec == boost::system::errc::connection_refused) {
+         // socket exists but no one home, go ahead and remove it and continue on
          fs::remove(sock_path);
       }
 
