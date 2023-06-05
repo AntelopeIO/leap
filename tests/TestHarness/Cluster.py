@@ -1562,11 +1562,12 @@ class Cluster(object):
 
         self.preExistingFirstTrxFiles = glob.glob(f"{Utils.DataDir}/first_trx_*.txt")
         connectionPairList = [f"{self.host}:{self.getNodeP2pPort(nodeId)}"]
-        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator, connectionPairList=connectionPairList, endpointApiType="p2p")
+        tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator, connectionPairList=connectionPairList)
         self.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                     contractOwnerAccount=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
                                                     privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec, logDir=Utils.DataDir,
-                                                    abiFile=abiFile, actionsData=actionsData, actionsAuths=actionsAuths, tpsTrxGensConfig=tpsTrxGensConfig)
+                                                    abiFile=abiFile, actionsData=actionsData, actionsAuths=actionsAuths, tpsTrxGensConfig=tpsTrxGensConfig,
+                                                    endpointApiType="p2p")
 
         Utils.Print("Launch txn generators and start generating/sending transactions")
         self.trxGenLauncher.launch(waitToComplete=waitToComplete)
