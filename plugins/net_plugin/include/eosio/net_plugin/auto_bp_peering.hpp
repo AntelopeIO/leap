@@ -145,7 +145,7 @@ class bp_connection_manager {
    // Only called from connection strand
    std::size_t num_established_clients() const {
       uint32_t num_clients = 0;
-      self()->for_each_connection([&num_clients](auto&& conn) {
+      self()->connections.for_each_connection([&num_clients](auto&& conn) {
          if (established_client_connection(conn)) {
             ++num_clients;
          }
@@ -158,8 +158,8 @@ class bp_connection_manager {
    // This should only be called after the first handshake message is received to check if an incoming connection
    // has exceeded the pre-configured max_client_count limit.
    bool exceeding_connection_limit(Connection* new_connection) const {
-      return auto_bp_peering_enabled() && self()->max_client_count != 0 &&
-             established_client_connection(new_connection) && num_established_clients() > self()->max_client_count;
+      return auto_bp_peering_enabled() && self()->connections.get_max_client_count() != 0 &&
+             established_client_connection(new_connection) && num_established_clients() > self()->connections.get_max_client_count();
    }
 
    // Only called from main thread
@@ -182,7 +182,7 @@ class bp_connection_manager {
 
                fc_dlog(self()->get_logger(), "pending_downstream_neighbors: ${pending_downstream_neighbors}",
                        ("pending_downstream_neighbors", to_string(pending_downstream_neighbors)));
-               for (auto neighbor : pending_downstream_neighbors) { self()->connect(config.bp_peer_addresses[neighbor]); }
+               for (auto neighbor : pending_downstream_neighbors) { self()->connections.connect(config.bp_peer_addresses[neighbor]); }
 
                pending_neighbors = std::move(pending_downstream_neighbors);
                finder.add_upstream_neighbors(pending_neighbors);
@@ -222,7 +222,7 @@ class bp_connection_manager {
                              std::back_inserter(peers_to_drop));
          fc_dlog(self()->get_logger(), "peers to drop: ${peers_to_drop}", ("peers_to_drop", to_string(peers_to_drop)));
 
-         for (auto account : peers_to_drop) { self()->disconnect(config.bp_peer_addresses[account]); }
+         for (auto account : peers_to_drop) { self()->connections.disconnect(config.bp_peer_addresses[account]); }
          active_schedule_version = schedule.version;
       }
    }

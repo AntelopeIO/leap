@@ -171,9 +171,9 @@ public:
    void register_update_produced_block_metrics(std::function<void(produced_block_metrics)>&&);
    void register_update_incoming_block_metrics(std::function<void(incoming_block_metrics)>&&);
 
- private:
    inline static bool test_mode_{false}; // to be moved into appbase (application_base)
 
+ private:
    std::shared_ptr<class producer_plugin_impl> my;
 };
 

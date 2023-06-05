@@ -630,7 +630,8 @@ class PerformanceTestBasic:
                                         blockLogRetainBlocks=args.block_log_retain_blocks,
                                         chainStateDbSizeMb=args.chain_state_db_size_mb, abiSerializerMaxTimeMs=990000)
 
-        producerPluginArgs = ProducerPluginArgs(disableSubjectiveBilling=args.disable_subjective_billing,
+        producerPluginArgs = ProducerPluginArgs(disableSubjectiveApiBilling=args.disable_subjective_billing,
+                                                disableSubjectiveP2pBilling=args.disable_subjective_billing,
                                                 cpuEffortPercent=args.cpu_effort_percent,
                                                 producerThreads=args.producer_threads, maxTransactionTime=-1)
         httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb, httpMaxInFlightRequests=args.http_max_in_flight_requests,
