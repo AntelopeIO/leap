@@ -562,15 +562,7 @@ add_library(
   src/decrepit/xts/xts.c
 )
 
-target_link_libraries(decrepit crypto ssl)
-
-add_library(
-  fipsmodule
- 
-  OBJECT
-
-  src/crypto/fipsmodule/fips_shared_support.c
-)
+target_link_libraries(decrepit crypto)
 
 add_executable(
   bssl
@@ -595,6 +587,9 @@ add_executable(
 )
 
 target_link_libraries(bssl ssl crypto)
+
+
+add_library(fipsmodule OBJECT src/crypto/fipsmodule/fips_shared_support.c)
 
 if(NOT ANDROID)
   find_package(Threads REQUIRED)
