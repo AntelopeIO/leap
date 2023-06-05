@@ -212,10 +212,10 @@ namespace eosio {
 
       alignas(hardware_destructive_interference_size)
       std::mutex     sync_mtx;
-      uint32_t       sync_known_lib_num{0};
-      uint32_t       sync_last_requested_num{0};
-      uint32_t       sync_next_expected_num{0};
-      connection_ptr sync_source;
+      uint32_t       sync_known_lib_num{0};       // highest known lib num from currently connected peers
+      uint32_t       sync_last_requested_num{0};  // end block number of the last requested range, inclusive
+      uint32_t       sync_next_expected_num{0};   // the next block number we need from peer
+      connection_ptr sync_source;                 // connection we are currently syncing from
 
       const uint32_t       sync_req_span{0};
       const uint32_t       sync_peer_limit{0};
