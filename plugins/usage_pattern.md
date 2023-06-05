@@ -183,13 +183,16 @@ Example of actions in `plugin_startup`:
 
 1. If a plugin (or one of its dependents) throws during `startup()`, `plugin_shutdown()` should be called on it.
     => update producer_plugin and other plugins which may (needlessly) call `plugin_shutdown()` when there is an exception in  `plugin_startup()`
+    
+```
     **done** [appbase 65bb056] ensure plugin_shutdown called when plugin_shutdown throws.
              [leap/gh-672 3210dfe48] net_plugin:  no need to catch exceptions to make sure `plugin_shutdown()` is executed.
              [leap/gh-672 dc72da4e5] producer_plugin: remove unnecessary try/catch block calling `plugin_shutdown()`
-    
+```
+
 2. many appbase apps do not check the return value of `app->initialize()` or catch exceptions.
 
-3. have `app->initialize()` return `enum class result { all_done, success, failure }`
+3. have `app->initialize()` return `enum class result { all_done, success, failure }`, so an application knows whether to just return or contunue with `app->startup();`.
 
 
 
