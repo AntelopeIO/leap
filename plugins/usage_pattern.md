@@ -192,7 +192,7 @@ Example of actions in `plugin_startup`:
 
 2. many appbase apps do not check the return value of `app->initialize()` or catch exceptions.
 
-3. have `app->initialize()` return `enum class result { all_done, success, failure }`, so an application knows whether to just return or contunue with `app->startup();`.
+3. have `app->initialize()` return `enum class result { all_done, success, failure }`, so an application knows whether to just return or continue with `app->startup();`.
 
 
 
