@@ -408,7 +408,6 @@ class PerformanceTestBasic:
         self.data.numNodes = self.clusterConfig._totalNodes
 
         abiFile=None
-        apiEndpoint=None
         actionsDataJson=None
         actionsAuthsJson=None
         self.accountNames=[]
@@ -420,8 +419,8 @@ class PerformanceTestBasic:
                 self.setupWalletAndAccounts(accountCnt=len(self.userTrxDataDict['initAccounts']), accountNames=self.userTrxDataDict['initAccounts'])
             abiFile = self.userTrxDataDict['abiFile']
             if 'apiEndpoint' in self.userTrxDataDict:
-                apiEndpoint = self.userTrxDataDict['apiEndpoint']
-                print(f'API Endpoint specified: {apiEndpoint}')
+                self.apiEndpoint = self.userTrxDataDict['apiEndpoint']
+                print(f'API Endpoint specified: {self.apiEndpoint}')
 
             actionsDataJson = json.dumps(self.userTrxDataDict['actions'])
 
@@ -452,7 +451,7 @@ class PerformanceTestBasic:
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
                                                        trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
                                                        abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,
-                                                       tpsTrxGensConfig=tpsTrxGensConfig, apiEndpoint=apiEndpoint)
+                                                       tpsTrxGensConfig=tpsTrxGensConfig, apiEndpoint=self.apiEndpoint)
 
         trxGenExitCodes = self.cluster.trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
@@ -490,10 +489,10 @@ class PerformanceTestBasic:
         except Exception as e:
             print(f"Failed to move '{self.cluster.nodeosLogPath}' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
-    def createReport(self, logAnalysis: log_reader.LogAnalysis, tpsTestConfig: log_reader.TpsTestConfig, argsDict: dict, nodeosVers: str,
-                     targetApiEndpointType: str, testResult: PerfTestBasicResult) -> dict:
+    def createReport(self, logAnalysis: log_reader.LogAnalysis, tpsTestConfig: log_reader.TpsTestConfig, argsDict: dict, testResult: PerfTestBasicResult) -> dict:
         report = {}
-        report['targetApiEndpointType'] = targetApiEndpointType
+        report['targetApiEndpointType'] = self.ptbConfig.endpointApiType
+        report['targetApiEndpoint'] = self.apiEndpoint if self.apiEndpoint is not None else '/v1/chain/send_transaction2' if self.ptbConfig.endpointApiType == "http" else "NA for P2P"
         report['Result'] = asdict(testResult)
         report['Analysis'] = {}
         report['Analysis']['BlockSize'] = asdict(logAnalysis.blockSizeStats)
@@ -526,8 +525,9 @@ class PerformanceTestBasic:
             report['Analysis']['DroppedBlocks'][formattedNodeNum] = self.data.droppedBlocks[formattedNodeNum]
             report['Analysis']['DroppedBlocksCount'][formattedNodeNum] = len(self.data.droppedBlocks[formattedNodeNum])
         report['args'] =  argsDict
+        report['args']['userTrxData'] = self.userTrxDataDict if self.ptbConfig.userTrxDataFile is not None else "NOT CONFIGURED"
         report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
-        report['nodeosVersion'] = nodeosVers
+        report['nodeosVersion'] = self.clusterConfig.nodeosVers
         return report
 
     def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
@@ -557,8 +557,7 @@ class PerformanceTestBasic:
 
         print(f"testRunSuccessful: {self.testResult.testRunSuccessful} testPassed: {self.testResult.testPassed} tpsExpectationMet: {self.testResult.tpsExpectMet} trxExpectationMet: {self.testResult.trxExpectMet}")
 
-        self.report = self.createReport(logAnalysis=self.logAnalysis, tpsTestConfig=tpsTestConfig, argsDict=args, nodeosVers=self.clusterConfig.nodeosVers,
-                                        targetApiEndpointType=self.ptbConfig.endpointApiType, testResult=self.testResult)
+        self.report = self.createReport(logAnalysis=self.logAnalysis, tpsTestConfig=tpsTestConfig, argsDict=args, testResult=self.testResult)
 
         jsonReport = None
         if not self.ptbConfig.quiet or not self.ptbConfig.delReport:
