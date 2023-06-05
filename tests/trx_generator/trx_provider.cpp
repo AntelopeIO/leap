@@ -71,8 +71,11 @@ namespace eosio::testing {
       }
    }
 
+   bool http_connection::needs_response_trace_info() {
+      return _config._api_endpoint == "/v1/chain/send_read_only_transaction";
+   }
+
    void http_connection::send_transaction(const chain::packed_transaction& trx) {
-      const std::string target       = "/v1/chain/send_transaction2"s;
       const int         http_version = 11;
       const std::string content_type = "application/json"s;
 
@@ -84,16 +87,30 @@ namespace eosio::testing {
       http_client_async::http_request_params params{_connection_thread_pool.get_executor(),
                                                     _config._peer_endpoint,
                                                     _config._port,
-                                                    target,
+                                                    _config._api_endpoint,
                                                     http_version,
                                                     content_type};
       http_client_async::async_http_request(
           params, std::move(msg_body),
-          [this, trx_id = trx.id()](
-              boost::beast::error_code ec, boost::beast::http::response<boost::beast::http::string_body> response) {
+          [this, trx_id = trx.id()](boost::beast::error_code                                      ec,
+                                    boost::beast::http::response<boost::beast::http::string_body> response) {
              ++this->_acknowledged;
              trx_acknowledged(trx_id, fc::time_point::now());
-             if (response.result() != boost::beast::http::status::accepted) {
+
+             if (this->needs_response_trace_info() && response.result() == boost::beast::http::status::ok) {
+                try {
+                   fc::variant resp_json = fc::json::from_string(response.body());
+                   record_trx_info(trx_id, resp_json["processed"]["block_num"].as_uint64(),
+                                   resp_json["processed"]["receipt"]["cpu_usage_us"].as_uint64(),
+                                   resp_json["processed"]["receipt"]["net_usage_words"].as_uint64(),
+                                   resp_json["processed"]["block_time"].as_string());
+                }
+                EOS_RETHROW_EXCEPTIONS(chain::json_parse_exception, "Fail to parse JSON from string: ${string}",
+                                       ("string", response.body()));
+             }
+
+             if (!(response.result() == boost::beast::http::status::accepted ||
+                   response.result() == boost::beast::http::status::ok)) {
                 elog("async_http_request Failed with response http status code: ${status}",
                      ("status", response.result_int()));
              }
@@ -136,7 +153,13 @@ namespace eosio::testing {
             ack_round_trip_us = acked - data._timestamp;
          }
          out << std::string(data._trx_id) << "," << data._timestamp.to_iso_string() << "," << acked_str << ","
-             << ack_round_trip_us.count() << "\n";
+             << ack_round_trip_us.count();
+
+         ackedTrxTraceInfo info = _peer_connection->get_acked_trx_trace_info(data._trx_id);
+         if (info._valid) {
+            out << std::string(",") << info._block_num << "," << info._cpu_usage_us << "," << info._net_usage_words << "," << info._block_time;
+         }
+         out << std::string("\n");
       }
       out.close();
    }

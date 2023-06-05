@@ -112,6 +112,7 @@ class PerformanceTestBasic:
         _validationNodeIds: list = field(default_factory=list)
         _apiNodeIds: list = field(default_factory=list)
         nonProdsEosVmOcEnable: bool = False
+        apiNodesReadOnlyThreadCount: int = 0
 
         def __post_init__(self):
             self._totalNodes = self.producerNodeCount + self.validationNodeCount + self.apiNodeCount
@@ -137,6 +138,8 @@ class PerformanceTestBasic:
             def configureApiNodes():
                 apiNodeSpecificNodeosStr = ""
                 apiNodeSpecificNodeosStr += "--plugin eosio::chain_api_plugin "
+                apiNodeSpecificNodeosStr += "--plugin eosio::net_api_plugin "
+                apiNodeSpecificNodeosStr += f"--read-only-threads {self.apiNodesReadOnlyThreadCount} "
                 if apiNodeSpecificNodeosStr:
                     self.specificExtraNodeosArgs.update({f"{nodeId}" : apiNodeSpecificNodeosStr for nodeId in self._apiNodeIds})
 
@@ -405,6 +408,7 @@ class PerformanceTestBasic:
         self.data.numNodes = self.clusterConfig._totalNodes
 
         abiFile=None
+        apiEndpoint=None
         actionsDataJson=None
         actionsAuthsJson=None
         self.accountNames=[]
@@ -415,6 +419,9 @@ class PerformanceTestBasic:
                 print(f"Creating accounts specified in userTrxData: {self.userTrxDataDict['initAccounts']}")
                 self.setupWalletAndAccounts(accountCnt=len(self.userTrxDataDict['initAccounts']), accountNames=self.userTrxDataDict['initAccounts'])
             abiFile = self.userTrxDataDict['abiFile']
+            if 'apiEndpoint' in self.userTrxDataDict:
+                apiEndpoint = self.userTrxDataDict['apiEndpoint']
+                print(f'API Endpoint specified: {apiEndpoint}')
 
             actionsDataJson = json.dumps(self.userTrxDataDict['actions'])
 
@@ -445,7 +452,7 @@ class PerformanceTestBasic:
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
                                                        trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
                                                        abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,
-                                                       tpsTrxGensConfig=tpsTrxGensConfig)
+                                                       tpsTrxGensConfig=tpsTrxGensConfig, apiEndpoint=apiEndpoint)
 
         trxGenExitCodes = self.cluster.trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
@@ -640,7 +647,8 @@ class PerformanceTestBasic:
                                                             producerNodeCount=args.producer_nodes, validationNodeCount=args.validation_nodes, apiNodeCount=args.api_nodes,
                                                             genesisPath=args.genesis, prodsEnableTraceApi=args.prods_enable_trace_api, extraNodeosArgs=extraNodeosArgs,
                                                             specifiedContract=specifiedContract, loggingLevel=args.cluster_log_lvl,
-                                                            nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable)
+                                                            nodeosVers=nodeosVers, nonProdsEosVmOcEnable=args.non_prods_eos_vm_oc_enable,
+                                                            apiNodesReadOnlyThreadCount=args.api_nodes_read_only_threads)
 
 class PtbArgumentsHandler(object):
     @staticmethod
@@ -660,6 +668,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--producer-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "Producing nodes count", default=defProdNodeCnt)
         ptbBaseParserGroup.add_argument("--validation-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "Validation nodes count", default=defValidationNodeCnt)
         ptbBaseParserGroup.add_argument("--api-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "API nodes count", default=defApiNodeCnt)
+        ptbBaseParserGroup.add_argument("--api-nodes-read-only-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "API nodes read only threads count for use with read-only transactions", default=0)
         ptbBaseParserGroup.add_argument("--tps-limit-per-generator", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum amount of transactions per second a single generator can have.", default=4000)
         ptbBaseParserGroup.add_argument("--genesis", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to genesis.json", default="tests/performance_tests/genesis.json")
         ptbBaseParserGroup.add_argument("--num-blocks-to-prune", type=int, help=argparse.SUPPRESS if suppressHelp else ("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "

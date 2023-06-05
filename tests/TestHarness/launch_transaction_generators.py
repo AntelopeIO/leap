@@ -39,7 +39,7 @@ class TpsTrxGensConfig:
 class TransactionGeneratorsLauncher:
 
     def __init__(self, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str, trxGenDurationSec: int, logDir: str,
-                 abiFile: Path, actionsData, actionsAuths, tpsTrxGensConfig: TpsTrxGensConfig):
+                 abiFile: Path, actionsData, actionsAuths, tpsTrxGensConfig: TpsTrxGensConfig, apiEndpoint: str=None):
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.contractOwnerAccount  = contractOwnerAccount
@@ -51,6 +51,7 @@ class TransactionGeneratorsLauncher:
         self.abiFile = abiFile
         self.actionsData = actionsData
         self.actionsAuths = actionsAuths
+        self.apiEndpoint = apiEndpoint
 
     def launch(self, waitToComplete=True):
         self.subprocess_ret_codes = []
@@ -75,6 +76,9 @@ class TransactionGeneratorsLauncher:
                 popenStringList.extend(['--abi-file', f'{self.abiFile}',
                                         '--actions-data', f'{self.actionsData}',
                                         '--actions-auths', f'{self.actionsAuths}'])
+            if self.apiEndpoint is not None:
+                popenStringList.extend(['--api-endpoint', f'{self.apiEndpoint}'])
+
             if Utils.Debug:
                 Print(f"Running trx_generator: {' '.join(popenStringList)}")
             self.subprocess_ret_codes.append(subprocess.Popen(popenStringList))
@@ -110,6 +114,8 @@ def parseArgs():
                                                             In \"p2p\" mode transactions will be directed to the p2p endpoint on a producer node. \
                                                             In \"http\" mode transactions will be directed to the http endpoint on an api node.",
                                                             choices=["p2p", "http"], default="p2p")
+    parser.add_argument("api_endpoint", type=str, help="The api endpoint to use to submit transactions. (Only used with http api nodes currently as p2p transactions are streamed)",
+                                                  default="/v1/chain/send_transaction2")
 
     args = parser.parse_args()
     return args
@@ -124,7 +130,8 @@ def main():
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
                                                    abiFile=args.abi_file, actionsData=args.actions_data, actionsAuths=args.actions_auths,
                                                    tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                                                                     connectionPairList=connectionPairList, endpointApiType=args.endpoint_api_type))
+                                                                                     connectionPairList=connectionPairList, endpointApiType=args.endpoint_api_type),
+                                                   apiEndpoint=args.api_endpoint)
 
 
     exit_codes = trxGenLauncher.launch()

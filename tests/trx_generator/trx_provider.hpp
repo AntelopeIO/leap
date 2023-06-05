@@ -28,10 +28,29 @@ namespace eosio::testing {
       std::string    _peer_endpoint_type = "p2p";
       std::string    _peer_endpoint      = "127.0.0.1";
       unsigned short _port               = 9876;
+      // Api endpoint not truly used for p2p connections as transactions are streamed directly to p2p endpoint
+      std::string    _api_endpoint       = "/v1/chain/send_transaction2";
 
       std::string to_string() const {
          std::ostringstream ss;
-         ss << "endpoint type: " << _peer_endpoint_type << " peer_endpoint: " << _peer_endpoint << " port: " << _port;
+         ss << "Provider base config endpoint type: " << _peer_endpoint_type << " peer_endpoint: " << _peer_endpoint
+            << " port: " << _port << " api endpoint: " << _api_endpoint;
+         return std::move(ss).str();
+      }
+   };
+
+   struct ackedTrxTraceInfo {
+      bool _valid = false;
+      unsigned int _block_num = 0;
+      unsigned int _cpu_usage_us = 0;
+      unsigned int _net_usage_words = 0;
+      std::string _block_time = "";
+
+      std::string to_string() const {
+         std::ostringstream ss;
+         ss << "Acked Transaction Trace Info "
+            << "valid: " << _valid << " block num: " << _block_num << " cpu usage us: " << _cpu_usage_us
+            << " net usage words: " << _net_usage_words << " block time: " << _block_time;
          return std::move(ss).str();
       }
    };
@@ -59,24 +78,25 @@ namespace eosio::testing {
          _connection_thread_pool.stop();
       };
 
-      fc::time_point get_trx_ack_time(const eosio::chain::transaction_id_type& _trx_id) {
+      fc::time_point get_trx_ack_time(const eosio::chain::transaction_id_type& trx_id) {
          fc::time_point time_acked;
          std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
-         auto search = _trxs_ack_time_map.find(_trx_id);
+         auto search = _trxs_ack_time_map.find(trx_id);
          if (search != _trxs_ack_time_map.end()) {
             time_acked = search->second;
          } else {
-            elog("get_trx_ack_time - Transaction acknowledge time not found for transaction with id: ${id}", ("id", _trx_id));
+            elog("get_trx_ack_time - Transaction acknowledge time not found for transaction with id: ${id}", ("id", trx_id));
             time_acked = fc::time_point::min();
          }
          return time_acked;
       }
 
+      virtual ackedTrxTraceInfo get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) = 0;
       virtual void send_transaction(const chain::packed_transaction& trx) = 0;
 
-      void trx_acknowledged(const eosio::chain::transaction_id_type _trx_id, const fc::time_point ack_time) {
+      void trx_acknowledged(const eosio::chain::transaction_id_type trx_id, const fc::time_point ack_time) {
          std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
-         _trxs_ack_time_map[_trx_id] = ack_time;
+         _trxs_ack_time_map[trx_id] = ack_time;
       }
 
     private:
@@ -85,6 +105,9 @@ namespace eosio::testing {
    };
 
    struct http_connection : public provider_connection {
+      std::mutex                                                     _trx_info_map_lock;
+      std::map<eosio::chain::transaction_id_type, ackedTrxTraceInfo> _acked_trx_trace_info_map;
+
       std::atomic<uint64_t> _acknowledged{0};
       std::atomic<uint64_t> _sent{0};
 
@@ -92,10 +115,30 @@ namespace eosio::testing {
           : provider_connection(provider_config) {}
 
       void send_transaction(const chain::packed_transaction& trx) final;
+      void record_trx_info(eosio::chain::transaction_id_type trx_id, unsigned int block_num, unsigned int cpu_usage_us,
+                           unsigned int net_usage_words, const std::string& block_time) {
+         std::lock_guard<std::mutex> lock(_trx_info_map_lock);
+         _acked_trx_trace_info_map.insert({trx_id, {true, block_num, cpu_usage_us, net_usage_words, block_time}});
+      }
+
+      ackedTrxTraceInfo get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) {
+         ackedTrxTraceInfo           info;
+         std::lock_guard<std::mutex> lock(_trx_info_map_lock);
+         auto                        search = _acked_trx_trace_info_map.find(trx_id);
+         if (search != _acked_trx_trace_info_map.end()) {
+            info = search->second;
+         } else {
+            elog("get_acked_trx_trace_info - Acknowledged transaction trace info not found for transaction with id: "
+                 "${id}",
+                 ("id", trx_id));
+         }
+         return info;
+      }
 
     private:
       void connect() override final;
       void disconnect() override final;
+      bool needs_response_trace_info();
    };
 
    struct p2p_connection : public provider_connection {
@@ -106,6 +149,10 @@ namespace eosio::testing {
           , _p2p_socket(_connection_thread_pool.get_executor()) {}
 
       void send_transaction(const chain::packed_transaction& trx) final;
+
+      ackedTrxTraceInfo get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) {
+         return ackedTrxTraceInfo();
+      }
 
     private:
       void connect() override final;
