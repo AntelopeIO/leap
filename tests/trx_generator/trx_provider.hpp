@@ -67,37 +67,13 @@ namespace eosio::testing {
 
       virtual ~provider_connection() = default;
 
-      void init_and_connect() {
-         _connection_thread_pool.start(
-             1, [](const fc::exception& e) { elog("provider_connection exception ${e}", ("e", e)); });
-         connect();
-      };
-
-      void cleanup_and_disconnect() {
-         disconnect();
-         _connection_thread_pool.stop();
-      };
-
-      fc::time_point get_trx_ack_time(const eosio::chain::transaction_id_type& trx_id) {
-         fc::time_point time_acked;
-         std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
-         auto search = _trxs_ack_time_map.find(trx_id);
-         if (search != _trxs_ack_time_map.end()) {
-            time_acked = search->second;
-         } else {
-            elog("get_trx_ack_time - Transaction acknowledge time not found for transaction with id: ${id}", ("id", trx_id));
-            time_acked = fc::time_point::min();
-         }
-         return time_acked;
-      }
+      void init_and_connect();
+      void cleanup_and_disconnect();
+      fc::time_point get_trx_ack_time(const eosio::chain::transaction_id_type& trx_id);
+      void trx_acknowledged(const eosio::chain::transaction_id_type trx_id, const fc::time_point ack_time);
 
       virtual acked_trx_trace_info get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) = 0;
       virtual void send_transaction(const chain::packed_transaction& trx) = 0;
-
-      void trx_acknowledged(const eosio::chain::transaction_id_type trx_id, const fc::time_point ack_time) {
-         std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
-         _trxs_ack_time_map[trx_id] = ack_time;
-      }
 
     private:
       virtual void connect()    = 0;
@@ -116,22 +92,8 @@ namespace eosio::testing {
 
       void send_transaction(const chain::packed_transaction& trx) final;
       void record_trx_info(eosio::chain::transaction_id_type trx_id, unsigned int block_num, unsigned int cpu_usage_us,
-                           unsigned int net_usage_words, const std::string& block_time) {
-         std::lock_guard<std::mutex> lock(_trx_info_map_lock);
-         _acked_trx_trace_info_map.insert({trx_id, {true, block_num, cpu_usage_us, net_usage_words, block_time}});
-      }
-
-      acked_trx_trace_info get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) override {
-         acked_trx_trace_info        info;
-         std::lock_guard<std::mutex> lock(_trx_info_map_lock);
-         auto                        search = _acked_trx_trace_info_map.find(trx_id);
-         if (search != _acked_trx_trace_info_map.end()) {
-            info = search->second;
-         } else {
-            elog("get_acked_trx_trace_info - Acknowledged transaction trace info not found for transaction with id: ""${id}", ("id", trx_id));
-         }
-         return info;
-      }
+                           unsigned int net_usage_words, const std::string& block_time);
+      acked_trx_trace_info get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) override final;
 
     private:
       void connect() override final;
@@ -148,9 +110,7 @@ namespace eosio::testing {
 
       void send_transaction(const chain::packed_transaction& trx) final;
 
-      acked_trx_trace_info get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) override {
-         return {};
-      }
+      acked_trx_trace_info get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) override final;
 
     private:
       void connect() override final;

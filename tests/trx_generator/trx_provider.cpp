@@ -34,6 +34,37 @@ namespace eosio::testing {
       return send_buffer;
    }
 
+   void provider_connection::init_and_connect() {
+      _connection_thread_pool.start(
+          1, [](const fc::exception& e) { elog("provider_connection exception ${e}", ("e", e)); });
+      connect();
+   };
+
+   void provider_connection::cleanup_and_disconnect() {
+      disconnect();
+      _connection_thread_pool.stop();
+   };
+
+   fc::time_point provider_connection::get_trx_ack_time(const eosio::chain::transaction_id_type& trx_id) {
+      fc::time_point              time_acked;
+      std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
+      auto                        search = _trxs_ack_time_map.find(trx_id);
+      if (search != _trxs_ack_time_map.end()) {
+         time_acked = search->second;
+      } else {
+         elog("get_trx_ack_time - Transaction acknowledge time not found for transaction with id: ${id}",
+              ("id", trx_id));
+         time_acked = fc::time_point::min();
+      }
+      return time_acked;
+   }
+
+   void provider_connection::trx_acknowledged(const eosio::chain::transaction_id_type trx_id,
+                                              const fc::time_point                    ack_time) {
+      std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
+      _trxs_ack_time_map[trx_id] = ack_time;
+   }
+
    void p2p_connection::connect() {
       ilog("Attempting P2P connection to ${ip}:${port}.", ("ip", _config._peer_endpoint)("port", _config._port));
       tcp::resolver r(_connection_thread_pool.get_executor());
@@ -52,6 +83,10 @@ namespace eosio::testing {
       send_buffer_type msg = create_send_buffer(trx);
       _p2p_socket.send(boost::asio::buffer(*msg));
       trx_acknowledged(trx.id(), fc::time_point::min()); //using min to identify ack time as not applicable for p2p
+   }
+
+   acked_trx_trace_info p2p_connection::get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) {
+      return {};
    }
 
    void http_connection::connect() {}
@@ -100,10 +135,35 @@ namespace eosio::testing {
              if (this->needs_response_trace_info() && response.result() == boost::beast::http::status::ok) {
                 try {
                    fc::variant resp_json = fc::json::from_string(response.body());
-                   record_trx_info(trx_id, resp_json["processed"]["block_num"].as_uint64(),
-                                   resp_json["processed"]["receipt"]["cpu_usage_us"].as_uint64(),
-                                   resp_json["processed"]["receipt"]["net_usage_words"].as_uint64(),
-                                   resp_json["processed"]["block_time"].as_string());
+                   if (resp_json.is_object() && resp_json.get_object().contains("processed")) {
+                      const auto& processed      = resp_json["processed"];
+                      const auto& block_num      = processed["block_num"].as_uint64();
+                      const auto& transaction_id = processed["id"].as_string();
+                      const auto& block_time     = processed["block_time"].as_string();
+                      std::string status         = "failed";
+                      int64_t     net            = -1;
+                      int64_t     cpu            = -1;
+                      if (processed.get_object().contains("receipt")) {
+                         const auto& receipt = processed["receipt"];
+                         if (receipt.is_object()) {
+                            status = receipt["status"].as_string();
+                            net    = receipt["net_usage_words"].as_int64() * 8;
+                            cpu    = receipt["cpu_usage_us"].as_int64();
+                         }
+                         if (status == "executed") {
+                            record_trx_info(trx_id, block_num, cpu, net, block_time);
+                         } else {
+                            elog("async_http_request Transaction receipt status not executed: ${string}",
+                                 ("string", response.body()));
+                         }
+                      } else {
+                         elog("async_http_request Transaction failed, no receipt: ${string}",
+                              ("string", response.body()));
+                      }
+                   } else {
+                      elog("async_http_request Transaction failed, transaction not processed: ${string}",
+                           ("string", response.body()));
+                   }
                 }
                 EOS_RETHROW_EXCEPTIONS(chain::json_parse_exception, "Fail to parse JSON from string: ${string}",
                                        ("string", response.body()));
@@ -116,6 +176,23 @@ namespace eosio::testing {
              }
           });
       ++_sent;
+   }
+   void http_connection::record_trx_info(eosio::chain::transaction_id_type trx_id, unsigned int block_num, unsigned int cpu_usage_us,
+                        unsigned int net_usage_words, const std::string& block_time) {
+      std::lock_guard<std::mutex> lock(_trx_info_map_lock);
+      _acked_trx_trace_info_map.insert({trx_id, {true, block_num, cpu_usage_us, net_usage_words, block_time}});
+   }
+
+   acked_trx_trace_info http_connection::get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) {
+      acked_trx_trace_info        info;
+      std::lock_guard<std::mutex> lock(_trx_info_map_lock);
+      auto                        search = _acked_trx_trace_info_map.find(trx_id);
+      if (search != _acked_trx_trace_info_map.end()) {
+         info = search->second;
+      } else {
+         elog("get_acked_trx_trace_info - Acknowledged transaction trace info not found for transaction with id: ${id}", ("id", trx_id));
+      }
+      return info;
    }
 
    trx_provider::trx_provider(const provider_base_config& provider_config) {
