@@ -2311,12 +2311,6 @@ namespace eosio {
                }
 
                sync_next_expected_num = blk_num + 1;
-            } else {
-               if (sync_last_requested_num != 0 && blk_num >= sync_last_requested_num) {
-                  sync_next_expected_num = blk_num + 1;
-                  request_next_chunk(std::move(g_sync));
-                  return;
-               }
             }
 
             uint32_t head = my_impl->get_chain_head_num();
