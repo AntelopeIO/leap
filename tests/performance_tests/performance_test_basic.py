@@ -143,8 +143,10 @@ class PerformanceTestBasic:
                 if apiNodeSpecificNodeosStr:
                     self.specificExtraNodeosArgs.update({f"{nodeId}" : apiNodeSpecificNodeosStr for nodeId in self._apiNodeIds})
 
-            configureValidationNodes()
-            configureApiNodes()
+            if self.validationNodeCount > 0:
+                configureValidationNodes()
+            if self.apiNodeCount > 0:
+                configureApiNodes()
 
             assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
             if self.nodeosVers == "v2":
