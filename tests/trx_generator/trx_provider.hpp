@@ -35,11 +35,11 @@ namespace eosio::testing {
          std::ostringstream ss;
          ss << "Provider base config endpoint type: " << _peer_endpoint_type << " peer_endpoint: " << _peer_endpoint
             << " port: " << _port << " api endpoint: " << _api_endpoint;
-         return std::move(ss).str();
+         return ss.str();
       }
    };
 
-   struct ackedTrxTraceInfo {
+   struct acked_trx_trace_info {
       bool _valid = false;
       unsigned int _block_num = 0;
       unsigned int _cpu_usage_us = 0;
@@ -91,7 +91,7 @@ namespace eosio::testing {
          return time_acked;
       }
 
-      virtual ackedTrxTraceInfo get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) = 0;
+      virtual acked_trx_trace_info get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) = 0;
       virtual void send_transaction(const chain::packed_transaction& trx) = 0;
 
       void trx_acknowledged(const eosio::chain::transaction_id_type trx_id, const fc::time_point ack_time) {
@@ -106,7 +106,7 @@ namespace eosio::testing {
 
    struct http_connection : public provider_connection {
       std::mutex                                                     _trx_info_map_lock;
-      std::map<eosio::chain::transaction_id_type, ackedTrxTraceInfo> _acked_trx_trace_info_map;
+      std::map<eosio::chain::transaction_id_type, acked_trx_trace_info> _acked_trx_trace_info_map;
 
       std::atomic<uint64_t> _acknowledged{0};
       std::atomic<uint64_t> _sent{0};
@@ -121,16 +121,14 @@ namespace eosio::testing {
          _acked_trx_trace_info_map.insert({trx_id, {true, block_num, cpu_usage_us, net_usage_words, block_time}});
       }
 
-      ackedTrxTraceInfo get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) {
-         ackedTrxTraceInfo           info;
+      acked_trx_trace_info get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) override {
+         acked_trx_trace_info        info;
          std::lock_guard<std::mutex> lock(_trx_info_map_lock);
          auto                        search = _acked_trx_trace_info_map.find(trx_id);
          if (search != _acked_trx_trace_info_map.end()) {
             info = search->second;
          } else {
-            elog("get_acked_trx_trace_info - Acknowledged transaction trace info not found for transaction with id: "
-                 "${id}",
-                 ("id", trx_id));
+            elog("get_acked_trx_trace_info - Acknowledged transaction trace info not found for transaction with id: ""${id}", ("id", trx_id));
          }
          return info;
       }
@@ -150,8 +148,8 @@ namespace eosio::testing {
 
       void send_transaction(const chain::packed_transaction& trx) final;
 
-      ackedTrxTraceInfo get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) {
-         return ackedTrxTraceInfo();
+      acked_trx_trace_info get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) override {
+         return {};
       }
 
     private:
@@ -217,7 +215,7 @@ namespace eosio::testing {
       std::string to_string() const {
          std::ostringstream ss;
          ss << "Trx Tps Tester Config: duration: " << _gen_duration_seconds << " target tps: " << _target_tps;
-         return std::move(ss).str();
+         return ss.str();
       };
    };
 

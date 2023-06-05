@@ -155,11 +155,11 @@ namespace eosio::testing {
          out << std::string(data._trx_id) << "," << data._timestamp.to_iso_string() << "," << acked_str << ","
              << ack_round_trip_us.count();
 
-         ackedTrxTraceInfo info = _peer_connection->get_acked_trx_trace_info(data._trx_id);
+         acked_trx_trace_info info = _peer_connection->get_acked_trx_trace_info(data._trx_id);
          if (info._valid) {
-            out << std::string(",") << info._block_num << "," << info._cpu_usage_us << "," << info._net_usage_words << "," << info._block_time;
+            out << "," << info._block_num << "," << info._cpu_usage_us << "," << info._net_usage_words << "," << info._block_time;
          }
-         out << std::string("\n");
+         out << "\n";
       }
       out.close();
    }
