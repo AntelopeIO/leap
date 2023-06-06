@@ -12,6 +12,8 @@
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
 
+#include <openssl/rand.h>
+
 #if _WIN32
 # include <malloc.h>
 #elif defined(__FreeBSD__)
@@ -158,6 +160,15 @@ namespace fc { namespace ecc {
         size_t serialized_result_sz = my->_key.size();
         secp256k1_ec_pubkey_serialize( detail::_get_context(), (unsigned char*)&my->_key.data, &serialized_result_sz, &secp_pub, SECP256K1_EC_COMPRESSED );
         FC_ASSERT( serialized_result_sz == my->_key.size() );
+    }
+
+    private_key private_key::generate()
+    {
+        private_key ret;
+       do {
+         RAND_bytes((uint8_t*)ret.my->_key.data(), sizeof(ret.my->_key.data()));
+       } while(!secp256k1_ec_seckey_verify(detail::_get_context(), (const uint8_t*)ret.my->_key.data()));
+       return ret;
     }
 
 } }

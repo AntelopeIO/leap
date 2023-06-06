@@ -196,21 +196,6 @@ namespace fc { namespace ecc {
        BN_bn2bin(bn, &((unsigned char*)&sec)[32-nbytes] );
        return sec;
     }
-
-    private_key private_key::generate()
-    {
-       EC_KEY* k = EC_KEY_new_by_curve_name( NID_secp256k1 );
-       if( !k ) FC_THROW_EXCEPTION( exception, "Unable to generate EC key" );
-       if( !EC_KEY_generate_key( k ) )
-       {
-          FC_THROW_EXCEPTION( exception, "ecc key generation error" );
-
-       }
-
-       return private_key( k );
-    }
-
-
 }
 
 void to_variant( const ecc::private_key& var,  variant& vo )
