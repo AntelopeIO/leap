@@ -459,7 +459,7 @@ Advanced Configuration Options:
 ```
 usage: performance_test.py testBpOpMode overrideBasicTestConfig
        [-h] [-d D] [--dump-error-details] [-v] [--leave-running] [--unshared]
-       [--endpoint-api-type {p2p,http}]
+       [--endpoint-mode {p2p,http}]
        [--producer-nodes PRODUCER_NODES] [--validation-nodes VALIDATION_NODES] [--api-nodes API_NODES]
        [--api-nodes-read-only-threads API_NODES_READ_ONLY_THREADS]
        [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
@@ -509,8 +509,8 @@ Test Helper Arguments:
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
-  --endpoint-api-type {p2p,http}
-                        Endpointt API mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
+  --endpoint-mode {p2p,http}
+                        Endpoint Mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
   --producer-nodes PRODUCER_NODES
                         Producing nodes count
   --validation-nodes VALIDATION_NODES
@@ -607,7 +607,7 @@ The following scripts are typically used by the Performance Harness main script 
   usage: performance_test_basic.py [-h] [-d D]
                                   [--dump-error-details] [-v] [--leave-running]
                                   [--unshared]
-                                  [--endpoint-api-type {p2p,http}]
+                                  [--endpoint-mode {p2p,http}]
                                   [--producer-nodes PRODUCER_NODES]
                                   [--validation-nodes VALIDATION_NODES]
                                   [--api-nodes API_NODES]
@@ -666,8 +666,8 @@ Test Helper Arguments:
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
-  --endpoint-api-type {p2p,http}
-                        Endpointt API mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
+  --endpoint-mode {p2p,http}
+                        Endpoint Mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
                         (default: p2p)
   --producer-nodes PRODUCER_NODES
                         Producing nodes count (default: 1)
@@ -1738,7 +1738,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "calcChainThreads": "lmax",
     "calcNetThreads": "lmax",
     "userTrxDataFile": null,
-    "endpointApiType": "p2p",
+    "endpointMode": "p2p",
     "opModeCmd": "testBpOpMode",
     "logDirBase": "performance_test",
     "logDirTimestamp": "2023-06-05_17-59-49",
@@ -2401,7 +2401,7 @@ The Performance Test Basic generates, by default, a report that details results 
     "expectedTransactionsSent": 130010,
     "printMissingTransactions": false,
     "userTrxDataFile": null,
-    "endpointApiType": "p2p",
+    "endpointMode": "p2p",
     "apiEndpoint": null,
     "logDirBase": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test",
     "logDirTimestamp": "2023-06-05_19-21-44",

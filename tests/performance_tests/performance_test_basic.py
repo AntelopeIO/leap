@@ -170,13 +170,13 @@ class PerformanceTestBasic:
         expectedTransactionsSent: int = field(default_factory=int, init=False)
         printMissingTransactions: bool=False
         userTrxDataFile: Path=None
-        endpointApiType: str="p2p"
+        endpointMode: str="p2p"
         apiEndpoint: str=None
 
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
-            if (self.endpointApiType == "http"):
+            if (self.endpointMode == "http"):
                 self.apiEndpoint="/v1/chain/send_transaction2"
 
     @dataclass
@@ -396,10 +396,10 @@ class PerformanceTestBasic:
         self.connectionPairList = []
 
         def configureConnections():
-            if(self.ptbConfig.endpointApiType == "http"):
+            if(self.ptbConfig.endpointMode == "http"):
                 for apiNodeId in self.clusterConfig._apiNodeIds:
                     self.connectionPairList.append(f"{self.cluster.getNode(apiNodeId).host}:{self.cluster.getNode(apiNodeId).port}")
-            else: # endpointApiType == p2p
+            else: # endpointMode == p2p
                 for producerId in self.clusterConfig._producerNodeIds:
                     self.connectionPairList.append(f"{self.cluster.getNode(producerId).host}:{self.cluster.getNodeP2pPort(producerId)}")
 
@@ -457,7 +457,7 @@ class PerformanceTestBasic:
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
                                                        trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
                                                        abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,
-                                                       tpsTrxGensConfig=tpsTrxGensConfig, endpointApiType=self.ptbConfig.endpointApiType, apiEndpoint=self.ptbConfig.apiEndpoint)
+                                                       tpsTrxGensConfig=tpsTrxGensConfig, endpointMode=self.ptbConfig.endpointMode, apiEndpoint=self.ptbConfig.apiEndpoint)
 
         trxGenExitCodes = self.cluster.trxGenLauncher.launch()
         print(f"Transaction Generator exit codes: {trxGenExitCodes}")
@@ -497,7 +497,7 @@ class PerformanceTestBasic:
 
     def createReport(self, logAnalysis: log_reader.LogAnalysis, tpsTestConfig: log_reader.TpsTestConfig, argsDict: dict, testResult: PerfTestBasicResult) -> dict:
         report = {}
-        report['targetApiEndpointType'] = self.ptbConfig.endpointApiType
+        report['targetApiEndpointType'] = self.ptbConfig.endpointMode
         report['targetApiEndpoint'] = self.ptbConfig.apiEndpoint if self.ptbConfig.apiEndpoint is not None else "NA for P2P"
         report['Result'] = asdict(testResult)
         report['Analysis'] = {}
@@ -667,7 +667,7 @@ class PtbArgumentsHandler(object):
         ptbBaseGrpDescription="Performance Test Basic base configuration items."
         ptbBaseParserGroup = ptbBaseParser.add_argument_group(title=None if suppressHelp else ptbBaseGrpTitle, description=None if suppressHelp else ptbBaseGrpDescription)
 
-        ptbBaseParserGroup.add_argument("--endpoint-api-type", type=str, help=argparse.SUPPRESS if suppressHelp else "Endpointt API mode (\"p2p\", \"http\"). \
+        ptbBaseParserGroup.add_argument("--endpoint-mode", type=str, help=argparse.SUPPRESS if suppressHelp else "Endpoint mode (\"p2p\", \"http\"). \
                                                                 In \"p2p\" mode transactions will be directed to the p2p endpoint on a producer node. \
                                                                 In \"http\" mode transactions will be directed to the http endpoint on an api node.",
                                                                 choices=["p2p", "http"], default=defEndpointApiDef)
@@ -775,7 +775,7 @@ def main():
                                                delPerfLogs=args.del_perf_logs,
                                                printMissingTransactions=args.print_missing_transactions,
                                                userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None,
-                                               endpointApiType=args.endpoint_api_type)
+                                               endpointMode=args.endpoint_mode)
 
     myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
 

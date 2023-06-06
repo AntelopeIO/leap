@@ -1567,7 +1567,7 @@ class Cluster(object):
                                                     contractOwnerAccount=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
                                                     privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec, logDir=Utils.DataDir,
                                                     abiFile=abiFile, actionsData=actionsData, actionsAuths=actionsAuths, tpsTrxGensConfig=tpsTrxGensConfig,
-                                                    endpointApiType="p2p")
+                                                    endpointMode="p2p")
 
         Utils.Print("Launch txn generators and start generating/sending transactions")
         self.trxGenLauncher.launch(waitToComplete=waitToComplete)
