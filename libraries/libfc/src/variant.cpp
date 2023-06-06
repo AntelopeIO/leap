@@ -475,9 +475,9 @@ std::string variant::as_string()const
       case double_type:
           return to_string(*reinterpret_cast<const double*>(this));
       case int64_type:
-          return to_string(*reinterpret_cast<const int64_t*>(this));
+          return std::to_string(*reinterpret_cast<const int64_t*>(this));
       case uint64_type:
-          return to_string(*reinterpret_cast<const uint64_t*>(this));
+          return std::to_string(*reinterpret_cast<const uint64_t*>(this));
       case bool_type:
           return *reinterpret_cast<const bool*>(this) ? "true" : "false";
       case blob_type:

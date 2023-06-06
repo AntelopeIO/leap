@@ -1,3 +1,4 @@
+#include <string>
 #include <eosio/chain/asset.hpp>
 #include <boost/rational.hpp>
 #include <fc/reflect/variant.hpp>
@@ -22,11 +23,11 @@ int64_t asset::precision()const {
 string asset::to_string()const {
    string sign = amount < 0 ? "-" : "";
    int64_t abs_amount = std::abs(amount);
-   string result = fc::to_string( static_cast<int64_t>(abs_amount) / precision());
+   string result = std::to_string( static_cast<int64_t>(abs_amount) / precision());
    if( decimals() )
    {
       auto fract = static_cast<int64_t>(abs_amount) % precision();
-      result += "." + fc::to_string(precision() + fract).erase(0,1);
+      result += "." + std::to_string(precision() + fract).erase(0,1);
    }
    return sign + result + " " + symbol_name();
 }

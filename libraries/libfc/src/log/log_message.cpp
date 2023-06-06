@@ -73,7 +73,7 @@ namespace fc
 
    std::string log_context::to_string()const
    {
-      return my->thread_name + "  " + my->file + ":" + fc::to_string(my->line) + " " + my->method;
+      return my->thread_name + "  " + my->file + ":" + std::to_string(my->line) + " " + my->method;
 
    }
 
