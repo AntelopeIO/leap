@@ -3239,14 +3239,16 @@ namespace eosio {
 
    // called from connection strand
    uint32_t connection::calc_block_latency() {
-      // number of blocks syncing node is behind from a peer node, round up
-      uint32_t nblk_behind_by_net_latency = std::lround( static_cast<double>(net_latency_ns.load()) / static_cast<double>(block_interval_ns) );
-      // 2x for time it takes for message to reach back to peer node
-      uint32_t nblk_combined_latency = 2 * nblk_behind_by_net_latency;
-      // message in the log below is used in p2p_high_latency_test.py test
-      peer_dlog(this, "Network latency is ${lat}ms, ${num} blocks discrepancy by network latency, ${tot_num} blocks discrepancy expected once message received",
-                ("lat", net_latency_ns/1000000)("num", nblk_behind_by_net_latency)("tot_num", nblk_combined_latency));
-
+      uint32_t nblk_combined_latency = 0;
+      if (net_latency_ns != std::numeric_limits<uint64_t>::max()) {
+         // number of blocks syncing node is behind from a peer node, round up
+         uint32_t nblk_behind_by_net_latency = std::lround(static_cast<double>(net_latency_ns.load()) / static_cast<double>(block_interval_ns));
+         // 2x for time it takes for message to reach back to peer node
+         nblk_combined_latency = 2 * nblk_behind_by_net_latency;
+         // message in the log below is used in p2p_high_latency_test.py test
+         peer_dlog(this, "Network latency is ${lat}ms, ${num} blocks discrepancy by network latency, ${tot_num} blocks discrepancy expected once message received",
+                   ("lat", net_latency_ns / 1000000)("num", nblk_behind_by_net_latency)("tot_num", nblk_combined_latency));
+      }
       return nblk_combined_latency;
    }
 
@@ -3308,7 +3310,7 @@ namespace eosio {
       auto msg_xmt = normalize_epoch_to_ns(msg.xmt);
       auto msg_org = normalize_epoch_to_ns(msg.org);
 
-      if (msg_org == normalize_epoch_to_ns(org)) {
+      if (msg_org != 0 && msg_org == normalize_epoch_to_ns(org)) {
          auto latency = msg.dst - msg_org;
          peer_dlog(this, "send_time latency ${l}us", ("l", latency/2/1000));
          net_latency_ns = latency/2;
@@ -3341,6 +3343,11 @@ namespace eosio {
       if( last_handshake_recv.generation == 0 ) {
          g_conn.unlock();
          send_handshake();
+      }
+
+      // make sure we also get the latency we need
+      if (net_latency_ns == std::numeric_limits<uint64_t>::max()) {
+         send_time();
       }
    }
 
