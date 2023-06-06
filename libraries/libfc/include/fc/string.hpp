@@ -8,7 +8,6 @@ namespace fc
   int64_t  to_int64( const std::string& );
   uint64_t to_uint64( const std::string& );
   double   to_double( const std::string& );
-  std::string to_string( double );
 
   class variant_object;
   std::string format_string( const std::string&, const variant_object&, bool minimize = false );

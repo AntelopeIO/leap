@@ -60,14 +60,6 @@ namespace fc  {
     }
     FC_RETHROW_EXCEPTIONS( warn, "${i} => double", ("i",i) )
   }
-
-  std::string to_string(double d)
-  {
-    // +2 is required to ensure that the double is rounded correctly when read back in.  http://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html
-    std::stringstream ss;
-    ss << std::setprecision(std::numeric_limits<double>::digits10 + 2) << std::fixed << d;
-    return ss.str();
-  }
   std::string trim( const std::string& s )
   {
       return boost::algorithm::trim_copy(s);
