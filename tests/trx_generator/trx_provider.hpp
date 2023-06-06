@@ -40,18 +40,18 @@ namespace eosio::testing {
    };
 
    struct acked_trx_trace_info {
-      bool _valid = false;
-      unsigned int _block_num = 0;
-      unsigned int _cpu_usage_us = 0;
-      unsigned int _net_usage_words = 0;
-      std::string _block_time = "";
+      bool        _valid           = false;
+      uint32_t    _block_num       = 0;
+      uint32_t    _cpu_usage_us    = 0;
+      uint32_t    _net_usage_words = 0;
+      std::string _block_time      = "";
 
       std::string to_string() const {
          std::ostringstream ss;
          ss << "Acked Transaction Trace Info "
             << "valid: " << _valid << " block num: " << _block_num << " cpu usage us: " << _cpu_usage_us
             << " net usage words: " << _net_usage_words << " block time: " << _block_time;
-         return std::move(ss).str();
+         return ss.str();
       }
    };
 
@@ -70,7 +70,7 @@ namespace eosio::testing {
       void init_and_connect();
       void cleanup_and_disconnect();
       fc::time_point get_trx_ack_time(const eosio::chain::transaction_id_type& trx_id);
-      void trx_acknowledged(const eosio::chain::transaction_id_type trx_id, const fc::time_point ack_time);
+      void trx_acknowledged(const eosio::chain::transaction_id_type& trx_id, const fc::time_point& ack_time);
 
       virtual acked_trx_trace_info get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) = 0;
       virtual void send_transaction(const chain::packed_transaction& trx) = 0;
@@ -91,8 +91,8 @@ namespace eosio::testing {
           : provider_connection(provider_config) {}
 
       void send_transaction(const chain::packed_transaction& trx) final;
-      void record_trx_info(eosio::chain::transaction_id_type trx_id, unsigned int block_num, unsigned int cpu_usage_us,
-                           unsigned int net_usage_words, const std::string& block_time);
+      void record_trx_info(const eosio::chain::transaction_id_type& trx_id, uint32_t block_num, uint32_t cpu_usage_us,
+                           uint32_t net_usage_words, const std::string& block_time);
       acked_trx_trace_info get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) override final;
 
     private:

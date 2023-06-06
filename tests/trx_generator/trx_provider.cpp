@@ -59,8 +59,8 @@ namespace eosio::testing {
       return time_acked;
    }
 
-   void provider_connection::trx_acknowledged(const eosio::chain::transaction_id_type trx_id,
-                                              const fc::time_point                    ack_time) {
+   void provider_connection::trx_acknowledged(const eosio::chain::transaction_id_type& trx_id,
+                                              const fc::time_point&                    ack_time) {
       std::lock_guard<std::mutex> lock(_trx_ack_map_lock);
       _trxs_ack_time_map[trx_id] = ack_time;
    }
@@ -141,14 +141,14 @@ namespace eosio::testing {
                       const auto& transaction_id = processed["id"].as_string();
                       const auto& block_time     = processed["block_time"].as_string();
                       std::string status         = "failed";
-                      int64_t     net            = -1;
-                      int64_t     cpu            = -1;
+                      uint32_t    net            = 0;
+                      uint32_t    cpu            = 0;
                       if (processed.get_object().contains("receipt")) {
                          const auto& receipt = processed["receipt"];
                          if (receipt.is_object()) {
                             status = receipt["status"].as_string();
-                            net    = receipt["net_usage_words"].as_int64() * 8;
-                            cpu    = receipt["cpu_usage_us"].as_int64();
+                            net    = receipt["net_usage_words"].as_uint64() * 8;
+                            cpu    = receipt["cpu_usage_us"].as_uint64();
                          }
                          if (status == "executed") {
                             record_trx_info(trx_id, block_num, cpu, net, block_time);
@@ -177,8 +177,10 @@ namespace eosio::testing {
           });
       ++_sent;
    }
-   void http_connection::record_trx_info(eosio::chain::transaction_id_type trx_id, unsigned int block_num, unsigned int cpu_usage_us,
-                        unsigned int net_usage_words, const std::string& block_time) {
+
+   void http_connection::record_trx_info(const eosio::chain::transaction_id_type& trx_id, uint32_t block_num,
+                                         uint32_t cpu_usage_us, uint32_t net_usage_words,
+                                         const std::string& block_time) {
       std::lock_guard<std::mutex> lock(_trx_info_map_lock);
       _acked_trx_trace_info_map.insert({trx_id, {true, block_num, cpu_usage_us, net_usage_words, block_time}});
    }
