@@ -8,7 +8,6 @@ namespace eosio::chain {
 
 // snapshot_scheduler_listener
 void snapshot_scheduler::on_start_block(uint32_t height, chain::controller& chain) {
-   bool serialize_needed = false;
    bool snapshot_executed = false;
 
    auto execute_snapshot_with_log = [this, height, &snapshot_executed, &chain](const auto& req) {
@@ -25,28 +24,18 @@ void snapshot_scheduler::on_start_block(uint32_t height, chain::controller& chai
    std::vector<uint32_t> unschedule_snapshot_request_ids;
    for(const auto& req: _snapshot_requests.get<0>()) {
       // -1 since its called from start block
-      bool recurring_snapshot = req.block_spacing && (height >= req.start_block_num + 1) && (!((height - req.start_block_num - 1) % req.block_spacing));
-      bool onetime_snapshot = (!req.block_spacing) && (height == req.start_block_num + 1);
+      bool recurring_snapshot  = req.block_spacing && (height >= req.start_block_num + 1) && (!((height - req.start_block_num - 1) % req.block_spacing));
+      bool onetime_snapshot    = (!req.block_spacing) && (height == req.start_block_num + 1);
+      
+      bool marked_for_deletion = ((!req.block_spacing) && (height >= req.start_block_num + 1)) || // if one time snapshot executed or scheduled for the past, it should be gone
+                                 (height > 0 && ((height-1) >= req.end_block_num));               // any snapshot can expire by end block num (end_block_num can be max value)
 
-      // assume "asap" for snapshot with missed/zero start, it can have spacing
-      if(!req.start_block_num) {
-         // update start_block_num with current height only if this is recurring
-         // if non recurring, will be executed and unscheduled
-         if(req.block_spacing && height) {
-            auto& snapshot_by_id = _snapshot_requests.get<by_snapshot_id>();
-            auto it = snapshot_by_id.find(req.snapshot_request_id);
-            _snapshot_requests.modify(it, [&height](auto& p) { p.start_block_num = height - 1; });
-            serialize_needed = true;
-         }
-         execute_snapshot_with_log(req);
-      } else if(recurring_snapshot || onetime_snapshot) {
+      if(recurring_snapshot || onetime_snapshot) {
          execute_snapshot_with_log(req);
       }
 
       // cleanup - remove expired (or invalid) request
-      if((!req.start_block_num && !req.block_spacing) ||
-         (!req.block_spacing && height >= (req.start_block_num + 1)) ||
-         (req.end_block_num > 0 && height >= (req.end_block_num + 1))) {
+      if(marked_for_deletion) {
          unschedule_snapshot_request_ids.push_back(req.snapshot_request_id);
       }
    }
@@ -54,9 +43,6 @@ void snapshot_scheduler::on_start_block(uint32_t height, chain::controller& chai
    for(const auto& i: unschedule_snapshot_request_ids) {
       unschedule_snapshot(i);
    }
-
-   // store db to filesystem
-   if(serialize_needed) x_serialize();
 }
 
 void snapshot_scheduler::on_irreversible_block(const signed_block_ptr& lib, const chain::controller& chain) {
@@ -80,15 +66,8 @@ snapshot_scheduler::snapshot_schedule_result snapshot_scheduler::schedule_snapsh
    auto& snapshot_by_value = _snapshot_requests.get<by_snapshot_value>();
    auto existing = snapshot_by_value.find(std::make_tuple(sri.block_spacing, sri.start_block_num, sri.end_block_num));
    EOS_ASSERT(existing == snapshot_by_value.end(), chain::duplicate_snapshot_request, "Duplicate snapshot request");
-
-   if(sri.end_block_num > 0) {
-      // if "end" is specified, it should be greater then start
-      EOS_ASSERT(sri.start_block_num <= sri.end_block_num, chain::invalid_snapshot_request, "End block number should be greater or equal to start block number");
-      // if also block_spacing specified, check it
-      if(sri.block_spacing > 0) {
-         EOS_ASSERT(sri.start_block_num + sri.block_spacing <= sri.end_block_num, chain::invalid_snapshot_request, "Block spacing exceeds defined by start and end range");
-      }
-   }
+   EOS_ASSERT(sri.start_block_num <= sri.end_block_num, chain::invalid_snapshot_request, "End block number should be greater or equal to start block number");
+   EOS_ASSERT(sri.start_block_num + sri.block_spacing <= sri.end_block_num, chain::invalid_snapshot_request, "Block spacing exceeds defined by start and end range");
 
    _snapshot_requests.emplace(snapshot_schedule_information{{_snapshot_id++}, {sri.block_spacing, sri.start_block_num, sri.end_block_num, sri.snapshot_description}, {}});
    x_serialize();

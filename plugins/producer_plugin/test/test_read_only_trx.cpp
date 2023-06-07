@@ -183,8 +183,7 @@ BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
                                               "--max-transaction-time=10",
                                               "--abi-serializer-max-time-ms=999",
                                               "--read-only-write-window-time-us=100000",
-                                              "--read-only-read-window-time-us=40000",
-                                              "--disable-subjective-billing=true" };
+                                              "--read-only-read-window-time-us=40000" };
    test_trxs_common(specific_args);
 }
 
@@ -195,8 +194,7 @@ BOOST_AUTO_TEST_CASE(with_8_read_only_threads) {
                                               "--max-transaction-time=10",
                                               "--abi-serializer-max-time-ms=999",
                                               "--read-only-write-window-time-us=100000",
-                                              "--read-only-read-window-time-us=40000",
-                                              "--disable-subjective-billing=true" };
+                                              "--read-only-read-window-time-us=40000" };
    test_trxs_common(specific_args);
 }
 
