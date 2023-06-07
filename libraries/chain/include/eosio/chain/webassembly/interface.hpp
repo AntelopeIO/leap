@@ -1792,8 +1792,9 @@ namespace webassembly {
           * @param op1 - a span containing the first operand G1 point.
           * @param op2 - a span containing the second operand G1 point.
           * @param[out] result - the result op1 + op2.
+          * @return -1 if there was an error 0 otherwise
          */
-         void bls_g1_add(span<const char> op1, span<const char> op2, span<char> result) const;
+         int32_t bls_g1_add(span<const char> op1, span<const char> op2, span<char> result) const;
 
          /**
           * Host function for G2 addition on the elliptic curve bls12-381
@@ -1802,8 +1803,9 @@ namespace webassembly {
           * @param op1 - a span containing the first operand G2 point.
           * @param op2 - a span containing the second operand G2 point.
           * @param[out] result - the result op1 + op2.
+          * @return -1 if there was an error 0 otherwise
          */
-         void bls_g2_add(span<const char> op1, span<const char> op2, span<char> result) const;
+         int32_t bls_g2_add(span<const char> op1, span<const char> op2, span<char> result) const;
 
          /**
           * Host function for G1 scalar multiplication on the elliptic curve bls12-381
@@ -1812,8 +1814,9 @@ namespace webassembly {
           * @param point - a span containing the G1 point operand.
           * @param scalar - a span containing the scalar operand.
           * @param[out] result - the result: scalar * point.
+          * @return -1 if there was an error 0 otherwise
          */
-         void bls_g1_mul(span<const char> point, span<const char> scalar, span<char> result) const;
+         int32_t bls_g1_mul(span<const char> point, span<const char> scalar, span<char> result) const;
 
          /**
           * Host function for G2 scalar multiplication on the elliptic curve bls12-381
@@ -1822,8 +1825,9 @@ namespace webassembly {
           * @param point - a span containing the G2 point operand.
           * @param scalar - a span containing the scalar operand.
           * @param[out] result - the result op1 * op2.
+          * @return -1 if there was an error 0 otherwise
          */
-         void bls_g2_mul(span<const char> point, span<const char> scalar, span<char> result) const;
+         int32_t bls_g2_mul(span<const char> point, span<const char> scalar, span<char> result) const;
 
          /**
           * Host function for G1 multi-exponentiation on the elliptic curve bls12-381
@@ -1833,8 +1837,9 @@ namespace webassembly {
           * @param scalars - a span containing a list of scalars (s0, s1, s2... sn).
           * @param n - the number of elements in the lists.
           * @param[out] result - the result s0 * P0 + s1 * P1 + ... + sn * Pn.
+          * @return -1 if there was an error 0 otherwise
          */
-         void bls_g1_exp(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
+         int32_t bls_g1_exp(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
 
          /**
           * Host function for G2 multi-exponentiation on the elliptic curve bls12-381
@@ -1844,8 +1849,9 @@ namespace webassembly {
           * @param scalars - a span containing a list of scalars (s0, s1, s2... sn).
           * @param n - the number of elements in the lists.
           * @param[out] result - the result s0 * P0 + s1 * P1 + ... + sn * Pn.
+          * @return -1 if there was an error 0 otherwise
          */
-         void bls_g2_exp(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
+         int32_t bls_g2_exp(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
 
          /**
           * Host function to calculate the pairing of (G1, G2) pairs on the elliptic curve bls12-381
@@ -1855,8 +1861,9 @@ namespace webassembly {
           * @param g2_points - a span containing a list of G2 points (P0, P1, P2... Pn).
           * @param n - the number of elements in the lists.
           * @param[out] result - the result e(g1_0, g2_0) * e(g1_1, g2_1) * ... * e(g1_n, g2_n)
+          * @return -1 if there was an error 0 otherwise
          */
-         void bls_pairing(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result) const;
+         int32_t bls_pairing(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result) const;
 
          /**
           * Host function for mapping fp to G1 on the elliptic curve bls12-381
@@ -1864,8 +1871,9 @@ namespace webassembly {
           * @ingroup crypto
           * @param e - a span containing the field element fp to be mapped.
           * @param[out] result - the resulting element in G1.
+          * @return -1 if there was an error 0 otherwise
          */
-         void bls_g1_map(span<const char> e, span<char> result) const;
+         int32_t bls_g1_map(span<const char> e, span<char> result) const;
 
          /**
           * Host function for mapping fp2 to G2 on the elliptic curve bls12-381
@@ -1873,8 +1881,9 @@ namespace webassembly {
           * @ingroup crypto
           * @param e - a span containing the field element fp2 to be mapped.
           * @param[out] result - the resulting element in G2.
+          * @return -1 if there was an error 0 otherwise
          */
-         void bls_g2_map(span<const char> e, span<char> result) const;
+         int32_t bls_g2_map(span<const char> e, span<char> result) const;
 
          /**
           * Host function for modular reduction of 64 bytes wide scalar to a field element (fp, 48 bytes) of the elliptic curve bls12-381
@@ -1883,8 +1892,9 @@ namespace webassembly {
           * @ingroup crypto
           * @param s - a span containing the 64 bytes wide scalar to be reduced.
           * @param[out] result - the resulting field element fp in Montogomery form.
+          * @return -1 if there was an error 0 otherwise
          */
-         void bls_fp_mod(span<const char> s, span<char> result) const;
+         int32_t bls_fp_mod(span<const char> s, span<char> result) const;
 
          // compiler builtins api
          void __ashlti3(legacy_ptr<int128_t>, uint64_t, uint64_t, uint32_t) const;
