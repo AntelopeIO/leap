@@ -244,11 +244,21 @@ class sentTrx():
     acked: str = ""
     ackResponseTimeUs: int = -1
 
+@dataclass
+class sentTrxExtTrace():
+    sentTime: str = ""
+    acked: str = ""
+    ackResponseTimeUs: int = -1
+    blockNum: int = -1
+    cpuUsageUs: int = -1
+    netUsageWords: int = -1
+    blockTime: str = ""
+
 def scrapeTrxGenLog(trxSent: dict, path):
     #trxGenLogs/trx_data_output_*.txt
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
-        trxSent.update(dict([(x[0], sentTrx(x[1], x[2], x[3])) for x in (line.rstrip('\n').split(',') for line in f)]))
+        trxSent.update(dict([(x[0], sentTrx(x[1], x[2], x[3]) if len(x) == 4 else sentTrxExtTrace(x[1], x[2], x[3], x[4], x[5], x[6], x[7])) for x in (line.rstrip('\n').split(',') for line in f)]))
 
 def scrapeTrxGenTrxSentDataLogs(trxSent: dict, trxGenLogDirPath, quiet):
     filesScraped = []
@@ -261,7 +271,10 @@ def scrapeTrxGenTrxSentDataLogs(trxSent: dict, trxGenLogDirPath, quiet):
 
 def populateTrxSentAndAcked(trxSent: dict, trxDict: dict, notFound):
     for sentTrxId in trxSent.keys():
-        if sentTrxId in trxDict.keys():
+        if (isinstance(trxSent[sentTrxId], sentTrxExtTrace)):
+            trxDict[sentTrxId] = trxData(blockNum=trxSent[sentTrxId].blockNum, cpuUsageUs=trxSent[sentTrxId].cpuUsageUs, netUsageUs=trxSent[sentTrxId].netUsageWords, blockTime=trxSent[sentTrxId].blockTime, acknowledged=trxSent[sentTrxId].acked, ackRespTimeUs=trxSent[sentTrxId].ackResponseTimeUs)
+            trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId].sentTime
+        elif sentTrxId in trxDict.keys():
             trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId].sentTime
             trxDict[sentTrxId].acknowledged = trxSent[sentTrxId].acked
             trxDict[sentTrxId].ackRespTimeUs = trxSent[sentTrxId].ackResponseTimeUs
