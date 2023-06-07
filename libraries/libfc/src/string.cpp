@@ -3,7 +3,6 @@
 #include <fc/io/json.hpp>
 #include <fc/exception/exception.hpp>
 #include <boost/lexical_cast.hpp>
-#include <boost/algorithm/string.hpp>
 
 #include <string>
 #include <sstream>
@@ -60,11 +59,6 @@ namespace fc  {
     }
     FC_RETHROW_EXCEPTIONS( warn, "${i} => double", ("i",i) )
   }
-  std::string trim( const std::string& s )
-  {
-      return boost::algorithm::trim_copy(s);
-  }
-
   std::pair<std::string&, bool> escape_str( std::string& str, escape_control_chars escape_ctrl,
                                             std::size_t max_len, std::string_view add_truncate_str )
   {

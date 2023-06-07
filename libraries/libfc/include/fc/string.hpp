@@ -11,7 +11,6 @@ namespace fc
 
   class variant_object;
   std::string format_string( const std::string&, const variant_object&, bool minimize = false );
-  std::string trim( const std::string& );
 
   /**
    * Convert '\t', '\r', '\n', '\\' and '"'  to "\t\r\n\\\"" if escape_ctrl == on
