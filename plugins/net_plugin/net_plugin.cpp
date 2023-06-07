@@ -1466,7 +1466,6 @@ namespace eosio {
       xpkt.rec = dst;
       xpkt.xmt = get_time();
       org = xpkt.xmt;
-      peer_dlog( this, "send init time_message: ${t}", ("t", xpkt) );
       enqueue(xpkt);
    }
 
@@ -1476,7 +1475,6 @@ namespace eosio {
       xpkt.org = msg.xmt;
       xpkt.rec = msg.dst;
       xpkt.xmt = get_time();
-      peer_dlog( this, "send time_message: ${t}", ("t", xpkt) );
       enqueue(xpkt);
    }
 
@@ -2252,7 +2250,6 @@ namespace eosio {
 
    // called from c's connection strand
    void sync_manager::sync_recv_block(const connection_ptr& c, const block_id_type& blk_id, uint32_t blk_num, bool blk_applied) {
-      peer_dlog( c, "${d} block ${bn}", ("d", blk_applied ? "applied" : "got")("bn", blk_num) );
       if( app().is_quiting() ) {
          c->close( false, true );
          return;
@@ -2260,7 +2257,6 @@ namespace eosio {
       c->latest_blk_time = c->get_time();
       c->block_status_monitor_.accepted();
       stages state = sync_state;
-      peer_dlog( c, "state ${s}", ("s", stage_str( state )) );
       if( state == head_catchup ) {
          std::unique_lock g_sync( sync_mtx );
          peer_dlog( c, "sync_manager in head_catchup state" );
@@ -3296,8 +3292,6 @@ namespace eosio {
    }
 
    void connection::handle_message( const time_message& msg ) {
-      peer_dlog( this, "received time_message: ${t}", ("t", msg) );
-
       // We've already lost however many microseconds it took to dispatch the message, but it can't be helped.
       msg.dst = get_time();
 
