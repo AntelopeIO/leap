@@ -2226,9 +2226,7 @@ namespace eosio {
             c->last_handshake_recv.last_irreversible_block_num = msg.known_trx.pending;
          }
          sync_reset_lib_num(c, false);
-         if (!syncing_from_peer()) {
-            start_sync(c, msg.known_trx.pending);
-         }
+         start_sync(c, msg.known_trx.pending);
       }
    }
 
