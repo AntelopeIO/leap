@@ -2014,7 +2014,6 @@ namespace eosio {
       if( !is_sync_required( chain_info.head_num ) || target <= chain_info.lib_num ) {
          peer_dlog( c, "We are already caught up, my irr = ${b}, head = ${h}, target = ${t}",
                   ("b", chain_info.lib_num)( "h", chain_info.head_num )( "t", target ) );
-         c->send_handshake();
          return;
       }
 
