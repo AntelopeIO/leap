@@ -861,11 +861,11 @@ namespace eosio {
        *  Time message handling
        *  @{
        */
-      // Members set from network data
-      tstamp                         org{0};          //!< originate timestamp
-      tstamp                         rec{0};          //!< receive timestamp
-      tstamp                         dst{0};          //!< destination timestamp
-      tstamp                         xmt{0};          //!< transmit timestamp
+      // See NTP protocol. https://datatracker.ietf.org/doc/rfc5905/
+      tstamp                         org{0}; //!< origin timestamp. Time at the client when the request departed for the server.
+      tstamp                         rec{0}; //!< receive timestamp. Time at the server when the request arrived from the client.
+      tstamp                         dst{0}; //!< destination timestamp, Time at the client when the reply arrived from the server.
+      tstamp                         xmt{0}; //!< transmit timestamp, Time at the server when the response left for the client.
       /** @} */
       // timestamp for the lastest message
       tstamp                         latest_msg_time{0};
@@ -3298,14 +3298,12 @@ namespace eosio {
    void connection::handle_message( const time_message& msg ) {
       peer_dlog( this, "received time_message: ${t}", ("t", msg) );
 
-      /* We've already lost however many microseconds it took to dispatch
-       * the message, but it can't be helped.
-       */
+      // We've already lost however many microseconds it took to dispatch the message, but it can't be helped.
       msg.dst = get_time();
 
       // If the transmit timestamp is zero, the peer is horribly broken.
       if(msg.xmt == 0)
-         return;                 /* invalid timestamp */
+         return; // invalid timestamp
 
       auto msg_xmt = normalize_epoch_to_ns(msg.xmt);
       auto msg_org = normalize_epoch_to_ns(msg.org);
@@ -3317,7 +3315,7 @@ namespace eosio {
       }
 
       if (msg_xmt == xmt)
-         return;                 /* duplicate packet */
+         return; // duplicate packet
 
       xmt = msg_xmt;
       rec = normalize_epoch_to_ns(msg.rec);
