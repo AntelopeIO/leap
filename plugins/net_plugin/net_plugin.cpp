@@ -3683,12 +3683,10 @@ namespace eosio {
    // called from application thread
    void net_plugin_impl::on_accepted_block_header(const block_state_ptr& bs) {
       update_chain_info();
-      if (!sync_master->syncing_from_peer()) {
-         dispatcher->strand.post([bs]() {
-            fc_dlog(logger, "signaled accepted_block_header, blk num = ${num}, id = ${id}", ("num", bs->block_num)("id", bs->id));
-            my_impl->dispatcher->bcast_block(bs->block, bs->id);
-         });
-      }
+      dispatcher->strand.post([bs]() {
+         fc_dlog(logger, "signaled accepted_block_header, blk num = ${num}, id = ${id}", ("num", bs->block_num)("id", bs->id));
+         my_impl->dispatcher->bcast_block(bs->block, bs->id);
+      });
    }
 
    void net_plugin_impl::on_accepted_block(const block_state_ptr& ) {
