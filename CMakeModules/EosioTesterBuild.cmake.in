@@ -58,8 +58,8 @@ find_library(libwast WAST @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/WAST NO_D
 find_library(libir IR     @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/IR NO_DEFAULT_PATH)
 find_library(liblogging Logging @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/Logging NO_DEFAULT_PATH)
 find_library(libsoftfloat softfloat @CMAKE_BINARY_DIR@/libraries/softfloat NO_DEFAULT_PATH)
-get_filename_component(cryptodir @OPENSSL_CRYPTO_LIBRARY@ DIRECTORY)
-find_library(liboscrypto crypto "${cryptodir}" NO_DEFAULT_PATH)
+find_library(liboscrypto crypto @CMAKE_BINARY_DIR@/libraries/libfc/third_party/boringssl NO_DEFAULT_PATH)
+find_library(libdecrepit decrepit @CMAKE_BINARY_DIR@/libraries/libfc/third_party/boringssl NO_DEFAULT_PATH)
 find_library(libchainbase chainbase @CMAKE_BINARY_DIR@/libraries/chainbase NO_DEFAULT_PATH)
 find_library(libbuiltins builtins @CMAKE_BINARY_DIR@/libraries/builtins NO_DEFAULT_PATH)
 
@@ -84,6 +84,7 @@ macro(add_eosio_test_executable test_name)
        ${libir}
        ${libsoftfloat}
        ${liboscrypto}
+       ${libdecrepit}
        ${liblogging}
        ${libchainbase}
        ${libbuiltins}

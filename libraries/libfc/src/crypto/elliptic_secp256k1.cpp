@@ -164,7 +164,7 @@ namespace fc { namespace ecc {
 
     private_key private_key::generate()
     {
-        private_key ret;
+       private_key ret;
        do {
          RAND_bytes((uint8_t*)ret.my->_key.data(), sizeof(ret.my->_key.data()));
        } while(!secp256k1_ec_seckey_verify(detail::_get_context(), (const uint8_t*)ret.my->_key.data()));
