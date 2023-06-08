@@ -207,7 +207,7 @@ jobs:
     if: always() && needs.dev-package.result == 'success'
     strategy:
       fail-fast: false
-      matrx:
+      matrix:
         platform: [ubuntu20] # Assuming want to do both ubuntu20 and ubuntu22 at some point so setting up with matrix
     runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
     container: ${{fromJSON(needs.d.outputs.p)['ubuntu20'].image}}
