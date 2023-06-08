@@ -3307,10 +3307,9 @@ namespace eosio {
       msg.dst = get_time();
 
       auto msg_xmt = normalize_epoch_to_ns(msg.xmt);
-      auto msg_org = normalize_epoch_to_ns(msg.org);
 
-      if (msg_org != 0 && msg_org == normalize_epoch_to_ns(org)) {
-         auto latency = msg.dst - msg_org;
+      if (msg.org != 0 && msg.org == org) {
+         auto latency = msg.dst - msg.org;
          peer_dlog(this, "send_time latency ${l}us", ("l", latency/2/1000));
          net_latency_ns = latency/2;
       }
