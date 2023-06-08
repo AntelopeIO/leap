@@ -383,7 +383,7 @@ namespace eosio {
       bool any_of_block_connections(UnaryPredicate&& p) const;
    };
 
-   class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl>,
+   class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl>, // 
                            public auto_bp_peering::bp_connection_manager<net_plugin_impl, connection> {
     public:
       std::atomic<uint32_t>            current_connection_id{0};
@@ -513,6 +513,8 @@ namespace eosio {
 
       constexpr static uint16_t to_protocol_version(uint16_t v);
 
+      void plugin_initialize(const variables_map& options);
+      void plugin_startup();
       void plugin_shutdown();
       bool in_sync() const;
       fc::logger& get_logger() { return logger; }
@@ -3882,62 +3884,61 @@ namespace eosio {
       return fc::json::from_string(s).as<T>();
    }
 
-   void net_plugin::plugin_initialize( const variables_map& options ) {
+   void net_plugin_impl::plugin_initialize( const variables_map& options ) {
       try {
-         handle_sighup();
          fc_ilog( logger, "Initialize net plugin" );
 
          peer_log_format = options.at( "peer-log-format" ).as<string>();
 
-         my->sync_master = std::make_unique<sync_manager>(
+         sync_master = std::make_unique<sync_manager>(
              options.at( "sync-fetch-span" ).as<uint32_t>(),
              options.at( "sync-peer-limit" ).as<uint32_t>() );
 
-         my->txn_exp_period = def_txn_expire_wait;
-         my->p2p_dedup_cache_expire_time_us = fc::seconds( options.at( "p2p-dedup-cache-expire-time-sec" ).as<uint32_t>() );
-         my->resp_expected_period = def_resp_expected_wait;
-         my->max_nodes_per_host = options.at( "p2p-max-nodes-per-host" ).as<int>();
-         my->p2p_accept_transactions = options.at( "p2p-accept-transactions" ).as<bool>();
+         txn_exp_period = def_txn_expire_wait;
+         p2p_dedup_cache_expire_time_us = fc::seconds( options.at( "p2p-dedup-cache-expire-time-sec" ).as<uint32_t>() );
+         resp_expected_period = def_resp_expected_wait;
+         max_nodes_per_host = options.at( "p2p-max-nodes-per-host" ).as<int>();
+         p2p_accept_transactions = options.at( "p2p-accept-transactions" ).as<bool>();
 
-         my->use_socket_read_watermark = options.at( "use-socket-read-watermark" ).as<bool>();
-         my->keepalive_interval = std::chrono::milliseconds( options.at( "p2p-keepalive-interval-ms" ).as<int>() );
-         EOS_ASSERT( my->keepalive_interval.count() > 0, chain::plugin_config_exception,
+         use_socket_read_watermark = options.at( "use-socket-read-watermark" ).as<bool>();
+         keepalive_interval = std::chrono::milliseconds( options.at( "p2p-keepalive-interval-ms" ).as<int>() );
+         EOS_ASSERT( keepalive_interval.count() > 0, chain::plugin_config_exception,
                      "p2p-keepalive_interval-ms must be greater than 0" );
 
-         my->connections.init( std::chrono::milliseconds( options.at("p2p-keepalive-interval-ms").as<int>() * 2 ),
+         connections.init( std::chrono::milliseconds( options.at("p2p-keepalive-interval-ms").as<int>() * 2 ),
                                fc::milliseconds( options.at("max-cleanup-time-msec").as<uint32_t>() ),
                                std::chrono::seconds( options.at("connection-cleanup-period").as<int>() ),
                                options.at("max-clients").as<uint32_t>() );
 
          if( options.count( "p2p-listen-endpoint" ) && options.at("p2p-listen-endpoint").as<string>().length()) {
-            my->p2p_address = options.at( "p2p-listen-endpoint" ).as<string>();
-            EOS_ASSERT( my->p2p_address.length() <= max_p2p_address_length, chain::plugin_config_exception,
+            p2p_address = options.at( "p2p-listen-endpoint" ).as<string>();
+            EOS_ASSERT( p2p_address.length() <= max_p2p_address_length, chain::plugin_config_exception,
                         "p2p-listen-endpoint too long, must be less than ${m}", ("m", max_p2p_address_length) );
          }
          if( options.count( "p2p-server-address" ) ) {
-            my->p2p_server_address = options.at( "p2p-server-address" ).as<string>();
-            EOS_ASSERT( my->p2p_server_address.length() <= max_p2p_address_length, chain::plugin_config_exception,
+            p2p_server_address = options.at( "p2p-server-address" ).as<string>();
+            EOS_ASSERT( p2p_server_address.length() <= max_p2p_address_length, chain::plugin_config_exception,
                         "p2p_server_address too long, must be less than ${m}", ("m", max_p2p_address_length) );
          }
 
-         my->thread_pool_size = options.at( "net-threads" ).as<uint16_t>();
-         EOS_ASSERT( my->thread_pool_size > 0, chain::plugin_config_exception,
-                     "net-threads ${num} must be greater than 0", ("num", my->thread_pool_size) );
+         thread_pool_size = options.at( "net-threads" ).as<uint16_t>();
+         EOS_ASSERT( thread_pool_size > 0, chain::plugin_config_exception,
+                     "net-threads ${num} must be greater than 0", ("num", thread_pool_size) );
 
          std::vector<std::string> peers;
          if( options.count( "p2p-peer-address" )) {
             peers = options.at( "p2p-peer-address" ).as<vector<string>>();
-            my->connections.add_supplied_peers(peers);
+            connections.add_supplied_peers(peers);
          }
          if( options.count( "agent-name" )) {
-            my->user_agent_name = options.at( "agent-name" ).as<string>();
-            EOS_ASSERT( my->user_agent_name.length() <= max_handshake_str_length, chain::plugin_config_exception,
+            user_agent_name = options.at( "agent-name" ).as<string>();
+            EOS_ASSERT( user_agent_name.length() <= max_handshake_str_length, chain::plugin_config_exception,
                         "agent-name too long, must be less than ${m}", ("m", max_handshake_str_length) );
          }
 
          if ( options.count( "p2p-auto-bp-peer")) {
-            my->set_bp_peers(options.at( "p2p-auto-bp-peer" ).as<vector<string>>());
-            my->for_each_bp_peer_address([&peers](const auto& addr) {
+            set_bp_peers(options.at( "p2p-auto-bp-peer" ).as<vector<string>>());
+            for_each_bp_peer_address([&peers](const auto& addr) {
                EOS_ASSERT(std::find(peers.begin(), peers.end(), addr) == peers.end(), chain::plugin_config_exception,
                           "\"${addr}\" should only appear in either p2p-peer-address or p2p-auto-bp-peer option, not both.",
                           ("addr",addr));
@@ -3948,17 +3949,17 @@ namespace eosio {
             const std::vector<std::string> allowed_remotes = options["allowed-connection"].as<std::vector<std::string>>();
             for( const std::string& allowed_remote : allowed_remotes ) {
                if( allowed_remote == "any" )
-                  my->allowed_connections |= net_plugin_impl::Any;
+                  allowed_connections |= net_plugin_impl::Any;
                else if( allowed_remote == "producers" )
-                  my->allowed_connections |= net_plugin_impl::Producers;
+                  allowed_connections |= net_plugin_impl::Producers;
                else if( allowed_remote == "specified" )
-                  my->allowed_connections |= net_plugin_impl::Specified;
+                  allowed_connections |= net_plugin_impl::Specified;
                else if( allowed_remote == "none" )
-                  my->allowed_connections = net_plugin_impl::None;
+                  allowed_connections = net_plugin_impl::None;
             }
          }
 
-         if( my->allowed_connections & net_plugin_impl::Specified )
+         if( allowed_connections & net_plugin_impl::Specified )
             EOS_ASSERT( options.count( "peer-key" ),
                         plugin_config_exception,
                        "At least one peer-key must accompany 'allowed-connection=specified'" );
@@ -3966,7 +3967,7 @@ namespace eosio {
          if( options.count( "peer-key" )) {
             const std::vector<std::string> key_strings = options["peer-key"].as<std::vector<std::string>>();
             for( const std::string& key_string : key_strings ) {
-               my->allowed_peers.push_back( dejsonify<chain::public_key_type>( key_string ));
+               allowed_peers.push_back( dejsonify<chain::public_key_type>( key_string ));
             }
          }
 
@@ -3975,45 +3976,45 @@ namespace eosio {
             for( const std::string& key_id_to_wif_pair_string : key_id_to_wif_pair_strings ) {
                auto key_id_to_wif_pair = dejsonify<std::pair<chain::public_key_type, std::string>>(
                      key_id_to_wif_pair_string );
-               my->private_keys[key_id_to_wif_pair.first] = fc::crypto::private_key( key_id_to_wif_pair.second );
+               private_keys[key_id_to_wif_pair.first] = fc::crypto::private_key( key_id_to_wif_pair.second );
             }
          }
 
-         my->chain_plug = app().find_plugin<chain_plugin>();
-         EOS_ASSERT( my->chain_plug, chain::missing_chain_plugin_exception, ""  );
-         my->chain_id = my->chain_plug->get_chain_id();
-         fc::rand_pseudo_bytes( my->node_id.data(), my->node_id.data_size());
-         const controller& cc = my->chain_plug->chain();
+         chain_plug = app().find_plugin<chain_plugin>();
+         EOS_ASSERT( chain_plug, chain::missing_chain_plugin_exception, ""  );
+         chain_id = chain_plug->get_chain_id();
+         fc::rand_pseudo_bytes( node_id.data(), node_id.data_size());
+         const controller& cc = chain_plug->chain();
 
          if( cc.get_read_mode() == db_read_mode::IRREVERSIBLE ) {
-            if( my->p2p_accept_transactions ) {
-               my->p2p_accept_transactions = false;
+            if( p2p_accept_transactions ) {
+               p2p_accept_transactions = false;
                fc_wlog( logger, "p2p-accept-transactions set to false due to read-mode: irreversible" );
             }
          }
-         if( my->p2p_accept_transactions ) {
-            my->chain_plug->enable_accept_transactions();
+         if( p2p_accept_transactions ) {
+            chain_plug->enable_accept_transactions();
          }
 
       } FC_LOG_AND_RETHROW()
    }
 
-   void net_plugin::plugin_startup() {
+   void net_plugin_impl::plugin_startup() {
       try {
 
-      fc_ilog( logger, "my node_id is ${id}", ("id", my->node_id ));
+      fc_ilog( logger, "my node_id is ${id}", ("id", node_id ));
 
-      my->producer_plug = app().find_plugin<producer_plugin>();
-      my->set_producer_accounts(my->producer_plug->producer_accounts());
+      producer_plug = app().find_plugin<producer_plugin>();
+      set_producer_accounts(producer_plug->producer_accounts());
 
-      my->thread_pool.start( my->thread_pool_size, []( const fc::exception& e ) {
+      thread_pool.start( thread_pool_size, []( const fc::exception& e ) {
          fc_elog( logger, "Exception in net plugin thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          app().quit();
       } );
 
-      my->dispatcher = std::make_unique<dispatch_manager>( my_impl->thread_pool.get_executor() );
+      dispatcher = std::make_unique<dispatch_manager>( my_impl->thread_pool.get_executor() );
 
-      if( !my->p2p_accept_transactions && my->p2p_address.size() ) {
+      if( !p2p_accept_transactions && p2p_address.size() ) {
          fc_ilog( logger, "\n"
                "***********************************\n"
                "* p2p-accept-transactions = false *\n"
@@ -4021,13 +4022,13 @@ namespace eosio {
                "***********************************\n" );
       }
 
-      std::string listen_address = my->p2p_address;
+      std::string listen_address = p2p_address;
 
-      if( !my->p2p_address.empty() ) {
+      if( !p2p_address.empty() ) {
          auto [host, port] = fc::split_host_port(listen_address);
          
-         if( !my->p2p_server_address.empty() ) {
-            my->p2p_address = my->p2p_server_address;
+         if( !p2p_server_address.empty() ) {
+            p2p_address = p2p_server_address;
          } else if( host.empty() || host == "0.0.0.0" || host == "[::]") {
             boost::system::error_code ec;
             auto hostname = host_name( ec );
@@ -4037,33 +4038,33 @@ namespace eosio {
                                     "Unable to retrieve host_name. ${msg}", ("msg", ec.message()));
 
             }
-            my->p2p_address = hostname + ":" + port;
+            p2p_address = hostname + ":" + port;
          }
       }
 
       {
-         chain::controller& cc = my->chain_plug->chain();
-         cc.accepted_block_header.connect( [my = my]( const block_state_ptr& s ) {
+         chain::controller& cc = chain_plug->chain();
+         cc.accepted_block_header.connect( [my = shared_from_this()]( const block_state_ptr& s ) {
             my->on_accepted_block_header( s );
          } );
 
-         cc.accepted_block.connect( [my = my]( const block_state_ptr& s ) {
+         cc.accepted_block.connect( [my = shared_from_this()]( const block_state_ptr& s ) {
             my->on_accepted_block( s );
          } );
-         cc.irreversible_block.connect( [my = my]( const block_state_ptr& s ) {
+         cc.irreversible_block.connect( [my = shared_from_this()]( const block_state_ptr& s ) {
             my->on_irreversible_block( s );
          } );
       }
 
       {
-         std::lock_guard<std::mutex> g( my->keepalive_timer_mtx );
-         my->keepalive_timer = std::make_unique<boost::asio::steady_timer>( my->thread_pool.get_executor() );
+         std::lock_guard<std::mutex> g( keepalive_timer_mtx );
+         keepalive_timer = std::make_unique<boost::asio::steady_timer>( thread_pool.get_executor() );
       }
 
-      my->incoming_transaction_ack_subscription = app().get_channel<compat::channels::transaction_ack>().subscribe(
-            [me = my.get()](auto&& t) { me->transaction_ack(std::forward<decltype(t)>(t)); });
+      incoming_transaction_ack_subscription = app().get_channel<compat::channels::transaction_ack>().subscribe(
+            [this](auto&& t) { transaction_ack(std::forward<decltype(t)>(t)); });
 
-      app().executor().post(priority::highest, [my=my, address = std::move(listen_address)](){
+      app().executor().post(priority::highest, [my=shared_from_this(), address = std::move(listen_address)](){
          if (address.size()) {
             try {
                p2p_listener::create(my->thread_pool.get_executor(), logger, address, my.get());
@@ -4087,6 +4088,22 @@ namespace eosio {
          throw;
       }
    }
+
+   void net_plugin::plugin_initialize( const variables_map& options ) {
+      handle_sighup();
+      my->plugin_initialize( options );
+   }
+
+   void net_plugin::plugin_startup() {
+      try {
+         my->plugin_startup();
+      } catch( ... ) {
+         // always want plugin_shutdown even on exception
+         plugin_shutdown();
+         throw;
+      }
+   }
+      
 
    void net_plugin::handle_sighup() {
       fc::logger::update( logger_name, logger );
