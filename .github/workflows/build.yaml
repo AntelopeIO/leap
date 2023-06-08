@@ -201,6 +201,46 @@ jobs:
           name: ${{matrix.platform}}-lr-logs
           path: '*-logs.tar.gz'
 
+  libtester-deb-install-test:
+    name: libtester deb install test
+    needs: [d, Build, dev-package]
+    if: always() && needs.dev-package.result == 'success'
+    strategy:
+      fail-fast: false
+      matrx:
+        platform: [ubuntu20] # Assuming want to do both ubuntu20 and ubuntu22 at some point so setting up with matrix
+    runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
+    container: ${{fromJSON(needs.d.outputs.p)['ubuntu20'].image}}
+    steps:
+      - name: Download cdt
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: cdt
+          file: 'cdt_.*amd64.deb'
+          target: main
+          artifact-name: cdt_ubuntu_package_amd64
+          token: ${{github.token}}
+      - name: Download leap-dev
+        uses: actions/download-artifact@v3
+        with:
+          name: leap-dev-ubuntu20-amd64
+      - name: Install cdt and leap-dev Packages
+        run: |
+          sudo apt install ./*.deb
+          sudo apt-get install cmake
+          rm ./*.deb
+      - name: checkout reference-contracts
+        uses: actions/checkout@v3
+        with:
+          repository: AntelopeIO/reference-contracts
+          path: src
+      - name: Build & Test reference-contracts
+        run: |
+          cmake -S src -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
+          cmake --build build -- -j $(nproc)
+          ctest --test-dir build/tests --output-on-failure -j $(nproc)
+
   all-passing:
     name: All Required Tests Passed
     needs: [dev-package, tests, np-tests]
