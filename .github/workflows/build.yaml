@@ -227,8 +227,8 @@ jobs:
           name: leap-dev-ubuntu20-amd64
       - name: Install cdt and leap-dev Packages
         run: |
-          sudo apt install ./*.deb
-          sudo apt-get install cmake
+          apt install ./*.deb
+          apt-get install cmake
           rm ./*.deb
       - name: checkout reference-contracts
         uses: actions/checkout@v3
