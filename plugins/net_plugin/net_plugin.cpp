@@ -383,7 +383,7 @@ namespace eosio {
       bool any_of_block_connections(UnaryPredicate&& p) const;
    };
 
-   class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl>, // 
+   class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl>,
                            public auto_bp_peering::bp_connection_manager<net_plugin_impl, connection> {
     public:
       std::atomic<uint32_t>            current_connection_id{0};
@@ -4000,8 +4000,6 @@ namespace eosio {
    }
 
    void net_plugin_impl::plugin_startup() {
-      try {
-
       fc_ilog( logger, "my node_id is ${id}", ("id", node_id ));
 
       producer_plug = app().find_plugin<producer_plugin>();
@@ -4081,12 +4079,6 @@ namespace eosio {
          my->update_chain_info();
          my->connections.connect_supplied_peers();
       });
-
-      } catch( ... ) {
-         // always want plugin_shutdown even on exception
-         plugin_shutdown();
-         throw;
-      }
    }
 
    void net_plugin::plugin_initialize( const variables_map& options ) {
