@@ -89,7 +89,10 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                      auto& pending = it->pending_snapshots;
                      if (pending.size()==1) {
                         auto pbn = pending.begin()->head_block_num;
-                        BOOST_CHECK_EQUAL(block_num,  spacing ?  (spacing + (pbn%spacing)) : pbn);
+                        pbn = spacing ?  (spacing + (pbn%spacing)) : pbn;
+                        // if snapshot scheduled with empty start_block_num depending on the timing
+                        // it can be scheduled either for block_num or block_num+1
+                        BOOST_CHECK(block_num==pbn || ((block_num+1)==pbn));                       
                      }
                      return true;
                   }
