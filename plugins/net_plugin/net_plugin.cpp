@@ -3277,21 +3277,16 @@ namespace eosio {
 
    // some clients before leap 5.0 provided microsecond epoch instead of nanosecond epoch
    tstamp normalize_epoch_to_ns(tstamp x) {
-      int digits = 1;
-      tstamp v = x;
-      while (v/=10)
-         ++digits;
-      // 168 1685 9763 7880 7944 >= 19 is nanoseconds
-      //     1685 9763 7880 7944 >= 16 is microseconds
-      //        1 6859 7637 8807 >= 13 is milliseconds
-      //            16 8597 6378 >= 10 is seconds
-      if (digits >= 19)
+      //        1686211688888 milliseconds - 2023-06-08T08:08:08.888, 5yrs from EOS genesis 2018-06-08T08:08:08.888
+      //     1686211688888000 microseconds
+      //  1686211688888000000 nanoseconds
+      if (x >= 1686211688888000000) // nanoseconds
          return x;
-      if (digits >= 16)
+      if (x >= 1686211688888000) // microseconds
          return x*1000;
-      if (digits >= 13)
+      if (x >= 1686211688888) // milliseconds
          return x*1000*1000;
-      if (digits >= 10)
+      if (x >= 1686211688) // seconds
          return x*1000*1000*1000;
       return 0; // unknown or is zero
    }
