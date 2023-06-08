@@ -774,12 +774,12 @@ namespace eosio {
          hb_timeout = dur.count();
       }
 
-      uint64_t get_net_latency_ns() const { return net_latency_ns; }
+      uint64_t get_peer_ping_time_ns() const { return peer_ping_time_ns; }
 
    private:
       static const string unknown;
 
-      std::atomic<uint64_t> net_latency_ns = std::numeric_limits<uint64_t>::max();
+      std::atomic<uint64_t> peer_ping_time_ns = std::numeric_limits<uint64_t>::max();
 
       std::optional<peer_sync_state> peer_requested;  // this peer is requesting info from us
 
@@ -1256,10 +1256,10 @@ namespace eosio {
 
    // thread safe
    bool connection::should_sync_from(uint32_t sync_next_expected_num, uint32_t sync_known_lib_num) const {
-      fc_dlog(logger, "id: ${id} blocks conn: ${t} current: ${c} socket_open: ${so} syncing from us: ${s} state: ${con} peer_start_block: ${sb} peer_head: ${h} latency: ${lat}us no_retry: ${g}",
+      fc_dlog(logger, "id: ${id} blocks conn: ${t} current: ${c} socket_open: ${so} syncing from us: ${s} state: ${con} peer_start_block: ${sb} peer_head: ${h} ping: ${p}us no_retry: ${g}",
               ("id", connection_id)("t", is_blocks_connection())
               ("c", current())("so", socket_is_open())("s", peer_syncing_from_us.load())("con", state_str(state()))
-              ("sb", peer_start_block_num.load())("h", peer_head_block_num.load())("lat", get_net_latency_ns()/1000)("g", reason_str(no_retry)));
+              ("sb", peer_start_block_num.load())("h", peer_head_block_num.load())("p", get_peer_ping_time_ns()/1000)("g", reason_str(no_retry)));
       if (is_blocks_connection() && current()) {
          if (no_retry == go_away_reason::no_reason) {
             if (peer_start_block_num <= sync_next_expected_num) { // has blocks we want
@@ -1890,7 +1890,7 @@ namespace eosio {
       });
       if (conns.size() > sync_peer_limit) {
          std::partial_sort(conns.begin(), conns.begin() + sync_peer_limit, conns.end(), [](const connection_ptr& lhs, const connection_ptr& rhs) {
-            return lhs->get_net_latency_ns() < rhs->get_net_latency_ns();
+            return lhs->get_peer_ping_time_ns() < rhs->get_peer_ping_time_ns();
          });
          conns.resize(sync_peer_limit);
       }
@@ -1914,8 +1914,8 @@ namespace eosio {
       uint32_t lowest_ordinal = std::numeric_limits<uint32_t>::max();
       for (size_t i = 0; i < conns.size() && lowest_ordinal != 0; ++i) {
          uint32_t sync_ord = conns[i]->sync_ordinal;
-         fc_dlog(logger, "compare sync ords, conn: ${lcid}, ord: ${l} < ${r}, latency: ${lat}us",
-                 ("lcid", conns[i]->connection_id)("l", sync_ord)("r", lowest_ordinal)("lat", conns[i]->get_net_latency_ns()/1000));
+         fc_dlog(logger, "compare sync ords, conn: ${lcid}, ord: ${l} < ${r}, ping: ${p}us",
+                 ("lcid", conns[i]->connection_id)("l", sync_ord)("r", lowest_ordinal)("p", conns[i]->get_peer_ping_time_ns()/1000));
          if (sync_ord < lowest_ordinal) {
             the_one = i;
             lowest_ordinal = sync_ord;
@@ -3241,14 +3241,14 @@ namespace eosio {
    // called from connection strand
    uint32_t connection::calc_block_latency() {
       uint32_t nblk_combined_latency = 0;
-      if (net_latency_ns != std::numeric_limits<uint64_t>::max()) {
+      if (peer_ping_time_ns != std::numeric_limits<uint64_t>::max()) {
          // number of blocks syncing node is behind from a peer node, round up
-         uint32_t nblk_behind_by_net_latency = std::lround(static_cast<double>(net_latency_ns.load()) / static_cast<double>(block_interval_ns));
-         // 2x for time it takes for message to reach back to peer node
-         nblk_combined_latency = 2 * nblk_behind_by_net_latency;
+         uint32_t nblk_behind_by_net_latency = std::lround(static_cast<double>(peer_ping_time_ns.load()) / static_cast<double>(block_interval_ns));
+         // peer_ping_time_ns includes time there and back, include round trip time as the block latency is used to compensate for communication back
+         nblk_combined_latency = nblk_behind_by_net_latency;
          // message in the log below is used in p2p_high_latency_test.py test
          peer_dlog(this, "Network latency is ${lat}ms, ${num} blocks discrepancy by network latency, ${tot_num} blocks discrepancy expected once message received",
-                   ("lat", net_latency_ns / 1000000)("num", nblk_behind_by_net_latency)("tot_num", nblk_combined_latency));
+                   ("lat", peer_ping_time_ns / 2 / 1000000)("num", nblk_behind_by_net_latency)("tot_num", nblk_combined_latency));
       }
       return nblk_combined_latency;
    }
@@ -3305,9 +3305,9 @@ namespace eosio {
 
       if (msg.org != 0) {
          if (msg.org == org) {
-            auto latency = msg.dst - msg.org;
-            peer_dlog(this, "send_time latency ${l}us", ("l", latency / 2 / 1000));
-            net_latency_ns = latency / 2;
+            auto ping = msg.dst - msg.org;
+            peer_dlog(this, "send_time ping ${p}us", ("p", ping / 1000));
+            peer_ping_time_ns = ping;
          } else {
             // a diff time loop is in progress, ignore this message as it is not the one we want
             return;
@@ -3344,7 +3344,7 @@ namespace eosio {
       }
 
       // make sure we also get the latency we need
-      if (net_latency_ns == std::numeric_limits<uint64_t>::max()) {
+      if (peer_ping_time_ns == std::numeric_limits<uint64_t>::max()) {
          send_time();
       }
    }
