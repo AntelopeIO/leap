@@ -146,6 +146,9 @@ namespace eosio::testing {
       for (size_t i = 0; i < action_array.size(); ++i) {
          auto action_mvo = fc::mutable_variant_object(action_array[i]);
          locate_key_words_in_action_mvo(acct_gen_fields_out[i], action_mvo, key_word);
+         if(acct_gen_fields_out[i].empty()) {
+            acct_gen_fields_out.erase(i);
+         }
       }
    }
 
@@ -210,10 +213,15 @@ namespace eosio::testing {
                         }
                         EOS_RETHROW_EXCEPTIONS(chain::transaction_type_exception, "Fail to parse unpacked action data JSON")
 
-                        chain::name auth_actor = chain::name(action_mvo["authorization"].get_object()["actor"].as_string());
-                        chain::name auth_perm = chain::name(action_mvo["authorization"].get_object()["permission"].as_string());
+                        std::vector<eosio::chain::permission_level> auth = {};
+                        if (action_mvo["authorization"].get_object().find("actor") != action_mvo["authorization"].get_object().end() &&
+                            action_mvo["authorization"].get_object().find("permission") != action_mvo["authorization"].get_object().end()) {
+                           chain::name auth_actor = chain::name(action_mvo["authorization"].get_object()["actor"].as_string());
+                           chain::name auth_perm = chain::name(action_mvo["authorization"].get_object()["permission"].as_string());
+                           auth.push_back({auth_actor, auth_perm});
+                        }
 
-                        return chain::action({{auth_actor, auth_perm}}, _config._contract_owner_account, action_name, std::move(packed_action_data));
+                        return chain::action(auth, _config._contract_owner_account, action_name, std::move(packed_action_data));
                      });
 
       return actions;

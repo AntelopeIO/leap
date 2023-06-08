@@ -1327,7 +1327,6 @@ void producer_plugin_impl::plugin_startup() {
       }
 
       if (_ro_thread_pool_size > 0) {
-         std::atomic<uint32_t> num_threads_started = 0;
          _ro_thread_pool.start(
             _ro_thread_pool_size,
             [](const fc::exception& e) {
@@ -1336,20 +1335,7 @@ void producer_plugin_impl::plugin_startup() {
             },
             [&]() {
                chain.init_thread_local_data();
-               ++num_threads_started;
             });
-
-         // This will be changed with std::latch or std::atomic<>::wait
-         // when C++20 is used.
-         auto           time_slept_ms     = 0;
-         constexpr auto max_time_slept_ms = 1000;
-         while (num_threads_started.load() < _ro_thread_pool_size && time_slept_ms < max_time_slept_ms) {
-            std::this_thread::sleep_for(1ms);
-            ++time_slept_ms;
-         }
-         EOS_ASSERT(num_threads_started.load() == _ro_thread_pool_size, producer_exception,
-                    "read-only threads failed to start. num_threads_started: ${n}, time_slept_ms: ${t}ms",
-                    ("n", num_threads_started.load())("t", time_slept_ms));
 
          start_write_window();
       }

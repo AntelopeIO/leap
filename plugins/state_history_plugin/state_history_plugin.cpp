@@ -358,7 +358,7 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
 
       state_history_log_config ship_log_conf;
       if (options.count("state-history-log-retain-blocks")) {
-         auto ship_log_prune_conf = ship_log_conf.emplace<state_history::prune_config>();
+         auto& ship_log_prune_conf = ship_log_conf.emplace<state_history::prune_config>();
          ship_log_prune_conf.prune_blocks = options.at("state-history-log-retain-blocks").as<uint32_t>();
          //the arbitrary limit of 1000 here is mainly so that there is enough buffer for newly applied forks to be delivered to clients
          // before getting pruned out. ideally pruning would have been smart enough to know not to prune reversible blocks
