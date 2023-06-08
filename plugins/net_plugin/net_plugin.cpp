@@ -883,7 +883,7 @@ namespace eosio {
       /// @param shutdown true only if plugin is shutting down
       void close( bool reconnect = true, bool shutdown = false );
    private:
-      static void _close( connection* self, bool reconnect, bool shutdown ); // for easy capture
+      void _close( bool reconnect, bool shutdown ); // for easy capture
 
       bool process_next_block_message(uint32_t message_length);
       bool process_next_trx_message(uint32_t message_length);
@@ -1281,43 +1281,43 @@ namespace eosio {
    void connection::close( bool reconnect, bool shutdown ) {
       set_state(connection_state::closing);
       strand.post( [self = shared_from_this(), reconnect, shutdown]() {
-         connection::_close( self.get(), reconnect, shutdown );
+         self->_close( reconnect, shutdown );
       });
    }
 
    // called from connection strand
-   void connection::_close( connection* self, bool reconnect, bool shutdown ) {
-      self->socket_open = false;
+   void connection::_close( bool reconnect, bool shutdown ) {
+      socket_open = false;
       boost::system::error_code ec;
-      if( self->socket->is_open() ) {
-         self->socket->shutdown( tcp::socket::shutdown_both, ec );
-         self->socket->close( ec );
+      if( socket->is_open() ) {
+         socket->shutdown( tcp::socket::shutdown_both, ec );
+         socket->close( ec );
       }
-      self->socket.reset( new tcp::socket( my_impl->thread_pool.get_executor() ) );
-      self->flush_queues();
-      self->peer_syncing_from_us = false;
-      self->block_status_monitor_.reset();
-      ++self->consecutive_immediate_connection_close;
+      socket.reset( new tcp::socket( my_impl->thread_pool.get_executor() ) );
+      flush_queues();
+      peer_syncing_from_us = false;
+      block_status_monitor_.reset();
+      ++consecutive_immediate_connection_close;
       bool has_last_req = false;
       {
-         std::lock_guard<std::mutex> g_conn( self->conn_mtx );
-         has_last_req = self->last_req.has_value();
-         self->last_handshake_recv = handshake_message();
-         self->last_handshake_sent = handshake_message();
-         self->last_close = fc::time_point::now();
-         self->conn_node_id = fc::sha256();
+         std::lock_guard<std::mutex> g_conn( conn_mtx );
+         has_last_req = last_req.has_value();
+         last_handshake_recv = handshake_message();
+         last_handshake_sent = handshake_message();
+         last_close = fc::time_point::now();
+         conn_node_id = fc::sha256();
       }
       if( has_last_req && !shutdown ) {
-         my_impl->dispatcher->retry_fetch( self->shared_from_this() );
+         my_impl->dispatcher->retry_fetch( shared_from_this() );
       }
-      self->peer_lib_num = 0;
-      self->peer_requested.reset();
-      self->sent_handshake_count = 0;
-      if( !shutdown) my_impl->sync_master->sync_reset_lib_num( self->shared_from_this(), true );
-      peer_ilog( self, "closing" );
-      self->cancel_wait();
-      self->sync_last_requested_block = 0;
-      self->set_state(connection_state::closed);
+      peer_lib_num = 0;
+      peer_requested.reset();
+      sent_handshake_count = 0;
+      if( !shutdown) my_impl->sync_master->sync_reset_lib_num( shared_from_this(), true );
+      peer_ilog( this, "closing" );
+      cancel_wait();
+      sync_last_requested_block = 0;
+      set_state(connection_state::closed);
 
       if( reconnect && !shutdown ) {
          my_impl->connections.start_conn_timer( std::chrono::milliseconds( 100 ), connection_wptr() );
