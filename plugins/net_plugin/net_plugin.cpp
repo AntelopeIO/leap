@@ -1315,6 +1315,7 @@ namespace eosio {
       peer_ilog( self, "closing" );
       self->cancel_wait();
       self->sync_last_requested_block = 0;
+      self->org = 0;
       self->set_state(connection_state::closed);
 
       if( reconnect && !shutdown ) {
@@ -1456,18 +1457,21 @@ namespace eosio {
 
       }
 
+      org = 0;
       send_time();
    }
 
    // called from connection strand
    void connection::send_time() {
-      time_message xpkt;
-      xpkt.org = rec;
-      xpkt.rec = dst;
-      xpkt.xmt = get_time();
-      org = xpkt.xmt;
-      peer_dlog( this, "send init time_message: ${t}", ("t", xpkt) );
-      enqueue(xpkt);
+      if (org == 0) { // do not send if there is already a time loop in progress
+         time_message xpkt;
+         xpkt.org = rec;
+         xpkt.rec = dst;
+         xpkt.xmt = get_time();
+         org      = xpkt.xmt;
+         peer_dlog(this, "send init time_message: ${t}", ("t", xpkt));
+         enqueue(xpkt);
+      }
    }
 
    // called from connection strand
@@ -3295,12 +3299,12 @@ namespace eosio {
    void connection::handle_message( const time_message& msg ) {
       peer_dlog( this, "received time_message: ${t}", ("t", msg) );
 
-      // We've already lost however many microseconds it took to dispatch the message, but it can't be helped.
-      msg.dst = get_time();
-
       // If the transmit timestamp is zero, the peer is horribly broken.
       if(msg.xmt == 0)
          return; // invalid timestamp
+
+      // We've already lost however many microseconds it took to dispatch the message, but it can't be helped.
+      msg.dst = get_time();
 
       auto msg_xmt = normalize_epoch_to_ns(msg.xmt);
       auto msg_org = normalize_epoch_to_ns(msg.org);
