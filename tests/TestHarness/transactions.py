@@ -11,8 +11,6 @@ from .accounts import Account
 from .testUtils import Utils
 
 class Transactions(NodeosQueries):
-    retry_num_blocks_default = 1
-
     def __init__(self, host, port, walletMgr=None):
         super().__init__(host, port, walletMgr)
 
@@ -39,10 +37,9 @@ class Transactions(NodeosQueries):
         """Create account and return creation transactions. Return transaction json object.
         waitForTransBlock: wait on creation transaction id to appear in a block."""
         signStr = NodeosQueries.sign_str(sign, [ creatorAccount.activePublicKey ])
-        retryStr = f"--retry-num-blocks {self.retry_num_blocks_default}" if waitForTransBlock else ""
         cmdDesc="create account"
-        cmd=(f"{cmdDesc} -j {signStr} {creatorAccount.name} {account.name} {account.ownerPublicKey} "
-             f"{account.activePublicKey} {retryStr}")
+        cmd="%s -j %s %s %s %s %s" % (
+            cmdDesc, signStr, creatorAccount.name, account.name, account.ownerPublicKey, account.activePublicKey)
         msg="(creator account=%s, account=%s)" % (creatorAccount.name, account.name);
         trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=False, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
@@ -54,7 +51,7 @@ class Transactions(NodeosQueries):
             self.trackCmdTransaction(trans)
             transId=NodeosQueries.getTransId(trans)
 
-        return trans
+        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
     def transferFundsCmdArr(self, source, destination, amountStr, memo, force, retry, sign, dontSend, expiration, skipSign):
         assert isinstance(amountStr, str)
@@ -279,31 +276,30 @@ class Transactions(NodeosQueries):
 
         return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
-    def undelegatebw(self, fromAccount, netQuantity, cpuQuantity, toAccount=None, waitForTransBlock=False, exitOnError=False, sign=False):
+    def undelegatebw(self, fromAccount, netQuantity, cpuQuantity, toAccount=None, waitForTransBlock=False, silentErrors=True, exitOnError=False, sign=False):
         if toAccount is None:
             toAccount=fromAccount
 
         signStr = NodeosQueries.sign_str(sign, [ fromAccount.activePublicKey ])
         cmdDesc="system undelegatebw"
-        retryStr=f"--retry-num-blocks {self.retry_num_blocks_default}" if waitForTransBlock else ""
-        cmd=(f'{cmdDesc} -j {signStr} {fromAccount.name} {toAccount.name} "{netQuantity} {CORE_SYMBOL}" '
-             f'"{cpuQuantity} {CORE_SYMBOL}" {retryStr}')
+        cmd="%s -j %s %s %s \"%s %s\" \"%s %s\"" % (
+            cmdDesc, signStr, fromAccount.name, toAccount.name, netQuantity, CORE_SYMBOL, cpuQuantity, CORE_SYMBOL)
         msg="fromAccount=%s, toAccount=%s" % (fromAccount.name, toAccount.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
+        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
 
-        return trans
+        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
-    def regproducer(self, producer, url, location, waitForTransBlock=False, exitOnError=False, sign=False):
+    def regproducer(self, producer, url, location, waitForTransBlock=False, silentErrors=True, exitOnError=False, sign=False):
         signStr = NodeosQueries.sign_str(sign, [ producer.activePublicKey ])
         cmdDesc="system regproducer"
-        retryStr=f"--retry-num-blocks {self.retry_num_blocks_default}" if waitForTransBlock else ""
-        cmd=f'{cmdDesc} -j {signStr} {producer.name} {producer.activePublicKey} {url} {location} {retryStr}'
+        cmd="%s -j %s %s %s %s %s" % (
+            cmdDesc, signStr, producer.name, producer.activePublicKey, url, location)
         msg="producer=%s" % (producer.name);
-        trans=self.processCleosCmd(cmd, cmdDesc, exitOnError=exitOnError, exitMsg=msg)
+        trans=self.processCleosCmd(cmd, cmdDesc, silentErrors=silentErrors, exitOnError=exitOnError, exitMsg=msg)
         self.trackCmdTransaction(trans)
 
-        return trans
+        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=exitOnError)
 
     def vote(self, account, producers, waitForTransBlock=False, exitOnError=False, sign=False):
         signStr = NodeosQueries.sign_str(sign, [ account.activePublicKey ])

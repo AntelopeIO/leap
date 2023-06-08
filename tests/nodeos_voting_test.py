@@ -186,7 +186,9 @@ try:
         node=cluster.getNode(i)
         node.producers=Cluster.parseProducers(i)
         for prod in node.producers:
-            trans=node.regproducer(cluster.defProducerAccounts[prod], "http::/mysite.com", 0, waitForTransBlock=False, exitOnError=True)
+            trans=node.regproducer(cluster.defProducerAccounts[prod], "http::/mysite.com", 0, 
+                                   waitForTransBlock=True if prod == node.producers[-1] else False,
+                                   silentErrors=False if prod == node.producers[-1] else True, exitOnError=True)
 
     node0=cluster.getNode(0)
     node1=cluster.getNode(1)
@@ -198,21 +200,19 @@ try:
     transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
-        trans=node.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=False, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
-
-    node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
+        trans=node.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, 
+                                           waitForTransBlock=True if account == accounts[-1] else False, 
+                                           stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
 
     for account in accounts:
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=False)
-
-    node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
+        node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", 
+                           waitForTransBlock=True if account == accounts[-1] else False)
 
     for account in accounts:
-        trans=node.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=False, exitOnError=True)
-
-    node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
-
+        trans=node.delegatebw(account, 20000000.0000, 20000000.0000, 
+                              waitForTransBlock=True if account == accounts[-1] else False, exitOnError=True)
+        
     # containers for tracking producers
     prodsActive={}
     for i in range(0, 4):
@@ -226,6 +226,8 @@ try:
     for account in accounts:
         trans=node.vote(account, node.producers, waitForTransBlock=True)
         node=node1
+
+    node.undelegatebw(account, 1.0000, 1.0000, waitForTransBlock=True, silentErrors=False, exitOnError=True)
 
     setActiveProducers(prodsActive, node1.producers)
 

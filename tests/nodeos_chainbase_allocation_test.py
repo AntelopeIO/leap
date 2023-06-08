@@ -63,7 +63,7 @@ try:
     newProducerAcc = Account("newprod")
     newProducerAcc.ownerPublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
     newProducerAcc.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-    producerNode.createAccount(newProducerAcc, cluster.eosioAccount)
+    producerNode.createAccount(newProducerAcc, cluster.eosioAccount, waitForTransBlock=True)
 
     setProdsStr = '{"schedule": ['
     setProdsStr += '{"producer_name":' + newProducerAcc.name + ',"block_signing_key":' + newProducerAcc.activePublicKey + '}'
