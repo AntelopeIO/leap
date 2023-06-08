@@ -864,8 +864,8 @@ namespace eosio {
       // See NTP protocol. https://datatracker.ietf.org/doc/rfc5905/
       tstamp                         org{0}; //!< origin timestamp. Time at the client when the request departed for the server.
       tstamp                         rec{0}; //!< receive timestamp. Time at the server when the request arrived from the client.
-      tstamp                         dst{0}; //!< destination timestamp, Time at the client when the reply arrived from the server.
       tstamp                         xmt{0}; //!< transmit timestamp, Time at the server when the response left for the client.
+      tstamp                         dst{0}; //!< destination timestamp, Time at the client when the reply arrived from the server.
       /** @} */
       // timestamp for the lastest message
       tstamp                         latest_msg_time{0};
@@ -1480,7 +1480,7 @@ namespace eosio {
       xpkt.org = msg.xmt;
       xpkt.rec = msg.dst;
       xpkt.xmt = get_time();
-      peer_dlog( this, "send time_message: ${t}", ("t", xpkt) );
+      peer_dlog( this, "send time_message: ${t}, org: ${o}", ("t", xpkt)("o", org) );
       enqueue(xpkt);
    }
 
@@ -3292,7 +3292,7 @@ namespace eosio {
    }
 
    void connection::handle_message( const time_message& msg ) {
-      peer_dlog( this, "received time_message: ${t}", ("t", msg) );
+      peer_dlog( this, "received time_message: ${t}, org: ${o}", ("t", msg)("o", org) );
 
       // If the transmit timestamp is zero, the peer is horribly broken.
       if(msg.xmt == 0)
@@ -3303,10 +3303,15 @@ namespace eosio {
 
       auto msg_xmt = normalize_epoch_to_ns(msg.xmt);
 
-      if (msg.org != 0 && msg.org == org) {
-         auto latency = msg.dst - msg.org;
-         peer_dlog(this, "send_time latency ${l}us", ("l", latency/2/1000));
-         net_latency_ns = latency/2;
+      if (msg.org != 0) {
+         if (msg.org == org) {
+            auto latency = msg.dst - msg.org;
+            peer_dlog(this, "send_time latency ${l}us", ("l", latency / 2 / 1000));
+            net_latency_ns = latency / 2;
+         } else {
+            // a diff time loop is in progress, ignore this message as it is not the one we want
+            return;
+         }
       }
 
       if (msg_xmt == xmt)
