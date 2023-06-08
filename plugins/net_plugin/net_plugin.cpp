@@ -1983,6 +1983,7 @@ namespace eosio {
          }
       }
       if( !request_sent ) {
+         sync_source.reset();
          g_sync.unlock();
          fc_wlog(logger, "Unable to request range, sending handshakes to everyone");
          send_handshakes();
