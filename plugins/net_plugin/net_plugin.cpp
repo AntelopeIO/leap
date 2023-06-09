@@ -3807,8 +3807,13 @@ namespace eosio {
    // call from connection strand
    bool connection::populate_handshake( handshake_message& hello ) const {
       namespace sc = std::chrono;
-      hello.network_version = net_version_base + net_version;
       auto chain_info = my_impl->get_chain_info();
+      auto now = sc::duration_cast<sc::nanoseconds>(sc::system_clock::now().time_since_epoch()).count();
+      constexpr int64_t hs_delay = sc::duration_cast<sc::nanoseconds>(sc::milliseconds(50)).count();
+      // nothing as changed since last handshake and one was sent recently, so skip sending
+      if (chain_info.head_id == hello.head_id && (hello.time + hs_delay > now))
+         return false;
+      hello.network_version = net_version_base + net_version;
       hello.last_irreversible_block_num = chain_info.lib_num;
       hello.last_irreversible_block_id = chain_info.lib_id;
       hello.head_num = chain_info.head_num;
