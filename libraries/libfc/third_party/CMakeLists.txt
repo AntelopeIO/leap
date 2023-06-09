@@ -6,6 +6,9 @@ add_library(boringssl INTERFACE)
 target_link_libraries(boringssl INTERFACE crypto decrepit)
 target_include_directories(boringssl INTERFACE boringssl/src/include)
 
+# avoid conflict with system lib
+set_target_properties(crypto PROPERTIES PREFIX libbs)
+
 install( TARGETS crypto 
    LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL
    ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL

@@ -61,7 +61,7 @@ find_library(libwast WAST @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libir IR     @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(liblogging Logging @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libsoftfloat softfloat @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-find_library(liboscrypto crypto @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
+find_library(libbscrypto bscrypto @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libdecrepit decrepit @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libchainbase chainbase @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libbuiltins builtins @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
@@ -86,7 +86,7 @@ macro(add_eosio_test_executable test_name)
        ${libwasm}
        ${libir}
        ${libsoftfloat}
-       ${liboscrypto}
+       ${libbscrypto}
        ${libdecrepit}
        ${liblogging}
        ${libchainbase}
