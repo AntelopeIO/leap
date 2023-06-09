@@ -93,14 +93,14 @@ void blocklog_actions::setup(CLI::App& app) {
    // subcommand - split blocks
    auto* split_blocks = sub->add_subcommand("split-blocks", "Split the blocks.log based on the stride and store the result in the specified 'output-dir'.")->callback([err_guard]() { err_guard(&blocklog_actions::split_blocks); });
    split_blocks->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
-   split_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the split block log.");
+   split_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the split block log.")->required();
    split_blocks->add_option("--stride", opt->stride, "The number of blocks to split into each file.")->required();
 
    // subcommand - merge blocks
    auto* merge_blocks = sub->add_subcommand("merge-blocks", "Merge block log files in 'blocks-dir' with the file pattern 'blocks-\\d+-\\d+.[log,index]' to 'output-dir' whenever possible."
           "The files in 'blocks-dir' will be kept without change.")->callback([err_guard]() { err_guard(&blocklog_actions::merge_blocks); });
    merge_blocks->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
-   merge_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the merged block log.");
+   merge_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the merged block log.")->required();
 
    // subcommand - smoke test
    sub->add_subcommand("smoke-test", "Quick test that blocks.log and blocks.index are well formed and agree with each other.")->callback([err_guard]() { err_guard(&blocklog_actions::smoke_test); });
