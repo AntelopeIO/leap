@@ -124,7 +124,7 @@ namespace fc {
   {
      static const char* name()
      {
-        static std::string _name = std::string("fc::array<")+std::string(fc::get_typename<T>::name())+","+ fc::to_string(N) + ">";
+        static std::string _name = std::string("fc::array<")+std::string(fc::get_typename<T>::name())+","+ std::to_string(N) + ">";
         return _name.c_str();
      }
   };
