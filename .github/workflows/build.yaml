@@ -88,8 +88,12 @@ jobs:
     name: Build leap-dev package
     needs: [d, Build]
     if: always() && needs.Build.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu20, ubuntu22]
     runs-on: ubuntu-latest
-    container: ${{fromJSON(needs.d.outputs.p)['ubuntu20'].image}}
+    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -97,7 +101,7 @@ jobs:
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
-          name: ubuntu20-build
+          name: ${{matrix.platform}}-build
       - name: Build dev package
         run: |
           zstdcat build.tar.zst | tar x
@@ -113,7 +117,7 @@ jobs:
       - name: Upload dev package
         uses: actions/upload-artifact@v3
         with:
-          name: leap-dev-ubuntu20-amd64
+          name: leap-dev-${{matrix.platform}}-amd64
           path: build/leap-dev*.deb
 
   tests:
@@ -209,9 +213,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20] # Assuming want to do both ubuntu20 and ubuntu22 at some point so setting up with matrix
+        platform: [ubuntu20, ubuntu22]
     runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
-    container: ${{fromJSON(needs.d.outputs.p)['ubuntu20'].image}}
+    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - name: Download cdt
         uses: AntelopeIO/asset-artifact-download-action@v2
@@ -225,7 +229,7 @@ jobs:
       - name: Download leap-dev
         uses: actions/download-artifact@v3
         with:
-          name: leap-dev-ubuntu20-amd64
+          name: leap-dev-${{matrix.platform}}-amd64
       - name: Install cdt and leap-dev Packages
         run: |
           apt install -y ./*.deb
