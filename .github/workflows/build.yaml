@@ -254,13 +254,14 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
-    runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
+    runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
-      - name: Download leap builddir
-        uses: actions/download-artifact@v3
+      - name: checkout leap
+        uses: actions/checkout@v3
         with:
-          name: ${{matrix.platform}}-build
+          submodules: recursive
+          path: leap
       - name: checkout cdt
         uses: actions/checkout@v3
         with:
@@ -276,12 +277,16 @@ jobs:
         run: |
           pwd
           ls -l
-      - name: Extract leap build and make dev-install
+      - name: leap build and make dev-install
         run: |
-          zstdcat build.tar.zst | tar x
+          # https://github.com/actions/runner/issues/2033
+          chown -R $(id -u):$(id -g) $PWD
+          cd leap
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
+          cmake --build build
           cd build
           ninja dev-install
-          cd ..
+          cd ../..
       - name: make install cdt
         run: |
           cd cdt
