@@ -18,6 +18,7 @@
 #include <fc/crypto/rand.hpp>
 #include <fc/exception/exception.hpp>
 #include <fc/time.hpp>
+#include <fc/mutex.hpp>
 #include <fc/network/listener.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
@@ -27,9 +28,7 @@
 #include <atomic>
 #include <cmath>
 #include <memory>
-#include <mutex>
 #include <new>
-#include <shared_mutex>
 
 // should be defined for c++17, but clang++16 still has not implemented it
 #ifdef __cpp_lib_hardware_interference_size
@@ -161,8 +160,8 @@ namespace eosio {
       >;
 
       alignas(hardware_destructive_interference_size)
-      mutable std::mutex           unlinkable_blk_state_mtx;
-      unlinkable_block_state_index unlinkable_blk_state;
+      mutable fc::mutex            unlinkable_blk_state_mtx;
+      unlinkable_block_state_index unlinkable_blk_state GUARDED_BY(unlinkable_blk_state_mtx);
       // 30 should be plenty large enough as any unlinkable block that will be usable is likely to be usable
       // almost immediately (blocks came in from multiple peers out of order). 30 allows for one block per
       // producer round until lib. When queue larger than max, remove by block timestamp farthest in the past.
@@ -171,7 +170,7 @@ namespace eosio {
    public:
       // returns block id of any block removed because of a full cache
       std::optional<block_id_type> add_unlinkable_block( signed_block_ptr b, const block_id_type& id ) {
-         std::lock_guard g(unlinkable_blk_state_mtx);
+         fc::lock_guard g(unlinkable_blk_state_mtx);
          unlinkable_blk_state.insert( {id, std::move(b)} ); // does not insert if already there
          if (unlinkable_blk_state.size() > max_unlinkable_cache_size) {
             auto& index = unlinkable_blk_state.get<by_timestamp>();
@@ -184,7 +183,7 @@ namespace eosio {
       }
 
       unlinkable_block_state pop_possible_linkable_block(const block_id_type& blkid) {
-         std::lock_guard g(unlinkable_blk_state_mtx);
+         fc::lock_guard g(unlinkable_blk_state_mtx);
          auto& index = unlinkable_blk_state.get<by_prev>();
          auto blk_itr = index.find( blkid );
          if (blk_itr != index.end()) {
@@ -196,7 +195,7 @@ namespace eosio {
       }
 
       void expire_blocks( uint32_t lib_num ) {
-         std::lock_guard g(unlinkable_blk_state_mtx);
+         fc::lock_guard g(unlinkable_blk_state_mtx);
          auto& stale_blk = unlinkable_blk_state.get<by_block_num_id>();
          stale_blk.erase( stale_blk.lower_bound( 1 ), stale_blk.upper_bound( lib_num ) );
       }
@@ -211,14 +210,14 @@ namespace eosio {
       };
 
       alignas(hardware_destructive_interference_size)
-      std::mutex     sync_mtx;
-      uint32_t       sync_known_lib_num{0};       // highest known lib num from currently connected peers
-      uint32_t       sync_last_requested_num{0};  // end block number of the last requested range, inclusive
-      uint32_t       sync_next_expected_num{0};   // the next block number we need from peer
+      fc::mutex      sync_mtx;
+      uint32_t       sync_known_lib_num  GUARDED_BY(sync_mtx) {0};       // highest known lib num from currently connected peers
+      uint32_t       sync_last_requested_num GUARDED_BY(sync_mtx) {0};  // end block number of the last requested range, inclusive
+      uint32_t       sync_next_expected_num GUARDED_BY(sync_mtx) {0};   // the next block number we need from peer
       connection_ptr sync_source;                 // connection we are currently syncing from
 
-      const uint32_t       sync_req_span{0};
-      const uint32_t       sync_peer_limit{0};
+      const uint32_t       sync_req_span GUARDED_BY(sync_mtx) {0};
+      const uint32_t       sync_peer_limit GUARDED_BY(sync_mtx) {0};
 
       alignas(hardware_destructive_interference_size)
       std::atomic<stages> sync_state{in_sync};
@@ -228,7 +227,7 @@ namespace eosio {
       constexpr static auto stage_str( stages s );
       bool set_state( stages newstate );
       bool is_sync_required( uint32_t fork_head_block_num );
-      void request_next_chunk( std::unique_lock<std::mutex> g_sync, const connection_ptr& conn = connection_ptr() );
+      void request_next_chunk( fc::unique_lock<fc::mutex>&& g_sync, const connection_ptr& conn = connection_ptr() ) REQUIRES(sync_mtx);
       connection_ptr find_next_sync_node();
       void start_sync( const connection_ptr& c, uint32_t target );
       bool verify_catchup( const connection_ptr& c, uint32_t num, const block_id_type& id );
@@ -1841,7 +1840,7 @@ namespace eosio {
 
    // called from c's connection strand
    void sync_manager::sync_reset_lib_num(const connection_ptr& c, bool closing) {
-      std::unique_lock<std::mutex> g( sync_mtx );
+      fc::unique_lock g( sync_mtx );
       if( sync_state == in_sync ) {
          sync_source.reset();
       }
@@ -1873,11 +1872,11 @@ namespace eosio {
       }
    }
 
-   connection_ptr sync_manager::find_next_sync_node() {
+   connection_ptr sync_manager::find_next_sync_node() REQUIRES(sync_mtx) {
       fc_dlog(logger, "Number connections ${s}, sync_next_expected_num: ${e}, sync_known_lib_num: ${l}",
               ("s", my_impl->connections.number_connections())("e", sync_next_expected_num)("l", sync_known_lib_num));
       deque<connection_ptr> conns;
-      my_impl->connections.for_each_block_connection([&](const auto& c) {
+      my_impl->connections.for_each_block_connection([&](const auto& c) REQUIRES(sync_mtx) {
          if (c->should_sync_from(sync_next_expected_num, sync_known_lib_num)) {
             conns.push_back(c);
          }
@@ -1921,7 +1920,7 @@ namespace eosio {
    }
 
    // call with g_sync locked, called from conn's connection strand
-   void sync_manager::request_next_chunk( std::unique_lock<std::mutex> g_sync, const connection_ptr& conn ) {
+   void sync_manager::request_next_chunk( fc::unique_lock<fc::mutex>&& g_sync, const connection_ptr& conn ) {
       auto chain_info = my_impl->get_chain_info();
 
       fc_dlog( logger, "sync_last_requested_num: ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, head: ${h}",
@@ -1992,7 +1991,7 @@ namespace eosio {
       } );
    }
 
-   bool sync_manager::is_sync_required( uint32_t fork_head_block_num ) {
+   bool sync_manager::is_sync_required( uint32_t fork_head_block_num ) REQUIRES(sync_mtx) {
       fc_dlog( logger, "last req = ${req}, last recv = ${recv} known = ${known} our head = ${head}",
                ("req", sync_last_requested_num)( "recv", sync_next_expected_num )( "known", sync_known_lib_num )
                ("head", fork_head_block_num ) );
@@ -2003,7 +2002,7 @@ namespace eosio {
 
    // called from c's connection strand
    void sync_manager::start_sync(const connection_ptr& c, uint32_t target) {
-      std::unique_lock<std::mutex> g_sync( sync_mtx );
+      fc::unique_lock g_sync( sync_mtx );
       if( target > sync_known_lib_num) {
          sync_known_lib_num = target;
       }
@@ -2026,7 +2025,7 @@ namespace eosio {
 
    // called from connection strand
    void sync_manager::sync_reassign_fetch(const connection_ptr& c, go_away_reason reason) {
-      std::unique_lock<std::mutex> g( sync_mtx );
+      fc::unique_lock g( sync_mtx );
       peer_ilog( c, "reassign_fetch, our last req is ${cc}, next expected is ${ne}",
                ("cc", sync_last_requested_num)("ne", sync_next_expected_num) );
 
@@ -2169,7 +2168,7 @@ namespace eosio {
       }
       if( req.req_blocks.mode == catch_up ) {
          {
-            std::lock_guard<std::mutex> g( sync_mtx );
+            fc::lock_guard g( sync_mtx );
             peer_ilog( c, "catch_up while in ${s}, fork head num = ${fhn} "
                           "target LIB = ${lib} next_expected = ${ne}, id ${id}...",
                      ("s", stage_str( sync_state ))("fhn", num)("lib", sync_known_lib_num)
@@ -2234,7 +2233,7 @@ namespace eosio {
    // called from connection strand
    void sync_manager::rejected_block( const connection_ptr& c, uint32_t blk_num ) {
       c->block_status_monitor_.rejected();
-      std::unique_lock<std::mutex> g( sync_mtx );
+      fc::unique_lock g( sync_mtx );
       sync_last_requested_num = 0;
       if( c->block_status_monitor_.max_events_violated()) {
          peer_wlog( c, "block ${bn} not accepted, closing connection", ("bn", blk_num) );
@@ -2260,7 +2259,7 @@ namespace eosio {
       stages state = sync_state;
       peer_dlog( c, "state ${s}", ("s", stage_str( state )) );
       if( state == head_catchup ) {
-         std::unique_lock g_sync( sync_mtx );
+         fc::unique_lock g_sync( sync_mtx );
          peer_dlog( c, "sync_manager in head_catchup state" );
          sync_source.reset();
          g_sync.unlock();
@@ -2294,7 +2293,7 @@ namespace eosio {
             send_handshakes();
          }
       } else if( state == lib_catchup ) {
-         std::unique_lock g_sync( sync_mtx );
+         fc::unique_lock g_sync( sync_mtx );
          if( blk_applied && blk_num >= sync_known_lib_num ) {
             peer_dlog( c, "All caught up with last known last irreversible block resending handshake" );
             set_state( in_sync );
