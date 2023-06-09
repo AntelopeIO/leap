@@ -88,7 +88,7 @@ void blocklog_actions::setup(CLI::App& app) {
    auto* extract_blocks = sub->add_subcommand("extract-blocks", "Extract range of blocks from blocks.log and write to output-dir.  Must give 'first' and/or 'last'.")->callback([err_guard]() { err_guard(&blocklog_actions::extract_blocks); });
    extract_blocks->add_option("--first,-f", opt->first_block, "The first block number to keep.")->required();
    extract_blocks->add_option("--last,-l", opt->last_block, "The last block number to keep.")->required();
-   extract_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the block log extracted from blocks-dir.");
+   extract_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the block log extracted from blocks-dir.")->required();
 
    // subcommand - split blocks
    auto* split_blocks = sub->add_subcommand("split-blocks", "Split the blocks.log based on the stride and store the result in the specified 'output-dir'.")->callback([err_guard]() { err_guard(&blocklog_actions::split_blocks); });
