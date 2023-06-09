@@ -863,7 +863,7 @@ namespace eosio {
        */
       // See NTP protocol. https://datatracker.ietf.org/doc/rfc5905/
       tstamp                         org{0}; //!< origin timestamp. Time at the client when the request departed for the server.
-      tstamp                         rec{0}; //!< receive timestamp. Time at the server when the request arrived from the client.
+      // tstamp (not used)           rec{0}; //!< receive timestamp. Time at the server when the request arrived from the client.
       tstamp                         xmt{0}; //!< transmit timestamp, Time at the server when the response left for the client.
       tstamp                         dst{0}; //!< destination timestamp, Time at the client when the reply arrived from the server.
       /** @} */
@@ -1464,11 +1464,13 @@ namespace eosio {
    // called from connection strand
    void connection::send_time() {
       if (org == 0) { // do not send if there is already a time loop in progress
-         time_message xpkt;
-         xpkt.org = rec;
-         xpkt.rec = dst;
-         xpkt.xmt = get_time();
-         org      = xpkt.xmt;
+         org = get_time();
+         // xpkt.org == 0 means we are initiating a ping. Actual origin time is in xpkt.xmt.
+         time_message xpkt{
+            .org = 0,
+            .rec = dst,
+            .xmt = org,
+            .dst = 0 };
          peer_dlog(this, "send init time_message: ${t}", ("t", xpkt));
          enqueue(xpkt);
       }
@@ -1476,10 +1478,11 @@ namespace eosio {
 
    // called from connection strand
    void connection::send_time(const time_message& msg) {
-      time_message xpkt;
-      xpkt.org = msg.xmt;
-      xpkt.rec = msg.dst;
-      xpkt.xmt = get_time();
+      time_message xpkt{
+         .org = msg.xmt,
+         .rec = msg.dst,
+         .xmt = get_time(),
+         .dst = 0 };
       peer_dlog( this, "send time_message: ${t}, org: ${o}", ("t", xpkt)("o", org) );
       enqueue(xpkt);
    }
@@ -3314,7 +3317,6 @@ namespace eosio {
          return; // duplicate packet
 
       xmt = msg_xmt;
-      rec = normalize_epoch_to_ns(msg.rec);
       dst = msg.dst; // already normalized
 
       if( msg.org == 0 ) {
@@ -3323,6 +3325,7 @@ namespace eosio {
       }
 
       if (org != 0) {
+         auto rec = normalize_epoch_to_ns(msg.rec);
          int64_t offset = (double(rec - org) + double(msg_xmt - dst)) / 2.0;
 
          if (std::abs(offset) > block_interval_ns) {
@@ -3331,7 +3334,6 @@ namespace eosio {
          }
       }
       org = 0;
-      rec = 0;
 
       std::unique_lock<std::mutex> g_conn( conn_mtx );
       if( last_handshake_recv.generation == 0 ) {
