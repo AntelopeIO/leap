@@ -292,7 +292,7 @@ jobs:
           cd cdt
           mkdir build
           cd build
-          apt-get install -y pkg-config libcurl4-gnutls-dev
+          apt-get update && apt-get install -y pkg-config libcurl4-gnutls-dev
           cmake -DCMAKE_BUILD_TYPE=Release ..
           make -j $(nproc)
           make install
@@ -345,7 +345,7 @@ jobs:
           cd cdt
           mkdir build
           cd build
-          apt-get install -y pkg-config libcurl4-gnutls-dev
+          apt-get update && apt-get install -y pkg-config libcurl4-gnutls-dev
           cmake -DCMAKE_BUILD_TYPE=Release -Dleap_DIR="../../leap/build/lib/cmake/leap" ..
           make -j $(nproc)
           cd ../..
