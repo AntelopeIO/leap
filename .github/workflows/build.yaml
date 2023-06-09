@@ -248,8 +248,8 @@ jobs:
 
   libtester-make-dev-install-test:
     name: libtester make dev-install test
-    needs: [d, Build]
-    if: always() && needs.Build.result == 'success'
+    needs: [d]
+    if: always() && needs.d.result == 'success'
     strategy:
       fail-fast: false
       matrix:
