@@ -88,7 +88,7 @@ void blocklog_actions::setup(CLI::App& app) {
    extract_blocks->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
    extract_blocks->add_option("--first,-f", opt->first_block, "The first block number to keep.")->required();
    extract_blocks->add_option("--last,-l", opt->last_block, "The last block number to keep.")->required();
-   extract_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the block log extracted from blocks-dir.");
+   extract_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the block log extracted from blocks-dir.")->required();
 
    // subcommand - smoke test
    auto* smoke_test = sub->add_subcommand("smoke-test", "Quick test that blocks.log and blocks.index are well formed and agree with each other.")->callback([err_guard]() { err_guard(&blocklog_actions::smoke_test); });
