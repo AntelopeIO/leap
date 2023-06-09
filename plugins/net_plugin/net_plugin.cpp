@@ -1966,6 +1966,7 @@ namespace eosio {
          c->close();
       } else {
          g.unlock();
+         peer_dlog(c, "rejected block ${bn}, sending handshake", ("bn", blk_num));
          c->send_handshake();
       }
    }
@@ -3061,13 +3062,11 @@ namespace eosio {
       switch (msg.known_trx.mode) {
       case none:
          break;
-      case last_irr_catch_up: {
+      case last_irr_catch_up:
+      case catch_up : {
          std::unique_lock<std::mutex> g_conn( conn_mtx );
          last_handshake_recv.head_num = msg.known_blocks.pending;
          g_conn.unlock();
-         break;
-      }
-      case catch_up : {
          break;
       }
       case normal: {

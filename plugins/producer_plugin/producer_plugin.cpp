@@ -605,7 +605,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          // push the new block
          auto handle_error = [&](const auto& e)
          {
-            elog((e.to_detail_string()));
+            elog("Exception on block ${bn}: ${e}", ("bn", blk_num)("e", e.to_detail_string()));
             app().get_channel<channels::rejected_block>().publish( priority::medium, block );
             throw;
          };
