@@ -1876,7 +1876,9 @@ namespace eosio {
       fc_dlog(logger, "Number connections ${s}, sync_next_expected_num: ${e}, sync_known_lib_num: ${l}",
               ("s", my_impl->connections.number_connections())("e", sync_next_expected_num)("l", sync_known_lib_num));
       deque<connection_ptr> conns;
-      my_impl->connections.for_each_block_connection([&](const auto& c) REQUIRES(sync_mtx) {
+      my_impl->connections.for_each_block_connection([sync_next_expected_num = sync_next_expected_num,
+                                                      sync_known_lib_num = sync_known_lib_num,
+                                                      &conns](const auto& c) {
          if (c->should_sync_from(sync_next_expected_num, sync_known_lib_num)) {
             conns.push_back(c);
          }

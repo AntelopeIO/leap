@@ -167,7 +167,7 @@ public:
       mut->lock();
    }
 
-   unique_lock(unique_lock&& o) noexcept 
+   unique_lock(unique_lock&& o) noexcept ACQUIRE(o) 
       : mut(o.mut)
       , locked(o.locked) {
       o.locked = false;
@@ -206,7 +206,7 @@ public:
       locked = false;
    }
 
-   mutex_type* release() noexcept {
+   mutex_type* release() noexcept RETURN_CAPABILITY(this) {
       mutex_type* res = mut;
       mut             = nullptr;
       locked          = false;
