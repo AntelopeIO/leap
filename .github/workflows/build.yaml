@@ -115,6 +115,7 @@ jobs:
         with:
           name: leap-dev-ubuntu20-amd64
           path: build/leap-dev*.deb
+
   tests:
     name: Tests
     needs: [d, Build]
@@ -234,6 +235,60 @@ jobs:
         with:
           repository: AntelopeIO/reference-contracts
           path: reference-contracts
+      - name: Build & Test reference-contracts
+        run: |
+          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
+          cmake --build build -- -j $(nproc)
+          cd build/tests
+          ctest --output-on-failure -j $(nproc)
+
+  libtester-make-dev-install-test:
+    name: libtester make dev-install test
+    needs: [d, Build]
+    if: always() && needs.Build.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu20, ubuntu22]
+    runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
+    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+    steps:
+      - name: Download leap builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{matrix.platform}}-build
+          path: leap
+      - name: checkout cdt
+        uses: actions/checkout@v3
+        with:
+          repository: AntelopeIO/cdt
+          submodules: recursive
+          path: cdt
+      - name: checkout reference-contracts
+        uses: actions/checkout@v3
+        with:
+          repository: AntelopeIO/reference-contracts
+          path: reference-contracts
+      - name: Check directory structure
+        run: |
+          pwd
+          ls -l
+      - name: Extract leap build and make dev-install
+        run: |
+          cd leap
+          zstdcat build.tar.zst | tar x
+          cd build
+          make dev-install
+          cd ../..
+      - name: make install cdt
+        run: |
+          cd cdt
+          mkdir build
+          cd build
+          cmake -DCMAKE_BUILD_TYPE=Release ..
+          make -j $(nproc)
+          make install
+          cd ../..
       - name: Build & Test reference-contracts
         run: |
           cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
