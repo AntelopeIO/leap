@@ -2077,11 +2077,6 @@ namespace eosio {
          peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 0, lib ${l}",
                     ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))("l", chain_info.lib_num) );
          c->peer_syncing_from_us = false;
-         notice_message note;
-         note.known_blocks.mode = none;
-         note.known_trx.mode = catch_up;
-         note.known_trx.pending = 0;
-         c->enqueue( note );
          return;
       }
       if (chain_info.head_num < msg.last_irreversible_block_num) {
@@ -3354,7 +3349,6 @@ namespace eosio {
       // peer tells us about one or more blocks or txns. When done syncing, forward on
       // notices of previously unknown blocks or txns,
       //
-      peer_dlog( this, "received notice_message" );
       set_state(connection_state::connected);
       if( msg.known_blocks.ids.size() > 2 ) {
          peer_elog( this, "Invalid notice_message, known_blocks.ids.size ${s}, closing connection",
