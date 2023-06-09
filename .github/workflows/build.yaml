@@ -278,7 +278,7 @@ jobs:
           cd leap
           zstdcat build.tar.zst | tar x
           cd build
-          make dev-install
+          ninja dev-install
           cd ../..
       - name: make install cdt
         run: |
@@ -327,17 +327,17 @@ jobs:
         run: |
           pwd
           ls -l
-      - name: Extract leap build and make dev-install
+      - name: Extract leap build
         run: |
           cd leap
           zstdcat build.tar.zst | tar x
           cd ..
-      - name: make install cdt
+      - name: Build cdt
         run: |
           cd cdt
           mkdir build
           cd build
-          cmake -DCMAKE_BUILD_TYPE=Release ..
+          cmake -DCMAKE_BUILD_TYPE=Release -Dleap_DIR="../../leap/build/lib/cmake/leap" ..
           make -j $(nproc)
           cd ../..
       - name: Build & Test reference-contracts
