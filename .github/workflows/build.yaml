@@ -292,6 +292,7 @@ jobs:
           cd cdt
           mkdir build
           cd build
+          apt-get install -y pkg-config libcurl4-gnutls-dev
           cmake -DCMAKE_BUILD_TYPE=Release ..
           make -j $(nproc)
           make install
