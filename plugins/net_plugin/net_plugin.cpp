@@ -1935,7 +1935,12 @@ namespace eosio {
                verify_catchup( c, msg.known_blocks.pending, id );
             } else {
                // we already have the block, so update peer with our view of the world
-               c->send_handshake();
+               auto chain_info = my_impl->get_chain_info();
+               std::unique_lock g_conn( c->conn_mtx );
+               if (chain_info.head_id != c->last_handshake_sent.head_id) { // no need to send handshake if nothing new to report
+                  g_conn.unlock();
+                  c->send_handshake();
+               }
             }
          }
       } else if (msg.known_blocks.mode == last_irr_catch_up) {
