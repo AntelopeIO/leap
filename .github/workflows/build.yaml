@@ -228,7 +228,6 @@ jobs:
       - name: Install cdt and leap-dev Packages
         run: |
           apt install -y ./*.deb
-          apt-get -y install cmake
           rm ./*.deb
       - name: checkout reference-contracts
         uses: actions/checkout@v3
