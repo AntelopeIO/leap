@@ -261,7 +261,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: ${{matrix.platform}}-build
-          path: leap
       - name: checkout cdt
         uses: actions/checkout@v3
         with:
@@ -279,11 +278,10 @@ jobs:
           ls -l
       - name: Extract leap build and make dev-install
         run: |
-          cd leap
           zstdcat build.tar.zst | tar x
           cd build
           ninja dev-install
-          cd ../..
+          cd ..
       - name: make install cdt
         run: |
           cd cdt
