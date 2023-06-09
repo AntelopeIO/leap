@@ -865,7 +865,7 @@ namespace eosio {
       tstamp                         org{0}; //!< origin timestamp. Time at the client when the request departed for the server.
       // tstamp (not used)           rec{0}; //!< receive timestamp. Time at the server when the request arrived from the client.
       tstamp                         xmt{0}; //!< transmit timestamp, Time at the server when the response left for the client.
-      tstamp                         dst{0}; //!< destination timestamp, Time at the client when the reply arrived from the server.
+      // tstamp (not used)           dst{0}; //!< destination timestamp, Time at the client when the reply arrived from the server.
       /** @} */
       // timestamp for the lastest message
       tstamp                         latest_msg_time{0};
@@ -1468,7 +1468,7 @@ namespace eosio {
          // xpkt.org == 0 means we are initiating a ping. Actual origin time is in xpkt.xmt.
          time_message xpkt{
             .org = 0,
-            .rec = dst,
+            .rec = 0,
             .xmt = org,
             .dst = 0 };
          peer_dlog(this, "send init time_message: ${t}", ("t", xpkt));
@@ -3300,8 +3300,6 @@ namespace eosio {
       // We've already lost however many microseconds it took to dispatch the message, but it can't be helped.
       msg.dst = get_time();
 
-      auto msg_xmt = normalize_epoch_to_ns(msg.xmt);
-
       if (msg.org != 0) {
          if (msg.org == org) {
             auto ping = msg.dst - msg.org;
@@ -3313,11 +3311,11 @@ namespace eosio {
          }
       }
 
+      auto msg_xmt = normalize_epoch_to_ns(msg.xmt);
       if (msg_xmt == xmt)
          return; // duplicate packet
 
       xmt = msg_xmt;
-      dst = msg.dst; // already normalized
 
       if( msg.org == 0 ) {
          send_time( msg );
@@ -3326,11 +3324,11 @@ namespace eosio {
 
       if (org != 0) {
          auto rec = normalize_epoch_to_ns(msg.rec);
-         int64_t offset = (double(rec - org) + double(msg_xmt - dst)) / 2.0;
+         int64_t offset = (double(rec - org) + double(msg_xmt - msg.dst)) / 2.0;
 
          if (std::abs(offset) > block_interval_ns) {
             peer_wlog(this, "Clock offset is ${of}us, calculation: (rec ${r} - org ${o} + xmt ${x} - dst ${d})/2",
-                      ("of", offset / 1000)("r", rec)("o", org)("x", msg_xmt)("d", dst));
+                      ("of", offset / 1000)("r", rec)("o", org)("x", msg_xmt)("d", msg.dst));
          }
       }
       org = 0;
