@@ -227,11 +227,11 @@ namespace eosio {
    private:
       constexpr static auto stage_str( stages s );
       bool set_state( stages newstate );
-      bool is_sync_required( uint32_t fork_head_block_num );
+      bool is_sync_required( uint32_t fork_head_block_num ); // call with locked mutex
       void request_next_chunk( std::unique_lock<std::mutex> g_sync, const connection_ptr& conn = connection_ptr() );
-      connection_ptr find_next_sync_node();
-      void start_sync( const connection_ptr& c, uint32_t target );
-      bool verify_catchup( const connection_ptr& c, uint32_t num, const block_id_type& id );
+      connection_ptr find_next_sync_node(); // call with locked mutex
+      void start_sync( const connection_ptr& c, uint32_t target ); // locks mutex
+      bool verify_catchup( const connection_ptr& c, uint32_t num, const block_id_type& id ); // locks mutex
 
    public:
       explicit sync_manager( uint32_t span, uint32_t sync_peer_limit );
@@ -1871,8 +1871,8 @@ namespace eosio {
          } );
          sync_known_lib_num = highest_lib_num;
 
-         // if closing the connection we are currently syncing from or not syncing, then request from a diff peer
-         if( !sync_source || c == sync_source ) {
+         // if closing the connection we are currently syncing from then request from a diff peer
+         if( c == sync_source ) {
             sync_last_requested_num = 0;
             // if starting to sync need to always start from lib as we might be on our own fork
             uint32_t lib_num = my_impl->get_chain_lib_num();
@@ -1937,7 +1937,7 @@ namespace eosio {
                ("r", sync_last_requested_num)("e", sync_next_expected_num)("k", sync_known_lib_num)("s", sync_req_span)("h", chain_info.head_num) );
 
       if( chain_info.head_num + sync_req_span < sync_last_requested_num && sync_source && sync_source->current() ) {
-         fc_wlog( logger, "ignoring request, head is ${h} last req = ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, source connection ${c}",
+         fc_dlog( logger, "ignoring request, head is ${h} last req = ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, source connection ${c}",
                   ("h", chain_info.head_num)("r", sync_last_requested_num)("e", sync_next_expected_num)
                   ("k", sync_known_lib_num)("s", sync_req_span)("c", sync_source->connection_id) );
          return;
@@ -2238,6 +2238,9 @@ namespace eosio {
       c->block_status_monitor_.rejected();
       std::unique_lock<std::mutex> g( sync_mtx );
       sync_last_requested_num = 0;
+      if (blk_num < sync_next_expected_num) {
+         sync_next_expected_num = my_impl->get_chain_lib_num();
+      }
       if( c->block_status_monitor_.max_events_violated()) {
          peer_wlog( c, "block ${bn} not accepted, closing connection", ("bn", blk_num) );
          sync_source.reset();
