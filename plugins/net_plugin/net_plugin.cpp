@@ -611,31 +611,31 @@ namespace eosio {
    class queued_buffer : boost::noncopyable {
    public:
       void clear_write_queue() {
-         std::lock_guard g( _mtx );
+         fc::lock_guard g( _mtx );
          _write_queue.clear();
          _sync_write_queue.clear();
          _write_queue_size = 0;
       }
 
       void clear_out_queue() {
-         std::lock_guard g( _mtx );
+         fc::lock_guard g( _mtx );
          while ( !_out_queue.empty() ) {
             _out_queue.pop_front();
          }
       }
 
       uint32_t write_queue_size() const {
-         std::lock_guard g( _mtx );
+         fc::lock_guard g( _mtx );
          return _write_queue_size;
       }
 
       bool is_out_queue_empty() const {
-         std::lock_guard g( _mtx );
+         fc::lock_guard g( _mtx );
          return _out_queue.empty();
       }
 
       bool ready_to_send() const {
-         std::lock_guard g( _mtx );
+         fc::lock_guard g( _mtx );
          // if out_queue is not empty then async_write is in progress
          return ((!_sync_write_queue.empty() || !_write_queue.empty()) && _out_queue.empty());
       }
@@ -644,7 +644,7 @@ namespace eosio {
       bool add_write_queue( const std::shared_ptr<vector<char>>& buff,
                             std::function<void( boost::system::error_code, std::size_t )> callback,
                             bool to_sync_queue ) {
-         std::lock_guard g( _mtx );
+         fc::lock_guard g( _mtx );
          if( to_sync_queue ) {
             _sync_write_queue.push_back( {buff, std::move(callback)} );
          } else {
@@ -658,7 +658,7 @@ namespace eosio {
       }
 
       void fill_out_buffer( std::vector<boost::asio::const_buffer>& bufs ) {
-         std::lock_guard g( _mtx );
+         fc::lock_guard g( _mtx );
          if( !_sync_write_queue.empty() ) { // always send msgs from sync_write_queue first
             fill_out_buffer( bufs, _sync_write_queue );
          } else { // postpone real_time write_queue if sync queue is not empty
@@ -668,7 +668,7 @@ namespace eosio {
       }
 
       void out_callback( boost::system::error_code ec, std::size_t w ) {
-         std::lock_guard g( _mtx );
+         fc::lock_guard g( _mtx );
          for( auto& m : _out_queue ) {
             m.callback( ec, w );
          }
@@ -677,7 +677,7 @@ namespace eosio {
    private:
       struct queued_write;
       void fill_out_buffer( std::vector<boost::asio::const_buffer>& bufs,
-                            deque<queued_write>& w_queue ) {
+                            deque<queued_write>& w_queue ) REQUIRES(_mtx) {
          while ( !w_queue.empty() ) {
             auto& m = w_queue.front();
             bufs.emplace_back( m.buff->data(), m.buff->size() );
@@ -694,11 +694,11 @@ namespace eosio {
       };
 
       alignas(hardware_destructive_interference_size)
-      mutable std::mutex  _mtx;
-      uint32_t            _write_queue_size{0};
-      deque<queued_write> _write_queue;
-      deque<queued_write> _sync_write_queue; // sync_write_queue will be sent first
-      deque<queued_write> _out_queue;
+      mutable fc::mutex   _mtx;
+      uint32_t            _write_queue_size GUARDED_BY(_mtx) {0};
+      deque<queued_write> _write_queue      GUARDED_BY(_mtx);
+      deque<queued_write> _sync_write_queue GUARDED_BY(_mtx); // sync_write_queue will be sent first
+      deque<queued_write> _out_queue        GUARDED_BY(_mtx);
 
    }; // queued_buffer
 
