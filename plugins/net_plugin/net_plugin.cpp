@@ -842,7 +842,7 @@ namespace eosio {
       boost::asio::steady_timer        response_expected_timer GUARDED_BY(response_expected_timer_mtx);
 
       alignas(hardware_destructive_interference_size)
-      std::atomic<go_away_reason>           no_retry{no_reason};
+      std::atomic<go_away_reason>      no_retry{no_reason};
 
       alignas(hardware_destructive_interference_size)
       mutable fc::mutex                conn_mtx; //< mtx for last_req .. remote_endpoint_ip
