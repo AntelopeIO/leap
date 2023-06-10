@@ -247,12 +247,12 @@ namespace eosio {
 
    class dispatch_manager {
       alignas(hardware_destructive_interference_size)
-      mutable std::mutex      blk_state_mtx;
-      peer_block_state_index  blk_state;
+      mutable fc::mutex      blk_state_mtx;
+      peer_block_state_index  blk_state GUARDED_BY(blk_state_mtx);
 
       alignas(hardware_destructive_interference_size)
-      mutable std::mutex      local_txns_mtx;
-      node_transaction_index  local_txns;
+      mutable fc::mutex      local_txns_mtx;
+      node_transaction_index  local_txns GUARDED_BY(local_txns_mtx);
 
       unlinkable_block_state_cache unlinkable_block_cache;
 
@@ -2333,7 +2333,7 @@ namespace eosio {
 
    bool dispatch_manager::add_peer_block( const block_id_type& blkid, uint32_t connection_id) {
       uint32_t block_num = block_header::num_from_id(blkid);
-      std::lock_guard<std::mutex> g( blk_state_mtx );
+      fc::lock_guard g( blk_state_mtx );
       auto bptr = blk_state.get<by_connection_id>().find( std::make_tuple(block_num, std::ref(blkid), connection_id) );
       bool added = (bptr == blk_state.end());
       if( added ) {
@@ -2344,14 +2344,14 @@ namespace eosio {
 
    bool dispatch_manager::peer_has_block( const block_id_type& blkid, uint32_t connection_id ) const {
       uint32_t block_num = block_header::num_from_id(blkid);
-      std::lock_guard<std::mutex> g(blk_state_mtx);
+      fc::lock_guard g(blk_state_mtx);
       const auto blk_itr = blk_state.get<by_connection_id>().find( std::make_tuple(block_num, std::ref(blkid), connection_id) );
       return blk_itr != blk_state.end();
    }
 
    bool dispatch_manager::have_block( const block_id_type& blkid ) const {
       uint32_t block_num = block_header::num_from_id(blkid);
-      std::lock_guard<std::mutex> g(blk_state_mtx);
+      fc::lock_guard g(blk_state_mtx);
       const auto& index = blk_state.get<by_connection_id>();
       auto blk_itr = index.find( std::make_tuple(block_num, std::ref(blkid)) );
       return blk_itr != index.end();
@@ -2360,7 +2360,7 @@ namespace eosio {
    void dispatch_manager::rm_block( const block_id_type& blkid ) {
       uint32_t block_num = block_header::num_from_id(blkid);
       fc_dlog( logger, "rm_block ${n}, id: ${id}", ("n", block_num)("id", blkid));
-      std::lock_guard<std::mutex> g(blk_state_mtx);
+      fc::lock_guard g(blk_state_mtx);
       auto& index = blk_state.get<by_connection_id>();
       auto p = index.equal_range( std::make_tuple(block_num, std::ref(blkid)) );
       index.erase(p.first, p.second);
@@ -2368,7 +2368,7 @@ namespace eosio {
 
    bool dispatch_manager::add_peer_txn( const transaction_id_type& id, const time_point_sec& trx_expires,
                                         uint32_t connection_id, const time_point_sec& now ) {
-      std::lock_guard<std::mutex> g( local_txns_mtx );
+      fc::lock_guard g( local_txns_mtx );
       auto tptr = local_txns.get<by_id>().find( std::make_tuple( std::ref( id ), connection_id ) );
       bool added = (tptr == local_txns.end());
       if( added ) {
@@ -2384,7 +2384,7 @@ namespace eosio {
    }
 
    bool dispatch_manager::have_txn( const transaction_id_type& tid ) const {
-      std::lock_guard<std::mutex> g( local_txns_mtx );
+      fc::lock_guard g( local_txns_mtx );
       const auto tptr = local_txns.get<by_id>().find( tid );
       return tptr != local_txns.end();
    }
@@ -2393,7 +2393,7 @@ namespace eosio {
       size_t start_size = 0, end_size = 0;
       fc::time_point_sec now{time_point::now()};
 
-      std::unique_lock<std::mutex> g( local_txns_mtx );
+      fc::unique_lock g( local_txns_mtx );
       start_size = local_txns.size();
       auto& old = local_txns.get<by_expiry>();
       auto ex_lo = old.lower_bound( fc::time_point_sec( 0 ) );
@@ -2407,7 +2407,7 @@ namespace eosio {
    void dispatch_manager::expire_blocks( uint32_t lib_num ) {
       unlinkable_block_cache.expire_blocks( lib_num );
 
-      std::lock_guard<std::mutex> g( blk_state_mtx );
+      fc::lock_guard g( blk_state_mtx );
       auto& stale_blk = blk_state.get<by_connection_id>();
       stale_blk.erase( stale_blk.lower_bound( 1 ), stale_blk.upper_bound( lib_num ) );
    }
