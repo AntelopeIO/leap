@@ -743,7 +743,7 @@ namespace eosio {
        * day routine and converts to a (at least) 64 bit integer.
        */
       static tstamp get_time() {
-         return std::chrono::system_clock::now().time_since_epoch().count();
+         return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
       }
       /** @} */
 
