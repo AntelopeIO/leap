@@ -322,8 +322,8 @@ namespace eosio {
       chain::flat_set<string>          supplied_peers;
 
       alignas(hardware_destructive_interference_size)
-      std::mutex                            connector_check_timer_mtx;
-      unique_ptr<boost::asio::steady_timer> connector_check_timer;
+      fc::mutex                             connector_check_timer_mtx;
+      unique_ptr<boost::asio::steady_timer> connector_check_timer GUARDED_BY(connector_check_timer_mtx);
 
       /// thread safe, only modified on startup
       std::chrono::milliseconds                                heartbeat_timeout{def_keepalive_interval*2};
@@ -427,12 +427,12 @@ namespace eosio {
       /** @} */
 
       alignas(hardware_destructive_interference_size)
-      std::mutex                            expire_timer_mtx;
-      unique_ptr<boost::asio::steady_timer> expire_timer;
+      fc::mutex                             expire_timer_mtx;
+      unique_ptr<boost::asio::steady_timer> expire_timer GUARDED_BY(expire_timer_mtx);
 
       alignas(hardware_destructive_interference_size)
-      std::mutex                            keepalive_timer_mtx;
-      unique_ptr<boost::asio::steady_timer> keepalive_timer;
+      fc::mutex                             keepalive_timer_mtx;
+      unique_ptr<boost::asio::steady_timer> keepalive_timer GUARDED_BY(keepalive_timer_mtx);
 
       alignas(hardware_destructive_interference_size)
       std::atomic<bool>                     in_shutdown{false};
@@ -459,8 +459,8 @@ namespace eosio {
       
    private:
       alignas(hardware_destructive_interference_size)
-      mutable std::mutex            chain_info_mtx; // protects chain_info_t
-      chain_info_t                  chain_info;
+      mutable fc::mutex             chain_info_mtx; // protects chain_info_t
+      chain_info_t                  chain_info GUARDED_BY(chain_info_mtx);
 
    public:
       void update_chain_info();
@@ -611,31 +611,31 @@ namespace eosio {
    class queued_buffer : boost::noncopyable {
    public:
       void clear_write_queue() {
-         std::lock_guard<std::mutex> g( _mtx );
+         std::lock_guard g( _mtx );
          _write_queue.clear();
          _sync_write_queue.clear();
          _write_queue_size = 0;
       }
 
       void clear_out_queue() {
-         std::lock_guard<std::mutex> g( _mtx );
+         std::lock_guard g( _mtx );
          while ( !_out_queue.empty() ) {
             _out_queue.pop_front();
          }
       }
 
       uint32_t write_queue_size() const {
-         std::lock_guard<std::mutex> g( _mtx );
+         std::lock_guard g( _mtx );
          return _write_queue_size;
       }
 
       bool is_out_queue_empty() const {
-         std::lock_guard<std::mutex> g( _mtx );
+         std::lock_guard g( _mtx );
          return _out_queue.empty();
       }
 
       bool ready_to_send() const {
-         std::lock_guard<std::mutex> g( _mtx );
+         std::lock_guard g( _mtx );
          // if out_queue is not empty then async_write is in progress
          return ((!_sync_write_queue.empty() || !_write_queue.empty()) && _out_queue.empty());
       }
@@ -644,7 +644,7 @@ namespace eosio {
       bool add_write_queue( const std::shared_ptr<vector<char>>& buff,
                             std::function<void( boost::system::error_code, std::size_t )> callback,
                             bool to_sync_queue ) {
-         std::lock_guard<std::mutex> g( _mtx );
+         std::lock_guard g( _mtx );
          if( to_sync_queue ) {
             _sync_write_queue.push_back( {buff, std::move(callback)} );
          } else {
@@ -658,7 +658,7 @@ namespace eosio {
       }
 
       void fill_out_buffer( std::vector<boost::asio::const_buffer>& bufs ) {
-         std::lock_guard<std::mutex> g( _mtx );
+         std::lock_guard g( _mtx );
          if( !_sync_write_queue.empty() ) { // always send msgs from sync_write_queue first
             fill_out_buffer( bufs, _sync_write_queue );
          } else { // postpone real_time write_queue if sync queue is not empty
@@ -668,7 +668,7 @@ namespace eosio {
       }
 
       void out_callback( boost::system::error_code ec, std::size_t w ) {
-         std::lock_guard<std::mutex> g( _mtx );
+         std::lock_guard g( _mtx );
          for( auto& m : _out_queue ) {
             m.callback( ec, w );
          }
@@ -838,8 +838,8 @@ namespace eosio {
       block_status_monitor    block_status_monitor_;
 
       alignas(hardware_destructive_interference_size)
-      std::mutex                            response_expected_timer_mtx;
-      boost::asio::steady_timer             response_expected_timer;
+      fc::mutex                        response_expected_timer_mtx;
+      boost::asio::steady_timer        response_expected_timer GUARDED_BY(response_expected_timer_mtx);
 
       alignas(hardware_destructive_interference_size)
       std::atomic<go_away_reason>           no_retry{no_reason};
@@ -1729,14 +1729,14 @@ namespace eosio {
 
    // thread safe
    void connection::cancel_wait() {
-      std::lock_guard<std::mutex> g( response_expected_timer_mtx );
+      fc::lock_guard g( response_expected_timer_mtx );
       response_expected_timer.cancel();
    }
 
    // thread safe
    void connection::sync_wait() {
       connection_ptr c(shared_from_this());
-      std::lock_guard<std::mutex> g( response_expected_timer_mtx );
+      fc::lock_guard g( response_expected_timer_mtx );
       response_expected_timer.expires_from_now( my_impl->resp_expected_period );
       response_expected_timer.async_wait(
             boost::asio::bind_executor( c->strand, [c]( boost::system::error_code ec ) {
@@ -1747,7 +1747,7 @@ namespace eosio {
    // thread safe
    void connection::fetch_wait() {
       connection_ptr c( shared_from_this() );
-      std::lock_guard<std::mutex> g( response_expected_timer_mtx );
+      fc::lock_guard g( response_expected_timer_mtx );
       response_expected_timer.expires_from_now( my_impl->resp_expected_period );
       response_expected_timer.async_wait(
             boost::asio::bind_executor( c->strand, [c]( boost::system::error_code ec ) {
@@ -2983,12 +2983,12 @@ namespace eosio {
 
          connections.stop_conn_timer();
          {
-            std::lock_guard<std::mutex> g( expire_timer_mtx );
+            fc::lock_guard g( expire_timer_mtx );
             if( expire_timer )
                expire_timer->cancel();
          }
          {
-            std::lock_guard<std::mutex> g( keepalive_timer_mtx );
+            fc::lock_guard g( keepalive_timer_mtx );
             if( keepalive_timer )
                keepalive_timer->cancel();
          }
@@ -3002,7 +3002,7 @@ namespace eosio {
       controller& cc = chain_plug->chain();
       uint32_t lib_num = 0, head_num = 0;
       {
-         std::lock_guard<std::mutex> g( chain_info_mtx );
+         fc::lock_guard g( chain_info_mtx );
          chain_info.lib_num = lib_num = cc.last_irreversible_block_num();
          chain_info.lib_id = cc.last_irreversible_block_id();
          chain_info.head_num = head_num = cc.fork_db_head_block_num();
@@ -3012,17 +3012,17 @@ namespace eosio {
    }
 
    net_plugin_impl::chain_info_t net_plugin_impl::get_chain_info() const {
-      std::lock_guard<std::mutex> g( chain_info_mtx );
+      fc::lock_guard g( chain_info_mtx );
       return chain_info;
    }
 
    uint32_t net_plugin_impl::get_chain_lib_num() const {
-      std::lock_guard<std::mutex> g( chain_info_mtx );
+      fc::lock_guard g( chain_info_mtx );
       return chain_info.lib_num;
    }
 
    uint32_t net_plugin_impl::get_chain_head_num() const {
-      std::lock_guard<std::mutex> g( chain_info_mtx );
+      fc::lock_guard g( chain_info_mtx );
       return chain_info.head_num;
    }
 
@@ -3627,7 +3627,7 @@ namespace eosio {
    // thread safe
    void net_plugin_impl::start_expire_timer() {
       if( in_shutdown ) return;
-      std::lock_guard<std::mutex> g( expire_timer_mtx );
+      fc::lock_guard g( expire_timer_mtx );
       expire_timer->expires_from_now( txn_exp_period);
       expire_timer->async_wait( [my = shared_from_this()]( boost::system::error_code ec ) {
          if( !ec ) {
@@ -3643,7 +3643,7 @@ namespace eosio {
    // thread safe
    void net_plugin_impl::ticker() {
       if( in_shutdown ) return;
-      std::lock_guard<std::mutex> g( keepalive_timer_mtx );
+      fc::lock_guard g( keepalive_timer_mtx );
       keepalive_timer->expires_from_now(keepalive_interval);
       keepalive_timer->async_wait( [my = shared_from_this()]( boost::system::error_code ec ) {
             my->ticker();
@@ -3665,7 +3665,7 @@ namespace eosio {
 
    void net_plugin_impl::start_monitors() {
       {
-         std::lock_guard<std::mutex> g( expire_timer_mtx );
+         fc::lock_guard g( expire_timer_mtx );
          expire_timer = std::make_unique<boost::asio::steady_timer>( my_impl->thread_pool.get_executor() );
       }
       connections.start_conn_timer();
@@ -4058,7 +4058,7 @@ namespace eosio {
       }
 
       {
-         std::lock_guard<std::mutex> g( my->keepalive_timer_mtx );
+         fc::lock_guard g( my->keepalive_timer_mtx );
          my->keepalive_timer = std::make_unique<boost::asio::steady_timer>( my->thread_pool.get_executor() );
       }
 
@@ -4278,7 +4278,7 @@ namespace eosio {
 
    // called from any thread
    void connections_manager::start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection) {
-      std::lock_guard g( connector_check_timer_mtx );
+      fc::lock_guard g( connector_check_timer_mtx );
       if (!connector_check_timer) {
          connector_check_timer = std::make_unique<boost::asio::steady_timer>( my_impl->thread_pool.get_executor() );
       }
@@ -4291,7 +4291,7 @@ namespace eosio {
    }
 
    void connections_manager::stop_conn_timer() {
-      std::lock_guard g( connector_check_timer_mtx );
+      fc::lock_guard g( connector_check_timer_mtx );
       if (connector_check_timer) {
          connector_check_timer->cancel();
       }
