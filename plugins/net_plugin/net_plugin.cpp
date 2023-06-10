@@ -1004,7 +1004,7 @@ namespace eosio {
       bool incoming() const { return peer_address().empty(); } // thread safe becuase of peer_address
       bool incoming_and_handshake_received() const {
          if (!incoming()) return false;
-         std::lock_guard<std::mutex> g_conn( conn_mtx );
+         std::lock_guard g_conn( conn_mtx );
          return !last_handshake_recv.p2p_address.empty();
       }
    }; // class connection
@@ -1160,7 +1160,7 @@ namespace eosio {
       log_remote_endpoint_port = ec ? unknown : std::to_string(rep.port());
       local_endpoint_ip = ec2 ? unknown : lep.address().to_string();
       local_endpoint_port = ec2 ? unknown : std::to_string(lep.port());
-      std::lock_guard<std::mutex> g_conn( conn_mtx );
+      std::lock_guard g_conn( conn_mtx );
       remote_endpoint_ip = log_remote_endpoint_ip;
    }
 
@@ -1212,7 +1212,7 @@ namespace eosio {
       stat.connecting = state() == connection_state::connecting;
       stat.syncing = peer_syncing_from_us;
       stat.is_bp_peer = is_bp_connection;
-      std::lock_guard<std::mutex> g( conn_mtx );
+      std::lock_guard g( conn_mtx );
       stat.last_handshake = last_handshake_recv;
       return stat;
    }
@@ -1297,7 +1297,7 @@ namespace eosio {
       ++self->consecutive_immediate_connection_close;
       bool has_last_req = false;
       {
-         std::lock_guard<std::mutex> g_conn( self->conn_mtx );
+         std::lock_guard g_conn( self->conn_mtx );
          has_last_req = self->last_req.has_value();
          self->last_handshake_recv = handshake_message();
          self->last_handshake_sent = handshake_message();
@@ -1335,7 +1335,7 @@ namespace eosio {
       }
 
       if( logger.is_enabled( fc::log_level::debug ) ) {
-         std::unique_lock<std::mutex> g_conn( conn_mtx );
+         std::unique_lock g_conn( conn_mtx );
          if( last_handshake_recv.generation >= 1 ) {
             peer_dlog( this, "maybe truncating branch at = ${h}:${id}",
                        ("h", block_header::num_from_id(last_handshake_recv.head_id))("id", last_handshake_recv.head_id) );
@@ -1414,7 +1414,7 @@ namespace eosio {
       if (closed())
          return;
       strand.post( [c = shared_from_this()]() {
-         std::unique_lock<std::mutex> g_conn( c->conn_mtx );
+         std::unique_lock g_conn( c->conn_mtx );
          if( c->populate_handshake( c->last_handshake_sent ) ) {
             static_assert( std::is_same_v<decltype( c->sent_handshake_count ), int16_t>, "INT16_MAX based on int16_t" );
             if( c->sent_handshake_count == INT16_MAX ) c->sent_handshake_count = 1; // do not wrap
@@ -1854,7 +1854,7 @@ namespace eosio {
          // Determine current LIB of remaining peers as our sync_known_lib_num.
          uint32_t highest_lib_num = 0;
          my_impl->connections.for_each_block_connection( [&highest_lib_num]( const auto& cc ) {
-            std::lock_guard<std::mutex> g_conn( cc->conn_mtx );
+            std::lock_guard g_conn( cc->conn_mtx );
             if( cc->current() && cc->last_handshake_recv.last_irreversible_block_num > highest_lib_num ) {
                highest_lib_num = cc->last_handshake_recv.last_irreversible_block_num;
             }
@@ -2159,7 +2159,7 @@ namespace eosio {
       request_message req;
       req.req_blocks.mode = catch_up;
       auto is_fork_head_greater = [num, &id, &req]( const auto& cc ) {
-         std::lock_guard<std::mutex> g_conn( cc->conn_mtx );
+         std::lock_guard g_conn( cc->conn_mtx );
          if( cc->fork_head_num > num || cc->fork_head == id ) {
             req.req_blocks.mode = none;
             return true;
@@ -2182,7 +2182,7 @@ namespace eosio {
             return false;
          set_state( head_catchup );
          {
-            std::lock_guard<std::mutex> g_conn( c->conn_mtx );
+            std::lock_guard g_conn( c->conn_mtx );
             c->fork_head = id;
             c->fork_head_num = num;
          }
@@ -2191,7 +2191,7 @@ namespace eosio {
       } else {
          peer_ilog( c, "none notice while in ${s}, fork head num = ${fhn}, id ${id}...",
                   ("s", stage_str( sync_state ))("fhn", num)("id", id.str().substr(8,16)) );
-         std::lock_guard<std::mutex> g_conn( c->conn_mtx );
+         std::lock_guard g_conn( c->conn_mtx );
          c->fork_head = block_id_type();
          c->fork_head_num = 0;
       }
@@ -2223,7 +2223,7 @@ namespace eosio {
       } else if (msg.known_blocks.mode == last_irr_catch_up) {
          {
             c->peer_lib_num = msg.known_trx.pending;
-            std::lock_guard<std::mutex> g_conn( c->conn_mtx );
+            std::lock_guard g_conn( c->conn_mtx );
             c->last_handshake_recv.last_irreversible_block_num = msg.known_trx.pending;
          }
          sync_reset_lib_num(c, false);
@@ -2270,14 +2270,14 @@ namespace eosio {
          block_id_type null_id;
          bool set_state_to_head_catchup = false;
          my_impl->connections.for_each_block_connection( [&null_id, blk_num, &blk_id, &c, &set_state_to_head_catchup]( const auto& cp ) {
-            std::unique_lock<std::mutex> g_cp_conn( cp->conn_mtx );
+            std::unique_lock g_cp_conn( cp->conn_mtx );
             uint32_t fork_head_num = cp->fork_head_num;
             block_id_type fork_head_id = cp->fork_head;
             g_cp_conn.unlock();
             if( fork_head_id == null_id ) {
                // continue
             } else if( fork_head_num < blk_num || fork_head_id == blk_id ) {
-               std::lock_guard<std::mutex> g_conn( c->conn_mtx );
+               std::lock_guard g_conn( c->conn_mtx );
                c->fork_head = null_id;
                c->fork_head_num = 0;
             } else {
@@ -2445,7 +2445,7 @@ namespace eosio {
 
    // called from c's connection strand
    void dispatch_manager::recv_block(const connection_ptr& c, const block_id_type& id, uint32_t bnum) {
-      std::unique_lock<std::mutex> g( c->conn_mtx );
+      std::unique_lock g( c->conn_mtx );
       if (c &&
           c->last_req &&
           c->last_req->req_blocks.mode != none &&
@@ -2516,7 +2516,7 @@ namespace eosio {
       request_message last_req;
       block_id_type bid;
       {
-         std::lock_guard<std::mutex> g_c_conn( c->conn_mtx );
+         std::lock_guard g_c_conn( c->conn_mtx );
          if( !c->last_req ) {
             return;
          }
@@ -2535,7 +2535,7 @@ namespace eosio {
             return false;
 
          {
-            std::lock_guard<std::mutex> guard( conn->conn_mtx );
+            std::lock_guard guard( conn->conn_mtx );
             if( conn->last_req ) {
                return false;
             }
@@ -2546,7 +2546,7 @@ namespace eosio {
             conn->strand.post( [conn, last_req{std::move(last_req)}]() {
                conn->enqueue( last_req );
                conn->fetch_wait();
-               std::lock_guard<std::mutex> g_conn_conn( conn->conn_mtx );
+               std::lock_guard g_conn_conn( conn->conn_mtx );
                conn->last_req = last_req;
             } );
             return true;
@@ -2589,7 +2589,7 @@ namespace eosio {
 
       if( consecutive_immediate_connection_close > def_max_consecutive_immediate_connection_close || no_retry == benign_other ) {
          fc::microseconds connector_period = my_impl->connections.get_connector_period();
-         std::lock_guard<std::mutex> g( c->conn_mtx );
+         std::lock_guard g( c->conn_mtx );
          if( last_close == fc::time_point() || last_close > fc::time_point::now() - connector_period ) {
             return true; // true so doesn't remove from valid connections
          }
@@ -2669,7 +2669,7 @@ namespace eosio {
                if (conn->socket_is_open()) {
                   if (conn->peer_address().empty()) {
                      ++visitors;
-                     std::lock_guard<std::mutex> g_conn(conn->conn_mtx);
+                     std::lock_guard g_conn(conn->conn_mtx);
                      if (paddr_str == conn->remote_endpoint_ip) {
                         ++from_addr;
                      }
@@ -2890,7 +2890,7 @@ namespace eosio {
       if( !my_impl->sync_master->syncing_from_peer() ) { // guard against peer thinking it needs to send us old blocks
          uint32_t lib_num = my_impl->get_chain_lib_num();
          if( blk_num < lib_num ) {
-            std::unique_lock<std::mutex> g( conn_mtx );
+            std::unique_lock g( conn_mtx );
             const auto last_sent_lib = last_handshake_sent.last_irreversible_block_num;
             g.unlock();
             peer_ilog( this, "received block ${n} less than ${which}lib ${lib}",
@@ -3082,7 +3082,7 @@ namespace eosio {
 
       peer_lib_num = msg.last_irreversible_block_num;
       peer_head_block_num = msg.head_num;
-      std::unique_lock<std::mutex> g_conn( conn_mtx );
+      std::unique_lock g_conn( conn_mtx );
       last_handshake_recv = msg;
       g_conn.unlock();
 
@@ -3123,7 +3123,7 @@ namespace eosio {
             auto is_duplicate = [&](const auto& check) {
                if(check.get() == this)
                   return false;
-               std::unique_lock<std::mutex> g_check_conn( check->conn_mtx );
+               std::unique_lock g_check_conn( check->conn_mtx );
                fc_dlog( logger, "dup check: connected ${c}, ${l} =? ${r}",
                         ("c", check->connected())("l", check->last_handshake_recv.node_id)("r", msg.node_id) );
                if(check->connected() && check->last_handshake_recv.node_id == msg.node_id) {
@@ -3312,7 +3312,7 @@ namespace eosio {
       org = 0;
       rec = 0;
 
-      std::unique_lock<std::mutex> g_conn( conn_mtx );
+      std::unique_lock g_conn( conn_mtx );
       if( last_handshake_recv.generation == 0 ) {
          g_conn.unlock();
          send_handshake();
@@ -3343,7 +3343,7 @@ namespace eosio {
       case none:
          break;
       case last_irr_catch_up: {
-         std::unique_lock<std::mutex> g_conn( conn_mtx );
+         std::unique_lock g_conn( conn_mtx );
          last_handshake_recv.head_num = msg.known_blocks.pending;
          g_conn.unlock();
          break;
