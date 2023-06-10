@@ -334,7 +334,7 @@ namespace eosio { namespace chain { namespace webassembly {
          if(i%6 == 0)
             context.trx_context.checktime();
       }
-      bls12_381::g2 r = bls12_381::g2::multiExp(pv, sv);
+      bls12_381::g2 r = bls12_381::g2::multiExp(pv, sv, [this](){ context.trx_context.checktime(); });
       r.toJacobianBytesLE({reinterpret_cast<uint8_t*>(result.data()), 288}, true);
       return return_code::success;
    }
@@ -353,7 +353,7 @@ namespace eosio { namespace chain { namespace webassembly {
          if(i%4 == 0)
             context.trx_context.checktime();
       }
-      bls12_381::fp12 r = bls12_381::pairing::calculate(v);
+      bls12_381::fp12 r = bls12_381::pairing::calculate(v, [this](){ context.trx_context.checktime(); });
       r.toBytesLE({reinterpret_cast<uint8_t*>(result.data()), 576}, true);
       return return_code::success;
    }

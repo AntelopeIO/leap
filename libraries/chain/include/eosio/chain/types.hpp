@@ -76,7 +76,7 @@ namespace eosio::chain {
    using public_key_type  = fc::crypto::public_key;
    using private_key_type = fc::crypto::private_key;
    using signature_type   = fc::crypto::signature;
-
+   
    // configurable boost deque (for boost >= 1.71) performs much better than std::deque in our use cases
    using block_1024_option_t = boost::container::deque_options< boost::container::block_size<1024u> >::type;
    template<typename T>
