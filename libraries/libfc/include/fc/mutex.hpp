@@ -167,13 +167,15 @@ public:
       mut->lock();
    }
 
+#if 0
    unique_lock(unique_lock&& o) noexcept ACQUIRE(o) 
       : mut(o.mut)
       , locked(o.locked) {
       o.locked = false;
       o.mut = nullptr;
    }
-
+#endif
+      
    // Assume mu is held, implicitly acquire *this and associate it with mu.
       unique_lock(M& mu, adopt_lock_t) REQUIRES(mu)
       : mut(&mu)
