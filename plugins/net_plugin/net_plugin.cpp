@@ -1590,8 +1590,8 @@ namespace eosio {
          } );
          sync_known_lib_num = highest_lib_num;
 
-         // if closing the connection we are currently syncing from or not syncing, then reset our last requested and next expected.
-         if( !sync_source || c == sync_source ) {
+         // if closing the connection we are currently syncing from then request from a diff peer
+         if( c == sync_source ) {
             reset_last_requested_num(g);
             // if starting to sync need to always start from lib as we might be on our own fork
             uint32_t lib_num = my_impl->get_chain_lib_num();
@@ -1958,7 +1958,10 @@ namespace eosio {
    void sync_manager::rejected_block( const connection_ptr& c, uint32_t blk_num ) {
       c->block_status_monitor_.rejected();
       std::unique_lock<std::mutex> g( sync_mtx );
-      reset_last_requested_num(g);
+      sync_last_requested_num = 0;
+      if (blk_num < sync_next_expected_num) {
+         sync_next_expected_num = my_impl->get_chain_lib_num();
+      }
       if( c->block_status_monitor_.max_events_violated()) {
          peer_wlog( c, "block ${bn} not accepted, closing connection", ("bn", blk_num) );
          sync_source.reset();
