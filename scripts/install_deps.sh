@@ -14,7 +14,6 @@ apt-get install -y \
     libcurl4-openssl-dev \
     libgmp-dev \
     libncurses5 \
-    libssl-dev \
     libtinfo-dev \
     libzstd-dev \
     python3 \

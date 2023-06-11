@@ -48,7 +48,6 @@ Requirements to build:
 - CMake 3.16+
 - LLVM 7 - 11 - for Linux only
   - newer versions do not work
-- openssl 1.1+
 - libcurl 7.40.0+
 - git
 - GMP
@@ -135,7 +134,6 @@ sudo apt-get install -y \
         libboost-all-dev \
         libcurl4-openssl-dev \
         libgmp-dev \
-        libssl-dev \
         llvm-11-dev \
         python3-numpy
 ```
