@@ -317,7 +317,6 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: ${{matrix.platform}}-build
-          path: leap
       - name: checkout reference-contracts
         uses: actions/checkout@v3
         with:
@@ -333,13 +332,10 @@ jobs:
         run: |
           pwd
           ls -l
-          cd leap
-          pwd
           zstdcat build.tar.zst | tar x
           ls -l
-          cd ..
-          echo "leap_DIR=$PWD/leap/build/lib/cmake/leap" >> "$GITHUB_ENV"
-          echo "LEAP_BUILD_DIR=$PWD/leap/build" >> "$GITHUB_ENV"
+          echo "leap_DIR=$PWD/build/lib/cmake/leap" >> "$GITHUB_ENV"
+          echo "LEAP_BUILD_DIR=$PWD/build" >> "$GITHUB_ENV"
           pwd
           echo leap_DIR = $leap_DIR
           echo LEAP_BUILD_DIR = $LEAP_BUILD_DIR
