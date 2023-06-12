@@ -1,5 +1,4 @@
-#ifndef THREAD_SAFETY_ANALYSIS_MUTEX_HPP
-#define THREAD_SAFETY_ANALYSIS_MUTEX_HPP
+#pragma once
 
 // Enable thread safety attributes only with clang.
 // The attributes can be safely erased when compiling with other compilers.
@@ -162,14 +161,12 @@ public:
       mut->lock();
    }
 
-#if 0
    unique_lock(unique_lock&& o) noexcept ACQUIRE(o) 
       : mut(o.mut)
       , locked(o.locked) {
       o.locked = false;
       o.mut = nullptr;
    }
-#endif
       
    // Assume mu is held, implicitly acquire *this and associate it with mu.
    unique_lock(M& mu, adopt_lock_t) REQUIRES(mu)
@@ -218,5 +215,3 @@ public:
 };
 
 } // namespace fc
-
-#endif // THREAD_SAFETY_ANALYSIS_MUTEX_HPP

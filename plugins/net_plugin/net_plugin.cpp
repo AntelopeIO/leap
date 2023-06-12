@@ -211,13 +211,13 @@ namespace eosio {
 
       alignas(hardware_destructive_interference_size)
       fc::mutex      sync_mtx;
-      uint32_t       sync_known_lib_num  GUARDED_BY(sync_mtx) {0};       // highest known lib num from currently connected peers
+      uint32_t       sync_known_lib_num      GUARDED_BY(sync_mtx) {0};  // highest known lib num from currently connected peers
       uint32_t       sync_last_requested_num GUARDED_BY(sync_mtx) {0};  // end block number of the last requested range, inclusive
-      uint32_t       sync_next_expected_num GUARDED_BY(sync_mtx) {0};   // the next block number we need from peer
-      connection_ptr sync_source;                 // connection we are currently syncing from
+      uint32_t       sync_next_expected_num  GUARDED_BY(sync_mtx) {0};  // the next block number we need from peer
+      connection_ptr sync_source             GUARDED_BY(sync_mtx);      // connection we are currently syncing from
 
-      const uint32_t       sync_req_span GUARDED_BY(sync_mtx) {0};
-      const uint32_t       sync_peer_limit GUARDED_BY(sync_mtx) {0};
+      const uint32_t sync_req_span           GUARDED_BY(sync_mtx) {0};
+      const uint32_t sync_peer_limit         GUARDED_BY(sync_mtx) {0};
 
       alignas(hardware_destructive_interference_size)
       std::atomic<stages> sync_state{in_sync};
