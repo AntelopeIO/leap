@@ -334,6 +334,7 @@ jobs:
           pwd
           ls -l
           echo github workspace: ${{ github.workspace }}
+          echo pwd = $PWD
       - name: Extract leap build
         run: |
           pwd
@@ -343,16 +344,8 @@ jobs:
           zstdcat build.tar.zst | tar x
           ls -l
           cd ..
-          pwd
-          ls -l
-          ls -l leap
-          ls -l leap/build
-          ls -l leap/build/lib
-          ls -l leap/build/lib/cmake
-          ls -l leap/build/lib/cmake/leap
-          cd leap/build/lib/cmake/leap
-          export leap_DIR=$PWD
-          echo LEAPDIR = $leap_DIR
+          echo "lead_DIR=$PWD/leap/build/lib/cmake/leap" >> "$GITHUB_ENV"
+          echo leap_DIR = "${{ env.leap_DIR }}"
       - name: Build cdt
         run: |
           pwd
@@ -363,26 +356,14 @@ jobs:
           cd build
           pwd
           apt-get update && apt-get install -y pkg-config libcurl4-gnutls-dev
-          cmake -DCMAKE_BUILD_TYPE=Release -Dleap_DIR=${{ github.workspace }}/leap/build/lib/cmake/leap ..
+          cmake -DCMAKE_BUILD_TYPE=Release -Dleap_DIR="${{ env.leap_DIR }}" ..
           make -j $(nproc)
           cd ../..
-          pwd
-          ls -l 
-          ls -l cdt
-          ls -l cdt/build
-          ls -l cdt/build/lib
-          ls -l cdt/build/lib/cmake
-          ls -l cdt/build/lib/cmake/cdt
-          cd cdt/build/lib/cmake/cdt
-          export cdt_DIR=$PWD
-          echo CDTDIR = $cdt_DIR
+          echo "cdt_DIR=$PWD/cdt/build/lib/cmake/cdt" >> "$GITHUB_ENV"
+          echo cdt_DIR = "${{ env.cdt_DIR }}"
       - name: Build & Test reference-contracts
         run: |
-          echo leap_DIR = $PWD/leap/build/lib/cmake/leap
-          export leap_DIR=$PWD/leap/build/lib/cmake/leap
-          echo cdt_DIR = $PWD/cdt/build/lib/cmake/cdt
-          export cdt_DIR=$PWD/cdt/build/lib/cmake/cdt
-          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
+          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dleap_DIR="${{ env.leap_DIR }}" -Dcdt_DIR="${{ env.cdt_DIR }}"
           cmake --build build -- -j $(nproc)
           cd build/tests
           ctest --output-on-failure -j $(nproc)
