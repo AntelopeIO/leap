@@ -1277,72 +1277,73 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 using namespace std::chrono_literals;
 void producer_plugin_impl::plugin_startup() {
    try {
-      ilog("producer plugin:  plugin_startup() begin");
+         ilog("producer plugin:  plugin_startup() begin");
 
-      _thread_pool.start(_thread_pool_size, [](const fc::exception& e) {
-         fc_elog(_log, "Exception in producer thread pool, exiting: ${e}", ("e", e.to_detail_string()));
-         app().quit();
-      });
-
-
-      chain::controller& chain = chain_plug->chain();
-      EOS_ASSERT(_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
-                 "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"");
-
-      EOS_ASSERT(_producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL, plugin_config_exception,
-                 "node cannot have any producer-name configured because block production is not safe when validation_mode is not \"full\"");
-
-      EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
-                 "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
-
-      _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
-      _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));
-      _irreversible_block_connection.emplace(chain.irreversible_block.connect([this](const auto& bsp) { on_irreversible_block(bsp->block); }));
-
-      _block_start_connection.emplace(chain.block_start.connect([this, &chain](uint32_t bs) {
-         try {
-            _snapshot_scheduler.on_start_block(bs, chain);
-         } catch (const snapshot_execution_exception& e) {
-            fc_elog(_log, "Exception during snapshot execution: ${e}", ("e", e.to_detail_string()));
+         _thread_pool.start(_thread_pool_size, [](const fc::exception& e) {
+            fc_elog(_log, "Exception in producer thread pool, exiting: ${e}", ("e", e.to_detail_string()));
             app().quit();
+         });
+
+
+         chain::controller& chain = chain_plug->chain();
+         EOS_ASSERT(_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
+                    "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"");
+
+         EOS_ASSERT(_producers.empty() || chain.get_validation_mode() == chain::validation_mode::FULL, plugin_config_exception,
+                    "node cannot have any producer-name configured because block production is not safe when validation_mode is not \"full\"");
+
+         EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
+                    "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
+
+         _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
+         _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));
+         _irreversible_block_connection.emplace(
+            chain.irreversible_block.connect([this](const auto& bsp) { on_irreversible_block(bsp->block); }));
+
+         _block_start_connection.emplace(chain.block_start.connect([this, &chain](uint32_t bs) {
+            try {
+               _snapshot_scheduler.on_start_block(bs, chain);
+            } catch (const snapshot_execution_exception& e) {
+               fc_elog(_log, "Exception during snapshot execution: ${e}", ("e", e.to_detail_string()));
+               app().quit();
+            }
+         }));
+
+         const auto lib_num = chain.last_irreversible_block_num();
+         const auto lib     = chain.fetch_block_by_number(lib_num);
+         if (lib) {
+            on_irreversible_block(lib);
+         } else {
+            _irreversible_block_time = fc::time_point::maximum();
          }
-      }));
 
-      const auto lib_num = chain.last_irreversible_block_num();
-      const auto lib     = chain.fetch_block_by_number(lib_num);
-      if (lib) {
-         on_irreversible_block(lib);
-      } else {
-         _irreversible_block_time = fc::time_point::maximum();
-      }
+         if (!_producers.empty()) {
+            ilog("Launching block production for ${n} producers at ${time}.", ("n", _producers.size())("time", fc::time_point::now()));
 
-      if (!_producers.empty()) {
-         ilog("Launching block production for ${n} producers at ${time}.", ("n", _producers.size())("time", fc::time_point::now()));
-
-         if (_production_enabled) {
-            if (chain.head_block_num() == 0) {
-               new_chain_banner(chain);
+            if (_production_enabled) {
+               if (chain.head_block_num() == 0) {
+                  new_chain_banner(chain);
+               }
             }
          }
-      }
 
-      if (_ro_thread_pool_size > 0) {
-         _ro_thread_pool.start(
-            _ro_thread_pool_size,
-            [](const fc::exception& e) {
-               fc_elog(_log, "Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()));
-               app().quit();
-            },
-            [&]() {
-               chain.init_thread_local_data();
-            });
+         if (_ro_thread_pool_size > 0) {
+            _ro_thread_pool.start(
+               _ro_thread_pool_size,
+               [](const fc::exception& e) {
+                  fc_elog(_log, "Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()));
+                  app().quit();
+               },
+               [&]() {
+                  chain.init_thread_local_data();
+               });
 
-         start_write_window();
-      }
+            start_write_window();
+         }
 
-      schedule_production_loop();
+         schedule_production_loop();
 
-      ilog("producer plugin:  plugin_startup() end");
+         ilog("producer plugin:  plugin_startup() end");
    }
    FC_CAPTURE_AND_RETHROW()
 }
