@@ -1989,7 +1989,6 @@ namespace eosio {
       }
       if( !request_sent ) {
          sync_source.reset();
-         g_sync.unlock();
          fc_wlog(logger, "Unable to request range, sending handshakes to everyone");
          send_handshakes();
       }
@@ -4089,7 +4088,7 @@ namespace eosio {
       }
 
       {
-         fc::lock_guard g( my->keepalive_timer_mtx );
+         fc::lock_guard g( keepalive_timer_mtx );
          keepalive_timer = std::make_unique<boost::asio::steady_timer>( thread_pool.get_executor() );
       }
 
