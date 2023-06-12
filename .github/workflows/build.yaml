@@ -262,12 +262,6 @@ jobs:
         with:
           submodules: recursive
           path: leap
-      - name: checkout cdt
-        uses: actions/checkout@v3
-        with:
-          repository: AntelopeIO/cdt
-          submodules: recursive
-          path: cdt
       - name: checkout reference-contracts
         uses: actions/checkout@v3
         with:
@@ -288,16 +282,19 @@ jobs:
           ninja install
           ninja dev-install
           cd ../..
-      - name: make install cdt
+      - name: Download cdt
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: cdt
+          file: 'cdt_.*amd64.deb'
+          target: main
+          artifact-name: cdt_ubuntu_package_amd64
+          token: ${{github.token}}
+      - name: Install cdt Packages
         run: |
-          cd cdt
-          mkdir build
-          cd build
-          apt-get update && apt-get install -y pkg-config libcurl4-gnutls-dev
-          cmake -DCMAKE_BUILD_TYPE=Release ..
-          make -j $(nproc)
-          make install
-          cd ../..
+          apt install -y ./*.deb
+          rm ./*.deb
       - name: Build & Test reference-contracts
         run: |
           cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
