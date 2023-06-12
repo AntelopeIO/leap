@@ -335,6 +335,7 @@ jobs:
         run: |
           pwd
           ls -l
+          echo github workspace: ${{ github.workspace }}
       - name: Extract leap build
         run: |
           cd leap
@@ -346,12 +347,12 @@ jobs:
           mkdir build
           cd build
           apt-get update && apt-get install -y pkg-config libcurl4-gnutls-dev
-          cmake -DCMAKE_BUILD_TYPE=Release -Dleap_DIR="../../leap/build/lib/cmake/leap" ..
+          cmake -DCMAKE_BUILD_TYPE=Release -Dleap_DIR=${{ github.workspace }}/leap/build/lib/cmake/leap ..
           make -j $(nproc)
           cd ../..
       - name: Build & Test reference-contracts
         run: |
-          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dcdt_DIR="./cdt/build/lib/cmake/cdt" -Dleap_DIR="./leap/build/lib/cmake/leap"
+          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dcdt_DIR=${{ github.workspace }}/cdt/build/lib/cmake/cdt -Dleap_DIR=${{ github.workspace }}/leap/build/lib/cmake/leap
           cmake --build build -- -j $(nproc)
           cd build/tests
           ctest --output-on-failure -j $(nproc)
