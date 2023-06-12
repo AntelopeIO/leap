@@ -344,7 +344,7 @@ jobs:
           zstdcat build.tar.zst | tar x
           ls -l
           cd ..
-          echo "lead_DIR=$PWD/leap/build/lib/cmake/leap" >> "$GITHUB_ENV"
+          echo "leap_DIR=$PWD/leap/build/lib/cmake/leap" >> "$GITHUB_ENV"
           echo leap_DIR = "${{ env.leap_DIR }}"
       - name: Build cdt
         run: |
