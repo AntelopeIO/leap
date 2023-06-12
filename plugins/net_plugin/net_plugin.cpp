@@ -227,7 +227,7 @@ namespace eosio {
       constexpr static auto stage_str( stages s );
       bool set_state( stages newstate );
       bool is_sync_required( uint32_t fork_head_block_num );
-      void request_next_chunk( fc::mutex *m, const connection_ptr& conn = connection_ptr() ) RELEASE(sync_mtx);
+      void request_next_chunk( const connection_ptr& conn = connection_ptr() ) RELEASE(sync_mtx);
       connection_ptr find_next_sync_node();
       void start_sync( const connection_ptr& c, uint32_t target );
       bool verify_catchup( const connection_ptr& c, uint32_t num, const block_id_type& id );
@@ -1867,7 +1867,8 @@ namespace eosio {
             // if starting to sync need to always start from lib as we might be on our own fork
             uint32_t lib_num = my_impl->get_chain_lib_num();
             sync_next_expected_num = std::max( lib_num + 1, sync_next_expected_num );
-            request_next_chunk( g.release() );
+            g.release();
+            request_next_chunk();
          }
       }
    }
@@ -1922,7 +1923,7 @@ namespace eosio {
    }
 
    // call with g_sync locked, called from conn's connection strand
-   void sync_manager::request_next_chunk( fc::mutex *, const connection_ptr& conn ) RELEASE(sync_mtx) {
+   void sync_manager::request_next_chunk( const connection_ptr& conn ) RELEASE(sync_mtx) {
       fc::lock_guard g(sync_mtx, fc::adopt_lock);
       auto chain_info = my_impl->get_chain_info();
 
@@ -2021,7 +2022,8 @@ namespace eosio {
       }
       sync_next_expected_num = std::max( chain_info.lib_num + 1, sync_next_expected_num );
 
-      request_next_chunk( g_sync.release(), c );
+      g_sync.release();
+      request_next_chunk( c );
    }
 
    // called from connection strand
@@ -2033,7 +2035,8 @@ namespace eosio {
       if( c == sync_source ) {
          c->cancel_sync(reason);
          sync_last_requested_num = 0;
-         request_next_chunk( g.release() );
+         g.release();
+         request_next_chunk();
       }
    }
 
@@ -2318,7 +2321,8 @@ namespace eosio {
                if (sync_next_expected_num > sync_last_requested_num && sync_last_requested_num < sync_known_lib_num) {
                   fc_dlog(logger, "Requesting range ahead, head: ${h} blk_num: ${bn} sync_next_expected_num ${nen} sync_last_requested_num: ${lrn}",
                           ("h", head)("bn", blk_num)("nen", sync_next_expected_num)("lrn", sync_last_requested_num));
-                  request_next_chunk(g_sync.release());
+                  g_sync.release();
+                  request_next_chunk();
                }
             }
 
