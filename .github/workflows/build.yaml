@@ -339,7 +339,10 @@ jobs:
           ls -l
           cd ..
           echo "leap_DIR=$PWD/leap/build/lib/cmake/leap" >> "$GITHUB_ENV"
+          echo "LEAP_BUILD_DIR=$PWD/leap/build" >> "$GITHUB_ENV"
+          pwd
           echo leap_DIR = $leap_DIR
+          echo LEAP_BUILD_DIR = $LEAP_BUILD_DIR
       - name: Download cdt
         uses: AntelopeIO/asset-artifact-download-action@v2
         with:
@@ -355,6 +358,10 @@ jobs:
           rm ./*.deb
       - name: Build & Test reference-contracts
         run: |
+          export LEAP_BUILD_DIR="${{ env.LEAP_BUILD_DIR }}"
+          echo LEAP_BUILD_DIR = $LEAP_BUILD_DIR
+          echo leap_DIR = "${{ env.leap_DIR }}"
+          ls $leap_DIR
           cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dleap_DIR="${{ env.leap_DIR }}"
           cmake --build build -- -j $(nproc)
           cd build/tests
