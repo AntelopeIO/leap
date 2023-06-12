@@ -1957,28 +1957,29 @@ namespace eosio {
          sync_known_lib_num = chain_info.lib_num;
          sync_last_requested_num = 0;
          set_state( in_sync ); // probably not, but we can't do anything else
-      } else {
-         bool send_request = false;
+         return;
+      }
+
+      bool request_sent = false;
+      if( sync_last_requested_num != sync_known_lib_num ) {
          uint32_t start = sync_next_expected_num;
          uint32_t end = start + sync_req_span - 1;
-         if( sync_last_requested_num != sync_known_lib_num ) {
-            if( end > sync_known_lib_num )
-               end = sync_known_lib_num;
-            if( end > 0 && end >= start ) {
-               sync_last_requested_num = end;
-               sync_source = new_sync_source;
-               send_request = true;
-            }
-         }
-         if (send_request) {
+         if( end > sync_known_lib_num )
+            end = sync_known_lib_num;
+         if( end > 0 && end >= start ) {
+            sync_last_requested_num = end;
+            sync_source = new_sync_source;
+            request_sent = true;
             new_sync_source->strand.post( [new_sync_source, start, end, head_num=chain_info.head_num]() {
                peer_ilog( new_sync_source, "requesting range ${s} to ${e}, head ${h}", ("s", start)("e", end)("h", head_num) );
                new_sync_source->request_sync_blocks( start, end );
-            } );            
-         } else {
-            fc_wlog(logger, "Unable to request range, sending handshakes to everyone");
-            send_handshakes();
+            } );
          }
+      }
+      if( !request_sent ) {
+         sync_source.reset();
+         fc_wlog(logger, "Unable to request range, sending handshakes to everyone");
+         send_handshakes();
       }
    }
 
