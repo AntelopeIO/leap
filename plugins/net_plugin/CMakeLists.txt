@@ -3,7 +3,7 @@ add_library( net_plugin
              net_plugin.cpp
              ${HEADERS} )
 
-if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+if(CMAKE_CXX_COMPILER_ID MATCHES "Clang" AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 14.0)
   target_compile_options(net_plugin PUBLIC -Wthread-safety)
 endif()
 
