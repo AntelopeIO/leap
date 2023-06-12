@@ -216,8 +216,8 @@ namespace eosio {
       uint32_t       sync_next_expected_num  GUARDED_BY(sync_mtx) {0};  // the next block number we need from peer
       connection_ptr sync_source             GUARDED_BY(sync_mtx);      // connection we are currently syncing from
 
-      const uint32_t sync_req_span           GUARDED_BY(sync_mtx) {0};
-      const uint32_t sync_peer_limit         GUARDED_BY(sync_mtx) {0};
+      const uint32_t sync_req_span {0};
+      const uint32_t sync_peer_limit {0};
 
       alignas(hardware_destructive_interference_size)
       std::atomic<stages> sync_state{in_sync};
