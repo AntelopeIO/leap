@@ -1923,6 +1923,7 @@ namespace eosio {
 
    // call with g_sync locked, called from conn's connection strand
    void sync_manager::request_next_chunk( fc::mutex *, const connection_ptr& conn ) RELEASE(sync_mtx) {
+      fc::lock_guard g(sync_mtx, fc::adopt_lock);
       auto chain_info = my_impl->get_chain_info();
 
       fc_dlog( logger, "sync_last_requested_num: ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, head: ${h}",
@@ -1932,7 +1933,6 @@ namespace eosio {
          fc_wlog( logger, "ignoring request, head is ${h} last req = ${r}, sync_next_expected_num: ${e}, sync_known_lib_num: ${k}, sync_req_span: ${s}, source connection ${c}",
                   ("h", chain_info.head_num)("r", sync_last_requested_num)("e", sync_next_expected_num)
                   ("k", sync_known_lib_num)("s", sync_req_span)("c", sync_source->connection_id) );
-         sync_mtx.unlock();
          return;
       }
 
@@ -1958,7 +1958,6 @@ namespace eosio {
          sync_known_lib_num = chain_info.lib_num;
          sync_last_requested_num = 0;
          set_state( in_sync ); // probably not, but we can't do anything else
-         sync_mtx.unlock();
       } else {
          bool send_request = false;
          uint32_t start = sync_next_expected_num;
@@ -1972,7 +1971,6 @@ namespace eosio {
                send_request = true;
             }
          }
-         sync_mtx.unlock();
          if (send_request) {
             new_sync_source->strand.post( [new_sync_source, start, end, head_num=chain_info.head_num]() {
                peer_ilog( new_sync_source, "requesting range ${s} to ${e}, head ${h}", ("s", start)("e", end)("h", head_num) );
