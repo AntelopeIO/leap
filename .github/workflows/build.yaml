@@ -353,6 +353,9 @@ jobs:
           ls -l leap/build/lib
           ls -l leap/build/lib/cmake
           ls -l leap/build/lib/cmake/leap
+          cd leap/build/lib/cmake/leap
+          export LEAPDIR=$PWD
+          echo LEAPDIR = $LEAPDIR
       - name: Build cdt
         run: |
           pwd
@@ -373,9 +376,13 @@ jobs:
           ls -l cdt/build/lib
           ls -l cdt/build/lib/cmake
           ls -l cdt/build/lib/cmake/cdt
+          cd cdt/build/lib/cmake/cdt
+          export CDTDIR=$PWD
+          echo CDTDIR = $CDTDIR
       - name: Build & Test reference-contracts
         run: |
-          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dcdt_DIR=${{ github.workspace }}/cdt/build/lib/cmake/cdt -Dleap_DIR=${{ github.workspace }}/leap/build/lib/cmake/leap
+          # cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dcdt_DIR=${{ github.workspace }}/cdt/build/lib/cmake/cdt -Dleap_DIR=${{ github.workspace }}/leap/build/lib/cmake/leap
+          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dcdt_DIR=$CDTDIR -Dleap_DIR=$LEAPDIR
           cmake --build build -- -j $(nproc)
           cd build/tests
           ctest --output-on-failure -j $(nproc)
