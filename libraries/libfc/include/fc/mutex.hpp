@@ -115,14 +115,9 @@ public:
 };
 
 // Tag types for selecting a constructor.
-struct adopt_lock_t {
-} inline constexpr adopt_lock = {};
-struct defer_lock_t {
-} inline constexpr defer_lock = {};
-struct shared_lock_t {
-} inline constexpr shared_lock = {};
-struct try_to_lock_t {
-} inline constexpr try_to_lock = {};
+struct adopt_lock_t {} inline constexpr adopt_lock = {};
+struct defer_lock_t {} inline constexpr defer_lock = {};
+struct shared_lock_t {} inline constexpr shared_lock = {};
 
 // LockGuard is an RAII class that acquires a mutex in its constructor, and
 // releases it in its destructor.
@@ -177,7 +172,7 @@ public:
 #endif
       
    // Assume mu is held, implicitly acquire *this and associate it with mu.
-      unique_lock(M& mu, adopt_lock_t) REQUIRES(mu)
+   unique_lock(M& mu, adopt_lock_t) REQUIRES(mu)
       : mut(&mu)
       , locked(true) {}
 
