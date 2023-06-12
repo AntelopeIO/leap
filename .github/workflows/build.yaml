@@ -285,6 +285,7 @@ jobs:
           cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
           cmake --build build
           cd build
+          ninja install
           ninja dev-install
           cd ../..
       - name: make install cdt
