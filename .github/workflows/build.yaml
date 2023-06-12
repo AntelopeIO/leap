@@ -378,8 +378,10 @@ jobs:
           echo CDTDIR = $cdt_DIR
       - name: Build & Test reference-contracts
         run: |
-          echo leap_DIR = $leap_DIR
-          echo cdt_DIR = $cdt_DIR
+          echo leap_DIR = $PWD/leap/build/lib/cmake/leap
+          export leap_DIR=$PWD/leap/build/lib/cmake/leap
+          echo cdt_DIR = $PWD/cdt/build/lib/cmake/cdt
+          export cdt_DIR=$PWD/cdt/build/lib/cmake/cdt
           cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
           cmake --build build -- -j $(nproc)
           cd build/tests
