@@ -341,6 +341,7 @@ jobs:
           cd leap
           zstdcat build.tar.zst | tar x
           cd ..
+          ls -lR ${{ github.workspace }}/leap/build/lib/cmake/leap
       - name: Build cdt
         run: |
           cd cdt
@@ -350,6 +351,7 @@ jobs:
           cmake -DCMAKE_BUILD_TYPE=Release -Dleap_DIR=${{ github.workspace }}/leap/build/lib/cmake/leap ..
           make -j $(nproc)
           cd ../..
+          ls -lR ${{ github.workspace }}/cdt/build/lib/cmake/cdt
       - name: Build & Test reference-contracts
         run: |
           cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dcdt_DIR=${{ github.workspace }}/cdt/build/lib/cmake/cdt -Dleap_DIR=${{ github.workspace }}/leap/build/lib/cmake/leap
