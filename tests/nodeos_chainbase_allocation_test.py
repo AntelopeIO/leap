@@ -43,15 +43,17 @@ try:
         pnodes=1,
         prodCount=1,
         totalProducers=1,
-        totalNodes=2,
+        totalNodes=3,
         loadSystemContract=False,
         specificExtraNodeosArgs={
             1:"--read-mode irreversible --plugin eosio::producer_api_plugin"})
 
     producerNodeId = 0
     irrNodeId = 1
+    nonProdNodeId = 2
     producerNode = cluster.getNode(producerNodeId)
     irrNode = cluster.getNode(irrNodeId)
+    nonProdNode = cluster.getNode(nonProdNodeId)
 
     # Create delayed transaction to create "generated_transaction_object"
     cmd = "create account -j eosio sample EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV\
@@ -63,7 +65,7 @@ try:
     newProducerAcc = Account("newprod")
     newProducerAcc.ownerPublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
     newProducerAcc.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-    producerNode.createAccount(newProducerAcc, cluster.eosioAccount, waitForTransBlock=True)
+    nonProdNode.createAccount(newProducerAcc, cluster.eosioAccount, waitForTransBlock=True)
 
     setProdsStr = '{"schedule": ['
     setProdsStr += '{"producer_name":' + newProducerAcc.name + ',"block_signing_key":' + newProducerAcc.activePublicKey + '}'

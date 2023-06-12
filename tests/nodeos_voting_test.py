@@ -139,7 +139,8 @@ errorExit=Utils.errorExit
 args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running",
                               "--wallet-port","--unshared"})
 Utils.Debug=args.v
-totalNodes=4
+prodNodes=4
+totalNodes=5
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
 prodCount=args.prod_count
@@ -156,7 +157,7 @@ try:
     cluster.setWalletMgr(walletMgr)
 
     Print("Stand up cluster")
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes*21) is False:
+    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=prodNodes, totalNodes=totalNodes, totalProducers=prodNodes*21) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
@@ -182,13 +183,14 @@ try:
 
     Print("Wallet \"%s\" password=%s." % (testWalletName, testWallet.password.encode("utf-8")))
 
+    nonProdNode=cluster.getNode(4)
     for i in range(0, totalNodes):
         node=cluster.getNode(i)
         node.producers=Cluster.parseProducers(i)
         for prod in node.producers:
-            trans=node.regproducer(cluster.defProducerAccounts[prod], "http::/mysite.com", 0, 
-                                   waitForTransBlock=True if prod == node.producers[-1] else False,
-                                   silentErrors=False if prod == node.producers[-1] else True, exitOnError=True)
+            trans=nonProdNode.regproducer(cluster.defProducerAccounts[prod], "http::/mysite.com", 0, 
+                                          waitForTransBlock=True if prod == node.producers[-1] else False,
+                                          silentErrors=False if prod == node.producers[-1] else True, exitOnError=True)
 
     node0=cluster.getNode(0)
     node1=cluster.getNode(1)
@@ -200,9 +202,9 @@ try:
     transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
-        trans=node.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, 
-                                           waitForTransBlock=True if account == accounts[-1] else False, 
-                                           stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
+        trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, 
+                                                  waitForTransBlock=True if account == accounts[-1] else False, 
+                                                  stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
 
     for account in accounts:
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
@@ -210,8 +212,8 @@ try:
                            waitForTransBlock=True if account == accounts[-1] else False)
 
     for account in accounts:
-        trans=node.delegatebw(account, 20000000.0000, 20000000.0000, 
-                              waitForTransBlock=True if account == accounts[-1] else False, exitOnError=True)
+        trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, 
+                                     waitForTransBlock=True if account == accounts[-1] else False, exitOnError=True)
         
     # containers for tracking producers
     prodsActive={}
@@ -224,10 +226,10 @@ try:
     #first account will vote for node0 producers, all others will vote for node1 producers
     node=node0
     for account in accounts:
-        trans=node.vote(account, node.producers, waitForTransBlock=True)
+        trans=nonProdNode.vote(account, node.producers, waitForTransBlock=True if account == accounts[-1] else False)
         node=node1
 
-    node.undelegatebw(account, 1.0000, 1.0000, waitForTransBlock=True, silentErrors=False, exitOnError=True)
+    nonProdNode.undelegatebw(account, 1.0000, 1.0000, waitForTransBlock=True, silentErrors=False, exitOnError=True)
 
     setActiveProducers(prodsActive, node1.producers)
 
@@ -237,7 +239,7 @@ try:
     # first account will vote for node2 producers, all others will vote for node3 producers
     node1
     for account in accounts:
-        trans=node.vote(account, node.producers, waitForTransBlock=True)
+        trans=nonProdNode.vote(account, node.producers, waitForTransBlock=True if account == accounts[-1] else False)
         node=node2
 
     setActiveProducers(prodsActive, node2.producers)

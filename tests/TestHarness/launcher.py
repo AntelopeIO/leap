@@ -510,6 +510,8 @@ class cluster_generator:
             eosdcmd.extend(producer_keys)
             producer_names = list(sum([('--producer-name', p) for p in instance.producers], ()))
             eosdcmd.extend(producer_names)
+        else:
+            a(a(eosdcmd, '--transaction-retry-max-storage-size-gb'), '100')
         a(a(eosdcmd, '--plugin'), 'eosio::net_plugin')
         a(a(eosdcmd, '--plugin'), 'eosio::chain_api_plugin')
 
