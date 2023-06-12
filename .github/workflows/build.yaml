@@ -362,7 +362,7 @@ jobs:
           echo LEAP_BUILD_DIR = $LEAP_BUILD_DIR
           echo leap_DIR = "${{ env.leap_DIR }}"
           ls $leap_DIR
-          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dleap_DIR="${{ env.leap_DIR }}"
+          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dleap_DIR="${{ env.leap_DIR }}" -DCMAKE_PREFIX_PATH=$LEAP_BUILD_DIR
           cmake --build build -- -j $(nproc)
           cd build/tests
           ctest --output-on-failure -j $(nproc)
