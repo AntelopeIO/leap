@@ -83,25 +83,30 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
             if (!pp->get_snapshot_requests().snapshot_requests.empty()) {
                const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
 
-               auto validate_snapshot_request = [&](uint32_t sid, uint32_t block_num, uint32_t spacing = 0) {                  
+               auto validate_snapshot_request = [&](uint32_t sid, uint32_t block_num, uint32_t spacing = 0, bool fuzzy_start = false) {                  
                   auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(), [sid](const snapshot_scheduler::snapshot_schedule_information& obj) {return obj.snapshot_request_id == sid;});
                   if (it != snapshot_requests.end()) {
                      auto& pending = it->pending_snapshots;
                      if (pending.size()==1) {
+                        // pending snapshot block number
                         auto pbn = pending.begin()->head_block_num;
-                        pbn = spacing ?  (spacing + (pbn%spacing)) : pbn;
-                        // if snapshot scheduled with empty start_block_num depending on the timing
-                        // it can be scheduled either for block_num or block_num+1
-                        BOOST_CHECK(block_num==pbn || ((block_num+1)==pbn));                       
+
+                        // first pending snapshot
+                        auto ps_start = spacing ?  (spacing + (pbn%spacing)) : pbn;
+                        
+                        // this will happen only when snapshot sheduled with no start block specified
+                        auto deviation = fuzzy_start ? ps_start - it->start_block_num - spacing : 0;
+
+                        BOOST_CHECK_EQUAL(block_num, ps_start - deviation);
                      }
                      return true;
                   }
                   return false;                  
                };
 
-               BOOST_REQUIRE(validate_snapshot_request(0, 9,  8));  // snapshot #0 should have pending snapshot at block #9 (8 + 1) and it never expires
-               BOOST_REQUIRE(validate_snapshot_request(4, 12, 10)); // snapshot #4 should have pending snapshot at block # at the moment of scheduling (2) plus 10 = 12
-               BOOST_REQUIRE(validate_snapshot_request(5, 10, 10)); // snapshot #5 should have pending snapshot at block #10, #20 etc 
+               BOOST_REQUIRE(validate_snapshot_request(0, 9,  8));         // snapshot #0 should have pending snapshot at block #9 (8 + 1) and it never expires
+               BOOST_REQUIRE(validate_snapshot_request(4, 12, 10, true));  // snapshot #4 should have pending snapshot at block # at the moment of scheduling (2) plus 10 = 12
+               BOOST_REQUIRE(validate_snapshot_request(5, 10, 10));        // snapshot #5 should have pending snapshot at block #10, #20 etc 
             }
          });
 
