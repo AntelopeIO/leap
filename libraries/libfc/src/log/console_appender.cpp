@@ -101,7 +101,7 @@ namespace fc {
       const log_context context = m.get_context();
       std::string file_line = context.get_file().substr( 0, 22 );
       file_line += ':';
-      file_line += fixed_size(  6, fc::to_string( context.get_line_number() ) );
+      file_line += fixed_size(  6, std::to_string( context.get_line_number() ) );
 
       std::string line;
       line.reserve( 256 );
