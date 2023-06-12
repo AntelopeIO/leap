@@ -338,30 +338,40 @@ jobs:
           echo github workspace: ${{ github.workspace }}
       - name: Extract leap build
         run: |
+          pwd
+          ls -l
           cd leap
+          pwd
           zstdcat build.tar.zst | tar x
+          ls -l
           cd ..
-          ls -l ${{ github.workspace }}
-          ls -l ${{ github.workspace }}/leap
-          ls -l ${{ github.workspace }}/leap/build
-          ls -l ${{ github.workspace }}/leap/build/lib
-          ls -l ${{ github.workspace }}/leap/build/lib/cmake
-          ls -l ${{ github.workspace }}/leap/build/lib/cmake/leap
+          pwd
+          ls -l
+          ls -l leap
+          ls -l leap/build
+          ls -l leap/build/lib
+          ls -l leap/build/lib/cmake
+          ls -l leap/build/lib/cmake/leap
       - name: Build cdt
         run: |
+          pwd
+          ls -l
           cd cdt
+          pwd
           mkdir build
           cd build
+          pwd
           apt-get update && apt-get install -y pkg-config libcurl4-gnutls-dev
           cmake -DCMAKE_BUILD_TYPE=Release -Dleap_DIR=${{ github.workspace }}/leap/build/lib/cmake/leap ..
           make -j $(nproc)
           cd ../..
-          ls -l ${{ github.workspace }}
-          ls -l ${{ github.workspace }}/cdt
-          ls -l ${{ github.workspace }}/cdt/build
-          ls -l ${{ github.workspace }}/cdt/build/lib
-          ls -l ${{ github.workspace }}/cdt/build/lib/cmake
-          ls -l ${{ github.workspace }}/cdt/build/lib/cmake/cdt
+          pwd
+          ls -l 
+          ls -l cdt
+          ls -l cdt/build
+          ls -l cdt/build/lib
+          ls -l cdt/build/lib/cmake
+          ls -l cdt/build/lib/cmake/cdt
       - name: Build & Test reference-contracts
         run: |
           cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dcdt_DIR=${{ github.workspace }}/cdt/build/lib/cmake/cdt -Dleap_DIR=${{ github.workspace }}/leap/build/lib/cmake/leap
