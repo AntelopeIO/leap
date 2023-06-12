@@ -318,12 +318,6 @@ jobs:
         with:
           name: ${{matrix.platform}}-build
           path: leap
-      - name: checkout cdt
-        uses: actions/checkout@v3
-        with:
-          repository: AntelopeIO/cdt
-          submodules: recursive
-          path: cdt
       - name: checkout reference-contracts
         uses: actions/checkout@v3
         with:
@@ -346,26 +340,22 @@ jobs:
           cd ..
           echo "leap_DIR=$PWD/leap/build/lib/cmake/leap" >> "$GITHUB_ENV"
           echo leap_DIR = $leap_DIR
-      - name: Build cdt
+      - name: Download cdt
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: cdt
+          file: 'cdt_.*amd64.deb'
+          target: main
+          artifact-name: cdt_ubuntu_package_amd64
+          token: ${{github.token}}
+      - name: Install cdt Packages
         run: |
-          pwd
-          ls -l
-          cd cdt
-          pwd
-          mkdir build
-          cd build
-          pwd
-          apt-get update && apt-get install -y pkg-config libcurl4-gnutls-dev
-          export leap_DIR="${{ env.leap_DIR }}"
-          echo leap_DIR=$leap_DIR
-          cmake -DCMAKE_BUILD_TYPE=Release ..
-          make -j $(nproc)
-          cd ../..
-          echo "cdt_DIR=$PWD/cdt/build/lib/cmake/cdt" >> "$GITHUB_ENV"
-          echo cdt_DIR = $cdt_DIR
+          apt install -y ./*.deb
+          rm ./*.deb
       - name: Build & Test reference-contracts
         run: |
-          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dleap_DIR="${{ env.leap_DIR }}" -Dcdt_DIR="${{ env.cdt_DIR }}"
+          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dleap_DIR="${{ env.leap_DIR }}"
           cmake --build build -- -j $(nproc)
           cd build/tests
           ctest --output-on-failure -j $(nproc)
