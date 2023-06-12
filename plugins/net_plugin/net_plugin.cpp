@@ -743,7 +743,7 @@ namespace eosio {
        * day routine and converts to a (at least) 64 bit integer.
        */
       static tstamp get_time() {
-         return std::chrono::system_clock::now().time_since_epoch().count();
+         return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
       }
       /** @} */
 
@@ -1590,8 +1590,8 @@ namespace eosio {
          } );
          sync_known_lib_num = highest_lib_num;
 
-         // if closing the connection we are currently syncing from or not syncing, then reset our last requested and next expected.
-         if( !sync_source || c == sync_source ) {
+         // if closing the connection we are currently syncing from then request from a diff peer
+         if( c == sync_source ) {
             reset_last_requested_num(g);
             // if starting to sync need to always start from lib as we might be on our own fork
             uint32_t lib_num = my_impl->get_chain_lib_num();
@@ -1935,7 +1935,12 @@ namespace eosio {
                verify_catchup( c, msg.known_blocks.pending, id );
             } else {
                // we already have the block, so update peer with our view of the world
-               c->send_handshake();
+               auto chain_info = my_impl->get_chain_info();
+               std::unique_lock g_conn( c->conn_mtx );
+               if (chain_info.head_id != c->last_handshake_sent.head_id) { // no need to send handshake if nothing new to report
+                  g_conn.unlock();
+                  c->send_handshake();
+               }
             }
          }
       } else if (msg.known_blocks.mode == last_irr_catch_up) {
@@ -1953,7 +1958,10 @@ namespace eosio {
    void sync_manager::rejected_block( const connection_ptr& c, uint32_t blk_num ) {
       c->block_status_monitor_.rejected();
       std::unique_lock<std::mutex> g( sync_mtx );
-      reset_last_requested_num(g);
+      sync_last_requested_num = 0;
+      if (blk_num < sync_next_expected_num) {
+         sync_next_expected_num = my_impl->get_chain_lib_num();
+      }
       if( c->block_status_monitor_.max_events_violated()) {
          peer_wlog( c, "block ${bn} not accepted, closing connection", ("bn", blk_num) );
          sync_source.reset();
@@ -1961,6 +1969,7 @@ namespace eosio {
          c->close();
       } else {
          g.unlock();
+         peer_dlog(c, "rejected block ${bn}, sending handshake", ("bn", blk_num));
          c->send_handshake();
       }
    }
@@ -3056,13 +3065,11 @@ namespace eosio {
       switch (msg.known_trx.mode) {
       case none:
          break;
-      case last_irr_catch_up: {
+      case last_irr_catch_up:
+      case catch_up : {
          std::unique_lock<std::mutex> g_conn( conn_mtx );
          last_handshake_recv.head_num = msg.known_blocks.pending;
          g_conn.unlock();
-         break;
-      }
-      case catch_up : {
          break;
       }
       case normal: {
