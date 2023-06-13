@@ -235,6 +235,8 @@ jobs:
       - name: Install cdt and leap-dev Packages
         run: |
           apt-get update
+          export DEBIAN_FRONTEND='noninteractive'
+          export TZ='Etc/UTC'
           apt-get install -y ./*.deb
           rm ./*.deb
       - name: checkout reference-contracts
