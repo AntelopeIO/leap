@@ -234,8 +234,8 @@ jobs:
           name: leap-dev-${{matrix.platform}}-amd64
       - name: Install cdt and leap-dev Packages
         run: |
-          apt update && apt upgrade -y
-          apt install -y ./*.deb
+          apt-get update && apt-get upgrade -y
+          apt-get install -y ./*.deb
           rm ./*.deb
       - name: checkout reference-contracts
         uses: actions/checkout@v3
@@ -244,7 +244,7 @@ jobs:
           path: reference-contracts
       - name: Build & Test reference-contracts
         run: |
-          apt -y install cmake build-essential
+          apt-get -y install cmake build-essential
           cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
           cmake --build build -- -j $(nproc)
           cd build/tests
