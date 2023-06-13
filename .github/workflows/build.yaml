@@ -78,6 +78,7 @@ jobs:
             cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
             cmake --build build
             tar -pc --exclude "*.o" build | zstd --long -T0 -9 > build.tar.zst
+            ls -l
         - name: Upload builddir
           uses: AntelopeIO/upload-artifact-large-chunks-action@v1
           with:
@@ -313,6 +314,10 @@ jobs:
     runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
+      - name: Clone leap
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
       - name: Download leap builddir
         uses: actions/download-artifact@v3
         with:
