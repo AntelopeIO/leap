@@ -234,7 +234,7 @@ jobs:
           name: leap-dev-${{matrix.platform}}-amd64
       - name: Install cdt and leap-dev Packages
         run: |
-          apt-get update && apt-get upgrade -y
+          apt-get update
           apt-get install -y ./*.deb
           rm ./*.deb
       - name: checkout reference-contracts
