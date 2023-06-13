@@ -1024,7 +1024,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    chain_plug = app().find_plugin<chain_plugin>();
    EOS_ASSERT(chain_plug, plugin_config_exception, "chain_plugin not found" );
    _options = &options;
-   LOAD_VALUE_SET(options, "producer-name", _producers);
+   LOAD_VALUE_SET(options, "producer-name", _producers)
 
    chain::controller& chain = chain_plug->chain();
 
