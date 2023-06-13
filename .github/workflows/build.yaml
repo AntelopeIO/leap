@@ -258,7 +258,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
-    runs-on: ["self-hosted", "enf-x86-midtier"] # not sure if this warrants a different machine, but start here due to dev-install step
+    runs-on: ["self-hosted", "enf-x86-hightier"] # not sure if this warrants a different machine, but start here due to dev-install step
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - name: Clone leap
@@ -272,7 +272,7 @@ jobs:
       - name: Extract leap build
         run: |
           zstdcat build.tar.zst | tar x
-      - name: leap make dev-install
+      - name: leap dev-install
         run: |
           cd build
           ninja install
