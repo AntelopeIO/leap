@@ -278,6 +278,11 @@ jobs:
           ninja install
           ninja dev-install
           cd ..
+      - name: Delete leap artifacts
+        run: |
+          ls -l
+          rm -r *
+          ls -l
       - name: Download cdt
         uses: AntelopeIO/asset-artifact-download-action@v2
         with:
@@ -287,11 +292,8 @@ jobs:
           target: main
           artifact-name: cdt_ubuntu_package_amd64
           token: ${{github.token}}
-          path: cdt
       - name: Install cdt Packages
         run: |
-          ls -l
-          cd cdt
           ls -l
           apt install -y ./*.deb
           rm ./*.deb
