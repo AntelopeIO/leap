@@ -234,8 +234,9 @@ jobs:
           name: leap-dev-${{matrix.platform}}-amd64
       - name: Install cdt and leap-dev Packages
         run: |
+          apt update && apt upgrade -y
           apt install -y ./*.deb
-          apt-get -y install cmake
+          apt -y install cmake
           rm ./*.deb
       - name: checkout reference-contracts
         uses: actions/checkout@v3
