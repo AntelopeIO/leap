@@ -265,7 +265,7 @@ try:
         runReadOnlyTrxAndRpcInParallel("chain", "get_currency_balance", code=200, payload = {"code":"eosio.token", "account":testAccountName})
         runReadOnlyTrxAndRpcInParallel("chain", "get_currency_stats", fieldIn="SYS", payload = {"code":"eosio.token", "symbol":"SYS"})
         runReadOnlyTrxAndRpcInParallel("chain", "get_required_keys", code=400)
-        runReadOnlyTrxAndRpcInParallel("chain", "get_transaction_id", code=200, payload = {"ref_block_num":"1"})
+        runReadOnlyTrxAndRpcInParallel("chain", "get_transaction_id", code=400, payload = {"ref_block_num":"1"})
         runReadOnlyTrxAndRpcInParallel("chain", "push_block", code=202, payload = {"block":"signed_block"})
         runReadOnlyTrxAndRpcInParallel("chain", "get_producer_schedule", "active")
         runReadOnlyTrxAndRpcInParallel("chain", "get_scheduled_transactions", "transactions", payload = {"json":"true","lower_bound":""})
