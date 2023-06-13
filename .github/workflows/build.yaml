@@ -258,31 +258,26 @@ jobs:
     runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
-      - name: checkout leap
+      - name: Clone leap
         uses: actions/checkout@v3
         with:
           submodules: recursive
-          path: leap
-      - name: checkout reference-contracts
-        uses: actions/checkout@v3
+      - name: Download leap builddir
+        uses: actions/download-artifact@v3
         with:
-          repository: AntelopeIO/reference-contracts
-          path: reference-contracts
-      - name: Check directory structure
+          name: ${{matrix.platform}}-build
+      - name: Extract leap build
         run: |
           pwd
           ls -l
-      - name: leap build and make dev-install
+          zstdcat build.tar.zst | tar x
+          ls -l
+      - name: leap make dev-install
         run: |
-          # https://github.com/actions/runner/issues/2033
-          chown -R $(id -u):$(id -g) $PWD
-          cd leap
-          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
-          cmake --build build
           cd build
           ninja install
           ninja dev-install
-          cd ../..
+          cd ..
       - name: Download cdt
         uses: AntelopeIO/asset-artifact-download-action@v2
         with:
@@ -292,15 +287,28 @@ jobs:
           target: main
           artifact-name: cdt_ubuntu_package_amd64
           token: ${{github.token}}
+          path: cdt
       - name: Install cdt Packages
         run: |
+          ls -l
+          cd cdt
+          ls -l
           apt install -y ./*.deb
           rm ./*.deb
+      - name: checkout reference-contracts
+        uses: actions/checkout@v3
+        with:
+          repository: AntelopeIO/reference-contracts
+          path: reference-contracts
+      - name: Check directory structure
+        run: |
+          pwd
+          ls -l
       - name: Build & Test reference-contracts
         run: |
-          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
-          cmake --build build -- -j $(nproc)
-          cd build/tests
+          cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
+          cmake --build reference-contracts/build -- -j $(nproc)
+          cd reference-contracts/build/tests
           ctest --output-on-failure -j $(nproc)
 
   libtester-build-tree-test:
