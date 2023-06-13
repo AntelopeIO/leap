@@ -216,7 +216,8 @@ jobs:
       matrix:
         platform: [ubuntu20, ubuntu22]
     runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
-    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+    # container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+    container: ${{ matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
       - name: Download cdt
         uses: AntelopeIO/asset-artifact-download-action@v2
@@ -234,6 +235,7 @@ jobs:
       - name: Install cdt and leap-dev Packages
         run: |
           apt install -y ./*.deb
+          apt-get -y install cmake
           rm ./*.deb
       - name: checkout reference-contracts
         uses: actions/checkout@v3
