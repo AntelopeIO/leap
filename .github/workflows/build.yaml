@@ -78,7 +78,6 @@ jobs:
             cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
             cmake --build build
             tar -pc --exclude "*.o" build | zstd --long -T0 -9 > build.tar.zst
-            ls -l
         - name: Upload builddir
           uses: AntelopeIO/upload-artifact-large-chunks-action@v1
           with:
@@ -216,7 +215,6 @@ jobs:
       matrix:
         platform: [ubuntu20, ubuntu22]
     runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
-    # container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     container: ${{ matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
       - name: Download cdt
@@ -273,10 +271,7 @@ jobs:
           name: ${{matrix.platform}}-build
       - name: Extract leap build
         run: |
-          pwd
-          ls -l
           zstdcat build.tar.zst | tar x
-          ls -l
       - name: leap make dev-install
         run: |
           cd build
@@ -285,9 +280,7 @@ jobs:
           cd ..
       - name: Delete leap artifacts
         run: |
-          ls -l
           rm -r *
-          ls -l
       - name: Download cdt
         uses: AntelopeIO/asset-artifact-download-action@v2
         with:
@@ -299,7 +292,6 @@ jobs:
           token: ${{github.token}}
       - name: Install cdt Packages
         run: |
-          ls -l
           apt install -y ./*.deb
           rm ./*.deb
       - name: checkout reference-contracts
@@ -307,10 +299,6 @@ jobs:
         with:
           repository: AntelopeIO/reference-contracts
           path: reference-contracts
-      - name: Check directory structure
-        run: |
-          pwd
-          ls -l
       - name: Build & Test reference-contracts
         run: |
           cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
@@ -342,23 +330,11 @@ jobs:
         with:
           repository: AntelopeIO/reference-contracts
           path: reference-contracts
-      - name: Check directory structure
-        run: |
-          pwd
-          ls -l
-          echo github workspace: ${{ github.workspace }}
-          echo pwd = $PWD
       - name: Extract leap build
         run: |
-          pwd
-          ls -l
           zstdcat build.tar.zst | tar x
-          ls -l
           echo "leap_DIR=$PWD/build/lib/cmake/leap" >> "$GITHUB_ENV"
           echo "LEAP_BUILD_DIR=$PWD/build" >> "$GITHUB_ENV"
-          pwd
-          echo leap_DIR = $leap_DIR
-          echo LEAP_BUILD_DIR = $LEAP_BUILD_DIR
       - name: Download cdt
         uses: AntelopeIO/asset-artifact-download-action@v2
         with:
@@ -374,11 +350,7 @@ jobs:
           rm ./*.deb
       - name: Build & Test reference-contracts
         run: |
-          export LEAP_BUILD_DIR="${{ env.LEAP_BUILD_DIR }}"
-          echo LEAP_BUILD_DIR = $LEAP_BUILD_DIR
-          echo leap_DIR = "${{ env.leap_DIR }}"
-          ls $leap_DIR
-          cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dleap_DIR="${{ env.leap_DIR }}" -DCMAKE_PREFIX_PATH=$LEAP_BUILD_DIR
+          cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dleap_DIR="${{ env.leap_DIR }}" -DCMAKE_PREFIX_PATH="${{ env.LEAP_BUILD_DIR }}"
           cmake --build reference-contracts/build -- -j $(nproc)
           cd reference-contracts/build/tests
           ctest --output-on-failure -j $(nproc)
