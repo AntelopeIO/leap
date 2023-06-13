@@ -217,6 +217,11 @@ jobs:
     runs-on: ["self-hosted", "enf-x86-beefy"] # not sure if this warrants a different machine, but start here due to building
     container: ${{ matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
+      - name: Update and Install git
+        run: |
+          apt-get update
+          apt-get install -y git
+          git --version
       - name: Clone leap
         uses: actions/checkout@v3
         with:
