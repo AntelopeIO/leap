@@ -217,19 +217,16 @@ jobs:
     runs-on: ["self-hosted", "enf-x86-beefy"] # not sure if this warrants a different machine, but start here due to building
     container: ${{ matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
-      - name: Checkout leap
-        id: checkout
+      - name: Clone leap
         uses: actions/checkout@v3
         with:
           submodules: recursive
       - name: Install dependencies
-        id: install_deps
         run: |
           # https://github.com/actions/runner/issues/2033
           chown -R $(id -u):$(id -g) $PWD
           ./scripts/install_deps.sh
       - name: Run pinned_build.sh
-        id: pinned_build
         run: |
           ./scripts/pinned_build.sh deps build "$(nproc)"
       - name: Run Parallel Tests
