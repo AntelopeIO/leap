@@ -236,7 +236,6 @@ jobs:
         run: |
           apt update && apt upgrade -y
           apt install -y ./*.deb
-          apt -y install cmake
           rm ./*.deb
       - name: checkout reference-contracts
         uses: actions/checkout@v3
@@ -245,6 +244,7 @@ jobs:
           path: reference-contracts
       - name: Build & Test reference-contracts
         run: |
+          apt -y install cmake build-essential
           cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
           cmake --build build -- -j $(nproc)
           cd build/tests
