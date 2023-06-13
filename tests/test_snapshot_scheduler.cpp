@@ -92,7 +92,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                         auto pbn = pending.begin()->head_block_num;
 
                         // first pending snapshot
-                        auto ps_start = spacing ?  (spacing + (pbn%spacing)) : pbn;
+                        auto ps_start = (spacing != 0) ? (spacing + (pbn%spacing)) : pbn;
                         
                         // this will happen only when snapshot sheduled with no start block specified
                         auto deviation = fuzzy_start ? ps_start - it->start_block_num - spacing : 0;
