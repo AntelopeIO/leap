@@ -491,7 +491,10 @@ private:
          return;
       }
 
-      auto block_id = plugin->get_block_id(to_send_block_num);
+      // not just an optimization, on accepted_block signal may not be able to find block_num in forkdb as it has not been validated
+      // until after the accepted_block signal
+      std::optional<chain::block_id_type> block_id =
+          (block_state && block_state->block_num == to_send_block_num) ? block_state->id : plugin->get_block_id(to_send_block_num);
 
       if (block_id && position_it && (*position_it)->block_num == to_send_block_num) {
          // This branch happens when the head block of nodeos is behind the head block of connecting client.
