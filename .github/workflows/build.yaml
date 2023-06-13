@@ -260,7 +260,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
-    runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
+    runs-on: ["self-hosted", "enf-x86-beefy"] # not sure if this warrants a different machine, but start here due to dev-install step
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - name: Clone leap
