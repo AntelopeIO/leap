@@ -80,11 +80,7 @@ parse_params<chain_apis::read_only::get_transaction_id_params, http_params_types
          EOS_THROW(chain::invalid_http_request, "Invalid transaction object");
       }
       return trx;
-   } catch(chain::invalid_http_request & e) {
-      throw;
-   } catch( ... ) {
-      EOS_THROW(chain::invalid_http_request, "Invalid transaction");
-   }
+   } EOS_RETHROW_EXCEPTIONS(chain::invalid_http_request, "Invalid transaction");
 }
 
 #define CALL_WITH_400(api_name, api_handle, api_namespace, call_name, http_response_code, params_type) \
