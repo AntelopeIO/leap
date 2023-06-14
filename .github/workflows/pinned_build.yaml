@@ -52,9 +52,18 @@ jobs:
           # https://github.com/actions/runner/issues/2033
           chown -R $(id -u):$(id -g) $PWD
           ./scripts/install_deps.sh
-      - name: Run pinned_build.sh
+      - name: Build Pinned Build
         run: |
           ./scripts/pinned_build.sh deps build "$(nproc)"
+          cd build
+          cpack
+          ls -l
+          cd ..
+      - name: Upload package
+        uses: actions/upload-artifact@v3
+        with:
+          name: leap-${{matrix.platform}}-amd64
+          path: build/leap*.deb
       - name: Run Parallel Tests
         run: |
           cd build
