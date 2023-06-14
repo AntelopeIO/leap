@@ -26,3 +26,36 @@ jobs:
           platform-file: .cicd/platforms.json
           password: ${{secrets.GITHUB_TOKEN}}
           package-name: builders
+
+  Build:
+    name: Build
+    needs: [d]
+    if: always() && needs.d.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu20, ubuntu22]
+    runs-on: ["self-hosted", "enf-x86-beefy"] # not sure if this warrants a different machine, but start here due to building
+    container: ${{ matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
+    steps:
+      - name: Update and Install git
+        run: |
+          apt-get update
+          apt-get install -y git
+          git --version
+      - name: Clone leap
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: |
+          # https://github.com/actions/runner/issues/2033
+          chown -R $(id -u):$(id -g) $PWD
+          ./scripts/install_deps.sh
+      - name: Run pinned_build.sh
+        run: |
+          ./scripts/pinned_build.sh deps build "$(nproc)"
+      - name: Run Parallel Tests
+        run: |
+          cd build
+          ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
