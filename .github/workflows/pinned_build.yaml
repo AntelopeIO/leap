@@ -1,0 +1,28 @@
+name: "Pinned Build"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  packages: read
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  d:
+    name: Discover Platforms
+    runs-on: ubuntu-latest
+    outputs:
+      missing-platforms: ${{steps.discover.outputs.missing-platforms}}
+      p: ${{steps.discover.outputs.platforms}}
+    steps:
+      - name: Discover Platforms
+        id: discover
+        uses: AntelopeIO/discover-platforms-action@v1
+        with:
+          platform-file: .cicd/platforms.json
+          password: ${{secrets.GITHUB_TOKEN}}
+          package-name: builders
