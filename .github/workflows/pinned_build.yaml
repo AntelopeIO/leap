@@ -22,10 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     container: ${{ matrix.platform == 'ubuntu18' && 'ubuntu:bionic' || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
+      - name: Conditionally update git repo
+        if: ${{ matrix.platform == "ubuntu18" }}
+        run: |
+          add-apt-repository ppa:git-core/ppa
       - name: Update and Install git
         run: |
-          apt-get update
-          apt-get install -y git
+          apt update
+          apt install -y git
           git --version
       - name: Clone leap
         uses: actions/checkout@v3
