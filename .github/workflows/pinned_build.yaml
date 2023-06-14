@@ -23,7 +23,7 @@ jobs:
     container: ${{ matrix.platform == 'ubuntu18' && 'ubuntu:bionic' || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
       - name: Conditionally update git repo
-        if: ${{ matrix.platform == "ubuntu18" }}
+        if: ${{ matrix.platform == 'ubuntu18' }}
         run: |
           add-apt-repository ppa:git-core/ppa
       - name: Update and Install git
