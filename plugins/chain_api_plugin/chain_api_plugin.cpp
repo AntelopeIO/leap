@@ -64,7 +64,14 @@ parse_params<chain_apis::read_only::get_transaction_id_params, http_params_types
                      maction_vo["data"] = maction_vo["hex_data"];
                      action_vo = maction_vo;
                      vo = mvo;
+                  } else if( action_vo.contains( "data" ) ) {
+                     if( !action_vo["data"].is_string() ) {
+                        EOS_THROW(chain::invalid_http_request, "Request supports only un-exploded 'data' (hex form)");
+                     }
                   }
+               }
+               else {
+                  EOS_THROW(chain::invalid_http_request, "Transaction contains invalid or empty action");
                }
             } 
          }
