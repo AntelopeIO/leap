@@ -496,19 +496,21 @@ namespace eosio { namespace chain {
 
       /// Would remove pre-existing block log and index, never write blocks into disk.
       struct empty_block_log final : block_log_impl {
+         uint32_t first_block_number = std::numeric_limits<uint32_t>::max();
+
          explicit empty_block_log(const bfs::path& log_dir) {
             fc::remove(log_dir / "blocks.log");
             fc::remove(log_dir / "blocks.index");
          }
 
-         uint32_t first_block_num() final { return head ? head->block_num() : 1; }
+         uint32_t first_block_num() final { return head ? head->block_num() : first_block_number; }
          void append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block) final {
             update_head(b, id);
          }
 
          uint64_t get_block_pos(uint32_t block_num) final { return block_log::npos; }
          void reset(const genesis_state& gs, const signed_block_ptr& first_block) final { update_head(first_block); }
-         void reset(const chain_id_type& chain_id, uint32_t first_block_num) final {}
+         void reset(const chain_id_type& chain_id, uint32_t first_block_num) final { first_block_number = first_block_num; }
          void flush() final {}
 
          signed_block_ptr read_block_by_num(uint32_t block_num) final { return {}; };
