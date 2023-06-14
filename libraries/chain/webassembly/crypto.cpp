@@ -7,7 +7,7 @@
 #include <fc/crypto/sha3.hpp>
 #include <fc/crypto/k1_recover.hpp>
 #include <bn256/bn256.h>
-#include <bls12_381.hpp>
+#include <bls12-381.hpp>
 
 namespace {
     uint32_t ceil_log2(uint32_t n)

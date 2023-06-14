@@ -31,6 +31,6 @@
 [submodule "libraries/cli11/cli11"]
 	path = libraries/cli11/cli11
 	url = https://github.com/AntelopeIO/CLI11.git
-[submodule "libraries/libfc/libraries/bls12_381"]
-	path = libraries/libfc/libraries/bls12_381
-	url = https://github.com/mschoenebeck/bls12_381.git
+[submodule "libraries/libfc/libraries/bls12-381"]
+	path = libraries/libfc/libraries/bls12-381
+	url = https://github.com/mschoenebeck/bls12-381.git

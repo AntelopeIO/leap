@@ -1,6 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
-#include <bls12_381.hpp>
+#include <bls12-381.hpp>
 #include <fc/exception/exception.hpp>
 
 using namespace std;
