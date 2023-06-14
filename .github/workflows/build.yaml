@@ -348,7 +348,8 @@ jobs:
           rm ./*.deb
       - name: Build & Test reference-contracts
         run: |
-          cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -Dleap_DIR="${{ env.leap_DIR }}" -DCMAKE_PREFIX_PATH="${{ env.LEAP_BUILD_DIR }}"
+          export leap_DIR="${{ env.leap_DIR }}"
+          cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
           cmake --build reference-contracts/build -- -j $(nproc)
           cd reference-contracts/build/tests
           ctest --output-on-failure -j $(nproc)
