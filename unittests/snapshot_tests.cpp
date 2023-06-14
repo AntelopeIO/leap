@@ -531,31 +531,63 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_restart_with_existing_state_and_truncated_blo
    }
 
    chain.control->abort_block();
+   {
+      // create a new snapshot child
+      auto writer = SNAPSHOT_SUITE::get_writer();
+      chain.control->write_snapshot(writer);
+      auto snapshot = SNAPSHOT_SUITE::finalize(writer);
 
-   // create a new snapshot child
-   auto writer = SNAPSHOT_SUITE::get_writer();
-   chain.control->write_snapshot(writer);
-   auto snapshot = SNAPSHOT_SUITE::finalize(writer);
+      // create a new child at this snapshot
+      int ordinal = 1;
 
-   // create a new child at this snapshot
-   int ordinal = 1;
-   snapshotted_tester snap_chain(chain.get_config(), SNAPSHOT_SUITE::get_reader(snapshot), ordinal++);
-   verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
-   auto block = chain.produce_block();
-   chain.control->abort_block();
-   snap_chain.push_block(block);
-   verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
+      snapshotted_tester snap_chain(chain.get_config(), SNAPSHOT_SUITE::get_reader(snapshot), ordinal++);
+      verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
+      auto block = chain.produce_block();
+      chain.control->abort_block();
+      snap_chain.push_block(block);
+      verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
 
-   snap_chain.close();
-   auto cfg = snap_chain.get_config();
-   // restart chain with truncated block log and existing state, but no genesis state (chain_id)
-   snap_chain.open();
-   verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
+      snap_chain.close();
+      auto cfg = snap_chain.get_config();
+      // restart chain with truncated block log and existing state, but no genesis state (chain_id)
+      snap_chain.open();
+      verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
 
-   block = chain.produce_block();
-   chain.control->abort_block();
-   snap_chain.push_block(block);
-   verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
+      block = chain.produce_block();
+      chain.control->abort_block();
+      snap_chain.push_block(block);
+      verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
+   }
+   // test with empty block log
+   {
+      // create a new snapshot child
+      auto writer = SNAPSHOT_SUITE::get_writer();
+      chain.control->write_snapshot(writer);
+      auto snapshot = SNAPSHOT_SUITE::finalize(writer);
+
+      // create a new child at this snapshot
+      int ordinal = 2;
+      auto chain_cfg = chain.get_config();
+      chain_cfg.blog = eosio::chain::empty_blocklog_config{}; // use empty block log
+      snapshotted_tester snap_chain(chain_cfg, SNAPSHOT_SUITE::get_reader(snapshot), ordinal++);
+      verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
+      auto block = chain.produce_block();
+      chain.control->abort_block();
+      snap_chain.push_block(block);
+      verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
+
+      snap_chain.close();
+      auto cfg = snap_chain.get_config();
+      // restart chain with truncated block log and existing state, but no genesis state (chain_id)
+      snap_chain.open();
+      verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
+
+      block = chain.produce_block();
+      chain.control->abort_block();
+      snap_chain.push_block(block);
+      verify_integrity_hash<SNAPSHOT_SUITE>(*chain.control, *snap_chain.control);
+   }
+
 }
 
 BOOST_AUTO_TEST_CASE(json_snapshot_validity_test)
