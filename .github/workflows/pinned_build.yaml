@@ -25,11 +25,13 @@ jobs:
       - name: Conditionally update git repo
         if: ${{ matrix.platform == 'ubuntu18' }}
         run: |
+          apt-get install software-properties-common
+          apt-get update
           add-apt-repository ppa:git-core/ppa
       - name: Update and Install git
         run: |
-          apt update
-          apt install -y git
+          apt-get update
+          apt-get install -y git
           git --version
       - name: Clone leap
         uses: actions/checkout@v3
