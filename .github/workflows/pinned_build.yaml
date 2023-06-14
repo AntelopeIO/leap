@@ -10,3 +10,12 @@ permissions:
 defaults:
   run:
     shell: bash
+
+jobs:
+  Temp:
+    name: temp
+    runs-on: ubuntu-latest
+    steps:
+      - name: test
+        run: |
+          pwd
