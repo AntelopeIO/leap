@@ -134,6 +134,21 @@ int main(int argc, char* argv[]) {
          eosio::check(result_document[1]["head"].HasMember("block_id"),                      "'head' does not contain 'block_id'");
          eosio::check(result_document[1]["head"]["block_id"].IsString(),                     "'head.block_id' isn't a string");
 
+         // stream what was received
+         if(is_first) {
+           std::cout << "[" << std::endl;
+           is_first = false;
+         } else {
+           std::cout << "," << std::endl;
+         }
+         std::cout << "{ \"get_blocks_result_v0\":" << std::endl;
+
+         rapidjson::StringBuffer result_sb;
+         rapidjson::PrettyWriter<rapidjson::StringBuffer> result_writer(result_sb);
+         result_document[1].Accept(result_writer);
+         std::cout << result_sb.GetString() << std::endl << "}" << std::endl;
+
+         // validate after streaming, so that invalid entry is included in the output
          uint32_t this_block_num = 0;
          if( result_document[1].HasMember("this_block") && result_document[1]["this_block"].IsObject() ) {
             if( result_document[1]["this_block"].HasMember("block_num") && result_document[1]["this_block"]["block_num"].IsUint() ) {
@@ -167,19 +182,6 @@ int main(int argc, char* argv[]) {
             }
 
          }
-
-         if(is_first) {
-            std::cout << "[" << std::endl;
-            is_first = false;
-         } else {
-            std::cout << "," << std::endl;
-         }
-         std::cout << "{ \"get_blocks_result_v0\":" << std::endl;
-
-         rapidjson::StringBuffer result_sb;
-         rapidjson::PrettyWriter<rapidjson::StringBuffer> result_writer(result_sb);
-         result_document[1].Accept(result_writer);
-         std::cout << result_sb.GetString() << std::endl << "}" << std::endl;
 
          if( this_block_num == end_block_num ) break;
       }
