@@ -274,10 +274,8 @@ jobs:
           zstdcat build.tar.zst | tar x
       - name: leap dev-install
         run: |
-          cd build
-          ninja install
-          ninja dev-install
-          cd ..
+          cmake --install build
+          cmake --install build --component dev
       - name: Delete leap artifacts
         run: |
           rm -r *
