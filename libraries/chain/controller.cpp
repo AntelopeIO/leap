@@ -423,7 +423,8 @@ struct controller_impl {
          EOS_ASSERT( root_id == log_head_id, fork_database_exception, "fork database root does not match block log head" );
       } else {
          EOS_ASSERT( fork_db.root()->block_num == lib_num, fork_database_exception,
-                     "empty block log expects the first appended block to build off a block that is not the fork database root. root block number: ${block_num}, lib: ${lib_num}", ("block_num", fork_db.root()->block_num) ("lib_num", lib_num) );
+                     "The first block of an empty block log should be the block after fork database root. fork_db.root block number: ${bn}, lib: ${lib_num}",
+                     ("bn", fork_db.root()->block_num)("lib_num", lib_num) );
       }
 
       const auto fork_head = fork_db_head();
