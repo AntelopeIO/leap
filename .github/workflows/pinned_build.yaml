@@ -47,8 +47,9 @@ jobs:
       - name: Upload package
         uses: actions/upload-artifact@v3
         with:
-          name: leap-${{matrix.platform}}-amd64
-          path: build/leap*.deb
+          name: leap-${{matrix.platform}}-pinned-amd64
+          # Skip the leap-dev artifact
+          path: build/leap-[^d]+*.deb
       - name: Run Parallel Tests
         run: |
           cd build
