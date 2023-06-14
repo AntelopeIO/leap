@@ -73,13 +73,15 @@ parse_params<chain_apis::read_only::get_transaction_id_params, http_params_types
          }
       }
       else {
-         throw false; // invalid transaction
+         EOS_THROW(chain::invalid_http_request, "Transaction object is missing or invalid");
       }
       auto trx = trx_var.as<chain_apis::read_only::get_transaction_id_params>();
       if( trx.id() == transaction().id() ) {
-         throw false; // invalid transaction
+         EOS_THROW(chain::invalid_http_request, "Invalid transaction object");
       }
       return trx;
+   } catch(chain::invalid_http_request & e) {
+      throw;
    } catch( ... ) {
       EOS_THROW(chain::invalid_http_request, "Invalid transaction");
    }
