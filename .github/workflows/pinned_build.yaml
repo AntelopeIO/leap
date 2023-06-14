@@ -10,5 +10,3 @@ permissions:
 defaults:
   run:
     shell: bash
-
-jobs:
