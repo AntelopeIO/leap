@@ -600,6 +600,35 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
         self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3200006)
+        # get_transaction_id with missing actions
+        payload_no_actions = {"expiration":"2020-08-01T07:15:49",
+                "ref_block_num": 34881,
+                "ref_block_prefix":2972818865,
+                "max_net_usage_words":0,
+                "max_cpu_usage_ms":0,
+                "delay_sec":0,
+                "context_free_actions":[],
+                "transaction_extensions": [],
+                "signatures": ["SIG_K1_KeqfqiZu1GwUxQb7jzK9Fdks6HFaVBQ9AJtCZZj56eG9qGgvVMVtx8EerBdnzrhFoX437sgwtojf2gfz6S516Ty7c22oEp"],
+                "context_free_data": []}
+        ret_json = self.nodeos.processUrllibRequest(resource, command, payload_no_actions)
+        self.assertEqual(ret_json["code"], 400)
+        self.assertEqual(ret_json["error"]["code"], 3200006)
+        # get_transaction_id with invalid actions
+        payload_invalid_actions = {"expiration":"2020-08-01T07:15:49",
+                "ref_block_num": 34881,
+                "ref_block_prefix":2972818865,
+                "max_net_usage_words":0,
+                "max_cpu_usage_ms":0,
+                "delay_sec":0,
+                "context_free_actions":[],
+                "actions":  "hello_world",
+                "transaction_extensions": [],
+                "signatures": ["SIG_K1_KeqfqiZu1GwUxQb7jzK9Fdks6HFaVBQ9AJtCZZj56eG9qGgvVMVtx8EerBdnzrhFoX437sgwtojf2gfz6S516Ty7c22oEp"],
+                "context_free_data": []}
+        ret_json = self.nodeos.processUrllibRequest(resource, command, payload_invalid_actions)
+        self.assertEqual(ret_json["code"], 400)
+        self.assertEqual(ret_json["error"]["code"], 3200006)
         # get_transaction_id with valid parameter
         payload = {"expiration":"2020-08-01T07:15:49",
                    "ref_block_num": 34881,
@@ -614,6 +643,23 @@ class PluginHttpTest(unittest.TestCase):
                    "context_free_data": []}
         ret_str = self.nodeos.processUrllibRequest(resource, command, payload, returnType=ReturnType.raw).decode('ascii')
         self.assertEqual(ret_str, "\"0be762a6406bab15530e87f21e02d1c58e77944ee55779a76f4112e3b65cac48\"")
+        # transaction that has hex_data
+        payload_hex = {"expiration":"2020-08-01T07:15:49",
+                "ref_block_num": 34881,
+                "ref_block_prefix":2972818865,
+                "max_net_usage_words":0,
+                "max_cpu_usage_ms":0,
+                "delay_sec":0,
+                "context_free_actions":[],
+                "actions":[{"account":"eosio.token","name": "transfer","authorization": [{"actor": "han","permission": "active"}],
+                "data": "{\"entry\":774831,\"miner\":\"eosminer1111\",\"nonce\":139429}\"}",
+                "hex_data": "000000000000a6690000000000ea305501000000000000000453595300000000016d"}],
+                "transaction_extensions": [],
+                "signatures": ["SIG_K1_KeqfqiZu1GwUxQb7jzK9Fdks6HFaVBQ9AJtCZZj56eG9qGgvVMVtx8EerBdnzrhFoX437sgwtojf2gfz6S516Ty7c22oEp"],
+                "context_free_data": []}
+        ret_str = self.nodeos.processUrllibRequest(resource, command, payload_hex, returnType=ReturnType.raw).decode('ascii')
+        self.assertEqual(ret_str, "\"0be762a6406bab15530e87f21e02d1c58e77944ee55779a76f4112e3b65cac48\"")
+
 
         # push_block with empty parameter
         command = "push_block"
