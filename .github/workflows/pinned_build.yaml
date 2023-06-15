@@ -55,12 +55,16 @@ jobs:
           cd build
           ls -l
           ls | grep -E 'leap-[^d]+*.deb'
-          echo "PINNED_BUILD_ARTIFACT="$(ls | grep -E 'leap-[^d]+*.deb')"" >> "$GIHUB_ENV"
+          echo "PINNED_BUILD_ARTIFACT="$(ls | grep -E 'leap-[^d]+*.deb')"" >> "$GITHUB_ENV"
+          ls | grep -E 'leap-[^d]+*.deb' | sed -e 's/-x86_64.deb/-pinned-amd64/'
+          echo "PINNED_BUILD_NAME="$(ls | grep -E 'leap-[^d]+*.deb' | sed -e 's/-x86_64.deb/-pinned-amd64/')"" >> "$GITHUB_ENV"
+          echo "env.PINNED_BUILD_ARTIFACT = ${{ env.PINNED_BUILD_ARTIFACT }}"
+          echo "env.PINNED_BUILD_NAME = ${{ env.PINNED_BUILD_NAME }}"
           cd ..
       - name: Upload package
         uses: actions/upload-artifact@v3
         with:
-          name: leap-${{matrix.platform}}-pinned-amd64
+          name: "${{ env.PINNED_BUILD_NAME }}"
           path: build/"${{ env.PINNED_BUILD_ARTIFACT }}"
       - name: Run Parallel Tests
         run: |
