@@ -602,13 +602,12 @@ struct controller_impl {
          } else {
             ilog( "Starting initialization from snapshot and no block log, this may take a significant amount of time" );
             read_from_snapshot( snapshot, 0, std::numeric_limits<uint32_t>::max() );
-            const uint32_t lib_num = head->block_num;
-            ilog( "Snapshot loaded, lib: ${lib}", ("lib", lib_num) );
-            EOS_ASSERT( lib_num > 0, snapshot_exception,
+            EOS_ASSERT( head->block_num > 0, snapshot_exception,
                         "Snapshot indicates controller head at block number 0, but that is not allowed. "
                         "Snapshot is invalid." );
-            blog.reset( chain_id, lib_num + 1 );
+            blog.reset( chain_id, head->block_num + 1 );
          }
+         ilog( "Snapshot loaded, lib: ${lib}", ("lib", head->block_num) );
 
          init(check_shutdown);
          ilog( "Finished initialization from snapshot" );
