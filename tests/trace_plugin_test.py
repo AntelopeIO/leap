@@ -11,7 +11,6 @@ from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL
 testSuccessful = True
 
 class TraceApiPluginTest(unittest.TestCase):
-    sleep_s = 1
     cluster=Cluster(defproduceraPrvtKey=None)
     walletMgr=WalletMgr(True)
     accounts = []
@@ -22,19 +21,18 @@ class TraceApiPluginTest(unittest.TestCase):
         account_names = ["alice", "bob", "charlie"]
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs = " --trace-rpc-abi eosio.token=" + abs_path
-        self.cluster.launch(totalNodes=1, extraNodeosArgs=traceNodeosArgs)
+        self.cluster.launch(totalNodes=2, extraNodeosArgs=traceNodeosArgs)
         self.walletMgr.launch()
         testWalletName="testwallet"
         testWallet=self.walletMgr.create(testWalletName, [self.cluster.eosioAccount, self.cluster.defproduceraAccount])
         self.cluster.validateAccounts(None)
         self.accounts=createAccountKeys(len(account_names))
-        node = self.cluster.getNode(0)
+        node = self.cluster.getNode(1)
         for idx in range(len(account_names)):
             self.accounts[idx].name =  account_names[idx]
             self.walletMgr.importKey(self.accounts[idx], testWallet)
         for account in self.accounts:
-            node.createInitializeAccount(account, self.cluster.eosioAccount, buyRAM=1000000, stakedDeposit=5000000, waitForTransBlock=True, exitOnError=True)
-        time.sleep(self.sleep_s)
+            node.createInitializeAccount(account, self.cluster.eosioAccount, buyRAM=1000000, stakedDeposit=5000000, waitForTransBlock=True if account == self.accounts[-1] else False, exitOnError=True)
 
     def get_block(self, params: str, node: Node) -> json:
         resource = "trace_api"
@@ -61,7 +59,7 @@ class TraceApiPluginTest(unittest.TestCase):
 
         self.assertEqual(node.getAccountEosBalanceStr(self.accounts[0].name), Utils.deduceAmount(expectedAmount, xferAmount))
         self.assertEqual(node.getAccountEosBalanceStr(self.accounts[1].name), Utils.addAmount(expectedAmount, xferAmount))
-        time.sleep(self.sleep_s)
+        node.waitForBlock(blockNum)
 
         # verify trans via node api before calling trace_api RPC
         blockFromNode = node.getBlock(blockNum)
