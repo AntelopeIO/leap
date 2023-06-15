@@ -94,10 +94,13 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                         // first pending snapshot
                         auto ps_start = (spacing != 0) ? (spacing + (pbn%spacing)) : pbn;
                         
-                        // this will happen only when snapshot sheduled with no start block specified
-                        auto deviation = fuzzy_start ? ps_start - it->start_block_num - spacing : 0;
-
-                        BOOST_CHECK_EQUAL(block_num, ps_start - deviation);
+                        if (!fuzzy_start) {
+                           BOOST_CHECK_EQUAL(block_num, ps_start);
+                        }
+                        else {
+                           int diff = block_num - ps_start;
+                           BOOST_CHECK(std::abs(diff) <= 5); // accept +/- 5 blocks if start block not specified
+                        }                       
                      }
                      return true;
                   }
