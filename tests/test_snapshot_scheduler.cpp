@@ -98,8 +98,8 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                            BOOST_CHECK_EQUAL(block_num, ps_start);
                         }
                         else {
-                           auto diff = block_num > ps_start ? block_num - ps_start : ps_start - block_num;
-                           BOOST_CHECK(diff <= 5); // accept +/- 5 blocks if start block not specified
+                           int diff = block_num - ps_start;
+                           BOOST_CHECK(std::abs(diff) <= 5); // accept +/- 5 blocks if start block not specified
                         }                       
                      }
                      return true;
