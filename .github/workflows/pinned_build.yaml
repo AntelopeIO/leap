@@ -65,7 +65,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: "${{ env.PINNED_BUILD_NAME }}"
-          path: build/"${{ env.PINNED_BUILD_ARTIFACT }}"
+          path: build/${{ env.PINNED_BUILD_ARTIFACT }}
       - name: Run Parallel Tests
         run: |
           cd build
