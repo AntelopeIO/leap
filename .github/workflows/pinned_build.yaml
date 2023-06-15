@@ -46,8 +46,12 @@ jobs:
       - name: Build Pinned Build
         run: |
           ./scripts/pinned_build.sh deps build "$(nproc)"
+          ls -l
+          pwd
       - name: Check and select artifact
         run: |
+          pwd
+          ls -l
           cd build
           echo "PINNED_BUILD_ARTIFACT="$(ls | grep -E 'leap-[^d]+*.deb')"" >> "$GIHUB_ENV"
           cd ..
