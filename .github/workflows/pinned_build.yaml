@@ -53,6 +53,8 @@ jobs:
           pwd
           ls -l
           cd build
+          ls -l
+          ls | grep -E 'leap-[^d]+*.deb'
           echo "PINNED_BUILD_ARTIFACT="$(ls | grep -E 'leap-[^d]+*.deb')"" >> "$GIHUB_ENV"
           cd ..
       - name: Upload package
