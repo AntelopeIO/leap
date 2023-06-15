@@ -46,20 +46,11 @@ jobs:
       - name: Build Pinned Build
         run: |
           ./scripts/pinned_build.sh deps build "$(nproc)"
-          ls -l
-          pwd
       - name: Check and select artifact
         run: |
-          pwd
-          ls -l
           cd build
-          ls -l
-          ls | grep -E 'leap-[^d]+*.deb'
           echo "PINNED_BUILD_ARTIFACT="$(ls | grep -E 'leap-[^d]+*.deb')"" >> "$GITHUB_ENV"
-          ls | grep -E 'leap-[^d]+*.deb' | sed -e 's/-x86_64.deb/-pinned-amd64/'
           echo "PINNED_BUILD_NAME="$(ls | grep -E 'leap-[^d]+*.deb' | sed -e 's/-x86_64.deb/-pinned-amd64/')"" >> "$GITHUB_ENV"
-          echo "env.PINNED_BUILD_ARTIFACT = ${{ env.PINNED_BUILD_ARTIFACT }}"
-          echo "env.PINNED_BUILD_NAME = ${{ env.PINNED_BUILD_NAME }}"
           cd ..
       - name: Upload package
         uses: actions/upload-artifact@v3
