@@ -10,6 +10,8 @@
 #include <boost/beast.hpp>
 #include <boost/program_options.hpp>
 
+#include <map>
+#include <set>
 #include <iostream>
 #include <string>
 
@@ -111,8 +113,9 @@ int main(int argc, char* argv[]) {
       stream.write(boost::asio::buffer(request_type.json_to_bin(request_sb.GetString(), [](){})));
       stream.read_message_max(0);
 
-      //      block_num, block_id
-      std::map<uint32_t, std::string> block_ids;
+      // Each block_num can have multiple block_ids since forks are possible
+      //       block_num,         block_id
+      std::map<uint32_t, std::set<std::string>> block_ids;
       bool is_first = true;
       for(;;) {
          boost::beast::flat_buffer buffer;
@@ -165,12 +168,14 @@ int main(int argc, char* argv[]) {
             if( !irreversible_only && !this_block_id.empty() && !prev_block_id.empty() ) {
                // verify forks were sent
                if (block_ids.count(this_block_num-1)) {
-                  if (block_ids[this_block_num-1] != prev_block_id) {
-                     std::cerr << "Received block: << " << this_block_num << " that does not link to previous: " << block_ids[this_block_num-1] << std::endl;
+                  if (block_ids[this_block_num-1].count(prev_block_id) == 0) {
+                     std::cerr << "Received block: << " << this_block_num << " that does not link to previous: ";
+                     std::copy(block_ids[this_block_num-1].begin(), block_ids[this_block_num-1].end(), std::ostream_iterator<std::string>(std::cerr, " "));
+                     std::cerr << std::endl;
                      return 1;
                   }
                }
-               block_ids[this_block_num] = this_block_id;
+               block_ids[this_block_num].insert(this_block_id);
 
                if( result_document[1]["last_irreversible"].HasMember("block_num") && result_document[1]["last_irreversible"]["block_num"].IsUint() ) {
                   uint32_t lib_num = result_document[1]["last_irreversible"]["block_num"].GetUint();
