@@ -31,8 +31,9 @@ class Transactions(NodeosQueries):
         transId=NodeosQueries.getTransId(trans)
 
         if stakedDeposit > 0:
-            self.waitForTransactionInBlock(transId) # seems like account creation needs to be finalized before transfer can happen
-            trans = self.transferFunds(creatorAccount, account, NodeosQueries.currencyIntToStr(stakedDeposit, CORE_SYMBOL), "init")
+            if not waitForTransBlock: # Wait for account creation to be finalized if we haven't already
+                self.waitForTransactionInBlock(transId)
+            trans = self.transferFunds(creatorAccount, account, NodeosQueries.currencyIntToStr(stakedDeposit, CORE_SYMBOL), "init", waitForTransBlock=waitForTransBlock)
             transId=NodeosQueries.getTransId(trans)
 
         return trans
