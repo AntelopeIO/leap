@@ -289,7 +289,7 @@ try:
     timestamp=datetime.strptime(timestampStr, Utils.TimeFmt)
 
     shipNode = cluster.getNode(0)
-    block_range = 800
+    block_range = 1000
     start_block_num = blockNum
     end_block_num = start_block_num + block_range
 
