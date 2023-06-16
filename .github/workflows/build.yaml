@@ -7,17 +7,17 @@ on:
       - "release/*"
   pull_request:
   workflow_dispatch:
-  inputs:
-    override-cdt:
-      description: 'Override cdt target'
-      type: string
-    override-cdt-prerelease:
-      type: choice
-      description: Override cdt prelease
-      options:
-      - default
-      - true
-      - false
+    inputs:
+      override-cdt:
+        description: 'Override cdt target'
+        type: string
+      override-cdt-prerelease:
+        type: choice
+        description: Override cdt prelease
+        options:
+        - default
+        - true
+        - false
 
 permissions:
   packages: read
