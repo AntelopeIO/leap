@@ -18,7 +18,6 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu18, ubuntu20, ubuntu22]
-    # runs-on: ["self-hosted", "enf-x86-beefy"] # not sure if this warrants a different machine, but start here due to building
     runs-on: ubuntu-latest
     container: ${{ matrix.platform == 'ubuntu18' && 'ubuntu:bionic' || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
@@ -46,17 +45,11 @@ jobs:
       - name: Build Pinned Build
         run: |
           ./scripts/pinned_build.sh deps build "$(nproc)"
-      - name: Check and select artifact
-        run: |
-          cd build
-          echo "PINNED_BUILD_ARTIFACT="$(ls | grep -E 'leap-[^d]+*.deb')"" >> "$GITHUB_ENV"
-          echo "PINNED_BUILD_NAME="$(ls | grep -E 'leap-[^d]+*.deb' | sed -e 's/-x86_64.deb/-pinned-amd64/')"" >> "$GITHUB_ENV"
-          cd ..
       - name: Upload package
         uses: actions/upload-artifact@v3
         with:
-          name: "${{ env.PINNED_BUILD_NAME }}"
-          path: build/${{ env.PINNED_BUILD_ARTIFACT }}
+          name: leap-${{matrix.platform}}-pinned-amd64
+          path: build/leap-3*.deb
       - name: Run Parallel Tests
         run: |
           cd build
