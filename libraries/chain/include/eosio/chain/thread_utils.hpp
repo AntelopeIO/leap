@@ -104,7 +104,7 @@ namespace eosio { namespace chain {
                if (offset != std::string::npos)
                   tn.erase(0, offset+2);
                tn = tn.substr(0, tn.find('>')) + "-" + std::to_string( i );
-               fc::set_os_thread_name( tn );
+               fc::set_thread_name( tn );
                if ( init )
                   init();
             } FC_LOG_AND_RETHROW()
