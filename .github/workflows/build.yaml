@@ -225,9 +225,9 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
-        test: ["build-tree", "make-dev-install", "deb-install"]
+        test: [build-tree, make-dev-install, deb-install]
     runs-on:  ["self-hosted", "enf-x86-midtier"]
-    container: ${{ matrix.test != "deb-install" && fromJSON(needs.d.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy') }}
+    container: ${{ matrix.test != 'deb-install' && fromJSON(needs.d.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
       - name: Setup cdt & reference-contracts versions
         id: versions
@@ -246,39 +246,39 @@ jobs:
           fi
 
       # LEAP
-      - if: ${{ matrix.test != "deb-install" }}
+      - if: ${{ matrix.test != 'deb-install' }}
         name: Clone leap
         uses: actions/checkout@v3
         with:
           submodules: recursive
-      - if: ${{ matrix.test != "deb-install" }}
+      - if: ${{ matrix.test != 'deb-install' }}
         name: Download leap builddir
         uses: actions/download-artifact@v3
         with:
           name: ${{matrix.platform}}-build
-      - if: ${{ matrix.test != "deb-install" }}
+      - if: ${{ matrix.test != 'deb-install' }}
         name: Extract leap build
         run: |
           zstdcat build.tar.zst | tar x
-      - if: ${{ matrix.test == "build-tree" }}
+      - if: ${{ matrix.test == 'build-tree' }}
         name: Set leap_DIR env var
         run: |
           echo "leap_DIR=$PWD/build/lib/cmake/leap" >> "$GITHUB_ENV"
-      - if: ${{ matrix.test == "make-dev-install" }}
+      - if: ${{ matrix.test == 'make-dev-install' }}
         name: leap dev-install
         run: |
           cmake --install build
           cmake --install build --component dev
-      - if: ${{ matrix.test == "make-dev-install" }}
+      - if: ${{ matrix.test == 'make-dev-install' }}
         name: Delete leap artifacts
         run: |
           rm -r *
-      - if: ${{ matrix.test == "deb-install" }}
+      - if: ${{ matrix.test == 'deb-install' }}
         name: Download leap-dev
         uses: actions/download-artifact@v3
         with:
           name: leap-dev-${{matrix.platform}}-amd64
-      - if: ${{ matrix.test == "deb-install" }}
+      - if: ${{ matrix.test == 'deb-install' }}
         name: Install leap-dev Package
         run: |
           apt-get update
@@ -309,7 +309,7 @@ jobs:
         with:
           repository: AntelopeIO/reference-contracts
           path: reference-contracts
-      - if: ${{ matrix.test == "deb-install" }}
+      - if: ${{ matrix.test == 'deb-install' }}
         name: Install reference-contracts deps
         run: |
           apt-get -y install cmake build-essential
@@ -322,10 +322,9 @@ jobs:
 
   all-passing:
     name: All Required Tests Passed
-    needs: [dev-package, tests, np-tests, libtester-build-tree-test, libtester-make-dev-install-test, libtester-deb-install-test]
+    needs: [dev-package, tests, np-tests, libtester-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success' ||
-            needs.libtester-build-tree-test.result != 'success' || needs.libtester-make-dev-install-test.result != 'success' || needs.libtester-deb-install-test.result != 'success'
+      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success' || needs.libtester-tests.result != 'success'
         run: false
