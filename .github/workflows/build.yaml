@@ -295,7 +295,7 @@ jobs:
 
   all-passing:
     name: All Required Tests Passed
-    needs: [dev-package, tests, np-tests, libtester-build-tree-test, libtester-make-dev-install-test, libtester-deb-install-test]
+    needs: [dev-package, tests, np-tests, libtester-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
