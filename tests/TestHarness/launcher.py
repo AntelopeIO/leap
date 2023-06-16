@@ -528,8 +528,23 @@ class cluster_generator:
                 specificList = shlex.split(specifics)
             # Allow specific nodeos args to override existing args up to this point.
             # Consider moving specific arg handling to the end to allow overriding all args.
+            repeatable = [
+                # appbase
+                '--plugin',
+                # chain_plugin
+                '--checkpoint', '--profile-account', '--actor-whitelist', '--actor-blacklist',
+                '--contract-whitelist', '--contract-blacklist', '--action-blacklist', '--key-blacklist',
+                '--sender-bypass-whiteblacklist', '--trusted-producer',
+                # http_plugin
+                '--http-alias',
+                # net_plugin
+                '--p2p-peer-address', '--p2p-auto-bp-peer', '--peer-key', '--peer-private-key',
+                # producer_plugin
+                '--producer-name', '--signature-provider', '--greylist-account', '--disable-subjective-account-billing',
+                # trace_api_plugin
+                '--trace-rpc-abi']
             for arg in specificList:
-                if '-' in arg:
+                if '-' in arg and arg not in repeatable:
                     if arg in eosdcmd:
                         i = eosdcmd.index(arg)
                         if eosdcmd[i+1] != '-':
