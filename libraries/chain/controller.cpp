@@ -563,7 +563,10 @@ struct controller_impl {
          ilog( "no irreversible blocks need to be replayed" );
       }
 
-      if( !except_ptr && !check_shutdown() && fork_db.head() ) {
+      if (snapshot_head_block != 0 && !blog_head) {
+         // loading from snapshot without a block log so fork_db can't be considered valid
+         fork_db.reset( *head );
+      } else if( !except_ptr && !check_shutdown() && fork_db.head() ) {
          auto head_block_num = head->block_num;
          auto branch = fork_db.fetch_branch( fork_db.head()->id );
          int rev = 0;
@@ -594,19 +597,21 @@ struct controller_impl {
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown, const snapshot_reader_ptr& snapshot) {
       EOS_ASSERT( snapshot, snapshot_exception, "No snapshot reader provided" );
       this->shutdown = shutdown;
-      ilog( "Starting initialization from snapshot, this may take a significant amount of time" );
       try {
          snapshot->validate();
          if( auto blog_head = blog.head() ) {
+            ilog( "Starting initialization from snapshot and block log ${b}-${e}, this may take a significant amount of time",
+                  ("b", blog.first_block_num())("e", blog_head->block_num()) );
             read_from_snapshot( snapshot, blog.first_block_num(), blog_head->block_num() );
          } else {
+            ilog( "Starting initialization from snapshot and no block log, this may take a significant amount of time" );
             read_from_snapshot( snapshot, 0, std::numeric_limits<uint32_t>::max() );
-            const uint32_t lib_num = head->block_num;
-            EOS_ASSERT( lib_num > 0, snapshot_exception,
+            EOS_ASSERT( head->block_num > 0, snapshot_exception,
                         "Snapshot indicates controller head at block number 0, but that is not allowed. "
                         "Snapshot is invalid." );
-            blog.reset( chain_id, lib_num + 1 );
+            blog.reset( chain_id, head->block_num + 1 );
          }
+         ilog( "Snapshot loaded, lib: ${lib}", ("lib", head->block_num) );
 
          init(check_shutdown);
          ilog( "Finished initialization from snapshot" );

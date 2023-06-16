@@ -153,7 +153,7 @@ struct listener : std::enable_shared_from_this<T> {
          fc_wlog(logger_, "closing connection, accept error: ${m}", ("m", ec.message()));
          do_accept();
       } else {
-         fc_elog(logger_, "Unrecoverable accept error, stop listening: ${msg}", ("m", ec.message()));
+         fc_elog(logger_, "Unrecoverable accept error, stop listening: ${m}", ("m", ec.message()));
       }
    }
 
