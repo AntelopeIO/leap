@@ -299,6 +299,5 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success' ||
-            needs.libtester-build-tree-test.result != 'success' || needs.libtester-make-dev-install-test.result != 'success' || needs.libtester-deb-install-test.result != 'success'
+      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success' || needs.libtester-tests.result != 'success'
         run: false
