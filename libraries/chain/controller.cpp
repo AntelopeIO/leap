@@ -2681,7 +2681,7 @@ struct controller_impl {
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
    bool is_eos_vm_oc_enabled() const {
-      return ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc );
+      return ( (conf.eosvmoc_tierup != wasm_interface::vm_oc_enable::oc_none) || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc );
    }
 #endif
 

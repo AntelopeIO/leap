@@ -90,7 +90,7 @@ namespace eosio { namespace chain {
 
             wasm_interface::vm_type  wasm_runtime = chain::config::default_wasm_runtime;
             eosvmoc::config          eosvmoc_config;
-            bool                     eosvmoc_tierup         = false;
+            wasm_interface::vm_oc_enable eosvmoc_tierup     = wasm_interface::vm_oc_enable::oc_auto;
 
             db_read_mode             read_mode              = db_read_mode::HEAD;
             validation_mode          block_validation_mode  = validation_mode::FULL;
