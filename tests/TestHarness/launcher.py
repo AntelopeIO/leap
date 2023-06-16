@@ -523,9 +523,19 @@ class cluster_generator:
             i = self.args.specific_nums.index(instance.index)
             specifics = getattr(self.args, f'specific_{Utils.EosServerName}es')[i]
             if specifics[0] == "'" and specifics[-1] == "'":
-                eosdcmd.extend(shlex.split(specifics[1:-1]))
+                specificList = shlex.split(specifics[1:-1])
             else:
-                eosdcmd.extend(shlex.split(specifics))
+                specificList = shlex.split(specifics)
+            # Allow specific nodeos args to override existing args up to this point.
+            # Consider moving specific arg handling to the end to allow overriding all args.
+            for arg in specificList:
+                if '-' in arg:
+                    if arg in eosdcmd:
+                        i = eosdcmd.index(arg)
+                        if eosdcmd[i+1] != '-':
+                            eosdcmd.pop(i+1)
+                        eosdcmd.pop(i)
+            eosdcmd.extend(specificList)
         a(a(eosdcmd, '--config-dir'), str(instance.config_dir_name))
         a(a(eosdcmd, '--data-dir'), str(instance.data_dir_name))
         a(a(eosdcmd, '--genesis-json'), f'{instance.config_dir_name}/genesis.json')
