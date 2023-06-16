@@ -42,6 +42,28 @@ jobs:
           platform-file: .cicd/platforms.json
           password: ${{secrets.GITHUB_TOKEN}}
           package-name: builders
+  v:
+    name: Discover Versions
+    runs-on: ubuntu-latest
+    outputs:
+      cdt-target: ${{steps.versions.outputs.cdt-target}}
+      cdt-prerelease: ${{steps.versions.outputs.cdt-prerelease}}
+    steps:
+      - name: Setup cdt versions
+        id: versions
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
+        run: |
+          DEFAULTS_JSON=$(curl -sSfL $(gh api https://api.github.com/repos/${{github.repository}}/contents/.cicd/defaults.json?ref=${{github.sha}} --jq .download_url))
+          echo cdt-target=$(echo "$DEFAULTS_JSON" | jq -r '.cdt.target') >> $GITHUB_OUTPUT
+          echo cdt-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '.cdt.prerelease') >> $GITHUB_OUTPUT
+
+          if [[ "${{inputs.override-cdt}}" != "" ]]; then
+            echo cdt-target=${{inputs.override-cdt}} >> $GITHUB_OUTPUT
+          fi
+          if [[ "${{inputs.override-cdt-prerelease}}" == +(true|false) ]]; then
+            echo cdt-prerelease=${{inputs.override-cdt-prerelease}} >> $GITHUB_OUTPUT
+          fi
   build-platforms:
     name: Build Platforms
     needs: d
@@ -219,8 +241,8 @@ jobs:
 
   libtester-tests:
     name: libtester tests
-    needs: [d, Build, dev-package]
-    if: always() && needs.dev-package.result == 'success'
+    needs: [d, v, Build, dev-package]
+    if: always() && needs.v.result == 'success' && needs.dev-package.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -229,22 +251,6 @@ jobs:
     runs-on:  ["self-hosted", "enf-x86-midtier"]
     container: ${{ matrix.test != 'deb-install' && fromJSON(needs.d.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
-      - name: Setup cdt & reference-contracts versions
-        id: versions
-        env:
-          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
-        run: |
-          DEFAULTS_JSON=$(curl -sSfL $(gh api https://api.github.com/repos/${{github.repository}}/contents/.cicd/defaults.json?ref=${{github.sha}} --jq .download_url))
-          echo cdt-target=$(echo "$DEFAULTS_JSON" | jq -r '.cdt.target') >> $GITHUB_OUTPUT
-          echo cdt-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '.cdt.prerelease') >> $GITHUB_OUTPUT
-
-          if [[ "${{inputs.override-cdt}}" != "" ]]; then
-            echo cdt-target=${{inputs.override-cdt}} >> $GITHUB_OUTPUT
-          fi
-          if [[ "${{inputs.override-cdt-prerelease}}" == +(true|false) ]]; then
-            echo cdt-prerelease=${{inputs.override-cdt-prerelease}} >> $GITHUB_OUTPUT
-          fi
-
       # LEAP
       - if: ${{ matrix.test != 'deb-install' }}
         name: Clone leap
@@ -294,8 +300,8 @@ jobs:
           owner: AntelopeIO
           repo: cdt
           file: 'cdt_.*amd64.deb'
-          target: '${{steps.versions.outputs.cdt-target}}'
-          prereleases: ${{fromJSON(steps.versions.outputs.cdt-prerelease)}}
+          target: '${{needs.v.outputs.cdt-target}}'
+          prereleases: ${{fromJSON(needs.v.outputs.cdt-prerelease)}}
           artifact-name: cdt_ubuntu_package_amd64
           token: ${{github.token}}
       - name: Install cdt Packages
