@@ -216,7 +216,7 @@ jobs:
         platform: [ubuntu20, ubuntu22]
         test: [build-tree, make-dev-install, deb-install]
     runs-on:  ["self-hosted", "enf-x86-midtier"]
-    container: ${{ matrix.test != 'deb-install' && fromJSON(needs.d.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy') }}
+    container: ${{ matrix.test != 'deb-install' && fromJSON(needs.d.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
 
       # LEAP
