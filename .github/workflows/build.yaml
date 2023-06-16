@@ -214,7 +214,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
-    runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
+    runs-on:  ["self-hosted", "enf-x86-midtier"]
     container: ${{ matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
       - name: Download cdt
@@ -258,7 +258,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
-    runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
+    runs-on:  ["self-hosted", "enf-x86-midtier"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - name: Clone leap
@@ -312,7 +312,7 @@ jobs:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
-    runs-on:  ["self-hosted", "enf-x86-lowtier"] # not sure if this warrants a better machine, but start here
+    runs-on:  ["self-hosted", "enf-x86-midtier"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
       - name: Clone leap
@@ -354,9 +354,10 @@ jobs:
 
   all-passing:
     name: All Required Tests Passed
-    needs: [dev-package, tests, np-tests]
+    needs: [dev-package, tests, np-tests, libtester-build-tree-test, libtester-make-dev-install-test, libtester-deb-install-test]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success'
+      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success' ||
+            needs.libtester-build-tree-test.result != 'success' || needs.libtester-make-dev-install-test.result != 'success' || needs.libtester-deb-install-test.result != 'success'
         run: false
