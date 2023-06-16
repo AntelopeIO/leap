@@ -208,13 +208,13 @@ try:
 
     for account in accounts:
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", 
-                           waitForTransBlock=True if account == accounts[-1] else False)
+        nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", 
+                                  waitForTransBlock=True if account == accounts[-1] else False)
 
     for account in accounts:
         trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, 
                                      waitForTransBlock=True if account == accounts[-1] else False, exitOnError=True)
-        
+
     # containers for tracking producers
     prodsActive={}
     for i in range(0, 4):
