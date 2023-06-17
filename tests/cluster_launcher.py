@@ -42,7 +42,10 @@ try:
     Print(f'producing nodes: {pnodes}, topology: {topo}, delay between nodes launch: {delay} second{"s" if delay != 1 else ""}')
 
     Print("Stand up cluster")
-    extraNodeosArgs = ''.join([i+j for i,j in zip([' --plugin '] * len(args.plugin), args.plugin)])
+    if args.plugin:
+        extraNodeosArgs = ''.join([i+j for i,j in zip([' --plugin '] * len(args.plugin), args.plugin)])
+    else:
+        extraNodeosArgs = None
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, 
                       extraNodeosArgs=extraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
