@@ -607,8 +607,7 @@ namespace eosio {
       bool is_transactions_only_connection()const { return connection_type == transactions_only; }
       bool is_blocks_only_connection()const { return connection_type == blocks_only; }
       void set_heartbeat_timeout(std::chrono::milliseconds msec) {
-         std::chrono::system_clock::duration dur = msec;
-         hb_timeout = dur.count();
+         hb_timeout = msec;
       }
 
    private:
@@ -688,9 +687,9 @@ namespace eosio {
       tstamp                         xmt{0};          //!< transmit timestamp
       /** @} */
       // timestamp for the lastest message
-      tstamp                         latest_msg_time{0};
-      tstamp                         hb_timeout{std::chrono::milliseconds{def_keepalive_interval}.count()};
-      tstamp                         latest_blk_time{0};
+      std::chrono::system_clock::time_point       latest_msg_time{std::chrono::system_clock::time_point::min()};
+      std::chrono::milliseconds                   hb_timeout{std::chrono::milliseconds{def_keepalive_interval}};
+      std::chrono::system_clock::time_point       latest_blk_time{std::chrono::system_clock::time_point::min()};
 
       bool connected();
       bool current();
@@ -728,7 +727,7 @@ namespace eosio {
        */
       /**  \brief Check heartbeat time and send Time_message
        */
-      void check_heartbeat( tstamp current_time );
+      void check_heartbeat( std::chrono::system_clock::time_point current_time );
       /**  \brief Populate and queue time_message
        */
       void send_time();
@@ -742,8 +741,8 @@ namespace eosio {
        * packet is placed on the send queue.  Calls the kernel time of
        * day routine and converts to a (at least) 64 bit integer.
        */
-      static tstamp get_time() {
-         return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch()).count();
+      static std::chrono::nanoseconds get_time() {
+         return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch());
       }
       /** @} */
 
@@ -1165,8 +1164,8 @@ namespace eosio {
    }
 
    // called from connection strand
-   void connection::check_heartbeat( tstamp current_time ) {
-      if( latest_msg_time > 0 ) {
+   void connection::check_heartbeat( std::chrono::system_clock::time_point current_time ) {
+      if( latest_msg_time > std::chrono::system_clock::time_point::min() ) {
          if( current_time > latest_msg_time + hb_timeout ) {
             no_retry = benign_other;
             if( !peer_address().empty() ) {
@@ -1178,7 +1177,7 @@ namespace eosio {
             }
             return;
          } else {
-            const tstamp timeout = std::max(hb_timeout/2, 2*std::chrono::milliseconds(config::block_interval_ms).count());
+            const std::chrono::milliseconds timeout = std::max(hb_timeout/2, 2*std::chrono::milliseconds(config::block_interval_ms));
             if ( current_time > latest_blk_time + timeout ) {
                send_handshake();
                return;
@@ -1194,7 +1193,7 @@ namespace eosio {
       time_message xpkt;
       xpkt.org = rec;
       xpkt.rec = dst;
-      xpkt.xmt = get_time();
+      xpkt.xmt = get_time().count();
       org = xpkt.xmt;
       enqueue(xpkt);
    }
@@ -1204,7 +1203,7 @@ namespace eosio {
       time_message xpkt;
       xpkt.org = msg.xmt;
       xpkt.rec = msg.dst;
-      xpkt.xmt = get_time();
+      xpkt.xmt = get_time().count();
       enqueue(xpkt);
    }
 
@@ -1434,7 +1433,7 @@ namespace eosio {
 
       block_buffer_factory buff_factory;
       auto sb = buff_factory.get_send_buffer( b );
-      latest_blk_time = get_time();
+      latest_blk_time = std::chrono::system_clock::now();
       enqueue_buffer( sb, no_reason, to_sync_queue);
    }
 
@@ -2154,7 +2153,7 @@ namespace eosio {
          send_buffer_type sb = buff_factory.get_send_buffer( b );
 
          cp->strand.post( [cp, bnum, sb{std::move(sb)}]() {
-            cp->latest_blk_time = cp->get_time();
+            cp->latest_blk_time = std::chrono::system_clock::now();
             bool has_block = cp->peer_lib_num >= bnum;
             if( !has_block ) {
                peer_dlog( cp, "bcast block ${b}", ("b", bnum) );
@@ -2574,14 +2573,14 @@ namespace eosio {
    // called from connection strand
    bool connection::process_next_message( uint32_t message_length ) {
       try {
-         latest_msg_time = get_time();
+         latest_msg_time = std::chrono::system_clock::now();
 
          // if next message is a block we already have, exit early
          auto peek_ds = pending_message_buffer.create_peek_datastream();
          unsigned_int which{};
          fc::raw::unpack( peek_ds, which );
          if( which == signed_block_which ) {
-            latest_blk_time = get_time();
+            latest_blk_time = std::chrono::system_clock::now();
             return process_next_block_message( message_length );
 
          } else if( which == packed_transaction_which ) {
@@ -3010,7 +3009,7 @@ namespace eosio {
       /* We've already lost however many microseconds it took to dispatch
        * the message, but it can't be helped.
        */
-      msg.dst = get_time();
+      msg.dst = get_time().count();
 
       // If the transmit timestamp is zero, the peer is horribly broken.
       if(msg.xmt == 0)
@@ -3384,7 +3383,7 @@ namespace eosio {
                fc_wlog( logger, "Peer keepalive ticked sooner than expected: ${m}", ("m", ec.message()) );
             }
 
-            tstamp current_time = connection::get_time();
+            auto current_time = std::chrono::system_clock::now();
             my->for_each_connection( [current_time]( auto& c ) {
                if( c->socket_is_open() ) {
                   c->strand.post([c, current_time]() {
