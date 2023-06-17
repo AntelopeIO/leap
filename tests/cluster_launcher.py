@@ -45,7 +45,7 @@ try:
     if args.plugin:
         extraNodeosArgs = ''.join([i+j for i,j in zip([' --plugin '] * len(args.plugin), args.plugin)])
     else:
-        extraNodeosArgs = None
+        extraNodeosArgs = []
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, 
                       extraNodeosArgs=extraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
