@@ -321,8 +321,8 @@ namespace eosio { namespace chain {
 
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
          vm::wasm_allocator&  get_wasm_allocator();
-         bool is_eos_vm_oc_enabled() const;
 #endif
+         bool is_eos_vm_oc_enabled() const;
 
          static std::optional<uint64_t> convert_exception_to_error_code( const fc::exception& e );
 
