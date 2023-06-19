@@ -51,6 +51,9 @@ namespace eosio {
    using connection_ptr = std::shared_ptr<connection>;
    using connection_wptr = std::weak_ptr<connection>;
 
+   static constexpr int64_t block_interval_ns =
+       std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(config::block_interval_ms)).count();
+
    const fc::string logger_name("net_plugin_impl");
    fc::logger logger;
    std::string peer_log_format;
@@ -120,9 +123,6 @@ namespace eosio {
          head_catchup,
          in_sync
       };
-
-      static constexpr int64_t block_interval_ns =
-            std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(config::block_interval_ms)).count();
 
       mutable std::mutex sync_mtx;
       uint32_t       sync_known_lib_num{0};
@@ -681,10 +681,10 @@ namespace eosio {
        *  @{
        */
       // Members set from network data
-      tstamp                         org{0};          //!< originate timestamp
-      tstamp                         rec{0};          //!< receive timestamp
-      tstamp                         dst{0};          //!< destination timestamp
-      tstamp                         xmt{0};          //!< transmit timestamp
+      std::chrono::nanoseconds               org{0}; //!< origin timestamp. Time at the client when the request departed for the server.
+      // std::chrono::nanoseconds (not used) rec{0}; //!< receive timestamp. Time at the server when the request arrived from the client.
+      std::chrono::nanoseconds               xmt{0}; //!< transmit timestamp, Time at the server when the response left for the client.
+      // std::chrono::nanoseconds (not used) dst{0}; //!< destination timestamp, Time at the client when the reply arrived from the server.
       /** @} */
       // timestamp for the lastest message
       std::chrono::system_clock::time_point       latest_msg_time{std::chrono::system_clock::time_point::min()};
@@ -1192,20 +1192,27 @@ namespace eosio {
 
    // called from connection strand
    void connection::send_time() {
-      time_message xpkt;
-      xpkt.org = rec;
-      xpkt.rec = dst;
-      xpkt.xmt = get_time().count();
-      org = xpkt.xmt;
-      enqueue(xpkt);
+      if (org == std::chrono::nanoseconds{0}) { // do not send if there is already a time loop in progress
+         org = get_time();
+         // xpkt.org == 0 means we are initiating a ping. Actual origin time is in xpkt.xmt.
+         time_message xpkt{
+             .org = 0,
+             .rec = 0,
+             .xmt = org.count(),
+             .dst = 0 };
+         peer_dlog(this, "send init time_message: ${t}", ("t", xpkt));
+         enqueue(xpkt);
+      }
    }
 
    // called from connection strand
    void connection::send_time(const time_message& msg) {
-      time_message xpkt;
-      xpkt.org = msg.xmt;
-      xpkt.rec = msg.dst;
-      xpkt.xmt = get_time().count();
+      time_message xpkt{
+          .org = msg.xmt,
+          .rec = msg.dst,
+          .xmt = get_time().count(),
+          .dst = 0 };
+      peer_dlog( this, "send time_message: ${t}, org: ${o}", ("t", xpkt)("o", org.count()) );
       enqueue(xpkt);
    }
 
@@ -3005,38 +3012,53 @@ namespace eosio {
       close( retry ); // reconnect if wrong_version
    }
 
-   void connection::handle_message( const time_message& msg ) {
-      peer_ilog( this, "received time_message" );
+   // some clients before leap 5.0 provided microsecond epoch instead of nanosecond epoch
+   std::chrono::nanoseconds normalize_epoch_to_ns(int64_t x) {
+      //        1686211688888 milliseconds - 2023-06-08T08:08:08.888, 5yrs from EOS genesis 2018-06-08T08:08:08.888
+      //     1686211688888000 microseconds
+      //  1686211688888000000 nanoseconds
+      if (x >= 1686211688888000000) // nanoseconds
+         return std::chrono::nanoseconds{x};
+      if (x >= 1686211688888000) // microseconds
+         return std::chrono::nanoseconds{x*1000};
+      if (x >= 1686211688888) // milliseconds
+         return std::chrono::nanoseconds{x*1000*1000};
+      if (x >= 1686211688) // seconds
+         return std::chrono::nanoseconds{x*1000*1000*1000};
+      return std::chrono::nanoseconds{0}; // unknown or is zero
+   }
 
-      /* We've already lost however many microseconds it took to dispatch
-       * the message, but it can't be helped.
-       */
+   void connection::handle_message( const time_message& msg ) {
+      peer_dlog( this, "received time_message: ${t}, org: ${o}", ("t", msg)("o", org.count()) );
+
+      // We've already lost however many microseconds it took to dispatch the message, but it can't be helped.
       msg.dst = get_time().count();
 
       // If the transmit timestamp is zero, the peer is horribly broken.
       if(msg.xmt == 0)
          return;                 /* invalid timestamp */
 
-      if(msg.xmt == xmt)
+      auto msg_xmt = normalize_epoch_to_ns(msg.xmt);
+      if(msg_xmt == xmt)
          return;                 /* duplicate packet */
 
-      xmt = msg.xmt;
-      rec = msg.rec;
-      dst = msg.dst;
+      xmt = msg_xmt;
 
       if( msg.org == 0 ) {
          send_time( msg );
          return;  // We don't have enough data to perform the calculation yet.
       }
 
-      double offset = (double(rec - org) + double(msg.xmt - dst)) / 2;
-      double NsecPerUsec{1000};
+      if (org != std::chrono::nanoseconds{0}) {
+         auto rec = normalize_epoch_to_ns(msg.rec);
+         int64_t offset = (double((rec - org).count()) + double(msg_xmt.count() - msg.dst)) / 2.0;
 
-      if( logger.is_enabled( fc::log_level::all ) )
-         logger.log( FC_LOG_MESSAGE( all, "Clock offset is ${o}ns (${us}us)",
-                                     ("o", offset)( "us", offset / NsecPerUsec ) ) );
-      org = 0;
-      rec = 0;
+         if (std::abs(offset) > block_interval_ns) {
+            peer_wlog(this, "Clock offset is ${of}us, calculation: (rec ${r} - org ${o} + xmt ${x} - dst ${d})/2",
+                      ("of", offset / 1000)("r", rec.count())("o", org.count())("x", msg_xmt.count())("d", msg.dst));
+         }
+      }
+      org = std::chrono::nanoseconds{0};
 
       std::unique_lock<std::mutex> g_conn( conn_mtx );
       if( last_handshake_recv.generation == 0 ) {
