@@ -187,10 +187,22 @@ BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
    test_trxs_common(specific_args);
 }
 
+// test read-only trxs on 3 threads (with --read-only-threads)
+BOOST_AUTO_TEST_CASE(with_3_read_only_threads) {
+   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
+                                             "--read-only-threads=3",
+                                             "--max-transaction-time=10",
+                                             "--abi-serializer-max-time-ms=999",
+                                             "--read-only-write-window-time-us=100000",
+                                             "--read-only-read-window-time-us=40000" };
+   test_trxs_common(specific_args);
+}
+
 // test read-only trxs on 8 separate threads (with --read-only-threads)
 BOOST_AUTO_TEST_CASE(with_8_read_only_threads) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
                                               "--read-only-threads=8",
+                                              "--eos-vm-oc-enable=none",
                                               "--max-transaction-time=10",
                                               "--abi-serializer-max-time-ms=999",
                                               "--read-only-write-window-time-us=100000",
