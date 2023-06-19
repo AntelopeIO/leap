@@ -75,6 +75,41 @@ namespace eosio::chain {
       friend constexpr bool operator != ( const name& a, uint64_t b ) { return a.value != b; }
 
       constexpr explicit operator bool()const { return value != 0; }
+
+      /**
+       *  Returns the prefix.
+       *  for exmaple:
+       *    "eosio.any" -> "eosio"
+       *    "eosio" -> "eosio"
+       */
+      constexpr name prefix() const {
+         uint64_t result                 = value;
+         bool     not_dot_character_seen = false;
+         uint64_t mask                   = 0xFull;
+
+         // Get characters one-by-one in name in order from right to left
+         for (int32_t offset = 0; offset <= 59;) {
+            auto c = (value >> offset) & mask;
+
+            if (!c) {                        // if this character is a dot
+               if (not_dot_character_seen) { // we found the rightmost dot character
+                  result = (value >> offset) << offset;
+                  break;
+               }
+            } else {
+               not_dot_character_seen = true;
+            }
+
+            if (offset == 0) {
+               offset += 4;
+               mask = 0x1Full;
+            } else {
+               offset += 5;
+            }
+         }
+
+         return name{ result };
+      }
    };
 
    // Each char of the string is encoded into 5-bit chunk and left-shifted

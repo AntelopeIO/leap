@@ -139,6 +139,25 @@ BOOST_AUTO_TEST_CASE(name_suffix_tests)
    BOOST_CHECK_EQUAL( name{name_suffix("abcdefhij.123"_n)}, name{"123"_n} );
 }
 
+BOOST_AUTO_TEST_CASE(name_prefix_tests)
+{
+   BOOST_CHECK_EQUAL("e"_n.prefix(), "e"_n);
+   BOOST_CHECK_EQUAL(""_n.prefix(), ""_n);
+   BOOST_CHECK_EQUAL("abcdefghijklm"_n.prefix(), "abcdefghijklm"_n);
+   BOOST_CHECK_EQUAL("abcdefghijkl"_n.prefix(), "abcdefghijkl"_n);
+   BOOST_CHECK_EQUAL("abc.xyz"_n.prefix(), "abc"_n);
+   BOOST_CHECK_EQUAL("abc.xyz.qrt"_n.prefix(), "abc.xyz"_n);
+
+   BOOST_CHECK_EQUAL("eosio.any"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL("eosio"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL("eosio"_n.prefix(), config::system_account_name);
+   BOOST_CHECK_EQUAL("eosio."_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL("eosio.evm"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_NE("eosi"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_NE("eosioeosio"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_NE("eosioe"_n.prefix(), "eosio"_n);
+}
+
 /// Test processing of unbalanced strings
 BOOST_AUTO_TEST_CASE(json_from_string_test)
 {
