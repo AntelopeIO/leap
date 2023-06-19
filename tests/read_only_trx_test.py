@@ -91,7 +91,7 @@ def startCluster():
     specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
     specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
     if args.eos_vm_oc_enable:
-        specificExtraNodeosArgs[pnodes]+=" --eos-vm-oc-enable"
+        specificExtraNodeosArgs[pnodes]+=" --eos-vm-oc-enable all"
     if args.wasm_runtime:
         specificExtraNodeosArgs[pnodes]+=" --wasm-runtime "
         specificExtraNodeosArgs[pnodes]+=args.wasm_runtime
