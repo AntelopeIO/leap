@@ -1050,6 +1050,8 @@ namespace eosio {
       if( !shutdown) my_impl->sync_master->sync_reset_lib_num( self->shared_from_this(), true );
       peer_ilog( self, "closing" );
       self->cancel_wait();
+      self->latest_msg_time = std::chrono::system_clock::time_point::min();
+      self->latest_blk_time = std::chrono::system_clock::time_point::min();
 
       if( reconnect && !shutdown ) {
          my_impl->start_conn_timer( std::chrono::milliseconds( 100 ), connection_wptr() );
