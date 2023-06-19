@@ -179,7 +179,16 @@ Config Options for eosio::chain_plugin:
                                         code cache
   --eos-vm-oc-compile-threads arg (=1)  Number of threads to use for EOS VM OC
                                         tier-up
-  --eos-vm-oc-enable                    Enable EOS VM OC tier-up runtime
+  --eos-vm-oc-enable arg (=auto)        Enable EOS VM OC tier-up runtime
+                                        ('auto', 'all', 'none').
+                                        'auto' - EOS VM OC tier-up is enabled
+                                        for eosio.* accounts and read-only
+                                        trxs.
+                                        'all'  - EOS VM OC tier-up is enabled
+                                        for all contract execution.
+                                        'none' - EOS VM OC tier-up is
+                                        completely disabled.
+
   --enable-account-queries arg (=0)     enable queries to find accounts by
                                         various metadata.
   --max-nonprivileged-inline-action-size arg (=4096)
