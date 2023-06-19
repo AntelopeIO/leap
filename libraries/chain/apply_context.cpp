@@ -1094,4 +1094,13 @@ action_name apply_context::get_sender() const {
    return action_name();
 }
 
+
+bool apply_context::should_use_eos_vm_oc()const {
+   return trx_context.is_read_only()
+          || receiver.prefix() == config::system_account_name // "eosio"_n
+          || trx_context.explicit_billed_cpu_time // validating block, todo: disable if producer
+          || false; // todo: could enable for p2p but may cause spam on producer
+}
+
+
 } } /// eosio::chain

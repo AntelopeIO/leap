@@ -598,6 +598,8 @@ class apply_context {
 
       action_name get_sender() const;
 
+      bool should_use_eos_vm_oc()const;
+
    /// Fields:
    public:
 

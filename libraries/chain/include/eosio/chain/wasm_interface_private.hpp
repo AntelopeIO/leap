@@ -64,7 +64,12 @@ namespace eosio { namespace chain {
       };
 #endif
 
-      wasm_interface_impl(wasm_interface::vm_type vm, wasm_interface::vm_oc_enable eosvmoc_tierup, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile) : db(d), wasm_runtime_time(vm) {
+      wasm_interface_impl(wasm_interface::vm_type vm, wasm_interface::vm_oc_enable eosvmoc_tierup, const chainbase::database& d,
+                          const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
+         : db(d)
+         , wasm_runtime_time(vm)
+         , eosvmoc_tierup(eosvmoc_tierup)
+      {
 #ifdef EOSIO_EOS_VM_RUNTIME_ENABLED
          if(vm == wasm_interface::vm_type::eos_vm)
             runtime_interface = std::make_unique<webassembly::eos_vm_runtime::eos_vm_runtime<eosio::vm::interpreter>>();
@@ -157,6 +162,10 @@ namespace eosio { namespace chain {
          return it->module;
       }
 
+      bool should_always_oc_tierup()const {
+         return wasm_runtime_time == wasm_interface::vm_type::eos_vm_oc || eosvmoc_tierup == wasm_interface::vm_oc_enable::oc_all;
+      }
+
       bool is_shutting_down = false;
       std::unique_ptr<wasm_runtime_interface> runtime_interface;
 
@@ -177,6 +186,7 @@ namespace eosio { namespace chain {
 
       const chainbase::database& db;
       const wasm_interface::vm_type wasm_runtime_time;
+      const wasm_interface::vm_oc_enable eosvmoc_tierup;
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       std::optional<eosvmoc_tier> eosvmoc;
