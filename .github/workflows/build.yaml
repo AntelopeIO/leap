@@ -61,7 +61,7 @@ jobs:
           DEFAULTS_JSON=$(curl -sSfL $(gh api https://api.github.com/repos/${{github.repository}}/contents/.cicd/defaults.json?ref=${{github.sha}} --jq .download_url))
           echo cdt-target=$(echo "$DEFAULTS_JSON" | jq -r '.cdt.target') >> $GITHUB_OUTPUT
           echo cdt-prerelease=$(echo "$DEFAULTS_JSON" | jq -r '.cdt.prerelease') >> $GITHUB_OUTPUT
-          echo eos-system-contracts-ref=$(echo "$DEFAULTS_JSON" | jq -r '.eos-system-contracts.ref') >> $GITHUB_OUTPUT
+          echo eos-system-contracts-ref=$(echo "$DEFAULTS_JSON" | jq -r '.eossystemcontracts.ref') >> $GITHUB_OUTPUT
 
           if [[ "${{inputs.override-cdt}}" != "" ]]; then
             echo cdt-target=${{inputs.override-cdt}} >> $GITHUB_OUTPUT
