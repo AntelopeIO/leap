@@ -18,6 +18,9 @@ on:
         - default
         - true
         - false
+      override-eos-system-contracts:
+        description: 'Override eos-system-contracts ref'
+        type: string
 
 permissions:
   packages: read
