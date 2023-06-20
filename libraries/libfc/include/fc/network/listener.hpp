@@ -147,6 +147,10 @@ struct listener : std::enable_shared_from_this<T> {
 #ifdef ENONET
                                         || code == ENONET
 #endif
+#ifdef __APPLE__
+                                        //guard against failure of asio's internal SO_NOSIGPIPE call after accept()
+                                        || code == EINVAL
+#endif
       ) {
          // according to https://man7.org/linux/man-pages/man2/accept.2.html, reliable application should
          // retry when these error codes are returned
