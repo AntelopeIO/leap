@@ -1460,7 +1460,7 @@ namespace eosio {
 
       }
 
-      org = 0;
+      org = std::chrono::nanoseconds{0};
       send_time();
    }
 
@@ -2263,7 +2263,7 @@ namespace eosio {
          c->close( false, true );
          return;
       }
-      c->latest_blk_time = c->get_time();
+      c->latest_blk_time = std::chrono::system_clock::now();
       c->block_status_monitor_.accepted();
       stages state = sync_state;
       peer_dlog( c, "state ${s}", ("s", stage_str( state )) );
@@ -3307,7 +3307,7 @@ namespace eosio {
       msg.dst = get_time().count();
 
       if (msg.org != 0) {
-         if (msg.org == org) {
+         if (msg.org == org.count()) {
             auto ping = msg.dst - msg.org;
             peer_dlog(this, "send_time ping ${p}us", ("p", ping / 1000));
             peer_ping_time_ns = ping;
