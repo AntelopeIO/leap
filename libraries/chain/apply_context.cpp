@@ -1098,7 +1098,7 @@ action_name apply_context::get_sender() const {
 bool apply_context::should_use_eos_vm_oc()const {
    return trx_context.is_read_only()
           || receiver.prefix() == config::system_account_name // "eosio"_n
-          || trx_context.explicit_billed_cpu_time // validating block, todo: disable if producer
+          || (trx_context.explicit_billed_cpu_time && !control.is_producer_node()) // validating/applying block
           || false; // todo: could enable for p2p but may cause spam on producer
 }
 

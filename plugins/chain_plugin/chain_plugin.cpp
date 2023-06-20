@@ -114,18 +114,6 @@ void validate(boost::any& v,
   }
 }
 
-std::ostream& operator<<(std::ostream& os, wasm_interface::vm_oc_enable t) {
-  if (t == wasm_interface::vm_oc_enable::oc_auto) {
-     os << "auto";
-  } else if (t == wasm_interface::vm_oc_enable::oc_all) {
-     os << "all";
-  } else if (t == wasm_interface::vm_oc_enable::oc_none) {
-     os << "none";
-  }
-
-  return os;
-}
-
 void validate(boost::any& v,
               const std::vector<std::string>& values,
               wasm_interface::vm_oc_enable* /* target_type */,

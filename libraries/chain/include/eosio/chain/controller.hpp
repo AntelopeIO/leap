@@ -355,6 +355,9 @@ namespace eosio { namespace chain {
       void replace_producer_keys( const public_key_type& key );
       void replace_account_keys( name account, name permission, const public_key_type& key );
 
+      void set_producer_node(bool is_producer_node);
+      bool is_producer_node()const;
+
       void set_db_read_only_mode();
       void unset_db_read_only_mode();
       void init_thread_local_data();

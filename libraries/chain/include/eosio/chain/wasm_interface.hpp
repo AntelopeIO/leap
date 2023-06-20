@@ -82,6 +82,16 @@ namespace eosio { namespace chain {
 
 namespace eosio{ namespace chain {
    std::istream& operator>>(std::istream& in, wasm_interface::vm_type& runtime);
+   inline std::ostream& operator<<(std::ostream& os, wasm_interface::vm_oc_enable t) {
+      if (t == wasm_interface::vm_oc_enable::oc_auto) {
+         os << "auto";
+      } else if (t == wasm_interface::vm_oc_enable::oc_all) {
+         os << "all";
+      } else if (t == wasm_interface::vm_oc_enable::oc_none) {
+         os << "none";
+      }
+      return os;
+   }
 }}
 
 FC_REFLECT_ENUM( eosio::chain::wasm_interface::vm_type, (eos_vm)(eos_vm_jit)(eos_vm_oc) )
