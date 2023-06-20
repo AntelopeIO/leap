@@ -48,7 +48,7 @@ code_cache_async::code_cache_async(const std::filesystem::path data_dir, const e
    wait_on_compile_monitor_message();
 
    _monitor_reply_thread = std::thread([this]() {
-      fc::set_os_thread_name("oc-monitor");
+      fc::set_thread_name("oc-monitor");
       _ctx.run();
    });
 }

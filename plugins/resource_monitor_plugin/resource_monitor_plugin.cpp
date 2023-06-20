@@ -128,7 +128,7 @@ public:
       }
 
       monitor_thread = std::thread( [this] {
-         fc::set_os_thread_name( "resmon" ); // console_appender uses 9 chars for thread name reporting.
+         fc::set_thread_name( "resmon" ); // console_appender uses 9 chars for thread name reporting.
          space_handler.space_monitor_loop();
 
          ctx.run();
