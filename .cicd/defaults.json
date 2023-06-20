@@ -2,5 +2,8 @@
     "cdt":{
        "target":"4",
        "prerelease":false
+    },
+    "eos-system-contracts":{
+       "ref":"release/3.1"
     }
  }
