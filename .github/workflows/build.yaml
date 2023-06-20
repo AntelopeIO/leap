@@ -310,20 +310,20 @@ jobs:
           rm ./*.deb
 
       # Reference Contracts
-      - name: checkout reference-contracts
+      - name: checkout eos-system-contracts
         uses: actions/checkout@v3
         with:
-          repository: AntelopeIO/reference-contracts
-          path: reference-contracts
+          repository: eosnetworkfoundation/eos-system-contracts
+          path: eos-system-contracts
       - if: ${{ matrix.test == 'deb-install' }}
-        name: Install reference-contracts deps
+        name: Install eos-system-contracts deps
         run: |
           apt-get -y install cmake build-essential
-      - name: Build & Test reference-contracts
+      - name: Build & Test eos-system-contracts
         run: |
-          cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
-          cmake --build reference-contracts/build -- -j $(nproc)
-          cd reference-contracts/build/tests
+          cmake -S eos-system-contracts -B eos-system-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
+          cmake --build eos-system-contracts/build -- -j $(nproc)
+          cd eos-system-contracts/build/tests
           ctest --output-on-failure -j $(nproc)
 
   all-passing:
