@@ -616,7 +616,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                                               bool persist_until_expired,
                                               bool return_failure_trace,
                                               next_function<transaction_trace_ptr> next) {
-         bool success = false;
+         bool exhausted = false;
          chain::controller& chain = chain_plug->chain();
          try {
             const auto& id = trx->id();
@@ -648,18 +648,17 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
             push_result pr = push_transaction( block_deadline, trx, persist_until_expired, return_failure_trace, next );
 
-            bool exhausted = pr.block_exhausted;
             if( pr.trx_exhausted ) {
                _unapplied_transactions.add_incoming( trx, persist_until_expired, return_failure_trace, next );
             } else if( pr.persist ) {
                _unapplied_transactions.add_persisted( trx );
             }
 
-            success = !exhausted; // transaction failed if block was exhausted
+            exhausted = pr.block_exhausted; // transaction exhausted if block was exhausted
 
             if (!(_pending_block_mode == pending_block_mode::producing) && pr.trx_exhausted)
-               success = false;  // report transaction failed if trx was exhausted in non-producing mode (so we restart
-                                 // a speculative block to retry it immediately, instead of waiting to receive a new block)
+               exhausted = true;  // report transaction exhausted if trx was exhausted in non-producing mode (so we will restart
+                                  // a speculative block to retry it immediately, instead of waiting to receive a new block)
 
          } catch ( const guard_exception& e ) {
             chain_plugin::handle_guard_exception(e);
@@ -669,7 +668,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             chain_plugin::handle_bad_alloc();
          } CATCH_AND_CALL(next);
 
-         return success;
+         return !exhausted;
       }
 
 
