@@ -907,7 +907,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          chain_config->eosvmoc_config.cache_size = options.at( "eos-vm-oc-cache-size-mb" ).as<uint64_t>() * 1024u * 1024u;
       if( options.count("eos-vm-oc-compile-threads") )
          chain_config->eosvmoc_config.threads = options.at("eos-vm-oc-compile-threads").as<uint64_t>();
-      if( options["eos-vm-oc-enable"].as<bool>() )
+      //if( options["eos-vm-oc-enable"].as<bool>() )
          chain_config->eosvmoc_tierup = true;
 #endif
 
