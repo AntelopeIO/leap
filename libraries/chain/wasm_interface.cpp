@@ -94,7 +94,9 @@ namespace eosio { namespace chain {
          const chain::eosvmoc::code_descriptor* cd = nullptr;
          chain::eosvmoc::code_cache_base::get_cd_failure failure = chain::eosvmoc::code_cache_base::get_cd_failure::temporary;
          try {
+            elog("get_descriptor_for_code");
             cd = my->eosvmoc->cc.get_descriptor_for_code(code_hash, vm_version, context.control.is_write_window(), failure);
+            elog("after get_descriptor_for_code");
          }
          catch(...) {
             //swallow errors here, if EOS VM OC has gone in to the weeds we shouldn't bail: continue to try and run baseline
@@ -105,7 +107,9 @@ namespace eosio { namespace chain {
             once_is_enough = true;
          }
          if(cd) {
+            elog("eosvmoc->exec->execute");
             my->eosvmoc->exec->execute(*cd, my->eosvmoc->mem, context);
+            elog("after eosvmoc->exec->execute");
             return;
          }
          else if (context.trx_context.is_read_only()) {
@@ -117,7 +121,9 @@ namespace eosio { namespace chain {
          }
       }
 #endif
+      elog("get_instantiated_module");
       my->get_instantiated_module(code_hash, vm_type, vm_version, context.trx_context)->apply(context);
+      elog("after get_instantiated_module");
    }
 
    bool wasm_interface::is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {

@@ -105,6 +105,7 @@ void apply_context::exec_one()
                   control.check_action_list( act->account, act->name );
                }
                try {
+                  elog("calling apply");
                   control.get_wasm_interface().apply( receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version, *this );
                } catch( const wasm_exit& ) {}
             }
