@@ -51,13 +51,17 @@ namespace eosio { namespace chain {
 
       if (control.is_builtin_activated(builtin_protocol_feature_t::configurable_wasm_limits)) {
          const auto& gpo = control.get_global_properties();
+         elog("validate ${t}", ("t", fc::time_point::now().time_since_epoch()));
          webassembly::eos_vm_runtime::validate( code, gpo.wasm_configuration, pso.whitelisted_intrinsics );
+         elog("after validate ${t}", ("t", fc::time_point::now().time_since_epoch()));
          return;
       }
       Module module;
       try {
+         elog("stream ${t}", ("t", fc::time_point::now().time_since_epoch()));
          Serialization::MemoryInputStream stream((U8*)code.data(), code.size());
          WASM::serialize(stream, module);
+         elog("after serialize ${t}", ("t", fc::time_point::now().time_since_epoch()));
       } catch(const Serialization::FatalSerializationException& e) {
          EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
       } catch(const IR::ValidationException& e) {
@@ -65,8 +69,10 @@ namespace eosio { namespace chain {
       }
 
       wasm_validations::wasm_binary_validation validator(control, module);
+      elog("binary validation ${t}", ("t", fc::time_point::now().time_since_epoch()));
       validator.validate();
 
+      elog("runtime validate ${t}", ("t", fc::time_point::now().time_since_epoch()));
       webassembly::eos_vm_runtime::validate( code, pso.whitelisted_intrinsics );
 
       //there are a couple opportunties for improvement here--

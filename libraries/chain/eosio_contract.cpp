@@ -128,6 +128,8 @@ void apply_eosio_newaccount(apply_context& context) {
 } FC_CAPTURE_AND_RETHROW( (create) ) }
 
 void apply_eosio_setcode(apply_context& context) {
+   elog("eosio_setcode ${t}", ("t", fc::time_point::now().time_since_epoch()));
+
    EOS_ASSERT( !context.trx_context.is_read_only(), action_validate_exception, "setcode not allowed in read-only transaction" );
    auto& db = context.db;
    auto  act = context.get_action().data_as<setcode>();
@@ -141,8 +143,11 @@ void apply_eosio_setcode(apply_context& context) {
    int64_t code_size = (int64_t)act.code.size();
 
    if( code_size > 0 ) {
+      elog("hash ${t}", ("t", fc::time_point::now().time_since_epoch()));
      code_hash = fc::sha256::hash( act.code.data(), (uint32_t)act.code.size() );
+      elog("validate ${t}", ("t", fc::time_point::now().time_since_epoch()));
      wasm_interface::validate(context.control, act.code);
+      elog("after validate ${t}", ("t", fc::time_point::now().time_since_epoch()));
    }
 
    const auto& account = db.get<account_metadata_object,by_name>(act.account);
@@ -166,6 +171,7 @@ void apply_eosio_setcode(apply_context& context) {
             --o.code_ref_count;
          });
       }
+      elog("after rm ${t}", ("t", fc::time_point::now().time_since_epoch()));
    }
 
    if( code_size > 0 ) {
@@ -185,6 +191,7 @@ void apply_eosio_setcode(apply_context& context) {
             o.vm_version = act.vmversion;
          });
       }
+      elog("after create ${t}", ("t", fc::time_point::now().time_since_epoch()));
    }
 
    db.modify( account, [&]( auto& a ) {
@@ -194,6 +201,7 @@ void apply_eosio_setcode(apply_context& context) {
       a.vm_version = act.vmversion;
       a.last_code_update = context.control.pending_block_time();
    });
+   elog("after modify ${t}", ("t", fc::time_point::now().time_since_epoch()));
 
    if (new_size != old_size) {
       if (auto dm_logger = context.control.get_deep_mind_logger(context.trx_context.is_transient())) {

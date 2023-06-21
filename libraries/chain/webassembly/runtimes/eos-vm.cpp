@@ -87,8 +87,10 @@ void validate( const bytes& code, const wasm_config& cfg, const whitelisted_intr
    try {
       eos_vm_null_backend_t<wasm_config> bkend(code_ptr, code.size(), nullptr, cfg);
       // check import signatures
+      elog("check import ${t}", ("t", fc::time_point::now().time_since_epoch()));
       eos_vm_host_functions_t::resolve(bkend.get_module());
       // check that the imports are all currently enabled
+      elog("check imports enabled ${t}", ("t", fc::time_point::now().time_since_epoch()));
       const auto& imports = bkend.get_module().imports;
       for(std::uint32_t i = 0; i < imports.size(); ++i) {
          EOS_ASSERT(std::string_view((char*)imports[i].module_str.raw(), imports[i].module_str.size()) == "env" &&
@@ -98,6 +100,7 @@ void validate( const bytes& code, const wasm_config& cfg, const whitelisted_intr
                     ("fn", std::string((char*)imports[i].field_str.raw(), imports[i].field_str.size())));
       }
       // check apply
+      elog("check apply ${t}", ("t", fc::time_point::now().time_since_epoch()));
       uint32_t apply_idx = bkend.get_module().get_exported_function("apply");
       EOS_ASSERT(apply_idx < std::numeric_limits<uint32_t>::max(), wasm_serialization_error, "apply not exported");
       const vm::func_type& apply_type = bkend.get_module().get_function_type(apply_idx);
