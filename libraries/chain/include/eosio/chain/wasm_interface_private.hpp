@@ -154,10 +154,12 @@ namespace eosio { namespace chain {
             auto timer_pause = fc::make_scoped_exit([&](){
                trx_context.resume_billing_timer();
             });
+            elog("pausing timer ${t}", ("t", fc::time_point::now().time_since_epoch()));
             trx_context.pause_billing_timer();
             wasm_instantiation_cache.modify(it, [&](auto& c) {
                c.module = runtime_interface->instantiate_module(codeobject->code.data(), codeobject->code.size(), code_hash, vm_type, vm_version);
             });
+            elog("un pausing timer ${t}", ("t", fc::time_point::now().time_since_epoch()));
          }
          return it->module;
       }

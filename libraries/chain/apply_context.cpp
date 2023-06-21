@@ -105,8 +105,9 @@ void apply_context::exec_one()
                   control.check_action_list( act->account, act->name );
                }
                try {
-                  elog("calling apply");
+                  elog("calling apply ${t}", ("t", fc::time_point::now().time_since_epoch()));
                   control.get_wasm_interface().apply( receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version, *this );
+                  elog("after calling apply ${t}", ("t", fc::time_point::now().time_since_epoch()));
                } catch( const wasm_exit& ) {}
             }
 
