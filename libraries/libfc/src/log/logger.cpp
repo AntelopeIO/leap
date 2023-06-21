@@ -90,6 +90,7 @@ namespace fc {
 
     void logger::update( const std::string& name, logger& log ) {
        log_config::update_logger( name, log );
+       log.set_log_level(fc::log_level::debug); // turn on all debug logging
     }
 
     logger  logger::get_parent()const { return my->_parent; }
