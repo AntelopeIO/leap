@@ -168,7 +168,7 @@ void run_compile_trampoline(int fd) {
          struct rlimit cpu_limits = {20u, 20u};
          setrlimit(RLIMIT_CPU, &cpu_limits);
 
-         struct rlimit vm_limits = {512u*1024u*1024u, 512u*1024u*1024u};
+         struct rlimit vm_limits = {1u, 1u};//{512u*1024u*1024u, 512u*1024u*1024u};
          setrlimit(RLIMIT_AS, &vm_limits);
 
          struct rlimit core_limits = {0u, 0u};
