@@ -63,6 +63,8 @@ apply_context::apply_context(controller& con, transaction_context& trx_ctx, uint
 
 void apply_context::exec_one()
 {
+   elog("exec_one ${t}", ("t", fc::time_point::now().time_since_epoch()));
+
    auto start = fc::time_point::now();
 
    digest_type act_digest;
@@ -90,7 +92,9 @@ void apply_context::exec_one()
                   control.check_contract_list( receiver );
                   control.check_action_list( act->account, act->name );
                }
+               elog("native exec ${t}", ("t", fc::time_point::now().time_since_epoch()));
                (*native)( *this );
+               elog("after native exec ${t}", ("t", fc::time_point::now().time_since_epoch()));
             }
 
             if( ( receiver_account->code_hash != digest_type() ) &&
@@ -105,7 +109,7 @@ void apply_context::exec_one()
                   control.check_action_list( act->account, act->name );
                }
                try {
-                  elog("calling apply ${t}", ("t", fc::time_point::now().time_since_epoch()));
+                  elog("calling apply ${a} ${t}", ("a", receiver)("t", fc::time_point::now().time_since_epoch()));
                   control.get_wasm_interface().apply( receiver_account->code_hash, receiver_account->vm_type, receiver_account->vm_version, *this );
                   elog("after calling apply ${t}", ("t", fc::time_point::now().time_since_epoch()));
                } catch( const wasm_exit& ) {}

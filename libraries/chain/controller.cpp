@@ -1584,6 +1584,7 @@ struct controller_impl {
             trx_context.delay = fc::seconds(trn.delay_sec);
 
             if( check_auth ) {
+               elog("check auth ${t}", ("t", fc::time_point::now().time_since_epoch()));
                authorization.check_authorization(
                        trn.actions,
                        trx->recovered_keys(),
@@ -1593,6 +1594,7 @@ struct controller_impl {
                        false,
                        trx->is_dry_run()
                );
+               elog("after check auth ${t}", ("t", fc::time_point::now().time_since_epoch()));
             }
             trx_context.exec();
             trx_context.finalize(); // Automatically rounds up network and CPU usage in trace and bills payers if successful
