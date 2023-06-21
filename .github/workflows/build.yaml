@@ -330,7 +330,7 @@ jobs:
           apt-get -y install cmake build-essential
       - name: Build & Test eos-system-contracts
         run: |
-          cmake -S eos-system-contracts -B eos-system-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -DSYSTEM_ENABLE_LEAP_VERSION_CHECK=Off
+          cmake -S eos-system-contracts -B eos-system-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On -DSYSTEM_ENABLE_LEAP_VERSION_CHECK=Off -DSYSTEM_ENABLE_CDT_VERSION_CHECK=Off
           cmake --build eos-system-contracts/build -- -j $(nproc)
           cd eos-system-contracts/build/tests
           ctest --output-on-failure -j $(nproc)
