@@ -116,6 +116,7 @@ namespace eosio { namespace chain {
          billing_timer_exception_code = tx_cpu_usage_exceeded::code_value;
          tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::on_chain_consensus_max_transaction_cpu_usage;
          _deadline = start + objective_duration_limit;
+         elog("on_chain max trx cpu usage ${d} = ${s} + ${o}", ("d", _deadline)("s", start)("o", objective_duration_limit));
       }
 
       const transaction& trx = packed_trx.get_transaction();

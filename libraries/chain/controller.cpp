@@ -1542,6 +1542,7 @@ struct controller_impl {
          if( !explicit_billed_cpu_time ) {
             fc::microseconds already_consumed_time( EOS_PERCENT(sig_cpu_usage.count(), conf.sig_cpu_bill_pct) );
 
+            elog("already_consumed_time ${t}", ("t", already_consumed_time));
             if( start.time_since_epoch() <  already_consumed_time ) {
                start = fc::time_point();
             } else {
@@ -1558,6 +1559,7 @@ struct controller_impl {
          trx_context.block_deadline = block_deadline;
          trx_context.max_transaction_time_subjective = max_transaction_time;
          trx_context.explicit_billed_cpu_time = explicit_billed_cpu_time;
+         elog("billed_cpu_time_us ${b}", ("b", billed_cpu_time_us));
          trx_context.billed_cpu_time_us = billed_cpu_time_us;
          trx_context.subjective_cpu_bill_us = subjective_cpu_bill_us;
          trace = trx_context.trace;
