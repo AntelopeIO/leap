@@ -654,7 +654,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
                _unapplied_transactions.add_persisted( trx );
             }
 
-            exhausted = pr.block_exhausted; // transaction exhausted if block was exhausted
+            exhausted = pr.block_exhausted;
 
             if ( !in_producing_mode() && pr.trx_exhausted )
                exhausted = true;  // report transaction exhausted if trx was exhausted in non-producing mode (so we will restart
