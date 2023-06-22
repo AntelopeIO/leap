@@ -130,9 +130,9 @@ void validate(boost::any& v,
 
   if (s == "auto") {
      v = boost::any(wasm_interface::vm_oc_enable::oc_auto);
-  } else if (s == "all" || s == "true" || s == "on") {
+  } else if (s == "all" || s == "true" || s == "on" || s == "yes" || s == "1") {
      v = boost::any(wasm_interface::vm_oc_enable::oc_all);
-  } else if (s == "none" || s == "false" || s == "off") {
+  } else if (s == "none" || s == "false" || s == "off" || s == "no" || s == "0") {
      v = boost::any(wasm_interface::vm_oc_enable::oc_none);
   } else {
      throw validation_error(validation_error::invalid_option_value);
