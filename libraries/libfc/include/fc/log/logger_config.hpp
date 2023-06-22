@@ -73,7 +73,6 @@ namespace fc {
    void configure_logging( const std::filesystem::path& log_config );
    bool configure_logging( const logging_config& l );
 
-   void set_os_thread_name( const std::string& name );
    void set_thread_name( const std::string& name );
    const std::string& get_thread_name();
 }
