@@ -43,6 +43,8 @@ jobs:
           chown -R $(id -u):$(id -g) $PWD
           ./scripts/install_deps.sh
       - name: Build Pinned Build
+        env:
+          LEAP_PINNED_INSTALL_PREFIX: /usr
         run: |
           ./scripts/pinned_build.sh deps build "$(nproc)"
       - name: Upload package
