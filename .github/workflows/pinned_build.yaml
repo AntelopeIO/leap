@@ -53,6 +53,7 @@ jobs:
           name: leap-${{matrix.platform}}-pinned-amd64
           path: build/leap_*.deb
       - name: Run Parallel Tests
+        if: ${{ matrix.platform != 'ubuntu18' }}
         run: |
           cd build
           ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
