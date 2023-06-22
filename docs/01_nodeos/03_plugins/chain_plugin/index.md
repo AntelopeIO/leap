@@ -182,8 +182,8 @@ Config Options for eosio::chain_plugin:
   --eos-vm-oc-enable arg (=auto)        Enable EOS VM OC tier-up runtime
                                         ('auto', 'all', 'none').
                                         'auto' - EOS VM OC tier-up is enabled
-                                        for eosio.* accounts and read-only
-                                        trxs.
+                                        for eosio.* accounts, read-only trxs,
+                                        and applying blocks.
                                         'all'  - EOS VM OC tier-up is enabled
                                         for all contract execution.
                                         'none' - EOS VM OC tier-up is

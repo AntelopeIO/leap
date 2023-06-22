@@ -240,7 +240,7 @@ struct controller_impl {
    controller::config              conf;
    const chain_id_type             chain_id; // read by thread_pool threads, value will not be changed
    bool                            replaying = false;
-   bool                            producer_node = false; // true if node is configured as a block producer
+   bool                            is_producer_node = false; // true if node is configured as a block producer
    db_read_mode                    read_mode = db_read_mode::HEAD;
    bool                            in_trx_requiring_checks = false; ///< if true, checks that are normally skipped on replay (e.g. auth checks) cannot be skipped
    std::optional<fc::microseconds> subjective_cpu_leeway;
@@ -3679,11 +3679,11 @@ void controller::replace_account_keys( name account, name permission, const publ
 }
 
 void controller::set_producer_node(bool is_producer_node) {
-   my->producer_node = is_producer_node;
+   my->is_producer_node = is_producer_node;
 }
 
 bool controller::is_producer_node()const {
-   return my->producer_node;
+   return my->is_producer_node;
 }
 
 void controller::set_db_read_only_mode() {

@@ -1103,9 +1103,9 @@ action_name apply_context::get_sender() const {
 // Compute trx         | baseline, OC for eosio.*
 // Read only trx       | OC
 bool apply_context::should_use_eos_vm_oc()const {
-   return trx_context.is_read_only()
-          || receiver.prefix() == config::system_account_name // "eosio"_n, all cases use OC
-          || (trx_context.explicit_billed_cpu_time && !control.is_producer_node()); // validating/applying block
+   return receiver.prefix() == config::system_account_name // "eosio"_n, all cases use OC
+          || (trx_context.explicit_billed_cpu_time && !control.is_producer_node()) // validating/applying block
+          || trx_context.is_read_only();
 }
 
 
