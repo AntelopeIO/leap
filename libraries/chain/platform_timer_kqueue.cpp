@@ -51,7 +51,7 @@ platform_timer::platform_timer() {
       FC_ASSERT(kevent64(kqueue_fd, &quit_event, 1, NULL, 0, KEVENT_FLAG_IMMEDIATE, NULL) == 0, "failed to create quit event");
 
       kevent_thread = std::thread([]() {
-         fc::set_os_thread_name("checktime");
+         fc::set_thread_name("checktime");
          while(true) {
             struct kevent64_s anEvent;
             int c = kevent64(kqueue_fd, NULL, 0, &anEvent, 1, 0, NULL);

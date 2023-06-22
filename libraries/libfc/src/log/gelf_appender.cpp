@@ -137,7 +137,7 @@ namespace fc
 
       my->thread = std::thread([this] {
         try {
-          fc::set_os_thread_name("gelf");
+          fc::set_thread_name("gelf");
           my->io_context.run();
         } catch (std::exception& ex) {
           fprintf(stderr, "GELF logger caught exception at %s:%d : %s\n", __FILE__, __LINE__, ex.what());
