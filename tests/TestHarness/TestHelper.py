@@ -19,14 +19,14 @@ class AppArgs:
             self.choices=choices
             self.action=action
 
-    def add(self, flag, type, help, default, choices=None):
-        arg=self.AppArg(flag, help, type=type, default=default, choices=choices)
+    def add(self, flag, type, help, default=None, action=None, choices=None):
+        arg=self.AppArg(flag, help, action=action, type=type, default=default, choices=choices)
         self.args.append(arg)
-
 
     def add_bool(self, flag, help, action='store_true'):
         arg=self.AppArg(flag, help, action=action)
         self.args.append(arg)
+
 
 # pylint: disable=too-many-instance-attributes
 class TestHelper(object):
@@ -121,7 +121,7 @@ class TestHelper(object):
             appArgsGrp = thParser.add_argument_group(title=None if suppressHelp else appArgsGrpTitle, description=None if suppressHelp else appArgsGrpdescription)
             for arg in applicationSpecificArgs.args:
                 if arg.type is not None:
-                    appArgsGrp.add_argument(arg.flag, type=arg.type, help=argparse.SUPPRESS if suppressHelp else arg.help, choices=arg.choices, default=arg.default)
+                    appArgsGrp.add_argument(arg.flag, action=arg.action, type=arg.type, help=argparse.SUPPRESS if suppressHelp else arg.help, choices=arg.choices, default=arg.default)
                 else:
                     appArgsGrp.add_argument(arg.flag, help=argparse.SUPPRESS if suppressHelp else arg.help, action=arg.action)
 
