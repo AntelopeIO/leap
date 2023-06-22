@@ -1,0 +1,58 @@
+name: "Pinned Build"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  packages: read
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  Build:
+    name: Build
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu18, ubuntu20, ubuntu22]
+    runs-on: ["self-hosted", "enf-x86-beefy-long"]
+    container: ${{ matrix.platform == 'ubuntu18' && 'ubuntu:bionic' || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
+    steps:
+      - name: Conditionally update git repo
+        if: ${{ matrix.platform == 'ubuntu18' }}
+        run: |
+          apt-get update
+          apt-get install -y software-properties-common
+          apt-get update
+          add-apt-repository ppa:git-core/ppa
+      - name: Update and Install git
+        run: |
+          apt-get update
+          apt-get install -y git
+          git --version
+      - name: Clone leap
+        uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Install dependencies
+        run: |
+          # https://github.com/actions/runner/issues/2033
+          chown -R $(id -u):$(id -g) $PWD
+          ./scripts/install_deps.sh
+      - name: Build Pinned Build
+        env:
+          LEAP_PINNED_INSTALL_PREFIX: /usr
+        run: |
+          ./scripts/pinned_build.sh deps build "$(nproc)"
+      - name: Upload package
+        uses: actions/upload-artifact@v3
+        with:
+          name: leap-${{matrix.platform}}-pinned-amd64
+          path: build/leap-3*.deb
+      - name: Run Parallel Tests
+        run: |
+          cd build
+          ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
