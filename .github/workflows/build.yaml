@@ -206,145 +206,86 @@ jobs:
           name: ${{matrix.platform}}-lr-logs
           path: '*-logs.tar.gz'
 
-  libtester-deb-install-test:
-    name: libtester deb install test
+  libtester-tests:
+    name: libtester tests
     needs: [d, Build, dev-package]
     if: always() && needs.dev-package.result == 'success'
     strategy:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
+        test: [build-tree, make-dev-install, deb-install]
     runs-on:  ["self-hosted", "enf-x86-midtier"]
-    container: ${{ matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
+    container: ${{ matrix.test != 'deb-install' && fromJSON(needs.d.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
-      - name: Download cdt
-        uses: AntelopeIO/asset-artifact-download-action@v2
+
+      # LEAP
+      - if: ${{ matrix.test != 'deb-install' }}
+        name: Clone leap
+        uses: actions/checkout@v3
         with:
-          owner: AntelopeIO
-          repo: cdt
-          file: 'cdt_.*amd64.deb'
-          target: main
-          artifact-name: cdt_ubuntu_package_amd64
-          token: ${{github.token}}
-      - name: Download leap-dev
+          submodules: recursive
+      - if: ${{ matrix.test != 'deb-install' }}
+        name: Download leap builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{matrix.platform}}-build
+      - if: ${{ matrix.test != 'deb-install' }}
+        name: Extract leap build
+        run: |
+          zstdcat build.tar.zst | tar x
+      - if: ${{ matrix.test == 'build-tree' }}
+        name: Set leap_DIR env var
+        run: |
+          echo "leap_DIR=$PWD/build/lib/cmake/leap" >> "$GITHUB_ENV"
+      - if: ${{ matrix.test == 'make-dev-install' }}
+        name: leap dev-install
+        run: |
+          cmake --install build
+          cmake --install build --component dev
+      - if: ${{ matrix.test == 'make-dev-install' }}
+        name: Delete leap artifacts
+        run: |
+          rm -r *
+      - if: ${{ matrix.test == 'deb-install' }}
+        name: Download leap-dev
         uses: actions/download-artifact@v3
         with:
           name: leap-dev-${{matrix.platform}}-amd64
-      - name: Install cdt and leap-dev Packages
+      - if: ${{ matrix.test == 'deb-install' }}
+        name: Install leap-dev Package
         run: |
           apt-get update
           export DEBIAN_FRONTEND='noninteractive'
           export TZ='Etc/UTC'
           apt-get install -y ./*.deb
           rm ./*.deb
+
+      # CDT
+      - name: Download cdt
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: cdt
+          file: 'cdt_.*amd64.deb'
+          target: main
+          artifact-name: cdt_ubuntu_package_amd64
+          token: ${{github.token}}
+      - name: Install cdt Packages
+        run: |
+          apt install -y ./*.deb
+          rm ./*.deb
+
+      # Reference Contracts
       - name: checkout reference-contracts
         uses: actions/checkout@v3
         with:
           repository: AntelopeIO/reference-contracts
           path: reference-contracts
-      - name: Build & Test reference-contracts
+      - if: ${{ matrix.test == 'deb-install' }}
+        name: Install reference-contracts deps
         run: |
           apt-get -y install cmake build-essential
-          cmake -S reference-contracts -B build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
-          cmake --build build -- -j $(nproc)
-          cd build/tests
-          ctest --output-on-failure -j $(nproc)
-
-  libtester-make-dev-install-test:
-    name: libtester make dev-install test
-    needs: [d, Build]
-    if: always() && needs.Build.result == 'success'
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu20, ubuntu22]
-    runs-on:  ["self-hosted", "enf-x86-midtier"]
-    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-    steps:
-      - name: Clone leap
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Download leap builddir
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{matrix.platform}}-build
-      - name: Extract leap build
-        run: |
-          zstdcat build.tar.zst | tar x
-      - name: leap dev-install
-        run: |
-          cmake --install build
-          cmake --install build --component dev
-      - name: Delete leap artifacts
-        run: |
-          rm -r *
-      - name: Download cdt
-        uses: AntelopeIO/asset-artifact-download-action@v2
-        with:
-          owner: AntelopeIO
-          repo: cdt
-          file: 'cdt_.*amd64.deb'
-          target: main
-          artifact-name: cdt_ubuntu_package_amd64
-          token: ${{github.token}}
-      - name: Install cdt Packages
-        run: |
-          apt install -y ./*.deb
-          rm ./*.deb
-      - name: checkout reference-contracts
-        uses: actions/checkout@v3
-        with:
-          repository: AntelopeIO/reference-contracts
-          path: reference-contracts
-      - name: Build & Test reference-contracts
-        run: |
-          cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
-          cmake --build reference-contracts/build -- -j $(nproc)
-          cd reference-contracts/build/tests
-          ctest --output-on-failure -j $(nproc)
-
-  libtester-build-tree-test:
-    name: libtester build tree test
-    needs: [d, Build]
-    if: always() && needs.Build.result == 'success'
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu20, ubuntu22]
-    runs-on:  ["self-hosted", "enf-x86-midtier"]
-    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-    steps:
-      - name: Clone leap
-        uses: actions/checkout@v3
-        with:
-          submodules: recursive
-      - name: Download leap builddir
-        uses: actions/download-artifact@v3
-        with:
-          name: ${{matrix.platform}}-build
-      - name: checkout reference-contracts
-        uses: actions/checkout@v3
-        with:
-          repository: AntelopeIO/reference-contracts
-          path: reference-contracts
-      - name: Extract leap build
-        run: |
-          zstdcat build.tar.zst | tar x
-          echo "leap_DIR=$PWD/build/lib/cmake/leap" >> "$GITHUB_ENV"
-      - name: Download cdt
-        uses: AntelopeIO/asset-artifact-download-action@v2
-        with:
-          owner: AntelopeIO
-          repo: cdt
-          file: 'cdt_.*amd64.deb'
-          target: main
-          artifact-name: cdt_ubuntu_package_amd64
-          token: ${{github.token}}
-      - name: Install cdt Packages
-        run: |
-          apt install -y ./*.deb
-          rm ./*.deb
       - name: Build & Test reference-contracts
         run: |
           cmake -S reference-contracts -B reference-contracts/build -DCMAKE_BUILD_TYPE=Release -DBUILD_TESTS=On
@@ -354,10 +295,9 @@ jobs:
 
   all-passing:
     name: All Required Tests Passed
-    needs: [dev-package, tests, np-tests, libtester-build-tree-test, libtester-make-dev-install-test, libtester-deb-install-test]
+    needs: [dev-package, tests, np-tests, libtester-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success' ||
-            needs.libtester-build-tree-test.result != 'success' || needs.libtester-make-dev-install-test.result != 'success' || needs.libtester-deb-install-test.result != 'success'
+      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success' || needs.libtester-tests.result != 'success'
         run: false
