@@ -51,7 +51,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: leap-${{matrix.platform}}-pinned-amd64
-          path: build/leap-3*.deb
+          path: build/leap_*.deb
       - name: Run Parallel Tests
         run: |
           cd build
