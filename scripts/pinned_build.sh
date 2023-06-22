@@ -131,7 +131,7 @@ pushdir "${LEAP_DIR}"
 
 # build Leap
 echo "Building Leap ${SCRIPT_DIR}"
-try cmake -DCMAKE_TOOLCHAIN_FILE=${SCRIPT_DIR}/pinned_toolchain.cmake -DCMAKE_INSTALL_PREFIX=${LEAP_PINNED_INSTALL_PREFIX:-/usr/local} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=${LLVM_DIR}/lib/cmake -DCMAKE_PREFIX_PATH=${BOOST_DIR}/bin ${SCRIPT_DIR}/..
+try cmake -DCMAKE_TOOLCHAIN_FILE="${SCRIPT_DIR}/pinned_toolchain.cmake" -DCMAKE_INSTALL_PREFIX=${LEAP_PINNED_INSTALL_PREFIX:-/usr/local} -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="${LLVM_DIR}/lib/cmake" -DCMAKE_PREFIX_PATH="${BOOST_DIR}/bin" "${SCRIPT_DIR}/.."
 
 try make -j "${JOBS}"
 try cpack
