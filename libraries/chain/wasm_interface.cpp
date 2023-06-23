@@ -106,7 +106,7 @@ namespace eosio { namespace chain {
          }
          if(cd) {
             if (!context.is_applying_block())
-               tlog("speculatively executing ${h} with eos vm oc", ("h", code_hash));
+               tlog("${a} speculatively executing ${h} with eos vm oc", ("a", context.get_receiver())("h", code_hash));
             my->eosvmoc->exec->execute(*cd, my->eosvmoc->mem, context);
             return;
          }

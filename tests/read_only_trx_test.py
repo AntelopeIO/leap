@@ -120,7 +120,7 @@ def startCluster():
     producerNode = cluster.getNode()
     apiNode = cluster.nodes[-1]
 
-    eosioCodeHash = getCodeHash(producerNode, "eosio")
+    eosioCodeHash = getCodeHash(producerNode, "eosio.token")
     # eosio.* should be using oc unless oc tierup disabled
     Utils.Print(f"search: executing {eosioCodeHash} with eos vm oc")
     found = producerNode.findInLog(f"executing {eosioCodeHash} with eos vm oc")
