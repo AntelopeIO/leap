@@ -593,7 +593,7 @@ public:
 
    bool on_incoming_block(const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
       auto& chain = chain_plug->chain();
-      if (_pending_block_mode == pending_block_mode::producing) {
+      if (in_producing_mode()) {
          fc_wlog(_log, "dropped incoming block #${num} id: ${id}", ("num", block->block_num())("id", block_id ? (*block_id).str() : "UNKNOWN"));
          return false;
       }
@@ -765,7 +765,7 @@ public:
                                     try {
                                        auto result = future.get();
                                        if (!self->process_incoming_transaction_async(result, api_trx, return_failure_traces, next)) {
-                                          if (self->_pending_block_mode == pending_block_mode::producing) {
+                                          if (self->in_producing_mode()) {
                                              self->schedule_maybe_produce_block(true);
                                           } else {
                                              self->restart_speculative_block();
@@ -813,11 +813,16 @@ public:
          const auto  block_deadline = _pending_block_deadline;
          push_result pr             = push_transaction(block_deadline, trx, api_trx, return_failure_trace, next);
 
-         exhausted = pr.block_exhausted;
          if (pr.trx_exhausted) {
             _unapplied_transactions.add_incoming(trx, api_trx, return_failure_trace, next);
          }
 
+         exhausted = pr.block_exhausted;
+         
+         if ( !in_producing_mode() && pr.trx_exhausted )
+            exhausted = true;  // report transaction exhausted if trx was exhausted in non-producing mode (so we will restart
+                               // a speculative block to retry it immediately, instead of waiting to receive a new block)
+         
       } catch (const guard_exception& e) {
          chain_plugin::handle_guard_exception(e);
       } catch (boost::interprocess::bad_alloc&) {
@@ -875,7 +880,7 @@ public:
       // it is possible that we are only speculating because of this policy which we have now changed
       // re-evaluate that now
       //
-      if (_pending_block_mode == pending_block_mode::speculating) {
+      if (in_speculating_mode()) {
          abort_block();
          fc_ilog(_log, "Producer resumed. Scheduling production.");
          schedule_production_loop();
@@ -899,6 +904,8 @@ public:
    void schedule_delayed_production_loop(const std::weak_ptr<producer_plugin_impl>& weak_this, std::optional<fc::time_point> wake_up_time);
    std::optional<fc::time_point> calculate_producer_wake_up_time( const block_timestamp_type& ref_block_time ) const;
 
+   bool in_producing_mode()   const { return _pending_block_mode == pending_block_mode::producing; }
+   bool in_speculating_mode() const { return _pending_block_mode == pending_block_mode::speculating; }
 };
 
 void new_chain_banner(const eosio::chain::controller& db)
@@ -1422,7 +1429,7 @@ void producer_plugin_impl::update_runtime_options(const producer_plugin::runtime
       _incoming_defer_ratio = *options.incoming_defer_ratio;
    }
 
-   if (check_speculating && _pending_block_mode == pending_block_mode::speculating) {
+   if (check_speculating && in_speculating_mode()) {
       abort_block();
       schedule_production_loop();
    }
@@ -1775,7 +1782,7 @@ block_timestamp_type producer_plugin_impl::calculate_pending_block_time() const 
 }
 
 bool producer_plugin_impl::should_interrupt_start_block(const fc::time_point& deadline, uint32_t pending_block_num) const {
-   if (_pending_block_mode == pending_block_mode::producing) {
+   if (in_producing_mode()) {
       return deadline <= fc::time_point::now();
    }
    // if we can produce then honor deadline so production starts on time
@@ -1835,7 +1842,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       _pending_block_mode = pending_block_mode::speculating;
    }
 
-   if (_pending_block_mode == pending_block_mode::producing) {
+   if (in_producing_mode()) {
       // determine if our watermark excludes us from producing at this point
       if (current_watermark) {
          const block_timestamp_type block_timestamp{block_time};
@@ -1853,7 +1860,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
    }
 
-   if (_pending_block_mode == pending_block_mode::speculating) {
+   if (in_speculating_mode()) {
       auto head_block_age = now - chain.head_block_time();
       if (head_block_age > fc::seconds(5))
          return start_block_result::waiting_for_block;
@@ -1877,7 +1884,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    try {
       uint16_t blocks_to_confirm = 0;
 
-      if (_pending_block_mode == pending_block_mode::producing) {
+      if (in_producing_mode()) {
          // determine how many blocks this producer can confirm
          // 1) if it is not a producer from this node, assume no confirmations (we will discard this block anyway)
          // 2) if it is a producer on this node that has never produced, the conservative approach is to assume no
@@ -1898,7 +1905,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       abort_block();
 
       auto features_to_activate = chain.get_preactivated_protocol_features();
-      if (_pending_block_mode == pending_block_mode::producing && _protocol_features_to_activate.size() > 0) {
+      if (in_producing_mode() && _protocol_features_to_activate.size() > 0) {
          bool drop_features_to_activate = false;
          try {
             chain.validate_protocol_features(_protocol_features_to_activate);
@@ -1939,7 +1946,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
 
       controller::block_status bs =
-         _pending_block_mode == pending_block_mode::producing ? controller::block_status::incomplete : controller::block_status::ephemeral;
+         in_producing_mode() ? controller::block_status::incomplete : controller::block_status::ephemeral;
       chain.start_block(block_time, blocks_to_confirm, features_to_activate, bs, preprocess_deadline);
    }
    LOG_AND_DROP();
@@ -1947,7 +1954,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    if (chain.is_building_block()) {
       const auto& pending_block_signing_authority = chain.pending_block_signing_authority();
 
-      if (_pending_block_mode == pending_block_mode::producing && pending_block_signing_authority != scheduled_producer.authority) {
+      if (in_producing_mode() && pending_block_signing_authority != scheduled_producer.authority) {
          elog("Unexpected block signing authority, reverting to speculative mode! [expected: \"${expected}\", actual: \"${actual\"",
               ("expected", scheduled_producer.authority)("actual", pending_block_signing_authority));
          _pending_block_mode = pending_block_mode::speculating;
@@ -1971,7 +1978,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          // limit execution of pending incoming to once per block
          auto incoming_itr = _unapplied_transactions.incoming_begin();
 
-         if (_pending_block_mode == pending_block_mode::producing) {
+         if (in_producing_mode()) {
             if (!process_unapplied_trxs(preprocess_deadline))
                return start_block_result::exhausted;
 
@@ -2027,7 +2034,7 @@ bool producer_plugin_impl::remove_expired_trxs(const fc::time_point& deadline) {
          ++num_expired;
       });
 
-   if (exhausted && _pending_block_mode == pending_block_mode::producing) {
+   if (exhausted && in_producing_mode()) {
       fc_wlog(_log, "Unable to process all expired transactions of the ${n} transactions in the unapplied queue before deadline, "
               "Expired ${expired}", ("n", orig_count)("expired", num_expired));
    } else {
@@ -2117,7 +2124,7 @@ void producer_plugin_impl::log_trx_results(const packed_transaction_ptr& trx,
 
    bool except = except_ptr || (trace && trace->except);
    if (except) {
-      if (_pending_block_mode == pending_block_mode::producing) {
+      if (in_producing_mode()) {
          fc_dlog(is_transient ? _transient_trx_failed_trace_log : _trx_failed_trace_log,
                  "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING ${desc}tx: ${txid}, auth: ${a}, ${details}",
                  ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("desc", is_transient ? "transient " : "")
@@ -2147,7 +2154,7 @@ void producer_plugin_impl::log_trx_results(const packed_transaction_ptr& trx,
          }
       }
    } else {
-      if (_pending_block_mode == pending_block_mode::producing) {
+      if (in_producing_mode()) {
          fc_dlog(is_transient ? _transient_trx_successful_trace_log : _trx_successful_trace_log,
                  "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING ${desc}tx: ${txid}, auth: ${a}, cpu: ${cpu}",
                  ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("desc", is_transient ? "transient " : "")
@@ -2215,7 +2222,7 @@ producer_plugin_impl::push_result producer_plugin_impl::push_transaction(const f
       sub_bill = subjective_bill.get_subjective_bill(first_auth, fc::time_point::now());
 
    auto prev_billed_cpu_time_us = trx->billed_cpu_time_us;
-   if (_pending_block_mode == pending_block_mode::producing && prev_billed_cpu_time_us > 0) {
+   if (in_producing_mode() && prev_billed_cpu_time_us > 0) {
       const auto& rl = chain.get_resource_limits_manager();
       if (!subjective_bill.is_account_disabled(first_auth) && !rl.is_unlimited_cpu(first_auth)) {
          int64_t prev_billed_plus100_us = prev_billed_cpu_time_us + EOS_PERCENT(prev_billed_cpu_time_us, 100 * config::percent_1);
@@ -2255,7 +2262,7 @@ producer_plugin_impl::handle_push_result(const transaction_metadata_ptr&        
          _time_tracker.add_fail_time(dur, trx->is_transient());
       }
       if (exception_is_exhausted(*trace->except)) {
-         if (_pending_block_mode == pending_block_mode::producing) {
+         if (in_producing_mode()) {
             fc_dlog(trx->is_transient() ? _transient_trx_failed_trace_log : _trx_failed_trace_log,
                     "[TRX_TRACE] Block ${block_num} for producer ${prod} COULD NOT FIT, tx: ${txid} RETRYING ",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx->id()));
@@ -2304,7 +2311,7 @@ producer_plugin_impl::handle_push_result(const transaction_metadata_ptr&        
       }
       log_trx_results(trx, trace, start);
       // if producing then trx is in objective cpu account billing
-      if (!disable_subjective_enforcement && _pending_block_mode != pending_block_mode::producing) {
+      if (!disable_subjective_enforcement && !in_producing_mode()) {
          subjective_bill.subjective_bill(trx->id(), trx->packed_trx()->expiration(), first_auth, trace->elapsed);
       }
       if (next)
@@ -2583,10 +2590,10 @@ void producer_plugin_impl::schedule_production_loop() {
    } else if (result == start_block_result::waiting_for_production) {
       // scheduled in start_block()
 
-   } else if (_pending_block_mode == pending_block_mode::producing) {
+   } else if (in_producing_mode()) {
       schedule_maybe_produce_block(result == start_block_result::exhausted);
 
-   } else if (_pending_block_mode == pending_block_mode::speculating && !_producers.empty() && !production_disabled_by_policy()) {
+   } else if (in_speculating_mode() && !_producers.empty() && !production_disabled_by_policy()) {
       chain::controller& chain = chain_plug->chain();
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state");
@@ -2695,7 +2702,7 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
 
 void producer_plugin_impl::produce_block() {
    auto start = fc::time_point::now();
-   EOS_ASSERT(_pending_block_mode == pending_block_mode::producing, producer_exception, "called produce_block while not actually producing");
+   EOS_ASSERT(in_producing_mode(), producer_exception, "called produce_block while not actually producing");
    chain::controller& chain = chain_plug->chain();
    EOS_ASSERT(chain.is_building_block(), missing_pending_block_state,
               "pending_block_state does not exist but it should, another plugin may have corrupted it");
