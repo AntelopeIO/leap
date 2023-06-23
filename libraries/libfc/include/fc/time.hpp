@@ -1,6 +1,7 @@
 #pragma once
 #include <stdint.h>
 #include <fc/string.hpp>
+#include <limits>
 
 #ifdef _MSC_VER
   #pragma warning (push)
@@ -11,7 +12,7 @@ namespace fc {
   class microseconds {
     public:
         constexpr explicit microseconds( int64_t c = 0) :_count(c){}
-        static constexpr microseconds maximum() { return microseconds(0x7fffffffffffffffll); }
+        static constexpr microseconds maximum() { return microseconds(std::numeric_limits<int64_t>::max()); }
         friend constexpr microseconds operator + (const  microseconds& l, const microseconds& r ) { return microseconds(l._count+r._count); }
         friend constexpr microseconds operator - (const  microseconds& l, const microseconds& r ) { return microseconds(l._count-r._count); }
 
