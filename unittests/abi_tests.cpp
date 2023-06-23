@@ -2010,7 +2010,6 @@ BOOST_AUTO_TEST_CASE(abi_std_optional)
       std::string test_data = R"=====(
       {
         "gas_price" : "42",
-        "miner_cut" : "2",
         "bridge_fee" : "2"
       }
       )=====";
@@ -2019,7 +2018,29 @@ BOOST_AUTO_TEST_CASE(abi_std_optional)
       verify_byte_round_trip_conversion(abis, "fees", var);
    }
 
-   
+   {
+      // check conversion when all optional members are provided
+      std::string test_data = R"=====(
+      {
+        "gas_price" : "42",
+        "miner_cut" : "2",
+      }
+      )=====";
+
+      auto var = fc::json::from_string(test_data);
+      verify_byte_round_trip_conversion(abis, "fees", var);
+   }
+
+   {
+      // check conversion when all optional members are provided
+      std::string test_data = R"=====(
+      {
+      }
+      )=====";
+
+      auto var = fc::json::from_string(test_data);
+      verify_byte_round_trip_conversion(abis, "fees", var);
+   }
 
 } FC_LOG_AND_RETHROW() }
 
