@@ -535,6 +535,16 @@ class Node(Transactions):
         files.sort()
         return files
 
+    def findInLog(self, searchStr):
+        dataDir=Utils.getNodeDataDir(self.nodeId)
+        files=Node.findStderrFiles(dataDir)
+        for file in files:
+            with open(file, 'r') as f:
+                for line in f:
+                    if searchStr in line:
+                        return True
+        return False
+
     def analyzeProduction(self, specificBlockNum=None, thresholdMs=500):
         dataDir=Utils.getNodeDataDir(self.nodeId)
         files=Node.findStderrFiles(dataDir)
