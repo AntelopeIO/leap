@@ -27,7 +27,7 @@ namespace eosio { namespace chain {
 
    using table_id_multi_index = chainbase::shared_multi_index_container<
       table_id_object,
-      indexed_by<
+      bmi::indexed_by<
          ordered_unique<tag<by_id>,
             member<table_id_object, table_id_object::id_type, &table_id_object::id>
          >,
@@ -63,7 +63,7 @@ namespace eosio { namespace chain {
 
    using key_value_index = chainbase::shared_multi_index_container<
       key_value_object,
-      indexed_by<
+      bmi::indexed_by<
          ordered_unique<tag<by_id>, member<key_value_object, key_value_object::id_type, &key_value_object::id>>,
          ordered_unique<tag<by_scope_primary>,
             composite_key< key_value_object,
@@ -95,7 +95,7 @@ namespace eosio { namespace chain {
 
       typedef chainbase::shared_multi_index_container<
          index_object,
-         indexed_by<
+         bmi::indexed_by<
             ordered_unique<tag<by_id>, member<index_object, typename index_object::id_type, &index_object::id>>,
             ordered_unique<tag<by_primary>,
                composite_key< index_object,

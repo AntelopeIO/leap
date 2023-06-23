@@ -107,7 +107,7 @@ namespace eosio { namespace testing {
             return public_key_type(webauthn::public_key(priv_key.get_public_key().serialize(), presence, _origin));
          }
 
-         signature sign( const sha256& digest, bool = true) const {
+         signature sign( const fc::sha256& digest, bool = true) const {
             auto json = std::string("{\"origin\":\"https://") +
                         _origin +
                         "\",\"type\":\"webauthn.get\",\"challenge\":\"" +
@@ -203,7 +203,7 @@ namespace eosio { namespace testing {
          transaction_trace_ptr    push_transaction( signed_transaction& trx, fc::time_point deadline = fc::time_point::maximum(), uint32_t billed_cpu_time_us = DEFAULT_BILLED_CPU_TIME_US, bool no_throw = false, transaction_metadata::trx_type trx_type = transaction_metadata::trx_type::input );
 
          [[nodiscard]]
-         action_result            push_action(action&& cert_act, uint64_t authorizer); // TODO/QUESTION: Is this needed?
+         action_result            push_action(eosio::chain::action&& cert_act, uint64_t authorizer); // TODO/QUESTION: Is this needed?
 
          transaction_trace_ptr    push_action( const account_name& code,
                                                const action_name& acttype,
@@ -219,13 +219,13 @@ namespace eosio { namespace testing {
                                                uint32_t delay_sec = 0 );
          transaction_trace_ptr    push_action( const account_name& code,
                                                const action_name& acttype,
-                                               const vector<permission_level>& auths,
+                                               const vector<eosio::chain::permission_level>& auths,
                                                const variant_object& data,
                                                uint32_t expiration = DEFAULT_EXPIRATION_DELTA,
                                                uint32_t delay_sec = 0 );
 
 
-         action get_action( account_name code, action_name acttype, vector<permission_level> auths,
+         eosio::chain::action get_action( account_name code, action_name acttype, vector<eosio::chain::permission_level> auths,
                                          const variant_object& data )const;
 
          void  set_transaction_headers( transaction& trx,
@@ -255,10 +255,10 @@ namespace eosio { namespace testing {
          void link_authority( account_name account, account_name code,  permission_name req, action_name type = {} );
          void unlink_authority( account_name account, account_name code, action_name type = {} );
          void set_authority( account_name account, permission_name perm, authority auth,
-                                     permission_name parent, const vector<permission_level>& auths, const vector<private_key_type>& keys );
+                                     permission_name parent, const vector<eosio::chain::permission_level>& auths, const vector<private_key_type>& keys );
          void set_authority( account_name account, permission_name perm, authority auth,
                                      permission_name parent = config::owner_name );
-         void delete_authority( account_name account, permission_name perm,  const vector<permission_level>& auths, const vector<private_key_type>& keys );
+         void delete_authority( account_name account, permission_name perm,  const vector<eosio::chain::permission_level>& auths, const vector<private_key_type>& keys );
          void delete_authority( account_name account, permission_name perm );
 
          transaction_trace_ptr create_account( account_name name,
@@ -267,7 +267,7 @@ namespace eosio { namespace testing {
                                                bool include_code = true
                                              );
 
-         transaction_trace_ptr push_reqauth( account_name from, const vector<permission_level>& auths, const vector<private_key_type>& keys );
+         transaction_trace_ptr push_reqauth( account_name from, const vector<eosio::chain::permission_level>& auths, const vector<private_key_type>& keys );
          transaction_trace_ptr push_reqauth(account_name from, string role, bool multi_sig = false);
          // use when just want any old non-context free action
          transaction_trace_ptr push_dummy(account_name from, const string& v = "blah", uint32_t billed_cpu_time_us = DEFAULT_BILLED_CPU_TIME_US );
@@ -291,7 +291,7 @@ namespace eosio { namespace testing {
          }
 
          template< typename KeyType = fc::ecc::private_key_shim >
-         static auto get_private_key( name keyname, string role = "owner" ) {
+         static auto get_private_key( eosio::chain::name keyname, string role = "owner" ) {
             auto secret = fc::sha256::hash(keyname.to_string() + role);
             if constexpr (std::is_same_v<KeyType, mock::webauthn_private_key>) {
                return mock::webauthn_private_key::regenerate(secret);
@@ -301,7 +301,7 @@ namespace eosio { namespace testing {
          }
 
          template< typename KeyType = fc::ecc::private_key_shim >
-         static auto get_public_key( name keyname, string role = "owner" ) {
+         static auto get_public_key( eosio::chain::name keyname, string role = "owner" ) {
             return get_private_key<KeyType>( keyname, role ).get_public_key();
          }
 
@@ -318,7 +318,7 @@ namespace eosio { namespace testing {
                                                              const symbol&       asset_symbol,
                                                              const account_name& account ) const;
 
-         vector<char> get_row_by_account( name code, name scope, name table, const account_name& act ) const;
+         vector<char> get_row_by_account( eosio::chain::name code, eosio::chain::name scope, eosio::chain::name table, const account_name& act ) const;
 
          map<account_name, block_id_type> get_last_produced_block_map()const { return last_produced_block; };
          void set_last_produced_block_map( const map<account_name, block_id_type>& lpb ) { last_produced_block = lpb; }
@@ -353,7 +353,7 @@ namespace eosio { namespace testing {
 
          void sync_with(base_tester& other);
 
-         const table_id_object* find_table( name code, name scope, name table );
+         const table_id_object* find_table( eosio::chain::name code, eosio::chain::name scope, eosio::chain::name table );
 
          // method treats key as a name type, if this is not appropriate in your case, pass require == false and report the correct behavior
          template<typename Object>
@@ -369,7 +369,7 @@ namespace eosio { namespace testing {
             auto* o = control->db().find<key_value_object, by_scope_primary>(boost::make_tuple(maybe_tid->id, key));
             if( o == nullptr ) {
                if( require )
-                  BOOST_FAIL("object does not exist for primary_key=\"" + name(key).to_string() + "\"");
+                  BOOST_FAIL("object does not exist for primary_key=\"" + eosio::chain::name(key).to_string() + "\"");
 
                return false;
             }

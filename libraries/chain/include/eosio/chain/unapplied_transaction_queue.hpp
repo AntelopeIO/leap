@@ -49,7 +49,7 @@ private:
    struct by_expiry;
 
    typedef multi_index_container< unapplied_transaction,
-      indexed_by<
+      bmi::indexed_by<
          hashed_unique< tag<by_trx_id>,
                const_mem_fun<unapplied_transaction, const transaction_id_type&, &unapplied_transaction::id>
          >,

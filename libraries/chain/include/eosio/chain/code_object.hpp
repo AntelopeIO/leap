@@ -21,7 +21,7 @@ namespace eosio { namespace chain {
    struct by_code_hash;
    using code_index = chainbase::shared_multi_index_container<
       code_object,
-      indexed_by<
+      bmi::indexed_by<
          ordered_unique<tag<by_id>, member<code_object, code_object::id_type, &code_object::id>>,
          ordered_unique<tag<by_code_hash>,
             composite_key< code_object,

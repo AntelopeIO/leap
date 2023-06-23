@@ -38,7 +38,7 @@ namespace eosio { namespace chain {
    struct by_name;
    using account_index = chainbase::shared_multi_index_container<
       account_object,
-      indexed_by<
+      bmi::indexed_by<
          ordered_unique<tag<by_id>, member<account_object, account_object::id_type, &account_object::id>>,
          ordered_unique<tag<by_name>, member<account_object, account_name, &account_object::name>>
       >
@@ -74,7 +74,7 @@ namespace eosio { namespace chain {
    struct by_name;
    using account_metadata_index = chainbase::shared_multi_index_container<
       account_metadata_object,
-      indexed_by<
+      bmi::indexed_by<
          ordered_unique<tag<by_id>, member<account_metadata_object, account_metadata_object::id_type, &account_metadata_object::id>>,
          ordered_unique<tag<by_name>, member<account_metadata_object, account_name, &account_metadata_object::name>>
       >
@@ -92,7 +92,7 @@ namespace eosio { namespace chain {
    struct by_name;
    using account_ram_correction_index = chainbase::shared_multi_index_container<
       account_ram_correction_object,
-      indexed_by<
+      bmi::indexed_by<
          ordered_unique<tag<by_id>, member<account_ram_correction_object, account_ram_correction_object::id_type, &account_ram_correction_object::id>>,
          ordered_unique<tag<by_name>, member<account_ram_correction_object, account_name, &account_ram_correction_object::name>>
       >
