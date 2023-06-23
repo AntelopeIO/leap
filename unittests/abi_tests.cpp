@@ -1937,6 +1937,92 @@ BOOST_AUTO_TEST_CASE(abi_type_loop)
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE(abi_std_optional)
+{ try {
+   const char* repeat_abi = R"=====(
+   {
+    "version": "eosio::abi/1.2",
+    "types": [],
+    "structs": [
+        {
+            "name": "fees",
+            "base": "",
+            "fields": [
+                {
+                    "name": "gas_price",
+                    "type": "uint64?"
+                },
+                {
+                    "name": "miner_cut",
+                    "type": "uint32?"
+                },
+                {
+                    "name": "bridge_fee",
+                    "type": "uint32?"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "name": "fees",
+            "type": "fees",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": [],
+    "action_results": []
+   }
+   )=====";
+
+   abi_serializer abis(fc::json::from_string(repeat_abi).as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time ));
+   {
+      // check conversion when all optional members are provided
+      std::string test_data = R"=====(
+      {
+        "gas_price" : "42",
+        "miner_cut" : "2",
+        "bridge_fee" : "2"
+      }
+      )=====";
+
+      auto var = fc::json::from_string(test_data);
+      verify_byte_round_trip_conversion(abis, "fees", var);
+   }
+
+   {
+      // check conversion when the first optional members is missing
+      std::string test_data = R"=====(
+      {
+        "miner_cut" : "2",
+        "bridge_fee" : "2"
+      }
+      )=====";
+
+      auto var = fc::json::from_string(test_data);
+      verify_byte_round_trip_conversion(abis, "fees", var);
+   }
+
+   {
+      // check conversion when the first optional members is missing
+      std::string test_data = R"=====(
+      {
+        "gas_price" : "42",
+        "miner_cut" : "2",
+        "bridge_fee" : "2"
+      }
+      )=====";
+
+      auto var = fc::json::from_string(test_data);
+      verify_byte_round_trip_conversion(abis, "fees", var);
+   }
+
+   
+
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_CASE(abi_type_redefine)
 { try {
    // inifinite loop in types
