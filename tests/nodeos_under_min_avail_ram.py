@@ -20,7 +20,8 @@ errorExit=Utils.errorExit
 
 args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--wallet-port","--unshared"})
 Utils.Debug=args.v
-totalNodes=4
+pNodes=4
+totalNodes=5
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
 walletPort=args.wallet_port
@@ -41,7 +42,7 @@ try:
     maxRAMFlag="--chain-state-db-size-mb"
     maxRAMValue=1010
     extraNodeosArgs=" %s %d %s %d  --http-max-response-time-ms 990000 " % (minRAMFlag, minRAMValue, maxRAMFlag, maxRAMValue)
-    if cluster.launch(onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes, extraNodeosArgs=extraNodeosArgs) is False:
+    if cluster.launch(onlyBios=False, pnodes=pNodes, totalNodes=totalNodes, totalProducers=totalNodes, extraNodeosArgs=extraNodeosArgs) is False:
         Utils.cmdError("launcher")
         errorExit("Failed to stand up eos cluster.")
 
@@ -68,7 +69,7 @@ try:
     nodes.append(cluster.getNode(2))
     nodes.append(cluster.getNode(3))
     numNodes=len(nodes)
-
+    nonProdNode = cluster.getNode(4)
 
     for account in accounts:
         walletMgr.importKey(account, testWallet)
@@ -76,21 +77,21 @@ try:
     # create accounts via eosio as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
-        trans=nodes[0].createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=500000, waitForTransBlock=True, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
+        trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=500000, waitForTransBlock=True, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
         transferAmount="70000000.0000 {0}".format(CORE_SYMBOL)
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        nodes[0].transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
-        trans=nodes[0].delegatebw(account, 1000000.0000, 68000000.0000, waitForTransBlock=True, exitOnError=True)
+        nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
+        trans=nonProdNode.delegatebw(account, 1000000.0000, 68000000.0000, waitForTransBlock=True, exitOnError=True)
 
     contractAccount=createAccountKeys(1)[0]
     contractAccount.name="contracttest"
     walletMgr.importKey(contractAccount, testWallet)
     Print("Create new account %s via %s" % (contractAccount.name, cluster.eosioAccount.name))
-    trans=nodes[0].createInitializeAccount(contractAccount, cluster.eosioAccount, stakedDeposit=500000, waitForTransBlock=True, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
+    trans=nonProdNode.createInitializeAccount(contractAccount, cluster.eosioAccount, stakedDeposit=500000, waitForTransBlock=True, stakeNet=50000, stakeCPU=50000, buyRAM=50000, exitOnError=True)
     transferAmount="90000000.0000 {0}".format(CORE_SYMBOL)
     Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, contractAccount.name))
-    nodes[0].transferFunds(cluster.eosioAccount, contractAccount, transferAmount, "test transfer", waitForTransBlock=True)
-    trans=nodes[0].delegatebw(contractAccount, 1000000.0000, 88000000.0000, waitForTransBlock=True, exitOnError=True)
+    nonProdNode.transferFunds(cluster.eosioAccount, contractAccount, transferAmount, "test transfer", waitForTransBlock=True)
+    trans=nonProdNode.delegatebw(contractAccount, 1000000.0000, 88000000.0000, waitForTransBlock=True, exitOnError=True)
 
     contractDir="unittests/test-contracts/integration_test"
     wasmFile="integration_test.wasm"

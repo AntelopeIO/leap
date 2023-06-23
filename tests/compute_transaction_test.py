@@ -86,7 +86,7 @@ try:
 
     transferAmount="1000.0000 {0}".format(CORE_SYMBOL)
 
-    node.transferFunds(cluster.eosioAccount, account1, transferAmount, "fund account", waitForTransBlock=True)
+    npnode.transferFunds(cluster.eosioAccount, account1, transferAmount, "fund account", waitForTransBlock=True)
     preBalances = node.getEosBalances([account1, account2])
     Print("Starting balances:")
     Print(preBalances)

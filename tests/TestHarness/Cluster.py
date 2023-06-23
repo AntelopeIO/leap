@@ -483,11 +483,13 @@ class Cluster(object):
                     self.unstartedNodes.append(node)
             time.sleep(delay)
 
-        startedNodes=totalNodes-unstartedNodes
+        self.startedNodesCount = totalNodes - unstartedNodes
+        self.productionNodesCount = pnodes
+        self.totalNodesCount = totalNodes
 
-        if self.nodes is None or startedNodes != len(self.nodes):
+        if self.nodes is None or self.startedNodesCount != len(self.nodes):
             Utils.Print("ERROR: Unable to validate %s instances, expected: %d, actual: %d" %
-                          (Utils.EosServerName, startedNodes, len(self.nodes)))
+                          (Utils.EosServerName, self.startedNodesCount, len(self.nodes)))
             return False
 
         if not self.biosNode or not Utils.waitForBool(self.biosNode.checkPulse, Utils.systemWaitTimeout):
@@ -512,7 +514,7 @@ class Cluster(object):
             return True
 
         Utils.Print("Bootstrap cluster.")
-        if not self.bootstrap(self.biosNode, startedNodes, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract):
+        if not self.bootstrap(self.biosNode, self.startedNodesCount, prodCount + sharedProducers, totalProducers, pfSetupPolicy, onlyBios, onlySetProds, loadSystemContract):
             Utils.Print("ERROR: Bootstrap failed.")
             return False
 
@@ -872,11 +874,13 @@ class Cluster(object):
 
         node.validateAccounts(myAccounts)
 
-    def createAccountAndVerify(self, account, creator, stakedDeposit=1000, stakeNet=100, stakeCPU=100, buyRAM=10000, validationNodeIndex=0):
+    def createAccountAndVerify(self, account, creator, stakedDeposit=1000, stakeNet=100, stakeCPU=100, buyRAM=10000, validationNodeIndex=-1):
         """create account, verify account and return transaction id"""
-        assert(len(self.nodes) > validationNodeIndex)
         node=self.nodes[validationNodeIndex]
-        trans=node.createInitializeAccount(account, creator, stakedDeposit, waitForTransBlock=True, stakeNet=stakeNet, stakeCPU=stakeCPU, buyRAM=buyRAM, exitOnError=True)
+        waitViaRetry =  self.totalNodesCount > self.productionNodesCount
+        trans=node.createInitializeAccount(account, creator, stakedDeposit, waitForTransBlock=waitViaRetry, stakeNet=stakeNet, stakeCPU=stakeCPU, buyRAM=buyRAM, exitOnError=True)
+        if not waitViaRetry:
+            node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
         assert(node.verifyAccount(account))
         return trans
 
@@ -1379,7 +1383,7 @@ class Cluster(object):
             os.remove(f)
 
     # Create accounts, if account does not already exist, and validates that the last transaction is received on root node
-    def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=0):
+    def createAccounts(self, creator, waitForTransBlock=True, stakedDeposit=1000, validationNodeIndex=-1):
         if self.accounts is None:
             return True
         transId=None

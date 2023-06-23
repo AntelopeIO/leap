@@ -85,7 +85,7 @@ try:
     cluster.populateWallet(2, wallet)
 
     Print("Create test accounts for transactions.")
-    cluster.createAccounts(cluster.eosioAccount, stakedDeposit=0, validationNodeIndex=0)
+    cluster.createAccounts(cluster.eosioAccount, stakedDeposit=0)
 
     account1Name = cluster.accounts[0].name
     account2Name = cluster.accounts[1].name

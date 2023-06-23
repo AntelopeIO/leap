@@ -65,6 +65,7 @@ class Node(Transactions):
         self.data_dir=data_dir
         self.config_dir=config_dir
         self.launch_time=launch_time
+        self.isProducer=False
         self.configureVersion()
 
     def configureVersion(self):
@@ -447,6 +448,7 @@ class Node(Transactions):
             popen.errfile = serr
             self.pid = popen.pid
             self.cmd = cmd
+            self.isProducer = '--producer-name' in self.cmd
         with pidf.open('w') as pidout:
             pidout.write(str(popen.pid))
         try:
