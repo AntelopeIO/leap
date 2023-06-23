@@ -375,14 +375,16 @@ try:
     testSuccessful = not delayedReportError
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
-    if not testSuccessful:
-        Print(Utils.FileDivider)
-        Print("Compare Blocklog")
-        cluster.compareBlockLogs()
-        Print(Utils.FileDivider)
-        Print("Print Blocklog")
-        cluster.printBlockLog()
-        Print(Utils.FileDivider)
+
+# Too much output for ci/cd
+#     if not testSuccessful:
+#         Print(Utils.FileDivider)
+#         Print("Compare Blocklog")
+#         cluster.compareBlockLogs()
+#         Print(Utils.FileDivider)
+#         Print("Print Blocklog")
+#         cluster.printBlockLog()
+#         Print(Utils.FileDivider)
 
 errorCode = 0 if testSuccessful else 1
 exit(errorCode)

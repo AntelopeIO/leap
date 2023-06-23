@@ -122,6 +122,7 @@ add_library( eosio_chain
              protocol_feature_manager.cpp
              producer_schedule.cpp
              genesis_intrinsics.cpp
+             symbol.cpp
              whitelisted_intrinsics.cpp
              thread_utils.cpp
              platform_timer_accuracy.cpp

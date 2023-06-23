@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from TestHarness import Cluster, TestHelper, Utils, WalletMgr
+from TestHarness.TestHelper import AppArgs
 
 ###############################################################
 # cluster_launcher
@@ -13,9 +14,13 @@ from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args=TestHelper.parse_args({"-p","-d","-s","--keep-logs"
+appArgs = AppArgs()
+appArgs.add(flag="--plugin",action='append',type=str,help="Run nodes with additional plugins")
+
+args=TestHelper.parse_args({"-p","-n","-d","-s","--keep-logs"
                             ,"--dump-error-details","-v"
-                            ,"--leave-running","--unshared"})
+                            ,"--leave-running","--unshared"},
+                            applicationSpecificArgs=appArgs)
 pnodes=args.p
 delay=args.d
 topo=args.s
@@ -37,7 +42,12 @@ try:
     Print(f'producing nodes: {pnodes}, topology: {topo}, delay between nodes launch: {delay} second{"s" if delay != 1 else ""}')
 
     Print("Stand up cluster")
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay) is False:
+    if args.plugin:
+        extraNodeosArgs = ''.join([i+j for i,j in zip([' --plugin '] * len(args.plugin), args.plugin)])
+    else:
+        extraNodeosArgs = ''
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, 
+                      extraNodeosArgs=extraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
     testSuccessful=True

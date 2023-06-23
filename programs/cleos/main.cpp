@@ -347,7 +347,7 @@ eosio::chain_apis::read_only::get_info_results get_info() {
 }
 
 string generate_nonce_string() {
-   return fc::to_string(fc::time_point::now().time_since_epoch().count());
+   return std::to_string(fc::time_point::now().time_since_epoch().count());
 }
 
 chain::action generate_nonce_action() {
