@@ -7,6 +7,10 @@
 #include <sys/prctl.h>
 #include <signal.h>
 #include <sys/resource.h>
+#include <sys/times.h>
+#include <sys/vtimes.h>
+#include <sys/types.h>
+#include <sys/sysinfo.h>
 
 #include "IR/Module.h"
 #include "IR/Validate.h"
@@ -16,6 +20,110 @@
 using namespace IR;
 
 namespace eosio { namespace chain { namespace eosvmoc {
+
+static clock_t lastCPU, lastSysCPU, lastUserCPU;
+static int numProcessors;
+
+int parseLine(char* line){
+   // This assumes that a digit will be found and the line ends in " Kb".
+   int i = strlen(line);
+   const char* p = line;
+   while (*p <'0' || *p > '9') p++;
+   line[i-3] = '\0';
+   i = atoi(p);
+   return i;
+}
+
+int getVMUsedValue(){ //Note: this value is in KB!
+   FILE* file = fopen("/proc/self/status", "r");
+   int result = -1;
+   char line[128];
+
+   while (fgets(line, 128, file) != NULL){
+      if (strncmp(line, "VmSize:", 7) == 0){
+         result = parseLine(line);
+         break;
+      }
+   }
+   fclose(file);
+   return result;
+}
+
+int getPHUsedValue(){ //Note: this value is in KB!
+   FILE* file = fopen("/proc/self/status", "r");
+   int result = -1;
+   char line[128];
+
+   while (fgets(line, 128, file) != NULL){
+      if (strncmp(line, "VmRSS:", 6) == 0){
+         result = parseLine(line);
+         break;
+      }
+   }
+   fclose(file);
+   return result;
+}
+
+void init(){
+   FILE* file;
+   struct tms timeSample;
+   char line[128];
+
+   lastCPU = times(&timeSample);
+   lastSysCPU = timeSample.tms_stime;
+   lastUserCPU = timeSample.tms_utime;
+
+   file = fopen("/proc/cpuinfo", "r");
+   numProcessors = 0;
+   while(fgets(line, 128, file) != NULL){
+      if (strncmp(line, "processor", 9) == 0) numProcessors++;
+   }
+   fclose(file);
+}
+
+void report_current_values(const digest_type& code_id) {
+
+   struct sysinfo memInfo;
+
+   sysinfo (&memInfo);
+   long long totalVirtualMem = memInfo.totalram;
+   //Add other values in next statement to avoid int overflow on right hand side...
+   totalVirtualMem += memInfo.totalswap;
+   totalVirtualMem *= memInfo.mem_unit;
+
+   long long virtualMemUsed = memInfo.totalram - memInfo.freeram;
+   //Add other values in next statement to avoid int overflow on right hand side...
+   virtualMemUsed += memInfo.totalswap - memInfo.freeswap;
+   virtualMemUsed *= memInfo.mem_unit;
+
+   int vm_used = getVMUsedValue();
+   int ph_used = getPHUsedValue();
+
+   struct tms timeSample;
+   clock_t now;
+   clock_t diff = -1;
+   double percent;
+
+   now = times(&timeSample);
+   if (now <= lastCPU || timeSample.tms_stime < lastSysCPU ||
+       timeSample.tms_utime < lastUserCPU){
+      //Overflow detection. Just skip this value.
+      percent = -1.0;
+   }
+   else{
+      percent = diff = (timeSample.tms_stime - lastSysCPU) +
+                       (timeSample.tms_utime - lastUserCPU);
+      percent /= (now - lastCPU);
+      percent /= numProcessors;
+      percent *= 100;
+   }
+   lastCPU = now;
+   lastSysCPU = timeSample.tms_stime;
+   lastUserCPU = timeSample.tms_utime;
+
+   elog( "oc compile ${r} cpu usage ${d} used vm ${uv}kb used phm ${uphm}kb",
+         ("r", code_id)("d", diff)("uv", vm_used)("uphm", ph_used));
+}
 
 void run_compile(wrapped_fd&& response_sock, wrapped_fd&& wasm_code) noexcept {  //noexcept; we'll just blow up if anything tries to cross this boundry
    std::vector<uint8_t> wasm = vector_for_memfd(wasm_code);
@@ -160,6 +268,7 @@ void run_compile_trampoline(int fd) {
          continue;
       }
 
+      const digest_type& code_id = std::get<compile_wasm_message>(message).code.code_id;
       pid_t pid = fork();
       if(pid == 0) {
          prctl(PR_SET_NAME, "oc-compile");
@@ -174,7 +283,9 @@ void run_compile_trampoline(int fd) {
          struct rlimit core_limits = {0u, 0u};
          setrlimit(RLIMIT_CORE, &core_limits);
 
+         init();
          run_compile(std::move(fds[0]), std::move(fds[1]));
+         report_current_values(code_id);
          _exit(0);
       }
       else if(pid == -1)
