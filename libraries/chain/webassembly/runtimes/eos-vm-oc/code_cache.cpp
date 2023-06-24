@@ -8,6 +8,7 @@
 #include <eosio/chain/webassembly/eos-vm-oc/intrinsic.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/compile_monitor.hpp>
 #include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/config.hpp>
 
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -106,7 +107,7 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
 }
 
 
-const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure) {
+const code_descriptor* const code_cache_async::get_descriptor_for_code(const account_name& receiver, const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure) {
    //if there are any outstanding compiles, process the result queue now
    //When app is in write window, all tasks are running sequentially and read-only threads
    //are not running. Safe to update cache entries.
@@ -156,13 +157,16 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
       it->second = false;
       return nullptr;
    }
-   if(_queued_compiles.find(ct) != _queued_compiles.end()) {
+   if(std::find(_queued_compiles.cbegin(), _queued_compiles.cend(), ct) != _queued_compiles.end()) {
       failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
 
    if(_outstanding_compiles_and_poison.size() >= _threads) {
-      _queued_compiles.emplace(ct);
+      if (receiver.prefix() == chain::config::system_account_name)
+         _queued_compiles.push_front(ct);
+      else
+         _queued_compiles.push_back(ct);
       failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
@@ -383,7 +387,9 @@ void code_cache_base::free_code(const digest_type& code_id, const uint8_t& vm_ve
    }
 
    //if it's in the queued list, erase it
-   _queued_compiles.erase({code_id, vm_version});
+   auto i = std::find(_queued_compiles.cbegin(), _queued_compiles.cend(), code_tuple{code_id, vm_version});
+   if (i != _queued_compiles.cend())
+      _queued_compiles.erase(i);
 
    //however, if it's currently being compiled there is no way to cancel the compile,
    //so instead set a poison boolean that indicates not to insert the code in to the cache

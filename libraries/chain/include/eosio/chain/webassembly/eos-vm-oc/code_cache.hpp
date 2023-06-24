@@ -80,7 +80,7 @@ class code_cache_base {
 
       //these are really only useful to the async code cache, but keep them here so
       //free_code can be shared
-      std::unordered_set<code_tuple> _queued_compiles;
+      deque<code_tuple> _queued_compiles;
       std::unordered_map<code_tuple, bool> _outstanding_compiles_and_poison;
 
       size_t _free_bytes_eviction_threshold;
@@ -101,7 +101,7 @@ class code_cache_async : public code_cache_base {
       //If code is in cache: returns pointer & bumps to front of MRU list
       //If code is not in cache, and not blacklisted, and not currently compiling: return nullptr and kick off compile
       //otherwise: return nullptr
-      const code_descriptor* const get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure);
+      const code_descriptor* const get_descriptor_for_code(const account_name& receiver, const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure);
 
    private:
       std::thread _monitor_reply_thread;
