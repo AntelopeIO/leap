@@ -8,7 +8,6 @@
 #include <signal.h>
 #include <sys/resource.h>
 #include <sys/times.h>
-#include <sys/vtimes.h>
 #include <sys/types.h>
 #include <sys/sysinfo.h>
 

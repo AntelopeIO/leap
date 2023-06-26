@@ -94,6 +94,11 @@ namespace eosio { namespace chain {
          const chain::eosvmoc::code_descriptor* cd = nullptr;
          chain::eosvmoc::code_cache_base::get_cd_failure failure = chain::eosvmoc::code_cache_base::get_cd_failure::temporary;
          try {
+           static std::map<digest_type, name> report;
+           if (report.count(code_hash) == 0) {
+             elog("${r} ${c}", ("r", context.get_receiver())("c", code_hash));
+             report[code_hash] = context.get_receiver();
+           }
             cd = my->eosvmoc->cc.get_descriptor_for_code(context.get_receiver(), code_hash, vm_version, context.control.is_write_window(), failure);
          }
          catch(...) {
