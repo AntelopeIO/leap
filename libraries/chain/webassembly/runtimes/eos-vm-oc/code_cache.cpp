@@ -158,7 +158,6 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const acc
       return nullptr;
    }
    if(auto it = _queued_compiles.get<by_hash>().find(boost::make_tuple(std::ref(code_id), vm_version)); it != _queued_compiles.get<by_hash>().end()) {
-      _queued_compiles.relocate(_queued_compiles.begin(), _queued_compiles.project<0>(it));
       failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
