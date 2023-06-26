@@ -48,7 +48,7 @@ namespace fc {
       if (count >= 0) {
          uint64_t secs = (uint64_t)count / 1000000ULL;
          uint64_t msec = ((uint64_t)count % 1000000ULL) / 1000ULL;
-         std::string padded_ms = fc::to_string((uint64_t)(msec + 1000ULL)).substr(1);
+         std::string padded_ms = std::to_string((uint64_t)(msec + 1000ULL)).substr(1);
          const auto ptime = boost::posix_time::from_time_t(time_t(secs));
          return boost::posix_time::to_iso_extended_string(ptime) + "." + padded_ms;
       } else {

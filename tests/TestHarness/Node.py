@@ -65,6 +65,7 @@ class Node(Transactions):
         self.data_dir=data_dir
         self.config_dir=config_dir
         self.launch_time=launch_time
+        self.isProducer=False
         self.configureVersion()
 
     def configureVersion(self):
@@ -272,7 +273,7 @@ class Node(Transactions):
             if self.popenProc is not None:
                 self.popenProc.send_signal(killSignal)
                 self.popenProc.wait()
-            else:
+            elif self.pid is not None:
                 os.kill(self.pid, killSignal)
 
                 # wait for kill validation
@@ -286,6 +287,8 @@ class Node(Transactions):
                 if not Utils.waitForBool(myFunc):
                     Utils.Print("ERROR: Failed to validate node shutdown.")
                     return False
+            else:
+                if Utils.Debug: Utils.Print(f"Called kill on node {self.nodeId} but it has already exited.")
         except OSError as ex:
             Utils.Print("ERROR: Failed to kill node (%s)." % (self.cmd), ex)
             return False
@@ -377,6 +380,7 @@ class Node(Transactions):
         if chainArg:
             cmdArr.extend(shlex.split(chainArg))
         self.popenProc=self.launchCmd(cmdArr, self.data_dir, launch_time=datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
+        self.pid=self.popenProc.pid
 
         def isNodeAlive():
             """wait for node to be responsive."""
@@ -444,6 +448,7 @@ class Node(Transactions):
             popen.errfile = serr
             self.pid = popen.pid
             self.cmd = cmd
+            self.isProducer = '--producer-name' in self.cmd
         with pidf.open('w') as pidout:
             pidout.write(str(popen.pid))
         try:

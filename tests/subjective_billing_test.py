@@ -81,7 +81,7 @@ try:
     cluster.createAccountAndVerify(account2, cluster.eosioAccount, stakedDeposit=1000, stakeCPU=1)
 
     Print("Validating accounts after bootstrap")
-    cluster.validateAccounts([account1, account2])
+    cluster.validateAccounts([account1, account2], testSysAccounts=False)
 
     node = cluster.getNode()
 

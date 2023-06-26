@@ -30,7 +30,7 @@ platform_timer::platform_timer() {
       std::promise<void> p;
       auto f = p.get_future();
       checktime_thread = std::thread([&p]() {
-         fc::set_os_thread_name("checktime");
+         fc::set_thread_name("checktime");
          checktime_ios = std::make_unique<boost::asio::io_service>();
          boost::asio::io_service::work work(*checktime_ios);
          p.set_value();

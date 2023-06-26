@@ -29,6 +29,7 @@ defproducerbPrvtKey=args.defproducerb_prvt_key
 dumpErrorDetails=args.dump_error_details
 dontLaunch=args.dont_launch
 pnodes=args.p
+totalNodes=pnodes+1
 sanityTest=args.sanity_test
 walletPort=args.wallet_port
 
@@ -65,7 +66,7 @@ try:
         if pnodes > 3:
             specificExtraNodeosArgs[pnodes - 2] = ""
 
-        if cluster.launch(totalNodes=pnodes, 
+        if cluster.launch(totalNodes=totalNodes, 
                           pnodes=pnodes,
                           dontBootstrap=dontBootstrap,
                           pfSetupPolicy=PFSetupPolicy.PREACTIVATE_FEATURE_ONLY,
@@ -114,12 +115,13 @@ try:
             errorExit("Failed to import key for account %s" % (account.name))
     
     node=cluster.getNode(0)
+    nonProdNode=cluster.getAllNodes()[-1]
 
     Print("Create new account %s via %s" % (testeraAccount.name, cluster.defproduceraAccount.name))
     transId=node.createInitializeAccount(testeraAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=False, exitOnError=True)
 
     Print("Create new account %s via %s" % (testerbAccount.name, cluster.defproduceraAccount.name))
-    transId=node.createInitializeAccount(testerbAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=True, exitOnError=True)
+    transId=nonProdNode.createInitializeAccount(testerbAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=True, exitOnError=True)
 
     Print("Validating accounts after user accounts creation")
     accounts=[testeraAccount, testerbAccount]

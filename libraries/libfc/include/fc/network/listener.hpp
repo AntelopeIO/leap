@@ -103,13 +103,17 @@ struct listener : listener_base<Protocol>, std::enable_shared_from_this<listener
 #ifdef ENONET
                                         || code == ENONET
 #endif
+#ifdef __APPLE__
+                                        //guard against failure of asio's internal SO_NOSIGPIPE call after accept()
+                                        || code == EINVAL
+#endif
       ) {
          // according to https://man7.org/linux/man-pages/man2/accept.2.html, reliable application should
          // retry when these error codes are returned
          fc_wlog(logger_, "closing connection, accept error: ${m}", ("m", ec.message()));
          do_accept();
       } else {
-         fc_elog(logger_, "Unrecoverable accept error, stop listening: ${msg}", ("m", ec.message()));
+         fc_elog(logger_, "Unrecoverable accept error, stop listening: ${m}", ("m", ec.message()));
       }
    }
 

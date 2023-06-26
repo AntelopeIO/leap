@@ -132,7 +132,7 @@ void producer_api_plugin::plugin_startup() {
        CALL_ASYNC(producer, snapshot, producer, create_snapshot, chain::snapshot_scheduler::snapshot_information,
             INVOKE_R_V_ASYNC(producer, create_snapshot), 201),
        CALL_WITH_400(producer, snapshot, producer, schedule_snapshot,
-            INVOKE_R_R_II(producer, schedule_snapshot, chain::snapshot_scheduler::snapshot_request_information), 201),
+            INVOKE_R_R_II(producer, schedule_snapshot, chain::snapshot_scheduler::snapshot_request_params), 201),
        CALL_WITH_400(producer, snapshot, producer, unschedule_snapshot,
             INVOKE_R_R(producer, unschedule_snapshot, chain::snapshot_scheduler::snapshot_request_id_information), 201),
        CALL_WITH_400(producer, producer_rw, producer, get_integrity_hash,

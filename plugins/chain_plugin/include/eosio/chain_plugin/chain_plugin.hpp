@@ -941,7 +941,7 @@ public:
             // the following will convert the input to array of 2 uint128_t in little endian, i.e. 50f0fa8360ec998f4bb65b00c86282f5 fb54b91bfed2fe7fe39a92d999d002c5
             // which is the format used by secondary index
             chain::key256_t k;
-            uint8_t buffer[32];
+            uint8_t buffer[32] = {};
             boost::multiprecision::export_bits(v, buffer, 8, false);
             memcpy(&k[0], buffer + 16, 16);
             memcpy(&k[1], buffer, 16);
@@ -985,7 +985,6 @@ public:
    void enable_accept_transactions();
 
    static void handle_guard_exception(const chain::guard_exception& e);
-   void do_hard_replay(const variables_map& options);
 
    bool account_queries_enabled() const;
    bool transaction_finality_status_enabled() const;
@@ -996,9 +995,7 @@ public:
    fc::variant get_log_trx(const transaction& trx) const;
 
    const controller::config& chain_config() const;
-
 private:
-   static void log_guard_exception(const chain::guard_exception& e);
 
    unique_ptr<class chain_plugin_impl> my;
 };
