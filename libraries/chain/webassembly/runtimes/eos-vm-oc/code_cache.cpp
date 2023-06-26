@@ -39,7 +39,7 @@ static constexpr size_t descriptor_ptr_from_file_start = header_offset + offseto
 
 static_assert(sizeof(code_cache_header) <= header_size, "code_cache_header too big");
 
-code_cache_async::code_cache_async(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
+code_cache_async::code_cache_async(const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    code_cache_base(data_dir, eosvmoc_config, db),
    _result_queue(eosvmoc_config.threads * 2),
    _threads(eosvmoc_config.threads)
@@ -225,7 +225,7 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
    return &*_cache_index.push_front(std::move(std::get<code_descriptor>(result.result))).first;
 }
 
-code_cache_base::code_cache_base(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
+code_cache_base::code_cache_base(const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    _db(db),
    _cache_file_path(data_dir/"code_cache.bin")
 {

@@ -39,7 +39,7 @@ struct config;
 
 class code_cache_base {
    public:
-      code_cache_base(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      code_cache_base(const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
       ~code_cache_base();
 
       const int& fd() const { return _cache_fd; }
@@ -95,7 +95,7 @@ class code_cache_base {
 
 class code_cache_async : public code_cache_base {
    public:
-      code_cache_async(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      code_cache_async(const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
       ~code_cache_async();
 
       //If code is in cache: returns pointer & bumps to front of MRU list
