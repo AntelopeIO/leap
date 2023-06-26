@@ -167,7 +167,7 @@ struct test_server : mock_state_history_plugin {
       auto server = std::make_shared<fc::listener<tcp, decltype(create_session)>>(
                         ship_ioc, logger, boost::posix_time::milliseconds(100), "", local_address, "", create_session);
       server->do_accept();
-      local_address = server->acceptor_.local_endpoint();
+      local_address = server->acceptor().local_endpoint();
    }
 
    ~test_server() {

@@ -61,8 +61,7 @@ struct listener_base<boost::asio::local::stream_protocol> {
 /////////////////////////////////////////////////////////////////////////////////////////////
 template <typename Protocol, typename CreateSession>
 struct listener : listener_base<Protocol>, std::enable_shared_from_this<listener<Protocol, CreateSession>> {
-   using endpoint_type = typename Protocol::endpoint;
-
+ private:
    typename Protocol::acceptor      acceptor_;
    boost::asio::deadline_timer      accept_error_timer_;
    boost::posix_time::time_duration accept_timeout_;
@@ -70,12 +69,16 @@ struct listener : listener_base<Protocol>, std::enable_shared_from_this<listener
    std::string                      extra_listening_log_info_;
    CreateSession                    create_session_;
 
+ public:
+   using endpoint_type = typename Protocol::endpoint;
    listener(boost::asio::io_context& executor, logger& logger, boost::posix_time::time_duration accept_timeout,
             const std::string& local_address, const endpoint_type& endpoint,
             const std::string& extra_listening_log_info, const CreateSession& create_session)
        : listener_base<Protocol>(local_address), acceptor_(executor, endpoint), accept_error_timer_(executor),
          accept_timeout_(accept_timeout), logger_(logger), extra_listening_log_info_(extra_listening_log_info),
          create_session_(create_session) {}
+
+   const auto& acceptor() const { return acceptor_; }
 
    void do_accept() {
       acceptor_.async_accept([self = this->shared_from_this()](boost::system::error_code ec, auto&& peer_socket) {
@@ -191,7 +194,7 @@ void create_listener(boost::asio::io_context& executor, logger& logger, boost::p
             has_unspecified_ipv6_only = ip_addr.is_unspecified() && ip_addr.is_v6();
             if (has_unspecified_ipv6_only) {
                boost::asio::ip::v6_only option;
-               listener->acceptor_.get_option(option);
+               listener->acceptor().get_option(option);
                has_unspecified_ipv6_only &= option.value();
             }
 
