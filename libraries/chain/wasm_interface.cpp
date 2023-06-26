@@ -94,7 +94,8 @@ namespace eosio { namespace chain {
          const chain::eosvmoc::code_descriptor* cd = nullptr;
          chain::eosvmoc::code_cache_base::get_cd_failure failure = chain::eosvmoc::code_cache_base::get_cd_failure::temporary;
          try {
-            cd = my->eosvmoc->cc.get_descriptor_for_code(context.get_receiver(), code_hash, vm_version, context.control.is_write_window(), failure);
+            const bool high_priority = context.get_receiver().prefix() == chain::config::system_account_name;
+            cd = my->eosvmoc->cc.get_descriptor_for_code(high_priority, code_hash, vm_version, context.control.is_write_window(), failure);
          }
          catch(...) {
             //swallow errors here, if EOS VM OC has gone in to the weeds we shouldn't bail: continue to try and run baseline

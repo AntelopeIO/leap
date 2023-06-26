@@ -8,7 +8,6 @@
 #include <eosio/chain/webassembly/eos-vm-oc/intrinsic.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/compile_monitor.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <eosio/chain/config.hpp>
 
 #include <unistd.h>
 #include <sys/syscall.h>
@@ -107,7 +106,7 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
 }
 
 
-const code_descriptor* const code_cache_async::get_descriptor_for_code(const account_name& receiver, const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure) {
+const code_descriptor* const code_cache_async::get_descriptor_for_code(bool high_priority, const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure) {
    //if there are any outstanding compiles, process the result queue now
    //When app is in write window, all tasks are running sequentially and read-only threads
    //are not running. Safe to update cache entries.
@@ -163,7 +162,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const acc
    }
 
    if(_outstanding_compiles_and_poison.size() >= _threads) {
-      if (receiver.prefix() == chain::config::system_account_name)
+      if (high_priority)
          _queued_compiles.push_front(ct);
       else
          _queued_compiles.push_back(ct);

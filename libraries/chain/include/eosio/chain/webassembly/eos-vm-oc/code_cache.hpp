@@ -111,7 +111,7 @@ class code_cache_async : public code_cache_base {
       //If code is in cache: returns pointer & bumps to front of MRU list
       //If code is not in cache, and not blacklisted, and not currently compiling: return nullptr and kick off compile
       //otherwise: return nullptr
-      const code_descriptor* const get_descriptor_for_code(const account_name& receiver, const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure);
+      const code_descriptor* const get_descriptor_for_code(bool high_priority, const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure);
 
    private:
       std::thread _monitor_reply_thread;
