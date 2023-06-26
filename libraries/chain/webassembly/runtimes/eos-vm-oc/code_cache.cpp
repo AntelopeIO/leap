@@ -157,7 +157,8 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const acc
       it->second = false;
       return nullptr;
    }
-   if(std::find(_queued_compiles.cbegin(), _queued_compiles.cend(), ct) != _queued_compiles.end()) {
+   if(auto it = _queued_compiles.get<by_hash>().find(boost::make_tuple(std::ref(code_id), vm_version)); it != _queued_compiles.get<by_hash>().end()) {
+      _queued_compiles.relocate(_queued_compiles.begin(), _queued_compiles.project<0>(it));
       failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
@@ -387,9 +388,8 @@ void code_cache_base::free_code(const digest_type& code_id, const uint8_t& vm_ve
    }
 
    //if it's in the queued list, erase it
-   auto i = std::find(_queued_compiles.cbegin(), _queued_compiles.cend(), code_tuple{code_id, vm_version});
-   if (i != _queued_compiles.cend())
-      _queued_compiles.erase(i);
+   if(auto i = _queued_compiles.get<by_hash>().find(boost::make_tuple(std::ref(code_id), vm_version)); i != _queued_compiles.get<by_hash>().end())
+      _queued_compiles.get<by_hash>().erase(i);
 
    //however, if it's currently being compiled there is no way to cancel the compile,
    //so instead set a poison boolean that indicates not to insert the code in to the cache

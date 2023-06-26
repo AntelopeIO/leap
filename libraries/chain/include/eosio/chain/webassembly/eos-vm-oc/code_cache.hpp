@@ -15,7 +15,6 @@
 
 
 #include <thread>
-#include <shared_mutex>
 
 namespace std {
     template<> struct hash<eosio::chain::eosvmoc::code_tuple> {
@@ -78,9 +77,20 @@ class code_cache_base {
       local::datagram_protocol::socket _compile_monitor_write_socket{_ctx};
       local::datagram_protocol::socket _compile_monitor_read_socket{_ctx};
 
-      //these are really only useful to the async code cache, but keep them here so
-      //free_code can be shared
-      deque<code_tuple> _queued_compiles;
+      //these are really only useful to the async code cache, but keep them here so free_code can be shared
+      using queued_compilies_t = boost::multi_index_container<
+         code_tuple,
+         indexed_by<
+            sequenced<>,
+            hashed_unique<tag<by_hash>,
+               composite_key< code_tuple,
+                  member<code_tuple, digest_type, &code_tuple::code_id>,
+                  member<code_tuple, uint8_t,     &code_tuple::vm_version>
+               >
+            >
+         >
+      >;
+      queued_compilies_t _queued_compiles;
       std::unordered_map<code_tuple, bool> _outstanding_compiles_and_poison;
 
       size_t _free_bytes_eviction_threshold;
