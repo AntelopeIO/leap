@@ -4121,13 +4121,7 @@ namespace eosio {
    }
 
    void net_plugin::plugin_startup() {
-      try {
-         my->plugin_startup();
-      } catch( ... ) {
-         // always want plugin_shutdown even on exception
-         plugin_shutdown();
-         throw;
-      }
+      my->plugin_startup();
    }
       
 

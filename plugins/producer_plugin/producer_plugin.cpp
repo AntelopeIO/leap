@@ -1033,7 +1033,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    _options = &options;
    LOAD_VALUE_SET(options, "producer-name", _producers)
 
-      chain::controller& chain = chain_plug->chain();
+   chain::controller& chain = chain_plug->chain();
 
    if (options.count("signature-provider")) {
       const std::vector<std::string> key_spec_pairs = options["signature-provider"].as<std::vector<std::string>>();
@@ -1284,7 +1284,6 @@ void producer_plugin::plugin_initialize(const boost::program_options::variables_
 using namespace std::chrono_literals;
 void producer_plugin_impl::plugin_startup() {
    try {
-      try {
          ilog("producer plugin:  plugin_startup() begin");
 
          _thread_pool.start(_thread_pool_size, [](const fc::exception& e) {
@@ -1352,11 +1351,6 @@ void producer_plugin_impl::plugin_startup() {
          schedule_production_loop();
 
          ilog("producer plugin:  plugin_startup() end");
-      } catch (...) {
-         // always call plugin_shutdown, even on exception
-         plugin_shutdown();
-         throw;
-      }
    }
    FC_CAPTURE_AND_RETHROW()
 }
