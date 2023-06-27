@@ -38,8 +38,8 @@ BOOST_AUTO_TEST_CASE(bls_serialization_test) try {
     cout << pk_string << std::endl;
     cout << signature_string << std::endl;
 
-    g1 pk2 = g1::fromJacobianBytesBE(hexToBytes(pk_string));
-    g2 signature2 = g2::fromJacobianBytesBE(hexToBytes(signature_string));
+    g1 pk2 = g1::fromJacobianBytesBE(hexToBytes(pk_string)).value();
+    g2 signature2 = g2::fromJacobianBytesBE(hexToBytes(signature_string)).value();
     bool ok = verify(pk2, message_1, signature2);
     BOOST_CHECK_EQUAL(ok, true);
 } FC_LOG_AND_RETHROW();
