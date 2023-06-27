@@ -69,6 +69,7 @@ try:
 
     Print("Wait for producing {} blocks".format(numBlocksToProduceBeforeRelaunch))
     producingNode.waitForBlock(numBlocksToProduceBeforeRelaunch, blockType=BlockType.lib)
+    producingNode.waitForProducer("defproducera")
 
     Print("Kill all node instances.")
     for clusterNode in cluster.nodes:
@@ -83,8 +84,9 @@ try:
     Utils.rmNodeDataDir(2)
 
     Print ("Relaunch all cluster nodes instances.")
-    # -e -p eosio for resuming production, skipGenesis=False for launch the same chain as before
-    relaunchNode(producingNode, chainArg="-e -p eosio --sync-fetch-span 5 ", skipGenesis=False)
+    # -e for resuming production, defproducera only producer at this point
+    # skipGenesis=False for launch the same chain as before
+    relaunchNode(producingNode, chainArg="-e --sync-fetch-span 5 ", skipGenesis=False)
     relaunchNode(speculativeNode1, chainArg="--sync-fetch-span 5 ")
     relaunchNode(speculativeNode2, chainArg="--sync-fetch-span 5 ", skipGenesis=False)
 
