@@ -8,6 +8,9 @@ import unittest
 import socket
 import re
 import shlex
+import argparse
+import sys
+import signal
 from pathlib import Path
 
 from TestHarness import Account, Node, TestHelper, Utils, WalletMgr, ReturnType
@@ -68,7 +71,11 @@ class PluginHttpTest(unittest.TestCase):
             shutil.rmtree(self.config_dir)
         self.config_dir.mkdir()
 
-    # kill nodeos and keosd and clean up dirs
+   # kill nodeos. keosd shuts down automatically
+    def killNodes(self):
+        self.nodeos.kill(signal.SIGTERM)
+
+    # clean up dirs
     def cleanEnv(self) :
         if self.data_dir.exists():
             shutil.rmtree(Utils.DataPath)
@@ -1536,11 +1543,24 @@ class PluginHttpTest(unittest.TestCase):
 
     @classmethod
     def tearDownClass(self):
-        self.cleanEnv(self)
+        global keepLogs
+        self.killNodes(self)
+        if unittest.TestResult().wasSuccessful() and not keepLogs:
+            self.cleanEnv(self)
 
     
 if __name__ == "__main__":
     test_category = True if os.environ.get("PLUGIN_HTTP_TEST_CATEGORY") == "ON" else False
     category_config = HttpCategoryConfig(test_category)
 
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--keep-logs', action='store_true')
+    parser.add_argument('unittest_args', nargs=argparse.REMAINDER)
+
+    args = parser.parse_args()
+    global keepLogs
+    keepLogs = args.keep_logs;
+
+    # Now set the sys.argv to the unittest_args (leaving sys.argv[0] alone)
+    sys.argv[1:] = args.unittest_args
     unittest.main()
