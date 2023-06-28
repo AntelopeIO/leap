@@ -3089,14 +3089,14 @@ namespace eosio {
       }
       switch (msg.known_trx.mode) {
       case none:
-         break;
-      case last_irr_catch_up:
-      case catch_up : {
+      case last_irr_catch_up: {
          std::unique_lock<std::mutex> g_conn( conn_mtx );
-         last_handshake_recv.head_num = msg.known_blocks.pending;
+         last_handshake_recv.head_num = std::max(msg.known_blocks.pending, last_handshake_recv.head_num);
          g_conn.unlock();
          break;
       }
+      case catch_up:
+         break;
       case normal: {
          my_impl->dispatcher->recv_notice( shared_from_this(), msg, false );
       }
