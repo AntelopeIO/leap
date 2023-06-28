@@ -3359,17 +3359,9 @@ namespace eosio {
       }
       switch (msg.known_trx.mode) {
       case none:
-<<<<<<< HEAD
-         break;
-      case last_irr_catch_up:
-      case catch_up : {
-         fc::unique_lock g_conn( conn_mtx );
-         last_handshake_recv.head_num = msg.known_blocks.pending;
-=======
       case last_irr_catch_up: {
-         std::unique_lock<std::mutex> g_conn( conn_mtx );
+         fc::unique_lock g_conn( conn_mtx );
          last_handshake_recv.head_num = std::max(msg.known_blocks.pending, last_handshake_recv.head_num);
->>>>>>> origin/release/4.0
          g_conn.unlock();
          break;
       }
