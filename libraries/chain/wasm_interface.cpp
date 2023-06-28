@@ -90,7 +90,7 @@ namespace eosio { namespace chain {
       if(substitute_apply && substitute_apply(code_hash, vm_type, vm_version, context))
          return;
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      if(my->eosvmoc && (my->should_always_oc_tierup() || context.should_use_eos_vm_oc())) {
+      if(my->eosvmoc && (my->eosvmoc_tierup == wasm_interface::vm_oc_enable::oc_all || context.should_use_eos_vm_oc())) {
          const chain::eosvmoc::code_descriptor* cd = nullptr;
          chain::eosvmoc::code_cache_base::get_cd_failure failure = chain::eosvmoc::code_cache_base::get_cd_failure::temporary;
          try {

@@ -162,10 +162,6 @@ namespace eosio { namespace chain {
          return it->module;
       }
 
-      bool should_always_oc_tierup()const {
-         return wasm_runtime_time == wasm_interface::vm_type::eos_vm_oc || eosvmoc_tierup == wasm_interface::vm_oc_enable::oc_all;
-      }
-
       bool is_shutting_down = false;
       std::unique_ptr<wasm_runtime_interface> runtime_interface;
 
