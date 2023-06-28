@@ -463,7 +463,7 @@ namespace eosio { namespace chain {
 
          std::mutex       mtx;
          signed_block_ptr head;
-         block_id_type    head_id;
+         std::optional<block_id_type> head_id;
 
          virtual ~block_log_impl() = default;
 
@@ -591,7 +591,7 @@ namespace eosio { namespace chain {
          }
 
          uint64_t get_block_pos(uint32_t block_num) final {
-            if (!(head && block_num <= block_header::num_from_id(head_id) &&
+            if (!(head_id && block_num <= block_header::num_from_id(*head_id) &&
                   block_num >= working_block_file_first_block_num()))
                return block_log::npos;
             index_file.seek(sizeof(uint64_t) * (block_num - index_first_block_num()));
@@ -804,7 +804,7 @@ namespace eosio { namespace chain {
             size_t copy_from_pos = get_block_pos(first_block_num);
             block_file.seek_end(-sizeof(uint32_t));
             size_t         copy_sz           = block_file.tellp() - copy_from_pos;
-            const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_num + 1;
+            const uint32_t num_blocks_in_log = chain::block_header::num_from_id(*head_id) - first_block_num + 1;
 
             const size_t offset_bytes  = copy_from_pos - copy_to_pos;
             const size_t offset_blocks = first_block_num - index_first_block_num;
@@ -1121,7 +1121,7 @@ namespace eosio { namespace chain {
             if ((pos & prune_config.prune_threshold) != (end & prune_config.prune_threshold))
                num_blocks_in_log = prune(fc::log_level::debug);
             else
-               num_blocks_in_log = chain::block_header::num_from_id(head_id) - first_block_number + 1;
+               num_blocks_in_log = chain::block_header::num_from_id(*head_id) - first_block_number + 1;
             fc::raw::pack(block_file, num_blocks_in_log);
          }
 
@@ -1142,7 +1142,7 @@ namespace eosio { namespace chain {
          uint32_t prune(const fc::log_level& loglevel) {
             if (!head)
                return 0;
-            const uint32_t head_num = chain::block_header::num_from_id(head_id);
+            const uint32_t head_num = chain::block_header::num_from_id(*head_id);
             if (head_num - first_block_number < prune_config.prune_blocks)
                return head_num - first_block_number + 1;
 
@@ -1255,7 +1255,7 @@ namespace eosio { namespace chain {
       return my->head;
    }
 
-   block_id_type block_log::head_id() const {
+   std::optional<block_id_type> block_log::head_id() const {
       std::lock_guard g(my->mtx);
       return my->head_id;
    }
