@@ -126,7 +126,8 @@ void validate(boost::any& v,
 
   // Extract the first string from 'values'. If there is more than
   // one string, it's an error, and exception will be thrown.
-  std::string const& s = validators::get_single_string(values);
+  std::string s = validators::get_single_string(values);
+  boost::algorithm::to_lower(s);
 
   if (s == "auto") {
      v = boost::any(wasm_interface::vm_oc_enable::oc_auto);
