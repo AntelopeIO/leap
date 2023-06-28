@@ -2682,9 +2682,11 @@ struct controller_impl {
       return app_window == app_window_type::write;
    }
 
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
    bool is_eos_vm_oc_enabled() const {
       return wasm_if_collect.is_eos_vm_oc_enabled();
    }
+#endif
 
    void init_thread_local_data() {
       wasm_if_collect.init_thread_local_data(db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
@@ -3572,10 +3574,11 @@ vm::wasm_allocator& controller::get_wasm_allocator() {
    return my->wasm_alloc;
 }
 #endif
-
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
 bool controller::is_eos_vm_oc_enabled() const {
    return my->is_eos_vm_oc_enabled();
 }
+#endif
 
 std::optional<uint64_t> controller::convert_exception_to_error_code( const fc::exception& e ) {
    const chain_exception* e_ptr = dynamic_cast<const chain_exception*>( &e );

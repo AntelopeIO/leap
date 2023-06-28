@@ -18,12 +18,14 @@ namespace eosio::chain {
          {}
 
          wasm_interface& get_wasm_interface() {
-            if (is_on_main_thread() || is_eos_vm_oc_enabled()) {
+            if (is_on_main_thread()
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+                || is_eos_vm_oc_enabled()
+#endif
+            )
                return wasmif;
-            }
             return *threaded_wasmifs[std::this_thread::get_id()];
          }
-
 
          // update current lib of all wasm interfaces
          void current_lib(const uint32_t lib) {
@@ -38,19 +40,24 @@ namespace eosio::chain {
          void init_thread_local_data(const chainbase::database& d, const std::filesystem::path& data_dir,
                                      const eosvmoc::config& eosvmoc_config, bool profile) {
             EOS_ASSERT(!is_on_main_thread(), misc_exception, "init_thread_local_data called on the main thread");
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
             if (is_eos_vm_oc_enabled()) {
                // EOSVMOC needs further initialization of its thread local data
                wasmif.init_thread_local_data();
-            } else {
+            } else
+#endif
+            {
                std::lock_guard g(threaded_wasmifs_mtx);
                // Non-EOSVMOC needs a wasmif per thread
                threaded_wasmifs[std::this_thread::get_id()] = std::make_unique<wasm_interface>(wasm_runtime, eosvmoc_tierup, d, data_dir, eosvmoc_config, profile);
             }
          }
 
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
          bool is_eos_vm_oc_enabled() const {
             return ((eosvmoc_tierup != wasm_interface::vm_oc_enable::oc_none) || wasm_runtime == wasm_interface::vm_type::eos_vm_oc);
          }
+#endif
 
          void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
             // The caller of this function apply_eosio_setcode has already asserted that
