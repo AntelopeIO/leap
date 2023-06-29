@@ -32,8 +32,8 @@
 
 namespace eosio { namespace chain {
 
-   wasm_interface::wasm_interface(vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
-     : my( new wasm_interface_impl(vm, eosvmoc_tierup, d, data_dir, eosvmoc_config, profile) ), vm( vm ) {}
+   wasm_interface::wasm_interface(vm_type vm, vm_oc_enable eosvmoc_tierup, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
+     : my( new wasm_interface_impl(vm, eosvmoc_tierup, d, data_dir, eosvmoc_config, profile) ) {}
 
    wasm_interface::~wasm_interface() {}
 
@@ -41,7 +41,7 @@ namespace eosio { namespace chain {
    void wasm_interface::init_thread_local_data() {
       if (my->eosvmoc)
          my->eosvmoc->init_thread_local_data();
-      else if (vm == wasm_interface::vm_type::eos_vm_oc && my->runtime_interface)
+      else if (my->wasm_runtime_time == wasm_interface::vm_type::eos_vm_oc && my->runtime_interface)
          my->runtime_interface->init_thread_local_data();
    }
 #endif
@@ -90,7 +90,7 @@ namespace eosio { namespace chain {
       if(substitute_apply && substitute_apply(code_hash, vm_type, vm_version, context))
          return;
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      if(my->eosvmoc) {
+      if(my->eosvmoc && (my->eosvmoc_tierup == wasm_interface::vm_oc_enable::oc_all || context.should_use_eos_vm_oc())) {
          const chain::eosvmoc::code_descriptor* cd = nullptr;
          chain::eosvmoc::code_cache_base::get_cd_failure failure = chain::eosvmoc::code_cache_base::get_cd_failure::temporary;
          try {
@@ -105,6 +105,8 @@ namespace eosio { namespace chain {
             once_is_enough = true;
          }
          if(cd) {
+            if (!context.is_applying_block()) // read_only_trx_test.py looks for this log statement
+               tlog("${a} speculatively executing ${h} with eos vm oc", ("a", context.get_receiver())("h", code_hash));
             my->eosvmoc->exec->execute(*cd, my->eosvmoc->mem, context);
             return;
          }

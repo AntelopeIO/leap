@@ -1033,7 +1033,9 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    _options = &options;
    LOAD_VALUE_SET(options, "producer-name", _producers)
 
-      chain::controller& chain = chain_plug->chain();
+   chain::controller& chain = chain_plug->chain();
+
+   chain.set_producer_node(!_producers.empty());
 
    if (options.count("signature-provider")) {
       const std::vector<std::string> key_spec_pairs = options["signature-provider"].as<std::vector<std::string>>();

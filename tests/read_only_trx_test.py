@@ -22,7 +22,7 @@ errorExit=Utils.errorExit
 appArgs=AppArgs()
 appArgs.add(flag="--read-only-threads", type=int, help="number of read-only threads", default=0)
 appArgs.add(flag="--num-test-runs", type=int, help="number of times to run the tests", default=1)
-appArgs.add_bool(flag="--eos-vm-oc-enable", help="enable eos-vm-oc")
+appArgs.add(flag="--eos-vm-oc-enable", type=str, help="specify eos-vm-oc-enable option", default="auto")
 appArgs.add(flag="--wasm-runtime", type=str, help="if set to eos-vm-oc, must compile with EOSIO_EOS_VM_OC_DEVELOPER", default="eos-vm-jit")
 
 args=TestHelper.parse_args({"-p","-n","-d","-s","--nodes-file","--seed"
@@ -47,9 +47,12 @@ numTestRuns=args.num_test_runs
 Utils.Debug=debug
 testSuccessful=False
 errorInThread=False
+noOC = args.eos_vm_oc_enable == "none"
+allOC = args.eos_vm_oc_enable == "all"
 
 random.seed(seed) # Use a fixed seed for repeatability.
-cluster=Cluster(unshared=args.unshared, keepRunning=True if nodesFile is not None else args.leave_running, keepLogs=args.keep_logs)
+# all debuglevel so that "executing ${h} with eos vm oc" is logged
+cluster=Cluster(loggingLevel="all", unshared=args.unshared, keepRunning=True if nodesFile is not None else args.leave_running, keepLogs=args.keep_logs)
 
 walletMgr=WalletMgr(True)
 EOSIO_ACCT_PRIVATE_DEFAULT_KEY = "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
@@ -60,6 +63,15 @@ apiNode = None
 testAccountName = "test"
 userAccountName = "user"
 payloadlessAccountName = "payloadless"
+
+def getCodeHash(node, account):
+    # Example get code result: code hash: 67d0598c72e2521a1d588161dad20bbe9f8547beb5ce6d14f3abd550ab27d3dc
+    cmd = f"get code {account}"
+    codeHash = node.processCleosCmd(cmd, cmd, silentErrors=False, returnType=ReturnType.raw)
+    if codeHash is None: errorExit(f"Unable to get code {account} from node {node.nodeId}")
+    else: codeHash = codeHash.split(' ')[2].strip()
+    if Utils.Debug: Utils.Print(f"{account} code hash: {codeHash}")
+    return codeHash
 
 def startCluster():
     global total_nodes
@@ -91,7 +103,8 @@ def startCluster():
     specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
     specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
     if args.eos_vm_oc_enable:
-        specificExtraNodeosArgs[pnodes]+=" --eos-vm-oc-enable"
+        specificExtraNodeosArgs[pnodes]+=" --eos-vm-oc-enable "
+        specificExtraNodeosArgs[pnodes]+=args.eos_vm_oc_enable
     if args.wasm_runtime:
         specificExtraNodeosArgs[pnodes]+=" --wasm-runtime "
         specificExtraNodeosArgs[pnodes]+=args.wasm_runtime
@@ -106,6 +119,12 @@ def startCluster():
 
     producerNode = cluster.getNode()
     apiNode = cluster.nodes[-1]
+
+    eosioCodeHash = getCodeHash(producerNode, "eosio.token")
+    # eosio.* should be using oc unless oc tierup disabled
+    Utils.Print(f"search: executing {eosioCodeHash} with eos vm oc")
+    found = producerNode.findInLog(f"executing {eosioCodeHash} with eos vm oc")
+    assert( found or (noOC and not found) )
 
 def deployTestContracts():
     Utils.Print("create test accounts")
@@ -242,6 +261,10 @@ def basicTests():
     results = sendTransaction(testAccountName, 'insert', {"user": userAccountName, "id": 1, "age": 10}, auth=[{"actor": userAccountName, "permission":"active"}])
     assert(results[0])
     apiNode.waitForTransactionInBlock(results[1]['transaction_id'])
+
+    testAccountCodeHash = getCodeHash(producerNode, testAccountName)
+    found = producerNode.findInLog(f"executing {testAccountCodeHash} with eos vm oc")
+    assert( (allOC and found) or not found )
 
     # verify the return value (age) from read-only is the same as created.
     Print("Send a read-only Get transaction to verify previous Insert")

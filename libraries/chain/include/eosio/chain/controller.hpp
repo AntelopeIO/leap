@@ -90,7 +90,7 @@ namespace eosio { namespace chain {
 
             wasm_interface::vm_type  wasm_runtime = chain::config::default_wasm_runtime;
             eosvmoc::config          eosvmoc_config;
-            bool                     eosvmoc_tierup         = false;
+            wasm_interface::vm_oc_enable eosvmoc_tierup     = wasm_interface::vm_oc_enable::oc_auto;
 
             db_read_mode             read_mode              = db_read_mode::HEAD;
             validation_mode          block_validation_mode  = validation_mode::FULL;
@@ -321,6 +321,8 @@ namespace eosio { namespace chain {
 
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
          vm::wasm_allocator&  get_wasm_allocator();
+#endif
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
          bool is_eos_vm_oc_enabled() const;
 #endif
 
@@ -354,6 +356,9 @@ namespace eosio { namespace chain {
 
       void replace_producer_keys( const public_key_type& key );
       void replace_account_keys( name account, name permission, const public_key_type& key );
+
+      void set_producer_node(bool is_producer_node);
+      bool is_producer_node()const;
 
       void set_db_read_only_mode();
       void unset_db_read_only_mode();

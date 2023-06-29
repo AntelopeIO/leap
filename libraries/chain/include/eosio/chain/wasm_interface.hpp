@@ -40,7 +40,13 @@ namespace eosio { namespace chain {
              }
          }
 
-         wasm_interface(vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile);
+         enum class vm_oc_enable {
+            oc_auto,
+            oc_all,
+            oc_none
+         };
+
+         wasm_interface(vm_type vm, vm_oc_enable eosvmoc_tierup, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile);
          ~wasm_interface();
 
          // initialize exec per thread
@@ -70,13 +76,22 @@ namespace eosio { namespace chain {
             const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, apply_context& context)> substitute_apply;
       private:
          unique_ptr<struct wasm_interface_impl> my;
-         vm_type vm;
    };
 
 } } // eosio::chain
 
 namespace eosio{ namespace chain {
    std::istream& operator>>(std::istream& in, wasm_interface::vm_type& runtime);
+   inline std::ostream& operator<<(std::ostream& os, wasm_interface::vm_oc_enable t) {
+      if (t == wasm_interface::vm_oc_enable::oc_auto) {
+         os << "auto";
+      } else if (t == wasm_interface::vm_oc_enable::oc_all) {
+         os << "all";
+      } else if (t == wasm_interface::vm_oc_enable::oc_none) {
+         os << "none";
+      }
+      return os;
+   }
 }}
 
 FC_REFLECT_ENUM( eosio::chain::wasm_interface::vm_type, (eos_vm)(eos_vm_jit)(eos_vm_oc) )
