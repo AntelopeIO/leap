@@ -462,7 +462,11 @@ namespace eosio { namespace chain {
          inline static uint32_t  default_initial_version = block_log::max_supported_version;
 
          std::mutex       mtx;
-         std::optional<std::pair<signed_block_ptr, block_id_type>> head;
+         struct signed_block_with_id {
+            signed_block_ptr ptr;
+            block_id_type id;
+         };
+         std::optional<signed_block_with_id> head;
 
          virtual ~block_log_impl() = default;
 
@@ -497,7 +501,7 @@ namespace eosio { namespace chain {
             std::filesystem::remove(log_dir / "blocks.index");
          }
 
-         uint32_t first_block_num() final { return head ? head->first->block_num() : first_block_number; }
+         uint32_t first_block_num() final { return head ? head->ptr->block_num() : first_block_number; }
          void append(const signed_block_ptr& b, const block_id_type& id, const std::vector<char>& packed_block) final {
             update_head(b, id);
          }
@@ -584,7 +588,7 @@ namespace eosio { namespace chain {
          }
 
          uint64_t get_block_pos(uint32_t block_num) final {
-            if (!(head && block_num <= block_header::num_from_id(head->second) &&
+            if (!(head && block_num <= block_header::num_from_id(head->id) &&
                   block_num >= working_block_file_first_block_num()))
                return block_log::npos;
             index_file.seek(sizeof(uint64_t) * (block_num - index_first_block_num()));
@@ -700,7 +704,7 @@ namespace eosio { namespace chain {
             uint32_t num_blocks;
             this->block_file.seek_end(-sizeof(uint32_t));
             fc::raw::unpack(this->block_file, num_blocks);
-            return this->head->first->block_num() - num_blocks + 1;
+            return this->head->ptr->block_num() - num_blocks + 1;
          }
 
          void reset(uint32_t first_bnum, std::variant<genesis_state, chain_id_type>&& chain_context, uint32_t version) {
@@ -796,7 +800,7 @@ namespace eosio { namespace chain {
             size_t copy_from_pos = get_block_pos(first_block_num);
             block_file.seek_end(-sizeof(uint32_t));
             size_t         copy_sz           = block_file.tellp() - copy_from_pos;
-            const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head->second) - first_block_num + 1;
+            const uint32_t num_blocks_in_log = chain::block_header::num_from_id(head->id) - first_block_num + 1;
 
             const size_t offset_bytes  = copy_from_pos - copy_to_pos;
             const size_t offset_blocks = first_block_num - index_first_block_num;
@@ -984,7 +988,7 @@ namespace eosio { namespace chain {
             block_file.close();
             index_file.close();
 
-            catalog.add(preamble.first_block_num, this->head->first->block_num(), block_file.get_file_path().parent_path(),
+            catalog.add(preamble.first_block_num, this->head->ptr->block_num(), block_file.get_file_path().parent_path(),
                         "blocks");
 
             using std::swap;
@@ -999,7 +1003,7 @@ namespace eosio { namespace chain {
 
             preamble.ver             = block_log::max_supported_version;
             preamble.chain_context   = preamble.chain_id();
-            preamble.first_block_num = this->head->first->block_num() + 1;
+            preamble.first_block_num = this->head->ptr->block_num() + 1;
             preamble.write_to(block_file);
          }
 
@@ -1010,7 +1014,7 @@ namespace eosio { namespace chain {
          }
 
          void post_append(uint64_t pos) final {
-            if (head->first->block_num() % stride == 0) {
+            if (head->ptr->block_num() % stride == 0) {
                split_log();
             }
          }
@@ -1113,7 +1117,7 @@ namespace eosio { namespace chain {
             if ((pos & prune_config.prune_threshold) != (end & prune_config.prune_threshold))
                num_blocks_in_log = prune(fc::log_level::debug);
             else
-               num_blocks_in_log = chain::block_header::num_from_id(head->second) - first_block_number + 1;
+               num_blocks_in_log = chain::block_header::num_from_id(head->id) - first_block_number + 1;
             fc::raw::pack(block_file, num_blocks_in_log);
          }
 
@@ -1134,7 +1138,7 @@ namespace eosio { namespace chain {
          uint32_t prune(const fc::log_level& loglevel) {
             if (!head)
                return 0;
-            const uint32_t head_num = chain::block_header::num_from_id(head->second);
+            const uint32_t head_num = chain::block_header::num_from_id(head->id);
             if (head_num - first_block_number < prune_config.prune_blocks)
                return head_num - first_block_number + 1;
 
@@ -1244,12 +1248,12 @@ namespace eosio { namespace chain {
 
    signed_block_ptr block_log::head() const {
       std::lock_guard g(my->mtx);
-      return my->head ? my->head->first : signed_block_ptr{};
+      return my->head ? my->head->ptr : signed_block_ptr{};
    }
 
    std::optional<block_id_type> block_log::head_id() const {
       std::lock_guard g(my->mtx);
-      return my->head ? my->head->second : std::optional<block_id_type>{};
+      return my->head ? my->head->id : std::optional<block_id_type>{};
    }
 
    uint32_t block_log::first_block_num() const {
