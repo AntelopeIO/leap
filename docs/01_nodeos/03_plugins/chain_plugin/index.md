@@ -192,13 +192,17 @@ Config Options for eosio::chain_plugin:
                                         feature. Setting above 0 enables this
                                         feature.
   --transaction-retry-interval-sec arg (=20)
-                                        How often, in seconds, to resend an
-                                        incoming transaction to network if not
+                                        How often, in seconds, to resend an 
+                                        incoming transaction to network if not 
                                         seen in a block.
+                                        Needs to be at least twice as large as 
+                                        p2p-dedup-cache-expire-time-sec.
   --transaction-retry-max-expiration-sec arg (=120)
-                                        Maximum allowed transaction expiration
-                                        for retry transactions, will retry
+                                        Maximum allowed transaction expiration 
+                                        for retry transactions, will retry 
                                         transactions up to this value.
+                                        Should be larger than 
+                                        transaction-retry-interval-sec.
   --transaction-finality-status-max-storage-size-gb arg
                                         Maximum size (in GiB) allowed to be
                                         allocated for the Transaction Finality
