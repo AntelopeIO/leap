@@ -105,7 +105,7 @@ namespace eosio { namespace chain {
             once_is_enough = true;
          }
          if(cd) {
-            if (!context.is_applying_block())
+            if (!context.is_applying_block()) // read_only_trx_test.py looks for this log statement
                tlog("${a} speculatively executing ${h} with eos vm oc", ("a", context.get_receiver())("h", code_hash));
             my->eosvmoc->exec->execute(*cd, my->eosvmoc->mem, context);
             return;
