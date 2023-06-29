@@ -52,8 +52,8 @@ BOOST_AUTO_TEST_SUITE(read_only_trxs)
 enum class app_init_status { failed, succeeded };
 
 void test_configs_common(std::vector<const char*>& specific_args, app_init_status expected_status) {
-   appbase::scoped_app app;
    fc::temp_directory temp;
+   appbase::scoped_app app;
    auto temp_dir_str = temp.path().string();
    
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
@@ -92,8 +92,8 @@ BOOST_AUTO_TEST_CASE(not_check_configs_if_no_read_only_threads) {
 
 void test_trxs_common(std::vector<const char*>& specific_args) {
    using namespace std::chrono_literals;
-   appbase::scoped_app app;
    fc::temp_directory temp;
+   appbase::scoped_app app;
    auto temp_dir_str = temp.path().string();
    producer_plugin::set_test_mode(true);
    

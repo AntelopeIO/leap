@@ -5,8 +5,8 @@
 #include <stdint.h>
 
 BOOST_AUTO_TEST_CASE(chain_plugin_default_tests) {
-   appbase::scoped_app app;
    fc::temp_directory  tmp;
+   appbase::scoped_app app;
 
    auto tmp_path = tmp.path().string();
    std::array          args = {

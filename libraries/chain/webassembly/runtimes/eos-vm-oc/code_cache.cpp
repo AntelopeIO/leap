@@ -306,12 +306,6 @@ code_cache_base::code_cache_base(const std::filesystem::path data_dir, const eos
 }
 
 void code_cache_base::set_on_disk_region_dirty(bool dirty) {
-   // tests can remove directory before destructor is called
-   if (!std::filesystem::exists(_cache_file_path)) {
-      wlog("Unable to sync code cache, cache file does not exist");
-      return;
-   }
-
    bip::file_mapping dirty_mapping(_cache_file_path.generic_string().c_str(), bip::read_write);
    bip::mapped_region dirty_region(dirty_mapping, bip::read_write);
 
