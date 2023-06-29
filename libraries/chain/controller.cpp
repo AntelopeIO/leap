@@ -416,10 +416,10 @@ struct controller_impl {
    void log_irreversible() {
       EOS_ASSERT( fork_db.root(), fork_database_exception, "fork database not properly initialized" );
 
-      const block_id_type log_head_id = blog.head_id();
-      const bool valid_log_head = !log_head_id.empty();
+      const std::optional<block_id_type> log_head_id = blog.head_id();
+      const bool valid_log_head = !!log_head_id;
 
-      const auto lib_num = valid_log_head ? block_header::num_from_id(log_head_id) : (blog.first_block_num() - 1);
+      const auto lib_num = valid_log_head ? block_header::num_from_id(*log_head_id) : (blog.first_block_num() - 1);
 
       auto root_id = fork_db.root()->id;
 

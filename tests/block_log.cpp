@@ -67,7 +67,8 @@ struct block_log_fixture {
 
    void check_range_present(uint32_t first, uint32_t last) {
       BOOST_REQUIRE_EQUAL(log->first_block_num(), first);
-      BOOST_REQUIRE_EQUAL(eosio::chain::block_header::num_from_id(log->head_id()), last);
+      BOOST_REQUIRE(log->head_id());
+      BOOST_REQUIRE_EQUAL(eosio::chain::block_header::num_from_id(*log->head_id()), last);
       if(enable_read) {
          for(auto i = first; i <= last; i++) {
             std::vector<char> buff;
