@@ -59,7 +59,7 @@ try:
     cluster.validateAccounts(None)
 
     prodNode = cluster.getNode(0)
-    nonProdNode = cluster.getNode(1)
+    nonProdNode = cluster.getNode(2)
 
     accounts=createAccountKeys(2)
     if accounts is None:

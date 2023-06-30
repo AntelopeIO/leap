@@ -354,7 +354,7 @@ class app_log {
    int         fork_app_and_redirect_stderr(const char* redirect_filename, std::initializer_list<const char*> args) {
       int pid = fork();
       if (pid == 0) {
-         freopen(redirect_filename, "w", stderr);
+         (void) freopen(redirect_filename, "w", stderr);
          bool ret = 0;
          try {
             appbase::scoped_app app;

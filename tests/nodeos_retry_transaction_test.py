@@ -88,7 +88,8 @@ try:
     Utils.Print("Bios node killed")
     # need bios to pass along blocks so api node can continue without its other peer, but drop trx which is the point of this test
     Utils.Print("Restart bios in drop transactions mode")
-    cluster.biosNode.relaunch("bios", addSwapFlags={"--p2p-accept-transactions": "false"})
+    if not cluster.biosNode.relaunch(addSwapFlags={"--p2p-accept-transactions": "false"}):
+        Utils.errorExit("Failed to relaunch bios node")
 
 # ***   create accounts to vote in desired producers   ***
 
@@ -270,6 +271,7 @@ try:
 
         if round % 3 == 0:
             relaunchTime = time.perf_counter()
+            time.sleep(1) # give time for transactions to be sent
             cluster.getNode(4).relaunch()
             cluster.getNode(6).relaunch()
             startRound = startRound - ( time.perf_counter() - relaunchTime )

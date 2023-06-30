@@ -138,7 +138,6 @@ namespace eosio::testing {
                    if (resp_json.is_object() && resp_json.get_object().contains("processed")) {
                       const auto& processed      = resp_json["processed"];
                       const auto& block_num      = processed["block_num"].as_uint64();
-                      const auto& transaction_id = processed["id"].as_string();
                       const auto& block_time     = processed["block_time"].as_string();
                       std::string status         = "failed";
                       uint32_t    net            = 0;

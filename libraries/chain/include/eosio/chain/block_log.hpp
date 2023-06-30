@@ -67,7 +67,7 @@ namespace eosio { namespace chain {
 
          signed_block_ptr read_head()const; //use blocklog
          signed_block_ptr head()const;
-         block_id_type head_id()const;
+         std::optional<block_id_type> head_id()const;
 
          uint32_t                first_block_num() const;
 

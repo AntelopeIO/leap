@@ -131,7 +131,7 @@ class PerformanceTestBasic:
                     if not self.prodsEnableTraceApi:
                         validationNodeSpecificNodeosStr += "--plugin eosio::trace_api_plugin "
                 if self.nonProdsEosVmOcEnable:
-                    validationNodeSpecificNodeosStr += "--eos-vm-oc-enable "
+                    validationNodeSpecificNodeosStr += "--eos-vm-oc-enable all "
                 if validationNodeSpecificNodeosStr:
                     self.specificExtraNodeosArgs.update({f"{nodeId}" : validationNodeSpecificNodeosStr for nodeId in self._validationNodeIds})
 

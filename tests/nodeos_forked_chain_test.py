@@ -222,7 +222,7 @@ try:
 
     # ***   delegate bandwidth to accounts   ***
 
-    node=prodNodes[0]
+    node=nonProdNode
     # create accounts via eosio as otherwise a bid is needed
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))

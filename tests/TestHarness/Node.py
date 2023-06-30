@@ -65,6 +65,7 @@ class Node(Transactions):
         self.data_dir=data_dir
         self.config_dir=config_dir
         self.launch_time=launch_time
+        self.isProducer=False
         self.configureVersion()
 
     def configureVersion(self):
@@ -447,6 +448,7 @@ class Node(Transactions):
             popen.errfile = serr
             self.pid = popen.pid
             self.cmd = cmd
+            self.isProducer = '--producer-name' in self.cmd
         with pidf.open('w') as pidout:
             pidout.write(str(popen.pid))
         try:
@@ -534,6 +536,16 @@ class Node(Transactions):
                     files.append(os.path.join(path, entry.name))
         files.sort()
         return files
+
+    def findInLog(self, searchStr):
+        dataDir=Utils.getNodeDataDir(self.nodeId)
+        files=Node.findStderrFiles(dataDir)
+        for file in files:
+            with open(file, 'r') as f:
+                for line in f:
+                    if searchStr in line:
+                        return True
+        return False
 
     def analyzeProduction(self, specificBlockNum=None, thresholdMs=500):
         dataDir=Utils.getNodeDataDir(self.nodeId)

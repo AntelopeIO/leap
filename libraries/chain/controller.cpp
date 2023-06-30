@@ -26,6 +26,7 @@
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/wasm_interface_collection.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -240,6 +241,7 @@ struct controller_impl {
    controller::config              conf;
    const chain_id_type             chain_id; // read by thread_pool threads, value will not be changed
    bool                            replaying = false;
+   bool                            is_producer_node = false; // true if node is configured as a block producer
    db_read_mode                    read_mode = db_read_mode::HEAD;
    bool                            in_trx_requiring_checks = false; ///< if true, checks that are normally skipped on replay (e.g. auth checks) cannot be skipped
    std::optional<fc::microseconds> subjective_cpu_leeway;
@@ -250,14 +252,11 @@ struct controller_impl {
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
 
-   std::thread::id                 main_thread_id;
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
 #endif
-   wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
-   std::mutex threaded_wasmifs_mtx;
-   std::unordered_map<std::thread::id, std::unique_ptr<wasm_interface>> threaded_wasmifs; // one for each read-only thread, used by eos-vm and eos-vm-jit
+   wasm_interface_collection wasm_if_collect;
    app_window_type app_window = app_window_type::write;
 
    typedef pair<scope_name,action_name>                   handler_key;
@@ -316,8 +315,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    main_thread_id( std::this_thread::get_id() ),
-    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
+    wasm_if_collect( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -345,12 +343,7 @@ struct controller_impl {
       bls12_381::init();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
-         // producer_plugin has already asserted irreversible_block signal is
-         // called in write window
-         wasmif.current_lib(bsp->block_num);
-         for (auto& w: threaded_wasmifs) {
-            w.second->current_lib(bsp->block_num);
-         }
+         wasm_if_collect.current_lib(bsp->block_num);
       });
 
 
@@ -419,10 +412,10 @@ struct controller_impl {
    void log_irreversible() {
       EOS_ASSERT( fork_db.root(), fork_database_exception, "fork database not properly initialized" );
 
-      const block_id_type log_head_id = blog.head_id();
-      const bool valid_log_head = !log_head_id.empty();
+      const std::optional<block_id_type> log_head_id = blog.head_id();
+      const bool valid_log_head = !!log_head_id;
 
-      const auto lib_num = valid_log_head ? block_header::num_from_id(log_head_id) : (blog.first_block_num() - 1);
+      const auto lib_num = valid_log_head ? block_header::num_from_id(*log_head_id) : (blog.first_block_num() - 1);
 
       auto root_id = fork_db.root()->id;
 
@@ -2688,31 +2681,6 @@ struct controller_impl {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
 
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-   bool is_eos_vm_oc_enabled() const {
-      return ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc );
-   }
-#endif
-
-   // only called from non-main threads (read-only trx execution threads)
-   // when producer_plugin starts them
-   void init_thread_local_data() {
-      EOS_ASSERT( !is_on_main_thread(), misc_exception, "init_thread_local_data called on the main thread");
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      if ( is_eos_vm_oc_enabled() )
-         // EOSVMOC needs further initialization of its thread local data
-         wasmif.init_thread_local_data();
-      else
-#endif
-      {
-         std::lock_guard g(threaded_wasmifs_mtx);
-         // Non-EOSVMOC needs a wasmif per thread
-         threaded_wasmifs[std::this_thread::get_id()]  = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
-      }
-   }
-
-   bool is_on_main_thread() { return main_thread_id == std::this_thread::get_id(); };
-
    void set_to_write_window() {
       app_window = app_window_type::write;
    }
@@ -2723,25 +2691,22 @@ struct controller_impl {
       return app_window == app_window_type::write;
    }
 
-   wasm_interface& get_wasm_interface() {
-      if ( is_on_main_thread()
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-          || is_eos_vm_oc_enabled()
+   bool is_eos_vm_oc_enabled() const {
+      return wasm_if_collect.is_eos_vm_oc_enabled();
+   }
 #endif
-         )
-         return wasmif;
-      else
-         return *threaded_wasmifs[std::this_thread::get_id()];
+
+   void init_thread_local_data() {
+      wasm_if_collect.init_thread_local_data(db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+   }
+
+   wasm_interface& get_wasm_interface() {
+      return wasm_if_collect.get_wasm_interface();
    }
 
    void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
-      // The caller of this function apply_eosio_setcode has already asserted that
-      // the transaction is not a read-only trx, which implies we are
-      // in write window. Safe to call threaded_wasmifs's code_block_num_last_used
-      wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
-      for (auto& w: threaded_wasmifs) {
-         w.second->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
-      }
+      wasm_if_collect.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
    }
 
    block_state_ptr fork_db_head() const;
@@ -3618,7 +3583,6 @@ vm::wasm_allocator& controller::get_wasm_allocator() {
    return my->wasm_alloc;
 }
 #endif
-
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
 bool controller::is_eos_vm_oc_enabled() const {
    return my->is_eos_vm_oc_enabled();
@@ -3724,6 +3688,14 @@ void controller::replace_account_keys( name account, name permission, const publ
    int64_t new_size = (int64_t)(chain::config::billable_size_v<permission_object> + perm->auth.get_billable_size());
    rlm.add_pending_ram_usage(account, new_size - old_size, false); // false for doing dm logging
    rlm.verify_account_ram_usage(account);
+}
+
+void controller::set_producer_node(bool is_producer_node) {
+   my->is_producer_node = is_producer_node;
+}
+
+bool controller::is_producer_node()const {
+   return my->is_producer_node;
 }
 
 void controller::set_db_read_only_mode() {
