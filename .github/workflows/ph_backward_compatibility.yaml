@@ -130,48 +130,37 @@ jobs:
           rm build/bin/cleos
           mv tmp/usr/bin/nodeos build/bin
           mv tmp/usr/bin/cleos build/bin
-          cd build
-
       - name: Run BP Op Mode Performance Test
         run: |
+          cd build
           ctest --output-on-failure performance_test_bp --timeout 420
-
       - name: Run CPU Trx Spec Performance Test
         run: |
           ctest --output-on-failure performance_test_cpu_trx_spec --timeout 420
-
       - name: Run API Node Op Mode Performance Test
         run: |
           ctest --output-on-failure performance_test_api --timeout 420
-
       - name: Run Read Only Trxs Performance Test
         run: |
           ctest --output-on-failure performance_test_read_only_trxs --timeout 420
-
       - name: Run P2P Performance Basic Test
         run: |
           ctest --output-on-failure performance_test_basic_p2p --timeout 420
-
       - name: Run User Defined Transfer Trx Spec Performance Basic Tests
         run: |
           ctest --output-on-failure performance_test_basic_transfer_trx_spec --timeout 420
-
       - name: Run User Defined New Acct Trx Spec Performance Basic Tests
         run: |
           ctest --output-on-failure performance_test_basic_new_acct_trx_spec --timeout 420
-
       - name: Run User Defined CPU Trx Spec Performance Basic Tests
         run: |
           ctest --output-on-failure performance_test_basic_cpu_trx_spec --timeout 420
-
       - name: Run User Defined Ram Trx Spec Performance Basic Tests
         run: |
           ctest --output-on-failure performance_test_basic_ram_trx_spec --timeout 420
-
       - name: Run API Node Op Mode Performance Basic Test
         run: |
           ctest --output-on-failure performance_test_basic_http --timeout 420
-
       - name: Run Read Only Trx Performance Basic Test
         run: |
           ctest --output-on-failure performance_test_basic_read_only_trxs --timeout 420
