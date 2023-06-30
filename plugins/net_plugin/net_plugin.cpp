@@ -1022,10 +1022,8 @@ namespace eosio {
    void connection::_close( connection* self, bool reconnect, bool shutdown ) {
       self->socket_open = false;
       boost::system::error_code ec;
-      if( self->socket->is_open() ) {
-         self->socket->shutdown( tcp::socket::shutdown_both, ec );
-         self->socket->close( ec );
-      }
+      self->socket->shutdown( tcp::socket::shutdown_both, ec );
+      self->socket->close( ec );
       self->socket.reset( new tcp::socket( my_impl->thread_pool.get_executor() ) );
       self->flush_queues();
       self->connecting = false;
@@ -1052,6 +1050,7 @@ namespace eosio {
       self->cancel_wait();
       self->latest_msg_time = std::chrono::system_clock::time_point::min();
       self->latest_blk_time = std::chrono::system_clock::time_point::min();
+      self->org = std::chrono::nanoseconds{0};
 
       if( reconnect && !shutdown ) {
          my_impl->start_conn_timer( std::chrono::milliseconds( 100 ), connection_wptr() );
