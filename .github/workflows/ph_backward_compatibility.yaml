@@ -125,7 +125,7 @@ jobs:
       - name: Extract and Place Rev Leap Version artifacts
         run: |
           mkdir tmp
-          dpkg -x leap*amd64.deb tmp
+          dpkg -x leap*.deb tmp
           rm build/bin/nodeos
           rm build/bin/cleos
           mv tmp/usr/bin/nodeos build/bin
