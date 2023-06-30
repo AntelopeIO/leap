@@ -133,4 +133,4 @@ jobs:
       - name: Run Tests
         run: |
           cd build
-          ctest --output-on-failure -j $(nproc) -R "performance_test_" --timeout 420
+          ctest --output-on-failure -R "performance_test_" --timeout 420
