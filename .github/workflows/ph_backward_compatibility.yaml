@@ -89,7 +89,7 @@ jobs:
       matrix:
         platform: [ubuntu20, ubuntu22]
         release: [3.1, 3.2, 4.0]
-    runs-on: ["self-hosted", "enf-x86-hightier"]
+    runs-on: ["self-hosted", "enf-x86-lowtier"]
     container:
       image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
       options: --security-opt seccomp=unconfined
