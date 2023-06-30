@@ -264,4 +264,4 @@ sudo make install
 
 For our provided `.deb` packages simply install Ubuntu's `bash-completion` package: `apt-get install bash-completion` (you may need to log out/in after installing).
 
-If building from source install the `build/programs/cleos/bash-completion/completions/cleos` and `build/programs/leap-util/bash-completion/completions/leap-util` files to your bash-completion directory. Refer to [bash-complete's documentation](https://github.com/scop/bash-completion#faq) on the possible install locations.
+If building from source install the `build/programs/cleos/bash-completion/completions/cleos` and `build/programs/leap-util/bash-completion/completions/leap-util` files to your bash-completion directory. Refer to [bash-completion's documentation](https://github.com/scop/bash-completion#faq) on the possible install locations.
