@@ -2488,6 +2488,7 @@ namespace eosio {
             boost::asio::bind_executor( strand,
               [conn = shared_from_this(), socket=socket]( boost::system::error_code ec, std::size_t bytes_transferred ) {
                // may have closed connection and cleared pending_message_buffer
+               peer_dlog( conn, "async_read, bytes ${b}, ec: ${ec}", ("b", bytes_transferred)("ec", ec.message()) );
                if( !conn->socket_is_open() || socket != conn->socket ) return;
 
                bool close_connection = false;
