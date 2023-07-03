@@ -80,8 +80,63 @@ jobs:
             name: ${{matrix.platform}}-build
             path: build.tar.zst
 
-  tests:
-    name: Tests
+  ph-basic-tests:
+    name: Performance Harness Basic Tests
+    needs: [d, Build]
+    if: always() && needs.Build.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu20, ubuntu22]
+        release: [3.1, 3.2, 4.0]
+    runs-on: ["self-hosted", "enf-x86-lowtier"]
+    container:
+      image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+      options: --security-opt seccomp=unconfined
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{matrix.platform}}-build
+      - name: Extract Build Directory
+        run: |
+          # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
+          chown -R $(id -u):$(id -g) $PWD
+          zstdcat build.tar.zst | tar x
+      - if: ${{ matrix.release != '3.1' }}
+        name: Download Prev Leap Version (v3.2.x and after)
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: leap
+          file: 'leap_.*-${{matrix.platform}}.04_amd64.deb' # Ex. leap_3.2.3-ubuntu20.04_amd64.deb  leap_4.0.3-ubuntu20.04_amd64.deb
+          target: '${{matrix.release}}'
+          token: ${{github.token}}
+      - if: ${{ matrix.release == '3.1' }}
+        name: Download Prev Leap Version (v3.1.x)
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: leap
+          file: 'leap-.*-${{matrix.platform}}.04-x86_64.deb' # Ex. leap-3.1.4-ubuntu20.04-x86_64.deb
+          target: '${{matrix.release}}'
+          token: ${{github.token}}
+      - name: Extract and Place Rev Leap Version artifacts
+        run: |
+          mkdir tmp
+          dpkg -x leap*.deb tmp
+          rm build/bin/nodeos
+          rm build/bin/cleos
+          mv tmp/usr/bin/nodeos build/bin
+          mv tmp/usr/bin/cleos build/bin
+      - name: Run BP Op Mode Performance Test
+        run: |
+          cd build
+          ctest --output-on-failure -R performance_test_basic --timeout 480
+
+  bp-op-mode-tests:
+    name: BP Op Mode Performance Tests
     needs: [d, Build]
     if: always() && needs.Build.result == 'success'
     strategy:
@@ -134,33 +189,168 @@ jobs:
         run: |
           cd build
           ctest --output-on-failure -R performance_test_bp --timeout 480
+
+  cpu-trx-spec-tests:
+    name: CPU Trx Spec Performance Tests
+    needs: [d, Build]
+    if: always() && needs.Build.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu20, ubuntu22]
+        release: [3.1, 3.2, 4.0]
+    runs-on: ["self-hosted", "enf-x86-lowtier"]
+    container:
+      image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+      options: --security-opt seccomp=unconfined
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{matrix.platform}}-build
+      - name: Extract Build Directory
+        run: |
+          # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
+          chown -R $(id -u):$(id -g) $PWD
+          zstdcat build.tar.zst | tar x
+      - if: ${{ matrix.release != '3.1' }}
+        name: Download Prev Leap Version (v3.2.x and after)
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: leap
+          file: 'leap_.*-${{matrix.platform}}.04_amd64.deb' # Ex. leap_3.2.3-ubuntu20.04_amd64.deb  leap_4.0.3-ubuntu20.04_amd64.deb
+          target: '${{matrix.release}}'
+          token: ${{github.token}}
+      - if: ${{ matrix.release == '3.1' }}
+        name: Download Prev Leap Version (v3.1.x)
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: leap
+          file: 'leap-.*-${{matrix.platform}}.04-x86_64.deb' # Ex. leap-3.1.4-ubuntu20.04-x86_64.deb
+          target: '${{matrix.release}}'
+          token: ${{github.token}}
+      - name: Extract and Place Rev Leap Version artifacts
+        run: |
+          mkdir tmp
+          dpkg -x leap*.deb tmp
+          rm build/bin/nodeos
+          rm build/bin/cleos
+          mv tmp/usr/bin/nodeos build/bin
+          mv tmp/usr/bin/cleos build/bin
       - name: Run CPU Trx Spec Performance Test
         run: |
+          cd build
           ctest --output-on-failure -R performance_test_cpu_trx_spec --timeout 480
+
+  api-op-mode-tests:
+    name: API Node Op Mode Performance Tests
+    needs: [d, Build]
+    if: always() && needs.Build.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu20, ubuntu22]
+        release: [3.1, 3.2, 4.0]
+    runs-on: ["self-hosted", "enf-x86-lowtier"]
+    container:
+      image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+      options: --security-opt seccomp=unconfined
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{matrix.platform}}-build
+      - name: Extract Build Directory
+        run: |
+          # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
+          chown -R $(id -u):$(id -g) $PWD
+          zstdcat build.tar.zst | tar x
+      - if: ${{ matrix.release != '3.1' }}
+        name: Download Prev Leap Version (v3.2.x and after)
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: leap
+          file: 'leap_.*-${{matrix.platform}}.04_amd64.deb' # Ex. leap_3.2.3-ubuntu20.04_amd64.deb  leap_4.0.3-ubuntu20.04_amd64.deb
+          target: '${{matrix.release}}'
+          token: ${{github.token}}
+      - if: ${{ matrix.release == '3.1' }}
+        name: Download Prev Leap Version (v3.1.x)
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: leap
+          file: 'leap-.*-${{matrix.platform}}.04-x86_64.deb' # Ex. leap-3.1.4-ubuntu20.04-x86_64.deb
+          target: '${{matrix.release}}'
+          token: ${{github.token}}
+      - name: Extract and Place Rev Leap Version artifacts
+        run: |
+          mkdir tmp
+          dpkg -x leap*.deb tmp
+          rm build/bin/nodeos
+          rm build/bin/cleos
+          mv tmp/usr/bin/nodeos build/bin
+          mv tmp/usr/bin/cleos build/bin
       - name: Run API Node Op Mode Performance Test
         run: |
+          cd build
           ctest --output-on-failure -R performance_test_api --timeout 480
+
+  read-only-trx-tests:
+    name: Read Only Trxs Performance Tests
+    needs: [d, Build]
+    if: always() && needs.Build.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu20, ubuntu22]
+        release: [3.1, 3.2, 4.0]
+    runs-on: ["self-hosted", "enf-x86-lowtier"]
+    container:
+      image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+      options: --security-opt seccomp=unconfined
+    steps:
+      - uses: actions/checkout@v3
+      - name: Download builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{matrix.platform}}-build
+      - name: Extract Build Directory
+        run: |
+          # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
+          chown -R $(id -u):$(id -g) $PWD
+          zstdcat build.tar.zst | tar x
+      - if: ${{ matrix.release != '3.1' }}
+        name: Download Prev Leap Version (v3.2.x and after)
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: leap
+          file: 'leap_.*-${{matrix.platform}}.04_amd64.deb' # Ex. leap_3.2.3-ubuntu20.04_amd64.deb  leap_4.0.3-ubuntu20.04_amd64.deb
+          target: '${{matrix.release}}'
+          token: ${{github.token}}
+      - if: ${{ matrix.release == '3.1' }}
+        name: Download Prev Leap Version (v3.1.x)
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: leap
+          file: 'leap-.*-${{matrix.platform}}.04-x86_64.deb' # Ex. leap-3.1.4-ubuntu20.04-x86_64.deb
+          target: '${{matrix.release}}'
+          token: ${{github.token}}
+      - name: Extract and Place Rev Leap Version artifacts
+        run: |
+          mkdir tmp
+          dpkg -x leap*.deb tmp
+          rm build/bin/nodeos
+          rm build/bin/cleos
+          mv tmp/usr/bin/nodeos build/bin
+          mv tmp/usr/bin/cleos build/bin
       - name: Run Read Only Trxs Performance Test
         run: |
+          cd build
           ctest --output-on-failure -R performance_test_read_only_trxs --timeout 480
-      - name: Run P2P Performance Basic Test
-        run: |
-          ctest --output-on-failure -R performance_test_basic_p2p --timeout 480
-      - name: Run User Defined Transfer Trx Spec Performance Basic Tests
-        run: |
-          ctest --output-on-failure -R performance_test_basic_transfer_trx_spec --timeout 480
-      - name: Run User Defined New Acct Trx Spec Performance Basic Tests
-        run: |
-          ctest --output-on-failure -R performance_test_basic_new_acct_trx_spec --timeout 480
-      - name: Run User Defined CPU Trx Spec Performance Basic Tests
-        run: |
-          ctest --output-on-failure -R performance_test_basic_cpu_trx_spec --timeout 480
-      - name: Run User Defined Ram Trx Spec Performance Basic Tests
-        run: |
-          ctest --output-on-failure -R performance_test_basic_ram_trx_spec --timeout 480
-      - name: Run API Node Op Mode Performance Basic Test
-        run: |
-          ctest --output-on-failure -R performance_test_basic_http --timeout 480
-      - name: Run Read Only Trx Performance Basic Test
-        run: |
-          ctest --output-on-failure -R performance_test_basic_read_only_trxs --timeout 480
