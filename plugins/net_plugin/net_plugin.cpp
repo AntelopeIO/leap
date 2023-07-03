@@ -1022,10 +1022,8 @@ namespace eosio {
    void connection::_close( connection* self, bool reconnect, bool shutdown ) {
       self->socket_open = false;
       boost::system::error_code ec;
-      if( self->socket->is_open() ) {
-         self->socket->shutdown( tcp::socket::shutdown_both, ec );
-         self->socket->close( ec );
-      }
+      self->socket->shutdown( tcp::socket::shutdown_both, ec );
+      self->socket->close( ec );
       self->socket.reset( new tcp::socket( my_impl->thread_pool.get_executor() ) );
       self->flush_queues();
       self->connecting = false;
@@ -2489,7 +2487,18 @@ namespace eosio {
             boost::asio::bind_executor( strand,
               [conn = shared_from_this(), socket=socket]( boost::system::error_code ec, std::size_t bytes_transferred ) {
                // may have closed connection and cleared pending_message_buffer
-               if( !conn->socket_is_open() || socket != conn->socket ) return;
+               if (!conn->socket_is_open() && conn->socket_open) { // if socket_open then close not called
+                  peer_dlog( conn, "async_read socket not open, closing");
+                  conn->close();
+                  return;
+               }
+               if (socket != conn->socket ) { // different socket, conn must have created a new socket, make sure previous is closed
+                  peer_dlog( conn, "async_read diff socket closing");
+                  boost::system::error_code ec;
+                  socket->shutdown( tcp::socket::shutdown_both, ec );
+                  socket->close( ec );
+                  return;
+               }
 
                bool close_connection = false;
                try {
