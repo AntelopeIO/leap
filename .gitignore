@@ -12,6 +12,7 @@
 !.cicd
 !package.cmake
 !CMakeModules/*.cmake
+!scripts/pinned_toolchain.cmake
 *.ninja
 \#*
 \.#*
