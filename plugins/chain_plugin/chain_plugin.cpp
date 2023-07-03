@@ -114,6 +114,32 @@ void validate(boost::any& v,
   }
 }
 
+void validate(boost::any& v,
+              const std::vector<std::string>& values,
+              wasm_interface::vm_oc_enable* /* target_type */,
+              int)
+{
+  using namespace boost::program_options;
+
+  // Make sure no previous assignment to 'v' was made.
+  validators::check_first_occurrence(v);
+
+  // Extract the first string from 'values'. If there is more than
+  // one string, it's an error, and exception will be thrown.
+  std::string s = validators::get_single_string(values);
+  boost::algorithm::to_lower(s);
+
+  if (s == "auto") {
+     v = boost::any(wasm_interface::vm_oc_enable::oc_auto);
+  } else if (s == "all" || s == "true" || s == "on" || s == "yes" || s == "1") {
+     v = boost::any(wasm_interface::vm_oc_enable::oc_all);
+  } else if (s == "none" || s == "false" || s == "off" || s == "no" || s == "0") {
+     v = boost::any(wasm_interface::vm_oc_enable::oc_none);
+  } else {
+     throw validation_error(validation_error::invalid_option_value);
+  }
+}
+
 } // namespace chain
 
 using namespace eosio;
@@ -203,6 +229,7 @@ chain_plugin::chain_plugin()
    app().register_config_type<eosio::chain::validation_mode>();
    app().register_config_type<chainbase::pinnable_mapped_file::map_mode>();
    app().register_config_type<eosio::chain::wasm_interface::vm_type>();
+   app().register_config_type<eosio::chain::wasm_interface::vm_oc_enable>();
 }
 
 chain_plugin::~chain_plugin() = default;
@@ -227,7 +254,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
 
 #ifdef EOSIO_EOS_VM_OC_DEVELOPER
    wasm_runtime_opt += delim + "\"eos-vm-oc\"";
-   wasm_runtime_desc += "\"eos-vm-oc\" : Unsupported. Instead, use one of the other runtimes along with the option enable-eos-vm-oc.\n";
+   wasm_runtime_desc += "\"eos-vm-oc\" : Unsupported. Instead, use one of the other runtimes along with the option eos-vm-oc-enable.\n";
 #endif
    wasm_runtime_opt += ")\n" + wasm_runtime_desc;
 
@@ -334,16 +361,22 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
                   EOS_ASSERT(false, plugin_exception, "");
                }
          }), "Number of threads to use for EOS VM OC tier-up")
-         ("eos-vm-oc-enable", bpo::bool_switch(), "Enable EOS VM OC tier-up runtime")
+         ("eos-vm-oc-enable", bpo::value<chain::wasm_interface::vm_oc_enable>()->default_value(chain::wasm_interface::vm_oc_enable::oc_auto),
+          "Enable EOS VM OC tier-up runtime ('auto', 'all', 'none').\n"
+          "'auto' - EOS VM OC tier-up is enabled for eosio.* accounts, read-only trxs, and except on producers applying blocks.\n"
+          "'all'  - EOS VM OC tier-up is enabled for all contract execution.\n"
+          "'none' - EOS VM OC tier-up is completely disabled.\n")
 #endif
          ("enable-account-queries", bpo::value<bool>()->default_value(false), "enable queries to find accounts by various metadata.")
          ("max-nonprivileged-inline-action-size", bpo::value<uint32_t>()->default_value(config::default_max_nonprivileged_inline_action_size), "maximum allowed size (in bytes) of an inline action for a nonprivileged account")
          ("transaction-retry-max-storage-size-gb", bpo::value<uint64_t>(),
           "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 enables this feature.")
          ("transaction-retry-interval-sec", bpo::value<uint32_t>()->default_value(20),
-          "How often, in seconds, to resend an incoming transaction to network if not seen in a block.")
+          "How often, in seconds, to resend an incoming transaction to network if not seen in a block.\n"
+          "Needs to be at least twice as large as p2p-dedup-cache-expire-time-sec.")
          ("transaction-retry-max-expiration-sec", bpo::value<uint32_t>()->default_value(120),
-          "Maximum allowed transaction expiration for retry transactions, will retry transactions up to this value.")
+          "Maximum allowed transaction expiration for retry transactions, will retry transactions up to this value.\n"
+          "Should be larger than transaction-retry-interval-sec.")
          ("transaction-finality-status-max-storage-size-gb", bpo::value<uint64_t>(),
           "Maximum size (in GiB) allowed to be allocated for the Transaction Finality Status feature. Setting above 0 enables this feature.")
          ("transaction-finality-status-success-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_success_duration_sec),
@@ -907,8 +940,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          chain_config->eosvmoc_config.cache_size = options.at( "eos-vm-oc-cache-size-mb" ).as<uint64_t>() * 1024u * 1024u;
       if( options.count("eos-vm-oc-compile-threads") )
          chain_config->eosvmoc_config.threads = options.at("eos-vm-oc-compile-threads").as<uint64_t>();
-      if( options["eos-vm-oc-enable"].as<bool>() )
-         chain_config->eosvmoc_tierup = true;
+      chain_config->eosvmoc_tierup = options["eos-vm-oc-enable"].as<chain::wasm_interface::vm_oc_enable>();
 #endif
 
       account_queries_enabled = options.at("enable-account-queries").as<bool>();

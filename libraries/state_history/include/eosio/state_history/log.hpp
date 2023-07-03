@@ -460,7 +460,7 @@ class state_history_log {
       return get_block_id_i(block_num);
    }
 
-#ifdef BOOST_TEST_MODULE
+#ifdef BOOST_TEST
    fc::cfile& get_log_file() { return log;}
 #endif
 

@@ -598,6 +598,9 @@ class apply_context {
 
       action_name get_sender() const;
 
+      bool is_applying_block() const { return trx_context.explicit_billed_cpu_time; }
+      bool should_use_eos_vm_oc()const;
+
    /// Fields:
    public:
 

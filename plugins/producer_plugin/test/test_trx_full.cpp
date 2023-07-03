@@ -99,9 +99,9 @@ BOOST_AUTO_TEST_SUITE(ordered_trxs_full)
 // Test verifies that transactions are processed, reported to caller, and not lost
 // even when blocks are aborted and some transactions fail.
 BOOST_AUTO_TEST_CASE(producer) {
+   fc::temp_directory temp;
    appbase::scoped_app app;
    
-   fc::temp_directory temp;
    auto temp_dir_str = temp.path().string();
    
    {

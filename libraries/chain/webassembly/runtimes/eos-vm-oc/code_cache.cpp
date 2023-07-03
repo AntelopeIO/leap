@@ -38,7 +38,7 @@ static constexpr size_t descriptor_ptr_from_file_start = header_offset + offseto
 
 static_assert(sizeof(code_cache_header) <= header_size, "code_cache_header too big");
 
-code_cache_async::code_cache_async(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
+code_cache_async::code_cache_async(const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    code_cache_base(data_dir, eosvmoc_config, db),
    _result_queue(eosvmoc_config.threads * 2),
    _threads(eosvmoc_config.threads)
@@ -106,7 +106,7 @@ std::tuple<size_t, size_t> code_cache_async::consume_compile_thread_queue() {
 }
 
 
-const code_descriptor* const code_cache_async::get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure) {
+const code_descriptor* const code_cache_async::get_descriptor_for_code(bool high_priority, const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure) {
    //if there are any outstanding compiles, process the result queue now
    //When app is in write window, all tasks are running sequentially and read-only threads
    //are not running. Safe to update cache entries.
@@ -156,13 +156,16 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(const dig
       it->second = false;
       return nullptr;
    }
-   if(_queued_compiles.find(ct) != _queued_compiles.end()) {
+   if(auto it = _queued_compiles.get<by_hash>().find(boost::make_tuple(std::ref(code_id), vm_version)); it != _queued_compiles.get<by_hash>().end()) {
       failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
 
    if(_outstanding_compiles_and_poison.size() >= _threads) {
-      _queued_compiles.emplace(ct);
+      if (high_priority)
+         _queued_compiles.push_front(ct);
+      else
+         _queued_compiles.push_back(ct);
       failure = get_cd_failure::temporary; // Compile might not be done yet
       return nullptr;
    }
@@ -221,7 +224,7 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
    return &*_cache_index.push_front(std::move(std::get<code_descriptor>(result.result))).first;
 }
 
-code_cache_base::code_cache_base(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
+code_cache_base::code_cache_base(const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    _db(db),
    _cache_file_path(data_dir/"code_cache.bin")
 {
@@ -377,7 +380,8 @@ void code_cache_base::free_code(const digest_type& code_id, const uint8_t& vm_ve
    }
 
    //if it's in the queued list, erase it
-   _queued_compiles.erase({code_id, vm_version});
+   if(auto i = _queued_compiles.get<by_hash>().find(boost::make_tuple(std::ref(code_id), vm_version)); i != _queued_compiles.get<by_hash>().end())
+      _queued_compiles.get<by_hash>().erase(i);
 
    //however, if it's currently being compiled there is no way to cancel the compile,
    //so instead set a poison boolean that indicates not to insert the code in to the cache
