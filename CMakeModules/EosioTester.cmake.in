@@ -14,12 +14,6 @@ if (LLVM_DIR STREQUAL "" OR NOT LLVM_DIR)
    set(LLVM_DIR @LLVM_DIR@)
 endif()
 
-find_package( Gperftools QUIET )
-if( GPERFTOOLS_FOUND )
-    message( STATUS "Found gperftools; compiling tests with TCMalloc")
-    list( APPEND PLATFORM_SPECIFIC_LIBS tcmalloc )
-endif()
-
 if(NOT "@LLVM_FOUND@" STREQUAL "")
    find_package(LLVM @LLVM_VERSION@ EXACT REQUIRED CONFIG)
    llvm_map_components_to_libnames(LLVM_LIBS support core passes mcjit native DebugInfoDWARF orcjit)
