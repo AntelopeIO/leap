@@ -1050,6 +1050,7 @@ namespace eosio {
       self->cancel_wait();
       self->latest_msg_time = std::chrono::system_clock::time_point::min();
       self->latest_blk_time = std::chrono::system_clock::time_point::min();
+      self->org = std::chrono::nanoseconds{0};
 
       if( reconnect && !shutdown ) {
          my_impl->start_conn_timer( std::chrono::milliseconds( 100 ), connection_wptr() );
@@ -2851,6 +2852,7 @@ namespace eosio {
       peer_lib_num = msg.last_irreversible_block_num;
       std::unique_lock<std::mutex> g_conn( conn_mtx );
       last_handshake_recv = msg;
+      auto c_time = last_handshake_sent.time;
       g_conn.unlock();
 
       connecting = false;
@@ -2876,14 +2878,9 @@ namespace eosio {
             return;
          }
 
-         if( peer_address().empty() ) {
+         if( incoming() ) {
             set_connection_type( msg.p2p_address );
-         }
 
-         std::unique_lock<std::mutex> g_conn( conn_mtx );
-         if( peer_address().empty() || last_handshake_recv.node_id == fc::sha256()) {
-            auto c_time = last_handshake_sent.time;
-            g_conn.unlock();
             peer_dlog( this, "checking for duplicate" );
             std::shared_lock<std::shared_mutex> g_cnts( my_impl->connections_mtx );
             for(const auto& check : my_impl->connections) {
@@ -2929,9 +2926,7 @@ namespace eosio {
                }
             }
          } else {
-            peer_dlog( this, "skipping duplicate check, addr == ${pa}, id = ${ni}",
-                       ("pa", peer_address())( "ni", last_handshake_recv.node_id ) );
-            g_conn.unlock();
+            peer_dlog(this, "skipping duplicate check, addr == ${pa}, id = ${ni}", ("pa", peer_address())("ni", msg.node_id));
          }
 
          if( msg.chain_id != my_impl->chain_id ) {
