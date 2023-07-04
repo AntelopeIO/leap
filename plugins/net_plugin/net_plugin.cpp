@@ -1242,7 +1242,7 @@ namespace eosio {
             try {
                c->buffer_queue.clear_out_queue();
                // May have closed connection and cleared buffer_queue
-               if( !c->socket_is_open() || socket != c->socket ) {
+               if( !c->socket->is_open() || socket != c->socket ) {
                   peer_ilog( c, "async write socket ${r} before callback", ("r", c->socket_is_open() ? "changed" : "closed") );
                   c->close();
                   return;
@@ -2488,7 +2488,7 @@ namespace eosio {
             boost::asio::bind_executor( strand,
               [conn = shared_from_this(), socket=socket]( boost::system::error_code ec, std::size_t bytes_transferred ) {
                // may have closed connection and cleared pending_message_buffer
-               if (!conn->socket_is_open() && conn->socket_open) { // if socket_open then close not called
+               if (!conn->socket->is_open() && conn->socket_is_open()) { // if socket_open then close not called
                   peer_dlog( conn, "async_read socket not open, closing");
                   conn->close();
                   return;
