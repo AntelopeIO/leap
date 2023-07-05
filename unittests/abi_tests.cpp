@@ -40,7 +40,17 @@ FC_REFLECT(act_sig, (sig) )
 
 BOOST_AUTO_TEST_SUITE(abi_tests)
 
+#ifdef NDEBUG
 fc::microseconds max_serialization_time = fc::seconds(1); // some test machines are very slow
+#else
+fc::microseconds max_serialization_time = fc::microseconds::maximum(); // don't check in debug builds
+#endif
+
+static fc::time_point get_deadline() {
+   if (max_serialization_time == fc::microseconds::maximum())
+      return fc::time_point(fc::microseconds::maximum());
+   return fc::time_point::now() + max_serialization_time;
+}
 
 // verify that round trip conversion, via bytes, reproduces the exact same data
 fc::variant verify_byte_round_trip_conversion( const abi_serializer& abis, const type_name& type, const fc::variant& var )
@@ -48,8 +58,6 @@ fc::variant verify_byte_round_trip_conversion( const abi_serializer& abis, const
    auto bytes = abis.variant_to_binary(type, var, abi_serializer::create_yield_function( max_serialization_time ));
 
    auto var2 = abis.binary_to_variant(type, bytes, abi_serializer::create_yield_function( max_serialization_time ));
-
-   std::string r = fc::json::to_string(var2, fc::time_point::now() + max_serialization_time);
 
    auto bytes2 = abis.variant_to_binary(type, var2, abi_serializer::create_yield_function( max_serialization_time ));
 
@@ -64,7 +72,7 @@ void verify_round_trip_conversion( const abi_serializer& abis, const type_name& 
    auto bytes = abis.variant_to_binary(type, var, abi_serializer::create_yield_function( max_serialization_time ));
    BOOST_REQUIRE_EQUAL(fc::to_hex(bytes), hex);
    auto var2 = abis.binary_to_variant(type, bytes, abi_serializer::create_yield_function( max_serialization_time ));
-   BOOST_REQUIRE_EQUAL(fc::json::to_string(var2, fc::time_point::now() + max_serialization_time), expected_json);
+   BOOST_REQUIRE_EQUAL(fc::json::to_string(var2, get_deadline()), expected_json);
    auto bytes2 = abis.variant_to_binary(type, var2, abi_serializer::create_yield_function( max_serialization_time ));
    BOOST_REQUIRE_EQUAL(fc::to_hex(bytes2), hex);
 }
@@ -94,7 +102,7 @@ fc::variant verify_type_round_trip_conversion( const abi_serializer& abis, const
    fc::variant var2;
    abi_serializer::to_variant(obj, var2, get_resolver(), abi_serializer::create_yield_function( max_serialization_time ));
 
-   std::string r = fc::json::to_string(var2, fc::time_point::now() + max_serialization_time);
+   std::string r = fc::json::to_string(var2, get_deadline());
 
 
    auto bytes2 = abis.variant_to_binary(type, var2, abi_serializer::create_yield_function( max_serialization_time ));
@@ -1929,6 +1937,113 @@ BOOST_AUTO_TEST_CASE(abi_type_loop)
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE(abi_std_optional)
+{ try {
+   const char* repeat_abi = R"=====(
+   {
+    "version": "eosio::abi/1.2",
+    "types": [],
+    "structs": [
+        {
+            "name": "fees",
+            "base": "",
+            "fields": [
+                {
+                    "name": "gas_price",
+                    "type": "uint64?"
+                },
+                {
+                    "name": "miner_cut",
+                    "type": "uint32?"
+                },
+                {
+                    "name": "bridge_fee",
+                    "type": "uint32?"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "name": "fees",
+            "type": "fees",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": [],
+    "action_results": []
+   }
+   )=====";
+
+   abi_serializer abis(fc::json::from_string(repeat_abi).as<abi_def>(), abi_serializer::create_yield_function( max_serialization_time ));
+   {
+      // check conversion when all optional members are provided
+      std::string test_data = R"=====(
+      {
+        "gas_price" : "42",
+        "miner_cut" : "2",
+        "bridge_fee" : "2"
+      }
+      )=====";
+
+      auto var = fc::json::from_string(test_data);
+      verify_byte_round_trip_conversion(abis, "fees", var);
+   }
+
+   {
+      // check conversion when the first optional member is missing
+      std::string test_data = R"=====(
+      {
+        "miner_cut" : "2",
+        "bridge_fee" : "2"
+      }
+      )=====";
+
+      auto var = fc::json::from_string(test_data);
+      verify_byte_round_trip_conversion(abis, "fees", var);
+   }
+
+   {
+      // check conversion when the second optional member is missing
+      std::string test_data = R"=====(
+      {
+        "gas_price" : "42",
+        "bridge_fee" : "2"
+      }
+      )=====";
+
+      auto var = fc::json::from_string(test_data);
+      verify_byte_round_trip_conversion(abis, "fees", var);
+   }
+
+   {
+      // check conversion when the last optional member is missing
+      std::string test_data = R"=====(
+      {
+        "gas_price" : "42",
+        "miner_cut" : "2",
+      }
+      )=====";
+
+      auto var = fc::json::from_string(test_data);
+      verify_byte_round_trip_conversion(abis, "fees", var);
+   }
+
+   {
+      // check conversion when all optional members are missing
+      std::string test_data = R"=====(
+      {
+      }
+      )=====";
+
+      auto var = fc::json::from_string(test_data);
+      verify_byte_round_trip_conversion(abis, "fees", var);
+   }
+
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_CASE(abi_type_redefine)
 { try {
    // inifinite loop in types
@@ -2976,7 +3091,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__good_return_value)
    mutable_variant_object mvo;
    eosio::chain::impl::abi_traverse_context ctx(abi_serializer::create_yield_function(max_serialization_time));
    eosio::chain::impl::abi_to_variant::add(mvo, "action_traces", at, get_resolver(abidef), ctx);
-   std::string res = fc::json::to_string(mvo, fc::time_point::now() + max_serialization_time);
+   std::string res = fc::json::to_string(mvo, get_deadline());
 
    BOOST_CHECK_EQUAL(res, expected_json);
 }
@@ -3001,7 +3116,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__bad_return_value)
    mutable_variant_object mvo;
    eosio::chain::impl::abi_traverse_context ctx(abi_serializer::create_yield_function(max_serialization_time));
    eosio::chain::impl::abi_to_variant::add(mvo, "action_traces", at, get_resolver(abidef), ctx);
-   std::string res = fc::json::to_string(mvo, fc::time_point::now() + max_serialization_time);
+   std::string res = fc::json::to_string(mvo, get_deadline());
 
    BOOST_CHECK_EQUAL(res, expected_json);
 }
@@ -3036,7 +3151,7 @@ BOOST_AUTO_TEST_CASE(abi_to_variant__add_action__no_return_value)
    mutable_variant_object mvo;
    eosio::chain::impl::abi_traverse_context ctx(abi_serializer::create_yield_function(max_serialization_time));
    eosio::chain::impl::abi_to_variant::add(mvo, "action_traces", at, get_resolver(abidef), ctx);
-   std::string res = fc::json::to_string(mvo, fc::time_point::now() + max_serialization_time);
+   std::string res = fc::json::to_string(mvo, get_deadline());
 
    BOOST_CHECK_EQUAL(res, expected_json);
 }
