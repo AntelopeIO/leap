@@ -48,9 +48,7 @@ fc::microseconds max_serialization_time = fc::microseconds::maximum(); // don't 
 #endif
 
 static fc::time_point get_deadline() {
-   if (max_serialization_time == fc::microseconds::maximum())
-      return fc::time_point(fc::microseconds::maximum());
-   return fc::time_point::now() + max_serialization_time;
+   return fc::time_point::now().safe_add(max_serialization_time);
 }
 
 // verify that round trip conversion, via bytes, reproduces the exact same data
