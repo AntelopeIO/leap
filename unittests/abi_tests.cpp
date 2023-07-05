@@ -1993,7 +1993,7 @@ BOOST_AUTO_TEST_CASE(abi_std_optional)
    }
 
    {
-      // check conversion when the first optional members is missing
+      // check conversion when the first optional member is missing
       std::string test_data = R"=====(
       {
         "miner_cut" : "2",
@@ -2006,7 +2006,7 @@ BOOST_AUTO_TEST_CASE(abi_std_optional)
    }
 
    {
-      // check conversion when the first optional members is missing
+      // check conversion when the second optional member is missing
       std::string test_data = R"=====(
       {
         "gas_price" : "42",
@@ -2019,7 +2019,7 @@ BOOST_AUTO_TEST_CASE(abi_std_optional)
    }
 
    {
-      // check conversion when all optional members are provided
+      // check conversion when the last optional member is missing
       std::string test_data = R"=====(
       {
         "gas_price" : "42",
@@ -2032,7 +2032,7 @@ BOOST_AUTO_TEST_CASE(abi_std_optional)
    }
 
    {
-      // check conversion when all optional members are provided
+      // check conversion when all optional members are missing
       std::string test_data = R"=====(
       {
       }
