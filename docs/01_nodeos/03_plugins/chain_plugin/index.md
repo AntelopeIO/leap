@@ -131,8 +131,7 @@ Config Options for eosio::chain_plugin:
                                         received via the P2P network are not
                                         relayed and transactions cannot be
                                         pushed via the chain API.
-                                        In "speculative" mode: (DEPRECATED:
-                                        head mode recommended) database
+                                        In "speculative" mode: database
                                         contains state changes by transactions
                                         in the blockchain up to the head block
                                         as well as some transactions not yet
