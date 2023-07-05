@@ -94,7 +94,7 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, validating_tester ) try {
    // block should be decoded successfully
    auto block = plugin.get_raw_block(param, fc::time_point::maximum());
    auto abi_cache = plugin.get_block_serializers(block, fc::microseconds::maximum());
-   std::string block_str = json::to_pretty_string(plugin.convert_block(block, abi_cache, fc::microseconds::maximum()));
+   std::string block_str = json::to_pretty_string(plugin.convert_block(block, abi_cache));
    BOOST_TEST(block_str.find("procassert") != std::string::npos);
    BOOST_TEST(block_str.find("condition") != std::string::npos);
    BOOST_TEST(block_str.find("Should Not Assert!") != std::string::npos);
@@ -114,7 +114,7 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, validating_tester ) try {
    // get the same block as string, results in decode failed(invalid abi) but not exception
    auto block2 = plugin.get_raw_block(param, fc::time_point::maximum());
    auto abi_cache2 = plugin.get_block_serializers(block2, fc::microseconds::maximum());
-   std::string block_str2 = json::to_pretty_string(plugin.convert_block(block2, abi_cache2, fc::microseconds::maximum()));
+   std::string block_str2 = json::to_pretty_string(plugin.convert_block(block2, abi_cache2));
    BOOST_TEST(block_str2.find("procassert") != std::string::npos);
    BOOST_TEST(block_str2.find("condition") == std::string::npos); // decode failed
    BOOST_TEST(block_str2.find("Should Not Assert!") == std::string::npos); // decode failed

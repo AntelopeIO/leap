@@ -10,6 +10,8 @@
 #include <boost/beast.hpp>
 #include <boost/program_options.hpp>
 
+#include <map>
+#include <set>
 #include <iostream>
 #include <string>
 
@@ -111,8 +113,9 @@ int main(int argc, char* argv[]) {
       stream.write(boost::asio::buffer(request_type.json_to_bin(request_sb.GetString(), [](){})));
       stream.read_message_max(0);
 
-      //      block_num, block_id
-      std::map<uint32_t, std::string> block_ids;
+      // Each block_num can have multiple block_ids since forks are possible
+      //       block_num,         block_id
+      std::map<uint32_t, std::set<std::string>> block_ids;
       bool is_first = true;
       for(;;) {
          boost::beast::flat_buffer buffer;
@@ -134,6 +137,21 @@ int main(int argc, char* argv[]) {
          eosio::check(result_document[1]["head"].HasMember("block_id"),                      "'head' does not contain 'block_id'");
          eosio::check(result_document[1]["head"]["block_id"].IsString(),                     "'head.block_id' isn't a string");
 
+         // stream what was received
+         if(is_first) {
+           std::cout << "[" << std::endl;
+           is_first = false;
+         } else {
+           std::cout << "," << std::endl;
+         }
+         std::cout << "{ \"get_blocks_result_v0\":" << std::endl;
+
+         rapidjson::StringBuffer result_sb;
+         rapidjson::PrettyWriter<rapidjson::StringBuffer> result_writer(result_sb);
+         result_document[1].Accept(result_writer);
+         std::cout << result_sb.GetString() << std::endl << "}" << std::endl;
+
+         // validate after streaming, so that invalid entry is included in the output
          uint32_t this_block_num = 0;
          if( result_document[1].HasMember("this_block") && result_document[1]["this_block"].IsObject() ) {
             if( result_document[1]["this_block"].HasMember("block_num") && result_document[1]["this_block"]["block_num"].IsUint() ) {
@@ -150,12 +168,14 @@ int main(int argc, char* argv[]) {
             if( !irreversible_only && !this_block_id.empty() && !prev_block_id.empty() ) {
                // verify forks were sent
                if (block_ids.count(this_block_num-1)) {
-                  if (block_ids[this_block_num-1] != prev_block_id) {
-                     std::cerr << "Received block: << " << this_block_num << " that does not link to previous: " << block_ids[this_block_num-1] << std::endl;
+                  if (block_ids[this_block_num-1].count(prev_block_id) == 0) {
+                     std::cerr << "Received block: << " << this_block_num << " that does not link to previous: ";
+                     std::copy(block_ids[this_block_num-1].begin(), block_ids[this_block_num-1].end(), std::ostream_iterator<std::string>(std::cerr, " "));
+                     std::cerr << std::endl;
                      return 1;
                   }
                }
-               block_ids[this_block_num] = this_block_id;
+               block_ids[this_block_num].insert(this_block_id);
 
                if( result_document[1]["last_irreversible"].HasMember("block_num") && result_document[1]["last_irreversible"]["block_num"].IsUint() ) {
                   uint32_t lib_num = result_document[1]["last_irreversible"]["block_num"].GetUint();
@@ -167,19 +187,6 @@ int main(int argc, char* argv[]) {
             }
 
          }
-
-         if(is_first) {
-            std::cout << "[" << std::endl;
-            is_first = false;
-         } else {
-            std::cout << "," << std::endl;
-         }
-         std::cout << "{ \"get_blocks_result_v0\":" << std::endl;
-
-         rapidjson::StringBuffer result_sb;
-         rapidjson::PrettyWriter<rapidjson::StringBuffer> result_writer(result_sb);
-         result_document[1].Accept(result_writer);
-         std::cout << result_sb.GetString() << std::endl << "}" << std::endl;
 
          if( this_block_num == end_block_num ) break;
       }

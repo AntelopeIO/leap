@@ -370,7 +370,7 @@ namespace eosio::chain {
    }
 
    template<typename E, typename F>
-   static inline auto has_field( F flags, E field )
+   static constexpr auto has_field( F flags, E field )
    -> std::enable_if_t< std::is_integral<F>::value && std::is_unsigned<F>::value &&
                         std::is_enum<E>::value && std::is_same< F, std::underlying_type_t<E> >::value, bool>
    {
@@ -378,7 +378,7 @@ namespace eosio::chain {
    }
 
    template<typename E, typename F>
-   static inline auto set_field( F flags, E field, bool value = true )
+   static constexpr auto set_field( F flags, E field, bool value = true )
    -> std::enable_if_t< std::is_integral<F>::value && std::is_unsigned<F>::value &&
                         std::is_enum<E>::value && std::is_same< F, std::underlying_type_t<E> >::value, F >
    {

@@ -192,7 +192,7 @@ def testAll():
         ["Space usage warning"],
         6)
 
-args = TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run"})
+args = TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--unshared"})
 debug=args.v
 pnodes=1
 topo="mesh"
@@ -202,28 +202,14 @@ total_nodes = pnodes
 killCount=1
 killSignal=Utils.SigKillTag
 
-killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-killAll=args.clean_run
 
 seed=1
 Utils.Debug=debug
 testSuccessful=False
 
-cluster=Cluster(walletd=True)
-
 try:
     TestHelper.printSystemInfo("BEGIN")
-
-    cluster.setChainStrategy(chainSyncStrategyStr)
-
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
-
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo,delay=delay, dontBootstrap=True) is False:
-        errorExit("Failed to stand up eos cluster.")
-    cluster.killall(allInstances=killAll)
 
     testAll()
 
@@ -231,7 +217,6 @@ try:
 finally:
     if debug: Print("Cleanup in finally block.")
     cleanDirectories()
-    TestHelper.shutdown(cluster, None, testSuccessful, killEosInstances, False, keepLogs, killAll, dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 if debug: Print("Exiting test, exit value %d." % (exitCode))

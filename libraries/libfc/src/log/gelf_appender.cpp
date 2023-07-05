@@ -137,7 +137,7 @@ namespace fc
 
       my->thread = std::thread([this] {
         try {
-          fc::set_os_thread_name("gelf");
+          fc::set_thread_name("gelf");
           my->io_context.run();
         } catch (std::exception& ex) {
           fprintf(stderr, "GELF logger caught exception at %s:%d : %s\n", __FILE__, __LINE__, ex.what());
@@ -169,7 +169,7 @@ namespace fc
     gelf_message["_timestamp_ns"] = time_ns;
 
     static uint64_t gelf_log_counter;
-    gelf_message["_log_id"] = fc::to_string(++gelf_log_counter);
+    gelf_message["_log_id"] = std::to_string(++gelf_log_counter);
 
     switch (context.get_log_level())
     {

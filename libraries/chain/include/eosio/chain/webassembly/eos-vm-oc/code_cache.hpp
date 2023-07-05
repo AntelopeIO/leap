@@ -15,7 +15,6 @@
 
 
 #include <thread>
-#include <shared_mutex>
 
 namespace std {
     template<> struct hash<eosio::chain::eosvmoc::code_tuple> {
@@ -39,7 +38,7 @@ struct config;
 
 class code_cache_base {
    public:
-      code_cache_base(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      code_cache_base(const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
       ~code_cache_base();
 
       const int& fd() const { return _cache_fd; }
@@ -78,9 +77,20 @@ class code_cache_base {
       local::datagram_protocol::socket _compile_monitor_write_socket{_ctx};
       local::datagram_protocol::socket _compile_monitor_read_socket{_ctx};
 
-      //these are really only useful to the async code cache, but keep them here so
-      //free_code can be shared
-      std::unordered_set<code_tuple> _queued_compiles;
+      //these are really only useful to the async code cache, but keep them here so free_code can be shared
+      using queued_compilies_t = boost::multi_index_container<
+         code_tuple,
+         indexed_by<
+            sequenced<>,
+            hashed_unique<tag<by_hash>,
+               composite_key< code_tuple,
+                  member<code_tuple, digest_type, &code_tuple::code_id>,
+                  member<code_tuple, uint8_t,     &code_tuple::vm_version>
+               >
+            >
+         >
+      >;
+      queued_compilies_t _queued_compiles;
       std::unordered_map<code_tuple, bool> _outstanding_compiles_and_poison;
 
       size_t _free_bytes_eviction_threshold;
@@ -95,13 +105,13 @@ class code_cache_base {
 
 class code_cache_async : public code_cache_base {
    public:
-      code_cache_async(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      code_cache_async(const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
       ~code_cache_async();
 
       //If code is in cache: returns pointer & bumps to front of MRU list
       //If code is not in cache, and not blacklisted, and not currently compiling: return nullptr and kick off compile
       //otherwise: return nullptr
-      const code_descriptor* const get_descriptor_for_code(const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure);
+      const code_descriptor* const get_descriptor_for_code(bool high_priority, const digest_type& code_id, const uint8_t& vm_version, bool is_write_window, get_cd_failure& failure);
 
    private:
       std::thread _monitor_reply_thread;

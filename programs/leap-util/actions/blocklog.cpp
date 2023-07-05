@@ -85,19 +85,19 @@ void blocklog_actions::setup(CLI::App& app) {
    auto* extract_blocks = sub->add_subcommand("extract-blocks", "Extract range of blocks from blocks.log and write to output-dir.  Must give 'first' and/or 'last'.")->callback([err_guard]() { err_guard(&blocklog_actions::extract_blocks); });
    extract_blocks->add_option("--first,-f", opt->first_block, "The first block number to keep.")->required();
    extract_blocks->add_option("--last,-l", opt->last_block, "The last block number to keep.")->required();
-   extract_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the block log extracted from blocks-dir.");
+   extract_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the block log extracted from blocks-dir.")->required();
 
    // subcommand - split blocks
    auto* split_blocks = sub->add_subcommand("split-blocks", "Split the blocks.log based on the stride and store the result in the specified 'output-dir'.")->callback([err_guard]() { err_guard(&blocklog_actions::split_blocks); });
    split_blocks->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
-   split_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the split block log.");
+   split_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the split block log.")->required();
    split_blocks->add_option("--stride", opt->stride, "The number of blocks to split into each file.")->required();
 
    // subcommand - merge blocks
    auto* merge_blocks = sub->add_subcommand("merge-blocks", "Merge block log files in 'blocks-dir' with the file pattern 'blocks-\\d+-\\d+.[log,index]' to 'output-dir' whenever possible."
           "The files in 'blocks-dir' will be kept without change.")->callback([err_guard]() { err_guard(&blocklog_actions::merge_blocks); });
    merge_blocks->add_option("--blocks-dir", opt->blocks_dir, "The location of the blocks directory (absolute path or relative to the current directory).");
-   merge_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the merged block log.");
+   merge_blocks->add_option("--output-dir", opt->output_dir, "The output directory for the merged block log.")->required();
 
    // subcommand - smoke test
    sub->add_subcommand("smoke-test", "Quick test that blocks.log and blocks.index are well formed and agree with each other.")->callback([err_guard]() { err_guard(&blocklog_actions::smoke_test); });
@@ -166,32 +166,33 @@ int blocklog_actions::extract_blocks() {
 }
 
 int blocklog_actions::do_genesis() {
-   std::optional<genesis_state> gs;
    std::filesystem::path bld = opt->blocks_dir;
-   auto full_path = (bld / "blocks.log").generic_string();
 
-   if(std::filesystem::exists(bld / "blocks.log")) {
-      gs = block_log::extract_genesis_state(opt->blocks_dir);
-      if(!gs) {
-         std::cerr << "Block log at '" << full_path
-                   << "' does not contain a genesis state, it only has the chain-id." << std::endl;
-         return -1;
-      }
-   } else {
-      std::cerr << "No blocks.log found at '" << full_path << "'." << std::endl;
+   auto context = block_log::extract_chain_context(opt->blocks_dir,opt->blocks_dir);
+   
+   if (!context) {
+      std::cerr << "No blocks log found at '" << opt->blocks_dir.c_str() << "'." << std::endl;
       return -1;
    }
 
+   if(!std::holds_alternative<genesis_state>(*context)) {
+      std::cerr << "Block log at '" << opt->blocks_dir.c_str()
+                  << "' does not contain a genesis state, it only has the chain-id." << std::endl;
+      return -1;
+   } 
+
+   const genesis_state& gs = std::get<genesis_state>(*context);
+
    // just print if output not set
    if(opt->output_file.empty()) {
-      std::cout << json::to_pretty_string(*gs) << std::endl;
+      std::cout << json::to_pretty_string(gs) << std::endl;
    } else {
       std::filesystem::path p = opt->output_file;
       if(p.is_relative()) {
          p = std::filesystem::current_path() / p;
       }
 
-      if(!fc::json::save_to_file(*gs, p, true)) {
+      if(!fc::json::save_to_file(gs, p, true)) {
          std::cerr << "Error occurred while writing genesis JSON to '" << p.generic_string() << "'" << std::endl;
          return -1;
       }
@@ -306,13 +307,12 @@ int blocklog_actions::read_log() {
    uint32_t block_num = (opt->first_block < 1) ? 1 : opt->first_block;
    signed_block_ptr next;
    fc::variant pretty_output;
-   const fc::microseconds deadline = fc::seconds(10);
    auto print_block = [&](signed_block_ptr& next) {
       abi_serializer::to_variant(
             *next,
             pretty_output,
             [](account_name n) { return std::optional<abi_serializer>(); },
-            abi_serializer::create_yield_function(deadline));
+            fc::seconds(1));
       const auto block_id = next->calculate_id();
       const uint32_t ref_block_prefix = block_id._hash[1];
       const auto enhanced_object = fc::mutable_variant_object("block_num", next->block_num())("id", block_id)("ref_block_prefix", ref_block_prefix)(pretty_output.get_object());

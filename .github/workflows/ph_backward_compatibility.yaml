@@ -1,0 +1,21 @@
+name: "Performance Harness Backwards Compatibility"
+
+on:
+  workflow_dispatch:
+
+permissions:
+  packages: read
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  tmp:
+    name: Stub
+    runs-on: ubuntu-latest
+    steps:
+      - name: Workflow Stub
+        run: |
+          echo "Workflow Stub"

@@ -98,7 +98,7 @@ public:
    integrity_hash_information get_integrity_hash() const;
 
    void create_snapshot(next_function<chain::snapshot_scheduler::snapshot_information> next);
-   chain::snapshot_scheduler::snapshot_schedule_result schedule_snapshot(const chain::snapshot_scheduler::snapshot_request_information& schedule);
+   chain::snapshot_scheduler::snapshot_schedule_result schedule_snapshot(const chain::snapshot_scheduler::snapshot_request_params& srp);
    chain::snapshot_scheduler::snapshot_schedule_result unschedule_snapshot(const chain::snapshot_scheduler::snapshot_request_id_information& schedule);
    chain::snapshot_scheduler::get_snapshot_requests_result get_snapshot_requests() const;
 
@@ -112,7 +112,7 @@ public:
    struct get_unapplied_transactions_params {
       string      lower_bound;  /// transaction id
       std::optional<uint32_t>    limit = 100;
-      std::optional<uint32_t>    time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t>    time_limit_ms; // defaults to http-max-response-time-ms
    };
 
    struct unapplied_trx {
@@ -171,9 +171,9 @@ public:
    void register_update_produced_block_metrics(std::function<void(produced_block_metrics)>&&);
    void register_update_incoming_block_metrics(std::function<void(incoming_block_metrics)>&&);
 
- private:
    inline static bool test_mode_{false}; // to be moved into appbase (application_base)
 
+ private:
    std::shared_ptr<class producer_plugin_impl> my;
 };
 

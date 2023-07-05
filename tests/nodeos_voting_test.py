@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
 
 ###############################################################
 # nodeos_voting_test
@@ -136,22 +136,18 @@ def verifyProductionRounds(trans, node, prodsActive, rounds):
 Print=Utils.Print
 errorExit=Utils.errorExit
 
-args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run",
+args = TestHelper.parse_args({"--prod-count","--dump-error-details","--keep-logs","-v","--leave-running",
                               "--wallet-port","--unshared"})
 Utils.Debug=args.v
-totalNodes=4
-cluster=Cluster(walletd=True,unshared=args.unshared)
+prodNodes=4
+totalNodes=5
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-dontKill=args.leave_running
 prodCount=args.prod_count
-killAll=args.clean_run
 walletPort=args.wallet_port
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 ClientName="cleos"
@@ -160,17 +156,15 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.setWalletMgr(walletMgr)
 
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     Print("Stand up cluster")
-    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=totalNodes, totalNodes=totalNodes, totalProducers=totalNodes*21) is False:
+    if cluster.launch(prodCount=prodCount, onlyBios=False, pnodes=prodNodes, totalNodes=totalNodes, totalProducers=prodNodes*21) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")
 
     Print("Validating system accounts after bootstrap")
     cluster.validateAccounts(None)
 
-    accounts=cluster.createAccountKeys(5)
+    accounts=createAccountKeys(5)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
     accounts[0].name="tester111111"
@@ -189,11 +183,14 @@ try:
 
     Print("Wallet \"%s\" password=%s." % (testWalletName, testWallet.password.encode("utf-8")))
 
+    nonProdNode=cluster.getNode(4)
     for i in range(0, totalNodes):
         node=cluster.getNode(i)
         node.producers=Cluster.parseProducers(i)
         for prod in node.producers:
-            trans=node.regproducer(cluster.defProducerAccounts[prod], "http::/mysite.com", 0, waitForTransBlock=False, exitOnError=True)
+            trans=nonProdNode.regproducer(cluster.defProducerAccounts[prod], "http::/mysite.com", 0, 
+                                          waitForTransBlock=True if prod == node.producers[-1] else False,
+                                          silentErrors=False if prod == node.producers[-1] else True, exitOnError=True)
 
     node0=cluster.getNode(0)
     node1=cluster.getNode(1)
@@ -205,20 +202,18 @@ try:
     transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
     for account in accounts:
         Print("Create new account %s via %s" % (account.name, cluster.eosioAccount.name))
-        trans=node.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=False, stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
-
-    node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
+        trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, 
+                                                  waitForTransBlock=True if account == accounts[-1] else False, 
+                                                  stakeNet=1000, stakeCPU=1000, buyRAM=1000, exitOnError=True)
 
     for account in accounts:
         Print("Transfer funds %s from account %s to %s" % (transferAmount, cluster.eosioAccount.name, account.name))
-        node.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=False)
-
-    node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
+        nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", 
+                                  waitForTransBlock=True if account == accounts[-1] else False)
 
     for account in accounts:
-        trans=node.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=False, exitOnError=True)
-
-    node.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
+        trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, 
+                                     waitForTransBlock=True if account == accounts[-1] else False, exitOnError=True)
 
     # containers for tracking producers
     prodsActive={}
@@ -231,8 +226,10 @@ try:
     #first account will vote for node0 producers, all others will vote for node1 producers
     node=node0
     for account in accounts:
-        trans=node.vote(account, node.producers, waitForTransBlock=True)
+        trans=nonProdNode.vote(account, node.producers, waitForTransBlock=True if account == accounts[-1] else False)
         node=node1
+
+    nonProdNode.undelegatebw(account, 1.0000, 1.0000, waitForTransBlock=True, silentErrors=False, exitOnError=True)
 
     setActiveProducers(prodsActive, node1.producers)
 
@@ -242,7 +239,7 @@ try:
     # first account will vote for node2 producers, all others will vote for node3 producers
     node1
     for account in accounts:
-        trans=node.vote(account, node.producers, waitForTransBlock=True)
+        trans=nonProdNode.vote(account, node.producers, waitForTransBlock=True if account == accounts[-1] else False)
         node=node2
 
     setActiveProducers(prodsActive, node2.producers)
@@ -251,7 +248,7 @@ try:
 
     testSuccessful=True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

@@ -1,5 +1,3 @@
-
-#define BOOST_TEST_MODULE example
 #include <boost/test/unit_test.hpp>
 
 #include <algorithm>
@@ -23,6 +21,7 @@
 #include <boost/iostreams/filtering_stream.hpp>
 #include <eosio/state_history/log.hpp>
 #include <fc/bitutil.hpp>
+#include <fc/network/listener.hpp>
 
 namespace beast     = boost::beast;     // from <boost/beast.hpp>
 namespace http      = beast::http;      // from <boost/beast/http.hpp>
@@ -118,7 +117,9 @@ struct mock_state_history_plugin {
       log.emplace("ship", log_dir.path(), conf);
    }
 
-   fc::logger logger() { return fc::logger::get(DEFAULT_LOGGER); }
+   fc::logger logger = fc::logger::get(DEFAULT_LOGGER);
+
+   fc::logger& get_logger() { return logger; }
 
    void get_block(uint32_t block_num, const eosio::chain::block_state_ptr& block_state,
                   std::optional<eosio::chain::bytes>& result) const {
@@ -140,82 +141,7 @@ struct mock_state_history_plugin {
 
 };
 
-using session_type = eosio::session<mock_state_history_plugin*, tcp::socket>;
-
-// Accepts incoming connections and launches the sessions
-class listener : public std::enable_shared_from_this<listener> {
-   mock_state_history_plugin* server_;
-   tcp::acceptor              acceptor_;
-
- public:
-   listener(mock_state_history_plugin* server, tcp::endpoint& endpoint)
-       : server_(server)
-       , acceptor_(server->ship_ioc) {
-      beast::error_code ec;
-
-      // Open the acceptor
-      acceptor_.open(endpoint.protocol(), ec);
-      if (ec) {
-         fail(ec, "open");
-         return;
-      }
-
-      // Allow address reuse
-      acceptor_.set_option(net::socket_base::reuse_address(true), ec);
-      if (ec) {
-         fail(ec, "set_option");
-         return;
-      }
-
-      // Bind to the server address
-      acceptor_.bind(endpoint, ec);
-      if (ec) {
-         fail(ec, "bind");
-         return;
-      }
-
-      endpoint = acceptor_.local_endpoint(ec);
-      if (ec) {
-         fail(ec, "local_endpoint");
-         return;
-      }
-
-      // Start listening for connections
-      acceptor_.listen(net::socket_base::max_listen_connections, ec);
-      if (ec) {
-         fail(ec, "listen");
-         return;
-      }
-   }
-
-   // Start accepting incoming connections
-   void run() { do_accept(); }
-
- private:
-   void do_accept() {
-      // The new connection gets its own strand
-      acceptor_.async_accept(boost::asio::make_strand(server_->ship_ioc),
-                             [self = shared_from_this()](beast::error_code ec, boost::asio::ip::tcp::socket&& socket) {
-                                if( self->server_->stopping ) return;
-                                if (ec) {
-                                   fail(ec, "async_accept");
-                                } else {
-                                   self->on_accept( ec, std::move( socket ) );
-                                }
-                             });
-   }
-
-   void on_accept(beast::error_code ec, tcp::socket&& socket) {
-      if (ec) {
-         fail(ec, "accept");
-      } else {
-         // Create the session and run it
-         auto s = std::make_shared<session_type>(server_, std::move(socket), server_->session_mgr);
-         s->start();
-         server_->add_session(s);
-      }
-   }
-};
+using session_type = eosio::session<mock_state_history_plugin, tcp::socket>;
 
 struct test_server : mock_state_history_plugin {
    std::vector<std::thread> threads;
@@ -229,14 +155,24 @@ struct test_server : mock_state_history_plugin {
       threads.emplace_back([this]{ main_ioc.run(); });
       threads.emplace_back([this]{ ship_ioc.run(); });
 
+      auto create_session = [this](tcp::socket&& peer_socket) {
+         auto s = std::make_shared<session_type>(*this, std::move(peer_socket), session_mgr);
+         s->start();
+         add_session(s);
+      };
+
       // Create and launch a listening port
-      std::make_shared<listener>(this, local_address)->run();
+      auto server = std::make_shared<fc::listener<tcp, decltype(create_session)>>(
+                        ship_ioc, logger, boost::posix_time::milliseconds(100), "", local_address, "", create_session);
+      server->do_accept();
+      local_address = server->acceptor().local_endpoint();
    }
 
    ~test_server() {
       stopping = true;
       ship_ioc_work.reset();
       main_ioc_work.reset();
+      ship_ioc.stop();
 
       for (auto& thr : threads) {
          thr.join();
@@ -664,4 +600,3 @@ BOOST_FIXTURE_TEST_CASE(test_session_fork, state_history_test_fixture) {
    }
    FC_LOG_AND_RETHROW()
 }
-
