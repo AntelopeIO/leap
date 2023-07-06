@@ -1022,10 +1022,8 @@ namespace eosio {
    void connection::_close( connection* self, bool reconnect, bool shutdown ) {
       self->socket_open = false;
       boost::system::error_code ec;
-      if( self->socket->is_open() ) {
-         self->socket->shutdown( tcp::socket::shutdown_both, ec );
-         self->socket->close( ec );
-      }
+      self->socket->shutdown( tcp::socket::shutdown_both, ec );
+      self->socket->close( ec );
       self->socket.reset( new tcp::socket( my_impl->thread_pool.get_executor() ) );
       self->flush_queues();
       self->connecting = false;
@@ -1052,6 +1050,7 @@ namespace eosio {
       self->cancel_wait();
       self->latest_msg_time = std::chrono::system_clock::time_point::min();
       self->latest_blk_time = std::chrono::system_clock::time_point::min();
+      self->org = std::chrono::nanoseconds{0};
 
       if( reconnect && !shutdown ) {
          my_impl->start_conn_timer( std::chrono::milliseconds( 100 ), connection_wptr() );
@@ -1243,9 +1242,16 @@ namespace eosio {
             try {
                c->buffer_queue.clear_out_queue();
                // May have closed connection and cleared buffer_queue
-               if( !c->socket_is_open() || socket != c->socket ) {
-                  peer_ilog( c, "async write socket ${r} before callback", ("r", c->socket_is_open() ? "changed" : "closed") );
+               if (!c->socket->is_open() && c->socket_is_open()) { // if socket_open then close not called
+                  peer_ilog(c, "async write socket closed before callback");
                   c->close();
+                  return;
+               }
+               if (socket != c->socket ) { // different socket, c must have created a new socket, make sure previous is closed
+                  peer_ilog( c, "async write socket changed before callback");
+                  boost::system::error_code ec;
+                  socket->shutdown( tcp::socket::shutdown_both, ec );
+                  socket->close( ec );
                   return;
                }
 
@@ -2489,7 +2495,18 @@ namespace eosio {
             boost::asio::bind_executor( strand,
               [conn = shared_from_this(), socket=socket]( boost::system::error_code ec, std::size_t bytes_transferred ) {
                // may have closed connection and cleared pending_message_buffer
-               if( !conn->socket_is_open() || socket != conn->socket ) return;
+               if (!conn->socket->is_open() && conn->socket_is_open()) { // if socket_open then close not called
+                  peer_dlog( conn, "async_read socket not open, closing");
+                  conn->close();
+                  return;
+               }
+               if (socket != conn->socket ) { // different socket, conn must have created a new socket, make sure previous is closed
+                  peer_dlog( conn, "async_read diff socket closing");
+                  boost::system::error_code ec;
+                  socket->shutdown( tcp::socket::shutdown_both, ec );
+                  socket->close( ec );
+                  return;
+               }
 
                bool close_connection = false;
                try {
@@ -2842,6 +2859,7 @@ namespace eosio {
       peer_lib_num = msg.last_irreversible_block_num;
       std::unique_lock<std::mutex> g_conn( conn_mtx );
       last_handshake_recv = msg;
+      auto c_time = last_handshake_sent.time;
       g_conn.unlock();
 
       connecting = false;
@@ -2867,14 +2885,9 @@ namespace eosio {
             return;
          }
 
-         if( peer_address().empty() ) {
+         if( incoming() ) {
             set_connection_type( msg.p2p_address );
-         }
 
-         std::unique_lock<std::mutex> g_conn( conn_mtx );
-         if( peer_address().empty() || last_handshake_recv.node_id == fc::sha256()) {
-            auto c_time = last_handshake_sent.time;
-            g_conn.unlock();
             peer_dlog( this, "checking for duplicate" );
             std::shared_lock<std::shared_mutex> g_cnts( my_impl->connections_mtx );
             for(const auto& check : my_impl->connections) {
@@ -2920,9 +2933,7 @@ namespace eosio {
                }
             }
          } else {
-            peer_dlog( this, "skipping duplicate check, addr == ${pa}, id = ${ni}",
-                       ("pa", peer_address())( "ni", last_handshake_recv.node_id ) );
-            g_conn.unlock();
+            peer_dlog(this, "skipping duplicate check, addr == ${pa}, id = ${ni}", ("pa", peer_address())("ni", msg.node_id));
          }
 
          if( msg.chain_id != my_impl->chain_id ) {
