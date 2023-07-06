@@ -162,8 +162,10 @@ int main(int argc, char* argv[]) {
                this_block_id = result_document[1]["this_block"]["block_id"].GetString();
             }
             std::string prev_block_id;
-            if( result_document[1]["prev_block"].HasMember("block_id") && result_document[1]["prev_block"]["block_id"].IsString() ) {
-               prev_block_id = result_document[1]["prev_block"]["block_id"].GetString();
+            if( result_document[1].HasMember("prev_block") && result_document[1]["prev_block"].IsObject() ) {
+               if ( result_document[1]["prev_block"].HasMember("block_id") && result_document[1]["prev_block"]["block_id"].IsString() ) {
+                  prev_block_id = result_document[1]["prev_block"]["block_id"].GetString();
+               }
             }
             if( !irreversible_only && !this_block_id.empty() && !prev_block_id.empty() ) {
                // verify forks were sent
