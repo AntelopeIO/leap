@@ -66,6 +66,7 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    chain_plugin*                    chain_plug = nullptr;
    std::optional<state_history_log> trace_log;
    std::optional<state_history_log> chain_state_log;
+   uint32_t                         first_available_block = 0;
    bool                             trace_debug_mode = false;
    std::optional<scoped_connection> applied_transaction_connection;
    std::optional<scoped_connection> block_start_connection;
@@ -137,10 +138,17 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
 
    // thread-safe
    std::optional<chain::block_id_type> get_block_id(uint32_t block_num) {
-      if (trace_log)
-         return trace_log->get_block_id(block_num);
-      if (chain_state_log)
-         return chain_state_log->get_block_id(block_num);
+      std::optional<chain::block_id_type> id;
+      if( trace_log ) {
+         id = trace_log->get_block_id( block_num );
+         if( id )
+            return id;
+      }
+      if( chain_state_log ) {
+         id = chain_state_log->get_block_id( block_num );
+         if( id )
+            return id;
+      }
       try {
          return chain_plug->chain().get_block_id_for_num(block_num);
       } catch (...) {
@@ -164,6 +172,11 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    time_point get_head_block_timestamp() const {
       std::lock_guard g(mtx);
       return head_timestamp;
+   }
+
+   // thread-safe
+   uint32_t get_first_available_block_num() const {
+      return first_available_block;
    }
 
    template <typename Task>
@@ -270,14 +283,17 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    }
 
    // called from main thread
+   void update_current() {
+      const auto& chain = chain_plug->chain();
+      std::lock_guard g(mtx);
+      head_id = chain.head_block_id();
+      lib_id = chain.last_irreversible_block_id();
+      head_timestamp = chain.head_block_time();
+   }
+
+   // called from main thread
    void on_accepted_block(const block_state_ptr& block_state) {
-      {
-         const auto& chain = chain_plug->chain();
-         std::lock_guard g(mtx);
-         head_id = chain.head_block_id();
-         lib_id = chain.last_irreversible_block_id();
-         head_timestamp = chain.head_block_time();
-      }
+      update_current();
 
       try {
          store_traces(block_state);
@@ -492,12 +508,26 @@ void state_history_plugin::plugin_initialize(const variables_map& options) {
 
 void state_history_plugin::plugin_startup() {
    try {
-      auto bsp = my->chain_plug->chain().head_block_state();
+      const auto& chain = my->chain_plug->chain();
+      my->update_current();
+      auto bsp = chain.head_block_state();
       if( bsp && my->chain_state_log && my->chain_state_log->empty() ) {
          fc_ilog( _log, "Storing initial state on startup, this can take a considerable amount of time" );
          my->store_chain_state( bsp );
          fc_ilog( _log, "Done storing initial state on startup" );
       }
+      my->first_available_block = chain.earliest_available_block_num();
+      if (my->trace_log) {
+         auto first_trace_block = my->trace_log->block_range().first;
+         if( first_trace_block > 0 )
+            my->first_available_block = std::min( my->first_available_block, first_trace_block );
+      }
+      if (my->chain_state_log) {
+         auto first_state_block = my->chain_state_log->block_range().first;
+         if( first_state_block > 0 )
+            my->first_available_block = std::min( my->first_available_block, first_state_block );
+      }
+      fc_ilog(_log, "First available block for SHiP ${b}", ("b", my->first_available_block));
       my->listen();
       // use of executor assumes only one thread
       my->thread_pool.start( 1, [](const fc::exception& e) {
