@@ -447,7 +447,7 @@ private:
 
    void update_current_request(state_history::get_blocks_request_v0& req) {
       fc_dlog(plugin.get_logger(), "replying get_blocks_request_v0 = ${req}", ("req", req));
-      to_send_block_num = req.start_block_num;
+      to_send_block_num = std::max(req.start_block_num, plugin.get_first_available_block_num());
       for (auto& cp : req.have_positions) {
          if (req.start_block_num <= cp.block_num)
             continue;
