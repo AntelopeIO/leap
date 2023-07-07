@@ -412,6 +412,14 @@ BOOST_AUTO_TEST_CASE( replace_deferred_test ) try {
    cfg.disable_all_subjective_mitigations = true;
    c.init( cfg );
 
+   transaction_trace_ptr trace;
+   auto h = c.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto& t = std::get<0>(x);
+      if( t && !eosio::chain::is_onblock(*t)) {
+         trace = t;
+      }
+   } );
+
    BOOST_CHECK_EQUAL( c.control->get_resource_limits_manager().get_account_ram_usage( "alice"_n ), alice_ram_usage0 );
 
    c.push_action( "test"_n, "defercall"_n, "alice"_n, fc::mutable_variant_object()
@@ -448,6 +456,8 @@ BOOST_AUTO_TEST_CASE( replace_deferred_test ) try {
 
    dtrxs = c.get_scheduled_transactions();
    BOOST_CHECK_EQUAL( dtrxs.size(), 0 );
+   // must be equal before builtin_protocol_feature_t::replace_deferred to support replay of blocks before activation
+   BOOST_CHECK( first_dtrx_id.str() == trace->id.str() );
 
    c.produce_block();
 
@@ -506,6 +516,13 @@ BOOST_AUTO_TEST_CASE( replace_deferred_test ) try {
    dtrxs = c.get_scheduled_transactions();
    BOOST_CHECK_EQUAL( dtrxs.size(), 1 );
    BOOST_CHECK_EQUAL( first_dtrx_id2, dtrxs[0] );
+
+   c.produce_block();
+
+   dtrxs = c.get_scheduled_transactions();
+   BOOST_CHECK_EQUAL( dtrxs.size(), 0 );
+   // Not equal after builtin_protocol_feature_t::replace_deferred activated
+   BOOST_CHECK( first_dtrx_id2.str() != trace->id.str() );
 
 } FC_LOG_AND_RETHROW()
 
