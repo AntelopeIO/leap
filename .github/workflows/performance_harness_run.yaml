@@ -143,7 +143,6 @@ jobs:
           # https://github.com/actions/runner/issues/2033
           chown -R $(id -u):$(id -g) $PWD
           tar -pc build/performance_test | zstd --long -T0 -9 > performance_test_logs.tar.zst
-          echo "TEST_REPORT=$(find . -name report.json)" >> "$GITHUB_OUTPUT"
       - name: Upload results
         uses: AntelopeIO/upload-artifact-large-chunks-action@v1
         with:
@@ -153,4 +152,4 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: performance-test-report
-          path: ${{ steps.prep-results.outputs.TEST_REPORT }}
+          path: ./build/performance_test/**/report.json
