@@ -2,6 +2,19 @@ name: "Performance Harness Run"
 
 on:
   workflow_dispatch:
+    inputs:
+      platform-choice:
+        description: 'Override build platform'
+        type: choice
+        options:
+        - ubuntu20
+        - ubuntu22
+      override-test-params:
+        description: 'Override perf harness params'
+        type: string
+      override-leap-ref:
+        description: 'Override leap ref'
+        type: string
 
 permissions:
   packages: read
@@ -12,10 +25,131 @@ defaults:
     shell: bash
 
 jobs:
-  tmp:
-    name: Stub
+
+  v:
+    name: Discover Inputs
     runs-on: ubuntu-latest
+    outputs:
+      test-params: ${{steps.overrides.outputs.test-params}}
+      leap-ref: ${{steps.overrides.outputs.leap-ref}}
     steps:
-      - name: Workflow Stub
+      - name: Setup Input Params
+        id: overrides
+        env:
+          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
         run: |
-          echo "Workflow Stub"
+          echo test-params=testBpOpMode >> $GITHUB_OUTPUT
+          echo leap-ref='' >> $GITHUB_OUTPUT
+
+          if [[ "${{inputs.override-test-params}}" != "" ]]; then
+            echo test-params=${{inputs.override-test-params}} >> $GITHUB_OUTPUT
+          fi
+          if [[ "${{inputs.override-leap-ref}}" != "" ]]; then
+            echo leap-ref=${{inputs.override-leap-ref}} >> $GITHUB_OUTPUT
+          fi
+
+  d:
+    name: Discover Platforms
+    runs-on: ubuntu-latest
+    outputs:
+      missing-platforms: ${{steps.discover.outputs.missing-platforms}}
+      p: ${{steps.discover.outputs.platforms}}
+    steps:
+      - name: Discover Platforms
+        id: discover
+        uses: AntelopeIO/discover-platforms-action@v1
+        with:
+          platform-file: .cicd/platforms.json
+          password: ${{secrets.GITHUB_TOKEN}}
+          package-name: builders
+
+  build-platforms:
+    name: Build Platforms
+    needs: d
+    if: needs.d.outputs.missing-platforms != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{fromJSON(needs.d.outputs.missing-platforms)}}
+    runs-on: ["self-hosted", "enf-x86-beefy"]
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Login to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{github.repository_owner}}
+          password: ${{secrets.GITHUB_TOKEN}}
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+          file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
+
+  Build:
+    needs: [v, d, build-platforms]
+    if: always() && needs.v.result == 'success' && needs.d.result == 'success' && (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
+    runs-on: ["self-hosted", "enf-x86-beefy"]
+    container: ${{fromJSON(needs.d.outputs.p)[${{github.event.inputs.platform-choice}}].image}}
+    steps:
+        - uses: actions/checkout@v3
+          with:
+            ref: '${{needs.v.outputs.leap-ref}}'
+            submodules: recursive
+        - name: Build
+          id: build
+          run: |
+            # https://github.com/actions/runner/issues/2033
+            chown -R $(id -u):$(id -g) $PWD
+            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
+            cmake --build build
+            tar -pc --exclude "*.o" build | zstd --long -T0 -9 > build.tar.zst
+        - name: Upload builddir
+          uses: AntelopeIO/upload-artifact-large-chunks-action@v1
+          with:
+            name: ${{github.event.inputs.platform-choice}}-build
+            path: build.tar.zst
+
+  tests:
+    name: Tests
+    needs: [d, Build]
+    if: always() && needs.Build.result == 'success'
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-latest
+    container:
+      image: ${{fromJSON(needs.d.outputs.p)[${{github.event.inputs.platform-choice}}].image}}
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Download builddir
+        uses: actions/checkout@v3
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{github.event.inputs.platform-choice}}-build
+      - name: Run Performance Test
+        if: always()
+        run: |
+          # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
+          chown -R $(id -u):$(id -g) $PWD
+          zstdcat build.tar.zst | tar x
+          cd build
+          ./tests/performance_tests/performance_test.py ${{needs.v.outputs.test-params}}
+      - name: Prepare results
+          id: prep-results
+          run: |
+            # https://github.com/actions/runner/issues/2033
+            chown -R $(id -u):$(id -g) $PWD
+            tar -pc build/performance_test | zstd --long -T0 -9 > performance_test_logs.tar.zst
+      - name: Upload results
+        uses: AntelopeIO/upload-artifact-large-chunks-action@v1
+        with:
+          name: performance-test-results
+          path: performance_test_logs.tar.zst
+      - name: Upload report
+        uses: AntelopeIO/upload-artifact-large-chunks-action@v1
+        with:
+          name: performance-test-report
+          path: $(find . -name report.json)
