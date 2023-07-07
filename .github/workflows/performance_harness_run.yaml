@@ -117,7 +117,7 @@ jobs:
 
   tests:
     name: Tests
-    needs: [d, Build]
+    needs: [v, d, Build]
     if: always() && needs.Build.result == 'success'
     strategy:
       fail-fast: false
