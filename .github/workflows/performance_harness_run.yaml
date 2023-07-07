@@ -93,7 +93,7 @@ jobs:
     needs: [v, d, build-platforms]
     if: always() && needs.v.result == 'success' && needs.d.result == 'success' && (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
     runs-on: ["self-hosted", "enf-x86-beefy"]
-    container: ${{fromJSON(needs.d.outputs.p)[${{github.event.inputs.platform-choice}}].image}}
+    container: ${{fromJSON(needs.d.outputs.p)[github.event.inputs.platform-choice].image}}
     steps:
         - name: Checkout leap ref
           id: checkout
@@ -123,7 +123,7 @@ jobs:
       fail-fast: false
     runs-on: ubuntu-latest
     container:
-      image: ${{fromJSON(needs.d.outputs.p)[${{github.event.inputs.platform-choice}}].image}}
+      image: ${{fromJSON(needs.d.outputs.p)[github.event.inputs.platform-choice].image}}
       options: --security-opt seccomp=unconfined
     steps:
       - name: Download builddir
