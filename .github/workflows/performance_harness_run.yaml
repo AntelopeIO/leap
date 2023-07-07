@@ -150,7 +150,7 @@ jobs:
           name: performance-test-results
           path: performance_test_logs.tar.zst
       - name: Upload report
-        uses: AntelopeIO/upload-artifact-large-chunks-action@v1
+        uses: actions/upload-artifact@v3
         with:
           name: performance-test-report
           path: ${{ steps.prep-results.outputs.TEST_REPORT }}
