@@ -16,24 +16,17 @@ from TestHarness import Account, Cluster, Node, TestHelper, Utils, WalletMgr
 ###############################################################
 
 # Parse command line arguments
-args = TestHelper.parse_args({"-v","--clean-run","--dump-error-details","--leave-running","--keep-logs","--unshared"})
+args = TestHelper.parse_args({"-v","--dump-error-details","--leave-running","--keep-logs","--unshared"})
 Utils.Debug = args.v
-killAll=args.clean_run
 dumpErrorDetails=args.dump_error_details
-dontKill=args.leave_running
-killEosInstances=not dontKill
-killWallet=not dontKill
-keepLogs=args.keep_logs
 
 walletMgr=WalletMgr(True)
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 cluster.setWalletMgr(walletMgr)
 
 testSuccessful = False
 try:
     TestHelper.printSystemInfo("BEGIN")
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
 
     # The following is the list of chainbase objects that need to be verified:
     # - account_object (bootstrap)
@@ -50,15 +43,17 @@ try:
         pnodes=1,
         prodCount=1,
         totalProducers=1,
-        totalNodes=2,
+        totalNodes=3,
         loadSystemContract=False,
         specificExtraNodeosArgs={
             1:"--read-mode irreversible --plugin eosio::producer_api_plugin"})
 
     producerNodeId = 0
     irrNodeId = 1
+    nonProdNodeId = 2
     producerNode = cluster.getNode(producerNodeId)
     irrNode = cluster.getNode(irrNodeId)
+    nonProdNode = cluster.getNode(nonProdNodeId)
 
     # Create delayed transaction to create "generated_transaction_object"
     cmd = "create account -j eosio sample EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV\
@@ -70,7 +65,7 @@ try:
     newProducerAcc = Account("newprod")
     newProducerAcc.ownerPublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
     newProducerAcc.activePublicKey = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
-    producerNode.createAccount(newProducerAcc, cluster.eosioAccount)
+    nonProdNode.createAccount(newProducerAcc, cluster.eosioAccount, waitForTransBlock=True)
 
     setProdsStr = '{"schedule": ['
     setProdsStr += '{"producer_name":' + newProducerAcc.name + ',"block_signing_key":' + newProducerAcc.activePublicKey + '}'
@@ -97,7 +92,7 @@ try:
 
     # Restart irr node and ensure the snapshot is still identical
     irrNode.kill(signal.SIGTERM)
-    isRelaunchSuccess = irrNode.relaunch(timeout=5, cachePopen=True)
+    isRelaunchSuccess = irrNode.relaunch(timeout=5)
     assert isRelaunchSuccess, "Fail to relaunch"
     res = irrNode.createSnapshot()
     afterShutdownSnapshotPath = res["payload"]["snapshot_name"]
@@ -105,7 +100,7 @@ try:
 
     testSuccessful = True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful, dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

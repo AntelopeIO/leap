@@ -48,7 +48,7 @@ namespace {
          10,
          5,
          { chain::signature_type() },
-         { chain::time_point(), 1, 0, 100, 50, 0 }
+         { chain::time_point_sec(), 1, 0, 100, 50, 0 }
       };
 
       block_trace_v2 block_trace1_v2 {
@@ -120,7 +120,7 @@ namespace {
                10,
                5,
                std::vector<chain::signature_type>{chain::signature_type()},
-               chain::transaction_header{chain::time_point(), 1, 0, 100, 50, 0}
+               chain::transaction_header{chain::time_point_sec(), 1, 0, 100, 50, 0}
             }
          }
       };
@@ -146,7 +146,7 @@ namespace {
                10,
                5,
                std::vector<chain::signature_type>{chain::signature_type()},
-               chain::transaction_header{chain::time_point(), 1, 0, 100, 50, 0}
+               chain::transaction_header{chain::time_point_sec(), 1, 0, 100, 50, 0}
             }
          }
       };

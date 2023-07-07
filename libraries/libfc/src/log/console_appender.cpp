@@ -101,7 +101,7 @@ namespace fc {
       const log_context context = m.get_context();
       std::string file_line = context.get_file().substr( 0, 22 );
       file_line += ':';
-      file_line += fixed_size(  6, fc::to_string( context.get_line_number() ) );
+      file_line += fixed_size(  6, std::to_string( context.get_line_number() ) );
 
       std::string line;
       line.reserve( 256 );
@@ -123,7 +123,7 @@ namespace fc {
       }
       line += fixed_size(  5, context.get_log_level().to_string() ); line += ' ';
       // use now() instead of context.get_timestamp() because log_message construction can include user provided long running calls
-      line += std::string( time_point::now() ); line += ' ';
+      line += time_point::now().to_iso_string(); line += ' ';
       line += fixed_size(  9, context.get_thread_name() ); line += ' ';
       line += fixed_size( 29, file_line ); line += ' ';
 

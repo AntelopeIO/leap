@@ -735,7 +735,7 @@ paths:
                   $ref: "https://docs.eosnetwork.com/openapi/v2.0/Sha256.yaml"
                 time_limit_ms:
                   type: integer
-                  default: 10
+                  default: http-max-response-time-ms
                   example: 10
       responses:
         "200":

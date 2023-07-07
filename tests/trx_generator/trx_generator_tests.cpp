@@ -370,7 +370,7 @@ BOOST_AUTO_TEST_CASE(trx_generator_constructor)
 {
    trx_generator_base_config tg_config{1, chain::chain_id_type("999"), chain::name("eosio"), fc::seconds(3600),
                                        fc::variant("00000062989f69fd251df3e0b274c3364ffc2f4fce73de3f1c7b5e11a4c92f21").as<chain::block_id_type>(), ".", true};
-   provider_base_config p_config{"127.0.0.1", 9876};
+   provider_base_config p_config{"p2p", "127.0.0.1", 9876};
    const std::string abi_file = "../../unittests/contracts/eosio.token/eosio.token.abi";
    const std::string actions_data = "[{\"actionAuthAcct\": \"testacct1\",\"actionName\": \"transfer\",\"authorization\": {\"actor\": \"testacct1\",\"permission\": \"active\"},"
                                     "\"actionData\": {\"from\": \"testacct1\",\"to\": \"testacct2\",\"quantity\": \"0.0001 CUR\",\"memo\": \"transaction specified\"}}]";
@@ -378,7 +378,7 @@ BOOST_AUTO_TEST_CASE(trx_generator_constructor)
                                     "\"eosio\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\"}";
    user_specified_trx_config trx_config{abi_file, actions_data, action_auths};
 
-   auto generator = trx_generator(tg_config, p_config, trx_config);
+   auto generator = std::make_shared<trx_generator>(tg_config, p_config, trx_config);
 }
 
 BOOST_AUTO_TEST_CASE(account_name_generator_tests)
@@ -488,8 +488,7 @@ BOOST_AUTO_TEST_CASE(account_name_generator_tests)
 BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
 
    const std::string host     = "127.0.0.1"s;
-   constexpr int     port     = 8888;
-   const std::string port_str = "8888"s;
+   constexpr unsigned short     port     = 8888;
 
    // Start Server
    echo_server_impl               server = echo_server_impl();
@@ -507,10 +506,11 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
    const std::string       content_type  = "text/plain"s;
    const std::string       content_type2 = "application/json"s;
 
-   http_client_async::http_request_params params{ioc, host, port_str, target, version, content_type};
+   http_client_async::http_request_params params{ioc, host, port, target, version, content_type};
 
-   const std::string test_body = "test request body"s;
-   const std::string test_body2 =
+   std::string test_body = "test request body"s;
+   std::string test_body_copy = test_body;
+   std::string test_body2 =
        "{\"return_failure_trace\":true,\"retry_trx\":false,\"transaction\":{\"signatures\":[\"SIG_K1_"
        "JyzLqbvpdybyujtiN1YdY2FWcBBi8dWWiFgZ515qyyqgKJJ6892i4rXTHdw5KGYut6EBuXPR3ExRwPSioSZ2bZ1RjNUXVj\"],"
        "\"compression\":\"none\",\"packed_context_free_data\":\"\",\"packed_trx\":"
@@ -520,26 +520,25 @@ BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
        "d3e0160ae423ad15b974a00000000a8ed32322060ae423ad15b974a1042088a4dd350570094357700000000045359530000000000000000"
        "00ea305500003f2a1ba6a24a0160ae423ad15b974a00000000a8ed32323160ae423ad15b974a1042088a4dd3505740420f0000000000045"
        "359530000000040420f000000000004535953000000000000\"}}"s;
+   std::string test_body2_copy = test_body2;
 
    int callbackCalledCnt = 0;
 
    // Launch the asynchronous operation
-   // std::future<http::response<http::string_body>> future_response = std::make_shared<session>(ioc)->run(host,
-   // port_str, target, version, content_type, test_body);
    http_client_async::async_http_request(
-       params, test_body,
-       [test_body, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
+       params, std::move(test_body),
+       [&test_body_copy, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
           BOOST_REQUIRE(!ec);
-          BOOST_REQUIRE_EQUAL(test_body, response.body());
+          BOOST_REQUIRE_EQUAL(test_body_copy, response.body());
           callbackCalledCnt++;
        });
 
-   http_client_async::http_request_params params2{ioc, host, port_str, target, version, content_type2};
+   http_client_async::http_request_params params2{ioc, host, port, target, version, content_type2};
    http_client_async::async_http_request(
-       params2, test_body2,
-       [test_body2, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
+       params2, std::move(test_body2),
+       [&test_body2_copy, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
           BOOST_REQUIRE(!ec);
-          BOOST_REQUIRE_EQUAL(test_body2, response.body());
+          BOOST_REQUIRE_EQUAL(test_body2_copy, response.body());
           callbackCalledCnt++;
        });
 

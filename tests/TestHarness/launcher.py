@@ -1,29 +1,18 @@
-#!/usr/bin/env python3
-
 import argparse
 import datetime
 from dataclasses import InitVar, dataclass, field, is_dataclass, asdict
 from enum import Enum
-import errno
-import glob
 import json
-from pathlib import Path
-import os
 import math
-import platform
+from pathlib import Path
 import shlex
-import shutil
-import select
-import signal
 import string
 import subprocess
-import sys
-import time
 from typing import ClassVar, Dict, List
 
-from TestHarness import Cluster
-from TestHarness import Utils
-from TestHarness import fc_log_level
+from .testUtils import Utils
+from .logging import fc_log_level
+from .accounts import createAccountKeys
 
 block_dir = 'blocks'
 
@@ -50,7 +39,7 @@ class nodeDefinition:
     base_dir: InitVar[str]
     cfg_name: InitVar[str]
     data_name: InitVar[str]
-    keys: List[str] = field(default_factory=list)
+    keys: List[KeyStrings] = field(default_factory=list)
     peers: List[str] = field(default_factory=list)
     producers: List[str] = field(default_factory=list)
     dont_start: bool = field(init=False, default=False)
@@ -132,6 +121,11 @@ class nodeDefinition:
 class testnetDefinition:
     name: str
     nodes: Dict[str, nodeDefinition] = field(init=False, default_factory=dict)
+    def __post_init__(self):
+        nodeDefinition.p2p_count = 0
+        nodeDefinition.http_count = 0
+        nodeDefinition.p2p_port_generator = None
+        nodeDefinition.http_port_generator = None
 
 def producer_name(producer_number: int, shared_producer: bool = False):
     '''For first 26 return "defproducera" ... "defproducerz".
@@ -147,17 +141,13 @@ def producer_name(producer_number: int, shared_producer: bool = False):
     else:
         return ('shr' if shared_producer else 'def') + 'producer' + string.ascii_lowercase[producer_number]
 
-class launcher(object):
+class cluster_generator:
     def __init__(self, args):
-        self.args = self.parseArgs(args)
-        self.network = testnetDefinition(self.args.network_name)
-        self.aliases: List[str] = []
-        self.next_node = 0
-
-        self.launch_time = datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
-
-        self.define_network()
-        self.generate()
+      self.args = self.parseArgs(args)
+      self.next_node = 0
+      self.network = testnetDefinition(self.args.network_name)
+      self.aliases: List[str] = []
+      self.launch_time = datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S')
 
     def parseArgs(self, args):
         '''Configure argument parser and use it on the passed in list of strings.
@@ -174,7 +164,7 @@ class launcher(object):
         parser.add_argument('-i', '--timestamp', help='set the timestamp for the first block.  Use "now" to indicate the current time')
         parser.add_argument('-l', '--launch', choices=['all', 'none', 'local'], help='select a subset of nodes to launch.  If not set, the default is to launch all unless an output file is named, in which case none are started.', default='all')
         parser.add_argument('-o', '--output', help='save a copy of the generated topology in this file and exit without launching', dest='topology_filename')
-        parser.add_argument('-k', '--kill', type=int, help='kill a network as specified in arguments with given signal')
+        parser.add_argument('-k', '--kill', help='retrieve the list of previously started process ids and issue a kill to each')
         parser.add_argument('--down', type=comma_separated, help='comma-separated list of node numbers that will be shut down', default=[])
         parser.add_argument('--bounce', type=comma_separated, help='comma-separated list of node numbers that will be restarted', default=[])
         parser.add_argument('--roll', type=comma_separated, help='comma-separated list of host names where the nodes will be rolled to a new version')
@@ -212,7 +202,6 @@ class launcher(object):
         cfg.add_argument('--template', help='the startup script template', default='testnet.template')
         cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=200000)
         cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
-        cfg.add_argument('--nodeos-log-path', type=Path, help='path to nodeos log directory')
         cfg.add_argument('--logging-level', type=fc_log_level, help='Provide the "level" value to use in the logging.json file')
         cfg.add_argument('--logging-level-map', type=json.loads, help='JSON string of a logging level dictionary to use in the logging.json file for specific nodes, matching based on node number. Ex: {"bios":"off","00":"info"}')
         cfg.add_argument('--is-nodeos-v2', action='store_true', help='Toggles old nodeos compatibility', default=False)
@@ -238,7 +227,7 @@ class launcher(object):
 
     def assign_name(self, is_bios):
         if is_bios:
-            return -1, 'bios', 'node_bios'
+            return -100, 'bios', 'node_bios'
         else:
             index = self.next_node
             indexStr = str(self.next_node)
@@ -249,7 +238,7 @@ class launcher(object):
         if self.args.per_host == 0:
             for i in range(self.args.total_nodes):
                 index, node_name, cfg_name = self.assign_name(i == 0)
-                node = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.nodeos_log_path)
+                node = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
                 node.set_host(i == 0)
                 self.aliases.append(node.name)
                 self.network.nodes[node.name] = node
@@ -261,7 +250,7 @@ class launcher(object):
             for i in range(self.args.total_nodes, 0, -1):
                 do_bios = False
                 index, node_name, cfg_name = self.assign_name(i == 0)
-                lhost = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.nodeos_log_path)
+                lhost = nodeDefinition(index, node_name, cfg_name, self.args.base_dir, self.args.config_dir, self.args.data_dir)
                 lhost.set_host(i == 0)
                 if ph_count == 0:
                     if host_ndx < num_prod_addr:
@@ -294,7 +283,7 @@ class launcher(object):
         i = 0
         producer_number = 0
         to_not_start_node = self.args.total_nodes - self.args.unstarted_nodes - 1
-        accounts = Cluster.createAccountKeys(len(self.network.nodes.values()))
+        accounts = createAccountKeys(len(self.network.nodes.values()))
         for account, node in zip(accounts, self.network.nodes.values()):
             is_bios = node.name == 'bios'
             if is_bios:
@@ -320,7 +309,6 @@ class launcher(object):
             if not is_bios:
                 i += 1
 
-
     def generate(self):
         {
             'ring': self.make_line,
@@ -333,7 +321,6 @@ class launcher(object):
             genesis = self.init_genesis()
             for node_name, node in self.network.nodes.items():
                 node.config_dir_name.mkdir(parents=True, exist_ok=True)
-                self.write_config_file(node)
                 self.write_logging_config_file(node)
                 self.write_genesis_file(node, genesis)
                 node.data_dir_name.mkdir(parents=True, exist_ok=True)
@@ -344,35 +331,6 @@ class launcher(object):
             with open(self.args.topology_filename, 'w') as topo:
                 json.dump(self.network, topo, cls=EnhancedEncoder, indent=2, separators=[', ', ': '])
 
-    def write_config_file(self, node):
-        with open(node.config_dir_name / 'config.ini', 'w') as cfg:
-            is_bios = node.name == 'bios'
-            peers = '\n'.join([f'p2p-peer-address = {self.network.nodes[p].p2p_endpoint}' for p in node.peers])
-            if len(node.producers) > 0:
-                producer_keys = f'signature-provider = {node.keys[0].pubkey}=KEY:{node.keys[0].privkey}\n'
-                producer_names = '\n'.join([f'producer-name = {p}' for p in node.producers])
-                producer_plugin = 'plugin = eosio::producer_plugin\n'
-            else:
-                producer_keys = ''
-                producer_names = ''
-                producer_plugin = ''
-            config = \
-f'''blocks-dir = {block_dir}
-http-server-address = {node.host_name}:{node.http_port}
-http-validate-host = false
-p2p-listen-endpoint = {node.listen_addr}:{node.p2p_port}
-p2p-server-address = {node.p2p_endpoint}
-{"enable-stale-production = true" if is_bios else ""}
-{"p2p-peer-address = %s" % self.network.nodes['bios'].p2p_endpoint if not is_bios else ""}
-{peers}
-{producer_keys}
-{producer_names}
-{producer_plugin}
-plugin = eosio::net_plugin
-plugin = eosio::chain_api_plugin
-'''
-            cfg.write(config)
-
     def write_logging_config_file(self, node):
         ll = fc_log_level.debug
         if self.args.logging_level:
@@ -380,7 +338,7 @@ plugin = eosio::chain_api_plugin
         dex = str(node.index).zfill(2)
         if dex in self.args.logging_level_map:
             ll = self.args.logging_level_map[dex]
-        with open(Path(__file__).resolve().parents[0] / 'TestHarness' / 'logging-template.json', 'r') as default:
+        with open(Path(__file__).resolve().parents[0] / 'logging-template.json', 'r') as default:
             cfg = json.load(default)
         for logger in cfg['loggers']:
             logger['level'] = ll
@@ -527,48 +485,91 @@ plugin = eosio::chain_api_plugin
                 for producer in node['producers']:
                     self.network.nodes[nodeName].producers.append(producer)
 
-    def launch(self, instance: nodeDefinition):
-        dd = Path(instance.data_dir_name)
-        out = dd / 'stdout.txt'
-        err_sl = dd / 'stderr.txt'
-        err = dd / Path(f'stderr.{self.launch_time}.txt')
-        pidf = dd / Path(f'{Utils.EosServerName}.pid')
+    def construct_command_line(self, instance: nodeDefinition):
+        is_bios = instance.name == 'bios'
 
         if instance.index in self.args.spcfc_inst_nums:
             eosdcmd = [f"{getattr(self.args, f'spcfc_inst_{Utils.EosServerName}es')[self.args.spcfc_inst_nums.index(instance.index)]}"]
         else:
             eosdcmd = [Utils.EosServerPath]
+
+        a = lambda l, e: l.append(e) or l
+
+        a(a(eosdcmd, '--blocks-dir'), block_dir)
+        a(a(eosdcmd, '--p2p-listen-endpoint'), f'{instance.listen_addr}:{instance.p2p_port}')
+        a(a(eosdcmd, '--p2p-server-address'), f'{instance.p2p_endpoint}')
+        if is_bios:
+            a(eosdcmd, '--enable-stale-production')
+        else:
+            a(a(eosdcmd, '--p2p-peer-address'), f'{self.network.nodes["bios"].p2p_endpoint}')
+        peers = list(sum([('--p2p-peer-address', self.network.nodes[p].p2p_endpoint) for p in instance.peers], ()))
+        eosdcmd.extend(peers)
+        if len(instance.producers) > 0:
+            a(a(eosdcmd, '--plugin'), 'eosio::producer_plugin')
+            producer_keys = list(sum([('--signature-provider', f'{key.pubkey}=KEY:{key.privkey}') for key in instance.keys], ()))
+            eosdcmd.extend(producer_keys)
+            producer_names = list(sum([('--producer-name', p) for p in instance.producers], ()))
+            eosdcmd.extend(producer_names)
+        else:
+            a(a(eosdcmd, '--transaction-retry-max-storage-size-gb'), '100')
+        a(a(eosdcmd, '--plugin'), 'eosio::net_plugin')
+        a(a(eosdcmd, '--plugin'), 'eosio::chain_api_plugin')
+
         if self.args.skip_signature:
-            eosdcmd.append('--skip-transaction-signatures')
+            a(eosdcmd, '--skip-transaction-signatures')
         if getattr(self.args, Utils.EosServerName):
             eosdcmd.extend(shlex.split(getattr(self.args, Utils.EosServerName)))
         if instance.index in self.args.specific_nums:
             i = self.args.specific_nums.index(instance.index)
             specifics = getattr(self.args, f'specific_{Utils.EosServerName}es')[i]
             if specifics[0] == "'" and specifics[-1] == "'":
-                eosdcmd.extend(shlex.split(specifics[1:-1]))
+                specificList = shlex.split(specifics[1:-1])
             else:
-                eosdcmd.extend(shlex.split(specifics))
-        eosdcmd.append('--config-dir')
-        eosdcmd.append(str(instance.config_dir_name))
-        eosdcmd.append('--data-dir')
-        eosdcmd.append(str(instance.data_dir_name))
-        eosdcmd.append('--genesis-json')
-        eosdcmd.append(f'{instance.config_dir_name}/genesis.json')
+                specificList = shlex.split(specifics)
+            # Allow specific nodeos args to override existing args up to this point.
+            # Consider moving specific arg handling to the end to allow overriding all args.
+            repeatable = [
+                # appbase
+                '--plugin',
+                # chain_plugin
+                '--checkpoint', '--profile-account', '--actor-whitelist', '--actor-blacklist',
+                '--contract-whitelist', '--contract-blacklist', '--action-blacklist', '--key-blacklist',
+                '--sender-bypass-whiteblacklist', '--trusted-producer',
+                # http_plugin
+                '--http-alias',
+                # net_plugin
+                '--p2p-peer-address', '--p2p-auto-bp-peer', '--peer-key', '--peer-private-key',
+                # producer_plugin
+                '--producer-name', '--signature-provider', '--greylist-account', '--disable-subjective-account-billing',
+                # trace_api_plugin
+                '--trace-rpc-abi']
+            for arg in specificList:
+                if '-' in arg and arg not in repeatable:
+                    if arg in eosdcmd:
+                        i = eosdcmd.index(arg)
+                        if eosdcmd[i+1] != '-':
+                            eosdcmd.pop(i+1)
+                        eosdcmd.pop(i)
+            eosdcmd.extend(specificList)
+        a(a(eosdcmd, '--config-dir'), str(instance.config_dir_name))
+        a(a(eosdcmd, '--data-dir'), str(instance.data_dir_name))
+        a(a(eosdcmd, '--genesis-json'), f'{instance.config_dir_name}/genesis.json')
         if self.args.timestamp:
-            eosdcmd.append('--genesis-timestamp')
-            eosdcmd.append(self.args.timestamp)
+            a(a(eosdcmd, '--genesis-timestamp'), self.args.timestamp)
+
+        if '--http-validate-host' not in eosdcmd:
+            a(a(eosdcmd, '--http-validate-host'), 'false')
+
+        if '--http-server-address' not in eosdcmd:
+            a(a(eosdcmd, '--http-server-address'), f'{instance.host_name}:{instance.http_port}')
 
         # Always enable a history query plugin on the bios node
-        if instance.name == 'bios':
+        if is_bios:
             if self.args.is_nodeos_v2:
-                eosdcmd.append('--plugin')
-                eosdcmd.append('eosio::history_api_plugin')
-                eosdcmd.append('--filter-on')
-                eosdcmd.append('"*"')
+                a(a(eosdcmd, '--plugin'), 'eosio::history_api_plugin')
+                a(a(eosdcmd, '--filter-on'), '"*"')
             else:
-                eosdcmd.append('--plugin')
-                eosdcmd.append('eosio::trace_api_plugin')
+                a(a(eosdcmd, '--plugin'), 'eosio::trace_api_plugin')
 
         if 'eosio::history_api_plugin' in eosdcmd and 'eosio::trace_api_plugin' in eosdcmd:
             eosdcmd.remove('--trace-no-abis')
@@ -578,126 +579,17 @@ plugin = eosio::chain_api_plugin
             i -= 1
             eosdcmd.pop(i)
 
-        if not instance.dont_start:
-            Utils.Print(f'spawning child: {" ".join(eosdcmd)}')
-
-            dd.mkdir(parents=True, exist_ok=True)
-
-            stdout = open(out, 'w')
-            stderr = open(err, 'w')
-            c = subprocess.Popen(eosdcmd, stdout=stdout, stderr=stderr)
-            with pidf.open('w') as pidout:
-                pidout.write(str(c.pid))
-            try:
-                err_sl.unlink()
-            except FileNotFoundError:
-                pass
-            err_sl.symlink_to(err.name)
-        else:
-            Utils.Print(f'unstarted node command: {" ".join(eosdcmd)}')
-
-            with open(instance.data_dir_name / 'start.cmd', 'w') as f:
-                f.write(' '.join(eosdcmd))
-
-    def bounce(self, nodeNumbers):
-        self.down(nodeNumbers, True)
-
-    def down(self, nodeNumbers, relaunch=False):
-        for num in nodeNumbers:
-            for node in self.network.nodes.values():
-                if self.network.name + num == node.name:
-                    Utils.Print(f'{"Restarting" if relaunch else "Shutting down"} node {node.name}')
-                    with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
-                        pid = int(f.readline())
-                        self.terminate_wait_pid(pid, raise_if_missing=not relaunch)
-                    if relaunch:
-                        self.launch(node)
-
-    def kill(self, signum):
-        errorCode = 0
-        for node in self.network.nodes.values():
-            try:
-                with open(node.data_dir_name / f'{Utils.EosServerName}.pid', 'r') as f:
-                    pid = int(f.readline())
-                    self.terminate_wait_pid(pid, signum, raise_if_missing=False)
-            except FileNotFoundError as err:
-                errorCode = 1
-        return errorCode
-
-    def start_all(self):
-        if self.args.launch.lower() != 'none':
-            for instance in self.network.nodes.values():
-                self.launch(instance)
-                time.sleep(self.args.delay)
+        return eosdcmd
 
     def write_dot_file(self):
-        with open('testnet.dot', 'w') as f:
+        with open(Utils.DataDir + 'testnet.dot', 'w') as f:
             f.write('digraph G\n{\nlayout="circo";\n')
             for node in self.network.nodes.values():
                 for p in node.peers:
                     pname = self.network.nodes[p].dot_label
                     f.write(f'"{node.dot_label}"->"{pname}" [dir="forward"];\n')
             f.write('}')
-
-    def terminate_wait_pid(self, pid, signum = signal.SIGTERM, raise_if_missing=True):
-        '''Terminate a non-child process with given signal number or with SIGTERM if not
-           provided and wait for it to exit.'''
-        if sys.version_info >= (3, 9) and platform.system() == 'Linux': # on our supported platforms, Python 3.9 accompanies a kernel > 5.3
-            try:
-                fd = os.pidfd_open(pid)
-            except:
-                if raise_if_missing:
-                    raise
-            else:
-                po = select.poll()
-                po.register(fd, select.POLLIN)
-                try:
-                    os.kill(pid, signum)
-                except ProcessLookupError:
-                    if raise_if_missing:
-                        raise
-                po.poll(None)
-        else:
-            if platform.system() in {'Linux', 'Darwin'}:
-                def pid_exists(pid):
-                    try:
-                        os.kill(pid, 0)
-                    except OSError as err:
-                        if err.errno == errno.ESRCH:
-                            return False
-                        elif err.errno == errno.EPERM:
-                            return True
-                        else:
-                            raise err
-                    return True
-                def backoff_timer(delay):
-                    time.sleep(delay)
-                    return min(delay * 2, 0.04)
-                delay = 0.0001
-                try:
-                    os.kill(pid, signum)
-                except ProcessLookupError:
-                    if raise_if_missing:
-                        raise
-                    else:
-                        return
-                while True:
-                    if pid_exists(pid):
-                        delay = backoff_timer(delay)
-                    else:
-                        return
-
-if __name__ == '__main__':
-    errorCode = 0
-    l = launcher(sys.argv[1:])
-    if len(l.args.down):
-        l.down(l.args.down)
-    elif len(l.args.bounce):
-        l.bounce(l.args.bounce)
-    elif l.args.kill:
-        errorCode = l.kill(l.args.kill)
-    elif l.args.launch == 'all' or l.args.launch == 'local':
-        l.start_all()
-    for f in glob.glob(Utils.DataPath):
-        shutil.rmtree(f)
-    sys.exit(errorCode)
+        try:
+            subprocess.run(['dot', '-Tpng', f'-o{Utils.DataDir}testnet.png', Utils.DataDir + 'testnet.dot'])
+        except FileNotFoundError:
+            pass

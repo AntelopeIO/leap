@@ -404,6 +404,9 @@ namespace eosio { namespace testing {
             cfg.contracts_console = true;
             cfg.eosvmoc_config.cache_size = 1024*1024*8;
 
+            // don't use auto tier up for tests, since the point is to test diff vms
+            cfg.eosvmoc_tierup = chain::wasm_interface::vm_oc_enable::oc_none;
+
             for(int i = 0; i < boost::unit_test::framework::master_test_suite().argc; ++i) {
                if(boost::unit_test::framework::master_test_suite().argv[i] == std::string("--eos-vm"))
                   cfg.wasm_runtime = chain::wasm_interface::vm_type::eos_vm;

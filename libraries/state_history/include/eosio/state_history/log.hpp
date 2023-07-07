@@ -88,7 +88,7 @@ namespace state_history {
       std::filesystem::path retained_dir       = "retained";
       std::filesystem::path archive_dir        = "archive";
       uint32_t              stride             = 1000000;
-      uint32_t              max_retained_files = 10;
+      uint32_t              max_retained_files = UINT32_MAX;
    };
 } // namespace state_history
 
@@ -128,7 +128,7 @@ struct locked_decompress_stream {
 
 namespace detail {
 
-std::vector<char> zlib_decompress(fc::cfile& file, uint64_t compressed_size) {
+inline std::vector<char> zlib_decompress(fc::cfile& file, uint64_t compressed_size) {
    if (compressed_size) {
       std::vector<char> compressed(compressed_size);
       file.read(compressed.data(), compressed_size);
@@ -137,7 +137,7 @@ std::vector<char> zlib_decompress(fc::cfile& file, uint64_t compressed_size) {
    return {};
 }
 
-std::vector<char> zlib_decompress(fc::datastream<const char*>& strm, uint64_t compressed_size) {
+inline std::vector<char> zlib_decompress(fc::datastream<const char*>& strm, uint64_t compressed_size) {
    if (compressed_size) {
       return state_history::zlib_decompress({strm.pos(), compressed_size});
    }
@@ -282,7 +282,7 @@ private:
 class state_history_log {
  private:
    const char* const       name = "";
-   state_history_log_config config;
+   state_history_log_config _config;
 
    // provide exclusive access to all data of this object since accessed from the main thread and the ship thread
    mutable std::mutex      _mx;
@@ -304,7 +304,7 @@ class state_history_log {
    state_history_log(const char* name, const std::filesystem::path& log_dir,
                      state_history_log_config conf = {})
        : name(name)
-       , config(std::move(conf)) {
+       , _config(std::move(conf)) {
 
       log.set_file_path(log_dir/(std::string(name) + ".log"));
       index.set_file_path(log_dir/(std::string(name) + ".index"));
@@ -326,7 +326,7 @@ class state_history_log {
                _begin_block = _end_block = catalog.last_block_num() +1;
             }
          }
-      }, config);
+      }, _config);
 
       //check for conversions to/from pruned log, as long as log contains something
       if(_begin_block != _end_block) {
@@ -334,7 +334,7 @@ class state_history_log {
          log.seek(0);
          read_header(first_header);
 
-         auto prune_config = std::get_if<state_history::prune_config>(&config);
+         auto prune_config = std::get_if<state_history::prune_config>(&_config);
 
          if((is_ship_log_pruned(first_header.magic) == false) && prune_config) {
             //need to convert non-pruned to pruned; first prune any ranges we can (might be none)
@@ -361,7 +361,7 @@ class state_history_log {
       if(_begin_block == _end_block)
          return;
 
-      auto prune_config = std::get_if<state_history::prune_config>(&config);
+      auto prune_config = std::get_if<state_history::prune_config>(&_config);
       if(!prune_config || !prune_config->vacuum_on_close)
          return;
 
@@ -369,6 +369,10 @@ class state_history_log {
       const size_t last_data_pos = std::filesystem::file_size(log.get_file_path());
       if(last_data_pos - first_data_pos < *prune_config->vacuum_on_close)
          vacuum();
+   }
+
+   const state_history_log_config& config() const {
+      return _config;
    }
 
    //        begin     end
@@ -456,7 +460,7 @@ class state_history_log {
       return get_block_id_i(block_num);
    }
 
-#ifdef BOOST_TEST_MODULE
+#ifdef BOOST_TEST
    fc::cfile& get_log_file() { return log;}
 #endif
 
@@ -499,7 +503,7 @@ class state_history_log {
          }
       }
 
-      auto prune_config = std::get_if<state_history::prune_config>(&config);
+      auto prune_config = std::get_if<state_history::prune_config>(&_config);
       if (block_num < _end_block) {
          // This is typically because of a fork, and we need to truncate the log back to the beginning of the fork.
          static uint32_t start_block_num = block_num;
@@ -552,7 +556,7 @@ class state_history_log {
       log.flush();
       index.flush();
 
-      auto partition_config = std::get_if<state_history::partition_config>(&config);
+      auto partition_config = std::get_if<state_history::partition_config>(&_config);
       if (partition_config && block_num % partition_config->stride == 0) {
          split_log();
       }
@@ -608,7 +612,7 @@ class state_history_log {
    }
 
    void prune(const fc::log_level& loglevel) {
-      auto prune_config = std::get_if<state_history::prune_config>(&config);
+      auto prune_config = std::get_if<state_history::prune_config>(&_config);
 
       if(!prune_config)
          return;

@@ -139,6 +139,27 @@ BOOST_AUTO_TEST_CASE(name_suffix_tests)
    BOOST_CHECK_EQUAL( name{name_suffix("abcdefhij.123"_n)}, name{"123"_n} );
 }
 
+BOOST_AUTO_TEST_CASE(name_prefix_tests)
+{
+   BOOST_CHECK_EQUAL("e"_n.prefix(), "e"_n);
+   BOOST_CHECK_EQUAL(""_n.prefix(), ""_n);
+   BOOST_CHECK_EQUAL("abcdefghijklm"_n.prefix(), "abcdefghijklm"_n);
+   BOOST_CHECK_EQUAL("abcdefghijkl"_n.prefix(), "abcdefghijkl"_n);
+   BOOST_CHECK_EQUAL("abc.xyz"_n.prefix(), "abc"_n);
+   BOOST_CHECK_EQUAL("abc.xyz.qrt"_n.prefix(), "abc.xyz"_n);
+   BOOST_CHECK_EQUAL("."_n.prefix(), ""_n);
+
+   BOOST_CHECK_EQUAL("eosio.any"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL("eosio"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL("eosio"_n.prefix(), config::system_account_name);
+   BOOST_CHECK_EQUAL("eosio."_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL("eosio.evm"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL(".eosio"_n.prefix(), ""_n);
+   BOOST_CHECK_NE("eosi"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_NE("eosioeosio"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_NE("eosioe"_n.prefix(), "eosio"_n);
+}
+
 /// Test processing of unbalanced strings
 BOOST_AUTO_TEST_CASE(json_from_string_test)
 {
@@ -723,7 +744,7 @@ BOOST_AUTO_TEST_CASE(transaction_test) { try {
 
    test.set_transaction_headers(trx);
 
-   trx.expiration = fc::time_point::now();
+   trx.expiration = fc::time_point_sec{fc::time_point::now()};
    trx.validate();
    BOOST_CHECK_EQUAL(0u, trx.signatures.size());
    ((const signed_transaction &)trx).sign( test.get_private_key( config::system_account_name, "active" ), test.control->get_chain_id());
@@ -886,7 +907,7 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
       abi_serializer::from_variant(pretty_trx, trx, test.get_resolver(), abi_serializer::create_yield_function( test.abi_serializer_max_time ));
 
       test.set_transaction_headers(trx);
-      trx.expiration = fc::time_point::now();
+      trx.expiration = fc::time_point_sec{fc::time_point::now()};
 
       auto private_key = test.get_private_key( config::system_account_name, "active" );
       auto public_key = private_key.get_public_key();

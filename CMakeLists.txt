@@ -174,9 +174,10 @@ endif()
 
 message( STATUS "Using '${EOSIO_ROOT_KEY}' as public key for 'eosio' account" )
 
-find_package( Gperftools QUIET )
-if( GPERFTOOLS_FOUND )
-    message( STATUS "Found gperftools; compiling Leap with TCMalloc")
+option(ENABLE_TCMALLOC "use tcmalloc (requires gperftools)" OFF)
+if( ENABLE_TCMALLOC )
+    find_package( Gperftools REQUIRED )
+    message( STATUS "Compiling Leap with TCMalloc")
     #if doing this by the book, simply link_libraries( ${GPERFTOOLS_TCMALLOC} ) here. That will
     #give the performance benefits of tcmalloc but since it won't be linked last
     #the heap profiler & checker may not be accurate. This here is rather undocumented behavior
@@ -247,7 +248,6 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests/TestHarness DESTINATION ${CM
         PATTERN "*.json"
         PATTERN "__pycache__" EXCLUDE
         PATTERN "CMakeFiles" EXCLUDE)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tests/launcher.py DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/tests COMPONENT dev EXCLUDE_FROM_ALL)
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
    # Cmake versions < 3.21 did not support installing symbolic links to a directory via install(FILES ...)

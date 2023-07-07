@@ -469,7 +469,7 @@ namespace eosio { namespace chain {
                      "not enough time left in block to complete executing transaction ${billing_timer}us",
                      ("now", now)("deadline", _deadline)("start", start)("billing_timer", now - pseudo_start) );
       } else if( deadline_exception_code == tx_cpu_usage_exceeded::code_value ) {
-         std::string assert_msg = "transaction was executing for too long ${billing_timer}us";
+         std::string assert_msg = "transaction ${id} was executing for too long ${billing_timer}us";
          if (subjective_cpu_bill_us > 0) {
             assert_msg += " with a subjective cpu of (${subjective} us)";
          }
@@ -477,10 +477,10 @@ namespace eosio { namespace chain {
          assert_msg += get_tx_cpu_usage_exceeded_reason_msg(limit);
          if (cpu_limit_due_to_greylist) {
             assert_msg = "greylisted " + assert_msg;
-            EOS_THROW( greylist_cpu_usage_exceeded, assert_msg,
+            EOS_THROW( greylist_cpu_usage_exceeded, assert_msg, ("id", packed_trx.id())
                      ("billing_timer", now - pseudo_start)("subjective", subjective_cpu_bill_us)("limit", limit) );
          } else {
-            EOS_THROW( tx_cpu_usage_exceeded, assert_msg,
+            EOS_THROW( tx_cpu_usage_exceeded, assert_msg, ("id", packed_trx.id())
                      ("billing_timer", now - pseudo_start)("subjective", subjective_cpu_bill_us)("limit", limit) );
          }
       } else if( deadline_exception_code == leeway_deadline_exception::code_value ) {

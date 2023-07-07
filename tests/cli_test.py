@@ -4,12 +4,15 @@
 # response to the `--help` option. It also contains a couple of additional
 # CLI-related checks as well as test cases for CLI bugfixes.
 
+import datetime
 import subprocess
 import re
 import os
 import time
+import shlex
 import shutil
 import signal
+from pathlib import Path
 
 from TestHarness import Account, Node, ReturnType, Utils, WalletMgr
 
@@ -352,9 +355,9 @@ def abi_file_with_nodeos_test():
         os.makedirs(data_dir, exist_ok=True)
         walletMgr = WalletMgr(True)
         walletMgr.launch()
-        node = Node('localhost', 8888, nodeId, cmd="./programs/nodeos/nodeos -e -p eosio --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --max-transaction-time=-1 --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir, walletMgr=walletMgr)
-        node.verifyAlive() # Setting node state to not alive
-        node.relaunch(newChain=True, cachePopen=True)
+        cmd = "./programs/nodeos/nodeos -e -p eosio --plugin eosio::trace_api_plugin --trace-no-abis --plugin eosio::producer_plugin --plugin eosio::producer_api_plugin --plugin eosio::chain_api_plugin --plugin eosio::chain_plugin --plugin eosio::http_plugin --access-control-allow-origin=* --http-validate-host=false --max-transaction-time=-1 --resource-monitor-not-shutdown-on-threshold-exceeded " + "--data-dir " + data_dir + " --config-dir " + data_dir
+        node = Node('localhost', 8888, nodeId, data_dir=Path(data_dir), config_dir=Path(data_dir), cmd=shlex.split(cmd), launch_time=datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S'), walletMgr=walletMgr)
+        time.sleep(5)
         node.waitForBlock(1)
         accountNames = ["eosio", "eosio.token", "alice", "bob"]
         accounts = []
@@ -399,8 +402,7 @@ def abi_file_with_nodeos_test():
             Utils.Print("Test failed.")
         if node:
             if not node.killed:
-                if node.pid:
-                    os.kill(node.pid, signal.SIGKILL)
+                node.kill(signal.SIGKILL)
         if testSuccessful:
             Utils.Print("Cleanup nodeos data.")
             shutil.rmtree(Utils.DataPath)
@@ -409,10 +411,7 @@ def abi_file_with_nodeos_test():
             if os.path.exists(malicious_token_abi_path):
                 os.remove(malicious_token_abi_path)
 
-        walletMgr.killall()
-        if testSuccessful:
-            Utils.Print("Cleanup wallet data.")
-            walletMgr.cleanup()
+        walletMgr.testFailed = not testSuccessful
 
 nodeos_help_test()
 

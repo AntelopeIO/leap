@@ -35,7 +35,7 @@ auto make_unique_trx( const chain_id_type& chain_id ) {
    ++nextid;
    account_name creator = config::system_account_name;
    signed_transaction trx;
-   trx.expiration = fc::time_point::now() + fc::seconds( nextid % 50 == 0 ? 0 : 60 ); // fail some transactions via expired
+   trx.expiration = fc::time_point_sec{fc::time_point::now() + fc::seconds( nextid % 50 == 0 ? 0 : 60 )}; // fail some transactions via expired
    if( nextid % 10 == 0 ) {
       // fail some for authorization (read-only transaction should not have authorization)
       trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}}, testit{nextid} );
@@ -49,34 +49,51 @@ auto make_unique_trx( const chain_id_type& chain_id ) {
 
 BOOST_AUTO_TEST_SUITE(read_only_trxs)
 
-void error_handling_common(std::vector<const char*>& specific_args) {
-   appbase::scoped_app app;
+enum class app_init_status { failed, succeeded };
+
+void test_configs_common(std::vector<const char*>& specific_args, app_init_status expected_status) {
    fc::temp_directory temp;
+   appbase::scoped_app app;
    auto temp_dir_str = temp.path().string();
    
    fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
    std::vector<const char*> argv =
       {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str()};
    argv.insert( argv.end(), specific_args.begin(), specific_args.end() );
-   BOOST_CHECK_EQUAL( app->initialize<producer_plugin>( argv.size(), (char**) &argv[0]), false );
+
+   // app->initialize() returns a boolean. BOOST_CHECK_EQUAL cannot compare
+   // a boolean with a app_init_status directly
+   bool rc = (expected_status == app_init_status::succeeded) ? true : false;
+   bool result = false;
+   try {
+      result = app->initialize<producer_plugin>( argv.size(), (char**) &argv[0]);
+   } catch(...) {}
+   BOOST_CHECK_EQUAL( result, rc );
 }
 
 // --read-only-thread not allowed on producer node
 BOOST_AUTO_TEST_CASE(read_only_on_producer) {
    std::vector<const char*> specific_args = {"-p", "eosio", "-e", "--read-only-threads", "2" };
-   error_handling_common(specific_args);
+   test_configs_common(specific_args, app_init_status::failed);
 }
 
 // read_window_time must be greater than max_transaction_time + 10ms
 BOOST_AUTO_TEST_CASE(invalid_read_window_time) {
    std::vector<const char*> specific_args = { "--read-only-threads", "2", "--max-transaction-time", "10", "--read-only-write-window-time-us", "50000", "--read-only-read-window-time-us", "20000" }; // 20000 not greater than --max-transaction-time (10ms) + 10000us (minimum margin)
-   error_handling_common(specific_args);
+   test_configs_common(specific_args, app_init_status::failed);
+}
+
+// if --read-only-threads is not configured, read-only trx related configs should
+// not be checked
+BOOST_AUTO_TEST_CASE(not_check_configs_if_no_read_only_threads) {
+   std::vector<const char*> specific_args = { "--max-transaction-time", "10", "--read-only-write-window-time-us", "50000", "--read-only-read-window-time-us", "20000" }; // 20000 not greater than --max-transaction-time (10ms) + 10000us (minimum margin)
+   test_configs_common(specific_args, app_init_status::succeeded);
 }
 
 void test_trxs_common(std::vector<const char*>& specific_args) {
    using namespace std::chrono_literals;
-   appbase::scoped_app app;
    fc::temp_directory temp;
+   appbase::scoped_app app;
    auto temp_dir_str = temp.path().string();
    producer_plugin::set_test_mode(true);
    
@@ -166,8 +183,18 @@ BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
                                               "--max-transaction-time=10",
                                               "--abi-serializer-max-time-ms=999",
                                               "--read-only-write-window-time-us=100000",
-                                              "--read-only-read-window-time-us=40000",
-                                              "--disable-subjective-billing=true" };
+                                              "--read-only-read-window-time-us=40000" };
+   test_trxs_common(specific_args);
+}
+
+// test read-only trxs on 3 threads (with --read-only-threads)
+BOOST_AUTO_TEST_CASE(with_3_read_only_threads) {
+   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
+                                             "--read-only-threads=3",
+                                             "--max-transaction-time=10",
+                                             "--abi-serializer-max-time-ms=999",
+                                             "--read-only-write-window-time-us=100000",
+                                             "--read-only-read-window-time-us=40000" };
    test_trxs_common(specific_args);
 }
 
@@ -175,11 +202,11 @@ BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
 BOOST_AUTO_TEST_CASE(with_8_read_only_threads) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
                                               "--read-only-threads=8",
+                                              "--eos-vm-oc-enable=none",
                                               "--max-transaction-time=10",
                                               "--abi-serializer-max-time-ms=999",
                                               "--read-only-write-window-time-us=100000",
-                                              "--read-only-read-window-time-us=40000",
-                                              "--disable-subjective-billing=true" };
+                                              "--read-only-read-window-time-us=40000" };
    test_trxs_common(specific_args);
 }
 

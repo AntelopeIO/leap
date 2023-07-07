@@ -11,9 +11,18 @@
 
 #include <sys/event.h>
 
+// this makes kqueue calls compatible with FreeBSD and this timer can be safely used
+#if defined(__FreeBSD__)
+#define EV_SET64(kev, ident, filter, flags, fflags, data, udata, ext0, ext1) EV_SET(kev, ident, filter, flags, fflags, data, reinterpret_cast<void*>(udata))
+#define kevent64(kq, changelist, nchanges, eventlist, nevents, flags, timeout) kevent(kq, changelist, nchanges, eventlist, nevents, timeout)
+#define kevent64_s kevent
+#define KEVENT_FLAG_IMMEDIATE 0
+#define NOTE_CRITICAL 0
+#endif
+
 namespace eosio { namespace chain {
 
-//a kqueue & thread is shared for all platform_timer_macos instances
+// a kqueue & thread is shared for all platform_timer_macos instances
 static std::mutex timer_ref_mutex;
 static unsigned next_timerid;
 static unsigned refcount;
@@ -42,7 +51,7 @@ platform_timer::platform_timer() {
       FC_ASSERT(kevent64(kqueue_fd, &quit_event, 1, NULL, 0, KEVENT_FLAG_IMMEDIATE, NULL) == 0, "failed to create quit event");
 
       kevent_thread = std::thread([]() {
-         fc::set_os_thread_name("checktime");
+         fc::set_thread_name("checktime");
          while(true) {
             struct kevent64_s anEvent;
             int c = kevent64(kqueue_fd, NULL, 0, &anEvent, 1, 0, NULL);

@@ -76,8 +76,8 @@ class Utils:
     DataRoot=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0]
     PID = os.getpid()
     DataPath= f"{TestLogRoot}/{DataRoot}{PID}"
-    DataDir= f"{DataPath}/"
-    ConfigDir=f"{str(Path.cwd().resolve())}/etc/eosio/"
+    DataDir=f"{DataPath}/"
+    ConfigDir=f"{DataPath}/"
 
     TimeFmt='%Y-%m-%dT%H:%M:%S.%f'
 
@@ -88,16 +88,18 @@ class Utils:
     @staticmethod
     def checkOutputFileWrite(time, cmd, output, error):
         stop=Utils.timestamp()
+        if not os.path.isdir(Utils.TestLogRoot):
+            if Utils.Debug: Utils.Print("TestLogRoot creating dir %s in dir: %s" % (Utils.TestLogRoot, os.getcwd()))
+            os.mkdir(Utils.TestLogRoot)
+        if not os.path.isdir(Utils.DataPath):
+            if Utils.Debug: Utils.Print("DataPath creating dir %s in dir: %s" % (Utils.DataPath, os.getcwd()))
+            os.mkdir(Utils.DataPath)
         if not hasattr(Utils, "checkOutputFile"):
-            if not os.path.isdir(Utils.TestLogRoot):
-                if Utils.Debug: Utils.Print("TestLogRoot creating dir %s in dir: %s" % (Utils.TestLogRoot, os.getcwd()))
-                os.mkdir(Utils.TestLogRoot)
-            if not os.path.isdir(Utils.DataPath):
-                if Utils.Debug: Utils.Print("DataPath creating dir %s in dir: %s" % (Utils.DataPath, os.getcwd()))
-                os.mkdir(Utils.DataPath)
-            filename=f"{Utils.DataPath}/subprocess_results.log"
-            if Utils.Debug: Utils.Print("opening %s in dir: %s" % (filename, os.getcwd()))
-            Utils.checkOutputFile=open(filename,"w")
+            Utils.checkOutputFilename=f"{Utils.DataPath}/subprocess_results.log"
+            if Utils.Debug: Utils.Print("opening %s in dir: %s" % (Utils.checkOutputFilename, os.getcwd()))
+            Utils.checkOutputFile=open(Utils.checkOutputFilename,"w")
+        else:
+            Utils.checkOutputFile=open(Utils.checkOutputFilename,"a")
 
         Utils.checkOutputFile.write(Utils.FileDivider + "\n")
         Utils.checkOutputFile.write("start={%s}\n" % (time))
@@ -159,11 +161,13 @@ class Utils:
         return path
 
     @staticmethod
-    def rmNodeDataDir(ext, rmState=True, rmBlocks=True):
+    def rmNodeDataDir(ext, rmState=True, rmBlocks=True, rmStateHist=True):
         if rmState:
             shutil.rmtree(Utils.getNodeDataDir(ext, "state"))
         if rmBlocks:
             shutil.rmtree(Utils.getNodeDataDir(ext, "blocks"))
+        if rmStateHist:
+            shutil.rmtree(Utils.getNodeDataDir(ext, "state-history"), ignore_errors=True)
 
     @staticmethod
     def getNodeConfigDir(ext, relativeDir=None, trailingSlash=False):
@@ -231,7 +235,7 @@ class Utils:
         Utils.Print(msg)
 
     @staticmethod
-    def waitForObj(lam, timeout=None, sleepTime=3, reporter=None):
+    def waitForObj(lam, timeout=None, sleepTime=1, reporter=None):
         if timeout is None:
             timeout=60
 
@@ -259,13 +263,13 @@ class Utils:
         return None
 
     @staticmethod
-    def waitForBool(lam, timeout=None, sleepTime=3, reporter=None):
+    def waitForBool(lam, timeout=None, sleepTime=1, reporter=None):
         myLam = lambda: True if lam() else None
         ret=Utils.waitForObj(myLam, timeout, sleepTime, reporter=reporter)
         return False if ret is None else ret
 
     @staticmethod
-    def waitForBoolWithArg(lam, arg, timeout=None, sleepTime=3, reporter=None):
+    def waitForBoolWithArg(lam, arg, timeout=None, sleepTime=1, reporter=None):
         myLam = lambda: True if lam(arg, timeout) else None
         ret=Utils.waitForObj(myLam, timeout, sleepTime, reporter=reporter)
         return False if ret is None else ret
@@ -537,23 +541,6 @@ class Utils:
         return same
 
     @staticmethod
-    def rmFromFile(file: str, matchValue: str):
-        """Rm lines from file that match *matchValue*"""
-
-        lines = []
-        with open(file, "r") as f:
-            lines = f.readlines()
-
-        c = 0
-        with open(file, "w") as f:
-            for line in lines:
-                if matchValue not in line:
-                    f.write(line)
-                    c += 1
-
-        return c
-
-    @staticmethod
     def addAmount(assetStr: str, deltaStr: str) -> str:
         asset = assetStr.split()
         if len(asset) != 2:
@@ -626,23 +613,3 @@ class Utils:
     @staticmethod
     def getNodeosVersion():
         return os.popen(f"{Utils.EosServerPath} --version").read().replace("\n", "")
-
-
-###########################################################################################
-class Account(object):
-    # pylint: disable=too-few-public-methods
-
-    def __init__(self, name):
-        self.name=name
-
-        self.ownerPrivateKey=None
-        self.ownerPublicKey=None
-        self.activePrivateKey=None
-        self.activePublicKey=None
-
-
-    def __str__(self):
-        return "Name: %s" % (self.name)
-
-    def __repr__(self):
-        return "Name: %s" % (self.name)
