@@ -95,7 +95,9 @@ jobs:
     runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(needs.d.outputs.p)[${{github.event.inputs.platform-choice}}].image}}
     steps:
-        - uses: actions/checkout@v3
+        - name: Checkout leap ref
+          id: checkout
+          uses: actions/checkout@v3
           with:
             ref: '${{needs.v.outputs.leap-ref}}'
             submodules: recursive
@@ -130,7 +132,6 @@ jobs:
         with:
           name: ${{github.event.inputs.platform-choice}}-build
       - name: Run Performance Test
-        if: always()
         run: |
           # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
           chown -R $(id -u):$(id -g) $PWD
@@ -138,11 +139,10 @@ jobs:
           cd build
           ./tests/performance_tests/performance_test.py ${{needs.v.outputs.test-params}}
       - name: Prepare results
-          id: prep-results
-          run: |
-            # https://github.com/actions/runner/issues/2033
-            chown -R $(id -u):$(id -g) $PWD
-            tar -pc build/performance_test | zstd --long -T0 -9 > performance_test_logs.tar.zst
+        run: |
+          # https://github.com/actions/runner/issues/2033
+          chown -R $(id -u):$(id -g) $PWD
+          tar -pc build/performance_test | zstd --long -T0 -9 > performance_test_logs.tar.zst
       - name: Upload results
         uses: AntelopeIO/upload-artifact-large-chunks-action@v1
         with:
