@@ -37,6 +37,7 @@ namespace eosio { namespace chain {
 
          transaction_context( controller& c,
                               const packed_transaction& t,
+                              const transaction_id_type& trx_id, // trx_id diff than t.id() before replace_deferred
                               transaction_checktime_timer&& timer,
                               fc::time_point start = fc::time_point::now(),
                               transaction_metadata::trx_type type = transaction_metadata::trx_type::input);
@@ -127,6 +128,7 @@ namespace eosio { namespace chain {
 
          controller&                                 control;
          const packed_transaction&                   packed_trx;
+         const transaction_id_type&                  id;
          std::optional<chainbase::database::session> undo_session;
          transaction_trace_ptr                       trace;
          fc::time_point                              start;
