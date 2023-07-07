@@ -130,6 +130,8 @@ struct mock_state_history_plugin {
    eosio::state_history::block_position get_block_head() { return block_head; }
    eosio::state_history::block_position get_last_irreversible() { return block_head; }
 
+   uint32_t get_first_available_block_num() const { return 0; }
+
    void add_session(std::shared_ptr<eosio::session_base> s) {
       session_mgr.insert(std::move(s));
    }
