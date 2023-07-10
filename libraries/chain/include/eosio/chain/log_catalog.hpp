@@ -12,8 +12,8 @@ namespace chain {
 namespace bfs = boost::filesystem;
 
 template <typename Lambda>
-void for_each_file_in_dir_matches(const bfs::path& dir, std::string pattern, Lambda&& lambda) {
-   const std::regex        my_filter(pattern);
+void for_each_file_in_dir_matches(const bfs::path& dir, std::string_view pattern, Lambda&& lambda) {
+   const std::regex        my_filter(pattern.begin(), pattern.size());
    std::smatch             what;
    bfs::directory_iterator end_itr; // Default ctor yields past-the-end
    for (bfs::directory_iterator p(dir); p != end_itr; ++p) {
@@ -85,9 +85,10 @@ struct log_catalog {
          archive_dir = make_absolute_dir(log_dir, archive_path);
       }
 
-      for_each_file_in_dir_matches(retained_dir, std::string(name) + suffix_pattern, [this](bfs::path path) {
+      std::string pattern = std::string(name) + suffix_pattern;
+      for_each_file_in_dir_matches(retained_dir, pattern, [this](bfs::path path) {
          auto log_path               = path;
-         auto index_path             = path.replace_extension("index");
+         const auto& index_path      = path.replace_extension("index");
          auto path_without_extension = log_path.parent_path() / log_path.stem().string();
 
          LogData log(log_path);
@@ -95,8 +96,10 @@ struct log_catalog {
          verifier.verify(log, log_path);
 
          // check if index file matches the log file
-         if (!index_matches_data(index_path, log))
-            log.construct_index(index_path);
+         if (!index_matches_data(index_path, log)) {
+            ilog("Recreating index for: ${i}", ("i", index_path.string()));
+            log.construct_index( index_path );
+         }
 
          auto existing_itr = collection.find(log.first_block_num());
          if (existing_itr != collection.end()) {
@@ -113,7 +116,7 @@ struct log_catalog {
             }
          }
 
-         collection.insert_or_assign(log.first_block_num(), mapped_type{log.last_block_num(), path_without_extension});
+         collection.insert_or_assign(log.first_block_num(), mapped_type{log.last_block_num(), std::move(path_without_extension)});
       });
    }
 
@@ -217,7 +220,7 @@ struct log_catalog {
       bfs::path new_path = retained_dir / buf;
       rename_bundle(dir / name, new_path);
       size_type items_to_erase = 0;
-      collection.emplace(start_block_num, mapped_type{end_block_num, new_path});
+      collection.emplace(start_block_num, mapped_type{end_block_num, std::move(new_path)});
       if (collection.size() >= max_retained_files) {
          items_to_erase =
             max_retained_files > 0 ? collection.size() - max_retained_files : collection.size();
