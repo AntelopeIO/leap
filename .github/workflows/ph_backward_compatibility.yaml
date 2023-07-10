@@ -104,22 +104,12 @@ jobs:
           # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
           chown -R $(id -u):$(id -g) $PWD
           zstdcat build.tar.zst | tar x
-      - if: ${{ matrix.release != '3.1' }}
-        name: Download Prev Leap Version (v3.2.x and after)
+      - name: Download Prev Leap Version
         uses: AntelopeIO/asset-artifact-download-action@v2
         with:
           owner: AntelopeIO
           repo: leap
-          file: 'leap_.*-${{matrix.platform}}.04_amd64.deb' # Ex. leap_3.2.3-ubuntu20.04_amd64.deb  leap_4.0.3-ubuntu20.04_amd64.deb
-          target: '${{matrix.release}}'
-          token: ${{github.token}}
-      - if: ${{ matrix.release == '3.1' }}
-        name: Download Prev Leap Version (v3.1.x)
-        uses: AntelopeIO/asset-artifact-download-action@v2
-        with:
-          owner: AntelopeIO
-          repo: leap
-          file: 'leap-.*-${{matrix.platform}}.04-x86_64.deb' # Ex. leap-3.1.4-ubuntu20.04-x86_64.deb
+          file: '(leap).*${{matrix.platform}}.04.*(x86_64|amd64).deb'
           target: '${{matrix.release}}'
           token: ${{github.token}}
       - name: Extract and Place Rev Leap Version artifacts
