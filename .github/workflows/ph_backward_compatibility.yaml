@@ -145,9 +145,8 @@ jobs:
         run: |
           cd build
           ctest --output-on-failure -R performance_test_api --timeout 480
-      - if: ${{ matrix.release != '3.1' && matrix.release != '3.2' }}
+      - if: always() && ${{ matrix.release != '3.1' && matrix.release != '3.2' }}
         name: Run Read Only Trxs Performance Test
-        if: always()
         run: |
           cd build
           ctest --output-on-failure -R performance_test_read_only_trxs --timeout 480
@@ -181,9 +180,8 @@ jobs:
         run: |
           cd build
           ctest --output-on-failure -R performance_test_basic_http --timeout 480
-      - if: ${{ matrix.release != '3.1' && matrix.release != '3.2' }}
+      - if: always() && ${{ matrix.release != '3.1' && matrix.release != '3.2' }}
         name: Run Read Only Trx Performance Basic Test
-        if: always()
         run: |
           cd build
           ctest --output-on-failure -R performance_test_basic_read_only_trxs --timeout 480
