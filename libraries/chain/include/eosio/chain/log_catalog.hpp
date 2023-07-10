@@ -150,7 +150,7 @@ struct log_catalog {
             auto name = it->second.filename_base;
             log_data.open(name.replace_extension("log"));
             log_index.open(name.replace_extension("index"));
-            active_index = std::distance(collection.begin(), it); //collection.index_of(it);
+            active_index = std::distance(collection.begin(), it);
             return log_index.nth_block_position(block_num - log_data.first_block_num());
          }
          return {};
@@ -219,9 +219,9 @@ struct log_catalog {
       if (collection.size() >= max_retained_files) {
          items_to_erase =
             max_retained_files > 0 ? collection.size() - max_retained_files : collection.size();
-         auto end = std::next( collection.begin(), items_to_erase);
+         auto last = std::next( collection.begin(), items_to_erase);
 
-         for (auto it = collection.begin(); it != end; ++it) {
+         for (auto it = collection.begin(); it != last; ++it) {
             auto orig_name = it->second.filename_base;
             if (archive_dir.empty()) {
                // delete the old files when no backup dir is specified
@@ -232,7 +232,7 @@ struct log_catalog {
                rename_bundle(orig_name, archive_dir / orig_name.filename());
             }
          }
-         collection.erase(collection.begin(), end);
+         collection.erase(collection.begin(), last);
          active_index = active_index == npos || active_index < items_to_erase
                         ? npos
                         : active_index - items_to_erase;
