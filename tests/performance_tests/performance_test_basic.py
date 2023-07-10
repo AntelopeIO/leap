@@ -139,7 +139,8 @@ class PerformanceTestBasic:
                 apiNodeSpecificNodeosStr = ""
                 apiNodeSpecificNodeosStr += "--plugin eosio::chain_api_plugin "
                 apiNodeSpecificNodeosStr += "--plugin eosio::net_api_plugin "
-                apiNodeSpecificNodeosStr += f"--read-only-threads {self.apiNodesReadOnlyThreadCount} "
+                if "v4" in self.nodeosVers:
+                    apiNodeSpecificNodeosStr += f"--read-only-threads {self.apiNodesReadOnlyThreadCount} "
                 if apiNodeSpecificNodeosStr:
                     self.specificExtraNodeosArgs.update({f"{nodeId}" : apiNodeSpecificNodeosStr for nodeId in self._apiNodeIds})
 
