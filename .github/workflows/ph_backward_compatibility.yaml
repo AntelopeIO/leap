@@ -110,8 +110,9 @@ jobs:
           token: ${{github.token}}
       - name: Extract and Place Rev Leap Version artifacts
         run: |
+          ls -l
           apt-get update
-          apt install -y leap*.deb
+          apt-get install -y ./leap*.deb
           rm build/bin/nodeos
           rm build/bin/cleos
           cp /usr/bin/nodeos build/bin
