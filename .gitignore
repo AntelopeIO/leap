@@ -75,6 +75,8 @@ witness_node_data_dir
 *.pyc
 *.pyo
 
+*.gdb_history
+
 Testing/*
 build.tar.gz
 [Bb]uild*/*
