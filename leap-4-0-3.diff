@@ -1,0 +1,604 @@
+diff --git a/CMakeLists.txt b/CMakeLists.txt
+index 6e6e26149..1ac827d5a 100644
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -16,7 +16,7 @@ set( CXX_STANDARD_REQUIRED ON)
+ set(VERSION_MAJOR 4)
+ set(VERSION_MINOR 0)
+ set(VERSION_PATCH 3)
+-#set(VERSION_SUFFIX rc3)
++set(VERSION_SUFFIX hotfix)
+ 
+ if(VERSION_SUFFIX)
+     set(VERSION_FULL "${VERSION_MAJOR}.${VERSION_MINOR}.${VERSION_PATCH}-${VERSION_SUFFIX}")
+diff --git a/libraries/chain/webassembly/runtimes/eos-vm.cpp b/libraries/chain/webassembly/runtimes/eos-vm.cpp
+index 522d39e13..c73c6d63a 100644
+--- a/libraries/chain/webassembly/runtimes/eos-vm.cpp
++++ b/libraries/chain/webassembly/runtimes/eos-vm.cpp
+@@ -242,7 +242,7 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instan
+       wasm_code_ptr code((uint8_t*)code_bytes, code_size);
+       apply_options options = { .max_pages = 65536,
+                                 .max_call_depth = 0 };
+-      std::unique_ptr<backend_t> bkend = std::make_unique<backend_t>(code, code_size, nullptr, options);
++      std::unique_ptr<backend_t> bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, false); // uses 2-passes parsing
+       eos_vm_host_functions_t::resolve(bkend->get_module());
+       return std::make_unique<eos_vm_instantiated_module<Impl>>(this, std::move(bkend));
+    } catch(eosio::vm::exception& e) {
+@@ -264,7 +264,7 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::inst
+       wasm_code_ptr code((uint8_t*)code_bytes, code_size);
+       apply_options options = { .max_pages = 65536,
+                                 .max_call_depth = 0 };
+-      std::unique_ptr<backend_t> bkend = std::make_unique<backend_t>(code, code_size, nullptr, options);
++      std::unique_ptr<backend_t> bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, false); // uses 2-passes parsing
+       eos_vm_host_functions_t::resolve(bkend->get_module());
+       return std::make_unique<eos_vm_profiling_module>(std::move(bkend), code_bytes, code_size);
+    } catch(eosio::vm::exception& e) {
+diff --git a/libraries/eos-vm/include/eosio/vm/allocator.hpp b/libraries/eos-vm/include/eosio/vm/allocator.hpp
+index 0fd6c6a..b338a59 100644
+--- a/libraries/eos-vm/include/eosio/vm/allocator.hpp
++++ b/libraries/eos-vm/include/eosio/vm/allocator.hpp
+@@ -214,9 +214,13 @@ namespace eosio { namespace vm {
+ 
+       blocks_by_size_t::iterator allocate_segment(std::size_t min_size) {
+          std::size_t size = std::max(min_size, segment_size);
+-         void* base = mmap(nullptr, size, PROT_EXEC, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+-         segment s{base, size};
++         // To avoid additional memory mappings being created during permission changes of
++         // from PROT_EXEC to PROT_READ | PROT_WRITE, and back to PROT_EXEC,
++         // set permisions to PROT_READ | PROT_WRITE initially.
++         // The permission will be changed to PROT_EXEC after executible code is copied.
++         void* base = mmap(nullptr, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+          EOS_VM_ASSERT(base != MAP_FAILED, wasm_bad_alloc, "failed to allocate jit segment");
++         segment s{base, size};
+          _segments.emplace_back(std::move(s));
+          bool success = false;
+          auto guard_1 = scope_guard{[&] { if(!success) { _segments.pop_back(); } }};
+@@ -267,7 +271,6 @@ namespace eosio { namespace vm {
+    class growable_allocator {
+     public:
+       static constexpr size_t max_memory_size = 1024 * 1024 * 1024; // 1GB
+-      static constexpr size_t chunk_size      = 128 * 1024;         // 128KB
+       template<std::size_t align_amt>
+       static constexpr size_t align_offset(size_t offset) { return (offset + align_amt - 1) & ~(align_amt - 1); }
+ 
+@@ -277,22 +280,51 @@ namespace eosio { namespace vm {
+          return (offset + pagesize - 1) & ~(pagesize - 1);
+       }
+ 
++      growable_allocator() {}
++
+       // size in bytes
+-      growable_allocator(size_t size) {
++      explicit growable_allocator(size_t size) {
+          EOS_VM_ASSERT(size <= max_memory_size, wasm_bad_alloc, "Too large initial memory size");
+-         _base = (char*)mmap(NULL, max_memory_size, PROT_NONE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
+-         EOS_VM_ASSERT(_base != MAP_FAILED, wasm_bad_alloc, "mmap failed.");
+-         if (size != 0) {
+-            size_t chunks_to_alloc = (align_offset<chunk_size>(size) / chunk_size);
+-            _size += (chunk_size * chunks_to_alloc);
+-            mprotect((char*)_base, _size, PROT_READ | PROT_WRITE);
+-         }
++         use_default_memory();
++      }
++
++      void use_default_memory() {
++         EOS_VM_ASSERT(_base == nullptr, wasm_bad_alloc, "default memory already allocated");
++
++         // uses mmap for big memory allocation
++         _base = (char*)mmap(NULL, max_memory_size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++         EOS_VM_ASSERT(_base != MAP_FAILED, wasm_bad_alloc, "failed to mmap for default memory.");
++         _mmap_used = true;
+          _capacity = max_memory_size;
+       }
+ 
++      // size in bytes
++      void use_fixed_memory(bool is_jit, size_t size) {
++         EOS_VM_ASSERT(0 < size && size <= max_memory_size, wasm_bad_alloc, "Too large or 0 fixed memory size");
++         EOS_VM_ASSERT(_base == nullptr, wasm_bad_alloc, "Fixed memory already allocated");
++
++         _is_jit = is_jit;
++         if (_is_jit) {
++            _base = (char*)std::calloc(size, sizeof(char));
++            EOS_VM_ASSERT(_base != nullptr, wasm_bad_alloc, "malloc in use_fixed_memory failed.");
++            _mmap_used = false;
++         } else {
++            _base = (char*)mmap(NULL, size, PROT_READ | PROT_WRITE, MAP_PRIVATE | MAP_ANONYMOUS, -1, 0);
++            EOS_VM_ASSERT(_base != MAP_FAILED, wasm_bad_alloc, "mmap in use_fixed_memoryfailed.");
++            _mmap_used = true;
++         }
++         _capacity = size;
++      }
++
+       ~growable_allocator() {
+-         munmap(_base, _capacity);
+-         if (is_jit) {
++         if (_base != nullptr) {
++            if (_mmap_used) {
++                munmap(_base, _capacity);
++            } else {
++                std::free(_base);
++            }
++         }
++         if (_is_jit && _code_base) {
+             jit_allocator::instance().free(_code_base);
+          }
+       }
+@@ -301,19 +333,19 @@ namespace eosio { namespace vm {
+       template <typename T>
+       T* alloc(size_t size = 0) {
+          static_assert(max_memory_size % alignof(T) == 0, "alignment must divide max_memory_size.");
++         EOS_VM_ASSERT(_capacity % alignof(T) == 0, wasm_bad_alloc, "alignment must divide _capacity.");
+          _offset = align_offset<alignof(T)>(_offset);
+          // Evaluating the inequality in this form cannot cause integer overflow.
+          // Once this assertion passes, the rest of the function is safe.
+-         EOS_VM_ASSERT ((max_memory_size - _offset) / sizeof(T) >= size, wasm_bad_alloc, "Allocated too much memory");
++         EOS_VM_ASSERT ((_capacity - _offset) / sizeof(T) >= size, wasm_bad_alloc, "Allocated too much memory");
+          size_t aligned = (sizeof(T) * size) + _offset;
+-         if (aligned > _size) {
+-            size_t chunks_to_alloc = align_offset<chunk_size>(aligned - _size) / chunk_size;
+-            mprotect((char*)_base + _size, (chunk_size * chunks_to_alloc), PROT_READ | PROT_WRITE);
+-            _size += (chunk_size * chunks_to_alloc);
+-         }
++         EOS_VM_ASSERT (aligned <= _capacity, wasm_bad_alloc, "Allocated too much memory after aligned");
+ 
+          T* ptr  = (T*)(_base + _offset);
+          _offset = aligned;
++         if (_offset > _largest_offset) {
++            _largest_offset = _offset;
++         }
+          return ptr;
+       }
+ 
+@@ -334,18 +366,24 @@ namespace eosio { namespace vm {
+             int err = mprotect(executable_code, _code_size, PROT_READ | PROT_WRITE);
+             EOS_VM_ASSERT(err == 0, wasm_bad_alloc, "mprotect failed");
+             std::memcpy(executable_code, _code_base, _code_size);
+-            is_jit = true;
+             _code_base = (char*)executable_code;
++            enable_code(IsJit);
++            _is_jit = true;
+             _offset = (char*)code_base - _base;
+          }
+-         enable_code(IsJit);
++      }
++
++      void set_code_base_and_size(char* code_base, size_t code_size) {
++         _code_base = code_base;
++         _code_size = code_size;
+       }
+ 
+       // Sets protection on code pages to allow them to be executed.
+       void enable_code(bool is_jit) {
+          mprotect(_code_base, _code_size, is_jit?PROT_EXEC:(PROT_READ|PROT_WRITE));
+       }
+-      // Make code pages unexecutable
++      // Make code pages unexecutable so deadline timer can kill an
++      // execution (in both JIT and Interpreter)
+       void disable_code() {
+          mprotect(_code_base, _code_size, PROT_NONE);
+       }
+@@ -363,14 +401,21 @@ namespace eosio { namespace vm {
+             _offset = ((char*)ptr - _base);
+       }
+ 
++      size_t largest_used_size() {
++         return align_to_page(_largest_offset);
++      }
++
+       /*
+        * Finalize the memory by unmapping any excess pages, this means that the allocator will no longer grow
+        */
+       void finalize() {
+-         if(_capacity != _offset) {
++         if(_mmap_used && _capacity != _offset) {
+             std::size_t final_size = align_to_page(_offset);
+-            EOS_VM_ASSERT(munmap(_base + final_size, _capacity - final_size) == 0, wasm_bad_alloc, "failed to finalize growable_allocator");
+-            _capacity = _size = _offset = final_size;
++            if (final_size < _capacity) { // final_size can grow to _capacity after align_to_page.
++                                          // make sure no 0 size passed to munmap
++               EOS_VM_ASSERT(munmap(_base + final_size, _capacity - final_size) == 0, wasm_bad_alloc, "failed to finalize growable_allocator");
++            }
++            _capacity = _offset = final_size;
+          }
+       }
+ 
+@@ -378,13 +423,14 @@ namespace eosio { namespace vm {
+ 
+       void reset() { _offset = 0; }
+ 
+-      size_t _offset = 0;
+-      size_t _size   = 0;
+-      std::size_t _capacity = 0;
+-      char*  _base;
+-      char*  _code_base = nullptr;
+-      size_t _code_size = 0;
+-      bool is_jit = false;
++      size_t   _offset                = 0;
++      size_t   _largest_offset        = 0;
++      size_t   _capacity              = 0;
++      char*    _base                  = nullptr;
++      char*    _code_base             = nullptr;
++      size_t   _code_size             = 0;
++      bool     _is_jit                = false;
++      bool     _mmap_used             = false;
+    };
+ 
+    template <typename T>
+diff --git a/libraries/eos-vm/include/eosio/vm/backend.hpp b/libraries/eos-vm/include/eosio/vm/backend.hpp
+index 54a7e26..3172bd6 100644
+--- a/libraries/eos-vm/include/eosio/vm/backend.hpp
++++ b/libraries/eos-vm/include/eosio/vm/backend.hpp
+@@ -74,36 +74,78 @@ namespace eosio { namespace vm {
+       }
+     public:
+       backend(wasm_code&& code, host_t& host, wasm_allocator* alloc, const Options& options = Options{})
+-         : memory_alloc(alloc), ctx(parser_t{ mod.allocator, options }.parse_module(code, mod, debug), detail::get_max_call_depth(options)) {
++         : memory_alloc(alloc), ctx(parse_module(code, options), detail::get_max_call_depth(options)) {
+          ctx.set_max_pages(detail::get_max_pages(options));
+          construct(&host);
+       }
+       backend(wasm_code&& code, wasm_allocator* alloc, const Options& options = Options{})
+-         : memory_alloc(alloc), ctx(parser_t{ mod.allocator, options }.parse_module(code, mod, debug), detail::get_max_call_depth(options)) {
++         : memory_alloc(alloc), ctx(parse_module(code, options), detail::get_max_call_depth(options)) {
+          ctx.set_max_pages(detail::get_max_pages(options));
+          construct();
+       }
+       backend(wasm_code& code, host_t& host, wasm_allocator* alloc, const Options& options = Options{})
+-         : memory_alloc(alloc), ctx(parser_t{ mod.allocator, options }.parse_module(code, mod, debug), detail::get_max_call_depth(options)) {
++         : memory_alloc(alloc), ctx(parse_module(code, options), detail::get_max_call_depth(options)) {
+          ctx.set_max_pages(detail::get_max_pages(options));
+          construct(&host);
+       }
+       backend(wasm_code& code, wasm_allocator* alloc, const Options& options = Options{})
+-         : memory_alloc(alloc), ctx(parser_t{ mod.allocator, options }.parse_module(code, mod, debug), detail::get_max_call_depth(options)) {
++         : memory_alloc(alloc), ctx(parse_module(code, options), detail::get_max_call_depth(options)) {
+          ctx.set_max_pages(detail::get_max_pages(options));
+          construct();
+       }
+       backend(wasm_code_ptr& ptr, size_t sz, host_t& host, wasm_allocator* alloc, const Options& options = Options{})
+-         : memory_alloc(alloc), ctx(parser_t{ mod.allocator, options }.parse_module2(ptr, sz, mod, debug), detail::get_max_call_depth(options)) {
++         : memory_alloc(alloc), ctx(parse_module2(ptr, sz, options, true), detail::get_max_call_depth(options)) { // single parsing. original behavior
+          ctx.set_max_pages(detail::get_max_pages(options));
+          construct(&host);
+       }
+-      backend(wasm_code_ptr& ptr, size_t sz, wasm_allocator* alloc, const Options& options = Options{})
+-         : memory_alloc(alloc), ctx(parser_t{ mod.allocator, options }.parse_module2(ptr, sz, mod, debug), detail::get_max_call_depth(options)) {
++      // Leap:
++      //  * Contract validation only needs single parsing as the instantiated module is not cached.
++      //  * Contract execution requires two-passes parsing to prevent memory mappings exhaustion
++      backend(wasm_code_ptr& ptr, size_t sz, wasm_allocator* alloc, const Options& options = Options{}, bool single_parsing = true)
++         : memory_alloc(alloc), ctx(parse_module2(ptr, sz, options, single_parsing), detail::get_max_call_depth(options)) {
+          ctx.set_max_pages(detail::get_max_pages(options));
+          construct();
+       }
+ 
++      module& parse_module(wasm_code& code, const Options& options) {
++         mod.allocator.use_default_memory();
++         return parser_t{ mod.allocator, options }.parse_module(code, mod, debug);
++      }
++
++      module& parse_module2(wasm_code_ptr& ptr, size_t sz, const Options& options, bool single_parsing) {
++         if (single_parsing) {
++            mod.allocator.use_default_memory();
++            return parser_t{ mod.allocator, options }.parse_module2(ptr, sz, mod, debug);
++         }
++
++         // To prevent large number of memory mappings used, use two-passes parsing.
++         // The first pass finds max size of memory required for parsing;
++         // this memory is released after parsing.
++         // The second pass uses malloc with the required size of memory.
++         wasm_code_ptr orig_ptr = ptr;
++         size_t largest_size = 0;
++
++         // First pass: finds max size of memory required by parsing.
++         // Memory used by parsing will be freed when going out of the scope
++         {
++            module first_pass_module;
++            // For JIT, skips code generation as it is not needed and
++            // does not count the code memory size
++            detail::code_generate_mode code_gen_mode = Impl::is_jit ? detail::code_generate_mode::skip : detail::code_generate_mode::use_same_allocator;
++            first_pass_module.allocator.use_default_memory();
++            parser_t{ first_pass_module.allocator, options }.parse_module2(ptr, sz, first_pass_module, debug, code_gen_mode);
++            first_pass_module.finalize();
++            largest_size = first_pass_module.allocator.largest_used_size();
++         }
++
++         // Second pass: uses largest_size of memory for actual parsing
++         mod.allocator.use_fixed_memory(Impl::is_jit, largest_size);
++         // For JIT, uses a seperate allocator for code generation as mod's memory
++         // does not include memory for code
++         detail::code_generate_mode code_gen_mode = Impl::is_jit ? detail::code_generate_mode::use_seperate_allocator : detail::code_generate_mode::use_same_allocator;
++         return parser_t{ mod.allocator, options }.parse_module2(orig_ptr, sz, mod, debug, code_gen_mode);
++      }
++
+       template <typename... Args>
+       inline auto operator()(host_t& host, const std::string_view& mod, const std::string_view& func, Args... args) {
+          return call(host, mod, func, args...);
+diff --git a/libraries/eos-vm/include/eosio/vm/constants.hpp b/libraries/eos-vm/include/eosio/vm/constants.hpp
+index 3ca10f1..b110652 100644
+--- a/libraries/eos-vm/include/eosio/vm/constants.hpp
++++ b/libraries/eos-vm/include/eosio/vm/constants.hpp
+@@ -10,7 +10,12 @@ namespace eosio { namespace vm {
+       id_size      = sizeof(uint8_t),
+       varuint32_size = 5,
+       max_call_depth        = 250,
+-      initial_stack_size    = 8*1024,
++      // initial_stack_size is used for reserving initial memory for operand stack.
++      // For JIT, operand stack is only used in calling host function calls, where
++      // number of elements required can never be big.
++      // For Interpreter, performance is not a concern.
++      // Intentionally set to a small number.
++      initial_stack_size    = 8,
+       initial_module_size   = 1 * 1024 * 1024,
+       max_memory            = 4ull << 31,
+       max_useable_memory    = (1ull << 32), //4GiB
+diff --git a/libraries/eos-vm/include/eosio/vm/execution_context.hpp b/libraries/eos-vm/include/eosio/vm/execution_context.hpp
+index 7be6832..ba48f8c 100644
+--- a/libraries/eos-vm/include/eosio/vm/execution_context.hpp
++++ b/libraries/eos-vm/include/eosio/vm/execution_context.hpp
+@@ -123,6 +123,10 @@ namespace eosio { namespace vm {
+       inline void reset() {
+          EOS_VM_ASSERT(_mod.error == nullptr, wasm_interpreter_exception, _mod.error);
+ 
++         // Reset the capacity of underlying memory used by operand stack if it is
++         // greater than initial_stack_size
++         _os.reset_capacity();
++
+          _linear_memory = _wasm_alloc->get_base_ptr<char>();
+          if(_mod.memories.size()) {
+             EOS_VM_ASSERT(_mod.memories[0].limits.initial <= _max_pages, wasm_bad_alloc, "Cannot allocate initial linear memory.");
+diff --git a/libraries/eos-vm/include/eosio/vm/parser.hpp b/libraries/eos-vm/include/eosio/vm/parser.hpp
+index 9789a48..d35581c 100644
+--- a/libraries/eos-vm/include/eosio/vm/parser.hpp
++++ b/libraries/eos-vm/include/eosio/vm/parser.hpp
+@@ -22,6 +22,12 @@ namespace eosio { namespace vm {
+ 
+    namespace detail {
+ 
++   enum class code_generate_mode {
++      use_same_allocator = 0,     // uses the same allocator as in module for code generation
++      use_seperate_allocator = 1, // uses a different temporary allocator for code generation
++      skip = 2                    // skip code generation
++   };
++
+    static constexpr unsigned get_size_for_type(uint8_t type) {
+       switch(type) {
+        case types::i32:
+@@ -295,12 +301,12 @@ namespace eosio { namespace vm {
+          return mod;
+       }
+ 
+-      inline module& parse_module2(wasm_code_ptr& code_ptr, size_t sz, module& mod, DebugInfo& debug) {
+-         parse_module(code_ptr, sz, mod, debug);
++      inline module& parse_module2(wasm_code_ptr& code_ptr, size_t sz, module& mod, DebugInfo& debug, detail::code_generate_mode mode = detail::code_generate_mode::use_same_allocator) {
++         parse_module(code_ptr, sz, mod, debug, mode);
+          return mod;
+       }
+ 
+-      void parse_module(wasm_code_ptr& code_ptr, size_t sz, module& mod, DebugInfo& debug) {
++      void parse_module(wasm_code_ptr& code_ptr, size_t sz, module& mod, DebugInfo& debug, detail::code_generate_mode mode = detail::code_generate_mode::use_same_allocator) {
+          _mod = &mod;
+          EOS_VM_ASSERT(parse_magic(code_ptr) == constants::magic, wasm_parse_exception, "magic number did not match");
+          EOS_VM_ASSERT(parse_version(code_ptr) == constants::version, wasm_parse_exception,
+@@ -338,7 +344,7 @@ namespace eosio { namespace vm {
+                case section_id::element_section:
+                   parse_section<section_id::element_section>(code_ptr, mod.elements);
+                   break;
+-               case section_id::code_section: parse_section<section_id::code_section>(code_ptr, mod.code); break;
++               case section_id::code_section: parse_section<section_id::code_section>(code_ptr, mod.code, mode); break;
+                case section_id::data_section: parse_section<section_id::data_section>(code_ptr, mod.data); break;
+                default: EOS_VM_ASSERT(false, wasm_parse_exception, "error invalid section id");
+             }
+@@ -1309,12 +1315,31 @@ namespace eosio { namespace vm {
+       }
+       template <uint8_t id>
+       inline void parse_section(wasm_code_ptr&                                                                 code,
+-                                vec<typename std::enable_if_t<id == section_id::code_section, function_body>>& elems) {
++                                vec<typename std::enable_if_t<id == section_id::code_section, function_body>>& elems, detail::code_generate_mode mode) {
+          const void* code_start = code.raw() - code.offset();
+          parse_section_impl(code, elems, detail::get_max_function_section_elements(_options),
+                             [&](wasm_code_ptr& code, function_body& fb, std::size_t idx) { parse_function_body(code, fb, idx); });
+          EOS_VM_ASSERT( elems.size() == _mod->functions.size(), wasm_parse_exception, "code section must have the same size as the function section" );
+-         Writer code_writer(_allocator, code.bounds() - code.offset(), *_mod);
++
++         if (mode == detail::code_generate_mode::skip) {
++            return;
++         } else if (mode == detail::code_generate_mode::use_seperate_allocator) {
++            // Leap: in 2-pass parsing, save temporary JIT executible in a
++            // seperate allocator so the executible will not be part of
++            // instantiated module's allocator and won't be cached.
++            growable_allocator allocator;
++            allocator.use_default_memory();
++            write_code_out(allocator, code, code_start);
++            // pass the code base address and size to the main module's allocator
++            _mod->allocator.set_code_base_and_size(allocator._code_base, allocator._code_size);
++            allocator._code_base = nullptr; // make sure code_base won't be freed when going out of current scope by allocator's destructor
++         } else {
++            write_code_out(_allocator, code, code_start);
++         }
++      }
++
++      void write_code_out(growable_allocator& allocator, wasm_code_ptr& code, const void* code_start) {
++         Writer code_writer(allocator, code.bounds() - code.offset(), *_mod);
+          imap.on_code_start(code_writer.get_base_addr(), code_start);
+          for (size_t i = 0; i < _function_bodies.size(); i++) {
+             function_body& fb = _mod->code[i];
+@@ -1328,6 +1353,7 @@ namespace eosio { namespace vm {
+          }
+          imap.on_code_end(code_writer.get_addr(), code.raw());
+       }
++
+       template <uint8_t id>
+       inline void parse_section(wasm_code_ptr&                                                                code,
+                                 vec<typename std::enable_if_t<id == section_id::data_section, data_segment>>& elems) {
+diff --git a/libraries/eos-vm/include/eosio/vm/types.hpp b/libraries/eos-vm/include/eosio/vm/types.hpp
+index 2e12ddc..149afc2 100644
+--- a/libraries/eos-vm/include/eosio/vm/types.hpp
++++ b/libraries/eos-vm/include/eosio/vm/types.hpp
+@@ -164,7 +164,7 @@ namespace eosio { namespace vm {
+    };
+ 
+    struct module {
+-      growable_allocator              allocator = { constants::initial_module_size };
++      growable_allocator              allocator;
+       uint32_t                        start     = std::numeric_limits<uint32_t>::max();
+       guarded_vector<func_type>       types     = { allocator, 0 };
+       guarded_vector<import_entry>    imports   = { allocator, 0 };
+diff --git a/libraries/eos-vm/include/eosio/vm/wasm_stack.hpp b/libraries/eos-vm/include/eosio/vm/wasm_stack.hpp
+index 0046d38..da16153 100644
+--- a/libraries/eos-vm/include/eosio/vm/wasm_stack.hpp
++++ b/libraries/eos-vm/include/eosio/vm/wasm_stack.hpp
+@@ -63,6 +63,17 @@ namespace eosio { namespace vm {
+       size_t       size() const { return _index; }
+       size_t       capacity() const { return _store.size(); }
+ 
++      // This is only applicable when underlying allocator is unmanaged_vector,
++      // which is std::vector
++      void         reset_capacity() {
++         if constexpr (std::is_same_v<Allocator, nullptr_t>) {
++            if (_store.capacity() > constants::initial_stack_size) {
++               _store.resize(constants::initial_stack_size);
++               _store.shrink_to_fit();
++            }
++         }
++      }
++
+     private:
+       using base_data_store_t = std::conditional_t<std::is_same_v<Allocator, std::nullptr_t>, unmanaged_vector<ElemT>, managed_vector<ElemT, Allocator>>;
+ 
+diff --git a/libraries/eos-vm/include/eosio/vm/x86_64.hpp b/libraries/eos-vm/include/eosio/vm/x86_64.hpp
+index d9b4945..b52a8cf 100644
+--- a/libraries/eos-vm/include/eosio/vm/x86_64.hpp
++++ b/libraries/eos-vm/include/eosio/vm/x86_64.hpp
+@@ -34,9 +34,9 @@ namespace eosio { namespace vm {
+    class machine_code_writer {
+     public:
+       machine_code_writer(growable_allocator& alloc, std::size_t source_bytes, module& mod) :
+-         _mod(mod), _code_segment_base(alloc.start_code()) {
++         _mod(mod), _allocator(alloc), _code_segment_base(_allocator.start_code()) {
+          const std::size_t code_size = 4 * 16; // 4 error handlers, each is 16 bytes.
+-         _code_start = _mod.allocator.alloc<unsigned char>(code_size);
++         _code_start = _allocator.alloc<unsigned char>(code_size);
+          _code_end = _code_start + code_size;
+          code = _code_start;
+ 
+@@ -51,7 +51,7 @@ namespace eosio { namespace vm {
+          // emit host functions
+          const uint32_t num_imported = mod.get_imported_functions_size();
+          const std::size_t host_functions_size = (40 + 10 * Context::async_backtrace()) * num_imported;
+-         _code_start = _mod.allocator.alloc<unsigned char>(host_functions_size);
++         _code_start = _allocator.alloc<unsigned char>(host_functions_size);
+          _code_end = _code_start + host_functions_size;
+          // code already set
+          for(uint32_t i = 0; i < num_imported; ++i) {
+@@ -67,7 +67,7 @@ namespace eosio { namespace vm {
+             // can use random access
+             _table_element_size = 17;
+             const std::size_t table_size = _table_element_size*_mod.tables[0].table.size();
+-            _code_start = _mod.allocator.alloc<unsigned char>(table_size);
++            _code_start = _allocator.alloc<unsigned char>(table_size);
+             _code_end = _code_start + table_size;
+             // code already set
+             for(uint32_t i = 0; i < _mod.tables[0].table.size(); ++i) {
+@@ -96,7 +96,7 @@ namespace eosio { namespace vm {
+             assert(code == _code_end);
+          }
+       }
+-      ~machine_code_writer() { _mod.allocator.end_code<true>(_code_segment_base); }
++      ~machine_code_writer() { _allocator.end_code<true>(_code_segment_base); }
+ 
+       static constexpr std::size_t max_prologue_size = 21;
+       static constexpr std::size_t max_epilogue_size = 10;
+@@ -105,7 +105,7 @@ namespace eosio { namespace vm {
+          // FIXME: This is not a tight upper bound
+          const std::size_t instruction_size_ratio_upper_bound = use_softfloat?(Context::async_backtrace()?63:49):79;
+          std::size_t code_size = max_prologue_size + _mod.code[funcnum].size * instruction_size_ratio_upper_bound + max_epilogue_size;
+-         _code_start = _mod.allocator.alloc<unsigned char>(code_size);
++         _code_start = _allocator.alloc<unsigned char>(code_size);
+          _code_end = _code_start + code_size;
+          code = _code_start;
+          start_function(code, funcnum + _mod.get_imported_functions_size());
+@@ -2094,7 +2094,7 @@ namespace eosio { namespace vm {
+ 
+       using fn_type = native_value(*)(void* context, void* memory);
+       void finalize(function_body& body) {
+-         _mod.allocator.reclaim(code, _code_end - code);
++         _allocator.reclaim(code, _code_end - code);
+          body.jit_code_offset = _code_start - (unsigned char*)_code_segment_base;
+       }
+ 
+@@ -2128,6 +2128,7 @@ namespace eosio { namespace vm {
+       }
+ 
+       module& _mod;
++      growable_allocator& _allocator;
+       void * _code_segment_base;
+       const func_type* _ft;
+       unsigned char * _code_start;
+diff --git a/libraries/eos-vm/tests/allocator_tests.cpp b/libraries/eos-vm/tests/allocator_tests.cpp
+index bcea463..fce8895 100644
+--- a/libraries/eos-vm/tests/allocator_tests.cpp
++++ b/libraries/eos-vm/tests/allocator_tests.cpp
+@@ -97,3 +97,62 @@ TEST_CASE("Testing reclaim", "[growable_allocator]") {
+    int * ptr2 = alloc.alloc<int>(10);
+    CHECK(ptr2 == ptr1 + 2);
+ }
++
++TEST_CASE("Testing use_default_memory", "[growable_allocator]") {
++   growable_allocator alloc(1024);
++   // use_default_memory cannot be called when memory is already allocated by constructor
++   CHECK_THROWS_AS(alloc.use_default_memory(), wasm_bad_alloc);
++
++   growable_allocator alloc1;
++   alloc1.use_default_memory();
++   // use_default_memory cannot be called multiple times
++   CHECK_THROWS_AS(alloc1.use_default_memory(), wasm_bad_alloc);
++
++   growable_allocator alloc3;
++   alloc3.use_default_memory();
++   // can allocate as much as researved memory
++   alloc3.alloc<char>(growable_allocator::max_memory_size);
++   // cannot allocate more than researved memory
++   CHECK_THROWS_AS(alloc3.alloc<char>(1), wasm_bad_alloc);
++}
++
++TEST_CASE("Testing use_fixed_memory", "[growable_allocator]") {
++   growable_allocator alloc(1024);
++   // use_fixed_memory cannot be called when memory is already allocated by constructor
++   CHECK_THROWS_AS(alloc.use_fixed_memory(false, 4096), wasm_bad_alloc);
++
++   growable_allocator alloc1;
++   alloc1.use_fixed_memory(true, 1024);
++   // use_fixed_memory cannot be called multiple times
++   CHECK_THROWS_AS(alloc1.use_fixed_memory(true, 1024), wasm_bad_alloc);
++
++   growable_allocator alloc2;
++   // fixed_memory size cannot be 0
++   CHECK_THROWS_AS(alloc2.use_fixed_memory(true, 0), wasm_bad_alloc);
++   // fixed_memory size cannot be too big
++   CHECK_THROWS_AS(alloc2.use_fixed_memory(true, growable_allocator::max_memory_size + 1), wasm_bad_alloc);
++   // fixed_memory size can be growable_allocator::max_memory_size
++   alloc2.use_fixed_memory(true, growable_allocator::max_memory_size);
++
++   growable_allocator alloc3;
++   // reserved 1024 bytes
++   alloc3.use_fixed_memory(true, 1024);
++   // can allocate less than researved memory
++   alloc3.alloc<char>(1000);
++   // can allocate equal to researved memory ( 1000+24 == 1024)
++   alloc3.alloc<char>(24);
++   // cannot allocate more than researved memory ( 1000+24+1 > 1024)
++   CHECK_THROWS_AS(alloc3.alloc<char>(1), wasm_bad_alloc);
++}
++
++TEST_CASE("Testing mixed use_fixed_memory and alloc2.use_default_memory", "[growable_allocator]") {
++   growable_allocator alloc1;
++   alloc1.use_default_memory();
++   // use_fixed_memory and use_fixed_memory cannot be mixed
++   CHECK_THROWS_AS(alloc1.use_fixed_memory(true, 1024), wasm_bad_alloc);
++
++   growable_allocator alloc2;
++   alloc2.use_fixed_memory(true, 1024);
++   // use_fixed_memory and use_default_memory cannot be mixed
++   CHECK_THROWS_AS(alloc2.use_default_memory(), wasm_bad_alloc);
++}
