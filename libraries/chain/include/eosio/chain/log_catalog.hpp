@@ -1,10 +1,10 @@
 #pragma once
-#include <boost/container/flat_map.hpp>
-#include <boost/filesystem/path.hpp>
-#include <boost/iostreams/device/mapped_file.hpp>
 #include <fc/io/cfile.hpp>
 #include <fc/io/datastream.hpp>
+#include <boost/filesystem/path.hpp>
+#include <boost/iostreams/device/mapped_file.hpp>
 #include <regex>
+#include <map>
 
 namespace eosio {
 namespace chain {
@@ -37,10 +37,10 @@ struct log_catalog {
    using block_num_t = uint32_t;
 
    struct mapped_type {
-      block_num_t last_block_num;
+      block_num_t last_block_num = 0;
       bfs::path   filename_base;
    };
-   using collection_t              = boost::container::flat_map<block_num_t, mapped_type>;
+   using collection_t              = std::map<block_num_t, mapped_type>;
    using size_type                 = typename collection_t::size_type;
    static constexpr size_type npos = std::numeric_limits<size_type>::max();
 
@@ -138,7 +138,7 @@ struct log_catalog {
    std::optional<uint64_t> get_block_position(uint32_t block_num) {
       try {
          if (active_index != npos) {
-            auto active_item = collection.nth(active_index);
+            auto active_item = std::next(collection.begin(), active_index);
             if (active_item->first <= block_num && block_num <= active_item->second.last_block_num) {
                return log_index.nth_block_position(block_num - log_data.first_block_num());
             }
@@ -152,7 +152,7 @@ struct log_catalog {
             auto name = it->second.filename_base;
             log_data.open(name.replace_extension("log"));
             log_index.open(name.replace_extension("index"));
-            active_index = collection.index_of(it);
+            active_index = std::distance(collection.begin(), it); //collection.index_of(it);
             return log_index.nth_block_position(block_num - log_data.first_block_num());
          }
          return {};
@@ -205,7 +205,7 @@ struct log_catalog {
    /// Add a new entry into the catalog.
    ///
    /// Notice that \c start_block_num must be monotonically increasing between the invocations of this function
-   /// so that the new entry would be inserted at the end of the flat_map; otherwise, \c active_index would be
+   /// so that the new entry would be inserted at the 'end' of the map; otherwise, \c active_index would be
    /// invalidated and the mapping between the log data their block range would be wrong. This function is only used
    /// during the splitting of block log. Using this function for other purpose should make sure if the monotonically
    /// increasing block num guarantee can be met.
@@ -221,19 +221,20 @@ struct log_catalog {
       if (collection.size() >= max_retained_files) {
          items_to_erase =
             max_retained_files > 0 ? collection.size() - max_retained_files : collection.size();
+         auto end = std::next( collection.begin(), items_to_erase);
 
-         for (auto it = collection.begin(); it < collection.begin() + items_to_erase; ++it) {
+         for (auto it = collection.begin(); it != end; ++it) {
             auto orig_name = it->second.filename_base;
             if (archive_dir.empty()) {
                // delete the old files when no backup dir is specified
                bfs::remove(orig_name.replace_extension("log"));
                bfs::remove(orig_name.replace_extension("index"));
             } else {
-               // move the the archive dir
+               // move the archive dir
                rename_bundle(orig_name, archive_dir / orig_name.filename());
             }
          }
-         collection.erase(collection.begin(), collection.begin() + items_to_erase);
+         collection.erase(collection.begin(), end);
          active_index = active_index == npos || active_index < items_to_erase
                         ? npos
                         : active_index - items_to_erase;
@@ -259,7 +260,7 @@ struct log_catalog {
       active_index = npos;
       auto it = collection.upper_bound(block_num);
 
-      if (it == collection.begin() || block_num > (it - 1)->second.last_block_num) {
+      if (it == collection.begin() || block_num > std::prev(it)->second.last_block_num) {
          std::for_each(it, collection.end(), remove_files);
          collection.erase(it, collection.end());
          return 0;
@@ -268,7 +269,7 @@ struct log_catalog {
          auto name        = truncate_it->second.filename_base;
          bfs::rename(name.replace_extension("log"), new_name.replace_extension("log"));
          bfs::rename(name.replace_extension("index"), new_name.replace_extension("index"));
-         std::for_each(truncate_it + 1, collection.end(), remove_files);
+         std::for_each(std::next(truncate_it), collection.end(), remove_files);
          auto result = truncate_it->first;
          collection.erase(truncate_it, collection.end());
          return result;
