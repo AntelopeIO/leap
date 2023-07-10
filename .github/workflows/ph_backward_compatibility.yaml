@@ -130,58 +130,13 @@ jobs:
           rm build/bin/cleos
           mv tmp/usr/bin/nodeos build/bin
           mv tmp/usr/bin/cleos build/bin
-      - name: Run BP Op Mode Performance Test
-        if: always()
+      - if: ${{ matrix.release == '3.1' || matrix.release == '3.2' }}
+        name: Run Performance Tests (<v4.0)
         run: |
           cd build
-          ctest --output-on-failure -R performance_test_bp --timeout 480
-      - name: Run CPU Trx Spec Performance Test
-        if: always()
-        run: |
-          cd build
-          ctest --output-on-failure -R performance_test_cpu_trx_spec --timeout 480
-      - name: Run API Node Op Mode Performance Test
-        if: always()
-        run: |
-          cd build
-          ctest --output-on-failure -R performance_test_api --timeout 480
+          ctest --output-on-failure -R performance_test -E read_only --timeout 480
       - if: ${{ matrix.release != '3.1' && matrix.release != '3.2' }}
-        name: Run Read Only Trxs Performance Test
+        name: Run Performance Tests (>=v4.0)
         run: |
           cd build
-          ctest --output-on-failure -R performance_test_read_only_trxs --timeout 480
-      - name: Run P2P Performance Basic Test
-        if: always()
-        run: |
-          cd build
-          ctest --output-on-failure -R performance_test_basic_p2p --timeout 480
-      - name: Run User Defined Transfer Trx Spec Performance Basic Tests
-        if: always()
-        run: |
-          cd build
-          ctest --output-on-failure -R performance_test_basic_transfer_trx_spec --timeout 480
-      - name: Run User Defined New Acct Trx Spec Performance Basic Tests
-        if: always()
-        run: |
-          cd build
-          ctest --output-on-failure -R performance_test_basic_new_acct_trx_spec --timeout 480
-      - name: Run User Defined CPU Trx Spec Performance Basic Tests
-        if: always()
-        run: |
-          cd build
-          ctest --output-on-failure -R performance_test_basic_cpu_trx_spec --timeout 480
-      - name: Run User Defined Ram Trx Spec Performance Basic Tests
-        if: always()
-        run: |
-          cd build
-          ctest --output-on-failure -R performance_test_basic_ram_trx_spec --timeout 480
-      - name: Run API Node Op Mode Performance Basic Test
-        if: always()
-        run: |
-          cd build
-          ctest --output-on-failure -R performance_test_basic_http --timeout 480
-      - if: ${{ matrix.release != '3.1' && matrix.release != '3.2' }}
-        name: Run Read Only Trx Performance Basic Test
-        run: |
-          cd build
-          ctest --output-on-failure -R performance_test_basic_read_only_trxs --timeout 480
+          ctest --output-on-failure -R performance_test --timeout 480
