@@ -124,18 +124,13 @@ struct log_catalog {
       if (!bfs::exists(index_path))
          return false;
 
-      auto num_blocks_in_index = bfs::file_size(index_path) / sizeof(uint64_t);
-      if (num_blocks_in_index != log.num_blocks())
+      LogIndex log_i;
+      log_i.open(index_path);
+
+      if (log_i.num_blocks() != log.num_blocks())
          return false;
 
-      // make sure the last 8 bytes of index and log matches
-      fc::cfile index_file;
-      index_file.set_file_path(index_path);
-      index_file.open("r");
-      index_file.seek_end(-sizeof(uint64_t));
-      uint64_t pos;
-      index_file.read(reinterpret_cast<char*>(&pos), sizeof(pos));
-      return pos == log.last_block_position();
+      return log_i.back() == log.last_block_position();
    }
 
    std::optional<uint64_t> get_block_position(uint32_t block_num) {
