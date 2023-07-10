@@ -69,8 +69,6 @@ jobs:
         - name: Build
           id: build
           run: |
-            # https://github.com/actions/runner/issues/2033
-            chown -R $(id -u):$(id -g) $PWD
             cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
             cmake --build build
             tar -pc --exclude "*.o" build | zstd --long -T0 -9 > build.tar.zst
@@ -101,8 +99,6 @@ jobs:
           name: ${{matrix.platform}}-build
       - name: Extract Build Directory
         run: |
-          # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
-          chown -R $(id -u):$(id -g) $PWD
           zstdcat build.tar.zst | tar x
       - name: Download Prev Leap Version
         uses: AntelopeIO/asset-artifact-download-action@v2
