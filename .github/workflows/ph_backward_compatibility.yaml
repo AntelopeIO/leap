@@ -116,6 +116,7 @@ jobs:
           rm build/bin/cleos
           cp /usr/bin/nodeos build/bin
           cp /usr/bin/cleos build/bin
+          ./build/bin/nodeos --version
       - if: ${{ matrix.release == '3.1' || matrix.release == '3.2' }}
         name: Run Performance Tests (<v4.0)
         run: |
