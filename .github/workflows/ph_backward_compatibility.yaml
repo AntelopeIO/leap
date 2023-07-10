@@ -110,12 +110,12 @@ jobs:
           token: ${{github.token}}
       - name: Extract and Place Rev Leap Version artifacts
         run: |
-          mkdir tmp
-          dpkg -x leap*.deb tmp
+          apt-get update
+          apt install -y leap*.deb
           rm build/bin/nodeos
           rm build/bin/cleos
-          mv tmp/usr/bin/nodeos build/bin
-          mv tmp/usr/bin/cleos build/bin
+          cp /usr/bin/nodeos build/bin
+          cp /usr/bin/cleos build/bin
       - if: ${{ matrix.release == '3.1' || matrix.release == '3.2' }}
         name: Run Performance Tests (<v4.0)
         run: |
