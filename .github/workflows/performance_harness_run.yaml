@@ -104,8 +104,6 @@ jobs:
         - name: Build
           id: build
           run: |
-            # https://github.com/actions/runner/issues/2033
-            chown -R $(id -u):$(id -g) $PWD
             cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
             cmake --build build
             tar -pc --exclude "*.o" build | zstd --long -T0 -9 > build.tar.zst
@@ -119,12 +117,9 @@ jobs:
     name: Tests
     needs: [v, d, Build]
     if: always() && needs.Build.result == 'success'
-    strategy:
-      fail-fast: false
     runs-on: ubuntu-latest
     container:
       image: ${{fromJSON(needs.d.outputs.p)[github.event.inputs.platform-choice].image}}
-      options: --security-opt seccomp=unconfined
     steps:
       - name: Download builddir
         uses: actions/download-artifact@v3
@@ -132,16 +127,12 @@ jobs:
           name: ${{github.event.inputs.platform-choice}}-build
       - name: Run Performance Test
         run: |
-          # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
-          chown -R $(id -u):$(id -g) $PWD
           zstdcat build.tar.zst | tar x
           cd build
           ./tests/performance_tests/performance_test.py ${{needs.v.outputs.test-params}}
       - name: Prepare results
         id: prep-results
         run: |
-          # https://github.com/actions/runner/issues/2033
-          chown -R $(id -u):$(id -g) $PWD
           tar -pc build/performance_test | zstd --long -T0 -9 > performance_test_logs.tar.zst
       - name: Upload results
         uses: AntelopeIO/upload-artifact-large-chunks-action@v1
