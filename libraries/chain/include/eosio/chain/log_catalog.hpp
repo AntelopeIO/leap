@@ -2,7 +2,6 @@
 #include <fc/io/cfile.hpp>
 #include <fc/io/datastream.hpp>
 #include <boost/filesystem/path.hpp>
-#include <boost/iostreams/device/mapped_file.hpp>
 #include <regex>
 #include <map>
 
