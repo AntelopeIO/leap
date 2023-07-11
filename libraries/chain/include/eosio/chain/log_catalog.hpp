@@ -1,7 +1,7 @@
 #pragma once
 #include <fc/io/cfile.hpp>
 #include <fc/io/datastream.hpp>
-#include <boost/filesystem/path.hpp>
+#include <filesystem>
 #include <regex>
 #include <map>
 
