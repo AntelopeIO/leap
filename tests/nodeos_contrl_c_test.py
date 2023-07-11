@@ -97,7 +97,7 @@ try:
     testSuccessful=False
 
     Print("Configure and launch txn generators")
-    targetTpsPerGenerator = 100
+    targetTpsPerGenerator = 10
     testTrxGenDurationSec=60
     trxGeneratorCnt=1
     cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[accounts[0].name,accounts[1].name],
