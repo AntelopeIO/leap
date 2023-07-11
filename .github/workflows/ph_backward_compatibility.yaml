@@ -12,76 +12,13 @@ defaults:
     shell: bash
 
 jobs:
-  d:
-    name: Discover Platforms
-    runs-on: ubuntu-latest
-    outputs:
-      missing-platforms: ${{steps.discover.outputs.missing-platforms}}
-      p: ${{steps.discover.outputs.platforms}}
-    steps:
-      - name: Discover Platforms
-        id: discover
-        uses: AntelopeIO/discover-platforms-action@v1
-        with:
-          platform-file: .cicd/platforms.json
-          password: ${{secrets.GITHUB_TOKEN}}
-          package-name: builders
-
-  build-platforms:
-    name: Build Platforms
-    needs: d
-    if: needs.d.outputs.missing-platforms != '[]'
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: ${{fromJSON(needs.d.outputs.missing-platforms)}}
-    runs-on: ["self-hosted", "enf-x86-beefy"]
-    permissions:
-      packages: write
-      contents: read
-    steps:
-      - name: Login to Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{github.repository_owner}}
-          password: ${{secrets.GITHUB_TOKEN}}
-      - name: Build and push
-        uses: docker/build-push-action@v3
-        with:
-          push: true
-          tags: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-          file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
-
-  Build:
-    needs: [d, build-platforms]
-    if: always() && needs.d.result == 'success' && (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu20, ubuntu22]
-    runs-on: ["self-hosted", "enf-x86-beefy"]
-    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-    steps:
-        - uses: actions/checkout@v3
-          with:
-            submodules: recursive
-        - name: Build
-          id: build
-          run: |
-            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
-            cmake --build build
-            tar -pc --exclude "*.o" build | zstd --long -T0 -9 > build.tar.zst
-        - name: Upload builddir
-          uses: AntelopeIO/upload-artifact-large-chunks-action@v1
-          with:
-            name: ${{matrix.platform}}-build
-            path: build.tar.zst
+  build-base:
+    uses: AntelopeIO/leap/.github/workflows/build_base.yaml@main
 
   tests:
     name: Tests
-    needs: [d, Build]
-    if: always() && needs.Build.result == 'success'
+    needs: [build-base]
+    if: always() && needs.build-base.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -89,7 +26,7 @@ jobs:
         release: [3.1, 3.2, 4.0]
     runs-on: ["self-hosted", "enf-x86-lowtier"]
     container:
-      image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+      image: ${{fromJSON(needs.build-base.outputs.p)[matrix.platform].image}}
       options: --security-opt seccomp=unconfined
     steps:
       - uses: actions/checkout@v3
