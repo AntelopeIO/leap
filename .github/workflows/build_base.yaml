@@ -9,7 +9,7 @@ on:
         value: ${{ jobs.d.outputs.p }}
 
 permissions:
-  packages: read
+  packages: write
   contents: read
 
 defaults:
