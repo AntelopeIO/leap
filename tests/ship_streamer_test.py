@@ -137,7 +137,7 @@ try:
     nonProdNode.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
     for account in accounts:
         Print(f"Transfer funds {transferAmount} from account {cluster.eosioAccount.name} to {account.name}")
-        nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=False)
+        trans=nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=False)
     nonProdNode.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
     for account in accounts:
         trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=False, exitOnError=True)
