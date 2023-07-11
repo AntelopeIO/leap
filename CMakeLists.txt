@@ -101,11 +101,6 @@ else()
   set(no_whole_archive_flag "--no-whole-archive")
 endif()
 
-set( Boost_USE_MULTITHREADED      ON )
-set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
-
-add_subdirectory( libraries/boost )
-
 if( APPLE AND UNIX )
 # Apple Specific Options Here
     message( STATUS "Configuring Leap on macOS" )
