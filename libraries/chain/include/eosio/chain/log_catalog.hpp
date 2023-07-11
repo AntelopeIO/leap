@@ -1,17 +1,17 @@
 #pragma once
-#include <boost/container/flat_map.hpp>
-#include <boost/iostreams/device/mapped_file.hpp>
 #include <fc/io/cfile.hpp>
 #include <fc/io/datastream.hpp>
+#include <filesystem>
 #include <regex>
+#include <map>
 
 namespace eosio {
 namespace chain {
 
 
 template <typename Lambda>
-void for_each_file_in_dir_matches(const std::filesystem::path& dir, std::string pattern, Lambda&& lambda) {
-   const std::regex        my_filter(pattern);
+void for_each_file_in_dir_matches(const std::filesystem::path& dir, std::string_view pattern, Lambda&& lambda) {
+   const std::regex        my_filter(pattern.begin(), pattern.size());
    std::smatch             what;
    std::filesystem::directory_iterator end_itr; // Default ctor yields past-the-end
    for (std::filesystem::directory_iterator p(dir); p != end_itr; ++p) {
@@ -36,10 +36,10 @@ struct log_catalog {
    using block_num_t = uint32_t;
 
    struct mapped_type {
-      block_num_t           last_block_num;
+      block_num_t           last_block_num = 0;
       std::filesystem::path filename_base;
    };
-   using collection_t              = boost::container::flat_map<block_num_t, mapped_type>;
+   using collection_t              = std::map<block_num_t, mapped_type>;
    using size_type                 = typename collection_t::size_type;
    static constexpr size_type npos = std::numeric_limits<size_type>::max();
 
@@ -84,9 +84,10 @@ struct log_catalog {
          archive_dir = make_absolute_dir(log_dir, archive_path);
       }
 
-      for_each_file_in_dir_matches(retained_dir, std::string(name) + suffix_pattern, [this](std::filesystem::path path) {
+      std::string pattern = std::string(name) + suffix_pattern;
+      for_each_file_in_dir_matches(retained_dir, pattern, [this](std::filesystem::path path) {
          auto log_path               = path;
-         auto index_path             = path.replace_extension("index");
+         const auto& index_path      = path.replace_extension("index");
          auto path_without_extension = log_path.parent_path() / log_path.stem().string();
 
          LogData log(log_path);
@@ -94,8 +95,10 @@ struct log_catalog {
          verifier.verify(log, log_path);
 
          // check if index file matches the log file
-         if (!index_matches_data(index_path, log))
-            log.construct_index(index_path);
+         if (!index_matches_data(index_path, log)) {
+            ilog("Recreating index for: ${i}", ("i", index_path.string()));
+            log.construct_index( index_path );
+         }
 
          auto existing_itr = collection.find(log.first_block_num());
          if (existing_itr != collection.end()) {
@@ -112,7 +115,7 @@ struct log_catalog {
             }
          }
 
-         collection.insert_or_assign(log.first_block_num(), mapped_type{log.last_block_num(), path_without_extension});
+         collection.insert_or_assign(log.first_block_num(), mapped_type{log.last_block_num(), std::move(path_without_extension)});
       });
    }
 
@@ -120,24 +123,19 @@ struct log_catalog {
       if (!std::filesystem::exists(index_path))
          return false;
 
-      auto num_blocks_in_index = std::filesystem::file_size(index_path) / sizeof(uint64_t);
-      if (num_blocks_in_index != log.num_blocks())
+      LogIndex log_i;
+      log_i.open(index_path);
+
+      if (log_i.num_blocks() != log.num_blocks())
          return false;
 
-      // make sure the last 8 bytes of index and log matches
-      fc::cfile index_file;
-      index_file.set_file_path(index_path);
-      index_file.open("r");
-      index_file.seek_end(-sizeof(uint64_t));
-      uint64_t pos;
-      index_file.read(reinterpret_cast<char*>(&pos), sizeof(pos));
-      return pos == log.last_block_position();
+      return log_i.back() == log.last_block_position();
    }
 
    std::optional<uint64_t> get_block_position(uint32_t block_num) {
       try {
          if (active_index != npos) {
-            auto active_item = collection.nth(active_index);
+            auto active_item = std::next(collection.begin(), active_index);
             if (active_item->first <= block_num && block_num <= active_item->second.last_block_num) {
                return log_index.nth_block_position(block_num - log_data.first_block_num());
             }
@@ -151,7 +149,7 @@ struct log_catalog {
             auto name = it->second.filename_base;
             log_data.open(name.replace_extension("log"));
             log_index.open(name.replace_extension("index"));
-            active_index = collection.index_of(it);
+            active_index = std::distance(collection.begin(), it);
             return log_index.nth_block_position(block_num - log_data.first_block_num());
          }
          return {};
@@ -204,7 +202,7 @@ struct log_catalog {
    /// Add a new entry into the catalog.
    ///
    /// Notice that \c start_block_num must be monotonically increasing between the invocations of this function
-   /// so that the new entry would be inserted at the end of the flat_map; otherwise, \c active_index would be
+   /// so that the new entry would be inserted at the 'end' of the map; otherwise, \c active_index would be
    /// invalidated and the mapping between the log data their block range would be wrong. This function is only used
    /// during the splitting of block log. Using this function for other purpose should make sure if the monotonically
    /// increasing block num guarantee can be met.
@@ -216,23 +214,24 @@ struct log_catalog {
       std::filesystem::path new_path = retained_dir / buf;
       rename_bundle(dir / name, new_path);
       size_type items_to_erase = 0;
-      collection.emplace(start_block_num, mapped_type{end_block_num, new_path});
+      collection.emplace(start_block_num, mapped_type{end_block_num, std::move(new_path)});
       if (collection.size() >= max_retained_files) {
          items_to_erase =
             max_retained_files > 0 ? collection.size() - max_retained_files : collection.size();
+         auto last = std::next( collection.begin(), items_to_erase);
 
-         for (auto it = collection.begin(); it < collection.begin() + items_to_erase; ++it) {
+         for (auto it = collection.begin(); it != last; ++it) {
             auto orig_name = it->second.filename_base;
             if (archive_dir.empty()) {
                // delete the old files when no backup dir is specified
                std::filesystem::remove(orig_name.replace_extension("log"));
                std::filesystem::remove(orig_name.replace_extension("index"));
             } else {
-               // move the the archive dir
+               // move the archive dir
                rename_bundle(orig_name, archive_dir / orig_name.filename());
             }
          }
-         collection.erase(collection.begin(), collection.begin() + items_to_erase);
+         collection.erase(collection.begin(), last);
          active_index = active_index == npos || active_index < items_to_erase
                         ? npos
                         : active_index - items_to_erase;
@@ -258,7 +257,7 @@ struct log_catalog {
       active_index = npos;
       auto it = collection.upper_bound(block_num);
 
-      if (it == collection.begin() || block_num > (it - 1)->second.last_block_num) {
+      if (it == collection.begin() || block_num > std::prev(it)->second.last_block_num) {
          std::for_each(it, collection.end(), remove_files);
          collection.erase(it, collection.end());
          return 0;
@@ -267,7 +266,7 @@ struct log_catalog {
          auto name        = truncate_it->second.filename_base;
          std::filesystem::rename(name.replace_extension("log"), new_name.replace_extension("log"));
          std::filesystem::rename(name.replace_extension("index"), new_name.replace_extension("index"));
-         std::for_each(truncate_it + 1, collection.end(), remove_files);
+         std::for_each(std::next(truncate_it), collection.end(), remove_files);
          auto result = truncate_it->first;
          collection.erase(truncate_it, collection.end());
          return result;
