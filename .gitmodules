@@ -33,4 +33,4 @@
 	url = https://github.com/AntelopeIO/CLI11.git
 [submodule "libraries/boost"]
 	path = libraries/boost
-	url = https://github.com/boostorg/boost
+	url = https://github.com/AntelopeIO/boost
