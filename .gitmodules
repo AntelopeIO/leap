@@ -31,6 +31,3 @@
 [submodule "libraries/cli11/cli11"]
 	path = libraries/cli11/cli11
 	url = https://github.com/AntelopeIO/CLI11.git
-[submodule "libraries/boost"]
-	path = libraries/boost
-	url = https://github.com/AntelopeIO/boost
