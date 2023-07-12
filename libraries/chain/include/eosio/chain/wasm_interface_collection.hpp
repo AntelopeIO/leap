@@ -23,7 +23,7 @@ namespace eosio::chain {
                 || is_eos_vm_oc_enabled()
 #endif
             ) {
-               wasmif.apply(code_hash, vm_type, vm_version, context);
+               return wasmif.apply(code_hash, vm_type, vm_version, context);
             }
             threaded_wasmifs[std::this_thread::get_id()]->apply(code_hash, vm_type, vm_version, context);
          }
