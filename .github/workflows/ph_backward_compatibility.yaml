@@ -13,7 +13,7 @@ defaults:
 
 jobs:
   build-base:
-    uses: AntelopeIO/leap/.github/workflows/build_base.yaml@GH-1156-ph-cicd-nodeos-versions
+    uses: .github/workflows/build_base.yaml
 
   tests:
     name: Tests
