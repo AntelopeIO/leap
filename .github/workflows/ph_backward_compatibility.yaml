@@ -15,7 +15,7 @@ jobs:
   build-base:
     uses: ./.github/workflows/build_base.yaml
     permissions:
-      packages: read
+      packages: write
       contents: read
 
   tests:
