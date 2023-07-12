@@ -144,4 +144,45 @@ BOOST_AUTO_TEST_CASE( decompressed_size_under_limit ) try {
 
 } FC_LOG_AND_RETHROW()
 
+// verify accepted_block signals validated blocks
+BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
+   tester chain;
+   tester validator;
+
+   block_state_ptr accepted_bsp;
+   auto c = chain.control->accepted_block.connect([&](const block_state_ptr& b) {
+      BOOST_CHECK(b);
+      BOOST_CHECK(chain.control->fetch_block_state_by_id(b->id) == b);
+      BOOST_CHECK(chain.control->fetch_block_state_by_number(b->block_num) == b);  // verify it can be found (has to be validated)
+      BOOST_CHECK(chain.control->fetch_block_by_id(b->id) == b->block);
+      BOOST_CHECK(chain.control->fetch_block_by_number(b->block_num) == b->block);
+      BOOST_REQUIRE(chain.control->fetch_block_header_by_number(b->block_num));
+      BOOST_CHECK(chain.control->fetch_block_header_by_number(b->block_num)->calculate_id() == b->id);
+      BOOST_REQUIRE(chain.control->fetch_block_header_by_id(b->id));
+      BOOST_CHECK(chain.control->fetch_block_header_by_id(b->id)->calculate_id() == b->id);
+      accepted_bsp = b;
+   });
+   block_state_ptr validated_bsp;
+   auto c2 = validator.control->accepted_block.connect([&](const block_state_ptr& b) {
+      BOOST_CHECK(b);
+      BOOST_CHECK(validator.control->fetch_block_state_by_id(b->id) == b);
+      BOOST_CHECK(validator.control->fetch_block_state_by_number(b->block_num) == b);  // verify it can be found (has to be validated)
+      BOOST_CHECK(validator.control->fetch_block_by_id(b->id) == b->block);
+      BOOST_CHECK(validator.control->fetch_block_by_number(b->block_num) == b->block);
+      BOOST_REQUIRE(validator.control->fetch_block_header_by_number(b->block_num));
+      BOOST_CHECK(validator.control->fetch_block_header_by_number(b->block_num)->calculate_id() == b->id);
+      BOOST_REQUIRE(validator.control->fetch_block_header_by_id(b->id));
+      BOOST_CHECK(validator.control->fetch_block_header_by_id(b->id)->calculate_id() == b->id);
+      validated_bsp = b;
+   });
+
+   chain.produce_blocks(1);
+   validator.push_block(accepted_bsp->block);
+
+   auto trace_ptr = chain.create_account("hello"_n);
+   chain.produce_block();
+   validator.push_block(accepted_bsp->block);
+
+} FC_LOG_AND_RETHROW()
+
 BOOST_AUTO_TEST_SUITE_END()
