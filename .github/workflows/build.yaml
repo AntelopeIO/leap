@@ -32,7 +32,7 @@ defaults:
 
 jobs:
   build-base:
-    uses: .github/workflows/build_base.yaml
+    uses: ./.github/workflows/build_base.yaml
     permissions:
       packages: write
       contents: read
