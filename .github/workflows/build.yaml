@@ -23,7 +23,7 @@ on:
         type: string
 
 permissions:
-  packages: write
+  packages: read
   contents: read
 
 defaults:
@@ -33,6 +33,9 @@ defaults:
 jobs:
   build-base:
     uses: .github/workflows/build_base.yaml
+    permissions:
+      packages: write
+      contents: read
 
   v:
     name: Discover Versions
