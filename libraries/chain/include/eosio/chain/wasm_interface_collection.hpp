@@ -27,6 +27,14 @@ namespace eosio::chain {
             return *threaded_wasmifs[std::this_thread::get_id()];
          }
 
+         void apply(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, apply_context& context) {
+            get_wasm_interface().apply(code_hash, vm_type, vm_version, context);
+         }
+
+         bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) {
+            return get_wasm_interface().is_code_cached(code_hash, vm_type, vm_version);
+         }
+
          // update current lib of all wasm interfaces
          void current_lib(const uint32_t lib) {
             // producer_plugin has already asserted irreversible_block signal is called in write window
