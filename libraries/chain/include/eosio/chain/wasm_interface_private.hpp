@@ -97,13 +97,7 @@ namespace eosio { namespace chain {
 #endif
       }
 
-      ~wasm_interface_impl() {
-         if(is_shutting_down)
-            for(wasm_cache_index::iterator it = wasm_instantiation_cache.begin(); it != wasm_instantiation_cache.end(); ++it)
-               wasm_instantiation_cache.modify(it, [](wasm_cache_entry& e) {
-                  e.module.release()->fast_shutdown();
-               });
-      }
+      ~wasm_interface_impl() = default;
 
       bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {
          wasm_cache_index::iterator it = wasm_instantiation_cache.find( boost::make_tuple(code_hash, vm_type, vm_version) );
@@ -162,7 +156,6 @@ namespace eosio { namespace chain {
          return it->module;
       }
 
-      bool is_shutting_down = false;
       std::unique_ptr<wasm_runtime_interface> runtime_interface;
 
       typedef boost::multi_index_container<
