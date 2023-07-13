@@ -48,7 +48,7 @@ void wasm_interface_collection::apply(const digest_type& code_hash, const uint8_
       return;
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
    if (eosvmoc && (eosvmoc_tierup == wasm_interface::vm_oc_enable::oc_all || context.should_use_eos_vm_oc())) {
-      const chain::eosvmoc::code_descriptor*          cd      = nullptr;
+      const chain::eosvmoc::code_descriptor* cd = nullptr;
       chain::eosvmoc::code_cache_base::get_cd_failure failure = chain::eosvmoc::code_cache_base::get_cd_failure::temporary;
       try {
          const bool high_priority = context.get_receiver().prefix() == chain::config::system_account_name;
@@ -66,12 +66,6 @@ void wasm_interface_collection::apply(const digest_type& code_hash, const uint8_
             tlog("${a} speculatively executing ${h} with eos vm oc", ("a", context.get_receiver())("h", code_hash));
          eosvmoc->exec->execute(*cd, eosvmoc->mem, context);
          return;
-      } else if (context.trx_context.is_read_only()) {
-         if (failure == chain::eosvmoc::code_cache_base::get_cd_failure::temporary) {
-            EOS_ASSERT(false, ro_trx_vm_oc_compile_temporary_failure, "get_descriptor_for_code failed with temporary failure");
-         } else {
-            EOS_ASSERT(false, ro_trx_vm_oc_compile_permanent_failure, "get_descriptor_for_code failed with permanent failure");
-         }
       }
    }
 #endif
