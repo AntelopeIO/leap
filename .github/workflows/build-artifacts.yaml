@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-20:
     name: Build nodeos
     runs-on: ubuntu-20.04
     outputs:
@@ -32,5 +32,31 @@ jobs:
             ./build/leap*.rpm
             ./build/leap*.tar.gz
 
+  build-22:
+    name: Build nodeos
+    runs-on: ubuntu-22.04
+    needs: [build-20]
+    outputs:
+      version: ${{ steps.set_version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Install deps
+        run: sudo scripts/install_deps.sh
+      - name: Build
+        run: sudo scripts/pinned_build.sh deps build 2
+      - name: Set version
+        id: set_version
+        run: |
+          echo "version=$(./build/bin/nodeos --version)" >> $GITHUB_OUTPUT
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          files: |
+            ./build/leap*.deb
+            ./build/leap*.rpm
+            ./build/leap*.tar.gz
 
 
