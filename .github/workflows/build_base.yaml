@@ -59,6 +59,7 @@ jobs:
           file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
 
   Build:
+    name: Build leap
     needs: [d, build-platforms]
     if: always() && needs.d.result == 'success' && (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
     strategy:

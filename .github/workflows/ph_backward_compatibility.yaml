@@ -13,6 +13,7 @@ defaults:
 
 jobs:
   build-base:
+    name: Run Build Workflow
     uses: ./.github/workflows/build_base.yaml
     permissions:
       packages: write
