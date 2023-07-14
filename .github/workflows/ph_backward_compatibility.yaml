@@ -12,10 +12,59 @@ defaults:
     shell: bash
 
 jobs:
-  tmp:
-    name: Stub
-    runs-on: ubuntu-latest
+  build-base:
+    name: Run Build Workflow
+    uses: ./.github/workflows/build_base.yaml
+    permissions:
+      packages: write
+      contents: read
+
+  tests:
+    name: Tests
+    needs: [build-base]
+    if: always() && needs.build-base.result == 'success'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu20, ubuntu22]
+        release: [3.1, 3.2, 4.0]
+    runs-on: ["self-hosted", "enf-x86-lowtier"]
+    container:
+      image: ${{fromJSON(needs.build-base.outputs.p)[matrix.platform].image}}
+      options: --security-opt seccomp=unconfined
     steps:
-      - name: Workflow Stub
+      - uses: actions/checkout@v3
+      - name: Download builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{matrix.platform}}-build
+      - name: Extract Build Directory
         run: |
-          echo "Workflow Stub"
+          zstdcat build.tar.zst | tar x
+      - name: Download Prev Leap Version
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: leap
+          file: '(leap).*${{matrix.platform}}.04.*(x86_64|amd64).deb'
+          target: '${{matrix.release}}'
+          token: ${{github.token}}
+      - name: Install leap & replace binaries for PH use
+        run: |
+          apt-get update
+          apt-get install -y ./leap*.deb
+          rm build/bin/nodeos
+          rm build/bin/cleos
+          cp /usr/bin/nodeos build/bin
+          cp /usr/bin/cleos build/bin
+          ./build/bin/nodeos --version
+      - if: ${{ matrix.release == '3.1' || matrix.release == '3.2' }}
+        name: Run Performance Tests (<v4.0)
+        run: |
+          cd build
+          ctest --output-on-failure -R performance_test -E read_only --timeout 480
+      - if: ${{ matrix.release != '3.1' && matrix.release != '3.2' }}
+        name: Run Performance Tests (>=v4.0)
+        run: |
+          cd build
+          ctest --output-on-failure -R performance_test --timeout 480
