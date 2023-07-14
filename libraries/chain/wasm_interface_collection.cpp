@@ -79,7 +79,8 @@ void wasm_interface_collection::apply(const digest_type& code_hash, const uint8_
        || is_eos_vm_oc_enabled()
 #endif
    ) {
-      return wasmif.apply(code_hash, vm_type, vm_version, context);
+      wasmif.apply(code_hash, vm_type, vm_version, context);
+      return;
    }
    threaded_wasmifs[std::this_thread::get_id()]->apply(code_hash, vm_type, vm_version, context);
 }
