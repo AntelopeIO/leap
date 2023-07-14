@@ -1,10 +1,5 @@
 #pragma once
 #include <eosio/chain/wasm_interface.hpp>
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-#include <eosio/chain/webassembly/eos-vm-oc.hpp>
-#else
-#define _REGISTER_EOSVMOC_INTRINSIC(CLS, MOD, METHOD, WASM_SIG, NAME, SIG)
-#endif
 #include <mutex>
 #include <thread>
 #include <unordered_map>

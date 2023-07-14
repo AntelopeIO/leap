@@ -1,4 +1,9 @@
 #include <eosio/chain/wasm_interface_collection.hpp>
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+#include <eosio/chain/webassembly/eos-vm-oc.hpp>
+#else
+#define _REGISTER_EOSVMOC_INTRINSIC(CLS, MOD, METHOD, WASM_SIG, NAME, SIG)
+#endif
 
 namespace eosio::chain {
 
