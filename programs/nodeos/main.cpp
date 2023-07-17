@@ -29,12 +29,13 @@ using namespace eosio;
 namespace detail {
 
 void log_non_default_options(const std::vector<bpo::basic_option<char>>& options) {
+   using namespace std::string_literals;
    string result;
    for (const auto& op : options) {
       bool mask = false;
-      if (op.string_key == "signature-provider"
-          || op.string_key == "peer-private-key"
-          || op.string_key == "p2p-auto-bp-peer") {
+      if (op.string_key == "signature-provider"s
+          || op.string_key == "peer-private-key"s
+          || op.string_key == "p2p-auto-bp-peer"s) {
          mask = true;
       }
       std::string v;
