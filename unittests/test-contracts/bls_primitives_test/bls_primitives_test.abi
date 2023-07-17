@@ -1,0 +1,260 @@
+{
+    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "version": "eosio::abi/1.2",
+    "types": [],
+    "structs": [
+        {
+            "name": "testg1add",
+            "base": "",
+            "fields": [
+                {
+                    "name": "op1",
+                    "type": "bytes"
+                },
+                {
+                    "name": "op2",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testg1exp",
+            "base": "",
+            "fields": [
+                {
+                    "name": "points",
+                    "type": "bytes"
+                },
+                {
+                    "name": "scalars",
+                    "type": "bytes"
+                },
+                {
+                    "name": "num",
+                    "type": "uint32"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testg1map",
+            "base": "",
+            "fields": [
+                {
+                    "name": "e",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testg1mul",
+            "base": "",
+            "fields": [
+                {
+                    "name": "point",
+                    "type": "bytes"
+                },
+                {
+                    "name": "scalar",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testg2add",
+            "base": "",
+            "fields": [
+                {
+                    "name": "op1",
+                    "type": "bytes"
+                },
+                {
+                    "name": "op2",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testg2exp",
+            "base": "",
+            "fields": [
+                {
+                    "name": "points",
+                    "type": "bytes"
+                },
+                {
+                    "name": "scalars",
+                    "type": "bytes"
+                },
+                {
+                    "name": "num",
+                    "type": "uint32"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testg2map",
+            "base": "",
+            "fields": [
+                {
+                    "name": "e",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testg2mul",
+            "base": "",
+            "fields": [
+                {
+                    "name": "point",
+                    "type": "bytes"
+                },
+                {
+                    "name": "scalar",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testpairing",
+            "base": "",
+            "fields": [
+                {
+                    "name": "g1_points",
+                    "type": "bytes"
+                },
+                {
+                    "name": "g2_points",
+                    "type": "bytes"
+                },
+                {
+                    "name": "num",
+                    "type": "uint32"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        }
+    ],
+    "actions": [
+        {
+            "name": "testg1add",
+            "type": "testg1add",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testg1exp",
+            "type": "testg1exp",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testg1map",
+            "type": "testg1map",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testg1mul",
+            "type": "testg1mul",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testg2add",
+            "type": "testg2add",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testg2exp",
+            "type": "testg2exp",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testg2map",
+            "type": "testg2map",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testg2mul",
+            "type": "testg2mul",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testpairing",
+            "type": "testpairing",
+            "ricardian_contract": ""
+        }
+    ],
+    "tables": [],
+    "ricardian_clauses": [],
+    "variants": [],
+    "action_results": []
+}

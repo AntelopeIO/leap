@@ -322,7 +322,7 @@ namespace eosio { namespace chain { namespace webassembly {
          if(i%10 == 0)
             context.trx_context.checktime();
       }
-      bls12_381::g1 r = bls12_381::g1::multiExp(pv, sv).value(); // accessing value is safe
+      bls12_381::g1 r = bls12_381::g1::multiExp(pv, sv, [this](){ context.trx_context.checktime(); }).value(); // accessing value is safe
       r.toJacobianBytesLE({reinterpret_cast<uint8_t*>(result.data()), 144}, true);
       return return_code::success;
    }
