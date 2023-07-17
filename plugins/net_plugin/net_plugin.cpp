@@ -1289,10 +1289,8 @@ namespace eosio {
    void connection::_close( bool reconnect, bool shutdown ) {
       socket_open = false;
       boost::system::error_code ec;
-      if( socket->is_open() ) {
-         socket->shutdown( tcp::socket::shutdown_both, ec );
-         socket->close( ec );
-      }
+      socket->shutdown( tcp::socket::shutdown_both, ec );
+      socket->close( ec );
       socket.reset( new tcp::socket( my_impl->thread_pool.get_executor() ) );
       flush_queues();
       peer_syncing_from_us = false;
@@ -1518,9 +1516,16 @@ namespace eosio {
             try {
                c->buffer_queue.clear_out_queue();
                // May have closed connection and cleared buffer_queue
-               if( !c->socket_is_open() || socket != c->socket ) {
-                  peer_ilog( c, "async write socket ${r} before callback", ("r", c->socket_is_open() ? "changed" : "closed") );
+               if (!c->socket->is_open() && c->socket_is_open()) { // if socket_open then close not called
+                  peer_ilog(c, "async write socket closed before callback");
                   c->close();
+                  return;
+               }
+               if (socket != c->socket ) { // different socket, c must have created a new socket, make sure previous is closed
+                  peer_ilog( c, "async write socket changed before callback");
+                  boost::system::error_code ec;
+                  socket->shutdown( tcp::socket::shutdown_both, ec );
+                  socket->close( ec );
                   return;
                }
 
@@ -2735,7 +2740,18 @@ namespace eosio {
             boost::asio::bind_executor( strand,
               [conn = shared_from_this(), socket=socket]( boost::system::error_code ec, std::size_t bytes_transferred ) {
                // may have closed connection and cleared pending_message_buffer
-               if( !conn->socket_is_open() || socket != conn->socket ) return;
+               if (!conn->socket->is_open() && conn->socket_is_open()) { // if socket_open then close not called
+                  peer_dlog( conn, "async_read socket not open, closing");
+                  conn->close();
+                  return;
+               }
+               if (socket != conn->socket ) { // different socket, conn must have created a new socket, make sure previous is closed
+                  peer_dlog( conn, "async_read diff socket closing");
+                  boost::system::error_code ec;
+                  socket->shutdown( tcp::socket::shutdown_both, ec );
+                  socket->close( ec );
+                  return;
+               }
 
                bool close_connection = false;
                try {
@@ -3078,6 +3094,7 @@ namespace eosio {
       peer_head_block_num = msg.head_num;
       fc::unique_lock g_conn( conn_mtx );
       last_handshake_recv = msg;
+      auto c_time = last_handshake_sent.time;
       g_conn.unlock();
 
       set_state(connection_state::connected);
@@ -3103,16 +3120,11 @@ namespace eosio {
             return;
          }
 
-         if( peer_address().empty() ) {
+         if( incoming() ) {
             auto [host, port, type] = split_host_port_type(msg.p2p_address);
             if (host.size())
                set_connection_type( msg.p2p_address );
-         }
 
-         g_conn.lock();
-         if( peer_address().empty() || last_handshake_recv.node_id == fc::sha256()) {
-            auto c_time = last_handshake_sent.time;
-            g_conn.unlock();
             peer_dlog( this, "checking for duplicate" );
             auto is_duplicate = [&](const auto& check) {
                if(check.get() == this)
@@ -3159,9 +3171,7 @@ namespace eosio {
                return;
             }
          } else {
-            peer_dlog( this, "skipping duplicate check, addr == ${pa}, id = ${ni}",
-                       ("pa", peer_address())( "ni", last_handshake_recv.node_id ) );
-            g_conn.unlock();
+            peer_dlog(this, "skipping duplicate check, addr == ${pa}, id = ${ni}", ("pa", peer_address())("ni", msg.node_id));
          }
 
          if( msg.chain_id != my_impl->chain_id ) {

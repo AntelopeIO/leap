@@ -154,16 +154,20 @@ int main(int argc, char* argv[]) {
          // validate after streaming, so that invalid entry is included in the output
          uint32_t this_block_num = 0;
          if( result_document[1].HasMember("this_block") && result_document[1]["this_block"].IsObject() ) {
-            if( result_document[1]["this_block"].HasMember("block_num") && result_document[1]["this_block"]["block_num"].IsUint() ) {
-               this_block_num = result_document[1]["this_block"]["block_num"].GetUint();
+            const auto& this_block = result_document[1]["this_block"];
+            if( this_block.HasMember("block_num") && this_block["block_num"].IsUint() ) {
+               this_block_num = this_block["block_num"].GetUint();
             }
             std::string this_block_id;
-            if( result_document[1]["this_block"].HasMember("block_id") && result_document[1]["this_block"]["block_id"].IsString() ) {
-               this_block_id = result_document[1]["this_block"]["block_id"].GetString();
+            if( this_block.HasMember("block_id") && this_block["block_id"].IsString() ) {
+               this_block_id = this_block["block_id"].GetString();
             }
             std::string prev_block_id;
-            if( result_document[1]["prev_block"].HasMember("block_id") && result_document[1]["prev_block"]["block_id"].IsString() ) {
-               prev_block_id = result_document[1]["prev_block"]["block_id"].GetString();
+            if( result_document[1].HasMember("prev_block") && result_document[1]["prev_block"].IsObject() ) {
+               const auto& prev_block = result_document[1]["prev_block"];
+               if ( prev_block.HasMember("block_id") && prev_block["block_id"].IsString() ) {
+                  prev_block_id = prev_block["block_id"].GetString();
+               }
             }
             if( !irreversible_only && !this_block_id.empty() && !prev_block_id.empty() ) {
                // verify forks were sent
