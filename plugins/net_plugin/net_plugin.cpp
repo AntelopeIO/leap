@@ -4151,13 +4151,13 @@ namespace eosio {
                return;
             }
          });
-         app().executor().post(priority::highest, [my=shared_from_this()](){
-            my->ticker();
-            my->start_monitors();
-            my->update_chain_info();
-            my->connections.connect_supplied_peers();
-         });
       }
+      app().executor().post(priority::highest, [my=shared_from_this()](){
+         my->ticker();
+         my->start_monitors();
+         my->update_chain_info();
+         my->connections.connect_supplied_peers();
+      });
    }
 
    void net_plugin::plugin_initialize( const variables_map& options ) {
