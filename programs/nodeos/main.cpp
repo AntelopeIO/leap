@@ -11,9 +11,15 @@
 #include <fc/log/logger_config.hpp>
 #include <fc/log/appender.hpp>
 #include <fc/exception/exception.hpp>
+#include <fc/scoped_exit.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/exception/diagnostic_information.hpp>
+
+#include <filesystem>
+#include <string>
+#include <vector>
+#include <iterator>
 
 #include "config.hpp"
 
@@ -21,6 +27,39 @@ using namespace appbase;
 using namespace eosio;
 
 namespace detail {
+
+void log_non_default_options(const std::vector<bpo::basic_option<char>>& options) {
+   string result;
+   for (const auto& op : options) {
+      bool mask = false;
+      if (op.string_key == "signature-provider"
+          || op.string_key == "peer-private-key"
+          || op.string_key == "p2p-auto-bp-peer") {
+         mask = true;
+      }
+      std::string v;
+      for (auto i = op.value.cbegin(), b = op.value.cbegin(), e = op.value.cend(); i != e; ++i) {
+         if (i != b)
+            v += ", ";
+         if (mask)
+            v += "***";
+         else
+            v += *i;
+      }
+
+      if (!result.empty())
+         result += ", ";
+
+      if (v.empty()) {
+         result += op.string_key;
+      } else {
+         result += op.string_key;
+         result += " = ";
+         result += v;
+      }
+   }
+   ilog("Non-default options: ${v}", ("v", result));
+}
 
 fc::logging_config& add_deep_mind_logger(fc::logging_config& config) {
    config.appenders.push_back(
@@ -109,6 +148,12 @@ int main(int argc, char** argv)
 {
    try {
       appbase::scoped_app app;
+      fc::scoped_exit<std::function<void()>> on_exit = [&]() {
+         ilog("${name} version ${ver} ${fv}",
+              ("name", nodeos::config::node_executable_name)("ver", app->version_string())
+              ("fv", app->version_string() == app->full_version_string() ? "" : app->full_version_string()) );
+         ::detail::log_non_default_options(app->get_parsed_options());
+      };
       uint32_t short_hash = 0;
       fc::from_hex(eosio::version::version_hash(), (char*)&short_hash, sizeof(short_hash));
 
@@ -137,11 +182,12 @@ int main(int argc, char** argv)
          elog("resource_monitor_plugin failed to initialize");
          return INITIALIZE_FAIL;
       }
-      ilog( "${name} version ${ver} ${fv}",
+      ilog("${name} version ${ver} ${fv}",
             ("name", nodeos::config::node_executable_name)("ver", app->version_string())
             ("fv", app->version_string() == app->full_version_string() ? "" : app->full_version_string()) );
       ilog("${name} using configuration file ${c}", ("name", nodeos::config::node_executable_name)("c", app->full_config_file_path().string()));
       ilog("${name} data directory is ${d}", ("name", nodeos::config::node_executable_name)("d", app->data_dir().string()));
+      ::detail::log_non_default_options(app->get_parsed_options());
       app->startup();
       app->set_thread_priority_max();
       app->exec();
