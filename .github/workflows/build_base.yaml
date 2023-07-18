@@ -86,6 +86,8 @@ jobs:
             echo platform-matrix=${{inputs.override-build-matrix}} >> $GITHUB_OUTPUT
           fi
 
+          echo "$GITHUB_OUTPUT"
+
   Build:
     name: Build leap
     needs: [d, build-platforms, pm]
