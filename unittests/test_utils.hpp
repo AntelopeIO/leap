@@ -11,6 +11,7 @@
 #include <contracts.hpp>
 #include <future>
 #include <stdexcept>
+#include <thread>
 
 namespace eosio::test_utils {
 
