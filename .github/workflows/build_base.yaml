@@ -81,7 +81,7 @@ jobs:
         run: |
           echo 'platform-matrix=${{steps.parse-pm.outputs.result}}' >> $GITHUB_OUTPUT
 
-          if [[ ${{inputs.override-build-matrix}} != "" ]]; then
+          if [[ "${{inputs.override-build-matrix}}" != "" ]]; then
             echo "Executing override."
             echo 'platform-matrix=["${{inputs.override-build-matrix}}"]' >> $GITHUB_OUTPUT
           fi
