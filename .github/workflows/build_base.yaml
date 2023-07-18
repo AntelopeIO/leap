@@ -80,11 +80,11 @@ jobs:
       - name: Check | Override result
         id: pm-results
         run: |
-          echo platform-matrix=\"${{steps.parse-pm.outputs.result}}\" >> $GITHUB_OUTPUT
+          echo 'platform-matrix=\"${{steps.parse-pm.outputs.result}}\"' >> $GITHUB_OUTPUT
 
           if [[ ${{inputs.override-build-matrix}} != '[]' ]]; then
             echo "Executing override."
-            echo platform-matrix=\"${{inputs.override-build-matrix}}\" >> $GITHUB_OUTPUT
+            echo 'platform-matrix=\"${{inputs.override-build-matrix}}\"' >> $GITHUB_OUTPUT
           fi
       - name: Check matrix      
         id: check-matrix
@@ -94,8 +94,8 @@ jobs:
           else
             echo "empty_matrix::false"        
           fi
-          echo ${{ steps.pm-results.outputs.platform-matrix }}
-          echo ${{ steps.parse-pm.outputs.result }}
+          echo '${{ steps.pm-results.outputs.platform-matrix }}'
+          echo '${{ steps.parse-pm.outputs.result }}'
 
   Build:
     name: Build leap
