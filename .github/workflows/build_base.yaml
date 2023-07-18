@@ -70,7 +70,7 @@ jobs:
         name: Parse Platform Matrix
         id: platform-matrix
         with:
-          script: return Object.keys(fromJSON(needs.d.outputs.p))
+          script: return Object.keys(needs.d.outputs.p)
       - name: Get result
         run: echo "${{steps.platform-matrix.outputs.result}}"
 
