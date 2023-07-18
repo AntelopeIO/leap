@@ -70,7 +70,7 @@ jobs:
     if: always() && needs.d.result == 'success'
     runs-on: ubuntu-latest
     outputs:
-      platform-matrix: ${{fromJSON(steps.pm-results.outputs.platform-matrix)}}
+      platform-matrix: ${{steps.pm-results.outputs.platform-matrix}}
     steps:
       - uses: actions/github-script@v6
         name: Parse Platform Matrix
@@ -86,14 +86,11 @@ jobs:
             echo platform-matrix=${{inputs.override-build-matrix}} >> $GITHUB_OUTPUT
           fi
 
-          echo "$GITHUB_OUTPUT"
-
   Build:
     name: Build leap
     needs: [d, build-platforms, pm]
     if: |
       always() &&
-      needs.pm.result == 'success' &&
       needs.d.result == 'success' &&
       (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
     strategy:
