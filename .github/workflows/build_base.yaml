@@ -81,9 +81,9 @@ jobs:
     name: Build leap
     needs: [d, build-platforms, pm]
     if: |
-      always() && \
-      needs.pm.result == 'success' && \
-      needs.d.result == 'success' && \
+      always() &&
+      needs.pm.result == 'success' &&
+      needs.d.result == 'success' &&
       (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
     strategy:
       fail-fast: false
