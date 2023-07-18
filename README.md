@@ -132,7 +132,6 @@ sudo apt-get install -y \
         build-essential \
         cmake \
         git \
-        libboost-all-dev \
         libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \

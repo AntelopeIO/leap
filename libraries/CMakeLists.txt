@@ -5,6 +5,10 @@ set(SOFTFLOAT_INSTALL_COMPONENT "dev")
 set(EOSVM_INSTALL_COMPONENT "dev")
 set(BN256_INSTALL_COMPONENT "dev")
 
+set( Boost_USE_MULTITHREADED      ON )
+set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
+add_subdirectory( boost )
+
 add_subdirectory( libfc )
 add_subdirectory( builtins )
 add_subdirectory( softfloat )
