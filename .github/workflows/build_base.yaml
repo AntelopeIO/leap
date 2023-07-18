@@ -58,6 +58,22 @@ jobs:
           tags: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
           file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
 
+  platform-matrx:
+    name: Platform Matrix
+    needs: [d]
+    if: always() && needs.d.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      platform-matrix: ${{steps.platform-matrix.outputs.result}}
+    steps:
+      - uses: actions/github-script@v6
+        name: Parse Platform Matrix
+        id: platform-matrix
+        with:
+          script: return Object.keys(fromJSON(needs.d.outputs.p))
+      - name: Get result
+        run: echo "${{steps.platform-matrix.outputs.result}}"
+
   Build:
     name: Build leap
     needs: [d, build-platforms]
