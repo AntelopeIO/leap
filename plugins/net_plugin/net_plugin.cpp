@@ -3962,7 +3962,7 @@ namespace eosio {
                                std::chrono::seconds( options.at("connection-cleanup-period").as<int>() ),
                                options.at("max-clients").as<uint32_t>() );
 
-         if( options.count( "p2p-listen-endpoint" ) && !options.at("p2p-listen-endpoint").as<vector<string>>().empty()) {
+         if( options.count( "p2p-listen-endpoint" ) && !options.at("p2p-listen-endpoint").as<vector<string>>().empty() &&  options.at("p2p-listen-endpoint").as<vector<string>>()[0].length()) {
             p2p_addresses = options.at( "p2p-listen-endpoint" ).as<vector<string>>();
             auto addr_count = p2p_addresses.size();
             std::sort(p2p_addresses.begin(), p2p_addresses.end());
