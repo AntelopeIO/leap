@@ -56,21 +56,20 @@ jobs:
       needs.v.result == 'success'
     runs-on: ubuntu-latest
     steps:
-        - name: Download builddir
-          uses: AntelopeIO/asset-artifact-download-action@v2
-          with:
-            owner: AntelopeIO
-            repo: leap
-            file: ${{github.event.inputs.platform-choice}}-build
-            target: '${{needs.v.outputs.leap-ref}}'
-            artifact-name: ${{github.event.inputs.platform-choice}}-build
-            token: ${{github.token}}
-            
-        - name: Upload builddir
-          uses: AntelopeIO/upload-artifact-large-chunks-action@v1
-          with:
-            name: ${{github.event.inputs.platform-choice}}-build
-            path: build.tar.zst
+      - name: Download builddir
+        uses: AntelopeIO/asset-artifact-download-action@v2
+        with:
+          owner: AntelopeIO
+          repo: leap
+          file: ${{github.event.inputs.platform-choice}}-build
+          target: '${{needs.v.outputs.leap-ref}}'
+          artifact-name: ${{github.event.inputs.platform-choice}}-build
+          token: ${{github.token}}
+      - name: Upload builddir
+        uses: AntelopeIO/upload-artifact-large-chunks-action@v1
+        with:
+          name: ${{github.event.inputs.platform-choice}}-build
+          path: build.tar.zst
 
   build-base:
     name: Run Build Workflow
