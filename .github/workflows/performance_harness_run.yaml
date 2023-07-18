@@ -12,9 +12,6 @@ on:
       override-test-params:
         description: 'Override perf harness params'
         type: string
-      override-leap-ref:
-        description: 'Override leap ref'
-        type: string
 
 permissions:
   packages: read
@@ -31,7 +28,6 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       test-params: ${{steps.overrides.outputs.test-params}}
-      leap-ref: ${{steps.overrides.outputs.leap-ref}}
     steps:
       - name: Setup Input Params
         id: overrides
@@ -39,13 +35,9 @@ jobs:
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
         run: |
           echo test-params=testBpOpMode >> $GITHUB_OUTPUT
-          echo leap-ref='' >> $GITHUB_OUTPUT
 
           if [[ "${{inputs.override-test-params}}" != "" ]]; then
             echo test-params=${{inputs.override-test-params}} >> $GITHUB_OUTPUT
-          fi
-          if [[ "${{inputs.override-leap-ref}}" != "" ]]; then
-            echo leap-ref=${{inputs.override-leap-ref}} >> $GITHUB_OUTPUT
           fi
 
   reuse-build:
