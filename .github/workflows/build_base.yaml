@@ -95,6 +95,7 @@ jobs:
             echo "empty_matrix::false"        
           fi
           echo ${{ steps.pm-results.outputs.platform-matrix }}
+          echo ${{ steps.parse-pm.outputs.result }}
 
   Build:
     name: Build leap
