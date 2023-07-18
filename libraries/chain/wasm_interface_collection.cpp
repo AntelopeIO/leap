@@ -22,7 +22,7 @@ struct eosvmoc_tier {
 
    eosvmoc::code_cache_async cc;
 
-   // Each thread requires its own exec and mem. Defined in wasm_interface.cpp
+   // Each thread requires its own exec and mem.
    thread_local static std::unique_ptr<eosvmoc::executor> exec;
    thread_local static eosvmoc::memory mem;
 };
@@ -58,6 +58,8 @@ void wasm_interface_collection::apply(const digest_type& code_hash, const uint8_
       try {
          const bool high_priority = context.get_receiver().prefix() == chain::config::system_account_name;
          cd = eosvmoc->cc.get_descriptor_for_code(high_priority, code_hash, vm_version, context.control.is_write_window(), failure);
+         if (test_disable_tierup)
+            cd = nullptr;
       } catch (...) {
          // swallow errors here, if EOS VM OC has gone in to the weeds we shouldn't bail: continue to try and run baseline
          // In the future, consider moving bits of EOS VM that can fire exceptions and such out of this call path
@@ -74,11 +76,7 @@ void wasm_interface_collection::apply(const digest_type& code_hash, const uint8_
       }
    }
 #endif
-   if (is_on_main_thread()
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-       || is_eos_vm_oc_enabled()
-#endif
-   ) {
+   if (is_on_main_thread()) {
       wasmif.apply(code_hash, vm_type, vm_version, context);
       return;
    }
@@ -112,13 +110,12 @@ void wasm_interface_collection::init_thread_local_data(const chainbase::database
       if (eosvmoc)
          eosvmoc->init_thread_local_data();
       wasmif.init_thread_local_data();
-   } else
-#endif
-   {
-      std::lock_guard g(threaded_wasmifs_mtx);
-      // Non-EOSVMOC needs a wasmif per thread
-      threaded_wasmifs[std::this_thread::get_id()] = std::make_unique<wasm_interface>(wasm_runtime, d, data_dir, eosvmoc_config, profile);
    }
+#endif
+
+   std::lock_guard g(threaded_wasmifs_mtx);
+   // Non-EOSVMOC needs a wasmif per thread
+   threaded_wasmifs[std::this_thread::get_id()] = std::make_unique<wasm_interface>(wasm_runtime, d, data_dir, eosvmoc_config, profile);
 }
 
 void wasm_interface_collection::code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {

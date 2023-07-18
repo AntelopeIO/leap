@@ -11,6 +11,8 @@ namespace eosio::chain {
     */
    class wasm_interface_collection {
       public:
+         inline static bool test_disable_tierup = false; // set by unittests to test tierup failing
+
          wasm_interface_collection(wasm_interface::vm_type vm, wasm_interface::vm_oc_enable eosvmoc_tierup,
                                    const chainbase::database& d, const std::filesystem::path& data_dir,
                                    const eosvmoc::config& eosvmoc_config, bool profile);
