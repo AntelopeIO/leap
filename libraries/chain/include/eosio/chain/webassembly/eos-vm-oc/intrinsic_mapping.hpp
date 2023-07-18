@@ -274,7 +274,7 @@ inline constexpr auto get_intrinsic_table() {
       "env.bls_g2_mul",
       "env.bls_g1_exp",
       "env.bls_g2_exp",
-      "env.bls_g1_pairing",
+      "env.bls_pairing",
       "env.bls_g1_map",
       "env.bls_g2_map",
       "env.bls_fp_mod"

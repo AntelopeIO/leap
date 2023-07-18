@@ -350,7 +350,7 @@ BOOST_AUTO_TEST_CASE( bls_testg2exp ) { try {
    }
 
 } FC_LOG_AND_RETHROW() }
-/*
+
 BOOST_AUTO_TEST_CASE( bls_testpairing ) { try {
    tester c( setup_policy::preactivate_feature_and_new_bios );
 
@@ -407,7 +407,7 @@ BOOST_AUTO_TEST_CASE( bls_testpairing ) { try {
    }
 
 } FC_LOG_AND_RETHROW() }
-*/
+
 BOOST_AUTO_TEST_CASE( bls_testg1map ) { try {
    tester c( setup_policy::preactivate_feature_and_new_bios );
 
