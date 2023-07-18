@@ -39,7 +39,7 @@ jobs:
           GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
         run: |
           echo test-params=testBpOpMode >> $GITHUB_OUTPUT
-          echo leap-ref='${{github.sha}}' >> $GITHUB_OUTPUT
+          echo leap-ref='' >> $GITHUB_OUTPUT
 
           if [[ "${{inputs.override-test-params}}" != "" ]]; then
             echo test-params=${{inputs.override-test-params}} >> $GITHUB_OUTPUT
@@ -62,7 +62,7 @@ jobs:
             owner: AntelopeIO
             repo: leap
             file: ${{github.event.inputs.platform-choice}}-build
-            target: '${{needs.v.outputs.leap-ref}}'
+            target: ${{github.sha}}
             artifact-name: ${{github.event.inputs.platform-choice}}-build
             token: ${{github.token}}
             
@@ -79,7 +79,6 @@ jobs:
     uses: ./.github/workflows/build_base.yaml
     with:
       override-build-matrix: ${{github.event.inputs.platform-choice}}
-      leap-ref: ${{needs.v.outputs.leap-ref}}
     permissions:
       packages: write
       contents: read
