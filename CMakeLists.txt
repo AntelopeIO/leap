@@ -277,7 +277,7 @@ add_custom_command(TARGET boost_install
                    COMMAND python3 ${CMAKE_SOURCE_DIR}/scripts/MakeBoostDistro.py ${CMAKE_SOURCE_DIR}/libraries/boost ${CMAKE_BINARY_DIR}/boost-dist
                    VERBATIM)
 
-install(DIRECTORY "${CMAKE_BINARY_DIR}/boost-dist/boost" DESTINATION include COMPONENT dev EXCLUDE_FROM_ALL)
+install(DIRECTORY "${CMAKE_BINARY_DIR}/boost-dist/boost" DESTINATION include COMPONENT dev EXCLUDE_FROM_ALL) 
 
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
