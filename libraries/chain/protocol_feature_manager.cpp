@@ -261,6 +261,17 @@ Enables new `get_block_num` intrinsic which returns the current block number.
 */
             {}
          } )
+         (  builtin_protocol_feature_t::bls_primitives, builtin_protocol_feature_spec{
+            "BLS_PRIMITIVES",
+            fc::variant("01969c44de35999b924095ae7f50081a7f274409fdbccb9fc54fa7836c76089c").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
+/*
+Builtin protocol feature: BLS_PRIMITIVES
+Adds new cryptographic host functions
+- Add, multiply, multi-exponentiation and pairing functions for the bls12-381 elliptic curve.
+*/
+            {}
+         } )
    ;
 
 

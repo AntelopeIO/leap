@@ -49,6 +49,7 @@ find_library(libchain eosio_chain @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libfc fc @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libsecp256k1 secp256k1 @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libbn256 bn256 @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
+find_library(libbls12-381 bls12-381 @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 
 find_library(libwasm WASM @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libwast WAST @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
@@ -86,6 +87,7 @@ macro(add_eosio_test_executable test_name)
        ${libbuiltins}
        ${libsecp256k1}
        ${libbn256}
+       ${libbls12-381}
        @GMP_LIBRARY@
 
        ${Boost_FILESYSTEM_LIBRARY}
