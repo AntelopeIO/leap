@@ -64,15 +64,18 @@ jobs:
     if: always() && needs.d.result == 'success'
     runs-on: ubuntu-latest
     outputs:
-      platform-matrix: ${{steps.platform-matrix.outputs.result}}
+      platform-matrix: ${{steps.pm-results.outputs.matrix-out}}
     steps:
       - uses: actions/github-script@v6
         name: Parse Platform Matrix
-        id: platform-matrix
+        id: parse-pm
         with:
           script: return Object.keys(${{needs.d.outputs.p}})
       - name: Get result
-        run: echo "${{steps.platform-matrix.outputs.result}}"
+        id: pm-results
+        run: |
+          echo "${{steps.parse-pm.outputs.result}}"
+          echo matrix-out=${{steps.parse-pm.outputs.result}} >> $GITHUB_OUTPUT
 
   Build:
     name: Build leap
