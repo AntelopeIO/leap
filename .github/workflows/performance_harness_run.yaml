@@ -124,11 +124,11 @@ jobs:
 
   tests:
     name: Tests
-    needs: [v, d, Build]
-    if: always() && needs.Build.result == 'success'
+    needs: [build-base]
+    if: always() && needs.build-base.result == 'success'
     runs-on: ubuntu-latest
     container:
-      image: ${{fromJSON(needs.d.outputs.p)[github.event.inputs.platform-choice].image}}
+      image: ${{fromJSON(needs.build-base.outputs.p)[github.event.inputs.platform-choice].image}}
     steps:
       - name: Download builddir
         uses: actions/download-artifact@v3
