@@ -75,7 +75,7 @@ jobs:
         id: pm-results
         run: |
           echo "${{steps.parse-pm.outputs.result}}"
-          echo matrix-out=${{steps.parse-pm.outputs.result}} >> $GITHUB_OUTPUT
+          echo matrix-out="${{steps.parse-pm.outputs.result}}" >> $GITHUB_OUTPUT
 
   Build:
     name: Build leap
