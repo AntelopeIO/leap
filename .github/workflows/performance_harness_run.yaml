@@ -124,7 +124,7 @@ jobs:
 
   tests:
     name: Tests
-    needs: [build-base]
+    needs: [v, build-base]
     if: always() && needs.build-base.result == 'success'
     runs-on: ubuntu-latest
     container:
