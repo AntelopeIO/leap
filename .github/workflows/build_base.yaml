@@ -3,6 +3,11 @@ name: "Build leap"
 on:
   workflow_dispatch:
   workflow_call:
+    inputs:
+      override-build-matrix:
+        description: 'Override build matrix'
+        type: string
+        required: false
     outputs:
       p:
         description: "Discovered Build Platforms"
@@ -64,18 +69,21 @@ jobs:
     if: always() && needs.d.result == 'success'
     runs-on: ubuntu-latest
     outputs:
-      platform-matrix: ${{steps.parse-pm.outputs.result}}
+      platform-matrix: ${{steps.pm-results.outputs.platform-matrix}}
     steps:
       - uses: actions/github-script@v6
         name: Parse Platform Matrix
         id: parse-pm
         with:
           script: return Object.keys(${{needs.d.outputs.p}})
-      - name: Get result
+      - name: Check | Override result
         id: pm-results
         run: |
-          echo "${{steps.parse-pm.outputs.result}}"
-          echo "${{fromJSON(steps.parse-pm.outputs.result)}}"
+          echo platform-matrix=${{steps.parse-pm.outputs.result}} >> $GITHUB_OUTPUT
+
+          if [[ "${{inputs.override-build-matrix}}" != "" ]]; then
+            echo platform-matrix=${{inputs.override-build-matrix}} >> $GITHUB_OUTPUT
+          fi
 
   Build:
     name: Build leap
