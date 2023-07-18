@@ -58,7 +58,7 @@ jobs:
           tags: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
           file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
 
-  platform-matrx:
+  pm:
     name: Platform Matrix
     needs: [d]
     if: always() && needs.d.result == 'success'
@@ -76,12 +76,12 @@ jobs:
 
   Build:
     name: Build leap
-    needs: [d, build-platforms]
-    if: always() && needs.d.result == 'success' && (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
+    needs: [d, build-platforms, pm]
+    if: always() && needs.pm.result == 'success' && needs.d.result == 'success' && (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20, ubuntu22]
+        platform: ${{needs.pm.outputs.platform-matrix}}
     runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
