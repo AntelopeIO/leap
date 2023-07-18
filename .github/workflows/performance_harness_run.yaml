@@ -52,7 +52,7 @@ jobs:
     name: Run Build Workflow
     uses: ./.github/workflows/build_base.yaml
     with:
-      override-build-matrix: [${{github.event.inputs.platform-choice}}]
+      override-build-matrix: "[${{github.event.inputs.platform-choice}}]"
     permissions:
       packages: write
       contents: read
