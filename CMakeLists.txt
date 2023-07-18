@@ -274,7 +274,7 @@ install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CM
 
 add_custom_target(boost_install ALL)
 add_custom_command(TARGET boost_install
-                   COMMAND ${CMAKE_SOURCE_DIR}/scripts/MakeBoostDistro.py ${CMAKE_SOURCE_DIR}/libraries/boost ${CMAKE_BINARY_DIR}/boost-dist
+                   COMMAND python3 ${CMAKE_SOURCE_DIR}/scripts/MakeBoostDistro.py ${CMAKE_SOURCE_DIR}/libraries/boost ${CMAKE_BINARY_DIR}/boost-dist
                    VERBATIM)
 
 install(DIRECTORY "${CMAKE_BINARY_DIR}/boost-dist/boost" DESTINATION include COMPONENT dev EXCLUDE_FROM_ALL)
