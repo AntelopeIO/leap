@@ -84,7 +84,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{needs.pm.outputs.platform-matrix}}
+        platform: ${{fromJSON(needs.pm.outputs.platform-matrix)}}
     runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
     steps:
