@@ -1,36 +1,33 @@
 #include <boost/test/unit_test.hpp>
 
+#include <test_utils.hpp>
 #include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/testing/tester.hpp>
+#include <eosio/chain/block.hpp>
+#include <eosio/chain/config.hpp>
+#include <eosio/chain/types.hpp>
+#include <eosio/chain/controller.hpp>
 #include <eosio/chain/genesis_state.hpp>
 #include <eosio/chain/thread_utils.hpp>
+#include <eosio/chain/transaction.hpp>
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/trace.hpp>
+#include <eosio/chain/wasm_interface_collection.hpp>
 #include <eosio/chain/name.hpp>
 #include <eosio/chain/application.hpp>
 
-namespace eosio::test::detail {
-using namespace eosio::chain::literals;
-struct testit {
-   uint64_t      id;
-   testit( uint64_t id = 0 )
-         :id(id){}
-   static account_name get_account() {
-      return chain::config::system_account_name;
-   }
-   static action_name get_name() {
-      return "testit"_n;
-   }
-};
-}
-FC_REFLECT( eosio::test::detail::testit, (id) )
+#include <contracts.hpp>
+
+#include <fc/scoped_exit.hpp>
+#include <chrono>
+
 
 namespace {
 using namespace eosio;
 using namespace eosio::chain;
-using namespace eosio::test::detail;
+using namespace eosio::test_utils;
 
-auto make_unique_trx( const chain_id_type& chain_id ) {
+auto make_unique_trx() {
    static uint64_t nextid = 0;
    ++nextid;
    account_name creator = config::system_account_name;
@@ -90,7 +87,12 @@ BOOST_AUTO_TEST_CASE(not_check_configs_if_no_read_only_threads) {
    test_configs_common(specific_args, app_init_status::succeeded);
 }
 
-void test_trxs_common(std::vector<const char*>& specific_args) {
+void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable_tierup = false) {
+   fc::scoped_exit<std::function<void()>> on_exit = []() {
+      chain::wasm_interface_collection::test_disable_tierup = false;
+   };
+   chain::wasm_interface_collection::test_disable_tierup = test_disable_tierup;
+
    using namespace std::chrono_literals;
    fc::temp_directory temp;
    appbase::scoped_app app;
@@ -104,13 +106,15 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
       std::vector<const char*> argv = {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str()};
       argv.insert( argv.end(), specific_args.begin(), specific_args.end() );
       app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
+      app->find_plugin<chain_plugin>()->chain();
       app->startup();
       plugin_promise.set_value( {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()} );
       app->exec();
    } );
 
    auto[prod_plug, chain_plug] = plugin_fut.get();
-   auto chain_id = chain_plug->get_chain_id();
+
+   activate_protocol_features_set_bios_contract(app, chain_plug);
 
    std::atomic<size_t> next_calls = 0;
    std::atomic<size_t> num_get_account_calls = 0;
@@ -120,12 +124,12 @@ void test_trxs_common(std::vector<const char*>& specific_args) {
    const size_t num_pushes = 4242;
 
    for( size_t i = 1; i <= num_pushes; ++i ) {
-      auto ptrx = make_unique_trx( chain_id );
+      auto ptrx = i % 3 == 0 ? make_unique_trx() : make_bios_ro_trx(chain_plug->chain());
       app->executor().post( priority::low, exec_queue::read_only, [&chain_plug=chain_plug, &num_get_account_calls]() {
          chain_plug->get_read_only_api(fc::seconds(90)).get_account(chain_apis::read_only::get_account_params{.account_name=config::system_account_name}, fc::time_point::now()+fc::seconds(90));
          ++num_get_account_calls;
       });
-      app->executor().post( priority::low, exec_queue::read_write, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
+      app->executor().post( priority::low, exec_queue::read_only, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
          ++num_posts;
          bool return_failure_traces = true;
          app->get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
@@ -198,6 +202,17 @@ BOOST_AUTO_TEST_CASE(with_3_read_only_threads) {
    test_trxs_common(specific_args);
 }
 
+// test read-only trxs on 3 threads (with --read-only-threads)
+BOOST_AUTO_TEST_CASE(with_3_read_only_threads_no_tierup) {
+   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
+                                             "--read-only-threads=3",
+                                             "--max-transaction-time=10",
+                                             "--abi-serializer-max-time-ms=999",
+                                             "--read-only-write-window-time-us=100000",
+                                             "--read-only-read-window-time-us=40000" };
+   test_trxs_common(specific_args, true);
+}
+
 // test read-only trxs on 8 separate threads (with --read-only-threads)
 BOOST_AUTO_TEST_CASE(with_8_read_only_threads) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
@@ -205,10 +220,21 @@ BOOST_AUTO_TEST_CASE(with_8_read_only_threads) {
                                               "--eos-vm-oc-enable=none",
                                               "--max-transaction-time=10",
                                               "--abi-serializer-max-time-ms=999",
-                                              "--read-only-write-window-time-us=100000",
-                                              "--read-only-read-window-time-us=40000" };
+                                              "--read-only-write-window-time-us=10000",
+                                              "--read-only-read-window-time-us=400000" };
    test_trxs_common(specific_args);
 }
 
+// test read-only trxs on 8 separate threads (with --read-only-threads)
+BOOST_AUTO_TEST_CASE(with_8_read_only_threads_no_tierup) {
+   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
+                                             "--read-only-threads=8",
+                                             "--eos-vm-oc-enable=none",
+                                             "--max-transaction-time=10",
+                                             "--abi-serializer-max-time-ms=999",
+                                             "--read-only-write-window-time-us=10000",
+                                             "--read-only-read-window-time-us=400000" };
+   test_trxs_common(specific_args, true);
+}
 
 BOOST_AUTO_TEST_SUITE_END()
