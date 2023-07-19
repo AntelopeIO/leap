@@ -350,7 +350,7 @@ namespace eosio {
    private: // must call with held mutex
       connection_ptr find_connection_i(const string& host) const;
       void add_i(connection_ptr&& c);
-      void connect_i(const string& peer);
+      void connect_i(const string& peer, const string& p2p_address);
 
       void connection_monitor(const std::weak_ptr<connection>& from_connection);
 
@@ -370,14 +370,14 @@ namespace eosio {
 
       void register_update_p2p_connection_metrics(std::function<void(net_plugin::p2p_connections_metrics)>&& fun);
 
-      void connect_supplied_peers();
+      void connect_supplied_peers(const string& p2p_address);
 
       void start_conn_timer();
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
       void stop_conn_timer();
 
       void add(connection_ptr c);
-      string connect(const string& host);
+      string connect(const string& host, const string& p2p_address);
       string disconnect(const string& host);
       void close_all();
 
@@ -533,7 +533,7 @@ namespace eosio {
       bool in_sync() const;
       fc::logger& get_logger() { return logger; }
 
-      void create_session(tcp::socket&& socket, const string& p2p_address);
+      void create_session(tcp::socket&& socket, const string p2p_address);
    };
 
    // peer_[x]log must be called from thread in connection strand
@@ -765,7 +765,7 @@ namespace eosio {
    public:
       enum class connection_state { connecting, connected, closing, closed  };
 
-      explicit connection( const string& endpoint );
+      explicit connection( const string& endpoint, const string& address );
       /// @brief ctor
       /// @param socket created by boost::asio in fc::listener
       /// @param address identifier of listen socket which accepted this new connection
@@ -808,6 +808,7 @@ namespace eosio {
 
       std::atomic<connection_state> conn_state{connection_state::connecting};
 
+      string                  p2p_address; // address string used in handshake
       const string            peer_addr;
       enum connection_types : char {
          both,
@@ -828,7 +829,6 @@ namespace eosio {
 
       queued_buffer           buffer_queue;
 
-      string                  p2p_address; // address string used in handshake
       fc::sha256              conn_node_id;
       string                  short_conn_node_id;
       string                  log_p2p_address;
@@ -1146,8 +1146,9 @@ namespace eosio {
 
    //---------------------------------------------------------------------------
 
-   connection::connection( const string& endpoint )
-      : peer_addr( endpoint ),
+   connection::connection( const string& endpoint, const string& address )
+      : p2p_address( address ),
+        peer_addr( endpoint ),
         strand( my_impl->thread_pool.get_executor() ),
         socket( new tcp::socket( my_impl->thread_pool.get_executor() ) ),
         log_p2p_address( endpoint ),
@@ -1161,16 +1162,17 @@ namespace eosio {
    }
 
    connection::connection(tcp::socket&& s, const string& address)
-      : peer_addr(),
+      : p2p_address( address),
+        peer_addr(),
         strand( my_impl->thread_pool.get_executor() ),
         socket( new tcp::socket( std::move(s) ) ),
-        p2p_address( address),
         connection_id( ++my_impl->current_connection_id ),
         response_expected_timer( my_impl->thread_pool.get_executor() ),
         last_handshake_recv(),
         last_handshake_sent()
    {
-      fc_dlog( logger, "new connection object created" );
+      update_endpoints();
+      fc_dlog( logger, "new connection object created for peer ${address}:${port} from listener ${addr}", ("address", log_remote_endpoint_ip)("port", log_remote_endpoint_port)("addr", p2p_address) );
    }
 
    // called from connection strand
@@ -1244,7 +1246,6 @@ namespace eosio {
    bool connection::start_session() {
       verify_strand_in_this_thread( strand, __func__, __LINE__ );
 
-      update_endpoints();
       boost::asio::ip::tcp::no_delay nodelay( true );
       boost::system::error_code ec;
       socket->set_option( nodelay, ec );
@@ -2675,7 +2676,7 @@ namespace eosio {
    }
 
 
-   void net_plugin_impl::create_session(tcp::socket&& socket, const string& p2p_address) {
+   void net_plugin_impl::create_session(tcp::socket&& socket, const string p2p_address) {
       uint32_t                  visitors  = 0;
       uint32_t                  from_addr = 0;
       boost::system::error_code rec;
@@ -2700,7 +2701,7 @@ namespace eosio {
                (auto_bp_peering_enabled() || connections.get_max_client_count() == 0 ||
                visitors < connections.get_max_client_count())) {
             fc_ilog(logger, "Accepted new connection: " + paddr_str);
-
+fc_dlog(logger, "Instantiating connection with listener address ${addr}", ("addr", p2p_address));
             connection_ptr new_connection = std::make_shared<connection>(std::move(socket), p2p_address);
             new_connection->strand.post([new_connection, this]() {
                if (new_connection->start_session()) {
@@ -3848,6 +3849,7 @@ namespace eosio {
       // If we couldn't sign, don't send a token.
       if(hello.sig == chain::signature_type())
          hello.token = sha256();
+      peer_dlog( this, "populated handshake with address ${addr}", ("addr", p2p_address));
       hello.p2p_address = p2p_address;
       if( is_transactions_only_connection() ) hello.p2p_address += ":trx";
       // if we are not accepting transactions tell peer we are blocks only
@@ -4156,7 +4158,7 @@ namespace eosio {
          my->ticker();
          my->start_monitors();
          my->update_chain_info();
-         my->connections.connect_supplied_peers();
+         my->connections.connect_supplied_peers(*my->p2p_addresses.begin()); // attribute every outbound connection to the first listen port
       });
    }
 
@@ -4193,7 +4195,7 @@ namespace eosio {
 
    /// RPC API
    string net_plugin::connect( const string& host ) {
-      return my->connections.connect( host );
+      return my->connections.connect( host, *my->p2p_addresses.begin() );
    }
 
    /// RPC API
@@ -4267,10 +4269,10 @@ namespace eosio {
       update_p2p_connection_metrics = std::move(fun);
    }
 
-   void connections_manager::connect_supplied_peers() {
+   void connections_manager::connect_supplied_peers(const string& p2p_address) {
       std::lock_guard g(connections_mtx);
       for (const auto& peer : supplied_peers) {
-         connect_i(peer);
+         connect_i(peer, p2p_address);
       }
    }
 
@@ -4280,12 +4282,12 @@ namespace eosio {
    }
 
    // called by API
-   string connections_manager::connect( const string& host ) {
+   string connections_manager::connect( const string& host, const string& p2p_address ) {
       std::lock_guard g( connections_mtx );
       if( find_connection_i( host ) )
          return "already connected";
 
-      connect_i( host );
+      connect_i( host, p2p_address );
       supplied_peers.insert(host);
       return "added connection";
    }
@@ -4342,8 +4344,8 @@ namespace eosio {
    }
 
    // call with connections_mtx
-   void connections_manager::connect_i( const string& host ) {
-      connection_ptr c = std::make_shared<connection>( host );
+   void connections_manager::connect_i( const string& host, const string& p2p_address ) {
+      connection_ptr c = std::make_shared<connection>( host, p2p_address );
       fc_dlog( logger, "calling active connector: ${h}", ("h", host) );
       if( c->resolve_and_connect() ) {
          fc_dlog( logger, "adding new connection to the list: ${host} ${cid}", ("host", host)("cid", c->connection_id) );
