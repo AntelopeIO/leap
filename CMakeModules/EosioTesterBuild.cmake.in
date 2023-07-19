@@ -36,7 +36,7 @@ set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
 IF(EXISTS @CMAKE_SOURCE_DIR@/libraries/boost)
     add_subdirectory( @CMAKE_SOURCE_DIR@/libraries/boost ${PROJECT_BINARY_DIR}/libraries/boost EXCLUDE_FROM_ALL)
 else()
-    add_subdirectory( ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_boost ${PROJECT_BINARY_DIR}/libraries/boost EXCLUDE_FROM_ALL)
+    add_subdirectory( @CMAKE_INSTALL_FULL_DATAROOTDIR@/leap_boost ${PROJECT_BINARY_DIR}/libraries/boost EXCLUDE_FROM_ALL)
 endif()
 
 find_library(libtester eosio_testing @CMAKE_BINARY_DIR@/libraries/testing NO_DEFAULT_PATH)
