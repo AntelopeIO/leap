@@ -275,8 +275,8 @@ install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CM
 # Add the boost submodule we used to build to our install package, so headers can be found for libtester
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"
         DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_boost
-        PATTERN ".git" EXCLUDE
-        COMPONENT dev EXCLUDE_FROM_ALL)
+        COMPONENT dev EXCLUDE_FROM_ALL
+        PATTERN ".git" EXCLUDE)
 
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
