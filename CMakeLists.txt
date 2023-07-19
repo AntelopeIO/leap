@@ -279,6 +279,19 @@ add_custom_command(TARGET boost_install
 
 install(DIRECTORY "${CMAKE_BINARY_DIR}/boost-dist/boost" DESTINATION include COMPONENT dev EXCLUDE_FROM_ALL)
 
+install(TARGETS boost_date_time COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_filesystem COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_system COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_chrono COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_multi_index COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_multiprecision COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_interprocess COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_asio COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_signals2 COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_iostreams COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_unit_test_framework COMPONENT dev EXCLUDE_FROM_ALL)
+install(TARGETS boost_headers COMPONENT dev EXCLUDE_FROM_ALL)
+       
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
   COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}"

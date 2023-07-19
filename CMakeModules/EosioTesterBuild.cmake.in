@@ -33,7 +33,17 @@ else ( APPLE )
 endif ( APPLE )
 
 set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
-add_subdirectory( @CMAKE_SOURCE_DIR@/libraries/boost ${PROJECT_BINARY_DIR}/libraries/boost)
+IF(EXISTS @CMAKE_SOURCE_DIR@/libraries/boost)
+    add_subdirectory( @CMAKE_SOURCE_DIR@/libraries/boost ${PROJECT_BINARY_DIR}/libraries/boost EXCLUDE_FROM_ALL)
+else()
+    find_package(Boost @Boost_MAJOR_VERSION@.@Boost_MINOR_VERSION@ EXACT REQUIRED COMPONENTS
+￼       date_time
+￼       filesystem
+￼       system
+￼       chrono
+￼       iostreams
+￼       unit_test_framework)
+endif()
 
 find_library(libtester eosio_testing @CMAKE_BINARY_DIR@/libraries/testing NO_DEFAULT_PATH)
 find_library(libchain eosio_chain @CMAKE_BINARY_DIR@/libraries/chain NO_DEFAULT_PATH)
@@ -77,8 +87,10 @@ macro(add_eosio_test_executable test_name)
        ${libbuiltins}
        ${libsecp256k1}
        ${libbn256}
-       @GMP_LIBRARY@
+       @GMP_LIBRARY@ )
 
+IF(EXISTS @CMAKE_SOURCE_DIR@/libraries/boost)
+   target_link_libraries( ${test_name}
        Boost::date_time
        Boost::filesystem
        Boost::system
@@ -90,8 +102,18 @@ macro(add_eosio_test_executable test_name)
        Boost::signals2
        Boost::iostreams
        "-lz" # Needed by Boost iostreams
-       Boost::unit_test_framework
+       Boost::unit_test_framework)
+else()
+   target_link_libraries( ${test_name}
+       ${Boost_FILESYSTEM_LIBRARY}
+       ${Boost_SYSTEM_LIBRARY}
+       ${Boost_CHRONO_LIBRARY}
+       ${Boost_IOSTREAMS_LIBRARY}
+       "-lz" # Needed by Boost iostreams
+       ${Boost_DATE_TIME_LIBRARY})
+endif()
 
+   target_link_libraries( ${test_name}
        ${LLVM_LIBS}
 
        ${PLATFORM_SPECIFIC_LIBS}
