@@ -533,7 +533,7 @@ namespace eosio {
       bool in_sync() const;
       fc::logger& get_logger() { return logger; }
 
-      void create_session(tcp::socket&& socket, const string p2p_address);
+      void create_session(tcp::socket&& socket, const string listen_address);
    };
 
    // peer_[x]log must be called from thread in connection strand
@@ -808,7 +808,7 @@ namespace eosio {
 
       std::atomic<connection_state> conn_state{connection_state::connecting};
 
-      string                  p2p_address; // address string used in handshake
+      string                  listen_address; // address sent to peer in handshake
       const string            peer_addr;
       enum connection_types : char {
          both,
@@ -1147,7 +1147,7 @@ namespace eosio {
    //---------------------------------------------------------------------------
 
    connection::connection( const string& endpoint, const string& address )
-      : p2p_address( address ),
+      : listen_address( address ),
         peer_addr( endpoint ),
         strand( my_impl->thread_pool.get_executor() ),
         socket( new tcp::socket( my_impl->thread_pool.get_executor() ) ),
@@ -1162,7 +1162,7 @@ namespace eosio {
    }
 
    connection::connection(tcp::socket&& s, const string& address)
-      : p2p_address( address),
+      : listen_address( address),
         peer_addr(),
         strand( my_impl->thread_pool.get_executor() ),
         socket( new tcp::socket( std::move(s) ) ),
@@ -1172,7 +1172,7 @@ namespace eosio {
         last_handshake_sent()
    {
       update_endpoints();
-      fc_dlog( logger, "new connection object created for peer ${address}:${port} from listener ${addr}", ("address", log_remote_endpoint_ip)("port", log_remote_endpoint_port)("addr", p2p_address) );
+      fc_dlog( logger, "new connection object created for peer ${address}:${port} from listener ${addr}", ("address", log_remote_endpoint_ip)("port", log_remote_endpoint_port)("addr", listen_address) );
    }
 
    // called from connection strand
@@ -2676,7 +2676,7 @@ namespace eosio {
    }
 
 
-   void net_plugin_impl::create_session(tcp::socket&& socket, const string p2p_address) {
+   void net_plugin_impl::create_session(tcp::socket&& socket, const string listen_address) {
       uint32_t                  visitors  = 0;
       uint32_t                  from_addr = 0;
       boost::system::error_code rec;
@@ -2701,8 +2701,8 @@ namespace eosio {
                (auto_bp_peering_enabled() || connections.get_max_client_count() == 0 ||
                visitors < connections.get_max_client_count())) {
             fc_ilog(logger, "Accepted new connection: " + paddr_str);
-fc_dlog(logger, "Instantiating connection with listener address ${addr}", ("addr", p2p_address));
-            connection_ptr new_connection = std::make_shared<connection>(std::move(socket), p2p_address);
+
+            connection_ptr new_connection = std::make_shared<connection>(std::move(socket), listen_address);
             new_connection->strand.post([new_connection, this]() {
                if (new_connection->start_session()) {
                   connections.add(new_connection);
@@ -3165,9 +3165,9 @@ fc_dlog(logger, "Instantiating connection with listener address ${addr}", ("addr
                      if (msg.time + c_time <= check_time)
                         return false;
                   } else if (net_version < proto_dup_node_id_goaway || msg.network_version < proto_dup_node_id_goaway) {
-                     if (p2p_address < msg.p2p_address) {
-                        fc_dlog( logger, "p2p_address '${lhs}' < msg.p2p_address '${rhs}'",
-                                 ("lhs", p2p_address)( "rhs", msg.p2p_address ) );
+                     if (listen_address < msg.p2p_address) {
+                        fc_dlog( logger, "listen_address '${lhs}' < msg.p2p_address '${rhs}'",
+                                 ("lhs", listen_address)( "rhs", msg.p2p_address ) );
                         // only the connection from lower p2p_address to higher p2p_address will be considered as a duplicate,
                         // so there is no chance for both connections to be closed
                         return false;
@@ -3849,8 +3849,7 @@ fc_dlog(logger, "Instantiating connection with listener address ${addr}", ("addr
       // If we couldn't sign, don't send a token.
       if(hello.sig == chain::signature_type())
          hello.token = sha256();
-      peer_dlog( this, "populated handshake with address ${addr}", ("addr", p2p_address));
-      hello.p2p_address = p2p_address;
+      hello.p2p_address = listen_address;
       if( is_transactions_only_connection() ) hello.p2p_address += ":trx";
       // if we are not accepting transactions tell peer we are blocks only
       if( is_blocks_only_connection() || !my_impl->p2p_accept_transactions ) hello.p2p_address += ":blk";
@@ -3964,15 +3963,16 @@ fc_dlog(logger, "Instantiating connection with listener address ${addr}", ("addr
                                std::chrono::seconds( options.at("connection-cleanup-period").as<int>() ),
                                options.at("max-clients").as<uint32_t>() );
 
-         if( options.count( "p2p-listen-endpoint" ) && !options.at("p2p-listen-endpoint").as<vector<string>>().empty() &&  options.at("p2p-listen-endpoint").as<vector<string>>()[0].length()) {
+         if( options.count( "p2p-listen-endpoint" ) && !options.at("p2p-listen-endpoint").as<vector<string>>().empty() &&  !options.at("p2p-listen-endpoint").as<vector<string>>()[0].empty()) {
             p2p_addresses = options.at( "p2p-listen-endpoint" ).as<vector<string>>();
             auto addr_count = p2p_addresses.size();
             std::sort(p2p_addresses.begin(), p2p_addresses.end());
-            std::unique(p2p_addresses.begin(), p2p_addresses.end());
+            auto last = std::unique(p2p_addresses.begin(), p2p_addresses.end());
+            p2p_addresses.erase(last, p2p_addresses.end());
             if( size_t addr_diff = addr_count - p2p_addresses.size(); addr_diff != 0) {
-               fc_ilog( logger, "Removed ${count} duplicate p2p-listen-endpoint entries", ("count", addr_diff));
+               fc_wlog( logger, "Removed ${count} duplicate p2p-listen-endpoint entries", ("count", addr_diff));
             }
-            for(auto& addr : p2p_addresses) {
+            for( const auto& addr : p2p_addresses ) {
                EOS_ASSERT( addr.length() <= max_p2p_address_length, chain::plugin_config_exception,
                            "p2p-listen-endpoint ${a} too long, must be less than ${m}", 
                            ("a", addr)("m", max_p2p_address_length) );
@@ -3982,7 +3982,7 @@ fc_dlog(logger, "Instantiating connection with listener address ${addr}", ("addr
             p2p_server_addresses = options.at( "p2p-server-address" ).as<vector<string>>();
             EOS_ASSERT( p2p_server_addresses.size() <= p2p_addresses.size(), chain::plugin_config_exception,
                         "p2p-server-address may not be specified more times than p2p-listen-endpoint" );
-            for( auto& addr: p2p_server_addresses ) {
+            for( const auto& addr: p2p_server_addresses ) {
                EOS_ASSERT( addr.length() <= max_p2p_address_length, chain::plugin_config_exception,
                            "p2p-server-address ${a} too long, must be less than ${m}", 
                            ("a", addr)("m", max_p2p_address_length) );
@@ -4091,6 +4091,7 @@ fc_dlog(logger, "Instantiating connection with listener address ${addr}", ("addr
 
       std::vector<string> listen_addresses = p2p_addresses;
 
+      EOS_ASSERT( p2p_addresses.size() == p2p_server_addresses.size(), chain::plugin_config_exception, "" );
       std::transform(p2p_addresses.begin(), p2p_addresses.end(), p2p_server_addresses.begin(), 
                      p2p_addresses.begin(), [](const string& p2p_address, const string& p2p_server_address) {
          auto [host, port] = fc::split_host_port(p2p_address);
@@ -4109,7 +4110,7 @@ fc_dlog(logger, "Instantiating connection with listener address ${addr}", ("addr
             return hostname + ":" + port;
          }
          return p2p_address;
-         });
+      });
 
       {
          chain::controller& cc = chain_plug->chain();
