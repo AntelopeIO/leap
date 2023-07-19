@@ -32,6 +32,7 @@ else ( APPLE )
    set( CMAKE_CXX_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_CXX_FLAGS} -Wall")
 endif ( APPLE )
 
+set( Boost_USE_MULTITHREADED      ON )
 set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
 IF(EXISTS @CMAKE_SOURCE_DIR@/libraries/boost)
     add_subdirectory( @CMAKE_SOURCE_DIR@/libraries/boost ${PROJECT_BINARY_DIR}/libraries/boost EXCLUDE_FROM_ALL)
