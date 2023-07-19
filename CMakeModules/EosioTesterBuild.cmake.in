@@ -87,7 +87,7 @@ macro(add_eosio_test_executable test_name)
        ${libbuiltins}
        ${libsecp256k1}
        ${libbn256}
-       @GMP_LIBRARY@ )
+       @GMP_LIBRARY@)
 
 IF(EXISTS @CMAKE_SOURCE_DIR@/libraries/boost)
    target_link_libraries( ${test_name}
