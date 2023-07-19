@@ -272,25 +272,25 @@ configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/c
 install(FILES libraries/cli11/bash-completion/completions/leap-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
-add_custom_target(boost_install ALL)
-add_custom_command(TARGET boost_install
-                   COMMAND python3 ${CMAKE_SOURCE_DIR}/scripts/MakeBoostDistro.py ${CMAKE_SOURCE_DIR}/libraries/boost ${CMAKE_BINARY_DIR}/boost-dist
-                   VERBATIM)
+#add_custom_target(boost_install ALL)
+#add_custom_command(TARGET boost_install
+#                   COMMAND python3 ${CMAKE_SOURCE_DIR}/scripts/MakeBoostDistro.py ${CMAKE_SOURCE_DIR}/libraries/boost ${CMAKE_BINARY_DIR}/boost-dist
+#                   VERBATIM)
 
-install(DIRECTORY "${CMAKE_BINARY_DIR}/boost-dist/boost" DESTINATION include COMPONENT dev EXCLUDE_FROM_ALL)
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/" DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_boost COMPONENT dev EXCLUDE_FROM_ALL)
 
-install(TARGETS boost_date_time COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_filesystem COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_system COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_chrono COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_multi_index COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_multiprecision COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_interprocess COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_asio COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_signals2 COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_iostreams COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_unit_test_framework COMPONENT dev EXCLUDE_FROM_ALL)
-install(TARGETS boost_headers COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_date_time COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_filesystem COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_system COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_chrono COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_multi_index COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_multiprecision COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_interprocess COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_asio COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_signals2 COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_iostreams COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_unit_test_framework COMPONENT dev EXCLUDE_FROM_ALL)
+#install(TARGETS boost_headers COMPONENT dev EXCLUDE_FROM_ALL)
        
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
