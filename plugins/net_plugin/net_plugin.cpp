@@ -765,11 +765,11 @@ namespace eosio {
    public:
       enum class connection_state { connecting, connected, closing, closed  };
 
-      explicit connection( const string& endpoint, const string& address );
+      explicit connection( const string& endpoint, const string& listen_address );
       /// @brief ctor
       /// @param socket created by boost::asio in fc::listener
       /// @param address identifier of listen socket which accepted this new connection
-      explicit connection( tcp::socket&& socket, const string& address );
+      explicit connection( tcp::socket&& socket, const string& listen_address );
       ~connection() = default;
 
       connection( const connection& ) = delete;
@@ -1146,8 +1146,8 @@ namespace eosio {
 
    //---------------------------------------------------------------------------
 
-   connection::connection( const string& endpoint, const string& address )
-      : listen_address( address ),
+   connection::connection( const string& endpoint, const string& listen_address )
+      : listen_address( listen_address ),
         peer_addr( endpoint ),
         strand( my_impl->thread_pool.get_executor() ),
         socket( new tcp::socket( my_impl->thread_pool.get_executor() ) ),
@@ -1161,8 +1161,8 @@ namespace eosio {
       fc_ilog( logger, "created connection ${c} to ${n}", ("c", connection_id)("n", endpoint) );
    }
 
-   connection::connection(tcp::socket&& s, const string& address)
-      : listen_address( address),
+   connection::connection(tcp::socket&& s, const string& listen_address)
+      : listen_address( listen_address ),
         peer_addr(),
         strand( my_impl->thread_pool.get_executor() ),
         socket( new tcp::socket( std::move(s) ) ),
@@ -3884,8 +3884,8 @@ namespace eosio {
    void net_plugin::set_program_options( options_description& /*cli*/, options_description& cfg )
    {
       cfg.add_options()
-         ( "p2p-listen-endpoint", bpo::value< vector<string> >()->default_value( vector<string>(1, string("0.0.0.0:9876")) ), "The actual host:port used to listen for incoming p2p connections. May be specified multiple times.")
-         ( "p2p-server-address", bpo::value< vector<string> >(), "An externally accessible host:port for identifying this node. Defaults to p2p-listen-endpoint. May be specified as many times as p2p-listen-endpoint")
+         ( "p2p-listen-endpoint", bpo::value< vector<string> >()->default_value( vector<string>(1, string("0.0.0.0:9876")) ), "The actual host:port used to listen for incoming p2p connections. May be used multiple times.")
+         ( "p2p-server-address", bpo::value< vector<string> >(), "An externally accessible host:port for identifying this node. Defaults to p2p-listen-endpoint. May be used as many times as p2p-listen-endpoint. If provided, the first address will be used in handshakes with other nodes. Otherwise the default is used.")
          ( "p2p-peer-address", bpo::value< vector<string> >()->composing(),
            "The public endpoint of a peer node to connect to. Use multiple p2p-peer-address options as needed to compose a network.\n"
            "  Syntax: host:port[:<trx>|<blk>]\n"
