@@ -30,7 +30,6 @@ DEP_DIR="$(realpath "$1")"
 LEAP_DIR="$2"
 JOBS="$3"
 CLANG_VER=11.0.1
-BOOST_VER=1.82.0
 LLVM_VER=11.0.1
 SCRIPT_DIR="$( cd -- "$( dirname -- "${BASH_SOURCE[0]:-$0}"; )" &> /dev/null && pwd 2> /dev/null; )";
 START_DIR="$(pwd)"
