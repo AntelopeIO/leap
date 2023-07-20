@@ -278,12 +278,11 @@ struct block_time_tracker {
       }
    }
 
-   void report( const fc::time_point& idle_trx_time, uint32_t block_num ) {
+   void report(uint32_t block_num, account_name producer) {
       if( _log.is_enabled( fc::log_level::debug ) ) {
          auto now = fc::time_point::now();
-         add_idle_time( now - idle_trx_time );
-         fc_dlog( _log, "Block #${n} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, transient: ${trans_trx_num}, ${trans_trx_time}us, other: ${o}us",
-                  ("n", block_num)
+         fc_dlog( _log, "Block #${n} ${p} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, transient: ${trans_trx_num}, ${trans_trx_time}us, other: ${o}us",
+                  ("n", block_num)("p", producer)
                   ("i", block_idle_time)("t", now - clear_time)("sn", trx_success_num)("s", trx_success_time)
                   ("fn", trx_fail_num)("f", trx_fail_time)
                   ("trans_trx_num", transient_trx_num)("trans_trx_time", transient_trx_time)
@@ -558,11 +557,18 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       void abort_block() {
          auto& chain = chain_plug->chain();
 
+         std::optional<std::tuple<uint32_t, account_name>> block_info;
          if( chain.is_building_block() ) {
-            _time_tracker.report( _idle_trx_time, chain.pending_block_num() );
+            block_info = std::make_tuple(chain.pending_block_num(), chain.pending_block_producer());
          }
          _unapplied_transactions.add_aborted( chain.abort_block() );
          _subjective_billing.abort_block();
+
+         if (block_info) {
+            auto[block_num, block_producer] = *block_info;
+            _time_tracker.report(block_num, block_producer);
+         }
+         _time_tracker.clear();
          _idle_trx_time = fc::time_point::now();
       }
 
@@ -585,6 +591,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
          auto now = fc::time_point::now();
          if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) // only log every 1000 during sync
             fc_dlog(_log, "received incoming block ${n} ${id}", ("n", blk_num)("id", id));
+
+         _time_tracker.add_idle_time(now - _idle_trx_time);
 
          EOS_ASSERT( block->timestamp < (now + fc::seconds( 7 )), block_from_the_future,
                      "received a block from the future, ignoring it: ${id}", ("id", id) );
@@ -2028,7 +2036,6 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
       try {
          _account_fails.report_and_clear(hbs->block_num);
-         _time_tracker.clear();
 
          if( !remove_expired_trxs( preprocess_deadline ) )
             return start_block_result::exhausted;
@@ -2624,8 +2631,6 @@ void producer_plugin_impl::schedule_production_loop() {
 
    auto result = start_block();
 
-   _idle_trx_time = fc::time_point::now();
-
    if (result == start_block_result::failed) {
       elog("Failed to start a pending block, will try again later");
       _timer.expires_from_now( boost::posix_time::microseconds( config::block_interval_us  / 10 ));
@@ -2661,6 +2666,8 @@ void producer_plugin_impl::schedule_production_loop() {
    } else {
       fc_dlog(_log, "Speculative Block Created");
    }
+
+   _idle_trx_time = fc::time_point::now();
 }
 
 void producer_plugin_impl::schedule_maybe_produce_block( bool exhausted ) {
@@ -2770,6 +2777,8 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
 void producer_plugin_impl::produce_block() {
    //ilog("produce_block ${t}", ("t", fc::time_point::now())); // for testing _produce_time_offset_us
    auto start = fc::time_point::now();
+   _time_tracker.add_idle_time( start - _idle_trx_time );
+
    EOS_ASSERT(in_producing_mode(), producer_exception, "called produce_block while not actually producing");
    chain::controller& chain = chain_plug->chain();
    EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "pending_block_state does not exist but it should, another plugin may have corrupted it");
@@ -2811,8 +2820,6 @@ void producer_plugin_impl::produce_block() {
 
    block_state_ptr new_bs = chain.head_block_state();
 
-   _time_tracker.report(_idle_trx_time, new_bs->block_num);
-
    br.total_time += fc::time_point::now() - start;
 
    ++_metrics.blocks_produced.value;
@@ -2825,6 +2832,11 @@ void producer_plugin_impl::produce_block() {
         ("count",new_bs->block->transactions.size())("lib",chain.last_irreversible_block_num())
         ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)
         ("confs", new_bs->header.confirmed));
+
+   _time_tracker.report(new_bs->block_num, new_bs->block->producer);
+   _time_tracker.clear();
+
+   _idle_trx_time = fc::time_point::now();
 }
 
 void producer_plugin::received_block(uint32_t block_num) {
