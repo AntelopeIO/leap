@@ -46,7 +46,7 @@ namespace eosio { namespace chain {
             oc_none
          };
 
-         wasm_interface(vm_type vm, vm_oc_enable eosvmoc_tierup, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile);
+         wasm_interface(vm_type vm, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile);
          ~wasm_interface();
 
          // initialize exec per thread
@@ -61,19 +61,14 @@ namespace eosio { namespace chain {
          //indicate that a particular code probably won't be used after given block_num
          void code_block_num_last_used(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, const uint32_t& block_num);
 
-         //indicate the current LIB. evicts old cache entries
-         void current_lib(const uint32_t lib);
+         //indicate the current LIB. evicts old cache entries, each evicted entry is provided to callback
+         void current_lib(const uint32_t lib, const std::function<void(const digest_type&, uint8_t)>& callback);
 
          //Calls apply or error on a given code
          void apply(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, apply_context& context);
 
          //Returns true if the code is cached
          bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const;
-
-         // If substitute_apply is set, then apply calls it before doing anything else. If substitute_apply returns true,
-         // then apply returns immediately.
-         std::function<bool(
-            const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, apply_context& context)> substitute_apply;
       private:
          unique_ptr<struct wasm_interface_impl> my;
    };

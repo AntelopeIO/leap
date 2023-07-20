@@ -77,7 +77,7 @@ else()
 endif()
 
 #To run plugin_test with all log from blockchain displayed, put --verbose after --, i.e. plugin_test -- --verbose
-add_test(NAME plugin_test COMMAND plugin_test --report_level=detailed --color_output)
+add_test(NAME plugin_test COMMAND plugin_test --report_level=detailed --color_output --catch_system_errors=no)
 
 add_test(NAME nodeos_sanity_test COMMAND tests/nodeos_run_test.py -v --sanity-test ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_sanity_test PROPERTY LABELS nonparallelizable_tests)
