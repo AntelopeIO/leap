@@ -1234,9 +1234,12 @@ namespace eosio {
    connection_status connection::get_status()const {
       connection_status stat;
       stat.peer = peer_addr;
+      stat.remote_ip = log_remote_endpoint_ip;
+      stat.remote_port = log_remote_endpoint_port;
       stat.connecting = state() == connection_state::connecting;
       stat.syncing = peer_syncing_from_us;
       stat.is_bp_peer = is_bp_connection;
+      stat.is_socket_open = socket_is_open();
       fc::lock_guard g( conn_mtx );
       stat.last_handshake = last_handshake_recv;
       return stat;
