@@ -136,7 +136,9 @@ sudo apt-get install -y \
         libgmp-dev \
         libssl-dev \
         llvm-11-dev \
-        python3-numpy
+        python3-numpy \
+        ubuntu-dev-tools \
+        zlib1g-dev
 ```
 To build, make sure you are in the root of the `leap` repo, then run the following command:
 ```bash
