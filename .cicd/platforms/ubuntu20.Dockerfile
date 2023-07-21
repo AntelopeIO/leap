@@ -11,7 +11,6 @@ RUN apt-get update && apt-get upgrade -y && \
                        libssl-dev           \
                        llvm-11-dev          \
                        ninja-build          \
-                       python3-distutils    \
                        python3-numpy        \
                        ubuntu-dev-tools     \
                        zlib1g-dev           \
