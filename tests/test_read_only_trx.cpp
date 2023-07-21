@@ -111,6 +111,10 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
       plugin_promise.set_value( {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()} );
       app->exec();
    } );
+   fc::scoped_exit<std::function<void()>> on_except = [&](){
+      if (app_thread.joinable())
+         app_thread.join();
+   };
 
    auto[prod_plug, chain_plug] = plugin_fut.get();
 
