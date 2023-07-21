@@ -375,8 +375,8 @@ class cluster_generator:
             with open(genesis_path, 'r') as f:
                 genesis = json.load(f)
         genesis['initial_key'] = self.network.nodes['bios'].keys[0].pubkey
-        genesis['initial_configuration']['max_block_cpu_usage'] = 500000 if self.args.max_block_cpu_usage is None else self.args.max_block_cpu_usage
-        genesis['initial_configuration']['max_transaction_cpu_usage'] = 475000 if self.args.max_transaction_cpu_usage is None else self.args.max_transaction_cpu_usage
+        if self.args.max_block_cpu_usage is not None:       genesis['initial_configuration']['max_block_cpu_usage']       = self.args.max_block_cpu_usage
+        if self.args.max_transaction_cpu_usage is not None: genesis['initial_configuration']['max_transaction_cpu_usage'] = self.args.max_transaction_cpu_usage
         return genesis
 
     def write_genesis_file(self, node, genesis):
