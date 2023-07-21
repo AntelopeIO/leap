@@ -276,7 +276,7 @@ install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CM
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"
         DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_boost
         COMPONENT dev EXCLUDE_FROM_ALL
-        PATTERN ".git|example|bench|testwave" EXCLUDE)
+        PATTERN "(\\.git|example|bench|testwave)" EXCLUDE)
 
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
