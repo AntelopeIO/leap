@@ -87,7 +87,7 @@ BOOST_AUTO_TEST_CASE(not_check_configs_if_no_read_only_threads) {
    test_configs_common(specific_args, app_init_status::succeeded);
 }
 
-void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable_tierup = false) {
+void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable_tierup = false) { try {
    fc::scoped_exit<std::function<void()>> on_exit = []() {
       chain::wasm_interface_collection::test_disable_tierup = false;
    };
@@ -102,14 +102,18 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
    std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
    std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
    std::thread app_thread( [&]() {
-      fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
-      std::vector<const char*> argv = {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str()};
-      argv.insert( argv.end(), specific_args.begin(), specific_args.end() );
-      app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
-      app->find_plugin<chain_plugin>()->chain();
-      app->startup();
-      plugin_promise.set_value( {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()} );
-      app->exec();
+      try {
+         fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
+         std::vector<const char*> argv = {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str()};
+         argv.insert(argv.end(), specific_args.begin(), specific_args.end());
+         app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**)&argv[0]);
+         app->find_plugin<chain_plugin>()->chain();
+         app->startup();
+         plugin_promise.set_value({app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()});
+         app->exec();
+         return;
+      } FC_LOG_AND_DROP()
+      BOOST_CHECK(!"app threw exception see logged error");
    } );
    fc::scoped_exit<std::function<void()>> on_except = [&](){
       if (app_thread.joinable())
@@ -176,7 +180,7 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
    BOOST_CHECK_EQUAL( num_pushes, next_calls.load() );
    BOOST_CHECK_EQUAL( num_pushes, num_get_account_calls.load() );
    BOOST_CHECK( trx_match.load() );  // trace should match the transaction
-}
+} FC_LOG_AND_RETHROW() }
 
 // test read-only trxs on main thread (no --read-only-threads)
 BOOST_AUTO_TEST_CASE(no_read_only_threads) {
