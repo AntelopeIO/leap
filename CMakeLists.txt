@@ -279,6 +279,13 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"
         PATTERN "\\.git" EXCLUDE
         PATTERN "/example" EXCLUDE
         PATTERN "/bench" EXCLUDE
+        PATTERN "math/test" EXCLUDE
+        PATTERN "json/test" EXCLUDE
+        PATTERN "graph/test" EXCLUDE
+        PATTERN "gil/test" EXCLUDE
+        PATTERN "geometry/test" EXCLUDE
+        PATTERN "beast/test" EXCLUDE
+        PATTERN "/doc" EXCLUDE
         PATTERN "/testvawe" EXCLUDE
         )
 
