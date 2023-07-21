@@ -3966,19 +3966,22 @@ namespace eosio {
                                std::chrono::seconds( options.at("connection-cleanup-period").as<int>() ),
                                options.at("max-clients").as<uint32_t>() );
 
-         if( options.count( "p2p-listen-endpoint" ) && !options.at("p2p-listen-endpoint").as<vector<string>>().empty() &&  !options.at("p2p-listen-endpoint").as<vector<string>>()[0].empty()) {
-            p2p_addresses = options.at( "p2p-listen-endpoint" ).as<vector<string>>();
-            auto addr_count = p2p_addresses.size();
-            std::sort(p2p_addresses.begin(), p2p_addresses.end());
-            auto last = std::unique(p2p_addresses.begin(), p2p_addresses.end());
-            p2p_addresses.erase(last, p2p_addresses.end());
-            if( size_t addr_diff = addr_count - p2p_addresses.size(); addr_diff != 0) {
-               fc_wlog( logger, "Removed ${count} duplicate p2p-listen-endpoint entries", ("count", addr_diff));
-            }
-            for( const auto& addr : p2p_addresses ) {
-               EOS_ASSERT( addr.length() <= max_p2p_address_length, chain::plugin_config_exception,
-                           "p2p-listen-endpoint ${a} too long, must be less than ${m}", 
-                           ("a", addr)("m", max_p2p_address_length) );
+         if( options.count( "p2p-listen-endpoint" )) {
+            auto p2ps =  options.at("p2p-listen-endpoint").as<vector<string>>();
+            if (!p2ps.front().empty()) {
+               p2p_addresses = p2ps;
+               auto addr_count = p2p_addresses.size();
+               std::sort(p2p_addresses.begin(), p2p_addresses.end());
+               auto last = std::unique(p2p_addresses.begin(), p2p_addresses.end());
+               p2p_addresses.erase(last, p2p_addresses.end());
+               if( size_t addr_diff = addr_count - p2p_addresses.size(); addr_diff != 0) {
+                  fc_wlog( logger, "Removed ${count} duplicate p2p-listen-endpoint entries", ("count", addr_diff));
+               }
+               for( const auto& addr : p2p_addresses ) {
+                  EOS_ASSERT( addr.length() <= max_p2p_address_length, chain::plugin_config_exception,
+                              "p2p-listen-endpoint ${a} too long, must be less than ${m}", 
+                              ("a", addr)("m", max_p2p_address_length) );
+               }
             }
          }
          if( options.count( "p2p-server-address" ) ) {
