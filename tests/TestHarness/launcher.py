@@ -359,7 +359,7 @@ class cluster_generator:
                             'net_usage_leeway': 500,
                             'context_free_discount_net_usage_num': 20,
                             'context_free_discount_net_usage_den': 100,
-                            'max_block_cpu_usage': 200000 if self.args.max_block_cpu_usage is None else self.args.max_block_cpu_usage,
+                            'max_block_cpu_usage': 500000 if self.args.max_block_cpu_usage is None else self.args.max_block_cpu_usage,
                             'target_block_cpu_usage_pct': 1000,
                             'max_transaction_cpu_usage': 475000 if self.args.max_transaction_cpu_usage is None else self.args.max_transaction_cpu_usage,
                             'min_transaction_cpu_usage': 100,
@@ -375,7 +375,7 @@ class cluster_generator:
             with open(genesis_path, 'r') as f:
                 genesis = json.load(f)
         genesis['initial_key'] = self.network.nodes['bios'].keys[0].pubkey
-        genesis['initial_configuration']['max_block_cpu_usage'] = 200000 if self.args.max_block_cpu_usage is None else self.args.max_block_cpu_usage
+        genesis['initial_configuration']['max_block_cpu_usage'] = 500000 if self.args.max_block_cpu_usage is None else self.args.max_block_cpu_usage
         genesis['initial_configuration']['max_transaction_cpu_usage'] = 475000 if self.args.max_transaction_cpu_usage is None else self.args.max_transaction_cpu_usage
         return genesis
 
