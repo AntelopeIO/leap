@@ -276,17 +276,17 @@ install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CM
 install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"
         DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_boost
         COMPONENT dev EXCLUDE_FROM_ALL
-        PATTERN ".git" EXCLUDE
-        PATTERN "example" EXCLUDE
-        PATTERN "bench" EXCLUDE
-        PATTERN "doc" EXCLUDE
-        PATTERN "testvawe" EXCLUDE
-        PATTERN "math/test" EXCLUDE
-        PATTERN "json/test" EXCLUDE
-        PATTERN "graph/test" EXCLUDE
-        PATTERN "gil/test" EXCLUDE
-        PATTERN "geometry/test" EXCLUDE
-        PATTERN "beast/test" EXCLUDE
+        PATTERN ".git/*" EXCLUDE
+        PATTERN "example/*" EXCLUDE
+        PATTERN "bench/*" EXCLUDE
+        PATTERN "doc/*" EXCLUDE
+        PATTERN "testwave/*" EXCLUDE
+        PATTERN "math/test/*" EXCLUDE
+        PATTERN "json/test/*" EXCLUDE
+        PATTERN "graph/test/*" EXCLUDE
+        PATTERN "gil/test/*" EXCLUDE
+        PATTERN "geometry/test/*" EXCLUDE
+        PATTERN "beast/test/*" EXCLUDE
         )
 
 add_custom_target(dev-install
