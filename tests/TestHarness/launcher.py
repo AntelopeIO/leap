@@ -200,8 +200,8 @@ class cluster_generator:
         cfg.add_argument('--enable-gelf-logging', action='store_true', help='enable gelf logging appender in logging configuration file', default=False)
         cfg.add_argument('--gelf-endpoint', help='hostname:port or ip:port of GELF endpoint', default='128.0.0.1:12201')
         cfg.add_argument('--template', help='the startup script template', default='testnet.template')
-        cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=200000)
-        cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=150000)
+        cfg.add_argument('--max-block-cpu-usage', type=int, help='the "max-block-cpu-usage" value to use in the genesis.json file', default=None)
+        cfg.add_argument('--max-transaction-cpu-usage', type=int, help='the "max-transaction-cpu-usage" value to use in the genesis.json file', default=None)
         cfg.add_argument('--logging-level', type=fc_log_level, help='Provide the "level" value to use in the logging.json file')
         cfg.add_argument('--logging-level-map', type=json.loads, help='JSON string of a logging level dictionary to use in the logging.json file for specific nodes, matching based on node number. Ex: {"bios":"off","00":"info"}')
         cfg.add_argument('--is-nodeos-v2', action='store_true', help='Toggles old nodeos compatibility', default=False)
@@ -359,9 +359,9 @@ class cluster_generator:
                             'net_usage_leeway': 500,
                             'context_free_discount_net_usage_num': 20,
                             'context_free_discount_net_usage_den': 100,
-                            'max_block_cpu_usage': self.args.max_block_cpu_usage,
+                            'max_block_cpu_usage': 200000 if self.args.max_block_cpu_usage is None else self.args.max_block_cpu_usage,
                             'target_block_cpu_usage_pct': 1000,
-                            'max_transaction_cpu_usage': self.args.max_transaction_cpu_usage,
+                            'max_transaction_cpu_usage': 475000 if self.args.max_transaction_cpu_usage is None else self.args.max_transaction_cpu_usage,
                             'min_transaction_cpu_usage': 100,
                             'max_transaction_lifetime': 3600,
                             'deferred_trx_expiration_window': 600,
@@ -375,8 +375,8 @@ class cluster_generator:
             with open(genesis_path, 'r') as f:
                 genesis = json.load(f)
         genesis['initial_key'] = self.network.nodes['bios'].keys[0].pubkey
-        genesis['initial_configuration']['max_block_cpu_usage'] = self.args.max_block_cpu_usage
-        genesis['initial_configuration']['max_transaction_cpu_usage'] = self.args.max_transaction_cpu_usage
+        genesis['initial_configuration']['max_block_cpu_usage'] = 200000 if self.args.max_block_cpu_usage is None else self.args.max_block_cpu_usage
+        genesis['initial_configuration']['max_transaction_cpu_usage'] = 475000 if self.args.max_transaction_cpu_usage is None else self.args.max_transaction_cpu_usage
         return genesis
 
     def write_genesis_file(self, node, genesis):
