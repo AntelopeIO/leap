@@ -75,7 +75,7 @@ auto push_input_trx(appbase::scoped_app& app, eosio::chain::controller& control,
    }
    auto ptrx = std::make_shared<packed_transaction>( trx, packed_transaction::compression_type::zlib );
 
-   std::shared_ptr<std::promise<transaction_trace_ptr>> trx_promise = std::make_shared<std::promise<transaction_trace_ptr>>();
+   auto trx_promise = std::make_shared<std::promise<transaction_trace_ptr>>();
    std::future<transaction_trace_ptr> trx_future = trx_promise->get_future();
 
    app->executor().post( priority::low, exec_queue::read_write, [&ptrx, &app, trx_promise]() {
@@ -124,7 +124,7 @@ auto set_code(appbase::scoped_app& app, eosio::chain::controller& control, accou
 void activate_protocol_features_set_bios_contract(appbase::scoped_app& app, chain_plugin* chain_plug) {
    using namespace appbase;
 
-   std::shared_ptr<std::atomic<bool>> feature_set = std::make_shared<std::atomic<bool>>(false);
+   auto feature_set = std::make_shared<std::atomic<bool>>(false);
    // has to execute when pending block is not null
    for (int tries = 0; tries < 100; ++tries) {
       app->executor().post( priority::high, exec_queue::read_write, [&chain_plug=chain_plug, feature_set](){
