@@ -280,13 +280,7 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"
         PATTERN "example/*" EXCLUDE
         PATTERN "bench/*" EXCLUDE
         PATTERN "doc/*" EXCLUDE
-        PATTERN "testwave/*" EXCLUDE
-        PATTERN "math/test/*" EXCLUDE
-        PATTERN "json/test/*" EXCLUDE
-        PATTERN "graph/test/*" EXCLUDE
-        PATTERN "gil/test/*" EXCLUDE
-        PATTERN "geometry/test/*" EXCLUDE
-        PATTERN "beast/test/*" EXCLUDE
+        PATTERN "libs/*/test" EXCLUDE
         )
 
 add_custom_target(dev-install
