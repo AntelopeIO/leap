@@ -137,7 +137,7 @@ sudo apt-get install -y \
         libssl-dev \
         llvm-11-dev \
         python3-numpy \
-        ubuntu-dev-tools \
+        file \
         zlib1g-dev
 ```
 To build, make sure you are in the root of the `leap` repo, then run the following command:
