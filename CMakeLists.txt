@@ -281,6 +281,7 @@ install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"
         PATTERN "bench/*" EXCLUDE
         PATTERN "doc/*" EXCLUDE
         PATTERN "libs/*/test" EXCLUDE
+        PATTERN "tools/*/test" EXCLUDE
         )
 
 add_custom_target(dev-install
