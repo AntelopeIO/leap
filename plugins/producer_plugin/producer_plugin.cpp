@@ -281,9 +281,9 @@ struct block_time_tracker {
             _block_time_tracker.add_fail_time(_is_transient);
             break;
          case trx_status::other:
-            break; // just reset timer which happens below
+            _block_time_tracker.start_idle_time(); // just reset timer, will be in other category
+            break;
          }
-         _block_time_tracker.start_idle_time();
       }
 
     private:
@@ -304,6 +304,7 @@ struct block_time_tracker {
    fc::microseconds add_idle_time(fc::time_point now = fc::time_point::now()) {
       auto dur = now - last_trx_time_point;
       block_idle_time += dur;
+      last_trx_time_point = now; // guard against calling add_idle_time() twice in a row.
       return dur;
    }
 
@@ -335,6 +336,7 @@ struct block_time_tracker {
          trx_success_time += now - last_trx_time_point;
          ++trx_success_num;
       }
+      last_trx_time_point = now;
    }
 
    void add_fail_time(bool is_transient) {
@@ -347,6 +349,7 @@ struct block_time_tracker {
          trx_fail_time += now - last_trx_time_point;
          ++trx_fail_num;
       }
+      last_trx_time_point = now;
    }
 
  private:
