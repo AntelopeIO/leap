@@ -75,29 +75,29 @@ auto push_input_trx(appbase::scoped_app& app, eosio::chain::controller& control,
    }
    auto ptrx = std::make_shared<packed_transaction>( trx, packed_transaction::compression_type::zlib );
 
-   std::promise<transaction_trace_ptr> trx_promise;
-   std::future<transaction_trace_ptr> trx_future = trx_promise.get_future();
+   std::shared_ptr<std::promise<transaction_trace_ptr>> trx_promise = std::make_shared<std::promise<transaction_trace_ptr>>();
+   std::future<transaction_trace_ptr> trx_future = trx_promise->get_future();
 
-   app->executor().post( priority::low, exec_queue::read_write, [&ptrx, &app, &trx_promise]() {
+   app->executor().post( priority::low, exec_queue::read_write, [&ptrx, &app, trx_promise]() {
       app->get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
                                                                                 false, // api_trx
                                                                                 transaction_metadata::trx_type::input, // trx_type
                                                                                 true, // return_failure_traces
-           [&trx_promise](const next_function_variant<transaction_trace_ptr>& result) {
+           [trx_promise](const next_function_variant<transaction_trace_ptr>& result) {
               if( std::holds_alternative<fc::exception_ptr>( result ) ) {
                  try {
                     std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();
                  } catch(...) {
-                    trx_promise.set_exception(std::current_exception());
+                    trx_promise->set_exception(std::current_exception());
                  }
               } else if ( std::get<chain::transaction_trace_ptr>( result )->except ) {
                  try {
                     std::get<chain::transaction_trace_ptr>(result)->except->dynamic_rethrow_exception();
                  } catch(...) {
-                    trx_promise.set_exception(std::current_exception());
+                    trx_promise->set_exception(std::current_exception());
                  }
               } else {
-                 trx_promise.set_value(std::get<chain::transaction_trace_ptr>(result));
+                 trx_promise->set_value(std::get<chain::transaction_trace_ptr>(result));
               }
            });
    });
@@ -124,12 +124,12 @@ auto set_code(appbase::scoped_app& app, eosio::chain::controller& control, accou
 void activate_protocol_features_set_bios_contract(appbase::scoped_app& app, chain_plugin* chain_plug) {
    using namespace appbase;
 
-   std::atomic<bool> feature_set = false;
+   std::shared_ptr<std::atomic<bool>> feature_set = std::make_shared<std::atomic<bool>>(false);
    // has to execute when pending block is not null
    for (int tries = 0; tries < 100; ++tries) {
-      app->executor().post( priority::high, exec_queue::read_write, [&chain_plug=chain_plug, &feature_set](){
+      app->executor().post( priority::high, exec_queue::read_write, [&chain_plug=chain_plug, feature_set](){
          try {
-            if (!chain_plug->chain().is_building_block() || feature_set)
+            if (!chain_plug->chain().is_building_block() || *feature_set)
                return;
             const auto& pfm = chain_plug->chain().get_protocol_feature_manager();
             auto preactivate_feature_digest = pfm.get_builtin_digest(builtin_protocol_feature_t::preactivate_feature);
@@ -153,12 +153,12 @@ void activate_protocol_features_set_bios_contract(appbase::scoped_app& app, chai
                BOOST_CHECK( feature_digest );
                chain_plug->chain().preactivate_feature( *feature_digest, false );
             }
-            feature_set = true;
+            *feature_set = true;
             return;
          } FC_LOG_AND_DROP()
          BOOST_CHECK(!"exception setting protocol features");
       });
-      if (feature_set)
+      if (*feature_set)
          break;
       std::this_thread::sleep_for(std::chrono::milliseconds(50));
    }
