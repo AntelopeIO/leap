@@ -88,90 +88,101 @@ BOOST_AUTO_TEST_CASE(not_check_configs_if_no_read_only_threads) {
 }
 
 void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable_tierup = false) {
-   fc::scoped_exit<std::function<void()>> on_exit = []() {
-      chain::wasm_interface_collection::test_disable_tierup = false;
-   };
-   chain::wasm_interface_collection::test_disable_tierup = test_disable_tierup;
+   try {
+      fc::scoped_exit<std::function<void()>> on_exit = []() {
+         chain::wasm_interface_collection::test_disable_tierup = false;
+      };
+      chain::wasm_interface_collection::test_disable_tierup = test_disable_tierup;
 
-   using namespace std::chrono_literals;
-   fc::temp_directory temp;
-   appbase::scoped_app app;
-   auto temp_dir_str = temp.path().string();
-   producer_plugin::set_test_mode(true);
-   
-   std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
-   std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
-   std::thread app_thread( [&]() {
-      fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
-      std::vector<const char*> argv = {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str()};
-      argv.insert( argv.end(), specific_args.begin(), specific_args.end() );
-      app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
-      app->find_plugin<chain_plugin>()->chain();
-      app->startup();
-      plugin_promise.set_value( {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()} );
-      app->exec();
-   } );
+      using namespace std::chrono_literals;
+      fc::temp_directory temp;
+      appbase::scoped_app app;
+      auto temp_dir_str = temp.path().string();
+      producer_plugin::set_test_mode(true);
 
-   auto[prod_plug, chain_plug] = plugin_fut.get();
+      std::atomic<size_t> next_calls = 0;
+      std::atomic<size_t> num_get_account_calls = 0;
+      std::atomic<size_t> num_posts = 0;
+      std::atomic<size_t> trace_with_except = 0;
+      std::atomic<bool> trx_match = true;
+      const size_t num_pushes = 4242;
 
-   activate_protocol_features_set_bios_contract(app, chain_plug);
+      {
+         std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
+         std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
+         std::thread app_thread( [&]() {
+            try {
+               fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
+               std::vector<const char*> argv = {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str()};
+               argv.insert(argv.end(), specific_args.begin(), specific_args.end());
+               app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**)&argv[0]);
+               app->find_plugin<chain_plugin>()->chain();
+               app->startup();
+               plugin_promise.set_value({app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()});
+               app->exec();
+               return;
+            } FC_LOG_AND_DROP()
+            BOOST_CHECK(!"app threw exception see logged error");
+         } );
+         fc::scoped_exit<std::function<void()>> on_except = [&](){
+            if (app_thread.joinable())
+               app_thread.join();
+         };
 
-   std::atomic<size_t> next_calls = 0;
-   std::atomic<size_t> num_get_account_calls = 0;
-   std::atomic<size_t> num_posts = 0;
-   std::atomic<size_t> trace_with_except = 0;
-   std::atomic<bool> trx_match = true;
-   const size_t num_pushes = 4242;
+         auto[prod_plug, chain_plug] = plugin_fut.get();
 
-   for( size_t i = 1; i <= num_pushes; ++i ) {
-      auto ptrx = i % 3 == 0 ? make_unique_trx() : make_bios_ro_trx(chain_plug->chain());
-      app->executor().post( priority::low, exec_queue::read_only, [&chain_plug=chain_plug, &num_get_account_calls]() {
-         chain_plug->get_read_only_api(fc::seconds(90)).get_account(chain_apis::read_only::get_account_params{.account_name=config::system_account_name}, fc::time_point::now()+fc::seconds(90));
-         ++num_get_account_calls;
-      });
-      app->executor().post( priority::low, exec_queue::read_only, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
-         ++num_posts;
-         bool return_failure_traces = true;
-         app->get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
-            false, // api_trx
-            transaction_metadata::trx_type::read_only, // trx_type
-            return_failure_traces,
-            [ptrx, &next_calls, &trace_with_except, &trx_match, return_failure_traces]
-            (const next_function_variant<transaction_trace_ptr>& result) {
-               if( !std::holds_alternative<fc::exception_ptr>( result ) && !std::get<chain::transaction_trace_ptr>( result )->except ) {
-                  if( std::get<chain::transaction_trace_ptr>( result )->id != ptrx->id() ) {
-                     elog( "trace not for trx ${id}: ${t}",
-                           ("id", ptrx->id())("t", fc::json::to_pretty_string(*std::get<chain::transaction_trace_ptr>(result))) );
-                     trx_match = false;
-                  }
-               } else if( !return_failure_traces && !std::holds_alternative<fc::exception_ptr>( result ) && std::get<chain::transaction_trace_ptr>( result )->except ) {
-                  elog( "trace with except ${e}",
-                        ("e", fc::json::to_pretty_string( *std::get<chain::transaction_trace_ptr>( result ) )) );
-                  ++trace_with_except;
-               }
-               ++next_calls;
-        });
-      });
-      app->executor().post( priority::low, exec_queue::read_only, [&chain_plug=chain_plug]() {
-         chain_plug->get_read_only_api(fc::seconds(90)).get_consensus_parameters(chain_apis::read_only::get_consensus_parameters_params{}, fc::time_point::now()+fc::seconds(90));
-      });
-   }
+         activate_protocol_features_set_bios_contract(app, chain_plug);
 
-   // Wait long enough such that all transactions are executed
-   auto start = fc::time_point::now();
-   auto hard_deadline = start + fc::seconds(10); // To protect against waiting forever
-   while ( (next_calls < num_pushes || num_get_account_calls < num_pushes) && fc::time_point::now() < hard_deadline ){
-      std::this_thread::sleep_for( 100ms );;
-   }
+         for( size_t i = 1; i <= num_pushes; ++i ) {
+            auto ptrx = i % 3 == 0 ? make_unique_trx() : make_bios_ro_trx(chain_plug->chain());
+            app->executor().post( priority::low, exec_queue::read_only, [&chain_plug=chain_plug, &num_get_account_calls]() {
+               chain_plug->get_read_only_api(fc::seconds(90)).get_account(chain_apis::read_only::get_account_params{.account_name=config::system_account_name}, fc::time_point::now()+fc::seconds(90));
+               ++num_get_account_calls;
+            });
+            app->executor().post( priority::low, exec_queue::read_only, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
+               ++num_posts;
+               bool return_failure_traces = true;
+               app->get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
+                  false, // api_trx
+                  transaction_metadata::trx_type::read_only, // trx_type
+                  return_failure_traces,
+                  [ptrx, &next_calls, &trace_with_except, &trx_match, return_failure_traces]
+                  (const next_function_variant<transaction_trace_ptr>& result) {
+                     if( !std::holds_alternative<fc::exception_ptr>( result ) && !std::get<chain::transaction_trace_ptr>( result )->except ) {
+                        if( std::get<chain::transaction_trace_ptr>( result )->id != ptrx->id() ) {
+                           elog( "trace not for trx ${id}: ${t}",
+                                 ("id", ptrx->id())("t", fc::json::to_pretty_string(*std::get<chain::transaction_trace_ptr>(result))) );
+                           trx_match = false;
+                        }
+                     } else if( !return_failure_traces && !std::holds_alternative<fc::exception_ptr>( result ) && std::get<chain::transaction_trace_ptr>( result )->except ) {
+                        elog( "trace with except ${e}",
+                              ("e", fc::json::to_pretty_string( *std::get<chain::transaction_trace_ptr>( result ) )) );
+                        ++trace_with_except;
+                     }
+                     ++next_calls;
+              });
+            });
+            app->executor().post( priority::low, exec_queue::read_only, [&chain_plug=chain_plug]() {
+               chain_plug->get_read_only_api(fc::seconds(90)).get_consensus_parameters(chain_apis::read_only::get_consensus_parameters_params{}, fc::time_point::now()+fc::seconds(90));
+            });
+         }
 
-   app->quit();
-   app_thread.join();
+         // Wait long enough such that all transactions are executed
+         auto start = fc::time_point::now();
+         auto hard_deadline = start + fc::seconds(10); // To protect against waiting forever
+         while ( (next_calls < num_pushes || num_get_account_calls < num_pushes) && fc::time_point::now() < hard_deadline ){
+            std::this_thread::sleep_for( 100ms );
+         }
 
-   BOOST_CHECK_EQUAL( trace_with_except, 0 ); // should not have any traces with except in it
-   BOOST_CHECK_EQUAL( num_pushes, num_posts );
-   BOOST_CHECK_EQUAL( num_pushes, next_calls.load() );
-   BOOST_CHECK_EQUAL( num_pushes, num_get_account_calls.load() );
-   BOOST_CHECK( trx_match.load() );  // trace should match the transaction
+         app->quit();
+      }
+
+      BOOST_CHECK_EQUAL( trace_with_except, 0 ); // should not have any traces with except in it
+      BOOST_CHECK_EQUAL( num_pushes, num_posts );
+      BOOST_CHECK_EQUAL( num_pushes, next_calls.load() );
+      BOOST_CHECK_EQUAL( num_pushes, num_get_account_calls.load() );
+      BOOST_CHECK( trx_match.load() );  // trace should match the transaction
+   } FC_LOG_AND_RETHROW()
 }
 
 // test read-only trxs on main thread (no --read-only-threads)
