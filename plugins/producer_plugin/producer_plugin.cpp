@@ -395,6 +395,7 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
       push_result push_transaction( const fc::time_point& block_deadline,
                                     const transaction_metadata_ptr& trx,
                                     bool api_trx, bool return_failure_trace,
+                                    block_time_tracker::trx_time_tracker& trx_tracker,
                                     const next_function<transaction_trace_ptr>& next );
       push_result handle_push_result( const transaction_metadata_ptr& trx,
                                       const next_function<transaction_trace_ptr>& next,
@@ -840,11 +841,8 @@ class producer_plugin_impl : public std::enable_shared_from_this<producer_plugin
             }
 
             const auto block_deadline = calculate_block_deadline( chain.pending_block_time() );
-            push_result pr = push_transaction( block_deadline, trx, api_trx, return_failure_trace, next );
+            push_result pr = push_transaction( block_deadline, trx, api_trx, return_failure_trace, trx_tracker, next );
 
-            if (!pr.failed) {
-               trx_tracker.trx_success();
-            }
             if( pr.trx_exhausted ) {
                _unapplied_transactions.add_incoming( trx, api_trx, return_failure_trace, next );
             }
@@ -2326,6 +2324,7 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
                                         const transaction_metadata_ptr& trx,
                                         bool api_trx,
                                         bool return_failure_trace,
+                                        block_time_tracker::trx_time_tracker& trx_tracker,
                                         const next_function<transaction_trace_ptr>& next )
 {
    auto start = fc::time_point::now();
@@ -2367,7 +2366,12 @@ producer_plugin_impl::push_transaction( const fc::time_point& block_deadline,
 
    auto trace = chain.push_transaction( trx, block_deadline, max_trx_time, prev_billed_cpu_time_us, false, sub_bill );
 
-   return handle_push_result(trx, next, start, chain, trace, return_failure_trace, disable_subjective_enforcement, first_auth, sub_bill, prev_billed_cpu_time_us);
+   auto pr = handle_push_result(trx, next, start, chain, trace, return_failure_trace, disable_subjective_enforcement, first_auth, sub_bill, prev_billed_cpu_time_us);
+
+   if (!pr.failed) {
+      trx_tracker.trx_success();
+   }
+   return pr;
 }
 
 producer_plugin_impl::push_result
@@ -2452,7 +2456,8 @@ bool producer_plugin_impl::process_unapplied_trxs( const fc::time_point& deadlin
 
          ++num_processed;
          try {
-            push_result pr = push_transaction( deadline, itr->trx_meta, false, itr->return_failure_trace, itr->next );
+            auto trx_tracker = _time_tracker.start_trx(itr->trx_meta->is_transient());
+            push_result pr = push_transaction( deadline, itr->trx_meta, false, itr->return_failure_trace, trx_tracker, itr->next );
 
             exhausted = pr.block_exhausted;
             if( exhausted ) {
@@ -2534,7 +2539,8 @@ void producer_plugin_impl::process_scheduled_and_incoming_trxs( const fc::time_p
          auto trx_meta = itr->trx_meta;
          bool api_trx = itr->trx_type == trx_enum_type::incoming_api;
 
-         push_result pr = push_transaction( deadline, trx_meta, api_trx, itr->return_failure_trace, itr->next );
+         auto trx_tracker = _time_tracker.start_trx(trx_meta->is_transient());
+         push_result pr = push_transaction( deadline, trx_meta, api_trx, itr->return_failure_trace, trx_tracker, itr->next );
 
          exhausted = pr.block_exhausted;
          if( pr.trx_exhausted ) {
@@ -2631,7 +2637,8 @@ bool producer_plugin_impl::process_incoming_trxs( const fc::time_point& deadline
          auto trx_meta = itr->trx_meta;
          bool api_trx = itr->trx_type == trx_enum_type::incoming_api;
 
-         push_result pr = push_transaction( deadline, trx_meta, api_trx, itr->return_failure_trace, itr->next );
+         auto trx_tracker = _time_tracker.start_trx(trx_meta->is_transient());
+         push_result pr = push_transaction( deadline, trx_meta, api_trx, itr->return_failure_trace, trx_tracker, itr->next );
 
          exhausted = pr.block_exhausted;
          if( pr.trx_exhausted ) {
