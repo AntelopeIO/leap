@@ -268,7 +268,7 @@ struct block_time_tracker {
 
       void trx_success() { _time_status = time_status::success; }
 
-      // Neither success for fail, will be reported as other
+      // Neither success nor fail, will be reported as other
       void cancel() { _time_status = time_status::other; }
 
       // updates block_time_tracker
