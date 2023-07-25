@@ -103,10 +103,10 @@ class TraceApiPluginTest(unittest.TestCase):
                 break
         self.assertTrue(isTrxInBlockFromTraceApi)
 
-        # relaunch with no time allocated for http response & abi-serializer so should always fail
+        # relaunch with no time allocated for http response & abi-serializer. Will fail because get_info fails.
         node.kill(signal.SIGTERM)
         Utils.Print("Ignore expected: ERROR: Node relaunch Failed")
-        isRelaunchSuccess = node.relaunch(addSwapFlags={"--http-max-response-time-ms": "0", "--abi-serializer-max-time-ms": "10"})
+        isRelaunchSuccess = node.relaunch(timeout=10, addSwapFlags={"--http-max-response-time-ms": "0", "--abi-serializer-max-time-ms": "10"})
 
         cmdDesc="get block_trace"
         cmd=" --print-response %s %d" % (cmdDesc, blockNum)
