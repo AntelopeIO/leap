@@ -202,6 +202,9 @@ struct trace_api_rpc_plugin_impl : public std::enable_shared_from_this<trace_api
       ilog("initializing trace api rpc plugin");
       std::shared_ptr<abi_data_handler> data_handler = std::make_shared<abi_data_handler>([](const exception_with_context& e){
          log_exception(e, fc::log_level::debug);
+         if (std::get<0>(e)) { // rethrow so caller is notified of error
+            std::rethrow_exception(std::get<0>(e));
+         }
       });
 
       if( options.count("trace-rpc-abi") ) {
