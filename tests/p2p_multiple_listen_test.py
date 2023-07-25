@@ -46,15 +46,25 @@ try:
                       specificExtraNodeosArgs=specificArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
-    # Be sure all nodes start out connected
+    # Be sure all nodes start out connected   (bios node omitted from diagram for brevity)
+    #     node00              node01            node02            node03            node04
+    #   localhost:9876 -> localhost:9877 -> localhost:9878 -> localhost:9879 -> localhost:9880
+    # localhost:9779 ^                           |                                   |
+    #       ^        +---------------------------+                                   |
+    #       +------------------------------------------------------------------------+
     cluster.waitOnClusterSync(blockAdvancing=5)
     # Shut down bios node, which is connected to all other nodes in all topologies
     cluster.biosNode.kill(signal.SIGTERM)
-    # Shut down second node, interrupting the default connections between it and nodes 0 and 3
+    # Shut down second node, interrupting the default connections between it and nodes 00 and 02
     cluster.getNode(1).kill(signal.SIGTERM)
-    # Shut down the fourth node, interrupting the default connections between it and nodes 3 and 5
+    # Shut down the fourth node, interrupting the default connections between it and nodes 02 and 04
     cluster.getNode(3).kill(signal.SIGTERM)
-    # Be sure all remaining nodes continue to sync via the two listen ports on node 0
+    # Be sure all remaining nodes continue to sync via the two listen ports on node 00
+    #     node00            node01              node02            node03            node04
+    #   localhost:9876     offline          localhost:9878       offline        localhost:9880
+    # localhost:9779 ^                           |                                   |
+    #       ^        +---------------------------+                                   |
+    #       +------------------------------------------------------------------------+
     cluster.waitOnClusterSync(blockAdvancing=5)
     connections = cluster.nodes[0].processUrllibRequest('net', 'connections')
     open_socket_count = 0
