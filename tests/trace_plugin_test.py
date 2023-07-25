@@ -5,8 +5,9 @@ import json
 import time
 import unittest
 import os
+import signal
 
-from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr
+from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, ReturnType
 from core_symbol import CORE_SYMBOL
 
 class TraceApiPluginTest(unittest.TestCase):
@@ -29,7 +30,7 @@ class TraceApiPluginTest(unittest.TestCase):
     def startEnv(self) :
         account_names = ["alice", "bob", "charlie"]
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-        traceNodeosArgs = " --trace-rpc-abi eosio.token=" + abs_path
+        traceNodeosArgs = " --verbose-http-errors --trace-rpc-abi eosio.token=" + abs_path
         self.cluster.launch(totalNodes=1, extraNodeosArgs=traceNodeosArgs)
         self.walletMgr.launch()
         testWalletName="testwallet"
@@ -101,6 +102,19 @@ class TraceApiPluginTest(unittest.TestCase):
                     self.assertIn('memo', prms)
                 break
         self.assertTrue(isTrxInBlockFromTraceApi)
+
+        # relaunch with no time allocated for http response & abi-serializer so should always fail
+        node.kill(signal.SIGTERM)
+        Utils.Print("Ignore expected: ERROR: Node relaunch Failed")
+        isRelaunchSuccess = node.relaunch(addSwapFlags={"--http-max-response-time-ms": "0", "--abi-serializer-max-time-ms": "10"})
+
+        cmdDesc="get block_trace"
+        cmd=" --print-response %s %d" % (cmdDesc, blockNum)
+        cmd="%s %s %s" % (Utils.EosClientPath, node.eosClientArgs(), cmd)
+        result=Utils.runCmdReturnStr(cmd, ignoreError=True)
+
+        Utils.Print(f"{cmdDesc} returned: {result}")
+        self.assertIn("Internal Server Error", result)
 
     @classmethod
     def setUpClass(self):
