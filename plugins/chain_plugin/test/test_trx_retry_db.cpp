@@ -224,11 +224,15 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       std::promise<chain_plugin*> plugin_promise;
       std::future<chain_plugin*> plugin_fut = plugin_promise.get_future();
       std::thread app_thread( [&]() {
-         std::vector<const char*> argv = {"test"};
-         app->initialize( argv.size(), (char**) &argv[0] );
-         app->startup();
-         plugin_promise.set_value(app->find_plugin<chain_plugin>());
-         app->exec();
+         try {
+            std::vector<const char*> argv = {"test"};
+            app->initialize(argv.size(), (char**)&argv[0]);
+            app->startup();
+            plugin_promise.set_value(app->find_plugin<chain_plugin>());
+            app->exec();
+            return;
+         } FC_LOG_AND_DROP()
+         BOOST_CHECK(!"app threw exception see logged error");
       } );
       (void)plugin_fut.get(); // wait for app to be started
 

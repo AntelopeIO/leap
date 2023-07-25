@@ -199,6 +199,9 @@ jobs:
         test: [build-tree, make-dev-install, deb-install]
     runs-on:  ["self-hosted", "enf-x86-midtier"]
     container: ${{ matrix.test != 'deb-install' && fromJSON(needs.build-base.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      TZ: Etc/UTC
     steps:
       - name: Update Package Index & Upgrade Packages
         run: |
@@ -241,8 +244,6 @@ jobs:
       - if: ${{ matrix.test == 'deb-install' }}
         name: Install leap-dev Package
         run: |
-          export DEBIAN_FRONTEND='noninteractive'
-          export TZ='Etc/UTC'
           apt-get install -y ./*.deb
           rm ./*.deb
 
