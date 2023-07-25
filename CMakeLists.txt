@@ -293,5 +293,7 @@ add_custom_target(dev-install
 
 include(doxygen)
 
+option(ENABLE_LEAP_DEV_DEB "Enable building the leap-dev .deb package" OFF)
+
 include(package.cmake)
 include(CPack)
