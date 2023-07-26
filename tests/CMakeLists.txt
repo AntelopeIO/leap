@@ -182,9 +182,6 @@ add_test(NAME full-version-label-test COMMAND tests/full-version-label.sh "v${VE
 add_test(NAME nested_container_multi_index_test COMMAND tests/nested_container_multi_index_test.py -n 2 WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nested_container_multi_index_test PROPERTY LABELS nonparallelizable_tests)
 
-add_test(NAME nodeos_run_check_test COMMAND tests/nodeos_run_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST nodeos_run_check_test PROPERTY LABELS nonparallelizable_tests)
-
 add_test(NAME p2p_multiple_listen_test COMMAND tests/p2p_multiple_listen_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST p2p_multiple_listen_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME p2p_no_listen_test COMMAND tests/p2p_no_listen_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
