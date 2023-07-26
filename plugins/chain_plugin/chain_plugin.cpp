@@ -1177,8 +1177,6 @@ void chain_plugin_impl::plugin_shutdown() {
    accepted_transaction_connection.reset();
    applied_transaction_connection.reset();
    block_start_connection.reset();
-   if(app().is_quiting())
-      chain->get_wasm_interface().indicate_shutting_down();
    chain.reset();
 }
 

@@ -124,7 +124,7 @@ class PerformanceTestBasic:
 
             def configureValidationNodes():
                 validationNodeSpecificNodeosStr = ""
-                if self.nodeosVers == "v2":
+                if "v2" in self.nodeosVers:
                     validationNodeSpecificNodeosStr += '--plugin eosio::history_api_plugin --filter-on "*" '
                 else:
                     #If prodsEnableTraceApi, then Cluster configures all nodes with trace_api_plugin so no need to duplicate here
@@ -139,7 +139,8 @@ class PerformanceTestBasic:
                 apiNodeSpecificNodeosStr = ""
                 apiNodeSpecificNodeosStr += "--plugin eosio::chain_api_plugin "
                 apiNodeSpecificNodeosStr += "--plugin eosio::net_api_plugin "
-                apiNodeSpecificNodeosStr += f"--read-only-threads {self.apiNodesReadOnlyThreadCount} "
+                if "v4" in self.nodeosVers:
+                    apiNodeSpecificNodeosStr += f"--read-only-threads {self.apiNodesReadOnlyThreadCount} "
                 if apiNodeSpecificNodeosStr:
                     self.specificExtraNodeosArgs.update({f"{nodeId}" : apiNodeSpecificNodeosStr for nodeId in self._apiNodeIds})
 
@@ -148,8 +149,8 @@ class PerformanceTestBasic:
             if self.apiNodeCount > 0:
                 configureApiNodes()
 
-            assert self.nodeosVers != "v1" and self.nodeosVers != "v0", f"nodeos version {Utils.getNodeosVersion().split('.')[0]} is unsupported by performance test"
-            if self.nodeosVers == "v2":
+            assert "v1" not in self.nodeosVers and "v0" not in self.nodeosVers, f"nodeos version {Utils.getNodeosVersion()} is unsupported by performance test"
+            if "v2" in self.nodeosVers:
                 self.writeTrx = lambda trxDataFile, blockNum, trx: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n")]
                 self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: log_reader.blockData(blockId=block["payload"]["id"], blockNum=block['payload']['block_num'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"])
                 self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction['trx']['id'], log_reader.trxData(blockNum, transaction['cpu_usage_us'], transaction['net_usage_words']))]))
@@ -286,7 +287,7 @@ class PerformanceTestBasic:
 
     def isOnBlockTransaction(self, transaction):
         # v2 history does not include onblock
-        if self.clusterConfig.nodeosVers == "v2":
+        if "v2" in self.clusterConfig.nodeosVers:
             return False
         else:
             if transaction['actions'][0]['account'] != 'eosio' or transaction['actions'][0]['action'] != 'onblock':
@@ -642,8 +643,8 @@ class PerformanceTestBasic:
         httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb, httpMaxInFlightRequests=args.http_max_in_flight_requests,
                                         httpMaxResponseTimeMs=args.http_max_response_time_ms, httpThreads=args.http_threads)
         netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
-        nodeosVers=Utils.getNodeosVersion().split('.')[0]
-        resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not nodeosVers == "v2")
+        nodeosVers=Utils.getNodeosVersion()
+        resourceMonitorPluginArgs = ResourceMonitorPluginArgs(resourceMonitorNotShutdownOnThresholdExceeded=not "v2" in nodeosVers)
         ENA = PerformanceTestBasic.ClusterConfig.ExtraNodeosArgs
         extraNodeosArgs = ENA(chainPluginArgs=chainPluginArgs, httpPluginArgs=httpPluginArgs, producerPluginArgs=producerPluginArgs, netPluginArgs=netPluginArgs,
                             resourceMonitorPluginArgs=resourceMonitorPluginArgs)

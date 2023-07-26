@@ -443,8 +443,6 @@ struct controller_impl {
             if( read_mode == db_read_mode::IRREVERSIBLE ) {
                controller::block_report br;
                apply_block( br, *bitr, controller::block_status::complete, trx_meta_cache_lookup{} );
-               head = (*bitr);
-               fork_db.mark_valid( head );
             }
 
             emit( self.irreversible_block, *bitr );
@@ -1177,7 +1175,7 @@ struct controller_impl {
 
       transaction_checktime_timer trx_timer(timer);
       const packed_transaction trx( std::move( etrx ) );
-      transaction_context trx_context( self, trx, std::move(trx_timer), start );
+      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), start );
 
       if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
          dm_logger->on_onerror(etrx);
@@ -1343,7 +1341,7 @@ struct controller_impl {
       uint32_t cpu_time_to_bill_us = billed_cpu_time_us;
 
       transaction_checktime_timer trx_timer( timer );
-      transaction_context trx_context( self, *trx->packed_trx(), std::move(trx_timer) );
+      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer) );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
       trx_context.max_transaction_time_subjective = max_transaction_time;
@@ -1557,7 +1555,7 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
-         transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start, trx->get_trx_type());
+         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -1931,7 +1929,7 @@ struct controller_impl {
    /**
     * @post regardless of the success of commit block there is no active pending block
     */
-   void commit_block( bool add_to_fork_db ) {
+   void commit_block( controller::block_status s ) {
       auto reset_pending_on_exit = fc::make_scoped_exit([this]{
          pending.reset();
       });
@@ -1940,24 +1938,26 @@ struct controller_impl {
          EOS_ASSERT( std::holds_alternative<completed_block>(pending->_block_stage), block_validate_exception,
                      "cannot call commit_block until pending block is completed" );
 
-         auto bsp = std::get<completed_block>(pending->_block_stage)._block_state;
+         const auto& bsp = std::get<completed_block>(pending->_block_stage)._block_state;
 
-         if( add_to_fork_db ) {
+         if( s == controller::block_status::incomplete ) {
             fork_db.add( bsp );
             fork_db.mark_valid( bsp );
             emit( self.accepted_block_header, bsp );
-            head = fork_db.head();
-            EOS_ASSERT( bsp == head, fork_database_exception, "committed block did not become the new head in fork database");
+            EOS_ASSERT( bsp == fork_db.head(), fork_database_exception, "committed block did not become the new head in fork database");
+         } else if (s != controller::block_status::irreversible) {
+            fork_db.mark_valid( bsp );
          }
+         head = bsp;
 
          // at block level, no transaction specific logging is possible
-         if (auto dm_logger = get_deep_mind_logger(false)) {
+         if (auto* dm_logger = get_deep_mind_logger(false)) {
             dm_logger->on_accepted_block(bsp);
          }
 
          emit( self.accepted_block, bsp );
 
-         if( add_to_fork_db ) {
+         if( s == controller::block_status::incomplete ) {
             log_irreversible();
          }
       } catch (...) {
@@ -2157,7 +2157,7 @@ struct controller_impl {
          pending->_block_stage = completed_block{ bsp };
 
          br = pending->_block_report; // copy before commit block destroys pending
-         commit_block(false);
+         commit_block(s);
          br.total_time = fc::time_point::now() - start;
          return;
       } catch ( const std::bad_alloc& ) {
@@ -2309,7 +2309,6 @@ struct controller_impl {
          controller::block_report br;
          if( s == controller::block_status::irreversible ) {
             apply_block( br, bsp, s, trx_meta_cache_lookup{} );
-            head = bsp;
 
             // On replay, log_irreversible is not called and so no irreversible_block signal is emitted.
             // So emit it explicitly here.
@@ -2335,8 +2334,6 @@ struct controller_impl {
       if( new_head->header.previous == head->id ) {
          try {
             apply_block( br, new_head, s, trx_lookup );
-            fork_db.mark_valid( new_head );
-            head = new_head;
          } catch ( const std::exception& e ) {
             fork_db.remove( new_head->id );
             throw;
@@ -2369,8 +2366,6 @@ struct controller_impl {
                br = controller::block_report{};
                apply_block( br, *ritr, (*ritr)->is_valid() ? controller::block_status::validated
                                                            : controller::block_status::complete, trx_lookup );
-               fork_db.mark_valid( *ritr );
-               head = *ritr;
             } catch ( const std::bad_alloc& ) {
               throw;
             } catch ( const boost::interprocess::bad_alloc& ) {
@@ -2401,7 +2396,6 @@ struct controller_impl {
                for( auto ritr = branches.second.rbegin(); ritr != branches.second.rend(); ++ritr ) {
                   br = controller::block_report{};
                   apply_block( br, *ritr, controller::block_status::validated /* we previously validated these blocks*/, trx_lookup );
-                  head = *ritr;
                }
                std::rethrow_exception(except);
             } // end if exception
@@ -2698,8 +2692,8 @@ struct controller_impl {
       wasm_if_collect.init_thread_local_data(db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
    }
 
-   wasm_interface& get_wasm_interface() {
-      return wasm_if_collect.get_wasm_interface();
+   wasm_interface_collection& get_wasm_interface() {
+      return wasm_if_collect;
    }
 
    void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
@@ -2967,7 +2961,7 @@ block_state_ptr controller::finalize_block( block_report& br, const signer_callb
 
 void controller::commit_block() {
    validate_db_available_size();
-   my->commit_block(true);
+   my->commit_block(block_status::incomplete);
 }
 
 deque<transaction_metadata_ptr> controller::abort_block() {
@@ -3400,7 +3394,7 @@ const apply_handler* controller::find_apply_handler( account_name receiver, acco
    }
    return nullptr;
 }
-wasm_interface& controller::get_wasm_interface() {
+wasm_interface_collection& controller::get_wasm_interface() {
    return my->get_wasm_interface();
 }
 

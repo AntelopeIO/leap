@@ -1,6 +1,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <eosio/testing/tester.hpp>
+#include <eosio/chain/wasm_interface_collection.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain/eosio_contract.hpp>

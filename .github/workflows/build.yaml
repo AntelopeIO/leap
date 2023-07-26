@@ -31,20 +31,13 @@ defaults:
     shell: bash
 
 jobs:
-  d:
-    name: Discover Platforms
-    runs-on: ubuntu-latest
-    outputs:
-      missing-platforms: ${{steps.discover.outputs.missing-platforms}}
-      p: ${{steps.discover.outputs.platforms}}
-    steps:
-      - name: Discover Platforms
-        id: discover
-        uses: AntelopeIO/discover-platforms-action@v1
-        with:
-          platform-file: .cicd/platforms.json
-          password: ${{secrets.GITHUB_TOKEN}}
-          package-name: builders
+  build-base:
+    name: Run Build Workflow
+    uses: ./.github/workflows/build_base.yaml
+    permissions:
+      packages: write
+      contents: read
+
   v:
     name: Discover Versions
     runs-on: ubuntu-latest
@@ -72,73 +65,21 @@ jobs:
           if [[ "${{inputs.override-eos-system-contracts}}" != "" ]]; then
             echo eos-system-contracts-ref=${{inputs.override-eos-system-contracts}} >> $GITHUB_OUTPUT
           fi
-  build-platforms:
-    name: Build Platforms
-    needs: d
-    if: needs.d.outputs.missing-platforms != '[]'
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: ${{fromJSON(needs.d.outputs.missing-platforms)}}
-    runs-on: ["self-hosted", "enf-x86-beefy"]
-    permissions:
-      packages: write
-      contents: read
-    steps:
-      - name: Login to Container Registry
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{github.repository_owner}}
-          password: ${{secrets.GITHUB_TOKEN}}
-      - name: Build and push
-        uses: docker/build-push-action@v3
-        with:
-          push: true
-          tags: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-          file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
-
-  Build:
-    needs: [d, build-platforms]
-    if: always() && needs.d.result == 'success' && (needs.build-platforms.result == 'success' || needs.build-platforms.result == 'skipped')
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu20, ubuntu22]
-    runs-on: ["self-hosted", "enf-x86-beefy"]
-    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
-    steps:
-        - uses: actions/checkout@v3
-          with:
-            submodules: recursive
-        - name: Build
-          id: build
-          run: |
-            # https://github.com/actions/runner/issues/2033
-            chown -R $(id -u):$(id -g) $PWD
-            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
-            cmake --build build
-            tar -pc --exclude "*.o" build | zstd --long -T0 -9 > build.tar.zst
-        - name: Upload builddir
-          uses: AntelopeIO/upload-artifact-large-chunks-action@v1
-          with:
-            name: ${{matrix.platform}}-build
-            path: build.tar.zst
 
   dev-package:
     name: Build leap-dev package
-    needs: [d, Build]
-    if: always() && needs.Build.result == 'success'
+    needs: [build-base]
+    if: always() && needs.build-base.result == 'success'
     strategy:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
     runs-on: ubuntu-latest
-    container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+    container: ${{fromJSON(needs.build-base.outputs.p)[matrix.platform].image}}
     steps:
       - uses: actions/checkout@v3
         with:
-          submodules: true
+          submodules: recursive
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
@@ -150,8 +91,8 @@ jobs:
           cpack
       - name: Install dev package
         run: |
-          apt update && apt upgrade -y
-          apt install -y ./build/leap_*.deb ./build/leap-dev*.deb
+          apt-get update && apt-get upgrade -y
+          apt-get install -y ./build/leap_*.deb ./build/leap-dev*.deb
       - name: Test using TestHarness
         run: |
           python3 -c "from TestHarness import Cluster"
@@ -163,15 +104,15 @@ jobs:
 
   tests:
     name: Tests
-    needs: [d, Build]
-    if: always() && needs.Build.result == 'success'
+    needs: [build-base]
+    if: always() && needs.build-base.result == 'success'
     strategy:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-hightier"]
     container:
-      image: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+      image: ${{fromJSON(needs.build-base.outputs.p)[matrix.platform].image}}
       options: --security-opt seccomp=unconfined
     steps:
       - uses: actions/checkout@v3
@@ -189,8 +130,8 @@ jobs:
 
   np-tests:
     name: NP Tests
-    needs: [d, Build]
-    if: always() && needs.Build.result == 'success'
+    needs: [build-base]
+    if: always() && needs.build-base.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -205,7 +146,7 @@ jobs:
       - name: Run tests in parallel containers
         uses: ./.github/actions/parallel-ctest-containers
         with:
-          container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+          container: ${{fromJSON(needs.build-base.outputs.p)[matrix.platform].image}}
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
@@ -219,8 +160,8 @@ jobs:
 
   lr-tests:
     name: LR Tests
-    needs: [d, Build]
-    if: always() && needs.Build.result == 'success'
+    needs: [build-base]
+    if: always() && needs.build-base.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -235,7 +176,7 @@ jobs:
       - name: Run tests in parallel containers
         uses: ./.github/actions/parallel-ctest-containers
         with:
-          container: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+          container: ${{fromJSON(needs.build-base.outputs.p)[matrix.platform].image}}
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: long_running_tests
@@ -249,7 +190,7 @@ jobs:
 
   libtester-tests:
     name: libtester tests
-    needs: [d, v, Build, dev-package]
+    needs: [build-base, v, dev-package]
     if: always() && needs.v.result == 'success' && needs.dev-package.result == 'success'
     strategy:
       fail-fast: false
@@ -257,8 +198,16 @@ jobs:
         platform: [ubuntu20, ubuntu22]
         test: [build-tree, make-dev-install, deb-install]
     runs-on:  ["self-hosted", "enf-x86-midtier"]
-    container: ${{ matrix.test != 'deb-install' && fromJSON(needs.d.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
+    container: ${{ matrix.test != 'deb-install' && fromJSON(needs.build-base.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      TZ: Etc/UTC
     steps:
+      - name: Update Package Index & Upgrade Packages
+        run: |
+          apt-get update
+          apt-get upgrade -y
+
       # LEAP
       - if: ${{ matrix.test != 'deb-install' }}
         name: Clone leap
@@ -295,9 +244,6 @@ jobs:
       - if: ${{ matrix.test == 'deb-install' }}
         name: Install leap-dev Package
         run: |
-          apt-get update
-          export DEBIAN_FRONTEND='noninteractive'
-          export TZ='Etc/UTC'
           apt-get install -y ./*.deb
           rm ./*.deb
 
@@ -314,7 +260,7 @@ jobs:
           token: ${{github.token}}
       - name: Install cdt Packages
         run: |
-          apt install -y ./*.deb
+          apt-get install -y ./*.deb
           rm ./*.deb
 
       # Reference Contracts
