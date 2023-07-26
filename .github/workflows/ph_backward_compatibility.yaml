@@ -42,13 +42,12 @@ jobs:
         run: |
           zstdcat build.tar.zst | tar x
       - name: Download Prev Leap Version
-        uses: AntelopeIO/asset-artifact-download-action@v2
+        uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
           repo: leap
           file: '(leap).*${{matrix.platform}}.04.*(x86_64|amd64).deb'
           target: '${{matrix.release}}'
-          token: ${{github.token}}
       - name: Install leap & replace binaries for PH use
         run: |
           apt-get update
