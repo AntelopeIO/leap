@@ -54,7 +54,7 @@ jobs:
           with:
             owner: AntelopeIO
             repo: leap
-            file: ${{github.event.inputs.platform-choice}}-build
+            file: build.tar.zst
             target: ${{github.sha}}
             artifact-name: ${{github.event.inputs.platform-choice}}-build
             token: ${{github.token}}
