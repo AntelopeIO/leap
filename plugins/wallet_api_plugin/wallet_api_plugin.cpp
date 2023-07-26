@@ -22,10 +22,11 @@ using namespace eosio;
 
 #define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
+   api_category::node, \
    [&api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
           try { \
              INVOKE \
-             cb(http_response_code, fc::time_point::now() + fc::days(365), fc::variant(result)); \
+             cb(http_response_code, fc::variant(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \
@@ -121,8 +122,7 @@ void wallet_api_plugin::plugin_startup() {
 void wallet_api_plugin::plugin_initialize(const variables_map& options) {
    try {
       const auto& _http_plugin = app().get_plugin<http_plugin>();
-      if( !_http_plugin.is_on_loopback()) {
-         if( !_http_plugin.is_secure()) {
+      if( !_http_plugin.is_on_loopback(api_category::node)) {
             elog( "\n"
                   "********!!!SECURITY ERROR!!!********\n"
                   "*                                  *\n"
@@ -133,17 +133,6 @@ void wallet_api_plugin::plugin_initialize(const variables_map& options) {
                   "* - are at HIGH risk of exposure - *\n"
                   "*                                  *\n"
                   "************************************\n" );
-         } else {
-            wlog( "\n"
-                  "**********SECURITY WARNING**********\n"
-                  "*                                  *\n"
-                  "* --       Wallet API           -- *\n"
-                  "* - EXPOSED to the LOCAL NETWORK - *\n"
-                  "* - Password and/or Private Keys - *\n"
-                  "* -   are at risk of exposure    - *\n"
-                  "*                                  *\n"
-                  "************************************\n" );
-         }
       }
    } FC_LOG_AND_RETHROW()
 }

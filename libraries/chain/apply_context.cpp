@@ -3,7 +3,7 @@
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <eosio/chain/wasm_interface.hpp>
+#include <eosio/chain/wasm_interface_collection.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/authorization_manager.hpp>
 #include <eosio/chain/resource_limits.hpp>
@@ -1093,5 +1093,20 @@ action_name apply_context::get_sender() const {
    }
    return action_name();
 }
+
+// Context             |    OC?
+//-------------------------------------------------------------------------------
+// Building block      | baseline, OC for eosio.*
+// Applying block      | OC unless a producer, OC for eosio.* including producers
+// Speculative API trx | baseline, OC for eosio.*
+// Speculative P2P trx | baseline, OC for eosio.*
+// Compute trx         | baseline, OC for eosio.*
+// Read only trx       | OC
+bool apply_context::should_use_eos_vm_oc()const {
+   return receiver.prefix() == config::system_account_name // "eosio"_n, all cases use OC
+          || (is_applying_block() && !control.is_producer_node()) // validating/applying block
+          || trx_context.is_read_only();
+}
+
 
 } } /// eosio::chain

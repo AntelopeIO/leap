@@ -9,9 +9,14 @@ namespace eosio {
 
    struct connection_status {
       string            peer;
-      bool              connecting = false;
-      bool              syncing    = false;
-      bool              is_bp_peer = false;
+      string            remote_ip;
+      string            remote_port;
+      bool              connecting           = false;
+      bool              syncing              = false;
+      bool              is_bp_peer           = false;
+      bool              is_socket_open       = false;
+      bool              is_blocks_only       = false;
+      bool              is_transactions_only = false;
       handshake_message last_handshake;
    };
 
@@ -49,4 +54,4 @@ namespace eosio {
 
 }
 
-FC_REFLECT( eosio::connection_status, (peer)(connecting)(syncing)(is_bp_peer)(last_handshake) )
+FC_REFLECT( eosio::connection_status, (peer)(remote_ip)(remote_port)(connecting)(syncing)(is_bp_peer)(is_socket_open)(is_blocks_only)(is_transactions_only)(last_handshake) )

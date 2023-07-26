@@ -41,31 +41,13 @@ namespace eosio { namespace chain {
          uint8_t                                              vm_version = 0;
       };
       struct by_hash;
-      struct by_first_block_num;
       struct by_last_block_num;
 
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      struct eosvmoc_tier {
-         eosvmoc_tier(const std::filesystem::path& d, const eosvmoc::config& c, const chainbase::database& db)
-          : cc(d, c, db) {
-             // construct exec for the main thread
-             init_thread_local_data();
-          }
-
-         // Support multi-threaded execution.
-         void init_thread_local_data() {
-            exec = std::make_unique<eosvmoc::executor>(cc);
-         }
-
-         eosvmoc::code_cache_async cc;
-
-         // Each thread requires its own exec and mem. Defined in wasm_interface.cpp
-         thread_local static std::unique_ptr<eosvmoc::executor> exec;
-         thread_local static eosvmoc::memory mem;
-      };
-#endif
-
-      wasm_interface_impl(wasm_interface::vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile) : db(d), wasm_runtime_time(vm) {
+      wasm_interface_impl(wasm_interface::vm_type vm, const chainbase::database& d,
+                          const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
+         : db(d)
+         , wasm_runtime_time(vm)
+      {
 #ifdef EOSIO_EOS_VM_RUNTIME_ENABLED
          if(vm == wasm_interface::vm_type::eos_vm)
             runtime_interface = std::make_unique<webassembly::eos_vm_runtime::eos_vm_runtime<eosio::vm::interpreter>>();
@@ -84,22 +66,9 @@ namespace eosio { namespace chain {
 #endif
          if(!runtime_interface)
             EOS_THROW(wasm_exception, "${r} wasm runtime not supported on this platform and/or configuration", ("r", vm));
-
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-         if(eosvmoc_tierup) {
-            EOS_ASSERT(vm != wasm_interface::vm_type::eos_vm_oc, wasm_exception, "You can't use EOS VM OC as the base runtime when tier up is activated");
-            eosvmoc.emplace(data_dir, eosvmoc_config, d);
-         }
-#endif
       }
 
-      ~wasm_interface_impl() {
-         if(is_shutting_down)
-            for(wasm_cache_index::iterator it = wasm_instantiation_cache.begin(); it != wasm_instantiation_cache.end(); ++it)
-               wasm_instantiation_cache.modify(it, [](wasm_cache_entry& e) {
-                  e.module.release()->fast_shutdown();
-               });
-      }
+      ~wasm_interface_impl() = default;
 
       bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {
          wasm_cache_index::iterator it = wasm_instantiation_cache.find( boost::make_tuple(code_hash, vm_type, vm_version) );
@@ -114,14 +83,16 @@ namespace eosio { namespace chain {
             });
       }
 
-      void current_lib(uint32_t lib) {
+      // reports each code_hash and vm_version that will be erased to callback
+      void current_lib(uint32_t lib, const std::function<void(const digest_type&, uint8_t)>& callback) {
          //anything last used before or on the LIB can be evicted
          const auto first_it = wasm_instantiation_cache.get<by_last_block_num>().begin();
          const auto last_it  = wasm_instantiation_cache.get<by_last_block_num>().upper_bound(lib);
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-         if(eosvmoc) for(auto it = first_it; it != last_it; it++)
-            eosvmoc->cc.free_code(it->code_hash, it->vm_version);
-#endif
+         if (callback) {
+            for(auto it = first_it; it != last_it; it++) {
+               callback(it->code_hash, it->vm_version);
+            }
+         }
          wasm_instantiation_cache.get<by_last_block_num>().erase(first_it, last_it);
       }
 
@@ -158,7 +129,6 @@ namespace eosio { namespace chain {
          return it->module;
       }
 
-      bool is_shutting_down = false;
       std::unique_ptr<wasm_runtime_interface> runtime_interface;
 
       typedef boost::multi_index_container<
@@ -178,10 +148,6 @@ namespace eosio { namespace chain {
 
       const chainbase::database& db;
       const wasm_interface::vm_type wasm_runtime_time;
-
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      std::optional<eosvmoc_tier> eosvmoc;
-#endif
    };
 
 } } // eosio::chain

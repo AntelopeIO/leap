@@ -40,6 +40,7 @@ namespace eosio { namespace chain {
    class account_object;
    class deep_mind_handler;
    class subjective_billing;
+   class wasm_interface_collection;
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
    using forked_branch_callback = std::function<void(const branch_type&)>;
@@ -90,7 +91,7 @@ namespace eosio { namespace chain {
 
             wasm_interface::vm_type  wasm_runtime = chain::config::default_wasm_runtime;
             eosvmoc::config          eosvmoc_config;
-            bool                     eosvmoc_tierup         = false;
+            wasm_interface::vm_oc_enable eosvmoc_tierup     = wasm_interface::vm_oc_enable::oc_auto;
 
             db_read_mode             read_mode              = db_read_mode::HEAD;
             validation_mode          block_validation_mode  = validation_mode::FULL;
@@ -321,6 +322,8 @@ namespace eosio { namespace chain {
 
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
          vm::wasm_allocator&  get_wasm_allocator();
+#endif
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
          bool is_eos_vm_oc_enabled() const;
 #endif
 
@@ -346,27 +349,7 @@ namespace eosio { namespace chain {
          */
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
-         wasm_interface& get_wasm_interface();
-
-
-         std::optional<abi_serializer> get_abi_serializer( account_name n, const abi_serializer::yield_function_t& yield )const {
-            if( n.good() ) {
-               try {
-                  const auto& a = get_account( n );
-                  if( abi_def abi; abi_serializer::to_abi( a.abi, abi ))
-                     return abi_serializer( std::move(abi), yield );
-               } FC_CAPTURE_AND_LOG((n))
-            }
-            return std::optional<abi_serializer>();
-         }
-
-         template<typename T>
-         fc::variant to_variant_with_abi( const T& obj, const abi_serializer::yield_function_t& yield )const {
-            fc::variant pretty_output;
-            abi_serializer::to_variant( obj, pretty_output,
-                                        [&]( account_name n ){ return get_abi_serializer( n, yield ); }, yield );
-            return pretty_output;
-         }
+         wasm_interface_collection& get_wasm_interface();
 
       static chain_id_type extract_chain_id(snapshot_reader& snapshot);
 
@@ -374,6 +357,9 @@ namespace eosio { namespace chain {
 
       void replace_producer_keys( const public_key_type& key );
       void replace_account_keys( name account, name permission, const public_key_type& key );
+
+      void set_producer_node(bool is_producer_node);
+      bool is_producer_node()const;
 
       void set_db_read_only_mode();
       void unset_db_read_only_mode();

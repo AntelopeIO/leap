@@ -466,6 +466,14 @@ bool  variant::as_bool()const
    }
 }
 
+static std::string s_fc_to_string(double d)
+{
+   // +2 is required to ensure that the double is rounded correctly when read back in.  http://docs.oracle.com/cd/E19957-01/806-3568/ncg_goldberg.html
+   std::stringstream ss;
+   ss << std::setprecision(std::numeric_limits<double>::digits10 + 2) << std::fixed << d;
+   return ss.str();
+}
+
 std::string variant::as_string()const
 {
    switch( get_type() )
@@ -473,11 +481,11 @@ std::string variant::as_string()const
       case string_type:
           return **reinterpret_cast<const const_string_ptr*>(this);
       case double_type:
-          return to_string(*reinterpret_cast<const double*>(this));
+          return s_fc_to_string(*reinterpret_cast<const double*>(this));
       case int64_type:
-          return to_string(*reinterpret_cast<const int64_t*>(this));
+          return std::to_string(*reinterpret_cast<const int64_t*>(this));
       case uint64_type:
-          return to_string(*reinterpret_cast<const uint64_t*>(this));
+          return std::to_string(*reinterpret_cast<const uint64_t*>(this));
       case bool_type:
           return *reinterpret_cast<const bool*>(this) ? "true" : "false";
       case blob_type:

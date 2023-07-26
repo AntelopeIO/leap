@@ -342,6 +342,7 @@ usage: performance_test.py testBpOpMode [--skip-tps-test]
                                         [--calc-net-threads {none,lmax,full}]
                                         [--del-test-report]
                                         [--max-tps-to-test MAX_TPS_TO_TEST]
+                                        [--min-tps-to-test MIN_TPS_TO_TEST]
                                         [--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC]
                                         [--test-iteration-min-step TEST_ITERATION_MIN_STEP]
                                         [--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC]
@@ -418,6 +419,8 @@ Performance Harness - TPS Test Config:
   --max-tps-to-test MAX_TPS_TO_TEST
                         The max target transfers realistic as ceiling of test
                         range
+  --min-tps-to-test MIN_TPS_TO_TEST
+                        The min target transfers to use as floor of test range
   --test-iteration-duration-sec TEST_ITERATION_DURATION_SEC
                         The duration of transfer trx generation for each
                         iteration of the test during the initial search
@@ -455,9 +458,10 @@ Advanced Configuration Options:
 
 ```
 usage: performance_test.py testBpOpMode overrideBasicTestConfig
-       [-h] [-d D] [--dump-error-details] [-v] [--leave-running] [--clean-run] [--unshared]
-       [--endpoint-api {p2p,http}]
+       [-h] [-d D] [--dump-error-details] [-v] [--leave-running] [--unshared]
+       [--endpoint-mode {p2p,http}]
        [--producer-nodes PRODUCER_NODES] [--validation-nodes VALIDATION_NODES] [--api-nodes API_NODES]
+       [--api-nodes-read-only-threads API_NODES_READ_ONLY_THREADS]
        [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
        [--genesis GENESIS] [--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE]
        [--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT]
@@ -500,20 +504,21 @@ Test Helper Arguments:
   --dump-error-details  Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout
   -v                    verbose logging
   --leave-running       Leave cluster running after test finishes
-  --clean-run           Kill all nodeos and keosd instances
   --unshared            Run test in isolated network namespace
 
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
-  --endpoint-api {p2p,http}
-                        Endpointt API mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
+  --endpoint-mode {p2p,http}
+                        Endpoint Mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
   --producer-nodes PRODUCER_NODES
                         Producing nodes count
   --validation-nodes VALIDATION_NODES
                         Validation nodes count
   --api-nodes API_NODES
                         API nodes count
+  --api-nodes-read-only-threads API_NODES_READ_ONLY_THREADS
+                        API nodes read only threads count for use with read-only transactions
   --tps-limit-per-generator TPS_LIMIT_PER_GENERATOR
                         Maximum amount of transactions per second a single generator can have.
   --genesis GENESIS     Path to genesis.json
@@ -601,11 +606,12 @@ The following scripts are typically used by the Performance Harness main script 
   ```
   usage: performance_test_basic.py [-h] [-d D]
                                   [--dump-error-details] [-v] [--leave-running]
-                                  [--clean-run] [--unshared]
-                                  [--endpoint-api {p2p,http}]
+                                  [--unshared]
+                                  [--endpoint-mode {p2p,http}]
                                   [--producer-nodes PRODUCER_NODES]
                                   [--validation-nodes VALIDATION_NODES]
                                   [--api-nodes API_NODES]
+                                  [--api-nodes-read-only-threads API_NODES_READ_ONLY_THREADS]
                                   [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
                                   [--genesis GENESIS]
                                   [--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE]
@@ -655,14 +661,13 @@ Test Helper Arguments:
   --dump-error-details  Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout (default: False)
   -v                    verbose logging (default: False)
   --leave-running       Leave cluster running after test finishes (default: False)
-  --clean-run           Kill all nodeos and keosd instances (default: False)
   --unshared            Run test in isolated network namespace (default: False)
 
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
-  --endpoint-api {p2p,http}
-                        Endpointt API mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
+  --endpoint-mode {p2p,http}
+                        Endpoint Mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
                         (default: p2p)
   --producer-nodes PRODUCER_NODES
                         Producing nodes count (default: 1)
@@ -670,6 +675,8 @@ Performance Test Basic Base:
                         Validation nodes count (default: 1)
   --api-nodes API_NODES
                         API nodes count (default: 0)
+  --api-nodes-read-only-threads API_NODES_READ_ONLY_THREADS
+                        API nodes read only threads count for use with read-only transactions (default: 0)
   --tps-limit-per-generator TPS_LIMIT_PER_GENERATOR
                         Maximum amount of transactions per second a single generator can have. (default: 4000)
   --genesis GENESIS     Path to genesis.json (default: tests/performance_tests/genesis.json)
@@ -803,6 +810,12 @@ Transaction Generator command line options.:
                                         actions auths description string to
                                         use, containting authAcctName to
                                         activePrivateKey pairs.
+  --api-endpoint arg                    The api endpoint to direct transactions to.
+                                        Defaults to: '/v1/chain/send_transaction2'
+  --peer-endpoint-type arg (=p2p)       Identify the peer endpoint api type to
+                                        determine how to send transactions.
+                                        Allowable 'p2p' and 'http'. Default:
+                                        'p2p'
   --peer-endpoint arg (=127.0.0.1)      set the peer endpoint to send
                                         transactions to
   --port arg (=9876)                    set the peer endpoint port to send
@@ -821,7 +834,7 @@ The Performance Harness generates a report to summarize results of test scenario
 Command used to run test and generate report:
 
 ``` bash
-.build/tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
+./build/tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
 ```
 
 ### Report Breakdown
@@ -830,28 +843,52 @@ The report begins by delivering the max TPS results of the performance run.
 * `InitialMaxTpsAchieved` - the max TPS throughput achieved during initial, short duration test scenarios to narrow search window
 * `LongRunningMaxTpsAchieved` - the max TPS throughput achieved during final, longer duration test scenarios to zero in on sustainable max TPS
 
-Next, a summary of the search scenario conducted and respective results is included.  Each summary includes information on the current state of the overarching search as well as basic results of the individual test that are used to determine whether the basic test was considered successful. The list of summary results are included in `InitialSearchResults` and `LongRunningSearchResults`. The number of entries in each list will vary depending on the TPS range tested (`--max-tps-to-test`) and the configured `--test-iteration-min-step`.
+Next, a high level summary of the search scenario target and results is included.  Each line item shows a target tps search scenario and whether that scenario passed or failed.
+<details>
+    <summary>Expand Search Scenario Results Summary Example</summary>
+
+``` json
+  "InitialSearchScenariosSummary": {
+    "50000": "FAIL",
+    "25001": "FAIL",
+    "12501": "PASS",
+    "19001": "FAIL",
+    "16001": "FAIL",
+    "14501": "FAIL",
+    "13501": "FAIL",
+    "13001": "PASS"
+  },
+  "LongRunningSearchScenariosSummary": {
+    "13001": "PASS"
+  },
+```
+</details>
+
+Next, a summary of the search scenario conducted and respective results is included.  Each summary includes information on the current state of the overarching search as well as basic results of the individual test that are used to determine whether the basic test was considered successful. The list of summary results are included in `InitialSearchResults` and `LongRunningSearchResults`. The number of entries in each list will vary depending on the TPS range tested (`--min-tps-to-test` & `--max-tps-to-test`) and the configured `--test-iteration-min-step`.
 <details>
     <summary>Expand Search Scenario Summary Example</summary>
 
 ``` json
-    "0": {
+    "2": {
       "success": true,
-      "searchTarget": 13501,
+      "searchTarget": 12501,
       "searchFloor": 1,
-      "searchCeiling": 13501,
+      "searchCeiling": 24501,
       "basicTestResult": {
-        "targetTPS": 13501,
-        "resultAvgTps": 13555.25,
-        "expectedTxns": 135010,
-        "resultTxns": 135010,
+        "testStart": "2023-06-05T19:13:42.528121",
+        "testEnd": "2023-06-05T19:15:00.441933",
+        "testDuration": "0:01:17.913812",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "basicTestSuccess": true,
+        "targetTPS": 12501,
+        "resultAvgTps": 12523.6875,
+        "expectedTxns": 125010,
+        "resultTxns": 125010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-25-39-13501",
-        "testStart": "2023-04-05T16:25:39.588359",
-        "testEnd": "2023-04-05T16:26:58.326668"
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-13-42-12501"
       }
     }
 ```
@@ -865,6 +902,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
 ``` json
 "InitialMaxTpsReport": {
     <truncated>
+    "Result": {
+      <truncated>
+    },
     "Analysis": {
       <truncated>
     },
@@ -884,12 +924,28 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ``` json
 {
-  "perfTestsBegin": "2023-04-05T14:35:59.067345",
-  "perfTestsFinish": "2023-04-05T16:26:58.466421",
-  "InitialMaxTpsAchieved": 13501,
-  "LongRunningMaxTpsAchieved": 13501,
-  "tpsTestStart": "2023-04-05T16:14:31.272616",
-  "tpsTestFinish": "2023-04-05T16:26:58.466404",
+  "perfTestsBegin": "2023-06-05T17:59:49.175441",
+  "perfTestsFinish": "2023-06-05T19:23:03.723738",
+  "perfTestsDuration": "1:23:14.548297",
+  "operationalMode": "Block Producer Operational Mode",
+  "InitialMaxTpsAchieved": 13001,
+  "LongRunningMaxTpsAchieved": 13001,
+  "tpsTestStart": "2023-06-05T19:10:32.123231",
+  "tpsTestFinish": "2023-06-05T19:23:03.723722",
+  "tpsTestDuration": "0:12:31.600491",
+  "InitialSearchScenariosSummary": {
+    "50000": "FAIL",
+    "25001": "FAIL",
+    "12501": "PASS",
+    "19001": "FAIL",
+    "16001": "FAIL",
+    "14501": "FAIL",
+    "13501": "FAIL",
+    "13001": "PASS"
+  },
+  "LongRunningSearchScenariosSummary": {
+    "13001": "PASS"
+  },
   "InitialSearchResults": {
     "0": {
       "success": false,
@@ -897,17 +953,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 1,
       "searchCeiling": 50000,
       "basicTestResult": {
-        "targetTPS": 50000,
-        "resultAvgTps": 10022.914285714285,
-        "expectedTxns": 500000,
-        "resultTxns": 196920,
+        "testStart": "2023-06-05T19:10:32.123282",
+        "testEnd": "2023-06-05T19:12:12.746349",
+        "testDuration": "0:01:40.623067",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
         "trxExpectMet": false,
-        "basicTestSuccess": false,
-        "testAnalysisBlockCnt": 36,
-        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-14-31-50000",
-        "testStart": "2023-04-05T16:14:31.272670",
-        "testEnd": "2023-04-05T16:16:03.534429"
+        "targetTPS": 50000,
+        "resultAvgTps": 14015.564102564103,
+        "expectedTxns": 500000,
+        "resultTxns": 309515,
+        "testAnalysisBlockCnt": 40,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-10-32-50000"
       }
     },
     "1": {
@@ -916,17 +975,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 1,
       "searchCeiling": 49500,
       "basicTestResult": {
-        "targetTPS": 25001,
-        "resultAvgTps": 13099.29411764706,
-        "expectedTxns": 250010,
-        "resultTxns": 250010,
+        "testStart": "2023-06-05T19:12:12.749120",
+        "testEnd": "2023-06-05T19:13:42.524984",
+        "testDuration": "0:01:29.775864",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 35,
-        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-16-03-25001",
-        "testStart": "2023-04-05T16:16:03.661754",
-        "testEnd": "2023-04-05T16:17:34.071307"
+        "trxExpectMet": false,
+        "targetTPS": 25001,
+        "resultAvgTps": 13971.5,
+        "expectedTxns": 250010,
+        "resultTxns": 249981,
+        "testAnalysisBlockCnt": 33,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-12-12-25001"
       }
     },
     "2": {
@@ -935,17 +997,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 1,
       "searchCeiling": 24501,
       "basicTestResult": {
-        "targetTPS": 12501,
-        "resultAvgTps": 12541.1875,
-        "expectedTxns": 125010,
-        "resultTxns": 125010,
+        "testStart": "2023-06-05T19:13:42.528121",
+        "testEnd": "2023-06-05T19:15:00.441933",
+        "testDuration": "0:01:17.913812",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "basicTestSuccess": true,
+        "targetTPS": 12501,
+        "resultAvgTps": 12523.6875,
+        "expectedTxns": 125010,
+        "resultTxns": 125010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-17-34-12501",
-        "testStart": "2023-04-05T16:17:34.183148",
-        "testEnd": "2023-04-05T16:18:52.175133"
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-13-42-12501"
       }
     },
     "3": {
@@ -954,17 +1019,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 13001,
       "searchCeiling": 24501,
       "basicTestResult": {
-        "targetTPS": 19001,
-        "resultAvgTps": 13541.0,
-        "expectedTxns": 190010,
-        "resultTxns": 190010,
+        "testStart": "2023-06-05T19:15:00.444109",
+        "testEnd": "2023-06-05T19:16:25.749654",
+        "testDuration": "0:01:25.305545",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 25,
-        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-18-52-19001",
-        "testStart": "2023-04-05T16:18:52.284361",
-        "testEnd": "2023-04-05T16:20:17.939051"
+        "trxExpectMet": false,
+        "targetTPS": 19001,
+        "resultAvgTps": 14858.095238095239,
+        "expectedTxns": 190010,
+        "resultTxns": 189891,
+        "testAnalysisBlockCnt": 22,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-15-00-19001"
       }
     },
     "4": {
@@ -973,17 +1041,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 13001,
       "searchCeiling": 18501,
       "basicTestResult": {
-        "targetTPS": 16001,
-        "resultAvgTps": 13426.8,
-        "expectedTxns": 160010,
-        "resultTxns": 160010,
+        "testStart": "2023-06-05T19:16:25.751860",
+        "testEnd": "2023-06-05T19:17:48.336896",
+        "testDuration": "0:01:22.585036",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 21,
-        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-20-18-16001",
-        "testStart": "2023-04-05T16:20:18.060543",
-        "testEnd": "2023-04-05T16:21:40.127977"
+        "trxExpectMet": false,
+        "targetTPS": 16001,
+        "resultAvgTps": 14846.0,
+        "expectedTxns": 160010,
+        "resultTxns": 159988,
+        "testAnalysisBlockCnt": 19,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-16-25-16001"
       }
     },
     "5": {
@@ -992,60 +1063,72 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 13001,
       "searchCeiling": 15501,
       "basicTestResult": {
-        "targetTPS": 14501,
-        "resultAvgTps": 13151.166666666666,
-        "expectedTxns": 145010,
-        "resultTxns": 145010,
+        "testStart": "2023-06-05T19:17:48.339990",
+        "testEnd": "2023-06-05T19:19:07.843311",
+        "testDuration": "0:01:19.503321",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 19,
-        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-21-40-14501",
-        "testStart": "2023-04-05T16:21:40.237483",
-        "testEnd": "2023-04-05T16:23:00.432464"
+        "trxExpectMet": false,
+        "targetTPS": 14501,
+        "resultAvgTps": 13829.588235294117,
+        "expectedTxns": 145010,
+        "resultTxns": 144964,
+        "testAnalysisBlockCnt": 18,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-17-48-14501"
       }
     },
     "6": {
-      "success": true,
+      "success": false,
       "searchTarget": 13501,
       "searchFloor": 13001,
       "searchCeiling": 14001,
       "basicTestResult": {
-        "targetTPS": 13501,
-        "resultAvgTps": 13555.0625,
-        "expectedTxns": 135010,
-        "resultTxns": 135010,
+        "testStart": "2023-06-05T19:19:07.845657",
+        "testEnd": "2023-06-05T19:20:27.815030",
+        "testDuration": "0:01:19.969373",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
+        "trxExpectMet": false,
+        "targetTPS": 13501,
+        "resultAvgTps": 13470.375,
+        "expectedTxns": 135010,
+        "resultTxns": 135000,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-23-00-13501",
-        "testStart": "2023-04-05T16:23:00.540367",
-        "testEnd": "2023-04-05T16:24:19.418664"
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-19-07-13501"
       }
     },
     "7": {
-      "success": false,
-      "searchTarget": 14001,
-      "searchFloor": 14001,
-      "searchCeiling": 14001,
+      "success": true,
+      "searchTarget": 13001,
+      "searchFloor": 13001,
+      "searchCeiling": 13001,
       "basicTestResult": {
-        "targetTPS": 14001,
-        "resultAvgTps": 13482.823529411764,
-        "expectedTxns": 140010,
-        "resultTxns": 140010,
-        "tpsExpectMet": false,
+        "testStart": "2023-06-05T19:20:27.817483",
+        "testEnd": "2023-06-05T19:21:44.846130",
+        "testDuration": "0:01:17.028647",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
+        "tpsExpectMet": true,
         "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 18,
-        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-24-19-14001",
-        "testStart": "2023-04-05T16:24:19.526361",
-        "testEnd": "2023-04-05T16:25:39.445419"
+        "targetTPS": 13001,
+        "resultAvgTps": 13032.5625,
+        "expectedTxns": 130010,
+        "resultTxns": 130010,
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-20-27-13001"
       }
     }
   },
   "InitialMaxTpsReport": {
+    <truncated>
+    "Result": {
       <truncated>
+    },
     "Analysis": {
       <truncated>
     },
@@ -1060,26 +1143,32 @@ Finally, the full detail test report for each of the determined max TPS throughp
   "LongRunningSearchResults": {
     "0": {
       "success": true,
-      "searchTarget": 13501,
+      "searchTarget": 13001,
       "searchFloor": 1,
-      "searchCeiling": 13501,
+      "searchCeiling": 13001,
       "basicTestResult": {
-        "targetTPS": 13501,
-        "resultAvgTps": 13555.25,
-        "expectedTxns": 135010,
-        "resultTxns": 135010,
+        "testStart": "2023-06-05T19:21:44.879637",
+        "testEnd": "2023-06-05T19:23:03.697671",
+        "testDuration": "0:01:18.818034",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "basicTestSuccess": true,
+        "targetTPS": 13001,
+        "resultAvgTps": 13027.0,
+        "expectedTxns": 130010,
+        "resultTxns": 130010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-25-39-13501",
-        "testStart": "2023-04-05T16:25:39.588359",
-        "testEnd": "2023-04-05T16:26:58.326668"
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-21-44-13001"
       }
     }
   },
   "LongRunningMaxTpsReport": {
+    <truncated>
+    "Result": {
       <truncated>
+    },
     "Analysis": {
       <truncated>
     },
@@ -1092,50 +1181,44 @@ Finally, the full detail test report for each of the determined max TPS throughp
     <truncated>
   },
   "ProducerThreadAnalysis": {
-    "recommendedThreadCount": 5,
-    "threadToMaxTpsDict": {
-      "2": 14501,
-      "3": 15501,
-      "4": 18001,
-      "5": 19001,
-      "6": 18501
-    },
-    "analysisStart": "2023-04-05T14:35:59.130340",
-    "analysisFinish": "2023-04-05T15:30:15.071101"
-  },
-  "ChainThreadAnalysis": {
     "recommendedThreadCount": 2,
     "threadToMaxTpsDict": {
-      "2": 15001,
-      "3": 14501
+      "2": 12001,
+      "3": 12001
     },
-    "analysisStart": "2023-04-05T15:30:15.072156",
-    "analysisFinish": "2023-04-05T15:52:23.942065"
+    "analysisStart": "2023-06-05T17:59:49.197967",
+    "analysisFinish": "2023-06-05T18:18:33.449126"
+  },
+  "ChainThreadAnalysis": {
+    "recommendedThreadCount": 3,
+    "threadToMaxTpsDict": {
+      "2": 4001,
+      "3": 13001,
+      "4": 5501
+    },
+    "analysisStart": "2023-06-05T18:18:33.449689",
+    "analysisFinish": "2023-06-05T18:48:02.262053"
   },
   "NetThreadAnalysis": {
     "recommendedThreadCount": 4,
     "threadToMaxTpsDict": {
-      "4": 13501,
-      "5": 13001
+      "4": 14501,
+      "5": 13501
     },
-    "analysisStart": "2023-04-05T15:52:23.943254",
-    "analysisFinish": "2023-04-05T16:14:31.271855"
+    "analysisStart": "2023-06-05T18:48:02.262594",
+    "analysisFinish": "2023-06-05T19:10:32.123003"
   },
   "args": {
     "rawCmdLine ": "./tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
-    "killAll": false,
-    "dontKill": false,
-    "keepLogs": true,
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
     "verbose": false,
     "unshared": false,
-    "_killEosInstances": true,
-    "_killWallet": true,
-    "pnodes": 1,
-    "totalNodes": 0,
-    "topo": "mesh",
+    "producerNodeCount": 1,
+    "validationNodeCount": 1,
+    "apiNodeCount": 0,
+    "dontKill": false,
     "extraNodeosArgs": {
       "chainPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -1327,6 +1410,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "httpServerAddress": null,
         "_httpServerAddressNodeosDefault": "127.0.0.1:8888",
         "_httpServerAddressNodeosArg": "--http-server-address",
+        "httpCategoryAddress": null,
+        "_httpCategoryAddressNodeosDefault": null,
+        "_httpCategoryAddressNodeosArg": "--http-category-address",
         "accessControlAllowOrigin": null,
         "_accessControlAllowOriginNodeosDefault": null,
         "_accessControlAllowOriginNodeosArg": "--access-control-allow-origin",
@@ -1345,11 +1431,11 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "httpMaxBytesInFlightMb": -1,
         "_httpMaxBytesInFlightMbNodeosDefault": 500,
         "_httpMaxBytesInFlightMbNodeosArg": "--http-max-bytes-in-flight-mb",
-        "httpMaxInFlightRequests": null,
+        "httpMaxInFlightRequests": -1,
         "_httpMaxInFlightRequestsNodeosDefault": -1,
         "_httpMaxInFlightRequestsNodeosArg": "--http-max-in-flight-requests",
         "httpMaxResponseTimeMs": -1,
-        "_httpMaxResponseTimeMsNodeosDefault": 30,
+        "_httpMaxResponseTimeMsNodeosDefault": 15,
         "_httpMaxResponseTimeMsNodeosArg": "--http-max-response-time-ms",
         "verboseHttpErrors": null,
         "_verboseHttpErrorsNodeosDefault": false,
@@ -1416,8 +1502,11 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "_netThreadsNodeosDefault": 4,
         "_netThreadsNodeosArg": "--net-threads",
         "syncFetchSpan": null,
-        "_syncFetchSpanNodeosDefault": 100,
+        "_syncFetchSpanNodeosDefault": 1000,
         "_syncFetchSpanNodeosArg": "--sync-fetch-span",
+        "syncPeerLimit": null,
+        "_syncPeerLimitNodeosDefault": 3,
+        "_syncPeerLimitNodeosArg": "--sync-peer-limit",
         "useSocketReadWatermark": null,
         "_useSocketReadWatermarkNodeosDefault": 0,
         "_useSocketReadWatermarkNodeosArg": "--use-socket-read-watermark",
@@ -1456,7 +1545,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "_greylistLimitNodeosDefault": 1000,
         "_greylistLimitNodeosArg": "--greylist-limit",
         "cpuEffortPercent": 100,
-        "_cpuEffortPercentNodeosDefault": 80,
+        "_cpuEffortPercentNodeosDefault": 90,
         "_cpuEffortPercentNodeosArg": "--cpu-effort-percent",
         "maxBlockCpuUsageThresholdUs": null,
         "_maxBlockCpuUsageThresholdUsNodeosDefault": 5000,
@@ -1485,16 +1574,13 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "incomingTransactionQueueSizeMb": null,
         "_incomingTransactionQueueSizeMbNodeosDefault": 1024,
         "_incomingTransactionQueueSizeMbNodeosArg": "--incoming-transaction-queue-size-mb",
-        "disableSubjectiveBilling": true,
-        "_disableSubjectiveBillingNodeosDefault": 1,
-        "_disableSubjectiveBillingNodeosArg": "--disable-subjective-billing",
         "disableSubjectiveAccountBilling": null,
         "_disableSubjectiveAccountBillingNodeosDefault": false,
         "_disableSubjectiveAccountBillingNodeosArg": "--disable-subjective-account-billing",
-        "disableSubjectiveP2pBilling": null,
+        "disableSubjectiveP2pBilling": true,
         "_disableSubjectiveP2pBillingNodeosDefault": 1,
         "_disableSubjectiveP2pBillingNodeosArg": "--disable-subjective-p2p-billing",
-        "disableSubjectiveApiBilling": null,
+        "disableSubjectiveApiBilling": true,
         "_disableSubjectiveApiBillingNodeosDefault": 1,
         "_disableSubjectiveApiBillingNodeosArg": "--disable-subjective-api-billing",
         "producerThreads": 2,
@@ -1611,6 +1697,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "genesisPath": "tests/performance_tests/genesis.json",
     "maximumP2pPerHost": 5000,
     "maximumClients": 0,
+    "keepLogs": true,
     "loggingLevel": "info",
     "loggingDict": {
       "bios": "off"
@@ -1618,14 +1705,27 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "prodsEnableTraceApi": false,
     "nodeosVers": "v4",
     "specificExtraNodeosArgs": {
-      "1": "--plugin eosio::trace_api_plugin "
+      "1": "--plugin eosio::trace_api_plugin ",
+      "2": "--plugin eosio::chain_api_plugin --plugin eosio::net_api_plugin --read-only-threads 0 "
     },
     "_totalNodes": 2,
+    "_pNodes": 1,
+    "_producerNodeIds": [
+      0
+    ],
+    "_validationNodeIds": [
+      1
+    ],
+    "_apiNodeIds": [
+      2
+    ],
     "nonProdsEosVmOcEnable": false,
+    "apiNodesReadOnlyThreadCount": 0,
     "testDurationSec": 10,
     "finalDurationSec": 30,
     "delPerfLogs": false,
     "maxTpsToTest": 50000,
+    "minTpsToTest": 1,
     "testIterationMinStep": 500,
     "tpsLimitPerGenerator": 4000,
     "delReport": false,
@@ -1638,11 +1738,13 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "calcChainThreads": "lmax",
     "calcNetThreads": "lmax",
     "userTrxDataFile": null,
+    "endpointMode": "p2p",
+    "opModeCmd": "testBpOpMode",
     "logDirBase": "performance_test",
-    "logDirTimestamp": "2023-04-05_14-35-59",
-    "logDirPath": "performance_test/2023-04-05_14-35-59",
-    "ptbLogsDirPath": "performance_test/2023-04-05_14-35-59/testRunLogs",
-    "pluginThreadOptLogsDirPath": "performance_test/2023-04-05_14-35-59/pluginThreadOptRunLogs"
+    "logDirTimestamp": "2023-06-05_17-59-49",
+    "logDirPath": "performance_test/2023-06-05_17-59-49",
+    "ptbLogsDirPath": "performance_test/2023-06-05_17-59-49/testRunLogs",
+    "pluginThreadOptLogsDirPath": "performance_test/2023-06-05_17-59-49/pluginThreadOptRunLogs"
   },
   "env": {
     "system": "Linux",
@@ -1665,72 +1767,98 @@ The Performance Test Basic generates, by default, a report that details results 
 
 ``` json
 {
-  "completedRun": true,
-  "testStart": "2023-04-05T16:25:39.588359",
-  "testFinish": "2023-04-05T16:26:58.326668",
+  "targetApiEndpointType": "p2p",
+  "targetApiEndpoint": "NA for P2P",
+  "Result": {
+    "testStart": "2023-06-05T19:21:44.879637",
+    "testEnd": "2023-06-05T19:23:03.697671",
+    "testDuration": "0:01:18.818034",
+    "testPassed": true,
+    "testRunSuccessful": true,
+    "testRunCompleted": true,
+    "tpsExpectMet": true,
+    "trxExpectMet": true,
+    "targetTPS": 13001,
+    "resultAvgTps": 13027.0,
+    "expectedTxns": 130010,
+    "resultTxns": 130010,
+    "testAnalysisBlockCnt": 17,
+    "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-21-44-13001"
+  },
   "Analysis": {
     "BlockSize": {
-      "min": 139000,
-      "max": 182475,
-      "avg": 168440.0588235294,
-      "sigma": 11024.182010314407,
+      "min": 153503,
+      "max": 169275,
+      "avg": 162269.76470588235,
+      "sigma": 3152.279353278714,
       "emptyBlocks": 0,
       "numBlocks": 17
     },
     "BlocksGuide": {
-      "firstBlockNum": 113,
-      "lastBlockNum": 145,
-      "totalBlocks": 33,
-      "testStartBlockNum": 113,
-      "testEndBlockNum": 145,
+      "firstBlockNum": 110,
+      "lastBlockNum": 140,
+      "totalBlocks": 31,
+      "testStartBlockNum": 110,
+      "testEndBlockNum": 140,
       "setupBlocksCnt": 0,
       "tearDownBlocksCnt": 0,
       "leadingEmptyBlocksCnt": 1,
-      "trailingEmptyBlocksCnt": 11,
+      "trailingEmptyBlocksCnt": 9,
       "configAddlDropCnt": 2,
       "testAnalysisBlockCnt": 17
     },
     "TPS": {
-      "min": 12390,
-      "max": 14454,
-      "avg": 13555.25,
-      "sigma": 551.2613377518869,
+      "min": 12775,
+      "max": 13285,
+      "avg": 13027.0,
+      "sigma": 92.70854868888844,
       "emptyBlocks": 0,
       "numBlocks": 17,
-      "configTps": 13501,
+      "configTps": 13001,
       "configTestDuration": 10,
       "tpsPerGenerator": [
-        3375,
-        3375,
-        3375,
-        3376
+        3250,
+        3250,
+        3250,
+        3251
       ],
       "generatorCount": 4
     },
     "TrxCPU": {
       "min": 8.0,
-      "max": 1629.0,
-      "avg": 27.252588697133547,
-      "sigma": 23.105861916437814,
-      "samples": 135010
+      "max": 1180.0,
+      "avg": 25.89257749403892,
+      "sigma": 12.604252354938811,
+      "samples": 130010
     },
     "TrxLatency": {
       "min": 0.0009999275207519531,
-      "max": 0.5899999141693115,
-      "avg": 0.2691181839364483,
-      "sigma": 0.1464077116092879,
-      "samples": 135010
+      "max": 0.5399999618530273,
+      "avg": 0.2522121298066488,
+      "sigma": 0.14457374598663084,
+      "samples": 130010,
+      "units": "seconds"
     },
     "TrxNet": {
       "min": 24.0,
       "max": 25.0,
-      "avg": 24.851892452410933,
-      "sigma": 0.35520656234959913,
-      "samples": 135010
+      "avg": 24.846196446427196,
+      "sigma": 0.3607603366241642,
+      "samples": 130010
     },
+    "TrxAckResponseTime": {
+      "min": -1.0,
+      "max": -1.0,
+      "avg": -1.0,
+      "sigma": 0.0,
+      "samples": 130010,
+      "measurementApplicable": "NOT APPLICABLE",
+      "units": "microseconds"
+    },
+    "ExpectedTransactions": 130010,
     "DroppedTransactions": 0,
-    "ProductionWindowsTotal": 0,
-    "ProductionWindowsAverageSize": 0,
+    "ProductionWindowsTotal": 2,
+    "ProductionWindowsAverageSize": 12.0,
     "ProductionWindowsMissed": 0,
     "ForkedBlocks": {
       "00": [],
@@ -1751,19 +1879,15 @@ The Performance Test Basic generates, by default, a report that details results 
   },
   "args": {
     "rawCmdLine ": "./tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
-    "killAll": false,
-    "dontKill": false,
-    "keepLogs": true,
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
     "verbose": false,
     "unshared": false,
-    "_killEosInstances": true,
-    "_killWallet": true,
-    "pnodes": 1,
-    "totalNodes": 0,
-    "topo": "mesh",
+    "producerNodeCount": 1,
+    "validationNodeCount": 1,
+    "apiNodeCount": 0,
+    "dontKill": false,
     "extraNodeosArgs": {
       "chainPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -1955,6 +2079,9 @@ The Performance Test Basic generates, by default, a report that details results 
         "httpServerAddress": null,
         "_httpServerAddressNodeosDefault": "127.0.0.1:8888",
         "_httpServerAddressNodeosArg": "--http-server-address",
+        "httpCategoryAddress": null,
+        "_httpCategoryAddressNodeosDefault": null,
+        "_httpCategoryAddressNodeosArg": "--http-category-address",
         "accessControlAllowOrigin": null,
         "_accessControlAllowOriginNodeosDefault": null,
         "_accessControlAllowOriginNodeosArg": "--access-control-allow-origin",
@@ -1973,11 +2100,11 @@ The Performance Test Basic generates, by default, a report that details results 
         "httpMaxBytesInFlightMb": -1,
         "_httpMaxBytesInFlightMbNodeosDefault": 500,
         "_httpMaxBytesInFlightMbNodeosArg": "--http-max-bytes-in-flight-mb",
-        "httpMaxInFlightRequests": null,
+        "httpMaxInFlightRequests": -1,
         "_httpMaxInFlightRequestsNodeosDefault": -1,
         "_httpMaxInFlightRequestsNodeosArg": "--http-max-in-flight-requests",
         "httpMaxResponseTimeMs": -1,
-        "_httpMaxResponseTimeMsNodeosDefault": 30,
+        "_httpMaxResponseTimeMsNodeosDefault": 15,
         "_httpMaxResponseTimeMsNodeosArg": "--http-max-response-time-ms",
         "verboseHttpErrors": null,
         "_verboseHttpErrorsNodeosDefault": false,
@@ -2044,8 +2171,11 @@ The Performance Test Basic generates, by default, a report that details results 
         "_netThreadsNodeosDefault": 4,
         "_netThreadsNodeosArg": "--net-threads",
         "syncFetchSpan": null,
-        "_syncFetchSpanNodeosDefault": 100,
+        "_syncFetchSpanNodeosDefault": 1000,
         "_syncFetchSpanNodeosArg": "--sync-fetch-span",
+        "syncPeerLimit": null,
+        "_syncPeerLimitNodeosDefault": 3,
+        "_syncPeerLimitNodeosArg": "--sync-peer-limit",
         "useSocketReadWatermark": null,
         "_useSocketReadWatermarkNodeosDefault": 0,
         "_useSocketReadWatermarkNodeosArg": "--use-socket-read-watermark",
@@ -2084,7 +2214,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "_greylistLimitNodeosDefault": 1000,
         "_greylistLimitNodeosArg": "--greylist-limit",
         "cpuEffortPercent": 100,
-        "_cpuEffortPercentNodeosDefault": 80,
+        "_cpuEffortPercentNodeosDefault": 90,
         "_cpuEffortPercentNodeosArg": "--cpu-effort-percent",
         "maxBlockCpuUsageThresholdUs": null,
         "_maxBlockCpuUsageThresholdUsNodeosDefault": 5000,
@@ -2113,16 +2243,13 @@ The Performance Test Basic generates, by default, a report that details results 
         "incomingTransactionQueueSizeMb": null,
         "_incomingTransactionQueueSizeMbNodeosDefault": 1024,
         "_incomingTransactionQueueSizeMbNodeosArg": "--incoming-transaction-queue-size-mb",
-        "disableSubjectiveBilling": true,
-        "_disableSubjectiveBillingNodeosDefault": 1,
-        "_disableSubjectiveBillingNodeosArg": "--disable-subjective-billing",
         "disableSubjectiveAccountBilling": null,
         "_disableSubjectiveAccountBillingNodeosDefault": false,
         "_disableSubjectiveAccountBillingNodeosArg": "--disable-subjective-account-billing",
-        "disableSubjectiveP2pBilling": null,
+        "disableSubjectiveP2pBilling": true,
         "_disableSubjectiveP2pBillingNodeosDefault": 1,
         "_disableSubjectiveP2pBillingNodeosArg": "--disable-subjective-p2p-billing",
-        "disableSubjectiveApiBilling": null,
+        "disableSubjectiveApiBilling": true,
         "_disableSubjectiveApiBillingNodeosDefault": 1,
         "_disableSubjectiveApiBillingNodeosArg": "--disable-subjective-api-billing",
         "producerThreads": 2,
@@ -2239,6 +2366,7 @@ The Performance Test Basic generates, by default, a report that details results 
     "genesisPath": "tests/performance_tests/genesis.json",
     "maximumP2pPerHost": 5000,
     "maximumClients": 0,
+    "keepLogs": true,
     "loggingLevel": "info",
     "loggingDict": {
       "bios": "off"
@@ -2246,25 +2374,40 @@ The Performance Test Basic generates, by default, a report that details results 
     "prodsEnableTraceApi": false,
     "nodeosVers": "v4",
     "specificExtraNodeosArgs": {
-      "1": "--plugin eosio::trace_api_plugin "
+      "1": "--plugin eosio::trace_api_plugin ",
+      "2": "--plugin eosio::chain_api_plugin --plugin eosio::net_api_plugin --read-only-threads 0 "
     },
     "_totalNodes": 2,
+    "_pNodes": 1,
+    "_producerNodeIds": [
+      0
+    ],
+    "_validationNodeIds": [
+      1
+    ],
+    "_apiNodeIds": [
+      2
+    ],
     "nonProdsEosVmOcEnable": false,
-    "targetTps": 13501,
+    "apiNodesReadOnlyThreadCount": 0,
+    "targetTps": 13001,
     "testTrxGenDurationSec": 10,
     "tpsLimitPerGenerator": 4000,
     "numAddlBlocksToPrune": 2,
-    "logDirRoot": "performance_test/2023-04-05_14-35-59/testRunLogs",
+    "logDirRoot": "performance_test/2023-06-05_17-59-49/testRunLogs",
     "delReport": false,
     "quiet": false,
     "delPerfLogs": false,
-    "expectedTransactionsSent": 135010,
+    "expectedTransactionsSent": 130010,
     "printMissingTransactions": false,
     "userTrxDataFile": null,
-    "logDirBase": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test",
-    "logDirTimestamp": "2023-04-05_16-25-39",
-    "logDirTimestampedOptSuffix": "-13501",
-    "logDirPath": "performance_test/2023-04-05_14-35-59/testRunLogs/performance_test/2023-04-05_16-25-39-13501"
+    "endpointMode": "p2p",
+    "apiEndpoint": null,
+    "logDirBase": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test",
+    "logDirTimestamp": "2023-06-05_19-21-44",
+    "logDirTimestampedOptSuffix": "-13001",
+    "logDirPath": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-21-44-13001",
+    "userTrxData": "NOT CONFIGURED"
   },
   "env": {
     "system": "Linux",

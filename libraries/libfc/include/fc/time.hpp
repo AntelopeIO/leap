@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <string>
+#include <limits>
 
 #ifdef _MSC_VER
   #pragma warning (push)
@@ -11,7 +12,8 @@ namespace fc {
   class microseconds {
     public:
         constexpr explicit microseconds( int64_t c = 0) :_count(c){}
-        static constexpr microseconds maximum() { return microseconds(0x7fffffffffffffffll); }
+        static constexpr microseconds maximum() { return microseconds(std::numeric_limits<int64_t>::max()); }
+        static constexpr microseconds minimum() { return microseconds(std::numeric_limits<int64_t>::min()); }
         friend constexpr microseconds operator + (const  microseconds& l, const microseconds& r ) { return microseconds(l._count+r._count); }
         friend constexpr microseconds operator - (const  microseconds& l, const microseconds& r ) { return microseconds(l._count-r._count); }
 
@@ -49,6 +51,18 @@ namespace fc {
         std::string to_iso_string()const;
         static time_point from_iso_string( const std::string& s );
 
+        // protect against overflow/underflow
+        constexpr time_point& safe_add( const microseconds& m ) {
+           if (m.count() > 0 && elapsed > microseconds::maximum() - m) {
+              elapsed = microseconds::maximum();
+           } else if (m.count() < 0 && elapsed <  microseconds::minimum() - m) {
+              elapsed = microseconds::minimum();
+           } else {
+              elapsed += m;
+           }
+           return *this;
+        }
+
         constexpr const microseconds& time_since_epoch()const { return elapsed; }
         constexpr uint32_t            sec_since_epoch()const  { return elapsed.count() / 1000000; }
         constexpr bool   operator > ( const time_point& t )const                              { return elapsed._count > t.elapsed._count; }
@@ -81,7 +95,7 @@ namespace fc {
         constexpr explicit time_point_sec( const time_point& t )
         :utc_seconds( t.time_since_epoch().count() / 1000000ll ){}
 
-        static constexpr time_point_sec maximum() { return time_point_sec(0xffffffff); }
+        static constexpr time_point_sec maximum() { return time_point_sec(std::numeric_limits<uint32_t>::max()); }
         static constexpr time_point_sec min() { return time_point_sec(0); }
 
         constexpr time_point to_time_point()const { return time_point( fc::seconds( utc_seconds) ); }

@@ -1,4 +1,5 @@
 #include <eosio/chain_plugin/trx_retry_db.hpp>
+#include <eosio/chain_plugin/chain_plugin.hpp>
 
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/contract_types.hpp>
@@ -145,7 +146,9 @@ struct trx_retry_db_impl {
                // Convert to variant with abi here and now because abi could change in very next transaction.
                // Alternatively, we could store off all the abis needed and do the conversion later, but as this is designed
                // to run on an API node, probably the best trade off to perform the abi serialization during block processing.
-               tt.trx_trace_v = control.to_variant_with_abi( *trace, abi_serializer::create_yield_function( abi_max_time ) );
+               auto resolver = get_serializers_cache(control, trace, abi_max_time);
+               tt.trx_trace_v.clear();
+               abi_serializer::to_variant(*trace, tt.trx_trace_v, resolver, abi_max_time);
             } catch( chain::abi_exception& ) {
                tt.trx_trace_v = *trace;
             }

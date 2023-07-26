@@ -122,8 +122,6 @@ Config Options for eosio::producer_plugin:
                                         transaction queue. Exceeding this value
                                         will subjectively drop transaction with
                                         resource exhaustion.
-  --disable-subjective-billing arg (=1) Disable subjective CPU billing for
-                                        API/P2P transactions
   --disable-subjective-account-billing arg
                                         Account which is excluded from
                                         subjective CPU billing

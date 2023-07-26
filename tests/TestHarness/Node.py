@@ -5,44 +5,67 @@ import time
 import os
 import re
 import json
+import shlex
 import signal
 import sys
+from pathlib import Path
+from typing import List
 
 from datetime import datetime
 from datetime import timedelta
 from .core_symbol import CORE_SYMBOL
 from .queries import NodeosQueries, BlockType
 from .transactions import Transactions
+from .accounts import Account
 from .testUtils import Utils
-from .testUtils import Account
 from .testUtils import unhandledEnumType
 from .testUtils import ReturnType
 
 # pylint: disable=too-many-public-methods
 class Node(Transactions):
+    # Node number is used as an addend to determine the node listen ports.
+    # This value extends that pattern to all nodes, not just the numbered nodes.
+    biosNodeId = -100
 
     # pylint: disable=too-many-instance-attributes
     # pylint: disable=too-many-arguments
-    def __init__(self, host, port, nodeId, pid=None, cmd=None, walletMgr=None, nodeosVers=""):
+    def __init__(self, host, port, nodeId: int, data_dir: Path, config_dir: Path, cmd: List[str], unstarted=False, launch_time=None, walletMgr=None, nodeosVers=""):
         super().__init__(host, port, walletMgr)
+        assert isinstance(data_dir, Path), 'data_dir must be a Path instance'
+        assert isinstance(config_dir, Path), 'config_dir must be a Path instance'
+        assert isinstance(cmd, list), 'cmd must be a list'
         self.host=host
         self.port=port
-        self.pid=pid
         self.cmd=cmd
-        if nodeId != "bios":
-            assert isinstance(nodeId, int)
-        self.nodeId=nodeId
-        if Utils.Debug: Utils.Print("new Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
-        self.killed=False # marks node as killed
+        if nodeId == Node.biosNodeId:
+            self.nodeId='bios'
+            self.name='node_bios'
+        else:
+            self.nodeId=nodeId
+            self.name=f'node_{str(nodeId).zfill(2)}'
+        if not unstarted:
+            self.popenProc=self.launchCmd(self.cmd, data_dir, launch_time)
+            self.pid=self.popenProc.pid
+        else:
+            self.popenProc=None
+            self.pid=None
+            if Utils.Debug: Utils.Print(f'unstarted node command: {" ".join(self.cmd)}')
+        start = data_dir / 'start.cmd'
+        with start.open('w') as f:
+            f.write(' '.join(cmd))
+        self.killed=False
         self.infoValid=None
         self.lastRetrievedHeadBlockNum=None
         self.lastRetrievedLIB=None
         self.lastRetrievedHeadBlockProducer=""
         self.transCache={}
         self.missingTransaction=False
-        self.popenProc=None           # initial process is started by launcher, this will only be set on relaunch
         self.lastTrackedTransactionId=None
         self.nodeosVers=nodeosVers
+        self.data_dir=data_dir
+        self.config_dir=config_dir
+        self.launch_time=launch_time
+        self.isProducer=False
         self.configureVersion()
 
     def configureVersion(self):
@@ -52,17 +75,20 @@ class Node(Transactions):
             self.fetchBlock = lambda blockNum: self.processUrllibRequest("chain", "get_block", {"block_num_or_id":blockNum}, silentErrors=False, exitOnError=True)
             self.fetchKeyCommand = lambda: "[trx][trx][ref_block_num]"
             self.fetchRefBlock = lambda trans: trans["trx"]["trx"]["ref_block_num"]
-            self.cleosLimit = ""
             self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block", {"block_num_or_id":headBlock}, silentErrors=False, exitOnError=True)
+            self.cleosLimit = ""
 
         else:
             self.fetchTransactionCommand = lambda: "get transaction_trace"
             self.fetchTransactionFromTrace = lambda trx: trx['id']
             self.fetchBlock = lambda blockNum: self.processUrllibRequest("trace_api", "get_block", {"block_num":blockNum}, silentErrors=False, exitOnError=True)
             self.fetchKeyCommand = lambda: "[transaction][transaction_header][ref_block_num]"
-            self.fetchRefBlock = lambda trans: trans["transaction_header"]["ref_block_num"]
-            self.cleosLimit = "--time-limit 999"
+            self.fetchRefBlock = lambda trans: trans["block_num"]
             self.fetchHeadBlock = lambda node, headBlock: node.processUrllibRequest("chain", "get_block_info", {"block_num":headBlock}, silentErrors=False, exitOnError=True)
+            if 'v3.1' in self.nodeosVers:
+                self.cleosLimit = ""
+            else:
+                self.cleosLimit = "--time-limit 999"
 
     def __str__(self):
         return "Host: %s, Port:%d, NodeNum:%s, Pid:%s" % (self.host, self.port, self.nodeId, self.pid)
@@ -226,6 +252,7 @@ class Node(Transactions):
             # default to the typical configuration of 21 producers, each producing 12 blocks in a row (every 1/2 second)
             timeout = 21 * 6;
         start=time.perf_counter()
+        Utils.Print(self.getInfo())
         initialProducer=self.getInfo()["head_block_producer"]
         def isProducer():
             return self.getInfo()["head_block_producer"] == producer;
@@ -245,27 +272,28 @@ class Node(Transactions):
 
     def kill(self, killSignal):
         if Utils.Debug: Utils.Print("Killing node: %s" % (self.cmd))
-        assert(self.pid is not None)
         try:
             if self.popenProc is not None:
-               self.popenProc.send_signal(killSignal)
-               self.popenProc.wait()
+                self.popenProc.send_signal(killSignal)
+                self.popenProc.wait()
+            elif self.pid is not None:
+                os.kill(self.pid, killSignal)
+
+                # wait for kill validation
+                def myFunc():
+                    try:
+                        os.kill(self.pid, 0) #check if process with pid is running
+                    except OSError as _:
+                        return True
+                    return False
+
+                if not Utils.waitForBool(myFunc):
+                    Utils.Print("ERROR: Failed to validate node shutdown.")
+                    return False
             else:
-               os.kill(self.pid, killSignal)
+                if Utils.Debug: Utils.Print(f"Called kill on node {self.nodeId} but it has already exited.")
         except OSError as ex:
             Utils.Print("ERROR: Failed to kill node (%s)." % (self.cmd), ex)
-            return False
-
-        # wait for kill validation
-        def myFunc():
-            try:
-                os.kill(self.pid, 0) #check if process with pid is running
-            except OSError as _:
-                return True
-            return False
-
-        if not Utils.waitForBool(myFunc):
-            Utils.Print("ERROR: Failed to validate node shutdown.")
             return False
 
         # mark node as killed
@@ -275,7 +303,7 @@ class Node(Transactions):
 
     def interruptAndVerifyExitStatus(self, timeout=60):
         if Utils.Debug: Utils.Print("terminating node: %s" % (self.cmd))
-        assert self.popenProc is not None, f"node: '{self.cmd}' does not have a popenProc, this may be because it is only set after a relaunch."
+        assert self.popenProc is not None, f"node: '{self.cmd}' does not have a popenProc."
         self.popenProc.send_signal(signal.SIGINT)
         try:
             outs, _ = self.popenProc.communicate(timeout=timeout)
@@ -290,69 +318,72 @@ class Node(Transactions):
     def verifyAlive(self, silent=False):
         logStatus=not silent and Utils.Debug
         pid=self.pid
-        if logStatus: Utils.Print("Checking if node(pid=%s) is alive(killed=%s): %s" % (self.pid, self.killed, self.cmd))
-        if self.killed or self.pid is None:
+        if logStatus: Utils.Print(f'Checking if node id {self.nodeId} (pid={self.pid}) is alive (killed={self.killed}): {self.cmd}')
+        if self.killed or self.pid is None or self.popenProc is None:
             self.killed=True
             self.pid=None
             return False
 
-        try:
-            os.kill(self.pid, 0)
-        except ProcessLookupError as ex:
-            # mark node as killed
+        if self.popenProc.poll() is not None:
             self.pid=None
             self.killed=True
-            if logStatus: Utils.Print("Determined node(formerly pid=%s) is killed" % (pid))
+            if logStatus: Utils.Print(f'Determined node id {self.nodeId} (formerly pid={pid}) is killed')
             return False
-        except PermissionError as ex:
-            if logStatus: Utils.Print("Determined node(formerly pid=%s) is alive" % (pid))
+        else:
+            if logStatus: Utils.Print(f'Determined node id {self.nodeId} (pid={pid}) is alive')
             return True
 
-        if logStatus: Utils.Print("Determined node(pid=%s) is alive" % (self.pid))
-        return True
+    def rmFromCmd(self, matchValue: str):
+        '''Removes all instances of matchValue from cmd array and succeeding value if it's an option value string.'''
+        if not self.cmd:
+            return
+
+        while True:
+            try:
+                i = self.cmd.index(matchValue)
+                self.cmd.pop(i)
+                if len(self.cmd) > i:
+                    if self.cmd[i][0] != '-':
+                        self.cmd.pop(i)
+            except ValueError:
+                break
 
     # pylint: disable=too-many-locals
     # If nodeosPath is equal to None, it will use the existing nodeos path
-    def relaunch(self, chainArg=None, newChain=False, skipGenesis=True, timeout=Utils.systemWaitTimeout, addSwapFlags=None, cachePopen=False, nodeosPath=None, waitForTerm=False):
+    def relaunch(self, chainArg=None, newChain=False, skipGenesis=True, timeout=Utils.systemWaitTimeout, addSwapFlags=None, nodeosPath=None, waitForTerm=False):
 
         assert(self.pid is None)
         assert(self.killed)
 
-        if Utils.Debug: Utils.Print("Launching node process, Id: {}".format(self.nodeId))
+        if Utils.Debug: Utils.Print(f"Launching node process, Id: {self.nodeId}")
 
-        cmdArr=[]
-        splittedCmd=self.cmd.split()
-        if nodeosPath: splittedCmd[0] = nodeosPath
-        myCmd=" ".join(splittedCmd)
+        cmdArr=self.cmd[:]
+        if nodeosPath: cmdArr[0] = nodeosPath
         toAddOrSwap=copy.deepcopy(addSwapFlags) if addSwapFlags is not None else {}
         if not newChain:
-            skip=False
-            swapValue=None
-            for i in splittedCmd:
-                Utils.Print("\"%s\"" % (i))
-                if skip:
-                    skip=False
-                    continue
-                if skipGenesis and ("--genesis-json" == i or "--genesis-timestamp" == i):
-                    skip=True
-                    continue
-
-                if swapValue is None:
-                    cmdArr.append(i)
-                else:
-                    cmdArr.append(swapValue)
-                    swapValue=None
-
-                if i in toAddOrSwap:
-                    swapValue=toAddOrSwap[i]
-                    del toAddOrSwap[i]
+            if skipGenesis:
+                try:
+                    i = cmdArr.index('--genesis-json')
+                    cmdArr.pop(i)
+                    cmdArr.pop(i)
+                    i = cmdArr.index('--genesis-timestamp')
+                    cmdArr.pop(i)
+                    cmdArr.pop(i)
+                except ValueError:
+                    pass
             for k,v in toAddOrSwap.items():
-                cmdArr.append(k)
-                cmdArr.append(v)
-            myCmd=" ".join(cmdArr)
+                try:
+                    i = cmdArr.index(k)
+                    cmdArr[i+1] = v
+                except ValueError:
+                    cmdArr.append(k)
+                    if v:
+                        cmdArr.append(v)
 
-        cmd=myCmd + ("" if chainArg is None else (" " + chainArg))
-        self.launchCmd(cmd, cachePopen)
+        if chainArg:
+            cmdArr.extend(shlex.split(chainArg))
+        self.popenProc=self.launchCmd(cmdArr, self.data_dir, launch_time=datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
+        self.pid=self.popenProc.pid
 
         def isNodeAlive():
             """wait for node to be responsive."""
@@ -389,7 +420,7 @@ class Node(Transactions):
             self.pid=None
             return False
 
-        self.cmd=cmd
+        self.cmd=cmdArr
         self.killed=False
         return True
 
@@ -401,26 +432,34 @@ class Node(Transactions):
             Utils.errorExit("Cannot find unstarted node since %s file does not exist" % startFile)
         return startFile
 
-    def launchUnstarted(self, cachePopen=False):
+    def launchUnstarted(self):
         Utils.Print("launchUnstarted cmd: %s" % (self.cmd))
-        self.launchCmd(self.cmd, cachePopen)
+        self.popenProc = self.launchCmd(self.cmd, self.data_dir, self.launch_time)
 
-    def launchCmd(self, cmd, cachePopen=False):
-        dataDir=Utils.getNodeDataDir(self.nodeId)
-        dt = datetime.now()
-        dateStr=Utils.getDateString(dt)
-        stdoutFile="%s/stdout.%s.txt" % (dataDir, dateStr)
-        stderrFile="%s/stderr.%s.txt" % (dataDir, dateStr)
-        with open(stdoutFile, 'w') as sout, open(stderrFile, 'w') as serr:
-            Utils.Print("cmd: %s" % (cmd))
-            popen=subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
-            if cachePopen:
-                popen.outfile=sout
-                popen.errfile=serr
-                self.popenProc=popen
-            self.pid=popen.pid
+    def launchCmd(self, cmd: List[str], data_dir: Path, launch_time: str):
+        dd = data_dir
+        out = dd / 'stdout.txt'
+        err_sl = dd / 'stderr.txt'
+        err = dd / Path(f'stderr.{launch_time}.txt')
+        pidf = dd / Path(f'{Utils.EosServerName}.pid')
+
+        Utils.Print(f'spawning child: {" ".join(cmd)}')
+        dd.mkdir(parents=True, exist_ok=True)
+        with out.open('w') as sout, err.open('w') as serr:
+            popen = subprocess.Popen(cmd, stdout=sout, stderr=serr)
+            popen.outfile = sout
+            popen.errfile = serr
+            self.pid = popen.pid
             self.cmd = cmd
-            if Utils.Debug: Utils.Print("start Node host=%s, port=%s, pid=%s, cmd=%s" % (self.host, self.port, self.pid, self.cmd))
+            self.isProducer = '--producer-name' in self.cmd
+        with pidf.open('w') as pidout:
+            pidout.write(str(popen.pid))
+        try:
+            err_sl.unlink()
+        except FileNotFoundError:
+            pass
+        err_sl.symlink_to(err.name)
+        return popen
 
     def trackCmdTransaction(self, trans, ignoreNonTrans=False, reportStatus=True):
         if trans is None:
@@ -468,7 +507,7 @@ class Node(Transactions):
         self.processUrllibRequest("producer", "schedule_protocol_feature_activations", param)
 
     def modifyBuiltinPFSubjRestrictions(self, featureCodename, subjectiveRestriction={}):
-        jsonPath = os.path.join(Utils.getNodeConfigDir(self.nodeId),
+        jsonPath = os.path.join(self.config_dir,
                                 "protocol_features",
                                 "BUILTIN-{}.json".format(featureCodename))
         protocolFeatureJson = []
@@ -489,14 +528,6 @@ class Node(Transactions):
         param = { "start_block_num": sbn, "end_block_num": sbn }
         return self.processUrllibRequest("producer", "schedule_snapshot", param)
 
-    # kill all existing nodeos in case lingering from previous test
-    @staticmethod
-    def killAllNodeos():
-        # kill the eos server
-        cmd="pkill -9 %s" % (Utils.EosServerName)
-        ret_code = subprocess.call(cmd.split(), stdout=Utils.FNull)
-        Utils.Print("cmd: %s, ret:%d" % (cmd, ret_code))
-
     @staticmethod
     def findStderrFiles(path):
         files=[]
@@ -508,6 +539,16 @@ class Node(Transactions):
                     files.append(os.path.join(path, entry.name))
         files.sort()
         return files
+
+    def findInLog(self, searchStr):
+        dataDir=Utils.getNodeDataDir(self.nodeId)
+        files=Node.findStderrFiles(dataDir)
+        for file in files:
+            with open(file, 'r') as f:
+                for line in f:
+                    if searchStr in line:
+                        return True
+        return False
 
     def analyzeProduction(self, specificBlockNum=None, thresholdMs=500):
         dataDir=Utils.getNodeDataDir(self.nodeId)

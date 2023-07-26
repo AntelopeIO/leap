@@ -67,7 +67,7 @@ namespace eosio { namespace chain {
 
          signed_block_ptr read_head()const; //use blocklog
          signed_block_ptr head()const;
-         block_id_type head_id()const;
+         std::optional<block_id_type> head_id()const;
 
          uint32_t                first_block_num() const;
 
@@ -82,9 +82,17 @@ namespace eosio { namespace chain {
 
          static std::filesystem::path repair_log( const std::filesystem::path& data_dir, uint32_t truncate_at_block = 0, const char* reversible_block_dir_name="" );
 
-         static std::optional<genesis_state> extract_genesis_state( const std::filesystem::path& data_dir );
+         using chain_context = std::variant<genesis_state, chain_id_type>;
+         static std::optional<chain_context> extract_chain_context(const std::filesystem::path& data_dir,
+                                                                   const std::filesystem::path& retained_dir);
 
-         static chain_id_type extract_chain_id( const std::filesystem::path& data_dir );
+         static std::optional<genesis_state>
+         extract_genesis_state(const std::filesystem::path& data_dir,
+                               const std::filesystem::path& retained_dir = std::filesystem::path{});
+
+         static std::optional<chain_id_type>
+         extract_chain_id(const std::filesystem::path& data_dir,
+                          const std::filesystem::path& retained_dir = std::filesystem::path{});
 
          static void construct_index(const std::filesystem::path& block_file_name, const std::filesystem::path& index_file_name);
 
