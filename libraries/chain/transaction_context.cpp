@@ -46,11 +46,13 @@ namespace eosio { namespace chain {
 
    transaction_context::transaction_context( controller& c,
                                              const packed_transaction& t,
+                                             const transaction_id_type& trx_id,
                                              transaction_checktime_timer&& tmr,
                                              fc::time_point s,
                                              transaction_metadata::trx_type type)
    :control(c)
    ,packed_trx(t)
+   ,id(trx_id)
    ,undo_session()
    ,trace(std::make_shared<transaction_trace>())
    ,start(s)
@@ -62,7 +64,7 @@ namespace eosio { namespace chain {
       if (!c.skip_db_sessions() && !is_read_only()) {
          undo_session.emplace(c.mutable_db().start_undo_session(true));
       }
-      trace->id = packed_trx.id();
+      trace->id = id;
       trace->block_num = c.head_block_num() + 1;
       trace->block_time = c.pending_block_time();
       trace->producer_block_id = c.pending_producer_block_id();
@@ -295,7 +297,7 @@ namespace eosio { namespace chain {
 
       init( initial_net_usage );
       if ( !is_read_only() ) {
-         record_transaction( packed_trx.id(), trx.expiration );
+         record_transaction( id, trx.expiration );
       }
    }
 
@@ -753,7 +755,7 @@ namespace eosio { namespace chain {
 
       uint32_t trx_size = 0;
       const auto& cgto = control.mutable_db().create<generated_transaction_object>( [&]( auto& gto ) {
-        gto.trx_id      = packed_trx.id();
+        gto.trx_id      = id;
         gto.payer       = first_auth;
         gto.sender      = account_name(); /// delayed transactions have no sender
         gto.sender_id   = transaction_id_to_sender_id( gto.trx_id );

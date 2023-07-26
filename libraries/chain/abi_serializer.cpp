@@ -548,14 +548,15 @@ namespace eosio { namespace chain {
             bool disallow_additional_fields = false;
             for( uint32_t i = 0; i < st.fields.size(); ++i ) {
                const auto& field = st.fields[i];
-               if( vo.contains( string(field.name).c_str() ) ) {
+               bool present = vo.contains(string(field.name).c_str());
+               if( present || is_optional(field.type) ) {
                   if( disallow_additional_fields )
                      EOS_THROW( pack_exception, "Unexpected field '${f}' found in input object while processing struct '${p}'",
                                 ("f", ctx.maybe_shorten(field.name))("p", ctx.get_path_string()) );
                   {
                      auto h1 = ctx.push_to_path( impl::field_path_item{ .parent_struct_itr = s_itr, .field_ordinal = i } );
                      auto h2 = ctx.disallow_extensions_unless( &field == &st.fields.back() );
-                     _variant_to_binary(_remove_bin_extension(field.type), vo[field.name], ds, ctx);
+                     _variant_to_binary(_remove_bin_extension(field.type), present ? vo[field.name] : fc::variant(nullptr), ds, ctx);
                   }
                } else if( ends_with(field.type, "$") && ctx.extensions_allowed() ) {
                   disallow_additional_fields = true;

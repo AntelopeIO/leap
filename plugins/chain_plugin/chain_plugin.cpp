@@ -327,7 +327,7 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "In \"head\" mode: database contains state changes up to the head block; transactions received by the node are relayed if valid.\n"
           "In \"irreversible\" mode: database contains state changes up to the last irreversible block; "
           "transactions received via the P2P network are not relayed and transactions cannot be pushed via the chain API.\n"
-          "In \"speculative\" mode: (DEPRECATED: head mode recommended) database contains state changes by transactions in the blockchain "
+          "In \"speculative\" mode: database contains state changes by transactions in the blockchain "
           "up to the head block as well as some transactions not yet included in the blockchain; transactions received by the node are relayed if valid.\n"
           )
          ( "api-accept-transactions", bpo::value<bool>()->default_value(true), "Allow API transactions to be evaluated and relayed if valid.")
@@ -1177,8 +1177,6 @@ void chain_plugin_impl::plugin_shutdown() {
    accepted_transaction_connection.reset();
    applied_transaction_connection.reset();
    block_start_connection.reset();
-   if(app().is_quiting())
-      chain->get_wasm_interface().indicate_shutting_down();
    chain.reset();
 }
 
