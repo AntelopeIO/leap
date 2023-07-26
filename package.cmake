@@ -53,9 +53,10 @@ endif()
 set(CPACK_DEBIAN_PACKAGE_CONFLICTS "eosio, mandel")
 set(CPACK_RPM_PACKAGE_CONFLICTS "eosio, mandel")
 
-#only consider "base" and "dev" components for per-component packages
-get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
-list(REMOVE_ITEM CPACK_COMPONENTS_ALL "Unspecified")
+set(CPACK_COMPONENTS_ALL "base")
+if(ENABLE_LEAP_DEV_DEB)
+   list(APPEND CPACK_COMPONENTS_ALL "dev")
+endif()
 
 #enable per component packages for .deb; ensure main package is just "leap", not "leap-base", and make the dev package have "leap-dev" at the front not the back
 set(CPACK_DEB_COMPONENT_INSTALL ON)
