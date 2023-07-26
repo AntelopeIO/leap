@@ -274,7 +274,6 @@ struct block_time_tracker {
    trx_time_tracker start_trx(bool is_transient, fc::time_point now = fc::time_point::now()) {
       assert(!paused);
       add_other_time(now);
-      last_time_point = now;
       return {*this, is_transient};
    }
 
