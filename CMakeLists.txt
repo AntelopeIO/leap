@@ -101,12 +101,6 @@ else()
   set(no_whole_archive_flag "--no-whole-archive")
 endif()
 
-set(Boost_USE_MULTITHREADED      ON)
-set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
-# Most boost deps get implictly picked up via fc, as just about everything links to fc. In addition we pick up
-# the pthread dependency through fc.
-find_package(Boost 1.71 REQUIRED COMPONENTS program_options unit_test_framework system)
-
 if( APPLE AND UNIX )
 # Apple Specific Options Here
     message( STATUS "Configuring Leap on macOS" )
@@ -278,6 +272,18 @@ configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/c
 install(FILES libraries/cli11/bash-completion/completions/leap-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
+# Add the boost submodule we used to build to our install package, so headers can be found for libtester
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"
+        DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_boost
+        COMPONENT dev EXCLUDE_FROM_ALL
+        PATTERN ".git/*" EXCLUDE
+        PATTERN "example/*" EXCLUDE
+        PATTERN "bench/*" EXCLUDE
+        PATTERN "doc/*" EXCLUDE
+        PATTERN "libs/*/test" EXCLUDE
+        PATTERN "tools/*/test" EXCLUDE
+        )
+
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
   COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}"
@@ -286,6 +292,8 @@ add_custom_target(dev-install
 )
 
 include(doxygen)
+
+option(ENABLE_LEAP_DEV_DEB "Enable building the leap-dev .deb package" OFF)
 
 include(package.cmake)
 include(CPack)

@@ -106,9 +106,9 @@ add_subdirectory( performance_tests )
 
 find_package(Threads)
 add_executable(ship_client ship_client.cpp)
-target_link_libraries(ship_client abieos Boost::program_options Boost::system Threads::Threads)
+target_link_libraries(ship_client abieos Boost::program_options Boost::system Boost::algorithm Boost::asio Boost::beast Threads::Threads)
 add_executable(ship_streamer ship_streamer.cpp)
-target_link_libraries(ship_streamer abieos Boost::program_options Boost::system Threads::Threads)
+target_link_libraries(ship_streamer abieos Boost::program_options Boost::system Boost::asio Boost::beast Threads::Threads)
 
 add_test(NAME cluster_launcher COMMAND tests/cluster_launcher.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST cluster_launcher PROPERTY LABELS nonparallelizable_tests)
