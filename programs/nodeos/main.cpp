@@ -173,6 +173,7 @@ int main(int argc, char** argv)
       if(!app->initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv, initialize_logging)) {
          const auto& opts = app->get_options();
          if( opts.count("help") || opts.count("version") || opts.count("full-version") || opts.count("print-default-config") ) {
+            on_exit.cancel();
             return SUCCESS;
          }
          return INITIALIZE_FAIL;

@@ -79,7 +79,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          submodules: true
+          submodules: recursive
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
@@ -249,7 +249,7 @@ jobs:
 
       # CDT
       - name: Download cdt
-        uses: AntelopeIO/asset-artifact-download-action@v2
+        uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
           repo: cdt
@@ -257,7 +257,6 @@ jobs:
           target: '${{needs.v.outputs.cdt-target}}'
           prereleases: ${{fromJSON(needs.v.outputs.cdt-prerelease)}}
           artifact-name: cdt_ubuntu_package_amd64
-          token: ${{github.token}}
       - name: Install cdt Packages
         run: |
           apt-get install -y ./*.deb

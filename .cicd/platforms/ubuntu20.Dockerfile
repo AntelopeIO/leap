@@ -6,11 +6,12 @@ RUN apt-get update && apt-get upgrade -y && \
                        cmake                \
                        git                  \
                        jq                   \
-                       libboost-all-dev     \
                        libcurl4-openssl-dev \
                        libgmp-dev           \
                        libssl-dev           \
                        llvm-11-dev          \
                        ninja-build          \
                        python3-numpy        \
+                       file                 \
+                       zlib1g-dev           \
                        zstd
