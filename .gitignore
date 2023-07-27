@@ -20,6 +20,8 @@ compile_commands.json
 moc_*
 *.moc
 
+.cache
+
 genesis.json
 hardfork.hpp
 
