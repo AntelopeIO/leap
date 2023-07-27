@@ -84,11 +84,12 @@ jobs:
 
   build-base:
     name: Run Build Workflow
-    needs: [reuse-build]
-    if: always() && needs.reuse-build.outputs.build-artifact == ''
+    needs: [platforms, reuse-build]
+    if: always() && needs.platforms.result == 'success' && needs.reuse-build.outputs.build-artifact == ''
     uses: ./.github/workflows/build_base.yaml
     with:
-      override-build-matrix: ${{github.event.inputs.platform-choice}}
+      p: ${{needs.platforms.outputs.p}}
+      platform-matrix: ${{needs.platforms.outputs.platform-matrix}}
     permissions:
       packages: write
       contents: read
