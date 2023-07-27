@@ -43,8 +43,7 @@ You can also build and install Leap from source.
 You will need to build on a [supported operating system](#supported-operating-systems).
 
 Requirements to build:
-- C++17 compiler and standard library
-- boost 1.70+
+- C++20 compiler and standard library
 - CMake 3.16+
 - LLVM 7 - 11 - for Linux only
   - newer versions do not work
@@ -140,6 +139,15 @@ sudo apt-get install -y \
         file \
         zlib1g-dev
 ```
+
+On Ubuntu 20.04, update to gcc-10 which has C++20 support:
+```bash
+sudo apt-get install -y gcc-10 g++-10 cpp-10
+sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave \
+                                   /usr/bin/g++ g++ /usr/bin/g++-10 --slave \
+                                   /usr/bin/gcov gcov /usr/bin/gcov-10
+```
+
 To build, make sure you are in the root of the `leap` repo, then run the following command:
 ```bash
 mkdir -p build
