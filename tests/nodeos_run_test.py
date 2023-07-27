@@ -746,6 +746,35 @@ try:
     accounts=[testeraAccount, currencyAccount, exchangeAccount]
     cluster.validateAccounts(accounts)
 
+    # run a get_table_rows API call for a table which has an incorrect abi (missing type), to make sure that
+    # the resulting exception in http-plugin is caught and doesn't cause nodeos to crash (leap issue #1372).
+    contractDir="unittests/contracts/eosio.token"
+    wasmFile="eosio.token.wasm"
+    abiFile="eosio.token.bad.abi"
+    Print("Publish contract")
+    trans=node.publishContract(currencyAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+    if trans is None:
+        cmdError("%s set contract currency1111" % (ClientName))
+        errorExit("Failed to publish contract.")
+
+    contract="currency1111"
+    table="accounts"
+    row0=node.getTableRow(contract, currencyAccount.name, table, 0)
+    
+    # because we set a bad abi (missing type, see "eosio.token.bad.abi") on the contract, the
+    # getTableRow() is expected to fail and return None
+    try:
+        assert(not row0)
+    except (AssertionError, KeyError) as _:
+        Print("ERROR: Failed get table row assertion. %s" % (row0))
+        raise
+
+    # However check that the node is still running and didn't crash when processing getTableRow on a contract
+    # with a bad abi. If node does crash and we get an exception during "get info", it means that we did not
+    # catch the exception that occured while calling `cb()` in `http_plugin/macros.hpp`.
+    currentBlockNum=node.getHeadBlockNum()
+    Print("CurrentBlockNum: %d" % (currentBlockNum))
+
     testSuccessful=True
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful, dumpErrorDetails)
