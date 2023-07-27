@@ -140,19 +140,22 @@ sudo apt-get install -y \
         zlib1g-dev
 ```
 
-On Ubuntu 20.04, update to gcc-10 which has C++20 support:
+On Ubuntu 20.04, install gcc-10 which has C++20 support:
 ```bash
 sudo apt-get install -y gcc-10 g++-10 cpp-10
-sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave \
-                                   /usr/bin/g++ g++ /usr/bin/g++-10 --slave \
-                                   /usr/bin/gcov gcov /usr/bin/gcov-10
 ```
 
 To build, make sure you are in the root of the `leap` repo, then run the following command:
 ```bash
 mkdir -p build
 cd build
+
+## on Ubuntu 20, specify the gcc-10 compiler
+cmake -DCMAKE_C_COMPILER=gcc-10 -DCMAKE_CXX_COMPILER=g++-10 -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
+
+## on Ubuntu 22, the default gcc version is 11, using the default compiler is fine
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
+
 make -j "$(nproc)" package
 ```
 
