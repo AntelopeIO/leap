@@ -3,7 +3,7 @@ ENV TZ="America/New_York"
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y build-essential      \
-                       gcc-10 g++-10 cpp-10 \
+                       g++-10               \
                        cmake                \
                        git                  \
                        jq                   \

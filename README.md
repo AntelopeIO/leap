@@ -142,7 +142,7 @@ sudo apt-get install -y \
 
 On Ubuntu 20.04, install gcc-10 which has C++20 support:
 ```bash
-sudo apt-get install -y gcc-10 g++-10 cpp-10
+sudo apt-get install -y g++-10
 ```
 
 To build, make sure you are in the root of the `leap` repo, then run the following command:
