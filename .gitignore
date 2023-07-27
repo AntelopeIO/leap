@@ -91,3 +91,5 @@ CMakeLists.txt.user
 
 node_modules
 package-lock.json
+
+snapshots
