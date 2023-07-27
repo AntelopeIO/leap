@@ -1,7 +1,6 @@
 name: "Platforms"
 
 on:
-  workflow_dispatch:
   workflow_call:
     inputs:
         override-build-matrix:
