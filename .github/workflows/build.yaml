@@ -31,9 +31,22 @@ defaults:
     shell: bash
 
 jobs:
+  platforms:
+    name: Run Platforms Workflow
+    uses: ./.github/workflows/platforms.yaml
+    with:
+      override-build-matrix: ${{github.event.inputs.platform-choice}}
+    permissions:
+      packages: write
+      contents: read
+
   build-base:
     name: Run Build Workflow
     uses: ./.github/workflows/build_base.yaml
+    needs: [platforms]
+    with:
+      p: ${{needs.platforms.outputs.p}}
+      platform-matrix: ${{needs.platforms.outputs.platform-matrix}}
     permissions:
       packages: write
       contents: read
@@ -68,14 +81,14 @@ jobs:
 
   dev-package:
     name: Build leap-dev package
-    needs: [build-base]
-    if: always() && needs.build-base.result == 'success'
+    needs: [platforms, build-base]
+    if: always() && needs.platforms.result == 'success' && needs.build-base.result == 'success'
     strategy:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
     runs-on: ubuntu-latest
-    container: ${{fromJSON(needs.build-base.outputs.p)[matrix.platform].image}}
+    container: ${{fromJSON(needs.platforms.outputs.p)[matrix.platform].image}}
     steps:
       - uses: actions/checkout@v3
         with:
@@ -104,15 +117,15 @@ jobs:
 
   tests:
     name: Tests
-    needs: [build-base]
-    if: always() && needs.build-base.result == 'success'
+    needs: [platforms, build-base]
+    if: always() && needs.platforms.result == 'success' && needs.build-base.result == 'success'
     strategy:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
     runs-on: ["self-hosted", "enf-x86-hightier"]
     container:
-      image: ${{fromJSON(needs.build-base.outputs.p)[matrix.platform].image}}
+      image: ${{fromJSON(needs.platforms.outputs.p)[matrix.platform].image}}
       options: --security-opt seccomp=unconfined
     steps:
       - uses: actions/checkout@v3
@@ -130,8 +143,8 @@ jobs:
 
   np-tests:
     name: NP Tests
-    needs: [build-base]
-    if: always() && needs.build-base.result == 'success'
+    needs: [platforms, build-base]
+    if: always() && needs.platforms.result == 'success' && needs.build-base.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -146,7 +159,7 @@ jobs:
       - name: Run tests in parallel containers
         uses: ./.github/actions/parallel-ctest-containers
         with:
-          container: ${{fromJSON(needs.build-base.outputs.p)[matrix.platform].image}}
+          container: ${{fromJSON(needs.platforms.outputs.p)[matrix.platform].image}}
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: nonparallelizable_tests
@@ -160,8 +173,8 @@ jobs:
 
   lr-tests:
     name: LR Tests
-    needs: [build-base]
-    if: always() && needs.build-base.result == 'success'
+    needs: [platforms, build-base]
+    if: always() && needs.platforms.result == 'success' && needs.build-base.result == 'success'
     strategy:
       fail-fast: false
       matrix:
@@ -176,7 +189,7 @@ jobs:
       - name: Run tests in parallel containers
         uses: ./.github/actions/parallel-ctest-containers
         with:
-          container: ${{fromJSON(needs.build-base.outputs.p)[matrix.platform].image}}
+          container: ${{fromJSON(needs.platforms.outputs.p)[matrix.platform].image}}
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
           log-tarball-prefix: ${{matrix.platform}}
           tests-label: long_running_tests
@@ -190,15 +203,15 @@ jobs:
 
   libtester-tests:
     name: libtester tests
-    needs: [build-base, v, dev-package]
-    if: always() && needs.v.result == 'success' && needs.dev-package.result == 'success'
+    needs: [platforms, build-base, v, dev-package]
+    if: always() && needs.platforms.result == 'success' && needs.v.result == 'success' && needs.dev-package.result == 'success'
     strategy:
       fail-fast: false
       matrix:
         platform: [ubuntu20, ubuntu22]
         test: [build-tree, make-dev-install, deb-install]
     runs-on:  ["self-hosted", "enf-x86-midtier"]
-    container: ${{ matrix.test != 'deb-install' && fromJSON(needs.build-base.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
+    container: ${{ matrix.test != 'deb-install' && fromJSON(needs.platforms.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
     steps:
       # LEAP
       - if: ${{ matrix.test != 'deb-install' }}

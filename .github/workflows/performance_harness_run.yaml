@@ -40,6 +40,15 @@ jobs:
             echo test-params=${{inputs.override-test-params}} >> $GITHUB_OUTPUT
           fi
 
+  platforms:
+    name: Run Platforms Workflow
+    uses: ./.github/workflows/platforms.yaml
+    with:
+      override-build-matrix: ${{github.event.inputs.platform-choice}}
+    permissions:
+      packages: write
+      contents: read
+
   reuse-build:
     name: Reuse leap build
     needs: [v]
@@ -47,6 +56,8 @@ jobs:
       always() &&
       needs.v.result == 'success'
     runs-on: ubuntu-latest
+    outputs:
+      build-artifact: ''
     steps:
         - name: Download builddir
           id: downloadBuild
@@ -57,6 +68,7 @@ jobs:
             file: build.tar.zst
             target: ${{github.sha}}
             artifact-name: ${{github.event.inputs.platform-choice}}-build
+            fail-on-missing-target: false
             token: ${{github.token}}
             
         - name: Upload builddir
@@ -66,10 +78,14 @@ jobs:
             name: ${{github.event.inputs.platform-choice}}-build
             path: build.tar.zst
 
+        - name: Set build-artifact output
+          if: steps.downloadBuild.outputs.downloaded-file != ''
+          run:  echo "build-artifact=${{steps.downloadBuild.outputs.downloaded-file}}" >> "$GITHUB_OUTPUT"
+
   build-base:
     name: Run Build Workflow
     needs: [reuse-build]
-    if: always() && needs.reuse-build.result != 'success'
+    if: always() && needs.reuse-build.outputs.build-artifact == ''
     uses: ./.github/workflows/build_base.yaml
     with:
       override-build-matrix: ${{github.event.inputs.platform-choice}}
@@ -79,11 +95,11 @@ jobs:
 
   tests:
     name: Tests
-    needs: [v, reuse-build, build-base]
-    if: always() && (needs.build-base.result == 'success' || needs.reuse-build.result == 'success')
+    needs: [v, platforms, reuse-build, build-base]
+    if: always() && needs.platforms.result == 'success' && (needs.build-base.result == 'success' || needs.reuse-build.result == 'success')
     runs-on: ubuntu-latest
     container:
-      image: ${{fromJSON(needs.build-base.outputs.p)[github.event.inputs.platform-choice].image}}
+      image: ${{fromJSON(needs.platforms.outputs.p)[github.event.inputs.platform-choice].image}}
     steps:
       - name: Download builddir
         uses: actions/download-artifact@v3
