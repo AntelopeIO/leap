@@ -3,6 +3,7 @@ ENV TZ="America/New_York"
 ENV DEBIAN_FRONTEND=noninteractive
 RUN apt-get update && apt-get upgrade -y && \
     apt-get install -y build-essential      \
+                       gcc-10 g++-10 cpp-10 \
                        cmake                \
                        git                  \
                        jq                   \
@@ -14,4 +15,9 @@ RUN apt-get update && apt-get upgrade -y && \
                        python3-numpy        \
                        file                 \
                        zlib1g-dev           \
-                       zstd
+                       zstd &&              \
+     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-10 100 --slave \
+                                   /usr/bin/g++ g++ /usr/bin/g++-10 --slave \
+                                   /usr/bin/gcov gcov /usr/bin/gcov-10
+
+         
