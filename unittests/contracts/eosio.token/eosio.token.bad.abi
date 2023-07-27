@@ -1,5 +1,5 @@
 {
-    "____comment": "This file was generated with eosio-abigen. DO NOT EDIT ",
+    "____comment": "This file was generated with eosio-abigen. Manually edited to add a table named global with an undefined type ",
     "version": "eosio::abi/1.2",
     "types": [],
     "structs": [
