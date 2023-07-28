@@ -250,7 +250,7 @@ public:
                                       .block_id     = block_state->id,
                                       .payload_size = 0};
       trace_log->pack_and_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
-         trace_converter.pack(buf, chain_plug->chain().db(), trace_debug_mode, block_state);
+         trace_converter.pack(buf, trace_debug_mode, block_state);
       });
    }
 
