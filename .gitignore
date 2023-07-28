@@ -12,8 +12,7 @@
 \.#*
 CMakeCache.txt
 CMakeFiles
-cmake-build-debug/
-cmake-build-release/
+cmake-build-*/
 Makefile
 compile_commands.json
 moc_*
