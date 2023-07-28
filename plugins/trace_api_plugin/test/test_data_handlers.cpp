@@ -166,7 +166,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
       };
 
       abi_data_handler handler(except_handler);
-      handler.add_abi("alice"_n, abi);
+      handler.add_abi("alice"_n, std::move(abi));
 
       fc::variant expected = fc::mutable_variant_object()
           ("a", 0)
