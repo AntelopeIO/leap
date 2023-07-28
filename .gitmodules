@@ -34,3 +34,4 @@
 [submodule "libraries/boost"]
 	path = libraries/boost
 	url = https://github.com/boostorg/boost.git
+	shallow = true
