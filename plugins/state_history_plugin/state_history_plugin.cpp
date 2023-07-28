@@ -318,8 +318,8 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
       EOS_ASSERT(chain_plug, chain::missing_chain_plugin_exception, "");
       auto& chain = chain_plug->chain();
 
-      if (!options.at("disable-replay-opts").as<bool>()) {
-         ilog("Setting disable-replay-opts=true required by state_history_plugin");
+      if (!options.at("disable-replay-opts").as<bool>() && options.at("chain-state-history").as<bool>()) {
+         ilog("Setting disable-replay-opts=true required by state_history_plugin chain-state-history=true option");
          chain.disable_replay_opts();
       }
 
