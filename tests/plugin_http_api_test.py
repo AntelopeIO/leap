@@ -1362,6 +1362,24 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["code"], 404)
         self.assertEqual(ret_json["error"]["code"], 0)
 
+        # get_transaction_trace with empty parameter
+        default_cmd = cmd_base + "get_transaction_trace"
+        ret_json = Utils.runCmdReturnJson(default_cmd)
+        self.assertEqual(ret_json["code"], 400)
+        # get_transaction_trace with empty content parameter
+        empty_content_cmd = default_cmd + self.http_post_str + self.empty_content_str
+        ret_json = Utils.runCmdReturnJson(empty_content_cmd)
+        self.assertEqual(ret_json["code"], 400)
+        # get_transaction_trace with invalid parameter
+        invalid_cmd = default_cmd + self.http_post_str + self.http_post_invalid_param
+        ret_json = Utils.runCmdReturnJson(invalid_cmd)
+        self.assertEqual(ret_json["code"], 400)
+        # get_transaction_trace with valid parameter
+        valid_cmd = default_cmd + self.http_post_str + ("'{\"id\":\"f6e325a524e0d75c2275e7d9c2d9e065a38760c29b1d0471a75ccde650ef26d6\"}'")
+        ret_json = Utils.runCmdReturnJson(valid_cmd)
+        self.assertEqual(ret_json["code"], 404)
+        self.assertEqual(ret_json["error"]["code"], 0)
+
     # test all db_size api
     def test_DbSizeApi(self) :
         resource = "db_size"
