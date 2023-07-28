@@ -57,7 +57,7 @@ jobs:
       needs.v.result == 'success'
     runs-on: ubuntu-latest
     outputs:
-      build-artifact: ''
+      build-found: 'false'
     steps:
         - name: Download builddir
           id: downloadBuild
@@ -78,14 +78,14 @@ jobs:
             name: ${{github.event.inputs.platform-choice}}-build
             path: build.tar.zst
 
-        - name: Set build-artifact output
+        - name: Set build-found output
           if: steps.downloadBuild.outputs.downloaded-file != ''
-          run:  echo "build-artifact=${{steps.downloadBuild.outputs.downloaded-file}}" >> "$GITHUB_OUTPUT"
+          run:  echo "build-found=true" >> "$GITHUB_OUTPUT"
 
   build-base:
     name: Run Build Workflow
     needs: [platforms, reuse-build]
-    if: always() && needs.platforms.result == 'success' && needs.reuse-build.outputs.build-artifact == ''
+    if: always() && needs.platforms.result == 'success' && needs.reuse-build.outputs.build-found == 'false'
     uses: ./.github/workflows/build_base.yaml
     with:
       p: ${{needs.platforms.outputs.p}}
