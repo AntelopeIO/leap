@@ -92,7 +92,7 @@ jobs:
     steps:
       - uses: actions/checkout@v3
         with:
-          submodules: true
+          submodules: recursive
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
@@ -104,8 +104,8 @@ jobs:
           cpack
       - name: Install dev package
         run: |
-          apt update && apt upgrade -y
-          apt install -y ./build/leap_*.deb ./build/leap-dev*.deb
+          apt-get update && apt-get upgrade -y
+          apt-get install -y ./build/leap_*.deb ./build/leap-dev*.deb
       - name: Test using TestHarness
         run: |
           python3 -c "from TestHarness import Cluster"
@@ -212,7 +212,15 @@ jobs:
         test: [build-tree, make-dev-install, deb-install]
     runs-on:  ["self-hosted", "enf-x86-midtier"]
     container: ${{ matrix.test != 'deb-install' && fromJSON(needs.platforms.outputs.p)[matrix.platform].image || matrix.platform == 'ubuntu20' && 'ubuntu:focal' || 'ubuntu:jammy' }}
+    env:
+      DEBIAN_FRONTEND: noninteractive
+      TZ: Etc/UTC
     steps:
+      - name: Update Package Index & Upgrade Packages
+        run: |
+          apt-get update
+          apt-get upgrade -y
+
       # LEAP
       - if: ${{ matrix.test != 'deb-install' }}
         name: Clone leap
@@ -249,15 +257,12 @@ jobs:
       - if: ${{ matrix.test == 'deb-install' }}
         name: Install leap-dev Package
         run: |
-          apt-get update
-          export DEBIAN_FRONTEND='noninteractive'
-          export TZ='Etc/UTC'
           apt-get install -y ./*.deb
           rm ./*.deb
 
       # CDT
       - name: Download cdt
-        uses: AntelopeIO/asset-artifact-download-action@v2
+        uses: AntelopeIO/asset-artifact-download-action@v3
         with:
           owner: AntelopeIO
           repo: cdt
@@ -265,10 +270,9 @@ jobs:
           target: '${{needs.v.outputs.cdt-target}}'
           prereleases: ${{fromJSON(needs.v.outputs.cdt-prerelease)}}
           artifact-name: cdt_ubuntu_package_amd64
-          token: ${{github.token}}
       - name: Install cdt Packages
         run: |
-          apt install -y ./*.deb
+          apt-get install -y ./*.deb
           rm ./*.deb
 
       # Reference Contracts

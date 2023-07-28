@@ -132,12 +132,13 @@ sudo apt-get install -y \
         build-essential \
         cmake \
         git \
-        libboost-all-dev \
         libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
         llvm-11-dev \
-        python3-numpy
+        python3-numpy \
+        file \
+        zlib1g-dev
 ```
 To build, make sure you are in the root of the `leap` repo, then run the following command:
 ```bash
