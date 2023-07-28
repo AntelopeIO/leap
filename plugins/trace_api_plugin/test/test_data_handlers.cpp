@@ -179,6 +179,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
                             [](const std::runtime_error& e) {
                                return std::string(e.what()).find("oops") != std::string::npos;
                             });
+      BOOST_CHECK(except_called);
    }
 
    BOOST_AUTO_TEST_CASE(basic_abi_wrong_type)
