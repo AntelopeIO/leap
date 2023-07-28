@@ -57,7 +57,7 @@ try:
     specificExtraNodeosArgs={}
     # non-producing nodes are at the end of the cluster's nodes, so reserving the last one for state_history_plugin
     shipNodeNum = totalNodes - 1
-    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --disable-replay-opts --sync-fetch-span 200 --plugin eosio::net_api_plugin "
+    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --sync-fetch-span 200 --plugin eosio::net_api_plugin "
 
     if args.unix_socket:
         specificExtraNodeosArgs[shipNodeNum] += "--state-history-unix-socket-path ship.sock"
