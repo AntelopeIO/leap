@@ -99,15 +99,16 @@ class TraceApiPluginTest(unittest.TestCase):
         # relaunch with no time allocated for http response & abi-serializer. Will fail because get_info fails.
         node.kill(signal.SIGTERM)
         Utils.Print("Ignore expected: ERROR: Node relaunch Failed")
-        isRelaunchSuccess = node.relaunch(timeout=10, addSwapFlags={"--http-max-response-time-ms": "0", "--abi-serializer-max-time-ms": "10"})
+        isRelaunchSuccess = node.relaunch(timeout=10, addSwapFlags={"--http-max-response-time-ms": "0", "--abi-serializer-max-time-ms": "0"})
 
+        # Verify get block_trace still works even with no time for http-max-response-time-ms and no time for bi-serializer-max-time-ms
         cmdDesc="get block_trace"
         cmd=" --print-response %s %d" % (cmdDesc, blockNum)
         cmd="%s %s %s" % (Utils.EosClientPath, node.eosClientArgs(), cmd)
         result=Utils.runCmdReturnStr(cmd, ignoreError=True)
 
         Utils.Print(f"{cmdDesc} returned: {result}")
-        self.assertIn("Internal Server Error", result)
+        self.assertIn("test transfer a->b", result)
 
     @classmethod
     def setUpClass(self):
