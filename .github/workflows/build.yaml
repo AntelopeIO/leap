@@ -141,7 +141,7 @@ jobs:
           cd build
           ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
       - name: Check CPU Features
-        run: awk 'BEGIN {err = 1} /bmi2/ && /adx/ {err = 0} END {exit err}' /proc/cpuinfo
+        run: awk '/bmi2f/ && /adx/ {exit 0} ENDFILE {exit 1}' /proc/cpuinfo
 
   np-tests:
     name: NP Tests
