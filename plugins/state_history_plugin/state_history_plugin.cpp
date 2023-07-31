@@ -250,7 +250,7 @@ public:
                                       .block_id     = block_state->id,
                                       .payload_size = 0};
       trace_log->pack_and_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
-         trace_converter.pack(buf, chain_plug->chain().db(), trace_debug_mode, block_state);
+         trace_converter.pack(buf, trace_debug_mode, block_state);
       });
    }
 
@@ -314,12 +314,15 @@ void state_history_plugin::set_program_options(options_description& cli, options
 
 void state_history_plugin_impl::plugin_initialize(const variables_map& options) {
    try {
-      EOS_ASSERT(options.at("disable-replay-opts").as<bool>(), plugin_exception,
-                 "state_history_plugin requires --disable-replay-opts");
-
       chain_plug = app().find_plugin<chain_plugin>();
       EOS_ASSERT(chain_plug, chain::missing_chain_plugin_exception, "");
       auto& chain = chain_plug->chain();
+
+      if (!options.at("disable-replay-opts").as<bool>() && options.at("chain-state-history").as<bool>()) {
+         ilog("Setting disable-replay-opts=true required by state_history_plugin chain-state-history=true option");
+         chain.set_disable_replay_opts(true);
+      }
+
       applied_transaction_connection.emplace(chain.applied_transaction.connect(
           [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> t) {
              on_applied_transaction(std::get<0>(t), std::get<1>(t));

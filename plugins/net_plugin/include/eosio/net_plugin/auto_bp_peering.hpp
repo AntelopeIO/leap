@@ -182,7 +182,7 @@ class bp_connection_manager {
 
                fc_dlog(self()->get_logger(), "pending_downstream_neighbors: ${pending_downstream_neighbors}",
                        ("pending_downstream_neighbors", to_string(pending_downstream_neighbors)));
-               for (auto neighbor : pending_downstream_neighbors) { self()->connections.connect(config.bp_peer_addresses[neighbor]); }
+               for (auto neighbor : pending_downstream_neighbors) { self()->connections.connect(config.bp_peer_addresses[neighbor], *self()->p2p_addresses.begin() ); }
 
                pending_neighbors = std::move(pending_downstream_neighbors);
                finder.add_upstream_neighbors(pending_neighbors);

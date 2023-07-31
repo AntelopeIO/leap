@@ -1,7 +1,6 @@
 add_executable( test_producer_plugin
         test_trx_full.cpp
         test_options.cpp
-        test_read_only_trx.cpp
         test_block_timing_util.cpp
         main.cpp
         )

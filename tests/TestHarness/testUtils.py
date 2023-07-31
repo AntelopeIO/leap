@@ -218,7 +218,7 @@ class Utils:
         Utils.checkOutputFileWrite(start, cmd, output, error)
         if popen.returncode != 0 and not ignoreError:
             raise subprocess.CalledProcessError(returncode=popen.returncode, cmd=cmd, output=output, stderr=error)
-        return output.decode("utf-8")
+        return output.decode("utf-8") if popen.returncode == 0 else error.decode("utf-8")
 
     @staticmethod
     def errorExit(msg="", raw=False, errorCode=1):
@@ -317,13 +317,13 @@ class Utils:
         return Utils.toJson(retStr)
 
     @staticmethod
-    def runCmdReturnStr(cmd, trace=False):
+    def runCmdReturnStr(cmd, trace=False, ignoreError=False):
         cmdArr=shlex.split(cmd)
-        return Utils.runCmdArrReturnStr(cmdArr)
+        return Utils.runCmdArrReturnStr(cmdArr, ignoreError=ignoreError)
 
     @staticmethod
-    def runCmdArrReturnStr(cmdArr, trace=False):
-        retStr=Utils.checkOutput(cmdArr)
+    def runCmdArrReturnStr(cmdArr, trace=False, ignoreError=False):
+        retStr=Utils.checkOutput(cmdArr, ignoreError=ignoreError)
         if trace: Utils.Print ("RAW > %s" % (retStr))
         return retStr
 

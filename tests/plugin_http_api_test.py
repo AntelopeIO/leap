@@ -1406,6 +1406,22 @@ class PluginHttpTest(unittest.TestCase):
         self.assertEqual(ret_json["code"], 404)
         self.assertEqual(ret_json["error"]["code"], 0)
 
+        # get_transaction_trace with empty parameter
+        command = "get_transaction_trace"
+        ret_json = self.nodeos.processUrllibRequest(resource, command)
+        self.assertEqual(ret_json["code"], 400)
+        # get_transaction_trace with empty content parameter
+        ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict)
+        self.assertEqual(ret_json["code"], 400)
+        # get_transaction_trace with invalid parameter
+        ret_json = self.nodeos.processUrllibRequest(resource, command, self.http_post_invalid_param)
+        self.assertEqual(ret_json["code"], 400)
+        # get_transaction_trace with syntactically correct id parameter, but random id, so should return 404 (not found)
+        payload = {"id":"f6e325a524e0d75c2275e7d9c2d9e065a38760c29b1d0471a75ccde650ef26d6"}
+        ret_json = self.nodeos.processUrllibRequest(resource, command, payload)
+        self.assertEqual(ret_json["code"], 404)
+        self.assertEqual(ret_json["error"]["code"], 0)
+
     # test all db_size api
     def test_DbSizeApi(self) :
         resource = "db_size"

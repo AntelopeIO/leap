@@ -61,15 +61,19 @@
              _http_plugin.post_http_thread_pool([resp_code=http_resp_code, cb=std::move(cb),                    \
                                                  body=std::move(body),                                          \
                                                  http_fwd = std::move(http_fwd)]() {                            \
-                chain::t_or_exception<call_result> result = http_fwd();                                         \
-                if (std::holds_alternative<fc::exception_ptr>(result)) {                                        \
-                   try {                                                                                        \
-                      std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();                         \
-                   } catch (...) {                                                                              \
-                      http_plugin::handle_exception(#api_name, #call_name, body, cb);                           \
+                try {                                                                                           \
+                   chain::t_or_exception<call_result> result = http_fwd();                                      \
+                   if (std::holds_alternative<fc::exception_ptr>(result)) {                                     \
+                      try {                                                                                     \
+                         std::get<fc::exception_ptr>(result)->dynamic_rethrow_exception();                      \
+                      } catch (...) {                                                                           \
+                         http_plugin::handle_exception(#api_name, #call_name, body, cb);                        \
+                      }                                                                                         \
+                   } else {                                                                                     \
+                      cb(resp_code, fc::variant(std::get<call_result>(std::move(result))));                     \
                    }                                                                                            \
-                } else {                                                                                        \
-                   cb(resp_code, fc::variant(std::get<call_result>(std::move(result))));                        \
+                } catch (...) {                                                                                 \
+                   http_plugin::handle_exception(#api_name, #call_name, body, cb);                              \
                 }                                                                                               \
              });                                                                                                \
           } catch (...) {                                                                                       \
