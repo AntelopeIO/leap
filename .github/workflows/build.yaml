@@ -34,8 +34,6 @@ jobs:
   platforms:
     name: Run Platforms Workflow
     uses: ./.github/workflows/platforms.yaml
-    with:
-      override-build-matrix: ${{github.event.inputs.platform-choice}}
     permissions:
       packages: write
       contents: read
