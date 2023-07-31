@@ -61,15 +61,19 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
 
          std::thread app_thread([&]() {
-            fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
-            std::vector<const char*> argv =
-                  {"test", "--data-dir", temp.c_str(), "--config-dir", temp.c_str(),
-                   "-p", "eosio", "-e"};
-            app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**) &argv[0]);
-            app->startup();
-            plugin_promise.set_value(
-                  {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()});
-            app->exec();
+            try {
+               fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
+               std::vector<const char*> argv =
+                     {"test", "--data-dir", temp.c_str(), "--config-dir", temp.c_str(),
+                      "-p", "eosio", "-e"};
+               app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**) &argv[0]);
+               app->startup();
+               plugin_promise.set_value(
+                     {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()});
+               app->exec();
+               return;
+            } FC_LOG_AND_DROP()
+            BOOST_CHECK(!"app threw exception see logged error");
          });
 
          auto [prod_plug, chain_plug] = plugin_fut.get();

@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 
-import re
-import signal
-import time
+import socket
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, ReturnType
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr
 
 ###############################################################
 # auto_bp_peering_test
@@ -35,7 +33,7 @@ Utils.Debug = args.v
 dumpErrorDetails = args.dump_error_details
 keepLogs = args.keep_logs
 
-# Setup cluster and it's wallet manager
+# Setup cluster and its wallet manager
 walletMgr = WalletMgr(True)
 cluster = Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 cluster.setWalletMgr(walletMgr)
@@ -47,12 +45,17 @@ auto_bp_peer_args = ""
 for nodeId in range(0, producerNodes):
     producer_name = "defproducer" + chr(ord('a') + nodeId)
     port = cluster.p2pBasePort + nodeId
-    hostname = "localhost:" + str(port)
+    if producer_name == 'defproducerf':
+        hostname = 'ext-ip0:9999'
+    elif producer_name == 'defproducerk':
+        hostname = socket.gethostname() + ':9886'
+    else:
+        hostname = "localhost:" + str(port)
     peer_names[hostname] = producer_name
     auto_bp_peer_args += (" --p2p-auto-bp-peer " + producer_name + "," + hostname)
 
 
-def neigbors_in_schedule(name, schedule):
+def neighbors_in_schedule(name, schedule):
     index = schedule.index(name)
     result = []
     num = len(schedule)
@@ -70,6 +73,9 @@ try:
     specificNodeosArgs = {}
     for nodeId in range(0, producerNodes):
         specificNodeosArgs[nodeId] = auto_bp_peer_args
+
+    specificNodeosArgs[5] = specificNodeosArgs[5] + ' --p2p-server-address ext-ip0:9999'
+    specificNodeosArgs[10] = specificNodeosArgs[10] + ' --p2p-server-address ""'
 
     TestHelper.printSystemInfo("BEGIN")
     cluster.launch(
@@ -113,7 +119,7 @@ try:
 
         peers = peers.sort()
         name = "defproducer" + chr(ord('a') + nodeId)
-        expected_peers = neigbors_in_schedule(name, scheduled_producers)
+        expected_peers = neighbors_in_schedule(name, scheduled_producers)
         if peers != expected_peers:
             Utils.Print("ERROR: expect {} has connections to {}, got connections to {}".format(
                 name, expected_peers, peers))

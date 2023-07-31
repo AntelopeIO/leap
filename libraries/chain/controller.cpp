@@ -2695,8 +2695,8 @@ struct controller_impl {
       wasm_if_collect.init_thread_local_data(db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
    }
 
-   wasm_interface& get_wasm_interface() {
-      return wasm_if_collect.get_wasm_interface();
+   wasm_interface_collection& get_wasm_interface() {
+      return wasm_if_collect;
    }
 
    void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
@@ -3053,6 +3053,10 @@ void controller::set_key_blacklist( const flat_set<public_key_type>& new_key_bla
    my->conf.key_blacklist = new_key_blacklist;
 }
 
+void controller::set_disable_replay_opts( bool v ) {
+   my->conf.disable_replay_opts = v;
+}
+
 uint32_t controller::head_block_num()const {
    return my->head->block_num;
 }
@@ -3397,7 +3401,7 @@ const apply_handler* controller::find_apply_handler( account_name receiver, acco
    }
    return nullptr;
 }
-wasm_interface& controller::get_wasm_interface() {
+wasm_interface_collection& controller::get_wasm_interface() {
    return my->get_wasm_interface();
 }
 

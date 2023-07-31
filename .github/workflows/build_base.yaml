@@ -77,7 +77,7 @@ jobs:
           run: |
             # https://github.com/actions/runner/issues/2033
             chown -R $(id -u):$(id -g) $PWD
-            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -GNinja
+            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DENABLE_LEAP_DEV_DEB=On -GNinja
             cmake --build build
             tar -pc --exclude "*.o" build | zstd --long -T0 -9 > build.tar.zst
         - name: Upload builddir
