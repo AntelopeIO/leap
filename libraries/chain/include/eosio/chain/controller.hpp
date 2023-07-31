@@ -217,7 +217,7 @@ namespace eosio { namespace chain {
          void   set_action_blacklist( const flat_set< pair<account_name, action_name> >& );
          void   set_key_blacklist( const flat_set<public_key_type>& );
 
-         void   disable_replay_opts();
+         void   set_disable_replay_opts( bool v );
 
          uint32_t             head_block_num()const;
          time_point           head_block_time()const;

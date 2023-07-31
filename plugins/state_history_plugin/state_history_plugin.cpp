@@ -320,7 +320,7 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
 
       if (!options.at("disable-replay-opts").as<bool>() && options.at("chain-state-history").as<bool>()) {
          ilog("Setting disable-replay-opts=true required by state_history_plugin chain-state-history=true option");
-         chain.disable_replay_opts();
+         chain.set_disable_replay_opts(true);
       }
 
       applied_transaction_connection.emplace(chain.applied_transaction.connect(
