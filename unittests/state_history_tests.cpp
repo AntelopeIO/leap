@@ -624,8 +624,8 @@ struct state_history_tester : state_history_tester_logs, tester {
                                       .block_id     = block_state->id,
                                       .payload_size = 0};
 
-         traces_log.pack_and_write_entry(header, block_state->block->previous, [this, &control, &block_state](auto&& buf) {
-            trace_converter.pack(buf, control.db(), false, block_state);
+         traces_log.pack_and_write_entry(header, block_state->block->previous, [this, &block_state](auto&& buf) {
+            trace_converter.pack(buf, false, block_state);
          });
 
          chain_state_log.pack_and_write_entry(header, block_state->header.previous, [&control](auto&& buf) {
