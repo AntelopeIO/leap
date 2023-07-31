@@ -17,57 +17,46 @@
 #include <type_traits>
 
 template <typename T>
-struct history_serial_wrapper {
-   const chainbase::database& db;
-   const T&                   obj;
-};
-
-template <typename T>
 struct history_serial_wrapper_stateless {
-   history_serial_wrapper_stateless(const history_serial_wrapper<T>& w)
-       : obj(w.obj) {}
-   explicit history_serial_wrapper_stateless(const T& t)
-       : obj(t) {}
    const T& obj;
 };
 
 template <typename T>
-history_serial_wrapper<std::decay_t<T>> make_history_serial_wrapper(const chainbase::database& db, const T& obj) {
-   return {db, obj};
-}
+struct history_serial_wrapper : public history_serial_wrapper_stateless<T> {
+   const chainbase::database& db;
+};
 
 template <typename T>
 history_serial_wrapper_stateless<std::decay_t<T>> make_history_serial_wrapper(const T& obj) {
-   return history_serial_wrapper_stateless<std::decay_t<T>>{obj};
+   return {obj};
+}
+
+template <typename T>
+history_serial_wrapper<std::decay_t<T>> make_history_serial_wrapper(const chainbase::database& db, const T& obj) {
+   return {{obj}, db};
 }
 
 template <typename P, typename T>
-struct history_context_wrapper {
-   const chainbase::database& db;
-   const P&                   context;
-   const T&                   obj;
-};
-
-template <typename P, typename T>
 struct history_context_wrapper_stateless {
-   history_context_wrapper_stateless(const history_context_wrapper<P, T>& w)
-       : context(w.context), obj(w.obj) {}
-   history_context_wrapper_stateless(const P& c, const T& t)
-       : context(c), obj(t) {}
    const P& context;
    const T& obj;
 };
 
 template <typename P, typename T>
-history_context_wrapper<std::decay_t<P>, std::decay_t<T>>
-make_history_context_wrapper(const chainbase::database& db, const P& context, const T& obj) {
-   return {db, context, obj};
-}
+struct history_context_wrapper : public history_context_wrapper_stateless<P, T> {
+   const chainbase::database& db;
+};
 
 template <typename P, typename T>
 history_context_wrapper_stateless<std::decay_t<P>, std::decay_t<T>>
 make_history_context_wrapper(const P& context, const T& obj) {
    return {context, obj};
+}
+
+template <typename P, typename T>
+history_context_wrapper<std::decay_t<P>, std::decay_t<T>>
+make_history_context_wrapper(const chainbase::database& db, const P& context, const T& obj) {
+   return {{context, obj}, db};
 }
 
 namespace fc {
