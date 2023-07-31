@@ -3050,6 +3050,10 @@ void controller::set_key_blacklist( const flat_set<public_key_type>& new_key_bla
    my->conf.key_blacklist = new_key_blacklist;
 }
 
+void controller::set_disable_replay_opts( bool v ) {
+   my->conf.disable_replay_opts = v;
+}
+
 uint32_t controller::head_block_num()const {
    return my->head->block_num;
 }

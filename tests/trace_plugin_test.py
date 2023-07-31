@@ -5,6 +5,7 @@ import json
 import time
 import unittest
 import os
+import signal
 
 from TestHarness import Cluster, Node, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
 
@@ -20,7 +21,7 @@ class TraceApiPluginTest(unittest.TestCase):
     def startEnv(self) :
         account_names = ["alice", "bob", "charlie"]
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
-        traceNodeosArgs = " --trace-rpc-abi eosio.token=" + abs_path
+        traceNodeosArgs = " --verbose-http-errors --trace-rpc-abi eosio.token=" + abs_path
         self.cluster.launch(totalNodes=2, extraNodeosArgs=traceNodeosArgs)
         self.walletMgr.launch()
         testWalletName="testwallet"
@@ -94,6 +95,20 @@ class TraceApiPluginTest(unittest.TestCase):
         self.assertTrue(isTrxInBlockFromTraceApi)
         global testSuccessful
         testSuccessful = True
+
+        # relaunch with no time allocated for http response & abi-serializer
+        node.kill(signal.SIGTERM)
+        isRelaunchSuccess = node.relaunch(timeout=10, addSwapFlags={"--http-max-response-time-ms": "0", "--abi-serializer-max-time-ms": "0"})
+        self.assertTrue(isRelaunchSuccess)
+
+        # Verify get block_trace still works even with no time for http-max-response-time-ms and no time for bi-serializer-max-time-ms
+        cmdDesc="get block_trace"
+        cmd=" --print-response %s %d" % (cmdDesc, blockNum)
+        cmd="%s %s %s" % (Utils.EosClientPath, node.eosClientArgs(), cmd)
+        result=Utils.runCmdReturnStr(cmd, ignoreError=True)
+
+        Utils.Print(f"{cmdDesc} returned: {result}")
+        self.assertIn("test transfer a->b", result)
 
     @classmethod
     def setUpClass(self):

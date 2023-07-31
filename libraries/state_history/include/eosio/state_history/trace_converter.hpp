@@ -15,7 +15,7 @@ struct trace_converter {
    std::optional<augmented_transaction_trace>                 onblock_trace;
 
    void add_transaction(const transaction_trace_ptr& trace, const chain::packed_transaction_ptr& transaction);
-   void pack(boost::iostreams::filtering_ostreambuf& ds, const chainbase::database& db, bool trace_debug_mode, const block_state_ptr& block_state);
+   void pack(boost::iostreams::filtering_ostreambuf& ds, bool trace_debug_mode, const block_state_ptr& block_state);
 };
 
 } // namespace state_history
