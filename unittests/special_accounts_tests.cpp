@@ -64,12 +64,12 @@ BOOST_FIXTURE_TEST_CASE(accounts_exists, tester)
          if (n1 != n2) diff.push_back(name(n2.to_uint64_t() - n1.to_uint64_t()));
       }
 
-      BOOST_CHECK_EQUAL(diff.size(), 0);
+      BOOST_CHECK_EQUAL(diff.size(), 0u);
 
       const auto& producers_owner_authority = chain1_db.get<permission_object, by_owner>(boost::make_tuple(config::producers_account_name, config::owner_name));
-      BOOST_CHECK_EQUAL(producers_owner_authority.auth.threshold, 1);
-      BOOST_CHECK_EQUAL(producers_owner_authority.auth.accounts.size(), 0);
-      BOOST_CHECK_EQUAL(producers_owner_authority.auth.keys.size(), 0);
+      BOOST_CHECK_EQUAL(producers_owner_authority.auth.threshold, 1u);
+      BOOST_CHECK_EQUAL(producers_owner_authority.auth.accounts.size(), 0u);
+      BOOST_CHECK_EQUAL(producers_owner_authority.auth.keys.size(), 0u);
 
       //TODO: Add checks on the other permissions of the producers account
 

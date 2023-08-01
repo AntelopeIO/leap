@@ -174,7 +174,7 @@ BOOST_AUTO_TEST_CASE(test_on_pending_schedule) {
 
    BOOST_CHECK_EQUAL(connected_hosts, (std::vector<std::string>{}));
    BOOST_CHECK_EQUAL(plugin.pending_neighbors, (fc::flat_set<eosio::chain::account_name>{ "prodj"_n, "prodm"_n }));
-   BOOST_CHECK_EQUAL(plugin.pending_schedule_version, 0);
+   BOOST_CHECK_EQUAL(plugin.pending_schedule_version, 0u);
 
    // when it is in sync and on_pending_schedule is called
    plugin.is_in_sync = true;
@@ -189,10 +189,10 @@ BOOST_AUTO_TEST_CASE(test_on_pending_schedule) {
    BOOST_CHECK_EQUAL(connected_hosts, (std::vector<std::string>{ "127.0.0.1:8001:blk"s, "127.0.0.1:8002:trx"s,
                                                                  "127.0.0.1:8005"s, "127.0.0.1:8006"s }));
 
-   BOOST_CHECK_EQUAL(plugin.pending_schedule_version, 1);
+   BOOST_CHECK_EQUAL(plugin.pending_schedule_version, 1u);
 
    // make sure we don't change the active_schedule_version
-   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 0);
+   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 0u);
 
    // Let's call on_pending_schedule() again, and connect shouldn't be called again
    connected_hosts.clear();
@@ -222,7 +222,7 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule1) {
    BOOST_CHECK_EQUAL(disconnected_hosts, (std::vector<std::string>{}));
    BOOST_CHECK_EQUAL(plugin.active_neighbors,
                      (fc::flat_set<eosio::chain::account_name>{ "proda"_n, "prodh"_n, "prodn"_n }));
-   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 0);
+   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 0u);
 
    // when it is in sync and on_active_schedule is called
    plugin.is_in_sync = true;
@@ -236,7 +236,7 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule1) {
                                                                 "prods"_n, "prodt"_n }));
 
    // make sure we change the active_schedule_version
-   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 1);
+   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 1u);
 }
 
 BOOST_AUTO_TEST_CASE(test_on_active_schedule2) {
@@ -263,7 +263,7 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule2) {
                                                                 "prods"_n, "prodt"_n }));
 
    // make sure we change the active_schedule_version
-   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 1);
+   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 1u);
 }
 
 BOOST_AUTO_TEST_CASE(test_exceeding_connection_limit) {
@@ -282,7 +282,7 @@ BOOST_AUTO_TEST_CASE(test_exceeding_connection_limit) {
       { .is_bp_connection = false, .is_open = false, .handshake_received = false } // 7
    };
 
-   BOOST_CHECK_EQUAL(plugin.num_established_clients(), 2);
+   BOOST_CHECK_EQUAL(plugin.num_established_clients(), 2u);
 
    BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[0]));
    BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[1]));

@@ -25,21 +25,21 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
       scheduler.schedule_snapshot(sri1);
       scheduler.schedule_snapshot(sri2);
 
-      BOOST_CHECK_EQUAL(2, scheduler.get_snapshot_requests().snapshot_requests.size());
+      BOOST_CHECK_EQUAL(2u, scheduler.get_snapshot_requests().snapshot_requests.size());
 
       BOOST_CHECK_EXCEPTION(scheduler.schedule_snapshot(sri1), duplicate_snapshot_request, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("Duplicate snapshot request") != std::string::npos;
       });
 
       scheduler.unschedule_snapshot(0);
-      BOOST_CHECK_EQUAL(1, scheduler.get_snapshot_requests().snapshot_requests.size());
+      BOOST_CHECK_EQUAL(1u, scheduler.get_snapshot_requests().snapshot_requests.size());
 
       BOOST_CHECK_EXCEPTION(scheduler.unschedule_snapshot(0), snapshot_request_not_found, [](const fc::assert_exception& e) {
          return e.to_detail_string().find("Snapshot request not found") != std::string::npos;
       });
 
       scheduler.unschedule_snapshot(1);
-      BOOST_CHECK_EQUAL(0, scheduler.get_snapshot_requests().snapshot_requests.size());
+      BOOST_CHECK_EQUAL(0u, scheduler.get_snapshot_requests().snapshot_requests.size());
 
       snapshot_request_information sri_large_spacing = {.block_spacing = 1000, .start_block_num = 5000, .end_block_num = 5010};
       BOOST_CHECK_EXCEPTION(scheduler.schedule_snapshot(sri_large_spacing), invalid_snapshot_request, [](const fc::assert_exception& e) {
@@ -91,7 +91,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
                   auto it = find_if(snapshot_requests.begin(), snapshot_requests.end(), [sid](const snapshot_scheduler::snapshot_schedule_information& obj) {return obj.snapshot_request_id == sid;});
                   if (it != snapshot_requests.end()) {
                      auto& pending = it->pending_snapshots;
-                     if (pending.size()==1) {
+                     if (pending.size()==1u) {
                         // pending snapshot block number
                         auto pbn = pending.begin()->head_block_num;
 
@@ -132,12 +132,12 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          pp->schedule_snapshot(sri6);
 
          // all six snapshot requests should be present now
-         BOOST_CHECK_EQUAL(6, pp->get_snapshot_requests().snapshot_requests.size());
+         BOOST_CHECK_EQUAL(6u, pp->get_snapshot_requests().snapshot_requests.size());
 
          empty_blocks_fut.wait_for(std::chrono::seconds(10));
 
          // two of the snapshots are done here and requests, corresponding to them should be deleted
-         BOOST_CHECK_EQUAL(4, pp->get_snapshot_requests().snapshot_requests.size());
+         BOOST_CHECK_EQUAL(4u, pp->get_snapshot_requests().snapshot_requests.size());
 
          // check whether no pending snapshots present for a snapshot with id 0
          const auto& snapshot_requests = pp->get_snapshot_requests().snapshot_requests;
@@ -156,7 +156,7 @@ BOOST_AUTO_TEST_CASE(snapshot_scheduler_test) {
          std::vector<snapshot_scheduler::snapshot_schedule_information> ssi;
          db.set_path(temp / "snapshots");
          db >> ssi;
-         BOOST_CHECK_EQUAL(4, ssi.size());
+         BOOST_CHECK_EQUAL(4u, ssi.size());
          BOOST_CHECK_EQUAL(ssi.begin()->block_spacing, *sri1.block_spacing);
       } catch(...) {
          throw;

@@ -177,7 +177,7 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
          app->quit();
       }
 
-      BOOST_CHECK_EQUAL( trace_with_except, 0 ); // should not have any traces with except in it
+      BOOST_CHECK_EQUAL( trace_with_except, 0u ); // should not have any traces with except in it
       BOOST_CHECK_EQUAL( num_pushes, num_posts );
       BOOST_CHECK_EQUAL( num_pushes, next_calls.load() );
       BOOST_CHECK_EQUAL( num_pushes, num_get_account_calls.load() );

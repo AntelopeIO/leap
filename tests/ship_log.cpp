@@ -67,7 +67,7 @@ struct ship_log_fixture {
 
    void check_not_present(uint32_t index) {
       auto result = log->create_locked_decompress_stream();
-      BOOST_REQUIRE_EQUAL(log->get_unpacked_entry(index, result), 0);
+      BOOST_REQUIRE_EQUAL(log->get_unpacked_entry(index, result), 0u);
    }
 
    void check_empty() {

@@ -36,5 +36,5 @@ BOOST_AUTO_TEST_CASE(state_history_plugin_retain_blocks_tests) {
    BOOST_REQUIRE(plugin.trace_log());
    auto* config = std::get_if<eosio::state_history::prune_config>(&plugin.trace_log()->config());
    BOOST_REQUIRE(config);
-   BOOST_CHECK_EQUAL(config->prune_blocks, 4242);
+   BOOST_CHECK_EQUAL(config->prune_blocks, 4242u);
 }

@@ -40,8 +40,8 @@ BOOST_AUTO_TEST_CASE( default_exec_window ) {
    app->executor().post( priority::lowest, exec_queue::read_only, [&]() {
       // read_only_queue should only contain the current lambda function,
       // and read_write_queue should have executed all its functions
-      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 1); // pop()s after execute
-      BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().size(), 0 );
+      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 1u); // pop()s after execute
+      BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().size(), 0u );
       app->quit();
       } );
    app_thread.join();
@@ -51,7 +51,7 @@ BOOST_AUTO_TEST_CASE( default_exec_window ) {
    BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().empty(), true);
 
    // exactly number of both queues' functions processed
-   BOOST_REQUIRE_EQUAL( rslts.size(), 8 );
+   BOOST_REQUIRE_EQUAL( rslts.size(), 8u );
 
    // same priority of functions executed by the post order
    BOOST_CHECK_LT( rslts[0], rslts[1] );  // medium
@@ -89,8 +89,8 @@ BOOST_AUTO_TEST_CASE( execute_from_read_queue ) {
    // stop application. Use lowest at the end to make sure this executes the last
    app->executor().post( priority::lowest, exec_queue::read_only, [&]() {
       // read_queue should be empty (read window pops before execute) and write_queue should have all its functions
-      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 0); // pop()s before execute
-      BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().size(), 4 );
+      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 0u); // pop()s before execute
+      BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().size(), 4u );
       app->quit();
       } );
    app_thread.join();
@@ -100,7 +100,7 @@ BOOST_AUTO_TEST_CASE( execute_from_read_queue ) {
    BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().empty(), true);
 
    // exactly number of posts processed
-   BOOST_REQUIRE_EQUAL( rslts.size(), 6 );
+   BOOST_REQUIRE_EQUAL( rslts.size(), 6u );
 
    // same priority (high) of functions in read_queue executed by the post order
    BOOST_CHECK_LT( rslts[1], rslts[3] );
@@ -134,8 +134,8 @@ BOOST_AUTO_TEST_CASE( execute_from_empty_read_queue ) {
    // Stop application. Use lowest at the end to make sure this executes the last
    app->executor().post( priority::lowest, exec_queue::read_only, [&]() {
       // read_queue should be empty (read window pops before execute) and write_queue should have all its functions
-      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 0); // pop()s before execute
-      BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().size(), 10 );
+      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 0u); // pop()s before execute
+      BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().size(), 10u );
       app->quit();
       } );
    app_thread.join();
@@ -145,7 +145,7 @@ BOOST_AUTO_TEST_CASE( execute_from_empty_read_queue ) {
    BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().empty(), true);
 
    // no results
-   BOOST_REQUIRE_EQUAL( rslts.size(), 0 );
+   BOOST_REQUIRE_EQUAL( rslts.size(), 0u );
 }
 
 // verify functions from both queues are processed in write window
@@ -175,8 +175,8 @@ BOOST_AUTO_TEST_CASE( execute_from_both_queues ) {
    // stop application. Use lowest at the end to make sure this executes the last
    app->executor().post( priority::lowest, exec_queue::read_only, [&]() {
       // read_queue should have current function and write_queue's functions are all executed 
-      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 1); // pop()s after execute
-      BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().size(), 0 );
+      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 1u); // pop()s after execute
+      BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().size(), 0u );
       app->quit();
       } );
 
@@ -187,7 +187,7 @@ BOOST_AUTO_TEST_CASE( execute_from_both_queues ) {
    BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().empty(), true);
 
    // exactly number of posts processed
-   BOOST_REQUIRE_EQUAL( rslts.size(), 12 );
+   BOOST_REQUIRE_EQUAL( rslts.size(), 12u );
 
    // all low must be processed the in order of posting
    BOOST_CHECK_LT( rslts[4], rslts[5] );
