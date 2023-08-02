@@ -15,9 +15,9 @@ from urwid.canvas import apply_text_layout
 from urwid.widget import WidgetError
 
 logging.TRACE = 5
-logging._levelToName[logging.TRACE] = 'TRACE'
-logging._nameToLevel['TRACE'] = logging.TRACE
+logging.addLevelName(5, 'TRACE')
 assert logging.TRACE < logging.DEBUG, 'Logging TRACE level expected to be lower than DEBUG'
+assert logging.getLevelName('TRACE') < logging.getLevelName('DEBUG'), 'Logging TRACE level expected to be lower than DEBUG'
 
 logger = logging.getLogger(__name__)
 
@@ -108,10 +108,10 @@ class ColumnedListPile(urwid.Pile):
                 pile.contents[0][0].text = (maxrows - rows)*'\n'+text
 
 
-def readMetrics():
-    response = requests.get('http://localhost:8888/v1/prometheus/metrics', timeout=10)
+def readMetrics(host: str, port: str):
+    response = requests.get(f'http://{host}:{port}/v1/prometheus/metrics', timeout=10)
     if response.status_code == 404:
-        print(f'Prometheus metrics URL returned 404: {response.url}')
+        logger.warn(f'Prometheus metrics URL returned 404: {response.url}')
         raise urwid.ExitMainLoop()
     return response
 
@@ -186,9 +186,13 @@ class netUtil:
         self.fields.update({self.rightFieldLabels[0]: self.rightFieldLabels[0][:1].lower() + self.rightFieldLabels[0][1:-1].replace(' ', '') + 'Button'})
         self.fields.update({k:v for k, v in zip(self.rightFieldLabels[1:], [e[:1].lower() + e[1:-1].replace(' ', '') + 'Text' for e in self.rightFieldLabels[1:]])})
         
-        parser = argparse.ArgumentParser(description='Terminal UI for monitoring and managing nodeos P2P connections')
+        parser = argparse.ArgumentParser(description='Terminal UI for monitoring and managing nodeos P2P connections',
+                                         formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        parser.add_argument('--host', help='hostname or IP address to connect to', default='localhost')
+        parser.add_argument('-p', '--port', help='port number to connect to', default='8888')
         parser.add_argument('--log-level', choices=[logging._nameToLevel.keys()] + [k.lower() for k in logging._nameToLevel.keys()], help='Logging level', default='debug')
         self.args = parser.parse_args()
+        logger.setLevel(logging.getLevelName(self.args.log_level.upper()))
 
     def createUrwidUI(self):
         Button = urwid.Button
@@ -262,13 +266,13 @@ class netUtil:
 
     def update(self, mainLoop, userData=None):
         try:
-            response = readMetrics()
+            response = readMetrics(self.args.host, self.args.port)
         except requests.ConnectionError as e:
             self.errorText.set_text(str(e))
             mainLoop.widget.contents[-1][0].original_widget = self.errorBox
         else:
             self.errorText.set_text('')
-            self.hostText.set_text('localhost:8888')
+            self.hostText.set_text(f'{self.args.host}:{self.args.port}')
             class bandwidthStats():
                 def __init__(self, bytesReceived=0, bytesSent=0, connectionStarted=0):
                     self.bytesReceived = 0
