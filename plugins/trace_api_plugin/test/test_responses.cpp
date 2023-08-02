@@ -112,7 +112,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       ;
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry{block_trace}, false);
       };
 
@@ -202,7 +202,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       ;
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
@@ -288,7 +288,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       ;
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
@@ -415,7 +415,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       ;
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
@@ -459,7 +459,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       ;
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), true);
       };
 
@@ -471,7 +471,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
    BOOST_FIXTURE_TEST_CASE(corrupt_block_data, response_test_fixture)
    {
       mock_get_block = []( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          throw bad_data_exception("mock exception");
       };
 
@@ -481,7 +481,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
    BOOST_FIXTURE_TEST_CASE(missing_block_data, response_test_fixture)
    {
       mock_get_block = []( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return {};
       };
 
@@ -543,7 +543,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       ;
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
@@ -580,7 +580,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       ;
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry{block_trace}, false);
       };
 
@@ -674,7 +674,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       ;
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
@@ -762,7 +762,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       );
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
@@ -901,7 +901,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       ;
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
@@ -943,7 +943,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       ;
 
       mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
-         BOOST_TEST(height == 1);
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), true);
       };
 

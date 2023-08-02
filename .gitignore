@@ -5,25 +5,20 @@
 *.bc
 *.wast
 *.wast.hpp
-*.s
 *.dot
 *.abi.hpp
-*.cmake
-!.cicd
-!package.cmake
-!CMakeModules/*.cmake
 *.ninja
 \#*
 \.#*
 CMakeCache.txt
 CMakeFiles
-cmake_install.cmake
-cmake-build-debug/
-cmake-build-release/
+cmake-build-*/
 Makefile
 compile_commands.json
 moc_*
 *.moc
+
+.cache
 
 genesis.json
 hardfork.hpp
@@ -95,3 +90,5 @@ CMakeLists.txt.user
 
 node_modules
 package-lock.json
+
+snapshots

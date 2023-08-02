@@ -114,10 +114,10 @@ BOOST_AUTO_TEST_SUITE(misc_tests)
 
 BOOST_AUTO_TEST_CASE(reverse_endian_tests)
 {
-    BOOST_CHECK_EQUAL( endian_reverse_u64(0x0123456789abcdef), 0xefcdab8967452301 );
-    BOOST_CHECK_EQUAL( endian_reverse_u64(0x0102030405060708), 0x0807060504030201 );
-    BOOST_CHECK_EQUAL( endian_reverse_u32(0x01234567), 0x67452301 );
-    BOOST_CHECK_EQUAL( endian_reverse_u32(0x01020304), 0x04030201 );
+    BOOST_CHECK_EQUAL( endian_reverse_u64(0x0123456789abcdef), 0xefcdab8967452301u );
+    BOOST_CHECK_EQUAL( endian_reverse_u64(0x0102030405060708), 0x0807060504030201u );
+    BOOST_CHECK_EQUAL( endian_reverse_u32(0x01234567), 0x67452301u );
+    BOOST_CHECK_EQUAL( endian_reverse_u32(0x01020304), 0x04030201u );
 }
 
 BOOST_AUTO_TEST_CASE(name_suffix_tests)
@@ -189,9 +189,9 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       mu( "b", string( 1024, 'b' ) );
       mu( "c", string( 1024, 'c' ) );
       string result = fc::format_string( format, mu, true );
-      BOOST_CHECK_LT(0, mu.size());
-      BOOST_CHECK_LT(format.size(), 1024);
-      const size_t target_size = (1024 -  format.size()) / mu.size();
+      BOOST_CHECK_LT(0u, mu.size());
+      BOOST_CHECK_LT(format.size(), 1024u);
+      const size_t target_size = (1024u -  format.size()) / mu.size();
       BOOST_CHECK_EQUAL( result, string( target_size, 'a' ) + "... " + string( target_size, 'b' ) + "... " + string( target_size, 'c' ) + "..." );
    }
    {
@@ -232,8 +232,8 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       mu("auth", *provided_permissions.begin());
       mu("provided_permissions", provided_permissions);
       mu("provided_keys", provided_keys);
-      BOOST_CHECK_LT(0, mu.size());
-      const auto arg_limit_size = (1024 - format.size()) / mu.size();
+      BOOST_CHECK_LT(0u, mu.size());
+      const auto arg_limit_size = (1024u - format.size()) / mu.size();
       const string result = fc::format_string(format, mu, true);
       BOOST_CHECK(provided_permissions.begin() != provided_permissions.end());
       const string auth_str = fc::json::to_string(*provided_permissions.begin(), fc::time_point::maximum());
@@ -241,7 +241,7 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       target_str += "', provided permissions " + fc::json::to_string(provided_permissions, fc::time_point::maximum());
       target_str += ", provided keys " + fc::json::to_string(provided_keys, fc::time_point::maximum()).substr(0, arg_limit_size);
       BOOST_CHECK_EQUAL(result, target_str);
-      BOOST_CHECK_LT(result.size(), 1024 + 3 * mu.size());
+      BOOST_CHECK_LT(result.size(), 1024u + 3 * mu.size());
 
       // test cases for issue #8741, longer version, permission and keys field being folded
       provided_permissions.clear();
@@ -254,13 +254,13 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       mu_fold("auth", *provided_permissions.begin());
       mu_fold("provided_permissions", provided_permissions);
       mu_fold("provided_keys", provided_keys);
-      BOOST_CHECK_LT(0, mu_fold.size());
+      BOOST_CHECK_LT(0u, mu_fold.size());
       string target_fold_str = "transaction declares authority '" + fc::json::to_string(*provided_permissions.begin(), fc::time_point::maximum());
       target_fold_str += "', provided permissions ${provided_permissions}";
       target_fold_str += ", provided keys ${provided_keys}";
       const string result_fold = fc::format_string(format, mu_fold, true);
       BOOST_CHECK_EQUAL(result_fold, target_fold_str);
-      BOOST_CHECK_LT(result_fold.size(), 1024 + 3 * mu.size());
+      BOOST_CHECK_LT(result_fold.size(), 1024u + 3 * mu.size());
    }
 }
 
@@ -1197,7 +1197,7 @@ BOOST_AUTO_TEST_CASE(stable_priority_queue_test) {
      t.join();
 
      std::lock_guard<std::mutex> g(mx);
-     BOOST_CHECK_EQUAL( 100, results.size() );
+     BOOST_CHECK_EQUAL( 100u, results.size() );
      for( int i = 0; i < 100; ++i ) {
         BOOST_CHECK_EQUAL( i, results.at( i ) );
      }

@@ -51,23 +51,6 @@ Config Options for eosio::state_history_plugin:
                                         number of most recent blocks
 ```
 
-## Examples
-
-## Dependencies
-
-* [`chain_plugin`](../chain_plugin/index.md)
-
-### Load Dependency Examples
-
-```console
-# config.ini
-plugin = eosio::chain_plugin --disable-replay-opts
-```
-```sh
-# command-line
-nodeos ... --plugin eosio::chain_plugin --disable-replay-opts
-```
-
 ## How-To Guides
 
 * [How to fast start without history on existing chains](10_how-to-fast-start-without-old-history.md)

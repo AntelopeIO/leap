@@ -15,7 +15,7 @@ void trace_converter::add_transaction(const transaction_trace_ptr& trace, const 
    }
 }
 
-void trace_converter::pack(boost::iostreams::filtering_ostreambuf& obuf, const chainbase::database& db, bool trace_debug_mode, const block_state_ptr& block_state) {
+void trace_converter::pack(boost::iostreams::filtering_ostreambuf& obuf, bool trace_debug_mode, const block_state_ptr& block_state) {
    std::vector<augmented_transaction_trace> traces;
    if (onblock_trace)
       traces.push_back(*onblock_trace);
@@ -34,7 +34,7 @@ void trace_converter::pack(boost::iostreams::filtering_ostreambuf& obuf, const c
    onblock_trace.reset();
 
    fc::datastream<boost::iostreams::filtering_ostreambuf&> ds{obuf};
-   return fc::raw::pack(ds, make_history_context_wrapper(db, trace_debug_mode, traces));
+   return fc::raw::pack(ds, make_history_context_wrapper(trace_debug_mode, traces));
 }
 
 } // namespace state_history

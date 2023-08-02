@@ -383,6 +383,8 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Duration (in seconds) a successful transaction's Finality Status will remain available from being first identified.")
          ("transaction-finality-status-failure-duration-sec", bpo::value<uint64_t>()->default_value(config::default_max_transaction_finality_status_failure_duration_sec),
           "Duration (in seconds) a failed transaction's Finality Status will remain available from being first identified.")
+         ("disable-replay-opts", bpo::bool_switch()->default_value(false),
+          "disable optimizations that specifically target replay")
          ("integrity-hash-on-start", bpo::bool_switch(), "Log the state integrity hash on startup")
          ("integrity-hash-on-stop", bpo::bool_switch(), "Log the state integrity hash on shutdown");
 
@@ -403,8 +405,6 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "extract build environment information as JSON, write into specified file, and exit")
          ("force-all-checks", bpo::bool_switch()->default_value(false),
           "do not skip any validation checks while replaying blocks (useful for replaying blocks from untrusted source)")
-         ("disable-replay-opts", bpo::bool_switch()->default_value(false),
-          "disable optimizations that specifically target replay")
          ("replay-blockchain", bpo::bool_switch()->default_value(false),
           "clear chain state database and replay all blocks")
          ("hard-replay-blockchain", bpo::bool_switch()->default_value(false),

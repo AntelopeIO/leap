@@ -215,8 +215,8 @@ BOOST_FIXTURE_TEST_CASE(db_insert_test, read_only_trx_tester) { try {
    auto res = send_db_api_transaction("getage"_n, getage_data, {}, transaction_metadata::trx_type::read_only);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
    BOOST_CHECK_EQUAL(res->action_traces[0].return_value[0], 10);
-   BOOST_CHECK_GT(res->net_usage, 0);
-   BOOST_CHECK_GT(res->elapsed.count(), 0);
+   BOOST_CHECK_GT(res->net_usage, 0u);
+   BOOST_CHECK_GT(res->elapsed.count(), 0u);
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(auth_test, read_only_trx_tester) { try {
