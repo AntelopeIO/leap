@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       platform-choice:
-        description: 'Override build platform'
+        description: 'Select Platform'
         type: choice
         options:
         - ubuntu20
@@ -31,8 +31,6 @@ jobs:
     steps:
       - name: Setup Input Params
         id: overrides
-        env:
-          GH_TOKEN: ${{secrets.GITHUB_TOKEN}}
         run: |
           echo test-params=testBpOpMode >> $GITHUB_OUTPUT
 
