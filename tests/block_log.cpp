@@ -42,10 +42,10 @@ struct block_log_fixture {
          // work because the default ctor of a block_header (used above) has previous 0'ed out which
          // means its block num is 1.
          check_n_bounce([&]() {
-            BOOST_REQUIRE_EQUAL(log->first_block_num(), 1);
-            BOOST_REQUIRE_EQUAL(log->head()->block_num(), 1);
+            BOOST_REQUIRE_EQUAL(log->first_block_num(), 1u);
+            BOOST_REQUIRE_EQUAL(log->head()->block_num(), 1u);
             if(enable_read)
-               BOOST_REQUIRE_EQUAL(log->read_block_by_num(1)->block_num(), 1);
+               BOOST_REQUIRE_EQUAL(log->read_block_by_num(1)->block_num(), 1u);
          });
       }
    }

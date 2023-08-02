@@ -184,7 +184,7 @@ BOOST_AUTO_TEST_CASE(future_fork_test) { try {
 
    // ensure the account was forked away
    const auto post_results = aq_db.get_accounts_by_authorizers(pars);
-   BOOST_TEST_REQUIRE(post_results.accounts.size() == 0);
+   BOOST_TEST_REQUIRE(post_results.accounts.size() == 0u);
 
 } FC_LOG_AND_RETHROW() }
 
@@ -277,7 +277,7 @@ BOOST_AUTO_TEST_CASE(fork_test) { try {
       const auto post_results = aq_db.get_accounts_by_authorizers(pars);
 
       // verify correct account is in results
-      BOOST_TEST_REQUIRE(post_results.accounts.size() == 1);
+      BOOST_TEST_REQUIRE(post_results.accounts.size() == 1u);
 
    } FC_LOG_AND_RETHROW() }
 

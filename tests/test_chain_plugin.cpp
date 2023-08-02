@@ -345,7 +345,7 @@ public:
         produce_blocks( 250 );
 
         auto producer_keys = control->head_block_state()->active_schedule.producers;
-        BOOST_CHECK_EQUAL( 21, producer_keys.size() );
+        BOOST_CHECK_EQUAL( 21u, producer_keys.size() );
         BOOST_CHECK_EQUAL( name("defproducera"), producer_keys[0].producer_name );
 
         return producer_names;
@@ -478,7 +478,7 @@ BOOST_FIXTURE_TEST_CASE(account_results_voter_info_test, chain_plugin_tester) { 
     read_only::get_account_results results = get_account_info(name("alice1111111"));
 
     BOOST_CHECK(results.voter_info.get_type() != fc::variant::type_id::null_type);
-    BOOST_CHECK_EQUAL(21, results.voter_info["producers"].size());
+    BOOST_CHECK_EQUAL(21u, results.voter_info["producers"].size());
 
 } FC_LOG_AND_RETHROW() }
 

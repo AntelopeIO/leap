@@ -266,7 +266,7 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions, validating_tester) { try {
       deque<transaction_metadata_ptr> unapplied_trxs = control->abort_block();
 
       // verify transaction returned from abort_block()
-      BOOST_REQUIRE_EQUAL( 1,  unapplied_trxs.size() );
+      BOOST_REQUIRE_EQUAL( 1u,  unapplied_trxs.size() );
       BOOST_REQUIRE_EQUAL( trx.id(), unapplied_trxs.at(0)->id() );
 
       // account does not exist block was aborted which had transaction
@@ -316,7 +316,7 @@ BOOST_FIXTURE_TEST_CASE( abort_block_transactions_tester, validating_tester) { t
 
       deque<transaction_metadata_ptr> unapplied_trxs = control->abort_block(); // should be empty now
 
-      BOOST_REQUIRE_EQUAL( 0,  unapplied_trxs.size() );
+      BOOST_REQUIRE_EQUAL( 0u,  unapplied_trxs.size() );
 
    } FC_LOG_AND_RETHROW() }
 

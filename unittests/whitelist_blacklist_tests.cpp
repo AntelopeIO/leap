@@ -540,7 +540,7 @@ BOOST_AUTO_TEST_CASE( actor_blacklist_inline_deferred ) { try {
    auto c2 = tester1.chain->control->applied_transaction.connect( log_trxs );
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1, num_deferred);
+   BOOST_REQUIRE_EQUAL(1u, num_deferred);
 
    // With charlie now in the actor blacklist, retiring the previously scheduled deferred transaction should now not be possible.
    BOOST_CHECK_EXCEPTION( tester1.chain->produce_blocks(), fc::exception,
@@ -629,7 +629,7 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
 
 
    auto num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0, num_deferred);
+   BOOST_REQUIRE_EQUAL(0u, num_deferred);
 
    BOOST_CHECK_EXCEPTION( tester1.chain->push_action( "bob"_n, "defercall"_n, "alice"_n, mvo()
                                                          ( "payer", "alice" )
@@ -641,7 +641,7 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    );
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0, num_deferred);
+   BOOST_REQUIRE_EQUAL(0u, num_deferred);
 
    // Schedule a deferred transaction authorized by charlie@active
    tester1.chain->push_action( "charlie"_n, "defercall"_n, "alice"_n, mvo()
@@ -652,14 +652,14 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    );
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1, num_deferred);
+   BOOST_REQUIRE_EQUAL(1u, num_deferred);
 
    // Retire the deferred transaction successfully despite charlie being on the actor blacklist.
    // This is allowed due to the fact that the sender of the deferred transaction (also charlie) is in the sender bypass list.
    tester1.chain->produce_blocks();
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0, num_deferred);
+   BOOST_REQUIRE_EQUAL(0u, num_deferred);
 
    // Schedule another deferred transaction authorized by charlie@active
    tester1.chain->push_action( "charlie"_n, "defercall"_n, "alice"_n, mvo()
@@ -673,7 +673,7 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    tester1.chain->finish_block();
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1, num_deferred);
+   BOOST_REQUIRE_EQUAL(1u, num_deferred);
 
    tester1.shutdown();
 
@@ -683,14 +683,14 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    tester1.init(false);
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1, num_deferred);
+   BOOST_REQUIRE_EQUAL(1u, num_deferred);
 
    // Now retire the deferred transaction successfully despite charlie being on both the actor blacklist and bob being on the contract blacklist
    // This is allowed due to the fact that the sender of the deferred transaction (also charlie) is in the sender bypass list.
    tester1.chain->produce_blocks();
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0, num_deferred);
+   BOOST_REQUIRE_EQUAL(0u, num_deferred);
 
    tester1.chain->push_action( "alice"_n, "defercall"_n, "alice"_n, mvo()
       ( "payer", "alice" )
@@ -700,7 +700,7 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    );
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1, num_deferred);
+   BOOST_REQUIRE_EQUAL(1u, num_deferred);
 
    // Ensure that if there if the sender is not on the sender bypass list, then the contract blacklist is enforced.
    BOOST_CHECK_EXCEPTION( tester1.chain->produce_blocks(), fc::exception,
@@ -783,8 +783,8 @@ BOOST_AUTO_TEST_CASE( greylist_limit_tests ) { try {
 
    uint64_t blocks_per_day = 2*60*60*24;
 
-   uint64_t user_cpu_per_day = (cfg.max_block_cpu_usage * blocks_per_day / 250'000'000); // 103 us
-   uint64_t user_net_per_day = (cfg.max_block_net_usage * blocks_per_day / 250'000'000); // 90 bytes
+   int64_t user_cpu_per_day = (cfg.max_block_cpu_usage * blocks_per_day / 250'000'000); // 103 us
+   int64_t user_net_per_day = (cfg.max_block_net_usage * blocks_per_day / 250'000'000); // 90 bytes
    wdump((user_cpu_per_day)(user_net_per_day));
 
    BOOST_REQUIRE_EQUAL( rm.get_account_cpu_limit_ex(user_account).first.max, user_cpu_per_day );

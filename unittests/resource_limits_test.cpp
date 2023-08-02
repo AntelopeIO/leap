@@ -383,8 +383,8 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
             BOOST_CHECK_EQUAL(ret_limited_init_wo_time_stamp.first.current_used, 0);
             BOOST_CHECK_EQUAL(ret_limited_init_with_time_stamp.first.current_used, ret_limited_init_with_time_stamp.first.used);
             BOOST_CHECK_EQUAL(ret_limited_init_with_time_stamp.first.current_used, 0);
-            BOOST_CHECK_EQUAL(ret_limited_init_wo_time_stamp.first.last_usage_update_time.slot, 0 );
-            BOOST_CHECK_EQUAL( ret_limited_init_with_time_stamp.first.last_usage_update_time.slot, 0 );
+            BOOST_CHECK_EQUAL(ret_limited_init_wo_time_stamp.first.last_usage_update_time.slot, 0u );
+            BOOST_CHECK_EQUAL( ret_limited_init_with_time_stamp.first.last_usage_update_time.slot, 0u );
          }
          const uint32_t update_slot = time_stamp_now.slot - delta_slot;
          const int64_t cpu_usage = 100;

@@ -36,6 +36,7 @@ if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
 
    set_source_files_properties(webassembly/runtimes/eos-vm-oc/LLVMJIT.cpp PROPERTIES COMPILE_FLAGS "--std=gnu++17")
    set_source_files_properties(webassembly/runtimes/eos-vm-oc/LLVMEmitIR.cpp PROPERTIES COMPILE_FLAGS "--std=gnu++17")
+   set_source_files_properties(webassembly/runtimes/eos-vm-oc/switch_stack_linux.s PROPERTIES COMPILE_FLAGS "-Wno-unused-command-line-argument")
 
    if(LLVM_VERSION VERSION_LESS 7.1 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
       enable_language(ASM-LLVMWAR)
