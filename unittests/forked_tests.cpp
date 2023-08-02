@@ -720,7 +720,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
       BOOST_CHECK( i == 11 + 12 );
    }
    // verify transaction on fork is reported by push_block in order
-   BOOST_REQUIRE_EQUAL( 4, c.get_unapplied_transaction_queue().size() );
+   BOOST_REQUIRE_EQUAL( 4u, c.get_unapplied_transaction_queue().size() );
    BOOST_REQUIRE_EQUAL( trace1->id, c.get_unapplied_transaction_queue().begin()->id() );
    BOOST_REQUIRE_EQUAL( trace2->id, (++c.get_unapplied_transaction_queue().begin())->id() );
    BOOST_REQUIRE_EQUAL( trace3->id, (++(++c.get_unapplied_transaction_queue().begin()))->id() );
@@ -747,7 +747,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
    std::vector<transaction_trace_ptr> traces;
    c.produce_block( traces );
 
-   BOOST_REQUIRE_EQUAL( 4, traces.size() );
+   BOOST_REQUIRE_EQUAL( 4u, traces.size() );
    BOOST_CHECK_EQUAL( trace1->id, traces.at(0)->id );
    BOOST_CHECK_EQUAL( transaction_receipt_header::executed, traces.at(0)->receipt->status );
    BOOST_CHECK_EQUAL( trace2->id, traces.at(1)->id );

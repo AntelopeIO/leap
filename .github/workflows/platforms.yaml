@@ -1,0 +1,88 @@
+name: "Platforms"
+
+on:
+  workflow_call:
+    inputs:
+        override-build-matrix:
+          description: 'Override build matrix'
+          type: string
+          required: false
+    outputs:
+      p:
+        description: "Discovered Build Platforms"
+        value: ${{ jobs.d.outputs.p }}
+      platform-matrix:
+        description: "Overridden Platform Matrix"
+        value: ${{ jobs.pm.outputs.platform-matrix }}
+
+permissions:
+  packages: read
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  d:
+    name: Discover Platforms
+    runs-on: ubuntu-latest
+    outputs:
+      missing-platforms: ${{steps.discover.outputs.missing-platforms}}
+      p: ${{steps.discover.outputs.platforms}}
+    steps:
+      - name: Discover Platforms
+        id: discover
+        uses: AntelopeIO/discover-platforms-action@v1
+        with:
+          platform-file: .cicd/platforms.json
+          password: ${{secrets.GITHUB_TOKEN}}
+          package-name: builders
+
+  build-platforms:
+    name: Build Platforms
+    needs: d
+    if: needs.d.outputs.missing-platforms != '[]'
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{fromJSON(needs.d.outputs.missing-platforms)}}
+    runs-on: ["self-hosted", "enf-x86-beefy"]
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Login to Container Registry
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{github.repository_owner}}
+          password: ${{secrets.GITHUB_TOKEN}}
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          push: true
+          tags: ${{fromJSON(needs.d.outputs.p)[matrix.platform].image}}
+          file: ${{fromJSON(needs.d.outputs.p)[matrix.platform].dockerfile}}
+
+  pm:
+    name: Platform Matrix
+    needs: [d]
+    if: always() && needs.d.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+        platform-matrix: ${{steps.pm-results.outputs.platform-matrix}}
+    steps:
+      - name: Parse Platform Matrix
+        id: parse-pm
+        uses: actions/github-script@v6
+        with:
+          script: return Object.keys(${{needs.d.outputs.p}})
+      - name: Check | Override result
+        id: pm-results
+        run: |
+          echo 'platform-matrix=${{steps.parse-pm.outputs.result}}' >> $GITHUB_OUTPUT
+
+          if [[ "${{inputs.override-build-matrix}}" != "" ]]; then
+              echo 'platform-matrix=["${{inputs.override-build-matrix}}"]' >> $GITHUB_OUTPUT
+          fi

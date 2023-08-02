@@ -530,7 +530,7 @@ BOOST_FIXTURE_TEST_CASE(test_session_fork, state_history_test_fixture) {
       std::vector<eosio::state_history::block_position> have_positions;
       eosio::state_history::state_result result;
       // we should get 4 consecutive block result
-      for (int i = 0; i < 4; ++i) {
+      for (uint32_t i = 0; i < 4; ++i) {
          receive_result(result);
          BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
          auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
@@ -580,7 +580,7 @@ BOOST_FIXTURE_TEST_CASE(test_session_fork, state_history_test_fixture) {
 
       eosio::state_history::state_result fork_result;
       // we should now get data for fork 3,4
-      for (int i = 2; i < 4; ++i) {
+      for (uint32_t i = 2; i < 4; ++i) {
          receive_result(fork_result);
          BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(fork_result));
          auto r = std::get<eosio::state_history::get_blocks_result_v0>(fork_result);

@@ -702,14 +702,14 @@ BOOST_AUTO_TEST_CASE( extra_signatures_test ) try {
 
       // Make a copy of pointer to the valid block.
       b = valid_block;
-      BOOST_REQUIRE_EQUAL( b->block_extensions.size(), 1 );
+      BOOST_REQUIRE_EQUAL( b->block_extensions.size(), 1u );
 
       // Extract the existing signatures.
       constexpr auto additional_sigs_eid = additional_block_signatures_extension::extension_id();
       auto exts = b->validate_and_extract_extensions();
-      BOOST_REQUIRE_EQUAL( exts.count( additional_sigs_eid ), 1 );
+      BOOST_REQUIRE_EQUAL( exts.count( additional_sigs_eid ), 1u );
       auto additional_sigs = std::get<additional_block_signatures_extension>(exts.lower_bound( additional_sigs_eid )->second).signatures;
-      BOOST_REQUIRE_EQUAL( additional_sigs.size(), 1 );
+      BOOST_REQUIRE_EQUAL( additional_sigs.size(), 1u );
 
       // Generate the extra signature and add to additonal_sigs.
       auto header_bmroot = digest_type::hash( std::make_pair( b->digest(), remote.control->head_block_state()->blockroot_merkle.get_root() ) );

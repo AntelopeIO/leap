@@ -198,8 +198,8 @@ BOOST_AUTO_TEST_CASE(producer) {
 
       empty_blocks_fut.wait_for(std::chrono::seconds(15));
 
-      BOOST_CHECK_EQUAL( trace_with_except, 0 ); // should not have any traces with except in it
-      BOOST_CHECK( all_blocks.size() > 3 ); // should have a few blocks otherwise test is running too fast
+      BOOST_CHECK_EQUAL( trace_with_except, 0u ); // should not have any traces with except in it
+      BOOST_CHECK( all_blocks.size() > 3u ); // should have a few blocks otherwise test is running too fast
       BOOST_CHECK_EQUAL( num_pushes, num_posts );
       BOOST_CHECK_EQUAL( num_pushes, next_calls );
       BOOST_CHECK_EQUAL( num_pushes, num_acked );
