@@ -17,15 +17,16 @@ errorExit=Utils.errorExit
 appArgs = AppArgs()
 appArgs.add(flag="--plugin",action='append',type=str,help="Run nodes with additional plugins")
 
-args=TestHelper.parse_args({"-p","-n","-d","-s","--keep-logs"
-                            ,"--dump-error-details","-v"
-                            ,"--leave-running","--unshared"},
+args=TestHelper.parse_args({"-p","-n","-d","-s","--keep-logs","--prod-count"
+                            ,"--dump-error-details","-v","--leave-running"
+                            ,"--unshared"},
                             applicationSpecificArgs=appArgs)
 pnodes=args.p
 delay=args.d
 topo=args.s
 debug=args.v
-total_nodes=pnodes
+prod_count = args.prod_count
+total_nodes=args.n if args.n > 0 else pnodes
 dumpErrorDetails=args.dump_error_details
 
 Utils.Debug=debug
@@ -46,7 +47,7 @@ try:
         extraNodeosArgs = ''.join([i+j for i,j in zip([' --plugin '] * len(args.plugin), args.plugin)])
     else:
         extraNodeosArgs = ''
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, 
+    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, prodCount=prod_count, topo=topo, delay=delay, 
                       extraNodeosArgs=extraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 

@@ -39,9 +39,62 @@ namespace eosio {
         std::optional<connection_status>  status( const string& endpoint )const;
         vector<connection_status>         connections()const;
 
+        struct p2p_per_connection_metrics {
+            p2p_per_connection_metrics(size_t count) {
+               addresses.reserve(count);
+               ports.reserve(count);
+               accepting_blocks.reserve(count);
+               last_received_blocks.reserve(count);
+               first_available_blocks.reserve(count);
+               last_available_blocks.reserve(count);
+               unique_first_block_counts.reserve(count);
+               latencies.reserve(count);
+               bytes_received.reserve(count);
+               bytes_sent.reserve(count);
+               connection_start_times.reserve(count);
+            }
+            p2p_per_connection_metrics(p2p_per_connection_metrics&& metrics) 
+               : addresses{std::move(metrics.addresses)}
+               , ports{std::move(metrics.ports)}
+               , accepting_blocks{std::move(metrics.accepting_blocks)}
+               , last_received_blocks{std::move(metrics.last_received_blocks)}
+               , first_available_blocks{std::move(metrics.first_available_blocks)}
+               , last_available_blocks{std::move(metrics.last_available_blocks)}
+               , unique_first_block_counts{std::move(metrics.unique_first_block_counts)}
+               , latencies{std::move(metrics.latencies)}
+               , bytes_received{std::move(metrics.bytes_received)}
+               , bytes_sent{std::move(metrics.bytes_sent)}
+               , connection_start_times{std::move(metrics.connection_start_times)}
+            {}
+            p2p_per_connection_metrics(const p2p_per_connection_metrics&) = delete;
+            p2p_per_connection_metrics& operator=(const p2p_per_connection_metrics&) = delete;
+            std::vector<boost::asio::ip::address_v4::uint_type> addresses;
+            std::vector<unsigned short> ports;
+            std::vector<bool> accepting_blocks;
+            std::vector<uint32_t> last_received_blocks;
+            std::vector<uint32_t> first_available_blocks;
+            std::vector<uint32_t> last_available_blocks;
+            std::vector<std::size_t> unique_first_block_counts;
+            std::vector<uint64_t> latencies;
+            std::vector<std::size_t> bytes_received;
+            std::vector<std::size_t> bytes_sent;
+            std::vector<std::chrono::nanoseconds> connection_start_times;
+        };
         struct p2p_connections_metrics {
+           p2p_connections_metrics(std::size_t peers, std::size_t clients, p2p_per_connection_metrics&& statistics)
+              : num_peers{peers}
+              , num_clients{clients}
+              , stats{std::move(statistics)}
+           {}
+           p2p_connections_metrics(p2p_connections_metrics&& statistics)
+              : num_peers{std::move(statistics.num_peers)}
+              , num_clients{std::move(statistics.num_clients)}
+              , stats{std::move(statistics.stats)}
+           {}
+           p2p_connections_metrics(const p2p_connections_metrics&) = delete;
            std::size_t num_peers   = 0;
            std::size_t num_clients = 0;
+           p2p_per_connection_metrics stats;
         };
 
         void register_update_p2p_connection_metrics(std::function<void(p2p_connections_metrics)>&&);

@@ -1296,15 +1296,6 @@ namespace chain_apis {
 
 const string read_only::KEYi64 = "i64";
 
-template<typename I>
-std::string itoh(I n, size_t hlen = sizeof(I)<<1) {
-   static const char* digits = "0123456789abcdef";
-   std::string r(hlen, '0');
-   for(size_t i = 0, j = (hlen - 1) * 4 ; i < hlen; ++i, j -= 4)
-      r[i] = digits[(n>>j) & 0x0f];
-   return r;
-}
-
 read_only::get_info_results read_only::get_info(const read_only::get_info_params&, const fc::time_point&) const {
    const auto& rm = db.get_resource_limits_manager();
 

@@ -5,9 +5,10 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
 
 #include <prometheus/counter.h>
+#include <prometheus/info.h>
 #include <prometheus/registry.h>
 #include <prometheus/text_serializer.h>
-
+#include <fc/log/logger.hpp>
 namespace eosio::metrics {
 
 struct catalog_type {
@@ -26,6 +27,9 @@ struct catalog_type {
    }
 
    prometheus::Registry registry;
+   // nodeos
+   prometheus::Family<prometheus::Info>& info;
+   prometheus::Info info_details;
    // http plugin
    prometheus::Family<Counter>& http_request_counts;
 
@@ -34,6 +38,16 @@ struct catalog_type {
 
    Gauge& num_peers;
    Gauge& num_clients;
+   std::vector<std::string> addresses;
+   std::vector<std::reference_wrapper<Gauge>> accepting_blocks_gauges;
+   std::vector<std::reference_wrapper<Gauge>> last_received_blocks_gauges;
+   std::vector<std::reference_wrapper<Gauge>> first_available_blocks_gauges;
+   std::vector<std::reference_wrapper<Gauge>> last_available_blocks_gauges;
+   std::vector<std::reference_wrapper<Gauge>> unique_first_block_counts_gauges;
+   std::vector<std::reference_wrapper<Gauge>> latency_gauges;
+   std::vector<std::reference_wrapper<Gauge>> bytes_received_gauges;
+   std::vector<std::reference_wrapper<Gauge>> bytes_sent_gauges;
+   std::vector<std::reference_wrapper<Gauge>> connection_start_time_gauges;
 
    // net plugin failed p2p connection
    Counter& failed_p2p_connections;
@@ -70,36 +84,38 @@ struct catalog_type {
 
 
    catalog_type()
-       : http_request_counts(family<Counter>("http_requests_total", "number of HTTP requests"))
-       , p2p_connections(family<Gauge>("p2p_connections", "current number of connected p2p connections"))
+       : info(family<prometheus::Info>("nodeos", "static information about the server"))
+       , http_request_counts(family<Counter>("nodeos_http_requests_total", "number of HTTP requests"))
+       , p2p_connections(family<Gauge>("nodeos_p2p_connections", "current number of connected p2p connections"))
        , num_peers(p2p_connections.Add({{"direction", "out"}}))
        , num_clients(p2p_connections.Add({{"direction", "in"}}))
        , failed_p2p_connections(
-             build<Counter>("failed_p2p_connections", "total number of failed out-going p2p connections"))
-       , dropped_trxs_total(build<Counter>("dropped_trxs_total", "total number of dropped transactions by net plugin"))
-       , cpu_usage_us(family<Counter>("cpu_usage_us_total", "total cpu usage in microseconds for blocks"))
-       , net_usage_us(family<Counter>("net_usage_us_total", "total net usage in microseconds for blocks"))
-       , last_irreversible(build<Gauge>("last_irreversible", "last irreversible block number"))
-       , head_block_num(build<Gauge>("head_block_num", "head block number"))
-       , unapplied_transactions_total(build<Counter>("unapplied_transactions_total",
+             build<Counter>("nodeos_failed_p2p_connections", "total number of failed out-going p2p connections"))
+       , dropped_trxs_total(build<Counter>("nodeos_dropped_trxs_total", "total number of dropped transactions by net plugin"))
+       , cpu_usage_us(family<Counter>("nodeos_cpu_usage_us_total", "total cpu usage in microseconds for blocks"))
+       , net_usage_us(family<Counter>("nodeos_net_usage_us_total", "total net usage in microseconds for blocks"))
+       , last_irreversible(build<Gauge>("nodeos_last_irreversible", "last irreversible block number"))
+       , head_block_num(build<Gauge>("nodeos_head_block_num", "head block number"))
+       , unapplied_transactions_total(build<Counter>("nodeos_unapplied_transactions_total",
                                                      "total number of unapplied transactions from produced blocks"))
-       , blacklisted_transactions_total(build<Counter>("blacklisted_transactions_total",
+       , blacklisted_transactions_total(build<Counter>("nodeos_blacklisted_transactions_total",
                                                        "total number of blacklisted transactions from produced blocks"))
        , subjective_bill_account_size_total(build<Counter>(
-             "subjective_bill_account_size_total", "total number of subjective bill account size from produced blocks"))
+             "nodeos_subjective_bill_account_size_total", "total number of subjective bill account size from produced blocks"))
        , scheduled_trxs_total(
-             build<Counter>("scheduled_trxs_total", "total number of scheduled transactions from produced blocks"))
-       , trxs_produced_total(build<Counter>("trxs_produced_total", "number of transactions produced"))
+             build<Counter>("nodeos_scheduled_trxs_total", "total number of scheduled transactions from produced blocks"))
+       , trxs_produced_total(build<Counter>("nodeos_trxs_produced_total", "number of transactions produced"))
        , cpu_usage_us_produced_block(cpu_usage_us.Add({{"block_type", "produced"}}))
        , net_usage_us_produced_block(net_usage_us.Add({{"block_type", "produced"}}))
-       , blocks_produced(build<Counter>("blocks_produced", "number of blocks produced"))
-       , trxs_incoming_total(build<Counter>("trxs_incoming_total", "number of incoming transactions"))
+       , blocks_produced(build<Counter>("nodeos_blocks_produced", "number of blocks produced"))
+       , trxs_incoming_total(build<Counter>("nodeos_trxs_incoming_total", "number of incoming transactions"))
        , cpu_usage_us_incoming_block(cpu_usage_us.Add({{"block_type", "incoming"}}))
        , net_usage_us_incoming_block(net_usage_us.Add({{"block_type", "incoming"}}))
-       , blocks_incoming(build<Counter>("blocks_incoming", "number of incoming blocks"))
-       , bytes_transferred(build<Counter>("exposer_transferred_bytes_total",
+       , blocks_incoming(build<Counter>("nodeos_blocks_incoming", "number of incoming blocks"))
+       , bytes_transferred(build<Counter>("nodeos_exposer_transferred_bytes_total",
                                           "total number of bytes for responses to prometheus scape requests"))
-       , num_scrapes(build<Counter>("exposer_scrapes_total", "total number of prometheus scape requests received")) {}
+       , num_scrapes(build<Counter>("nodeos_exposer_scrapes_total", "total number of prometheus scape requests received"))
+       {}
 
    std::string report() {
       const prometheus::TextSerializer serializer;
@@ -116,6 +132,42 @@ struct catalog_type {
    void update(const net_plugin::p2p_connections_metrics& metrics) {
       num_peers.Set(metrics.num_peers);
       num_clients.Set(metrics.num_clients);
+      dlog("Adding metrics for ${i} connections", ("i", metrics.stats.addresses.size()));
+      for(size_t i = 0; i < metrics.stats.addresses.size(); ++i) {
+         auto addr = boost::asio::ip::address_v4(metrics.stats.addresses[i]).to_string();
+         std::replace(addr.begin(), addr.end(), '.', '_');
+         addr.insert(0, 1, '_');
+         addr.append("__");
+         addr.append(to_string(metrics.stats.ports[i]));
+         addresses.push_back(addr);
+         auto& accepting_blocks = p2p_connections.Add({{addr, "accepting_blocks"}});
+         accepting_blocks.Set(metrics.stats.accepting_blocks[i]);
+         accepting_blocks_gauges.push_back(accepting_blocks);
+         auto& last_received_block = p2p_connections.Add({{addr, "last_received_block"}});
+         last_received_block.Set(metrics.stats.last_received_blocks[i]);
+         last_received_blocks_gauges.push_back(last_received_block);
+         auto& first_available_block = p2p_connections.Add({{addr, "first_available_block"}});
+         first_available_block.Set(metrics.stats.first_available_blocks[i]);
+         first_available_blocks_gauges.push_back(first_available_block);
+         auto& last_available_block = p2p_connections.Add({{addr, "last_available_block"}});
+         last_available_block.Set(metrics.stats.last_available_blocks[i]);
+         last_available_blocks_gauges.push_back(last_available_block);
+         auto& unique_first_block_count = p2p_connections.Add({{addr, "unique_first_block_count"}});
+         unique_first_block_count.Set(metrics.stats.unique_first_block_counts[i]);
+         unique_first_block_counts_gauges.push_back(unique_first_block_count);
+         auto& latency = p2p_connections.Add({{addr, "latency"}});
+         latency.Set(metrics.stats.latencies[i]);
+         latency_gauges.push_back(latency);
+         auto& bytes_received = p2p_connections.Add({{addr, "bytes_received"}});
+         bytes_received.Set(metrics.stats.bytes_received[i]);
+         bytes_received_gauges.push_back(bytes_received);
+         auto& bytes_sent = p2p_connections.Add({{addr, "bytes_sent"}});
+         bytes_sent.Set(metrics.stats.bytes_sent[i]);
+         bytes_sent_gauges.push_back(bytes_sent);
+         auto& connection_start_time = p2p_connections.Add({{addr, "connection_start_time"}});
+         connection_start_time.Set(metrics.stats.connection_start_times[i].count());
+         connection_start_time_gauges.push_back(connection_start_time);
+      }
    }
 
    void update(const producer_plugin::produced_block_metrics& metrics) {
@@ -142,6 +194,15 @@ struct catalog_type {
       head_block_num.Set(metrics.head_block_num);
    }
 
+   void late_initialize() {
+      info_details = info.Add({
+            {"server_version", chain_apis::itoh(static_cast<uint32_t>(app().version()))},
+            {"chain_id", app().get_plugin<chain_plugin>().get_chain_id()},
+            {"server_version_string", app().version_string()},
+            {"server_full_version_string", app().full_version_string()},
+            {"earliest_available_block_num", to_string(app().get_plugin<chain_plugin>().chain().earliest_available_block_num())}
+         });
+   }
    void register_update_handlers(boost::asio::io_context::strand& strand) {
       auto& http = app().get_plugin<http_plugin>();
       http.register_update_metrics(
@@ -149,8 +210,8 @@ struct catalog_type {
 
       auto& net = app().get_plugin<net_plugin>();
 
-      net.register_update_p2p_connection_metrics([&strand, this](net_plugin::p2p_connections_metrics metrics) {
-         strand.post([metrics, this]() { update(metrics); });
+      net.register_update_p2p_connection_metrics([&strand, this](net_plugin::p2p_connections_metrics&& metrics) {
+         boost::asio::post(strand, [metrics = std::move(metrics), this]() mutable { update(std::move(metrics)); });
       });
 
       net.register_increment_failed_p2p_connections([this]() {
