@@ -67,8 +67,7 @@ jobs:
             target: ${{github.sha}}
             artifact-name: ${{github.event.inputs.platform-choice}}-build
             fail-on-missing-target: false
-            token: ${{github.token}}
-            
+
         - name: Upload builddir
           if: steps.downloadBuild.outputs.downloaded-file != ''
           uses: AntelopeIO/upload-artifact-large-chunks-action@v1
