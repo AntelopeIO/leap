@@ -2184,12 +2184,10 @@ BOOST_FIXTURE_TEST_CASE( negative_memory_grow, validating_tester ) try {
 
 } FC_LOG_AND_RETHROW()
 
-// TODO: restore net_usage_tests
-#if 0
 BOOST_FIXTURE_TEST_CASE(net_usage_tests, tester ) try {
    int count = 0;
    auto check = [&](int coderepeat, int max_net_usage)-> bool {
-      account_name account = "f_tests"_n + (count++) * 16;
+      account_name account{"f_tests"_n.to_uint64_t() + (count++) * 16};
       create_accounts({account});
 
       std::string code = R"=====(
@@ -2233,7 +2231,7 @@ BOOST_FIXTURE_TEST_CASE(net_usage_tests, tester ) try {
    };
    BOOST_REQUIRE_EQUAL(true, check(1024, 0)); // default behavior
    BOOST_REQUIRE_EQUAL(false, check(1024, 100)); // transaction max_net_usage too small
-   BOOST_REQUIRE_EQUAL(false, check(10240, 0)); // larger than global maximum
+   BOOST_REQUIRE_EQUAL(false, check(config::default_max_block_net_usage+1, 0)); // larger than global maximum
 
 } FC_LOG_AND_RETHROW()
 
@@ -2284,14 +2282,13 @@ BOOST_FIXTURE_TEST_CASE(weighted_net_usage_tests, tester ) try {
    BOOST_REQUIRE_EQUAL(true, check(128)); // no limits, should pass
 
    resource_limits_manager mgr = control->get_mutable_resource_limits_manager();
-   mgr.set_account_limits(account, -1, 1, -1); // set weight = 1 for account
+   mgr.set_account_limits(account, -1, 1, -1, false); // set weight = 1 for account
 
    BOOST_REQUIRE_EQUAL(true, check(128));
 
-   mgr.set_account_limits(acc2, -1, 1000, -1); // set a big weight for other account
+   mgr.set_account_limits(acc2, -1, 100000000, -1, false); // set a big weight for other account
    BOOST_REQUIRE_EQUAL(false, check(128));
 
 } FC_LOG_AND_RETHROW()
-#endif
 
 BOOST_AUTO_TEST_SUITE_END()
