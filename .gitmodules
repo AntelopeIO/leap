@@ -34,3 +34,6 @@
 [submodule "libraries/libfc/libraries/bls12-381"]
 	path = libraries/libfc/libraries/bls12-381
 	url = https://github.com/mschoenebeck/bls12-381.git
+[submodule "libraries/boost"]
+	path = libraries/boost
+	url = https://github.com/boostorg/boost.git

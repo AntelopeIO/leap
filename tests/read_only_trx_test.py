@@ -100,6 +100,12 @@ def startCluster():
     specificExtraNodeosArgs={}
     # producer nodes will be mapped to 0 through pnodes-1, so the number pnodes is the no-producing API node
     specificExtraNodeosArgs[pnodes]=" --plugin eosio::net_api_plugin"
+    specificExtraNodeosArgs[pnodes]+=" --read-only-write-window-time-us "
+    specificExtraNodeosArgs[pnodes]+=" 10000 "
+    specificExtraNodeosArgs[pnodes]+=" --read-only-read-window-time-us "
+    specificExtraNodeosArgs[pnodes]+=" 490000 "
+    specificExtraNodeosArgs[pnodes]+=" --eos-vm-oc-cache-size-mb "
+    specificExtraNodeosArgs[pnodes]+=" 1 " # set small so there is churn
     specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
     specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
     if args.eos_vm_oc_enable:

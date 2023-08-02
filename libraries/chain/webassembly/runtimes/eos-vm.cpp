@@ -201,10 +201,6 @@ class eos_vm_profiling_module : public wasm_instantiated_module_interface {
          }
       }
 
-      void fast_shutdown() override {
-         _prof.clear();
-      }
-
       profile_data* start(apply_context& context) {
          name account = context.get_receiver();
          if(!context.control.is_profiling(account)) return nullptr;

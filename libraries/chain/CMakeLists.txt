@@ -34,11 +34,16 @@ if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
                              webassembly/runtimes/eos-vm-oc.cpp
                              webassembly/runtimes/eos-vm-oc/default_real_main.cpp)
 
+   set_source_files_properties(webassembly/runtimes/eos-vm-oc/LLVMJIT.cpp PROPERTIES COMPILE_FLAGS "--std=gnu++17")
+   set_source_files_properties(webassembly/runtimes/eos-vm-oc/LLVMEmitIR.cpp PROPERTIES COMPILE_FLAGS "--std=gnu++17")
+
    if(LLVM_VERSION VERSION_LESS 7.1 AND CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
       enable_language(ASM-LLVMWAR)
       list(APPEND CHAIN_EOSVMOC_SOURCES webassembly/runtimes/eos-vm-oc/llvmWARshim.llvmwar)
+      set_source_files_properties(webassembly/runtimes/eos-vm-oc/llvmWARshim.llvmwar PROPERTIES COMPILE_FLAGS "--std=gnu++17")
    else()
       list(APPEND CHAIN_EOSVMOC_SOURCES webassembly/runtimes/eos-vm-oc/llvmWARshim.cpp)
+      set_source_files_properties(webassembly/runtimes/eos-vm-oc/llvmWARshim.cpp PROPERTIES COMPILE_FLAGS "--std=gnu++17")
    endif()
 
    llvm_map_components_to_libnames(LLVM_LIBS support core passes mcjit native orcjit)
@@ -100,6 +105,7 @@ add_library( eosio_chain
 
               wast_to_wasm.cpp
               wasm_interface.cpp
+              wasm_interface_collection.cpp
               wasm_eosio_validation.cpp
               wasm_eosio_injection.cpp
               wasm_config.cpp
@@ -130,8 +136,17 @@ add_library( eosio_chain
              ${HEADERS}
              )
 
+## Boost::accumulators depends on Boost::numeric_ublas, which is still missing cmake support (see
+## https://github.com/boostorg/cmake/issues/39). Until this is fixed, manually add Boost::numeric_ublas
+## as an interface library
+## ----------------------------------------------------------------------------------------------------
+add_library(boost_numeric_ublas INTERFACE)
+add_library(Boost::numeric_ublas ALIAS boost_numeric_ublas)
+
 target_link_libraries( eosio_chain PUBLIC bn256 fc chainbase eosio_rapidjson Logging IR WAST WASM
                        softfloat builtins ${CHAIN_EOSVM_LIBRARIES} ${LLVM_LIBS} ${CHAIN_RT_LINKAGE}
+                       Boost::signals2 Boost::hana Boost::property_tree Boost::multi_index Boost::asio Boost::lockfree
+                       Boost::assign Boost::accumulators
                      )
 target_include_directories( eosio_chain
                             PUBLIC "${CMAKE_CURRENT_SOURCE_DIR}/include" "${CMAKE_CURRENT_BINARY_DIR}/include"

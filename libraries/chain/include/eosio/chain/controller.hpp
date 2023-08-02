@@ -40,6 +40,7 @@ namespace eosio { namespace chain {
    class account_object;
    class deep_mind_handler;
    class subjective_billing;
+   class wasm_interface_collection;
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
    using forked_branch_callback = std::function<void(const branch_type&)>;
@@ -216,6 +217,8 @@ namespace eosio { namespace chain {
          void   set_action_blacklist( const flat_set< pair<account_name, action_name> >& );
          void   set_key_blacklist( const flat_set<public_key_type>& );
 
+         void   set_disable_replay_opts( bool v );
+
          uint32_t             head_block_num()const;
          time_point           head_block_time()const;
          block_id_type        head_block_id()const;
@@ -348,7 +351,7 @@ namespace eosio { namespace chain {
          */
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
-         wasm_interface& get_wasm_interface();
+         wasm_interface_collection& get_wasm_interface();
 
       static chain_id_type extract_chain_id(snapshot_reader& snapshot);
 

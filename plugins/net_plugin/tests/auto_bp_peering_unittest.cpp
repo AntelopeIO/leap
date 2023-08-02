@@ -18,7 +18,7 @@ struct mock_connections_manager {
    uint32_t                     max_client_count = 0;
    std::vector<mock_connection> connections;
 
-   std::function<void(std::string)> connect;
+   std::function<void(std::string, std::string)> connect;
    std::function<void(std::string)> disconnect;
 
    uint32_t get_max_client_count() const { return max_client_count; }
@@ -36,6 +36,7 @@ struct mock_net_plugin : eosio::auto_bp_peering::bp_connection_manager<mock_net_
 
    bool                         is_in_sync = false;
    mock_connections_manager     connections;
+   std::vector<std::string>     p2p_addresses{"0.0.0.0:9876"};
 
    bool in_sync() { return is_in_sync; }
 
@@ -165,7 +166,7 @@ BOOST_AUTO_TEST_CASE(test_on_pending_schedule) {
 
    std::vector<std::string> connected_hosts;
 
-   plugin.connections.connect = [&connected_hosts](std::string host) { connected_hosts.push_back(host); };
+   plugin.connections.connect = [&connected_hosts](std::string host, std::string p2p_address) { connected_hosts.push_back(host); };
 
    // make sure nothing happens when it is not in_sync
    plugin.is_in_sync = false;
@@ -209,7 +210,7 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule1) {
    plugin.config.my_bp_accounts = { "prodd"_n, "produ"_n };
 
    plugin.active_neighbors = { "proda"_n, "prodh"_n, "prodn"_n };
-   plugin.connections.connect = [](std::string host) {};
+   plugin.connections.connect = [](std::string host, std::string p2p_address) {};
 
    std::vector<std::string> disconnected_hosts;
    plugin.connections.disconnect = [&disconnected_hosts](std::string host) { disconnected_hosts.push_back(host); };
@@ -245,7 +246,7 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule2) {
    plugin.config.my_bp_accounts = { "prodd"_n, "produ"_n };
 
    plugin.active_neighbors = { "proda"_n, "prodh"_n, "prodn"_n };
-   plugin.connections.connect = [](std::string host) {};
+   plugin.connections.connect = [](std::string host, std::string p2p_address) {};
    std::vector<std::string> disconnected_hosts;
    plugin.connections.disconnect = [&disconnected_hosts](std::string host) { disconnected_hosts.push_back(host); };
 
