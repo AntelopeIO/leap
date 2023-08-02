@@ -313,7 +313,6 @@ class netUtil:
                                 stats = bandwidths.get(host, bandwidthStats())
                                 stats.connectionStarted = connectionStarted
                                 bandwidths[host] = stats
-                                logger.info(f'length of bandwidth is {len(bandwidths)}')
                             else:
                                 listwalker = getattr(self, fieldName[:1] + fieldName.replace('_', ' ').title().replace(' ', '')[1:] + 'LW')
                                 listwalker[startOffset:endOffset] = [urwid.Text(self.peerMetricConversions[fieldName](sample.value))]
