@@ -112,8 +112,8 @@ class ColumnedListPile(urwid.Pile):
 
 def readMetrics(host: str, port: str):
     response = requests.get(f'http://{host}:{port}{PROMETHEUS_URL}', timeout=10)
-    if response.status_code == 404:
-        logger.warn(f'Prometheus metrics URL returned 404: {response.url}')
+    if response.status_code != 200:
+        logger.fatal(f'Prometheus metrics URL returned {response.status_code}: {response.url}')
         raise urwid.ExitMainLoop()
     return response
 
