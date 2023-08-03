@@ -1206,6 +1206,14 @@ BOOST_AUTO_TEST_CASE(stable_priority_queue_test) {
 }
 
 // test that std::bad_alloc is being thrown
+// ASAN warns "exceeds maximum supported size", so skip when ASAN enabled
+// gcc sets __SANITIZE_ADDRESS__, but clang uses __has_feature(), when ASAN enabled
+#if defined(__has_feature) && !defined(__SANITIZE_ADDRESS__)
+   #if __has_feature(address_sanitizer)
+      #define __SANITIZE_ADDRESS__ 1
+   #endif
+#endif
+#ifndef __SANITIZE_ADDRESS__
 BOOST_AUTO_TEST_CASE(bad_alloc_test) {
    tester t; // force a controller to be constructed and set the new_handler
    int* ptr = nullptr;
@@ -1215,6 +1223,7 @@ BOOST_AUTO_TEST_CASE(bad_alloc_test) {
    BOOST_CHECK_THROW( fail(), std::bad_alloc );
    BOOST_CHECK( ptr == nullptr );
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(named_thread_pool_test) {
    {
