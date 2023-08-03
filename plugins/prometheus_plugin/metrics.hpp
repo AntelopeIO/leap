@@ -48,6 +48,7 @@ struct catalog_type {
    std::vector<std::reference_wrapper<Gauge>> bytes_received_gauges;
    std::vector<std::reference_wrapper<Gauge>> bytes_sent_gauges;
    std::vector<std::reference_wrapper<Gauge>> connection_start_time_gauges;
+   std::vector<std::reference_wrapper<Gauge>> log_p2p_address_gauges;
 
    // net plugin failed p2p connection
    Counter& failed_p2p_connections;
@@ -166,6 +167,9 @@ struct catalog_type {
          auto& connection_start_time = p2p_connections.Add({{addr, "connection_start_time"}});
          connection_start_time.Set(metrics.stats.connection_start_times[i].count());
          connection_start_time_gauges.push_back(connection_start_time);
+         auto& log_p2p_address = p2p_connections.Add({{addr, metrics.stats.log_p2p_addresses[i]}});
+         log_p2p_address.Set(0); // Empty gauge; we only want the label
+         log_p2p_address_gauges.push_back(log_p2p_address);
       }
    }
 

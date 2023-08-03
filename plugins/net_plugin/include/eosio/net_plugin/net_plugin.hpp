@@ -52,6 +52,7 @@ namespace eosio {
                bytes_received.reserve(count);
                bytes_sent.reserve(count);
                connection_start_times.reserve(count);
+               log_p2p_addresses.reserve(count);
             }
             p2p_per_connection_metrics(p2p_per_connection_metrics&& metrics) 
                : addresses{std::move(metrics.addresses)}
@@ -65,6 +66,7 @@ namespace eosio {
                , bytes_received{std::move(metrics.bytes_received)}
                , bytes_sent{std::move(metrics.bytes_sent)}
                , connection_start_times{std::move(metrics.connection_start_times)}
+               , log_p2p_addresses{std::move(metrics.log_p2p_addresses)}
             {}
             p2p_per_connection_metrics(const p2p_per_connection_metrics&) = delete;
             p2p_per_connection_metrics& operator=(const p2p_per_connection_metrics&) = delete;
@@ -79,6 +81,7 @@ namespace eosio {
             std::vector<std::size_t> bytes_received;
             std::vector<std::size_t> bytes_sent;
             std::vector<std::chrono::nanoseconds> connection_start_times;
+            std::vector<std::string> log_p2p_addresses;
         };
         struct p2p_connections_metrics {
            p2p_connections_metrics(std::size_t peers, std::size_t clients, p2p_per_connection_metrics&& statistics)

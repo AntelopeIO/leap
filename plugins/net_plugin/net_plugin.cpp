@@ -4455,6 +4455,7 @@ namespace eosio {
             per_connection.connection_start_times.push_back((*it)->connection_time);
             per_connection.unique_first_block_counts.push_back((*it)->get_unique_blocks_rcvd_count());
             per_connection.latencies.push_back((*it)->get_peer_ping_time_ns());
+            per_connection.log_p2p_addresses.push_back((*it)->log_p2p_address);
          }
          else
             fc_wlog(logger, "socket remote endpoint is not IPv4");

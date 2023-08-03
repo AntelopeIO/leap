@@ -174,6 +174,7 @@ class netUtil:
             'unique_first_block_count': lambda x: str(int(x)),
         }
         self.peerColumns = [
+            ('\n\nIP Address', 'ipAddressLW'),
             ('\n\nHostname', 'hostnameLW'),
             ('\n\nLatency', 'latencyLW'),
             ('\nSend\nRate', 'sendBandwidthLW'),
@@ -255,7 +256,8 @@ class netUtil:
 
         self.peerListPiles[0].contents[-1][0].body.set_focus_changed_callback(focus_changed)
 
-        self.peerLineBox = urwid.LineBox(Columns([('weight', 2, self.peerListPiles[0])]+self.peerListPiles[1:],
+        self.peerLineBox = urwid.LineBox(Columns([('weight', 1, self.peerListPiles[0]), 
+                                                  ('weight', 2, self.peerListPiles[1])]+self.peerListPiles[2:],
                                                  dividechars=1, focus_column=0),
                                          'Peers:', 'left')
 
@@ -296,7 +298,7 @@ class netUtil:
                             hostLabel = next(iter(sample.labels))
                             fieldName = sample.labels[hostLabel]
                             host = hostLabel[1:].replace('__', ':').replace('_', '.')
-                            listwalker = getattr(self, 'hostnameLW')
+                            listwalker = getattr(self, 'ipAddressLW')
                             if host not in listwalker:
                                 startOffset = endOffset = len(listwalker)
                                 listwalker.append(urwid.Text(host))
@@ -319,8 +321,13 @@ class netUtil:
                                 stats.connectionStarted = connectionStarted
                                 bandwidths[host] = stats
                             else:
-                                listwalker = getattr(self, fieldName[:1] + fieldName.replace('_', ' ').title().replace(' ', '')[1:] + 'LW')
-                                listwalker[startOffset:endOffset] = [urwid.Text(self.peerMetricConversions[fieldName](sample.value))]
+                                attrname = fieldName[:1] + fieldName.replace('_', ' ').title().replace(' ', '')[1:] + 'LW'
+                                if hasattr(self, attrname):
+                                    listwalker = getattr(self, attrname)
+                                    listwalker[startOffset:endOffset] = [urwid.Text(self.peerMetricConversions[fieldName](sample.value))]
+                                else:
+                                    listwalker = getattr(self, 'hostnameLW')
+                                    listwalker[startOffset:endOffset] = [urwid.Text(fieldName.replace('_', '.'))]
                     elif sample.name == 'nodeos_info':
                         fieldName = self.fields.get(self.prometheusMetrics[(sample.name, 'server_version_string')])
                         field = getattr(self, fieldName)
@@ -331,7 +338,7 @@ class netUtil:
                 else:
                     if sample.name == 'nodeos_p2p_connections':
                         now = time.time_ns()
-                        hostListwalker = getattr(self, 'hostnameLW')
+                        hostListwalker = getattr(self, 'ipAddressLW')
                         for host, stats in bandwidths.items():
                             startOffset = hostListwalker.index(host)
                             endOffset = startOffset + 1
