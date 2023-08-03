@@ -40,7 +40,7 @@ namespace eosio {
         vector<connection_status>         connections()const;
 
         struct p2p_per_connection_metrics {
-            p2p_per_connection_metrics(size_t count) {
+            explicit p2p_per_connection_metrics(size_t count) {
                addresses.reserve(count);
                ports.reserve(count);
                accepting_blocks.reserve(count);
