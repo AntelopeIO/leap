@@ -846,9 +846,9 @@ namespace eosio {
       string                  log_remote_endpoint_port;
       string                  local_endpoint_ip;
       string                  local_endpoint_port;
-      bool                    remote_endpoint_ipv4;
-      uint32_t                remote_endpoint_ip_integer;
-      uint32_t                remote_endpoint_port;
+      bool                    remote_endpoint_ipv4{false};
+      uint32_t                remote_endpoint_ip_integer{0};
+      uint32_t                remote_endpoint_port{0};
       // kept in sync with last_handshake_recv.last_irreversible_block_num, only accessed from connection strand
       uint32_t                peer_lib_num = 0;
 
@@ -889,7 +889,7 @@ namespace eosio {
       fc::time_point                   last_close          GUARDED_BY(conn_mtx);
       string                           remote_endpoint_ip  GUARDED_BY(conn_mtx);
 
-      std::chrono::nanoseconds         construction_time{0};
+      std::chrono::nanoseconds         connection_time{0};
 
       connection_status get_status()const;
 
@@ -956,9 +956,9 @@ namespace eosio {
       void send_time(const time_message& msg);
       /** \brief Read system time and convert to a 64 bit integer.
        *
-       * There are four calls to this routine in the program.  One
+       * There are three calls to this routine in the program.  One
        * when a packet arrives from the network, one when a packet
-       * is placed on the send queue, and one during construction.
+       * is placed on the send queue, and one during connect.
        * Calls the kernel time of day routine and converts to 
        * a (at least) 64 bit integer.
        */
@@ -1171,8 +1171,7 @@ namespace eosio {
         connection_id( ++my_impl->current_connection_id ),
         response_expected_timer( my_impl->thread_pool.get_executor() ),
         last_handshake_recv(),
-        last_handshake_sent(),
-        construction_time(get_time())
+        last_handshake_sent()
    {
       my_impl->mark_bp_connection(this);
       update_endpoints();
@@ -1187,8 +1186,7 @@ namespace eosio {
         connection_id( ++my_impl->current_connection_id ),
         response_expected_timer( my_impl->thread_pool.get_executor() ),
         last_handshake_recv(),
-        last_handshake_sent(),
-        construction_time(get_time())
+        last_handshake_sent()
    {
       update_endpoints();
       fc_dlog( logger, "new connection object created for peer ${address}:${port} from listener ${addr}", ("address", log_remote_endpoint_ip)("port", log_remote_endpoint_port)("addr", listen_address) );
@@ -2688,6 +2686,7 @@ namespace eosio {
                [resolver, c = shared_from_this(), socket=socket]( const boost::system::error_code& err, const tcp::endpoint& endpoint ) {
             if( !err && socket->is_open() && socket == c->socket ) {
                c->update_endpoints();
+               c->connection_time = get_time();
                if( c->start_session() ) {
                   c->send_handshake();
                   c->send_time();
@@ -4453,7 +4452,7 @@ namespace eosio {
             per_connection.last_available_blocks.push_back((*it)->get_peer_head_block_num());
             per_connection.bytes_received.push_back((*it)->get_bytes_received());
             per_connection.bytes_sent.push_back((*it)->get_bytes_sent());
-            per_connection.connection_start_times.push_back((*it)->construction_time);
+            per_connection.connection_start_times.push_back((*it)->connection_time);
             per_connection.unique_first_block_counts.push_back((*it)->get_unique_blocks_rcvd_count());
             per_connection.latencies.push_back((*it)->get_peer_ping_time_ns());
          }
