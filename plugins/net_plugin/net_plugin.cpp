@@ -1175,6 +1175,7 @@ namespace eosio {
         construction_time(get_time())
    {
       my_impl->mark_bp_connection(this);
+      update_endpoints();
       fc_ilog( logger, "created connection ${c} to ${n}", ("c", connection_id)("n", endpoint) );
    }
 
@@ -2686,6 +2687,7 @@ namespace eosio {
          boost::asio::bind_executor( strand,
                [resolver, c = shared_from_this(), socket=socket]( const boost::system::error_code& err, const tcp::endpoint& endpoint ) {
             if( !err && socket->is_open() && socket == c->socket ) {
+               c->update_endpoints();
                if( c->start_session() ) {
                   c->send_handshake();
                   c->send_time();
@@ -2964,7 +2966,6 @@ namespace eosio {
          my_impl->sync_master->sync_recv_block(shared_from_this(), blk_id, blk_num, false);
       }
 
-      ++unique_blocks_rcvd_count;
       auto ds = pending_message_buffer.create_datastream();
       fc::raw::unpack( ds, which );
       shared_ptr<signed_block> ptr = std::make_shared<signed_block>();
@@ -3663,6 +3664,7 @@ namespace eosio {
       }
 
       if( accepted ) {
+         ++unique_blocks_rcvd_count;
          boost::asio::post( my_impl->thread_pool.get_executor(), [dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num]() {
             fc_dlog( logger, "accepted signed_block : #${n} ${id}...", ("n", blk_num)("id", blk_id.str().substr(8,16)) );
             dispatcher->add_peer_block( blk_id, c->connection_id );
