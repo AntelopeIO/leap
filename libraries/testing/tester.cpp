@@ -966,7 +966,7 @@ namespace eosio { namespace testing {
    } FC_CAPTURE_AND_RETHROW( (account) )
 
 
-   void base_tester::set_abi( account_name account, const char* abi_json, const private_key_type* signer ) {
+   void base_tester::set_abi( account_name account, const std::string& abi_json, const private_key_type* signer ) {
       auto abi = fc::json::from_string(abi_json).template as<abi_def>();
       signed_transaction trx;
       trx.actions.emplace_back( vector<permission_level>{{account,config::active_name}},
@@ -1105,17 +1105,17 @@ namespace eosio { namespace testing {
 
    void base_tester::set_before_preactivate_bios_contract() {
       set_code(config::system_account_name, contracts::before_preactivate_eosio_bios_wasm());
-      set_abi(config::system_account_name, contracts::before_preactivate_eosio_bios_abi().data());
+      set_abi(config::system_account_name, contracts::before_preactivate_eosio_bios_abi());
    }
 
    void base_tester::set_before_producer_authority_bios_contract() {
       set_code(config::system_account_name, contracts::before_producer_authority_eosio_bios_wasm());
-      set_abi(config::system_account_name, contracts::before_producer_authority_eosio_bios_abi().data());
+      set_abi(config::system_account_name, contracts::before_producer_authority_eosio_bios_abi());
    }
 
    void base_tester::set_bios_contract() {
       set_code(config::system_account_name, contracts::eosio_bios_wasm());
-      set_abi(config::system_account_name, contracts::eosio_bios_abi().data());
+      set_abi(config::system_account_name, contracts::eosio_bios_abi());
    }
 
 

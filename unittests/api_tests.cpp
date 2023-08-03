@@ -382,7 +382,7 @@ BOOST_FIXTURE_TEST_CASE(action_receipt_tests, validating_tester) { try {
    set_code( config::system_account_name, contracts::eosio_bios_wasm() );
 
    set_code( "test"_n, contracts::eosio_bios_wasm() );
-   set_abi( "test"_n, contracts::eosio_bios_abi().data() );
+   set_abi( "test"_n, contracts::eosio_bios_abi() );
 	set_code( "test"_n, test_contracts::payloadless_wasm() );
 
    call_doit_and_check( "test"_n, "test"_n, [&]( const transaction_trace_ptr& res ) {
@@ -1896,7 +1896,7 @@ BOOST_AUTO_TEST_CASE(more_deferred_transaction_tests) { try {
 
    chain.create_accounts( {contract_account, test_account} );
    chain.set_code( contract_account, test_contracts::deferred_test_wasm() );
-   chain.set_abi( contract_account, test_contracts::deferred_test_abi().data() );
+   chain.set_abi( contract_account, test_contracts::deferred_test_abi() );
    chain.produce_block();
 
    BOOST_REQUIRE_EQUAL(0, index.size());
@@ -2106,9 +2106,9 @@ BOOST_FIXTURE_TEST_CASE(db_tests, validating_tester) { try {
    create_account( "testapi2"_n );
    produce_blocks(10);
    set_code( "testapi"_n, test_contracts::test_api_db_wasm() );
-   set_abi(  "testapi"_n, test_contracts::test_api_db_abi().data() );
+   set_abi(  "testapi"_n, test_contracts::test_api_db_abi() );
    set_code( "testapi2"_n, test_contracts::test_api_db_wasm() );
-   set_abi(  "testapi2"_n, test_contracts::test_api_db_abi().data() );
+   set_abi(  "testapi2"_n, test_contracts::test_api_db_abi() );
    produce_blocks(1);
 
    push_action( "testapi"_n, "pg"_n,  "testapi"_n, mutable_variant_object() ); // primary_i64_general
@@ -2266,7 +2266,7 @@ BOOST_FIXTURE_TEST_CASE(multi_index_tests, validating_tester) { try {
    create_account( "testapi"_n );
    produce_blocks(1);
    set_code( "testapi"_n, test_contracts::test_api_multi_index_wasm() );
-   set_abi( "testapi"_n, test_contracts::test_api_multi_index_abi().data() );
+   set_abi( "testapi"_n, test_contracts::test_api_multi_index_abi() );
    produce_blocks(1);
 
    auto check_failure = [this]( action_name a, const char* expected_error_msg ) {

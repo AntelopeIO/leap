@@ -328,7 +328,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_contract) {
    chain.create_account("tester"_n);
 
    chain.set_code("tester"_n, test_contracts::get_table_test_wasm());
-   chain.set_abi("tester"_n, test_contracts::get_table_test_abi().data());
+   chain.set_abi("tester"_n, test_contracts::get_table_test_abi());
 
    chain.produce_block();
 
@@ -382,7 +382,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
    chain.produce_blocks( 100 );
 
    chain.set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
-   chain.set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
+   chain.set_abi( "eosio.token"_n, test_contracts::eosio_token_abi() );
 
    chain.produce_block();
 
@@ -400,7 +400,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
    chain.produce_blocks(10);
 
    chain.set_code( config::system_account_name, test_contracts::eosio_system_wasm() );
-   chain.set_abi( config::system_account_name, test_contracts::eosio_system_abi().data() );
+   chain.set_abi( config::system_account_name, test_contracts::eosio_system_abi() );
 
    chain.push_action(config::system_account_name, "init"_n, config::system_account_name,
                         mutable_variant_object()
@@ -488,7 +488,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
       chain.create_account("tester"_n);
 
       chain.set_code("tester"_n, test_contracts::get_table_test_wasm());
-      chain.set_abi("tester"_n, test_contracts::get_table_test_abi().data());
+      chain.set_abi("tester"_n, test_contracts::get_table_test_abi());
 
       chain.produce_blocks(2);
 
@@ -583,7 +583,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
 
       c.create_accounts({"alice"_n, "test"_n});
       c.set_code("test"_n, test_contracts::deferred_test_wasm());
-      c.set_abi("test"_n, test_contracts::deferred_test_abi().data());
+      c.set_abi("test"_n, test_contracts::deferred_test_abi());
       c.produce_block();
 
       c.push_action("test"_n, "defercall"_n, "alice"_n,

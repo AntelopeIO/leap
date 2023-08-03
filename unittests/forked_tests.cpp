@@ -142,7 +142,7 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    auto r2 = c.create_accounts( {"eosio.token"_n} );
    wdump((fc::json::to_pretty_string(r2)));
    c.set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
-   c.set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
+   c.set_abi( "eosio.token"_n, test_contracts::eosio_token_abi() );
    c.produce_blocks(10);
 
 

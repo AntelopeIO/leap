@@ -2,12 +2,13 @@
 
 #include <cstdint>
 #include <vector>
+#include <string>
 
 //contracts that need to be available by native contract unit testing's libtester need to be embedded
 // in to the library as the build directory may not exist after being 'make install'ed.
 #define MAKE_EMBD_WASM_ABI(CN)                                                              \
    static std::vector<std::uint8_t> CN ## _wasm();                                          \
-   static std::vector<char> CN ## _abi();
+   static std::string CN ## _abi();
 
 namespace eosio {
    namespace testing {
