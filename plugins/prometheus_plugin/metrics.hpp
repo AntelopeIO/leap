@@ -132,7 +132,6 @@ struct catalog_type {
    void update(const net_plugin::p2p_connections_metrics& metrics) {
       num_peers.Set(metrics.num_peers);
       num_clients.Set(metrics.num_clients);
-      dlog("Adding metrics for ${i} connections", ("i", metrics.stats.addresses.size()));
       for(size_t i = 0; i < metrics.stats.addresses.size(); ++i) {
          auto addr = boost::asio::ip::address_v4(metrics.stats.addresses[i]).to_string();
          std::replace(addr.begin(), addr.end(), '.', '_');
@@ -194,7 +193,7 @@ struct catalog_type {
       head_block_num.Set(metrics.head_block_num);
    }
 
-   void late_initialize() {
+   void update_prometheus_info() {
       info_details = info.Add({
             {"server_version", chain_apis::itoh(static_cast<uint32_t>(app().version()))},
             {"chain_id", app().get_plugin<chain_plugin>().get_chain_id()},

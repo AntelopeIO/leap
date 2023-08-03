@@ -73,7 +73,7 @@ namespace eosio {
          elog("Prometheus exception ${e}", ("e", e)); }
       );
 
-      my->_catalog.late_initialize();
+      my->_catalog.update_prometheus_info();
 
       ilog("Prometheus plugin started.");
    }
