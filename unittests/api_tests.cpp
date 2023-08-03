@@ -2915,69 +2915,43 @@ BOOST_FIXTURE_TEST_CASE(resource_limits_tests, validating_tester) {
    BOOST_CHECK_THROW(pushit(), wasm_exception);
 }
 
-#if 0
-/*************************************************************************************
- * privileged_tests test case
- *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(privileged_tests, tester) { try {
-	produce_blocks(2);
-	create_account( "testapi"_n );
-	create_account( "acc1"_n );
-	produce_blocks(100);
-	set_code( "testapi"_n, contracts::test_api_wasm() );
-	produce_blocks(1);
+BOOST_AUTO_TEST_CASE( set_producers_legacy ) { try {
+   fc::temp_directory tempdir;
+   validating_tester t( tempdir, true );
+   t.execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
 
-   {
-		signed_transaction trx;
+   vector<account_name> prods = {
+      "inita"_n,
+      "initb"_n,
+      "initc"_n,
+      "initd"_n,
+      "inite"_n,
+      "initf"_n,
+      "initg"_n,
+      "inith"_n,
+      "initi"_n,
+      "initj"_n,
+      "initk"_n,
+      "initl"_n,
+      "initm"_n,
+      "initn"_n,
+      "inito"_n,
+      "initp"_n,
+      "initq"_n,
+      "initr"_n,
+      "inits"_n,
+      "initt"_n,
+      "initu"_n
+   };
 
-      auto pl = vector<permission_level>{{config::system_account_name, config::active_name}};
-      action act(pl, test_chain_action<"setprods"_n>());
-      vector<producer_key> prod_keys = {
-                                          { "inita"_n, get_public_key( "inita"_n, "active" ) },
-                                          { "initb"_n, get_public_key( "initb"_n, "active" ) },
-                                          { "initc"_n, get_public_key( "initc"_n, "active" ) },
-                                          { "initd"_n, get_public_key( "initd"_n, "active" ) },
-                                          { "inite"_n, get_public_key( "inite"_n, "active" ) },
-                                          { "initf"_n, get_public_key( "initf"_n, "active" ) },
-                                          { "initg"_n, get_public_key( "initg"_n, "active" ) },
-                                          { "inith"_n, get_public_key( "inith"_n, "active" ) },
-                                          { "initi"_n, get_public_key( "initi"_n, "active" ) },
-                                          { "initj"_n, get_public_key( "initj"_n, "active" ) },
-                                          { "initk"_n, get_public_key( "initk"_n, "active" ) },
-                                          { "initl"_n, get_public_key( "initl"_n, "active" ) },
-                                          { "initm"_n, get_public_key( "initm"_n, "active" ) },
-                                          { "initn"_n, get_public_key( "initn"_n, "active" ) },
-                                          { "inito"_n, get_public_key( "inito"_n, "active" ) },
-                                          { "initp"_n, get_public_key( "initp"_n, "active" ) },
-                                          { "initq"_n, get_public_key( "initq"_n, "active" ) },
-                                          { "initr"_n, get_public_key( "initr"_n, "active" ) },
-                                          { "inits"_n, get_public_key( "inits"_n, "active" ) },
-                                          { "initt"_n, get_public_key( "initt"_n, "active" ) },
-                                          { "initu"_n, get_public_key( "initu"_n, "active" ) }
-                                       };
-      vector<char> data = fc::raw::pack(uint32_t(0));
-      vector<char> keys = fc::raw::pack(prod_keys);
-      data.insert( data.end(), keys.begin(), keys.end() );
-      act.data = data;
-      trx.actions.push_back(act);
+   t.create_accounts( prods );
+   t.produce_block();
 
-		set_tapos(trx);
-
-		auto sigs = trx.sign(get_private_key(config::system_account_name, "active"), control->get_chain_id());
-      trx.get_signature_keys(control->get_chain_id() );
-		auto res = push_transaction(trx);
-		BOOST_CHECK_EQUAL(res.status, transaction_receipt::executed);
-	}
-
-   CALL_TEST_FUNCTION( *this, "test_privileged", "test_is_privileged", {} );
-   BOOST_CHECK_EXCEPTION( CALL_TEST_FUNCTION( *this, "test_privileged", "test_is_privileged", {} ), transaction_exception,
-         [](const fc::exception& e) {
-            return expect_assert_message(e, "context.privileged: testapi does not have permission to call this API");
-         }
-       );
+   auto trace = t.set_producers_legacy(prods);
+   BOOST_REQUIRE(trace && trace->receipt);
+   BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::executed);
 
 } FC_LOG_AND_RETHROW() }
-#endif
 
 /*************************************************************************************
  * real_tests test cases
