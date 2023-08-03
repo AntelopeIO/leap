@@ -4425,7 +4425,7 @@ namespace eosio {
       auto it = (from ? connections.find(from) : connections.begin());
       if (it == connections.end()) it = connections.begin();
       size_t num_rm = 0, num_clients = 0, num_peers = 0, num_bp_peers = 0;
-      net_plugin::p2p_per_connection_metrics per_connection(max_client_count);
+      net_plugin::p2p_per_connection_metrics per_connection(connections.size());
       while (it != connections.end()) {
          if (fc::time_point::now() >= max_time) {
             connection_wptr wit = *it;
