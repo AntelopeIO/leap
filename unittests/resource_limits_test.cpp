@@ -144,19 +144,19 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
       vector<int64_t> expected_limits;
       std::transform(std::begin(weights), std::end(weights), std::back_inserter(expected_limits), [total](const auto& v){
          uint128_t value = v;
-         uint128_t account_cpu_usage_average_window = config::account_cpu_usage_average_window_ms / config::block_interval_ms;
-         return (account_cpu_usage_average_window * config::default_max_block_cpu_usage * value) / total;
+         uint128_t account_cpu_usage_window = config::account_cpu_usage_average_window_ms / config::block_interval_ms;
+         return (account_cpu_usage_window * config::default_max_block_cpu_usage * value) / total;
       });
 
-      for (int64_t idx = 0; idx < weights.size(); idx++) {
+      for (size_t idx = 0; idx < weights.size(); ++idx) {
          const account_name account(idx + 100);
          initialize_account(account, false);
-         set_account_limits(account, -1, -1, weights.at(idx), false);
+         set_account_limits(account, -1, -1, weights[idx], false);
       }
 
       process_account_limit_updates();
 
-      for (int64_t idx = 0; idx < weights.size(); idx++) {
+      for (size_t idx = 0; idx < weights.size(); ++idx) {
          const account_name account(idx + 100);
          BOOST_CHECK_EQUAL(get_account_cpu_limit(account).first, expected_limits.at(idx));
 

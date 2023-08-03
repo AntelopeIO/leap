@@ -22,7 +22,7 @@ account_name get_expected_producer(const vector<producer_authority>& schedule, b
 // Check if two schedule is equal
 bool is_schedule_equal(const vector<producer_authority>& first, const vector<producer_authority>& second) {
    bool is_equal = first.size() == second.size();
-   for (uint32_t i = 0; i < first.size(); i++) {
+   for (uint32_t i = 0; i < first.size() && is_equal; i++) {
       is_equal = is_equal && first.at(i) == second.at(i);
    }
    return is_equal;
