@@ -19,15 +19,6 @@ account_name get_expected_producer(const vector<producer_authority>& schedule, b
    return schedule.at(index).producer_name;
 };
 
-// Check if two schedule is equal
-bool is_schedule_equal(const vector<producer_authority>& first, const vector<producer_authority>& second) {
-   bool is_equal = first.size() == second.size();
-   for (uint32_t i = 0; i < first.size() && is_equal; i++) {
-      is_equal = is_equal && first.at(i) == second.at(i);
-   }
-   return is_equal;
-};
-
 } // anonymous namespace
 
 BOOST_FIXTURE_TEST_CASE( verify_producer_schedule, validating_tester ) try {
@@ -38,7 +29,7 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule, validating_tester ) try {
       bool scheduled_changed_to_new = false;
       for (uint32_t i = 0; i < check_duration; ++i) {
          const auto current_schedule = control->head_block_state()->active_schedule.producers;
-         if (is_schedule_equal(new_prod_schd, current_schedule)) {
+         if (new_prod_schd == current_schedule) {
             scheduled_changed_to_new = true;
          }
 
