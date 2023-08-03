@@ -19,6 +19,8 @@ logging.addLevelName(5, 'TRACE')
 assert logging.TRACE < logging.DEBUG, 'Logging TRACE level expected to be lower than DEBUG'
 assert logging.getLevelName('TRACE') < logging.getLevelName('DEBUG'), 'Logging TRACE level expected to be lower than DEBUG'
 
+PROMETHEUS_URL = '/v1/prometheus/metrics'
+
 logger = logging.getLogger(__name__)
 
 def replacement_render(self, size, focus=False):
@@ -109,7 +111,7 @@ class ColumnedListPile(urwid.Pile):
 
 
 def readMetrics(host: str, port: str):
-    response = requests.get(f'http://{host}:{port}/v1/prometheus/metrics', timeout=10)
+    response = requests.get(f'http://{host}:{port}{PROMETHEUS_URL}', timeout=10)
     if response.status_code == 404:
         logger.warn(f'Prometheus metrics URL returned 404: {response.url}')
         raise urwid.ExitMainLoop()
@@ -192,7 +194,6 @@ class netUtil:
         parser.add_argument('-p', '--port', help='port number to connect to', default='8888')
         parser.add_argument('--log-level', choices=[logging._nameToLevel.keys()] + [k.lower() for k in logging._nameToLevel.keys()], help='Logging level', default='debug')
         self.args = parser.parse_args()
-        logger.setLevel(logging.getLevelName(self.args.log_level.upper()))
 
     def createUrwidUI(self):
         Button = urwid.Button
@@ -352,7 +353,7 @@ if __name__ == '__main__':
     exePath = pathlib.Path(sys.argv[0])
     loggingLevel = getattr(logging, inst.args.log_level.upper(), None)
     if not isinstance(loggingLevel, int):
-        raise ValueError(f'Invalid log leve: {inst.args.log_level}')
+        raise ValueError(f'Invalid log level: {inst.args.log_level}')
     logging.basicConfig(filename=exePath.stem + '.log', filemode='w', level=loggingLevel)
     logger.info(f'Starting {sys.argv[0]}')
     palette = [('error', 'yellow,bold', 'default'),
