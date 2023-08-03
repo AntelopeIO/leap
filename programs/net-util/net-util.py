@@ -190,7 +190,7 @@ class netUtil:
         
         parser = argparse.ArgumentParser(description='Terminal UI for monitoring and managing nodeos P2P connections',
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-        parser.add_argument('--host', help='hostname or IP address to connect to', default='localhost')
+        parser.add_argument('--host', help='hostname or IP address to connect to', default='127.0.0.1')
         parser.add_argument('-p', '--port', help='port number to connect to', default='8888')
         parser.add_argument('--log-level', choices=[logging._nameToLevel.keys()] + [k.lower() for k in logging._nameToLevel.keys()], help='Logging level', default='debug')
         self.args = parser.parse_args()
