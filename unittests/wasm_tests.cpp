@@ -163,7 +163,7 @@ BOOST_FIXTURE_TEST_CASE( abi_from_variant, validating_tester ) try {
    produce_block();
 
    set_code("asserter"_n, test_contracts::asserter_wasm());
-   set_abi("asserter"_n, test_contracts::asserter_abi().data());
+   set_abi("asserter"_n, test_contracts::asserter_abi());
    produce_blocks(1);
 
    auto resolver = [&,this]( const account_name& name ) -> std::optional<abi_serializer> {
@@ -1029,7 +1029,7 @@ BOOST_FIXTURE_TEST_CASE(noop, validating_tester) try {
 
    set_code("noop"_n, test_contracts::noop_wasm());
 
-   set_abi("noop"_n, test_contracts::noop_abi().data());
+   set_abi("noop"_n, test_contracts::noop_abi());
    const auto& accnt  = control->db().get<account_object,by_name>("noop"_n);
    abi_def abi;
    BOOST_REQUIRE_EQUAL(abi_serializer::to_abi(accnt.abi, abi), true);

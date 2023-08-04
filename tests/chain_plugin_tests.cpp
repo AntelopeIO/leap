@@ -43,7 +43,7 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, validating_tester ) try {
 
    // setup contract and abi
    set_code( "asserter"_n, test_contracts::asserter_wasm() );
-   set_abi( "asserter"_n, test_contracts::asserter_abi().data() );
+   set_abi( "asserter"_n, test_contracts::asserter_abi() );
    produce_blocks(1);
 
    auto resolver = [&,this]( const account_name& name ) -> std::optional<abi_serializer> {
@@ -101,7 +101,7 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, validating_tester ) try {
    BOOST_TEST(block_str.find("011253686f756c64204e6f742041737365727421") != std::string::npos); //action data
 
    // set an invalid abi (int8->xxxx)
-   std::string abi2 = test_contracts::asserter_abi().data();
+   std::string abi2 = test_contracts::asserter_abi();
    auto pos = abi2.find("int8");
    BOOST_TEST(pos != std::string::npos);
    abi2.replace(pos, 4, "xxxx");

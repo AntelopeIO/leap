@@ -23,7 +23,7 @@ namespace data = boost::unit_test::data;
 namespace {
 struct wasm_config_tester : validating_tester {
    wasm_config_tester() {
-      set_abi(config::system_account_name, test_contracts::wasm_config_bios_abi().data());
+      set_abi(config::system_account_name, test_contracts::wasm_config_bios_abi());
       set_code(config::system_account_name, test_contracts::wasm_config_bios_wasm());
       bios_abi_ser = *get_resolver()(config::system_account_name);
    }
