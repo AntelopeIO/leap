@@ -77,6 +77,7 @@ def humanReadableBytesPerSecond(bytes: int, telco:bool = False):
         n += 1
     return f'{"~0" if bytes < 0.01 else format(bytes, ".2f")} {labels[n]}B/s'
 
+
 class TextSimpleFocusListWalker(urwid.SimpleFocusListWalker):
     def __contains__(self, text):
         for element in self:
@@ -193,11 +194,14 @@ class netUtil:
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument('--host', help='hostname or IP address to connect to', default='127.0.0.1')
         parser.add_argument('-p', '--port', help='port number to connect to', default='8888')
+        parser.add_argument('--refresh-interval', help='refresh interval in seconds (max 25.5)', default='25.5')
         parser.add_argument('--log-level', choices=[logging._nameToLevel.keys()] + [k.lower() for k in logging._nameToLevel.keys()], help='Logging level', default='debug')
         self.args = parser.parse_args()
 
     def createUrwidUI(self):
+        AttrMap = urwid.AttrMap
         Button = urwid.Button
+        LineBox = urwid.LineBox
         Text = urwid.Text
         Filler = urwid.Filler
         Columns = urwid.Columns
@@ -217,7 +221,7 @@ class netUtil:
         
         def packLabeledButton(labelTxt: str, defaultValue='', callback: callable = None):
             label = Text(('bold', labelTxt), align='right')
-            button = Button(defaultValue, callback)
+            button = AttrMap(Button(defaultValue, callback), None, focus_map='reversed')
             attrName = labelTxt[:1].lower() + labelTxt[1:-1].replace(' ', '') + 'Button' if labelTxt else ''
             if attrName:
                 setattr(self, attrName, button)
@@ -231,9 +235,6 @@ class netUtil:
         widgets.extend([packLabeledText(labelTxt) for labelTxt in self.rightFieldLabels[1:]])
         widgets.insert(3, Filler(Divider()))
         rightColumn = Pile([(1, widget) for widget in widgets[:-1]] + [('weight', 1, widgets[-1])])
-
-        self.errorText = Text(('error', ''))
-        self.errorBox = urwid.LineBox(self.errorText, 'Error:', 'left', 'error')
 
         def packLabeledList(labelTxt: str, attrName: str):
             label = Text(('bold', labelTxt))
@@ -256,26 +257,36 @@ class netUtil:
 
         self.peerListPiles[0].contents[-1][0].body.set_focus_changed_callback(focus_changed)
 
-        self.peerLineBox = urwid.LineBox(Columns([('weight', 1, self.peerListPiles[0]), 
-                                                  ('weight', 2, self.peerListPiles[1])]+self.peerListPiles[2:],
-                                                 dividechars=1, focus_column=0),
-                                         'Peers:', 'left')
+        columnedList = Columns([('weight', 1, self.peerListPiles[0]), 
+                                ('weight', 2, self.peerListPiles[1])]+self.peerListPiles[2:],
+                               dividechars=1, focus_column=0)
+        self.peerLineBox = urwid.LineBox(columnedList, 'Peers:', 'left')
 
-        #, Filler(Placeholder(self.errorText), valign='bottom')
-        return Pile([Columns([leftColumn, rightColumn]), ('weight', 4, self.peerLineBox)])
+        self.mainView = Pile([Columns([leftColumn, rightColumn]), ('weight', 4, self.peerLineBox)])
+
+        self.errorText = Text(('error', ''))
+        self.errorBox = LineBox(Filler(self.errorText), 'Error:', 'left', 'error')
+        self.errorOverlay = urwid.Overlay(self.errorBox, self.mainView, 'center', ('relative', 80), 'middle', ('relative', 80), min_width=24, min_height=8)
+
+        return self.mainView
+
 
     def onVersionClick(self, button):
         logger.info('Button clicked')
 
     def update(self, mainLoop, userData=None):
+        AttrMap = urwid.AttrMap
+        Text = urwid.Text
         try:
+            self.hostText.set_text(f'{self.args.host}:{self.args.port}')
             response = readMetrics(self.args.host, self.args.port)
         except requests.ConnectionError as e:
+            logger.error(str(e))
             self.errorText.set_text(str(e))
-            mainLoop.widget.contents[-1][0].original_widget = self.errorBox
+            mainLoop.widget = self.errorOverlay
         else:
             self.errorText.set_text('')
-            self.hostText.set_text(f'{self.args.host}:{self.args.port}')
+            mainLoop.widget = self.mainView
             class bandwidthStats():
                 def __init__(self, bytesReceived=0, bytesSent=0, connectionStarted=0):
                     self.bytesReceived = 0
@@ -301,7 +312,7 @@ class netUtil:
                             listwalker = getattr(self, 'ipAddressLW')
                             if host not in listwalker:
                                 startOffset = endOffset = len(listwalker)
-                                listwalker.append(urwid.Text(host))
+                                listwalker.append(Text(host))
                             else:
                                 startOffset = listwalker.index(host)
                                 endOffset = startOffset + 1
@@ -324,14 +335,14 @@ class netUtil:
                                 attrname = fieldName[:1] + fieldName.replace('_', ' ').title().replace(' ', '')[1:] + 'LW'
                                 if hasattr(self, attrname):
                                     listwalker = getattr(self, attrname)
-                                    listwalker[startOffset:endOffset] = [urwid.Text(self.peerMetricConversions[fieldName](sample.value))]
+                                    listwalker[startOffset:endOffset] = [AttrMap(Text(self.peerMetricConversions[fieldName](sample.value)), None, 'reversed')]
                                 else:
                                     listwalker = getattr(self, 'hostnameLW')
-                                    listwalker[startOffset:endOffset] = [urwid.Text(fieldName.replace('_', '.'))]
+                                    listwalker[startOffset:endOffset] = [AttrMap(Text(fieldName.replace('_', '.')), None, 'reversed')]
                     elif sample.name == 'nodeos_info':
                         fieldName = self.fields.get(self.prometheusMetrics[(sample.name, 'server_version_string')])
                         field = getattr(self, fieldName)
-                        field.set_label(sample.labels['server_version_string'])
+                        field.original_widget.set_label(sample.labels['server_version_string'])
                     else:
                         if sample.name not in self.ignoredPrometheusMetrics:
                             logger.warning(f'Received unhandled Prometheus metric {sample.name}')
@@ -345,11 +356,11 @@ class netUtil:
                             connected_seconds = (now - stats.connectionStarted)/1000000000
                             listwalker = getattr(self, 'receiveBandwidthLW')
                             bps = stats.bytesReceived/connected_seconds
-                            listwalker[startOffset:endOffset] = [urwid.Text(humanReadableBytesPerSecond(bps))]
+                            listwalker[startOffset:endOffset] = [Text(humanReadableBytesPerSecond(bps))]
                             listwalker = getattr(self, 'sendBandwidthLW')
                             bps = stats.bytesSent/connected_seconds
-                            listwalker[startOffset:endOffset] = [urwid.Text(humanReadableBytesPerSecond(bps))]
-        mainLoop.set_alarm_in(0.5, self.update)
+                            listwalker[startOffset:endOffset] = [Text(humanReadableBytesPerSecond(bps))]
+        mainLoop.set_alarm_in(float(self.args.refresh_interval), self.update)
 
 def exitOnQ(key):
     if key in ('q', 'Q'):
@@ -365,7 +376,9 @@ if __name__ == '__main__':
     logger.info(f'Starting {sys.argv[0]}')
     palette = [('error', 'yellow,bold', 'default'),
                ('bold', 'default,bold', 'default'),
-               ('dim', 'dark gray', 'default'),]
+               ('dim', 'dark gray', 'default'),
+               ('reversed', 'standout', ''),
+              ]
     loop = urwid.MainLoop(inst.createUrwidUI(), palette, screen=urwid.curses_display.Screen(), unhandled_input=exitOnQ, event_loop=None, pop_ups=True)
-    loop.set_alarm_in(0.5, inst.update)
+    inst.update(loop)
     loop.run()
