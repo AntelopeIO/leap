@@ -1884,18 +1884,31 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          return start_block_result::waiting_for_block;
    }
 
-   _pending_block_deadline         = block_timing_util::calculate_block_deadline(_cpu_effort_us, _pending_block_mode, block_time);
-   auto     preprocess_deadline    = _pending_block_deadline;
-   uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
-   if (production_round_index == 0) {
-      // first block of our round, wait for block production window
-      const auto start_block_time = block_time.to_time_point() - fc::microseconds(config::block_interval_us);
-      if (now < start_block_time) {
-         fc_dlog(_log, "Not starting block until ${bt}", ("bt", start_block_time));
-         schedule_delayed_production_loop(weak_from_this(), start_block_time);
-         return start_block_result::waiting_for_production;
+   if (in_producing_mode()) {
+      uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
+      if (production_round_index == 0) {
+         // first block of our round, wait for block production window
+         const auto start_block_time = block_time.to_time_point() - fc::microseconds(config::block_interval_us);
+         if (now < start_block_time) {
+            fc_dlog(_log, "Not starting block until ${bt}", ("bt", start_block_time));
+            schedule_delayed_production_loop(weak_from_this(), start_block_time);
+            return start_block_result::waiting_for_production;
+         }
       }
+
+      _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_cpu_effort_us, block_time);
+   } else if (!_producers.empty()) {
+      // head_block_time because we need to wake up not to produce a block but to start block production
+      auto wake_time = block_timing_util::calculate_producer_wake_up_time(config::block_interval_us, chain.head_block_num(), chain.head_block_time(),
+                                                                          _producers, chain.head_block_state()->active_schedule.producers,
+                                                                          _producer_watermarks);
+
+      _pending_block_deadline = wake_time ? *wake_time - fc::microseconds(config::block_interval_us) : fc::time_point::maximum();
+   } else {
+      _pending_block_deadline = fc::time_point::maximum();
    }
+
+   const auto& preprocess_deadline = _pending_block_deadline;
 
    fc_dlog(_log, "Starting block #${n} at ${time} producer ${p}", ("n", pending_block_num)("time", now)("p", scheduled_producer.producer_name));
 
