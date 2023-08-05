@@ -46,7 +46,9 @@ struct catalog_type {
    std::vector<std::reference_wrapper<Gauge>> unique_first_block_counts_gauges;
    std::vector<std::reference_wrapper<Gauge>> latency_gauges;
    std::vector<std::reference_wrapper<Gauge>> bytes_received_gauges;
+   std::vector<std::reference_wrapper<Gauge>> last_bytes_received_gauges;
    std::vector<std::reference_wrapper<Gauge>> bytes_sent_gauges;
+   std::vector<std::reference_wrapper<Gauge>> last_bytes_sent_gauges;
    std::vector<std::reference_wrapper<Gauge>> connection_start_time_gauges;
    std::vector<std::reference_wrapper<Gauge>> log_p2p_address_gauges;
 
@@ -161,9 +163,15 @@ struct catalog_type {
          auto& bytes_received = p2p_connections.Add({{addr, "bytes_received"}});
          bytes_received.Set(metrics.stats.bytes_received[i]);
          bytes_received_gauges.push_back(bytes_received);
+         auto& last_bytes_received = p2p_connections.Add({{addr, "last_bytes_received"}});
+         last_bytes_received.Set(metrics.stats.last_bytes_received[i]);
+         last_bytes_received_gauges.push_back(last_bytes_received);
          auto& bytes_sent = p2p_connections.Add({{addr, "bytes_sent"}});
          bytes_sent.Set(metrics.stats.bytes_sent[i]);
          bytes_sent_gauges.push_back(bytes_sent);
+         auto& last_bytes_sent = p2p_connections.Add({{addr, "last_bytes_sent"}});
+         last_bytes_sent.Set(metrics.stats.last_bytes_sent[i]);
+         last_bytes_sent_gauges.push_back(last_bytes_sent);
          auto& connection_start_time = p2p_connections.Add({{addr, "connection_start_time"}});
          connection_start_time.Set(metrics.stats.connection_start_times[i].count());
          connection_start_time_gauges.push_back(connection_start_time);

@@ -50,7 +50,9 @@ namespace eosio {
                unique_first_block_counts.reserve(count);
                latencies.reserve(count);
                bytes_received.reserve(count);
+               last_bytes_received.reserve(count);
                bytes_sent.reserve(count);
+               last_bytes_sent.reserve(count);
                connection_start_times.reserve(count);
                log_p2p_addresses.reserve(count);
             }
@@ -64,7 +66,9 @@ namespace eosio {
                , unique_first_block_counts{std::move(metrics.unique_first_block_counts)}
                , latencies{std::move(metrics.latencies)}
                , bytes_received{std::move(metrics.bytes_received)}
+               , last_bytes_received(std::move(metrics.last_bytes_received))
                , bytes_sent{std::move(metrics.bytes_sent)}
+               , last_bytes_sent(std::move(metrics.last_bytes_sent))
                , connection_start_times{std::move(metrics.connection_start_times)}
                , log_p2p_addresses{std::move(metrics.log_p2p_addresses)}
             {}
@@ -79,7 +83,9 @@ namespace eosio {
             std::vector<std::size_t> unique_first_block_counts;
             std::vector<uint64_t> latencies;
             std::vector<std::size_t> bytes_received;
+            std::vector<std::time_t> last_bytes_received;
             std::vector<std::size_t> bytes_sent;
+            std::vector<std::time_t> last_bytes_sent;
             std::vector<std::chrono::nanoseconds> connection_start_times;
             std::vector<std::string> log_p2p_addresses;
         };

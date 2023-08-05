@@ -795,7 +795,9 @@ namespace eosio {
       uint32_t get_last_received_blk_num() const { return last_received_blk_num.load(); }
       uint32_t get_unique_blocks_rcvd_count() const { return unique_blocks_rcvd_count.load(); }
       size_t get_bytes_received() const { return bytes_received.load(); }
+      time_t get_last_bytes_received() const { return last_bytes_received.load(); }
       size_t get_bytes_sent() const { return bytes_sent.load(); }
+      time_t get_last_bytes_sent() const { return last_bytes_sent.load(); }
       void set_heartbeat_timeout(std::chrono::milliseconds msec) {
          hb_timeout = msec;
       }
@@ -828,7 +830,9 @@ namespace eosio {
       std::atomic<uint32_t>           last_received_blk_num{0};
       std::atomic<uint32_t>           unique_blocks_rcvd_count{0};
       std::atomic<size_t>             bytes_received{0};
+      std::atomic<time_t>             last_bytes_received{0};
       std::atomic<size_t>             bytes_sent{0};
+      std::atomic<time_t>             last_bytes_sent{0};
 
    public:
       boost::asio::io_context::strand           strand;
@@ -956,9 +960,10 @@ namespace eosio {
       void send_time(const time_message& msg);
       /** \brief Read system time and convert to a 64 bit integer.
        *
-       * There are three calls to this routine in the program.  One
+       * There are five calls to this routine in the program.  One
        * when a packet arrives from the network, one when a packet
-       * is placed on the send queue, and one during connect.
+       * is placed on the send queue, one during connect, and
+       * one each when data is counted as received or sent.
        * Calls the kernel time of day routine and converts to 
        * a (at least) 64 bit integer.
        */
@@ -1538,6 +1543,7 @@ namespace eosio {
                                 std::function<void(boost::system::error_code, std::size_t)> callback,
                                 bool to_sync_queue) {
       bytes_sent += buff->size();
+      last_bytes_sent = get_time().count();
       if( !buffer_queue.add_write_queue( buff, std::move(callback), to_sync_queue )) {
          peer_wlog( this, "write_queue full ${s} bytes, giving up on connection", ("s", buffer_queue.write_queue_size()) );
          close();
@@ -2658,7 +2664,6 @@ namespace eosio {
 
          auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
          connection_wptr weak_conn = c;
-         // Note: need to add support for IPv6 too
          resolver->async_resolve(host, port, boost::asio::bind_executor( c->strand,
             [resolver, weak_conn, host = host, port = port]( const boost::system::error_code& err, const tcp::resolver::results_type& endpoints ) {
                auto c = weak_conn.lock();
@@ -2891,6 +2896,7 @@ namespace eosio {
    // called from connection strand
    bool connection::process_next_message( uint32_t message_length ) {
       bytes_received += message_length;
+      last_bytes_received = get_time().count();
       try {
          latest_msg_time = std::chrono::system_clock::now();
 
@@ -4451,7 +4457,9 @@ namespace eosio {
             per_connection.first_available_blocks.push_back((*it)->get_peer_start_block_num());
             per_connection.last_available_blocks.push_back((*it)->get_peer_head_block_num());
             per_connection.bytes_received.push_back((*it)->get_bytes_received());
+            per_connection.last_bytes_received.push_back((*it)->get_last_bytes_received());
             per_connection.bytes_sent.push_back((*it)->get_bytes_sent());
+            per_connection.last_bytes_sent.push_back((*it)->get_last_bytes_sent());
             per_connection.connection_start_times.push_back((*it)->connection_time);
             per_connection.unique_first_block_counts.push_back((*it)->get_unique_blocks_rcvd_count());
             per_connection.latencies.push_back((*it)->get_peer_ping_time_ns());

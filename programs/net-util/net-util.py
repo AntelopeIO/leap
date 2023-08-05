@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import datetime
 import logging
 import pathlib
 import requests
@@ -168,18 +169,21 @@ class netUtil:
             'hostname': lambda x: x[1:].replace('__', ':').replace('_', '.'),
             'accepting_blocks': lambda x: 'True' if x else 'False',
             'latency': lambda x: format(int(x)/1000000, '.2f') + ' ms',
-            'bandwidth': lambda x: str(int(x)) + ' B/s',
             'last_received_block': lambda x: str(int(x)),
             'first_available_block': lambda x: str(int(x)),
             'last_available_block': lambda x: str(int(x)),
             'unique_first_block_count': lambda x: str(int(x)),
+            'last_bytes_received': lambda x: str(datetime.timedelta(microseconds=(time.time_ns() - int(x))/1000)),
+            'last_bytes_sent': lambda x: str(datetime.timedelta(microseconds=(time.time_ns() - int(x))/1000)),
         }
         self.peerColumns = [
             ('\n\nIP Address', 'ipAddressLW'),
             ('\n\nHostname', 'hostnameLW'),
             ('\n\nLatency', 'latencyLW'),
             ('\nSend\nRate', 'sendBandwidthLW'),
+            ('Last\nSent\nTime', 'lastBytesSentLW'),
             ('\nRcv\nRate', 'receiveBandwidthLW'),
+            ('Last\nRcv\nTime', 'lastBytesReceivedLW'),
             ('Last\nRcvd\nBlock', 'lastReceivedBlockLW'),
             ('Unique\nFirst\nBlks', 'uniqueFirstBlockCountLW'),
             ('First\nAvail\nBlk', 'firstAvailableBlockLW'),
