@@ -9,7 +9,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules")
 include( GNUInstallDirs )
 include( MASSigning )
 
-set( CMAKE_CXX_STANDARD 17 )
+set( CMAKE_CXX_STANDARD 20 )
 set( CMAKE_CXX_EXTENSIONS ON )
 set( CXX_STANDARD_REQUIRED ON)
 
@@ -37,12 +37,8 @@ set( LEAP_UTIL_EXECUTABLE_NAME leap-util )
 
 # http://stackoverflow.com/a/18369825
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 8.0)
-        message(FATAL_ERROR "GCC version must be at least 8.0!")
-    endif()
-elseif ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang" OR "${CMAKE_CXX_COMPILER_ID}" STREQUAL "AppleClang")
-    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 5.0)
-        message(FATAL_ERROR "Clang version must be at least 5.0!")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)
+        message(FATAL_ERROR "GCC version must be at least 9.0!")
     endif()
 endif()
 
@@ -104,12 +100,6 @@ else()
   set(whole_archive_flag "--whole-archive")
   set(no_whole_archive_flag "--no-whole-archive")
 endif()
-
-set(Boost_USE_MULTITHREADED      ON)
-set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
-# Most boost deps get implictly picked up via fc, as just about everything links to fc. In addition we pick up
-# the pthread dependency through fc.
-find_package(Boost 1.67 REQUIRED COMPONENTS program_options unit_test_framework system)
 
 if( APPLE AND UNIX )
 # Apple Specific Options Here
@@ -178,9 +168,10 @@ endif()
 
 message( STATUS "Using '${EOSIO_ROOT_KEY}' as public key for 'eosio' account" )
 
-find_package( Gperftools QUIET )
-if( GPERFTOOLS_FOUND )
-    message( STATUS "Found gperftools; compiling Leap with TCMalloc")
+option(ENABLE_TCMALLOC "use tcmalloc (requires gperftools)" OFF)
+if( ENABLE_TCMALLOC )
+    find_package( Gperftools REQUIRED )
+    message( STATUS "Compiling Leap with TCMalloc")
     #if doing this by the book, simply link_libraries( ${GPERFTOOLS_TCMALLOC} ) here. That will
     #give the performance benefits of tcmalloc but since it won't be linked last
     #the heap profiler & checker may not be accurate. This here is rather undocumented behavior
@@ -251,7 +242,6 @@ install(DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/tests/TestHarness DESTINATION ${CM
         PATTERN "*.json"
         PATTERN "__pycache__" EXCLUDE
         PATTERN "CMakeFiles" EXCLUDE)
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/tests/launcher.py DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/tests COMPONENT dev EXCLUDE_FROM_ALL)
 
 if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
    # Cmake versions < 3.21 did not support installing symbolic links to a directory via install(FILES ...)
@@ -268,18 +258,8 @@ if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.21)
    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/lib/python3/dist-packages/TestHarness DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages COMPONENT dev EXCLUDE_FROM_ALL)
    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/share/leap_testing/bin DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing COMPONENT dev EXCLUDE_FROM_ALL)
 else()
-   # The following install(CODE ...) steps are necessary for `make dev-install` to work on cmake versions < 3.21.
-   # However, it can flag as an error if using `make package` instead of `make dev-install` for installation.
-   # This is due to those directories and symbolic links being created in the postinit script during the package install instead.
-
-   # Note If/when doing `make package`, it is not a true error if you see:
-   # Error creating directory "/<leap_install_dir>/lib/python3/dist-packages".
-   # CMake Error: failed to create symbolic link '/<leap_install_dir>/lib/python3/dist-packages/TestHarness': no such file or directory
-   # CMake Error: failed to create symbolic link '/<leap_install_dir>/share/leap_testing/bin': no such file or directory
-
-   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages)" COMPONENT dev EXCLUDE_FROM_ALL)
-   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../../share/leap_testing/tests/TestHarness ${CMAKE_INSTALL_FULL_LIBDIR}/python3/dist-packages/TestHarness)" COMPONENT dev EXCLUDE_FROM_ALL)
-   install(CODE "execute_process( COMMAND ${CMAKE_COMMAND} -E create_symlink ../../bin ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_testing/bin)" COMPONENT dev EXCLUDE_FROM_ALL)
+   # The following install(SCRIPT ...) steps are necessary for `make dev-install` to work on cmake versions < 3.21.
+   install(SCRIPT ${CMAKE_CURRENT_BINARY_DIR}/scripts/install_testharness_symlinks.cmake COMPONENT dev EXCLUDE_FROM_ALL)
 
    # The `make package` installation of symlinks happens via the `postinst` script installed in cmake.package via the line below
 endif()
@@ -292,6 +272,18 @@ configure_file(${CMAKE_SOURCE_DIR}/libraries/cli11/bash-completion/completions/c
 install(FILES libraries/cli11/bash-completion/completions/leap-util DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 install(FILES libraries/cli11/bash-completion/completions/cleos DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/bash-completion/completions COMPONENT base)
 
+# Add the boost submodule we used to build to our install package, so headers can be found for libtester
+install(DIRECTORY "${CMAKE_SOURCE_DIR}/libraries/boost/"
+        DESTINATION ${CMAKE_INSTALL_FULL_DATAROOTDIR}/leap_boost
+        COMPONENT dev EXCLUDE_FROM_ALL
+        PATTERN ".git/*" EXCLUDE
+        PATTERN "example/*" EXCLUDE
+        PATTERN "bench/*" EXCLUDE
+        PATTERN "doc/*" EXCLUDE
+        PATTERN "libs/*/test" EXCLUDE
+        PATTERN "tools/*/test" EXCLUDE
+        )
+
 add_custom_target(dev-install
   COMMAND "${CMAKE_COMMAND}" --build "${CMAKE_BINARY_DIR}"
   COMMAND "${CMAKE_COMMAND}" --install "${CMAKE_BINARY_DIR}"
@@ -300,6 +292,8 @@ add_custom_target(dev-install
 )
 
 include(doxygen)
+
+option(ENABLE_LEAP_DEV_DEB "Enable building the leap-dev .deb package" OFF)
 
 include(package.cmake)
 include(CPack)

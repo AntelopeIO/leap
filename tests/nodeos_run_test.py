@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Account, Cluster, Node, ReturnType, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
 from pathlib import Path
 
 import decimal
@@ -21,7 +21,7 @@ errorExit=Utils.errorExit
 cmdError=Utils.cmdError
 
 args = TestHelper.parse_args({"--host","--port","--prod-count","--defproducera_prvt_key","--defproducerb_prvt_key"
-                              ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios","--clean-run"
+                              ,"--dump-error-details","--dont-launch","--keep-logs","-v","--leave-running","--only-bios"
                               ,"--sanity-test","--wallet-port", "--error-log-path", "--unshared"})
 server=args.host
 port=args.port
@@ -29,25 +29,20 @@ debug=args.v
 defproduceraPrvtKey=args.defproducera_prvt_key
 defproducerbPrvtKey=args.defproducerb_prvt_key
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
 dontLaunch=args.dont_launch
-dontKill=args.leave_running
 prodCount=args.prod_count
 onlyBios=args.only_bios
-killAll=args.clean_run
 sanityTest=args.sanity_test
 walletPort=args.wallet_port
 
 Utils.Debug=debug
 localTest=True if server == TestHelper.LOCAL_HOST else False
-cluster=Cluster(host=server, port=port, walletd=True, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey,unshared=args.unshared)
+cluster=Cluster(host=server, port=port, defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey,unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 errFileName=f"{cluster.nodeosLogPath}/node_00/stderr.txt"
 if args.error_log_path:
     errFileName=args.error_log_path
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 dontBootstrap=sanityTest # intent is to limit the scope of the sanity test to just verifying that nodes can be started
 
 WalletdName=Utils.EosWalletName
@@ -62,24 +57,18 @@ try:
     Print("PORT: %d" % (port))
 
     if localTest and not dontLaunch:
-        cluster.killall(allInstances=killAll)
-        cluster.cleanup()
         Print("Stand up cluster")
 
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi eosio.token=" + abs_path
         specificNodeosInstances={0: "bin/nodeos"}
-        if cluster.launch(prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs, specificNodeosInstances=specificNodeosInstances) is False:
+        if cluster.launch(totalNodes=2, prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=traceNodeosArgs, specificNodeosInstances=specificNodeosInstances) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:
         Print("Collecting cluster info.")
         cluster.initializeNodes(defproduceraPrvtKey=defproduceraPrvtKey, defproducerbPrvtKey=defproducerbPrvtKey)
-        killEosInstances=False
         Print("Stand up %s" % (WalletdName))
-        walletMgr.killall(allInstances=killAll)
-        walletMgr.cleanup()
-        print("Stand up walletd")
         if walletMgr.launch() is False:
             cmdError("%s" % (WalletdName))
             errorExit("Failed to stand up eos walletd.")
@@ -91,7 +80,7 @@ try:
     Print("Validating system accounts after bootstrap")
     cluster.validateAccounts(None)
 
-    accounts=Cluster.createAccountKeys(4)
+    accounts=createAccountKeys(4)
     if accounts is None:
         errorExit("FAILURE - create keys")
     testeraAccount=accounts[0]
@@ -206,13 +195,13 @@ try:
     if len(noMatch) > 0:
         errorExit("FAILURE - wallet keys did not include %s" % (noMatch), raw=True)
 
-    node=cluster.getNode(0)
+    node=cluster.getNode(1)
 
     Print("Validating accounts before user accounts creation")
     cluster.validateAccounts(None)
 
     Print("Create new account %s via %s" % (testeraAccount.name, cluster.defproduceraAccount.name))
-    transId=node.createInitializeAccount(testeraAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=False, exitOnError=True)
+    transId=node.createInitializeAccount(testeraAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=True, exitOnError=True)
 
     Print("Create new account %s via %s" % (testerbAccount.name, cluster.defproduceraAccount.name))
     transId=node.createInitializeAccount(testerbAccount, cluster.defproduceraAccount, stakedDeposit=0, waitForTransBlock=False, exitOnError=True)
@@ -233,7 +222,7 @@ try:
 
     transferAmount="97.5321 {0}".format(CORE_SYMBOL)
     Print("Transfer funds %s from account %s to %s" % (transferAmount, defproduceraAccount.name, testeraAccount.name))
-    node.transferFunds(defproduceraAccount, testeraAccount, transferAmount, "test transfer")
+    node.transferFunds(defproduceraAccount, testeraAccount, transferAmount, "test transfer", waitForTransBlock=True)
 
     expectedAmount=transferAmount
     Print("Verify transfer, Expected: %s" % (expectedAmount))
@@ -245,7 +234,7 @@ try:
     transferAmount="0.0100 {0}".format(CORE_SYMBOL)
     Print("Force transfer funds %s from account %s to %s" % (
         transferAmount, defproduceraAccount.name, testeraAccount.name))
-    node.transferFunds(defproduceraAccount, testeraAccount, transferAmount, "test transfer", force=True)
+    node.transferFunds(defproduceraAccount, testeraAccount, transferAmount, "test transfer", force=True, waitForTransBlock=True)
 
     expectedAmount="97.5421 {0}".format(CORE_SYMBOL)
     Print("Verify transfer, Expected: %s" % (expectedAmount))
@@ -271,7 +260,7 @@ try:
     transferAmount="97.5311 {0}".format(CORE_SYMBOL)
     Print("Transfer funds %s from account %s to %s" % (
         transferAmount, testeraAccount.name, currencyAccount.name))
-    trans=node.transferFunds(testeraAccount, currencyAccount, transferAmount, "test transfer a->b")
+    trans=node.transferFunds(testeraAccount, currencyAccount, transferAmount, "test transfer a->b", waitForTransBlock=True)
     transId=Node.getTransId(trans)
 
     expectedAmount="98.0311 {0}".format(CORE_SYMBOL) # 5000 initial deposit
@@ -304,6 +293,7 @@ try:
     Print("Currency Contract Tests")
     Print("verify no contract in place")
     Print("Get code hash for account %s" % (currencyAccount.name))
+    node=cluster.getNode(0)
     codeHash=node.getAccountCodeHash(currencyAccount.name)
     if codeHash is None:
         cmdError("%s get code currency1111" % (ClientName))
@@ -696,7 +686,7 @@ try:
     trans=node.setPermission(testeraAccount, currencyAccount, pType, requirement, waitForTransBlock=True, exitOnError=True)
 
     Print("remove permission")
-    requirement="null"
+    requirement="NULL"
     trans=node.setPermission(testeraAccount, currencyAccount, pType, requirement, waitForTransBlock=True, exitOnError=True)
 
     Print("Locking all wallets.")
@@ -756,9 +746,38 @@ try:
     accounts=[testeraAccount, currencyAccount, exchangeAccount]
     cluster.validateAccounts(accounts)
 
+    # run a get_table_rows API call for a table which has an incorrect abi (missing type), to make sure that
+    # the resulting exception in http-plugin is caught and doesn't cause nodeos to crash (leap issue #1372).
+    contractDir="unittests/contracts/eosio.token"
+    wasmFile="eosio.token.wasm"
+    abiFile="eosio.token.bad.abi"
+    Print("Publish contract")
+    trans=node.publishContract(currencyAccount, contractDir, wasmFile, abiFile, waitForTransBlock=True)
+    if trans is None:
+        cmdError("%s set contract currency1111" % (ClientName))
+        errorExit("Failed to publish contract.")
+
+    contract="currency1111"
+    table="accounts"
+    row0=node.getTableRow(contract, currencyAccount.name, table, 0)
+    
+    # because we set a bad abi (missing type, see "eosio.token.bad.abi") on the contract, the
+    # getTableRow() is expected to fail and return None
+    try:
+        assert(not row0)
+    except (AssertionError, KeyError) as _:
+        Print("ERROR: Failed get table row assertion. %s" % (row0))
+        raise
+
+    # However check that the node is still running and didn't crash when processing getTableRow on a contract
+    # with a bad abi. If node does crash and we get an exception during "get info", it means that we did not
+    # catch the exception that occured while calling `cb()` in `http_plugin/macros.hpp`.
+    currentBlockNum=node.getHeadBlockNum()
+    Print("CurrentBlockNum: %d" % (currentBlockNum))
+
     testSuccessful=True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful, killEosInstances, killWallet, keepLogs, killAll, dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful, dumpErrorDetails)
 
 errorCode = 0 if testSuccessful else 1
 exit(errorCode)

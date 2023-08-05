@@ -34,13 +34,12 @@ namespace eosio {
        * Given an action trace, produce a tuple representing the `data` and `return_value` fields in the trace
        *
        * @param action - trace of the action including metadata necessary for finding the ABI
-       * @param yield - a yield function to allow cooperation during long running tasks
        * @return tuple where the first element is a variant representing the `data` field of the action interpreted by known ABIs OR an empty variant, and the second element represents the `return_value` field of the trace.
        */
-      std::tuple<fc::variant, std::optional<fc::variant>> serialize_to_variant(const std::variant<action_trace_v0, action_trace_v1> & action, const yield_function& yield );
+      std::tuple<fc::variant, std::optional<fc::variant>> serialize_to_variant(const std::variant<action_trace_v0, action_trace_v1> & action);
 
       /**
-       * Utility class that allows mulitple request_handlers to share the same abi_data_handler
+       * Utility class that allows multiple request_handlers to share the same abi_data_handler
        */
       class shared_provider {
          public:
@@ -48,8 +47,8 @@ namespace eosio {
          :handler(handler)
          {}
 
-         std::tuple<fc::variant, std::optional<fc::variant>> serialize_to_variant( const std::variant<action_trace_v0, action_trace_v1> & action, const yield_function& yield ) {
-            return handler->serialize_to_variant(action, yield);
+         std::tuple<fc::variant, std::optional<fc::variant>> serialize_to_variant( const std::variant<action_trace_v0, action_trace_v1> & action ) {
+            return handler->serialize_to_variant(action);
          }
 
          std::shared_ptr<abi_data_handler> handler;

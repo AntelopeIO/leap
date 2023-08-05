@@ -6,8 +6,6 @@
 #include <eosio/testing/tester.hpp>
 #include <eosio/chain/abi_serializer.hpp>
 
-#include <Runtime/Runtime.h>
-
 #include <fc/variant_object.hpp>
 #include <fc/io/json.hpp>
 
@@ -15,18 +13,12 @@
 
 #include <test_contracts.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
-class payloadless_tester : public TESTER {
+class payloadless_tester : public validating_tester {
 
 };
 
@@ -36,7 +28,7 @@ BOOST_FIXTURE_TEST_CASE( test_doit, payloadless_tester ) {
    
    create_accounts( {"payloadless"_n} );
    set_code( "payloadless"_n, test_contracts::payloadless_wasm() );
-   set_abi( "payloadless"_n, test_contracts::payloadless_abi().data() );
+   set_abi( "payloadless"_n, test_contracts::payloadless_abi() );
 
    auto trace = push_action("payloadless"_n, "doit"_n, "payloadless"_n, mutable_variant_object());
    auto msg = trace->action_traces.front().console;
@@ -49,7 +41,7 @@ BOOST_FIXTURE_TEST_CASE( test_abi_serializer, payloadless_tester ) {
 
    create_accounts( {"payloadless"_n} );
    set_code( "payloadless"_n, test_contracts::payloadless_wasm() );
-   set_abi( "payloadless"_n, test_contracts::payloadless_abi().data() );
+   set_abi( "payloadless"_n, test_contracts::payloadless_abi() );
 
    fc::variant pretty_trx = fc::mutable_variant_object()
       ("actions", fc::variants({

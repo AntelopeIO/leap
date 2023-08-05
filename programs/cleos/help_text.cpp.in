@@ -290,7 +290,7 @@ bool print_recognized_errors(const fc::exception& e, const bool verbose_errors) 
          if (!log.get_context().get_method().empty() && verbose_errors) {
             stack_trace += "\n" +
                            log.get_context().get_file() +  ":" +
-                           fc::to_string(log.get_context().get_line_number())  + " " +
+                           std::to_string(log.get_context().get_line_number())  + " " +
                            log.get_context().get_method();
          }
       }

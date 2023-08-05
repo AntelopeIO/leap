@@ -42,10 +42,10 @@ struct block_log_fixture {
          // work because the default ctor of a block_header (used above) has previous 0'ed out which
          // means its block num is 1.
          check_n_bounce([&]() {
-            BOOST_REQUIRE_EQUAL(log->first_block_num(), 1);
-            BOOST_REQUIRE_EQUAL(log->head()->block_num(), 1);
+            BOOST_REQUIRE_EQUAL(log->first_block_num(), 1u);
+            BOOST_REQUIRE_EQUAL(log->head()->block_num(), 1u);
             if(enable_read)
-               BOOST_REQUIRE_EQUAL(log->read_block_by_num(1)->block_num(), 1);
+               BOOST_REQUIRE_EQUAL(log->read_block_by_num(1)->block_num(), 1u);
          });
       }
    }
@@ -67,7 +67,8 @@ struct block_log_fixture {
 
    void check_range_present(uint32_t first, uint32_t last) {
       BOOST_REQUIRE_EQUAL(log->first_block_num(), first);
-      BOOST_REQUIRE_EQUAL(eosio::chain::block_header::num_from_id(log->head_id()), last);
+      BOOST_REQUIRE(log->head_id());
+      BOOST_REQUIRE_EQUAL(eosio::chain::block_header::num_from_id(*log->head_id()), last);
       if(enable_read) {
          for(auto i = first; i <= last; i++) {
             std::vector<char> buff;
@@ -130,10 +131,8 @@ private:
 };
 
 static size_t payload_size() {
-   fc::temp_file tf;
-   fc::cfile cf;
-   cf.set_file_path(tf.path());
-   cf.open("ab");
+   fc::temp_cfile tf;
+   auto& cf = tf.file();
    return cf.filesystem_block_size()*2 + cf.filesystem_block_size()/2;
 }
 

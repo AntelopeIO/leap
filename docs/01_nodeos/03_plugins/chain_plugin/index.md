@@ -120,7 +120,7 @@ Config Options for eosio::chain_plugin:
                                         applied to them (may specify multiple
                                         times)
   --read-mode arg (=head)               Database read mode ("head",
-                                        "irreversible").
+                                        "irreversible", "speculative").
                                         In "head" mode: database contains state
                                         changes up to the head block;
                                         transactions received by the node are
@@ -131,7 +131,13 @@ Config Options for eosio::chain_plugin:
                                         received via the P2P network are not
                                         relayed and transactions cannot be
                                         pushed via the chain API.
-
+                                        In "speculative" mode: database
+                                        contains state changes by transactions
+                                        in the blockchain up to the head block
+                                        as well as some transactions not yet
+                                        included in the blockchain;
+                                        transactions received by the node are
+                                        relayed if valid.                                        
   --api-accept-transactions arg (=1)    Allow API transactions to be evaluated
                                         and relayed if valid.
   --validation-mode arg (=full)         Chain validation mode ("full" or
@@ -172,7 +178,16 @@ Config Options for eosio::chain_plugin:
                                         code cache
   --eos-vm-oc-compile-threads arg (=1)  Number of threads to use for EOS VM OC
                                         tier-up
-  --eos-vm-oc-enable                    Enable EOS VM OC tier-up runtime
+  --eos-vm-oc-enable arg (=auto)        Enable EOS VM OC tier-up runtime
+                                        ('auto', 'all', 'none').
+                                        'auto' - EOS VM OC tier-up is enabled
+                                        for eosio.* accounts, read-only trxs,
+                                        and applying blocks.
+                                        'all'  - EOS VM OC tier-up is enabled
+                                        for all contract execution.
+                                        'none' - EOS VM OC tier-up is
+                                        completely disabled.
+
   --enable-account-queries arg (=0)     enable queries to find accounts by
                                         various metadata.
   --max-nonprivileged-inline-action-size arg (=4096)
@@ -185,13 +200,17 @@ Config Options for eosio::chain_plugin:
                                         feature. Setting above 0 enables this
                                         feature.
   --transaction-retry-interval-sec arg (=20)
-                                        How often, in seconds, to resend an
-                                        incoming transaction to network if not
+                                        How often, in seconds, to resend an 
+                                        incoming transaction to network if not 
                                         seen in a block.
+                                        Needs to be at least twice as large as 
+                                        p2p-dedup-cache-expire-time-sec.
   --transaction-retry-max-expiration-sec arg (=120)
-                                        Maximum allowed transaction expiration
-                                        for retry transactions, will retry
+                                        Maximum allowed transaction expiration 
+                                        for retry transactions, will retry 
                                         transactions up to this value.
+                                        Should be larger than 
+                                        transaction-retry-interval-sec.
   --transaction-finality-status-max-storage-size-gb arg
                                         Maximum size (in GiB) allowed to be
                                         allocated for the Transaction Finality

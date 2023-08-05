@@ -132,7 +132,7 @@ struct json_snapshot_suite {
    }
 
    struct reader : public reader_t {
-      explicit reader(const fc::path& p)
+      explicit reader(const std::filesystem::path& p)
       :reader_t(p)
       {}
       ~reader() {
@@ -154,7 +154,7 @@ struct json_snapshot_suite {
       std::ofstream fs(json_snapshot_suite::temp_file());
       fs << buffer;
       fs.close();
-      fc::path p(json_snapshot_suite::temp_file());
+      std::filesystem::path p(json_snapshot_suite::temp_file());
       return std::make_shared<reader>(p);
    }
 
@@ -170,4 +170,3 @@ struct json_snapshot_suite {
 };
 
 using snapshot_suites = boost::mpl::list<variant_snapshot_suite, buffered_snapshot_suite, json_snapshot_suite>;
-

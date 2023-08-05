@@ -4,8 +4,6 @@
 
 #include <eosio/chain/fork_database.hpp>
 
-#include <Runtime/Runtime.h>
-
 #include <fc/variant_object.hpp>
 
 #include <boost/test/unit_test.hpp>
@@ -144,7 +142,7 @@ BOOST_AUTO_TEST_CASE( forking ) try {
    auto r2 = c.create_accounts( {"eosio.token"_n} );
    wdump((fc::json::to_pretty_string(r2)));
    c.set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
-   c.set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
+   c.set_abi( "eosio.token"_n, test_contracts::eosio_token_abi() );
    c.produce_blocks(10);
 
 
@@ -639,7 +637,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
                                       .owner    = owner_auth,
                                       .active   = active_auth,
                                 });
-      trx.expiration = c.control->head_block_time() + fc::seconds( 60 );
+      trx.expiration = fc::time_point_sec{c.control->head_block_time() + fc::seconds( 60 )};
       trx.set_reference_block( cb->calculate_id() );
       trx.sign( get_private_key( config::system_account_name, "active" ), c.control->get_chain_id()  );
       trace1 = c.push_transaction( trx );
@@ -656,7 +654,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
                                       .owner    = owner_auth,
                                       .active   = active_auth,
                                 });
-      trx.expiration = c.control->head_block_time() + fc::seconds( 60 );
+      trx.expiration = fc::time_point_sec{c.control->head_block_time() + fc::seconds( 60 )};
       trx.set_reference_block( cb->calculate_id() );
       trx.sign( get_private_key( config::system_account_name, "active" ), c.control->get_chain_id()  );
       trace2 = c.push_transaction( trx );
@@ -672,7 +670,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
                                       .owner    = owner_auth,
                                       .active   = active_auth,
                                 });
-      trx.expiration = c.control->head_block_time() + fc::seconds( 60 );
+      trx.expiration = fc::time_point_sec{c.control->head_block_time() + fc::seconds( 60 )};
       trx.set_reference_block( cb->calculate_id() );
       trx.sign( get_private_key( config::system_account_name, "active" ), c.control->get_chain_id()  );
       trace3 = c.push_transaction( trx );
@@ -688,7 +686,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
                                       .owner    = owner_auth,
                                       .active   = active_auth,
                                 });
-      trx.expiration = c.control->head_block_time() + fc::seconds( 60 );
+      trx.expiration = fc::time_point_sec{c.control->head_block_time() + fc::seconds( 60 )};
       trx.set_reference_block( b->calculate_id() ); // tapos to dan's block should be rejected on fork switch
       trx.sign( get_private_key( config::system_account_name, "active" ), c.control->get_chain_id()  );
       trace4 = c.push_transaction( trx );
@@ -722,7 +720,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
       BOOST_CHECK( i == 11 + 12 );
    }
    // verify transaction on fork is reported by push_block in order
-   BOOST_REQUIRE_EQUAL( 4, c.get_unapplied_transaction_queue().size() );
+   BOOST_REQUIRE_EQUAL( 4u, c.get_unapplied_transaction_queue().size() );
    BOOST_REQUIRE_EQUAL( trace1->id, c.get_unapplied_transaction_queue().begin()->id() );
    BOOST_REQUIRE_EQUAL( trace2->id, (++c.get_unapplied_transaction_queue().begin())->id() );
    BOOST_REQUIRE_EQUAL( trace3->id, (++(++c.get_unapplied_transaction_queue().begin()))->id() );
@@ -749,7 +747,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
    std::vector<transaction_trace_ptr> traces;
    c.produce_block( traces );
 
-   BOOST_REQUIRE_EQUAL( 4, traces.size() );
+   BOOST_REQUIRE_EQUAL( 4u, traces.size() );
    BOOST_CHECK_EQUAL( trace1->id, traces.at(0)->id );
    BOOST_CHECK_EQUAL( transaction_receipt_header::executed, traces.at(0)->receipt->status );
    BOOST_CHECK_EQUAL( trace2->id, traces.at(1)->id );

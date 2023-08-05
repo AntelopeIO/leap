@@ -29,7 +29,6 @@ nodeos \
   --plugin eosio::http_plugin          \
   --plugin eosio::state_history_plugin \
   --contracts-console   \
-  --disable-replay-opts \
   --access-control-allow-origin='*' \
   --http-validate-host=false        \
   --verbose-http-errors             \
@@ -46,7 +45,7 @@ The above `nodeos` command starts a producing node by:
 * setting the blockchain data directory (`--data-dir`)
 * setting the `config.ini` directory (`--config-dir`)
 * loading plugins `producer_plugin`, `chain_plugin`, `http_plugin`, `state_history_plugin` (`--plugin`)
-* passing `chain_plugin` options (`--contracts-console`, `--disable-replay-opts`)
+* passing `chain_plugin` options (`--contracts-console`)
 * passing `http-plugin` options (`--access-control-allow-origin`, `--http-validate-host`, `--verbose-http-errors`)
 * passing `state_history` options (`--state-history-dir`, `--trace-history`, `--chain-state-history`)
 * redirecting both `stdout` and `stderr` to the `nodeos.log` file

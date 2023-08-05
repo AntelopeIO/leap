@@ -21,10 +21,12 @@
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/authorization_manager.hpp>
 #include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/wasm_interface_collection.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -69,7 +71,7 @@ class maybe_session {
       maybe_session() = default;
 
       maybe_session( maybe_session&& other)
-      :_session(move(other._session))
+         :_session(std::move(other._session))
       {
       }
 
@@ -96,7 +98,7 @@ class maybe_session {
 
       maybe_session& operator = ( maybe_session&& mv ) {
          if (mv._session) {
-            _session.emplace(move(*mv._session));
+            _session.emplace(std::move(*mv._session));
             mv._session.reset();
          } else {
             _session.reset();
@@ -150,7 +152,7 @@ struct pending_state {
                   block_timestamp_type when,
                   uint16_t num_prev_blocks_to_confirm,
                   const vector<digest_type>& new_protocol_feature_activations )
-   :_db_session( move(s) )
+   :_db_session( std::move(s) )
    ,_block_stage( building_block( prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations ) )
    {}
 
@@ -232,11 +234,13 @@ struct controller_impl {
    block_state_ptr                 head;
    fork_database                   fork_db;
    resource_limits_manager         resource_limits;
+   subjective_billing              subjective_bill;
    authorization_manager           authorization;
    protocol_feature_manager        protocol_features;
    controller::config              conf;
    const chain_id_type             chain_id; // read by thread_pool threads, value will not be changed
    bool                            replaying = false;
+   bool                            is_producer_node = false; // true if node is configured as a block producer
    db_read_mode                    read_mode = db_read_mode::HEAD;
    bool                            in_trx_requiring_checks = false; ///< if true, checks that are normally skipped on replay (e.g. auth checks) cannot be skipped
    std::optional<fc::microseconds> subjective_cpu_leeway;
@@ -247,16 +251,11 @@ struct controller_impl {
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
 
-   std::thread::id                 main_thread_id;
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
 #endif
-   // Ideally wasmif should be thread_local which must be a static.
-   // Unittests can create multiple controller objects (testers) at the same time,
-   // which overwrites the same static wasmif, is used for eosvmoc too.
-   wasm_interface  wasmif;  // used by main thread and all threads for EOSVMOC
-   thread_local static std::unique_ptr<wasm_interface> wasmif_thread_local; // a copy for each read-only thread, used by eos-vm and eos-vm-jit
+   wasm_interface_collection wasm_if_collect;
    app_window_type app_window = app_window_type::write;
 
    typedef pair<scope_name,action_name>                   handler_key;
@@ -272,9 +271,7 @@ struct controller_impl {
          prev = fork_db.root();
       }
 
-      if ( read_mode == db_read_mode::HEAD ) {
-         EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
-      }
+      EOS_ASSERT( head->block, block_validate_exception, "attempting to pop a block that was sparsely loaded from a snapshot");
 
       head = prev;
 
@@ -317,8 +314,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    main_thread_id( std::this_thread::get_id() ),
-    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
+    wasm_if_collect( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -344,7 +340,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
-         get_wasm_interface().current_lib(bsp->block_num);
+         wasm_if_collect.current_lib(bsp->block_num);
       });
 
 
@@ -399,11 +395,13 @@ struct controller_impl {
       }
    }
 
-   void dmlog_applied_transaction(const transaction_trace_ptr& t) {
+   void dmlog_applied_transaction(const transaction_trace_ptr& t, const signed_transaction* trx = nullptr) {
       // dmlog_applied_transaction is called by push_scheduled_transaction
       // where transient transactions are not possible, and by push_transaction
       // only when the transaction is not transient
       if (auto dm_logger = get_deep_mind_logger(false)) {
+         if (trx && is_onblock(*t))
+            dm_logger->on_onblock(*trx);
          dm_logger->on_applied_transaction(self.head_block_num() + 1, t);
       }
    }
@@ -411,10 +409,10 @@ struct controller_impl {
    void log_irreversible() {
       EOS_ASSERT( fork_db.root(), fork_database_exception, "fork database not properly initialized" );
 
-      const block_id_type log_head_id = blog.head_id();
-      const bool valid_log_head = !log_head_id.empty();
+      const std::optional<block_id_type> log_head_id = blog.head_id();
+      const bool valid_log_head = !!log_head_id;
 
-      const auto lib_num = valid_log_head ? block_header::num_from_id(log_head_id) : (blog.first_block_num() - 1);
+      const auto lib_num = valid_log_head ? block_header::num_from_id(*log_head_id) : (blog.first_block_num() - 1);
 
       auto root_id = fork_db.root()->id;
 
@@ -422,7 +420,8 @@ struct controller_impl {
          EOS_ASSERT( root_id == log_head_id, fork_database_exception, "fork database root does not match block log head" );
       } else {
          EOS_ASSERT( fork_db.root()->block_num == lib_num, fork_database_exception,
-                     "empty block log expects the first appended block to build off a block that is not the fork database root. root block number: ${block_num}, lib: ${lib_num}", ("block_num", fork_db.root()->block_num) ("lib_num", lib_num) );
+                     "The first block ${lib_num} when starting with an empty block log should be the block after fork database root ${bn}.",
+                     ("lib_num", lib_num)("bn", fork_db.root()->block_num) );
       }
 
       const auto fork_head = fork_db_head();
@@ -444,8 +443,6 @@ struct controller_impl {
             if( read_mode == db_read_mode::IRREVERSIBLE ) {
                controller::block_report br;
                apply_block( br, *bitr, controller::block_status::complete, trx_meta_cache_lookup{} );
-               head = (*bitr);
-               fork_db.mark_valid( head );
             }
 
             emit( self.irreversible_block, *bitr );
@@ -557,7 +554,10 @@ struct controller_impl {
          ilog( "no irreversible blocks need to be replayed" );
       }
 
-      if( !except_ptr && !check_shutdown() && fork_db.head() ) {
+      if (snapshot_head_block != 0 && !blog_head) {
+         // loading from snapshot without a block log so fork_db can't be considered valid
+         fork_db.reset( *head );
+      } else if( !except_ptr && !check_shutdown() && fork_db.head() ) {
          auto head_block_num = head->block_num;
          auto branch = fork_db.fetch_branch( fork_db.head()->id );
          int rev = 0;
@@ -588,19 +588,21 @@ struct controller_impl {
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown, const snapshot_reader_ptr& snapshot) {
       EOS_ASSERT( snapshot, snapshot_exception, "No snapshot reader provided" );
       this->shutdown = shutdown;
-      ilog( "Starting initialization from snapshot, this may take a significant amount of time" );
       try {
          snapshot->validate();
          if( auto blog_head = blog.head() ) {
+            ilog( "Starting initialization from snapshot and block log ${b}-${e}, this may take a significant amount of time",
+                  ("b", blog.first_block_num())("e", blog_head->block_num()) );
             read_from_snapshot( snapshot, blog.first_block_num(), blog_head->block_num() );
          } else {
+            ilog( "Starting initialization from snapshot and no block log, this may take a significant amount of time" );
             read_from_snapshot( snapshot, 0, std::numeric_limits<uint32_t>::max() );
-            const uint32_t lib_num = head->block_num;
-            EOS_ASSERT( lib_num > 0, snapshot_exception,
+            EOS_ASSERT( head->block_num > 0, snapshot_exception,
                         "Snapshot indicates controller head at block number 0, but that is not allowed. "
                         "Snapshot is invalid." );
-            blog.reset( chain_id, lib_num + 1 );
+            blog.reset( chain_id, head->block_num + 1 );
          }
+         ilog( "Snapshot loaded, lib: ${lib}", ("lib", head->block_num) );
 
          init(check_shutdown);
          ilog( "Finished initialization from snapshot" );
@@ -1167,13 +1169,13 @@ struct controller_impl {
          etrx.ref_block_num = 0;
          etrx.ref_block_prefix = 0;
       } else {
-         etrx.expiration = self.pending_block_time() + fc::microseconds(999'999); // Round up to nearest second to avoid appearing expired
+         etrx.expiration = time_point_sec{self.pending_block_time() + fc::microseconds(999'999)}; // Round up to nearest second to avoid appearing expired
          etrx.set_reference_block( self.head_block_id() );
       }
 
       transaction_checktime_timer trx_timer(timer);
       const packed_transaction trx( std::move( etrx ) );
-      transaction_context trx_context( self, trx, std::move(trx_timer), start );
+      transaction_context trx_context( self, trx, trx.id(), std::move(trx_timer), start );
 
       if (auto dm_logger = get_deep_mind_logger(trx_context.is_transient())) {
          dm_logger->on_onerror(etrx);
@@ -1339,7 +1341,7 @@ struct controller_impl {
       uint32_t cpu_time_to_bill_us = billed_cpu_time_us;
 
       transaction_checktime_timer trx_timer( timer );
-      transaction_context trx_context( self, *trx->packed_trx(), std::move(trx_timer) );
+      transaction_context trx_context( self, *trx->packed_trx(), gtrx.trx_id, std::move(trx_timer) );
       trx_context.leeway =  fc::microseconds(0); // avoid stealing cpu resource
       trx_context.block_deadline = block_deadline;
       trx_context.max_transaction_time_subjective = max_transaction_time;
@@ -1553,7 +1555,7 @@ struct controller_impl {
 
          const signed_transaction& trn = trx->packed_trx()->get_signed_transaction();
          transaction_checktime_timer trx_timer(timer);
-         transaction_context trx_context(self, *trx->packed_trx(), std::move(trx_timer), start, trx->get_trx_type());
+         transaction_context trx_context(self, *trx->packed_trx(), trx->id(), std::move(trx_timer), start, trx->get_trx_type());
          if ((bool)subjective_cpu_leeway && self.is_speculative_block()) {
             trx_context.leeway = *subjective_cpu_leeway;
          }
@@ -1624,7 +1626,7 @@ struct controller_impl {
                        emit(self.accepted_transaction, trx);
                    }
 
-                   dmlog_applied_transaction(trace);
+                   dmlog_applied_transaction(trace, &trn);
                    emit(self.applied_transaction, std::tie(trace, trx->packed_trx()));
                 }
             }
@@ -1632,7 +1634,7 @@ struct controller_impl {
             if ( trx->is_transient() ) {
                // remove trx from pending block by not canceling 'restore'
                trx_context.undo(); // this will happen automatically in destructor, but make it more explicit
-            } else if ( pending->_block_status == controller::block_status::ephemeral ) {
+            } else if ( read_mode != db_read_mode::SPECULATIVE && pending->_block_status == controller::block_status::ephemeral ) {
                // An ephemeral block will never become a full block, but on a producer node the trxs should be saved
                // in the un-applied transaction queue for execution during block production. For a non-producer node
                // save the trxs in the un-applied transaction queue for use during block validation to skip signature
@@ -1927,7 +1929,7 @@ struct controller_impl {
    /**
     * @post regardless of the success of commit block there is no active pending block
     */
-   void commit_block( bool add_to_fork_db ) {
+   void commit_block( controller::block_status s ) {
       auto reset_pending_on_exit = fc::make_scoped_exit([this]{
          pending.reset();
       });
@@ -1936,24 +1938,26 @@ struct controller_impl {
          EOS_ASSERT( std::holds_alternative<completed_block>(pending->_block_stage), block_validate_exception,
                      "cannot call commit_block until pending block is completed" );
 
-         auto bsp = std::get<completed_block>(pending->_block_stage)._block_state;
+         const auto& bsp = std::get<completed_block>(pending->_block_stage)._block_state;
 
-         if( add_to_fork_db ) {
+         if( s == controller::block_status::incomplete ) {
             fork_db.add( bsp );
             fork_db.mark_valid( bsp );
             emit( self.accepted_block_header, bsp );
-            head = fork_db.head();
-            EOS_ASSERT( bsp == head, fork_database_exception, "committed block did not become the new head in fork database");
+            EOS_ASSERT( bsp == fork_db.head(), fork_database_exception, "committed block did not become the new head in fork database");
+         } else if (s != controller::block_status::irreversible) {
+            fork_db.mark_valid( bsp );
          }
+         head = bsp;
 
          // at block level, no transaction specific logging is possible
-         if (auto dm_logger = get_deep_mind_logger(false)) {
+         if (auto* dm_logger = get_deep_mind_logger(false)) {
             dm_logger->on_accepted_block(bsp);
          }
 
          emit( self.accepted_block, bsp );
 
-         if( add_to_fork_db ) {
+         if( s == controller::block_status::incomplete ) {
             log_irreversible();
          }
       } catch (...) {
@@ -2153,7 +2157,7 @@ struct controller_impl {
          pending->_block_stage = completed_block{ bsp };
 
          br = pending->_block_report; // copy before commit block destroys pending
-         commit_block(false);
+         commit_block(s);
          br.total_time = fc::time_point::now() - start;
          return;
       } catch ( const std::bad_alloc& ) {
@@ -2305,7 +2309,6 @@ struct controller_impl {
          controller::block_report br;
          if( s == controller::block_status::irreversible ) {
             apply_block( br, bsp, s, trx_meta_cache_lookup{} );
-            head = bsp;
 
             // On replay, log_irreversible is not called and so no irreversible_block signal is emitted.
             // So emit it explicitly here.
@@ -2331,8 +2334,6 @@ struct controller_impl {
       if( new_head->header.previous == head->id ) {
          try {
             apply_block( br, new_head, s, trx_lookup );
-            fork_db.mark_valid( new_head );
-            head = new_head;
          } catch ( const std::exception& e ) {
             fork_db.remove( new_head->id );
             throw;
@@ -2365,8 +2366,6 @@ struct controller_impl {
                br = controller::block_report{};
                apply_block( br, *ritr, (*ritr)->is_valid() ? controller::block_status::validated
                                                            : controller::block_status::complete, trx_lookup );
-               fork_db.mark_valid( *ritr );
-               head = *ritr;
             } catch ( const std::bad_alloc& ) {
               throw;
             } catch ( const boost::interprocess::bad_alloc& ) {
@@ -2397,7 +2396,6 @@ struct controller_impl {
                for( auto ritr = branches.second.rbegin(); ritr != branches.second.rend(); ++ritr ) {
                   br = controller::block_report{};
                   apply_block( br, *ritr, controller::block_status::validated /* we previously validated these blocks*/, trx_lookup );
-                  head = *ritr;
                }
                std::rethrow_exception(except);
             } // end if exception
@@ -2428,7 +2426,7 @@ struct controller_impl {
       for( const auto& a : trxs )
          trx_digests.emplace_back( a.digest() );
 
-      return merkle( move(trx_digests) );
+      return merkle( std::move(trx_digests) );
    }
 
    void update_producers_authority() {
@@ -2483,7 +2481,7 @@ struct controller_impl {
       auto now = self.is_building_block() ? self.pending_block_time() : self.head_block_time();
       const auto total = dedupe_index.size();
       uint32_t num_removed = 0;
-      while( (!dedupe_index.empty()) && ( now > fc::time_point(dedupe_index.begin()->expiration) ) ) {
+      while( (!dedupe_index.empty()) && ( now > dedupe_index.begin()->expiration.to_time_point() ) ) {
          transaction_idx.remove(*dedupe_index.begin());
          ++num_removed;
          if( deadline <= fc::time_point::now() ) {
@@ -2658,13 +2656,8 @@ struct controller_impl {
          trx.ref_block_num = 0;
          trx.ref_block_prefix = 0;
       } else {
-         trx.expiration = self.pending_block_time() + fc::microseconds(999'999); // Round up to nearest second to avoid appearing expired
+         trx.expiration = time_point_sec{self.pending_block_time() + fc::microseconds(999'999)}; // Round up to nearest second to avoid appearing expired
          trx.set_reference_block( self.head_block_id() );
-      }
-
-      // onblock transaction cannot be transient
-      if (auto dm_logger = get_deep_mind_logger(false)) {
-         dm_logger->on_onblock(trx);
       }
 
       return trx;
@@ -2679,28 +2672,6 @@ struct controller_impl {
       return (blog.first_block_num() != 0) ? blog.first_block_num() : fork_db.root()->block_num;
    }
 
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-   bool is_eos_vm_oc_enabled() const {
-      return ( conf.eosvmoc_tierup || conf.wasm_runtime == wasm_interface::vm_type::eos_vm_oc );
-   }
-#endif
-
-   // only called from non-main threads (read-only trx execution threads)
-   // when producer_plugin starts them
-   void init_thread_local_data() {
-      EOS_ASSERT( !is_on_main_thread(), misc_exception, "init_thread_local_data called on the main thread");
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      if ( is_eos_vm_oc_enabled() )
-         // EOSVMOC needs further initialization of its thread local data
-         wasmif.init_thread_local_data();
-      else
-#endif
-         // Non-EOSVMOC needs a wasmif per thread
-         wasmif_thread_local = std::make_unique<wasm_interface>( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
-   }
-
-   bool is_on_main_thread() { return main_thread_id == std::this_thread::get_id(); };
-
    void set_to_write_window() {
       app_window = app_window_type::write;
    }
@@ -2711,15 +2682,22 @@ struct controller_impl {
       return app_window == app_window_type::write;
    }
 
-   wasm_interface& get_wasm_interface() {
-      if ( is_on_main_thread()
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-          || is_eos_vm_oc_enabled()
+   bool is_eos_vm_oc_enabled() const {
+      return wasm_if_collect.is_eos_vm_oc_enabled();
+   }
 #endif
-         )
-         return wasmif;
-      else
-         return *wasmif_thread_local;
+
+   void init_thread_local_data() {
+      wasm_if_collect.init_thread_local_data(db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+   }
+
+   wasm_interface_collection& get_wasm_interface() {
+      return wasm_if_collect;
+   }
+
+   void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
+      wasm_if_collect.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
    }
 
    block_state_ptr fork_db_head() const;
@@ -2729,7 +2707,6 @@ thread_local platform_timer controller_impl::timer;
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
 thread_local eosio::vm::wasm_allocator controller_impl::wasm_alloc;
 #endif
-thread_local std::unique_ptr<wasm_interface> controller_impl::wasmif_thread_local;
 
 const resource_limits_manager&   controller::get_resource_limits_manager()const
 {
@@ -2753,6 +2730,15 @@ const protocol_feature_manager& controller::get_protocol_feature_manager()const
 {
    return my->protocol_features;
 }
+
+const subjective_billing& controller::get_subjective_billing()const {
+   return my->subjective_bill;
+}
+
+subjective_billing& controller::get_mutable_subjective_billing() {
+   return my->subjective_bill;
+}
+
 
 uint32_t controller::get_max_nonprivileged_inline_action_size()const
 {
@@ -2975,7 +2961,7 @@ block_state_ptr controller::finalize_block( block_report& br, const signer_callb
 
 void controller::commit_block() {
    validate_db_available_size();
-   my->commit_block(true);
+   my->commit_block(block_status::incomplete);
 }
 
 deque<transaction_metadata_ptr> controller::abort_block() {
@@ -3064,6 +3050,10 @@ void controller::set_key_blacklist( const flat_set<public_key_type>& new_key_bla
    my->conf.key_blacklist = new_key_blacklist;
 }
 
+void controller::set_disable_replay_opts( bool v ) {
+   my->conf.disable_replay_opts = v;
+}
+
 uint32_t controller::head_block_num()const {
    return my->head->block_num;
 }
@@ -3102,13 +3092,17 @@ block_id_type controller::fork_db_head_block_id()const {
    return my->fork_db_head()->id;
 }
 
-time_point controller::pending_block_time()const {
+block_timestamp_type controller::pending_block_timestamp()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
 
    if( std::holds_alternative<completed_block>(my->pending->_block_stage) )
       return std::get<completed_block>(my->pending->_block_stage)._block_state->header.timestamp;
 
    return my->pending->get_pending_block_header_state().timestamp;
+}
+
+time_point controller::pending_block_time()const {
+   return pending_block_timestamp();
 }
 
 uint32_t controller::pending_block_num()const {
@@ -3404,7 +3398,7 @@ const apply_handler* controller::find_apply_handler( account_name receiver, acco
    }
    return nullptr;
 }
-wasm_interface& controller::get_wasm_interface() {
+wasm_interface_collection& controller::get_wasm_interface() {
    return my->get_wasm_interface();
 }
 
@@ -3454,12 +3448,12 @@ uint32_t controller::configured_subjective_signature_length_limit()const {
 void controller::validate_expiration( const transaction& trx )const { try {
    const auto& chain_configuration = get_global_properties().configuration;
 
-   EOS_ASSERT( time_point(trx.expiration) >= pending_block_time(),
+   EOS_ASSERT( trx.expiration.to_time_point() >= pending_block_time(),
                expired_tx_exception,
                "transaction has expired, "
                "expiration is ${trx.expiration} and pending block time is ${pending_block_time}",
                ("trx.expiration",trx.expiration)("pending_block_time",pending_block_time()));
-   EOS_ASSERT( time_point(trx.expiration) <= pending_block_time() + fc::seconds(chain_configuration.max_transaction_lifetime),
+   EOS_ASSERT( trx.expiration.to_time_point() <= pending_block_time() + fc::seconds(chain_configuration.max_transaction_lifetime),
                tx_exp_too_far_exception,
                "Transaction expiration is too far in the future relative to the reference time of ${reference_time}, "
                "expiration is ${trx.expiration} and the maximum transaction lifetime is ${max_til_exp} seconds",
@@ -3584,7 +3578,6 @@ vm::wasm_allocator& controller::get_wasm_allocator() {
    return my->wasm_alloc;
 }
 #endif
-
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
 bool controller::is_eos_vm_oc_enabled() const {
    return my->is_eos_vm_oc_enabled();
@@ -3692,6 +3685,14 @@ void controller::replace_account_keys( name account, name permission, const publ
    rlm.verify_account_ram_usage(account);
 }
 
+void controller::set_producer_node(bool is_producer_node) {
+   my->is_producer_node = is_producer_node;
+}
+
+bool controller::is_producer_node()const {
+   return my->is_producer_node;
+}
+
 void controller::set_db_read_only_mode() {
    mutable_db().set_read_only_mode();
 }
@@ -3712,6 +3713,10 @@ void controller::set_to_read_window() {
 }
 bool controller::is_write_window() const {
    return my->is_write_window();
+}
+
+void controller::code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
+   return my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
 }
 
 /// Protocol feature activation handlers:

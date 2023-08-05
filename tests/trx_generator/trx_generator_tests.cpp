@@ -1,9 +1,59 @@
 #include <trx_provider.hpp>
-#include <trx_generator.cpp>
+#include <trx_generator.hpp>
+#include <http_client_async.hpp>
+#include <simple_rest_server.hpp>
+
 #define BOOST_TEST_MODULE trx_generator_tests
 #include <boost/test/included/unit_test.hpp>
 
+using namespace eosio;
 using namespace eosio::testing;
+using namespace std::literals::string_literals;
+
+static const char* api_name = "/v1/chain/test";
+
+namespace http = boost::beast::http;
+struct echo_server_impl : rest::simple_server<echo_server_impl> {
+
+   std::string server_header() const { return "/"; }
+
+   void log_error(char const* what, const std::string& message) {
+      elog("${what}: ${message}", ("what", what)("message", message));
+   }
+
+   bool allow_method(http::verb method) const { return method == http::verb::post; }
+
+   std::optional<http::response<http::string_body>> on_request(http::request<http::string_body>&& req) {
+      if (req.target() != api_name)
+         return {};
+      http::response<http::string_body> res{http::status::ok, req.version()};
+      // Respond to POST request
+      res.set(http::field::server, server_header());
+      res.set(http::field::content_type, "text/plain");
+      res.keep_alive(req.keep_alive());
+      // echo request body back in response body
+      res.body() = req.body();
+      res.prepare_payload();
+      return res;
+   }
+
+   eosio::chain::named_thread_pool<struct trxgen> _trx_gen_server_thread_pool;
+   boost::asio::io_context::strand                _trx_gen_server_strand;
+
+   echo_server_impl()
+       : _trx_gen_server_strand(_trx_gen_server_thread_pool.get_executor()) {}
+
+   void start(boost::asio::ip::tcp::endpoint endpoint) {
+      run(_trx_gen_server_thread_pool.get_executor(), endpoint);
+      _trx_gen_server_thread_pool.start(
+          1, [](const fc::exception& e) { elog("Trx gen http server exception ${e}", ("e", e)); });
+   }
+
+   void shutdown() {
+      _trx_gen_server_thread_pool.stop();
+      ilog("echo_server_impl shutdown.");
+   }
+};
 
 struct simple_tps_monitor {
    std::vector<tps_test_stats> _calls;
@@ -49,8 +99,8 @@ BOOST_AUTO_TEST_CASE(tps_short_run_low_tps)
    constexpr uint64_t expected_runtime_us = test_duration_s * 1000000;
    constexpr uint64_t allowable_runtime_deviation_per = 20;
    constexpr uint64_t allowable_runtime_deviation_us = expected_runtime_us / allowable_runtime_deviation_per;
-   constexpr uint64_t minimum_runtime_us = expected_runtime_us - allowable_runtime_deviation_us;
-   constexpr uint64_t maximum_runtime_us = expected_runtime_us + allowable_runtime_deviation_us;
+   constexpr int64_t minimum_runtime_us = expected_runtime_us - allowable_runtime_deviation_us;
+   constexpr int64_t maximum_runtime_us = expected_runtime_us + allowable_runtime_deviation_us;
 
    std::shared_ptr<mock_trx_generator> generator = std::make_shared<mock_trx_generator>(expected_trxs);
    std::shared_ptr<simple_tps_monitor> monitor = std::make_shared<simple_tps_monitor>(expected_trxs);
@@ -300,7 +350,7 @@ BOOST_AUTO_TEST_CASE(tps_cant_keep_up_monitored)
    constexpr uint32_t test_tps = 100000;
    constexpr uint32_t trx_delay_us = 10;
    constexpr uint32_t expected_trxs = test_duration_s * test_tps;
-   constexpr uint64_t expected_runtime_us = test_duration_s * 1000000;
+   constexpr int64_t expected_runtime_us = test_duration_s * 1000000;
 
    std::shared_ptr<mock_trx_generator> generator = std::make_shared<mock_trx_generator>(expected_trxs, trx_delay_us);
    std::shared_ptr<tps_performance_monitor> monitor = std::make_shared<tps_performance_monitor>();
@@ -320,7 +370,7 @@ BOOST_AUTO_TEST_CASE(trx_generator_constructor)
 {
    trx_generator_base_config tg_config{1, chain::chain_id_type("999"), chain::name("eosio"), fc::seconds(3600),
                                        fc::variant("00000062989f69fd251df3e0b274c3364ffc2f4fce73de3f1c7b5e11a4c92f21").as<chain::block_id_type>(), ".", true};
-   provider_base_config p_config{"127.0.0.1", 9876};
+   provider_base_config p_config{"p2p", "127.0.0.1", 9876};
    const std::string abi_file = "../../unittests/contracts/eosio.token/eosio.token.abi";
    const std::string actions_data = "[{\"actionAuthAcct\": \"testacct1\",\"actionName\": \"transfer\",\"authorization\": {\"actor\": \"testacct1\",\"permission\": \"active\"},"
                                     "\"actionData\": {\"from\": \"testacct1\",\"to\": \"testacct2\",\"quantity\": \"0.0001 CUR\",\"memo\": \"transaction specified\"}}]";
@@ -328,7 +378,7 @@ BOOST_AUTO_TEST_CASE(trx_generator_constructor)
                                     "\"eosio\":\"5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3\"}";
    user_specified_trx_config trx_config{abi_file, actions_data, action_auths};
 
-   auto generator = trx_generator(tg_config, p_config, trx_config);
+   auto generator = std::make_shared<trx_generator>(tg_config, p_config, trx_config);
 }
 
 BOOST_AUTO_TEST_CASE(account_name_generator_tests)
@@ -433,6 +483,72 @@ BOOST_AUTO_TEST_CASE(account_name_generator_tests)
       BOOST_REQUIRE_EQUAL(acct_gen2.calc_name(), expected2.at(i));
       acct_gen2.increment();
    }
+}
+
+BOOST_AUTO_TEST_CASE(simple_http_client_async_test) {
+
+   const std::string host     = "127.0.0.1"s;
+   constexpr unsigned short     port     = 8888;
+
+   // Start Server
+   echo_server_impl               server = echo_server_impl();
+   auto                           addr   = boost::asio::ip::address::from_string(host);
+   boost::asio::ip::tcp::endpoint endpoint(addr, port);
+
+   server.start(endpoint);
+
+   // Start Client
+
+   // The io_context is required for all I/O
+   boost::asio::io_context ioc;
+   const std::string       target        = "/v1/chain/test"s;
+   const int               version       = 11;
+   const std::string       content_type  = "text/plain"s;
+   const std::string       content_type2 = "application/json"s;
+
+   http_client_async::http_request_params params{ioc, host, port, target, version, content_type};
+
+   std::string test_body = "test request body"s;
+   std::string test_body_copy = test_body;
+   std::string test_body2 =
+       "{\"return_failure_trace\":true,\"retry_trx\":false,\"transaction\":{\"signatures\":[\"SIG_K1_"
+       "JyzLqbvpdybyujtiN1YdY2FWcBBi8dWWiFgZ515qyyqgKJJ6892i4rXTHdw5KGYut6EBuXPR3ExRwPSioSZ2bZ1RjNUXVj\"],"
+       "\"compression\":\"none\",\"packed_context_free_data\":\"\",\"packed_trx\":"
+       "\"848a34641800f994a24e00000000030000000000ea305500409e9a2264b89a0160ae423ad15b974a00000000a8ed32326660ae423ad15"
+       "b974a1042088a4dd35057010000000100038d26b3d5ce8c7d76ef00d3d586a3d7bbc76c42f0b0719cc6f7b0cce1790622c3010000000100"
+       "00000100028dc3921705c71d30b0b26674536fff934f8e43890c980aa1d2c168f00f406539010000000000000000ea3055000000004873b"
+       "d3e0160ae423ad15b974a00000000a8ed32322060ae423ad15b974a1042088a4dd350570094357700000000045359530000000000000000"
+       "00ea305500003f2a1ba6a24a0160ae423ad15b974a00000000a8ed32323160ae423ad15b974a1042088a4dd3505740420f0000000000045"
+       "359530000000040420f000000000004535953000000000000\"}}"s;
+   std::string test_body2_copy = test_body2;
+
+   int callbackCalledCnt = 0;
+
+   // Launch the asynchronous operation
+   http_client_async::async_http_request(
+       params, std::move(test_body),
+       [&test_body_copy, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
+          BOOST_REQUIRE(!ec);
+          BOOST_REQUIRE_EQUAL(test_body_copy, response.body());
+          callbackCalledCnt++;
+       });
+
+   http_client_async::http_request_params params2{ioc, host, port, target, version, content_type2};
+   http_client_async::async_http_request(
+       params2, std::move(test_body2),
+       [&test_body2_copy, &callbackCalledCnt](boost::beast::error_code ec, http::response<http::string_body> response) {
+          BOOST_REQUIRE(!ec);
+          BOOST_REQUIRE_EQUAL(test_body2_copy, response.body());
+          callbackCalledCnt++;
+       });
+
+   // Run the I/O service. The call will return when
+   // the get operation is complete.
+   ioc.run();
+
+   BOOST_REQUIRE_EQUAL(callbackCalledCnt, 2);
+
+   server.shutdown();
 }
 
 BOOST_AUTO_TEST_SUITE_END()

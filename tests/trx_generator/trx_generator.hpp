@@ -11,7 +11,7 @@
 namespace eosio::testing {
 
    struct signed_transaction_w_signer {
-      signed_transaction_w_signer(eosio::chain::signed_transaction trx, fc::crypto::private_key key) : _trx(move(trx)), _signer(key) {}
+      signed_transaction_w_signer(eosio::chain::signed_transaction trx, fc::crypto::private_key key) : _trx(std::move(trx)), _signer(key) {}
 
       eosio::chain::signed_transaction _trx;
       fc::crypto::private_key _signer;
@@ -160,7 +160,7 @@ namespace eosio::testing {
 
    struct trx_generator_base {
       const trx_generator_base_config& _config;
-      p2p_trx_provider _provider;
+      trx_provider _provider;
 
       uint64_t _total_us = 0;
       uint64_t _txcount = 0;
@@ -179,7 +179,7 @@ namespace eosio::testing {
       virtual void update_resign_transaction(eosio::chain::signed_transaction& trx, const fc::crypto::private_key& priv_key, uint64_t& nonce_prefix, uint64_t& nonce,
                                      const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id, const eosio::chain::block_id_type& last_irr_block_id);
 
-      void push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix,
+      void push_transaction(signed_transaction_w_signer& trx, uint64_t& nonce_prefix,
                             uint64_t& nonce, const fc::microseconds& trx_expiration, const eosio::chain::chain_id_type& chain_id,
                             const eosio::chain::block_id_type& last_irr_block_id);
 

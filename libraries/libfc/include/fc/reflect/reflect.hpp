@@ -15,6 +15,7 @@
 #include <boost/preprocessor/stringize.hpp>
 #include <stdint.h>
 #include <string.h>
+#include <string>
 
 #include <fc/reflect/typename.hpp>
 
@@ -184,7 +185,7 @@ static inline void visit( Visitor&& v ) { \
 #define FC_REFLECT_ENUM_TO_STRING( r, enum_type, elem ) \
    case enum_type::elem: return BOOST_PP_STRINGIZE(elem);
 #define FC_REFLECT_ENUM_TO_FC_STRING( r, enum_type, elem ) \
-   case enum_type::elem: return fc::string(BOOST_PP_STRINGIZE(elem));
+   case enum_type::elem: return std::string(BOOST_PP_STRINGIZE(elem));
 
 #define FC_REFLECT_ENUM_FROM_STRING( r, enum_type, elem ) \
   if( strcmp( s, BOOST_PP_STRINGIZE(elem)  ) == 0 ) return enum_type::elem;
@@ -200,20 +201,20 @@ template<> struct reflector<ENUM> { \
       switch( elem ) { \
         BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_ENUM_TO_STRING, ENUM, FIELDS ) \
         default: \
-           fc::throw_bad_enum_cast( fc::to_string(int64_t(elem)).c_str(), BOOST_PP_STRINGIZE(ENUM) ); \
+           fc::throw_bad_enum_cast( std::to_string(int64_t(elem)).c_str(), BOOST_PP_STRINGIZE(ENUM) ); \
       }\
       return nullptr; \
     } \
     static const char* to_string(int64_t i) { \
       return to_string(ENUM(i)); \
     } \
-    static fc::string to_fc_string(ENUM elem) { \
+    static std::string to_fc_string(ENUM elem) { \
       switch( elem ) { \
         BOOST_PP_SEQ_FOR_EACH( FC_REFLECT_ENUM_TO_FC_STRING, ENUM, FIELDS ) \
       } \
-      return fc::to_string(int64_t(elem)); \
+      return std::to_string(int64_t(elem)); \
     } \
-    static fc::string to_fc_string(int64_t i) { \
+    static std::string to_fc_string(int64_t i) { \
       return to_fc_string(ENUM(i)); \
     } \
     static ENUM from_int(int64_t i) { \

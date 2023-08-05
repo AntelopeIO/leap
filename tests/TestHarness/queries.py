@@ -11,7 +11,7 @@ import urllib.parse
 import urllib.error
 
 from .core_symbol import CORE_SYMBOL
-from .testUtils import Account
+from .accounts import Account
 from .testUtils import EnumType
 from .testUtils import addEnum
 from .testUtils import ReturnType
@@ -297,7 +297,7 @@ class NodeosQueries:
         try:
             key = self.fetchKeyCommand()
             refBlockNum = self.fetchRefBlock(trans)
-            refBlockNum=int(refBlockNum)+1
+            refBlockNum=int(refBlockNum)
         except (TypeError, ValueError, KeyError) as _:
             Utils.Print("transaction%s not found. Transaction: %s" % (key, trans))
             return None
@@ -596,15 +596,18 @@ class NodeosQueries:
 
         return trans
 
-    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, endpoint=None):
+    def processUrllibRequest(self, resource, command, payload={}, silentErrors=False, exitOnError=False, exitMsg=None, returnType=ReturnType.json, method="POST", endpoint=None, prettyPrint=False, printReturnLimit=1024):
         if not endpoint:
             endpoint = self.endpointHttp
         cmd = f"{endpoint}/v1/{resource}/{command}"
-        req = urllib.request.Request(cmd, method="POST")
-        req.add_header('Content-Type', 'application/json')
-        data = payload
-        data = json.dumps(data)
-        data = data.encode()
+        req = urllib.request.Request(cmd, method=method)
+        if len(payload):
+            req.add_header('Content-Type', 'application/json')
+            data = payload
+            data = json.dumps(data)
+            data = data.encode()
+        else:
+            data = None
         if Utils.Debug: Utils.Print("cmd: %s %s" % (cmd, payload))
         rtn=None
         start=time.perf_counter()
@@ -622,8 +625,10 @@ class NodeosQueries:
             if Utils.Debug:
                 end=time.perf_counter()
                 Utils.Print("cmd Duration: %.3f sec" % (end-start))
-                printReturn=json.dumps(rtn) if returnType==ReturnType.json else rtn
-                Utils.Print("cmd returned: %s" % (printReturn[:1024]))
+                indent = 2 if prettyPrint else None
+                separators = (', ',': ') if prettyPrint else (',',':')
+                printReturn=json.dumps(rtn, indent=indent, separators=separators) if returnType==ReturnType.json else rtn
+                Utils.Print("cmd returned: %s" % (printReturn[:printReturnLimit]))
         except urllib.error.HTTPError as ex:
             if not silentErrors:
                 end=time.perf_counter()
@@ -640,6 +645,8 @@ class NodeosQueries:
                         rtn = ex.read()
                     else:
                         unhandledEnumType(returnType)
+            elif returnType==ReturnType.raw:
+                return ex.code
             else:
                 return None
 
@@ -772,4 +779,3 @@ class NodeosQueries:
     def getActivatedProtocolFeatures(self):
         latestBlockHeaderState = self.getLatestBlockHeaderState()
         return latestBlockHeaderState["activated_protocol_features"]["protocol_features"]
-

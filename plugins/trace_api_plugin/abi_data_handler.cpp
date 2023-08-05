@@ -9,7 +9,7 @@ namespace eosio::trace_api {
             std::make_shared<chain::abi_serializer>(std::move(abi), chain::abi_serializer::create_yield_function(fc::microseconds::maximum())));
    }
 
-   std::tuple<fc::variant, std::optional<fc::variant>> abi_data_handler::serialize_to_variant(const std::variant<action_trace_v0, action_trace_v1> & action, const yield_function& yield ) {
+   std::tuple<fc::variant, std::optional<fc::variant>> abi_data_handler::serialize_to_variant(const std::variant<action_trace_v0, action_trace_v1>& action) {
       auto account = std::visit([](auto &&action) -> auto { return action.account; }, action);
 
       if (abi_serializer_by_account.count(account) > 0) {
@@ -20,8 +20,8 @@ namespace eosio::trace_api {
          if (!type_name.empty()) {
             try {
                // abi_serializer expects a yield function that takes a recursion depth
-               auto abi_yield = [yield](size_t recursion_depth) {
-                  yield();
+               // abis are user provided, do not use a deadline
+               auto abi_yield = [](size_t recursion_depth) {
                   EOS_ASSERT( recursion_depth < chain::abi_serializer::max_recursion_depth, chain::abi_recursion_depth_exception,
                               "exceeded max_recursion_depth ${r} ", ("r", chain::abi_serializer::max_recursion_depth) );
                };

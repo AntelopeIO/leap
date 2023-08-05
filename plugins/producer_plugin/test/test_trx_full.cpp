@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE full_producer_trxs
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/producer_plugin/producer_plugin.hpp>
 
@@ -47,7 +46,7 @@ auto make_unique_trx( const chain_id_type& chain_id ) {
 
    signed_transaction trx;
    // if a transaction expires after it was aborted then it will not be included in a block
-   trx.expiration = fc::time_point::now() + fc::seconds( nextid % 20 == 0 ? 0 : 60 ); // fail some transactions via expired
+   trx.expiration = fc::time_point_sec{fc::time_point::now() + fc::seconds( nextid % 20 == 0 ? 0 : 60 )}; // fail some transactions via expired
    if( nextid % 15 == 0 ) { // fail some for invalid unlinkauth
       trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}},
                                 unlinkauth{} );
@@ -100,24 +99,28 @@ BOOST_AUTO_TEST_SUITE(ordered_trxs_full)
 // Test verifies that transactions are processed, reported to caller, and not lost
 // even when blocks are aborted and some transactions fail.
 BOOST_AUTO_TEST_CASE(producer) {
+   fc::temp_directory temp;
    appbase::scoped_app app;
    
-   fc::temp_directory temp;
    auto temp_dir_str = temp.path().string();
    
    {
       std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
       std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
       std::thread app_thread( [&]() {
-         fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
-         std::vector<const char*> argv =
-               {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str(),
-                "-p", "eosio", "-e", "--disable-subjective-billing=true" };
-         app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
-         app->startup();
-         plugin_promise.set_value(
-               {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()} );
-         app->exec();
+         try {
+            fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
+            std::vector<const char*> argv =
+                  {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str(),
+                   "-p", "eosio", "-e", "--disable-subjective-p2p-billing=true" };
+            app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
+            app->startup();
+            plugin_promise.set_value(
+                  {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()} );
+            app->exec();
+            return;
+         } FC_LOG_AND_DROP()
+         BOOST_CHECK(!"app threw exception see logged error");
       } );
 
       auto[prod_plug, chain_plug] = plugin_fut.get();
@@ -163,7 +166,7 @@ BOOST_AUTO_TEST_CASE(producer) {
                transaction_metadata::trx_type::input, // trx_type
                return_failure_traces, // return_failure_traces
                [ptrx, &next_calls, &trace_with_except, &trx_match, &trxs, return_failure_traces]
-               (const std::variant<fc::exception_ptr, transaction_trace_ptr>& result) {
+               (const next_function_variant<transaction_trace_ptr>& result) {
                   if( !std::holds_alternative<fc::exception_ptr>( result ) && !std::get<chain::transaction_trace_ptr>( result )->except ) {
                      if( std::get<chain::transaction_trace_ptr>( result )->id == ptrx->id() ) {
                         trxs.push_back( ptrx );
@@ -195,8 +198,8 @@ BOOST_AUTO_TEST_CASE(producer) {
 
       empty_blocks_fut.wait_for(std::chrono::seconds(15));
 
-      BOOST_CHECK_EQUAL( trace_with_except, 0 ); // should not have any traces with except in it
-      BOOST_CHECK( all_blocks.size() > 3 ); // should have a few blocks otherwise test is running too fast
+      BOOST_CHECK_EQUAL( trace_with_except, 0u ); // should not have any traces with except in it
+      BOOST_CHECK( all_blocks.size() > 3u ); // should have a few blocks otherwise test is running too fast
       BOOST_CHECK_EQUAL( num_pushes, num_posts );
       BOOST_CHECK_EQUAL( num_pushes, next_calls );
       BOOST_CHECK_EQUAL( num_pushes, num_acked );

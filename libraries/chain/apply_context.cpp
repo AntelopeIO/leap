@@ -3,7 +3,7 @@
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <eosio/chain/wasm_interface.hpp>
+#include <eosio/chain/wasm_interface_collection.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/authorization_manager.hpp>
 #include <eosio/chain/resource_limits.hpp>
@@ -19,15 +19,26 @@ namespace eosio { namespace chain {
 
 static inline void print_debug(account_name receiver, const action_trace& ar) {
    if (!ar.console.empty()) {
-      auto prefix = fc::format_string(
-                                      "\n[(${a},${n})->${r}]",
-                                      fc::mutable_variant_object()
-                                      ("a", ar.act.account)
-                                      ("n", ar.act.name)
-                                      ("r", receiver));
-      dlog(prefix + ": CONSOLE OUTPUT BEGIN =====================\n"
-           + ar.console
-           + prefix + ": CONSOLE OUTPUT END   =====================" );
+      if (fc::logger::get(DEFAULT_LOGGER).is_enabled( fc::log_level::debug )) {
+         std::string prefix;
+         prefix.reserve(3 + 13 + 1 + 13 + 3 + 13 + 1);
+         prefix += "\n[(";
+         prefix += ar.act.account.to_string();
+         prefix += ",";
+         prefix += ar.act.name.to_string();
+         prefix += ")->";
+         prefix += receiver.to_string();
+         prefix += "]";
+
+         std::string output;
+         output.reserve(512);
+         output += prefix;
+         output += ": CONSOLE OUTPUT BEGIN =====================\n";
+         output += ar.console;
+         output += prefix;
+         output += ": CONSOLE OUTPUT END   =====================";
+         dlog( std::move(output) );
+      }
    }
 }
 
@@ -467,7 +478,7 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
       trx.ref_block_num = 0;
       trx.ref_block_prefix = 0;
    } else {
-      trx.expiration = control.pending_block_time() + fc::microseconds(999'999); // Rounds up to nearest second (makes expiration check unnecessary)
+      trx.expiration = time_point_sec{control.pending_block_time() + fc::microseconds(999'999)}; // Rounds up to nearest second (makes expiration check unnecessary)
       trx.set_reference_block(control.head_block_id()); // No TaPoS check necessary
    }
 
@@ -1082,5 +1093,20 @@ action_name apply_context::get_sender() const {
    }
    return action_name();
 }
+
+// Context             |    OC?
+//-------------------------------------------------------------------------------
+// Building block      | baseline, OC for eosio.*
+// Applying block      | OC unless a producer, OC for eosio.* including producers
+// Speculative API trx | baseline, OC for eosio.*
+// Speculative P2P trx | baseline, OC for eosio.*
+// Compute trx         | baseline, OC for eosio.*
+// Read only trx       | OC
+bool apply_context::should_use_eos_vm_oc()const {
+   return receiver.prefix() == config::system_account_name // "eosio"_n, all cases use OC
+          || (is_applying_block() && !control.is_producer_node()) // validating/applying block
+          || trx_context.is_read_only();
+}
+
 
 } } /// eosio::chain

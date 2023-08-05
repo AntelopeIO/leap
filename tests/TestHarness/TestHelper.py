@@ -19,14 +19,14 @@ class AppArgs:
             self.choices=choices
             self.action=action
 
-    def add(self, flag, type, help, default, choices=None):
-        arg=self.AppArg(flag, help, type=type, default=default, choices=choices)
+    def add(self, flag, type, help, default=None, action=None, choices=None):
+        arg=self.AppArg(flag, help, action=action, type=type, default=default, choices=choices)
         self.args.append(arg)
-
 
     def add_bool(self, flag, help, action='store_true'):
         arg=self.AppArg(flag, help, action=action)
         self.args.append(arg)
+
 
 # pylint: disable=too-many-instance-attributes
 class TestHelper(object):
@@ -37,96 +37,93 @@ class TestHelper(object):
     @staticmethod
     # pylint: disable=too-many-branches
     # pylint: disable=too-many-statements
-    def createArgumentParser(includeArgs, applicationSpecificArgs=AppArgs()) -> argparse.ArgumentParser:
+    def createArgumentParser(includeArgs, applicationSpecificArgs=AppArgs(), suppressHelp: bool=False) -> argparse.ArgumentParser:
         """Accepts set of arguments, builds argument parser and returns parse_args() output."""
         assert(includeArgs)
         assert(isinstance(includeArgs, set))
         assert(isinstance(applicationSpecificArgs, AppArgs))
 
-        thParser = argparse.ArgumentParser(add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+        thParser = argparse.ArgumentParser(add_help=True, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         thGrpTitle = "Test Helper Arguments"
         thGrpDescription="Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment."
-        thGrp = thParser.add_argument_group(title=thGrpTitle, description=thGrpDescription)
-        thGrp.add_argument('-?', '--help', action='help', default=argparse.SUPPRESS, help=argparse._('show this help message and exit'))
+        thGrp = thParser.add_argument_group(title=None if suppressHelp else thGrpTitle, description=None if suppressHelp else thGrpDescription)
 
         if "-p" in includeArgs:
-            thGrp.add_argument("-p", type=int, help="producing nodes count", default=1)
+            thGrp.add_argument("-p", type=int, help=argparse.SUPPRESS if suppressHelp else "producing nodes count", default=1)
         if "-n" in includeArgs:
-            thGrp.add_argument("-n", type=int, help="total nodes", default=0)
+            thGrp.add_argument("-n", type=int, help=argparse.SUPPRESS if suppressHelp else "total nodes", default=0)
         if "-d" in includeArgs:
-            thGrp.add_argument("-d", type=int, help="delay between nodes startup", default=1)
+            thGrp.add_argument("-d", type=int, help=argparse.SUPPRESS if suppressHelp else "delay between nodes startup", default=1)
         if "--nodes-file" in includeArgs:
-            thGrp.add_argument("--nodes-file", type=str, help="File containing nodes info in JSON format.")
+            thGrp.add_argument("--nodes-file", type=str, help=argparse.SUPPRESS if suppressHelp else "File containing nodes info in JSON format.")
         if "-s" in includeArgs:
-            thGrp.add_argument("-s", type=str, help="topology", choices=["mesh"], default="mesh")
+            thGrp.add_argument("-s", type=str, help=argparse.SUPPRESS if suppressHelp else "topology", choices=["mesh"], default="mesh")
         if "-c" in includeArgs:
-            thGrp.add_argument("-c", type=str, help="chain strategy",
+            thGrp.add_argument("-c", type=str, help=argparse.SUPPRESS if suppressHelp else "chain strategy",
                     choices=[Utils.SyncResyncTag, Utils.SyncReplayTag, Utils.SyncNoneTag, Utils.SyncHardReplayTag],
                     default=Utils.SyncResyncTag)
         if "--kill-sig" in includeArgs:
-            thGrp.add_argument("--kill-sig", type=str, choices=[Utils.SigKillTag, Utils.SigTermTag], help="kill signal.",
+            thGrp.add_argument("--kill-sig", type=str, choices=[Utils.SigKillTag, Utils.SigTermTag], help=argparse.SUPPRESS if suppressHelp else "kill signal.",
                     default=Utils.SigKillTag)
         if "--kill-count" in includeArgs:
-            thGrp.add_argument("--kill-count", type=int, help="nodeos instances to kill", default=-1)
+            thGrp.add_argument("--kill-count", type=int, help=argparse.SUPPRESS if suppressHelp else "nodeos instances to kill", default=-1)
         if "--terminate-at-block" in includeArgs:
-            thGrp.add_argument("--terminate-at-block", type=int, help="block to terminate on when replaying", default=0)
+            thGrp.add_argument("--terminate-at-block", type=int, help=argparse.SUPPRESS if suppressHelp else "block to terminate on when replaying", default=0)
         if "--seed" in includeArgs:
-            thGrp.add_argument("--seed", type=int, help="random seed", default=1)
+            thGrp.add_argument("--seed", type=int, help=argparse.SUPPRESS if suppressHelp else "random seed", default=1)
 
         if "--host" in includeArgs:
-            thGrp.add_argument("-h", "--host", type=str, help="%s host name" % (Utils.EosServerName),
+            thGrp.add_argument("--host", type=str, help=argparse.SUPPRESS if suppressHelp else "%s host name" % (Utils.EosServerName),
                                      default=TestHelper.LOCAL_HOST)
         if "--port" in includeArgs:
-            thGrp.add_argument("--port", type=int, help="%s host port" % Utils.EosServerName,
+            thGrp.add_argument("--port", type=int, help=argparse.SUPPRESS if suppressHelp else "%s host port" % Utils.EosServerName,
                                      default=TestHelper.DEFAULT_PORT)
         if "--wallet-host" in includeArgs:
-            thGrp.add_argument("--wallet-host", type=str, help="%s host" % Utils.EosWalletName,
+            thGrp.add_argument("--wallet-host", type=str, help=argparse.SUPPRESS if suppressHelp else "%s host" % Utils.EosWalletName,
                                      default=TestHelper.LOCAL_HOST)
         if "--wallet-port" in includeArgs:
-            thGrp.add_argument("--wallet-port", type=int, help="%s port" % Utils.EosWalletName,
+            thGrp.add_argument("--wallet-port", type=int, help=argparse.SUPPRESS if suppressHelp else "%s port" % Utils.EosWalletName,
                                      default=TestHelper.DEFAULT_WALLET_PORT)
         if "--prod-count" in includeArgs:
-            thGrp.add_argument("-c", "--prod-count", type=int, help="Per node producer count", default=1)
+            thGrp.add_argument("-c", "--prod-count", type=int, help=argparse.SUPPRESS if suppressHelp else "Per node producer count", default=21)
         if "--defproducera_prvt_key" in includeArgs:
-            thGrp.add_argument("--defproducera_prvt_key", type=str, help="defproducera private key.")
+            thGrp.add_argument("--defproducera_prvt_key", type=str, help=argparse.SUPPRESS if suppressHelp else "defproducera private key.")
         if "--defproducerb_prvt_key" in includeArgs:
-            thGrp.add_argument("--defproducerb_prvt_key", type=str, help="defproducerb private key.")
+            thGrp.add_argument("--defproducerb_prvt_key", type=str, help=argparse.SUPPRESS if suppressHelp else "defproducerb private key.")
         if "--dump-error-details" in includeArgs:
             thGrp.add_argument("--dump-error-details",
-                                     help="Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout",
+                                     help=argparse.SUPPRESS if suppressHelp else "Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout",
                                      action='store_true')
         if "--dont-launch" in includeArgs:
-            thGrp.add_argument("--dont-launch", help="Don't launch own node. Assume node is already running.",
+            thGrp.add_argument("--dont-launch", help=argparse.SUPPRESS if suppressHelp else "Don't launch own node. Assume node is already running.",
                                      action='store_true')
         if "--keep-logs" in includeArgs:
-            thGrp.add_argument("--keep-logs", help="Don't delete <test_name><pid>/node_* folders, or other test specific log directories, upon test completion",
+            thGrp.add_argument("--keep-logs", help=argparse.SUPPRESS if suppressHelp else "Don't delete <test_name><pid>/node_* folders, or other test specific log directories, upon test completion",
                                      action='store_true')
         if "-v" in includeArgs:
-            thGrp.add_argument("-v", help="verbose logging", action='store_true')
+            thGrp.add_argument("-v", help=argparse.SUPPRESS if suppressHelp else "verbose logging", action='store_true')
         if "--leave-running" in includeArgs:
-            thGrp.add_argument("--leave-running", help="Leave cluster running after test finishes", action='store_true')
+            thGrp.add_argument("--leave-running", help=argparse.SUPPRESS if suppressHelp else "Leave cluster running after test finishes", action='store_true')
         if "--only-bios" in includeArgs:
-            thGrp.add_argument("--only-bios", help="Limit testing to bios node.", action='store_true')
-        if "--clean-run" in includeArgs:
-            thGrp.add_argument("--clean-run", help="Kill all nodeos and keosd instances", action='store_true')
+            thGrp.add_argument("--only-bios", help=argparse.SUPPRESS if suppressHelp else "Limit testing to bios node.", action='store_true')
         if "--sanity-test" in includeArgs:
-            thGrp.add_argument("--sanity-test", help="Validates nodeos and keosd are in path and can be started up.", action='store_true')
+            thGrp.add_argument("--sanity-test", help=argparse.SUPPRESS if suppressHelp else "Validates nodeos and keosd are in path and can be started up.", action='store_true')
         if "--alternate-version-labels-file" in includeArgs:
-            thGrp.add_argument("--alternate-version-labels-file", type=str, help="Provide a file to define the labels that can be used in the test and the path to the version installation associated with that.")
+            thGrp.add_argument("--alternate-version-labels-file", type=str, help=argparse.SUPPRESS if suppressHelp else "Provide a file to define the labels that can be used in the test and the path to the version installation associated with that.")
         if "--error-log-path" in includeArgs:
-            thGrp.add_argument("--error-log-path", type=str, help="Provide path to error file for use when remotely running a test from another test.")
+            thGrp.add_argument("--error-log-path", type=str, help=argparse.SUPPRESS if suppressHelp else "Provide path to error file for use when remotely running a test from another test.")
         if "--unshared" in includeArgs:
-            thGrp.add_argument("--unshared", help="Run test in isolated network namespace", action='store_true')
+            thGrp.add_argument("--unshared", help=argparse.SUPPRESS if suppressHelp else "Run test in isolated network namespace", action='store_true')
 
         if len(applicationSpecificArgs.args) > 0:
             appArgsGrpTitle="Application Specific Arguments"
             appArgsGrpdescription="Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment."
-            appArgsGrp = thParser.add_argument_group(title=appArgsGrpTitle, description=appArgsGrpdescription)
+            appArgsGrp = thParser.add_argument_group(title=None if suppressHelp else appArgsGrpTitle, description=None if suppressHelp else appArgsGrpdescription)
             for arg in applicationSpecificArgs.args:
                 if arg.type is not None:
-                    appArgsGrp.add_argument(arg.flag, type=arg.type, help=arg.help, choices=arg.choices, default=arg.default)
+                    appArgsGrp.add_argument(arg.flag, action=arg.action, type=arg.type, help=argparse.SUPPRESS if suppressHelp else arg.help, choices=arg.choices, default=arg.default)
                 else:
-                    appArgsGrp.add_argument(arg.flag, help=arg.help, action=arg.action)
+                    appArgsGrp.add_argument(arg.flag, help=argparse.SUPPRESS if suppressHelp else arg.help, action=arg.action)
 
         return thParser
 
@@ -150,17 +147,13 @@ class TestHelper(object):
         Utils.Print("OS name: %s" % (platform.platform()))
     
     @staticmethod
-    # pylint: disable=too-many-arguments
-    def shutdown(cluster, walletMgr, testSuccessful=True, killEosInstances=True, killWallet=True, keepLogs=False, cleanRun=True, dumpErrorDetails=False):
+    def shutdown(cluster, walletMgr, testSuccessful=True, dumpErrorDetails=False):
         """Cluster and WalletMgr shutdown and cleanup."""
         assert(cluster)
         assert(isinstance(cluster, Cluster))
         if walletMgr:
             assert(isinstance(walletMgr, WalletMgr))
         assert(isinstance(testSuccessful, bool))
-        assert(isinstance(killEosInstances, bool))
-        assert(isinstance(killWallet, bool))
-        assert(isinstance(cleanRun, bool))
         assert(isinstance(dumpErrorDetails, bool))
 
         Utils.ShuttingDown=True
@@ -188,17 +181,6 @@ class TestHelper(object):
             # for now report these to know how many blocks we are missing production windows for
             reportProductionAnalysis(thresholdMs=200)
 
-        if killEosInstances:
-            Utils.Print("Shut down the cluster.")
-            cluster.killall(allInstances=cleanRun, kill=testSuccessful)
-            if testSuccessful and not keepLogs:
-                Utils.Print("Cleanup cluster data.")
-                cluster.cleanup()
-
-        if walletMgr and killWallet:
-            Utils.Print("Shut down the wallet.")
-            walletMgr.killall(allInstances=cleanRun)
-            if testSuccessful and not keepLogs:
-                Utils.Print("Cleanup wallet data.")
-                walletMgr.cleanup()
-
+        cluster.testFailed = not testSuccessful
+        if walletMgr:
+            walletMgr.testFailed = not testSuccessful

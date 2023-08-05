@@ -19,7 +19,7 @@ std::string gen_password() {
 bool valid_filename(const string& name) {
    if (name.empty()) return false;
    if (std::find_if(name.begin(), name.end(), !boost::algorithm::is_alnum() && !boost::algorithm::is_any_of("._-")) != name.end()) return false;
-   return boost::filesystem::path(name).filename().string() == name;
+   return std::filesystem::path(name).filename().string() == name;
 }
 
 wallet_manager::wallet_manager() {
@@ -33,7 +33,7 @@ wallet_manager::wallet_manager() {
 wallet_manager::~wallet_manager() {
    //not really required, but may spook users
    if(wallet_dir_lock)
-      boost::filesystem::remove(lock_path);
+      std::filesystem::remove(lock_path);
 }
 
 void wallet_manager::set_timeout(const std::chrono::seconds& t) {
@@ -61,8 +61,8 @@ std::string wallet_manager::create(const std::string& name) {
 
    auto wallet_filename = dir / (name + file_ext);
 
-   if (fc::exists(wallet_filename)) {
-      EOS_THROW(chain::wallet_exist_exception, "Wallet with name: '${n}' already exists at ${path}", ("n", name)("path",fc::path(wallet_filename)));
+   if (std::filesystem::exists(wallet_filename)) {
+      EOS_THROW(chain::wallet_exist_exception, "Wallet with name: '${n}' already exists at ${path}", ("n", name)("path",std::filesystem::path(wallet_filename)));
    }
 
    std::string password = gen_password();
@@ -276,11 +276,10 @@ void wallet_manager::start_lock_watch(std::shared_ptr<boost::asio::deadline_time
 {
    t->async_wait([t, this](const boost::system::error_code& /*ec*/)
    {
-      namespace bfs = boost::filesystem;
-      boost::system::error_code ec;
-      auto rc = bfs::status(lock_path, ec);
-      if(ec != boost::system::error_code()) {
-         if(rc.type() == bfs::file_not_found) {
+      std::error_code ec;
+      auto rc = std::filesystem::status(lock_path, ec);
+      if(!ec) {
+         if(rc.type() == std::filesystem::file_type::not_found) {
             appbase::app().quit();
             EOS_THROW(wallet_exception, "Lock file removed while keosd still running.  Terminating.");
          }

@@ -14,13 +14,14 @@ struct mock_connection {
 using namespace eosio::chain::literals;
 using namespace std::literals::string_literals;
 
-struct mock_net_plugin : eosio::auto_bp_peering::bp_connection_manager<mock_net_plugin, mock_connection> {
-
-   uint32_t                     max_client_count;
-   bool                         is_in_sync = false;
+struct mock_connections_manager {
+   uint32_t                     max_client_count = 0;
    std::vector<mock_connection> connections;
 
-   bool in_sync() { return is_in_sync; }
+   std::function<void(std::string, std::string)> connect;
+   std::function<void(std::string)> disconnect;
+
+   uint32_t get_max_client_count() const { return max_client_count; }
 
    template <typename Function>
    void for_each_connection(Function&& func) const {
@@ -29,9 +30,15 @@ struct mock_net_plugin : eosio::auto_bp_peering::bp_connection_manager<mock_net_
             return;
       }
    }
+};
 
-   std::function<void(std::string)> connect;
-   std::function<void(std::string)> disconnect;
+struct mock_net_plugin : eosio::auto_bp_peering::bp_connection_manager<mock_net_plugin, mock_connection> {
+
+   bool                         is_in_sync = false;
+   mock_connections_manager     connections;
+   std::vector<std::string>     p2p_addresses{"0.0.0.0:9876"};
+
+   bool in_sync() { return is_in_sync; }
 
    void setup_test_peers() {
       set_bp_peers({ "proda,127.0.0.1:8001:blk"s, "prodb,127.0.0.1:8002:trx"s, "prodc,127.0.0.1:8003"s,
@@ -159,7 +166,7 @@ BOOST_AUTO_TEST_CASE(test_on_pending_schedule) {
 
    std::vector<std::string> connected_hosts;
 
-   plugin.connect = [&connected_hosts](std::string host) { connected_hosts.push_back(host); };
+   plugin.connections.connect = [&connected_hosts](std::string host, std::string p2p_address) { connected_hosts.push_back(host); };
 
    // make sure nothing happens when it is not in_sync
    plugin.is_in_sync = false;
@@ -167,7 +174,7 @@ BOOST_AUTO_TEST_CASE(test_on_pending_schedule) {
 
    BOOST_CHECK_EQUAL(connected_hosts, (std::vector<std::string>{}));
    BOOST_CHECK_EQUAL(plugin.pending_neighbors, (fc::flat_set<eosio::chain::account_name>{ "prodj"_n, "prodm"_n }));
-   BOOST_CHECK_EQUAL(plugin.pending_schedule_version, 0);
+   BOOST_CHECK_EQUAL(plugin.pending_schedule_version, 0u);
 
    // when it is in sync and on_pending_schedule is called
    plugin.is_in_sync = true;
@@ -182,10 +189,10 @@ BOOST_AUTO_TEST_CASE(test_on_pending_schedule) {
    BOOST_CHECK_EQUAL(connected_hosts, (std::vector<std::string>{ "127.0.0.1:8001:blk"s, "127.0.0.1:8002:trx"s,
                                                                  "127.0.0.1:8005"s, "127.0.0.1:8006"s }));
 
-   BOOST_CHECK_EQUAL(plugin.pending_schedule_version, 1);
+   BOOST_CHECK_EQUAL(plugin.pending_schedule_version, 1u);
 
    // make sure we don't change the active_schedule_version
-   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 0);
+   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 0u);
 
    // Let's call on_pending_schedule() again, and connect shouldn't be called again
    connected_hosts.clear();
@@ -203,10 +210,10 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule1) {
    plugin.config.my_bp_accounts = { "prodd"_n, "produ"_n };
 
    plugin.active_neighbors = { "proda"_n, "prodh"_n, "prodn"_n };
-   plugin.connect          = [](std::string host) {};
+   plugin.connections.connect = [](std::string host, std::string p2p_address) {};
 
    std::vector<std::string> disconnected_hosts;
-   plugin.disconnect = [&disconnected_hosts](std::string host) { disconnected_hosts.push_back(host); };
+   plugin.connections.disconnect = [&disconnected_hosts](std::string host) { disconnected_hosts.push_back(host); };
 
    // make sure nothing happens when it is not in_sync
    plugin.is_in_sync = false;
@@ -215,7 +222,7 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule1) {
    BOOST_CHECK_EQUAL(disconnected_hosts, (std::vector<std::string>{}));
    BOOST_CHECK_EQUAL(plugin.active_neighbors,
                      (fc::flat_set<eosio::chain::account_name>{ "proda"_n, "prodh"_n, "prodn"_n }));
-   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 0);
+   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 0u);
 
    // when it is in sync and on_active_schedule is called
    plugin.is_in_sync = true;
@@ -229,7 +236,7 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule1) {
                                                                 "prods"_n, "prodt"_n }));
 
    // make sure we change the active_schedule_version
-   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 1);
+   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 1u);
 }
 
 BOOST_AUTO_TEST_CASE(test_on_active_schedule2) {
@@ -239,9 +246,9 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule2) {
    plugin.config.my_bp_accounts = { "prodd"_n, "produ"_n };
 
    plugin.active_neighbors = { "proda"_n, "prodh"_n, "prodn"_n };
-   plugin.connect          = [](std::string host) {};
+   plugin.connections.connect = [](std::string host, std::string p2p_address) {};
    std::vector<std::string> disconnected_hosts;
-   plugin.disconnect = [&disconnected_hosts](std::string host) { disconnected_hosts.push_back(host); };
+   plugin.connections.disconnect = [&disconnected_hosts](std::string host) { disconnected_hosts.push_back(host); };
 
    // when pending and active schedules are changed simultaneosly
    plugin.is_in_sync = true;
@@ -256,15 +263,15 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule2) {
                                                                 "prods"_n, "prodt"_n }));
 
    // make sure we change the active_schedule_version
-   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 1);
+   BOOST_CHECK_EQUAL(plugin.active_schedule_version, 1u);
 }
 
 BOOST_AUTO_TEST_CASE(test_exceeding_connection_limit) {
    mock_net_plugin plugin;
    plugin.setup_test_peers();
    plugin.config.my_bp_accounts = { "prodd"_n, "produ"_n };
-   plugin.max_client_count      = 1;
-   plugin.connections           = {
+   plugin.connections.max_client_count = 1;
+   plugin.connections.connections = {
       { .is_bp_connection = true, .is_open = true, .handshake_received = true },   // 0
       { .is_bp_connection = true, .is_open = true, .handshake_received = false },  // 1
       { .is_bp_connection = true, .is_open = false, .handshake_received = true },  // 2
@@ -275,14 +282,14 @@ BOOST_AUTO_TEST_CASE(test_exceeding_connection_limit) {
       { .is_bp_connection = false, .is_open = false, .handshake_received = false } // 7
    };
 
-   BOOST_CHECK_EQUAL(plugin.num_established_clients(), 2);
+   BOOST_CHECK_EQUAL(plugin.num_established_clients(), 2u);
 
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections[0]));
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections[1]));
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections[2]));
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections[3]));
-   BOOST_CHECK(plugin.exceeding_connection_limit(&plugin.connections[4]));
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections[5]));
-   BOOST_CHECK(plugin.exceeding_connection_limit(&plugin.connections[6]));
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections[7]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[0]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[1]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[2]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[3]));
+   BOOST_CHECK(plugin.exceeding_connection_limit(&plugin.connections.connections[4]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[5]));
+   BOOST_CHECK(plugin.exceeding_connection_limit(&plugin.connections.connections[6]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[7]));
 }

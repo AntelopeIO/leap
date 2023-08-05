@@ -46,13 +46,17 @@ set(CPACK_PACKAGE_HOMEPAGE_URL "https://github.com/AntelopeIO/leap")
 
 set(CPACK_DEBIAN_PACKAGE_SHLIBDEPS ON)
 set(CPACK_DEBIAN_BASE_PACKAGE_SECTION "utils")
+if(CMAKE_VERSION VERSION_GREATER_EQUAL 3.22)
+   set(CPACK_DEBIAN_COMPRESSION_TYPE "zstd")
+endif()
 
 set(CPACK_DEBIAN_PACKAGE_CONFLICTS "eosio, mandel")
 set(CPACK_RPM_PACKAGE_CONFLICTS "eosio, mandel")
 
-#only consider "base" and "dev" components for per-component packages
-get_cmake_property(CPACK_COMPONENTS_ALL COMPONENTS)
-list(REMOVE_ITEM CPACK_COMPONENTS_ALL "Unspecified")
+set(CPACK_COMPONENTS_ALL "base")
+if(ENABLE_LEAP_DEV_DEB)
+   list(APPEND CPACK_COMPONENTS_ALL "dev")
+endif()
 
 #enable per component packages for .deb; ensure main package is just "leap", not "leap-base", and make the dev package have "leap-dev" at the front not the back
 set(CPACK_DEB_COMPONENT_INSTALL ON)
@@ -61,7 +65,7 @@ set(CPACK_DEBIAN_BASE_FILE_NAME "${CPACK_DEBIAN_FILE_NAME}.deb")
 string(REGEX REPLACE "^(${CMAKE_PROJECT_NAME})" "\\1-dev" CPACK_DEBIAN_DEV_FILE_NAME "${CPACK_DEBIAN_BASE_FILE_NAME}")
 
 #deb package tooling will be unable to detect deps for the dev package. llvm is tricky since we don't know what package could have been used; try to figure it out
-set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS "libboost-all-dev, libssl-dev, libgmp-dev, python3-numpy")
+set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS "libssl-dev, libgmp-dev, python3-distutils, python3-numpy, zlib1g-dev")
 find_program(DPKG_QUERY "dpkg-query")
 if(DPKG_QUERY AND OS_RELEASE MATCHES "\n?ID=\"?ubuntu" AND LLVM_CMAKE_DIR)
    execute_process(COMMAND "${DPKG_QUERY}" -S "${LLVM_CMAKE_DIR}" COMMAND cut -d: -f1 RESULT_VARIABLE LLVM_PKG_FIND_RESULT OUTPUT_VARIABLE LLVM_PKG_FIND_OUTPUT)

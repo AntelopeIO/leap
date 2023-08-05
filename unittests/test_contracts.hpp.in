@@ -10,10 +10,10 @@
       fc::read_file_contents("${CMAKE_BINARY_DIR}/unittests/" #D "/" #C "/" #C ".wasm", s); \
       return std::vector<uint8_t>(s.begin(), s.end());                                      \
    }                                                                                        \
-   static std::vector<char> CN ## _abi() {                                                  \
+   static std::string CN ## _abi() {                                                        \
       std::string s;                                                                        \
       fc::read_file_contents("${CMAKE_BINARY_DIR}/unittests/" #D "/" #C "/" #C ".abi", s);  \
-      return std::vector<char>(s.begin(), s.end());                                         \
+      return s;                                                                             \
    }
 
 namespace eosio {

@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE webauthn_test_mod
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <boost/algorithm/string.hpp>
 
 #include <fc/crypto/public_key.hpp>

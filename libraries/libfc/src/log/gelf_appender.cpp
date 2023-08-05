@@ -118,7 +118,7 @@ namespace fc
       }
 
       std::string_view endpoint = my->cfg.endpoint;
-      string::size_type colon_pos = endpoint.rfind(':');
+      std::string::size_type colon_pos = endpoint.rfind(':');
       FC_ASSERT(colon_pos != std::string::npos, "The logging destination port is not specified");
       auto port = endpoint.substr(colon_pos + 1);
 
@@ -137,7 +137,7 @@ namespace fc
 
       my->thread = std::thread([this] {
         try {
-          fc::set_os_thread_name("gelf");
+          fc::set_thread_name("gelf");
           my->io_context.run();
         } catch (std::exception& ex) {
           fprintf(stderr, "GELF logger caught exception at %s:%d : %s\n", __FILE__, __LINE__, ex.what());
@@ -169,7 +169,7 @@ namespace fc
     gelf_message["_timestamp_ns"] = time_ns;
 
     static uint64_t gelf_log_counter;
-    gelf_message["_log_id"] = fc::to_string(++gelf_log_counter);
+    gelf_message["_log_id"] = std::to_string(++gelf_log_counter);
 
     switch (context.get_log_level())
     {
@@ -205,7 +205,7 @@ namespace fc
       gelf_message[field.key()] = field.value();
     }
 
-    string gelf_message_as_string = json::to_string(gelf_message,
+    std::string gelf_message_as_string = json::to_string(gelf_message,
           fc::time_point::now() + fc::exception::format_time_limit,
           json::output_formatting::legacy_generator); // GELF 1.1 specifies unstringified numbers
     gelf_message_as_string = zlib_compress(gelf_message_as_string);

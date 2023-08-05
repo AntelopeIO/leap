@@ -20,16 +20,10 @@ using namespace eosio::testing;
 using namespace fc;
 namespace data = boost::unit_test::data;
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 namespace {
-struct wasm_config_tester : TESTER {
+struct wasm_config_tester : validating_tester {
    wasm_config_tester() {
-      set_abi(config::system_account_name, test_contracts::wasm_config_bios_abi().data());
+      set_abi(config::system_account_name, test_contracts::wasm_config_bios_abi());
       set_code(config::system_account_name, test_contracts::wasm_config_bios_wasm());
       bios_abi_ser = *get_resolver()(config::system_account_name);
    }
@@ -1061,7 +1055,7 @@ static const char check_get_wasm_parameters_wast[] = R"======(
 )
 )======";
 
-BOOST_FIXTURE_TEST_CASE(get_wasm_parameters_test, TESTER) {
+BOOST_FIXTURE_TEST_CASE(get_wasm_parameters_test, validating_tester) {
    produce_block();
 
    create_account( "test"_n );

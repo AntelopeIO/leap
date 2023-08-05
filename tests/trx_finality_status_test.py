@@ -28,24 +28,19 @@ Print=Utils.Print
 errorExit=Utils.errorExit
 
 appArgs=AppArgs()
-args = TestHelper.parse_args({"-n", "--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"})
+args = TestHelper.parse_args({"-n", "--dump-error-details","--keep-logs","-v","--leave-running","--unshared"})
 Utils.Debug=args.v
 pnodes=3
 totalNodes=args.n
 if totalNodes<=pnodes+2:
     totalNodes=pnodes+2
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-dontKill=args.leave_running
 prodCount=1
-killAll=args.clean_run
 walletPort=TestHelper.DEFAULT_WALLET_PORT
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 ClientName="cleos"
@@ -57,8 +52,6 @@ try:
     TestHelper.printSystemInfo("BEGIN")
     cluster.setWalletMgr(walletMgr)
 
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     Print("Stand up cluster")
     successDuration = 60
     failure_duration = 40
@@ -214,7 +207,7 @@ try:
     testSuccessful=True
 
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 exit(exitCode)

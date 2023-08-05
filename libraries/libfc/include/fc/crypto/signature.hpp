@@ -27,7 +27,7 @@ namespace fc { namespace crypto {
          signature& operator= (const signature& ) = default;
 
          // serialize to/from string
-         explicit signature(const string& base58str);
+         explicit signature(const std::string& base58str);
          std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
 
          size_t which() const;
@@ -38,7 +38,7 @@ namespace fc { namespace crypto {
          storage_type _storage;
 
          signature( storage_type&& other_storage )
-         :_storage(std::forward<storage_type>(other_storage))
+         :_storage(std::move(other_storage))
          {}
 
          friend bool operator == ( const signature& p1, const signature& p2);

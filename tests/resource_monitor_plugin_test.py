@@ -175,9 +175,9 @@ def testAll():
     testCommon("Resmon not enabled: no arguments", "", ["interval set to 2", "threshold set to 90", "Shutdown flag when threshold exceeded set to true", "Creating and starting monitor thread", "snapshots's file system to be monitored", "blocks's file system to be monitored", "state's file system to be monitored"])
     
     # default arguments with registered directories
-    testCommon("Resmon not enabled: Producer, Chain, State History and Trace Api", "--plugin eosio::state_history_plugin --state-history-dir=/tmp/state-history --disable-replay-opts --plugin eosio::trace_api_plugin --trace-dir=/tmp/trace --trace-no-abis", ["interval set to 2", "threshold set to 90", "Shutdown flag when threshold exceeded set to true", "snapshots's file system to be monitored", "blocks's file system to be monitored", "state's file system to be monitored", "state-history's file system to be monitored", "trace's file system to be monitored", "Creating and starting monitor thread"])
+    testCommon("Resmon not enabled: Producer, Chain, State History and Trace Api", "--plugin eosio::state_history_plugin --state-history-dir=/tmp/state-history --plugin eosio::trace_api_plugin --trace-dir=/tmp/trace --trace-no-abis", ["interval set to 2", "threshold set to 90", "Shutdown flag when threshold exceeded set to true", "snapshots's file system to be monitored", "blocks's file system to be monitored", "state's file system to be monitored", "state-history's file system to be monitored", "trace's file system to be monitored", "Creating and starting monitor thread"])
 
-    testCommon("Resmon enabled: Producer, Chain, State History and Trace Api", "--plugin  eosio::resource_monitor_plugin --plugin eosio::state_history_plugin --state-history-dir=/tmp/state-history --disable-replay-opts --plugin eosio::trace_api_plugin --trace-dir=/tmp/trace --trace-no-abis --resource-monitor-space-threshold=80 --resource-monitor-interval-seconds=3", ["snapshots's file system to be monitored", "blocks's file system to be monitored", "state's file system to be monitored", "state-history's file system to be monitored", "trace's file system to be monitored", "Creating and starting monitor thread", "threshold set to 80", "interval set to 3", "Shutdown flag when threshold exceeded set to true"])
+    testCommon("Resmon enabled: Producer, Chain, State History and Trace Api", "--plugin  eosio::resource_monitor_plugin --plugin eosio::state_history_plugin --state-history-dir=/tmp/state-history --plugin eosio::trace_api_plugin --trace-dir=/tmp/trace --trace-no-abis --resource-monitor-space-threshold=80 --resource-monitor-interval-seconds=3", ["snapshots's file system to be monitored", "blocks's file system to be monitored", "state's file system to be monitored", "state-history's file system to be monitored", "trace's file system to be monitored", "Creating and starting monitor thread", "threshold set to 80", "interval set to 3", "Shutdown flag when threshold exceeded set to true"])
 
     # Only test minimum warning threshold (i.e. 6) to trigger warning as much as possible
     testInterval("Resmon enabled: set warning interval", 
@@ -192,7 +192,7 @@ def testAll():
         ["Space usage warning"],
         6)
 
-args = TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--clean-run"})
+args = TestHelper.parse_args({"--keep-logs","--dump-error-details","-v","--leave-running","--unshared"})
 debug=args.v
 pnodes=1
 topo="mesh"
@@ -202,28 +202,14 @@ total_nodes = pnodes
 killCount=1
 killSignal=Utils.SigKillTag
 
-killEosInstances= not args.leave_running
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-killAll=args.clean_run
 
 seed=1
 Utils.Debug=debug
 testSuccessful=False
 
-cluster=Cluster(walletd=True)
-
 try:
     TestHelper.printSystemInfo("BEGIN")
-
-    cluster.setChainStrategy(chainSyncStrategyStr)
-
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
-
-    if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo,delay=delay, dontBootstrap=True) is False:
-        errorExit("Failed to stand up eos cluster.")
-    cluster.killall(allInstances=killAll)
 
     testAll()
 
@@ -231,7 +217,6 @@ try:
 finally:
     if debug: Print("Cleanup in finally block.")
     cleanDirectories()
-    TestHelper.shutdown(cluster, None, testSuccessful, killEosInstances, False, keepLogs, killAll, dumpErrorDetails)
 
 exitCode = 0 if testSuccessful else 1
 if debug: Print("Exiting test, exit value %d." % (exitCode))

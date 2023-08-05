@@ -1,0 +1,48 @@
+name: "Build leap"
+
+on:
+  workflow_call:
+    inputs:
+      p:
+        description: "Discovered Build Platforms"
+        type: string
+        required: true
+      platform-matrix:
+        description: "Platform Matrix"
+        type: string
+        required: true
+
+permissions:
+  packages: read
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  Build:
+    name: Build leap
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: ${{fromJSON(inputs.platform-matrix)}}
+    runs-on: ["self-hosted", "enf-x86-beefy"]
+    container: ${{fromJSON(inputs.p)[matrix.platform].image}}
+    steps:
+        - uses: actions/checkout@v3
+          with:
+            submodules: recursive
+        - name: Build
+          id: build
+          run: |
+            # https://github.com/actions/runner/issues/2033
+            chown -R $(id -u):$(id -g) $PWD
+            cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr -DENABLE_LEAP_DEV_DEB=On -GNinja
+            cmake --build build
+            tar -pc --exclude "*.o" build | zstd --long -T0 -9 > build.tar.zst
+        - name: Upload builddir
+          uses: AntelopeIO/upload-artifact-large-chunks-action@v1
+          with:
+            name: ${{matrix.platform}}-build
+            path: build.tar.zst

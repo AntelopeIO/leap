@@ -14,12 +14,6 @@
 
 #include <boost/test/unit_test.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio::chain;
 using namespace eosio::testing;
 
@@ -120,10 +114,10 @@ BOOST_AUTO_TEST_SUITE(misc_tests)
 
 BOOST_AUTO_TEST_CASE(reverse_endian_tests)
 {
-    BOOST_CHECK_EQUAL( endian_reverse_u64(0x0123456789abcdef), 0xefcdab8967452301 );
-    BOOST_CHECK_EQUAL( endian_reverse_u64(0x0102030405060708), 0x0807060504030201 );
-    BOOST_CHECK_EQUAL( endian_reverse_u32(0x01234567), 0x67452301 );
-    BOOST_CHECK_EQUAL( endian_reverse_u32(0x01020304), 0x04030201 );
+    BOOST_CHECK_EQUAL( endian_reverse_u64(0x0123456789abcdef), 0xefcdab8967452301u );
+    BOOST_CHECK_EQUAL( endian_reverse_u64(0x0102030405060708), 0x0807060504030201u );
+    BOOST_CHECK_EQUAL( endian_reverse_u32(0x01234567), 0x67452301u );
+    BOOST_CHECK_EQUAL( endian_reverse_u32(0x01020304), 0x04030201u );
 }
 
 BOOST_AUTO_TEST_CASE(name_suffix_tests)
@@ -143,6 +137,27 @@ BOOST_AUTO_TEST_CASE(name_suffix_tests)
    BOOST_CHECK_EQUAL( name{name_suffix("......a.b.c"_n)}, name{"c"_n} );
    BOOST_CHECK_EQUAL( name{name_suffix("abcdefhi.123"_n)}, name{"123"_n} );
    BOOST_CHECK_EQUAL( name{name_suffix("abcdefhij.123"_n)}, name{"123"_n} );
+}
+
+BOOST_AUTO_TEST_CASE(name_prefix_tests)
+{
+   BOOST_CHECK_EQUAL("e"_n.prefix(), "e"_n);
+   BOOST_CHECK_EQUAL(""_n.prefix(), ""_n);
+   BOOST_CHECK_EQUAL("abcdefghijklm"_n.prefix(), "abcdefghijklm"_n);
+   BOOST_CHECK_EQUAL("abcdefghijkl"_n.prefix(), "abcdefghijkl"_n);
+   BOOST_CHECK_EQUAL("abc.xyz"_n.prefix(), "abc"_n);
+   BOOST_CHECK_EQUAL("abc.xyz.qrt"_n.prefix(), "abc.xyz"_n);
+   BOOST_CHECK_EQUAL("."_n.prefix(), ""_n);
+
+   BOOST_CHECK_EQUAL("eosio.any"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL("eosio"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL("eosio"_n.prefix(), config::system_account_name);
+   BOOST_CHECK_EQUAL("eosio."_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL("eosio.evm"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_EQUAL(".eosio"_n.prefix(), ""_n);
+   BOOST_CHECK_NE("eosi"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_NE("eosioeosio"_n.prefix(), "eosio"_n);
+   BOOST_CHECK_NE("eosioe"_n.prefix(), "eosio"_n);
 }
 
 /// Test processing of unbalanced strings
@@ -174,9 +189,9 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       mu( "b", string( 1024, 'b' ) );
       mu( "c", string( 1024, 'c' ) );
       string result = fc::format_string( format, mu, true );
-      BOOST_CHECK_LT(0, mu.size());
-      BOOST_CHECK_LT(format.size(), 1024);
-      const size_t target_size = (1024 -  format.size()) / mu.size();
+      BOOST_CHECK_LT(0u, mu.size());
+      BOOST_CHECK_LT(format.size(), 1024u);
+      const size_t target_size = (1024u -  format.size()) / mu.size();
       BOOST_CHECK_EQUAL( result, string( target_size, 'a' ) + "... " + string( target_size, 'b' ) + "... " + string( target_size, 'c' ) + "..." );
    }
    {
@@ -217,8 +232,8 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       mu("auth", *provided_permissions.begin());
       mu("provided_permissions", provided_permissions);
       mu("provided_keys", provided_keys);
-      BOOST_CHECK_LT(0, mu.size());
-      const auto arg_limit_size = (1024 - format.size()) / mu.size();
+      BOOST_CHECK_LT(0u, mu.size());
+      const auto arg_limit_size = (1024u - format.size()) / mu.size();
       const string result = fc::format_string(format, mu, true);
       BOOST_CHECK(provided_permissions.begin() != provided_permissions.end());
       const string auth_str = fc::json::to_string(*provided_permissions.begin(), fc::time_point::maximum());
@@ -226,7 +241,7 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       target_str += "', provided permissions " + fc::json::to_string(provided_permissions, fc::time_point::maximum());
       target_str += ", provided keys " + fc::json::to_string(provided_keys, fc::time_point::maximum()).substr(0, arg_limit_size);
       BOOST_CHECK_EQUAL(result, target_str);
-      BOOST_CHECK_LT(result.size(), 1024 + 3 * mu.size());
+      BOOST_CHECK_LT(result.size(), 1024u + 3 * mu.size());
 
       // test cases for issue #8741, longer version, permission and keys field being folded
       provided_permissions.clear();
@@ -239,13 +254,13 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       mu_fold("auth", *provided_permissions.begin());
       mu_fold("provided_permissions", provided_permissions);
       mu_fold("provided_keys", provided_keys);
-      BOOST_CHECK_LT(0, mu_fold.size());
+      BOOST_CHECK_LT(0u, mu_fold.size());
       string target_fold_str = "transaction declares authority '" + fc::json::to_string(*provided_permissions.begin(), fc::time_point::maximum());
       target_fold_str += "', provided permissions ${provided_permissions}";
       target_fold_str += ", provided keys ${provided_keys}";
       const string result_fold = fc::format_string(format, mu_fold, true);
       BOOST_CHECK_EQUAL(result_fold, target_fold_str);
-      BOOST_CHECK_LT(result_fold.size(), 1024 + 3 * mu.size());
+      BOOST_CHECK_LT(result_fold.size(), 1024u + 3 * mu.size());
    }
 }
 
@@ -380,7 +395,7 @@ struct permission_visitor {
 
 BOOST_AUTO_TEST_CASE(authority_checker)
 { try {
-   testing::TESTER test;
+   testing::validating_tester test;
    auto a = test.get_public_key(name("a"), "active");
    auto b = test.get_public_key(name("b"), "active");
    auto c = test.get_public_key(name("c"), "active");
@@ -698,7 +713,7 @@ BOOST_AUTO_TEST_CASE(alphabetic_sort)
 
 BOOST_AUTO_TEST_CASE(transaction_test) { try {
 
-   testing::TESTER test;
+   testing::validating_tester test;
    signed_transaction trx;
 
    fc::variant pretty_trx = fc::mutable_variant_object()
@@ -729,7 +744,7 @@ BOOST_AUTO_TEST_CASE(transaction_test) { try {
 
    test.set_transaction_headers(trx);
 
-   trx.expiration = fc::time_point::now();
+   trx.expiration = fc::time_point_sec{fc::time_point::now()};
    trx.validate();
    BOOST_CHECK_EQUAL(0u, trx.signatures.size());
    ((const signed_transaction &)trx).sign( test.get_private_key( config::system_account_name, "active" ), test.control->get_chain_id());
@@ -863,7 +878,7 @@ BOOST_AUTO_TEST_CASE(signed_int_test) { try {
 
 BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
 
-   testing::TESTER test;
+   testing::validating_tester test;
    signed_transaction trx;
 
    fc::variant pretty_trx = fc::mutable_variant_object()
@@ -892,7 +907,7 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
       abi_serializer::from_variant(pretty_trx, trx, test.get_resolver(), abi_serializer::create_yield_function( test.abi_serializer_max_time ));
 
       test.set_transaction_headers(trx);
-      trx.expiration = fc::time_point::now();
+      trx.expiration = fc::time_point_sec{fc::time_point::now()};
 
       auto private_key = test.get_private_key( config::system_account_name, "active" );
       auto public_key = private_key.get_public_key();
@@ -1182,7 +1197,7 @@ BOOST_AUTO_TEST_CASE(stable_priority_queue_test) {
      t.join();
 
      std::lock_guard<std::mutex> g(mx);
-     BOOST_CHECK_EQUAL( 100, results.size() );
+     BOOST_CHECK_EQUAL( 100u, results.size() );
      for( int i = 0; i < 100; ++i ) {
         BOOST_CHECK_EQUAL( i, results.at( i ) );
      }
@@ -1191,6 +1206,14 @@ BOOST_AUTO_TEST_CASE(stable_priority_queue_test) {
 }
 
 // test that std::bad_alloc is being thrown
+// ASAN warns "exceeds maximum supported size", so skip when ASAN enabled
+// gcc sets __SANITIZE_ADDRESS__, but clang uses __has_feature(), when ASAN enabled
+#if defined(__has_feature) && !defined(__SANITIZE_ADDRESS__)
+   #if __has_feature(address_sanitizer)
+      #define __SANITIZE_ADDRESS__ 1
+   #endif
+#endif
+#ifndef __SANITIZE_ADDRESS__
 BOOST_AUTO_TEST_CASE(bad_alloc_test) {
    tester t; // force a controller to be constructed and set the new_handler
    int* ptr = nullptr;
@@ -1200,6 +1223,7 @@ BOOST_AUTO_TEST_CASE(bad_alloc_test) {
    BOOST_CHECK_THROW( fail(), std::bad_alloc );
    BOOST_CHECK( ptr == nullptr );
 }
+#endif
 
 BOOST_AUTO_TEST_CASE(named_thread_pool_test) {
    {

@@ -8,7 +8,6 @@
 #include <fstream>
 #include <sstream>
 
-#include <boost/filesystem/fstream.hpp>
 #include <boost/iostreams/device/array.hpp>
 #include <boost/iostreams/stream.hpp>
 
@@ -98,7 +97,7 @@ namespace fc
          if( c != '"' )
             FC_THROW_EXCEPTION( parse_error_exception,
                                             "Expected '\"' but read '${char}'",
-                                            ("char", string(&c, (&c) + 1) ) );
+                                            ("char", std::string(&c, (&c) + 1) ) );
          in.get();
          while( !in.eof() )
          {
@@ -179,7 +178,7 @@ namespace fc
          if( c != '{' )
             FC_THROW_EXCEPTION( parse_error_exception,
                                      "Expected '{', but read '${char}'",
-                                     ("char",string(&c, &c + 1)) );
+                                     ("char",std::string(&c, &c + 1)) );
          in.get();
          while( in.peek() != '}' )
          {
@@ -189,7 +188,7 @@ namespace fc
                continue;
             }
             if( skip_white_space(in) ) continue;
-            string key = stringFromStream( in );
+            std::string key = stringFromStream( in );
             skip_white_space(in);
             if( in.peek() != ':' )
             {
@@ -207,7 +206,7 @@ namespace fc
             in.get();
             return obj;
          }
-         FC_THROW_EXCEPTION( parse_error_exception, "Expected '}' after ${variant}", ("variant", obj ) );
+         FC_THROW_EXCEPTION( parse_error_exception, "Expected '}' after ${variant}", ("variant", std::move(obj) ) );
       }
       catch( const fc::eof_exception& e )
       {
@@ -470,7 +469,7 @@ namespace fc
     */
    std::string escape_string( const std::string_view& str, const json::yield_function_t& yield, bool escape_control_chars )
    {
-      string r;
+      std::string r;
       const auto init_size = str.size();
       r.reserve( init_size + 13 ); // allow for a few escapes
       size_t i = 0;
@@ -596,8 +595,9 @@ namespace fc
          case variant::int64_type:
          {
               int64_t i = v.as_int64();
+              constexpr int64_t max_value(0xffffffff);
               if( format == json::output_formatting::stringify_large_ints_and_doubles &&
-                  i > 0xffffffff )
+                  (i > max_value || i < -max_value))
                  os << '"'<<v.as_string()<<'"';
               else
                  os << i;
@@ -754,7 +754,7 @@ namespace fc
       return pretty_print( std::move( s ), 2);
    }
 
-   bool json::save_to_file( const variant& v, const fc::path& fi, const bool pretty, const json::output_formatting format )
+   bool json::save_to_file( const variant& v, const std::filesystem::path& fi, const bool pretty, const json::output_formatting format )
    {
       if( pretty ) {
          auto str = json::to_pretty_string( v, fc::time_point::maximum(), format, max_length_limit );
@@ -770,22 +770,22 @@ namespace fc
          return o.good();
       }
    }
-   variant json::from_file( const fc::path& p, const json::parse_type ptype, const uint32_t max_depth )
+   variant json::from_file( const std::filesystem::path& p, const json::parse_type ptype, const uint32_t max_depth )
    {
       //auto tmp = std::make_shared<fc::ifstream>( p, ifstream::binary );
       //auto tmp = std::make_shared<std::ifstream>( p.generic_string().c_str(), std::ios::binary );
       //buffered_istream bi( tmp );
-      boost::filesystem::ifstream bi( p, std::ios::binary );
+      std::ifstream bi( p.string(), std::ios::binary );
       switch( ptype )
       {
           case json::parse_type::legacy_parser:
-             return variant_from_stream<boost::filesystem::ifstream, json::parse_type::legacy_parser>( bi, max_depth );
+             return variant_from_stream<std::ifstream, json::parse_type::legacy_parser>( bi, max_depth );
           case json::parse_type::legacy_parser_with_string_doubles:
-              return variant_from_stream<boost::filesystem::ifstream, json::parse_type::legacy_parser_with_string_doubles>( bi, max_depth );
+              return variant_from_stream<std::ifstream, json::parse_type::legacy_parser_with_string_doubles>( bi, max_depth );
           case json::parse_type::strict_parser:
-              return json_relaxed::variant_from_stream<boost::filesystem::ifstream, true>( bi, max_depth );
+              return json_relaxed::variant_from_stream<std::ifstream, true>( bi, max_depth );
           case json::parse_type::relaxed_parser:
-              return json_relaxed::variant_from_stream<boost::filesystem::ifstream, false>( bi, max_depth );
+              return json_relaxed::variant_from_stream<std::ifstream, false>( bi, max_depth );
           default:
               FC_ASSERT( false, "Unknown JSON parser type {ptype}", ("ptype", static_cast<int>(ptype)) );
       }

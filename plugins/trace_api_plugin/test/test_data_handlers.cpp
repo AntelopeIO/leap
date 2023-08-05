@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE trace_data_handlers
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/trace_api/abi_data_handler.hpp>
 
@@ -19,7 +18,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
       abi_data_handler handler(exception_handler{});
 
       auto expected = fc::variant();
-      auto actual = handler.serialize_to_variant(action_trace_t, [](){});
+      auto actual = handler.serialize_to_variant(action_trace_t);
 
       BOOST_TEST(to_kv(expected) == to_kv(std::get<0>(actual)), boost::test_tools::per_element());
    }
@@ -34,7 +33,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
       abi_data_handler handler(exception_handler{});
 
       auto expected = fc::variant();
-      auto actual = handler.serialize_to_variant(action_trace_t, [](){});
+      auto actual = handler.serialize_to_variant(action_trace_t);
 
       BOOST_TEST(to_kv(expected) == to_kv(std::get<0>(actual)), boost::test_tools::per_element());
    }
@@ -48,7 +47,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
       abi_data_handler handler(exception_handler{});
 
       auto expected = fc::variant();
-      auto actual = handler.serialize_to_variant(action_trace_t, [](){});
+      auto actual = handler.serialize_to_variant(action_trace_t);
 
       BOOST_TEST(to_kv(expected) == to_kv(std::get<0>(actual)), boost::test_tools::per_element());
    }
@@ -63,7 +62,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
       abi_data_handler handler(exception_handler{});
 
       auto expected = fc::variant();
-      auto actual = handler.serialize_to_variant(action_trace_t, [](){});
+      auto actual = handler.serialize_to_variant(action_trace_t);
 
       BOOST_TEST(to_kv(expected) == to_kv(std::get<0>(actual)), boost::test_tools::per_element());
    }
@@ -96,7 +95,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
          ("c", 2)
          ("d", 3);
 
-      auto actual = handler.serialize_to_variant(action_trace_t, [](){});
+      auto actual = handler.serialize_to_variant(action_trace_t);
 
       BOOST_TEST(to_kv(expected) == to_kv(std::get<0>(actual)), boost::test_tools::per_element());
    }
@@ -130,7 +129,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
             ("c", 2)
             ("d", 3);
 
-      auto actual = handler.serialize_to_variant(action_trace_t, [](){});
+      auto actual = handler.serialize_to_variant(action_trace_t);
 
       BOOST_TEST(to_kv(expected) == to_kv(std::get<0>(actual)), boost::test_tools::per_element());
    }
@@ -159,7 +158,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
 
       auto expected = fc::variant();
 
-      auto actual = handler.serialize_to_variant(action_trace_t, [](){});
+      auto actual = handler.serialize_to_variant(action_trace_t);
 
       BOOST_TEST(to_kv(expected) == to_kv(std::get<0>(actual)), boost::test_tools::per_element());
    }
@@ -188,7 +187,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
 
       auto expected = fc::variant();
 
-      auto actual = handler.serialize_to_variant(action_trace_t, [](){});
+      auto actual = handler.serialize_to_variant(action_trace_t);
 
       BOOST_TEST(to_kv(expected) == to_kv(std::get<0>(actual)), boost::test_tools::per_element());
    }
@@ -218,7 +217,7 @@ BOOST_AUTO_TEST_SUITE(abi_data_handler_tests)
 
       auto expected = fc::variant();
 
-      auto actual = handler.serialize_to_variant(action_trace_t, [](){});
+      auto actual = handler.serialize_to_variant(action_trace_t);
 
       BOOST_TEST(to_kv(expected) == to_kv(std::get<0>(actual)), boost::test_tools::per_element());
       BOOST_TEST(log_called);

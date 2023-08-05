@@ -1,6 +1,5 @@
 #include "eosio/chain_plugin/chain_plugin.hpp"
-#define BOOST_TEST_MODULE transaction_retry
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/chain_plugin/trx_retry_db.hpp>
 
@@ -9,7 +8,6 @@
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/genesis_state.hpp>
 #include <eosio/chain/thread_utils.hpp>
-#include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/trace.hpp>
 #include <eosio/chain/name.hpp>
 
@@ -20,7 +18,6 @@
 
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/filesystem.hpp>
 #include <thread>
 #include <condition_variable>
 #include <deque>
@@ -101,7 +98,7 @@ auto make_unique_trx( const chain_id_type& chain_id, const fc::microseconds& exp
 
    account_name creator = config::system_account_name;
    signed_transaction trx;
-   trx.expiration = fc::time_point::now() + expiration;
+   trx.expiration = fc::time_point_sec{fc::time_point::now() + expiration};
    trx.actions.emplace_back( vector<permission_level>{{creator, config::active_name}},
                              testit{ id } );
    trx.sign( get_private_key("test"_n), chain_id );
@@ -198,7 +195,8 @@ auto make_block_state( uint32_t block_num, std::vector<chain::packed_transaction
 BOOST_AUTO_TEST_SUITE(trx_retry_db_test)
 
 BOOST_AUTO_TEST_CASE(trx_retry_logic) {
-   boost::filesystem::path temp = boost::filesystem::temp_directory_path() / boost::filesystem::unique_path();
+   fc::temp_directory temp_dir;
+   const auto& temp = temp_dir.path();
 
    try {
       appbase::scoped_app app;
@@ -226,14 +224,18 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       std::promise<chain_plugin*> plugin_promise;
       std::future<chain_plugin*> plugin_fut = plugin_promise.get_future();
       std::thread app_thread( [&]() {
-         std::vector<const char*> argv = {"test"};
-         app->initialize( argv.size(), (char**) &argv[0] );
-         app->startup();
-         plugin_promise.set_value(app->find_plugin<chain_plugin>());
-         app->exec();
+         try {
+            std::vector<const char*> argv = {"test"};
+            app->initialize(argv.size(), (char**)&argv[0]);
+            app->startup();
+            plugin_promise.set_value(app->find_plugin<chain_plugin>());
+            app->exec();
+            return;
+         } FC_LOG_AND_DROP()
+         BOOST_CHECK(!"app threw exception see logged error");
       } );
       (void)plugin_fut.get(); // wait for app to be started
-      
+
       size_t max_mem_usage_size = 5ul*1024*1024*1024;
       fc::microseconds retry_interval = fc::seconds(10);
       boost::posix_time::seconds pretry_interval = boost::posix_time::seconds(10);
@@ -251,7 +253,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
 
 
       // test get_max_expiration_time
-      BOOST_CHECK( fc::time_point::now() + fc::hours(1) == fc::time_point( trx_retry.get_max_expiration_time() ) );
+      BOOST_CHECK( fc::time_point::now() + fc::hours(1) == trx_retry.get_max_expiration_time().to_time_point() );
 
       //
       // test expired, not in a block
@@ -259,14 +261,14 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       auto lib = std::optional<uint16_t>{};
       auto trx_1 = make_unique_trx(chain->get_chain_id(), fc::seconds(2), 1);
       bool trx_1_expired = false;
-      trx_retry.track_transaction( trx_1, lib, [&trx_1_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_1, lib, [&trx_1_expired](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<fc::exception_ptr>(result) );
          BOOST_CHECK_EQUAL( std::get<fc::exception_ptr>(result)->code(), expired_tx_exception::code_value );
          trx_1_expired = true;
       } );
       auto trx_2 = make_unique_trx(chain->get_chain_id(), fc::seconds(4), 2);
       bool trx_2_expired = false;
-      trx_retry.track_transaction( trx_2, lib, [&trx_2_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_2, lib, [&trx_2_expired](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<fc::exception_ptr>(result) );
          BOOST_CHECK_EQUAL( std::get<fc::exception_ptr>(result)->code(), expired_tx_exception::code_value );
          trx_2_expired = true;
@@ -298,14 +300,14 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_irreversible_block(bsp3);
       BOOST_CHECK(trx_1_expired);
       BOOST_CHECK(trx_2_expired);
-      BOOST_CHECK_EQUAL(0, trx_retry.size());
+      BOOST_CHECK_EQUAL(0u, trx_retry.size());
 
       //
       // test resend trx if not in block
       //
       auto trx_3 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 3);
       bool trx_3_expired = false;
-      trx_retry.track_transaction( trx_3, lib, [&trx_3_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_3, lib, [&trx_3_expired](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<fc::exception_ptr>(result) );
          BOOST_CHECK_EQUAL( std::get<fc::exception_ptr>(result)->code(), expired_tx_exception::code_value );
          trx_3_expired = true;
@@ -315,7 +317,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto trx_4 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 4);
       bool trx_4_expired = false;
-      trx_retry.track_transaction( trx_4, lib, [&trx_4_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_4, lib, [&trx_4_expired](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<fc::exception_ptr>(result) );
          BOOST_CHECK_EQUAL( std::get<fc::exception_ptr>(result)->code(), expired_tx_exception::code_value );
          trx_4_expired = true;
@@ -328,7 +330,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_block_start(4);
       trx_retry.on_accepted_block(bsp4);
       BOOST_CHECK( get_id(transactions_acked.pop().second) == 3 );
-      BOOST_CHECK_EQUAL( 0, transactions_acked.size() );
+      BOOST_CHECK_EQUAL( 0u, transactions_acked.size() );
       // increase time by 1 seconds, so trx_4 is sent
       pnow += boost::posix_time::seconds(1);
       fc::mock_time_traits::set_now(pnow);
@@ -337,7 +339,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_block_start(5);
       trx_retry.on_accepted_block(bsp5);
       BOOST_CHECK( get_id(transactions_acked.pop().second) == 4 );
-      BOOST_CHECK_EQUAL( 0, transactions_acked.size() );
+      BOOST_CHECK_EQUAL( 0u, transactions_acked.size() );
       BOOST_CHECK(!trx_3_expired);
       BOOST_CHECK(!trx_4_expired);
       // go ahead and expire them now
@@ -351,14 +353,14 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_irreversible_block(bsp6);
       BOOST_CHECK(trx_3_expired);
       BOOST_CHECK(trx_4_expired);
-      BOOST_CHECK_EQUAL(0, trx_retry.size());
+      BOOST_CHECK_EQUAL(0u, trx_retry.size());
 
       //
       // test reply to user
       //
       auto trx_5 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 5);
       bool trx_5_variant = false;
-      trx_retry.track_transaction( trx_5, lib, [&trx_5_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_5, lib, [&trx_5_variant](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<std::unique_ptr<fc::variant>>(result) );
          BOOST_CHECK( !!std::get<std::unique_ptr<fc::variant>>(result) );
          trx_5_variant = true;
@@ -368,7 +370,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto trx_6 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 6);
       bool trx_6_variant = false;
-      trx_retry.track_transaction( trx_6, std::optional<uint32_t>(2), [&trx_6_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_6, std::optional<uint32_t>(2), [&trx_6_variant](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<std::unique_ptr<fc::variant>>(result) );
          BOOST_CHECK( !!std::get<std::unique_ptr<fc::variant>>(result) );
          trx_6_variant = true;
@@ -420,14 +422,14 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_irreversible_block(bsp8);
       BOOST_CHECK(trx_5_variant);
       BOOST_CHECK(trx_6_variant);
-      BOOST_CHECK_EQUAL(0, trx_retry.size());
+      BOOST_CHECK_EQUAL(0u, trx_retry.size());
 
       //
       // test forking
       //
       auto trx_7 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 7);
       bool trx_7_variant = false;
-      trx_retry.track_transaction( trx_7, lib, [&trx_7_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_7, lib, [&trx_7_variant](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<std::unique_ptr<fc::variant>>(result) );
          BOOST_CHECK( !!std::get<std::unique_ptr<fc::variant>>(result) );
          trx_7_variant = true;
@@ -437,7 +439,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       auto trx_8 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 8);
       bool trx_8_variant = false;
-      trx_retry.track_transaction( trx_8, std::optional<uint32_t>(3), [&trx_8_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_8, std::optional<uint32_t>(3), [&trx_8_variant](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<std::unique_ptr<fc::variant>>(result) );
          BOOST_CHECK( !!std::get<std::unique_ptr<fc::variant>>(result) );
          trx_8_variant = true;
@@ -445,7 +447,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       // one to expire, will be forked out never to return
       auto trx_9 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 9);
       bool trx_9_expired = false;
-      trx_retry.track_transaction( trx_9, lib, [&trx_9_expired](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_9, lib, [&trx_9_expired](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<fc::exception_ptr>(result) );
          BOOST_CHECK_EQUAL( std::get<fc::exception_ptr>(result)->code(), expired_tx_exception::code_value );
          trx_9_expired = true;
@@ -495,7 +497,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       trx_retry.on_block_start(13);
       // should still be tracking them
-      BOOST_CHECK_EQUAL(3, trx_retry.size());
+      BOOST_CHECK_EQUAL(3u, trx_retry.size());
       // now produce an empty 13
       auto bsp13b = make_block_state(13, {}); // now 13 has no traces
       trx_retry.on_accepted_block(bsp13b);
@@ -579,21 +581,21 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       BOOST_CHECK(trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(trx_9_expired);
-      BOOST_CHECK_EQUAL(0, trx_retry.size());
+      BOOST_CHECK_EQUAL(0u, trx_retry.size());
 
       //
       // test reply to user for num_blocks == 0
       //
       auto trx_10 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 10);
       bool trx_10_variant = false;
-      trx_retry.track_transaction( trx_10, std::optional<uint32_t>(0), [&trx_10_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_10, std::optional<uint32_t>(0), [&trx_10_variant](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<std::unique_ptr<fc::variant>>(result) );
          BOOST_CHECK( !!std::get<std::unique_ptr<fc::variant>>(result) );
          trx_10_variant = true;
       } );
       auto trx_11 = make_unique_trx(chain->get_chain_id(), fc::seconds(30), 11);
       bool trx_11_variant = false;
-      trx_retry.track_transaction( trx_11, std::optional<uint32_t>(1), [&trx_11_variant](const std::variant<fc::exception_ptr, std::unique_ptr<fc::variant>>& result){
+      trx_retry.track_transaction( trx_11, std::optional<uint32_t>(1), [&trx_11_variant](const next_function_variant<std::unique_ptr<fc::variant>>& result){
          BOOST_REQUIRE( std::holds_alternative<std::unique_ptr<fc::variant>>(result) );
          BOOST_CHECK( !!std::get<std::unique_ptr<fc::variant>>(result) );
          trx_11_variant = true;
@@ -615,7 +617,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_accepted_block(bsp22);
       BOOST_CHECK(trx_10_variant);
       BOOST_CHECK(trx_11_variant);
-      BOOST_CHECK_EQUAL(0, trx_retry.size());
+      BOOST_CHECK_EQUAL(0u, trx_retry.size());
 
 
       // shutdown
@@ -623,10 +625,8 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       app_thread.join();
 
    } catch ( ... ) {
-      boost::filesystem::remove_all( temp );
       throw;
    }
-   boost::filesystem::remove_all( temp );
 }
 
 
