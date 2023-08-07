@@ -12,12 +12,12 @@ struct block_log_extract_fixture {
    block_log_extract_fixture() {
       log.emplace(dir.path());
       log->reset(genesis_state(), std::make_shared<signed_block>());
-      BOOST_REQUIRE_EQUAL(log->first_block_num(), 1);
-      BOOST_REQUIRE_EQUAL(log->head()->block_num(), 1);
+      BOOST_REQUIRE_EQUAL(log->first_block_num(), 1u);
+      BOOST_REQUIRE_EQUAL(log->head()->block_num(), 1u);
       for(uint32_t i = 2; i < 13; ++i) {
          add(i);
       }
-      BOOST_REQUIRE_EQUAL(log->head()->block_num(), 12);
+      BOOST_REQUIRE_EQUAL(log->head()->block_num(), 12u);
    };
 
    void add(uint32_t index) {
@@ -60,8 +60,8 @@ BOOST_FIXTURE_TEST_CASE(extract_from_middle, block_log_extract_fixture) try {
    auto extracted_id = new_log.extract_chain_id(output_dir.path());
    BOOST_REQUIRE(extracted_id.has_value());
    BOOST_REQUIRE_EQUAL(*extracted_id, id);
-   BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 3);
-   BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 7);
+   BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 3u);
+   BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 7u);
 
 
 } FC_LOG_AND_RETHROW()
@@ -78,8 +78,8 @@ BOOST_FIXTURE_TEST_CASE(extract_from_start, block_log_extract_fixture) try {
    auto extracted_id = new_log.extract_chain_id(output_dir.path());
    BOOST_REQUIRE(extracted_id.has_value());
    BOOST_REQUIRE_EQUAL(*extracted_id, id);
-   BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 1);
-   BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 7);
+   BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 1u);
+   BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 7u);
 
 } FC_LOG_AND_RETHROW()
 
@@ -99,8 +99,8 @@ BOOST_FIXTURE_TEST_CASE(reextract_from_start, block_log_extract_fixture) try {
    auto extracted_id = new_log.extract_chain_id(output_dir2.path());
    BOOST_REQUIRE(extracted_id.has_value());
    BOOST_REQUIRE_EQUAL(*extracted_id, id);
-   BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 1);
-   BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 6);
+   BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 1u);
+   BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 6u);
 
 } FC_LOG_AND_RETHROW()
 
@@ -116,8 +116,8 @@ BOOST_FIXTURE_TEST_CASE(extract_to_end, block_log_extract_fixture) try {
    auto extracted_id = new_log.extract_chain_id(output_dir.path());
    BOOST_REQUIRE(extracted_id.has_value());
    BOOST_REQUIRE_EQUAL(*extracted_id, id);
-   BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 5);
-   BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 12);
+   BOOST_REQUIRE_EQUAL(new_log.first_block_num(), 5u);
+   BOOST_REQUIRE_EQUAL(new_log.head()->block_num(), 12u);
 
 } FC_LOG_AND_RETHROW()
 

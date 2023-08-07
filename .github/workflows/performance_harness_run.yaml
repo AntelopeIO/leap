@@ -2,6 +2,16 @@ name: "Performance Harness Run"
 
 on:
   workflow_dispatch:
+    inputs:
+      platform-choice:
+        description: 'Select Platform'
+        type: choice
+        options:
+        - ubuntu20
+        - ubuntu22
+      override-test-params:
+        description: 'Override perf harness params'
+        type: string
 
 permissions:
   packages: read
@@ -12,10 +22,99 @@ defaults:
     shell: bash
 
 jobs:
-  tmp:
-    name: Stub
+
+  v:
+    name: Discover Inputs
     runs-on: ubuntu-latest
+    outputs:
+      test-params: ${{steps.overrides.outputs.test-params}}
     steps:
-      - name: Workflow Stub
+      - name: Setup Input Params
+        id: overrides
         run: |
-          echo "Workflow Stub"
+          echo test-params=testBpOpMode >> $GITHUB_OUTPUT
+
+          if [[ "${{inputs.override-test-params}}" != "" ]]; then
+            echo test-params=${{inputs.override-test-params}} >> $GITHUB_OUTPUT
+          fi
+
+  platforms:
+    name: Run Platforms Workflow
+    uses: ./.github/workflows/platforms.yaml
+    with:
+      override-build-matrix: ${{github.event.inputs.platform-choice}}
+    permissions:
+      packages: write
+      contents: read
+
+  reuse-build:
+    name: Reuse leap build
+    needs: [v]
+    if: |
+      always() &&
+      needs.v.result == 'success'
+    runs-on: ubuntu-latest
+    outputs:
+      build-artifact: ${{steps.downloadBuild.outputs.downloaded-file}}
+    steps:
+        - name: Download builddir
+          id: downloadBuild
+          uses: AntelopeIO/asset-artifact-download-action@v3
+          with:
+            owner: AntelopeIO
+            repo: leap
+            file: build.tar.zst
+            target: ${{github.sha}}
+            artifact-name: ${{github.event.inputs.platform-choice}}-build
+            fail-on-missing-target: false
+
+        - name: Upload builddir
+          if: steps.downloadBuild.outputs.downloaded-file != ''
+          uses: AntelopeIO/upload-artifact-large-chunks-action@v1
+          with:
+            name: ${{github.event.inputs.platform-choice}}-build
+            path: build.tar.zst
+
+  build-base:
+    name: Run Build Workflow
+    needs: [platforms, reuse-build]
+    if: always() && needs.platforms.result == 'success' && needs.reuse-build.outputs.build-artifact == ''
+    uses: ./.github/workflows/build_base.yaml
+    with:
+      p: ${{needs.platforms.outputs.p}}
+      platform-matrix: ${{needs.platforms.outputs.platform-matrix}}
+    permissions:
+      packages: write
+      contents: read
+
+  tests:
+    name: Tests
+    needs: [v, platforms, reuse-build, build-base]
+    if: always() && needs.platforms.result == 'success' && (needs.build-base.result == 'success' || needs.reuse-build.result == 'success')
+    runs-on: ubuntu-latest
+    container:
+      image: ${{fromJSON(needs.platforms.outputs.p)[github.event.inputs.platform-choice].image}}
+    steps:
+      - name: Download builddir
+        uses: actions/download-artifact@v3
+        with:
+          name: ${{github.event.inputs.platform-choice}}-build
+      - name: Run Performance Test
+        run: |
+          zstdcat build.tar.zst | tar x
+          cd build
+          ./tests/performance_tests/performance_test.py ${{needs.v.outputs.test-params}}
+      - name: Prepare results
+        id: prep-results
+        run: |
+          tar -pc build/performance_test | zstd --long -T0 -9 > performance_test_logs.tar.zst
+      - name: Upload results
+        uses: AntelopeIO/upload-artifact-large-chunks-action@v1
+        with:
+          name: performance-test-results
+          path: performance_test_logs.tar.zst
+      - name: Upload report
+        uses: actions/upload-artifact@v3
+        with:
+          name: performance-test-report
+          path: ./build/performance_test/**/report.json

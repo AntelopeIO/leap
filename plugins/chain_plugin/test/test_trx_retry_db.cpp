@@ -300,7 +300,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_irreversible_block(bsp3);
       BOOST_CHECK(trx_1_expired);
       BOOST_CHECK(trx_2_expired);
-      BOOST_CHECK_EQUAL(0, trx_retry.size());
+      BOOST_CHECK_EQUAL(0u, trx_retry.size());
 
       //
       // test resend trx if not in block
@@ -330,7 +330,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_block_start(4);
       trx_retry.on_accepted_block(bsp4);
       BOOST_CHECK( get_id(transactions_acked.pop().second) == 3 );
-      BOOST_CHECK_EQUAL( 0, transactions_acked.size() );
+      BOOST_CHECK_EQUAL( 0u, transactions_acked.size() );
       // increase time by 1 seconds, so trx_4 is sent
       pnow += boost::posix_time::seconds(1);
       fc::mock_time_traits::set_now(pnow);
@@ -339,7 +339,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_block_start(5);
       trx_retry.on_accepted_block(bsp5);
       BOOST_CHECK( get_id(transactions_acked.pop().second) == 4 );
-      BOOST_CHECK_EQUAL( 0, transactions_acked.size() );
+      BOOST_CHECK_EQUAL( 0u, transactions_acked.size() );
       BOOST_CHECK(!trx_3_expired);
       BOOST_CHECK(!trx_4_expired);
       // go ahead and expire them now
@@ -353,7 +353,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_irreversible_block(bsp6);
       BOOST_CHECK(trx_3_expired);
       BOOST_CHECK(trx_4_expired);
-      BOOST_CHECK_EQUAL(0, trx_retry.size());
+      BOOST_CHECK_EQUAL(0u, trx_retry.size());
 
       //
       // test reply to user
@@ -422,7 +422,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_irreversible_block(bsp8);
       BOOST_CHECK(trx_5_variant);
       BOOST_CHECK(trx_6_variant);
-      BOOST_CHECK_EQUAL(0, trx_retry.size());
+      BOOST_CHECK_EQUAL(0u, trx_retry.size());
 
       //
       // test forking
@@ -497,7 +497,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       fc::mock_time_traits::set_now(pnow);
       trx_retry.on_block_start(13);
       // should still be tracking them
-      BOOST_CHECK_EQUAL(3, trx_retry.size());
+      BOOST_CHECK_EQUAL(3u, trx_retry.size());
       // now produce an empty 13
       auto bsp13b = make_block_state(13, {}); // now 13 has no traces
       trx_retry.on_accepted_block(bsp13b);
@@ -581,7 +581,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       BOOST_CHECK(trx_7_variant);
       BOOST_CHECK(trx_8_variant);
       BOOST_CHECK(trx_9_expired);
-      BOOST_CHECK_EQUAL(0, trx_retry.size());
+      BOOST_CHECK_EQUAL(0u, trx_retry.size());
 
       //
       // test reply to user for num_blocks == 0
@@ -617,7 +617,7 @@ BOOST_AUTO_TEST_CASE(trx_retry_logic) {
       trx_retry.on_accepted_block(bsp22);
       BOOST_CHECK(trx_10_variant);
       BOOST_CHECK(trx_11_variant);
-      BOOST_CHECK_EQUAL(0, trx_retry.size());
+      BOOST_CHECK_EQUAL(0u, trx_retry.size());
 
 
       // shutdown

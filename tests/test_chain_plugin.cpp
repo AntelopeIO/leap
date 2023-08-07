@@ -193,7 +193,7 @@ public:
                          "eosio.bpay"_n, "eosio.vpay"_n, "eosio.saving"_n, "eosio.names"_n, "eosio.rex"_n });
 
        set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
-       set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
+       set_abi( "eosio.token"_n, test_contracts::eosio_token_abi() );
 
        {
            const auto& accnt = control->db().get<account_object,by_name>( "eosio.token"_n );
@@ -207,7 +207,7 @@ public:
        BOOST_CHECK_EQUAL( core_from_string("1000000000.0000"), get_balance( name("eosio") ) );
 
        set_code( config::system_account_name, test_contracts::eosio_system_wasm() );
-       set_abi( config::system_account_name, test_contracts::eosio_system_abi().data() );
+       set_abi( config::system_account_name, test_contracts::eosio_system_abi() );
 
        base_tester::push_action(config::system_account_name, "init"_n,
                                 config::system_account_name,  mutable_variant_object()
@@ -345,7 +345,7 @@ public:
         produce_blocks( 250 );
 
         auto producer_keys = control->head_block_state()->active_schedule.producers;
-        BOOST_CHECK_EQUAL( 21, producer_keys.size() );
+        BOOST_CHECK_EQUAL( 21u, producer_keys.size() );
         BOOST_CHECK_EQUAL( name("defproducera"), producer_keys[0].producer_name );
 
         return producer_names;
@@ -478,7 +478,7 @@ BOOST_FIXTURE_TEST_CASE(account_results_voter_info_test, chain_plugin_tester) { 
     read_only::get_account_results results = get_account_info(name("alice1111111"));
 
     BOOST_CHECK(results.voter_info.get_type() != fc::variant::type_id::null_type);
-    BOOST_CHECK_EQUAL(21, results.voter_info["producers"].size());
+    BOOST_CHECK_EQUAL(21u, results.voter_info["producers"].size());
 
 } FC_LOG_AND_RETHROW() }
 

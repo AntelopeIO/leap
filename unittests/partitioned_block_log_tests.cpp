@@ -109,19 +109,19 @@ BOOST_AUTO_TEST_CASE(test_split_log) {
 
    BOOST_CHECK(!chain.control->fetch_block_by_number(40));
 
-   BOOST_CHECK(chain.control->fetch_block_by_number(81)->block_num() == 81);
-   BOOST_CHECK(chain.control->fetch_block_by_number(90)->block_num() == 90);
-   BOOST_CHECK(chain.control->fetch_block_by_number(100)->block_num() == 100);
+   BOOST_CHECK(chain.control->fetch_block_by_number(81)->block_num() == 81u);
+   BOOST_CHECK(chain.control->fetch_block_by_number(90)->block_num() == 90u);
+   BOOST_CHECK(chain.control->fetch_block_by_number(100)->block_num() == 100u);
 
-   BOOST_CHECK(chain.control->fetch_block_by_number(41)->block_num() == 41);
-   BOOST_CHECK(chain.control->fetch_block_by_number(50)->block_num() == 50);
-   BOOST_CHECK(chain.control->fetch_block_by_number(60)->block_num() == 60);
+   BOOST_CHECK(chain.control->fetch_block_by_number(41)->block_num() == 41u);
+   BOOST_CHECK(chain.control->fetch_block_by_number(50)->block_num() == 50u);
+   BOOST_CHECK(chain.control->fetch_block_by_number(60)->block_num() == 60u);
 
-   BOOST_CHECK(chain.control->fetch_block_by_number(121)->block_num() == 121);
-   BOOST_CHECK(chain.control->fetch_block_by_number(130)->block_num() == 130);
-   BOOST_CHECK(chain.control->fetch_block_by_number(140)->block_num() == 140);
+   BOOST_CHECK(chain.control->fetch_block_by_number(121)->block_num() == 121u);
+   BOOST_CHECK(chain.control->fetch_block_by_number(130)->block_num() == 130u);
+   BOOST_CHECK(chain.control->fetch_block_by_number(140)->block_num() == 140u);
 
-   BOOST_CHECK(chain.control->fetch_block_by_number(145)->block_num() == 145);
+   BOOST_CHECK(chain.control->fetch_block_by_number(145)->block_num() == 145u);
 
    BOOST_CHECK(!chain.control->fetch_block_by_number(160));
 }
@@ -222,10 +222,10 @@ BOOST_AUTO_TEST_CASE(test_split_log_util1) {
                                                                    .max_retained_files = 5 };
 
    eosio::testing::tester from_block_log_chain(copied_config, *genesis);
-   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(1)->block_num() == 1);
-   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(75)->block_num() == 75);
-   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(100)->block_num() == 100);
-   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(150)->block_num() == 150);
+   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(1)->block_num() == 1u);
+   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(75)->block_num() == 75u);
+   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(100)->block_num() == 100u);
+   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(150)->block_num() == 150u);
 }
 
 BOOST_AUTO_TEST_CASE(test_split_log_no_archive) {
@@ -353,10 +353,10 @@ BOOST_AUTO_TEST_CASE(test_restart_without_blocks_log_file) {
    std::filesystem::remove(copied_config.blocks_dir / "blocks.index");
    copied_config.blog = eosio::chain::partitioned_blocklog_config{ .stride = stride, .max_retained_files = 10 };
    eosio::testing::tester from_block_log_chain(copied_config, *genesis);
-   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(1)->block_num() == 1);
-   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(75)->block_num() == 75);
-   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(100)->block_num() == 100);
-   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(160)->block_num() == 160);
+   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(1)->block_num() == 1u);
+   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(75)->block_num() == 75u);
+   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(100)->block_num() == 100u);
+   BOOST_CHECK(from_block_log_chain.control->fetch_block_by_number(160)->block_num() == 160u);
 
    from_block_log_chain.produce_blocks(10);
 }
@@ -422,10 +422,10 @@ BOOST_AUTO_TEST_CASE(test_split_from_v1_log) {
           true);
    chain.produce_blocks(75);
 
-   BOOST_CHECK(chain.control->fetch_block_by_number(1)->block_num() == 1);
-   BOOST_CHECK(chain.control->fetch_block_by_number(21)->block_num() == 21);
-   BOOST_CHECK(chain.control->fetch_block_by_number(41)->block_num() == 41);
-   BOOST_CHECK(chain.control->fetch_block_by_number(75)->block_num() == 75);
+   BOOST_CHECK(chain.control->fetch_block_by_number(1)->block_num() == 1u);
+   BOOST_CHECK(chain.control->fetch_block_by_number(21)->block_num() == 21u);
+   BOOST_CHECK(chain.control->fetch_block_by_number(41)->block_num() == 41u);
+   BOOST_CHECK(chain.control->fetch_block_by_number(75)->block_num() == 75u);
 }
 
 void trim_blocklog_front(uint32_t version) {
@@ -449,7 +449,7 @@ void trim_blocklog_front(uint32_t version) {
    eosio::chain::block_log new_log(temp1.path());
    // double check if the version has been set to the desired version
    BOOST_CHECK(old_log.version() == version);
-   BOOST_CHECK(new_log.first_block_num() == 10);
+   BOOST_CHECK(new_log.first_block_num() == 10u);
    BOOST_CHECK(new_log.head()->block_num() == old_log.head()->block_num());
 
    int num_blocks_trimmed = 10 - 1;
@@ -490,7 +490,7 @@ BOOST_AUTO_TEST_CASE(test_blocklog_split_then_merge) {
    eosio::chain::block_log blog(blocks_dir, eosio::chain::partitioned_blocklog_config{ .retained_dir = retained_dir });
 
    BOOST_CHECK(blog.version() != 0);
-   BOOST_CHECK_EQUAL(blog.head()->block_num(), 150);
+   BOOST_CHECK_EQUAL(blog.head()->block_num(), 150u);
 
    // test blocklog merge
    fc::temp_directory dest_dir;

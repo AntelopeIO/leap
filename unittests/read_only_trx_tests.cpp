@@ -20,7 +20,7 @@ struct read_only_trx_tester : validating_tester {
    void set_up_test_contract() {
       create_accounts( {"noauthtable"_n, "alice"_n} );
       set_code( "noauthtable"_n, test_contracts::no_auth_table_wasm() );
-      set_abi( "noauthtable"_n, test_contracts::no_auth_table_abi().data() );
+      set_abi( "noauthtable"_n, test_contracts::no_auth_table_abi() );
       produce_block();
 
       insert_data = abi_ser.variant_to_binary( "insert", mutable_variant_object()
@@ -65,7 +65,7 @@ struct read_only_trx_tester : validating_tester {
       produce_block();
    }
 
-   abi_serializer abi_ser{ json::from_string(test_contracts::no_auth_table_abi().data()).as<abi_def>(), abi_serializer::create_yield_function(abi_serializer_max_time )};
+   abi_serializer abi_ser{ json::from_string(test_contracts::no_auth_table_abi()).as<abi_def>(), abi_serializer::create_yield_function(abi_serializer_max_time )};
    bytes insert_data;
    bytes getage_data;
 };
@@ -215,8 +215,8 @@ BOOST_FIXTURE_TEST_CASE(db_insert_test, read_only_trx_tester) { try {
    auto res = send_db_api_transaction("getage"_n, getage_data, {}, transaction_metadata::trx_type::read_only);
    BOOST_CHECK_EQUAL(res->receipt->status, transaction_receipt::executed);
    BOOST_CHECK_EQUAL(res->action_traces[0].return_value[0], 10);
-   BOOST_CHECK_GT(res->net_usage, 0);
-   BOOST_CHECK_GT(res->elapsed.count(), 0);
+   BOOST_CHECK_GT(res->net_usage, 0u);
+   BOOST_CHECK_GT(res->elapsed.count(), 0u);
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(auth_test, read_only_trx_tester) { try {

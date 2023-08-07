@@ -18,10 +18,10 @@ BOOST_AUTO_TEST_SUITE(cfile_test_suite)
       t.open( "rb+" );
       BOOST_CHECK( t.is_open() );
       t.write( "abc", 3 );
-      BOOST_CHECK_EQUAL( t.tellp(), 3 );
+      BOOST_CHECK_EQUAL( t.tellp(), 3u );
       std::vector<char> v(3);
       t.seek( 0 );
-      BOOST_CHECK_EQUAL( t.tellp(), 0 );
+      BOOST_CHECK_EQUAL( t.tellp(), 0u );
       t.read( &v[0], 3 );
 
       BOOST_CHECK_EQUAL( v[0], 'a' );
@@ -29,7 +29,7 @@ BOOST_AUTO_TEST_SUITE(cfile_test_suite)
       BOOST_CHECK_EQUAL( v[2], 'c' );
 
       t.seek_end( -2 );
-      BOOST_CHECK_EQUAL( t.tellp(), 1 );
+      BOOST_CHECK_EQUAL( t.tellp(), 1u );
       t.read( &v[0], 1 );
       BOOST_CHECK_EQUAL( v[0], 'b' );
 

@@ -32,7 +32,7 @@ BOOST_AUTO_TEST_CASE( get_block_num ) { try {
    c.produce_block();
 
    c.set_code( tester1_account, test_contracts::get_block_num_test_wasm() );
-   c.set_abi( tester1_account, test_contracts::get_block_num_test_abi().data() );
+   c.set_abi( tester1_account, test_contracts::get_block_num_test_abi() );
    c.produce_block();
 
    c.push_action( tester1_account, "testblock"_n, tester1_account, mutable_variant_object()
