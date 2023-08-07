@@ -100,14 +100,8 @@ BOOST_AUTO_TEST_CASE(test_calculate_producer_wake_up_time) {
    using namespace eosio::block_timing_util;
 
    producer_watermarks empty_watermarks;
-   // use full cpu effort for these tests since calculate_producing_block_deadline is tested above
+   // use full cpu effort for most of these tests since calculate_producing_block_deadline is tested above
    constexpr uint32_t full_cpu_effort = eosio::chain::config::block_interval_us;
-
-//    std::optional<fc::time_point> calculate_producer_wake_up_time(uint32_t cpu_effort_us, uint32_t block_num,
-//                                                                        const chain::block_timestamp_type& ref_block_time,
-//                                                                        const std::set<chain::account_name>& producers,
-//                                                                        const std::vector<chain::producer_authority>& active_schedule,
-//                                                                        const producer_watermarks& prod_watermarks);
 
    // no producers
    BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, chain::block_timestamp_type{}, {}, {}, empty_watermarks), std::optional<fc::time_point>{});
@@ -160,7 +154,7 @@ BOOST_AUTO_TEST_CASE(test_calculate_producer_wake_up_time) {
          {"inith"_n}, {"initi"_n}, {"initj"_n}, {"initk"_n}, {"initl"_n}, {"initm"_n}, {"initn"_n},
          {"inito"_n}, {"initp"_n}, {"initq"_n}, {"initr"_n}, {"inits"_n}, {"initt"_n}, {"initu"_n}
       };
-      const uint32_t prod_round_1st_block_slot = 100 * active_schedule.size() * eosio::chain::config::producer_repetitions - 1; // block production time
+      const uint32_t prod_round_1st_block_slot = 100 * active_schedule.size() * eosio::chain::config::producer_repetitions - 1;
 
       // initb is second in the schedule, so it will produce config::producer_repetitions after
       std::set<account_name> producers = { "initb"_n };
@@ -175,8 +169,8 @@ BOOST_AUTO_TEST_CASE(test_calculate_producer_wake_up_time) {
       expected_block_time += fc::microseconds(config::block_interval_us);
       BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp_type{block_timestamp.slot+config::producer_repetitions+1}, producers, active_schedule, empty_watermarks), expected_block_time);
 
-      producers = std::set<account_name>{ "inita"_n };
       // inita is first in the schedule, prod_round_1st_block_slot is block time of the first block, so will return the next block time as that is when current should be produced
+      producers = std::set<account_name>{ "inita"_n };
       block_timestamp = block_timestamp_type{prod_round_1st_block_slot};
       expected_block_time = block_timestamp.to_time_point();
       BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp_type{block_timestamp.slot-1}, producers, active_schedule, empty_watermarks), expected_block_time); // same
@@ -189,11 +183,64 @@ BOOST_AUTO_TEST_CASE(test_calculate_producer_wake_up_time) {
       }
       expected_block_time = block_timestamp.to_time_point();
       BOOST_CHECK_NE(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp, producers, active_schedule, empty_watermarks), expected_block_time); // end of round, so not the next
+
       // initc
       producers = std::set<account_name>{ "initc"_n };
       block_timestamp = block_timestamp_type(prod_round_1st_block_slot);
       expected_block_time = block_timestamp_type(prod_round_1st_block_slot + 2*config::producer_repetitions).to_time_point();
       BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp, producers, active_schedule, empty_watermarks), expected_block_time);
+
+      // inith, initk
+      producers = std::set<account_name>{ "inith"_n, "initk"_n };
+      block_timestamp = block_timestamp_type(prod_round_1st_block_slot);
+      expected_block_time = block_timestamp_type(prod_round_1st_block_slot + 7*config::producer_repetitions).to_time_point();
+      BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp, producers, active_schedule, empty_watermarks), expected_block_time);
+      block_timestamp = block_timestamp_type(prod_round_1st_block_slot + 8*config::producer_repetitions);
+      expected_block_time = block_timestamp_type(prod_round_1st_block_slot + 10*config::producer_repetitions).to_time_point();
+      BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp, producers, active_schedule, empty_watermarks), expected_block_time);
+
+      // cpu_effort at 50%, initc
+      constexpr uint32_t half_cpu_effort = eosio::chain::config::block_interval_us / 2u;
+      producers = std::set<account_name>{ "initc"_n };
+      block_timestamp = block_timestamp_type(prod_round_1st_block_slot);
+      expected_block_time = block_timestamp_type(prod_round_1st_block_slot + 2*config::producer_repetitions).to_time_point();
+      // first in round is not affected by cpu effort
+      BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(half_cpu_effort, 2, block_timestamp, producers, active_schedule, empty_watermarks), expected_block_time);
+      block_timestamp = block_timestamp_type(prod_round_1st_block_slot + 2*config::producer_repetitions + 1);
+      // second in round is 50% sooner
+      expected_block_time = block_timestamp.to_time_point();
+      expected_block_time -= fc::microseconds(half_cpu_effort);
+      BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(half_cpu_effort, 2, block_timestamp, producers, active_schedule, empty_watermarks), expected_block_time);
+      // third in round is 2*50% sooner
+      block_timestamp = block_timestamp_type(prod_round_1st_block_slot + 2*config::producer_repetitions + 2);
+      // second in round is 50% sooner
+      expected_block_time = block_timestamp.to_time_point();
+      expected_block_time -= fc::microseconds(2*half_cpu_effort);
+      BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(half_cpu_effort, 2, block_timestamp, producers, active_schedule, empty_watermarks), expected_block_time);
+   }
+   { // test watermark
+      std::vector<chain::producer_authority> active_schedule{ // 21
+         {"inita"_n}, {"initb"_n}, {"initc"_n}, {"initd"_n}, {"inite"_n}, {"initf"_n}, {"initg"_n},
+         {"inith"_n}, {"initi"_n}, {"initj"_n}, {"initk"_n}, {"initl"_n}, {"initm"_n}, {"initn"_n},
+         {"inito"_n}, {"initp"_n}, {"initq"_n}, {"initr"_n}, {"inits"_n}, {"initt"_n}, {"initu"_n}
+      };
+      const uint32_t prod_round_1st_block_slot = 100 * active_schedule.size() * eosio::chain::config::producer_repetitions - 1; // block production time
+
+      producer_watermarks prod_watermarks;
+      std::set<account_name> producers;
+      block_timestamp_type block_timestamp(prod_round_1st_block_slot);
+      // initc
+      producers = std::set<account_name>{ "initc"_n };
+      auto expected_block_time = block_timestamp_type(prod_round_1st_block_slot + 2*config::producer_repetitions).to_time_point(); // without watermark
+      BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp, producers, active_schedule, empty_watermarks), expected_block_time);
+      // watermark at first block
+      prod_watermarks.consider_new_watermark("initc"_n, 2, block_timestamp_type((prod_round_1st_block_slot + 2*config::producer_repetitions + 1))); // +1 since watermark is in block production time
+      expected_block_time = block_timestamp_type(prod_round_1st_block_slot + 2*config::producer_repetitions + 1).to_time_point(); // with watermark, wait until next
+      BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp, producers, active_schedule, prod_watermarks), expected_block_time);
+      // watermark at first 2 blocks
+      prod_watermarks.consider_new_watermark("initc"_n, 2, block_timestamp_type((prod_round_1st_block_slot + 2*config::producer_repetitions + 1 + 1)));
+      expected_block_time = block_timestamp_type(prod_round_1st_block_slot + 2*config::producer_repetitions + 2).to_time_point(); // with watermark, wait until next
+      BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp, producers, active_schedule, prod_watermarks), expected_block_time);
    }
 
 }
