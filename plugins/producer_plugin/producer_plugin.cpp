@@ -1898,12 +1898,11 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
       _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_cpu_effort_us, block_time);
    } else if (!_producers.empty()) {
-      // head_block_time because we need to wake up not to produce a block but to start block production
+      // cpu effort percent doesn't matter for the first block of the round, use max (block_interval_us) for cpu effort
       auto wake_time = block_timing_util::calculate_producer_wake_up_time(config::block_interval_us, chain.head_block_num(), chain.head_block_time(),
                                                                           _producers, chain.head_block_state()->active_schedule.producers,
                                                                           _producer_watermarks);
-
-      _pending_block_deadline = wake_time ? *wake_time - fc::microseconds(config::block_interval_us) : fc::time_point::maximum();
+      _pending_block_deadline = wake_time ? *wake_time : fc::time_point::maximum();
    } else {
       _pending_block_deadline = fc::time_point::maximum();
    }
