@@ -850,8 +850,7 @@ namespace eosio {
       string                  log_remote_endpoint_port;
       string                  local_endpoint_ip;
       string                  local_endpoint_port;
-      bool                    remote_endpoint_ipv4{false};
-      uint32_t                remote_endpoint_ip_integer{0};
+      boost::asio::ip::address_v6::bytes_type remote_endpoint_ip_array;
       uint32_t                remote_endpoint_port{0};
       // kept in sync with last_handshake_recv.last_irreversible_block_num, only accessed from connection strand
       uint32_t                peer_lib_num = 0;
@@ -1203,8 +1202,17 @@ namespace eosio {
       boost::system::error_code ec2;
       auto rep = socket->remote_endpoint(ec);
       auto lep = socket->local_endpoint(ec2);
-      remote_endpoint_ipv4 = ec ? false : rep.address().is_v4();
-      remote_endpoint_ip_integer = remote_endpoint_ipv4 ? rep.address().to_v4().to_uint() : 0;
+      if(!ec) {
+         if(rep.address().is_v4()) {
+            remote_endpoint_ip_array = make_address_v6(boost::asio::ip::v4_mapped, rep.address().to_v4()).to_bytes();
+         }
+         else {
+            remote_endpoint_ip_array = rep.address().to_v6().to_bytes();
+         }
+      }
+      else {
+         remote_endpoint_ip_array = boost::asio::ip::address_v6().to_bytes();
+      }
       remote_endpoint_port = ec ? 0 : rep.port();
       log_remote_endpoint_ip = ec ? unknown : rep.address().to_string();
       log_remote_endpoint_port = ec ? unknown : std::to_string(rep.port());
@@ -4449,24 +4457,20 @@ namespace eosio {
          } else {
             ++num_peers;
          }
-         if((*it)->remote_endpoint_ipv4) {
-            per_connection.addresses.push_back((*it)->remote_endpoint_ip_integer);
-            per_connection.ports.push_back((*it)->remote_endpoint_port);
-            per_connection.accepting_blocks.push_back((*it)->is_blocks_connection());
-            per_connection.last_received_blocks.push_back((*it)->get_last_received_blk_num());
-            per_connection.first_available_blocks.push_back((*it)->get_peer_start_block_num());
-            per_connection.last_available_blocks.push_back((*it)->get_peer_head_block_num());
-            per_connection.bytes_received.push_back((*it)->get_bytes_received());
-            per_connection.last_bytes_received.push_back((*it)->get_last_bytes_received());
-            per_connection.bytes_sent.push_back((*it)->get_bytes_sent());
-            per_connection.last_bytes_sent.push_back((*it)->get_last_bytes_sent());
-            per_connection.connection_start_times.push_back((*it)->connection_time);
-            per_connection.unique_first_block_counts.push_back((*it)->get_unique_blocks_rcvd_count());
-            per_connection.latencies.push_back((*it)->get_peer_ping_time_ns());
-            per_connection.log_p2p_addresses.push_back((*it)->log_p2p_address);
-         }
-         else
-            fc_wlog(logger, "socket remote endpoint is not IPv4");
+         per_connection.addresses.push_back((*it)->remote_endpoint_ip_array);
+         per_connection.ports.push_back((*it)->remote_endpoint_port);
+         per_connection.accepting_blocks.push_back((*it)->is_blocks_connection());
+         per_connection.last_received_blocks.push_back((*it)->get_last_received_blk_num());
+         per_connection.first_available_blocks.push_back((*it)->get_peer_start_block_num());
+         per_connection.last_available_blocks.push_back((*it)->get_peer_head_block_num());
+         per_connection.bytes_received.push_back((*it)->get_bytes_received());
+         per_connection.last_bytes_received.push_back((*it)->get_last_bytes_received());
+         per_connection.bytes_sent.push_back((*it)->get_bytes_sent());
+         per_connection.last_bytes_sent.push_back((*it)->get_last_bytes_sent());
+         per_connection.connection_start_times.push_back((*it)->connection_time);
+         per_connection.unique_first_block_counts.push_back((*it)->get_unique_blocks_rcvd_count());
+         per_connection.latencies.push_back((*it)->get_peer_ping_time_ns());
+         per_connection.log_p2p_addresses.push_back((*it)->log_p2p_address);
 
          if (!(*it)->socket_is_open() && (*it)->state() != connection::connection_state::connecting) {
             if (!(*it)->incoming()) {

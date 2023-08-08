@@ -74,7 +74,7 @@ namespace eosio {
             {}
             p2p_per_connection_metrics(const p2p_per_connection_metrics&) = delete;
             p2p_per_connection_metrics& operator=(const p2p_per_connection_metrics&) = delete;
-            std::vector<boost::asio::ip::address_v4::uint_type> addresses;
+            std::vector<boost::asio::ip::address_v6::bytes_type> addresses;
             std::vector<unsigned short> ports;
             std::vector<bool> accepting_blocks;
             std::vector<uint32_t> last_received_blocks;

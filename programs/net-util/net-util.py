@@ -2,6 +2,7 @@
 
 import argparse
 import datetime
+import ipaddress
 import logging
 import pathlib
 import requests
@@ -82,13 +83,21 @@ def humanReadableBytesPerSecond(bytes: int, telco:bool = False):
 class TextSimpleFocusListWalker(urwid.SimpleFocusListWalker):
     def __contains__(self, text):
         for element in self:
-            if text == element.text:
+            if type(element) is urwid.AttrMap:
+                val = element.original_widget.text
+            else:
+                val = element.text
+            if text == val:
                 return True
         return False
     def index(self, text):
         '''Emulation of list index() method unfortunately much slower than the real thing but our lists are short'''
         for i, e in enumerate(self):
-            if e.text == text:
+            if type(e) is urwid.AttrMap:
+                val = e.original_widget.text
+            else:
+                val = e.text
+            if val == text:
                 return i
 
 
@@ -122,7 +131,11 @@ def readMetrics(host: str, port: str):
 class netUtil:
     def __init__(self):
         self.prometheusMetrics = {
-            ('nodeos_info', 'server_version_string'): 'Nodeos Vers:',
+            ('nodeos_info', 'server_version'): 'Nodeos Version ID:',
+            ('nodeos_info', 'chain_id'): 'Chain ID:',
+            ('nodeos_info', 'server_version_string'): 'Nodeos Version:',
+            ('nodeos_info', 'server_full_version_string'): 'Nodeos Full Version:',
+            ('nodeos_info', 'earliest_available_block_num'): 'Earliest Available Block:',
             'nodeos_head_block_num': 'Head Block Num:',
             'nodeos_last_irreversible': 'LIB:',
             ('nodeos_p2p_connections','in'): 'Inbound P2P Connections:',
@@ -157,7 +170,7 @@ class netUtil:
             'HTTP Requests:',
         ]
         self.rightFieldLabels = [
-            'Nodeos Vers:',
+            'Nodeos Version:',
             'LIB:',
             'Outbound P2P Connections:',
             'Total Incoming Trxs:',
@@ -176,6 +189,12 @@ class netUtil:
             'last_bytes_received': lambda x: str(datetime.timedelta(microseconds=(time.time_ns() - int(x))/1000)),
             'last_bytes_sent': lambda x: str(datetime.timedelta(microseconds=(time.time_ns() - int(x))/1000)),
         }
+        self.infoFieldLabels = [
+            'Nodeos Version ID:',
+            'Chain ID:',
+            'Nodeos Full Version:',
+            'Earliest Available Block:',
+        ]
         self.peerColumns = [
             ('\n\nIP Address', 'ipAddressLW'),
             ('\n\nHostname', 'hostnameLW'),
@@ -190,9 +209,12 @@ class netUtil:
             ('Last\nAvail\nBlk', 'lastAvailableBlockLW'),
             ('\nAcpt\nBlks', 'acceptingBlocksLW')
         ]
-        self.fields = {k:v for k, v in zip(self.leftFieldLabels, [e[:1].lower() + e[1:-1].replace(' ', '') + 'Text' for e in self.leftFieldLabels])}
-        self.fields.update({self.rightFieldLabels[0]: self.rightFieldLabels[0][:1].lower() + self.rightFieldLabels[0][1:-1].replace(' ', '') + 'Button'})
-        self.fields.update({k:v for k, v in zip(self.rightFieldLabels[1:], [e[:1].lower() + e[1:-1].replace(' ', '') + 'Text' for e in self.rightFieldLabels[1:]])})
+        def labelToAttrName(label: str, fieldType='Text'):
+            return label[:1].lower() + label[1:-1].replace(' ', '') + fieldType
+        self.fields = {k:v for k, v in zip(self.leftFieldLabels, [labelToAttrName(e) for e in self.leftFieldLabels])}
+        self.fields.update({self.rightFieldLabels[0]: labelToAttrName(self.rightFieldLabels[0], 'Button')})
+        self.fields.update({k:v for k, v in zip(self.rightFieldLabels[1:], [labelToAttrName(e) for e in self.rightFieldLabels[1:]])})
+        self.fields.update({k:v for k, v in zip(self.infoFieldLabels, [labelToAttrName(e) for e in self.infoFieldLabels])})
         
         parser = argparse.ArgumentParser(description='Terminal UI for monitoring and managing nodeos P2P connections',
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -202,7 +224,26 @@ class netUtil:
         parser.add_argument('--log-level', choices=[logging._nameToLevel.keys()] + [k.lower() for k in logging._nameToLevel.keys()], help='Logging level', default='debug')
         self.args = parser.parse_args()
 
-    def createUrwidUI(self):
+    @staticmethod
+    def unmanglePrometheusHostLabel(hostLabel: str) -> (ipaddress.ip_address, str):
+        '''Remove mangling required to fit an IPv6 address and port into a Prometheus label.
+
+        Prometheus labels may contain only underscore and alphanumeric characters and must begin with
+        an alphabetic character. This method unmangles according to the following table:
+                'ip_' prefix removed
+                '_DOT_' -> '.'
+                '_COLON_' -> ':'
+
+        @hostLabel - Prometheus label to convert
+
+        @returns - instance of 'ip_address', string representation of port number
+        '''
+        host = hostLabel[len('ip_'):].replace('_DOT_', '.').replace('_COLON_', ':')
+        addr = ipaddress.ip_address(host[:host.rfind('_')])
+        port = host[host.rfind('_')+1:]
+        return addr, port
+
+    def createUrwidUI(self, mainLoop):
         AttrMap = urwid.AttrMap
         Button = urwid.Button
         LineBox = urwid.LineBox
@@ -223,9 +264,9 @@ class netUtil:
             minwidth = max([len(x) for x in self.leftFieldLabels + self.rightFieldLabels])
             return Columns([(minwidth, Filler(label, valign='top')), Filler(text, valign='top')], 1)
         
-        def packLabeledButton(labelTxt: str, defaultValue='', callback: callable = None):
+        def packLabeledButton(labelTxt: str, defaultValue='', callback: callable=None, userData=None):
             label = Text(('bold', labelTxt), align='right')
-            button = AttrMap(Button(defaultValue, callback), None, focus_map='reversed')
+            button = AttrMap(Button(defaultValue, callback, userData), None, focus_map='reversed')
             attrName = labelTxt[:1].lower() + labelTxt[1:-1].replace(' ', '') + 'Button' if labelTxt else ''
             if attrName:
                 setattr(self, attrName, button)
@@ -235,7 +276,7 @@ class netUtil:
         # At least one child of a Pile must have weight 1 or the app will crash on mouse click in the Pile.
         leftColumn = Pile([(1, widget) for widget in widgets[:-1]] + [('weight', 1, widgets[-1])])
 
-        widgets = [packLabeledButton(self.rightFieldLabels[0], callback=self.onVersionClick)]
+        widgets = [packLabeledButton(self.rightFieldLabels[0], callback=self.onVersionClick, userData=mainLoop)]
         widgets.extend([packLabeledText(labelTxt) for labelTxt in self.rightFieldLabels[1:]])
         widgets.insert(3, Filler(Divider()))
         rightColumn = Pile([(1, widget) for widget in widgets[:-1]] + [('weight', 1, widgets[-1])])
@@ -268,15 +309,27 @@ class netUtil:
 
         self.mainView = Pile([Columns([leftColumn, rightColumn]), ('weight', 4, self.peerLineBox)])
 
-        self.errorText = Text(('error', ''))
-        self.errorBox = LineBox(Filler(self.errorText), 'Error:', 'left', 'error')
-        self.errorOverlay = urwid.Overlay(self.errorBox, self.mainView, 'center', ('relative', 80), 'middle', ('relative', 80), min_width=24, min_height=8)
+        self.errorText = Text('')
+        self.errorBox = LineBox(Pile([('weight', 4, Filler(self.errorText, 'top', 'flow')), Padding(Filler(Divider('\u2500'))), Filler(Padding(Button(('reversed', 'Close'), self.onDismissOverlay, mainLoop), 'center', len('< Close >')))]), 'Error:', 'left', 'error')
+        self.errorOverlay = urwid.Overlay(self.errorBox, self.mainView, 'center', ('relative', 80), 
+                                          'middle', ('relative', 80), min_width=24, min_height=8)
+
+        widgets = [packLabeledText(labelTxt) for labelTxt in self.infoFieldLabels]
+        widgets.append(Filler(Divider('\u2500')))
+        widgets.append(Padding(Button(('reversed', 'Close'), self.onDismissOverlay, mainLoop), 'center', len('< Close >')))
+        infoColumn = Filler(Pile([(1, widget) for widget in widgets[:-1]] + [('weight', 1, widgets[-1])]))
+        self.infoBox = LineBox(infoColumn, 'Server Information:', 'left')
+        self.infoOverlay = urwid.Overlay(self.infoBox, self.mainView, 'center', ('relative', 50), 
+                                         'middle', ('relative', 25), min_width=28, min_height=8)
 
         return self.mainView
 
 
-    def onVersionClick(self, button):
-        logger.info('Button clicked')
+    def onVersionClick(self, button, mainLoop):
+        mainLoop.widget = self.infoOverlay
+
+    def onDismissOverlay(self, button, mainLoop):
+        mainLoop.widget = self.mainView
 
     def update(self, mainLoop, userData=None):
         AttrMap = urwid.AttrMap
@@ -284,19 +337,19 @@ class netUtil:
         try:
             self.hostText.set_text(f'{self.args.host}:{self.args.port}')
             response = readMetrics(self.args.host, self.args.port)
-        except requests.ConnectionError as e:
+        except (requests.ConnectionError, requests.ReadTimeout) as e:
             logger.error(str(e))
             self.errorText.set_text(str(e))
             mainLoop.widget = self.errorOverlay
         else:
             self.errorText.set_text('')
-            mainLoop.widget = self.mainView
+            if mainLoop.widget is self.errorOverlay:
+                mainLoop.widget = self.mainView
             class bandwidthStats():
                 def __init__(self, bytesReceived=0, bytesSent=0, connectionStarted=0):
                     self.bytesReceived = 0
                     self.bytesSent = 0
                     self.connectionStarted = 0
-            mainLoop.widget.contents[-1][0].original_widget = self.errorText
             for family in text_string_to_metric_families(response.text):
                 bandwidths = {}
                 for sample in family.samples:
@@ -312,11 +365,12 @@ class netUtil:
                         else:
                             hostLabel = next(iter(sample.labels))
                             fieldName = sample.labels[hostLabel]
-                            host = hostLabel[1:].replace('__', ':').replace('_', '.')
+                            addr, port = self.unmanglePrometheusHostLabel(hostLabel)
+                            host = f'{str(addr.ipv4_mapped) if addr.ipv4_mapped else str(addr)}:{port}'
                             listwalker = getattr(self, 'ipAddressLW')
                             if host not in listwalker:
                                 startOffset = endOffset = len(listwalker)
-                                listwalker.append(Text(host))
+                                listwalker.append(AttrMap(Text(host), None, 'reversed'))
                             else:
                                 startOffset = listwalker.index(host)
                                 endOffset = startOffset + 1
@@ -344,9 +398,13 @@ class netUtil:
                                     listwalker = getattr(self, 'hostnameLW')
                                     listwalker[startOffset:endOffset] = [AttrMap(Text(fieldName.replace('_', '.')), None, 'reversed')]
                     elif sample.name == 'nodeos_info':
-                        fieldName = self.fields.get(self.prometheusMetrics[(sample.name, 'server_version_string')])
-                        field = getattr(self, fieldName)
-                        field.original_widget.set_label(sample.labels['server_version_string'])
+                        for infoLabel, infoValue in sample.labels.items():
+                            fieldName = self.fields.get(self.prometheusMetrics[(sample.name, infoLabel)])
+                            field = getattr(self, fieldName)
+                            if type(field) is AttrMap:
+                                field.original_widget.set_label(infoValue)
+                            else:
+                                field.set_text(infoValue)
                     else:
                         if sample.name not in self.ignoredPrometheusMetrics:
                             logger.warning(f'Received unhandled Prometheus metric {sample.name}')
@@ -360,10 +418,10 @@ class netUtil:
                             connected_seconds = (now - stats.connectionStarted)/1000000000
                             listwalker = getattr(self, 'receiveBandwidthLW')
                             bps = stats.bytesReceived/connected_seconds
-                            listwalker[startOffset:endOffset] = [Text(humanReadableBytesPerSecond(bps))]
+                            listwalker[startOffset:endOffset] = [AttrMap(Text(humanReadableBytesPerSecond(bps)), None, 'reversed')]
                             listwalker = getattr(self, 'sendBandwidthLW')
                             bps = stats.bytesSent/connected_seconds
-                            listwalker[startOffset:endOffset] = [Text(humanReadableBytesPerSecond(bps))]
+                            listwalker[startOffset:endOffset] = [AttrMap(Text(humanReadableBytesPerSecond(bps)), None, 'reversed')]
         mainLoop.set_alarm_in(float(self.args.refresh_interval), self.update)
 
 def exitOnQ(key):
@@ -383,6 +441,8 @@ if __name__ == '__main__':
                ('dim', 'dark gray', 'default'),
                ('reversed', 'standout', ''),
               ]
-    loop = urwid.MainLoop(inst.createUrwidUI(), palette, screen=urwid.curses_display.Screen(), unhandled_input=exitOnQ, event_loop=None, pop_ups=True)
+    loop = urwid.MainLoop(urwid.Divider(), palette, screen=urwid.curses_display.Screen(), unhandled_input=exitOnQ, event_loop=None, pop_ups=True)
+    ui = inst.createUrwidUI(loop)
+    loop.widget = ui
     inst.update(loop)
     loop.run()

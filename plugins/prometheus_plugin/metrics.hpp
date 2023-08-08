@@ -136,10 +136,11 @@ struct catalog_type {
       num_peers.Set(metrics.num_peers);
       num_clients.Set(metrics.num_clients);
       for(size_t i = 0; i < metrics.stats.addresses.size(); ++i) {
-         auto addr = boost::asio::ip::address_v4(metrics.stats.addresses[i]).to_string();
-         std::replace(addr.begin(), addr.end(), '.', '_');
-         addr.insert(0, 1, '_');
-         addr.append("__");
+         auto addr = boost::asio::ip::make_address_v6(metrics.stats.addresses[i]).to_string();
+         boost::replace_all(addr, ":", "_COLON_");
+         boost::replace_all(addr, ".", "_DOT_");
+         addr.insert(0, "ip_");
+         addr.append("_");
          addr.append(to_string(metrics.stats.ports[i]));
          addresses.push_back(addr);
          auto& accepting_blocks = p2p_connections.Add({{addr, "accepting_blocks"}});
