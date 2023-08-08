@@ -128,6 +128,12 @@ class eos_vm_instantiated_module : public wasm_instantiated_module_interface {
          _instantiated_module(std::move(mod)) {}
 
       void apply(apply_context& context) override {
+         // Reset execution context (reused per thread)
+         _runtime->_exec_ctx.set_module(&(_instantiated_module->get_module()));
+         _instantiated_module->set_context(&_runtime->_exec_ctx);
+         _instantiated_module->reset_max_call_depth();
+         _instantiated_module->reset_max_pages();
+
          _instantiated_module->set_wasm_allocator(&context.control.get_wasm_allocator());
          _runtime->_bkend = _instantiated_module.get();
          apply_options opts;
@@ -240,9 +246,9 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instan
                                 .max_call_depth = 0 };
       std::unique_ptr<backend_t> bkend = nullptr;
       if constexpr (std::is_same_v<Impl, eosio::vm::jit>) {
-         bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, true); // true -- JIT uses single parsing
+         bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, true, false); // true, false <--> single parsing, backend does not own execution context (execution context is reused per thread)
       } else {
-         bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, false); // false -- Interpreter uses 2-passes parsing
+         bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, false, false); // false, false <--> 2-passes parsing, backend does not own execution context (execution context is reused per thread)
       }
       eos_vm_host_functions_t::resolve(bkend->get_module());
       return std::make_unique<eos_vm_instantiated_module<Impl>>(this, std::move(bkend));
