@@ -39,7 +39,7 @@ class whitelist_blacklist_tester {
 
          chain->create_accounts({"eosio.token"_n, "alice"_n, "bob"_n, "charlie"_n});
          chain->set_code("eosio.token"_n, test_contracts::eosio_token_wasm() );
-         chain->set_abi("eosio.token"_n, test_contracts::eosio_token_abi().data() );
+         chain->set_abi("eosio.token"_n, test_contracts::eosio_token_abi() );
          chain->push_action( "eosio.token"_n, "create"_n, "eosio.token"_n, mvo()
               ( "issuer", "eosio.token" )
               ( "maximum_supply", "1000000.00 TOK" )
@@ -179,12 +179,12 @@ BOOST_AUTO_TEST_CASE( contract_whitelist ) { try {
    test.chain->produce_blocks();
 
    test.chain->set_code("bob"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
    test.chain->set_code("charlie"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
@@ -228,12 +228,12 @@ BOOST_AUTO_TEST_CASE( contract_blacklist ) { try {
    test.chain->produce_blocks();
 
    test.chain->set_code("bob"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
    test.chain->set_code("charlie"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
@@ -271,12 +271,12 @@ BOOST_AUTO_TEST_CASE( action_blacklist ) { try {
    test.chain->produce_blocks();
 
    test.chain->set_code("bob"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
    test.chain->set_code("charlie"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
@@ -332,9 +332,9 @@ BOOST_AUTO_TEST_CASE( deferred_blacklist_failure ) { try {
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->produce_blocks();
 
    tester1.chain->push_action( "bob"_n, "defercall"_n, "alice"_n, mvo()
@@ -385,9 +385,9 @@ BOOST_AUTO_TEST_CASE( blacklist_onerror ) { try {
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->produce_blocks();
 
    tester1.chain->push_action( "bob"_n, "defercall"_n, "alice"_n, mvo()
@@ -423,11 +423,11 @@ BOOST_AUTO_TEST_CASE( actor_blacklist_inline_deferred ) { try {
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "alice"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "alice"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "alice"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->produce_blocks();
 
    auto auth = authority(eosio::testing::base_tester::get_public_key(name("alice"), "active"));
@@ -569,11 +569,11 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "alice"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "alice"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "alice"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->produce_blocks();
 
    auto auth = authority(eosio::testing::base_tester::get_public_key(name("alice"), "active"));

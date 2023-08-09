@@ -190,7 +190,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_exhaustive_snapshot, SNAPSHOT_SUITE, snapshot
    // Set code and increment the first account
    chain.produce_blocks(1);
    chain.set_code("snapshot"_n, test_contracts::snapshot_test_wasm());
-   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi().data());
+   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi());
    chain.produce_blocks(1);
    chain.push_action("snapshot"_n, "increment"_n, "snapshot"_n, mutable_variant_object()
          ( "value", 1 )
@@ -199,7 +199,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_exhaustive_snapshot, SNAPSHOT_SUITE, snapshot
    // Set code and increment the second account
    chain.produce_blocks(1);
    chain.set_code("snapshot1"_n, test_contracts::snapshot_test_wasm());
-   chain.set_abi("snapshot1"_n, test_contracts::snapshot_test_abi().data());
+   chain.set_abi("snapshot1"_n, test_contracts::snapshot_test_abi());
    chain.produce_blocks(1);
    // increment the test contract
    chain.push_action("snapshot1"_n, "increment"_n, "snapshot1"_n, mutable_variant_object()
@@ -254,7 +254,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_replay_over_snapshot, SNAPSHOT_SUITE, snapsho
    chain.create_account("snapshot"_n);
    chain.produce_blocks(1);
    chain.set_code("snapshot"_n, test_contracts::snapshot_test_wasm());
-   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi().data());
+   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi());
    chain.produce_blocks(1);
    chain.control->abort_block();
 
@@ -349,7 +349,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_chain_id_in_snapshot, SNAPSHOT_SUITE, snapsho
    chain.create_account("snapshot"_n);
    chain.produce_blocks(1);
    chain.set_code("snapshot"_n, test_contracts::snapshot_test_wasm());
-   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi().data());
+   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi());
    chain.produce_blocks(1);
    chain.control->abort_block();
 
@@ -395,7 +395,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
       chain.create_account("snapshot"_n);
       chain.produce_blocks(1);
       chain.set_code("snapshot"_n, test_contracts::snapshot_test_wasm());
-      chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi().data());
+      chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi());
       chain.produce_blocks(1);
       chain.control->abort_block();
 
@@ -513,7 +513,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_restart_with_existing_state_and_truncated_blo
    chain.create_account("snapshot"_n);
    chain.produce_blocks(1);
    chain.set_code("snapshot"_n, test_contracts::snapshot_test_wasm());
-   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi().data());
+   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi());
    chain.produce_blocks(1);
    chain.control->abort_block();
 
@@ -598,7 +598,7 @@ BOOST_AUTO_TEST_CASE(json_snapshot_validity_test)
    chain.create_account("snapshot"_n);
    chain.produce_blocks(1);
    chain.set_code("snapshot"_n, test_contracts::snapshot_test_wasm());
-   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi().data());
+   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi());
    chain.produce_blocks(10);
    chain.control->abort_block();
 

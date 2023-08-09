@@ -27,7 +27,7 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_snapshot_information, SNAPSHOT_SUITE, snapsho
    chain.create_account("snapshot"_n);
    chain.produce_blocks(1);
    chain.set_code("snapshot"_n, test_contracts::snapshot_test_wasm());
-   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi().data());
+   chain.set_abi("snapshot"_n, test_contracts::snapshot_test_abi());
    chain.produce_blocks(1);
 
    auto block = chain.produce_block();
