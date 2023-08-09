@@ -135,50 +135,34 @@ struct catalog_type {
    void update(const net_plugin::p2p_connections_metrics& metrics) {
       num_peers.Set(metrics.num_peers);
       num_clients.Set(metrics.num_clients);
-      for(size_t i = 0; i < metrics.stats.addresses.size(); ++i) {
-         auto addr = boost::asio::ip::make_address_v6(metrics.stats.addresses[i]).to_string();
+      for(size_t i = 0; i < metrics.stats.peers.size(); ++i) {
+         auto addr = boost::asio::ip::make_address_v6(metrics.stats.peers[i].address).to_string();
          boost::replace_all(addr, ":", "_COLON_");
          boost::replace_all(addr, ".", "_DOT_");
          addr.insert(0, "ip_");
          addr.append("_");
-         addr.append(to_string(metrics.stats.ports[i]));
+         addr.append(to_string(metrics.stats.peers[i].port));
          addresses.push_back(addr);
-         auto& accepting_blocks = p2p_connections.Add({{addr, "accepting_blocks"}});
-         accepting_blocks.Set(metrics.stats.accepting_blocks[i]);
-         accepting_blocks_gauges.push_back(accepting_blocks);
-         auto& last_received_block = p2p_connections.Add({{addr, "last_received_block"}});
-         last_received_block.Set(metrics.stats.last_received_blocks[i]);
-         last_received_blocks_gauges.push_back(last_received_block);
-         auto& first_available_block = p2p_connections.Add({{addr, "first_available_block"}});
-         first_available_block.Set(metrics.stats.first_available_blocks[i]);
-         first_available_blocks_gauges.push_back(first_available_block);
-         auto& last_available_block = p2p_connections.Add({{addr, "last_available_block"}});
-         last_available_block.Set(metrics.stats.last_available_blocks[i]);
-         last_available_blocks_gauges.push_back(last_available_block);
-         auto& unique_first_block_count = p2p_connections.Add({{addr, "unique_first_block_count"}});
-         unique_first_block_count.Set(metrics.stats.unique_first_block_counts[i]);
-         unique_first_block_counts_gauges.push_back(unique_first_block_count);
-         auto& latency = p2p_connections.Add({{addr, "latency"}});
-         latency.Set(metrics.stats.latencies[i]);
-         latency_gauges.push_back(latency);
-         auto& bytes_received = p2p_connections.Add({{addr, "bytes_received"}});
-         bytes_received.Set(metrics.stats.bytes_received[i]);
-         bytes_received_gauges.push_back(bytes_received);
-         auto& last_bytes_received = p2p_connections.Add({{addr, "last_bytes_received"}});
-         last_bytes_received.Set(metrics.stats.last_bytes_received[i]);
-         last_bytes_received_gauges.push_back(last_bytes_received);
-         auto& bytes_sent = p2p_connections.Add({{addr, "bytes_sent"}});
-         bytes_sent.Set(metrics.stats.bytes_sent[i]);
-         bytes_sent_gauges.push_back(bytes_sent);
-         auto& last_bytes_sent = p2p_connections.Add({{addr, "last_bytes_sent"}});
-         last_bytes_sent.Set(metrics.stats.last_bytes_sent[i]);
-         last_bytes_sent_gauges.push_back(last_bytes_sent);
-         auto& connection_start_time = p2p_connections.Add({{addr, "connection_start_time"}});
-         connection_start_time.Set(metrics.stats.connection_start_times[i].count());
-         connection_start_time_gauges.push_back(connection_start_time);
-         auto& log_p2p_address = p2p_connections.Add({{addr, metrics.stats.log_p2p_addresses[i]}});
-         log_p2p_address.Set(0); // Empty gauge; we only want the label
-         log_p2p_address_gauges.push_back(log_p2p_address);
+         auto add_and_set_gauge = [&](std::string label_value, 
+                                      std::vector<std::reference_wrapper<Gauge>>& gauges,
+                                      auto value) {
+            auto& gauge = p2p_connections.Add({{addr, label_value}});
+            gauge.Set(value);
+            gauges.push_back(gauge);
+         };
+         auto& peer = metrics.stats.peers[i];
+         add_and_set_gauge("accepting_blocks", accepting_blocks_gauges, peer.accepting_blocks);
+         add_and_set_gauge("last_received_block", last_received_blocks_gauges, peer.last_received_block);
+         add_and_set_gauge("first_available_block", first_available_blocks_gauges, peer.first_available_block);
+         add_and_set_gauge("last_available_block", last_available_blocks_gauges, peer.last_available_block);
+         add_and_set_gauge("unique_first_block_count", unique_first_block_counts_gauges, peer.unique_first_block_count);
+         add_and_set_gauge("latency", latency_gauges, peer.latency);
+         add_and_set_gauge("bytes_received", bytes_received_gauges, peer.bytes_received);
+         add_and_set_gauge("last_bytes_received", last_bytes_received_gauges, peer.last_bytes_received);
+         add_and_set_gauge("bytes_sent", bytes_sent_gauges, peer.bytes_sent);
+         add_and_set_gauge("last_bytes_sent", last_bytes_sent_gauges, peer.last_bytes_sent);
+         add_and_set_gauge("connection_start_time", connection_start_time_gauges, peer.connection_start_time.count());
+         add_and_set_gauge(peer.log_p2p_address, log_p2p_address_gauges, 0); // Empty gauge; we only want the label
       }
    }
 
