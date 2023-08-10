@@ -88,7 +88,7 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       const string target_result = format_prefix + a_short_list + " " +
                                    "{" + "\"b\":\"" + b_short_list + "\",\"c\":\"" + c_short_list + "\"}" + " " +
                                    "[\"" + d_short_list + "\",\"" + e_short_list + "\"]" + " " +
-                                   base64_encode( a_blob.data.data(), a_blob.data.size() ) + "=" + " " +
+                                   base64_encode( a_blob.data.data(), a_blob.data.size() ) + " " +
                                    g_short_list;
 
       BOOST_CHECK_EQUAL( result, target_result);
