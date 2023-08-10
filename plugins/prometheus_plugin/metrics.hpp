@@ -158,9 +158,9 @@ struct catalog_type {
          add_and_set_gauge("unique_first_block_count", unique_first_block_counts_gauges, peer.unique_first_block_count);
          add_and_set_gauge("latency", latency_gauges, peer.latency);
          add_and_set_gauge("bytes_received", bytes_received_gauges, peer.bytes_received);
-         add_and_set_gauge("last_bytes_received", last_bytes_received_gauges, peer.last_bytes_received);
+         add_and_set_gauge("last_bytes_received", last_bytes_received_gauges, peer.last_bytes_received.count());
          add_and_set_gauge("bytes_sent", bytes_sent_gauges, peer.bytes_sent);
-         add_and_set_gauge("last_bytes_sent", last_bytes_sent_gauges, peer.last_bytes_sent);
+         add_and_set_gauge("last_bytes_sent", last_bytes_sent_gauges, peer.last_bytes_sent.count());
          add_and_set_gauge("connection_start_time", connection_start_time_gauges, peer.connection_start_time.count());
          add_and_set_gauge(peer.log_p2p_address, log_p2p_address_gauges, 0); // Empty gauge; we only want the label
       }

@@ -50,9 +50,9 @@ namespace eosio {
                size_t unique_first_block_count{0};
                uint64_t latency{0};
                size_t bytes_received{0};
-               time_t last_bytes_received{0};
+               std::chrono::nanoseconds last_bytes_received{0};
                size_t bytes_sent{0};
-               time_t last_bytes_sent{0};
+               std::chrono::nanoseconds last_bytes_sent{0};
                std::chrono::nanoseconds connection_start_time{0};
                std::string log_p2p_address;
             };
