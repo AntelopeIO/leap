@@ -143,9 +143,9 @@ struct catalog_type {
          addr.append("_");
          addr.append(to_string(metrics.stats.peers[i].port));
          addresses.push_back(addr);
-         auto add_and_set_gauge = [&](std::string label_value, 
+         auto add_and_set_gauge = [&](const std::string& label_value, 
                                       std::vector<std::reference_wrapper<Gauge>>& gauges,
-                                      auto value) {
+                                      const auto& value) {
             auto& gauge = p2p_connections.Add({{addr, label_value}});
             gauge.Set(value);
             gauges.push_back(gauge);

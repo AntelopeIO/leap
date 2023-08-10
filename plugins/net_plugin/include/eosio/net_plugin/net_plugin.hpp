@@ -42,18 +42,18 @@ namespace eosio {
         struct p2p_per_connection_metrics {
             struct connection_metric {
                boost::asio::ip::address_v6::bytes_type address;
-               unsigned short port;
-               bool accepting_blocks;
-               uint32_t last_received_block;
-               uint32_t first_available_block;
-               uint32_t last_available_block;
-               size_t unique_first_block_count;
-               uint64_t latency;
-               size_t bytes_received;
-               time_t last_bytes_received;
-               size_t bytes_sent;
-               time_t last_bytes_sent;
-               std::chrono::nanoseconds connection_start_time;
+               unsigned short port{0};
+               bool accepting_blocks{false};
+               uint32_t last_received_block{0};
+               uint32_t first_available_block{0};
+               uint32_t last_available_block{0};
+               size_t unique_first_block_count{0};
+               uint64_t latency{0};
+               size_t bytes_received{0};
+               time_t last_bytes_received{0};
+               size_t bytes_sent{0};
+               time_t last_bytes_sent{0};
+               std::chrono::nanoseconds connection_start_time{0};
                std::string log_p2p_address;
             };
             explicit p2p_per_connection_metrics(size_t count) {
