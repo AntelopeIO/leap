@@ -65,58 +65,51 @@ namespace block_timing_util {
       }
    }
 
-   inline uint32_t calculate_next_block_slot(const chain::account_name& producer_name, uint32_t current_block_slot, uint32_t block_num,
-                                             const std::vector<chain::producer_authority>& active_schedule, const producer_watermarks& prod_watermarks) {
-      // determine if this producer is in the active schedule and if so, where
-      auto itr =
-         std::find_if(active_schedule.begin(), active_schedule.end(), [&](const auto& asp) { return asp.producer_name == producer_name; });
-      if (itr == active_schedule.end()) {
-         // this producer is not in the active producer set
-         return UINT32_MAX;
-      }
+   namespace detail {
+      inline uint32_t calculate_next_block_slot(const chain::account_name& producer_name, uint32_t current_block_slot, uint32_t block_num,
+                                                size_t producer_index, size_t active_schedule_size, const producer_watermarks& prod_watermarks) {
+         uint32_t minimum_offset = 1; // must at least be the "next" block
 
-      size_t   producer_index = itr - active_schedule.begin();
-      uint32_t minimum_offset = 1; // must at least be the "next" block
-
-      // account for a watermark in the future which is disqualifying this producer for now
-      // this is conservative assuming no blocks are dropped.  If blocks are dropped the watermark will
-      // disqualify this producer for longer but it is assumed they will wake up, determine that they
-      // are disqualified for longer due to skipped blocks and re-calculate their next block with better
-      // information then
-      auto current_watermark = prod_watermarks.get_watermark(producer_name);
-      if (current_watermark) {
-         const auto watermark = *current_watermark;
-         if (watermark.first > block_num) {
-            // if I have a watermark block number then I need to wait until after that watermark
-            minimum_offset = watermark.first - block_num + 1;
-         }
-         if (watermark.second.slot > current_block_slot) {
-            // if I have a watermark block timestamp then I need to wait until after that watermark timestamp
-            minimum_offset = std::max(minimum_offset, watermark.second.slot - current_block_slot + 1);
-         }
-      }
-
-      // this producers next opportunity to produce is the next time its slot arrives after or at the calculated minimum
-      uint32_t minimum_slot = current_block_slot + minimum_offset;
-      size_t   minimum_slot_producer_index =
-         (minimum_slot % (active_schedule.size() * chain::config::producer_repetitions)) / chain::config::producer_repetitions;
-      if (producer_index == minimum_slot_producer_index) {
-         // this is the producer for the minimum slot, go with that
-         return minimum_slot;
-      } else {
-         // calculate how many rounds are between the minimum producer and the producer in question
-         size_t producer_distance = producer_index - minimum_slot_producer_index;
-         // check for unsigned underflow
-         if (producer_distance > producer_index) {
-            producer_distance += active_schedule.size();
+         // account for a watermark in the future which is disqualifying this producer for now
+         // this is conservative assuming no blocks are dropped.  If blocks are dropped the watermark will
+         // disqualify this producer for longer but it is assumed they will wake up, determine that they
+         // are disqualified for longer due to skipped blocks and re-calculate their next block with better
+         // information then
+         auto current_watermark = prod_watermarks.get_watermark(producer_name);
+         if (current_watermark) {
+            const auto watermark = *current_watermark;
+            if (watermark.first > block_num) {
+               // if I have a watermark block number then I need to wait until after that watermark
+               minimum_offset = watermark.first - block_num + 1;
+            }
+            if (watermark.second.slot > current_block_slot) {
+               // if I have a watermark block timestamp then I need to wait until after that watermark timestamp
+               minimum_offset = std::max(minimum_offset, watermark.second.slot - current_block_slot + 1);
+            }
          }
 
-         // align the minimum slot to the first of its set of reps
-         uint32_t first_minimum_producer_slot = minimum_slot - (minimum_slot % chain::config::producer_repetitions);
+         // this producers next opportunity to produce is the next time its slot arrives after or at the calculated minimum
+         uint32_t minimum_slot = current_block_slot + minimum_offset;
+         size_t   minimum_slot_producer_index =
+            (minimum_slot % (active_schedule_size * chain::config::producer_repetitions)) / chain::config::producer_repetitions;
+         if (producer_index == minimum_slot_producer_index) {
+            // this is the producer for the minimum slot, go with that
+            return minimum_slot;
+         } else {
+            // calculate how many rounds are between the minimum producer and the producer in question
+            size_t producer_distance = producer_index - minimum_slot_producer_index;
+            // check for unsigned underflow
+            if (producer_distance > producer_index) {
+               producer_distance += active_schedule_size;
+            }
 
-         // offset the aligned minimum to the *earliest* next set of slots for this producer
-         uint32_t next_block_slot = first_minimum_producer_slot + (producer_distance * chain::config::producer_repetitions);
-         return next_block_slot;
+            // align the minimum slot to the first of its set of reps
+            uint32_t first_minimum_producer_slot = minimum_slot - (minimum_slot % chain::config::producer_repetitions);
+
+            // offset the aligned minimum to the *earliest* next set of slots for this producer
+            uint32_t next_block_slot = first_minimum_producer_slot + (producer_distance * chain::config::producer_repetitions);
+            return next_block_slot;
+         }
       }
    }
 
@@ -132,7 +125,14 @@ namespace block_timing_util {
       // if we have any producers then we should at least set a timer for our next available slot
       uint32_t wake_up_slot = UINT32_MAX;
       for (const auto& p : producers) {
-         auto next_producer_block_slot = calculate_next_block_slot(p, ref_block_slot, block_num, active_schedule, prod_watermarks);
+         // determine if this producer is in the active schedule and if so, where
+         auto itr = std::find_if(active_schedule.begin(), active_schedule.end(), [&](const auto& asp) { return asp.producer_name == p; });
+         if (itr == active_schedule.end()) {
+            continue;
+         }
+         size_t producer_index = itr - active_schedule.begin();
+
+         auto next_producer_block_slot = detail::calculate_next_block_slot(p, ref_block_slot, block_num, producer_index, active_schedule.size(), prod_watermarks);
          wake_up_slot                  = std::min(next_producer_block_slot, wake_up_slot);
       }
       if (wake_up_slot == UINT32_MAX) {
