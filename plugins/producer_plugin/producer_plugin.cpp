@@ -1904,7 +1904,8 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
                                                                           _producer_watermarks);
       _pending_block_deadline = wake_time ? *wake_time : fc::time_point::maximum();
    } else {
-      _pending_block_deadline = fc::time_point::maximum();
+      // set a deadline of 5 seconds to avoid speculatively executing trx on too old of state
+      _pending_block_deadline = chain.head_block_time() + fc::seconds(5);
    }
 
    const auto& preprocess_deadline = _pending_block_deadline;
