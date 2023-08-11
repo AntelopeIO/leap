@@ -10,6 +10,8 @@ enum class pending_block_mode { producing, speculating };
 namespace block_timing_util {
 
    // Store watermarks
+   // Watermarks are recorded times that the specified producer has produced.
+   // Used by calculate_producer_wake_up_time to skip over already produced blocks avoiding duplicate production.
    class producer_watermarks {
    public:
       void consider_new_watermark(chain::account_name producer, uint32_t block_num, chain::block_timestamp_type timestamp) {
