@@ -34,7 +34,7 @@
 #include <fc/log/logger_config.hpp>
 #include <fc/scoped_exit.hpp>
 #include <fc/variant_object.hpp>
-#include <bls12-381.hpp>
+#include <bls12-381/bls12-381.hpp>
 
 #include <new>
 #include <shared_mutex>
@@ -340,7 +340,6 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
-      bls12_381::init();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
          wasm_if_collect.current_lib(bsp->block_num);

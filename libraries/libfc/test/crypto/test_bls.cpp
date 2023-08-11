@@ -1,6 +1,6 @@
 #include <boost/test/unit_test.hpp>
 
-#include <bls12-381.hpp>
+#include <bls12-381/bls12-381.hpp>
 #include <fc/exception/exception.hpp>
 
 using namespace std;
@@ -33,13 +33,13 @@ BOOST_AUTO_TEST_CASE(bls_serialization_test) try {
     g1 pk = public_key(sk);
     g2 signature = sign(sk, message_1);
 
-    string pk_string = bytesToHex<144>(pk.toJacobianBytesBE());
-    string signature_string = bytesToHex<288>(signature.toJacobianBytesBE());
-    cout << pk_string << std::endl;
-    cout << signature_string << std::endl;
+    const array<uint8_t, 144> pk_string = pk.toJacobianBytesBE();
+    const array<uint8_t, 288> signature_string = signature.toJacobianBytesBE();
+    cout << bytesToHex<144>(pk_string) <<  std::endl;
+    cout << bytesToHex<288>(signature_string) << std::endl;
 
-    g1 pk2 = g1::fromJacobianBytesBE(hexToBytes(pk_string)).value();
-    g2 signature2 = g2::fromJacobianBytesBE(hexToBytes(signature_string)).value();
+    g1 pk2 = g1::fromJacobianBytesBE(pk_string).value();
+    g2 signature2 = g2::fromJacobianBytesBE(signature_string).value();
     bool ok = verify(pk2, message_1, signature2);
     BOOST_CHECK_EQUAL(ok, true);
 } FC_LOG_AND_RETHROW();
