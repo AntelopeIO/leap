@@ -490,7 +490,7 @@ std::string variant::as_string()const
           return *reinterpret_cast<const bool*>(this) ? "true" : "false";
       case blob_type:
           if( get_blob().data.size() )
-             return base64_encode( get_blob().data.data(), get_blob().data.size() ) + "=";
+             return base64_encode( get_blob().data.data(), get_blob().data.size() );
           return std::string();
       case null_type:
           return std::string();
@@ -533,10 +533,11 @@ blob variant::as_blob()const
       {
          const std::string& str = get_string();
          if( str.size() == 0 ) return blob();
-         if( str.back() == '=' )
-         {
+         try {
             std::string b64 = base64_decode( get_string() );
             return blob( { std::vector<char>( b64.begin(), b64.end() ) } );
+         } catch(const std::exception&) {
+            // unable to decode, just return the raw chars
          }
          return blob( { std::vector<char>( str.begin(), str.end() ) } );
       }
