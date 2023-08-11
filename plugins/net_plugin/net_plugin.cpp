@@ -1554,8 +1554,6 @@ namespace eosio {
    void connection::queue_write(const std::shared_ptr<vector<char>>& buff,
                                 std::function<void(boost::system::error_code, std::size_t)> callback,
                                 bool to_sync_queue) {
-      bytes_sent += buff->size();
-      last_bytes_sent = get_time();
       if( !buffer_queue.add_write_queue( buff, std::move(callback), to_sync_queue )) {
          peer_wlog( this, "write_queue full ${s} bytes, giving up on connection", ("s", buffer_queue.write_queue_size()) );
          close();
@@ -1601,6 +1599,8 @@ namespace eosio {
                   c->close();
                   return;
                }
+               c->bytes_sent += w;
+               c->last_bytes_sent = c->get_time();
 
                c->buffer_queue.out_callback( ec, w );
 
