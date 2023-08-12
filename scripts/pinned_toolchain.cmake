@@ -5,7 +5,7 @@ set(CMAKE_C_COMPILER ${CLANG_DIR}/bin/clang)
 set(CMAKE_CXX_COMPILER ${CLANG_DIR}/bin/clang++)
 set(LLVM_ENABLE_LIBCXX 1)
 
-set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES ${CLANG_DIR}/include/c++/v1 /usr/local/include /usr/include)
+set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES ${CLANG_DIR}/include/c++/v1 ${CLANG_DIR}/include/x86_64-unknown-linux-gnu/c++/v1 /usr/local/include /usr/include)
 
 set(CMAKE_C_FLAGS_INIT "-D_FORTIFY_SOURCE=2 -fstack-protector-strong -fpie")
 set(CMAKE_CXX_FLAGS_INIT "-nostdinc++ -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fpie")
@@ -17,4 +17,4 @@ endif()
 
 set(CMAKE_SHARED_LINKER_FLAGS_INIT "-stdlib=libc++ -nostdlib++")
 set(CMAKE_MODULE_LINKER_FLAGS_INIT "-stdlib=libc++ -nostdlib++")
-set(CMAKE_CXX_STANDARD_LIBRARIES "${CLANG_DIR}/lib/libc++.a ${CLANG_DIR}/lib/libc++abi.a")
+set(CMAKE_CXX_STANDARD_LIBRARIES "${CLANG_DIR}/lib/x86_64-unknown-linux-gnu/libc++.a ${CLANG_DIR}/lib/x86_64-unknown-linux-gnu/libc++abi.a")
