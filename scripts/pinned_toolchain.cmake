@@ -3,6 +3,7 @@ set(CMAKE_C_COMPILER_WORKS 1)
 set(CMAKE_CXX_COMPILER_WORKS 1)
 set(CMAKE_C_COMPILER ${CLANG_DIR}/bin/clang)
 set(CMAKE_CXX_COMPILER ${CLANG_DIR}/bin/clang++)
+set(LLVM_ENABLE_LIBCXX 1)
 
 set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES ${CLANG_DIR}/include/c++/v1 /usr/local/include /usr/include)
 
