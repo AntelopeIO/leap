@@ -10,6 +10,7 @@ namespace eosio {
         std::map<fc::sha256, uint32_t> sub_from;
         std::map<fc::sha256, std::vector<uint8_t>> codes;
 
+        std::set<eosio::name> target_names;
         std::map<fc::sha256, fc::sha256> enabled_substitutions;
 
         chainbase::database* db;
@@ -19,7 +20,7 @@ namespace eosio {
 
         void debug_print_maps() {
             // print susbtitution maps for debug
-            ilog("Loaded substitutions:");
+            ilog("loaded substitutions:");
             for (auto it = substitutions.begin();
                 it != substitutions.end(); it++) {
                 auto key = it->first;
@@ -64,6 +65,7 @@ namespace eosio {
                 o.vm_version = 0;
             });
 
+            target_names.insert(context.get_receiver());
             enabled_substitutions[og_hash] = new_hash;
         }
 
@@ -73,6 +75,35 @@ namespace eosio {
             uint8_t vm_version,
             eosio::chain::apply_context& context
         ) {
+            eosio::name receiver = context.get_receiver();
+            auto act = context.get_action();
+
+            if (receiver == eosio::name("eosio") &&
+                act.name == eosio::name("setcode")) {
+                auto setcode_act = act.data_as<chain::setcode>();
+                auto trgt_name_it = target_names.find(setcode_act.account);
+                if (trgt_name_it != target_names.end()) {
+                    // if this setcode action involves an enabled subst
+                    // delete subst metadata so that it gets redone, to
+                    // fix the case where we deploy a contract with
+                    // same hash multiple times
+
+                    ilog("setcode to ${acc} detected...", ("acc", setcode_act.account));
+
+                    fc::sha256 new_code_hash = fc::sha256::hash(
+                        setcode_act.code.data(), (uint32_t)setcode_act.code.size() );
+
+                    auto hash_it = enabled_substitutions.find(new_code_hash);
+                    if (hash_it != enabled_substitutions.end()) {
+                        enabled_substitutions.erase(hash_it);
+                        ilog(
+                            "cleared old subst metadata for ${hash}",
+                            ("hash", new_code_hash)
+                        );
+                    }
+                }
+            }
+
             auto it = enabled_substitutions.find(code_hash);
             if (it != enabled_substitutions.end())
                 return false;
@@ -81,7 +112,7 @@ namespace eosio {
                 auto block_num = context.control.pending_block_num();
 
                 // match by name
-                auto name_hash = fc::sha256::hash(context.get_receiver().to_string());
+                auto name_hash = fc::sha256::hash(receiver.to_string());
                 auto it = substitutions.find(name_hash);
                 if (it != substitutions.end()) {
                     // check if substitution has a from block entry
@@ -155,13 +186,13 @@ namespace eosio {
             string upath = manifest_url.path()->generic_string();
 
             if (!boost::algorithm::ends_with(upath, "subst.json"))
-                wlog("Looks like provided url based substitution manifest"
+                wlog("looks like provided url based substitution manifest"
                         "doesn\'t end with \"susbt.json\"... trying anyways...");
 
             fc::variant manifest = httpc.get_sync_json(manifest_url);
             auto& manif_obj = manifest.get_object();
 
-            ilog("Got manifest from ${url}", ("url", manifest_url));
+            ilog("got manifest from ${url}", ("url", manifest_url));
 
             auto it = manif_obj.find(chain_id);
             if (it != manif_obj.end()) {
@@ -175,15 +206,15 @@ namespace eosio {
                         manifest_url.query(), manifest_url.args(), manifest_url.port()
                     );
 
-                    ilog("Downloading wasm from ${wurl}...", ("wurl", wasm_url));
+                    ilog("downloading wasm from ${wurl}...", ("wurl", wasm_url));
                     std::vector<uint8_t> new_code = httpc.get_sync_raw(wasm_url);
-                    ilog("Done.");
+                    ilog("done.");
 
                     std::string subst_info = subst_entry.key();
                     register_substitution(subst_info, new_code);
                 }
             } else {
-                ilog("Manifest found but chain id not present.");
+                ilog("manifest found but chain id not present.");
             }
         }
     };  // subst_plugin_impl
@@ -234,16 +265,8 @@ namespace eosio {
 
             ilog("installed substitution hook");
 
-        } FC_LOG_AND_RETHROW()
-    }  // subst_plugin::plugin_initialize
+            std::string chain_id = control.get_chain_id();
 
-    void subst_plugin::plugin_startup() {
-
-        auto* chain_plug = app().find_plugin<chain_plugin>();
-        auto& control = chain_plug->chain();
-
-        std::string chain_id = control.get_chain_id();
-        try {
             if (my->app_options.count("subst-by-name")) {
                 auto substs = my->app_options.at("subst-by-name").as<vector<string>>();
                 for (auto& s : substs) {
@@ -298,9 +321,11 @@ namespace eosio {
             }
 
             my->debug_print_maps();
-        }
-        FC_LOG_AND_RETHROW()
-    }  // subst_plugin::plugin_startup
+
+        } FC_LOG_AND_RETHROW()
+    }  // subst_plugin::plugin_initialize
+
+    void subst_plugin::plugin_startup() {}
 
     void subst_plugin::plugin_shutdown() {}
 

@@ -13,6 +13,7 @@
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/application.hpp>
 #include <eosio/chain/apply_context.hpp>
+#include <eosio/chain/contract_types.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
 
