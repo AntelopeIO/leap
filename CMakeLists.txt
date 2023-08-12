@@ -31,7 +31,7 @@ option(ENABLE_WEXTRA "Enable `-Wextra` compilation flag." Off)
 
 set(SPLUGIN_VERSION_MAJOR 1)
 set(SPLUGIN_VERSION_MINOR 0)
-set(SPLUGIN_VERSION_PATCH 0)
+set(SPLUGIN_VERSION_PATCH 1)
 
 set(
     VERSION_FULL
