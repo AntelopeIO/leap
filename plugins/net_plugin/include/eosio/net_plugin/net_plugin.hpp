@@ -41,6 +41,7 @@ namespace eosio {
 
         struct p2p_per_connection_metrics {
             struct connection_metric {
+               uint32_t connection_id{0};
                boost::asio::ip::address_v6::bytes_type address;
                unsigned short port{0};
                bool accepting_blocks{false};

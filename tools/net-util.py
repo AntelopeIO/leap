@@ -9,6 +9,9 @@ import requests
 import sys
 import time
 
+from types import MethodType
+from typing import Callable
+
 import urwid
 import urwid.curses_display
 
@@ -24,51 +27,6 @@ assert logging.getLevelName('TRACE') < logging.getLevelName('DEBUG'), 'Logging T
 PROMETHEUS_URL = '/v1/prometheus/metrics'
 
 logger = logging.getLogger(__name__)
-
-def replacement_render(self, size, focus=False):
-    """
-    Render contents with wrapping and alignment.  Return canvas.
-
-    See :meth:`Widget.render` for parameter details.
-
-    >>> Text(u"important things").render((18,)).text # ... = b in Python 3
-    [...'important things  ']
-    >>> Text(u"important things").render((11,)).text
-    [...'important  ', ...'things     ']
-    """
-    maxcol = size[0]
-    text, attr = self.get_text()
-    #assert isinstance(text, unicode)
-    trans = self.get_line_translation( maxcol, (text,attr) )
-    return apply_text_layout(text, attr, trans, maxcol)
-
-def replacement_rows(self, size, focus=False):
-    """
-    Return the number of rows the rendered text requires.
-
-    See :meth:`Widget.rows` for parameter details.
-
-    >>> Text(u"important things").rows((18,))
-    1
-    >>> Text(u"important things").rows((11,))
-    2
-    """
-    maxcol = size[0]
-    return len(self.get_line_translation(maxcol))
-
-def validate_size(widget, size, canv):
-    """
-    Raise a WidgetError if a canv does not match size size.
-    """
-    if (size and size[1:] != (0,) and size[0] != canv.cols()) or \
-        (len(size)>1 and size[1] < canv.rows()):
-        raise WidgetError("Widget %r rendered (%d x %d) canvas"
-            " when passed size %r!" % (widget, canv.cols(),
-            canv.rows(), size))
-
-#urwid.Text.render = replacement_render
-#urwid.Text.rows = replacement_rows
-#urwid.widget.validate_size = validate_size
 
 def humanReadableBytesPerSecond(bytes: int, telco:bool = False):
     power = 10**3 if telco else 2**10
@@ -180,6 +138,7 @@ class netUtil:
         ]
         self.peerMetricConversions = {
             'hostname': lambda x: x[1:].replace('__', ':').replace('_', '.'),
+            'port': lambda x: str(int(x)),
             'accepting_blocks': lambda x: 'True' if x else 'False',
             'latency': lambda x: format(int(x)/1000000, '.2f') + ' ms',
             'last_received_block': lambda x: str(int(x)),
@@ -196,7 +155,9 @@ class netUtil:
             'Earliest Available Block:',
         ]
         self.peerColumns = [
+            ('Connection ID', 'connectionIDLW'),
             ('\n\nIP Address', 'ipAddressLW'),
+            ('\n\nPort', 'portLW'),
             ('\n\nHostname', 'hostnameLW'),
             ('\n\nLatency', 'latencyLW'),
             ('\nSend\nRate', 'sendBandwidthLW'),
@@ -223,25 +184,6 @@ class netUtil:
         parser.add_argument('--refresh-interval', help='refresh interval in seconds (max 25.5)', default='25.5')
         parser.add_argument('--log-level', choices=[logging._nameToLevel.keys()] + [k.lower() for k in logging._nameToLevel.keys()], help='Logging level', default='debug')
         self.args = parser.parse_args()
-
-    @staticmethod
-    def unmanglePrometheusHostLabel(hostLabel: str) -> (ipaddress.ip_address, str):
-        '''Remove mangling required to fit an IPv6 address and port into a Prometheus label.
-
-        Prometheus labels may contain only underscore and alphanumeric characters and must begin with
-        an alphabetic character. This method unmangles according to the following table:
-                'ip_' prefix removed
-                '_DOT_' -> '.'
-                '_COLON_' -> ':'
-
-        @hostLabel - Prometheus label to convert
-
-        @returns - instance of 'ip_address', string representation of port number
-        '''
-        host = hostLabel[len('ip_'):].replace('_DOT_', '.').replace('_COLON_', ':')
-        addr = ipaddress.ip_address(host[:host.rfind('_')])
-        port = host[host.rfind('_')+1:]
-        return addr, port
 
     def createUrwidUI(self, mainLoop):
         AttrMap = urwid.AttrMap
@@ -281,28 +223,33 @@ class netUtil:
         widgets.insert(3, Filler(Divider()))
         rightColumn = Pile([(1, widget) for widget in widgets[:-1]] + [('weight', 1, widgets[-1])])
 
-        def packLabeledList(labelTxt: str, attrName: str):
+        def packLabeledList(labelTxt: str, attrName: str, focusChangedCallback: Callable):
             label = Text(('bold', labelTxt))
             listWalker = TextSimpleFocusListWalker([])
+            #listWalker.set_focus_changed_callback(focusChangedCallback)
+            #listWalker._focus_changed = MethodType(focusChangedCallback, listWalker)
             setattr(listWalker, 'name', attrName)
             setattr(self, attrName, listWalker)
-            return Pile([('pack', label), ('weight', 1, urwid.ListBox(listWalker))])
+            return Pile([('pack', label), ('weight', 1, urwid.ListBox(listWalker))]), listWalker
+
+        def focus_changed(self, new_focus):
+            logger.info(f'focus changed to {new_focus}')
+            for listWalker in self.columns:
+                logger.info(f'listwalker {id(listWalker)} self {id(self)}')
+                if listWalker is not self:
+                    listWalker.set_focus(new_focus)
 
         self.peerListPiles = []
+        listWalkers = []
         for colName, attrName in self.peerColumns:
-            self.peerListPiles.append(packLabeledList(colName, attrName))
+            p, l = packLabeledList(colName, attrName, focus_changed)
+            self.peerListPiles.append(p)
+            listWalkers.append(l)
         
-        #for pile in self.peerListPiles:
-        #    pile.setAllColumns(self.peerListPiles)
+        for listWalker in listWalkers:
+            listWalker.columns = listWalkers
 
-        def focus_changed(new_focus):
-            logger.info('focus changed')
-            for pile in self.peerListPiles[:-1]:
-                pile.contents[-1][0].body.set_focus(new_focus)
-
-        self.peerListPiles[0].contents[-1][0].body.set_focus_changed_callback(focus_changed)
-
-        columnedList = Columns([('weight', 1, self.peerListPiles[0]), 
+        columnedList = Columns([(0, self.peerListPiles[0]), # hidden connection ID column
                                 ('weight', 2, self.peerListPiles[1])]+self.peerListPiles[2:],
                                dividechars=1, focus_column=0)
         self.peerLineBox = urwid.LineBox(columnedList, 'Peers:', 'left')
@@ -363,18 +310,21 @@ class netUtil:
                             field = getattr(self, fieldName)
                             field.set_text(str(int(sample.value)))
                         else:
-                            hostLabel = next(iter(sample.labels))
-                            fieldName = sample.labels[hostLabel]
-                            addr, port = self.unmanglePrometheusHostLabel(hostLabel)
-                            host = f'{str(addr.ipv4_mapped) if addr.ipv4_mapped else str(addr)}:{port}'
-                            listwalker = getattr(self, 'ipAddressLW')
-                            if host not in listwalker:
+                            connID = next(iter(sample.labels))
+                            fieldName = sample.labels[connID]
+                            listwalker = getattr(self, 'connectionIDLW')
+                            if connID not in listwalker:
                                 startOffset = endOffset = len(listwalker)
-                                listwalker.append(AttrMap(Text(host), None, 'reversed'))
+                                listwalker.append(AttrMap(Text(connID), None, 'reversed'))
                             else:
-                                startOffset = listwalker.index(host)
+                                startOffset = listwalker.index(connID)
                                 endOffset = startOffset + 1
-                            if fieldName == 'bytes_received':
+                            if fieldName.startswith('addr_'):
+                                listwalker = getattr(self, 'ipAddressLW')
+                                addr = ipaddress.ip_address(fieldName[len('addr_'):])
+                                host = f'{str(addr.ipv4_mapped) if addr.ipv4_mapped else str(addr)}'
+                                listwalker[startOffset:endOffset] = [AttrMap(Text(host), None, 'reversed')]
+                            elif fieldName == 'bytes_received':
                                 bytesReceived = int(sample.value)
                                 stats = bandwidths.get(host, bandwidthStats())
                                 stats.bytesReceived = bytesReceived

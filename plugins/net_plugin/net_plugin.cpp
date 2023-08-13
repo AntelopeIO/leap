@@ -4465,7 +4465,8 @@ namespace eosio {
             boost::asio::ip::address_v6::bytes_type addr = (*it)->remote_endpoint_ip_array;
             g_conn.unlock();
             net_plugin::p2p_per_connection_metrics::connection_metric metrics{
-               .address = addr
+                 .connection_id = (*it)->connection_id
+               , .address = addr
                , .port = (*it)->get_remote_endpoint_port()
                , .accepting_blocks = (*it)->is_blocks_connection()
                , .last_received_block = (*it)->get_last_received_block_num()

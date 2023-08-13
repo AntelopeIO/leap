@@ -38,7 +38,8 @@ struct catalog_type {
 
    Gauge& num_peers;
    Gauge& num_clients;
-   std::vector<std::string> addresses;
+   std::vector<std::reference_wrapper<Gauge>> address_gauges;
+   std::vector<std::reference_wrapper<Gauge>> port_gauges;
    std::vector<std::reference_wrapper<Gauge>> accepting_blocks_gauges;
    std::vector<std::reference_wrapper<Gauge>> last_received_blocks_gauges;
    std::vector<std::reference_wrapper<Gauge>> first_available_blocks_gauges;
@@ -136,21 +137,18 @@ struct catalog_type {
       num_peers.Set(metrics.num_peers);
       num_clients.Set(metrics.num_clients);
       for(size_t i = 0; i < metrics.stats.peers.size(); ++i) {
-         auto addr = boost::asio::ip::make_address_v6(metrics.stats.peers[i].address).to_string();
-         boost::replace_all(addr, ":", "_COLON_");
-         boost::replace_all(addr, ".", "_DOT_");
-         addr.insert(0, "ip_");
-         addr.append("_");
-         addr.append(to_string(metrics.stats.peers[i].port));
-         addresses.push_back(addr);
+         std::string label{"connid_" + to_string(metrics.stats.peers[i].connection_id)};
          auto add_and_set_gauge = [&](const std::string& label_value, 
                                       std::vector<std::reference_wrapper<Gauge>>& gauges,
                                       const auto& value) {
-            auto& gauge = p2p_connections.Add({{addr, label_value}});
+            auto& gauge = p2p_connections.Add({{label, label_value}});
             gauge.Set(value);
             gauges.push_back(gauge);
          };
          auto& peer = metrics.stats.peers[i];
+         auto addr = std::string("addr_") + boost::asio::ip::make_address_v6(peer.address).to_string();
+         add_and_set_gauge(addr, address_gauges, 0); // Empty gauge; ipv6 address can't be transmitted as a double
+         add_and_set_gauge("port", port_gauges, peer.port);
          add_and_set_gauge("accepting_blocks", accepting_blocks_gauges, peer.accepting_blocks);
          add_and_set_gauge("last_received_block", last_received_blocks_gauges, peer.last_received_block);
          add_and_set_gauge("first_available_block", first_available_blocks_gauges, peer.first_available_block);
