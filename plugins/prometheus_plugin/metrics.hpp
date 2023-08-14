@@ -38,20 +38,6 @@ struct catalog_type {
 
    Gauge& num_peers;
    Gauge& num_clients;
-   std::vector<std::reference_wrapper<Gauge>> address_gauges;
-   std::vector<std::reference_wrapper<Gauge>> port_gauges;
-   std::vector<std::reference_wrapper<Gauge>> accepting_blocks_gauges;
-   std::vector<std::reference_wrapper<Gauge>> last_received_blocks_gauges;
-   std::vector<std::reference_wrapper<Gauge>> first_available_blocks_gauges;
-   std::vector<std::reference_wrapper<Gauge>> last_available_blocks_gauges;
-   std::vector<std::reference_wrapper<Gauge>> unique_first_block_counts_gauges;
-   std::vector<std::reference_wrapper<Gauge>> latency_gauges;
-   std::vector<std::reference_wrapper<Gauge>> bytes_received_gauges;
-   std::vector<std::reference_wrapper<Gauge>> last_bytes_received_gauges;
-   std::vector<std::reference_wrapper<Gauge>> bytes_sent_gauges;
-   std::vector<std::reference_wrapper<Gauge>> last_bytes_sent_gauges;
-   std::vector<std::reference_wrapper<Gauge>> connection_start_time_gauges;
-   std::vector<std::reference_wrapper<Gauge>> log_p2p_address_gauges;
 
    // net plugin failed p2p connection
    Counter& failed_p2p_connections;
@@ -139,28 +125,26 @@ struct catalog_type {
       for(size_t i = 0; i < metrics.stats.peers.size(); ++i) {
          std::string label{"connid_" + to_string(metrics.stats.peers[i].connection_id)};
          auto add_and_set_gauge = [&](const std::string& label_value, 
-                                      std::vector<std::reference_wrapper<Gauge>>& gauges,
                                       const auto& value) {
             auto& gauge = p2p_connections.Add({{label, label_value}});
             gauge.Set(value);
-            gauges.push_back(gauge);
          };
          auto& peer = metrics.stats.peers[i];
          auto addr = std::string("addr_") + boost::asio::ip::make_address_v6(peer.address).to_string();
-         add_and_set_gauge(addr, address_gauges, 0); // Empty gauge; ipv6 address can't be transmitted as a double
-         add_and_set_gauge("port", port_gauges, peer.port);
-         add_and_set_gauge("accepting_blocks", accepting_blocks_gauges, peer.accepting_blocks);
-         add_and_set_gauge("last_received_block", last_received_blocks_gauges, peer.last_received_block);
-         add_and_set_gauge("first_available_block", first_available_blocks_gauges, peer.first_available_block);
-         add_and_set_gauge("last_available_block", last_available_blocks_gauges, peer.last_available_block);
-         add_and_set_gauge("unique_first_block_count", unique_first_block_counts_gauges, peer.unique_first_block_count);
-         add_and_set_gauge("latency", latency_gauges, peer.latency);
-         add_and_set_gauge("bytes_received", bytes_received_gauges, peer.bytes_received);
-         add_and_set_gauge("last_bytes_received", last_bytes_received_gauges, peer.last_bytes_received.count());
-         add_and_set_gauge("bytes_sent", bytes_sent_gauges, peer.bytes_sent);
-         add_and_set_gauge("last_bytes_sent", last_bytes_sent_gauges, peer.last_bytes_sent.count());
-         add_and_set_gauge("connection_start_time", connection_start_time_gauges, peer.connection_start_time.count());
-         add_and_set_gauge(peer.log_p2p_address, log_p2p_address_gauges, 0); // Empty gauge; we only want the label
+         add_and_set_gauge(addr, 0); // Empty gauge; ipv6 address can't be transmitted as a double
+         add_and_set_gauge("port", peer.port);
+         add_and_set_gauge("accepting_blocks", peer.accepting_blocks);
+         add_and_set_gauge("last_received_block", peer.last_received_block);
+         add_and_set_gauge("first_available_block", peer.first_available_block);
+         add_and_set_gauge("last_available_block", peer.last_available_block);
+         add_and_set_gauge("unique_first_block_count", peer.unique_first_block_count);
+         add_and_set_gauge("latency", peer.latency);
+         add_and_set_gauge("bytes_received", peer.bytes_received);
+         add_and_set_gauge("last_bytes_received", peer.last_bytes_received.count());
+         add_and_set_gauge("bytes_sent", peer.bytes_sent);
+         add_and_set_gauge("last_bytes_sent", peer.last_bytes_sent.count());
+         add_and_set_gauge("connection_start_time", peer.connection_start_time.count());
+         add_and_set_gauge(peer.log_p2p_address, 0); // Empty gauge; we only want the label
       }
    }
 
