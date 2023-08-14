@@ -1,6 +1,8 @@
 #include <eosio/chain/webassembly/interface.hpp>
 #include <eosio/chain/apply_context.hpp>
 
+#include <fc/io/datastream.hpp>
+
 namespace eosio { namespace chain { namespace webassembly {
    void interface::require_auth( account_name account ) const {
       context.require_authorization( account );
@@ -42,7 +44,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
       auto s = fc::raw::pack_size(result);
       if (s <= packed_result.size()) {
-         datastream<char*> ds(packed_result.data(), s);
+         fc::datastream<char*> ds(packed_result.data(), s);
          fc::raw::pack(ds, result);
       }
       return s;

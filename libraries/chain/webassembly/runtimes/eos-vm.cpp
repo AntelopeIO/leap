@@ -1,5 +1,6 @@
 #include <eosio/chain/webassembly/eos-vm.hpp>
 #include <eosio/chain/webassembly/interface.hpp>
+#include <eosio/chain/account_object.hpp>
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/global_property_object.hpp>
