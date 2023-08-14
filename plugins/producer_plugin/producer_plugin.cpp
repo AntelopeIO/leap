@@ -1879,9 +1879,14 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    }
 
    if (in_speculating_mode()) {
-      auto head_block_age = now - chain.head_block_time();
-      if (head_block_age > fc::seconds(5))
-         return start_block_result::waiting_for_block;
+      static fc::time_point last_start_block_time = fc::time_point::maximum(); // always start with speculative block
+      // Determine if we are syncing: if we have recently started an old block then assume we are syncing
+      if (last_start_block_time < now + fc::microseconds(config::block_interval_us)) {
+         auto head_block_age = now - chain.head_block_time();
+         if (head_block_age > fc::seconds(5))
+            return start_block_result::waiting_for_block; // if syncing no need to create a block just to immediately abort it
+      }
+      last_start_block_time = now;
    }
 
    if (in_producing_mode()) {
@@ -1902,10 +1907,10 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       auto wake_time = block_timing_util::calculate_producer_wake_up_time(config::block_interval_us, chain.head_block_num(), chain.head_block_time(),
                                                                           _producers, chain.head_block_state()->active_schedule.producers,
                                                                           _producer_watermarks);
-      _pending_block_deadline = wake_time ? *wake_time : fc::time_point::maximum();
+      _pending_block_deadline = wake_time ? *wake_time : now + fc::microseconds(config::block_interval_us);
    } else {
-      // set a deadline of 5 seconds to avoid speculatively executing trx on too old of state
-      _pending_block_deadline = chain.head_block_time() + fc::seconds(5);
+      // set a deadline for the next block time, so we consistently create blocks with "current" block time
+      _pending_block_deadline = now + fc::microseconds(config::block_interval_us);
    }
 
    const auto& preprocess_deadline = _pending_block_deadline;
