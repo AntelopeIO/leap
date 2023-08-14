@@ -2,6 +2,7 @@
 #include <eosio/chain/protocol_state_object.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/apply_context.hpp>
+#include <fc/io/datastream.hpp>
 #include <fc/crypto/modular_arithmetic.hpp>
 #include <fc/crypto/blake2.hpp>
 #include <fc/crypto/sha3.hpp>
@@ -25,8 +26,8 @@ namespace eosio { namespace chain { namespace webassembly {
                                        legacy_span<const char> pub ) const {
       fc::crypto::signature s;
       fc::crypto::public_key p;
-      datastream<const char*> ds( sig.data(), sig.size() );
-      datastream<const char*> pubds ( pub.data(), pub.size() );
+      fc::datastream<const char*> ds( sig.data(), sig.size() );
+      fc::datastream<const char*> pubds ( pub.data(), pub.size() );
 
       fc::raw::unpack( ds, s );
       fc::raw::unpack( pubds, p );
@@ -48,7 +49,7 @@ namespace eosio { namespace chain { namespace webassembly {
                                    legacy_span<const char> sig,
                                    legacy_span<char> pub ) const {
       fc::crypto::signature s;
-      datastream<const char*> ds( sig.data(), sig.size() );
+      fc::datastream<const char*> ds( sig.data(), sig.size() );
       fc::raw::unpack(ds, s);
 
       EOS_ASSERT(s.which() < context.db.get<protocol_state_object>().num_supported_key_types, unactivated_signature_type,
@@ -74,7 +75,7 @@ namespace eosio { namespace chain { namespace webassembly {
          // this will do one less copy for those keys while maintaining the rules of
          //    [0..33) dest sizes: assert (asserts in fc::raw::pack)
          //    [33..inf) dest sizes: return packed size (always 33)
-         datastream<char*> out_ds( pub.data(), pub.size() );
+         fc::datastream<char*> out_ds( pub.data(), pub.size() );
          fc::raw::pack(out_ds, recovered);
          return out_ds.tellp();
       }
