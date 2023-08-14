@@ -1889,6 +1889,8 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       last_start_block_time = now;
    }
 
+   // create speculative blocks at regular intervals, so we create blocks with "current" block time
+   _pending_block_deadline = now + fc::microseconds(config::block_interval_us);
    if (in_producing_mode()) {
       uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
       if (production_round_index == 0) {
@@ -1907,10 +1909,8 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       auto wake_time = block_timing_util::calculate_producer_wake_up_time(config::block_interval_us, chain.head_block_num(), chain.head_block_time(),
                                                                           _producers, chain.head_block_state()->active_schedule.producers,
                                                                           _producer_watermarks);
-      _pending_block_deadline = wake_time ? *wake_time : now + fc::microseconds(config::block_interval_us);
-   } else {
-      // set a deadline for the next block time, so we consistently create blocks with "current" block time
-      _pending_block_deadline = now + fc::microseconds(config::block_interval_us);
+      if (wake_time)
+         _pending_block_deadline = std::min(*wake_time, _pending_block_deadline);
    }
 
    const auto& preprocess_deadline = _pending_block_deadline;
