@@ -1221,6 +1221,7 @@ namespace eosio {
          }
       }
       else {
+         fc_dlog( logger, "unable to retrieve remote endpoint for local ${address}:${port}", ("address", local_endpoint_ip)("port", local_endpoint_port));
          remote_endpoint_ip_array = boost::asio::ip::address_v6().to_bytes();
       }
    }
