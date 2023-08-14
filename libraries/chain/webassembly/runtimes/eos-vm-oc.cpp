@@ -60,9 +60,9 @@ void eosvmoc_runtime::init_thread_local_data() {
 }
 
 thread_local std::unique_ptr<eosvmoc::executor> eosvmoc_runtime::exec_thread_local {};
-// Set mirroring_pages_for_ro_thread to a small number to save upfront virtual memory
+// Set sliced_pages_for_ro_thread to a small number to save upfront virtual memory
 // consumption. Usage beyond this limit will be handled by mprotect.
-constexpr uint32_t mirroring_pages_for_ro_thread = 10;
-thread_local eosvmoc::memory eosvmoc_runtime::mem_thread_local{mirroring_pages_for_ro_thread};
+constexpr uint32_t sliced_pages_for_ro_thread = 10;
+thread_local eosvmoc::memory eosvmoc_runtime::mem_thread_local{sliced_pages_for_ro_thread};
 
 }}}}
