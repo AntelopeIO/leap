@@ -44,7 +44,7 @@ namespace block_timing_util {
    // received it and start producing on schedule. To mitigate the problem, we leave no time gap in block producing. For
    // example, given block_interval=500 ms and cpu effort=400 ms, assuming the our round start at time point 0; in the
    // past, the block start time points would be at time point -500, 0, 500, 1000, 1500, 2000 ....  With this new
-   // approach, the block time points would become -500, -100, 300, 700, 1200 ...
+   // approach, the block time points would become -500, -100, 300, 700, 1100 ...
    inline fc::time_point production_round_block_start_time(uint32_t cpu_effort_us, chain::block_timestamp_type block_time) {
       uint32_t block_slot = block_time.slot;
       uint32_t production_round_start_block_slot =
