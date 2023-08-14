@@ -326,19 +326,19 @@ class netUtil:
                                 listwalker[startOffset:endOffset] = [AttrMap(Text(host), None, 'reversed')]
                             elif fieldName == 'bytes_received':
                                 bytesReceived = int(sample.value)
-                                stats = bandwidths.get(host, bandwidthStats())
+                                stats = bandwidths.get(connID, bandwidthStats())
                                 stats.bytesReceived = bytesReceived
-                                bandwidths[host] = stats
+                                bandwidths[connID] = stats
                             elif fieldName == 'bytes_sent':
                                 bytesSent = int(sample.value)
-                                stats = bandwidths.get(host, bandwidthStats())
+                                stats = bandwidths.get(connID, bandwidthStats())
                                 stats.bytesSent = bytesSent
-                                bandwidths[host] = stats
+                                bandwidths[connID] = stats
                             elif fieldName == 'connection_start_time':
                                 connectionStarted = int(sample.value)
-                                stats = bandwidths.get(host, bandwidthStats())
+                                stats = bandwidths.get(connID, bandwidthStats())
                                 stats.connectionStarted = connectionStarted
-                                bandwidths[host] = stats
+                                bandwidths[connID] = stats
                             else:
                                 attrname = fieldName[:1] + fieldName.replace('_', ' ').title().replace(' ', '')[1:] + 'LW'
                                 if hasattr(self, attrname):
@@ -361,9 +361,9 @@ class netUtil:
                 else:
                     if sample.name == 'nodeos_p2p_connections':
                         now = time.time_ns()
-                        hostListwalker = getattr(self, 'ipAddressLW')
-                        for host, stats in bandwidths.items():
-                            startOffset = hostListwalker.index(host)
+                        connIDListwalker = getattr(self, 'connectionIDLW')
+                        for connID, stats in bandwidths.items():
+                            startOffset = connIDListwalker.index(connID)
                             endOffset = startOffset + 1
                             connected_seconds = (now - stats.connectionStarted)/1000000000
                             listwalker = getattr(self, 'receiveBandwidthLW')
