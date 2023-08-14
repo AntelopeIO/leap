@@ -6,8 +6,6 @@
 #include <chainbase/pinnable_mapped_file.hpp>
 #include <boost/signals2/signal.hpp>
 
-#include <eosio/chain/abi_serializer.hpp>
-#include <eosio/chain/account_object.hpp>
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
@@ -259,7 +257,7 @@ namespace eosio { namespace chain {
          // thread-safe
          block_id_type get_block_id_for_num( uint32_t block_num )const;
 
-         sha256 calculate_integrity_hash();
+         fc::sha256 calculate_integrity_hash();
          void write_snapshot( const snapshot_writer_ptr& snapshot );
 
          bool sender_avoids_whitelist_blacklist_enforcement( account_name sender )const;

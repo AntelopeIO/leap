@@ -1,4 +1,5 @@
 #include <eosio/chain/apply_context.hpp>
+#include <eosio/chain/account_object.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/authorization_manager.hpp>
 #include <eosio/chain/exceptions.hpp>
@@ -7,16 +8,6 @@
 #include <eosio/chain/transaction_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/deep_mind.hpp>
-
-#pragma push_macro("N")
-#undef N
-#include <boost/accumulators/accumulators.hpp>
-#include <boost/accumulators/statistics/stats.hpp>
-#include <boost/accumulators/statistics/min.hpp>
-#include <boost/accumulators/statistics/max.hpp>
-#include <boost/accumulators/statistics/weighted_mean.hpp>
-#include <boost/accumulators/statistics/weighted_variance.hpp>
-#pragma pop_macro("N")
 
 #include <chrono>
 
@@ -828,7 +819,7 @@ namespace eosio { namespace chain {
                actors.insert( auth.actor );
          }
       }
-      EOS_ASSERT( one_auth || is_transient(), tx_no_auths, "transaction must have at least one authorization" );
+      EOS_ASSERT( one_auth || is_read_only(), tx_no_auths, "transaction must have at least one authorization" );
 
       if( enforce_actor_whitelist_blacklist ) {
          control.check_actor_list( actors );

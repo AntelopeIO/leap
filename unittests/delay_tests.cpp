@@ -1901,8 +1901,11 @@ BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
 
    chain.set_transaction_headers(trx);
    trx.sign(chain.get_private_key("tester"_n, "active"), chain.control->get_chain_id());
+   // first push as a dry_run trx
+   trace = chain.push_transaction(trx, fc::time_point::maximum(), base_tester::DEFAULT_BILLED_CPU_TIME_US, false, transaction_metadata::trx_type::dry_run);
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+   // now push for real
    trace = chain.push_transaction(trx);
-   //wdump((fc::json::to_pretty_string(trace)));
    BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
    gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
    BOOST_CHECK_EQUAL(2u, gen_size);
