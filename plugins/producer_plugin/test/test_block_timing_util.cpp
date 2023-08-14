@@ -1,3 +1,4 @@
+
 #include <boost/test/unit_test.hpp>
 #include <eosio/producer_plugin/block_timing_util.hpp>
 #include <fc/mock_time.hpp>
@@ -131,7 +132,7 @@ BOOST_AUTO_TEST_CASE(test_calculate_producer_wake_up_time) {
          BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp, producers, active_schedule, empty_watermarks), block_time);
       }
    }
-   { // We have all producers in active_schedule in active_schedule of 21 (plus a couple of extra producers configured), we should produce every block
+   { // We have all producers in active_schedule of 21 (plus a couple of extra producers configured), we should produce every block
       std::set<account_name> producers = {
          "inita"_n, "initb"_n, "initc"_n, "initd"_n, "inite"_n, "initf"_n, "initg"_n, "p1"_n,
          "inith"_n, "initi"_n, "initj"_n, "initk"_n, "initl"_n, "initm"_n, "initn"_n,
