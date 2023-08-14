@@ -4462,7 +4462,7 @@ namespace eosio {
             ++num_peers;
          }
          if (update_p2p_connection_metrics) {
-            std::unique_lock g_conn((*it)->conn_mtx);
+            fc::unique_lock g_conn((*it)->conn_mtx);
             boost::asio::ip::address_v6::bytes_type addr = (*it)->remote_endpoint_ip_array;
             g_conn.unlock();
             net_plugin::p2p_per_connection_metrics::connection_metric metrics{
