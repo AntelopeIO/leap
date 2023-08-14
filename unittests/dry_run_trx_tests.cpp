@@ -29,7 +29,6 @@ struct dry_run_trx_tester : validating_tester {
       getage_data = abi_ser.variant_to_binary("getage", mutable_variant_object()
          ("user", "alice"),
          abi_serializer::create_yield_function( abi_serializer_max_time ));
-      produce_block();
    }
 
    void send_action(const action& act, bool sign = false) {
@@ -115,6 +114,8 @@ BOOST_FIXTURE_TEST_CASE(newaccount_test, dry_run_trx_tester) { try {
    send_action(act, false); // should not throw
    send_action(act, false); // should not throw
    send_action(act, true); // should not throw
+   BOOST_CHECK_THROW(control->get_account("alice"_n), fc::exception); // not actually created
+   produce_blocks( 1 );
    BOOST_CHECK_THROW(control->get_account("alice"_n), fc::exception); // not actually created
 } FC_LOG_AND_RETHROW() }
 

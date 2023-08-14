@@ -1906,6 +1906,7 @@ BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
    BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
    // now push for real
    trace = chain.push_transaction(trx);
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
    gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
    BOOST_CHECK_EQUAL(2u, gen_size);
 
