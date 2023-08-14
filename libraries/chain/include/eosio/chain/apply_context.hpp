@@ -14,6 +14,7 @@ namespace chainbase { class database; }
 namespace eosio { namespace chain {
 
 class controller;
+class account_metadata_object;
 
 class apply_context {
    private:
