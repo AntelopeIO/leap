@@ -188,7 +188,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
          return (account_net_usage_average_window * config::default_max_block_net_usage * value) / total;
       });
 
-      for (int64_t idx = 0; idx < weights.size(); idx++) {
+      for (size_t idx = 0; idx < weights.size(); idx++) {
          const account_name account(idx + 100);
          initialize_account(account, false);
          set_account_limits(account, -1, weights.at(idx), -1, false);
@@ -196,7 +196,7 @@ BOOST_AUTO_TEST_SUITE(resource_limits_test)
 
       process_account_limit_updates();
 
-      for (int64_t idx = 0; idx < weights.size(); idx++) {
+      for (size_t idx = 0; idx < weights.size(); idx++) {
          const account_name account(idx + 100);
          BOOST_CHECK_EQUAL(get_account_net_limit(account).first, expected_limits.at(idx));
 
