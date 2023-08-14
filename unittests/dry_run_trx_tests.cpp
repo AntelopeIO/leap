@@ -157,7 +157,7 @@ BOOST_FIXTURE_TEST_CASE(setabi_test, dry_run_trx_tester) { try {
    send_action(act, true); // should not throw
    const auto* accnt = control->db().template find<chain::account_object, chain::by_name>( "setabitest"_n );
    BOOST_REQUIRE(accnt);
-   BOOST_TEST(accnt->abi.size() == 0); // no abi actually set
+   BOOST_TEST(accnt->abi.size() == 0u); // no abi actually set
 } FC_LOG_AND_RETHROW() }
 
 BOOST_FIXTURE_TEST_CASE(updateauth_test, dry_run_trx_tester) { try {
