@@ -1,9 +1,12 @@
+#include <eosio/chain/account_object.hpp>
 #include <eosio/chain/webassembly/interface.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/protocol_state_object.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/apply_context.hpp>
+
+#include <fc/io/datastream.hpp>
 
 #include <vector>
 #include <set>
@@ -94,7 +97,7 @@ namespace eosio { namespace chain { namespace webassembly {
          return s;
 
       if ( s <= packed_parameters.size() ) {
-         datastream<char*> ds( packed_parameters.data(), s );
+         fc::datastream<char*> ds( packed_parameters.data(), s );
          fc::raw::pack(ds, version);
          fc::raw::pack(ds, params);
       }
@@ -102,7 +105,7 @@ namespace eosio { namespace chain { namespace webassembly {
    }
    void interface::set_wasm_parameters_packed( span<const char> packed_parameters ) {
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_wasm_parameters_packed not allowed in a readonly transaction");
-      datastream<const char*> ds( packed_parameters.data(), packed_parameters.size() );
+      fc::datastream<const char*> ds( packed_parameters.data(), packed_parameters.size() );
       uint32_t version;
       chain::wasm_config cfg;
       fc::raw::unpack(ds, version);
@@ -117,7 +120,7 @@ namespace eosio { namespace chain { namespace webassembly {
    }
    int64_t interface::set_proposed_producers( legacy_span<const char> packed_producer_schedule) {
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_proposed_producers not allowed in a readonly transaction");
-      datastream<const char*> ds( packed_producer_schedule.data(), packed_producer_schedule.size() );
+      fc::datastream<const char*> ds( packed_producer_schedule.data(), packed_producer_schedule.size() );
       std::vector<producer_authority> producers;
       std::vector<legacy::producer_key> old_version;
       fc::raw::unpack(ds, old_version);
@@ -137,7 +140,7 @@ namespace eosio { namespace chain { namespace webassembly {
       if (packed_producer_format == 0) {
          return set_proposed_producers(std::move(packed_producer_schedule));
       } else if (packed_producer_format == 1) {
-         datastream<const char*> ds( packed_producer_schedule.data(), packed_producer_schedule.size() );
+         fc::datastream<const char*> ds( packed_producer_schedule.data(), packed_producer_schedule.size() );
          vector<producer_authority> producers;
 
          fc::raw::unpack(ds, producers);
@@ -154,7 +157,7 @@ namespace eosio { namespace chain { namespace webassembly {
       if( packed_blockchain_parameters.size() == 0 ) return s;
 
       if ( s <= packed_blockchain_parameters.size() ) {
-         datastream<char*> ds( packed_blockchain_parameters.data(), s );
+         fc::datastream<char*> ds( packed_blockchain_parameters.data(), s );
          fc::raw::pack(ds, gpo.configuration.v0());
          return s;
       }
@@ -163,7 +166,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
    void interface::set_blockchain_parameters_packed( legacy_span<const char> packed_blockchain_parameters ) {
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_blockchain_parameters_packed not allowed in a readonly transaction");
-      datastream<const char*> ds( packed_blockchain_parameters.data(), packed_blockchain_parameters.size() );
+      fc::datastream<const char*> ds( packed_blockchain_parameters.data(), packed_blockchain_parameters.size() );
       chain::chain_config_v0 cfg;
       fc::raw::unpack(ds, cfg);
       cfg.validate();
@@ -174,7 +177,7 @@ namespace eosio { namespace chain { namespace webassembly {
    }
    
    uint32_t interface::get_parameters_packed( span<const char> packed_parameter_ids, span<char> packed_parameters) const{
-      datastream<const char*> ds_ids( packed_parameter_ids.data(), packed_parameter_ids.size() );
+      fc::datastream<const char*> ds_ids( packed_parameter_ids.data(), packed_parameter_ids.size() );
 
       chain::chain_config cfg = context.control.get_global_properties().configuration;
       std::vector<fc::unsigned_int> ids;
@@ -188,14 +191,14 @@ namespace eosio { namespace chain { namespace webassembly {
                  chain::config_parse_error,
                  "get_parameters_packed: buffer size is smaller than ${size}", ("size", size));
       
-      datastream<char*> ds( packed_parameters.data(), size );
+      fc::datastream<char*> ds( packed_parameters.data(), size );
       fc::raw::pack( ds, config_range );
       return size;
    }
 
    void interface::set_parameters_packed( span<const char> packed_parameters ){
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_parameters_packed not allowed in a readonly transaction");
-      datastream<const char*> ds( packed_parameters.data(), packed_parameters.size() );
+      fc::datastream<const char*> ds( packed_parameters.data(), packed_parameters.size() );
 
       chain::chain_config cfg = context.control.get_global_properties().configuration;
       config_range config_range(cfg, {context.control});

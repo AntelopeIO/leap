@@ -24,11 +24,10 @@ class memory {
       static constexpr uint64_t total_memory_per_slice = memory_prologue_size + UINT64_C(0x200000000) + UINT64_C(4096);
 
    public:
-      explicit memory(uint64_t max_pages);
+      explicit memory(uint64_t sliced_pages);
       ~memory();
       memory(const memory&) = delete;
       memory& operator=(const memory&) = delete;
-      void reset(uint64_t max_pages);
 
       uint8_t* const zero_page_memory_base() const { return zeropage_base; }
       uint8_t* const full_page_memory_base() const { return fullpage_base; }
