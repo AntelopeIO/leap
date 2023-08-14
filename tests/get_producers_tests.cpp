@@ -16,12 +16,12 @@ using namespace eosio::testing;
 BOOST_AUTO_TEST_CASE( get_producers) { try {
       tester chain;
 
-      eosio::chain_apis::read_only plugin(*(chain.control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
+      eosio::chain_apis::read_only plugin(*(chain.control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
       eosio::chain_apis::read_only::get_producers_params params = { .json = true, .lower_bound = "", .limit = 21 };
 
       auto results = plugin.get_producers(params, fc::time_point::maximum());
       BOOST_REQUIRE_EQUAL(results.more, "");
-      BOOST_REQUIRE_EQUAL(results.rows.size(), 1);
+      BOOST_REQUIRE_EQUAL(results.rows.size(), 1u);
       const auto& row = results.rows[0].get_object();
       BOOST_REQUIRE(row.contains("owner"));
       BOOST_REQUIRE_EQUAL(row["owner"].as_string(), "eosio");
@@ -37,7 +37,7 @@ BOOST_AUTO_TEST_CASE( get_producers) { try {
       chain.produce_blocks(30);
 
       results = plugin.get_producers(params, fc::time_point::maximum());
-      BOOST_REQUIRE_EQUAL(results.rows.size(), 3);
+      BOOST_REQUIRE_EQUAL(results.rows.size(), 3u);
       auto owners = std::vector<std::string>{"dan", "sam", "pam"};
       auto it     = owners.begin();
       for (const auto& elem : results.rows) {
@@ -52,12 +52,12 @@ BOOST_AUTO_TEST_CASE( get_producers_from_table) { try {
       // ensure that enough voting is occurring so that producer1111 is elected as the producer
       chain.cross_15_percent_threshold();
 
-      eosio::chain_apis::read_only plugin(*(chain.control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
+      eosio::chain_apis::read_only plugin(*(chain.control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
       eosio::chain_apis::read_only::get_producers_params params = { .json = true, .lower_bound = "", .limit = 21 };
 
       auto results = plugin.get_producers(params, fc::time_point::maximum());
       BOOST_REQUIRE_EQUAL(results.more, "");
-      BOOST_REQUIRE_EQUAL(results.rows.size(), 1);
+      BOOST_REQUIRE_EQUAL(results.rows.size(), 1u);
       const auto& row = results.rows[0].get_object();
       BOOST_REQUIRE(row.contains("owner"));
       BOOST_REQUIRE_EQUAL(row["owner"].as_string(), "producer1111");

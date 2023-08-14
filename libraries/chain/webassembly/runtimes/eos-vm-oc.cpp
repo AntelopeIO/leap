@@ -28,7 +28,7 @@ class eosvmoc_instantiated_module : public wasm_instantiated_module_interface {
       bool is_main_thread() { return _main_thread_id == std::this_thread::get_id(); };
 
       void apply(apply_context& context) override {
-         const code_descriptor* const cd = _eosvmoc_runtime.cc.get_descriptor_for_code_sync(_code_hash, _vm_version);
+         const code_descriptor* const cd = _eosvmoc_runtime.cc.get_descriptor_for_code_sync(_code_hash, _vm_version, context.control.is_write_window());
          EOS_ASSERT(cd, wasm_execution_error, "EOS VM OC instantiation failed");
 
          if ( is_main_thread() )
@@ -43,20 +43,17 @@ class eosvmoc_instantiated_module : public wasm_instantiated_module_interface {
       std::thread::id                _main_thread_id;
 };
 
-eosvmoc_runtime::eosvmoc_runtime(const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db)
+eosvmoc_runtime::eosvmoc_runtime(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db)
    : cc(data_dir, eosvmoc_config, db), exec(cc), mem(wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size) {
 }
 
 eosvmoc_runtime::~eosvmoc_runtime() {
 }
 
-std::unique_ptr<wasm_instantiated_module_interface> eosvmoc_runtime::instantiate_module(const char* code_bytes, size_t code_size, std::vector<uint8_t> initial_memory,
+std::unique_ptr<wasm_instantiated_module_interface> eosvmoc_runtime::instantiate_module(const char* code_bytes, size_t code_size,
                                                                                         const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) {
    return std::make_unique<eosvmoc_instantiated_module>(code_hash, vm_type, *this);
 }
-
-//never called. EOS VM OC overrides eosio_exit to its own implementation
-void eosvmoc_runtime::immediately_exit_currently_running_module() {}
 
 void eosvmoc_runtime::init_thread_local_data() {
    exec_thread_local = std::make_unique<eosvmoc::executor>(cc);

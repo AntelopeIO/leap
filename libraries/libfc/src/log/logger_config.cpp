@@ -10,6 +10,9 @@
 #include <fc/reflect/variant.hpp>
 #include <fc/exception/exception.hpp>
 
+#define BOOST_DLL_USE_STD_FS
+#include <boost/dll/runtime_symbol_info.hpp>
+
 namespace fc {
 
    log_config& log_config::get() {
@@ -18,19 +21,19 @@ namespace fc {
       return *the;
    }
 
-   bool log_config::register_appender( const fc::string& type, const appender_factory::ptr& f )
+   bool log_config::register_appender( const std::string& type, const appender_factory::ptr& f )
    {
       std::lock_guard g( log_config::get().log_mutex );
       log_config::get().appender_factory_map[type] = f;
       return true;
    }
 
-   logger log_config::get_logger( const fc::string& name ) {
+   logger log_config::get_logger( const std::string& name ) {
       std::lock_guard g( log_config::get().log_mutex );
       return log_config::get().logger_map[name];
    }
 
-   void log_config::update_logger( const fc::string& name, logger& log ) {
+   void log_config::update_logger( const std::string& name, logger& log ) {
       std::lock_guard g( log_config::get().log_mutex );
       if( log_config::get().logger_map.find( name ) != log_config::get().logger_map.end() ) {
          log = log_config::get().logger_map[name];
@@ -49,7 +52,7 @@ namespace fc {
          iter.second->initialize();
    }
 
-   void configure_logging( const fc::path& lc ) {
+   void configure_logging( const std::filesystem::path& lc ) {
       configure_logging( fc::json::from_file<logging_config>(lc) );
    }
    bool configure_logging( const logging_config& cfg ) {
@@ -133,26 +136,22 @@ namespace fc {
    }
 
    static thread_local std::string thread_name;
-   void set_os_thread_name( const string& name ) {
-#ifdef FC_USE_PTHREAD_NAME_NP
-      pthread_setname_np( pthread_self(), name.c_str() );
-#endif
-   }
-   void set_thread_name( const string& name ) {
+
+   void set_thread_name( const std::string& name ) {
       thread_name = name;
-   }
-   const string& get_thread_name() {
-      if( thread_name.empty() ) {
-#ifdef FC_USE_PTHREAD_NAME_NP
-         char thr_name[64];
-         int rc = pthread_getname_np( pthread_self(), thr_name, 64 );
-         if( rc == 0 ) {
-            thread_name = thr_name;
-         }
-#else
-         static int thread_count = 0;
-         thread_name = string( "thread-" ) + fc::to_string( thread_count++ );
+#if defined(__linux__) || defined(__FreeBSD__)
+      pthread_setname_np( pthread_self(), name.c_str() );
+#elif defined(__APPLE__)
+      pthread_setname_np( name.c_str() );
 #endif
+   }
+   const std::string& get_thread_name() {
+      if(thread_name.empty()) {
+         try {
+            thread_name = boost::dll::program_location().filename().generic_string();
+         } catch (...) {
+            thread_name = "unknown";
+         }
       }
       return thread_name;
    }

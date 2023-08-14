@@ -39,6 +39,8 @@ namespace eosio { namespace chain {
    class permission_object;
    class account_object;
    class deep_mind_handler;
+   class subjective_billing;
+   class wasm_interface_collection;
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
    using forked_branch_callback = std::function<void(const branch_type&)>;
@@ -49,7 +51,8 @@ namespace eosio { namespace chain {
 
    enum class db_read_mode {
       HEAD,
-      IRREVERSIBLE
+      IRREVERSIBLE,
+      SPECULATIVE
    };
 
    enum class validation_mode {
@@ -88,7 +91,7 @@ namespace eosio { namespace chain {
 
             wasm_interface::vm_type  wasm_runtime = chain::config::default_wasm_runtime;
             eosvmoc::config          eosvmoc_config;
-            bool                     eosvmoc_tierup         = false;
+            wasm_interface::vm_oc_enable eosvmoc_tierup     = wasm_interface::vm_oc_enable::oc_auto;
 
             db_read_mode             read_mode              = db_read_mode::HEAD;
             validation_mode          block_validation_mode  = validation_mode::FULL;
@@ -196,6 +199,8 @@ namespace eosio { namespace chain {
          const authorization_manager&          get_authorization_manager()const;
          authorization_manager&                get_mutable_authorization_manager();
          const protocol_feature_manager&       get_protocol_feature_manager()const;
+         const subjective_billing&             get_subjective_billing()const;
+         subjective_billing&                   get_mutable_subjective_billing();
          uint32_t                              get_max_nonprivileged_inline_action_size()const;
 
          const flat_set<account_name>&   get_actor_whitelist() const;
@@ -212,6 +217,8 @@ namespace eosio { namespace chain {
          void   set_action_blacklist( const flat_set< pair<account_name, action_name> >& );
          void   set_key_blacklist( const flat_set<public_key_type>& );
 
+         void   set_disable_replay_opts( bool v );
+
          uint32_t             head_block_num()const;
          time_point           head_block_time()const;
          block_id_type        head_block_id()const;
@@ -223,6 +230,7 @@ namespace eosio { namespace chain {
          block_id_type        fork_db_head_block_id()const;
 
          time_point                     pending_block_time()const;
+         block_timestamp_type           pending_block_timestamp()const;
          account_name                   pending_block_producer()const;
          const block_signing_authority& pending_block_signing_authority()const;
          std::optional<block_id_type>   pending_producer_block_id()const;
@@ -316,6 +324,8 @@ namespace eosio { namespace chain {
 
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
          vm::wasm_allocator&  get_wasm_allocator();
+#endif
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
          bool is_eos_vm_oc_enabled() const;
 #endif
 
@@ -341,27 +351,7 @@ namespace eosio { namespace chain {
          */
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
-         wasm_interface& get_wasm_interface();
-
-
-         std::optional<abi_serializer> get_abi_serializer( account_name n, const abi_serializer::yield_function_t& yield )const {
-            if( n.good() ) {
-               try {
-                  const auto& a = get_account( n );
-                  if( abi_def abi; abi_serializer::to_abi( a.abi, abi ))
-                     return abi_serializer( std::move(abi), yield );
-               } FC_CAPTURE_AND_LOG((n))
-            }
-            return std::optional<abi_serializer>();
-         }
-
-         template<typename T>
-         fc::variant to_variant_with_abi( const T& obj, const abi_serializer::yield_function_t& yield )const {
-            fc::variant pretty_output;
-            abi_serializer::to_variant( obj, pretty_output,
-                                        [&]( account_name n ){ return get_abi_serializer( n, yield ); }, yield );
-            return pretty_output;
-         }
+         wasm_interface_collection& get_wasm_interface();
 
       static chain_id_type extract_chain_id(snapshot_reader& snapshot);
 
@@ -370,10 +360,16 @@ namespace eosio { namespace chain {
       void replace_producer_keys( const public_key_type& key );
       void replace_account_keys( name account, name permission, const public_key_type& key );
 
+      void set_producer_node(bool is_producer_node);
+      bool is_producer_node()const;
+
       void set_db_read_only_mode();
       void unset_db_read_only_mode();
       void init_thread_local_data();
-      bool is_on_main_thread() const;
+      void set_to_write_window();
+      void set_to_read_window();
+      bool is_write_window() const;
+      void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num);
 
       private:
          friend class apply_context;

@@ -49,7 +49,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
 
    for (auto i = 0; i < 10; ++i) {
       try {
-         set_abi( "testram11111"_n, test_contracts::test_ram_limit_abi().data() );
+         set_abi( "testram11111"_n, test_contracts::test_ram_limit_abi() );
          break;
       } catch (const ram_usage_exceeded&) {
          init_request_bytes += increment_contract_bytes;
@@ -59,7 +59,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
    }
    produce_blocks(10);
    set_code( "testram22222"_n, test_contracts::test_ram_limit_wasm() );
-   set_abi( "testram22222"_n, test_contracts::test_ram_limit_abi().data() );
+   set_abi( "testram22222"_n, test_contracts::test_ram_limit_abi() );
    produce_blocks(10);
 
    auto total = get_total_stake( "testram11111"_n );
@@ -75,7 +75,7 @@ BOOST_FIXTURE_TEST_CASE(ram_tests, eosio_system::eosio_system_tester) { try {
    buyrambytes(config::system_account_name, "testram11111"_n, more_ram);
    buyrambytes(config::system_account_name, "testram22222"_n, more_ram);
 
-   TESTER* tester = this;
+   validating_tester* tester = this;
    // allocate just under the allocated bytes
    tester->push_action( "testram11111"_n, "setentry"_n, "testram11111"_n, mvo()
                         ("payer", "testram11111")

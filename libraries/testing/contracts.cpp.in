@@ -14,8 +14,8 @@ namespace eosio::testing {                                                      
    std::vector<std::uint8_t> contracts:: CN ## _wasm() {                                                                                                                      \
       return std::vector<std::uint8_t>(geosio_testing_contract_ ## CN ## _wasm_data, geosio_testing_contract_ ## CN ## _wasm_data + geosio_testing_contract_ ## CN ## _wasm_size); \
    }                                                                                                                                                                          \
-   std::vector<char> contracts:: CN ## _abi() {                                                                                                                               \
-      return std::vector<char>(geosio_testing_contract_ ## CN ## _abi_data, geosio_testing_contract_ ## CN ## _abi_data + geosio_testing_contract_ ## CN ## _abi_size);       \
+   std::string contracts:: CN ## _abi() {                                                                                                                                     \
+      return geosio_testing_contract_ ## CN ## _abi_data;                                                                                                                     \
    }                                                                                                                                                                          \
 }
 

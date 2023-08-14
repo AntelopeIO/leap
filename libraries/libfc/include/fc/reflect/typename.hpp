@@ -1,13 +1,13 @@
 #pragma once
 
-#include <deque>
-#include <map>
-#include <vector>
-
-#include <fc/string.hpp>
-
 #include <fc/container/flat_fwd.hpp>
 #include <fc/container/deque_fwd.hpp>
+#include <fc/string.hpp>
+
+#include <deque>
+#include <optional>
+#include <map>
+#include <vector>
 
 namespace fc {
   class value;
@@ -31,7 +31,7 @@ namespace fc {
   template<> struct get_typename<bool>     { static const char* name()  { return "bool";     } };
   template<> struct get_typename<char>     { static const char* name()  { return "char";     } };
   template<> struct get_typename<void>     { static const char* name()  { return "char";     } };
-  template<> struct get_typename<string>   { static const char* name()  { return "string";   } };
+  template<> struct get_typename<std::string> { static const char* name() { return "string";   } };
   template<> struct get_typename<value>    { static const char* name()   { return "value";   } };
   template<> struct get_typename<fc::exception>   { static const char* name()   { return "fc::exception";   } };
   template<> struct get_typename<std::vector<char>>   { static const char* name()   { return "std::vector<char>";   } };

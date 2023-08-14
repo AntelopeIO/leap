@@ -1,8 +1,13 @@
+#include <string>
 #include <eosio/chain/asset.hpp>
 #include <boost/rational.hpp>
+#include <boost/algorithm/string.hpp>
 #include <fc/reflect/variant.hpp>
+#include <fc/safe.hpp>
 
 namespace eosio { namespace chain {
+
+using fc::safe;
 
 uint8_t asset::decimals()const {
    return sym.decimals();
@@ -19,11 +24,11 @@ int64_t asset::precision()const {
 string asset::to_string()const {
    string sign = amount < 0 ? "-" : "";
    int64_t abs_amount = std::abs(amount);
-   string result = fc::to_string( static_cast<int64_t>(abs_amount) / precision());
+   string result = std::to_string( static_cast<int64_t>(abs_amount) / precision());
    if( decimals() )
    {
       auto fract = static_cast<int64_t>(abs_amount) % precision();
-      result += "." + fc::to_string(precision() + fract).erase(0,1);
+      result += "." + std::to_string(precision() + fract).erase(0,1);
    }
    return sign + result + " " + symbol_name();
 }
@@ -31,12 +36,12 @@ string asset::to_string()const {
 asset asset::from_string(const string& from)
 {
    try {
-      string s = fc::trim(from);
+      string s = boost::algorithm::trim_copy(from);
 
       // Find space in order to split amount and symbol
       auto space_pos = s.find(' ');
       EOS_ASSERT((space_pos != string::npos), asset_type_exception, "Asset's amount and symbol should be separated with space");
-      auto symbol_str = fc::trim(s.substr(space_pos + 1));
+      auto symbol_str = boost::algorithm::trim_copy(s.substr(space_pos + 1));
       auto amount_str = s.substr(0, space_pos);
 
       // Ensure that if decimal point is used (.), decimal fraction is specified

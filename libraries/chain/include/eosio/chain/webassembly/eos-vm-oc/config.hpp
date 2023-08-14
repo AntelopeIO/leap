@@ -5,7 +5,6 @@
 #include <vector>
 #include <string>
 
-#include <boost/filesystem/path.hpp>
 #include <fc/reflect/reflect.hpp>
 
 namespace eosio { namespace chain { namespace eosvmoc {

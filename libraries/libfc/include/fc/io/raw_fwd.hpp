@@ -11,14 +11,14 @@
 #include <unordered_map>
 #include <set>
 #include <variant>
+#include <filesystem>
 
 namespace fc {
    class time_point;
    class time_point_sec;
    class variant;
    class variant_object;
-   class path;
-   
+
    template<typename IntType, typename EnumType> class enum_type;
    namespace ip { class endpoint; }
 
@@ -77,8 +77,8 @@ namespace fc {
     template<typename Stream> inline void pack( Stream& s, const variant& v );
     template<typename Stream> inline void unpack( Stream& s, variant& v );
 
-    template<typename Stream> inline void pack( Stream& s, const path& v );
-    template<typename Stream> inline void unpack( Stream& s, path& v );
+    template<typename Stream> inline void pack( Stream& s, const std::filesystem::path& v );
+    template<typename Stream> inline void unpack( Stream& s, std::filesystem::path& v );
     template<typename Stream> inline void pack( Stream& s, const ip::endpoint& v );
     template<typename Stream> inline void unpack( Stream& s, ip::endpoint& v );
 

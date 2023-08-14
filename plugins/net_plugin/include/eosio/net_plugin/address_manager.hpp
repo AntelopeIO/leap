@@ -101,12 +101,15 @@ namespace eosio {
                     address_str = address_str.substr(pos + 1);
                 }
 
-                string::size_type colon = address_str.find(':');
+                // for IPV6 "[::]:port" address
+                string::size_type p = address_str[0] == '[' ? address_str.find(']') : 0;
+
                 //host and port is necessary
-                if (colon == string::npos) {
+                if (p == string::npos) {
                     throw std::invalid_argument(input_address_str);
                 }
 
+                string::size_type colon = address_str.find(':', p);
                 string::size_type colon2 = address_str.find(':', colon + 1);
                 string::size_type end = colon2 == string::npos
                                         ? string::npos : address_str.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 );
@@ -161,6 +164,8 @@ namespace eosio {
         void add_addresses2(const std::unordered_set<std::string>& new_addresses_str, bool is_manual = false);
 
         void remove_address(const peer_address& address);
+
+        void remove_address_str(const std::string& address);
 
         void remove_addresses_str(const std::unordered_set<std::string>& addresses_to_remove);
 

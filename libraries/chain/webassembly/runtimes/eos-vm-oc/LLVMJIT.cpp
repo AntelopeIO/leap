@@ -15,6 +15,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 */
 
 #include "LLVMJIT.h"
+#include "LLVMEmitIR.h"
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/ExecutionEngine/RTDyldMemoryManager.h"
@@ -39,6 +40,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "llvm/Object/ObjectFile.h"
 #include "llvm/Object/SymbolSize.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/DataExtractor.h"
 #include "llvm/Support/DataTypes.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/TargetSelect.h"
@@ -49,10 +51,7 @@ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND 
 #include "llvm/Transforms/InstCombine/InstCombine.h"
 #include "llvm/Transforms/Utils.h"
 #include <memory>
-
-#include <fc/io/datastream.hpp>
-#include <fc/io/raw.hpp>
-#include <fc/reflect/typename.hpp>
+#include <unistd.h>
 
 #include "llvm/Support/LEB128.h"
 
@@ -151,7 +150,7 @@ namespace LLVMJIT
 		std::list<std::vector<uint8_t>> stack_sizes;
 
 		U8* get_next_code_ptr(uintptr_t numBytes, U32 alignment) {
-			FC_ASSERT(alignment <= alignof(std::max_align_t), "alignment of section exceeds max_align_t");
+			WAVM_ASSERT_THROW(alignment <= alignof(std::max_align_t));
 			uintptr_t p = (uintptr_t)ptr;
 			p += alignment - 1LL;
 			p &= ~(alignment - 1LL);
@@ -306,12 +305,14 @@ namespace LLVMJIT
 
 		unsigned num_functions_stack_size_found = 0;
 		for(const auto& stacksizes : jitModule->unitmemorymanager->stack_sizes) {
-			fc::datastream<const char*> ds(reinterpret_cast<const char*>(stacksizes.data()), stacksizes.size());
-			while(ds.remaining()) {
-				uint64_t funcaddr;
-				fc::unsigned_int stack_size;
-				fc::raw::unpack(ds, funcaddr);
-				fc::raw::unpack(ds, stack_size);
+			llvm::DataExtractor ds(llvm::ArrayRef(stacksizes.data(), stacksizes.size()), true, 8);
+			llvm::DataExtractor::Cursor c(0);
+
+			while(!ds.eof(c)) {
+				ds.getAddress(c);
+				WAVM_ASSERT_THROW(!!c);
+				const uint64_t stack_size = ds.getULEB128(c);
+				WAVM_ASSERT_THROW(!!c);
 
 				++num_functions_stack_size_found;
 				if(stack_size > 16u*1024u)

@@ -27,7 +27,7 @@ void block_log_set_buff_len(uint64_t len);
 void remove_existing_states(controller::config& config) {
    auto state_path = config.state_dir;
    remove_all(state_path);
-   fc::create_directories(state_path);
+   std::filesystem::create_directories(state_path);
 }
 
 struct dummy_action {
@@ -193,7 +193,7 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
 
    BOOST_REQUIRE(trace->receipt);
    BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::executed);
-   BOOST_CHECK_EQUAL(2, trace->action_traces.size());
+   BOOST_CHECK_EQUAL(2u, trace->action_traces.size());
 
    BOOST_CHECK(trace->action_traces.at(0).context_free); // cfa
    BOOST_CHECK_EQUAL("test\n", trace->action_traces.at(0).console); // cfa executed
@@ -224,7 +224,7 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    BOOST_REQUIRE(other_trace->receipt);
    BOOST_CHECK_EQUAL(other_trace->receipt->status, transaction_receipt::executed);
    BOOST_CHECK(*trace->receipt == *other_trace->receipt);
-   BOOST_CHECK_EQUAL(2, other_trace->action_traces.size());
+   BOOST_CHECK_EQUAL(2u, other_trace->action_traces.size());
 
    BOOST_CHECK(other_trace->action_traces.at(0).context_free); // cfa
    BOOST_CHECK_EQUAL("", other_trace->action_traces.at(0).console); // cfa not executed for replay
@@ -235,21 +235,6 @@ BOOST_AUTO_TEST_CASE(test_light_validation_restart_from_block_log) {
    BOOST_CHECK_EQUAL("", other_trace->action_traces.at(1).console);
    BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->global_sequence, other_trace->action_traces.at(1).receipt->global_sequence);
    BOOST_CHECK_EQUAL(trace->action_traces.at(1).receipt->digest(), other_trace->action_traces.at(1).receipt->digest());
-}
-
-namespace{
-   struct scoped_temp_path {
-      boost::filesystem::path path;
-      scoped_temp_path() {
-         path = boost::filesystem::unique_path();
-         if (boost::unit_test::framework::master_test_suite().argc >= 2) {
-            path += boost::unit_test::framework::master_test_suite().argv[1];
-         }
-      }
-      ~scoped_temp_path() {
-         boost::filesystem::remove_all(path);
-      }
-   };
 }
 
 BOOST_AUTO_TEST_SUITE_END()

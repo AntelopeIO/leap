@@ -1,20 +1,13 @@
 #pragma once
 
 #include <eosio/chain/thread_utils.hpp>// for thread pool
-#include <eosio/chain/plugin_metrics.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
-#include <fc/utility.hpp>
-
-#include <atomic>
-#include <map>
-#include <optional>
-#include <regex>
-#include <set>
-#include <string>
 
 #include <fc/io/raw.hpp>
 #include <fc/log/logger_config.hpp>
 #include <fc/time.hpp>
+#include <fc/utility.hpp>
+#include <fc/network/listener.hpp>
 
 #include <boost/asio.hpp>
 #include <boost/asio/bind_executor.hpp>
@@ -33,6 +26,14 @@
 #include <boost/asio/basic_socket_iostream.hpp>
 #include <boost/asio/basic_stream_socket.hpp>
 #include <boost/asio/detail/config.hpp>
+
+#include <atomic>
+#include <map>
+#include <optional>
+#include <regex>
+#include <set>
+#include <string>
+
 
 namespace eosio {
 static uint16_t const uri_default_port = 80;
@@ -70,11 +71,9 @@ using abstract_conn_ptr = std::shared_ptr<abstract_conn>;
 */
 using internal_url_handler_fn = std::function<void(abstract_conn_ptr, string&&, string&&, url_response_callback&&)>;
 struct internal_url_handler {
-   chain::plugin_interface::runtime_metric call_count;
    internal_url_handler_fn fn;
+   api_category category;
    http_content_type content_type = http_content_type::json;
-   explicit internal_url_handler(const string& url)
-   : call_count{chain::plugin_interface::metric_type::gauge, "num_calls", url} {}
 };
 /**
 * Helper method to calculate the "in flight" size of a fc::variant
@@ -110,24 +109,6 @@ static size_t in_flight_sizeof(const std::optional<T>& o) {
 // key -> priority, url_handler
 typedef map<string, detail::internal_url_handler> url_handlers_type;
 
-struct http_plugin_metrics : chain::plugin_interface::plugin_metrics {
-   url_handlers_type& _handlers;
-
-   vector<chain::plugin_interface::runtime_metric> metrics() final {
-      vector<chain::plugin_interface::runtime_metric> m;
-      m.reserve(_handlers.size());
-
-      for (const auto& p : _handlers) {
-         m.push_back(p.second.call_count);
-      }
-
-      return m;
-   }
-
-   explicit http_plugin_metrics(url_handlers_type& handlers)
-   : _handlers(handlers) {}
-};
-
 struct http_plugin_state {
    string access_control_allow_origin;
    string access_control_allow_headers;
@@ -154,10 +135,13 @@ struct http_plugin_state {
    eosio::chain::named_thread_pool<http> thread_pool;
 
    fc::logger& logger;
+   std::function<void(http_plugin::metrics)> update_metrics;
 
-   http_plugin_metrics metrics{url_handlers};
+   fc::logger& get_logger() { return logger; }
+
    explicit http_plugin_state(fc::logger& log)
        : logger(log) {}
+
 };
 
 /**
@@ -168,29 +152,24 @@ struct http_plugin_state {
 * @param session_ptr - beast_http_session object on which to invoke send_response
 * @return lambda suitable for url_response_callback
 */
-auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state, detail::abstract_conn_ptr session_ptr, http_content_type content_type) {
-   return [plugin_state{std::move(plugin_state)},
-           session_ptr{std::move(session_ptr)}, content_type](int code, fc::time_point deadline, std::optional<fc::variant> response) {
+inline auto make_http_response_handler(http_plugin_state& plugin_state, detail::abstract_conn_ptr session_ptr, http_content_type content_type) {
+   return [&plugin_state,
+           session_ptr{std::move(session_ptr)}, content_type](int code, std::optional<fc::variant> response) {
       auto payload_size = detail::in_flight_sizeof(response);
       if(auto error_str = session_ptr->verify_max_bytes_in_flight(payload_size); !error_str.empty()) {
          session_ptr->send_busy_response(std::move(error_str));
          return;
       }
 
-      auto start = fc::time_point::now();
-      if (deadline == fc::time_point::maximum()) { // no caller supplied deadline so use http configured deadline
-         deadline = start + plugin_state->max_response_time;
-      }
-
-      plugin_state->bytes_in_flight += payload_size;
+      plugin_state.bytes_in_flight += payload_size;
 
       // post back to an HTTP thread to allow the response handler to be called from any thread
-      boost::asio::post(plugin_state->thread_pool.get_executor(),
-                        [plugin_state, session_ptr, code, deadline, start, payload_size, response = std::move(response), content_type]() {
+      boost::asio::post(plugin_state.thread_pool.get_executor(),
+                        [&plugin_state, session_ptr, code, payload_size, response = std::move(response), content_type]() {
                            try {
-                              plugin_state->bytes_in_flight -= payload_size;
+                              plugin_state.bytes_in_flight -= payload_size;
                               if (response.has_value()) {
-                                 std::string json = (content_type == http_content_type::plaintext) ? response->as_string() : fc::json::to_string(*response, deadline + (fc::time_point::now() - start));
+                                 std::string json = (content_type == http_content_type::plaintext) ? response->as_string() : fc::json::to_string(*response, fc::time_point::maximum());
                                  if (auto error_str = session_ptr->verify_max_bytes_in_flight(json.size()); error_str.empty())
                                     session_ptr->send_response(std::move(json), code);
                                  else
@@ -206,30 +185,21 @@ auto make_http_response_handler(std::shared_ptr<http_plugin_state> plugin_state,
 
 }
 
-bool host_port_is_valid(const http_plugin_state& plugin_state,
-                        const std::string& header_host_port,
-                        const string& endpoint_local_host_port) {
-   return !plugin_state.validate_host || header_host_port == endpoint_local_host_port || plugin_state.valid_hosts.find(header_host_port) != plugin_state.valid_hosts.end();
-}
-
-bool host_is_valid(const http_plugin_state& plugin_state,
-                   const std::string& host,
-                   const string& endpoint_local_host_port,
-                   bool secure) {
+inline bool host_is_valid(const http_plugin_state& plugin_state,
+                   const std::string& header_host_port,
+                   const asio::ip::address& addr) {
    if(!plugin_state.validate_host) {
       return true;
    }
 
-   // normalise the incoming host so that it always has the explicit port
-   static auto has_port_expr = std::regex("[^:]:[0-9]+$");/// ends in :<number> without a preceeding colon which implies ipv6
-   if(std::regex_search(host, has_port_expr)) {
-      return host_port_is_valid(plugin_state, host, endpoint_local_host_port);
-   } else {
-      // according to RFC 2732 ipv6 addresses should always be enclosed with brackets so we shouldn't need to special case here
-      return host_port_is_valid(plugin_state,
-                                host + ":" + std::to_string(secure ? uri_default_secure_port : uri_default_port),
-                                endpoint_local_host_port);
+   auto [hostname, port] = fc::split_host_port(header_host_port);
+   boost::system::error_code ec;
+   auto                      header_addr = boost::asio::ip::make_address(hostname, ec);
+   if (ec)
+      return plugin_state.valid_hosts.count(hostname);
+   if (header_addr.is_v4() && addr.is_v6()) {
+      header_addr = boost::asio::ip::address_v6::v4_mapped(header_addr.to_v4());
    }
+   return header_addr == addr;
 }
-
 }// end namespace eosio

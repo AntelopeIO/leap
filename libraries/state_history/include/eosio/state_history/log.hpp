@@ -14,7 +14,6 @@
 #include <fc/bitutil.hpp>
 
 #include <boost/asio.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/iostreams/device/file.hpp>
 #include <boost/iostreams/device/file_descriptor.hpp>
 #include <boost/iostreams/filter/zlib.hpp>
@@ -86,10 +85,10 @@ namespace state_history {
    };
 
    struct partition_config {
-      fc::path retained_dir       = "retained";
-      fc::path archive_dir        = "archive";
-      uint32_t stride             = 1000000;
-      uint32_t max_retained_files = 10;
+      std::filesystem::path retained_dir       = "retained";
+      std::filesystem::path archive_dir        = "archive";
+      uint32_t              stride             = 1000000;
+      uint32_t              max_retained_files = UINT32_MAX;
    };
 } // namespace state_history
 
@@ -129,7 +128,7 @@ struct locked_decompress_stream {
 
 namespace detail {
 
-std::vector<char> zlib_decompress(fc::cfile& file, uint64_t compressed_size) {
+inline std::vector<char> zlib_decompress(fc::cfile& file, uint64_t compressed_size) {
    if (compressed_size) {
       std::vector<char> compressed(compressed_size);
       file.read(compressed.data(), compressed_size);
@@ -138,7 +137,7 @@ std::vector<char> zlib_decompress(fc::cfile& file, uint64_t compressed_size) {
    return {};
 }
 
-std::vector<char> zlib_decompress(fc::datastream<const char*>& strm, uint64_t compressed_size) {
+inline std::vector<char> zlib_decompress(fc::datastream<const char*>& strm, uint64_t compressed_size) {
    if (compressed_size) {
       return state_history::zlib_decompress({strm.pos(), compressed_size});
    }
@@ -174,9 +173,9 @@ class state_history_log_data : public chain::log_data_base<state_history_log_dat
 
  public:
    state_history_log_data() = default;
-   explicit state_history_log_data(const fc::path& path) { open(path); }
+   explicit state_history_log_data(const std::filesystem::path& path) { open(path); }
 
-   void open(const fc::path& path) {
+   void open(const std::filesystem::path& path) {
       if (file.is_open())
          file.close();
       file.set_file_path(path);
@@ -227,7 +226,7 @@ class state_history_log_data : public chain::log_data_base<state_history_log_dat
       return header.payload_size;
    }
 
-   void construct_index(const fc::path& index_file_name) {
+   void construct_index(const std::filesystem::path& index_file_name) {
       fc::cfile index_file;
       index_file.set_file_path(index_file_name);
       index_file.open("w+b");
@@ -283,7 +282,7 @@ private:
 class state_history_log {
  private:
    const char* const       name = "";
-   state_history_log_config config;
+   state_history_log_config _config;
 
    // provide exclusive access to all data of this object since accessed from the main thread and the ship thread
    mutable std::mutex      _mx;
@@ -302,10 +301,10 @@ class state_history_log {
 
    state_history_log( const state_history_log&) = delete;
 
-   state_history_log(const char* name, const fc::path& log_dir,
+   state_history_log(const char* name, const std::filesystem::path& log_dir,
                      state_history_log_config conf = {})
        : name(name)
-       , config(std::move(conf)) {
+       , _config(std::move(conf)) {
 
       log.set_file_path(log_dir/(std::string(name) + ".log"));
       index.set_file_path(log_dir/(std::string(name) + ".index"));
@@ -327,7 +326,7 @@ class state_history_log {
                _begin_block = _end_block = catalog.last_block_num() +1;
             }
          }
-      }, config);
+      }, _config);
 
       //check for conversions to/from pruned log, as long as log contains something
       if(_begin_block != _end_block) {
@@ -335,7 +334,7 @@ class state_history_log {
          log.seek(0);
          read_header(first_header);
 
-         auto prune_config = std::get_if<state_history::prune_config>(&config);
+         auto prune_config = std::get_if<state_history::prune_config>(&_config);
 
          if((is_ship_log_pruned(first_header.magic) == false) && prune_config) {
             //need to convert non-pruned to pruned; first prune any ranges we can (might be none)
@@ -362,14 +361,18 @@ class state_history_log {
       if(_begin_block == _end_block)
          return;
 
-      auto prune_config = std::get_if<state_history::prune_config>(&config);
+      auto prune_config = std::get_if<state_history::prune_config>(&_config);
       if(!prune_config || !prune_config->vacuum_on_close)
          return;
 
       const size_t first_data_pos = get_pos(_begin_block);
-      const size_t last_data_pos = fc::file_size(log.get_file_path());
+      const size_t last_data_pos = std::filesystem::file_size(log.get_file_path());
       if(last_data_pos - first_data_pos < *prune_config->vacuum_on_close)
          vacuum();
+   }
+
+   const state_history_log_config& config() const {
+      return _config;
    }
 
    //        begin     end
@@ -457,7 +460,7 @@ class state_history_log {
       return get_block_id_i(block_num);
    }
 
-#ifdef BOOST_TEST_MODULE
+#ifdef BOOST_TEST
    fc::cfile& get_log_file() { return log;}
 #endif
 
@@ -500,7 +503,7 @@ class state_history_log {
          }
       }
 
-      auto prune_config = std::get_if<state_history::prune_config>(&config);
+      auto prune_config = std::get_if<state_history::prune_config>(&_config);
       if (block_num < _end_block) {
          // This is typically because of a fork, and we need to truncate the log back to the beginning of the fork.
          static uint32_t start_block_num = block_num;
@@ -550,7 +553,10 @@ class state_history_log {
          fc::raw::pack(log, num_blocks_in_log);
       }
 
-      auto partition_config = std::get_if<state_history::partition_config>(&config);
+      log.flush();
+      index.flush();
+
+      auto partition_config = std::get_if<state_history::partition_config>(&_config);
       if (partition_config && block_num % partition_config->stride == 0) {
          split_log();
       }
@@ -606,7 +612,7 @@ class state_history_log {
    }
 
    void prune(const fc::log_level& loglevel) {
-      auto prune_config = std::get_if<state_history::prune_config>(&config);
+      auto prune_config = std::get_if<state_history::prune_config>(&_config);
 
       if(!prune_config)
          return;
@@ -657,7 +663,7 @@ class state_history_log {
          }
       }
       log.flush();
-      boost::filesystem::resize_file(log.get_file_path().string(), pos);
+      std::filesystem::resize_file(log.get_file_path().string(), pos);
       log.flush();
 
       log.seek_end(-sizeof(pos));
@@ -781,8 +787,8 @@ class state_history_log {
 
       if (block_num <= _begin_block) {
          num_removed = _end_block - first_block_num;
-         boost::filesystem::resize_file(log.get_file_path().string(), 0);
-         boost::filesystem::resize_file(index.get_file_path().string(), 0);
+         std::filesystem::resize_file(log.get_file_path().string(), 0);
+         std::filesystem::resize_file(index.get_file_path().string(), 0);
          _begin_block = _end_block = block_num;
       } else {
          num_removed  = _end_block - block_num;
@@ -793,8 +799,8 @@ class state_history_log {
 
          auto path = log.get_file_path().string();
 
-         boost::filesystem::resize_file(log.get_file_path().string(), pos);
-         boost::filesystem::resize_file(index.get_file_path().string(), (block_num - _index_begin_block) * sizeof(uint64_t));
+         std::filesystem::resize_file(log.get_file_path().string(), pos);
+         std::filesystem::resize_file(index.get_file_path().string(), (block_num - _index_begin_block) * sizeof(uint64_t));
          _end_block = block_num;
          //this will leave the end of the log with the last block's suffix no matter if the log is operating in pruned
          // mode or not. The assumption is truncate() is always immediately followed up with an append to the log thus
@@ -825,7 +831,7 @@ class state_history_log {
          log.seek(0);
          fc::raw::pack(log, clear_ship_log_pruned_feature(magic));
          log.flush();
-         fc::resize_file(log.get_file_path(), fc::file_size(log.get_file_path()) - sizeof(uint32_t));
+         std::filesystem::resize_file(log.get_file_path(), std::filesystem::file_size(log.get_file_path()) - sizeof(uint32_t));
          return;
       }
 
@@ -863,7 +869,7 @@ class state_history_log {
          }
       }
       log.flush();
-      fc::resize_file(log.get_file_path(), log.tellp());
+      std::filesystem::resize_file(log.get_file_path(), log.tellp());
 
       index.flush();
       {
@@ -881,7 +887,7 @@ class state_history_log {
             log.write((char*)&new_pos, sizeof(new_pos));
          }
       }
-      fc::resize_file(index.get_file_path(), num_blocks_in_log*sizeof(uint64_t));
+      std::filesystem::resize_file(index.get_file_path(), num_blocks_in_log*sizeof(uint64_t));
 
       _index_begin_block = _begin_block;
       ilog("Vacuum of pruned log ${n} complete",("n", name));
@@ -889,15 +895,15 @@ class state_history_log {
 
    void split_log() {
 
-      fc::path log_file_path = log.get_file_path();
-      fc::path index_file_path = index.get_file_path();
+      std::filesystem::path log_file_path = log.get_file_path();
+      std::filesystem::path index_file_path = index.get_file_path();
 
       fc::datastream<fc::cfile>  new_log_file;
       fc::datastream<fc::cfile> new_index_file;
 
-      fc::path tmp_log_file_path = log_file_path;
+      std::filesystem::path tmp_log_file_path = log_file_path;
       tmp_log_file_path.replace_extension("log.tmp");
-      fc::path tmp_index_file_path = index_file_path;
+      std::filesystem::path tmp_index_file_path = index_file_path;
       tmp_index_file_path.replace_extension("index.tmp");
 
       new_log_file.set_file_path(tmp_log_file_path);
@@ -924,8 +930,8 @@ class state_history_log {
       swap(new_log_file, log);
       swap(new_index_file, index);
 
-      fc::rename(tmp_log_file_path, log_file_path);
-      fc::rename(tmp_index_file_path, index_file_path);
+      std::filesystem::rename(tmp_log_file_path, log_file_path);
+      std::filesystem::rename(tmp_index_file_path, index_file_path);
 
       log.set_file_path(log_file_path);
       index.set_file_path(index_file_path);

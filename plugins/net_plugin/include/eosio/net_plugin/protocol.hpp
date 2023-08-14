@@ -7,9 +7,6 @@ namespace eosio {
    using namespace chain;
    using namespace fc;
 
-   static_assert(sizeof(std::chrono::system_clock::duration::rep) >= 8, "system_clock is expected to be at least 64 bits");
-   typedef std::chrono::system_clock::duration::rep tstamp;
-
    struct chain_size_message {
       uint32_t                   last_irreversible_block_num = 0;
       block_id_type              last_irreversible_block_id;
@@ -83,10 +80,10 @@ namespace eosio {
   };
 
   struct time_message {
-            tstamp  org{0};       //!< origin timestamp
-            tstamp  rec{0};       //!< receive timestamp
-            tstamp  xmt{0};       //!< transmit timestamp
-    mutable tstamp  dst{0};       //!< destination timestamp
+            int64_t  org{0};       //!< origin timestamp, in nanoseconds
+            int64_t  rec{0};       //!< receive timestamp, in nanoseconds
+            int64_t  xmt{0};       //!< transmit timestamp, in nanoseconds
+    mutable int64_t  dst{0};       //!< destination timestamp, in nanoseconds
   };
 
   enum id_list_modes {

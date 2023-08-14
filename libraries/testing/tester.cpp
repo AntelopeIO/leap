@@ -1,6 +1,7 @@
 #include <boost/test/unit_test.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <eosio/testing/tester.hpp>
+#include <eosio/chain/wasm_interface_collection.hpp>
 #include <eosio/chain/block_log.hpp>
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain/eosio_contract.hpp>
@@ -20,6 +21,35 @@ eosio::chain::asset core_from_string(const std::string& s) {
 }
 
 namespace eosio { namespace testing {
+
+   // required by boost::unit_test::data
+   std::ostream& operator<<(std::ostream& os, setup_policy p) {
+      switch(p) {
+         case setup_policy::none:
+            os << "none";
+            break;
+         case setup_policy::old_bios_only:
+            os << "old_bios_only";
+            break;
+         case setup_policy::preactivate_feature_only:
+            os << "preactivate_feature_only";
+            break;
+         case setup_policy::preactivate_feature_and_new_bios:
+            os << "preactivate_feature_and_new_bios";
+            break;
+         case setup_policy::old_wasm_parser:
+            os << "old_wasm_parser";
+            break;
+         case setup_policy::full:
+            os << "full";
+            break;
+         default:
+            FC_ASSERT(false, "Unknown setup_policy");
+      }
+      return os;
+   }
+
+
    std::string read_wast( const char* fn ) {
       std::ifstream wast_file(fn);
       FC_ASSERT( wast_file.is_open(), "wast file cannot be found" );
@@ -272,11 +302,14 @@ namespace eosio { namespace testing {
       if( !expected_chain_id ) {
          expected_chain_id = controller::extract_chain_id_from_db( cfg.state_dir );
          if( !expected_chain_id ) {
-            if( fc::is_regular_file( cfg.blocks_dir / "blocks.log" ) ) {
-               expected_chain_id = block_log::extract_chain_id( cfg.blocks_dir );
-            } else {
-               expected_chain_id = genesis_state().compute_chain_id();
+            std::filesystem::path retained_dir;
+            auto partitioned_config = std::get_if<partitioned_blocklog_config>(&cfg.blog);
+            if (partitioned_config) {
+               retained_dir = partitioned_config->retained_dir;
+               if (retained_dir.is_relative())
+                  retained_dir = cfg.blocks_dir/retained_dir;
             }
+            expected_chain_id = block_log::extract_chain_id( cfg.blocks_dir, retained_dir );
          }
       }
 
@@ -505,7 +538,7 @@ namespace eosio { namespace testing {
 
 
   void base_tester::set_transaction_headers( transaction& trx, uint32_t expiration, uint32_t delay_sec ) const {
-     trx.expiration = control->head_block_time() + fc::seconds(expiration);
+     trx.expiration = fc::time_point_sec{control->head_block_time() + fc::seconds(expiration)};
      trx.set_reference_block( control->head_block_id() );
 
      trx.max_net_usage_words = 0; // No limit
@@ -864,7 +897,7 @@ namespace eosio { namespace testing {
                                    .account    = account,
                                    .permission = perm,
                                    .parent     = parent,
-                                   .auth       = move(auth),
+                                   .auth       = std::move(auth),
                                 });
 
          set_transaction_headers(trx);
@@ -933,7 +966,7 @@ namespace eosio { namespace testing {
    } FC_CAPTURE_AND_RETHROW( (account) )
 
 
-   void base_tester::set_abi( account_name account, const char* abi_json, const private_key_type* signer ) {
+   void base_tester::set_abi( account_name account, const std::string& abi_json, const private_key_type* signer ) {
       auto abi = fc::json::from_string(abi_json).template as<abi_def>();
       signed_transaction trx;
       trx.actions.emplace_back( vector<permission_level>{{account,config::active_name}},
@@ -1072,17 +1105,17 @@ namespace eosio { namespace testing {
 
    void base_tester::set_before_preactivate_bios_contract() {
       set_code(config::system_account_name, contracts::before_preactivate_eosio_bios_wasm());
-      set_abi(config::system_account_name, contracts::before_preactivate_eosio_bios_abi().data());
+      set_abi(config::system_account_name, contracts::before_preactivate_eosio_bios_abi());
    }
 
    void base_tester::set_before_producer_authority_bios_contract() {
       set_code(config::system_account_name, contracts::before_producer_authority_eosio_bios_wasm());
-      set_abi(config::system_account_name, contracts::before_producer_authority_eosio_bios_abi().data());
+      set_abi(config::system_account_name, contracts::before_producer_authority_eosio_bios_abi());
    }
 
    void base_tester::set_bios_contract() {
       set_code(config::system_account_name, contracts::eosio_bios_wasm());
-      set_abi(config::system_account_name, contracts::eosio_bios_abi().data());
+      set_abi(config::system_account_name, contracts::eosio_bios_abi());
    }
 
 

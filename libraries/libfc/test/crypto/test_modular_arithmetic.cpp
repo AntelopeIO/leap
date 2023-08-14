@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE modular_arithmetic
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/exception/exception.hpp>
 #include <fc/crypto/hex.hpp>
@@ -30,7 +29,7 @@ BOOST_AUTO_TEST_SUITE(modular_arithmetic)
 BOOST_AUTO_TEST_CASE(modexp) try {
 
 
-    using modexp_test = std::tuple<std::vector<string>, std::variant<fc::modular_arithmetic_error, bytes>>;
+    using modexp_test = std::tuple<std::vector<std::string>, std::variant<fc::modular_arithmetic_error, bytes>>;
 
     const std::vector<modexp_test> tests {
         //test1

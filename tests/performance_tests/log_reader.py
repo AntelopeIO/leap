@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 
-import os
 import sys
 import re
 import numpy as np
@@ -11,9 +10,8 @@ from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
 from TestHarness import Utils, Account
-from dataclasses import dataclass, asdict, field
-from platform import release, system
-from datetime import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
 from typing import List
 from pathlib import Path
 
@@ -25,6 +23,7 @@ COMPLETEPRODUCTIONWINDOWSIZE = 12
 
 @dataclass
 class ArtifactPaths:
+    nodeosLogDir: Path = Path("")
     nodeosLogPath: Path = Path("")
     trxGenLogDirPath: Path = Path("")
     blockTrxDataPath: Path = Path("")
@@ -40,6 +39,7 @@ class TpsTestConfig:
     numTrxGensUsed: int = 0
     targetTpsPerGenList: List[int] = field(default_factory=list)
     quiet: bool = False
+    printMissingTransactions: bool=False
 
 @dataclass
 class stats():
@@ -65,6 +65,8 @@ class trxData():
     netUsageUs: int = 0
     blockTime: datetime = None
     latency: float = 0
+    acknowledged: str = "NA"
+    ackRespTimeUs: int = -1
     _sentTimestamp: str = ""
     _calcdTimeEpoch: float = 0
 
@@ -86,38 +88,6 @@ class trxData():
     @sentTimestamp.deleter
     def sentTimestamp(self):
         self._sentTimestamp = ""
-        self._calcdTimeEpoch = 0
-
-@dataclass
-class blkData():
-    blockId: int = 0
-    producer: str = ""
-    status: str = ""
-    _timestamp: str = field(init=True, repr=True, default='')
-    _calcdTimeEpoch: float = 0
-
-    def __post_init__(self):
-        self.timestamp = self._timestamp
-
-    @property
-    def timestamp(self):
-        return self._timestamp
-
-    @property
-    def calcdTimeEpoch(self):
-        return self._calcdTimeEpoch
-
-    @timestamp.setter
-    def timestamp(self, time: str):
-        self._timestamp = time[:-1]
-        # When we no longer support Python 3.6, would be great to update to use this
-        # self._calcdTimeEpoch = datetime.fromisoformat(time[:-1]).timestamp()
-        #Note block timestamp formatted like: '2022-09-30T16:48:13.500Z', but 'Z' is not part of python's recognized iso format, so strip it off the end
-        self._calcdTimeEpoch = datetime.strptime(time[:-1], "%Y-%m-%dT%H:%M:%S.%f").timestamp()
-
-    @timestamp.deleter
-    def timestamp(self):
-        self._timestamp = ""
         self._calcdTimeEpoch = 0
 
 @dataclass
@@ -149,18 +119,47 @@ class chainBlocksGuide():
 
 @dataclass
 class blockData():
-    partialBlockId: str = ""
+    blockId: int = 0
     blockNum: int = 0
     transactions: int = 0
     net: int = 0
     cpu: int = 0
     elapsed: int = 0
     time: int = 0
-    latency: int = 0
+    producer: str = ""
+    status: str = ""
+    _timestamp: str = field(init=True, repr=True, default='')
+    _calcdTimeEpoch: float = 0
+
+    def __post_init__(self):
+        self.timestamp = self._timestamp
+
+    @property
+    def timestamp(self):
+        return self._timestamp
+
+    @property
+    def calcdTimeEpoch(self):
+        return self._calcdTimeEpoch
+
+    @timestamp.setter
+    def timestamp(self, time: str):
+        self._timestamp = time[:-1]
+        # When we no longer support Python 3.6, would be great to update to use this
+        # self._calcdTimeEpoch = datetime.fromisoformat(time[:-1]).timestamp()
+        #Note block timestamp formatted like: '2022-09-30T16:48:13.500Z', but 'Z' is not part of python's recognized iso format, so strip it off the end
+        self._calcdTimeEpoch = datetime.strptime(time[:-1], "%Y-%m-%dT%H:%M:%S.%f").timestamp()
+
+    @timestamp.deleter
+    def timestamp(self):
+        self._timestamp = ""
+        self._calcdTimeEpoch = 0
 
 class chainData():
     def __init__(self):
-        self.blockLog = []
+        self.blockList = []
+        self.blockDict = {}
+        self.trxDict = {}
         self.startBlock = None
         self.ceaseBlock = None
         self.totalTransactions = 0
@@ -168,9 +167,9 @@ class chainData():
         self.totalCpu = 0
         self.totalElapsed = 0
         self.totalTime = 0
-        self.totalLatency = 0
         self.droppedBlocks = {}
-        self.forkedBlocks = []
+        self.forkedBlocks = {}
+        self.numNodes = 0
     def __eq__(self, other):
         return self.startBlock == other.startBlock and\
          self.ceaseBlock == other.ceaseBlock and\
@@ -179,77 +178,89 @@ class chainData():
          self.totalCpu == other.totalCpu and\
          self.totalElapsed == other.totalElapsed and\
          self.totalTime == other.totalTime and\
-         self.totalLatency == other.totalLatency
-    def updateTotal(self, transactions, net, cpu, elapsed, time, latency):
+         self.numNodes == other.numNodes
+    def updateTotal(self, transactions, net, cpu, elapsed, time):
         self.totalTransactions += transactions
         self.totalNet += net
         self.totalCpu += cpu
         self.totalElapsed += elapsed
         self.totalTime += time
-        self.totalLatency += latency
     def __str__(self):
         return (f"Starting block: {self.startBlock}\nEnding block:{self.ceaseBlock}\nChain transactions: {self.totalTransactions}\n"
          f"Chain cpu: {self.totalCpu}\nChain net: {(self.totalNet / (self.ceaseBlock - self.startBlock + 1))}\nChain elapsed: {self.totalElapsed}\n"
-         f"Chain time: {self.totalTime}\nChain latency: {self.totalLatency}")
+         f"Chain time: {self.totalTime}\n")
     def assertEquality(self, other):
         assert self == other, f"Error: Actual log:\n{self}\ndid not match expected log:\n{other}"
+
+@dataclass
+class LogAnalysis:
+    guide: chainBlocksGuide
+    tpsStats: stats
+    blockSizeStats: stats
+    trxLatencyStats: basicStats
+    trxCpuStats: basicStats
+    trxNetStats: basicStats
+    trxAckStatsApplicable: str
+    trxAckStats: basicStats
+    prodWindows: productionWindows
+    notFound: list
 
 def selectedOpen(path):
     return gzip.open if path.suffix == '.gz' else open
 
-def scrapeLog(data: chainData, path):
-    #node_00/stderr.txt
+def scrapeLogBlockElapsedTime(data: chainData, path):
+    # node_XX/stderr.txt where XX is the first nonproducing node
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
         line = f.read()
         blockResult = re.findall(r'Received block ([0-9a-fA-F]*).* #(\d+) .*trxs: (\d+)(.*)', line)
-        if data.startBlock is None:
-            data.startBlock = 2
-        if data.ceaseBlock is None:
-            data.ceaseBlock = len(blockResult) + 1
         for value in blockResult:
-            v3Logging = re.findall(r'net: (\d+), cpu: (\d+), elapsed: (\d+), time: (\d+), latency: (-?\d+) ms', value[3])
-            if v3Logging:
-                data.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), int(v3Logging[0][0]), int(v3Logging[0][1]), int(v3Logging[0][2]), int(v3Logging[0][3]), int(v3Logging[0][4])))
-                if int(value[1]) in range(data.startBlock, data.ceaseBlock + 1):
-                    data.updateTotal(int(value[2]), int(v3Logging[0][0]), int(v3Logging[0][1]), int(v3Logging[0][2]), int(v3Logging[0][3]), int(v3Logging[0][4]))
-            else:
-                v2Logging = re.findall(r'latency: (-?\d+) ms', value[3])
-                if v2Logging:
-                    data.blockLog.append(blockData(value[0], int(value[1]), int(value[2]), 0, 0, 0, 0, int(v2Logging[0])))
-                    if int(value[1]) in range(data.startBlock, data.ceaseBlock + 1):
-                        data.updateTotal(int(value[2]), 0, 0, 0, 0, int(v2Logging[0]))
-                else:
-                    print("Error: Unknown log format")
-        droppedBlocks = re.findall(r'dropped incoming block #(\d+) id: ([0-9a-fA-F]+)', line)
-        for block in droppedBlocks:
-            data.droppedBlocks[block[0]] = block[1]
-        forks = re.findall(r'switching forks from ([0-9a-fA-F]+) \(block number (\d+)\) to ([0-9a-fA-F]+) \(block number (\d+)\)', line)
-        for fork in forks:
-            data.forkedBlocks.append(int(fork[1]) - int(fork[3]) + 1)
+            if int(value[1]) in range(data.startBlock, data.ceaseBlock + 1):
+                v3Logging = re.findall(r'elapsed: (\d+), time: (\d+)', value[3])
+                if v3Logging:
+                    data.blockDict[str(value[1])].elapsed = int(v3Logging[0][0])
+                    data.blockDict[str(value[1])].time = int(v3Logging[0][1])
 
-def scrapeTrxGenLog(trxSent, path):
+def scrapeLogDroppedForkedBlocks(data: chainData, path):
+    for nodeNum in range(0, data.numNodes):
+        nodePath = path/f"node_{str(nodeNum).zfill(2)}"/"stderr.txt"
+        selectedopen = selectedOpen(path)
+        with selectedopen(nodePath, 'rt') as f:
+            line = f.read()
+            droppedBlocksByCurrentNode = {}
+            forkedBlocksByCurrentNode = []
+            droppedBlocks = re.findall(r'dropped incoming block #(\d+) id: ([0-9a-fA-F]+)', line)
+            for block in droppedBlocks:
+                droppedBlocksByCurrentNode[block[0]] = block[1]
+            forks = re.findall(r'switching forks from ([0-9a-fA-F]+) \(block number (\d+)\) to ([0-9a-fA-F]+) \(block number (\d+)\)', line)
+            for fork in forks:
+                forkedBlocksByCurrentNode.append(int(fork[1]) - int(fork[3]) + 1)
+            data.droppedBlocks[str(nodeNum).zfill(2)] = droppedBlocksByCurrentNode
+            data.forkedBlocks[str(nodeNum).zfill(2)] = forkedBlocksByCurrentNode
+
+@dataclass
+class sentTrx():
+    sentTime: str = ""
+    acked: str = ""
+    ackResponseTimeUs: int = -1
+
+@dataclass
+class sentTrxExtTrace():
+    sentTime: str = ""
+    acked: str = ""
+    ackResponseTimeUs: int = -1
+    blockNum: int = -1
+    cpuUsageUs: int = -1
+    netUsageWords: int = -1
+    blockTime: str = ""
+
+def scrapeTrxGenLog(trxSent: dict, path):
     #trxGenLogs/trx_data_output_*.txt
     selectedopen = selectedOpen(path)
     with selectedopen(path, 'rt') as f:
-        trxSent.update(dict([(x[0], x[1]) for x in (line.rstrip('\n').split(',') for line in f)]))
+        trxSent.update(dict([(x[0], sentTrx(x[1], x[2], x[3]) if len(x) == 4 else sentTrxExtTrace(x[1], x[2], x[3], x[4], x[5], x[6], x[7])) for x in (line.rstrip('\n').split(',') for line in f)]))
 
-def scrapeBlockTrxDataLog(trxDict, path, nodeosVers):
-    #blockTrxData.txt
-    selectedopen = selectedOpen(path)
-    with selectedopen(path, 'rt') as f:
-        if nodeosVers == "v2":
-            trxDict.update(dict([(x[0], trxData(blockNum=x[1], cpuUsageUs=x[2], netUsageUs=x[3])) for x in (line.rstrip('\n').split(',') for line in f)]))
-        else:
-            trxDict.update(dict([(x[0], trxData(blockNum=x[1], blockTime=x[2], cpuUsageUs=x[3], netUsageUs=x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
-
-def scrapeBlockDataLog(blockDict, path):
-    #blockData.txt
-    selectedopen = selectedOpen(path)
-    with selectedopen(path, 'rt') as f:
-        blockDict.update(dict([(x[0], blkData(x[1], x[2], x[3], x[4])) for x in (line.rstrip('\n').split(',') for line in f)]))
-
-def scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath, quiet):
+def scrapeTrxGenTrxSentDataLogs(trxSent: dict, trxGenLogDirPath, quiet):
     filesScraped = []
     for fileName in trxGenLogDirPath.glob("trx_data_output_*.txt"):
         filesScraped.append(fileName)
@@ -258,30 +269,39 @@ def scrapeTrxGenTrxSentDataLogs(trxSent, trxGenLogDirPath, quiet):
     if not quiet:
         print(f"Transaction Log Files Scraped: {filesScraped}")
 
-def populateTrxSentTimestamp(trxSent: dict, trxDict: dict, notFound):
+def populateTrxSentAndAcked(trxSent: dict, trxDict: dict, notFound):
     for sentTrxId in trxSent.keys():
-        if sentTrxId in trxDict.keys():
-            trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId]
+        if (isinstance(trxSent[sentTrxId], sentTrxExtTrace)):
+            trxDict[sentTrxId] = trxData(blockNum=trxSent[sentTrxId].blockNum, cpuUsageUs=trxSent[sentTrxId].cpuUsageUs, netUsageUs=trxSent[sentTrxId].netUsageWords, blockTime=trxSent[sentTrxId].blockTime, acknowledged=trxSent[sentTrxId].acked, ackRespTimeUs=trxSent[sentTrxId].ackResponseTimeUs)
+            trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId].sentTime
+        elif sentTrxId in trxDict.keys():
+            trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId].sentTime
+            trxDict[sentTrxId].acknowledged = trxSent[sentTrxId].acked
+            trxDict[sentTrxId].ackRespTimeUs = trxSent[sentTrxId].ackResponseTimeUs
         else:
             notFound.append(sentTrxId)
 
-def populateTrxLatencies(blockDict: dict, trxDict: dict):
-    for trxId, data in trxDict.items():
-        if data.calcdTimeEpoch != 0:
-            trxDict[trxId].latency = blockDict[data.blockNum].calcdTimeEpoch - data.calcdTimeEpoch
+def populateTrxLatencies(data: chainData):
+    for trxId, trxData in data.trxDict.items():
+        if trxData.calcdTimeEpoch != 0:
+            data.trxDict[trxId].latency = data.blockDict[str(trxData.blockNum)].calcdTimeEpoch - trxData.calcdTimeEpoch
+
+def updateBlockTotals(data: chainData):
+    for _, block in data.blockDict.items():
+        data.updateTotal(transactions=block.transactions, net=block.net, cpu=block.cpu, elapsed=block.elapsed, time=block.time)
 
 def writeTransactionMetrics(trxDict: dict, path):
     with open(path, 'wt') as transactionMetricsFile:
-        transactionMetricsFile.write("TransactionId,BlockNumber,BlockTime,CpuUsageUs,NetUsageUs,Latency,SentTimestamp,CalcdTimeEpoch\n")
+        transactionMetricsFile.write("TransactionId,BlockNumber,BlockTime,CpuUsageUs,NetUsageUs,Latency,SentTimestamp,CalcdTimeEpoch,Acknowledged,SentToAckDurationUs\n")
         for trxId, data in trxDict.items():
-            transactionMetricsFile.write(f"{trxId},{data.blockNum},{data.blockTime},{data.cpuUsageUs},{data.netUsageUs},{data.latency},{data._sentTimestamp},{data._calcdTimeEpoch}\n")
+            transactionMetricsFile.write(f"{trxId},{data.blockNum},{data.blockTime},{data.cpuUsageUs},{data.netUsageUs},{data.latency},{data._sentTimestamp},{data._calcdTimeEpoch}{data.acknowledged}{data.ackRespTimeUs}\n")
 
-def getProductionWindows(prodDict: dict, blockDict: dict, data: chainData):
+def getProductionWindows(prodDict: dict, data: chainData):
     prod = ""
     count = 0
     blocksFromCurProd = 0
     numProdWindows = 0
-    for k, v in blockDict.items():
+    for k, v in data.blockDict.items():
         count += 1
         if prod == "":
             prod = v.producer
@@ -321,15 +341,15 @@ def calcChainGuide(data: chainData, numAddlBlocksToDrop=0) -> chainBlocksGuide:
     3) Additional blocks - potentially partially full blocks while test scenario ramps up to steady state
 
     Keyword arguments:
-    data -- the chainData for the test run.  Includes blockLog, startBlock, and ceaseBlock
+    data -- the chainData for the test run.  Includes blockList, startBlock, and ceaseBlock
     numAddlBlocksToDrop -- num potentially non-empty blocks to ignore at beginning and end of test for steady state purposes
 
     Returns:
     chain guide describing key blocks and counts of blocks to describe test scenario
     """
-    firstBN = data.blockLog[0].blockNum
-    lastBN = data.blockLog[-1].blockNum
-    total = len(data.blockLog)
+    firstBN = data.blockList[0].blockNum
+    lastBN = data.blockList[-1].blockNum
+    total = len(data.blockList)
     testStartBN = data.startBlock
     testEndBN = data.ceaseBlock
 
@@ -343,14 +363,14 @@ def calcChainGuide(data: chainData, numAddlBlocksToDrop=0) -> chainBlocksGuide:
 
     leadingEmpty = 0
     for le in range(setupCnt, total - tearDownCnt - 1):
-        if data.blockLog[le].transactions == 0:
+        if data.blockList[le].transactions == 0:
             leadingEmpty += 1
         else:
             break
 
     trailingEmpty = 0
     for te in range(total - tearDownCnt - 1, setupCnt + leadingEmpty, -1):
-        if data.blockLog[te].transactions == 0:
+        if data.blockList[te].transactions == 0:
             trailingEmpty += 1
         else:
             break
@@ -369,14 +389,14 @@ def pruneToSteadyState(data: chainData, guide: chainBlocksGuide):
     3) Additional blocks - potentially partially full blocks while test scenario ramps up to steady state
 
     Keyword arguments:
-    data -- the chainData for the test run.  Includes blockLog, startBlock, and ceaseBlock
+    data -- the chainData for the test run.  Includes blockList, startBlock, and ceaseBlock
     guide -- chain guiderails calculated over chain data to guide interpretation of whole run's block data
 
     Returns:
     pruned list of blockData representing steady state operation
     """
 
-    return data.blockLog[guide.setupBlocksCnt + guide.leadingEmptyBlocksCnt + guide.configAddlDropCnt:-(guide.tearDownBlocksCnt + guide.trailingEmptyBlocksCnt + guide.configAddlDropCnt)]
+    return data.blockList[guide.setupBlocksCnt + guide.leadingEmptyBlocksCnt + guide.configAddlDropCnt:-(guide.tearDownBlocksCnt + guide.trailingEmptyBlocksCnt + guide.configAddlDropCnt)]
 
 def scoreTransfersPerSecond(data: chainData, guide: chainBlocksGuide) -> stats:
     """Analyzes a test scenario's steady state block data for statistics around transfers per second over every two-consecutive-block window"""
@@ -416,59 +436,30 @@ def calcBlockSizeStats(data: chainData, guide : chainBlocksGuide) -> stats:
         # Note: numpy array slicing in use -> [:,0] -> from all elements return index 0
         return stats(int(np.min(npBlkSizeList[:,0])), int(np.max(npBlkSizeList[:,0])), float(np.average(npBlkSizeList[:,0])), float(np.std(npBlkSizeList[:,0])), int(np.sum(npBlkSizeList[:,1])), len(prunedBlockDataLog))
 
-def calcTrxLatencyCpuNetStats(trxDict : dict, blockDict: dict):
+def calcTrxLatencyCpuNetStats(trxDict : dict):
     """Analyzes a test scenario's steady state block data for transaction latency statistics during the test window
 
     Keyword arguments:
     trxDict -- the dictionary mapping trx id to trxData, wherein the trx sent timestamp has been populated from the trx generator at moment of send
-    blockDict -- the dictionary of block number to blockData, wherein the block production timestamp is recorded
 
     Returns:
     transaction latency stats as a basicStats object
     """
-    trxLatencyCpuNetList = [(data.latency, data.cpuUsageUs, data.netUsageUs) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
+    trxLatencyCpuNetAckList = [(data.latency, data.cpuUsageUs, data.netUsageUs, data.ackRespTimeUs) for trxId, data in trxDict.items() if data.calcdTimeEpoch != 0]
 
-    npLatencyCpuNetList = np.array(trxLatencyCpuNetList, dtype=float)
+    npLatencyCpuNetAckList = np.array(trxLatencyCpuNetAckList, dtype=float)
 
-    return basicStats(float(np.min(npLatencyCpuNetList[:,0])), float(np.max(npLatencyCpuNetList[:,0])), float(np.average(npLatencyCpuNetList[:,0])), float(np.std(npLatencyCpuNetList[:,0])), len(npLatencyCpuNetList)), \
-           basicStats(float(np.min(npLatencyCpuNetList[:,1])), float(np.max(npLatencyCpuNetList[:,1])), float(np.average(npLatencyCpuNetList[:,1])), float(np.std(npLatencyCpuNetList[:,1])), len(npLatencyCpuNetList)), \
-           basicStats(float(np.min(npLatencyCpuNetList[:,2])), float(np.max(npLatencyCpuNetList[:,2])), float(np.average(npLatencyCpuNetList[:,2])), float(np.std(npLatencyCpuNetList[:,2])), len(npLatencyCpuNetList))
-
-def createReport(guide: chainBlocksGuide, tpsTestConfig: TpsTestConfig, tpsStats: stats, blockSizeStats: stats, trxLatencyStats: basicStats, trxCpuStats: basicStats,
-                 trxNetStats: basicStats, forkedBlocks, droppedBlocks, prodWindows: productionWindows, notFound: dict, testStart: datetime, testFinish: datetime,
-                 argsDict: dict, completedRun: bool, nodeosVers: str) -> dict:
-    report = {}
-    report['completedRun'] = completedRun
-    report['testStart'] = testStart
-    report['testFinish'] = testFinish
-    report['Analysis'] = {}
-    report['Analysis']['BlockSize'] = asdict(blockSizeStats)
-    report['Analysis']['BlocksGuide'] = asdict(guide)
-    report['Analysis']['TPS'] = asdict(tpsStats)
-    report['Analysis']['TPS']['configTps'] = tpsTestConfig.targetTps
-    report['Analysis']['TPS']['configTestDuration'] = tpsTestConfig.testDurationSec
-    report['Analysis']['TPS']['tpsPerGenerator'] = tpsTestConfig.targetTpsPerGenList
-    report['Analysis']['TPS']['generatorCount'] = tpsTestConfig.numTrxGensUsed
-    report['Analysis']['TrxCPU'] = asdict(trxCpuStats)
-    report['Analysis']['TrxLatency'] = asdict(trxLatencyStats)
-    report['Analysis']['TrxNet'] = asdict(trxNetStats)
-    report['Analysis']['DroppedBlocks'] = droppedBlocks
-    report['Analysis']['DroppedBlocksCount'] = len(droppedBlocks)
-    report['Analysis']['DroppedTransactions'] = len(notFound)
-    report['Analysis']['ProductionWindowsTotal'] = prodWindows.totalWindows
-    report['Analysis']['ProductionWindowsAverageSize'] = prodWindows.averageWindowSize
-    report['Analysis']['ProductionWindowsMissed'] = prodWindows.missedWindows
-    report['Analysis']['ForkedBlocks'] = forkedBlocks
-    report['Analysis']['ForksCount'] = len(forkedBlocks)
-    report['args'] =  argsDict
-    report['env'] = {'system': system(), 'os': os.name, 'release': release(), 'logical_cpu_count': os.cpu_count()}
-    report['nodeosVersion'] = nodeosVers
-    return report
+    return basicStats(float(np.min(npLatencyCpuNetAckList[:,0])), float(np.max(npLatencyCpuNetAckList[:,0])), float(np.average(npLatencyCpuNetAckList[:,0])), float(np.std(npLatencyCpuNetAckList[:,0])), len(npLatencyCpuNetAckList)), \
+           basicStats(float(np.min(npLatencyCpuNetAckList[:,1])), float(np.max(npLatencyCpuNetAckList[:,1])), float(np.average(npLatencyCpuNetAckList[:,1])), float(np.std(npLatencyCpuNetAckList[:,1])), len(npLatencyCpuNetAckList)), \
+           basicStats(float(np.min(npLatencyCpuNetAckList[:,2])), float(np.max(npLatencyCpuNetAckList[:,2])), float(np.average(npLatencyCpuNetAckList[:,2])), float(np.std(npLatencyCpuNetAckList[:,2])), len(npLatencyCpuNetAckList)), \
+           basicStats(float(np.min(npLatencyCpuNetAckList[:,3])), float(np.max(npLatencyCpuNetAckList[:,3])), float(np.average(npLatencyCpuNetAckList[:,3])), float(np.std(npLatencyCpuNetAckList[:,3])), len(npLatencyCpuNetAckList))
 
 class LogReaderEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime):
             return obj.isoformat()
+        if isinstance(obj, timedelta):
+            return str(obj)
         if isinstance(obj, PurePath):
             return str(obj)
         if obj is None:
@@ -484,36 +475,39 @@ class LogReaderEncoder(json.JSONEncoder):
             defaultStr = f"ERROR: {str(err)}"
         return defaultStr
 
-def reportAsJSON(report: dict) -> json:
-    return json.dumps(report, indent=2, cls=LogReaderEncoder)
+class JsonReportHandler:
+    def reportAsJSON(report: dict) -> json:
+        return json.dumps(report, indent=2, cls=LogReaderEncoder)
 
-def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths, argsDict: dict, testStart: datetime=None, completedRun: bool=True, nodeosVers: str="") -> dict:
-    scrapeLog(data, artifacts.nodeosLogPath)
+    def exportReportAsJSON(report: json, exportPath):
+        with open(exportPath, 'wt') as f:
+            f.write(report)
+
+def analyzeLogResults(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: ArtifactPaths) -> LogAnalysis:
+    scrapeLogBlockElapsedTime(data, artifacts.nodeosLogPath)
+    scrapeLogDroppedForkedBlocks(data, artifacts.nodeosLogDir)
 
     trxSent = {}
     scrapeTrxGenTrxSentDataLogs(trxSent, artifacts.trxGenLogDirPath, tpsTestConfig.quiet)
 
-    trxDict = {}
-    scrapeBlockTrxDataLog(trxDict, artifacts.blockTrxDataPath, nodeosVers)
-
-    blockDict = {}
-    scrapeBlockDataLog(blockDict, artifacts.blockDataPath)
+    trxAckStatsApplicable="NOT APPLICABLE" if list(trxSent.values())[0].acked == "NA" else "APPLICABLE"
 
     notFound = []
-    populateTrxSentTimestamp(trxSent, trxDict, notFound)
+    populateTrxSentAndAcked(trxSent, data.trxDict, notFound)
 
     prodDict = {}
-    getProductionWindows(prodDict, blockDict, data)
+    getProductionWindows(prodDict, data)
 
     if len(notFound) > 0:
         print(f"Transactions logged as sent but NOT FOUND in block!! lost {len(notFound)} out of {len(trxSent)}")
-        if argsDict.get("printMissingTransactions"):
+        if tpsTestConfig.printMissingTransactions:
             print(notFound)
 
-    populateTrxLatencies(blockDict, trxDict)
-    writeTransactionMetrics(trxDict, artifacts.transactionMetricsDataPath)
+    updateBlockTotals(data)
+    populateTrxLatencies(data)
+    writeTransactionMetrics(data.trxDict, artifacts.transactionMetricsDataPath)
     guide = calcChainGuide(data, tpsTestConfig.numBlocksToPrune)
-    trxLatencyStats, trxCpuStats, trxNetStats = calcTrxLatencyCpuNetStats(trxDict, blockDict)
+    trxLatencyStats, trxCpuStats, trxNetStats, trxAckStats = calcTrxLatencyCpuNetStats(data.trxDict)
     tpsStats = scoreTransfersPerSecond(data, guide)
     blkSizeStats = calcBlockSizeStats(data, guide)
     prodWindows = calcProductionWindows(prodDict)
@@ -521,18 +515,5 @@ def calcAndReport(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: Arti
     if not tpsTestConfig.quiet:
         print(f"Blocks Guide: {guide}\nTPS: {tpsStats}\nBlock Size: {blkSizeStats}\nTrx Latency: {trxLatencyStats}\nTrx CPU: {trxCpuStats}\nTrx Net: {trxNetStats}")
 
-    start = None
-    finish = None
-    if testStart is not None:
-        start = testStart
-        finish = datetime.utcnow()
-
-    report = createReport(guide=guide, tpsTestConfig=tpsTestConfig, tpsStats=tpsStats, blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats,
-                          trxCpuStats=trxCpuStats, trxNetStats=trxNetStats, forkedBlocks=data.forkedBlocks, droppedBlocks=data.droppedBlocks,
-                          prodWindows=prodWindows, notFound=notFound, testStart=start, testFinish=finish, argsDict=argsDict, completedRun=completedRun,
-                          nodeosVers=nodeosVers)
-    return report
-
-def exportReportAsJSON(report: json, exportPath):
-    with open(exportPath, 'wt') as f:
-        f.write(report)
+    return LogAnalysis(guide=guide, tpsStats=tpsStats, blockSizeStats=blkSizeStats, trxLatencyStats=trxLatencyStats, trxCpuStats=trxCpuStats, trxNetStats=trxNetStats,
+                       trxAckStatsApplicable=trxAckStatsApplicable, trxAckStats=trxAckStats, prodWindows=prodWindows, notFound=notFound)

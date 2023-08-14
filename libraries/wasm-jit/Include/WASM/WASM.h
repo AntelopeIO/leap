@@ -1,5 +1,7 @@
 #pragma once
 
+#include "Platform/Platform.h"
+
 #ifndef WEBASSEMBLY_API
 	#define WEBASSEMBLY_API DLL_IMPORT
 #endif

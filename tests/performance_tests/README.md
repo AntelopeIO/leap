@@ -8,6 +8,7 @@ The `launch_generators.py` support script provides a means to easily calculate a
 
 The `log_reader.py` support script is used primarily to analyze `nodeos` log files to glean information about generated blocks and transactions within those blocks after a test has concluded.  This information is used to produce the performance test report.
 
+# Getting Started
 ## Prerequisites
 
 Please refer to [Leap: Build and Install from Source](https://github.com/AntelopeIO/leap/#build-and-install-from-source) for a full list of prerequisites.
@@ -18,7 +19,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash
-        ./build/tests/performance_tests/performance_test.py
+        ./build/tests/performance_tests/performance_test.py testBpOpMode
         ```
     2. Single Performance Test Basic Run (Manually run one-off test):
         ```bash
@@ -34,17 +35,132 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
             <summary>Expand Example Directory Structure</summary>
 
         ``` bash
-        p/
-        └── 2023-02-22_15-17-12
+        performance_test/
+        └── 2023-04-05_14-35-59
             ├── pluginThreadOptRunLogs
             │   ├── chainThreadResults.txt
             │   ├── netThreadResults.txt
-            │   ├── p
+            │   ├── performance_test
+            │   │   ├── 2023-04-05_14-35-59-50000
+            │   │   │   ├── blockDataLogs
+            │   │   │   │   ├── blockData.txt
+            │   │   │   │   ├── blockTrxData.txt
+            │   │   │   │   └── transaction_metrics.csv
+            │   │   │   ├── etc
+            │   │   │   │   └── eosio
+            │   │   │   │       ├── node_00
+            │   │   │   │       │   ├── config.ini
+            │   │   │   │       │   ├── genesis.json
+            │   │   │   │       │   ├── logging.json
+            │   │   │   │       │   └── protocol_features
+            │   │   │   │       │       ├── BUILTIN-ACTION_RETURN_VALUE.json
+            │   │   │   │       │       ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
+            │   │   │   │       │       ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
+            │   │   │   │       │       ├── BUILTIN-CRYPTO_PRIMITIVES.json
+            │   │   │   │       │       ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
+            │   │   │   │       │       ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
+            │   │   │   │       │       ├── BUILTIN-FORWARD_SETCODE.json
+            │   │   │   │       │       ├── BUILTIN-GET_BLOCK_NUM.json
+            │   │   │   │       │       ├── BUILTIN-GET_CODE_HASH.json
+            │   │   │   │       │       ├── BUILTIN-GET_SENDER.json
+            │   │   │   │       │       ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
+            │   │   │   │       │       ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
+            │   │   │   │       │       ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
+            │   │   │   │       │       ├── BUILTIN-PREACTIVATE_FEATURE.json
+            │   │   │   │       │       ├── BUILTIN-RAM_RESTRICTIONS.json
+            │   │   │   │       │       ├── BUILTIN-REPLACE_DEFERRED.json
+            │   │   │   │       │       ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
+            │   │   │   │       │       ├── BUILTIN-WEBAUTHN_KEY.json
+            │   │   │   │       │       └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
+            │   │   │   │       ├── node_01
+            │   │   │   │       │   ├── config.ini
+            │   │   │   │       │   ├── genesis.json
+            │   │   │   │       │   ├── logging.json
+            │   │   │   │       │   └── protocol_features
+            │   │   │   │       │       ├── BUILTIN-ACTION_RETURN_VALUE.json
+            │   │   │   │       |       .
+            │   │   │   │       |       .
+            │   │   │   │       |       .
+            │   │   │   │       │       └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
+            │   │   │   │       └── node_bios
+            │   │   │   │           ├── config.ini
+            │   │   │   │           ├── genesis.json
+            │   │   │   │           ├── logging.json
+            │   │   │   │           └── protocol_features
+            │   │   │   │               ├── BUILTIN-ACTION_RETURN_VALUE.json
+            │   │   │   │               .
+            │   │   │   │               .
+            │   │   │   │               .
+            │   │   │   │               └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
+            │   │   │   ├── trxGenLogs
+            │   │   │   │   ├── first_trx_9486.txt
+            │   │   │   │   .
+            │   │   │   │   .
+            │   │   │   │   .
+            │   │   │   │   ├── first_trx_9498.txt
+            │   │   │   │   ├── trx_data_output_9486.txt
+            │   │   │   │   .
+            │   │   │   │   .
+            │   │   │   │   .
+            │   │   │   │   └── trx_data_output_9498.txt
+            │   │   │   └── var
+            │   │   │       └── performance_test8480
+            │   │   │           ├── node_00
+            │   │   │           │   ├── blocks
+            │   │   │           │   │   ├── blocks.index
+            │   │   │           │   │   ├── blocks.log
+            │   │   │           │   │   └── reversible
+            │   │   │           │   ├── nodeos.pid
+            │   │   │           │   ├── snapshots
+            │   │   │           │   ├── state
+            │   │   │           │   │   └── shared_memory.bin
+            │   │   │           │   ├── stderr.2023_04_05_09_35_59.txt
+            │   │   │           │   ├── stderr.txt -> stderr.2023_04_05_09_35_59.txt
+            │   │   │           │   └── stdout.txt
+            │   │   │           ├── node_01
+            │   │   │           │   ├── blocks
+            │   │   │           │   │   ├── blocks.index
+            │   │   │           │   │   ├── blocks.log
+            │   │   │           │   │   └── reversible
+            │   │   │           │   ├── nodeos.pid
+            │   │   │           │   ├── snapshots
+            │   │   │           │   ├── state
+            │   │   │           │   │   └── shared_memory.bin
+            │   │   │           │   ├── stderr.2023_04_05_09_35_59.txt
+            │   │   │           │   ├── stderr.txt -> stderr.2023_04_05_09_35_59.txt
+            │   │   │           │   ├── stdout.txt
+            │   │   │           │   └── traces
+            │   │   │           │       ├── trace_0000000000-0000010000.log
+            │   │   │           │       ├── trace_index_0000000000-0000010000.log
+            │   │   │           │       └── trace_trx_id_0000000000-0000010000.log
+            │   │   │           └── node_bios
+            │   │   │               ├── blocks
+            │   │   │               │   ├── blocks.index
+            │   │   │               │   ├── blocks.log
+            │   │   │               │   └── reversible
+            │   │   │               │       └── fork_db.dat
+            │   │   │               ├── nodeos.pid
+            │   │   │               ├── snapshots
+            │   │   │               ├── state
+            │   │   │               │   └── shared_memory.bin
+            │   │   │               ├── stderr.2023_04_05_09_35_59.txt
+            │   │   │               ├── stderr.txt -> stderr.2023_04_05_09_35_59.txt
+            │   │   │               ├── stdout.txt
+            │   │   │               └── traces
+            │   │   │                   ├── trace_0000000000-0000010000.log
+            │   │   │                   ├── trace_index_0000000000-0000010000.log
+            │   │   │                   └── trace_trx_id_0000000000-0000010000.log
+            │   │   ├── 2023-04-05_14-37-31-25001
+            │   │   ├── 2023-04-05_14-38-59-12501
+            │   │   .
+            │   │   .
+            │   │   .
+            │   │   └── 2023-04-05_16-13-11-13001
             │   └── producerThreadResults.txt
             ├── report.json
             └── testRunLogs
-                └── p
-                    ├── 2023-02-22_17-04-36-50000
+                └── performance_test
+                    ├── 2023-04-05_16-14-31-50000
                     │   ├── blockDataLogs
                     │   │   ├── blockData.txt
                     │   │   ├── blockTrxData.txt
@@ -52,8 +168,6 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │   ├── data.json
                     │   ├── etc
                     │   │   └── eosio
-                    │   │       ├── launcher
-                    │   │       │   └── testnet.template
                     │   │       ├── node_00
                     │   │       │   ├── config.ini
                     │   │       │   ├── genesis.json
@@ -84,23 +198,9 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │   │       │   ├── logging.json
                     │   │       │   └── protocol_features
                     │   │       │       ├── BUILTIN-ACTION_RETURN_VALUE.json
-                    │   │       │       ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
-                    │   │       │       ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
-                    │   │       │       ├── BUILTIN-CRYPTO_PRIMITIVES.json
-                    │   │       │       ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
-                    │   │       │       ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
-                    │   │       │       ├── BUILTIN-FORWARD_SETCODE.json
-                    │   │       │       ├── BUILTIN-GET_BLOCK_NUM.json
-                    │   │       │       ├── BUILTIN-GET_CODE_HASH.json
-                    │   │       │       ├── BUILTIN-GET_SENDER.json
-                    │   │       │       ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
-                    │   │       │       ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
-                    │   │       │       ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
-                    │   │       │       ├── BUILTIN-PREACTIVATE_FEATURE.json
-                    │   │       │       ├── BUILTIN-RAM_RESTRICTIONS.json
-                    │   │       │       ├── BUILTIN-REPLACE_DEFERRED.json
-                    │   │       │       ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
-                    │   │       │       ├── BUILTIN-WEBAUTHN_KEY.json
+                    │   │       |       .
+                    │   │       |       .
+                    │   │       |       .
                     │   │       │       └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
                     │   │       └── node_bios
                     │   │           ├── config.ini
@@ -108,485 +208,687 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │   │           ├── logging.json
                     │   │           └── protocol_features
                     │   │               ├── BUILTIN-ACTION_RETURN_VALUE.json
-                    │   │               ├── BUILTIN-BLOCKCHAIN_PARAMETERS.json
-                    │   │               ├── BUILTIN-CONFIGURABLE_WASM_LIMITS2.json
-                    │   │               ├── BUILTIN-CRYPTO_PRIMITIVES.json
-                    │   │               ├── BUILTIN-DISALLOW_EMPTY_PRODUCER_SCHEDULE.json
-                    │   │               ├── BUILTIN-FIX_LINKAUTH_RESTRICTION.json
-                    │   │               ├── BUILTIN-FORWARD_SETCODE.json
-                    │   │               ├── BUILTIN-GET_BLOCK_NUM.json
-                    │   │               ├── BUILTIN-GET_CODE_HASH.json
-                    │   │               ├── BUILTIN-GET_SENDER.json
-                    │   │               ├── BUILTIN-NO_DUPLICATE_DEFERRED_ID.json
-                    │   │               ├── BUILTIN-ONLY_BILL_FIRST_AUTHORIZER.json
-                    │   │               ├── BUILTIN-ONLY_LINK_TO_EXISTING_PERMISSION.json
-                    │   │               ├── BUILTIN-PREACTIVATE_FEATURE.json
-                    │   │               ├── BUILTIN-RAM_RESTRICTIONS.json
-                    │   │               ├── BUILTIN-REPLACE_DEFERRED.json
-                    │   │               ├── BUILTIN-RESTRICT_ACTION_TO_SELF.json
-                    │   │               ├── BUILTIN-WEBAUTHN_KEY.json
+                    │   │               .
+                    │   │               .
+                    │   │               .
                     │   │               └── BUILTIN-WTMSIG_BLOCK_SIGNATURES.json
                     │   ├── trxGenLogs
-                    │   │   ├── first_trx_12330.txt
-                    │   │   ├── first_trx_12331.txt
-                    │   │   ├── first_trx_12332.txt
-                    │   │   ├── first_trx_12333.txt
-                    │   │   ├── first_trx_12334.txt
-                    │   │   ├── first_trx_12335.txt
-                    │   │   ├── first_trx_12336.txt
-                    │   │   ├── first_trx_12337.txt
-                    │   │   ├── first_trx_12338.txt
-                    │   │   ├── first_trx_12339.txt
-                    │   │   ├── first_trx_12340.txt
-                    │   │   ├── first_trx_12341.txt
-                    │   │   ├── first_trx_12342.txt
-                    │   │   ├── trx_data_output_12330.txt
-                    │   │   ├── trx_data_output_12331.txt
-                    │   │   ├── trx_data_output_12332.txt
-                    │   │   ├── trx_data_output_12333.txt
-                    │   │   ├── trx_data_output_12334.txt
-                    │   │   ├── trx_data_output_12335.txt
-                    │   │   ├── trx_data_output_12336.txt
-                    │   │   ├── trx_data_output_12337.txt
-                    │   │   ├── trx_data_output_12338.txt
-                    │   │   ├── trx_data_output_12339.txt
-                    │   │   ├── trx_data_output_12340.txt
-                    │   │   ├── trx_data_output_12341.txt
-                    │   │   └── trx_data_output_12342.txt
+                    │   │   ├── first_trx_20199.txt
+                    │   │   .
+                    │   │   .
+                    │   │   .
+                    │   │   ├── first_trx_20211.txt
+                    │   │   ├── trx_data_output_20199.txt
+                    │   │   .
+                    │   │   .
+                    │   │   .
+                    │   │   └── trx_data_output_20211.txt
                     │   └── var
-                    │       └── var
-                    │           ├── lib
-                    │           │   ├── node_00
-                    │           │   │   ├── blocks
-                    │           │   │   │   ├── blocks.index
-                    │           │   │   │   ├── blocks.log
-                    │           │   │   │   └── reversible
-                    │           │   │   ├── nodeos.pid
-                    │           │   │   ├── snapshots
-                    │           │   │   ├── state
-                    │           │   │   │   └── shared_memory.bin
-                    │           │   │   ├── stderr.2023_02_22_11_04_36.txt
-                    │           │   │   ├── stderr.txt -> stderr.2023_02_22_11_04_36.txt
-                    │           │   │   └── stdout.txt
-                    │           │   ├── node_01
-                    │           │   │   ├── blocks
-                    │           │   │   │   ├── blocks.index
-                    │           │   │   │   ├── blocks.log
-                    │           │   │   │   └── reversible
-                    │           │   │   ├── nodeos.pid
-                    │           │   │   ├── snapshots
-                    │           │   │   ├── state
-                    │           │   │   │   └── shared_memory.bin
-                    │           │   │   ├── stderr.2023_02_22_11_04_36.txt
-                    │           │   │   ├── stderr.txt -> stderr.2023_02_22_11_04_36.txt
-                    │           │   │   ├── stdout.txt
-                    │           │   │   └── traces
-                    │           │   │       ├── trace_0000000000-0000010000.log
-                    │           │   │       ├── trace_index_0000000000-0000010000.log
-                    │           │   │       └── trace_trx_id_0000000000-0000010000.log
-                    │           │   └── node_bios
-                    │           │       ├── blocks
-                    │           │       │   ├── blocks.index
-                    │           │       │   ├── blocks.log
-                    │           │       │   └── reversible
-                    │           │       │       └── fork_db.dat
-                    │           │       ├── nodeos.pid
-                    │           │       ├── snapshots
-                    │           │       ├── state
-                    │           │       │   └── shared_memory.bin
-                    │           │       ├── stderr.2023_02_22_11_04_36.txt
-                    │           │       ├── stderr.txt -> stderr.2023_02_22_11_04_36.txt
-                    │           │       ├── stdout.txt
-                    │           │       └── traces
-                    │           │           ├── trace_0000000000-0000010000.log
-                    │           │           ├── trace_index_0000000000-0000010000.log
-                    │           │           └── trace_trx_id_0000000000-0000010000.log
-                    │           ├── subprocess_results.log
-                    │           ├── test_keosd_err.log
-                    │           ├── test_keosd_out.log
-                    │           └── test_wallet_0
-                    │               ├── config.ini
-                    │               ├── default.wallet
-                    │               ├── ignition.wallet
-                    │               ├── keosd.sock
-                    │               └── wallet.lock
-                    ├── 2023-02-22_17-06-16-25000
-                    ├── 2023-02-22_17-07-47-12500
-                    ├── 2023-02-22_17-09-00-19000
-                    ├── 2023-02-22_17-10-24-16000
-                    ├── 2023-02-22_17-11-46-14500
-                    ├── 2023-02-22_17-13-06-15500
-                    └── 2023-02-22_17-14-24-15500
+                    │       └── performance_test8480
+                    │           ├── node_00
+                    │           │   ├── blocks
+                    │           │   │   ├── blocks.index
+                    │           │   │   ├── blocks.log
+                    │           │   │   └── reversible
+                    │           │   ├── nodeos.pid
+                    │           │   ├── snapshots
+                    │           │   ├── state
+                    │           │   │   └── shared_memory.bin
+                    │           │   ├── stderr.2023_04_05_11_14_31.txt
+                    │           │   ├── stderr.txt -> stderr.2023_04_05_11_14_31.txt
+                    │           │   └── stdout.txt
+                    │           ├── node_01
+                    │           │   ├── blocks
+                    │           │   │   ├── blocks.index
+                    │           │   │   ├── blocks.log
+                    │           │   │   └── reversible
+                    │           │   ├── nodeos.pid
+                    │           │   ├── snapshots
+                    │           │   ├── state
+                    │           │   │   └── shared_memory.bin
+                    │           │   ├── stderr.2023_04_05_11_14_31.txt
+                    │           │   ├── stderr.txt -> stderr.2023_04_05_11_14_31.txt
+                    │           │   ├── stdout.txt
+                    │           │   └── traces
+                    │           │       ├── trace_0000000000-0000010000.log
+                    │           │       ├── trace_index_0000000000-0000010000.log
+                    │           │       └── trace_trx_id_0000000000-0000010000.log
+                    │           └── node_bios
+                    │               ├── blocks
+                    │               │   ├── blocks.index
+                    │               │   ├── blocks.log
+                    │               │   └── reversible
+                    │               │       └── fork_db.dat
+                    │               ├── nodeos.pid
+                    │               ├── snapshots
+                    │               ├── state
+                    │               │   └── shared_memory.bin
+                    │               ├── stderr.2023_04_05_11_14_31.txt
+                    │               ├── stderr.txt -> stderr.2023_04_05_11_14_31.txt
+                    │               ├── stdout.txt
+                    │               └── traces
+                    │                   ├── trace_0000000000-0000010000.log
+                    │                   ├── trace_index_0000000000-0000010000.log
+                    │                   └── trace_trx_id_0000000000-0000010000.log
+                    ├── 2023-04-05_16-16-03-25001
+                    ├── 2023-04-05_16-17-34-12501
+                    .
+                    .
+                    .
+                    └── 2023-04-05_16-25-39-13501
         ```
         </details>
 
-## Configuring Performance Harness Tests
+# Configuring Performance Harness Tests
 
-### Performance Test
+## Performance Test
 
 The Performance Harness main script `performance_test.py` can be configured using the following command line arguments:
 
 <details open>
-    <summary>Expand Argument List</summary>
+    <summary>Usage</summary>
 
-Test Helper Arguments:
-  Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
+```
+usage: performance_test.py [-h] {testBpOpMode,testApiOpMode} ...
+```
 
-* `-?, --help`            show this help message and exit
-* `-p P`                  producing nodes count (default: 1)
-* `-n N`                  total nodes (default: 0)
-* `-d D`                  delay between nodes startup (default: 1)
-* `--nodes-file NODES_FILE`
-                          File containing nodes info in JSON format. (default: None)
-* `-s {mesh}`             topology (default: mesh)
-* `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
-* `-v`                    verbose logging (default: False)
-* `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all nodeos and keosd instances (default: False)
+</details>
 
-Performance Test Basic Base:
-  Performance Test Basic base configuration items.
+<details open>
+    <summary>Expand Operational Mode Sub-Command List</summary>
 
-* `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
-                          Maximum amount of transactions per second a single generator can have. (default: 4000)
-* `--genesis GENESIS`     Path to genesis.json (default: tests/performance_tests/genesis.json)
-* `--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE`
-                          The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks,
-                          to prune from the beginning and end of the range of blocks of interest for evaluation.
-                          (default: 2)
-* `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
-                          Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
-* `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 2)
-* `--database-map-mode {mapped,heap,locked}`
-                          Database map mode ("mapped", "heap", or "locked").
-                          In "mapped" mode database is memory mapped as a file.
-                          In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
-                          In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
-* `--cluster-log-lvl {all,debug,info,warn,error,off}`
-                          Cluster log level ("all", "debug", "info", "warn", "error", or "off"). Performance Harness Test Basic relies on some logging at
-                          "info" level, so it is the lowest recommended logging level to use. However, there are instances where more verbose logging can be
-                          useful. (default: info)
-* `--net-threads NET_THREADS`
-                          Number of worker threads in net_plugin thread pool (default: 4)
-* `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
-                          Disable subjective CPU billing for API/P2P transactions (default: True)
-* `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
-                          Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval. (default: 0)
-* `--produce-time-offset-us PRODUCE_TIME_OFFSET_US`
-                          Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval. (default: 0)
-* `--cpu-effort-percent CPU_EFFORT_PERCENT`
-                          Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80% (default: 100)
-* `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
-                          Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
-* `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 2)
-* `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
-                          Maximum time for processing a request, -1 for unlimited (default: -1)
-* `--http-max-bytes-in-flight-mb HTTP_MAX_IN_FLIGHT_BYTES`
-                          Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited.
-                          429 error response when exceeded. (default: -1)
-* `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
-* `--del-report`          Whether to delete overarching performance run report. (default: False)
-* `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
-* `--prods-enable-trace-api`
-                          Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
-* `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
-                          Toggles if missing transactions are be printed upon test completion. (default: False)
-* `--account-name ACCOUNT_NAME`
-                          Name of the account to create and assign a contract to (default: eosio)
-* `--contract-dir CONTRACT_DIR`
-                          Path to contract dir (default: unittests/contracts/eosio.system)
-* `--wasm-file WASM_FILE` WASM file name for contract (default: eosio.system.wasm)
-* `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
-* `--user-trx-data-file USER_TRX_DATA_FILE`
-                          Path to transaction data JSON file (default: None)
-* `--wasm-runtime RUNTIME`
-                          Override default WASM runtime ("eos-vm-jit", "eos-vm")
-                          "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
-                          execution. "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
-* `--contracts-console`   print contract's output to console (default: False)
-* `--eos-vm-oc-cache-size-mb CACHE_SIZE_MiB`
-                          Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
-* `--eos-vm-oc-compile-threads COMPILE_THREADS`
-                          Number of threads to use for EOS VM OC tier-up (default: 1)
-* `--non-prods-eos-vm-oc-enable`
-                          Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
-* `--block-log-retain-blocks BLOCKS_TO_RETAIN`
-                          If set to greater than 0, periodically prune the block log to
-                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
-                          block log file is removed after startup. (default: None)
-* `--http-threads HTTP_THREADS`
-                          Number of worker threads in http thread pool (default: 2)
-* `--chain-state-db-size-mb DB_SIZE_MiB`
-                          Maximum size (in MiB) of the chain state database (default: 25600)
+```
+optional arguments:
+-h, --help      show this help message and exit
+
+Operational Modes:
+  Each Operational Mode sets up a known node operator configuration and
+  performs load testing and analysis catered to the expectations of that
+  specific operational mode. For additional configuration options for each
+  operational mode use, pass --help to the sub-command. Eg:
+  performance_test.py testBpOpMode --help
+
+  {testBpOpMode,testApiOpMode}
+                        Currently supported operational mode sub-commands.
+    testBpOpMode        Test the Block Producer Operational Mode.
+    testApiOpMode       Test the API Node Operational Mode.
+```
+
+</details>
+
+### Operational Modes
+
+- Block Producer Mode
+  - Transactions are sent to the p2p endpoint of the block producer node
+  - Topology:
+    - Default Producer Node Count=1
+    - Default Validation Node Count=1
+- Api Node Mode
+  - Transactions are sent to the http api endpoint of the api node
+  - Topology:
+    - Default Producer Node Count=1
+    - Default Validation Node Count=1
+    - Default API Node Count=1
+
+### Operations Mode Usage/Configuration
+<br/>
+<details>
+    <summary>Usage</summary>
+
+```
+usage: performance_test.py testBpOpMode [--skip-tps-test]
+                                        [--calc-producer-threads {none,lmax,full}]
+                                        [--calc-chain-threads {none,lmax,full}]
+                                        [--calc-net-threads {none,lmax,full}]
+                                        [--del-test-report]
+                                        [--max-tps-to-test MAX_TPS_TO_TEST]
+                                        [--min-tps-to-test MIN_TPS_TO_TEST]
+                                        [--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC]
+                                        [--test-iteration-min-step TEST_ITERATION_MIN_STEP]
+                                        [--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC]
+                                        [-h]
+                                        {overrideBasicTestConfig} ...
+```
+
+</details>
+
+<details>
+    <summary>Expand Block Producer Mode Argument List</summary>
+
+```
+optional arguments:
+  -h, --help            show this help message and exit
 
 Performance Harness:
   Performance Harness testing configuration items.
 
-* `--skip-tps-test`       Determines whether to skip the max TPS measurement tests (default: False)
-* `--calc-producer-threads {none,lmax,full}`
-                          Determines whether to calculate number of worker threads to use in producer thread pool ("none", "lmax", or "full").
-                          In "none" mode, the default, no calculation will be attempted and the configured --producer-threads value will be used.
-                          In "lmax" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads.
-                          In "full" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
-* `--calc-chain-threads {none,lmax,full}`
-                          Determines whether to calculate number of worker threads to use in chain thread pool ("none", "lmax", or "full").
-                          In "none" mode, the default, no calculation will be attempted and the configured --chain-threads value will be used.
-                          In "lmax" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads.
-                          In "full" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
-* `--calc-net-threads {none,lmax,full}`
-                          Determines whether to calculate number of worker threads to use in net thread pool ("none", "lmax", or "full").
-                          In "none" mode, the default, no calculation will be attempted and the configured --net-threads value will be used.
-                          In "lmax" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads.
-                          In "full" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in "lmax" mode). Useful for graphing the full performance impact of each available thread. (default: none)
-* `--del-test-report`     Whether to save json reports from each test scenario. (default: False)
+  --skip-tps-test       Determines whether to skip the max TPS measurement
+                        tests
+  --calc-producer-threads {none,lmax,full}
+                        Determines whether to calculate number of worker
+                        threads to use in producer thread pool ("none",
+                        "lmax", or "full"). In "none" mode, the default, no
+                        calculation will be attempted and the configured
+                        --producer-threads value will be used. In "lmax" mode,
+                        producer threads will incrementally be tested,
+                        starting at plugin default, until the performance rate
+                        ceases to increase with the addition of additional
+                        threads. In "full" mode producer threads will
+                        incrementally be tested from plugin default..num
+                        logical processors, recording each performance and
+                        choosing the local max performance (same value as
+                        would be discovered in "lmax" mode). Useful for
+                        graphing the full performance impact of each available
+                        thread.
+  --calc-chain-threads {none,lmax,full}
+                        Determines whether to calculate number of worker
+                        threads to use in chain thread pool ("none", "lmax",
+                        or "full"). In "none" mode, the default, no
+                        calculation will be attempted and the configured
+                        --chain-threads value will be used. In "lmax" mode,
+                        producer threads will incrementally be tested,
+                        starting at plugin default, until the performance rate
+                        ceases to increase with the addition of additional
+                        threads. In "full" mode producer threads will
+                        incrementally be tested from plugin default..num
+                        logical processors, recording each performance and
+                        choosing the local max performance (same value as
+                        would be discovered in "lmax" mode). Useful for
+                        graphing the full performance impact of each available
+                        thread.
+  --calc-net-threads {none,lmax,full}
+                        Determines whether to calculate number of worker
+                        threads to use in net thread pool ("none", "lmax", or
+                        "full"). In "none" mode, the default, no calculation
+                        will be attempted and the configured --net-threads
+                        value will be used. In "lmax" mode, producer threads
+                        will incrementally be tested, starting at plugin
+                        default, until the performance rate ceases to increase
+                        with the addition of additional threads. In "full"
+                        mode producer threads will incrementally be tested
+                        from plugin default..num logical processors, recording
+                        each performance and choosing the local max
+                        performance (same value as would be discovered in
+                        "lmax" mode). Useful for graphing the full performance
+                        impact of each available thread.
+  --del-test-report     Whether to save json reports from each test scenario.
 
 Performance Harness - TPS Test Config:
   TPS Performance Test configuration items.
 
-* `--max-tps-to-test MAX_TPS_TO_TEST`
-                          The max target transfers realistic as ceiling of test range (default: 50000)
-* `--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC`
-                          The duration of transfer trx generation for each iteration of the test during the initial search (seconds) (default: 150)
-* `--test-iteration-min-step TEST_ITERATION_MIN_STEP`
-                          The step size determining granularity of tps result during initial search (default: 500)
-* `--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC`
-                          The duration of transfer trx generation for each final longer run iteration of the test during the final search (seconds)
-                          (default: 300)
+  --max-tps-to-test MAX_TPS_TO_TEST
+                        The max target transfers realistic as ceiling of test
+                        range
+  --min-tps-to-test MIN_TPS_TO_TEST
+                        The min target transfers to use as floor of test range
+  --test-iteration-duration-sec TEST_ITERATION_DURATION_SEC
+                        The duration of transfer trx generation for each
+                        iteration of the test during the initial search
+                        (seconds)
+  --test-iteration-min-step TEST_ITERATION_MIN_STEP
+                        The step size determining granularity of tps result
+                        during initial search
+  --final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC
+                        The duration of transfer trx generation for each final
+                        longer run iteration of the test during the final
+                        search (seconds)
+
+Advanced Configuration Options:
+  Block Producer Operational Mode Advanced Configuration Options allow low
+  level adjustments to the basic test configuration as well as the node
+  topology being tested. For additional information on available advanced
+  configuration options, pass --help to the sub-command. Eg:
+  performance_test.py testBpOpMode overrideBasicTestConfig --help
+
+  {overrideBasicTestConfig}
+                        sub-command to allow overriding advanced configuration
+                        options
+    overrideBasicTestConfig
+                        Use this sub-command to override low level controls
+                        for basic test, logging, node topology, etc.
+```
+
+</details>
+<br/>
+
+#### Advanced Configuration: OverrideBasicTestConfig sub-command
+<br/>
+<details>
+    <summary>Usage</summary>
+
+```
+usage: performance_test.py testBpOpMode overrideBasicTestConfig
+       [-h] [-d D] [--dump-error-details] [-v] [--leave-running] [--unshared]
+       [--endpoint-mode {p2p,http}]
+       [--producer-nodes PRODUCER_NODES] [--validation-nodes VALIDATION_NODES] [--api-nodes API_NODES]
+       [--api-nodes-read-only-threads API_NODES_READ_ONLY_THREADS]
+       [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
+       [--genesis GENESIS] [--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE]
+       [--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT]
+       [--chain-threads CHAIN_THREADS]
+       [--database-map-mode {mapped,heap,locked}]
+       [--cluster-log-lvl {all,debug,info,warn,error,off}]
+       [--net-threads NET_THREADS]
+       [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
+       [--cpu-effort-percent CPU_EFFORT_PERCENT]
+       [--producer-threads PRODUCER_THREADS]
+       [--http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS]
+       [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
+       [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
+       [--del-perf-logs] [--del-report] [--quiet] [--prods-enable-trace-api]
+       [--print-missing-transactions] [--account-name ACCOUNT_NAME]
+       [--contract-dir CONTRACT_DIR] [--wasm-file WASM_FILE]
+       [--abi-file ABI_FILE] [--user-trx-data-file USER_TRX_DATA_FILE]
+       [--wasm-runtime {eos-vm-jit,eos-vm}] [--contracts-console]
+       [--eos-vm-oc-cache-size-mb EOS_VM_OC_CACHE_SIZE_MB]
+       [--eos-vm-oc-compile-threads EOS_VM_OC_COMPILE_THREADS]
+       [--non-prods-eos-vm-oc-enable]
+       [--block-log-retain-blocks BLOCK_LOG_RETAIN_BLOCKS]
+       [--http-threads HTTP_THREADS]
+       [--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB]
+```
+
 </details>
 
-### Support Scripts
-
-The following scripts are typically used by the Performance Harness main script `performance_test.py` to perform specific tasks as delegated and configured by the main script.  However, there may be applications in certain use cases where running a single one-off test or transaction generator is desired.  In those situations, the following argument details might be useful to understanding how to run these utilities in stand-alone mode.  The argument breakdown may also be useful in understanding how the Performance Harness main script's arguments are being passed through to configure lower-level entities.
-
-#### Performance Test Basic
-
-`performance_test_basic.py` can be configured using the following command line arguments:
-
 <details>
-    <summary>Expand Argument List</summary>
+    <summary>Expand Override Basic Test Config Argument List</summary>
+
+```
+optional arguments:
+  -h, --help            show this help message and exit
 
 Test Helper Arguments:
   Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
 
-* `-?, --help`            show this help message and exit
-* `-p P`                  producing nodes count (default: 1)
-* `-n N`                  total nodes (default: 0)
-* `-d D`                  delay between nodes startup (default: 1)
-* `--nodes-file NODES_FILE`
-                          File containing nodes info in JSON format. (default: None)
-* `-s {mesh}`             topology (default: mesh)
-* `--dump-error-details`  Upon error print `etc/eosio/node_*/config.ini` and `var/lib/node_*/stderr.log` to stdout (default: False)
-* `-v`                    verbose logging (default: False)
-* `--leave-running`       Leave cluster running after test finishes (default: False)
-* `--clean-run`           Kill all nodeos and keosd instances (default: False)
+  -d D                  delay between nodes startup
+  --dump-error-details  Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout
+  -v                    verbose logging
+  --leave-running       Leave cluster running after test finishes
+  --unshared            Run test in isolated network namespace
 
 Performance Test Basic Base:
   Performance Test Basic base configuration items.
 
-* `--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR`
-                          Maximum amount of transactions per second a single generator can have. (default: 4000)
-* `--genesis GENESIS`     Path to genesis.json (default: tests/performance_tests/genesis.json)
-* `--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE`
-                          The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, to prune from the beginning and end
-                          of the range of blocks of interest for evaluation. (default: 2)
-* `--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT`
-                          Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
-* `--chain-threads CHAIN_THREADS`
-                          Number of worker threads in controller thread pool (default: 2)
-* `--database-map-mode {mapped,heap,locked}`
-                          Database map mode ("mapped", "heap", or "locked").
-                          In "mapped" mode database is memory mapped as a file.
-                          In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
-                          In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
-* `--cluster-log-lvl {all,debug,info,warn,error,off}`
-                          Cluster log level ("all", "debug", "info", "warn", "error", or "off"). Performance Harness Test Basic relies on some logging at
-                          "info" level, so it is the lowest recommended logging level to use. However, there are instances where more verbose logging can be
-                          useful. (default: info)
-* `--net-threads NET_THREADS`
-                          Number of worker threads in net_plugin thread pool (default: 4)
-* `--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING`
-                          Disable subjective CPU billing for API/P2P transactions (default: True)
-* `--last-block-time-offset-us LAST_BLOCK_TIME_OFFSET_US`
-                          Offset of last block producing time in microseconds. Valid range 0 .. -block_time_interval. (default: 0)
-* `--produce-time-offset-us PRODUCE_TIME_OFFSET_US`
-                          Offset of non last block producing time in microseconds. Valid range 0 .. -block_time_interval. (default: 0)
-* `--cpu-effort-percent CPU_EFFORT_PERCENT`
-                          Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80% (default: 100)
-* `--last-block-cpu-effort-percent LAST_BLOCK_CPU_EFFORT_PERCENT`
-                          Percentage of cpu block production time used to produce last block. Whole number percentages, e.g. 80 for 80% (default: 100)
-* `--producer-threads PRODUCER_THREADS`
-                          Number of worker threads in producer thread pool (default: 2)
-* `--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS`
-                          Maximum time for processing a request, -1 for unlimited (default: -1)
-* `--http-max-bytes-in-flight-mb HTTP_MAX_IN_FLIGHT_BYTES`
-                          Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited.
-                          429 error response when exceeded. (default: -1)
-* `--del-perf-logs`       Whether to delete performance test specific logs. (default: False)
-* `--del-report`          Whether to delete overarching performance run report. (default: False)
-* `--quiet`               Whether to quiet printing intermediate results and reports to stdout (default: False)
-* `--prods-enable-trace-api`
-                          Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
-* `--print-missing-transactions PRINT_MISSING_TRANSACTIONS`
-                          Toggles if missing transactions are be printed upon test completion. (default: False)
-* `--account-name ACCOUNT_NAME`
-                          Name of the account to create and assign a contract to (default: eosio)
-* `--contract-dir CONTRACT_DIR`
-                          Path to contract dir (default: unittests/contracts/eosio.system)
-* `--wasm-file WASM_FILE`
-                          WASM file name for contract (default: eosio.system.wasm)
-* `--abi-file ABI_FILE`   ABI file name for contract (default: eosio.system.abi)
-* `--user-trx-data-file USER_TRX_DATA_FILE`
-                          Path to transaction data JSON file (default: None)
-* `--wasm-runtime RUNTIME`
-                          Override default WASM runtime ("eos-vm-jit", "eos-vm")
-                          "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to
-                          execution. "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
-* `--contracts-console`   print contract's output to console (default: False)
-* `--eos-vm-oc-cache-size-mb CACHE_SIZE_MiB`
-                          Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
-* `--eos-vm-oc-compile-threads COMPILE_THREADS`
-                          Number of threads to use for EOS VM OC tier-up (default: 1)
-* `--non-prods-eos-vm-oc-enable`
-                          Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
-* `--block-log-retain-blocks BLOCKS_TO_RETAIN`
-                          If set to greater than 0, periodically prune the block log to
-                          store only configured number of most recent blocks. If set to 0, no blocks are be written to the block log;
-                          block log file is removed after startup. (default: None)
-* `--http-threads HTTP_THREADS`
-                          Number of worker threads in http thread pool (default: 2)
-* `--chain-state-db-size-mb DB_SIZE_MiB`
-                          Maximum size (in MiB) of the chain state database (default: 25600)
+  --endpoint-mode {p2p,http}
+                        Endpoint Mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
+  --producer-nodes PRODUCER_NODES
+                        Producing nodes count
+  --validation-nodes VALIDATION_NODES
+                        Validation nodes count
+  --api-nodes API_NODES
+                        API nodes count
+  --api-nodes-read-only-threads API_NODES_READ_ONLY_THREADS
+                        API nodes read only threads count for use with read-only transactions
+  --tps-limit-per-generator TPS_LIMIT_PER_GENERATOR
+                        Maximum amount of transactions per second a single generator can have.
+  --genesis GENESIS     Path to genesis.json
+  --num-blocks-to-prune NUM_BLOCKS_TO_PRUNE
+                        The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks,
+                        to prune from the beginning and end of the range of blocks of interest for evaluation.
+  --signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT
+                        Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%
+  --chain-threads CHAIN_THREADS
+                        Number of worker threads in controller thread pool
+  --database-map-mode {mapped,heap,locked}
+                        Database map mode ("mapped", "heap", or "locked").
+                        In "mapped" mode database is memory mapped as a file.
+                        In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
+                        In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available.
+  --cluster-log-lvl {all,debug,info,warn,error,off}
+                        Cluster log level ("all", "debug", "info", "warn", "error", or "off").
+                        Performance Harness Test Basic relies on some logging at "info" level,
+                        so it is recommended lowest logging level to use.
+                        However, there are instances where more verbose logging can be useful.
+  --net-threads NET_THREADS
+                        Number of worker threads in net_plugin thread pool
+  --disable-subjective-billing DISABLE_SUBJECTIVE_BILLING
+                        Disable subjective CPU billing for API/P2P transactions
+  --cpu-effort-percent CPU_EFFORT_PERCENT
+                        Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%
+  --producer-threads PRODUCER_THREADS
+                        Number of worker threads in producer thread pool
+  --http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS
+                        Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited
+  --http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS
+                        Maximum time for processing a request, -1 for unlimited
+  --http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB
+                        Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429 error response when exceeded.
+  --del-perf-logs       Whether to delete performance test specific logs.
+  --del-report          Whether to delete overarching performance run report.
+  --quiet               Whether to quiet printing intermediate results and reports to stdout
+  --prods-enable-trace-api
+                        Determines whether producer nodes should have eosio::trace_api_plugin enabled
+  --print-missing-transactions
+                        Toggles if missing transactions are be printed upon test completion.
+  --account-name ACCOUNT_NAME
+                        Name of the account to create and assign a contract to
+  --contract-dir CONTRACT_DIR
+                        Path to contract dir
+  --wasm-file WASM_FILE
+                        WASM file name for contract
+  --abi-file ABI_FILE   ABI file name for contract
+  --user-trx-data-file USER_TRX_DATA_FILE
+                        Path to transaction data JSON file
+  --wasm-runtime {eos-vm-jit,eos-vm}
+                        Override default WASM runtime ("eos-vm-jit", "eos-vm")
+                        "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to execution.
+                        "eos-vm" : A WebAssembly interpreter.
+  --contracts-console   print contract's output to console
+  --eos-vm-oc-cache-size-mb EOS_VM_OC_CACHE_SIZE_MB
+                        Maximum size (in MiB) of the EOS VM OC code cache
+  --eos-vm-oc-compile-threads EOS_VM_OC_COMPILE_THREADS
+                        Number of threads to use for EOS VM OC tier-up
+  --non-prods-eos-vm-oc-enable
+                        Enable EOS VM OC tier-up runtime on non producer nodes
+  --block-log-retain-blocks BLOCK_LOG_RETAIN_BLOCKS
+                        If set to greater than 0, periodically prune the block log to store only configured number of most recent blocks.
+                        If set to 0, no blocks are be written to the block log; block log file is removed after startup.
+  --http-threads HTTP_THREADS
+                        Number of worker threads in http thread pool
+  --chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB
+                        Maximum size (in MiB) of the chain state database
+```
 
-Performance Test Basic Single Test:
-  Performance Test Basic single test configuration items. Useful for running a single test directly. These items may not be directly configurable from
-  higher level scripts as the scripts themselves may configure these internally.
-
-* `--target-tps TARGET_TPS`
-                          The target transfers per second to send during test (default: 8000)
-* `--test-duration-sec TEST_DURATION_SEC`
-                          The duration of transfer trx generation for the test in seconds (default: 90)
 </details>
+<br/>
 
-#### Launch Transaction Generators (TestHarness)
+# Support Scripts
 
-`launch_transaction_generators.py` can be configured using the following command line arguments:
+The following scripts are typically used by the Performance Harness main script `performance_test.py` to perform specific tasks as delegated and configured by the main script.  However, there may be applications in certain use cases where running a single one-off test or transaction generator is desired.  In those situations, the following argument details might be useful to understanding how to run these utilities in stand-alone mode.  The argument breakdown may also be useful in understanding how the Performance Harness main script's arguments are being passed through to configure lower-level entities.
+
+## Performance Test Basic
+
+`performance_test_basic.py` can be configured using the following command line arguments:
+
+<details>
+    <summary>Usage</summary>
+
+  ```
+  usage: performance_test_basic.py [-h] [-d D]
+                                  [--dump-error-details] [-v] [--leave-running]
+                                  [--unshared]
+                                  [--endpoint-mode {p2p,http}]
+                                  [--producer-nodes PRODUCER_NODES]
+                                  [--validation-nodes VALIDATION_NODES]
+                                  [--api-nodes API_NODES]
+                                  [--api-nodes-read-only-threads API_NODES_READ_ONLY_THREADS]
+                                  [--tps-limit-per-generator TPS_LIMIT_PER_GENERATOR]
+                                  [--genesis GENESIS]
+                                  [--num-blocks-to-prune NUM_BLOCKS_TO_PRUNE]
+                                  [--signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT]
+                                  [--chain-threads CHAIN_THREADS]
+                                  [--database-map-mode {mapped,heap,locked}]
+                                  [--cluster-log-lvl {all,debug,info,warn,error,off}]
+                                  [--net-threads NET_THREADS]
+                                  [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
+                                  [--cpu-effort-percent CPU_EFFORT_PERCENT]
+                                  [--producer-threads PRODUCER_THREADS]
+                                  [--http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS]
+                                  [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
+                                  [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
+                                  [--del-perf-logs] [--del-report] [--quiet]
+                                  [--prods-enable-trace-api]
+                                  [--print-missing-transactions]
+                                  [--account-name ACCOUNT_NAME]
+                                  [--contract-dir CONTRACT_DIR]
+                                  [--wasm-file WASM_FILE] [--abi-file ABI_FILE]
+                                  [--user-trx-data-file USER_TRX_DATA_FILE]
+                                  [--wasm-runtime {eos-vm-jit,eos-vm}]
+                                  [--contracts-console]
+                                  [--eos-vm-oc-cache-size-mb EOS_VM_OC_CACHE_SIZE_MB]
+                                  [--eos-vm-oc-compile-threads EOS_VM_OC_COMPILE_THREADS]
+                                  [--non-prods-eos-vm-oc-enable]
+                                  [--block-log-retain-blocks BLOCK_LOG_RETAIN_BLOCKS]
+                                  [--http-threads HTTP_THREADS]
+                                  [--chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB]
+                                  [--target-tps TARGET_TPS]
+                                  [--test-duration-sec TEST_DURATION_SEC]
+  ```
+
+</details>
 
 <details>
     <summary>Expand Argument List</summary>
 
-* `chain_id`                    set the chain id
-* `last_irreversible_block_id`  Current last-irreversible-block-id (LIB ID) to use for transactions.
-* `contract_owner_account`      Account name of the contract owner account for the transfer actions
-* `accounts`                    Comma separated list of account names
-* `priv_keys`                   Comma separated list of private keys.
-* `trx_gen_duration`            Transaction generation duration (seconds). Defaults to 60 seconds.
-* `target_tps`                  Target transactions per second to generate/send.
-* `tps_limit_per_generator`     Maximum amount of transactions per second a single generator can have.
-* `log_dir`                     set the logs directory
-* `abi_file`                    The path to the contract abi file to use for the supplied transaction action data
-* `actions_data`                The json actions data file or json actions data description string to use
-* `actions_auths`               The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.
-* `connection_pair_list`        Comma separated list of endpoint:port combinations to send transactions to
+```
+optional arguments:
+  -h, --help            show this help message and exit
+
+Test Helper Arguments:
+  Test Helper configuration items used to configure and spin up the regression test framework and blockchain environment.
+
+  -d D                  delay between nodes startup (default: 1)
+  --dump-error-details  Upon error print etc/eosio/node_*/config.ini and <test_name><pid>/node_*/stderr.log to stdout (default: False)
+  -v                    verbose logging (default: False)
+  --leave-running       Leave cluster running after test finishes (default: False)
+  --unshared            Run test in isolated network namespace (default: False)
+
+Performance Test Basic Base:
+  Performance Test Basic base configuration items.
+
+  --endpoint-mode {p2p,http}
+                        Endpoint Mode ("p2p", "http"). In "p2p" mode transactions will be directed to the p2p endpoint on a producer node. In "http" mode transactions will be directed to the http endpoint on an api node.
+                        (default: p2p)
+  --producer-nodes PRODUCER_NODES
+                        Producing nodes count (default: 1)
+  --validation-nodes VALIDATION_NODES
+                        Validation nodes count (default: 1)
+  --api-nodes API_NODES
+                        API nodes count (default: 0)
+  --api-nodes-read-only-threads API_NODES_READ_ONLY_THREADS
+                        API nodes read only threads count for use with read-only transactions (default: 0)
+  --tps-limit-per-generator TPS_LIMIT_PER_GENERATOR
+                        Maximum amount of transactions per second a single generator can have. (default: 4000)
+  --genesis GENESIS     Path to genesis.json (default: tests/performance_tests/genesis.json)
+  --num-blocks-to-prune NUM_BLOCKS_TO_PRUNE
+                        The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks,
+                        to prune from the beginning and end of the range of blocks of interest for evaluation. (default: 2)
+  --signature-cpu-billable-pct SIGNATURE_CPU_BILLABLE_PCT
+                        Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50% (default: 0)
+  --chain-threads CHAIN_THREADS
+                        Number of worker threads in controller thread pool (default: 2)
+  --database-map-mode {mapped,heap,locked}
+                        Database map mode ("mapped", "heap", or "locked").
+                        In "mapped" mode database is memory mapped as a file.
+                        In "heap" mode database is preloaded in to swappable memory and will use huge pages if available.
+                        In "locked" mode database is preloaded, locked in to memory, and will use huge pages if available. (default: mapped)
+  --cluster-log-lvl {all,debug,info,warn,error,off}
+                        Cluster log level ("all", "debug", "info", "warn", "error", or "off").
+                        Performance Harness Test Basic relies on some logging at "info" level, so it is recommended lowest logging level to use.
+                        However, there are instances where more verbose logging can be useful. (default: info)
+  --net-threads NET_THREADS
+                        Number of worker threads in net_plugin thread pool (default: 4)
+  --disable-subjective-billing DISABLE_SUBJECTIVE_BILLING
+                        Disable subjective CPU billing for API/P2P transactions (default: True)
+  --cpu-effort-percent CPU_EFFORT_PERCENT
+                        Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80% (default: 100)
+  --producer-threads PRODUCER_THREADS
+                        Number of worker threads in producer thread pool (default: 2)
+  --http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS
+                        Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited (default: -1)
+  --http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS
+                        Maximum time for processing a request, -1 for unlimited (default: -1)
+  --http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB
+                        Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429 error response when exceeded. (default: -1)
+  --del-perf-logs       Whether to delete performance test specific logs. (default: False)
+  --del-report          Whether to delete overarching performance run report. (default: False)
+  --quiet               Whether to quiet printing intermediate results and reports to stdout (default: False)
+  --prods-enable-trace-api
+                        Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
+  --print-missing-transactions
+                        Toggles if missing transactions are be printed upon test completion. (default: False)
+  --account-name ACCOUNT_NAME
+                        Name of the account to create and assign a contract to (default: eosio)
+  --contract-dir CONTRACT_DIR
+                        Path to contract dir (default: unittests/contracts/eosio.system)
+  --wasm-file WASM_FILE
+                        WASM file name for contract (default: eosio.system.wasm)
+  --abi-file ABI_FILE   ABI file name for contract (default: eosio.system.abi)
+  --user-trx-data-file USER_TRX_DATA_FILE
+                        Path to transaction data JSON file (default: None)
+  --wasm-runtime {eos-vm-jit,eos-vm}
+                        Override default WASM runtime ("eos-vm-jit", "eos-vm")
+                        "eos-vm-jit" : A WebAssembly runtime that compiles WebAssembly code to native x86 code prior to execution.
+                        "eos-vm" : A WebAssembly interpreter. (default: eos-vm-jit)
+  --contracts-console   print contract's output to console (default: False)
+  --eos-vm-oc-cache-size-mb EOS_VM_OC_CACHE_SIZE_MB
+                        Maximum size (in MiB) of the EOS VM OC code cache (default: 1024)
+  --eos-vm-oc-compile-threads EOS_VM_OC_COMPILE_THREADS
+                        Number of threads to use for EOS VM OC tier-up (default: 1)
+  --non-prods-eos-vm-oc-enable
+                        Enable EOS VM OC tier-up runtime on non producer nodes (default: False)
+  --block-log-retain-blocks BLOCK_LOG_RETAIN_BLOCKS
+                        If set to greater than 0, periodically prune the block log to store only configured number of most recent blocks.
+                        If set to 0, no blocks are be written to the block log; block log file is removed after startup. (default: None)
+  --http-threads HTTP_THREADS
+                        Number of worker threads in http thread pool (default: 2)
+  --chain-state-db-size-mb CHAIN_STATE_DB_SIZE_MB
+                        Maximum size (in MiB) of the chain state database (default: 25600)
+
+Performance Test Basic Single Test:
+  Performance Test Basic single test configuration items. Useful for running a single test directly.
+  These items may not be directly configurable from higher level scripts as the scripts themselves may configure these internally.
+
+  --target-tps TARGET_TPS
+                        The target transfers per second to send during test (default: 8000)
+  --test-duration-sec TEST_DURATION_SEC
+                        The duration of transfer trx generation for the test in seconds (default: 90)
+```
+
 </details>
 
-#### Transaction Generator
+## Transaction Generator
 `./build/tests/trx_generator/trx_generator` can be configured using the following command line arguments:
 
 <details>
     <summary>Expand Argument List</summary>
 
-* `--generator-id arg` (=0)         Id for the transaction generator.
-                                    Allowed range (0-960). Defaults to 0.
-* `--chain-id arg`                  set the chain id
-* `--contract-owner-account arg`    Account name of the contract account for
-                                    the transaction actions
-* `--accounts arg`                  comma-separated list of accounts that
-                                    will be used for transfers. Minimum
-                                    required accounts: 2.
-* `--priv-keys arg`                 comma-separated list of private keys in
-                                    same order of accounts list that will
-                                    be used to sign transactions. Minimum
-                                    required: 2.
-* `--trx-expiration arg` (=3600)    transaction expiration time in seconds.
-                                    Defaults to 3,600. Maximum allowed:
-                                    3,600
-* `--trx-gen-duration arg` (=60)    Transaction generation duration
-                                    (seconds). Defaults to 60 seconds.
-* `--target-tps arg` (=1)           Target transactions per second to
-                                    generate/send. Defaults to 1
-                                    transaction per second.
-* `--last-irreversible-block-id arg`    Current last-irreversible-block-id (LIB
+```
+Transaction Generator command line options.:
+  --generator-id arg (=0)               Id for the transaction generator.
+                                        Allowed range (0-960). Defaults to 0.
+  --chain-id arg                        set the chain id
+  --contract-owner-account arg          Account name of the contract account
+                                        for the transaction actions
+  --accounts arg                        comma-separated list of accounts that
+                                        will be used for transfers. Minimum
+                                        required accounts: 2.
+  --priv-keys arg                       comma-separated list of private keys in
+                                        same order of accounts list that will
+                                        be used to sign transactions. Minimum
+                                        required: 2.
+  --trx-expiration arg (=3600)          transaction expiration time in seconds.
+                                        Defaults to 3,600. Maximum allowed:
+                                        3,600
+  --trx-gen-duration arg (=60)          Transaction generation duration
+                                        (seconds). Defaults to 60 seconds.
+  --target-tps arg (=1)                 Target transactions per second to
+                                        generate/send. Defaults to 1
+                                        transaction per second.
+  --last-irreversible-block-id arg      Current last-irreversible-block-id (LIB
                                         ID) to use for transactions.
-* `--monitor-spinup-time-us arg` (=1000000)
+  --monitor-spinup-time-us arg (=1000000)
                                         Number of microseconds to wait before
                                         monitoring TPS. Defaults to 1000000
                                         (1s).
-* `--monitor-max-lag-percent arg` (=5)  Max percentage off from expected
+  --monitor-max-lag-percent arg (=5)    Max percentage off from expected
                                         transactions sent before being in
                                         violation. Defaults to 5.
-* `--monitor-max-lag-duration-us arg` (=1000000)
+  --monitor-max-lag-duration-us arg (=1000000)
                                         Max microseconds that transaction
                                         generation can be in violation before
                                         quitting. Defaults to 1000000 (1s).
-* `--log-dir arg`                       set the logs directory
-* `--abi-file arg`                      The path to the contract abi file to
+  --log-dir arg                         set the logs directory
+  --stop-on-trx-failed arg (=1)         stop transaction generation if sending
+                                        fails.
+  --abi-file arg                        The path to the contract abi file to
                                         use for the supplied transaction action
                                         data
-* `--actions-data arg`                  The json actions data file or json
+  --actions-data arg                    The json actions data file or json
                                         actions data description string to use
-* `--actions-auths arg`                 The json actions auth file or json
+  --actions-auths arg                   The json actions auth file or json
                                         actions auths description string to
                                         use, containting authAcctName to
                                         activePrivateKey pairs.
-* `--peer-endpoint arg` (=127.0.0.1)    set the peer endpoint to send
+  --api-endpoint arg                    The api endpoint to direct transactions to.
+                                        Defaults to: '/v1/chain/send_transaction2'
+  --peer-endpoint-type arg (=p2p)       Identify the peer endpoint api type to
+                                        determine how to send transactions.
+                                        Allowable 'p2p' and 'http'. Default:
+                                        'p2p'
+  --peer-endpoint arg (=127.0.0.1)      set the peer endpoint to send
                                         transactions to
-* `--port arg` (=9876)                  set the peer endpoint port to send
+  --port arg (=9876)                    set the peer endpoint port to send
                                         transactions to
-* `-h [ --help ]`                       print this list
+  -h [ --help ]                         print this list
+```
+
 </details>
 
-## Result Reports
+# Result Reports
 
-### Performance Test Report
+## Performance Test Report
 
 The Performance Harness generates a report to summarize results of test scenarios as well as overarching results of the performance harness run.  By default the report described below will be written to the top level timestamped directory for the performance run with the file name `report.json`. To omit final report, use `--del-report`.
 
 Command used to run test and generate report:
 
 ``` bash
-.build/tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
+./build/tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
 ```
 
-#### Report Breakdown
+### Report Breakdown
 The report begins by delivering the max TPS results of the performance run.
 
 * `InitialMaxTpsAchieved` - the max TPS throughput achieved during initial, short duration test scenarios to narrow search window
 * `LongRunningMaxTpsAchieved` - the max TPS throughput achieved during final, longer duration test scenarios to zero in on sustainable max TPS
 
-Next, a summary of the search scenario conducted and respective results is included.  Each summary includes information on the current state of the overarching search as well as basic results of the individual test that are used to determine whether the basic test was considered successful. The list of summary results are included in `InitialSearchResults` and `LongRunningSearchResults`. The number of entries in each list will vary depending on the TPS range tested (`--max-tps-to-test`) and the configured `--test-iteration-min-step`.
+Next, a high level summary of the search scenario target and results is included.  Each line item shows a target tps search scenario and whether that scenario passed or failed.
+<details>
+    <summary>Expand Search Scenario Results Summary Example</summary>
+
+``` json
+  "InitialSearchScenariosSummary": {
+    "50000": "FAIL",
+    "25001": "FAIL",
+    "12501": "PASS",
+    "19001": "FAIL",
+    "16001": "FAIL",
+    "14501": "FAIL",
+    "13501": "FAIL",
+    "13001": "PASS"
+  },
+  "LongRunningSearchScenariosSummary": {
+    "13001": "PASS"
+  },
+```
+</details>
+
+Next, a summary of the search scenario conducted and respective results is included.  Each summary includes information on the current state of the overarching search as well as basic results of the individual test that are used to determine whether the basic test was considered successful. The list of summary results are included in `InitialSearchResults` and `LongRunningSearchResults`. The number of entries in each list will vary depending on the TPS range tested (`--min-tps-to-test` & `--max-tps-to-test`) and the configured `--test-iteration-min-step`.
 <details>
     <summary>Expand Search Scenario Summary Example</summary>
 
 ``` json
     "2": {
       "success": true,
-      "searchTarget": 12500,
-      "searchFloor": 0,
-      "searchCeiling": 24500,
+      "searchTarget": 12501,
+      "searchFloor": 1,
+      "searchCeiling": 24501,
       "basicTestResult": {
-        "targetTPS": 12500,
-        "resultAvgTps": 12507.6875,
-        "expectedTxns": 125000,
-        "resultTxns": 125000,
+        "testStart": "2023-06-05T19:13:42.528121",
+        "testEnd": "2023-06-05T19:15:00.441933",
+        "testDuration": "0:01:17.913812",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "basicTestSuccess": true,
+        "targetTPS": 12501,
+        "resultAvgTps": 12523.6875,
+        "expectedTxns": 125010,
+        "resultTxns": 125010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-15-15-12500",
-        "testStart": "2023-02-28T19:15:15.406134",
-        "testEnd": "2023-02-28T19:16:34.379216"
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-13-42-12501"
       }
     }
 ```
@@ -600,6 +902,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
 ``` json
 "InitialMaxTpsReport": {
     <truncated>
+    "Result": {
+      <truncated>
+    },
     "Analysis": {
       <truncated>
     },
@@ -619,168 +924,211 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ``` json
 {
-  "perfTestsBegin": "2023-02-28T17:10:36.281418",
-  "perfTestsFinish": "2023-02-28T19:26:06.224176",
-  "InitialMaxTpsAchieved": 15000,
-  "LongRunningMaxTpsAchieved": 14500,
-  "tpsTestStart": "2023-02-28T19:12:06.501739",
-  "tpsTestFinish": "2023-02-28T19:26:06.224167",
+  "perfTestsBegin": "2023-06-05T17:59:49.175441",
+  "perfTestsFinish": "2023-06-05T19:23:03.723738",
+  "perfTestsDuration": "1:23:14.548297",
+  "operationalMode": "Block Producer Operational Mode",
+  "InitialMaxTpsAchieved": 13001,
+  "LongRunningMaxTpsAchieved": 13001,
+  "tpsTestStart": "2023-06-05T19:10:32.123231",
+  "tpsTestFinish": "2023-06-05T19:23:03.723722",
+  "tpsTestDuration": "0:12:31.600491",
+  "InitialSearchScenariosSummary": {
+    "50000": "FAIL",
+    "25001": "FAIL",
+    "12501": "PASS",
+    "19001": "FAIL",
+    "16001": "FAIL",
+    "14501": "FAIL",
+    "13501": "FAIL",
+    "13001": "PASS"
+  },
+  "LongRunningSearchScenariosSummary": {
+    "13001": "PASS"
+  },
   "InitialSearchResults": {
     "0": {
       "success": false,
       "searchTarget": 50000,
-      "searchFloor": 0,
+      "searchFloor": 1,
       "searchCeiling": 50000,
       "basicTestResult": {
-        "targetTPS": 50000,
-        "resultAvgTps": 14271.463414634147,
-        "expectedTxns": 500000,
-        "resultTxns": 315135,
+        "testStart": "2023-06-05T19:10:32.123282",
+        "testEnd": "2023-06-05T19:12:12.746349",
+        "testDuration": "0:01:40.623067",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
         "trxExpectMet": false,
-        "basicTestSuccess": false,
-        "testAnalysisBlockCnt": 42,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-12-06-50000",
-        "testStart": "2023-02-28T19:12:06.501793",
-        "testEnd": "2023-02-28T19:13:45.664215"
+        "targetTPS": 50000,
+        "resultAvgTps": 14015.564102564103,
+        "expectedTxns": 500000,
+        "resultTxns": 309515,
+        "testAnalysisBlockCnt": 40,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-10-32-50000"
       }
     },
     "1": {
       "success": false,
-      "searchTarget": 25000,
-      "searchFloor": 0,
+      "searchTarget": 25001,
+      "searchFloor": 1,
       "searchCeiling": 49500,
       "basicTestResult": {
-        "targetTPS": 25000,
-        "resultAvgTps": 14964.896551724138,
-        "expectedTxns": 250000,
-        "resultTxns": 250000,
+        "testStart": "2023-06-05T19:12:12.749120",
+        "testEnd": "2023-06-05T19:13:42.524984",
+        "testDuration": "0:01:29.775864",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 30,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-13-45-25000",
-        "testStart": "2023-02-28T19:13:45.773450",
-        "testEnd": "2023-02-28T19:15:15.330054"
+        "trxExpectMet": false,
+        "targetTPS": 25001,
+        "resultAvgTps": 13971.5,
+        "expectedTxns": 250010,
+        "resultTxns": 249981,
+        "testAnalysisBlockCnt": 33,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-12-12-25001"
       }
     },
     "2": {
       "success": true,
-      "searchTarget": 12500,
-      "searchFloor": 0,
-      "searchCeiling": 24500,
+      "searchTarget": 12501,
+      "searchFloor": 1,
+      "searchCeiling": 24501,
       "basicTestResult": {
-        "targetTPS": 12500,
-        "resultAvgTps": 12507.6875,
-        "expectedTxns": 125000,
-        "resultTxns": 125000,
+        "testStart": "2023-06-05T19:13:42.528121",
+        "testEnd": "2023-06-05T19:15:00.441933",
+        "testDuration": "0:01:17.913812",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "basicTestSuccess": true,
+        "targetTPS": 12501,
+        "resultAvgTps": 12523.6875,
+        "expectedTxns": 125010,
+        "resultTxns": 125010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-15-15-12500",
-        "testStart": "2023-02-28T19:15:15.406134",
-        "testEnd": "2023-02-28T19:16:34.379216"
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-13-42-12501"
       }
     },
     "3": {
       "success": false,
-      "searchTarget": 19000,
-      "searchFloor": 13000,
-      "searchCeiling": 24500,
+      "searchTarget": 19001,
+      "searchFloor": 13001,
+      "searchCeiling": 24501,
       "basicTestResult": {
-        "targetTPS": 19000,
-        "resultAvgTps": 14874.90909090909,
-        "expectedTxns": 190000,
-        "resultTxns": 190000,
+        "testStart": "2023-06-05T19:15:00.444109",
+        "testEnd": "2023-06-05T19:16:25.749654",
+        "testDuration": "0:01:25.305545",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 23,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-16-34-19000",
-        "testStart": "2023-02-28T19:16:34.432286",
-        "testEnd": "2023-02-28T19:17:59.828271"
+        "trxExpectMet": false,
+        "targetTPS": 19001,
+        "resultAvgTps": 14858.095238095239,
+        "expectedTxns": 190010,
+        "resultTxns": 189891,
+        "testAnalysisBlockCnt": 22,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-15-00-19001"
       }
     },
     "4": {
       "success": false,
-      "searchTarget": 16000,
-      "searchFloor": 13000,
-      "searchCeiling": 18500,
+      "searchTarget": 16001,
+      "searchFloor": 13001,
+      "searchCeiling": 18501,
       "basicTestResult": {
-        "targetTPS": 16000,
-        "resultAvgTps": 15246.941176470587,
-        "expectedTxns": 160000,
-        "resultTxns": 160000,
+        "testStart": "2023-06-05T19:16:25.751860",
+        "testEnd": "2023-06-05T19:17:48.336896",
+        "testDuration": "0:01:22.585036",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
         "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 18,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-17-59-16000",
-        "testStart": "2023-02-28T19:17:59.893538",
-        "testEnd": "2023-02-28T19:19:21.997058"
+        "trxExpectMet": false,
+        "targetTPS": 16001,
+        "resultAvgTps": 14846.0,
+        "expectedTxns": 160010,
+        "resultTxns": 159988,
+        "testAnalysisBlockCnt": 19,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-16-25-16001"
       }
     },
     "5": {
-      "success": true,
-      "searchTarget": 14500,
-      "searchFloor": 13000,
-      "searchCeiling": 15500,
+      "success": false,
+      "searchTarget": 14501,
+      "searchFloor": 13001,
+      "searchCeiling": 15501,
       "basicTestResult": {
-        "targetTPS": 14500,
-        "resultAvgTps": 14543.125,
-        "expectedTxns": 145000,
-        "resultTxns": 145000,
-        "tpsExpectMet": true,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 17,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-19-22-14500",
-        "testStart": "2023-02-28T19:19:22.056683",
-        "testEnd": "2023-02-28T19:20:39.705683"
+        "testStart": "2023-06-05T19:17:48.339990",
+        "testEnd": "2023-06-05T19:19:07.843311",
+        "testDuration": "0:01:19.503321",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
+        "tpsExpectMet": false,
+        "trxExpectMet": false,
+        "targetTPS": 14501,
+        "resultAvgTps": 13829.588235294117,
+        "expectedTxns": 145010,
+        "resultTxns": 144964,
+        "testAnalysisBlockCnt": 18,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-17-48-14501"
       }
     },
     "6": {
       "success": false,
-      "searchTarget": 15500,
-      "searchFloor": 15000,
-      "searchCeiling": 15500,
+      "searchTarget": 13501,
+      "searchFloor": 13001,
+      "searchCeiling": 14001,
       "basicTestResult": {
-        "targetTPS": 15500,
-        "resultAvgTps": 15353.4375,
-        "expectedTxns": 155000,
-        "resultTxns": 155000,
-        "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
+        "testStart": "2023-06-05T19:19:07.845657",
+        "testEnd": "2023-06-05T19:20:27.815030",
+        "testDuration": "0:01:19.969373",
+        "testPassed": false,
+        "testRunSuccessful": false,
+        "testRunCompleted": true,
+        "tpsExpectMet": true,
+        "trxExpectMet": false,
+        "targetTPS": 13501,
+        "resultAvgTps": 13470.375,
+        "expectedTxns": 135010,
+        "resultTxns": 135000,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-20-39-15500",
-        "testStart": "2023-02-28T19:20:39.761125",
-        "testEnd": "2023-02-28T19:22:01.537270"
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-19-07-13501"
       }
     },
     "7": {
       "success": true,
-      "searchTarget": 15000,
-      "searchFloor": 15000,
-      "searchCeiling": 15000,
+      "searchTarget": 13001,
+      "searchFloor": 13001,
+      "searchCeiling": 13001,
       "basicTestResult": {
-        "targetTPS": 15000,
-        "resultAvgTps": 14963.529411764706,
-        "expectedTxns": 150000,
-        "resultTxns": 150000,
+        "testStart": "2023-06-05T19:20:27.817483",
+        "testEnd": "2023-06-05T19:21:44.846130",
+        "testDuration": "0:01:17.028647",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 18,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-22-01-15000",
-        "testStart": "2023-02-28T19:22:01.594970",
-        "testEnd": "2023-02-28T19:23:22.901483"
+        "targetTPS": 13001,
+        "resultAvgTps": 13032.5625,
+        "expectedTxns": 130010,
+        "resultTxns": 130010,
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-20-27-13001"
       }
     }
   },
   "InitialMaxTpsReport": {
     <truncated>
+    "Result": {
+      <truncated>
+    },
     "Analysis": {
       <truncated>
     },
@@ -794,46 +1142,33 @@ Finally, the full detail test report for each of the determined max TPS throughp
   },
   "LongRunningSearchResults": {
     "0": {
-      "success": false,
-      "searchTarget": 15000,
-      "searchFloor": 0,
-      "searchCeiling": 15000,
-      "basicTestResult": {
-        "targetTPS": 15000,
-        "resultAvgTps": 14361.529411764706,
-        "expectedTxns": 150000,
-        "resultTxns": 150000,
-        "tpsExpectMet": false,
-        "trxExpectMet": true,
-        "basicTestSuccess": true,
-        "testAnalysisBlockCnt": 18,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-23-22-15000",
-        "testStart": "2023-02-28T19:23:22.962336",
-        "testEnd": "2023-02-28T19:24:44.753772"
-      }
-    },
-    "1": {
       "success": true,
-      "searchTarget": 14500,
-      "searchFloor": 0,
-      "searchCeiling": 15000,
+      "searchTarget": 13001,
+      "searchFloor": 1,
+      "searchCeiling": 13001,
       "basicTestResult": {
-        "targetTPS": 14500,
-        "resultAvgTps": 14546.0625,
-        "expectedTxns": 145000,
-        "resultTxns": 145000,
+        "testStart": "2023-06-05T19:21:44.879637",
+        "testEnd": "2023-06-05T19:23:03.697671",
+        "testDuration": "0:01:18.818034",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "basicTestSuccess": true,
+        "targetTPS": 13001,
+        "resultAvgTps": 13027.0,
+        "expectedTxns": 130010,
+        "resultTxns": 130010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-24-44-14500",
-        "testStart": "2023-02-28T19:24:44.811953",
-        "testEnd": "2023-02-28T19:26:06.165715"
+        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-21-44-13001"
       }
     }
   },
   "LongRunningMaxTpsReport": {
     <truncated>
+    "Result": {
+      <truncated>
+    },
     "Analysis": {
       <truncated>
     },
@@ -846,51 +1181,44 @@ Finally, the full detail test report for each of the determined max TPS throughp
     <truncated>
   },
   "ProducerThreadAnalysis": {
-    "recommendedThreadCount": 6,
+    "recommendedThreadCount": 2,
     "threadToMaxTpsDict": {
-      "2": 12000,
-      "3": 14000,
-      "4": 19000,
-      "5": 20500,
-      "6": 21500,
-      "7": 21500
+      "2": 12001,
+      "3": 12001
     },
-    "analysisStart": "2023-02-28T17:10:36.313384",
-    "analysisFinish": "2023-02-28T18:15:53.250540"
+    "analysisStart": "2023-06-05T17:59:49.197967",
+    "analysisFinish": "2023-06-05T18:18:33.449126"
   },
   "ChainThreadAnalysis": {
     "recommendedThreadCount": 3,
     "threadToMaxTpsDict": {
-      "2": 14000,
-      "3": 15000,
-      "4": 13500
+      "2": 4001,
+      "3": 13001,
+      "4": 5501
     },
-    "analysisStart": "2023-02-28T18:15:53.251366",
-    "analysisFinish": "2023-02-28T18:49:30.383395"
+    "analysisStart": "2023-06-05T18:18:33.449689",
+    "analysisFinish": "2023-06-05T18:48:02.262053"
   },
   "NetThreadAnalysis": {
-    "recommendedThreadCount": 2,
+    "recommendedThreadCount": 4,
     "threadToMaxTpsDict": {
-      "2": 14000,
-      "3": 13500
+      "4": 14501,
+      "5": 13501
     },
-    "analysisStart": "2023-02-28T18:49:30.384564",
-    "analysisFinish": "2023-02-28T19:12:06.501003"
+    "analysisStart": "2023-06-05T18:48:02.262594",
+    "analysisFinish": "2023-06-05T19:10:32.123003"
   },
   "args": {
-    "rawCmdLine ": "./tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
-    "killAll": false,
-    "dontKill": false,
-    "keepLogs": true,
+    "rawCmdLine ": "./tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
     "verbose": false,
-    "_killEosInstances": true,
-    "_killWallet": true,
-    "pnodes": 1,
-    "totalNodes": 0,
-    "topo": "mesh",
+    "unshared": false,
+    "producerNodeCount": 1,
+    "validationNodeCount": 1,
+    "apiNodeCount": 0,
+    "dontKill": false,
     "extraNodeosArgs": {
       "chainPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -898,6 +1226,18 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "blocksDir": null,
         "_blocksDirNodeosDefault": "\"blocks\"",
         "_blocksDirNodeosArg": "--blocks-dir",
+        "blocksLogStride": null,
+        "_blocksLogStrideNodeosDefault": null,
+        "_blocksLogStrideNodeosArg": "--blocks-log-stride",
+        "maxRetainedBlockFiles": null,
+        "_maxRetainedBlockFilesNodeosDefault": null,
+        "_maxRetainedBlockFilesNodeosArg": "--max-retained-block-files",
+        "blocksRetainedDir": null,
+        "_blocksRetainedDirNodeosDefault": null,
+        "_blocksRetainedDirNodeosArg": "--blocks-retained-dir",
+        "blocksArchiveDir": null,
+        "_blocksArchiveDirNodeosDefault": null,
+        "_blocksArchiveDirNodeosArg": "--blocks-archive-dir",
         "stateDir": null,
         "_stateDirNodeosDefault": "\"state\"",
         "_stateDirNodeosArg": "--state-dir",
@@ -907,16 +1247,16 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "checkpoint": null,
         "_checkpointNodeosDefault": null,
         "_checkpointNodeosArg": "--checkpoint",
-        "wasmRuntime": null,
+        "wasmRuntime": "eos-vm-jit",
         "_wasmRuntimeNodeosDefault": "eos-vm-jit",
         "_wasmRuntimeNodeosArg": "--wasm-runtime",
         "profileAccount": null,
         "_profileAccountNodeosDefault": null,
         "_profileAccountNodeosArg": "--profile-account",
-        "abiSerializerMaxTimeMs": null,
+        "abiSerializerMaxTimeMs": 990000,
         "_abiSerializerMaxTimeMsNodeosDefault": 15,
         "_abiSerializerMaxTimeMsNodeosArg": "--abi-serializer-max-time-ms",
-        "chainStateDbSizeMb": 10240,
+        "chainStateDbSizeMb": 25600,
         "_chainStateDbSizeMbNodeosDefault": 1024,
         "_chainStateDbSizeMbNodeosArg": "--chain-state-db-size-mb",
         "chainStateDbGuardSizeMb": null,
@@ -928,7 +1268,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "chainThreads": 2,
         "_chainThreadsNodeosDefault": 2,
         "_chainThreadsNodeosArg": "--chain-threads",
-        "contractsConsole": null,
+        "contractsConsole": false,
         "_contractsConsoleNodeosDefault": false,
         "_contractsConsoleNodeosArg": "--contracts-console",
         "deepMind": null,
@@ -976,10 +1316,10 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "databaseMapMode": "mapped",
         "_databaseMapModeNodeosDefault": "mapped",
         "_databaseMapModeNodeosArg": "--database-map-mode",
-        "eosVmOcCacheSizeMb": null,
+        "eosVmOcCacheSizeMb": 1024,
         "_eosVmOcCacheSizeMbNodeosDefault": 1024,
         "_eosVmOcCacheSizeMbNodeosArg": "--eos-vm-oc-cache-size-mb",
-        "eosVmOcCompileThreads": null,
+        "eosVmOcCompileThreads": 1,
         "_eosVmOcCompileThreadsNodeosDefault": 1,
         "_eosVmOcCompileThreadsNodeosArg": "--eos-vm-oc-compile-threads",
         "eosVmOcEnable": null,
@@ -1067,6 +1407,12 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "unixSocketPath": null,
         "_unixSocketPathNodeosDefault": null,
         "_unixSocketPathNodeosArg": "--unix-socket-path",
+        "httpServerAddress": null,
+        "_httpServerAddressNodeosDefault": "127.0.0.1:8888",
+        "_httpServerAddressNodeosArg": "--http-server-address",
+        "httpCategoryAddress": null,
+        "_httpCategoryAddressNodeosDefault": null,
+        "_httpCategoryAddressNodeosArg": "--http-category-address",
         "accessControlAllowOrigin": null,
         "_accessControlAllowOriginNodeosDefault": null,
         "_accessControlAllowOriginNodeosArg": "--access-control-allow-origin",
@@ -1082,14 +1428,14 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "maxBodySize": null,
         "_maxBodySizeNodeosDefault": 2097152,
         "_maxBodySizeNodeosArg": "--max-body-size",
-        "httpMaxBytesInFlightMb": null,
+        "httpMaxBytesInFlightMb": -1,
         "_httpMaxBytesInFlightMbNodeosDefault": 500,
         "_httpMaxBytesInFlightMbNodeosArg": "--http-max-bytes-in-flight-mb",
-        "httpMaxInFlightRequests": null,
+        "httpMaxInFlightRequests": -1,
         "_httpMaxInFlightRequestsNodeosDefault": -1,
         "_httpMaxInFlightRequestsNodeosArg": "--http-max-in-flight-requests",
-        "httpMaxResponseTimeMs": 990000,
-        "_httpMaxResponseTimeMsNodeosDefault": 30,
+        "httpMaxResponseTimeMs": -1,
+        "_httpMaxResponseTimeMsNodeosDefault": 15,
         "_httpMaxResponseTimeMsNodeosArg": "--http-max-response-time-ms",
         "verboseHttpErrors": null,
         "_verboseHttpErrorsNodeosDefault": false,
@@ -1100,7 +1446,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "httpAlias": null,
         "_httpAliasNodeosDefault": null,
         "_httpAliasNodeosArg": "--http-alias",
-        "httpThreads": null,
+        "httpThreads": 2,
         "_httpThreadsNodeosDefault": 2,
         "_httpThreadsNodeosArg": "--http-threads",
         "httpKeepAlive": null,
@@ -1125,6 +1471,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "p2pAcceptTransactions": null,
         "_p2pAcceptTransactionsNodeosDefault": 1,
         "_p2pAcceptTransactionsNodeosArg": "--p2p-accept-transactions",
+        "p2pAutoBpPeer": null,
+        "_p2pAutoBpPeerNodeosDefault": null,
+        "_p2pAutoBpPeerNodeosArg": "--p2p-auto-bp-peer",
         "agentName": null,
         "_agentNameNodeosDefault": "EOS Test Agent",
         "_agentNameNodeosArg": "--agent-name",
@@ -1137,7 +1486,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "peerPrivateKey": null,
         "_peerPrivateKeyNodeosDefault": null,
         "_peerPrivateKeyNodeosArg": "--peer-private-key",
-        "maxClients": null,
+        "maxClients": 0,
         "_maxClientsNodeosDefault": 25,
         "_maxClientsNodeosArg": "--max-clients",
         "connectionCleanupPeriod": null,
@@ -1153,8 +1502,11 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "_netThreadsNodeosDefault": 4,
         "_netThreadsNodeosArg": "--net-threads",
         "syncFetchSpan": null,
-        "_syncFetchSpanNodeosDefault": 100,
+        "_syncFetchSpanNodeosDefault": 1000,
         "_syncFetchSpanNodeosArg": "--sync-fetch-span",
+        "syncPeerLimit": null,
+        "_syncPeerLimitNodeosDefault": 3,
+        "_syncPeerLimitNodeosArg": "--sync-peer-limit",
         "useSocketReadWatermark": null,
         "_useSocketReadWatermarkNodeosDefault": 0,
         "_useSocketReadWatermarkNodeosArg": "--use-socket-read-watermark",
@@ -1174,7 +1526,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "pauseOnStartup": null,
         "_pauseOnStartupNodeosDefault": false,
         "_pauseOnStartupNodeosArg": "--pause-on-startup",
-        "maxTransactionTime": null,
+        "maxTransactionTime": -1,
         "_maxTransactionTimeNodeosDefault": 30,
         "_maxTransactionTimeNodeosArg": "--max-transaction-time",
         "maxIrreversibleBlockAge": null,
@@ -1183,9 +1535,6 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "producerName": null,
         "_producerNameNodeosDefault": null,
         "_producerNameNodeosArg": "--producer-name",
-        "privateKey": null,
-        "_privateKeyNodeosDefault": null,
-        "_privateKeyNodeosArg": "--private-key",
         "signatureProvider": null,
         "_signatureProviderNodeosDefault": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
         "_signatureProviderNodeosArg": "--signature-provider",
@@ -1195,18 +1544,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "greylistLimit": null,
         "_greylistLimitNodeosDefault": 1000,
         "_greylistLimitNodeosArg": "--greylist-limit",
-        "produceTimeOffsetUs": 0,
-        "_produceTimeOffsetUsNodeosDefault": 0,
-        "_produceTimeOffsetUsNodeosArg": "--produce-time-offset-us",
-        "lastBlockTimeOffsetUs": 0,
-        "_lastBlockTimeOffsetUsNodeosDefault": -200000,
-        "_lastBlockTimeOffsetUsNodeosArg": "--last-block-time-offset-us",
         "cpuEffortPercent": 100,
-        "_cpuEffortPercentNodeosDefault": 80,
+        "_cpuEffortPercentNodeosDefault": 90,
         "_cpuEffortPercentNodeosArg": "--cpu-effort-percent",
-        "lastBlockCpuEffortPercent": 100,
-        "_lastBlockCpuEffortPercentNodeosDefault": 80,
-        "_lastBlockCpuEffortPercentNodeosArg": "--last-block-cpu-effort-percent",
         "maxBlockCpuUsageThresholdUs": null,
         "_maxBlockCpuUsageThresholdUsNodeosDefault": 5000,
         "_maxBlockCpuUsageThresholdUsNodeosArg": "--max-block-cpu-usage-threshold-us",
@@ -1222,6 +1562,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "subjectiveAccountMaxFailures": null,
         "_subjectiveAccountMaxFailuresNodeosDefault": 3,
         "_subjectiveAccountMaxFailuresNodeosArg": "--subjective-account-max-failures",
+        "subjectiveAccountMaxFailuresWindowSize": null,
+        "_subjectiveAccountMaxFailuresWindowSizeNodeosDefault": 1,
+        "_subjectiveAccountMaxFailuresWindowSizeNodeosArg": "--subjective-account-max-failures-window-size",
         "subjectiveAccountDecayTimeMinutes": null,
         "_subjectiveAccountDecayTimeMinutesNodeosDefault": 1440,
         "_subjectiveAccountDecayTimeMinutesNodeosArg": "--subjective-account-decay-time-minutes",
@@ -1231,16 +1574,13 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "incomingTransactionQueueSizeMb": null,
         "_incomingTransactionQueueSizeMbNodeosDefault": 1024,
         "_incomingTransactionQueueSizeMbNodeosArg": "--incoming-transaction-queue-size-mb",
-        "disableSubjectiveBilling": true,
-        "_disableSubjectiveBillingNodeosDefault": 1,
-        "_disableSubjectiveBillingNodeosArg": "--disable-subjective-billing",
         "disableSubjectiveAccountBilling": null,
         "_disableSubjectiveAccountBillingNodeosDefault": false,
         "_disableSubjectiveAccountBillingNodeosArg": "--disable-subjective-account-billing",
-        "disableSubjectiveP2pBilling": null,
+        "disableSubjectiveP2pBilling": true,
         "_disableSubjectiveP2pBillingNodeosDefault": 1,
         "_disableSubjectiveP2pBillingNodeosArg": "--disable-subjective-p2p-billing",
-        "disableSubjectiveApiBilling": null,
+        "disableSubjectiveApiBilling": true,
         "_disableSubjectiveApiBillingNodeosDefault": 1,
         "_disableSubjectiveApiBillingNodeosArg": "--disable-subjective-api-billing",
         "producerThreads": 2,
@@ -1248,7 +1588,16 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "_producerThreadsNodeosArg": "--producer-threads",
         "snapshotsDir": null,
         "_snapshotsDirNodeosDefault": "\"snapshots\"",
-        "_snapshotsDirNodeosArg": "--snapshots-dir"
+        "_snapshotsDirNodeosArg": "--snapshots-dir",
+        "readOnlyThreads": null,
+        "_readOnlyThreadsNodeosDefault": null,
+        "_readOnlyThreadsNodeosArg": "--read-only-threads",
+        "readOnlyWriteWindowTimeUs": null,
+        "_readOnlyWriteWindowTimeUsNodeosDefault": 200000,
+        "_readOnlyWriteWindowTimeUsNodeosArg": "--read-only-write-window-time-us",
+        "readOnlyReadWindowTimeUs": null,
+        "_readOnlyReadWindowTimeUsNodeosDefault": 60000,
+        "_readOnlyReadWindowTimeUsNodeosArg": "--read-only-read-window-time-us"
       },
       "resourceMonitorPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -1262,7 +1611,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "resourceMonitorSpaceAbsoluteGb": null,
         "_resourceMonitorSpaceAbsoluteGbNodeosDefault": null,
         "_resourceMonitorSpaceAbsoluteGbNodeosArg": "--resource-monitor-space-absolute-gb",
-        "resourceMonitorNotShutdownOnThresholdExceeded": null,
+        "resourceMonitorNotShutdownOnThresholdExceeded": true,
         "_resourceMonitorNotShutdownOnThresholdExceededNodeosDefault": false,
         "_resourceMonitorNotShutdownOnThresholdExceededNodeosArg": "--resource-monitor-not-shutdown-on-threshold-exceeded",
         "resourceMonitorWarningInterval": null,
@@ -1282,6 +1631,18 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "stateHistoryDir": null,
         "_stateHistoryDirNodeosDefault": "\"state-history\"",
         "_stateHistoryDirNodeosArg": "--state-history-dir",
+        "stateHistoryRetainedDir": null,
+        "_stateHistoryRetainedDirNodeosDefault": null,
+        "_stateHistoryRetainedDirNodeosArg": "--state-history-retained-dir",
+        "stateHistoryArchiveDir": null,
+        "_stateHistoryArchiveDirNodeosDefault": null,
+        "_stateHistoryArchiveDirNodeosArg": "--state-history-archive-dir",
+        "stateHistoryStride": null,
+        "_stateHistoryStrideNodeosDefault": null,
+        "_stateHistoryStrideNodeosArg": "--state-history-stride",
+        "maxRetainedHistoryFiles": null,
+        "_maxRetainedHistoryFilesNodeosDefault": null,
+        "_maxRetainedHistoryFilesNodeosArg": "--max-retained-history-files",
         "traceHistory": null,
         "_traceHistoryNodeosDefault": false,
         "_traceHistoryNodeosArg": "--trace-history",
@@ -1333,10 +1694,10 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "abiFile": "eosio.system.abi",
       "account": "Name: eosio"
     },
-    "useBiosBootFile": false,
     "genesisPath": "tests/performance_tests/genesis.json",
     "maximumP2pPerHost": 5000,
     "maximumClients": 0,
+    "keepLogs": true,
     "loggingLevel": "info",
     "loggingDict": {
       "bios": "off"
@@ -1344,13 +1705,27 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "prodsEnableTraceApi": false,
     "nodeosVers": "v4",
     "specificExtraNodeosArgs": {
-      "1": "--plugin eosio::trace_api_plugin"
+      "1": "--plugin eosio::trace_api_plugin ",
+      "2": "--plugin eosio::chain_api_plugin --plugin eosio::net_api_plugin --read-only-threads 0 "
     },
     "_totalNodes": 2,
+    "_pNodes": 1,
+    "_producerNodeIds": [
+      0
+    ],
+    "_validationNodeIds": [
+      1
+    ],
+    "_apiNodeIds": [
+      2
+    ],
+    "nonProdsEosVmOcEnable": false,
+    "apiNodesReadOnlyThreadCount": 0,
     "testDurationSec": 10,
     "finalDurationSec": 30,
     "delPerfLogs": false,
     "maxTpsToTest": 50000,
+    "minTpsToTest": 1,
     "testIterationMinStep": 500,
     "tpsLimitPerGenerator": 4000,
     "delReport": false,
@@ -1362,119 +1737,157 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "calcProducerThreads": "lmax",
     "calcChainThreads": "lmax",
     "calcNetThreads": "lmax",
-    "logDirBase": "p",
-    "logDirTimestamp": "2023-02-28_17-10-36",
-    "logDirPath": "p/2023-02-28_17-10-36",
-    "ptbLogsDirPath": "p/2023-02-28_17-10-36/testRunLogs",
-    "pluginThreadOptLogsDirPath": "p/2023-02-28_17-10-36/pluginThreadOptRunLogs"
+    "userTrxDataFile": null,
+    "endpointMode": "p2p",
+    "opModeCmd": "testBpOpMode",
+    "logDirBase": "performance_test",
+    "logDirTimestamp": "2023-06-05_17-59-49",
+    "logDirPath": "performance_test/2023-06-05_17-59-49",
+    "ptbLogsDirPath": "performance_test/2023-06-05_17-59-49/testRunLogs",
+    "pluginThreadOptLogsDirPath": "performance_test/2023-06-05_17-59-49/pluginThreadOptRunLogs"
   },
   "env": {
     "system": "Linux",
     "os": "posix",
-    "release": "5.15.79.1-microsoft-standard-WSL2",
+    "release": "5.15.90.1-microsoft-standard-WSL2",
     "logical_cpu_count": 16
   },
-  "nodeosVersion": "v4.0.0-dev"
+  "nodeosVersion": "v4"
 }
 ```
 </details>
 
 
-### Performance Test Basic Report
+## Performance Test Basic Report
 
 The Performance Test Basic generates, by default, a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--del-test-report`, or `performance_test_basic.py` is run with `--del-report`, the report described below will not be written.  Otherwise the report will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
 
 <details>
     <summary>Expand for full sample report</summary>
-    
+
 ``` json
 {
-  "completedRun": true,
-  "testStart": "2023-02-28T19:24:44.811953",
-  "testFinish": "2023-02-28T19:26:06.165715",
+  "targetApiEndpointType": "p2p",
+  "targetApiEndpoint": "NA for P2P",
+  "Result": {
+    "testStart": "2023-06-05T19:21:44.879637",
+    "testEnd": "2023-06-05T19:23:03.697671",
+    "testDuration": "0:01:18.818034",
+    "testPassed": true,
+    "testRunSuccessful": true,
+    "testRunCompleted": true,
+    "tpsExpectMet": true,
+    "trxExpectMet": true,
+    "targetTPS": 13001,
+    "resultAvgTps": 13027.0,
+    "expectedTxns": 130010,
+    "resultTxns": 130010,
+    "testAnalysisBlockCnt": 17,
+    "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-21-44-13001"
+  },
   "Analysis": {
     "BlockSize": {
-      "min": 1148352,
-      "max": 1557888,
-      "avg": 1396653.1764705882,
-      "sigma": 80740.60358240586,
+      "min": 153503,
+      "max": 169275,
+      "avg": 162269.76470588235,
+      "sigma": 3152.279353278714,
       "emptyBlocks": 0,
       "numBlocks": 17
     },
     "BlocksGuide": {
-      "firstBlockNum": 2,
-      "lastBlockNum": 159,
-      "totalBlocks": 158,
-      "testStartBlockNum": 113,
-      "testEndBlockNum": 149,
-      "setupBlocksCnt": 111,
-      "tearDownBlocksCnt": 10,
+      "firstBlockNum": 110,
+      "lastBlockNum": 140,
+      "totalBlocks": 31,
+      "testStartBlockNum": 110,
+      "testEndBlockNum": 140,
+      "setupBlocksCnt": 0,
+      "tearDownBlocksCnt": 0,
       "leadingEmptyBlocksCnt": 1,
-      "trailingEmptyBlocksCnt": 15,
+      "trailingEmptyBlocksCnt": 9,
       "configAddlDropCnt": 2,
       "testAnalysisBlockCnt": 17
     },
     "TPS": {
-      "min": 13737,
-      "max": 15776,
-      "avg": 14546.0625,
-      "sigma": 428.6321950037701,
+      "min": 12775,
+      "max": 13285,
+      "avg": 13027.0,
+      "sigma": 92.70854868888844,
       "emptyBlocks": 0,
       "numBlocks": 17,
-      "configTps": 14500,
+      "configTps": 13001,
       "configTestDuration": 10,
       "tpsPerGenerator": [
-        3625,
-        3625,
-        3625,
-        3625
+        3250,
+        3250,
+        3250,
+        3251
       ],
       "generatorCount": 4
     },
     "TrxCPU": {
-      "min": 7.0,
-      "max": 924.0,
-      "avg": 23.99186896551724,
-      "sigma": 13.466278551411643,
-      "samples": 145000
+      "min": 8.0,
+      "max": 1180.0,
+      "avg": 25.89257749403892,
+      "sigma": 12.604252354938811,
+      "samples": 130010
     },
     "TrxLatency": {
       "min": 0.0009999275207519531,
-      "max": 0.5899999141693115,
-      "avg": 0.2662433517719137,
-      "sigma": 0.146137230822956,
-      "samples": 145000
+      "max": 0.5399999618530273,
+      "avg": 0.2522121298066488,
+      "sigma": 0.14457374598663084,
+      "samples": 130010,
+      "units": "seconds"
     },
     "TrxNet": {
       "min": 24.0,
-      "max": 24.0,
-      "avg": 24.0,
-      "sigma": 0.0,
-      "samples": 145000
+      "max": 25.0,
+      "avg": 24.846196446427196,
+      "sigma": 0.3607603366241642,
+      "samples": 130010
     },
-    "DroppedBlocks": {},
-    "DroppedBlocksCount": 0,
+    "TrxAckResponseTime": {
+      "min": -1.0,
+      "max": -1.0,
+      "avg": -1.0,
+      "sigma": 0.0,
+      "samples": 130010,
+      "measurementApplicable": "NOT APPLICABLE",
+      "units": "microseconds"
+    },
+    "ExpectedTransactions": 130010,
     "DroppedTransactions": 0,
-    "ProductionWindowsTotal": 0,
-    "ProductionWindowsAverageSize": 0,
+    "ProductionWindowsTotal": 2,
+    "ProductionWindowsAverageSize": 12.0,
     "ProductionWindowsMissed": 0,
-    "ForkedBlocks": [],
-    "ForksCount": 0
+    "ForkedBlocks": {
+      "00": [],
+      "01": []
+    },
+    "ForksCount": {
+      "00": 0,
+      "01": 0
+    },
+    "DroppedBlocks": {
+      "00": {},
+      "01": {}
+    },
+    "DroppedBlocksCount": {
+      "00": 0,
+      "01": 0
+    }
   },
   "args": {
-    "rawCmdLine ": "./tests/performance_tests/performance_test.py --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
-    "killAll": false,
-    "dontKill": false,
-    "keepLogs": true,
+    "rawCmdLine ": "./tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
     "verbose": false,
-    "_killEosInstances": true,
-    "_killWallet": true,
-    "pnodes": 1,
-    "totalNodes": 0,
-    "topo": "mesh",
+    "unshared": false,
+    "producerNodeCount": 1,
+    "validationNodeCount": 1,
+    "apiNodeCount": 0,
+    "dontKill": false,
     "extraNodeosArgs": {
       "chainPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -1482,6 +1895,18 @@ The Performance Test Basic generates, by default, a report that details results 
         "blocksDir": null,
         "_blocksDirNodeosDefault": "\"blocks\"",
         "_blocksDirNodeosArg": "--blocks-dir",
+        "blocksLogStride": null,
+        "_blocksLogStrideNodeosDefault": null,
+        "_blocksLogStrideNodeosArg": "--blocks-log-stride",
+        "maxRetainedBlockFiles": null,
+        "_maxRetainedBlockFilesNodeosDefault": null,
+        "_maxRetainedBlockFilesNodeosArg": "--max-retained-block-files",
+        "blocksRetainedDir": null,
+        "_blocksRetainedDirNodeosDefault": null,
+        "_blocksRetainedDirNodeosArg": "--blocks-retained-dir",
+        "blocksArchiveDir": null,
+        "_blocksArchiveDirNodeosDefault": null,
+        "_blocksArchiveDirNodeosArg": "--blocks-archive-dir",
         "stateDir": null,
         "_stateDirNodeosDefault": "\"state\"",
         "_stateDirNodeosArg": "--state-dir",
@@ -1491,16 +1916,16 @@ The Performance Test Basic generates, by default, a report that details results 
         "checkpoint": null,
         "_checkpointNodeosDefault": null,
         "_checkpointNodeosArg": "--checkpoint",
-        "wasmRuntime": null,
+        "wasmRuntime": "eos-vm-jit",
         "_wasmRuntimeNodeosDefault": "eos-vm-jit",
         "_wasmRuntimeNodeosArg": "--wasm-runtime",
         "profileAccount": null,
         "_profileAccountNodeosDefault": null,
         "_profileAccountNodeosArg": "--profile-account",
-        "abiSerializerMaxTimeMs": null,
+        "abiSerializerMaxTimeMs": 990000,
         "_abiSerializerMaxTimeMsNodeosDefault": 15,
         "_abiSerializerMaxTimeMsNodeosArg": "--abi-serializer-max-time-ms",
-        "chainStateDbSizeMb": 10240,
+        "chainStateDbSizeMb": 25600,
         "_chainStateDbSizeMbNodeosDefault": 1024,
         "_chainStateDbSizeMbNodeosArg": "--chain-state-db-size-mb",
         "chainStateDbGuardSizeMb": null,
@@ -1512,7 +1937,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "chainThreads": 2,
         "_chainThreadsNodeosDefault": 2,
         "_chainThreadsNodeosArg": "--chain-threads",
-        "contractsConsole": null,
+        "contractsConsole": false,
         "_contractsConsoleNodeosDefault": false,
         "_contractsConsoleNodeosArg": "--contracts-console",
         "deepMind": null,
@@ -1560,10 +1985,10 @@ The Performance Test Basic generates, by default, a report that details results 
         "databaseMapMode": "mapped",
         "_databaseMapModeNodeosDefault": "mapped",
         "_databaseMapModeNodeosArg": "--database-map-mode",
-        "eosVmOcCacheSizeMb": null,
+        "eosVmOcCacheSizeMb": 1024,
         "_eosVmOcCacheSizeMbNodeosDefault": 1024,
         "_eosVmOcCacheSizeMbNodeosArg": "--eos-vm-oc-cache-size-mb",
-        "eosVmOcCompileThreads": null,
+        "eosVmOcCompileThreads": 1,
         "_eosVmOcCompileThreadsNodeosDefault": 1,
         "_eosVmOcCompileThreadsNodeosArg": "--eos-vm-oc-compile-threads",
         "eosVmOcEnable": null,
@@ -1651,6 +2076,12 @@ The Performance Test Basic generates, by default, a report that details results 
         "unixSocketPath": null,
         "_unixSocketPathNodeosDefault": null,
         "_unixSocketPathNodeosArg": "--unix-socket-path",
+        "httpServerAddress": null,
+        "_httpServerAddressNodeosDefault": "127.0.0.1:8888",
+        "_httpServerAddressNodeosArg": "--http-server-address",
+        "httpCategoryAddress": null,
+        "_httpCategoryAddressNodeosDefault": null,
+        "_httpCategoryAddressNodeosArg": "--http-category-address",
         "accessControlAllowOrigin": null,
         "_accessControlAllowOriginNodeosDefault": null,
         "_accessControlAllowOriginNodeosArg": "--access-control-allow-origin",
@@ -1666,14 +2097,14 @@ The Performance Test Basic generates, by default, a report that details results 
         "maxBodySize": null,
         "_maxBodySizeNodeosDefault": 2097152,
         "_maxBodySizeNodeosArg": "--max-body-size",
-        "httpMaxBytesInFlightMb": null,
+        "httpMaxBytesInFlightMb": -1,
         "_httpMaxBytesInFlightMbNodeosDefault": 500,
         "_httpMaxBytesInFlightMbNodeosArg": "--http-max-bytes-in-flight-mb",
-        "httpMaxInFlightRequests": null,
+        "httpMaxInFlightRequests": -1,
         "_httpMaxInFlightRequestsNodeosDefault": -1,
         "_httpMaxInFlightRequestsNodeosArg": "--http-max-in-flight-requests",
-        "httpMaxResponseTimeMs": 990000,
-        "_httpMaxResponseTimeMsNodeosDefault": 30,
+        "httpMaxResponseTimeMs": -1,
+        "_httpMaxResponseTimeMsNodeosDefault": 15,
         "_httpMaxResponseTimeMsNodeosArg": "--http-max-response-time-ms",
         "verboseHttpErrors": null,
         "_verboseHttpErrorsNodeosDefault": false,
@@ -1684,7 +2115,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "httpAlias": null,
         "_httpAliasNodeosDefault": null,
         "_httpAliasNodeosArg": "--http-alias",
-        "httpThreads": null,
+        "httpThreads": 2,
         "_httpThreadsNodeosDefault": 2,
         "_httpThreadsNodeosArg": "--http-threads",
         "httpKeepAlive": null,
@@ -1709,6 +2140,9 @@ The Performance Test Basic generates, by default, a report that details results 
         "p2pAcceptTransactions": null,
         "_p2pAcceptTransactionsNodeosDefault": 1,
         "_p2pAcceptTransactionsNodeosArg": "--p2p-accept-transactions",
+        "p2pAutoBpPeer": null,
+        "_p2pAutoBpPeerNodeosDefault": null,
+        "_p2pAutoBpPeerNodeosArg": "--p2p-auto-bp-peer",
         "agentName": null,
         "_agentNameNodeosDefault": "EOS Test Agent",
         "_agentNameNodeosArg": "--agent-name",
@@ -1721,7 +2155,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "peerPrivateKey": null,
         "_peerPrivateKeyNodeosDefault": null,
         "_peerPrivateKeyNodeosArg": "--peer-private-key",
-        "maxClients": null,
+        "maxClients": 0,
         "_maxClientsNodeosDefault": 25,
         "_maxClientsNodeosArg": "--max-clients",
         "connectionCleanupPeriod": null,
@@ -1737,8 +2171,11 @@ The Performance Test Basic generates, by default, a report that details results 
         "_netThreadsNodeosDefault": 4,
         "_netThreadsNodeosArg": "--net-threads",
         "syncFetchSpan": null,
-        "_syncFetchSpanNodeosDefault": 100,
+        "_syncFetchSpanNodeosDefault": 1000,
         "_syncFetchSpanNodeosArg": "--sync-fetch-span",
+        "syncPeerLimit": null,
+        "_syncPeerLimitNodeosDefault": 3,
+        "_syncPeerLimitNodeosArg": "--sync-peer-limit",
         "useSocketReadWatermark": null,
         "_useSocketReadWatermarkNodeosDefault": 0,
         "_useSocketReadWatermarkNodeosArg": "--use-socket-read-watermark",
@@ -1758,7 +2195,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "pauseOnStartup": null,
         "_pauseOnStartupNodeosDefault": false,
         "_pauseOnStartupNodeosArg": "--pause-on-startup",
-        "maxTransactionTime": null,
+        "maxTransactionTime": -1,
         "_maxTransactionTimeNodeosDefault": 30,
         "_maxTransactionTimeNodeosArg": "--max-transaction-time",
         "maxIrreversibleBlockAge": null,
@@ -1767,9 +2204,6 @@ The Performance Test Basic generates, by default, a report that details results 
         "producerName": null,
         "_producerNameNodeosDefault": null,
         "_producerNameNodeosArg": "--producer-name",
-        "privateKey": null,
-        "_privateKeyNodeosDefault": null,
-        "_privateKeyNodeosArg": "--private-key",
         "signatureProvider": null,
         "_signatureProviderNodeosDefault": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV=KEY:5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3",
         "_signatureProviderNodeosArg": "--signature-provider",
@@ -1779,18 +2213,9 @@ The Performance Test Basic generates, by default, a report that details results 
         "greylistLimit": null,
         "_greylistLimitNodeosDefault": 1000,
         "_greylistLimitNodeosArg": "--greylist-limit",
-        "produceTimeOffsetUs": 0,
-        "_produceTimeOffsetUsNodeosDefault": 0,
-        "_produceTimeOffsetUsNodeosArg": "--produce-time-offset-us",
-        "lastBlockTimeOffsetUs": 0,
-        "_lastBlockTimeOffsetUsNodeosDefault": -200000,
-        "_lastBlockTimeOffsetUsNodeosArg": "--last-block-time-offset-us",
         "cpuEffortPercent": 100,
-        "_cpuEffortPercentNodeosDefault": 80,
+        "_cpuEffortPercentNodeosDefault": 90,
         "_cpuEffortPercentNodeosArg": "--cpu-effort-percent",
-        "lastBlockCpuEffortPercent": 100,
-        "_lastBlockCpuEffortPercentNodeosDefault": 80,
-        "_lastBlockCpuEffortPercentNodeosArg": "--last-block-cpu-effort-percent",
         "maxBlockCpuUsageThresholdUs": null,
         "_maxBlockCpuUsageThresholdUsNodeosDefault": 5000,
         "_maxBlockCpuUsageThresholdUsNodeosArg": "--max-block-cpu-usage-threshold-us",
@@ -1806,6 +2231,9 @@ The Performance Test Basic generates, by default, a report that details results 
         "subjectiveAccountMaxFailures": null,
         "_subjectiveAccountMaxFailuresNodeosDefault": 3,
         "_subjectiveAccountMaxFailuresNodeosArg": "--subjective-account-max-failures",
+        "subjectiveAccountMaxFailuresWindowSize": null,
+        "_subjectiveAccountMaxFailuresWindowSizeNodeosDefault": 1,
+        "_subjectiveAccountMaxFailuresWindowSizeNodeosArg": "--subjective-account-max-failures-window-size",
         "subjectiveAccountDecayTimeMinutes": null,
         "_subjectiveAccountDecayTimeMinutesNodeosDefault": 1440,
         "_subjectiveAccountDecayTimeMinutesNodeosArg": "--subjective-account-decay-time-minutes",
@@ -1815,16 +2243,13 @@ The Performance Test Basic generates, by default, a report that details results 
         "incomingTransactionQueueSizeMb": null,
         "_incomingTransactionQueueSizeMbNodeosDefault": 1024,
         "_incomingTransactionQueueSizeMbNodeosArg": "--incoming-transaction-queue-size-mb",
-        "disableSubjectiveBilling": true,
-        "_disableSubjectiveBillingNodeosDefault": 1,
-        "_disableSubjectiveBillingNodeosArg": "--disable-subjective-billing",
         "disableSubjectiveAccountBilling": null,
         "_disableSubjectiveAccountBillingNodeosDefault": false,
         "_disableSubjectiveAccountBillingNodeosArg": "--disable-subjective-account-billing",
-        "disableSubjectiveP2pBilling": null,
+        "disableSubjectiveP2pBilling": true,
         "_disableSubjectiveP2pBillingNodeosDefault": 1,
         "_disableSubjectiveP2pBillingNodeosArg": "--disable-subjective-p2p-billing",
-        "disableSubjectiveApiBilling": null,
+        "disableSubjectiveApiBilling": true,
         "_disableSubjectiveApiBillingNodeosDefault": 1,
         "_disableSubjectiveApiBillingNodeosArg": "--disable-subjective-api-billing",
         "producerThreads": 2,
@@ -1832,7 +2257,16 @@ The Performance Test Basic generates, by default, a report that details results 
         "_producerThreadsNodeosArg": "--producer-threads",
         "snapshotsDir": null,
         "_snapshotsDirNodeosDefault": "\"snapshots\"",
-        "_snapshotsDirNodeosArg": "--snapshots-dir"
+        "_snapshotsDirNodeosArg": "--snapshots-dir",
+        "readOnlyThreads": null,
+        "_readOnlyThreadsNodeosDefault": null,
+        "_readOnlyThreadsNodeosArg": "--read-only-threads",
+        "readOnlyWriteWindowTimeUs": null,
+        "_readOnlyWriteWindowTimeUsNodeosDefault": 200000,
+        "_readOnlyWriteWindowTimeUsNodeosArg": "--read-only-write-window-time-us",
+        "readOnlyReadWindowTimeUs": null,
+        "_readOnlyReadWindowTimeUsNodeosDefault": 60000,
+        "_readOnlyReadWindowTimeUsNodeosArg": "--read-only-read-window-time-us"
       },
       "resourceMonitorPluginArgs": {
         "_pluginNamespace": "eosio",
@@ -1846,7 +2280,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "resourceMonitorSpaceAbsoluteGb": null,
         "_resourceMonitorSpaceAbsoluteGbNodeosDefault": null,
         "_resourceMonitorSpaceAbsoluteGbNodeosArg": "--resource-monitor-space-absolute-gb",
-        "resourceMonitorNotShutdownOnThresholdExceeded": null,
+        "resourceMonitorNotShutdownOnThresholdExceeded": true,
         "_resourceMonitorNotShutdownOnThresholdExceededNodeosDefault": false,
         "_resourceMonitorNotShutdownOnThresholdExceededNodeosArg": "--resource-monitor-not-shutdown-on-threshold-exceeded",
         "resourceMonitorWarningInterval": null,
@@ -1866,6 +2300,18 @@ The Performance Test Basic generates, by default, a report that details results 
         "stateHistoryDir": null,
         "_stateHistoryDirNodeosDefault": "\"state-history\"",
         "_stateHistoryDirNodeosArg": "--state-history-dir",
+        "stateHistoryRetainedDir": null,
+        "_stateHistoryRetainedDirNodeosDefault": null,
+        "_stateHistoryRetainedDirNodeosArg": "--state-history-retained-dir",
+        "stateHistoryArchiveDir": null,
+        "_stateHistoryArchiveDirNodeosDefault": null,
+        "_stateHistoryArchiveDirNodeosArg": "--state-history-archive-dir",
+        "stateHistoryStride": null,
+        "_stateHistoryStrideNodeosDefault": null,
+        "_stateHistoryStrideNodeosArg": "--state-history-stride",
+        "maxRetainedHistoryFiles": null,
+        "_maxRetainedHistoryFilesNodeosDefault": null,
+        "_maxRetainedHistoryFilesNodeosArg": "--max-retained-history-files",
         "traceHistory": null,
         "_traceHistoryNodeosDefault": false,
         "_traceHistoryNodeosArg": "--trace-history",
@@ -1917,10 +2363,10 @@ The Performance Test Basic generates, by default, a report that details results 
       "abiFile": "eosio.system.abi",
       "account": "Name: eosio"
     },
-    "useBiosBootFile": false,
     "genesisPath": "tests/performance_tests/genesis.json",
     "maximumP2pPerHost": 5000,
     "maximumClients": 0,
+    "keepLogs": true,
     "loggingLevel": "info",
     "loggingDict": {
       "bios": "off"
@@ -1928,32 +2374,48 @@ The Performance Test Basic generates, by default, a report that details results 
     "prodsEnableTraceApi": false,
     "nodeosVers": "v4",
     "specificExtraNodeosArgs": {
-      "1": "--plugin eosio::trace_api_plugin"
+      "1": "--plugin eosio::trace_api_plugin ",
+      "2": "--plugin eosio::chain_api_plugin --plugin eosio::net_api_plugin --read-only-threads 0 "
     },
     "_totalNodes": 2,
-    "targetTps": 14500,
+    "_pNodes": 1,
+    "_producerNodeIds": [
+      0
+    ],
+    "_validationNodeIds": [
+      1
+    ],
+    "_apiNodeIds": [
+      2
+    ],
+    "nonProdsEosVmOcEnable": false,
+    "apiNodesReadOnlyThreadCount": 0,
+    "targetTps": 13001,
     "testTrxGenDurationSec": 10,
     "tpsLimitPerGenerator": 4000,
     "numAddlBlocksToPrune": 2,
-    "logDirRoot": "p/2023-02-28_17-10-36/testRunLogs",
+    "logDirRoot": "performance_test/2023-06-05_17-59-49/testRunLogs",
     "delReport": false,
     "quiet": false,
     "delPerfLogs": false,
-    "expectedTransactionsSent": 145000,
+    "expectedTransactionsSent": 130010,
     "printMissingTransactions": false,
     "userTrxDataFile": null,
-    "logDirBase": "p/2023-02-28_17-10-36/testRunLogs/p",
-    "logDirTimestamp": "2023-02-28_19-24-44",
-    "logDirTimestampedOptSuffix": "-14500",
-    "logDirPath": "p/2023-02-28_17-10-36/testRunLogs/p/2023-02-28_19-24-44-14500"
+    "endpointMode": "p2p",
+    "apiEndpoint": null,
+    "logDirBase": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test",
+    "logDirTimestamp": "2023-06-05_19-21-44",
+    "logDirTimestampedOptSuffix": "-13001",
+    "logDirPath": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-21-44-13001",
+    "userTrxData": "NOT CONFIGURED"
   },
   "env": {
     "system": "Linux",
     "os": "posix",
-    "release": "5.15.79.1-microsoft-standard-WSL2",
+    "release": "5.15.90.1-microsoft-standard-WSL2",
     "logical_cpu_count": 16
   },
-  "nodeosVersion": "v4.0.0-dev"
+  "nodeosVersion": "v4"
 }
 ```
 </details>

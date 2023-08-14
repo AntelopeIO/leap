@@ -1,21 +1,12 @@
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/testing/tester.hpp>
 
-#include <Runtime/Runtime.h>
-
 #include <fc/variant_object.hpp>
 
 #include <boost/test/unit_test.hpp>
 
 #include <contracts.hpp>
 #include <test_contracts.hpp>
-
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 
 using namespace eosio;
 using namespace eosio::chain;
@@ -64,11 +55,11 @@ std::vector<genesis_account> test_genesis( {
   {"masses"_n,   800'000'000'0000ll}
 });
 
-class bootseq_tester : public TESTER {
+class bootseq_tester : public validating_tester {
 public:
    void deploy_contract( bool call_init = true ) {
       set_code( config::system_account_name, test_contracts::eosio_system_wasm() );
-      set_abi( config::system_account_name, test_contracts::eosio_system_abi().data() );
+      set_abi( config::system_account_name, test_contracts::eosio_system_abi() );
       if( call_init ) {
          base_tester::push_action(config::system_account_name, "init"_n,
                                   config::system_account_name,  mutable_variant_object()
@@ -167,7 +158,7 @@ public:
          return get_currency_balance("eosio.token"_n, symbol(CORE_SYMBOL), act);
     }
 
-    void set_code_abi(const account_name& account, const vector<uint8_t>& wasm, const char* abi, const private_key_type* signer = nullptr) {
+    void set_code_abi(const account_name& account, const vector<uint8_t>& wasm, const std::string& abi, const private_key_type* signer = nullptr) {
        wdump((account));
         set_code(account, wasm, signer);
         set_abi(account, abi, signer);
@@ -195,15 +186,15 @@ BOOST_FIXTURE_TEST_CASE( bootseq_test, bootseq_tester ) {
         //  - eosio (code: eosio.bios) (already set by tester constructor)
         //  - eosio.msig (code: eosio.msig)
         //  - eosio.token (code: eosio.token)
-        // set_code_abi("eosio.msig"_n, contracts::eosio_msig_wasm(), contracts::eosio_msig_abi().data());//, &eosio_active_pk);
-        // set_code_abi("eosio.token"_n, contracts::eosio_token_wasm(), contracts::eosio_token_abi().data()); //, &eosio_active_pk);
+        // set_code_abi("eosio.msig"_n, contracts::eosio_msig_wasm(), contracts::eosio_msig_abi());//, &eosio_active_pk);
+        // set_code_abi("eosio.token"_n, contracts::eosio_token_wasm(), contracts::eosio_token_abi()); //, &eosio_active_pk);
 
         set_code_abi("eosio.msig"_n,
                      test_contracts::eosio_msig_wasm(),
-                     test_contracts::eosio_msig_abi().data());//, &eosio_active_pk);
+                     test_contracts::eosio_msig_abi());//, &eosio_active_pk);
         set_code_abi("eosio.token"_n,
                      test_contracts::eosio_token_wasm(),
-                     test_contracts::eosio_token_abi().data()); //, &eosio_active_pk);
+                     test_contracts::eosio_token_abi()); //, &eosio_active_pk);
 
         // Set privileged for eosio.msig and eosio.token
         set_privileged("eosio.msig"_n);

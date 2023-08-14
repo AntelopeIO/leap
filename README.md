@@ -8,7 +8,6 @@ The `main` branch is the development branch; do not use it for production. Refer
 We currently support the following operating systems.
 - Ubuntu 22.04 Jammy
 - Ubuntu 20.04 Focal
-- Ubuntu 18.04 Bionic
 
 Other Unix derivatives such as macOS are tended to on a best-effort basis and may not be full featured. If you aren't using Ubuntu, please visit the "[Build Unsupported OS](./docs/00_install/01_build-from-source/00_build-unsupported-os.md)" page to explore your options.
 
@@ -44,13 +43,11 @@ You can also build and install Leap from source.
 You will need to build on a [supported operating system](#supported-operating-systems).
 
 Requirements to build:
-- C++17 compiler and standard library
-- boost 1.67+
-- CMake 3.8+
+- C++20 compiler and standard library
+- CMake 3.16+
 - LLVM 7 - 11 - for Linux only
   - newer versions do not work
 - openssl 1.1+
-- curl
 - libcurl 7.40.0+
 - git
 - GMP
@@ -97,7 +94,7 @@ git submodule update --init --recursive
 Select build instructions below for a [pinned build](#pinned-build) (preferred) or an [unpinned build](#unpinned-build).
 
 > ℹ️ **Pinned vs. Unpinned Build** ℹ️  
-We have two types of builds for Leap: "pinned" and "unpinned." The only difference is that pinned builds use specific versions for some dependencies hand-picked by the Leap engineers - they are "pinned" to those versions. In contrast, unpinned builds use the default dependency versions available on the build system at the time. We recommend performing a "pinned" build to ensure the compiler and boost versions remain the same between builds of different Leap versions. Leap requires these versions to remain the same, otherwise its state might need to be recovered from a portable snapshot or the chain needs to be replayed.
+We have two types of builds for Leap: "pinned" and "unpinned." The only difference is that pinned builds use specific versions for some dependencies hand-picked by the Leap engineers - they are "pinned" to those versions. In contrast, unpinned builds use the default dependency versions available on the build system at the time. We recommend performing a "pinned" build to ensure the compiler remains the same between builds of different Leap versions. Leap requires these versions to remain the same, otherwise its state might need to be recovered from a portable snapshot or the chain needs to be replayed.
 
 > ⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️  
 When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in Leap will consume nearly 4GB of memory. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. For these reasons, consider reducing this value.
@@ -127,76 +124,40 @@ Now you can optionally [test](#step-4---test) your build, or [install](#step-5--
 #### Unpinned Build
 The following instructions are valid for this branch. Other release branches may have different requirements, so ensure you follow the directions in the branch or release you intend to build. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
 
-<details> <summary>Ubuntu 22.04 Jammy & Ubuntu 20.04 Focal</summary>
-
 Install dependencies:
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
         build-essential \
         cmake \
-        curl \
         git \
-        libboost-all-dev \
         libcurl4-openssl-dev \
         libgmp-dev \
         libssl-dev \
         llvm-11-dev \
-        python3-numpy
+        python3-numpy \
+        file \
+        zlib1g-dev
 ```
+
+On Ubuntu 20.04, install gcc-10 which has C++20 support:
+```bash
+sudo apt-get install -y g++-10
+```
+
 To build, make sure you are in the root of the `leap` repo, then run the following command:
 ```bash
 mkdir -p build
 cd build
+
+## on Ubuntu 20, specify the gcc-10 compiler
+cmake -DCMAKE_C_COMPILER=gcc-10 -DCMAKE_CXX_COMPILER=g++-10 -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
+
+## on Ubuntu 22, the default gcc version is 11, using the default compiler is fine
 cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH=/usr/lib/llvm-11 ..
+
 make -j "$(nproc)" package
 ```
-</details>
-
-<details> <summary>Ubuntu 18.04 Bionic</summary>
-
-Install dependencies:
-```bash
-sudo apt-get update
-sudo apt-get install -y \
-        build-essential \
-        cmake \
-        curl \
-        g++-8 \
-        git \
-        libcurl4-openssl-dev \
-        libgmp-dev \
-        libssl-dev \
-        llvm-7-dev \
-        python3 \
-        python3-numpy \
-        python3-pip \
-        zlib1g-dev
-
-python3 -m pip install dataclasses
-```
-You need to build Boost from source on this distribution:
-```bash
-curl -fL https://boostorg.jfrog.io/artifactory/main/release/1.79.0/source/boost_1_79_0.tar.bz2 -o ~/Downloads/boost_1_79_0.tar.bz2
-tar -jvxf ~/Downloads/boost_1_79_0.tar.bz2 -C ~/Downloads/
-pushd ~/Downloads/boost_1_79_0
-./bootstrap.sh --prefix="$HOME/boost1.79"
-./b2 --with-iostreams --with-date_time --with-filesystem --with-system --with-program_options --with-chrono --with-test -j "$(nproc)" install
-popd
-```
-The Boost `*.tar.bz2` download and `boost_1_79_0` folder can be removed now if you want more space.
-```bash
-rm -r ~/Downloads/boost_1_79_0.tar.bz2 ~/Downloads/boost_1_79_0
-```
-From a terminal in the root of the `leap` repo, build.
-```bash
-mkdir -p build
-cd build
-cmake -DCMAKE_C_COMPILER=gcc-8 -DCMAKE_CXX_COMPILER=g++-8 -DCMAKE_PREFIX_PATH="$HOME/boost1.79;/usr/lib/llvm-7/" -DCMAKE_BUILD_TYPE=Release ..
-make -j "$(nproc)" package
-```
-After building, you may remove the `~/boost1.79` directory or you may keep it around for your next build.
-</details>
 
 Now you can optionally [test](#step-4---test) your build, or [install](#step-5---install) the `*.deb` binary packages, which will be in the root of your build directory.
 

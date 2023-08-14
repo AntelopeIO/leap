@@ -1,4 +1,5 @@
 #include <eosio/chain_plugin/trx_retry_db.hpp>
+#include <eosio/chain_plugin/chain_plugin.hpp>
 
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/contract_types.hpp>
@@ -31,7 +32,7 @@ struct tracked_transaction {
    uint32_t                                                  block_num = 0;
    fc::variant                                               trx_trace_v;
    fc::time_point                                            last_try;
-   chain_apis::next_function<std::unique_ptr<fc::variant>>   next;
+   next_function<std::unique_ptr<fc::variant>>               next;
 
    const transaction_id_type& id()const { return ptrx->id(); }
    fc::time_point_sec expiry()const { return ptrx->expiration(); }
@@ -52,11 +53,6 @@ struct tracked_transaction {
    }
 
    size_t memory_size()const { return ptrx->get_estimated_size() + trx_trace_v.estimated_size() + sizeof(*this); }
-
-   tracked_transaction(const tracked_transaction&) = delete;
-   tracked_transaction() = delete;
-   tracked_transaction& operator=(const tracked_transaction&) = delete;
-   tracked_transaction(tracked_transaction&&) = default;
 };
 
 struct by_trx_id;
@@ -150,7 +146,9 @@ struct trx_retry_db_impl {
                // Convert to variant with abi here and now because abi could change in very next transaction.
                // Alternatively, we could store off all the abis needed and do the conversion later, but as this is designed
                // to run on an API node, probably the best trade off to perform the abi serialization during block processing.
-               tt.trx_trace_v = control.to_variant_with_abi( *trace, abi_serializer::create_yield_function( abi_max_time ) );
+               auto resolver = get_serializers_cache(control, trace, abi_max_time);
+               tt.trx_trace_v.clear();
+               abi_serializer::to_variant(*trace, tt.trx_trace_v, resolver, abi_max_time);
             } catch( chain::abi_exception& ) {
                tt.trx_trace_v = *trace;
             }
@@ -267,7 +265,7 @@ private:
       auto& idx = _tracked_trxs.index().get<by_expiry>();
       while( !idx.empty() ) {
          auto itr = idx.begin();
-         if( itr->expiry() > block_time ) {
+         if( itr->expiry().to_time_point() > block_time ) {
             break;
          }
          itr->next( std::static_pointer_cast<fc::exception>(
@@ -304,7 +302,7 @@ void trx_retry_db::track_transaction( chain::packed_transaction_ptr ptrx, std::o
 
 fc::time_point_sec trx_retry_db::get_max_expiration_time()const {
    // conversion from time_point to time_point_sec rounds down, round up to nearest second to avoid appearing expired
-   return fc::time_point::now() + _impl->get_max_expiration() + fc::microseconds(999'999);
+   return fc::time_point_sec{fc::time_point::now() + _impl->get_max_expiration() + fc::microseconds(999'999)};
 }
 
 size_t trx_retry_db::size()const {

@@ -10,6 +10,8 @@
 #include <boost/beast.hpp>
 #include <boost/program_options.hpp>
 
+#include <map>
+#include <set>
 #include <iostream>
 #include <string>
 
@@ -111,44 +113,84 @@ int main(int argc, char* argv[]) {
       stream.write(boost::asio::buffer(request_type.json_to_bin(request_sb.GetString(), [](){})));
       stream.read_message_max(0);
 
+      // Each block_num can have multiple block_ids since forks are possible
+      //       block_num,         block_id
+      std::map<uint32_t, std::set<std::string>> block_ids;
       bool is_first = true;
       for(;;) {
          boost::beast::flat_buffer buffer;
          stream.read(buffer);
 
          eosio::input_stream is((const char*)buffer.data().data(), buffer.data().size());
-         rapidjson::Document result_doucment;
-         result_doucment.Parse(result_type.bin_to_json(is).c_str());
+         rapidjson::Document result_document;
+         result_document.Parse(result_type.bin_to_json(is).c_str());
 
-         eosio::check(!result_doucment.HasParseError(),                                      "Failed to parse result JSON from abieos");
-         eosio::check(result_doucment.IsArray(),                                             "result should have been an array (variant) but it's not");
-         eosio::check(result_doucment.Size() == 2,                                           "result was an array but did not contain 2 items like a variant should");
-         eosio::check(std::string(result_doucment[0].GetString()) == "get_blocks_result_v0", "result type doesn't look like get_blocks_result_v0");
-         eosio::check(result_doucment[1].IsObject(),                                         "second item in result array is not an object");
-         eosio::check(result_doucment[1].HasMember("head"),                                  "cannot find 'head' in result");
-         eosio::check(result_doucment[1]["head"].IsObject(),                                 "'head' is not an object");
-         eosio::check(result_doucment[1]["head"].HasMember("block_num"),                     "'head' does not contain 'block_num'");
-         eosio::check(result_doucment[1]["head"]["block_num"].IsUint(),                      "'head.block_num' isn't a number");
+         eosio::check(!result_document.HasParseError(),                                      "Failed to parse result JSON from abieos");
+         eosio::check(result_document.IsArray(),                                             "result should have been an array (variant) but it's not");
+         eosio::check(result_document.Size() == 2,                                           "result was an array but did not contain 2 items like a variant should");
+         eosio::check(std::string(result_document[0].GetString()) == "get_blocks_result_v0", "result type doesn't look like get_blocks_result_v0");
+         eosio::check(result_document[1].IsObject(),                                         "second item in result array is not an object");
+         eosio::check(result_document[1].HasMember("head"),                                  "cannot find 'head' in result");
+         eosio::check(result_document[1]["head"].IsObject(),                                 "'head' is not an object");
+         eosio::check(result_document[1]["head"].HasMember("block_num"),                     "'head' does not contain 'block_num'");
+         eosio::check(result_document[1]["head"]["block_num"].IsUint(),                      "'head.block_num' isn't a number");
+         eosio::check(result_document[1]["head"].HasMember("block_id"),                      "'head' does not contain 'block_id'");
+         eosio::check(result_document[1]["head"]["block_id"].IsString(),                     "'head.block_id' isn't a string");
 
-         uint32_t this_block_num = 0;
-         if( result_doucment[1].HasMember("this_block") && result_doucment[1]["this_block"].IsObject() ) {
-            if( result_doucment[1]["this_block"].HasMember("block_num") && result_doucment[1]["this_block"]["block_num"].IsUint() ) {
-               this_block_num = result_doucment[1]["this_block"]["block_num"].GetUint();
-            }
-         }
-
+         // stream what was received
          if(is_first) {
-            std::cout << "[" << std::endl;
-            is_first = false;
+           std::cout << "[" << std::endl;
+           is_first = false;
          } else {
-            std::cout << "," << std::endl;
+           std::cout << "," << std::endl;
          }
          std::cout << "{ \"get_blocks_result_v0\":" << std::endl;
 
          rapidjson::StringBuffer result_sb;
          rapidjson::PrettyWriter<rapidjson::StringBuffer> result_writer(result_sb);
-         result_doucment[1].Accept(result_writer);
+         result_document[1].Accept(result_writer);
          std::cout << result_sb.GetString() << std::endl << "}" << std::endl;
+
+         // validate after streaming, so that invalid entry is included in the output
+         uint32_t this_block_num = 0;
+         if( result_document[1].HasMember("this_block") && result_document[1]["this_block"].IsObject() ) {
+            const auto& this_block = result_document[1]["this_block"];
+            if( this_block.HasMember("block_num") && this_block["block_num"].IsUint() ) {
+               this_block_num = this_block["block_num"].GetUint();
+            }
+            std::string this_block_id;
+            if( this_block.HasMember("block_id") && this_block["block_id"].IsString() ) {
+               this_block_id = this_block["block_id"].GetString();
+            }
+            std::string prev_block_id;
+            if( result_document[1].HasMember("prev_block") && result_document[1]["prev_block"].IsObject() ) {
+               const auto& prev_block = result_document[1]["prev_block"];
+               if ( prev_block.HasMember("block_id") && prev_block["block_id"].IsString() ) {
+                  prev_block_id = prev_block["block_id"].GetString();
+               }
+            }
+            if( !irreversible_only && !this_block_id.empty() && !prev_block_id.empty() ) {
+               // verify forks were sent
+               if (block_ids.count(this_block_num-1)) {
+                  if (block_ids[this_block_num-1].count(prev_block_id) == 0) {
+                     std::cerr << "Received block: << " << this_block_num << " that does not link to previous: ";
+                     std::copy(block_ids[this_block_num-1].begin(), block_ids[this_block_num-1].end(), std::ostream_iterator<std::string>(std::cerr, " "));
+                     std::cerr << std::endl;
+                     return 1;
+                  }
+               }
+               block_ids[this_block_num].insert(this_block_id);
+
+               if( result_document[1]["last_irreversible"].HasMember("block_num") && result_document[1]["last_irreversible"]["block_num"].IsUint() ) {
+                  uint32_t lib_num = result_document[1]["last_irreversible"]["block_num"].GetUint();
+                  auto i = block_ids.lower_bound(lib_num);
+                  if (i != block_ids.end()) {
+                     block_ids.erase(block_ids.begin(), i);
+                  }
+               }
+            }
+
+         }
 
          if( this_block_num == end_block_num ) break;
       }

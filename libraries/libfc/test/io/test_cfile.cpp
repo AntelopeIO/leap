@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE io
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/io/cfile.hpp>
 
@@ -14,15 +13,15 @@ BOOST_AUTO_TEST_SUITE(cfile_test_suite)
       t.set_file_path( tempdir.path() / "test" );
       t.open( "ab+" );
       BOOST_CHECK( t.is_open() );
-      BOOST_CHECK( fc::exists( tempdir.path() / "test") );
+      BOOST_CHECK( std::filesystem::exists( tempdir.path() / "test") );
 
       t.open( "rb+" );
       BOOST_CHECK( t.is_open() );
       t.write( "abc", 3 );
-      BOOST_CHECK_EQUAL( t.tellp(), 3 );
+      BOOST_CHECK_EQUAL( t.tellp(), 3u );
       std::vector<char> v(3);
       t.seek( 0 );
-      BOOST_CHECK_EQUAL( t.tellp(), 0 );
+      BOOST_CHECK_EQUAL( t.tellp(), 0u );
       t.read( &v[0], 3 );
 
       BOOST_CHECK_EQUAL( v[0], 'a' );
@@ -30,7 +29,7 @@ BOOST_AUTO_TEST_SUITE(cfile_test_suite)
       BOOST_CHECK_EQUAL( v[2], 'c' );
 
       t.seek_end( -2 );
-      BOOST_CHECK_EQUAL( t.tellp(), 1 );
+      BOOST_CHECK_EQUAL( t.tellp(), 1u );
       t.read( &v[0], 1 );
       BOOST_CHECK_EQUAL( v[0], 'b' );
 
@@ -54,8 +53,8 @@ BOOST_AUTO_TEST_SUITE(cfile_test_suite)
       BOOST_CHECK_EQUAL( x, y );
 
       t.close();
-      fc::remove_all( t.get_file_path() );
-      BOOST_CHECK( !fc::exists( tempdir.path() / "test") );
+      std::filesystem::remove_all( t.get_file_path() );
+      BOOST_CHECK( !std::filesystem::exists( tempdir.path() / "test") );
    }
 
    BOOST_AUTO_TEST_CASE(test_hole_punching)
@@ -63,10 +62,9 @@ BOOST_AUTO_TEST_SUITE(cfile_test_suite)
       if(!cfile::supports_hole_punching())
          return;
 
-      fc::temp_file tmpfile;
-      cfile file;
-      file.set_file_path(tmpfile.path());
-      file.open("a+b");
+
+      temp_cfile tmp("a+b");
+      cfile& file = tmp.file();
       file.close();
       file.open("w+b");
 

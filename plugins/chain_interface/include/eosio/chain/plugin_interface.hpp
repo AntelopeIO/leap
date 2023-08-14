@@ -8,13 +8,9 @@
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/trace.hpp>
 
-namespace eosio { namespace chain { namespace plugin_interface {
+namespace eosio::chain::plugin_interface {
    using namespace eosio::chain;
    using namespace appbase;
-
-   template<typename T>
-   using next_function = std::function<void(const std::variant<fc::exception_ptr, T>&)>;
-
    struct chain_plugin_interface;
 
    namespace channels {
@@ -50,4 +46,4 @@ namespace eosio { namespace chain { namespace plugin_interface {
       }
    }
 
-} } }
+} // namespace eosio::chain::plugin_interface

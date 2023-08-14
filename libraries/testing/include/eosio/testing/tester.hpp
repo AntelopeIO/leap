@@ -67,6 +67,8 @@ namespace eosio { namespace testing {
       full
    };
 
+   std::ostream& operator<<(std::ostream& os, setup_policy p);
+
    std::vector<uint8_t> read_wasm( const char* fn );
    std::vector<char>    read_abi( const char* fn );
    std::string          read_wast( const char* fn );
@@ -280,12 +282,12 @@ namespace eosio { namespace testing {
 
          template<typename ObjectType, typename IndexBy, typename... Args>
          const auto& get( Args&&... args ) {
-            return control->db().get<ObjectType,IndexBy>( forward<Args>(args)... );
+            return control->db().get<ObjectType,IndexBy>( std::forward<Args>(args)... );
          }
 
          template<typename ObjectType, typename IndexBy, typename... Args>
          const auto* find( Args&&... args ) {
-            return control->db().find<ObjectType,IndexBy>( forward<Args>(args)... );
+            return control->db().find<ObjectType,IndexBy>( std::forward<Args>(args)... );
          }
 
          template< typename KeyType = fc::ecc::private_key_shim >
@@ -305,7 +307,7 @@ namespace eosio { namespace testing {
 
          void              set_code( account_name name, const char* wast, const private_key_type* signer = nullptr );
          void              set_code( account_name name, const vector<uint8_t> wasm, const private_key_type* signer = nullptr  );
-         void              set_abi( account_name name, const char* abi_json, const private_key_type* signer = nullptr );
+         void              set_abi( account_name name, const std::string& abi_json, const private_key_type* signer = nullptr );
 
          bool is_code_cached( account_name name ) const;
 
@@ -401,6 +403,9 @@ namespace eosio { namespace testing {
             cfg.state_guard_size = 0;
             cfg.contracts_console = true;
             cfg.eosvmoc_config.cache_size = 1024*1024*8;
+
+            // don't use auto tier up for tests, since the point is to test diff vms
+            cfg.eosvmoc_tierup = chain::wasm_interface::vm_oc_enable::oc_none;
 
             for(int i = 0; i < boost::unit_test::framework::master_test_suite().argc; ++i) {
                if(boost::unit_test::framework::master_test_suite().argv[i] == std::string("--eos-vm"))
@@ -528,7 +533,7 @@ namespace eosio { namespace testing {
       }
       controller::config vcfg;
 
-      validating_tester(const flat_set<account_name>& trusted_producers = flat_set<account_name>(), deep_mind_handler* dmlog = nullptr) {
+      validating_tester(const flat_set<account_name>& trusted_producers = flat_set<account_name>(), deep_mind_handler* dmlog = nullptr, setup_policy p = setup_policy::full) {
          auto def_conf = default_config(tempdir);
 
          vcfg = def_conf.first;
@@ -538,7 +543,7 @@ namespace eosio { namespace testing {
          validating_node = create_validating_node(vcfg, def_conf.second, true, dmlog);
 
          init(def_conf.first, def_conf.second);
-         execute_setup_policy(setup_policy::full);
+         execute_setup_policy(p);
       }
 
       static void config_validator(controller::config& vcfg) {

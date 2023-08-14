@@ -30,7 +30,7 @@ appArgs = AppArgs()
 extraArgs = appArgs.add(flag="--num-requests", type=int, help="How many requests that each ship_client requests", default=1)
 extraArgs = appArgs.add(flag="--num-clients", type=int, help="How many ship_clients should be started", default=1)
 extraArgs = appArgs.add_bool(flag="--unix-socket", help="Run ship over unix socket")
-args = TestHelper.parse_args({"-p", "-n","--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"}, applicationSpecificArgs=appArgs)
+args = TestHelper.parse_args({"-p", "-n","--dump-error-details","--keep-logs","-v","--leave-running","--unshared"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
 totalProducerNodes=args.p
@@ -39,17 +39,12 @@ if totalNodes<=totalProducerNodes:
     totalNodes=totalProducerNodes+1
 totalNonProducerNodes=totalNodes-totalProducerNodes
 totalProducers=totalProducerNodes
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-dontKill=args.leave_running
-killAll=args.clean_run
 walletPort=TestHelper.DEFAULT_WALLET_PORT
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 shipTempDir=None
@@ -58,13 +53,11 @@ try:
     TestHelper.printSystemInfo("BEGIN")
 
     cluster.setWalletMgr(walletMgr)
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     Print("Stand up cluster")
     specificExtraNodeosArgs={}
     # non-producing nodes are at the end of the cluster's nodes, so reserving the last one for state_history_plugin
     shipNodeNum = totalNodes - 1
-    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --disable-replay-opts --sync-fetch-span 200 --plugin eosio::net_api_plugin "
+    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --sync-fetch-span 200 --plugin eosio::net_api_plugin "
 
     if args.unix_socket:
         specificExtraNodeosArgs[shipNodeNum] += "--state-history-unix-socket-path ship.sock"
@@ -132,7 +125,7 @@ try:
             try:
                 statuses = json.loads(" ".join(lines))
             except json.decoder.JSONDecodeError as er:
-                Utils.errorExit("javascript client output was malformed in %s. Exception: %s" % (shipClientErrorFile, er))
+                Utils.errorExit("ship_client output was malformed in %s. Exception: %s" % (shipClientErrorFile, er))
 
             for status in statuses:
                 statusDesc = status["status"]
@@ -143,7 +136,7 @@ try:
                     maxFirstBN = max(maxFirstBN, firstBlockNum)
                     minLastBN = min(minLastBN, lastBlockNum)
                 if statusDesc == "error":
-                    Utils.errorExit("javascript client reporting error see: %s." % (shipClientErrorFile))
+                    Utils.errorExit("ship_client reporting error see: %s." % (shipClientErrorFile))
 
         assert done, Print("ERROR: Did not find a \"done\" status for client %d" % (i))
 
@@ -196,9 +189,9 @@ try:
 
     testSuccessful = True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if shipTempDir is not None:
-        if testSuccessful and not keepLogs:
+        if testSuccessful and not args.keep_logs:
             shutil.rmtree(shipTempDir, ignore_errors=True)
 
 errorCode = 0 if testSuccessful else 1

@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE variant
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/variant_object.hpp>
 #include <fc/exception/exception.hpp>
@@ -7,6 +6,7 @@
 #include <string>
 
 using namespace fc;
+using std::string;
 
 BOOST_AUTO_TEST_SUITE(variant_test_suite)
 BOOST_AUTO_TEST_CASE(mutable_variant_object_test)
@@ -43,7 +43,7 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       mu( "b", string( long_rep_char_num, 'b' ) );
       mu( "c", string( long_rep_char_num, 'c' ) );
       const string result = fc::format_string( format, mu, true );
-      BOOST_CHECK_LT(0, mu.size());
+      BOOST_CHECK_LT(0u, mu.size());
       const auto arg_limit_size = (1024 - format.size()) / mu.size();
       BOOST_CHECK_EQUAL( result, string(arg_limit_size, 'a' ) + "... " + string(arg_limit_size, 'b' ) + "... " + string(arg_limit_size, 'c' ) + "..." );
       BOOST_CHECK_LT(result.size(), 1024 + 3 * mu.size());
@@ -57,7 +57,7 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       const string format_prefix = "Format string test: ";
       const string format_str = format_prefix + "${str} ${obj} ${arr} {blob}";
       const string result = fc::format_string( format_str, mu, true );
-      BOOST_CHECK_LT(0, mu.size());
+      BOOST_CHECK_LT(0u, mu.size());
       const auto arg_limit_size = (1024 - format_str.size()) / mu.size();
       BOOST_CHECK_EQUAL( result, format_prefix + a_long_list.substr(0, arg_limit_size) + "..." + " ${obj} ${arr} {blob}");
       BOOST_CHECK_LT(result.size(), 1024 + 3 * mu.size());
@@ -65,7 +65,7 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
    {  // verify object, array can be displayed properly
       const string format_prefix = "Format string test: ";
       const string format_str = format_prefix + "${str} ${obj} ${arr} ${blob} ${var}";
-      BOOST_CHECK_LT(format_str.size(), 1024);
+      BOOST_CHECK_LT(format_str.size(), 1024u);
       const size_t short_rep_char_num = (1024 - format_str.size()) / 5 - 1;
       const std::string a_short_list = std::string(short_rep_char_num, 'a');
       const std::string b_short_list = std::string(short_rep_char_num / 3, 'b');

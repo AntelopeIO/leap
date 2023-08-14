@@ -170,7 +170,7 @@ namespace fc {
 
    inline
    void from_variant( const variant& v, eosio::chain::shared_string& s ) {
-      string _s;
+      std::string _s;
       from_variant(v, _s);
       s = eosio::chain::shared_string(_s.begin(), _s.end(), s.get_allocator());
    }
@@ -182,7 +182,7 @@ namespace fc {
 
    inline
    void from_variant( const variant& v, eosio::chain::shared_blob& b ) {
-      string _s = base64_decode(v.as_string());
+      std::string _s = base64_decode(v.as_string());
       b = eosio::chain::shared_blob(_s.begin(), _s.end(), b.get_allocator());
    }
 

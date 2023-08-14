@@ -7,20 +7,20 @@
 
 namespace fc
 {
-   const string& get_thread_name();
+   const std::string& get_thread_name();
    namespace detail
    {
       class log_context_impl
       {
          public:
             log_level level;
-            string       file;
+            std::string  file;
             uint64_t     line;
-            string       method;
-            string       thread_name;
-            string       task_name;
-            string       hostname;
-            string       context;
+            std::string  method;
+            std::string  thread_name;
+            std::string  task_name;
+            std::string  hostname;
+            std::string  context;
             time_point   timestamp;
       };
 
@@ -29,10 +29,10 @@ namespace fc
          public:
             log_message_impl( log_context&& ctx )
             :context( std::move(ctx) ){}
-            log_message_impl(){}
+            log_message_impl() = default;
 
             log_context     context;
-            string          format;
+            std::string     format;
             variant_object  args;
       };
    }
@@ -42,12 +42,12 @@ namespace fc
    log_context::log_context()
    :my( std::make_shared<detail::log_context_impl>() ){}
 
-   log_context::log_context( log_level ll, const char* file, uint64_t line, 
+   log_context::log_context( log_level ll, const char* file, uint64_t line,
                                             const char* method )
    :my( std::make_shared<detail::log_context_impl>() )
    {
       my->level       = ll;
-      my->file        = fc::path(file).filename().generic_string(); // TODO truncate filename
+      my->file        = std::filesystem::path(file).filename().generic_string(); // TODO truncate filename
       my->line        = line;
       my->method      = method;
       my->timestamp   = time_point::now();
@@ -57,7 +57,7 @@ namespace fc
    log_context::log_context( const variant& v )
    :my( std::make_shared<detail::log_context_impl>() )
    {
-       auto obj = v.get_object();
+       const auto& obj = v.get_object();
        my->level        = obj["level"].as<log_level>();
        my->file         = obj["file"].as_string();
        my->line         = obj["line"].as_uint64();
@@ -68,38 +68,38 @@ namespace fc
          my->task_name    = obj["task_name"].as_string();
        my->timestamp    = obj["timestamp"].as<time_point>();
        if( obj.contains( "context" ) )
-           my->context      = obj["context"].as<string>();
+           my->context      = obj["context"].as<std::string>();
    }
 
-   fc::string log_context::to_string()const
+   std::string log_context::to_string()const
    {
-      return my->thread_name + "  " + my->file + ":" + fc::to_string(my->line) + " " + my->method;
+      return my->thread_name + "  " + my->file + ":" + std::to_string(my->line) + " " + my->method;
 
    }
 
-   void log_context::append_context( const fc::string& s )
+   void log_context::append_context( const std::string& s )
    {
         if (!my->context.empty())
           my->context += " -> ";
         my->context += s;
    }
 
-   log_context::~log_context(){}
+   log_context::~log_context() = default;
 
 
    void to_variant( const log_context& l, variant& v )
-   { 
-      v = l.to_variant();     
+   {
+      v = l.to_variant();
    }
 
    void from_variant( const variant& l, log_context& c )
-   { 
-        c = log_context(l); 
+   {
+        c = log_context(l);
    }
 
    void from_variant( const variant& l, log_message& c )
-   { 
-        c = log_message(l); 
+   {
+        c = log_message(l);
    }
    void to_variant( const log_message& m, variant& v )
    {
@@ -110,7 +110,7 @@ namespace fc
    {
       switch( e )
       {
-        case log_level::all: 
+        case log_level::all:
            v = "all";
            return;
         case log_level::debug:
@@ -132,7 +132,7 @@ namespace fc
    }
    void from_variant( const variant& v, log_level& e )
    {
-      try 
+      try
       {
         if( v.as_string() == "all" ) e = log_level::all;
         else if( v.as_string() == "debug" ) e = log_level::debug;
@@ -141,12 +141,12 @@ namespace fc
         else if( v.as_string() == "error" ) e = log_level::error;
         else if( v.as_string() == "off" ) e = log_level::off;
         else FC_THROW_EXCEPTION( bad_cast_exception, "Failed to cast from Variant to log_level" );
-      } FC_RETHROW_EXCEPTIONS( error, 
+      } FC_RETHROW_EXCEPTIONS( error,
                                    "Expected 'all|debug|info|warn|error|off', but got '${variant}'",
                                    ("variant",v) );
    }
 
-   string log_level::to_string()const {
+   std::string log_level::to_string()const {
       switch( value )
       {
          case log_level::all:
@@ -165,15 +165,15 @@ namespace fc
       return "unknown";
    }
 
-   string     log_context::get_file()const       { return my->file; }
-   uint64_t   log_context::get_line_number()const { return my->line; }
-   string     log_context::get_method()const     { return my->method; }
-   string     log_context::get_thread_name()const { return my->thread_name; }
-   string     log_context::get_task_name()const { return my->task_name; }
-   string     log_context::get_host_name()const   { return my->hostname; }
-   time_point  log_context::get_timestamp()const  { return my->timestamp; }
-   log_level  log_context::get_log_level()const{ return my->level;   }
-   string     log_context::get_context()const   { return my->context; }
+   std::string log_context::get_file()const        { return my->file; }
+   uint64_t    log_context::get_line_number()const { return my->line; }
+   std::string log_context::get_method()const      { return my->method; }
+   std::string log_context::get_thread_name()const { return my->thread_name; }
+   std::string log_context::get_task_name()const   { return my->task_name; }
+   std::string log_context::get_host_name()const   { return my->hostname; }
+   time_point  log_context::get_timestamp()const   { return my->timestamp; }
+   log_level   log_context::get_log_level()const   { return my->level;   }
+   std::string log_context::get_context()const     { return my->context; }
 
 
    variant log_context::to_variant()const
@@ -187,7 +187,7 @@ namespace fc
                ( "thread_name",  my->thread_name         )
                ( "timestamp",    variant(my->timestamp)  );
 
-      if( my->context.size() ) 
+      if( my->context.size() )
          o( "context",      my->context             );
 
       return o;
@@ -218,16 +218,16 @@ namespace fc
                           ( "data",    my->args   );
    }
 
-   log_context          log_message::get_context()const { return my->context; }
-   string              log_message::get_format()const  { return my->format;  }
-   variant_object log_message::get_data()const    { return my->args;    }
+   log_context log_message::get_context()const { return my->context; }
+   std::string log_message::get_format()const { return my->format; }
+   variant_object log_message::get_data()const { return my->args; }
 
-   string        log_message::get_message()const
+   std::string log_message::get_message()const
    {
       return format_string( my->format, my->args );
    }
 
-   string        log_message::get_limited_message()const
+   std::string log_message::get_limited_message()const
    {
       const bool minimize = true;
       return format_string( my->format, my->args, minimize );
@@ -235,4 +235,3 @@ namespace fc
 
 
 } // fc
-

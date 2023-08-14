@@ -29,6 +29,7 @@ The `nodeos` service can be run in different "read" modes. These modes control h
 
 - `head`: this only includes the side effects of confirmed transactions, this mode processes unconfirmed transactions but does not include them.
 - `irreversible`: this mode also includes confirmed transactions only up to those included in the last irreversible block.
+- `speculative`: this includes the side effects of confirmed and unconfirmed transactions.
 
 A transaction is considered confirmed when a `nodeos` instance has received, processed, and written it to a block on the blockchain, i.e. it is in the head block or an earlier block.
 
@@ -43,6 +44,16 @@ In this mode `nodeos` is able to execute transactions which have TaPoS pointing 
 When `nodeos` is configured to be in irreversible read mode, it will still track the most up-to-date blocks in the fork database, but the state will lag behind the current best head block, sometimes referred to as the fork DB head, to always reflect the state of the last irreversible block.
 
 Clients such as `cleos` and the RPC API will see database state as of the current head block of the chain. It **will not** include changes made by transactions known to this node but not included in the chain, such as unconfirmed transactions.
+
+### Speculative Mode ( Deprecated )
+
+Clients such as `cleos` and the RPC API, will see database state as of the current head block plus changes made by all transactions known to this node but potentially not included in the chain, unconfirmed transactions for example.
+
+Speculative mode is low latency but fragile, there is no guarantee that the transactions reflected in the state will be included in the chain OR that they will reflected in the same order the state implies.
+
+This mode features the lowest latency, but is the least consistent.
+
+In speculative mode `nodeos` is able to execute transactions which have TaPoS (Transaction as Proof of Stake) pointing to any valid block in a fork considered to be the best fork by this node.
 
 ## How To Specify the Read Mode
 

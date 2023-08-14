@@ -1,8 +1,6 @@
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/testing/tester.hpp>
 
-#include <Runtime/Runtime.h>
-
 #include <fc/variant_object.hpp>
 
 #include <boost/test/unit_test.hpp>
@@ -29,7 +27,7 @@ public:
       produce_blocks( 2 );
 
       set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
-      set_abi( "eosio.token"_n, test_contracts::eosio_token_abi().data() );
+      set_abi( "eosio.token"_n, test_contracts::eosio_token_abi() );
 
       produce_blocks();
 
