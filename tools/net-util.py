@@ -250,7 +250,9 @@ class netUtil:
             listWalker.columns = listWalkers
 
         columnedList = Columns([(0, self.peerListPiles[0]), # hidden connection ID column
-                                ('weight', 2, self.peerListPiles[1])]+self.peerListPiles[2:],
+                                ('weight', 1, self.peerListPiles[1]),
+                                ('weight', 0.5, self.peerListPiles[2]),
+                                ('weight', 2, self.peerListPiles[3])]+self.peerListPiles[4:],
                                dividechars=1, focus_column=0)
         self.peerLineBox = urwid.LineBox(columnedList, 'Peers:', 'left')
 
