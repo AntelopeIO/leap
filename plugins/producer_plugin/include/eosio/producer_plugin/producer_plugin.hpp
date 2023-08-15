@@ -153,6 +153,8 @@ public:
       std::size_t scheduled_trxs_total               = 0;
       std::size_t trxs_produced_total                = 0;
       uint64_t    cpu_usage_us                       = 0;
+      int64_t     total_elapsed_time_us              = 0;
+      int64_t     total_time_us                      = 0;
       uint64_t    net_usage_us                       = 0;
 
       uint32_t last_irreversible = 0;
@@ -160,9 +162,12 @@ public:
    };
 
    struct incoming_block_metrics {
-      std::size_t trxs_incoming_total = 0;
-      uint64_t    cpu_usage_us        = 0;
-      uint64_t    net_usage_us        = 0;
+      std::size_t trxs_incoming_total   = 0;
+      uint64_t    cpu_usage_us          = 0;
+      int64_t     total_elapsed_time_us = 0;
+      int64_t     total_time_us         = 0;
+      uint64_t    net_usage_us          = 0;
+      int64_t     block_latency_us      = 0;
 
       uint32_t last_irreversible = 0;
       uint32_t head_block_num    = 0;

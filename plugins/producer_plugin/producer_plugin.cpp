@@ -782,11 +782,14 @@ public:
          }
       }
       if (_update_incoming_block_metrics) {
-         _update_incoming_block_metrics({.trxs_incoming_total = block->transactions.size(),
-                                         .cpu_usage_us        = br.total_cpu_usage_us,
-                                         .net_usage_us        = br.total_net_usage,
-                                         .last_irreversible   = chain.last_irreversible_block_num(),
-                                         .head_block_num      = chain.head_block_num()});
+         _update_incoming_block_metrics({.trxs_incoming_total   = block->transactions.size(),
+                                         .cpu_usage_us          = br.total_cpu_usage_us,
+                                         .total_elapsed_time_us = br.total_elapsed_time.count(),
+                                         .total_time_us         = br.total_time.count(),
+                                         .net_usage_us          = br.total_net_usage,
+                                         .block_latency_us      = (now - block->timestamp).count(),
+                                         .last_irreversible     = chain.last_irreversible_block_num(),
+                                         .head_block_num        = blk_num});
       }
 
       return true;
@@ -2803,11 +2806,13 @@ void producer_plugin_impl::produce_block() {
           .blacklisted_transactions_total     = _blacklisted_transactions.size(),
           .subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size(),
           .scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size(),
-          .trxs_produced_total  = new_bs->block->transactions.size(),
-          .cpu_usage_us         = br.total_cpu_usage_us,
-          .net_usage_us         = br.total_net_usage,
-          .last_irreversible    = chain.last_irreversible_block_num(),
-          .head_block_num       = chain.head_block_num()});
+          .trxs_produced_total   = new_bs->block->transactions.size(),
+          .cpu_usage_us          = br.total_cpu_usage_us,
+          .total_elapsed_time_us = br.total_elapsed_time.count(),
+          .total_time_us         = br.total_time.count(),
+          .net_usage_us          = br.total_net_usage,
+          .last_irreversible     = chain.last_irreversible_block_num(),
+          .head_block_num        = new_bs->block_num});
    }
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "

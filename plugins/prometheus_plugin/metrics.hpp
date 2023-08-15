@@ -55,13 +55,18 @@ struct catalog_type {
    Counter& scheduled_trxs_total;
    Counter& trxs_produced_total;
    Counter& cpu_usage_us_produced_block;
+   Counter& total_elapsed_time_us_produced_block;
+   Counter& total_time_us_produced_block;
    Counter& net_usage_us_produced_block;
    Counter& blocks_produced;
 
    // incoming blocks
    Counter& trxs_incoming_total;
    Counter& cpu_usage_us_incoming_block;
+   Counter& total_elapsed_time_us_incoming_block;
+   Counter& total_time_us_incoming_block;
    Counter& net_usage_us_incoming_block;
+   Counter& latency_us_incoming_block;
    Counter& blocks_incoming;
 
    // prometheus exporter
@@ -91,11 +96,16 @@ struct catalog_type {
              build<Counter>("scheduled_trxs_total", "total number of scheduled transactions from produced blocks"))
        , trxs_produced_total(build<Counter>("trxs_produced_total", "number of transactions produced"))
        , cpu_usage_us_produced_block(cpu_usage_us.Add({{"block_type", "produced"}}))
+       , total_elapsed_time_us_produced_block(build<Counter>("nodeos_produced_elapsed_us_total", "total produced blocks elapsed time"))
+       , total_time_us_produced_block(build<Counter>("nodeos_produced_us_total", "total produced blocks total time"))
        , net_usage_us_produced_block(net_usage_us.Add({{"block_type", "produced"}}))
        , blocks_produced(build<Counter>("blocks_produced", "number of blocks produced"))
        , trxs_incoming_total(build<Counter>("trxs_incoming_total", "number of incoming transactions"))
        , cpu_usage_us_incoming_block(cpu_usage_us.Add({{"block_type", "incoming"}}))
+       , total_elapsed_time_us_incoming_block(build<Counter>("nodeos_incoming_elapsed_us_total", "total incoming blocks elapsed time"))
+       , total_time_us_incoming_block(build<Counter>("nodeos_incoming_us_total", "total incoming blocks total time"))
        , net_usage_us_incoming_block(net_usage_us.Add({{"block_type", "incoming"}}))
+       , latency_us_incoming_block(build<Counter>("nodeos_incoming_us_block_latency", "total incoming block latency"))
        , blocks_incoming(build<Counter>("blocks_incoming", "number of incoming blocks"))
        , bytes_transferred(build<Counter>("exposer_transferred_bytes_total",
                                           "total number of bytes for responses to prometheus scape requests"))
@@ -126,6 +136,8 @@ struct catalog_type {
       trxs_produced_total.Increment(metrics.trxs_produced_total);
       blocks_produced.Increment(1);
       cpu_usage_us_produced_block.Increment(metrics.cpu_usage_us);
+      total_elapsed_time_us_produced_block.Increment(metrics.total_elapsed_time_us);
+      total_time_us_produced_block.Increment(metrics.total_time_us);
       net_usage_us_produced_block.Increment(metrics.net_usage_us);
 
       last_irreversible.Set(metrics.last_irreversible);
@@ -136,7 +148,10 @@ struct catalog_type {
       trxs_incoming_total.Increment(metrics.trxs_incoming_total);
       blocks_incoming.Increment(1);
       cpu_usage_us_incoming_block.Increment(metrics.cpu_usage_us);
+      total_elapsed_time_us_incoming_block.Increment(metrics.total_elapsed_time_us);
+      total_time_us_incoming_block.Increment(metrics.total_time_us);
       net_usage_us_incoming_block.Increment(metrics.net_usage_us);
+      latency_us_incoming_block.Increment(metrics.block_latency_us);
 
       last_irreversible.Set(metrics.last_irreversible);
       head_block_num.Set(metrics.head_block_num);
