@@ -240,11 +240,12 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instan
       apply_options options = { .max_pages = 65536,
                                 .max_call_depth = 0 };
       std::unique_ptr<backend_t> bkend = nullptr;
-      if constexpr (std::is_same_v<Impl, eosio::vm::jit>) {
+#ifdef EOSIO_EOS_VM_JIT_RUNTIME_ENABLED
+      if constexpr (std::is_same_v<Impl, eosio::vm::jit>)
          bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, true); // true -- JIT uses single parsing
-      } else {
+      else
+#endif
          bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, false); // false -- Interpreter uses 2-passes parsing
-      }
       eos_vm_host_functions_t::resolve(bkend->get_module());
       return std::make_unique<eos_vm_instantiated_module<Impl>>(this, std::move(bkend));
    } catch(eosio::vm::exception& e) {
