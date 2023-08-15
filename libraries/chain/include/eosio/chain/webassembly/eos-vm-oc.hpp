@@ -41,7 +41,7 @@ class eosvmoc_runtime : public eosio::chain::wasm_runtime_interface {
 
       // Defined in eos-vm-oc.cpp. Used for non-main thread in multi-threaded execution
       thread_local static std::unique_ptr<eosvmoc::executor> exec_thread_local;
-      thread_local static eosvmoc::memory mem_thread_local;
+      thread_local static std::unique_ptr<eosvmoc::memory> mem_thread_local;
 };
 
 /**
