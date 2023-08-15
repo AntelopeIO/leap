@@ -28,7 +28,7 @@ struct eosvmoc_tier {
 };
 
 thread_local std::unique_ptr<eosvmoc::executor> eosvmoc_tier::exec{};
-thread_local eosvmoc::memory eosvmoc_tier::mem{wasm_constraints::maximum_linear_memory / wasm_constraints::wasm_page_size};
+thread_local eosvmoc::memory eosvmoc_tier::mem{eosvmoc::memory::sliced_pages_for_ro_thread};
 #endif
 
 wasm_interface_collection::wasm_interface_collection(wasm_interface::vm_type vm, wasm_interface::vm_oc_enable eosvmoc_tierup,
