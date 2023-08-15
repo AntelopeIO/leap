@@ -177,7 +177,7 @@ class netUtil:
         self.fields.update({k:v for k, v in zip(self.rightFieldLabels[1:], [labelToAttrName(e) for e in self.rightFieldLabels[1:]])})
         self.fields.update({k:v for k, v in zip(self.infoFieldLabels, [labelToAttrName(e) for e in self.infoFieldLabels])})
         
-        parser = argparse.ArgumentParser(description='Terminal UI for monitoring and managing nodeos P2P connections',
+        parser = argparse.ArgumentParser(description='Terminal UI for monitoring nodeos P2P connections',
                                          formatter_class=argparse.ArgumentDefaultsHelpFormatter)
         parser.add_argument('--host', help='hostname or IP address to connect to', default='127.0.0.1')
         parser.add_argument('-p', '--port', help='port number to connect to', default='8888')
