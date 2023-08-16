@@ -121,35 +121,35 @@ struct catalog_type {
        , total_elapsed_time_us_produced_block(build<Counter>("nodeos_produced_elapsed_us_total", "total produced blocks elapsed time"))
        , total_time_us_produced_block(build<Counter>("nodeos_produced_us_total", "total produced blocks total time"))
        , net_usage_us_produced_block(net_usage_us.Add({{"block_type", "produced"}}))
-       , produced_metrics{ .num_blocks{build<Counter>("blocks_produced", "number of blocks produced")}
-                         , .block_num{build<Gauge>("block_num", "current block number")}
-                         , .block_total_time_us_block{build<Counter>("total_time_us_produced_block", "total time for produced block")}
-                         , .block_idle_time_us_block{build<Counter>("idle_time_us_produced_block", "idle time for produced block")}
-                         , .block_num_success_trx_block{build<Counter>("num_success_trx_produced_block", "number of successful transactions in produced block")}
-                         , .block_success_trx_time_us_block{build<Counter>("success_trx_time_us_produced_block", "time for successful transactions in produced block")}
-                         , .block_num_failed_trx_block{build<Counter>("num_failed_trx_produced_block", "number of failed transactions during produced block")}
-                         , .block_fail_trx_time_us_block{build<Counter>("fail_trx_time_us_produced_block", "time for failed transactions during produced block")}
-                         , .block_num_transient_trx_block{build<Counter>("num_transient_trx_produced_block", "number of transient transactions during produced block")}
-                         , .block_transient_trx_time_us_block{build<Counter>("transient_trx_time_us_produced_block", "time for transient transactions during produced block")}
-                         , .block_other_time_us_block{build<Counter>("other_time_us_produced_block", "all other unaccounted time during produced block")} }
-       , speculative_metrics{ .num_blocks{build<Counter>("blocks_speculative_num", "number of speculative blocks created")}
-                            , .block_num{build<Gauge>("block_num", "current block number")}
-                            , .block_total_time_us_block{build<Counter>("total_time_us_speculative_block", "total time for speculative block")}
-                            , .block_idle_time_us_block{build<Counter>("idle_time_us_speculative_block", "idle time for speculative block")}
-                            , .block_num_success_trx_block{build<Counter>("num_success_trx_speculative_block", "number of successful transactions in speculative block")}
-                            , .block_success_trx_time_us_block{build<Counter>("success_trx_time_us_speculative_block", "time for successful transactions in speculative block")}
-                            , .block_num_failed_trx_block{build<Counter>("num_failed_trx_speculative_block", "number of failed transactions during speculative block")}
-                            , .block_fail_trx_time_us_block{build<Counter>("fail_trx_time_us_speculative_block", "time for failed transactions during speculative block")}
-                            , .block_num_transient_trx_block{build<Counter>("num_transient_trx_speculative_block", "number of transient transactions during speculative block")}
-                            , .block_transient_trx_time_us_block{build<Counter>("transient_trx_time_us_speculative_block", "time for transient transactions during speculative block")}
-                            , .block_other_time_us_block{build<Counter>("other_time_us_speculative_block", "all other unaccounted time during speculative block")} }
-       , trxs_incoming_total(build<Counter>("trxs_incoming_total", "number of incoming transactions"))
+       , produced_metrics{ .num_blocks{build<Counter>("nodeos_blocks_produced", "number of blocks produced")}
+                         , .block_num{build<Gauge>("nodeos_block_num", "current block number")}
+                         , .block_total_time_us_block{build<Counter>("nodeos_total_time_us_produced_block", "total time for produced block")}
+                         , .block_idle_time_us_block{build<Counter>("nodeos_idle_time_us_produced_block", "idle time for produced block")}
+                         , .block_num_success_trx_block{build<Counter>("nodeos_num_success_trx_produced_block", "number of successful transactions in produced block")}
+                         , .block_success_trx_time_us_block{build<Counter>("nodeos_success_trx_time_us_produced_block", "time for successful transactions in produced block")}
+                         , .block_num_failed_trx_block{build<Counter>("nodeos_num_failed_trx_produced_block", "number of failed transactions during produced block")}
+                         , .block_fail_trx_time_us_block{build<Counter>("nodeos_fail_trx_time_us_produced_block", "time for failed transactions during produced block")}
+                         , .block_num_transient_trx_block{build<Counter>("nodeos_num_transient_trx_produced_block", "number of transient transactions during produced block")}
+                         , .block_transient_trx_time_us_block{build<Counter>("nodeos_transient_trx_time_us_produced_block", "time for transient transactions during produced block")}
+                         , .block_other_time_us_block{build<Counter>("nodeos_other_time_us_produced_block", "all other unaccounted time during produced block")} }
+       , speculative_metrics{ .num_blocks{build<Counter>("nodeos_blocks_speculative_num", "number of speculative blocks created")}
+                            , .block_num{build<Gauge>("nodeos_block_num", "current block number")}
+                            , .block_total_time_us_block{build<Counter>("nodeos_total_time_us_speculative_block", "total time for speculative block")}
+                            , .block_idle_time_us_block{build<Counter>("nodeos_idle_time_us_speculative_block", "idle time for speculative block")}
+                            , .block_num_success_trx_block{build<Counter>("nodeos_num_success_trx_speculative_block", "number of successful transactions in speculative block")}
+                            , .block_success_trx_time_us_block{build<Counter>("nodeos_success_trx_time_us_speculative_block", "time for successful transactions in speculative block")}
+                            , .block_num_failed_trx_block{build<Counter>("nodeos_num_failed_trx_speculative_block", "number of failed transactions during speculative block")}
+                            , .block_fail_trx_time_us_block{build<Counter>("nodeos_fail_trx_time_us_speculative_block", "time for failed transactions during speculative block")}
+                            , .block_num_transient_trx_block{build<Counter>("nodeos_num_transient_trx_speculative_block", "number of transient transactions during speculative block")}
+                            , .block_transient_trx_time_us_block{build<Counter>("nodeos_transient_trx_time_us_speculative_block", "time for transient transactions during speculative block")}
+                            , .block_other_time_us_block{build<Counter>("nodeos_other_time_us_speculative_block", "all other unaccounted time during speculative block")} }
+       , trxs_incoming_total(build<Counter>("nodeos_trxs_incoming_total", "number of incoming transactions"))
        , cpu_usage_us_incoming_block(cpu_usage_us.Add({{"block_type", "incoming"}}))
        , total_elapsed_time_us_incoming_block(build<Counter>("nodeos_incoming_elapsed_us_total", "total incoming blocks elapsed time"))
        , total_time_us_incoming_block(build<Counter>("nodeos_incoming_us_total", "total incoming blocks total time"))
        , net_usage_us_incoming_block(net_usage_us.Add({{"block_type", "incoming"}}))
        , latency_us_incoming_block(build<Counter>("nodeos_incoming_us_block_latency", "total incoming block latency"))
-       , blocks_incoming(build<Counter>("blocks_incoming", "number of incoming blocks"))
+       , blocks_incoming(build<Counter>("nodeos_blocks_incoming", "number of incoming blocks"))
        , bytes_transferred(build<Counter>("exposer_transferred_bytes_total",
                                           "total number of bytes for responses to prometheus scrape requests"))
        , num_scrapes(build<Counter>("exposer_scrapes_total", "total number of prometheus scrape requests received")) {}
