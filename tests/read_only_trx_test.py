@@ -4,6 +4,7 @@ import random
 import time
 import signal
 import threading
+import os
 
 from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
@@ -131,6 +132,29 @@ def startCluster():
     Utils.Print(f"search: executing {eosioCodeHash} with eos vm oc")
     found = producerNode.findInLog(f"executing {eosioCodeHash} with eos vm oc")
     assert( found or (noOC and not found) )
+
+    if args.eos_vm_oc_enable:
+        verifyOcVirtualMemory()
+
+def verifyOcVirtualMemory():
+    try:
+        with open(f"/proc/{apiNode.pid}/statm") as f:
+            data = f.read().split()
+            vmPages = int(data[0])
+            pageSize = os.sysconf("SC_PAGESIZE")
+            actualVmSize = vmPages * pageSize
+
+            # When OC tierup is enabled, virtual memory used by IC is around
+            # 529 slices * 8GB (for main thread) + numReadOnlyThreads * 11 slices * 8GB
+            # This test verifies virtual memory taken by one read-only thread
+            # is not in the order of 1TB.
+            otherGB = 1000 # add 1TB for virtual memory used by others
+            expectedVmSize = ((529 * 8) + (args.read_only_threads * 88) + otherGB) * 1024 * 1024 * 1024
+            Utils.Print(f"pid: {apiNode.pid}, actualVmSize: {actualVmSize}, expectedVmSize: {expectedVmSize}")
+            assert(actualVmSize < expectedVmSize)
+    except FileNotFoundError:
+        Utils.Print(f"/proc/{apiNode.pid}/statm not found")
+        assert(False)
 
 def deployTestContracts():
     Utils.Print("create test accounts")
