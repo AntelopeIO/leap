@@ -42,6 +42,8 @@
 
 using namespace eosio::chain::plugin_interface;
 
+using namespace std::chrono_literals;
+
 namespace boost
 {
    /// @brief Overload for boost::lexical_cast to convert vector of strings to string
@@ -790,6 +792,15 @@ namespace eosio {
       bool is_blocks_only_connection()const { return connection_type == blocks_only; }
       bool is_transactions_connection() const { return connection_type != blocks_only; } // thread safe, atomic
       bool is_blocks_connection() const { return connection_type != transactions_only; } // thread safe, atomic
+      uint32_t get_peer_start_block_num() const { return peer_start_block_num.load(); }
+      uint32_t get_peer_head_block_num() const { return peer_head_block_num.load(); }
+      uint32_t get_last_received_block_num() const { return last_received_block_num.load(); }
+      uint32_t get_unique_blocks_rcvd_count() const { return unique_blocks_rcvd_count.load(); }
+      size_t get_bytes_received() const { return bytes_received.load(); }
+      std::chrono::nanoseconds get_last_bytes_received() const { return last_bytes_received.load(); }
+      size_t get_bytes_sent() const { return bytes_sent.load(); }
+      std::chrono::nanoseconds get_last_bytes_sent() const { return last_bytes_sent.load(); }
+      boost::asio::ip::port_type get_remote_endpoint_port() const { return remote_endpoint_port.load(); }
       void set_heartbeat_timeout(std::chrono::milliseconds msec) {
          hb_timeout = msec;
       }
@@ -819,6 +830,13 @@ namespace eosio {
       std::atomic<connection_types>   connection_type{both};
       std::atomic<uint32_t>           peer_start_block_num{0};
       std::atomic<uint32_t>           peer_head_block_num{0};
+      std::atomic<uint32_t>           last_received_block_num{0};
+      std::atomic<uint32_t>           unique_blocks_rcvd_count{0};
+      std::atomic<size_t>             bytes_received{0};
+      std::atomic<std::chrono::nanoseconds>   last_bytes_received{0ns};
+      std::atomic<size_t>             bytes_sent{0};
+      std::atomic<std::chrono::nanoseconds>   last_bytes_sent{0ns};
+      std::atomic<boost::asio::ip::port_type> remote_endpoint_port{0};
 
    public:
       boost::asio::io_context::strand           strand;
@@ -875,6 +893,9 @@ namespace eosio {
       uint32_t                         fork_head_num       GUARDED_BY(conn_mtx) {0};
       fc::time_point                   last_close          GUARDED_BY(conn_mtx);
       string                           remote_endpoint_ip  GUARDED_BY(conn_mtx);
+      boost::asio::ip::address_v6::bytes_type remote_endpoint_ip_array GUARDED_BY(conn_mtx);
+
+      std::chrono::nanoseconds         connection_start_time{0};
 
       connection_status get_status()const;
 
@@ -941,10 +962,12 @@ namespace eosio {
       void send_time(const time_message& msg);
       /** \brief Read system time and convert to a 64 bit integer.
        *
-       * There are only two calls on this routine in the program.  One
-       * when a packet arrives from the network and the other when a
-       * packet is placed on the send queue.  Calls the kernel time of
-       * day routine and converts to a (at least) 64 bit integer.
+       * There are five calls to this routine in the program.  One
+       * when a packet arrives from the network, one when a packet
+       * is placed on the send queue, one during start session, and
+       * one each when data is counted as received or sent.
+       * Calls the kernel time of day routine and converts to 
+       * a (at least) 64 bit integer.
        */
       static std::chrono::nanoseconds get_time() {
          return std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::system_clock::now().time_since_epoch());
@@ -1158,6 +1181,7 @@ namespace eosio {
         last_handshake_sent()
    {
       my_impl->mark_bp_connection(this);
+      update_endpoints();
       fc_ilog( logger, "created connection ${c} to ${n}", ("c", connection_id)("n", endpoint) );
    }
 
@@ -1181,12 +1205,25 @@ namespace eosio {
       boost::system::error_code ec2;
       auto rep = socket->remote_endpoint(ec);
       auto lep = socket->local_endpoint(ec2);
+      remote_endpoint_port = ec ? 0 : rep.port();
       log_remote_endpoint_ip = ec ? unknown : rep.address().to_string();
       log_remote_endpoint_port = ec ? unknown : std::to_string(rep.port());
       local_endpoint_ip = ec2 ? unknown : lep.address().to_string();
       local_endpoint_port = ec2 ? unknown : std::to_string(lep.port());
       fc::lock_guard g_conn( conn_mtx );
       remote_endpoint_ip = log_remote_endpoint_ip;
+      if(!ec) {
+         if(rep.address().is_v4()) {
+            remote_endpoint_ip_array = make_address_v6(boost::asio::ip::v4_mapped, rep.address().to_v4()).to_bytes();
+         }
+         else {
+            remote_endpoint_ip_array = rep.address().to_v6().to_bytes();
+         }
+      }
+      else {
+         fc_dlog( logger, "unable to retrieve remote endpoint for local ${address}:${port}", ("address", local_endpoint_ip)("port", local_endpoint_port));
+         remote_endpoint_ip_array = boost::asio::ip::address_v6().to_bytes();
+      }
    }
 
    // called from connection strand
@@ -1233,19 +1270,19 @@ namespace eosio {
 
    connection_status connection::get_status()const {
       connection_status stat;
-      stat.peer = peer_addr;
-      stat.remote_ip = log_remote_endpoint_ip;
-      stat.remote_port = log_remote_endpoint_port;
       stat.connecting = state() == connection_state::connecting;
       stat.syncing = peer_syncing_from_us;
       stat.is_bp_peer = is_bp_connection;
       stat.is_socket_open = socket_is_open();
       fc::lock_guard g( conn_mtx );
+      stat.peer = peer_addr;
+      stat.remote_ip = log_remote_endpoint_ip;
+      stat.remote_port = log_remote_endpoint_port;
       stat.last_handshake = last_handshake_recv;
       return stat;
    }
 
-   // called from connection stand
+   // called from connection strand
    bool connection::start_session() {
       verify_strand_in_this_thread( strand, __func__, __LINE__ );
 
@@ -1259,6 +1296,7 @@ namespace eosio {
       } else {
          peer_dlog( this, "connected" );
          socket_open = true;
+         connection_start_time = get_time();
          start_read_message();
          return true;
       }
@@ -1562,6 +1600,8 @@ namespace eosio {
                   c->close();
                   return;
                }
+               c->bytes_sent += w;
+               c->last_bytes_sent = c->get_time();
 
                c->buffer_queue.out_callback( ec, w );
 
@@ -2637,7 +2677,6 @@ namespace eosio {
 
          auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
          connection_wptr weak_conn = c;
-         // Note: need to add support for IPv6 too
          resolver->async_resolve(host, port, boost::asio::bind_executor( c->strand,
             [resolver, weak_conn, host = host, port = port]( const boost::system::error_code& err, const tcp::resolver::results_type& endpoints ) {
                auto c = weak_conn.lock();
@@ -2664,6 +2703,7 @@ namespace eosio {
          boost::asio::bind_executor( strand,
                [resolver, c = shared_from_this(), socket=socket]( const boost::system::error_code& err, const tcp::endpoint& endpoint ) {
             if( !err && socket->is_open() && socket == c->socket ) {
+               c->update_endpoints();
                if( c->start_session() ) {
                   c->send_handshake();
                   c->send_time();
@@ -2867,6 +2907,8 @@ namespace eosio {
 
    // called from connection strand
    bool connection::process_next_message( uint32_t message_length ) {
+      bytes_received += message_length;
+      last_bytes_received = get_time();
       try {
          latest_msg_time = std::chrono::system_clock::now();
 
@@ -2906,7 +2948,7 @@ namespace eosio {
       fc::raw::unpack( peek_ds, bh );
 
       const block_id_type blk_id = bh.calculate_id();
-      const uint32_t blk_num = block_header::num_from_id(blk_id);
+      const uint32_t blk_num = last_received_block_num = block_header::num_from_id(blk_id);
       // don't add_peer_block because we have not validated this block header yet
       if( my_impl->dispatcher->have_block( blk_id ) ) {
          peer_dlog( this, "canceling wait, already received block ${num}, id ${id}...",
@@ -3639,6 +3681,7 @@ namespace eosio {
       }
 
       if( accepted ) {
+         ++unique_blocks_rcvd_count;
          boost::asio::post( my_impl->thread_pool.get_executor(), [dispatcher = my_impl->dispatcher.get(), c, blk_id, blk_num]() {
             fc_dlog( logger, "accepted signed_block : #${n} ${id}...", ("n", blk_num)("id", blk_id.str().substr(8,16)) );
             dispatcher->add_peer_block( blk_id, c->connection_id );
@@ -4400,6 +4443,7 @@ namespace eosio {
       auto it = (from ? connections.find(from) : connections.begin());
       if (it == connections.end()) it = connections.begin();
       size_t num_rm = 0, num_clients = 0, num_peers = 0, num_bp_peers = 0;
+      net_plugin::p2p_per_connection_metrics per_connection(connections.size());
       while (it != connections.end()) {
          if (fc::time_point::now() >= max_time) {
             connection_wptr wit = *it;
@@ -4416,6 +4460,29 @@ namespace eosio {
             ++num_clients;
          } else {
             ++num_peers;
+         }
+         if (update_p2p_connection_metrics) {
+            fc::unique_lock g_conn((*it)->conn_mtx);
+            boost::asio::ip::address_v6::bytes_type addr = (*it)->remote_endpoint_ip_array;
+            g_conn.unlock();
+            net_plugin::p2p_per_connection_metrics::connection_metric metrics{
+                 .connection_id = (*it)->connection_id
+               , .address = addr
+               , .port = (*it)->get_remote_endpoint_port()
+               , .accepting_blocks = (*it)->is_blocks_connection()
+               , .last_received_block = (*it)->get_last_received_block_num()
+               , .first_available_block = (*it)->get_peer_start_block_num()
+               , .last_available_block = (*it)->get_peer_head_block_num()
+               , .unique_first_block_count = (*it)->get_unique_blocks_rcvd_count()
+               , .latency = (*it)->get_peer_ping_time_ns()
+               , .bytes_received = (*it)->get_bytes_received()
+               , .last_bytes_received = (*it)->get_last_bytes_received()
+               , .bytes_sent = (*it)->get_bytes_sent()
+               , .last_bytes_sent = (*it)->get_last_bytes_sent()
+               , .connection_start_time = (*it)->connection_start_time
+               , .log_p2p_address = (*it)->log_p2p_address
+            };
+            per_connection.peers.push_back(metrics);
          }
 
          if (!(*it)->socket_is_open() && (*it)->state() != connection::connection_state::connecting) {
@@ -4438,7 +4505,7 @@ namespace eosio {
       g.unlock();
 
       if (update_p2p_connection_metrics) {
-         update_p2p_connection_metrics({.num_peers = num_peers, .num_clients = num_clients});
+         update_p2p_connection_metrics({num_peers, num_clients, std::move(per_connection)});
       }
 
       if( num_clients > 0 || num_peers > 0 ) {
