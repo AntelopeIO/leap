@@ -48,6 +48,20 @@ struct catalog_type {
    Gauge& last_irreversible;
    Gauge& head_block_num;
 
+   struct block_metrics {
+      Counter& num_blocks;
+      Gauge&   block_num;
+      Counter& block_total_time_us_block;
+      Counter& block_idle_time_us_block;
+      Counter& block_num_success_trx_block;
+      Counter& block_success_trx_time_us_block;
+      Counter& block_num_failed_trx_block;
+      Counter& block_fail_trx_time_us_block;
+      Counter& block_num_transient_trx_block;
+      Counter& block_transient_trx_time_us_block;
+      Counter& block_other_time_us_block;
+   };
+
    // produced blocks
    Counter& unapplied_transactions_total;
    Counter& blacklisted_transactions_total;
@@ -58,29 +72,10 @@ struct catalog_type {
    Counter& total_elapsed_time_us_produced_block;
    Counter& total_time_us_produced_block;
    Counter& net_usage_us_produced_block;
-   Counter& blocks_produced;
-   Counter& block_total_time_us_produced_block;
-   Counter& block_idle_time_us_produced_block;
-   Counter& block_num_success_trx_produced_block;
-   Counter& block_success_trx_time_us_produced_block;
-   Counter& block_num_failed_trx_produced_block;
-   Counter& block_fail_trx_time_us_produced_block;
-   Counter& block_num_transient_trx_produced_block;
-   Counter& block_transient_trx_time_us_produced_block;
-   Counter& block_other_time_us_produced_block;
+   block_metrics produced_metrics;
 
    // speculative blocks
-   Gauge&   block_num;
-   Counter& blocks_speculative_num;
-   Counter& block_total_time_us_speculative_block;
-   Counter& block_idle_time_us_speculative_block;
-   Counter& block_num_success_trx_speculative_block;
-   Counter& block_success_trx_time_us_speculative_block;
-   Counter& block_num_failed_trx_speculative_block;
-   Counter& block_fail_trx_time_us_speculative_block;
-   Counter& block_num_transient_trx_speculative_block;
-   Counter& block_transient_trx_time_us_speculative_block;
-   Counter& block_other_time_us_speculative_block;
+   block_metrics speculative_metrics;
 
    // incoming blocks
    Counter& trxs_incoming_total;
@@ -121,27 +116,28 @@ struct catalog_type {
        , total_elapsed_time_us_produced_block(build<Counter>("nodeos_produced_elapsed_us_total", "total produced blocks elapsed time"))
        , total_time_us_produced_block(build<Counter>("nodeos_produced_us_total", "total produced blocks total time"))
        , net_usage_us_produced_block(net_usage_us.Add({{"block_type", "produced"}}))
-       , blocks_produced(build<Counter>("blocks_produced", "number of blocks produced"))
-       , block_total_time_us_produced_block(build<Counter>("total_time_us_produced_block", "total time for produced block"))
-       , block_idle_time_us_produced_block(build<Counter>("idle_time_us_produced_block", "idle time for produced block"))
-       , block_num_success_trx_produced_block(build<Counter>("num_success_trx_produced_block", "number of successful transactions in produced block"))
-       , block_success_trx_time_us_produced_block(build<Counter>("success_trx_time_us_produced_block", "time for successful transactions in produced block"))
-       , block_num_failed_trx_produced_block(build<Counter>("num_failed_trx_produced_block", "number of failed transactions during produced block"))
-       , block_fail_trx_time_us_produced_block(build<Counter>("fail_trx_time_us_produced_block", "time for failed transactions during produced block"))
-       , block_num_transient_trx_produced_block(build<Counter>("num_transient_trx_produced_block", "number of transient transactions during produced block"))
-       , block_transient_trx_time_us_produced_block(build<Counter>("transient_trx_time_us_produced_block", "time for transient transactions during produced block"))
-       , block_other_time_us_produced_block(build<Counter>("other_time_us_produced_block", "all other unaccounted time during produced block"))
-       , block_num(build<Gauge>("block_num", "current block number"))
-       , blocks_speculative_num(build<Counter>("blocks_speculative_num", "number of speculative blocks created"))
-       , block_total_time_us_speculative_block(build<Counter>("total_time_us_speculative_block", "total time for speculative block"))
-       , block_idle_time_us_speculative_block(build<Counter>("idle_time_us_speculative_block", "idle time for speculative block"))
-       , block_num_success_trx_speculative_block(build<Counter>("num_success_trx_speculative_block", "number of successful transactions in speculative block"))
-       , block_success_trx_time_us_speculative_block(build<Counter>("success_trx_time_us_speculative_block", "time for successful transactions in speculative block"))
-       , block_num_failed_trx_speculative_block(build<Counter>("num_failed_trx_speculative_block", "number of failed transactions during speculative block"))
-       , block_fail_trx_time_us_speculative_block(build<Counter>("fail_trx_time_us_speculative_block", "time for failed transactions during speculative block"))
-       , block_num_transient_trx_speculative_block(build<Counter>("num_transient_trx_speculative_block", "number of transient transactions during speculative block"))
-       , block_transient_trx_time_us_speculative_block(build<Counter>("transient_trx_time_us_speculative_block", "time for transient transactions during speculative block"))
-       , block_other_time_us_speculative_block(build<Counter>("other_time_us_speculative_block", "all other unaccounted time during speculative block"))
+       , produced_metrics{ .num_blocks{build<Counter>("blocks_produced", "number of blocks produced")}
+                         , .block_num{build<Gauge>("block_num", "current block number")}
+                         , .block_total_time_us_block{build<Counter>("total_time_us_produced_block", "total time for produced block")}
+                         , .block_idle_time_us_block{build<Counter>("idle_time_us_produced_block", "idle time for produced block")}
+                         , .block_num_success_trx_block{build<Counter>("num_success_trx_produced_block", "number of successful transactions in produced block")}
+                         , .block_success_trx_time_us_block{build<Counter>("success_trx_time_us_produced_block", "time for successful transactions in produced block")}
+                         , .block_num_failed_trx_block{build<Counter>("num_failed_trx_produced_block", "number of failed transactions during produced block")}
+                         , .block_fail_trx_time_us_block{build<Counter>("fail_trx_time_us_produced_block", "time for failed transactions during produced block")}
+                         , .block_num_transient_trx_block{build<Counter>("num_transient_trx_produced_block", "number of transient transactions during produced block")}
+                         , .block_transient_trx_time_us_block{build<Counter>("transient_trx_time_us_produced_block", "time for transient transactions during produced block")}
+                         , .block_other_time_us_block{build<Counter>("other_time_us_produced_block", "all other unaccounted time during produced block")} }
+       , speculative_metrics{ .num_blocks{build<Counter>("blocks_speculative_num", "number of speculative blocks created")}
+                            , .block_num{build<Gauge>("block_num", "current block number")}
+                            , .block_total_time_us_block{build<Counter>("total_time_us_speculative_block", "total time for speculative block")}
+                            , .block_idle_time_us_block{build<Counter>("idle_time_us_speculative_block", "idle time for speculative block")}
+                            , .block_num_success_trx_block{build<Counter>("num_success_trx_speculative_block", "number of successful transactions in speculative block")}
+                            , .block_success_trx_time_us_block{build<Counter>("success_trx_time_us_speculative_block", "time for successful transactions in speculative block")}
+                            , .block_num_failed_trx_block{build<Counter>("num_failed_trx_speculative_block", "number of failed transactions during speculative block")}
+                            , .block_fail_trx_time_us_block{build<Counter>("fail_trx_time_us_speculative_block", "time for failed transactions during speculative block")}
+                            , .block_num_transient_trx_block{build<Counter>("num_transient_trx_speculative_block", "number of transient transactions during speculative block")}
+                            , .block_transient_trx_time_us_block{build<Counter>("transient_trx_time_us_speculative_block", "time for transient transactions during speculative block")}
+                            , .block_other_time_us_block{build<Counter>("other_time_us_speculative_block", "all other unaccounted time during speculative block")} }
        , trxs_incoming_total(build<Counter>("trxs_incoming_total", "number of incoming transactions"))
        , cpu_usage_us_incoming_block(cpu_usage_us.Add({{"block_type", "incoming"}}))
        , total_elapsed_time_us_incoming_block(build<Counter>("nodeos_incoming_elapsed_us_total", "total incoming blocks elapsed time"))
@@ -170,45 +166,39 @@ struct catalog_type {
       num_clients.Set(metrics.num_clients);
    }
 
+   void update(block_metrics& blk_metrics, const producer_plugin::speculative_block_metrics& metrics) {
+      blk_metrics.num_blocks.Increment(1);
+      blk_metrics.block_num.Set(metrics.block_num);
+      blk_metrics.block_total_time_us_block.Increment(metrics.block_total_time_us);
+      blk_metrics.block_idle_time_us_block.Increment(metrics.block_idle_us);
+      blk_metrics.block_num_success_trx_block.Increment(metrics.num_success_trx);
+      blk_metrics.block_success_trx_time_us_block.Increment(metrics.success_trx_time_us);
+      blk_metrics.block_num_failed_trx_block.Increment(metrics.num_fail_trx);
+      blk_metrics.block_fail_trx_time_us_block.Increment(metrics.fail_trx_time_us);
+      blk_metrics.block_num_transient_trx_block.Increment(metrics.num_transient_trx);
+      blk_metrics.block_transient_trx_time_us_block.Increment(metrics.transient_trx_time_us);
+      blk_metrics.block_other_time_us_block.Increment(metrics.block_other_time_us);
+   }
+
    void update(const producer_plugin::produced_block_metrics& metrics) {
       unapplied_transactions_total.Increment(metrics.unapplied_transactions_total);
       blacklisted_transactions_total.Increment(metrics.blacklisted_transactions_total);
       subjective_bill_account_size_total.Increment(metrics.subjective_bill_account_size_total);
       scheduled_trxs_total.Increment(metrics.scheduled_trxs_total);
       trxs_produced_total.Increment(metrics.trxs_produced_total);
-      blocks_produced.Increment(1);
       cpu_usage_us_produced_block.Increment(metrics.cpu_usage_us);
       total_elapsed_time_us_produced_block.Increment(metrics.total_elapsed_time_us);
       total_time_us_produced_block.Increment(metrics.total_time_us);
       net_usage_us_produced_block.Increment(metrics.net_usage_us);
 
-      block_num.Set(metrics.block_num);
-      block_total_time_us_produced_block.Increment(metrics.block_total_time_us);
-      block_idle_time_us_produced_block.Increment(metrics.block_idle_us);
-      block_num_success_trx_produced_block.Increment(metrics.num_success_trx);
-      block_success_trx_time_us_produced_block.Increment(metrics.success_trx_time_us);
-      block_num_failed_trx_produced_block.Increment(metrics.num_fail_trx);
-      block_fail_trx_time_us_produced_block.Increment(metrics.fail_trx_time_us);
-      block_num_transient_trx_produced_block.Increment(metrics.num_transient_trx);
-      block_transient_trx_time_us_produced_block.Increment(metrics.transient_trx_time_us);
-      block_other_time_us_produced_block.Increment(metrics.block_other_time_us);
+      update(produced_metrics, metrics);
 
       last_irreversible.Set(metrics.last_irreversible);
       head_block_num.Set(metrics.head_block_num);
    }
 
    void update(const producer_plugin::speculative_block_metrics& metrics) {
-      block_num.Set(metrics.block_num);
-      blocks_speculative_num.Increment(1);
-      block_total_time_us_speculative_block.Increment(metrics.block_total_time_us);
-      block_idle_time_us_speculative_block.Increment(metrics.block_idle_us);
-      block_num_success_trx_speculative_block.Increment(metrics.num_success_trx);
-      block_success_trx_time_us_speculative_block.Increment(metrics.success_trx_time_us);
-      block_num_failed_trx_speculative_block.Increment(metrics.num_fail_trx);
-      block_fail_trx_time_us_speculative_block.Increment(metrics.fail_trx_time_us);
-      block_num_transient_trx_speculative_block.Increment(metrics.num_transient_trx);
-      block_transient_trx_time_us_speculative_block.Increment(metrics.transient_trx_time_us);
-      block_other_time_us_speculative_block.Increment(metrics.block_other_time_us);
+      update(speculative_metrics, metrics);
    }
 
    void update(const producer_plugin::incoming_block_metrics& metrics) {
