@@ -1,5 +1,6 @@
 add_subdirectory( secp256k1 )
 add_subdirectory( libraries/bn256/src )
+add_subdirectory( libraries/bls12-381 )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
@@ -113,7 +114,7 @@ if(APPLE)
 endif()
 target_link_libraries( fc PUBLIC Boost::date_time Boost::chrono Boost::iostreams Boost::interprocess Boost::multi_index Boost::dll
                                  Boost::multiprecision Boost::beast Boost::asio Boost::thread Boost::unit_test_framework Threads::Threads
-                                 OpenSSL::Crypto ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 ${security_framework} ${corefoundation_framework})
+                                 OpenSSL::Crypto ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 bls12-381 ${security_framework} ${corefoundation_framework})
 
 # Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access
 #  to some obsoleted AES functions in 3.0 too, since 3.0's API_COMPAT is effectively 3.0 by default
@@ -125,3 +126,6 @@ install(TARGETS fc
    LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL
    ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL)
 install(DIRECTORY include/fc DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR} COMPONENT dev EXCLUDE_FROM_ALL)
+
+install(TARGETS bls12-381 ARCHIVE       DESTINATION "${CMAKE_INSTALL_FULL_LIBDIR}"               COMPONENT dev EXCLUDE_FROM_ALL
+                          PUBLIC_HEADER DESTINATION "${CMAKE_INSTALL_FULL_INCLUDEDIR}/bls12-381" COMPONENT dev EXCLUDE_FROM_ALL)
