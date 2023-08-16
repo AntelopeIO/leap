@@ -1451,12 +1451,12 @@ class PluginHttpTest(unittest.TestCase):
         ret_text = self.nodeos.processUrllibRequest(resource, command, returnType = ReturnType.raw, method="GET", endpoint=endpoint).decode()
         # filter out all empty lines or lines starting with '#'
         data_lines = filter(lambda line: len(line) > 0 and line[0]!='#', ret_text.split('\n'))
-        # converting each line into a key value pair and then construct a dictionay out of all the pairs
+        # convert each line into a key value pair and then construct a dictionay out of all the pairs
         metrics = dict(map(lambda line: tuple(line.split(' ')), data_lines))
 
-        self.assertTrue(int(metrics["head_block_num"]) > 1)
-        self.assertTrue(int(metrics["blocks_produced"]) > 1)
-        self.assertTrue(int(metrics["last_irreversible"]) > 1)
+        self.assertTrue(int(metrics["nodeos_head_block_num"]) > 1)
+        self.assertTrue(int(metrics["nodeos_blocks_produced"]) > 1)
+        self.assertTrue(int(metrics["nodeos_last_irreversible"]) > 1)
 
         ret = self.nodeos.processUrllibRequest(resource, "m", returnType = ReturnType.raw, method="GET", silentErrors= True, endpoint=endpoint)
         self.assertTrue(ret == 404)

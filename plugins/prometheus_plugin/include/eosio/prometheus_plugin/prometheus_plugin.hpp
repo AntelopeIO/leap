@@ -2,6 +2,7 @@
 
 #include <eosio/chain/application.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
+#include <eosio/chain_plugin/chain_plugin.hpp>
 
 namespace eosio {
 
@@ -12,7 +13,7 @@ namespace eosio {
       prometheus_plugin();
       ~prometheus_plugin() override;
 
-      APPBASE_PLUGIN_REQUIRES((http_plugin))
+      APPBASE_PLUGIN_REQUIRES((http_plugin)(chain_plugin))
 
       void set_program_options(options_description&, options_description& cfg) override;
 

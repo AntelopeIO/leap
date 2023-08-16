@@ -5,9 +5,10 @@
 #include <eosio/producer_plugin/producer_plugin.hpp>
 
 #include <prometheus/counter.h>
+#include <prometheus/info.h>
 #include <prometheus/registry.h>
 #include <prometheus/text_serializer.h>
-
+#include <fc/log/logger.hpp>
 namespace eosio::metrics {
 
 struct catalog_type {
@@ -26,6 +27,9 @@ struct catalog_type {
    }
 
    prometheus::Registry registry;
+   // nodeos
+   prometheus::Family<prometheus::Info>& info;
+   prometheus::Info info_details;
    // http plugin
    prometheus::Family<Counter>& http_request_counts;
 
@@ -92,26 +96,27 @@ struct catalog_type {
 
 
    catalog_type()
-       : http_request_counts(family<Counter>("http_requests_total", "number of HTTP requests"))
-       , p2p_connections(family<Gauge>("p2p_connections", "current number of connected p2p connections"))
+       : info(family<prometheus::Info>("nodeos", "static information about the server"))
+       , http_request_counts(family<Counter>("nodeos_http_requests_total", "number of HTTP requests"))
+       , p2p_connections(family<Gauge>("nodeos_p2p_connections", "current number of connected p2p connections"))
        , num_peers(p2p_connections.Add({{"direction", "out"}}))
        , num_clients(p2p_connections.Add({{"direction", "in"}}))
        , failed_p2p_connections(
-             build<Counter>("failed_p2p_connections", "total number of failed out-going p2p connections"))
-       , dropped_trxs_total(build<Counter>("dropped_trxs_total", "total number of dropped transactions by net plugin"))
-       , cpu_usage_us(family<Counter>("cpu_usage_us_total", "total cpu usage in microseconds for blocks"))
-       , net_usage_us(family<Counter>("net_usage_us_total", "total net usage in microseconds for blocks"))
-       , last_irreversible(build<Gauge>("last_irreversible", "last irreversible block number"))
-       , head_block_num(build<Gauge>("head_block_num", "head block number"))
-       , unapplied_transactions_total(build<Counter>("unapplied_transactions_total",
+             build<Counter>("nodeos_failed_p2p_connections", "total number of failed out-going p2p connections"))
+       , dropped_trxs_total(build<Counter>("nodeos_dropped_trxs_total", "total number of dropped transactions by net plugin"))
+       , cpu_usage_us(family<Counter>("nodeos_cpu_usage_us_total", "total cpu usage in microseconds for blocks"))
+       , net_usage_us(family<Counter>("nodeos_net_usage_us_total", "total net usage in microseconds for blocks"))
+       , last_irreversible(build<Gauge>("nodeos_last_irreversible", "last irreversible block number"))
+       , head_block_num(build<Gauge>("nodeos_head_block_num", "head block number"))
+       , unapplied_transactions_total(build<Counter>("nodeos_unapplied_transactions_total",
                                                      "total number of unapplied transactions from produced blocks"))
-       , blacklisted_transactions_total(build<Counter>("blacklisted_transactions_total",
+       , blacklisted_transactions_total(build<Counter>("nodeos_blacklisted_transactions_total",
                                                        "total number of blacklisted transactions from produced blocks"))
        , subjective_bill_account_size_total(build<Counter>(
-             "subjective_bill_account_size_total", "total number of subjective bill account size from produced blocks"))
+             "nodeos_subjective_bill_account_size_total", "total number of subjective bill account size from produced blocks"))
        , scheduled_trxs_total(
-             build<Counter>("scheduled_trxs_total", "total number of scheduled transactions from produced blocks"))
-       , trxs_produced_total(build<Counter>("trxs_produced_total", "number of transactions produced"))
+             build<Counter>("nodeos_scheduled_trxs_total", "total number of scheduled transactions from produced blocks"))
+       , trxs_produced_total(build<Counter>("nodeos_trxs_produced_total", "number of transactions produced"))
        , cpu_usage_us_produced_block(cpu_usage_us.Add({{"block_type", "produced"}}))
        , total_elapsed_time_us_produced_block(build<Counter>("nodeos_produced_elapsed_us_total", "total produced blocks elapsed time"))
        , total_time_us_produced_block(build<Counter>("nodeos_produced_us_total", "total produced blocks total time"))
@@ -164,6 +169,30 @@ struct catalog_type {
    void update(const net_plugin::p2p_connections_metrics& metrics) {
       num_peers.Set(metrics.num_peers);
       num_clients.Set(metrics.num_clients);
+      for(size_t i = 0; i < metrics.stats.peers.size(); ++i) {
+         std::string label{"connid_" + to_string(metrics.stats.peers[i].connection_id)};
+         auto add_and_set_gauge = [&](const std::string& label_value, 
+                                      const auto& value) {
+            auto& gauge = p2p_connections.Add({{label, label_value}});
+            gauge.Set(value);
+         };
+         auto& peer = metrics.stats.peers[i];
+         auto addr = std::string("addr_") + boost::asio::ip::make_address_v6(peer.address).to_string();
+         add_and_set_gauge(addr, 0); // Empty gauge; ipv6 address can't be transmitted as a double
+         add_and_set_gauge("port", peer.port);
+         add_and_set_gauge("accepting_blocks", peer.accepting_blocks);
+         add_and_set_gauge("last_received_block", peer.last_received_block);
+         add_and_set_gauge("first_available_block", peer.first_available_block);
+         add_and_set_gauge("last_available_block", peer.last_available_block);
+         add_and_set_gauge("unique_first_block_count", peer.unique_first_block_count);
+         add_and_set_gauge("latency", peer.latency);
+         add_and_set_gauge("bytes_received", peer.bytes_received);
+         add_and_set_gauge("last_bytes_received", peer.last_bytes_received.count());
+         add_and_set_gauge("bytes_sent", peer.bytes_sent);
+         add_and_set_gauge("last_bytes_sent", peer.last_bytes_sent.count());
+         add_and_set_gauge("connection_start_time", peer.connection_start_time.count());
+         add_and_set_gauge(peer.log_p2p_address, 0); // Empty gauge; we only want the label
+      }
    }
 
    void update(block_metrics& blk_metrics, const producer_plugin::speculative_block_metrics& metrics) {
@@ -214,6 +243,15 @@ struct catalog_type {
       head_block_num.Set(metrics.head_block_num);
    }
 
+   void update_prometheus_info() {
+      info_details = info.Add({
+            {"server_version", chain_apis::itoh(static_cast<uint32_t>(app().version()))},
+            {"chain_id", app().get_plugin<chain_plugin>().get_chain_id()},
+            {"server_version_string", app().version_string()},
+            {"server_full_version_string", app().full_version_string()},
+            {"earliest_available_block_num", to_string(app().get_plugin<chain_plugin>().chain().earliest_available_block_num())}
+         });
+   }
    void register_update_handlers(boost::asio::io_context::strand& strand) {
       auto& http = app().get_plugin<http_plugin>();
       http.register_update_metrics(
@@ -221,8 +259,8 @@ struct catalog_type {
 
       auto& net = app().get_plugin<net_plugin>();
 
-      net.register_update_p2p_connection_metrics([&strand, this](net_plugin::p2p_connections_metrics metrics) {
-         strand.post([metrics, this]() { update(metrics); });
+      net.register_update_p2p_connection_metrics([&strand, this](net_plugin::p2p_connections_metrics&& metrics) {
+         boost::asio::post(strand, [metrics = std::move(metrics), this]() mutable { update(std::move(metrics)); });
       });
 
       net.register_increment_failed_p2p_connections([this]() {

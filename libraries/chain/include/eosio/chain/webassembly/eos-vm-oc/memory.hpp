@@ -48,6 +48,10 @@ class memory {
       static constexpr uintptr_t first_intrinsic_offset = cb_offset + 8u;
       // The maximum amount of data that PIC code can include in the prologue
       static constexpr uintptr_t max_prologue_size = mutable_global_size + table_size;
+      // Number of slices for read-only threads.
+      // Use a small number to save upfront virtual memory consumption.
+      // Memory uses beyond this limit will be handled by mprotect.
+      static constexpr uint32_t sliced_pages_for_ro_thread = 10;
 
       // Changed from -cb_offset == EOS_VM_OC_CONTROL_BLOCK_OFFSET to get around
       // of compile warning about comparing integers of different signedness
