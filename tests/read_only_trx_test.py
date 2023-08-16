@@ -5,6 +5,7 @@ import time
 import signal
 import threading
 import os
+import platform
 
 from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
@@ -110,6 +111,9 @@ def startCluster():
     specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
     specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
     if args.eos_vm_oc_enable:
+        if platform.system() != "Linux":
+            Print("OC not run on Linux. Skip the test")
+            exit(True) # Do not fail the test
         specificExtraNodeosArgs[pnodes]+=" --eos-vm-oc-enable "
         specificExtraNodeosArgs[pnodes]+=args.eos_vm_oc_enable
     if args.wasm_runtime:
