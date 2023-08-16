@@ -246,11 +246,12 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instan
       apply_options options = { .max_pages = 65536,
                                 .max_call_depth = 0 };
       std::unique_ptr<backend_t> bkend = nullptr;
-      if constexpr (std::is_same_v<Impl, eosio::vm::jit>) {
-         bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, true, false); // true, false <--> single parsing, backend does not own execution context (execution context is reused per thread)
-      } else {
-         bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, false, false); // false, false <--> 2-passes parsing, backend does not own execution context (execution context is reused per thread)
-      }
+#ifdef EOSIO_EOS_VM_JIT_RUNTIME_ENABLED
+      if constexpr (std::is_same_v<Impl, eosio::vm::jit>)
+         bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, true); // true -- JIT uses single parsing
+      else
+#endif
+         bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, false); // false -- Interpreter uses 2-passes parsing
       eos_vm_host_functions_t::resolve(bkend->get_module());
       return std::make_unique<eos_vm_instantiated_module<Impl>>(this, std::move(bkend));
    } catch(eosio::vm::exception& e) {
@@ -627,6 +628,18 @@ REGISTER_CF_HOST_FUNCTION( mod_exp );
 REGISTER_CF_HOST_FUNCTION( blake2_f );
 REGISTER_CF_HOST_FUNCTION( sha3 );
 REGISTER_CF_HOST_FUNCTION( k1_recover );
+
+// bls_primitives protocol feature
+REGISTER_CF_HOST_FUNCTION( bls_g1_add );
+REGISTER_CF_HOST_FUNCTION( bls_g2_add );
+REGISTER_CF_HOST_FUNCTION( bls_g1_mul );
+REGISTER_CF_HOST_FUNCTION( bls_g2_mul );
+REGISTER_CF_HOST_FUNCTION( bls_g1_exp );
+REGISTER_CF_HOST_FUNCTION( bls_g2_exp );
+REGISTER_CF_HOST_FUNCTION( bls_pairing );
+REGISTER_CF_HOST_FUNCTION( bls_g1_map );
+REGISTER_CF_HOST_FUNCTION( bls_g2_map );
+REGISTER_CF_HOST_FUNCTION( bls_fp_mod );
 
 } // namespace webassembly
 } // namespace chain

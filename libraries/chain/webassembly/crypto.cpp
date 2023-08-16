@@ -8,6 +8,7 @@
 #include <fc/crypto/sha3.hpp>
 #include <fc/crypto/k1_recover.hpp>
 #include <bn256/bn256.h>
+#include <bls12-381/bls12-381.hpp>
 
 namespace {
     uint32_t ceil_log2(uint32_t n)
@@ -248,6 +249,161 @@ namespace eosio { namespace chain { namespace webassembly {
          return return_code::failure;
 
       std::memcpy( pub.data(), res.data(), res.size() );
+      return return_code::success;
+   }
+
+   int32_t interface::bls_g1_add(span<const char> op1, span<const char> op2, span<char> result) const
+   {
+      if(op1.size() != 144 ||  op2.size() != 144 ||  result.size() != 144)
+         return return_code::failure;
+      std::optional<bls12_381::g1> a = bls12_381::g1::fromJacobianBytesLE(std::span<const uint8_t, 144>((const uint8_t*)op1.data(), 144), false, true);
+      std::optional<bls12_381::g1> b = bls12_381::g1::fromJacobianBytesLE(std::span<const uint8_t, 144>((const uint8_t*)op2.data(), 144), false, true);
+      if(!a.has_value() || !b.has_value())
+         return return_code::failure;
+      bls12_381::g1 c = a.value().add(b.value());
+      c.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)result.data(), 144), true);
+      return return_code::success;
+   }
+
+   int32_t interface::bls_g2_add(span<const char> op1, span<const char> op2, span<char> result) const
+   {
+      if(op1.size() != 288 ||  op2.size() != 288 ||  result.size() != 288)
+         return return_code::failure;
+      std::optional<bls12_381::g2> a = bls12_381::g2::fromJacobianBytesLE(std::span<const uint8_t, 288>((const uint8_t*)op1.data(), 288), false, true);
+      std::optional<bls12_381::g2> b = bls12_381::g2::fromJacobianBytesLE(std::span<const uint8_t, 288>((const uint8_t*)op2.data(), 288), false, true);
+      if(!a.has_value() || !b.has_value())
+         return return_code::failure;
+      bls12_381::g2 c = a.value().add(b.value());
+      c.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)result.data(), 288), true);
+      return return_code::success;
+   }
+
+   int32_t interface::bls_g1_mul(span<const char> point, span<const char> scalar, span<char> result) const
+   {
+      if(point.size() != 144 ||  scalar.size() != 32 ||  result.size() != 144)
+         return return_code::failure;
+      std::optional<bls12_381::g1> a = bls12_381::g1::fromJacobianBytesLE(std::span<const uint8_t, 144>((const uint8_t*)point.data(), 144), false, true);
+      if(!a.has_value())
+         return return_code::failure;
+      std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>(std::span<uint8_t, 32>((uint8_t*)scalar.data(), 32));
+      bls12_381::g1 c = a.value().mulScalar(b);
+      c.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)result.data(), 144), true);
+      return return_code::success;
+   }
+
+   int32_t interface::bls_g2_mul(span<const char> point, span<const char> scalar, span<char> result) const
+   {
+      if(point.size() != 288 ||  scalar.size() != 32 ||  result.size() != 288)
+         return return_code::failure;
+      std::optional<bls12_381::g2> a = bls12_381::g2::fromJacobianBytesLE(std::span<const uint8_t, 288>((const uint8_t*)point.data(), 288), false, true);
+      if(!a.has_value())
+         return return_code::failure;
+      std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>(std::span<uint8_t, 32>((uint8_t*)scalar.data(), 32));
+      bls12_381::g2 c = a.value().mulScalar(b);
+      c.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)result.data(), 288), true);
+      return return_code::success;
+   }
+
+   int32_t interface::bls_g1_exp(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const
+   {
+      if(points.size() != n*144 ||  scalars.size() != n*32 ||  result.size() != 144)
+         return return_code::failure;
+      std::vector<bls12_381::g1> pv;
+      std::vector<std::array<uint64_t, 4>> sv;
+      pv.reserve(n);
+      sv.reserve(n);
+      for(uint32_t i = 0; i < n; i++)
+      {
+         std::optional<bls12_381::g1> p = bls12_381::g1::fromJacobianBytesLE(std::span<const uint8_t, 144>((const uint8_t*)points.data() + i*144, 144), false, true);
+         if(!p.has_value())
+            return return_code::failure;
+         std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>(std::span<const uint8_t, 32>((const uint8_t*)scalars.data() + i*32, 32));
+         pv.push_back(p.value());
+         sv.push_back(s);
+         if(i%10 == 0)
+            context.trx_context.checktime();
+      }
+      bls12_381::g1 r = bls12_381::g1::multiExp(pv, sv, [this](){ context.trx_context.checktime(); }).value(); // accessing value is safe
+      r.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)result.data(), 144), true);
+      return return_code::success;
+   }
+
+   int32_t interface::bls_g2_exp(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const
+   {
+      if(points.size() != n*288 ||  scalars.size() != n*32 ||  result.size() != 288)
+         return return_code::failure;
+      std::vector<bls12_381::g2> pv;
+      std::vector<std::array<uint64_t, 4>> sv;
+      pv.reserve(n);
+      sv.reserve(n);
+      for(uint32_t i = 0; i < n; i++)
+      {
+         std::optional<bls12_381::g2> p = bls12_381::g2::fromJacobianBytesLE(std::span<const uint8_t, 288>((const uint8_t*)points.data() + i*288, 288), false, true);
+         if(!p.has_value())
+            return return_code::failure;
+         std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>(std::span<const uint8_t, 32>((const uint8_t*)scalars.data() + i*32, 32));
+         pv.push_back(p.value());
+         sv.push_back(s);
+         if(i%6 == 0)
+            context.trx_context.checktime();
+      }
+      bls12_381::g2 r = bls12_381::g2::multiExp(pv, sv, [this](){ context.trx_context.checktime(); }).value(); // accessing value is safe
+      r.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)result.data(), 288), true);
+      return return_code::success;
+   }
+
+   int32_t interface::bls_pairing(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result) const
+   {
+      if(g1_points.size() != n*144 ||  g2_points.size() != n*288 ||  result.size() != 576)
+         return return_code::failure;
+      std::vector<std::tuple<bls12_381::g1, bls12_381::g2>> v;
+      v.reserve(n);
+      for(uint32_t i = 0; i < n; i++)
+      {
+         std::optional<bls12_381::g1> p_g1 = bls12_381::g1::fromJacobianBytesLE(std::span<const uint8_t, 144>((const uint8_t*)g1_points.data() + i*144, 144), true, true);
+         std::optional<bls12_381::g2> p_g2 = bls12_381::g2::fromJacobianBytesLE(std::span<const uint8_t, 288>((const uint8_t*)g2_points.data() + i*288, 288), true, true);
+         if(!p_g1.has_value() || !p_g2.has_value())
+            return return_code::failure;
+         bls12_381::pairing::add_pair(v, p_g1.value(), p_g2.value());
+         if(i%4 == 0)
+            context.trx_context.checktime();
+      }
+      bls12_381::fp12 r = bls12_381::pairing::calculate(v, [this](){ context.trx_context.checktime(); });
+      r.toBytesLE(std::span<uint8_t, 576>((uint8_t*)result.data(), 576), true);
+      return return_code::success;
+   }
+
+   int32_t interface::bls_g1_map(span<const char> e, span<char> result) const
+   {
+      if(e.size() != 48 ||  result.size() != 144)
+         return return_code::failure;
+      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)e.data(), 48), true, true);
+      if(!a.has_value())
+         return return_code::failure;
+      bls12_381::g1 c = bls12_381::g1::mapToCurve(a.value());
+      c.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)result.data(), 144), true);
+      return return_code::success;
+   }
+
+   int32_t interface::bls_g2_map(span<const char> e, span<char> result) const
+   {
+      if(e.size() != 96 ||  result.size() != 288)
+         return return_code::failure;
+      std::optional<bls12_381::fp2> a = bls12_381::fp2::fromBytesLE(std::span<const uint8_t, 96>((const uint8_t*)e.data(), 96), true, true);
+      if(!a.has_value())
+         return return_code::failure;
+      bls12_381::g2 c = bls12_381::g2::mapToCurve(a.value());
+      c.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)result.data(), 288), true);
+      return return_code::success;
+   }
+
+   int32_t interface::bls_fp_mod(span<const char> s, span<char> result) const
+   {
+      if(s.size() != 64 ||  result.size() != 48)
+         return return_code::failure;
+      std::array<uint64_t, 8> k = bls12_381::scalar::fromBytesLE<8>(std::span<const uint8_t, 64>((const uint8_t*)s.data(), 64));
+      bls12_381::fp e = bls12_381::fp::modPrime<8>(k);
+      e.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), true);
       return return_code::success;
    }
 
