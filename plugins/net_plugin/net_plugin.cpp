@@ -4255,8 +4255,8 @@ namespace eosio {
            "    p2p.eos.io:9876\n"
            "    p2p.trx.eos.io:9876:trx\n"
            "    p2p.blk.eos.io:9876:blk\n")
-         ( "p2p-max-nodes-per-host", bpo::value<int>()->default_value(def_max_nodes_per_host), "Maximum number of client nodes from any single IP address")
-         ( "p2p-max-addresses-per-request", bpo::value<int>()->default_value(def_max_address_per_request), "Maximum number of addresses in address request or sync message")
+         ( "p2p-max-nodes-per-host", bpo::value<uint32_t>()->default_value(def_max_nodes_per_host), "Maximum number of client nodes from any single IP address")
+         ( "p2p-max-addresses-per-request", bpo::value<uint32_t>()->default_value(def_max_address_per_request), "Maximum number of addresses in address request or sync message")
          ( "p2p-accept-transactions", bpo::value<bool>()->default_value(true), "Allow transactions received over p2p network to be evaluated and relayed if valid.")
          ( "p2p-only-send-manual-addresses", bpo::value<bool>()->default_value(false), "Only send addresses from configuration instead from automated peer discovery")
          ( "p2p-auto-bp-peer", bpo::value< vector<string> >()->composing(),
@@ -4310,24 +4310,22 @@ namespace eosio {
 
          peer_log_format = options.at( "peer-log-format" ).as<string>();
 
-
          //init address manager, timeout function is yet to be implemented
          address_master = std::make_unique<address_manager>(0);
 
-         max_addresses_per_request = options.at("p2p-max-addresses-per-request").as<int>();
+         max_addresses_per_request = options.at("p2p-max-addresses-per-request").as<uint32_t>();
          p2p_only_send_manual_addresses = options.at("p2p-only-send-manual-addresses").as<bool>();
-         min_peers_count = options.at( "min-peers" ).as<int>();
+         min_peers_count = options.at( "min-peers" ).as<uint32_t>();
 
          sync_master = std::make_unique<sync_manager>(
              options.at( "sync-fetch-span" ).as<uint32_t>(),
              options.at( "sync-peer-limit" ).as<uint32_t>() );
-
+         
          txn_exp_period = def_txn_expire_wait;
          p2p_dedup_cache_expire_time_us = fc::seconds( options.at( "p2p-dedup-cache-expire-time-sec" ).as<uint32_t>() );
          resp_expected_period = def_resp_expected_wait;
-         max_nodes_per_host = options.at( "p2p-max-nodes-per-host" ).as<int>();
+         max_nodes_per_host = options.at( "p2p-max-nodes-per-host" ).as<uint32_t>();
          p2p_accept_transactions = options.at( "p2p-accept-transactions" ).as<bool>();
-
 
          use_socket_read_watermark = options.at( "use-socket-read-watermark" ).as<bool>();
          keepalive_interval = std::chrono::milliseconds( options.at( "p2p-keepalive-interval-ms" ).as<int>() );
@@ -4339,7 +4337,7 @@ namespace eosio {
                                std::chrono::seconds( options.at("connection-cleanup-period").as<int>() ),
                                options.at("max-clients").as<uint32_t>() );
 
-         if( options.count( "p2p-listen-endpoint" )) {
+          if( options.count( "p2p-listen-endpoint" )) {
             auto p2ps =  options.at("p2p-listen-endpoint").as<vector<string>>();
             if (!p2ps.front().empty()) {
                p2p_addresses = p2ps;

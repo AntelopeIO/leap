@@ -103,13 +103,15 @@ namespace eosio {
 
                 // for IPV6 "[::]:port" address
                 string::size_type p = address_str[0] == '[' ? address_str.find(']') : 0;
-
-                //host and port is necessary
                 if (p == string::npos) {
                     throw std::invalid_argument(input_address_str);
                 }
 
                 string::size_type colon = address_str.find(':', p);
+                //host and port is necessary
+                if (colon == string::npos) {
+                    throw std::invalid_argument(input_address_str);
+                }
                 string::size_type colon2 = address_str.find(':', colon + 1);
                 string::size_type end = colon2 == string::npos
                                         ? string::npos : address_str.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 );
