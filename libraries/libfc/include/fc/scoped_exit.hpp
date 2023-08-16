@@ -8,9 +8,9 @@ namespace fc {
    class scoped_exit {
       public:
          template<typename C>
-         scoped_exit( C&& c ):callback( std::forward<C>(c) ){}
+         [[nodiscard]] scoped_exit( C&& c ):callback( std::forward<C>(c) ){}
 
-         scoped_exit( scoped_exit&& mv )
+         [[nodiscard]] scoped_exit( scoped_exit&& mv )
          :callback( std::move( mv.callback ) ),canceled(mv.canceled)
          {
             mv.canceled = true;

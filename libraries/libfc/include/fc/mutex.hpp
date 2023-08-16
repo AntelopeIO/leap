@@ -127,13 +127,13 @@ private:
 
 public:
    // Acquire mu, implicitly acquire *this and associate it with mu.
-   lock_guard(M& mu) ACQUIRE(mu)
+   [[nodiscard]] lock_guard(M& mu) ACQUIRE(mu)
       : mut(mu) {
       mu.lock();
    }
 
    // Assume mu is held, implicitly acquire *this and associate it with mu.
-   lock_guard(M& mu, adopt_lock_t) REQUIRES(mu)
+   [[nodiscard]] lock_guard(M& mu, adopt_lock_t) REQUIRES(mu)
       : mut(mu) {}
 
    ~lock_guard() RELEASE() { mut.unlock(); }
@@ -150,24 +150,24 @@ private:
    bool locked;
 
 public:
-   unique_lock() noexcept
+   [[nodiscard]] unique_lock() noexcept
       : mut(nullptr)
       , locked(false) {}
 
    // Acquire mu, implicitly acquire *this and associate it with mu.
-   explicit unique_lock(M& mu) ACQUIRE(mu)
+   [[nodiscard]] explicit unique_lock(M& mu) ACQUIRE(mu)
       : mut(&mu)
       , locked(true) {
       mut->lock();
    }
 
    // Assume mu is held, implicitly acquire *this and associate it with mu.
-   unique_lock(M& mu, adopt_lock_t) REQUIRES(mu)
+   [[nodiscard]] unique_lock(M& mu, adopt_lock_t) REQUIRES(mu)
       : mut(&mu)
       , locked(true) {}
 
    // Assume mu is not held, implicitly acquire *this and associate it with mu.
-   unique_lock(M& mu, defer_lock_t) EXCLUDES(mu)
+   [[nodiscard]] unique_lock(M& mu, defer_lock_t) EXCLUDES(mu)
       : mut(mu)
       , locked(false) {}
 
