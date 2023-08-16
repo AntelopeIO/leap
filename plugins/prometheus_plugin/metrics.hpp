@@ -146,8 +146,8 @@ struct catalog_type {
        , latency_us_incoming_block(build<Counter>("nodeos_incoming_us_block_latency", "total incoming block latency"))
        , blocks_incoming(build<Counter>("blocks_incoming", "number of incoming blocks"))
        , bytes_transferred(build<Counter>("exposer_transferred_bytes_total",
-                                          "total number of bytes for responses to prometheus scape requests"))
-       , num_scrapes(build<Counter>("exposer_scrapes_total", "total number of prometheus scape requests received")) {}
+                                          "total number of bytes for responses to prometheus scrape requests"))
+       , num_scrapes(build<Counter>("exposer_scrapes_total", "total number of prometheus scrape requests received")) {}
 
    std::string report() {
       const prometheus::TextSerializer serializer;
