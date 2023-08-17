@@ -53,8 +53,8 @@ struct catalog_type {
    Gauge& head_block_num;
 
    struct block_metrics {
-      Counter& num_blocks;
-      Gauge&   block_num;
+      Counter& num_blocks_created;
+      Gauge&   current_block_num;
       Counter& block_total_time_us_block;
       Counter& block_idle_time_us_block;
       Counter& block_num_success_trx_block;
@@ -121,8 +121,8 @@ struct catalog_type {
        , total_elapsed_time_us_produced_block(build<Counter>("nodeos_produced_elapsed_us_total", "total produced blocks elapsed time"))
        , total_time_us_produced_block(build<Counter>("nodeos_produced_us_total", "total produced blocks total time"))
        , net_usage_us_produced_block(net_usage_us.Add({{"block_type", "produced"}}))
-       , produced_metrics{ .num_blocks{build<Counter>("nodeos_blocks_produced", "number of blocks produced")}
-                         , .block_num{build<Gauge>("nodeos_block_num", "current block number")}
+       , produced_metrics{ .num_blocks_created{build<Counter>("nodeos_blocks_produced", "number of blocks produced")}
+                         , .current_block_num{build<Gauge>("nodeos_block_num", "current block number")}
                          , .block_total_time_us_block{build<Counter>("nodeos_total_time_us_produced_block", "total time for produced block")}
                          , .block_idle_time_us_block{build<Counter>("nodeos_idle_time_us_produced_block", "idle time for produced block")}
                          , .block_num_success_trx_block{build<Counter>("nodeos_num_success_trx_produced_block", "number of successful transactions in produced block")}
@@ -132,8 +132,8 @@ struct catalog_type {
                          , .block_num_transient_trx_block{build<Counter>("nodeos_num_transient_trx_produced_block", "number of transient transactions during produced block")}
                          , .block_transient_trx_time_us_block{build<Counter>("nodeos_transient_trx_time_us_produced_block", "time for transient transactions during produced block")}
                          , .block_other_time_us_block{build<Counter>("nodeos_other_time_us_produced_block", "all other unaccounted time during produced block")} }
-       , speculative_metrics{ .num_blocks{build<Counter>("nodeos_blocks_speculative_num", "number of speculative blocks created")}
-                            , .block_num{build<Gauge>("nodeos_block_num", "current block number")}
+       , speculative_metrics{ .num_blocks_created{build<Counter>("nodeos_blocks_speculative_num", "number of speculative blocks created")}
+                            , .current_block_num{build<Gauge>("nodeos_block_num", "current block number")}
                             , .block_total_time_us_block{build<Counter>("nodeos_total_time_us_speculative_block", "total time for speculative block")}
                             , .block_idle_time_us_block{build<Counter>("nodeos_idle_time_us_speculative_block", "idle time for speculative block")}
                             , .block_num_success_trx_block{build<Counter>("nodeos_num_success_trx_speculative_block", "number of successful transactions in speculative block")}
@@ -196,8 +196,8 @@ struct catalog_type {
    }
 
    void update(block_metrics& blk_metrics, const producer_plugin::speculative_block_metrics& metrics) {
-      blk_metrics.num_blocks.Increment(1);
-      blk_metrics.block_num.Set(metrics.block_num);
+      blk_metrics.num_blocks_created.Increment(1);
+      blk_metrics.current_block_num.Set(metrics.block_num);
       blk_metrics.block_total_time_us_block.Increment(metrics.block_total_time_us);
       blk_metrics.block_idle_time_us_block.Increment(metrics.block_idle_us);
       blk_metrics.block_num_success_trx_block.Increment(metrics.num_success_trx);
