@@ -922,12 +922,12 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
 
       //After computing chain-id match, compare it with cfg-chain-id or alias mapping id
       if( options.count("chain-alias") ) {
-          my->chain_alias = options.at( "chain-alias" ).as<string>();
-          ilog( "Chain Alias in config is ${alias}", ("alias", my->chain_alias) );
+          chain_alias = options.at( "chain-alias" ).as<string>();
+          ilog( "Chain Alias in config is ${alias}", ("alias", chain_alias) );
 
-          bfs::path mapping_file = app().config_dir() / config::default_mapping_filename;
+          std::filesystem::path mapping_file = app().config_dir() / config::default_mapping_filename;
 
-          EOS_ASSERT( fc::is_regular_file( mapping_file ),
+          EOS_ASSERT( std::filesystem::is_regular_file( mapping_file ),
                       plugin_config_exception,
                       "Mapping file '${mapping}' does not exist.",
                       ("mapping", mapping_file.generic_string()));
@@ -955,28 +955,28 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
               elog("Failed to parse mapping file: ${error}", ("error", e.what()));
           }
 
-          my->cfg_chain_id = mappings[my->chain_alias];
+          cfg_chain_id = mappings[chain_alias];
 
-          EOS_ASSERT( !my->cfg_chain_id.empty(), plugin_config_exception,
+          EOS_ASSERT( !cfg_chain_id.empty(), plugin_config_exception,
                       "Mapping chain-id missing for chain-alias (${alias})" ,
-                      ("alias", my->chain_alias)
+                      ("alias", chain_alias)
           );
 
-          ilog( "Chain ID for ${alias} is ${id}", ("alias", my->chain_alias)("id", my->cfg_chain_id) );
+          ilog( "Chain ID for ${alias} is ${id}", ("alias", chain_alias)("id", cfg_chain_id) );
       }
 
       //chain-id setting will overwrite the id from mapping
       if( options.count("chain-id") ) {
-          my->cfg_chain_id = options.at( "chain-id" ).as<string>();
-          ilog( "Chain id in config is ${id}", ("id", my->cfg_chain_id) );
+          cfg_chain_id = options.at( "chain-id" ).as<string>();
+          ilog( "Chain id in config is ${id}", ("id", cfg_chain_id) );
       }
 
-      if( !my->cfg_chain_id.empty() )
-       EOS_ASSERT( my->cfg_chain_id == chain_id->str(), plugin_config_exception,
+      if( !cfg_chain_id.empty() )
+       EOS_ASSERT( cfg_chain_id == chain_id->str(), plugin_config_exception,
                    "Genesis state or snapshot has a chain ID (${chain_id}) "
                    "that does not match the chain ID set in config (${cfg_chain_id}).",
                    ("chain_id", chain_id)
-                   ("cfg_chain_id", my->cfg_chain_id)
+                   ("cfg_chain_id", cfg_chain_id)
        );
 
       if ( options.count("read-mode") ) {
