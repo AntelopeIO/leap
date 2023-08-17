@@ -261,6 +261,17 @@ Enables new `get_block_num` intrinsic which returns the current block number.
 */
             {}
          } )
+         (  builtin_protocol_feature_t::bls_primitives, builtin_protocol_feature_spec{
+            "BLS_PRIMITIVES",
+            fc::variant("01969c44de35999b924095ae7f50081a7f274409fdbccb9fc54fa7836c76089c").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
+/*
+Builtin protocol feature: BLS_PRIMITIVES
+Adds new cryptographic host functions
+- Add, multiply, multi-exponentiation and pairing functions for the bls12-381 elliptic curve.
+*/
+            {}
+         } )
          (  builtin_protocol_feature_t::aggregate_signatures, builtin_protocol_feature_spec{
             "AGGREGATE_SIGNATURES",
             fc::variant("997de2624c039e38993953ff1091aeb1ecff723d06fe78a5ade08931b0b22896").as<digest_type>(),
@@ -798,34 +809,34 @@ Builtin protocol feature: INSTANT_FINALITY
       }
    }
 
-   std::optional<builtin_protocol_feature> read_builtin_protocol_feature( const fc::path& p  ) {
+   std::optional<builtin_protocol_feature> read_builtin_protocol_feature( const std::filesystem::path& p  ) {
       try {
          return fc::json::from_file<builtin_protocol_feature>( p );
       } catch( const fc::exception& e ) {
          wlog( "problem encountered while reading '${path}':\n${details}",
-               ("path", p.generic_string())("details",e.to_detail_string()) );
+               ("path", p)("details",e.to_detail_string()) );
       } catch( ... ) {
          dlog( "unknown problem encountered while reading '${path}'",
-               ("path", p.generic_string()) );
+               ("path", p) );
       }
       return {};
    }
 
-   protocol_feature_set initialize_protocol_features( const fc::path& p, bool populate_missing_builtins ) {
-      using boost::filesystem::directory_iterator;
+   protocol_feature_set initialize_protocol_features( const std::filesystem::path& p, bool populate_missing_builtins ) {
+      using std::filesystem::directory_iterator;
 
       protocol_feature_set pfs;
 
       bool directory_exists = true;
 
-      if( fc::exists( p ) ) {
-         EOS_ASSERT( fc::is_directory( p ), plugin_exception,
+      if( std::filesystem::exists( p ) ) {
+         EOS_ASSERT( std::filesystem::is_directory( p ), plugin_exception,
                      "Path to protocol-features is not a directory: ${path}",
-                     ("path", p.generic_string())
+                     ("path", p)
          );
       } else {
          if( populate_missing_builtins )
-            boost::filesystem::create_directories( p );
+            std::filesystem::create_directories( p );
          else
             directory_exists = false;
       }
@@ -867,7 +878,7 @@ Builtin protocol feature: INSTANT_FINALITY
          }
       };
 
-      map<builtin_protocol_feature_t, fc::path>  found_builtin_protocol_features;
+      map<builtin_protocol_feature_t, std::filesystem::path>  found_builtin_protocol_features;
       map<digest_type, std::pair<builtin_protocol_feature, bool> > builtin_protocol_features_to_add;
       // The bool in the pair is set to true if the builtin protocol feature has already been visited to add
       map< builtin_protocol_feature_t, std::optional<digest_type> > visited_builtins;
@@ -876,7 +887,7 @@ Builtin protocol feature: INSTANT_FINALITY
       if( directory_exists ) {
          for( directory_iterator enditr, itr{p}; itr != enditr; ++itr ) {
             auto file_path = itr->path();
-            if( !fc::is_regular_file( file_path ) || file_path.extension().generic_string().compare( ".json" ) != 0 )
+            if( !std::filesystem::is_regular_file( file_path ) || file_path.extension().generic_string().compare( ".json" ) != 0 )
                continue;
 
             auto f = read_builtin_protocol_feature( file_path );
@@ -888,8 +899,8 @@ Builtin protocol feature: INSTANT_FINALITY
             EOS_ASSERT( res.second, plugin_exception,
                         "Builtin protocol feature '${codename}' was already included from a previous_file",
                         ("codename", builtin_protocol_feature_codename(f->get_codename()))
-                              ("current_file", file_path.generic_string())
-                              ("previous_file", res.first->second.generic_string())
+                              ("current_file", file_path)
+                              ("previous_file", res.first->second)
             );
 
             const auto feature_digest = f->digest();
@@ -934,23 +945,23 @@ Builtin protocol feature: INSTANT_FINALITY
 
          auto file_path = p / filename;
 
-         EOS_ASSERT( !fc::exists( file_path ), plugin_exception,
+         EOS_ASSERT( !std::filesystem::exists( file_path ), plugin_exception,
                      "Could not save builtin protocol feature with codename '${codename}' because a file at the following path already exists: ${path}",
                      ("codename", builtin_protocol_feature_codename( f.get_codename() ))
-                           ("path", file_path.generic_string())
+                           ("path", file_path)
          );
 
          if( fc::json::save_to_file( f, file_path ) ) {
             ilog( "Saved default specification for builtin protocol feature '${codename}' (with digest of '${digest}') to: ${path}",
                   ("codename", builtin_protocol_feature_codename(f.get_codename()))
                         ("digest", feature_digest)
-                        ("path", file_path.generic_string())
+                        ("path", file_path)
             );
          } else {
             elog( "Error occurred while writing default specification for builtin protocol feature '${codename}' (with digest of '${digest}') to: ${path}",
                   ("codename", builtin_protocol_feature_codename(f.get_codename()))
                         ("digest", feature_digest)
-                        ("path", file_path.generic_string())
+                        ("path", file_path)
             );
          }
       };

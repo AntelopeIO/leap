@@ -38,7 +38,7 @@ class TpsTrxGensConfig:
 class TransactionGeneratorsLauncher:
 
     def __init__(self, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str, trxGenDurationSec: int, logDir: str,
-                 abiFile: Path, actionsData, actionsAuths, tpsTrxGensConfig: TpsTrxGensConfig):
+                 abiFile: Path, actionsData, actionsAuths, tpsTrxGensConfig: TpsTrxGensConfig, endpointMode: str, apiEndpoint: str=None):
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.contractOwnerAccount  = contractOwnerAccount
@@ -50,6 +50,8 @@ class TransactionGeneratorsLauncher:
         self.abiFile = abiFile
         self.actionsData = actionsData
         self.actionsAuths = actionsAuths
+        self.endpointMode = endpointMode
+        self.apiEndpoint = apiEndpoint
 
     def launch(self, waitToComplete=True):
         self.subprocess_ret_codes = []
@@ -67,12 +69,16 @@ class TransactionGeneratorsLauncher:
                                 '--trx-gen-duration', f'{self.trxGenDurationSec}',
                                 '--target-tps', f'{targetTps}',
                                 '--log-dir', f'{self.logDir}',
+                                '--peer-endpoint-type', f'{self.endpointMode}',
                                 '--peer-endpoint', f'{connectionPair[0]}',
                                 '--port', f'{connectionPair[1]}']
             if self.abiFile is not None and self.actionsData is not None and self.actionsAuths is not None:
                 popenStringList.extend(['--abi-file', f'{self.abiFile}',
                                         '--actions-data', f'{self.actionsData}',
                                         '--actions-auths', f'{self.actionsAuths}'])
+            if self.apiEndpoint is not None:
+                popenStringList.extend(['--api-endpoint', f'{self.apiEndpoint}'])
+
             if Utils.Debug:
                 Print(f"Running trx_generator: {' '.join(popenStringList)}")
             self.subprocess_ret_codes.append(subprocess.Popen(popenStringList))
@@ -104,6 +110,13 @@ def parseArgs():
     parser.add_argument("actions_data", type=str, help="The json actions data file or json actions data description string to use")
     parser.add_argument("actions_auths", type=str, help="The json actions auth file or json actions auths description string to use, containting authAcctName to activePrivateKey pairs.")
     parser.add_argument("connection_pair_list", type=str, help="Comma separated list of endpoint:port combinations to send transactions to", default="localhost:9876")
+    parser.add_argument("endpoint_mode", type=str, help="Endpoint mode (\"p2p\", \"http\"). \
+                                                            In \"p2p\" mode transactions will be directed to the p2p endpoint on a producer node. \
+                                                            In \"http\" mode transactions will be directed to the http endpoint on an api node.",
+                                                            choices=["p2p", "http"], default="p2p")
+    parser.add_argument("api_endpoint", type=str, help="The api endpoint to use to submit transactions. (Only used with http api nodes currently as p2p transactions are streamed)",
+                                                  default="/v1/chain/send_transaction2")
+
     args = parser.parse_args()
     return args
 
@@ -116,7 +129,9 @@ def main():
                                                    contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
                                                    privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
                                                    abiFile=args.abi_file, actionsData=args.actions_data, actionsAuths=args.actions_auths,
-                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator, connectionPairList=connectionPairList))
+                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator,
+                                                                                     connectionPairList=connectionPairList),
+                                                   endpointMode=args.endpoint_mode, apiEndpoint=args.api_endpoint)
 
 
     exit_codes = trxGenLauncher.launch()

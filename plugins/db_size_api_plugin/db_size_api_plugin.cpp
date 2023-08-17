@@ -11,11 +11,12 @@ using namespace eosio;
 
 #define CALL_WITH_400(api_name, api_handle, call_name, INVOKE, http_response_code) \
 {std::string("/v1/" #api_name "/" #call_name), \
+   api_category::db_size, \
    [api_handle](string&&, string&& body, url_response_callback&& cb) mutable { \
           try { \
              body = parse_params<std::string, http_params_types::no_params>(body); \
              INVOKE \
-             cb(http_response_code, fc::time_point::maximum(), fc::variant(result)); \
+             cb(http_response_code, fc::variant(result)); \
           } catch (...) { \
              http_plugin::handle_exception(#api_name, #call_name, body, cb); \
           } \

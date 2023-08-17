@@ -24,7 +24,6 @@ totalNodes = 4
 # Parse command line arguments
 args = TestHelper.parse_args({
     "-v",
-    "--clean-run",
     "--dump-error-details",
     "--leave-running",
     "--keep-logs",
@@ -32,12 +31,7 @@ args = TestHelper.parse_args({
 })
 
 Utils.Debug = args.v
-killAll = args.clean_run
 dumpErrorDetails = args.dump_error_details
-dontKill = args.leave_running
-killEosInstances = not dontKill
-killWallet = not dontKill
-keepLogs = args.keep_logs
 
 # Wrapper function to execute test
 # This wrapper function will resurrect the node to be tested, and shut
@@ -60,7 +54,7 @@ def executeTest(cluster, testNodeId, testNodeArgs, resultMsgs):
 
         testNode = cluster.getNode(testNodeId)
         assert not testNode.verifyAlive() # resets pid so reluanch works
-        testNode.relaunch(addSwapFlags={"--terminate-at-block": "9999999"}, cachePopen=True)
+        testNode.relaunch(addSwapFlags={"--terminate-at-block": "9999999"})
 
         # Wait for node to start up.
         time.sleep(3)
@@ -131,7 +125,7 @@ def checkReplay(testNode, testNodeArgs):
     ]))
 
     assert not testNode.verifyAlive()
-    testNode.relaunch(chainArg="--replay-blockchain", addSwapFlags={"--terminate-at-block": "9999999"}, cachePopen=True)
+    testNode.relaunch(chainArg="--replay-blockchain", addSwapFlags={"--terminate-at-block": "9999999"})
 
     # Wait for node to finish up.
     time.sleep(3)
@@ -180,7 +174,7 @@ def checkHeadOrSpeculative(head, lib):
 
 # Setup cluster and it's wallet manager
 walletMgr = WalletMgr(True)
-cluster = Cluster(walletd=True,unshared=args.unshared)
+cluster = Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 cluster.setWalletMgr(walletMgr)
 
 # List to contain the test result message
@@ -191,13 +185,10 @@ try:
         0 : "--enable-stale-production",
         1 : "--read-mode irreversible --terminate-at-block 75",
         2 : "--read-mode head --terminate-at-block 100",
-        3 : "--read-mode head --terminate-at-block 125"
+        3 : "--read-mode speculative --terminate-at-block 125"
     }
 
-    # Kill any existing instances and launch cluster
     TestHelper.printSystemInfo("BEGIN")
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     cluster.launch(
         prodCount=numOfProducers,
         totalProducers=numOfProducers,
@@ -242,10 +233,6 @@ finally:
         cluster,
         walletMgr,
         testSuccessful,
-        killEosInstances,
-        killWallet,
-        keepLogs,
-        killAll,
         dumpErrorDetails
     )
 

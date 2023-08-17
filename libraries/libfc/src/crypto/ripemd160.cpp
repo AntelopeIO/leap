@@ -14,16 +14,16 @@ namespace fc
 {
 
 ripemd160::ripemd160() { memset( _hash, 0, sizeof(_hash) ); }
-ripemd160::ripemd160( const string& hex_str ) {
+ripemd160::ripemd160( const std::string& hex_str ) {
    auto bytes_written = fc::from_hex( hex_str, (char*)_hash, sizeof(_hash) );
    if( bytes_written < sizeof(_hash) )
       memset( (char*)_hash + bytes_written, 0, (sizeof(_hash) - bytes_written) );
 }
 
-string ripemd160::str()const {
+std::string ripemd160::str()const {
   return fc::to_hex( (char*)_hash, sizeof(_hash) );
 }
-ripemd160::operator string()const { return  str(); }
+ripemd160::operator std::string()const { return  str(); }
 
 char* ripemd160::data()const { return (char*)&_hash[0]; }
 
@@ -54,7 +54,7 @@ ripemd160 ripemd160::hash( const char* d, uint32_t dlen ) {
   e.write(d,dlen);
   return e.result();
 }
-ripemd160 ripemd160::hash( const string& s ) {
+ripemd160 ripemd160::hash( const std::string& s ) {
   return hash( s.c_str(), s.size() );
 }
 

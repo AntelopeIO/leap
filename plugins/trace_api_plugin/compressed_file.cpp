@@ -168,12 +168,14 @@ struct compressed_file_impl {
    size_t file_size = 0;
 };
 
-compressed_file::compressed_file( fc::path file_path )
+compressed_file::compressed_file( std::filesystem::path file_path )
 :file_path(std::move(file_path))
 ,file_ptr(nullptr)
 ,impl(std::make_unique<compressed_file_impl>())
 {
-   impl->file_size = fc::file_size(file_path);
+   // this-> is required here; otherwise, the compiler would use the
+   // the passed parameter which has been moved.
+   impl->file_size = std::filesystem::file_size(this->file_path);
 }
 
 compressed_file::~compressed_file()
@@ -194,12 +196,12 @@ compressed_file::compressed_file( compressed_file&& ) = default;
 compressed_file& compressed_file::operator= ( compressed_file&& ) = default;
 
 
-bool compressed_file::process( const fc::path& input_path, const fc::path& output_path, size_t seek_point_stride  ) {
-   if (!fc::exists(input_path)) {
+bool compressed_file::process( const std::filesystem::path& input_path, const std::filesystem::path& output_path, size_t seek_point_stride  ) {
+   if (!std::filesystem::exists(input_path)) {
       throw std::ios_base::failure(std::string("Attempting to create compressed_file from file that does not exist: ") + input_path.generic_string());
    }
 
-   const size_t input_size = fc::file_size(input_path);
+   const size_t input_size = std::filesystem::file_size(input_path);
    if (input_size == 0) {
       throw std::ios_base::failure(std::string("Attempting to create compressed_file from file that is empty: ") + input_path.generic_string());
    }

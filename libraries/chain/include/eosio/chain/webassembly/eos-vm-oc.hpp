@@ -19,7 +19,6 @@
 namespace eosio { namespace chain { namespace webassembly { namespace eosvmoc {
 
 using namespace IR;
-using namespace Runtime;
 using namespace fc;
 
 using namespace eosio::chain::eosvmoc;
@@ -28,12 +27,11 @@ class eosvmoc_instantiated_module;
 
 class eosvmoc_runtime : public eosio::chain::wasm_runtime_interface {
    public:
-      eosvmoc_runtime(const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
+      eosvmoc_runtime(const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db);
       ~eosvmoc_runtime();
-      std::unique_ptr<wasm_instantiated_module_interface> instantiate_module(const char* code_bytes, size_t code_size, std::vector<uint8_t> initial_memory,
+      std::unique_ptr<wasm_instantiated_module_interface> instantiate_module(const char* code_bytes, size_t code_size,
                                                                              const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) override;
 
-      void immediately_exit_currently_running_module() override;
       void init_thread_local_data() override;
 
       friend eosvmoc_instantiated_module;
@@ -43,7 +41,7 @@ class eosvmoc_runtime : public eosio::chain::wasm_runtime_interface {
 
       // Defined in eos-vm-oc.cpp. Used for non-main thread in multi-threaded execution
       thread_local static std::unique_ptr<eosvmoc::executor> exec_thread_local;
-      thread_local static eosvmoc::memory mem_thread_local;
+      thread_local static std::unique_ptr<eosvmoc::memory> mem_thread_local;
 };
 
 /**

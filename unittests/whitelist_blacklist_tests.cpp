@@ -10,19 +10,13 @@
 #include <contracts.hpp>
 #include <test_contracts.hpp>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 
 using mvo = fc::mutable_variant_object;
 
-template<class Tester = TESTER>
+template<class Tester = validating_tester>
 class whitelist_blacklist_tester {
    public:
       whitelist_blacklist_tester() {}
@@ -45,7 +39,7 @@ class whitelist_blacklist_tester {
 
          chain->create_accounts({"eosio.token"_n, "alice"_n, "bob"_n, "charlie"_n});
          chain->set_code("eosio.token"_n, test_contracts::eosio_token_wasm() );
-         chain->set_abi("eosio.token"_n, test_contracts::eosio_token_abi().data() );
+         chain->set_abi("eosio.token"_n, test_contracts::eosio_token_abi() );
          chain->push_action( "eosio.token"_n, "create"_n, "eosio.token"_n, mvo()
               ( "issuer", "eosio.token" )
               ( "maximum_supply", "1000000.00 TOK" )
@@ -185,12 +179,12 @@ BOOST_AUTO_TEST_CASE( contract_whitelist ) { try {
    test.chain->produce_blocks();
 
    test.chain->set_code("bob"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
    test.chain->set_code("charlie"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
@@ -234,12 +228,12 @@ BOOST_AUTO_TEST_CASE( contract_blacklist ) { try {
    test.chain->produce_blocks();
 
    test.chain->set_code("bob"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
    test.chain->set_code("charlie"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
@@ -277,12 +271,12 @@ BOOST_AUTO_TEST_CASE( action_blacklist ) { try {
    test.chain->produce_blocks();
 
    test.chain->set_code("bob"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("bob"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
    test.chain->set_code("charlie"_n, test_contracts::eosio_token_wasm() );
-   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi().data() );
+   test.chain->set_abi("charlie"_n, test_contracts::eosio_token_abi() );
 
    test.chain->produce_blocks();
 
@@ -338,9 +332,9 @@ BOOST_AUTO_TEST_CASE( deferred_blacklist_failure ) { try {
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->produce_blocks();
 
    tester1.chain->push_action( "bob"_n, "defercall"_n, "alice"_n, mvo()
@@ -385,15 +379,15 @@ BOOST_AUTO_TEST_CASE( deferred_blacklist_failure ) { try {
 
 
 BOOST_AUTO_TEST_CASE( blacklist_onerror ) { try {
-   whitelist_blacklist_tester<TESTER> tester1;
+   whitelist_blacklist_tester<validating_tester> tester1;
    tester1.init();
    tester1.chain->execute_setup_policy( setup_policy::preactivate_feature_and_new_bios );
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->produce_blocks();
 
    tester1.chain->push_action( "bob"_n, "defercall"_n, "alice"_n, mvo()
@@ -429,11 +423,11 @@ BOOST_AUTO_TEST_CASE( actor_blacklist_inline_deferred ) { try {
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "alice"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "alice"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "alice"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->produce_blocks();
 
    auto auth = authority(eosio::testing::base_tester::get_public_key(name("alice"), "active"));
@@ -546,7 +540,7 @@ BOOST_AUTO_TEST_CASE( actor_blacklist_inline_deferred ) { try {
    auto c2 = tester1.chain->control->applied_transaction.connect( log_trxs );
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1, num_deferred);
+   BOOST_REQUIRE_EQUAL(1u, num_deferred);
 
    // With charlie now in the actor blacklist, retiring the previously scheduled deferred transaction should now not be possible.
    BOOST_CHECK_EXCEPTION( tester1.chain->produce_blocks(), fc::exception,
@@ -575,11 +569,11 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    tester1.chain->preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
    tester1.chain->produce_blocks();
    tester1.chain->set_code( "alice"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "alice"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "alice"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "bob"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "bob"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->set_code( "charlie"_n, test_contracts::deferred_test_wasm() );
-   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi().data() );
+   tester1.chain->set_abi( "charlie"_n,  test_contracts::deferred_test_abi() );
    tester1.chain->produce_blocks();
 
    auto auth = authority(eosio::testing::base_tester::get_public_key(name("alice"), "active"));
@@ -635,7 +629,7 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
 
 
    auto num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0, num_deferred);
+   BOOST_REQUIRE_EQUAL(0u, num_deferred);
 
    BOOST_CHECK_EXCEPTION( tester1.chain->push_action( "bob"_n, "defercall"_n, "alice"_n, mvo()
                                                          ( "payer", "alice" )
@@ -647,7 +641,7 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    );
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0, num_deferred);
+   BOOST_REQUIRE_EQUAL(0u, num_deferred);
 
    // Schedule a deferred transaction authorized by charlie@active
    tester1.chain->push_action( "charlie"_n, "defercall"_n, "alice"_n, mvo()
@@ -658,14 +652,14 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    );
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1, num_deferred);
+   BOOST_REQUIRE_EQUAL(1u, num_deferred);
 
    // Retire the deferred transaction successfully despite charlie being on the actor blacklist.
    // This is allowed due to the fact that the sender of the deferred transaction (also charlie) is in the sender bypass list.
    tester1.chain->produce_blocks();
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0, num_deferred);
+   BOOST_REQUIRE_EQUAL(0u, num_deferred);
 
    // Schedule another deferred transaction authorized by charlie@active
    tester1.chain->push_action( "charlie"_n, "defercall"_n, "alice"_n, mvo()
@@ -679,7 +673,7 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    tester1.chain->finish_block();
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1, num_deferred);
+   BOOST_REQUIRE_EQUAL(1u, num_deferred);
 
    tester1.shutdown();
 
@@ -689,14 +683,14 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    tester1.init(false);
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1, num_deferred);
+   BOOST_REQUIRE_EQUAL(1u, num_deferred);
 
    // Now retire the deferred transaction successfully despite charlie being on both the actor blacklist and bob being on the contract blacklist
    // This is allowed due to the fact that the sender of the deferred transaction (also charlie) is in the sender bypass list.
    tester1.chain->produce_blocks();
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0, num_deferred);
+   BOOST_REQUIRE_EQUAL(0u, num_deferred);
 
    tester1.chain->push_action( "alice"_n, "defercall"_n, "alice"_n, mvo()
       ( "payer", "alice" )
@@ -706,7 +700,7 @@ BOOST_AUTO_TEST_CASE( blacklist_sender_bypass ) { try {
    );
 
    num_deferred = tester1.chain->control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1, num_deferred);
+   BOOST_REQUIRE_EQUAL(1u, num_deferred);
 
    // Ensure that if there if the sender is not on the sender bypass list, then the contract blacklist is enforced.
    BOOST_CHECK_EXCEPTION( tester1.chain->produce_blocks(), fc::exception,
@@ -789,8 +783,8 @@ BOOST_AUTO_TEST_CASE( greylist_limit_tests ) { try {
 
    uint64_t blocks_per_day = 2*60*60*24;
 
-   uint64_t user_cpu_per_day = (cfg.max_block_cpu_usage * blocks_per_day / 250'000'000); // 103 us
-   uint64_t user_net_per_day = (cfg.max_block_net_usage * blocks_per_day / 250'000'000); // 90 bytes
+   int64_t user_cpu_per_day = (cfg.max_block_cpu_usage * blocks_per_day / 250'000'000); // 103 us
+   int64_t user_net_per_day = (cfg.max_block_net_usage * blocks_per_day / 250'000'000); // 90 bytes
    wdump((user_cpu_per_day)(user_net_per_day));
 
    BOOST_REQUIRE_EQUAL( rm.get_account_cpu_limit_ex(user_account).first.max, user_cpu_per_day );

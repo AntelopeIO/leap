@@ -5,201 +5,121 @@
 
 #include "fork_test_utilities.hpp"
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio::testing;
 using namespace eosio::chain;
 using mvo = fc::mutable_variant_object;
 
 BOOST_AUTO_TEST_SUITE(producer_schedule_tests)
 
-   // Calculate expected producer given the schedule and slot number
-   account_name get_expected_producer(const vector<producer_authority>& schedule, const uint64_t slot) {
-      const auto& index = (slot % (schedule.size() * config::producer_repetitions)) / config::producer_repetitions;
-      return schedule.at(index).producer_name;
-   };
+namespace {
 
-   // Check if two schedule is equal
-   bool is_schedule_equal(const vector<producer_authority>& first, const vector<producer_authority>& second) {
-      bool is_equal = first.size() == second.size();
-      for (uint32_t i = 0; i < first.size(); i++) {
-         is_equal = is_equal && first.at(i) == second.at(i);
-      }
-      return is_equal;
-   };
+// Calculate expected producer given the schedule and slot number
+account_name get_expected_producer(const vector<producer_authority>& schedule, block_timestamp_type t) {
+   const auto& index = (t.slot % (schedule.size() * config::producer_repetitions)) / config::producer_repetitions;
+   return schedule.at(index).producer_name;
+};
 
-   // Calculate the block num of the next round first block
-   // The new producer schedule will become effective when it's in the block of the next round first block
-   // However, it won't be applied until the effective block num is deemed irreversible
-   uint64_t calc_block_num_of_next_round_first_block(const controller& control){
-      auto res = control.head_block_num() + 1;
-      const auto blocks_per_round = control.head_block_state()->active_schedule.producers.size() * config::producer_repetitions;
-      while((res % blocks_per_round) != 0) {
-         res++;
-      }
-      return res;
-   };
-#if 0
-   BOOST_FIXTURE_TEST_CASE( verify_producer_schedule, TESTER ) try {
+} // anonymous namespace
 
-      // Utility function to ensure that producer schedule work as expected
-      const auto& confirm_schedule_correctness = [&](const vector<producer_key>& new_prod_schd, const uint64_t eff_new_prod_schd_block_num)  {
-         const uint32_t check_duration = 1000; // number of blocks
-         for (uint32_t i = 0; i < check_duration; ++i) {
-            const auto current_schedule = control->head_block_state()->active_schedule.producers;
-            const auto& current_absolute_slot = control->get_global_properties().proposed_schedule_block_num;
-            // Determine expected producer
-            const auto& expected_producer = get_expected_producer(current_schedule, *current_absolute_slot + 1);
+BOOST_FIXTURE_TEST_CASE( verify_producer_schedule, validating_tester ) try {
 
-            // The new schedule will only be applied once the effective block num is deemed irreversible
-            const bool is_new_schedule_applied = control->last_irreversible_block_num() > eff_new_prod_schd_block_num;
-
-            // Ensure that we have the correct schedule at the right time
-            if (is_new_schedule_applied) {
-               BOOST_TEST(is_schedule_equal(new_prod_schd, current_schedule));
-            } else {
-               BOOST_TEST(!is_schedule_equal(new_prod_schd, current_schedule));
-            }
-
-            // Produce block
-            produce_block();
-
-            // Check if the producer is the same as what we expect
-            BOOST_TEST(control->head_block_producer() == expected_producer);
+   // Utility function to ensure that producer schedule work as expected
+   const auto& confirm_schedule_correctness = [&](const vector<producer_authority>& new_prod_schd, uint32_t expected_schd_ver)  {
+      const uint32_t check_duration = 1000; // number of blocks
+      bool scheduled_changed_to_new = false;
+      for (uint32_t i = 0; i < check_duration; ++i) {
+         const auto current_schedule = control->head_block_state()->active_schedule.producers;
+         if (new_prod_schd == current_schedule) {
+            scheduled_changed_to_new = true;
          }
-      };
 
-      // Create producer accounts
-      vector<account_name> producers = {
-              "inita", "initb", "initc", "initd", "inite", "initf", "initg",
-              "inith", "initi", "initj", "initk", "initl", "initm", "initn",
-              "inito", "initp", "initq", "initr", "inits", "initt", "initu"
-      };
-      create_accounts(producers);
+         // Produce block
+         produce_block();
 
-      // ---- Test first set of producers ----
-      // Send set prods action and confirm schedule correctness
-      set_producers(producers);
-      const auto first_prod_schd = get_producer_keys(producers);
-      const auto eff_first_prod_schd_block_num = calc_block_num_of_next_round_first_block(*control);
-      confirm_schedule_correctness(first_prod_schd, eff_first_prod_schd_block_num);
+         // Check if the producer is the same as what we expect
+         const auto block_time = control->head_block_time();
+         const auto& expected_producer = get_expected_producer(current_schedule, block_time);
+         BOOST_TEST(control->head_block_producer() == expected_producer);
 
-      // ---- Test second set of producers ----
-      vector<account_name> second_set_of_producer = {
-              producers[3], producers[6], producers[9], producers[12], producers[15], producers[18], producers[20]
-      };
-      // Send set prods action and confirm schedule correctness
-      set_producers(second_set_of_producer);
-      const auto second_prod_schd = get_producer_keys(second_set_of_producer);
-      const auto& eff_second_prod_schd_block_num = calc_block_num_of_next_round_first_block(*control);
-      confirm_schedule_correctness(second_prod_schd, eff_second_prod_schd_block_num);
+         if (scheduled_changed_to_new)
+            break;
+      }
 
-      // ---- Test deliberately miss some blocks ----
-      const int64_t num_of_missed_blocks = 5000;
-      produce_block(fc::microseconds(500 * 1000 * num_of_missed_blocks));
-      // Ensure schedule is still correct
-      confirm_schedule_correctness(second_prod_schd, eff_second_prod_schd_block_num);
-      produce_block();
+      BOOST_TEST(scheduled_changed_to_new);
 
-      // ---- Test third set of producers ----
-      vector<account_name> third_set_of_producer = {
-              producers[2], producers[5], producers[8], producers[11], producers[14], producers[17], producers[20],
-              producers[0], producers[3], producers[6], producers[9], producers[12], producers[15], producers[18],
-              producers[1], producers[4], producers[7], producers[10], producers[13], producers[16], producers[19]
-      };
-      // Send set prods action and confirm schedule correctness
-      set_producers(third_set_of_producer);
-      const auto third_prod_schd = get_producer_keys(third_set_of_producer);
-      const auto& eff_third_prod_schd_block_num = calc_block_num_of_next_round_first_block(*control);
-      confirm_schedule_correctness(third_prod_schd, eff_third_prod_schd_block_num);
+      const auto current_schd_ver = control->head_block_header().schedule_version;
+      BOOST_TEST(current_schd_ver == expected_schd_ver);
+   };
 
-   } FC_LOG_AND_RETHROW()
+   // Create producer accounts
+   vector<account_name> producers = {
+           "inita"_n, "initb"_n, "initc"_n, "initd"_n, "inite"_n, "initf"_n, "initg"_n,
+           "inith"_n, "initi"_n, "initj"_n, "initk"_n, "initl"_n, "initm"_n, "initn"_n,
+           "inito"_n, "initp"_n, "initq"_n, "initr"_n, "inits"_n, "initt"_n, "initu"_n
+   };
+   create_accounts(producers);
 
+   // ---- Test first set of producers ----
+   // Send set prods action and confirm schedule correctness
+   set_producers(producers);
+   const auto first_prod_schd = get_producer_authorities(producers);
+   confirm_schedule_correctness(first_prod_schd, 1);
 
-   BOOST_FIXTURE_TEST_CASE( verify_producers, TESTER ) try {
+   // ---- Test second set of producers ----
+   vector<account_name> second_set_of_producer = {
+           producers[3], producers[6], producers[9], producers[12], producers[15], producers[18], producers[20]
+   };
+   // Send set prods action and confirm schedule correctness
+   set_producers(second_set_of_producer);
+   const auto second_prod_schd = get_producer_authorities(second_set_of_producer);
+   confirm_schedule_correctness(second_prod_schd, 2);
 
-      vector<account_name> valid_producers = {
-         "inita", "initb", "initc", "initd", "inite", "initf", "initg",
-         "inith", "initi", "initj", "initk", "initl", "initm", "initn",
-         "inito", "initp", "initq", "initr", "inits", "initt", "initu"
-      };
-      create_accounts(valid_producers);
-      set_producers(valid_producers);
+   // ---- Test deliberately miss some blocks ----
+   const int64_t num_of_missed_blocks = 5000;
+   produce_block(fc::microseconds(500 * 1000 * num_of_missed_blocks));
+   // Ensure schedule is still correct
+   confirm_schedule_correctness(second_prod_schd, 2);
+   produce_block();
 
-      // account initz does not exist
-      vector<account_name> nonexisting_producer = { "initz" };
-      BOOST_CHECK_THROW(set_producers(nonexisting_producer), wasm_execution_error);
+   // ---- Test third set of producers ----
+   vector<account_name> third_set_of_producer = {
+           producers[2], producers[5], producers[8], producers[11], producers[14], producers[17], producers[20],
+           producers[0], producers[3], producers[6], producers[9], producers[12], producers[15], producers[18],
+           producers[1], producers[4], producers[7], producers[10], producers[13], producers[16], producers[19]
+   };
+   // Send set prods action and confirm schedule correctness
+   set_producers(third_set_of_producer);
+   const auto third_prod_schd = get_producer_authorities(third_set_of_producer);
+   confirm_schedule_correctness(third_prod_schd, 3);
 
-      // replace initg with inita, inita is now duplicate
-      vector<account_name> invalid_producers = {
-         "inita", "initb", "initc", "initd", "inite", "initf", "inita",
-         "inith", "initi", "initj", "initk", "initl", "initm", "initn",
-         "inito", "initp", "initq", "initr", "inits", "initt", "initu"
-      };
+} FC_LOG_AND_RETHROW()
 
-      BOOST_CHECK_THROW(set_producers(invalid_producers), wasm_execution_error);
+BOOST_FIXTURE_TEST_CASE( verify_producers, validating_tester ) try {
 
-   } FC_LOG_AND_RETHROW()
+   vector<account_name> valid_producers = {
+      "inita"_n, "initb"_n, "initc"_n, "initd"_n, "inite"_n, "initf"_n, "initg"_n,
+      "inith"_n, "initi"_n, "initj"_n, "initk"_n, "initl"_n, "initm"_n, "initn"_n,
+      "inito"_n, "initp"_n, "initq"_n, "initr"_n, "inits"_n, "initt"_n, "initu"_n
+   };
+   create_accounts(valid_producers);
+   set_producers(valid_producers);
 
-   BOOST_FIXTURE_TEST_CASE( verify_header_schedule_version, TESTER ) try {
+   // account initz does not exist
+   vector<account_name> nonexisting_producer = { "initz"_n };
+   BOOST_CHECK_THROW(set_producers(nonexisting_producer), wasm_execution_error);
 
-      // Utility function to ensure that producer schedule version in the header is correct
-      const auto& confirm_header_schd_ver_correctness = [&](const uint64_t expected_version, const uint64_t eff_new_prod_schd_block_num)  {
-         const uint32_t check_duration = 1000; // number of blocks
-         for (uint32_t i = 0; i < check_duration; ++i) {
-            // The new schedule will only be applied once the effective block num is deemed irreversible
-            const bool is_new_schedule_applied = control->last_irreversible_block_num() > eff_new_prod_schd_block_num;
+   // replace initg with inita, inita is now duplicate
+   vector<account_name> invalid_producers = {
+      "inita"_n, "initb"_n, "initc"_n, "initd"_n, "inite"_n, "initf"_n, "inita"_n,
+      "inith"_n, "initi"_n, "initj"_n, "initk"_n, "initl"_n, "initm"_n, "initn"_n,
+      "inito"_n, "initp"_n, "initq"_n, "initr"_n, "inits"_n, "initt"_n, "initu"_n
+   };
 
-            // Produce block
-            produce_block();
+   BOOST_CHECK_THROW(set_producers(invalid_producers), wasm_execution_error);
 
-            // Ensure that the head block header is updated at the right time
-            const auto current_schd_ver = control->head_block_header().schedule_version;
-            if (is_new_schedule_applied) {
-               BOOST_TEST(current_schd_ver == expected_version);
-            } else {
-               BOOST_TEST(current_schd_ver != expected_version);
-            }
-         }
-      };
+} FC_LOG_AND_RETHROW()
 
-      // Create producer accounts
-      vector<account_name> producers = {
-              "inita", "initb", "initc", "initd", "inite", "initf", "initg",
-              "inith", "initi", "initj", "initk", "initl", "initm", "initn",
-              "inito", "initp", "initq", "initr", "inits", "initt", "initu"
-      };
-      create_accounts(producers);
-
-      // Send set prods action and confirm schedule correctness
-      set_producers(producers, 1);
-      const auto& eff_first_prod_schd_block_num = calc_block_num_of_next_round_first_block(*control);
-      // Confirm the version is correct
-      confirm_header_schd_ver_correctness(1, eff_first_prod_schd_block_num);
-
-      // Shuffle the producers and set the new one with smaller version
-      boost::range::random_shuffle(producers);
-      set_producers(producers, 0);
-      const auto& eff_second_prod_schd_block_num = calc_block_num_of_next_round_first_block(*control);
-      // Even though we set it with smaller version number, the version should be incremented instead
-      confirm_header_schd_ver_correctness(2, eff_second_prod_schd_block_num);
-
-      // Shuffle the producers and set the new one with much larger version number
-      boost::range::random_shuffle(producers);
-      set_producers(producers, 1000);
-      const auto& eff_third_prod_schd_block_num = calc_block_num_of_next_round_first_block(*control);
-      // Even though we set it with much large version number, the version should be incremented instead
-      confirm_header_schd_ver_correctness(3, eff_third_prod_schd_block_num);
-
-   } FC_LOG_AND_RETHROW()
-#endif
-
-
-BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( producer_schedule_promotion_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n,"carol"_n} );
    while (control->head_block_num() < 3) {
       produce_block();
@@ -521,7 +441,7 @@ BOOST_AUTO_TEST_CASE( producer_watermark_test ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( producer_one_of_n_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( producer_one_of_n_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
 
@@ -539,7 +459,7 @@ BOOST_FIXTURE_TEST_CASE( producer_one_of_n_test, TESTER ) try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( producer_m_of_n_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( producer_m_of_n_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
 
@@ -560,7 +480,7 @@ BOOST_FIXTURE_TEST_CASE( producer_m_of_n_test, TESTER ) try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( satisfiable_msig_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( satisfiable_msig_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
 
@@ -578,7 +498,7 @@ BOOST_FIXTURE_TEST_CASE( satisfiable_msig_test, TESTER ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( duplicate_producers_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( duplicate_producers_test, validating_tester ) try {
    create_accounts( {"alice"_n} );
    produce_block();
 
@@ -597,7 +517,7 @@ BOOST_FIXTURE_TEST_CASE( duplicate_producers_test, TESTER ) try {
 
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE( duplicate_keys_test, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( duplicate_keys_test, validating_tester ) try {
    create_accounts( {"alice"_n,"bob"_n} );
    produce_block();
 
@@ -708,14 +628,14 @@ BOOST_AUTO_TEST_CASE( extra_signatures_test ) try {
 
       // Make a copy of pointer to the valid block.
       b = valid_block;
-      BOOST_REQUIRE_EQUAL( b->block_extensions.size(), 1 );
+      BOOST_REQUIRE_EQUAL( b->block_extensions.size(), 1u );
 
       // Extract the existing signatures.
       constexpr auto additional_sigs_eid = additional_block_signatures_extension::extension_id();
       auto exts = b->validate_and_extract_extensions();
-      BOOST_REQUIRE_EQUAL( exts.count( additional_sigs_eid ), 1 );
+      BOOST_REQUIRE_EQUAL( exts.count( additional_sigs_eid ), 1u );
       auto additional_sigs = std::get<additional_block_signatures_extension>(exts.lower_bound( additional_sigs_eid )->second).signatures;
-      BOOST_REQUIRE_EQUAL( additional_sigs.size(), 1 );
+      BOOST_REQUIRE_EQUAL( additional_sigs.size(), 1u );
 
       // Generate the extra signature and add to additonal_sigs.
       auto header_bmroot = digest_type::hash( std::make_pair( b->digest(), remote.control->head_block_state()->blockroot_merkle.get_root() ) );

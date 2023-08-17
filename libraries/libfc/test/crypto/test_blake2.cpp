@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE blake2
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/exception/exception.hpp>
 #include <fc/crypto/hex.hpp>
@@ -24,7 +23,7 @@ std::ostream& operator<<(std::ostream& st, const std::variant<fc::blake2b_error,
 BOOST_AUTO_TEST_SUITE(blake2)
 BOOST_AUTO_TEST_CASE(compress) try {
 
-    using compress_test = std::tuple<std::vector<string>, std::variant<fc::blake2b_error, bytes>>;
+    using compress_test = std::tuple<std::vector<std::string>, std::variant<fc::blake2b_error, bytes>>;
 
     const std::vector<compress_test> tests {
         //test1

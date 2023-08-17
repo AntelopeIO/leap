@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE io_json
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/io/json.hpp>
 #include <fc/exception/exception.hpp>
@@ -39,7 +38,7 @@ namespace json_test_util {
 
    constexpr size_t repeat_char_num = 512;
    const std::string repeat_chars(repeat_char_num, 'a');
-   const string escape_input_str = "\\b\\f\\n\\r\\t-\\-\\\\-\\x0\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\x09\\x0a\\x0b\\x0c\\x0d\\x0e\\x0f"  \
+   const std::string escape_input_str = "\\b\\f\\n\\r\\t-\\-\\\\-\\x0\\x01\\x02\\x03\\x04\\x05\\x06\\x07\\x08\\x09\\x0a\\x0b\\x0c\\x0d\\x0e\\x0f"  \
                                    "\\x10\\x11\\x12\\x13\\x14\\x15\\x16\\x17\\x18\\x19\\x1a\\x1b\\x1c\\x1d\\x1e\\x1f-" + repeat_chars;
 
 }  // namespace json_test_util
@@ -70,6 +69,27 @@ BOOST_AUTO_TEST_CASE(to_string_test)
          std::string length_exception_in_mid_str;
          BOOST_CHECK_NO_THROW(length_exception_in_mid_str = json::to_string( v, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit));
          BOOST_CHECK_EQUAL(length_exception_in_mid_str, "\"" + json_test_util::repeat_chars + "\"");
+      }
+      {
+         variant v(4294967296LL); // 0xFFFFFFFF + 1
+         std::string large_int = json::to_string( v, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit);
+         BOOST_CHECK_EQUAL(large_int, "\"4294967296\"");
+
+         variant v1(4294967295LL); // 0xFFFFFFFF
+         std::string normal_int = json::to_string( v1, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit);
+         BOOST_CHECK_EQUAL(normal_int, "4294967295");
+
+         variant v2(-4294967296LL);
+         std::string large_int_neg = json::to_string( v2, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit);
+         BOOST_CHECK_EQUAL(large_int_neg, "\"-4294967296\"");
+
+         variant v3(-4294967295LL);
+         std::string normal_int_neg = json::to_string( v3, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit);
+         BOOST_CHECK_EQUAL(normal_int_neg, "-4294967295");
+
+         variant v4(-90909090909090909LL);
+         std::string super_neg = json::to_string( v4, fc::time_point::maximum(), json::output_formatting::stringify_large_ints_and_doubles, json::max_length_limit);
+         BOOST_CHECK_EQUAL(super_neg, "\"-90909090909090909\"");
       }
    }
    {  // to_string( const variant& v, const yield_function_t& yield, output_formatting format = stringify_large_ints_and_doubles);

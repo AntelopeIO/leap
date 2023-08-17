@@ -21,10 +21,13 @@
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 
 #include <fc/static_variant.hpp>
+#include <fc/time.hpp>
 
 namespace fc { class variant; }
 
 namespace eosio {
+   namespace chain { class abi_resolver; }
+
    using chain::controller;
    using std::unique_ptr;
    using std::pair;
@@ -42,8 +45,34 @@ namespace eosio {
    using chain::action_name;
    using chain::abi_def;
    using chain::abi_serializer;
+   using chain::abi_serializer_cache_builder;
+   using chain::abi_resolver;
+   using chain::packed_transaction;
 
-class producer_plugin;
+   enum class throw_on_yield { no, yes };
+   inline auto make_resolver(const controller& control, fc::microseconds abi_serializer_max_time, throw_on_yield yield_throw ) {
+      return [&control, abi_serializer_max_time, yield_throw](const account_name& name) -> std::optional<abi_serializer> {
+         if (name.good()) {
+            const auto* accnt = control.db().template find<chain::account_object, chain::by_name>( name );
+            if( accnt != nullptr ) {
+               try {
+                  if( abi_def abi; abi_serializer::to_abi( accnt->abi, abi ) ) {
+                     return abi_serializer( std::move( abi ), abi_serializer::create_yield_function( abi_serializer_max_time ) );
+                  }
+               } catch( ... ) {
+                  if( yield_throw == throw_on_yield::yes )
+                     throw;
+               }
+            }
+         }
+         return {};
+      };
+   }
+
+   template<class T>
+   inline abi_resolver get_serializers_cache(const controller& db, const T& obj, const fc::microseconds& max_time) {
+      return abi_resolver(abi_serializer_cache_builder(make_resolver(db, max_time, throw_on_yield::no)).add_serializers(obj).get());
+   }
 
 namespace chain_apis {
 struct empty{};
@@ -86,28 +115,46 @@ string convert_to_string(const chain::key256_t& source, const string& key_type, 
 template<>
 string convert_to_string(const float128_t& source, const string& key_type, const string& encode_type, const string& desc);
 
+class read_write;
+   
+class api_base {
+public:
+   static constexpr uint32_t max_return_items = 1000;
+   static void handle_db_exhaustion();
+   static void handle_bad_alloc();
 
-class read_only {
+protected:
+   struct send_transaction_params_t {
+      bool return_failure_trace = true;
+      bool retry_trx = false; ///< request transaction retry on validated transaction
+      std::optional<uint16_t> retry_trx_num_blocks{}; ///< if retry_trx, report trace at specified blocks from executed or lib if not specified
+      chain::transaction_metadata::trx_type trx_type;
+      fc::variant transaction;
+   };
+
+   template<class API, class Result>
+   static void send_transaction_gen(API& api, send_transaction_params_t params, chain::plugin_interface::next_function<Result> next);
+};
+   
+class read_only : public api_base {
    const controller& db;
    const std::optional<account_query_db>& aqdb;
    const fc::microseconds abi_serializer_max_time;
    const fc::microseconds http_max_response_time;
    bool  shorten_abi_errors = true;
-   const producer_plugin* producer_plug;
    const trx_finality_status_processing* trx_finality_status_proc;
-
+   friend class api_base;
+   
 public:
    static const string KEYi64;
 
    read_only(const controller& db, const std::optional<account_query_db>& aqdb,
              const fc::microseconds& abi_serializer_max_time, const fc::microseconds& http_max_response_time,
-             const producer_plugin* producer_plug,
              const trx_finality_status_processing* trx_finality_status_proc)
       : db(db)
       , aqdb(aqdb)
       , abi_serializer_max_time(abi_serializer_max_time)
       , http_max_response_time(http_max_response_time)
-      , producer_plug(producer_plug)
       , trx_finality_status_proc(trx_finality_status_proc) {
    }
 
@@ -116,7 +163,7 @@ public:
    // return deadline for call
    fc::time_point start() const {
       validate();
-      return fc::time_point::now() + http_max_response_time;
+      return fc::time_point::now().safe_add(http_max_response_time);
    }
 
    void set_shorten_abi_errors( bool f ) { shorten_abi_errors = f; }
@@ -176,10 +223,10 @@ public:
    struct get_activated_protocol_features_params {
       std::optional<uint32_t>  lower_bound;
       std::optional<uint32_t>  upper_bound;
-      uint32_t                 limit = 10;
+      uint32_t                 limit = std::numeric_limits<uint32_t>::max(); // ignored
       bool                     search_by_block_num = false;
       bool                     reverse = false;
-      std::optional<uint32_t>  time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t>  time_limit_ms; // ignored
    };
 
    struct get_activated_protocol_features_results {
@@ -246,7 +293,8 @@ public:
       name                  account_name;
       std::optional<symbol> expected_core_symbol;
    };
-   get_account_results get_account( const get_account_params& params, const fc::time_point& deadline )const;
+   using get_account_return_t = std::function<chain::t_or_exception<get_account_results>()>;
+   get_account_return_t get_account( const get_account_params& params, const fc::time_point& deadline )const;
 
 
    struct get_code_results {
@@ -330,13 +378,16 @@ public:
    };
 
    chain::signed_block_ptr get_raw_block(const get_raw_block_params& params, const fc::time_point& deadline) const;
+
+   using get_block_params = get_raw_block_params;
+   std::function<chain::t_or_exception<fc::variant>()> get_block(const get_block_params& params, const fc::time_point& deadline) const;
+
    // call from app() thread
-   std::unordered_map<account_name, std::optional<abi_serializer>>
-     get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
+   abi_resolver get_block_serializers( const chain::signed_block_ptr& block, const fc::microseconds& max_time ) const;
+
    // call from any thread
    fc::variant convert_block( const chain::signed_block_ptr& block,
-                              std::unordered_map<account_name, std::optional<abi_serializer>> abi_cache,
-                              const fc::microseconds& max_time ) const;
+                              abi_resolver& resolver ) const;
 
    struct get_block_header_params {
       string block_num_or_id;
@@ -377,7 +428,7 @@ public:
       string               encode_type{"dec"}; //dec, hex , default=dec
       std::optional<bool>  reverse;
       std::optional<bool>  show_payer; // show RAM payer
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
     };
 
    struct get_table_rows_result {
@@ -386,7 +437,9 @@ public:
       string              next_key; ///< fill lower_bound with this value to fetch more rows
    };
 
-   get_table_rows_result get_table_rows( const get_table_rows_params& params, const fc::time_point& deadline )const;
+   using get_table_rows_return_t = std::function<chain::t_or_exception<get_table_rows_result>()>;
+   
+   get_table_rows_return_t get_table_rows( const get_table_rows_params& params, const fc::time_point& deadline )const;
 
    struct get_table_by_scope_params {
       name                 code; // mandatory
@@ -395,7 +448,7 @@ public:
       string               upper_bound; // upper bound of scope, optional
       uint32_t             limit = 10;
       std::optional<bool>  reverse;
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
    };
    struct get_table_by_scope_result_row {
       name        code;
@@ -437,7 +490,7 @@ public:
       bool        json = false;
       string      lower_bound;
       uint32_t    limit = 50;
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
    };
 
    struct get_producers_result {
@@ -463,7 +516,7 @@ public:
       bool        json = false;
       string      lower_bound;  /// timestamp OR transaction ID
       uint32_t    limit = 50;
-      std::optional<uint32_t> time_limit_ms; // defaults to 10ms
+      std::optional<uint32_t> time_limit_ms; // defaults to http-max-response-time-ms
    };
 
    struct get_scheduled_transactions_result {
@@ -481,7 +534,7 @@ public:
       fc::variant transaction;
    };
 
-   void compute_transaction(const compute_transaction_params& params, chain::plugin_interface::next_function<compute_transaction_results> next ) const;
+   void compute_transaction(compute_transaction_params params, chain::plugin_interface::next_function<compute_transaction_results> next );
 
    struct send_read_only_transaction_results {
       chain::transaction_id_type  transaction_id;
@@ -490,7 +543,7 @@ public:
    struct send_read_only_transaction_params {
       fc::variant transaction;
    };
-   void send_read_only_transaction(const send_read_only_transaction_params& params, chain::plugin_interface::next_function<send_read_only_transaction_results> next ) const;
+   void send_read_only_transaction(send_read_only_transaction_params params, chain::plugin_interface::next_function<send_read_only_transaction_results> next );
 
    static void copy_inline_row(const chain::key_value_object& obj, vector<char>& data) {
       data.resize( obj.value.size() );
@@ -519,27 +572,36 @@ public:
    static uint64_t get_table_index_name(const read_only::get_table_rows_params& p, bool& primary);
 
    template <typename IndexType, typename SecKeyType, typename ConvFn>
-   read_only::get_table_rows_result get_table_rows_by_seckey( const read_only::get_table_rows_params& p,
-                                                              abi_def&& abi,
-                                                              const fc::time_point& deadline,
-                                                              ConvFn conv )const {
+   get_table_rows_return_t
+   get_table_rows_by_seckey( const read_only::get_table_rows_params& p,
+                             abi_def&& abi,
+                             const fc::time_point& deadline,
+                             ConvFn conv ) const {
 
-      fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-      fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+      fc::time_point params_deadline = p.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*p.time_limit_ms)), deadline) : deadline;
 
-      read_only::get_table_rows_result result;
+      struct http_params_t {
+         name table;
+         bool shorten_abi_errors;
+         bool json;
+         bool show_payer;
+         bool more;
+         std::string next_key;
+         vector<std::pair<vector<char>, name>> rows;
+      };
+      
+      http_params_t http_params { p.table, shorten_abi_errors, p.json, p.show_payer && *p.show_payer, false  };
+         
       const auto& d = db.db();
 
       name scope{ convert_to_type<uint64_t>(p.scope, "scope") };
 
-      abi_serializer abis;
-      abis.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ) );
       bool primary = false;
       const uint64_t table_with_index = get_table_index_name(p, primary);
       const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple(p.code, scope, p.table));
       const auto* index_t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple(p.code, scope, name(table_with_index)));
       if( t_id != nullptr && index_t_id != nullptr ) {
-         using secondary_key_type = std::result_of_t<decltype(conv)(SecKeyType)>;
+         using secondary_key_type = std::invoke_result_t<decltype(conv), SecKeyType>;
          static_assert( std::is_same<typename IndexType::value_type::secondary_key_type, secondary_key_type>::value, "Return type of conv does not match type of secondary key for IndexType" );
 
          const auto& secidx = d.get_index<IndexType, chain::by_secondary>();
@@ -579,35 +641,26 @@ public:
          }
 
          if( upper_bound_lookup_tuple < lower_bound_lookup_tuple )
-            return result;
+            return []() ->  chain::t_or_exception<read_only::get_table_rows_result> {
+               return read_only::get_table_rows_result();
+            };
 
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
-            auto cur_time = fc::time_point::now();
             vector<char> data;
-            for( unsigned int count = 0; cur_time <= params_deadline && count < p.limit && itr != end_itr; ++itr, cur_time = fc::time_point::now() ) {
-               FC_CHECK_DEADLINE(deadline);
+            uint32_t limit = p.limit;
+            if (deadline != fc::time_point::maximum() && limit > max_return_items)
+               limit = max_return_items;
+            for( unsigned int count = 0; count < limit && itr != end_itr; ++count, ++itr ) {
                const auto* itr2 = d.find<chain::key_value_object, chain::by_scope_primary>( boost::make_tuple(t_id->id, itr->primary_key) );
                if( itr2 == nullptr ) continue;
                copy_inline_row(*itr2, data);
-
-               fc::variant data_var;
-               if( p.json ) {
-                  data_var = abis.binary_to_variant( abis.get_table_type(p.table), data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-               } else {
-                  data_var = fc::variant( data );
-               }
-
-               if( p.show_payer && *p.show_payer ) {
-                  result.rows.emplace_back( fc::mutable_variant_object("data", std::move(data_var))("payer", itr->payer) );
-               } else {
-                  result.rows.emplace_back( std::move(data_var) );
-               }
-
-               ++count;
+               http_params.rows.emplace_back(std::move(data), itr->payer);
+               if (fc::time_point::now() >= params_deadline)
+                  break;
             }
             if( itr != end_itr ) {
-               result.more = true;
-               result.next_key = convert_to_string(itr->secondary_key, p.key_type, p.encode_type, "next_key - next lower bound");
+               http_params.more = true;
+               http_params.next_key = convert_to_string(itr->secondary_key, p.key_type, p.encode_type, "next_key - next lower bound");
             }
          };
 
@@ -619,24 +672,62 @@ public:
             walk_table_row_range( lower, upper );
          }
       }
-      return result;
+
+      // not enforcing the deadline for that second processing part (the serialization), as it is not taking place
+      // on the main thread, but in the http thread pool.
+      return [p = std::move(http_params), abi=std::move(abi), abi_serializer_max_time=abi_serializer_max_time]() mutable ->
+         chain::t_or_exception<read_only::get_table_rows_result> {
+         read_only::get_table_rows_result result;
+         abi_serializer abis;
+         abis.set_abi(std::move(abi), abi_serializer::create_yield_function(abi_serializer_max_time));
+         auto table_type = abis.get_table_type(p.table);
+         
+         for (auto& row : p.rows) {
+            fc::variant data_var;
+            if( p.json ) {
+               data_var = abis.binary_to_variant(table_type, row.first,
+                                                 abi_serializer::create_yield_function(abi_serializer_max_time),
+                                                 p.shorten_abi_errors );
+            } else {
+               data_var = fc::variant(row.first);
+            }
+
+            if (p.show_payer) {
+               result.rows.emplace_back(fc::mutable_variant_object("data", std::move(data_var))("payer", row.second));
+            } else {
+               result.rows.emplace_back(std::move(data_var));
+            }            
+         }
+         result.more = p.more;
+         result.next_key = p.next_key;
+         return result;
+      };
    }
 
    template <typename IndexType>
-   read_only::get_table_rows_result get_table_rows_ex( const read_only::get_table_rows_params& p,
-                                                       abi_def&& abi,
-                                                       const fc::time_point& deadline )const {
+   get_table_rows_return_t
+   get_table_rows_ex( const read_only::get_table_rows_params& p,
+                      abi_def&& abi,
+                      const fc::time_point& deadline ) const {
 
-      fc::microseconds params_time_limit = p.time_limit_ms ? fc::milliseconds(*p.time_limit_ms) : fc::milliseconds(10);
-      fc::time_point params_deadline = fc::time_point::now() + params_time_limit;
+      fc::time_point params_deadline = p.time_limit_ms ? std::min(fc::time_point::now().safe_add(fc::milliseconds(*p.time_limit_ms)), deadline) : deadline;
 
-      read_only::get_table_rows_result result;
+      struct http_params_t {
+         name table;
+         bool shorten_abi_errors;
+         bool json;
+         bool show_payer;
+         bool more;
+         std::string next_key;
+         vector<std::pair<vector<char>, name>> rows;
+      };
+      
+      http_params_t http_params { p.table, shorten_abi_errors, p.json, p.show_payer && *p.show_payer, false  };
+         
       const auto& d = db.db();
 
       uint64_t scope = convert_to_type<uint64_t>(p.scope, "scope");
 
-      abi_serializer abis;
-      abis.set_abi(std::move(abi), abi_serializer::create_yield_function( abi_serializer_max_time ));
       const auto* t_id = d.find<chain::table_id_object, chain::by_code_scope_table>(boost::make_tuple(p.code, name(scope), p.table));
       if( t_id != nullptr ) {
          const auto& idx = d.get_index<IndexType, chain::by_scope_primary>();
@@ -664,31 +755,24 @@ public:
          }
 
          if( upper_bound_lookup_tuple < lower_bound_lookup_tuple  )
-            return result;
+            return []() ->  chain::t_or_exception<read_only::get_table_rows_result> {
+               return read_only::get_table_rows_result();
+            };
 
          auto walk_table_row_range = [&]( auto itr, auto end_itr ) {
-            auto cur_time = fc::time_point::now();
             vector<char> data;
-            for( unsigned int count = 0; cur_time <= params_deadline && count < p.limit && itr != end_itr; ++count, ++itr, cur_time = fc::time_point::now() ) {
-               FC_CHECK_DEADLINE(deadline);
+            uint32_t limit = p.limit;
+            if (deadline != fc::time_point::maximum() && limit > max_return_items)
+               limit = max_return_items;
+            for( unsigned int count = 0; count < limit && itr != end_itr; ++count, ++itr ) {
                copy_inline_row(*itr, data);
-
-               fc::variant data_var;
-               if( p.json ) {
-                  data_var = abis.binary_to_variant( abis.get_table_type(p.table), data, abi_serializer::create_yield_function( abi_serializer_max_time ), shorten_abi_errors );
-               } else {
-                  data_var = fc::variant( data );
-               }
-
-               if( p.show_payer && *p.show_payer ) {
-                  result.rows.emplace_back( fc::mutable_variant_object("data", std::move(data_var))("payer", itr->payer) );
-               } else {
-                  result.rows.emplace_back( std::move(data_var) );
-               }
+               http_params.rows.emplace_back(std::move(data), itr->payer);
+               if (fc::time_point::now() >= params_deadline)
+                  break;
             }
             if( itr != end_itr ) {
-               result.more = true;
-               result.next_key = convert_to_string(itr->primary_key, p.key_type, p.encode_type, "next_key - next lower bound");
+               http_params.more = true;
+               http_params.next_key = convert_to_string(itr->primary_key, p.key_type, p.encode_type, "next_key - next lower bound");
             }
          };
 
@@ -700,7 +784,36 @@ public:
             walk_table_row_range( lower, upper );
          }
       }
-      return result;
+      
+      // not enforcing the deadline for that second processing part (the serialization), as it is not taking place
+      // on the main thread, but in the http thread pool.
+      return [p = std::move(http_params), abi=std::move(abi), abi_serializer_max_time=abi_serializer_max_time]() mutable ->
+         chain::t_or_exception<read_only::get_table_rows_result> {
+         read_only::get_table_rows_result result;
+         abi_serializer abis;
+         abis.set_abi(std::move(abi), abi_serializer::create_yield_function(abi_serializer_max_time));
+         auto table_type = abis.get_table_type(p.table);
+         
+         for (auto& row : p.rows) {
+            fc::variant data_var;
+            if( p.json ) {
+               data_var = abis.binary_to_variant(table_type, row.first,
+                                                 abi_serializer::create_yield_function(abi_serializer_max_time),
+                                                 p.shorten_abi_errors );
+            } else {
+               data_var = fc::variant(row.first);
+            }
+
+            if (p.show_payer) {
+               result.rows.emplace_back(fc::mutable_variant_object("data", std::move(data_var))("payer", row.second));
+            } else {
+               result.rows.emplace_back(std::move(data_var));
+            }            
+         }
+         result.more = p.more;
+         result.next_key = p.next_key;
+         return result;
+      };
    }
 
    using get_accounts_by_authorizers_result = account_query_db::get_accounts_by_authorizers_result;
@@ -753,19 +866,18 @@ public:
       chain::extended_schedule schedule;
       vector<hs_complete_proposal_message> proposals;
    };
-   get_finalizer_state_results get_finalizer_state(const get_finalizer_state_params&, const fc::time_point& deadline) const;
 
-private:
-   template<typename Params, typename Results>
-   void send_transient_transaction(const Params& params, next_function<Results> next, chain::transaction_metadata::trx_type trx_type) const;
+   get_finalizer_state_results get_finalizer_state(const get_finalizer_state_params&, const fc::time_point& deadline) const;
 };
 
-class read_write {
+class read_write : public api_base {
    controller& db;
    std::optional<trx_retry_db>& trx_retry;
    const fc::microseconds abi_serializer_max_time;
    const fc::microseconds http_max_response_time;
    const bool api_accept_transactions;
+   friend class api_base;
+   
 public:
    read_write(controller& db, std::optional<trx_retry_db>& trx_retry,
               const fc::microseconds& abi_serializer_max_time, const fc::microseconds& http_max_response_time,
@@ -775,7 +887,8 @@ public:
    // return deadline for call
    fc::time_point start() const {
       validate();
-      return fc::time_point::now() + http_max_response_time;
+      return http_max_response_time == fc::microseconds::maximum() ? fc::time_point::maximum()
+                                                                   : fc::time_point::now() + http_max_response_time;
    }
 
    using push_block_params = chain::signed_block;
@@ -796,7 +909,7 @@ public:
 
    using send_transaction_params = push_transaction_params;
    using send_transaction_results = push_transaction_results;
-   void send_transaction(const send_transaction_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
+   void send_transaction(send_transaction_params params, chain::plugin_interface::next_function<send_transaction_results> next);
 
    struct send_transaction2_params {
       bool return_failure_trace = true;
@@ -804,7 +917,7 @@ public:
       std::optional<uint16_t> retry_trx_num_blocks{}; ///< if retry_trx, report trace at specified blocks from executed or lib if not specified
       fc::variant transaction;
    };
-   void send_transaction2(const send_transaction2_params& params, chain::plugin_interface::next_function<send_transaction_results> next);
+   void send_transaction2(send_transaction2_params params, chain::plugin_interface::next_function<send_transaction_results> next);
 
 };
 
@@ -868,7 +981,7 @@ public:
             // the following will convert the input to array of 2 uint128_t in little endian, i.e. 50f0fa8360ec998f4bb65b00c86282f5 fb54b91bfed2fe7fe39a92d999d002c5
             // which is the format used by secondary index
             chain::key256_t k;
-            uint8_t buffer[32];
+            uint8_t buffer[32] = {};
             boost::multiprecision::export_bits(v, buffer, 8, false);
             memcpy(&k[0], buffer + 16, 16);
             memcpy(&k[1], buffer, 16);
@@ -876,6 +989,15 @@ public:
         };
      }
  };
+
+ template<typename I>
+ std::string itoh(I n, size_t hlen = sizeof(I)<<1) {
+     static const char* digits = "0123456789abcdef";
+     std::string r(hlen, '0');
+     for(size_t i = 0, j = (hlen - 1) * 4 ; i < hlen; ++i, j -= 4)
+         r[i] = digits[(n>>j) & 0x0f];
+     return r;
+ }
 
 } // namespace chain_apis
 
@@ -912,10 +1034,6 @@ public:
    void enable_accept_transactions();
 
    static void handle_guard_exception(const chain::guard_exception& e);
-   void do_hard_replay(const variables_map& options);
-
-   static void handle_db_exhaustion();
-   static void handle_bad_alloc();
 
    bool account_queries_enabled() const;
    bool transaction_finality_status_enabled() const;
@@ -925,13 +1043,13 @@ public:
    // return variant of trx for logging, trace is modified to minimize log output
    fc::variant get_log_trx(const transaction& trx) const;
 
+   const controller::config& chain_config() const;
 private:
-   static void log_guard_exception(const chain::guard_exception& e);
 
    unique_ptr<class chain_plugin_impl> my;
 };
 
-}
+} // namespace eosio
 
 FC_REFLECT( eosio::chain_apis::linked_action, (account)(action) )
 FC_REFLECT( eosio::chain_apis::permission, (perm_name)(parent)(required_auth)(linked_actions) )

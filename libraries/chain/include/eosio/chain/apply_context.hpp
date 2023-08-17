@@ -14,6 +14,7 @@ namespace chainbase { class database; }
 namespace eosio { namespace chain {
 
 class controller;
+class account_metadata_object;
 
 class apply_context {
    private:
@@ -597,6 +598,9 @@ class apply_context {
       const action& get_action()const { return *act; }
 
       action_name get_sender() const;
+
+      bool is_applying_block() const { return trx_context.explicit_billed_cpu_time; }
+      bool should_use_eos_vm_oc()const;
 
    /// Fields:
    public:

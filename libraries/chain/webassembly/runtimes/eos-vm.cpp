@@ -1,5 +1,6 @@
 #include <eosio/chain/webassembly/eos-vm.hpp>
 #include <eosio/chain/webassembly/interface.hpp>
+#include <eosio/chain/account_object.hpp>
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/global_property_object.hpp>
@@ -128,6 +129,12 @@ class eos_vm_instantiated_module : public wasm_instantiated_module_interface {
          _instantiated_module(std::move(mod)) {}
 
       void apply(apply_context& context) override {
+         // Reset execution context (reused per thread)
+         _runtime->_exec_ctx.set_module(&(_instantiated_module->get_module()));
+         _instantiated_module->set_context(&_runtime->_exec_ctx);
+         _instantiated_module->reset_max_call_depth();
+         _instantiated_module->reset_max_pages();
+
          _instantiated_module->set_wasm_allocator(&context.control.get_wasm_allocator());
          _runtime->_bkend = _instantiated_module.get();
          apply_options opts;
@@ -201,10 +208,6 @@ class eos_vm_profiling_module : public wasm_instantiated_module_interface {
          }
       }
 
-      void fast_shutdown() override {
-         _prof.clear();
-      }
-
       profile_data* start(apply_context& context) {
          name account = context.get_receiver();
          if(!context.control.is_profiling(account)) return nullptr;
@@ -234,12 +237,7 @@ template<typename Impl>
 eos_vm_runtime<Impl>::eos_vm_runtime() {}
 
 template<typename Impl>
-void eos_vm_runtime<Impl>::immediately_exit_currently_running_module() {
-   throw wasm_exit{};
-}
-
-template<typename Impl>
-std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instantiate_module(const char* code_bytes, size_t code_size, std::vector<uint8_t>,
+std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instantiate_module(const char* code_bytes, size_t code_size,
                                                                                              const digest_type&, const uint8_t&, const uint8_t&) {
 
    using backend_t = eos_vm_backend_t<Impl>;
@@ -247,7 +245,13 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_runtime<Impl>::instan
       wasm_code_ptr code((uint8_t*)code_bytes, code_size);
       apply_options options = { .max_pages = 65536,
                                 .max_call_depth = 0 };
-      std::unique_ptr<backend_t> bkend = std::make_unique<backend_t>(code, code_size, nullptr, options);
+      std::unique_ptr<backend_t> bkend = nullptr;
+#ifdef EOSIO_EOS_VM_JIT_RUNTIME_ENABLED
+      if constexpr (std::is_same_v<Impl, eosio::vm::jit>)
+         bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, true, false); // true, false <--> single parsing, backend does not own execution context (execution context is reused per thread)
+      else
+#endif
+         bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, false, false); // false, false <--> 2-passes parsing, backend does not own execution context (execution context is reused per thread)
       eos_vm_host_functions_t::resolve(bkend->get_module());
       return std::make_unique<eos_vm_instantiated_module<Impl>>(this, std::move(bkend));
    } catch(eosio::vm::exception& e) {
@@ -261,11 +265,7 @@ template class eos_vm_runtime<eosio::vm::jit>;
 
 eos_vm_profile_runtime::eos_vm_profile_runtime() {}
 
-void eos_vm_profile_runtime::immediately_exit_currently_running_module() {
-   throw wasm_exit{};
-}
-
-std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::instantiate_module(const char* code_bytes, size_t code_size, std::vector<uint8_t>,
+std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::instantiate_module(const char* code_bytes, size_t code_size,
                                                                                                const digest_type&, const uint8_t&, const uint8_t&) {
 
    using backend_t = eosio::vm::backend<eos_vm_host_functions_t, eosio::vm::jit_profile, webassembly::eos_vm_runtime::apply_options, vm::profile_instr_map>;
@@ -273,7 +273,7 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::inst
       wasm_code_ptr code((uint8_t*)code_bytes, code_size);
       apply_options options = { .max_pages = 65536,
                                 .max_call_depth = 0 };
-      std::unique_ptr<backend_t> bkend = std::make_unique<backend_t>(code, code_size, nullptr, options);
+      std::unique_ptr<backend_t> bkend = std::make_unique<backend_t>(code, code_size, nullptr, options, true, false); // true, false <--> single parsing, backend does not own execution context (execution context is reused per thread)
       eos_vm_host_functions_t::resolve(bkend->get_module());
       return std::make_unique<eos_vm_profiling_module>(std::move(bkend), code_bytes, code_size);
    } catch(eosio::vm::exception& e) {
@@ -629,12 +629,23 @@ REGISTER_CF_HOST_FUNCTION( blake2_f );
 REGISTER_CF_HOST_FUNCTION( sha3 );
 REGISTER_CF_HOST_FUNCTION( k1_recover );
 
+// bls_primitives protocol feature
+REGISTER_CF_HOST_FUNCTION( bls_g1_add );
+REGISTER_CF_HOST_FUNCTION( bls_g2_add );
+REGISTER_CF_HOST_FUNCTION( bls_g1_mul );
+REGISTER_CF_HOST_FUNCTION( bls_g2_mul );
+REGISTER_CF_HOST_FUNCTION( bls_g1_exp );
+REGISTER_CF_HOST_FUNCTION( bls_g2_exp );
+REGISTER_CF_HOST_FUNCTION( bls_pairing );
+REGISTER_CF_HOST_FUNCTION( bls_g1_map );
+REGISTER_CF_HOST_FUNCTION( bls_g2_map );
+REGISTER_CF_HOST_FUNCTION( bls_fp_mod );
+
 // aggregate_signatures protocol feature
 REGISTER_CF_HOST_FUNCTION( bls_verify );
 REGISTER_CF_HOST_FUNCTION( bls_aggregate_pubkeys );
 REGISTER_CF_HOST_FUNCTION( bls_aggregate_sigs );
 REGISTER_CF_HOST_FUNCTION( bls_aggregate_verify );
-
 
 } // namespace webassembly
 } // namespace chain

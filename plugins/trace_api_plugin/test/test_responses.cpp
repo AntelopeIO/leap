@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE trace_data_responses
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/variant_object.hpp>
 
@@ -26,17 +25,17 @@ struct response_test_fixture {
        *         optional containing a 2-tuple of the block_trace and a flag indicating irreversibility
        * @throws bad_data_exception : if the data is corrupt in some way
        */
-      get_block_t get_block(uint32_t height, const yield_function& yield= {}) {
-         return fixture.mock_get_block(height, yield);
+      get_block_t get_block(uint32_t height) {
+         return fixture.mock_get_block(height);
       }
       response_test_fixture& fixture;
    };
 
-   constexpr static auto default_mock_data_handler_v0 = [](const action_trace_v0& a, const yield_function&) ->std::tuple<fc::variant, std::optional<fc::variant>> {
+   constexpr static auto default_mock_data_handler_v0 = [](const action_trace_v0& a) ->std::tuple<fc::variant, std::optional<fc::variant>> {
       return {fc::mutable_variant_object()("hex" , fc::to_hex(a.data.data(), a.data.size())),{}};
    };
 
-   constexpr static auto default_mock_data_handler_v1 = [](const action_trace_v1& a, const yield_function&) -> std::tuple<fc::variant, std::optional<fc::variant>>{
+   constexpr static auto default_mock_data_handler_v1 = [](const action_trace_v1& a) -> std::tuple<fc::variant, std::optional<fc::variant>>{
       return {fc::mutable_variant_object()("hex" , fc::to_hex(a.data.data(), a.data.size())), {fc::mutable_variant_object()("hex" , fc::to_hex(a.return_value.data(), a.return_value.size()))}};
    };
 
@@ -46,12 +45,12 @@ struct response_test_fixture {
       {}
 
       template<typename ActionTrace>
-      std::tuple<fc::variant, std::optional<fc::variant>> serialize_to_variant(const ActionTrace & action, const yield_function& yield) {
+      std::tuple<fc::variant, std::optional<fc::variant>> serialize_to_variant(const ActionTrace & action) {
          if constexpr(std::is_same_v<ActionTrace, action_trace_v0>){
-            return fixture.mock_data_handler_v0(action, yield);
+            return fixture.mock_data_handler_v0(action);
          }
          else if constexpr(std::is_same_v<ActionTrace, action_trace_v1>){
-            return fixture.mock_data_handler_v1(action, yield);
+            return fixture.mock_data_handler_v1(action);
          }
       }
 
@@ -69,14 +68,14 @@ struct response_test_fixture {
 
    }
 
-   fc::variant get_block_trace( uint32_t block_height, const yield_function& yield = {} ) {
-      return response_impl.get_block_trace( block_height, yield );
+   fc::variant get_block_trace( uint32_t block_height ) {
+      return response_impl.get_block_trace( block_height );
    }
 
    // fixture data and methods
-   std::function<get_block_t(uint32_t, const yield_function&)> mock_get_block;
-   std::function<std::tuple<fc::variant, std::optional<fc::variant>>(const action_trace_v0&, const yield_function&)> mock_data_handler_v0 = default_mock_data_handler_v0;
-   std::function<std::tuple<fc::variant, std::optional<fc::variant>>(const action_trace_v1&, const yield_function&)> mock_data_handler_v1 = default_mock_data_handler_v1;
+   std::function<get_block_t(uint32_t)> mock_get_block;
+   std::function<std::tuple<fc::variant, std::optional<fc::variant>>(const action_trace_v0&)> mock_data_handler_v0 = default_mock_data_handler_v0;
+   std::function<std::tuple<fc::variant, std::optional<fc::variant>>(const action_trace_v1&)> mock_data_handler_v1 = default_mock_data_handler_v1;
 
    response_impl_type response_impl;
 
@@ -112,8 +111,8 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          ("transactions", fc::variants() )
       ;
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry{block_trace}, false);
       };
 
@@ -140,7 +139,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          10,
          5,
          std::vector<chain::signature_type>{ chain::signature_type() },
-         { chain::time_point(), 1, 0, 100, 50, 0 }
+         { chain::time_point_sec(), 1, 0, 100, 50, 0 }
       };
 
       auto block_trace = block_trace_v1 {
@@ -202,8 +201,8 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          }))
       ;
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
@@ -242,7 +241,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
                10,
                5,
                std::vector<chain::signature_type>{ chain::signature_type() },
-               { chain::time_point(), 1, 0, 100, 50, 0 }
+               { chain::time_point_sec(), 1, 0, 100, 50, 0 }
             }
          }
       };
@@ -288,13 +287,13 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          }))
       ;
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
       // simulate an inability to parse the parameters
-      mock_data_handler_v0 = [](const action_trace_v0&, const yield_function&) -> std::tuple<fc::variant, std::optional<fc::variant>> {
+      mock_data_handler_v0 = [](const action_trace_v0&) -> std::tuple<fc::variant, std::optional<fc::variant>> {
          return {};
       };
 
@@ -345,7 +344,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
                10,
                5,
                { chain::signature_type() },
-               { chain::time_point(), 1, 0, 100, 50, 0 }
+               { chain::time_point_sec(), 1, 0, 100, 50, 0 }
             }
          }
       };
@@ -415,13 +414,13 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          }))
       ;
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
       // simulate an inability to parse the parameters
-      mock_data_handler_v0 = [](const action_trace_v0&, const yield_function&) -> std::tuple<fc::variant, std::optional<fc::variant>> {
+      mock_data_handler_v0 = [](const action_trace_v0&) -> std::tuple<fc::variant, std::optional<fc::variant>> {
          return {};
       };
 
@@ -459,8 +458,8 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          ("transactions", fc::variants() )
       ;
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), true);
       };
 
@@ -471,8 +470,8 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
 
    BOOST_FIXTURE_TEST_CASE(corrupt_block_data, response_test_fixture)
    {
-      mock_get_block = []( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = []( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          throw bad_data_exception("mock exception");
       };
 
@@ -481,79 +480,14 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
 
    BOOST_FIXTURE_TEST_CASE(missing_block_data, response_test_fixture)
    {
-      mock_get_block = []( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = []( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return {};
       };
 
       fc::variant null_response = get_block_trace( 1 );
 
       BOOST_TEST(null_response.is_null());
-   }
-
-   BOOST_FIXTURE_TEST_CASE(yield_throws, response_test_fixture)
-   {
-      auto block_trace = block_trace_v1 {
-         {
-            "b000000000000000000000000000000000000000000000000000000000000001"_h,
-            1,
-            "0000000000000000000000000000000000000000000000000000000000000000"_h,
-            chain::block_timestamp_type(0),
-            "bp.one"_n
-         },
-         "0000000000000000000000000000000000000000000000000000000000000000"_h,
-         "0000000000000000000000000000000000000000000000000000000000000000"_h,
-         0,
-         {
-            {
-               {
-                  "0000000000000000000000000000000000000000000000000000000000000001"_h,
-                  {
-                     {
-                        0,
-                        "receiver"_n, "contract"_n, "action"_n,
-                        {{ "alice"_n, "active"_n }},
-                        { 0x00, 0x01, 0x02, 0x03 }
-                     }
-                  }
-               },
-               fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{chain::transaction_receipt_header::status_enum::executed},
-               10,
-               5,
-               std::vector<chain::signature_type>{chain::signature_type()},
-               {chain::time_point(), 1, 0, 100, 50, 0}
-            }
-         }
-      };
-
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
-         return std::make_tuple(data_log_entry(block_trace), false);
-      };
-
-      int countdown = 3;
-      yield_function yield = [&]() {
-         if (countdown-- == 0) {
-            throw yield_exception("mock");
-         }
-      };
-
-      BOOST_REQUIRE_THROW(get_block_trace( 1, yield ), yield_exception);
-   }
-
-   BOOST_FIXTURE_TEST_CASE(yield_throws_from_get_block, response_test_fixture)
-   {
-      // no other yield calls will throw
-      yield_function yield = [&]() {
-      };
-
-      // simulate a yield throw inside get block
-      mock_get_block = []( uint32_t height, const yield_function& yield) -> get_block_t {
-         throw yield_exception("mock exception");
-      };
-
-
-      BOOST_REQUIRE_THROW(get_block_trace( 1, yield ), yield_exception);
    }
 
    BOOST_FIXTURE_TEST_CASE(old_version_block_response, response_test_fixture)
@@ -608,8 +542,8 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          }))
       ;
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
@@ -645,8 +579,8 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          ("transactions", fc::variants() )
       ;
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry{block_trace}, false);
       };
 
@@ -676,7 +610,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          10,  // cpu_usage_us
          5,    // net_usage_words
          std::vector<chain::signature_type>{ chain::signature_type() },  // signatures
-         { chain::time_point(), 1, 0, 100, 50, 0 }  //   trx_header
+         { chain::time_point_sec(), 1, 0, 100, 50, 0 }  //   trx_header
       };// trn end
 
       auto block_trace = block_trace_v2 {
@@ -739,8 +673,8 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          }))
       ;
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
@@ -769,7 +703,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          10,
          5,
          std::vector<chain::signature_type>{ chain::signature_type() },
-         { chain::time_point(), 1, 0, 100, 50, 0 }
+         { chain::time_point_sec(), 1, 0, 100, 50, 0 }
       };
 
       auto block_trace = block_trace_v2 {
@@ -827,13 +761,13 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
             })
       );
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
       // simulate an inability to parse the parameters and return_data
-      mock_data_handler_v1 = [](const action_trace_v1&, const yield_function&) -> std::tuple<fc::variant, std::optional<fc::variant>> {
+      mock_data_handler_v1 = [](const action_trace_v1&) -> std::tuple<fc::variant, std::optional<fc::variant>> {
          return {};
       };
 
@@ -881,7 +815,7 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          10,
          5,
          { chain::signature_type() },
-         { chain::time_point(), 1, 0, 100, 50, 0 }
+         { chain::time_point_sec(), 1, 0, 100, 50, 0 }
       };
 
       auto block_trace = block_trace_v2 {
@@ -966,13 +900,13 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
       }))
       ;
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), false);
       };
 
       // simulate an inability to parse the parameters and return_data
-      mock_data_handler_v1 = [](const action_trace_v1&, const yield_function&) -> std::tuple<fc::variant, std::optional<fc::variant>> {
+      mock_data_handler_v1 = [](const action_trace_v1&) -> std::tuple<fc::variant, std::optional<fc::variant>> {
          return {};
       };
 
@@ -1008,67 +942,14 @@ BOOST_AUTO_TEST_SUITE(trace_responses)
          ("transactions", fc::variants() )
       ;
 
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
+      mock_get_block = [&block_trace]( uint32_t height ) -> get_block_t {
+         BOOST_TEST(height == 1u);
          return std::make_tuple(data_log_entry(block_trace), true);
       };
 
       fc::variant response = get_block_trace( 1 );
       BOOST_TEST(to_kv(expected_response) == to_kv(response), boost::test_tools::per_element());
 
-   }
-
-   BOOST_FIXTURE_TEST_CASE(yield_throws_v2, response_test_fixture)
-   {
-      auto action_trace = action_trace_v1 {
-         {
-            0,
-            "receiver"_n, "contract"_n, "action"_n,
-            {{ "alice"_n, "active"_n }},
-            { 0x00, 0x01, 0x02, 0x03 }
-         },
-         { 0x04, 0x05, 0x06, 0x07 }
-      };
-
-      auto transaction_trace = transaction_trace_v2 {
-         "0000000000000000000000000000000000000000000000000000000000000001"_h,
-         std::vector<action_trace_v1> {
-            action_trace
-         },
-         fc::enum_type<uint8_t, chain::transaction_receipt_header::status_enum>{chain::transaction_receipt_header::status_enum::executed},
-         10,
-         5,
-         std::vector<chain::signature_type>{chain::signature_type()},
-         {chain::time_point(), 1, 0, 100, 50, 0}
-      };
-
-      auto block_trace = block_trace_v2 {
-         "b000000000000000000000000000000000000000000000000000000000000001"_h,
-         1,
-         "0000000000000000000000000000000000000000000000000000000000000000"_h,
-         chain::block_timestamp_type(0),
-         "bp.one"_n,
-         "0000000000000000000000000000000000000000000000000000000000000000"_h,
-         "0000000000000000000000000000000000000000000000000000000000000000"_h,
-         0,
-         std::vector<transaction_trace_v2>{
-            transaction_trace
-         }
-      };
-
-      mock_get_block = [&block_trace]( uint32_t height, const yield_function& ) -> get_block_t {
-         BOOST_TEST(height == 1);
-         return std::make_tuple(data_log_entry(block_trace), false);
-      };
-
-      int countdown = 3;
-      yield_function yield = [&]() {
-         if (countdown-- == 0) {
-            throw yield_exception("mock");
-         }
-      };
-
-      BOOST_REQUIRE_THROW(get_block_trace( 1, yield ), yield_exception);
    }
 
 BOOST_AUTO_TEST_SUITE_END()

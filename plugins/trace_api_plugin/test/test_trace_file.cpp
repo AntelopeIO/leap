@@ -1,14 +1,11 @@
-#define BOOST_TEST_MODULE trace_trace_file
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <fc/io/cfile.hpp>
 #include <eosio/trace_api/test_common.hpp>
 #include <eosio/trace_api/store_provider.hpp>
-#include <boost/filesystem.hpp>
 
 using namespace eosio;
 using namespace eosio::trace_api;
 using namespace eosio::trace_api::test_common;
-namespace bfs = boost::filesystem;
 using open_state = slice_directory::open_state;
 
 namespace {
@@ -51,7 +48,7 @@ namespace {
          10,
          5,
          { chain::signature_type() },
-         { chain::time_point(), 1, 0, 100, 50, 0 }
+         { chain::time_point_sec(), 1, 0, 100, 50, 0 }
       };
 
       block_trace_v2 block_trace1_v2 {
@@ -123,11 +120,11 @@ namespace {
                10,
                5,
                std::vector<chain::signature_type>{chain::signature_type()},
-               chain::transaction_header{chain::time_point(), 1, 0, 100, 50, 0}
+               chain::transaction_header{chain::time_point_sec(), 1, 0, 100, 50, 0}
             }
          }
       };
-      
+
       const block_trace_v1 bt2_v1 {
          {
             "0000000000000000000000000000000000000000000000000000000000000002"_h,
@@ -149,7 +146,7 @@ namespace {
                10,
                5,
                std::vector<chain::signature_type>{chain::signature_type()},
-               chain::transaction_header{chain::time_point(), 1, 0, 100, 50, 0}
+               chain::transaction_header{chain::time_point_sec(), 1, 0, 100, 50, 0}
             }
          }
       };
@@ -208,7 +205,7 @@ namespace {
    };
 
    struct test_store_provider : public store_provider {
-      test_store_provider(const bfs::path& slice_dir, uint32_t width, std::optional<uint32_t> minimum_irreversible_history_blocks = std::optional<uint32_t>(), std::optional<uint32_t> minimum_uncompressed_irreversible_history_blocks = std::optional<uint32_t>(), size_t compression_seek_point_stride = 0)
+      test_store_provider(const std::filesystem::path& slice_dir, uint32_t width, std::optional<uint32_t> minimum_irreversible_history_blocks = std::optional<uint32_t>(), std::optional<uint32_t> minimum_uncompressed_irreversible_history_blocks = std::optional<uint32_t>(), size_t compression_seek_point_stride = 0)
          : store_provider(slice_dir, width, minimum_irreversible_history_blocks, minimum_uncompressed_irreversible_history_blocks, compression_seek_point_stride) {
       }
       using store_provider::scan_metadata_log_from;
@@ -305,7 +302,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
    {
       vslice vs;
       const auto offset = append_store(bt_v1, vs );
-      BOOST_REQUIRE_EQUAL(offset,0);
+      BOOST_REQUIRE_EQUAL(offset,0u);
 
       const auto offset2 = append_store(bt2_v1, vs );
       BOOST_REQUIRE(offset < offset2);
@@ -323,7 +320,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
    {
       vslice vs;
       const auto offset = append_store(bt_v0, vs );
-      BOOST_REQUIRE_EQUAL(offset,0);
+      BOOST_REQUIRE_EQUAL(offset,0u);
 
       const auto offset2 = append_store(bt_v1, vs );
       BOOST_REQUIRE(offset < offset2);
@@ -395,13 +392,13 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
    {
       fc::temp_directory tempdir;
       slice_directory sd(tempdir.path(), 100, std::optional<uint32_t>(), std::optional<uint32_t>(), 0);
-      BOOST_REQUIRE_EQUAL(sd.slice_number(99), 0);
-      BOOST_REQUIRE_EQUAL(sd.slice_number(100), 1);
-      BOOST_REQUIRE_EQUAL(sd.slice_number(1599), 15);
+      BOOST_REQUIRE_EQUAL(sd.slice_number(99), 0u);
+      BOOST_REQUIRE_EQUAL(sd.slice_number(100), 1u);
+      BOOST_REQUIRE_EQUAL(sd.slice_number(1599), 15u);
       slice_directory sd2(tempdir.path(), 0x10, std::optional<uint32_t>(), std::optional<uint32_t>(), 0);
-      BOOST_REQUIRE_EQUAL(sd2.slice_number(0xf), 0);
-      BOOST_REQUIRE_EQUAL(sd2.slice_number(0x100), 0x10);
-      BOOST_REQUIRE_EQUAL(sd2.slice_number(0x233), 0x23);
+      BOOST_REQUIRE_EQUAL(sd2.slice_number(0xf), 0u);
+      BOOST_REQUIRE_EQUAL(sd2.slice_number(0x100), 0x10u);
+      BOOST_REQUIRE_EQUAL(sd2.slice_number(0x233), 0x23u);
    }
 
    BOOST_FIXTURE_TEST_CASE(slice_file, test_fixture)
@@ -414,13 +411,13 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       for (uint i = 0; i < 9; ++i) {
          bool found = sd.find_or_create_trace_slice(i, open_state::write, slice);
          BOOST_REQUIRE(!found);
-         bfs::path fp = slice.get_file_path();
+         std::filesystem::path fp = slice.get_file_path();
          BOOST_REQUIRE_EQUAL(fp.parent_path().generic_string(), tempdir.path().generic_string());
          const std::string expected_filename = "trace_0000000" + std::to_string(i) + "00-0000000" + std::to_string(i+1) + "00.log";
          BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
          BOOST_REQUIRE(slice.is_open());
-         BOOST_REQUIRE_EQUAL(bfs::file_size(fp), 0);
-         BOOST_REQUIRE_EQUAL(slice.tellp(), 0);
+         BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), 0u);
+         BOOST_REQUIRE_EQUAL(slice.tellp(), 0u);
          slice.close();
       }
 
@@ -428,14 +425,14 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       for (uint i = 0; i < 9; ++i) {
          bool found = sd.find_or_create_index_slice(i, open_state::write, slice);
          BOOST_REQUIRE(!found);
-         fc::path fp = slice.get_file_path();
+         std::filesystem::path fp = slice.get_file_path();
          BOOST_REQUIRE_EQUAL(fp.parent_path().generic_string(), tempdir.path().generic_string());
          const std::string expected_filename = "trace_index_0000000" + std::to_string(i) + "00-0000000" + std::to_string(i+1) + "00.log";
          BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
          BOOST_REQUIRE(slice.is_open());
          slice_directory::index_header h;
          const auto data = fc::raw::pack(h);
-         BOOST_REQUIRE_EQUAL(bfs::file_size(fp), data.size());
+         BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), data.size());
          BOOST_REQUIRE_EQUAL(slice.tellp(), data.size());
          slice.close();
       }
@@ -443,20 +440,20 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       // reopen trace slice for append
       bool found = sd.find_or_create_trace_slice(0, open_state::write, slice);
       BOOST_REQUIRE(found);
-      fc::path fp = slice.get_file_path();
+      std::filesystem::path fp = slice.get_file_path();
       BOOST_REQUIRE_EQUAL(fp.parent_path().generic_string(), tempdir.path().generic_string());
       std::string expected_filename = "trace_0000000000-0000000100.log";
       BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
       BOOST_REQUIRE(slice.is_open());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), 0);
-      BOOST_REQUIRE_EQUAL(slice.tellp(), 0);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), 0u);
+      BOOST_REQUIRE_EQUAL(slice.tellp(), 0u);
       uint64_t offset = append_store(bt_v1, slice);
-      BOOST_REQUIRE_EQUAL(offset, 0);
+      BOOST_REQUIRE_EQUAL(offset, 0u);
       auto data = fc::raw::pack(bt_v1);
-      BOOST_REQUIRE(slice.tellp() > 0);
+      BOOST_REQUIRE(slice.tellp() > 0u);
       BOOST_REQUIRE_EQUAL(data.size(), slice.tellp());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), slice.tellp());
-      uint64_t trace_file_size = bfs::file_size(fp);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), slice.tellp());
+      uint64_t trace_file_size = std::filesystem::file_size(fp);
       slice.close();
 
       // open same file for read
@@ -465,8 +462,8 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       fp = slice.get_file_path();
       BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
       BOOST_REQUIRE(slice.is_open());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), trace_file_size);
-      BOOST_REQUIRE_EQUAL(slice.tellp(), 0);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), trace_file_size);
+      BOOST_REQUIRE_EQUAL(slice.tellp(), 0u);
       slice.close();
 
       // open same file for append again
@@ -475,7 +472,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       fp = slice.get_file_path();
       BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
       BOOST_REQUIRE(slice.is_open());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), trace_file_size);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), trace_file_size);
       BOOST_REQUIRE_EQUAL(slice.tellp(), trace_file_size);
       slice.close();
 
@@ -490,14 +487,14 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       slice_directory::index_header h;
       data = fc::raw::pack(h);
       const uint64_t header_size = data.size();
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), header_size);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), header_size);
       BOOST_REQUIRE_EQUAL(slice.tellp(), header_size);
       offset = append_store(be1, slice);
       BOOST_REQUIRE_EQUAL(offset, header_size);
       data = fc::raw::pack(be1);
       const auto be1_size = data.size();
       BOOST_REQUIRE_EQUAL(header_size + be1_size, slice.tellp());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), slice.tellp());
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), slice.tellp());
       slice.close();
 
       found = sd.find_or_create_index_slice(1, open_state::read, slice);
@@ -505,7 +502,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       fp = slice.get_file_path();
       BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
       BOOST_REQUIRE(slice.is_open());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), header_size + be1_size);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), header_size + be1_size);
       BOOST_REQUIRE_EQUAL(slice.tellp(), header_size);
       slice.close();
 
@@ -514,14 +511,14 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       fp = slice.get_file_path();
       BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
       BOOST_REQUIRE(slice.is_open());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), header_size + be1_size);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), header_size + be1_size);
       BOOST_REQUIRE_EQUAL(slice.tellp(), header_size + be1_size);
       offset = append_store(le1, slice);
       BOOST_REQUIRE_EQUAL(offset, header_size + be1_size);
       data = fc::raw::pack(le1);
       const auto le1_size = data.size();
       BOOST_REQUIRE_EQUAL(header_size + be1_size + le1_size, slice.tellp());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), slice.tellp());
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), slice.tellp());
       slice.close();
 
       found = sd.find_or_create_index_slice(1, open_state::read, slice);
@@ -529,7 +526,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       fp = slice.get_file_path();
       BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
       BOOST_REQUIRE(slice.is_open());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), header_size + be1_size + le1_size);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), header_size + be1_size + le1_size);
       BOOST_REQUIRE_EQUAL(slice.tellp(), header_size);
       slice.close();
    }
@@ -543,13 +540,13 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       // create trace slice
       bool found = sd.find_or_create_trace_slice(1, open_state::write, slice);
       BOOST_REQUIRE(!found);
-      bfs::path fp = slice.get_file_path();
+      std::filesystem::path fp = slice.get_file_path();
       BOOST_REQUIRE_EQUAL(fp.parent_path().generic_string(), tempdir.path().generic_string());
       const std::string expected_filename = "trace_0000000100-0000000200.log";
       BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
       BOOST_REQUIRE(slice.is_open());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), 0);
-      BOOST_REQUIRE_EQUAL(slice.tellp(), 0);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), 0u);
+      BOOST_REQUIRE_EQUAL(slice.tellp(), 0u);
       slice.close();
 
       // find trace slice (and open)
@@ -559,7 +556,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       BOOST_REQUIRE_EQUAL(fp.parent_path().generic_string(), tempdir.path().generic_string());
       BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
       BOOST_REQUIRE(slice.is_open());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), 0);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), 0u);
       slice.close();
 
       // find trace slice (and don't open)
@@ -569,19 +566,19 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       BOOST_REQUIRE_EQUAL(fp.parent_path().generic_string(), tempdir.path().generic_string());
       BOOST_REQUIRE_EQUAL(fp.filename().generic_string(), expected_filename);
       BOOST_REQUIRE(!slice.is_open());
-      BOOST_REQUIRE_EQUAL(bfs::file_size(fp), 0);
+      BOOST_REQUIRE_EQUAL(std::filesystem::file_size(fp), 0u);
       slice.close();
    }
 
-   void verify_directory_contents(const bfs::path& tempdir, std::set<bfs::path> expected_files) {
-      std::set<bfs::path> unexpected_files;
-      for (bfs::directory_iterator itr(tempdir); itr != directory_iterator(); ++itr) {
+   void verify_directory_contents(const std::filesystem::path& tempdir, std::set<std::filesystem::path> expected_files) {
+      std::set<std::filesystem::path> unexpected_files;
+      for (std::filesystem::directory_iterator itr(tempdir); itr != std::filesystem::directory_iterator(); ++itr) {
          const auto filename = itr->path().filename();
          if (expected_files.erase(filename) < 1) {
             unexpected_files.insert(filename);
          }
       }
-      if (expected_files.size() + unexpected_files.size() == 0)
+      if (expected_files.size() + unexpected_files.size() == 0u)
          return;
 
       std::string msg;
@@ -615,7 +612,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
 
       // verify it cleans up when there is just an index file, just a trace file, or when both are there
       // verify it cleans up all slices that need to be cleaned
-      std::set<bfs::path> files;
+      std::set<std::filesystem::path> files;
       BOOST_REQUIRE(!sd.find_or_create_index_slice(0, open_state::read, file));
       files.insert(file.get_file_path().filename());
       verify_directory_contents(tempdir.path(), files);
@@ -645,7 +642,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       uint32_t current_slice = 6;
       uint32_t lib = current_slice * width;
       sd.run_maintenance_tasks(lib, {});
-      std::set<bfs::path> files2;
+      std::set<std::filesystem::path> files2;
       files2.insert(index5);
       files2.insert(trace6);
       verify_directory_contents(tempdir.path(), files2);
@@ -658,7 +655,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       // now all saved blocks in current slice
       lib += 1; // current_slice * width + min_saved_blocks
       sd.run_maintenance_tasks(lib, {});
-      std::set<bfs::path> files3;
+      std::set<std::filesystem::path> files3;
       files3.insert(trace6);
       verify_directory_contents(tempdir.path(), files3);
 
@@ -670,7 +667,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       // moved last saved block out of 6th slice, so 6th slice is cleaned up
       lib += 1;
       sd.run_maintenance_tasks(lib, {});
-      verify_directory_contents(tempdir.path(), std::set<bfs::path>());
+      verify_directory_contents(tempdir.path(), std::set<std::filesystem::path>());
    }
 
    BOOST_FIXTURE_TEST_CASE(slice_dir_compress, test_fixture)
@@ -681,7 +678,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       slice_directory sd(tempdir.path(), width, std::optional<uint32_t>(), std::optional<uint32_t>(min_uncompressed_blocks), 8);
       fc::cfile file;
 
-      using file_vector_t = std::vector<std::tuple<bfs::path, bfs::path, bfs::path>>;
+      using file_vector_t = std::vector<std::tuple<std::filesystem::path, std::filesystem::path, std::filesystem::path>>;
       file_vector_t file_paths;
       for (int i = 0; i < 7 ; i++) {
          BOOST_REQUIRE(!sd.find_or_create_index_slice(i, open_state::read, file));
@@ -694,7 +691,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       }
 
       // initial set is only indices and uncompressed traces
-      std::set<bfs::path> files;
+      std::set<std::filesystem::path> files;
       for (const auto& e: file_paths) {
          files.insert(std::get<0>(e));
          files.insert(std::get<1>(e));
@@ -721,9 +718,9 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
 
       // make sure the test is correct and and no uncompressed files remain
       for (const auto& e: file_paths) {
-         BOOST_REQUIRE_EQUAL(files.count(std::get<0>(e)), 1);
-         BOOST_REQUIRE_EQUAL(files.count(std::get<1>(e)), 0);
-         BOOST_REQUIRE_EQUAL(files.count(std::get<2>(e)), 1);
+         BOOST_REQUIRE_EQUAL(files.count(std::get<0>(e)), 1u);
+         BOOST_REQUIRE_EQUAL(files.count(std::get<1>(e)), 0u);
+         BOOST_REQUIRE_EQUAL(files.count(std::get<2>(e)), 1u);
       }
    }
 
@@ -736,7 +733,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       slice_directory sd(tempdir.path(), width, std::optional<uint32_t>(min_saved_blocks), std::optional<uint32_t>(min_uncompressed_blocks), 8);
       fc::cfile file;
 
-      using file_vector_t = std::vector<std::tuple<bfs::path, bfs::path, bfs::path>>;
+      using file_vector_t = std::vector<std::tuple<std::filesystem::path, std::filesystem::path, std::filesystem::path>>;
       file_vector_t file_paths;
       for (int i = 0; i < 7 ; i++) {
          BOOST_REQUIRE(!sd.find_or_create_index_slice(i, open_state::read, file));
@@ -749,7 +746,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       }
 
       // initial set is only indices and uncompressed traces
-      std::set<bfs::path> files;
+      std::set<std::filesystem::path> files;
       for (const auto& e: file_paths) {
          files.insert(std::get<0>(e));
          files.insert(std::get<1>(e));
@@ -782,7 +779,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       }
 
       // make sure the test is correct and ran through the permutations
-      BOOST_REQUIRE_EQUAL(files.size(), 0);
+      BOOST_REQUIRE_EQUAL(files.size(), 0u);
    }
 
    BOOST_FIXTURE_TEST_CASE(store_provider_write_read_v1, test_fixture)
@@ -805,7 +802,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
          } else if (std::holds_alternative<lib_entry_v0>(e)) {
             auto best_lib = std::get<lib_entry_v0>(e);
             BOOST_REQUIRE(!lib_seen);
-            BOOST_REQUIRE_EQUAL(best_lib.lib, 54);
+            BOOST_REQUIRE_EQUAL(best_lib.lib, 54u);
             lib_seen = true;
             return false;
          }
@@ -825,16 +822,16 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
          } else if (std::holds_alternative<lib_entry_v0>(e)) {
             auto best_lib = std::get<lib_entry_v0>(e);
             BOOST_REQUIRE(!lib_seen);
-            BOOST_REQUIRE_EQUAL(best_lib.lib, 54);
+            BOOST_REQUIRE_EQUAL(best_lib.lib, 54u);
             lib_seen = true;
          }
          return true;
       }, []() {});
       BOOST_REQUIRE(lib_seen);
-      BOOST_REQUIRE_EQUAL(block_nums.size(), 2);
+      BOOST_REQUIRE_EQUAL(block_nums.size(), 2u);
       BOOST_REQUIRE_EQUAL(block_nums[0], bt_v1.number);
       BOOST_REQUIRE_EQUAL(block_nums[1], bt2_v1.number);
-      BOOST_REQUIRE_EQUAL(block_offsets.size(), 2);
+      BOOST_REQUIRE_EQUAL(block_offsets.size(), 2u);
       BOOST_REQUIRE(block_offsets[0] < block_offsets[1]);
       BOOST_REQUIRE(first_offset < offset);
 
@@ -859,7 +856,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
             } else if (std::holds_alternative<lib_entry_v0>(e)) {
                auto best_lib = std::get<lib_entry_v0>(e);
                BOOST_REQUIRE(!lib_seen);
-               BOOST_REQUIRE_EQUAL(best_lib.lib, 54);
+               BOOST_REQUIRE_EQUAL(best_lib.lib, 54u);
                lib_seen = true;
             }
             return true;
@@ -872,9 +869,9 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       } catch (const yield_exception& ex) {
       }
       BOOST_REQUIRE(lib_seen);
-      BOOST_REQUIRE_EQUAL(block_nums.size(), 1);
+      BOOST_REQUIRE_EQUAL(block_nums.size(), 1u);
       BOOST_REQUIRE_EQUAL(block_nums[0], bt_v1.number);
-      BOOST_REQUIRE_EQUAL(block_offsets.size(), 1);
+      BOOST_REQUIRE_EQUAL(block_offsets.size(), 1u);
       BOOST_REQUIRE(first_offset < offset);
    }
 
@@ -898,7 +895,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
          } else if (std::holds_alternative<lib_entry_v0>(e)) {
             auto best_lib = std::get<lib_entry_v0>(e);
             BOOST_REQUIRE(!lib_seen);
-            BOOST_REQUIRE_EQUAL(best_lib.lib, 54);
+            BOOST_REQUIRE_EQUAL(best_lib.lib, 54u);
             lib_seen = true;
             return false;
          }
@@ -918,16 +915,16 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
          } else if (std::holds_alternative<lib_entry_v0>(e)) {
             auto best_lib = std::get<lib_entry_v0>(e);
             BOOST_REQUIRE(!lib_seen);
-            BOOST_REQUIRE_EQUAL(best_lib.lib, 54);
+            BOOST_REQUIRE_EQUAL(best_lib.lib, 54u);
             lib_seen = true;
          }
          return true;
       }, []() {});
       BOOST_REQUIRE(lib_seen);
-      BOOST_REQUIRE_EQUAL(block_nums.size(), 2);
+      BOOST_REQUIRE_EQUAL(block_nums.size(), 2u);
       BOOST_REQUIRE_EQUAL(block_nums[0], block_trace1_v2.number);
       BOOST_REQUIRE_EQUAL(block_nums[1], block_trace2_v2.number);
-      BOOST_REQUIRE_EQUAL(block_offsets.size(), 2);
+      BOOST_REQUIRE_EQUAL(block_offsets.size(), 2u);
       BOOST_REQUIRE(block_offsets[0] < block_offsets[1]);
       BOOST_REQUIRE(first_offset < offset);
 
@@ -952,7 +949,7 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
             } else if (std::holds_alternative<lib_entry_v0>(e)) {
                auto best_lib = std::get<lib_entry_v0>(e);
                BOOST_REQUIRE(!lib_seen);
-               BOOST_REQUIRE_EQUAL(best_lib.lib, 54);
+               BOOST_REQUIRE_EQUAL(best_lib.lib, 54u);
                lib_seen = true;
             }
             return true;
@@ -965,9 +962,9 @@ BOOST_AUTO_TEST_SUITE(slice_tests)
       } catch (const yield_exception& ex) {
       }
       BOOST_REQUIRE(lib_seen);
-      BOOST_REQUIRE_EQUAL(block_nums.size(), 1);
+      BOOST_REQUIRE_EQUAL(block_nums.size(), 1u);
       BOOST_REQUIRE_EQUAL(block_nums[0], block_trace1_v2.number);
-      BOOST_REQUIRE_EQUAL(block_offsets.size(), 1);
+      BOOST_REQUIRE_EQUAL(block_offsets.size(), 1u);
       BOOST_REQUIRE(first_offset < offset);
    }
 

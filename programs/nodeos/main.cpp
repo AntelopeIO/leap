@@ -11,9 +11,15 @@
 #include <fc/log/logger_config.hpp>
 #include <fc/log/appender.hpp>
 #include <fc/exception/exception.hpp>
+#include <fc/scoped_exit.hpp>
 
 #include <boost/dll/runtime_symbol_info.hpp>
 #include <boost/exception/diagnostic_information.hpp>
+
+#include <filesystem>
+#include <string>
+#include <vector>
+#include <iterator>
 
 #include "config.hpp"
 
@@ -21,6 +27,40 @@ using namespace appbase;
 using namespace eosio;
 
 namespace detail {
+
+void log_non_default_options(const std::vector<bpo::basic_option<char>>& options) {
+   using namespace std::string_literals;
+   string result;
+   for (const auto& op : options) {
+      bool mask = false;
+      if (op.string_key == "signature-provider"s
+          || op.string_key == "peer-private-key"s
+          || op.string_key == "p2p-auto-bp-peer"s) {
+         mask = true;
+      }
+      std::string v;
+      for (auto i = op.value.cbegin(), b = op.value.cbegin(), e = op.value.cend(); i != e; ++i) {
+         if (i != b)
+            v += ", ";
+         if (mask)
+            v += "***";
+         else
+            v += *i;
+      }
+
+      if (!result.empty())
+         result += ", ";
+
+      if (v.empty()) {
+         result += op.string_key;
+      } else {
+         result += op.string_key;
+         result += " = ";
+         result += v;
+      }
+   }
+   ilog("Non-default options: ${v}", ("v", result));
+}
 
 fc::logging_config& add_deep_mind_logger(fc::logging_config& config) {
    config.appenders.push_back(
@@ -38,11 +78,11 @@ fc::logging_config& add_deep_mind_logger(fc::logging_config& config) {
    return config;
 }
 
-void configure_logging(const bfs::path& config_path)
+void configure_logging(const std::filesystem::path& config_path)
 {
    try {
       try {
-         if( fc::exists( config_path ) ) {
+         if( std::filesystem::exists( config_path ) ) {
             fc::configure_logging( config_path );
          } else {
             auto cfg = fc::logging_config::default_config();
@@ -69,7 +109,7 @@ void configure_logging(const bfs::path& config_path)
 void logging_conf_handler()
 {
    auto config_path = app().get_logging_conf();
-   if( fc::exists( config_path ) ) {
+   if( std::filesystem::exists( config_path ) ) {
       ilog( "Received HUP.  Reloading logging configuration from ${p}.", ("p", config_path.string()) );
    } else {
       ilog( "Received HUP.  No log config found at ${p}, setting to default.", ("p", config_path.string()) );
@@ -81,7 +121,7 @@ void logging_conf_handler()
 void initialize_logging()
 {
    auto config_path = app().get_logging_conf();
-   if(fc::exists(config_path))
+   if(std::filesystem::exists(config_path))
      fc::configure_logging(config_path); // intentionally allowing exceptions to escape
    else {
       auto cfg = fc::logging_config::default_config();
@@ -112,6 +152,12 @@ int main(int argc, char** argv)
 
    try {
       appbase::scoped_app app;
+      fc::scoped_exit<std::function<void()>> on_exit = [&]() {
+         ilog("${name} version ${ver} ${fv}",
+              ("name", nodeos::config::node_executable_name)("ver", app->version_string())
+              ("fv", app->version_string() == app->full_version_string() ? "" : app->full_version_string()) );
+         ::detail::log_non_default_options(app->get_parsed_options());
+      };
       uint32_t short_hash = 0;
       fc::from_hex(eosio::version::version_hash(), (char*)&short_hash, sizeof(short_hash));
 
@@ -130,6 +176,7 @@ int main(int argc, char** argv)
       if(!app->initialize<chain_plugin, net_plugin, producer_plugin, resource_monitor_plugin>(argc, argv, initialize_logging)) {
          const auto& opts = app->get_options();
          if( opts.count("help") || opts.count("version") || opts.count("full-version") || opts.count("print-default-config") ) {
+            on_exit.cancel();
             return SUCCESS;
          }
          return INITIALIZE_FAIL;
@@ -140,11 +187,12 @@ int main(int argc, char** argv)
          elog("resource_monitor_plugin failed to initialize");
          return INITIALIZE_FAIL;
       }
-      ilog( "${name} version ${ver} ${fv}",
+      ilog("${name} version ${ver} ${fv}",
             ("name", nodeos::config::node_executable_name)("ver", app->version_string())
             ("fv", app->version_string() == app->full_version_string() ? "" : app->full_version_string()) );
       ilog("${name} using configuration file ${c}", ("name", nodeos::config::node_executable_name)("c", app->full_config_file_path().string()));
       ilog("${name} data directory is ${d}", ("name", nodeos::config::node_executable_name)("d", app->data_dir().string()));
+      ::detail::log_non_default_options(app->get_parsed_options());
       app->startup();
       app->set_thread_priority_max();
       app->exec();

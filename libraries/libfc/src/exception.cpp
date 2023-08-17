@@ -133,7 +133,7 @@ namespace fc
    }
    void          from_variant( const variant& v, exception& ll )
    {
-      auto obj = v.get_object();
+      const auto& obj = v.get_object();
       if( obj.contains( "stack" ) )
          ll.my->_elog =  obj["stack"].as<log_messages>();
       if( obj.contains( "code" ) )
@@ -155,7 +155,7 @@ namespace fc
     *   and other information that is generally only useful for
     *   developers.
     */
-   string exception::to_detail_string( log_level ll  )const
+   std::string exception::to_detail_string( log_level ll  )const
    {
       const auto deadline = fc::time_point::now() + format_time_limit;
       std::stringstream ss;
@@ -193,7 +193,7 @@ namespace fc
    /**
     *   Generates a user-friendly error report.
     */
-   string exception::to_string( log_level ll   )const
+   std::string exception::to_string( log_level ll   )const
    {
       const auto deadline = fc::time_point::now() + format_time_limit;
       std::stringstream ss;
@@ -232,7 +232,7 @@ namespace fc
    /**
     *   Generates a user-friendly error report.
     */
-   string exception::top_message( )const
+   std::string exception::top_message( )const
    {
       for( auto itr = my->_elog.begin(); itr != my->_elog.end(); ++itr )
       {
@@ -241,7 +241,7 @@ namespace fc
             return s;
          }
       }
-      return string();
+      return std::string();
    }
 
    void NO_RETURN exception_factory::rethrow( const exception& e )const
@@ -266,7 +266,7 @@ namespace fc
        return std::make_shared<exception>(*this);
    }
 
-   fc::string except_str()
+   std::string except_str()
    {
        return boost::current_exception_diagnostic_information();
    }

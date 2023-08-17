@@ -191,18 +191,18 @@ sha3::sha3(const char *data, size_t size)
 		FC_THROW_EXCEPTION(exception, "sha3: size mismatch");
 	memcpy(_hash, data, size);
 }
-sha3::sha3(const string &hex_str)
+sha3::sha3(const std::string &hex_str)
 {
 	auto bytes_written = fc::from_hex(hex_str, (char *)_hash, sizeof(_hash));
 	if (bytes_written < sizeof(_hash))
 		memset((char *)_hash + bytes_written, 0, (sizeof(_hash) - bytes_written));
 }
 
-string sha3::str() const
+std::string sha3::str() const
 {
 	return fc::to_hex((char *)_hash, sizeof(_hash));
 }
-sha3::operator string() const { return str(); }
+sha3::operator std::string() const { return str(); }
 
 const char *sha3::data() const { return (const char *)&_hash[0]; }
 char *sha3::data() { return (char *)&_hash[0]; }

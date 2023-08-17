@@ -188,7 +188,7 @@ struct authority {
    }
 
    authority( uint32_t t, vector<key_weight> k, vector<permission_level_weight> p = {}, vector<wait_weight> w = {} )
-   :threshold(t),keys(move(k)),accounts(move(p)),waits(move(w)){}
+   :threshold(t),keys(std::move(k)),accounts(std::move(p)),waits(std::move(w)){}
    authority(){}
 
    uint32_t                          threshold = 0;
