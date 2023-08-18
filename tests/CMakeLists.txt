@@ -102,7 +102,7 @@ endif()
 
 add_subdirectory( TestHarness )
 add_subdirectory( trx_generator )
-add_subdirectory( performance_tests )
+add_subdirectory( PerformanceHarness )
 
 find_package(Threads)
 add_executable(ship_client ship_client.cpp)

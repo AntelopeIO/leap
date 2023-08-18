@@ -97,7 +97,7 @@ class PerformanceTestBasic:
         dontKill: bool = False # leave_running
         extraNodeosArgs: ExtraNodeosArgs = field(default_factory=ExtraNodeosArgs)
         specifiedContract: SpecifiedContract = field(default_factory=SpecifiedContract)
-        genesisPath: Path = Path("tests")/"performance_tests"/"genesis.json"
+        genesisPath: Path = Path("tests")/"PerformanceHarness"/"genesis.json"
         maximumP2pPerHost: int = 5000
         maximumClients: int = 0
         keepLogs: bool = True
@@ -677,7 +677,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--api-nodes", type=int, help=argparse.SUPPRESS if suppressHelp else "API nodes count", default=defApiNodeCnt)
         ptbBaseParserGroup.add_argument("--api-nodes-read-only-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "API nodes read only threads count for use with read-only transactions", default=0)
         ptbBaseParserGroup.add_argument("--tps-limit-per-generator", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum amount of transactions per second a single generator can have.", default=4000)
-        ptbBaseParserGroup.add_argument("--genesis", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to genesis.json", default="tests/performance_tests/genesis.json")
+        ptbBaseParserGroup.add_argument("--genesis", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to genesis.json", default="tests/PerformanceHarness/genesis.json")
         ptbBaseParserGroup.add_argument("--num-blocks-to-prune", type=int, help=argparse.SUPPRESS if suppressHelp else ("The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks, "
                                                                 "to prune from the beginning and end of the range of blocks of interest for evaluation."), default=2)
         ptbBaseParserGroup.add_argument("--signature-cpu-billable-pct", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of actual signature recovery cpu to bill. Whole number percentages, e.g. 50 for 50%%", default=0)

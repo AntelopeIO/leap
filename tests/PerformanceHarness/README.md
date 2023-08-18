@@ -19,11 +19,11 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash
-        ./build/tests/performance_tests/performance_test.py testBpOpMode
+        ./build/tests/PerformanceHarness/performance_test.py testBpOpMode
         ```
     2. Single Performance Test Basic Run (Manually run one-off test):
         ```bash
-        ./build/tests/performance_tests/performance_test_basic.py
+        ./build/tests/PerformanceHarness/performance_test_basic.py
         ```
 3. Collect Results - By default the Performance Harness will capture and save logs.  To delete logs, use `--del-perf-logs`.  Additionally, final reports will be collected by default.  To omit final reports, use `--del-report` and/or `--del-test-report`.
     1. Navigate to performance test logs directory
@@ -679,7 +679,7 @@ Performance Test Basic Base:
                         API nodes read only threads count for use with read-only transactions (default: 0)
   --tps-limit-per-generator TPS_LIMIT_PER_GENERATOR
                         Maximum amount of transactions per second a single generator can have. (default: 4000)
-  --genesis GENESIS     Path to genesis.json (default: tests/performance_tests/genesis.json)
+  --genesis GENESIS     Path to genesis.json (default: tests/PerformanceHarness/genesis.json)
   --num-blocks-to-prune NUM_BLOCKS_TO_PRUNE
                         The number of potentially non-empty blocks, in addition to leading and trailing size 0 blocks,
                         to prune from the beginning and end of the range of blocks of interest for evaluation. (default: 2)
@@ -834,7 +834,7 @@ The Performance Harness generates a report to summarize results of test scenario
 Command used to run test and generate report:
 
 ``` bash
-./build/tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
+./build/tests/PerformanceHarness/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
 ```
 
 ### Report Breakdown
@@ -1209,7 +1209,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "analysisFinish": "2023-06-05T19:10:32.123003"
   },
   "args": {
-    "rawCmdLine ": "./tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
+    "rawCmdLine ": "./tests/PerformanceHarness/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
@@ -1694,7 +1694,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "abiFile": "eosio.system.abi",
       "account": "Name: eosio"
     },
-    "genesisPath": "tests/performance_tests/genesis.json",
+    "genesisPath": "tests/PerformanceHarness/genesis.json",
     "maximumP2pPerHost": 5000,
     "maximumClients": 0,
     "keepLogs": true,
@@ -1878,7 +1878,7 @@ The Performance Test Basic generates, by default, a report that details results 
     }
   },
   "args": {
-    "rawCmdLine ": "./tests/performance_tests/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
+    "rawCmdLine ": "./tests/PerformanceHarness/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
@@ -2363,7 +2363,7 @@ The Performance Test Basic generates, by default, a report that details results 
       "abiFile": "eosio.system.abi",
       "account": "Name: eosio"
     },
-    "genesisPath": "tests/performance_tests/genesis.json",
+    "genesisPath": "tests/PerformanceHarness/genesis.json",
     "maximumP2pPerHost": 5000,
     "maximumClients": 0,
     "keepLogs": true,
