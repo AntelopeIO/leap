@@ -2562,10 +2562,10 @@ namespace eosio {
 
    void dispatch_manager::bcast_hs_proposal_msg(const hs_proposal_message_ptr& msg) {
       if( my_impl->sync_master->syncing_from_peer() ) return;
-      hs_proposal_message & msg_val = *(msg.get());
-      my_impl->connections.for_each_block_connection( [this, &msg_val]( auto& cp ) {
+      hs_proposal_message& msg_val = *(msg.get());
+      my_impl->connections.for_each_block_connection( [&msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
-         cp->strand.post( [this, cp, msg_val]() {
+         cp->strand.post( [cp, msg_val]() {
             if (cp->protocol_version >= proto_instant_finality)
                cp->enqueue( msg_val );
          });
@@ -2575,10 +2575,10 @@ namespace eosio {
 
    void dispatch_manager::bcast_hs_vote_msg(const hs_vote_message_ptr& msg) {
       if( my_impl->sync_master->syncing_from_peer() ) return;
-      hs_vote_message & msg_val = *(msg.get());
-      my_impl->connections.for_each_block_connection( [this, &msg_val]( auto& cp ) {
+      hs_vote_message& msg_val = *(msg.get());
+      my_impl->connections.for_each_block_connection( [&msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
-         cp->strand.post( [this, cp, msg_val]() {
+         cp->strand.post( [cp, msg_val]() {
             if (cp->protocol_version >= proto_instant_finality)
                cp->enqueue( msg_val );
          });
@@ -2588,10 +2588,10 @@ namespace eosio {
 
    void dispatch_manager::bcast_hs_new_block_msg(const hs_new_block_message_ptr& msg) {
       if( my_impl->sync_master->syncing_from_peer() ) return;
-      hs_new_block_message & msg_val = *(msg.get());
-      my_impl->connections.for_each_block_connection( [this, &msg_val]( auto& cp ) {
+      hs_new_block_message& msg_val = *(msg.get());
+      my_impl->connections.for_each_block_connection( [&msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
-         cp->strand.post( [this, cp, msg_val]() {
+         cp->strand.post( [cp, msg_val]() {
             if (cp->protocol_version >= proto_instant_finality)
                cp->enqueue( msg_val );
          });
@@ -2601,10 +2601,10 @@ namespace eosio {
 
    void dispatch_manager::bcast_hs_new_view_msg(const hs_new_view_message_ptr& msg) {
       if( my_impl->sync_master->syncing_from_peer() ) return;
-      hs_new_view_message & msg_val = *(msg.get());
-      my_impl->connections.for_each_block_connection( [this, &msg_val]( auto& cp ) {
+      hs_new_view_message& msg_val = *(msg.get());
+      my_impl->connections.for_each_block_connection( [&msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
-         cp->strand.post( [this, cp, msg_val]() {
+         cp->strand.post( [cp, msg_val]() {
             if (cp->protocol_version >= proto_instant_finality)
                cp->enqueue( msg_val );
          });
