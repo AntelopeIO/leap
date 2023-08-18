@@ -20,6 +20,8 @@ namespace eosio { namespace hotstuff {
    class base_pacemaker {
    public:
 
+      virtual ~base_pacemaker() = default;
+
       //TODO: discuss
       virtual uint32_t get_quorum_threshold() = 0;
 
