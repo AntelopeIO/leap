@@ -27,7 +27,6 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/wasm_interface_collection.hpp>
-//#include <eosio/chain/hotstuff.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
