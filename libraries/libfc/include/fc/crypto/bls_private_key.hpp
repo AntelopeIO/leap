@@ -6,11 +6,11 @@
 #include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
 #include <fc/static_variant.hpp>
-#include <bls.hpp>
+#include <bls12-381/bls12-381.hpp>
 
 namespace fc { namespace crypto { namespace blslib {
 
-   using namespace bls;
+   using namespace bls12_381;
 
    namespace config {
       constexpr const char* bls_private_key_base_prefix = "PVT";

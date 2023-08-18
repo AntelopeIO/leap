@@ -28,7 +28,7 @@ namespace fc { namespace crypto { namespace blslib {
       return _storage.index();
    }*/
 
-   static vector<uint8_t> parse_base58(const std::string& base58str)
+   static bls12_381::g1 parse_base58(const std::string& base58str)
    {  
       
       constexpr auto prefix = config::bls_public_key_base_prefix;
@@ -38,11 +38,12 @@ namespace fc { namespace crypto { namespace blslib {
    
       std::vector<char> v1 = fc::from_base58(data_str);
 
-      std::vector<uint8_t> v2;
-      std::copy(v1.begin(), v1.end(), std::back_inserter(v2));
-
-      return v2;
-
+      FC_ASSERT(v1.size() == 48);
+      std::array<uint8_t, 48> v2;
+      std::copy(v1.begin(), v1.end(), v2.begin());
+      std::optional<bls12_381::g1> g1 = bls12_381::g1::fromCompressedBytesBE(v2);
+      FC_ASSERT(g1);
+      return *g1;
    }
 
    bls_public_key::bls_public_key(const std::string& base58str)
@@ -59,7 +60,8 @@ namespace fc { namespace crypto { namespace blslib {
    std::string bls_public_key::to_string(const fc::yield_function_t& yield)const {
 
       std::vector<char> v2;
-      std::copy(_pkey.begin(), _pkey.end(), std::back_inserter(v2));
+      std::array<uint8_t, 48> bytes = _pkey.toCompressedBytesBE();
+      std::copy(bytes.begin(), bytes.end(), std::back_inserter(v2));
 
       std::string data_str = fc::to_base58(v2, yield);
 

@@ -40,8 +40,6 @@ namespace eosio { namespace chain {
       fc::sha256                          proposal_id = NULL_PROPOSAL_ID; //vote on proposal
       name                                finalizer;
       fc::crypto::blslib::bls_signature   sig;
-
-      hs_vote_message() = default;
    };
 
    struct hs_proposal_message {

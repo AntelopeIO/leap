@@ -7,19 +7,17 @@ namespace fc { namespace crypto { namespace blslib {
    using namespace std;
 
    bls_public_key bls_private_key::get_public_key() const
-   {  
-      G1Element pk = AugSchemeMPL().KeyGen(_seed).GetG1Element();
-
-      return bls_public_key(pk.Serialize());
+   {
+      auto sk = bls12_381::secret_key(_seed);
+      g1 pk = bls12_381::public_key(sk);
+      return bls_public_key(pk);
    }
 
    bls_signature bls_private_key::sign( vector<uint8_t> message ) const
-   {  
-  
-   PrivateKey sk = AugSchemeMPL().KeyGen(_seed);
-
-      G2Element s = PopSchemeMPL().Sign(sk, message);
-      return bls_signature(s.Serialize());
+   {
+      std::array<uint64_t, 4> sk = secret_key(_seed);
+      g2 sig = bls12_381::sign(sk, message);
+      return bls_signature(sig);
    }
 
    /*struct public_key_visitor : visitor<bls_public_key::storage_type> {
