@@ -1,8 +1,12 @@
-# Performance Harness Tests
+# Performance Harness
 
-The Performance Harness is configured and run through the main `performance_test.py` script.  The script's main goal is to measure current peak performance metrics through iteratively tuning and running basic performance tests. The current basic test works to determine the maximum throughput of Token Transfers the system can sustain.  It does this by conducting a binary search of possible Token Transfers Per Second (TPS) configurations, testing each configuration in a short duration test and scoring its result. The search algorithm iteratively configures and runs `performance_test_basic.py` tests and analyzes the output to determine a success metric used to continue the search.  When the search completes, a max TPS throughput value is reported (along with other performance metrics from that run).  The script then proceeds to conduct an additional search with longer duration test runs within a narrowed TPS configuration range to determine the sustainable max TPS. Finally it produces a report on the entire performance run, summarizing each individual test scenario, results, and full report details on the tests when maximum TPS was achieved ([Performance Test Report](#performance-test-report))
+The Performance Harness is a module which provides the framework and utilities to run performance load tests on node infrastructure.
 
-The `performance_test_basic.py` support script performs a single basic performance test that targets a configurable TPS target and, if successful, reports statistics on performance metrics measured during the test.  It configures and launches a blockchain test environment, creates wallets and accounts for testing, and configures and launches transaction generators for creating specific transaction load in the ecosystem.  Finally it analyzes the performance of the system under the configuration through log analysis and chain queries and produces a [Performance Test Basic Report](#performance-test-basic-report).
+`PerformanceHarnessScenarioRunner.py` is currently the main entry point and provides the utility to configure and run such tests.  It also serves as an example of how one can import the `PerformanceHarness` module to configure and run performance tests.  The `PerformanceHarnessScenarioRunner` currently provides two options for running performance tests.  The first `findMax` uses the `PerformanceTest` class to run a suite of `PerformanceTestBasic` test run to zero in on a max performance (see section on `PerformanceTest` following.).  The second is `singleTest` which allows a user to run a single `PerformanceTestBasic` and see the results of a single configuration (see `PerformanceTestBasic` section following).
+
+The `PerformanceTest`'s main goal is to measure current peak performance metrics through iteratively tuning and running basic performance tests. The current `PerformanceTest` scenario works to determine the maximum throughput of Token Transfers (or other transaction types if configured) the system can sustain.  It does this by conducting a binary search of possible Token Transfers Per Second (TPS) configurations, testing each configuration in a short duration test and scoring its result. The search algorithm iteratively configures and runs `PerformanceTestBasic` test scenarios and analyzes the output to determine a success metric used to continue the search.  When the search completes, a max TPS throughput value is reported (along with other performance metrics from that run).  The `PerformanceTest` then proceeds to conduct an additional search with longer duration test runs within a narrowed TPS configuration range to determine the sustainable max TPS. Finally it produces a report on the entire performance run, summarizing each individual test scenario, results, and full report details on the tests when maximum TPS was achieved ([Performance Test Report](#performance-test-report))
+
+The `PerformanceTestBasic` test performs a single basic performance test that targets a configurable TPS target and, if successful, reports statistics on performance metrics measured during the test.  It configures and launches a blockchain test environment, creates wallets and accounts for testing, and configures and launches transaction generators for creating specific transaction load in the ecosystem.  Finally it analyzes the performance of the system under the configuration through log analysis and chain queries and produces a [Performance Test Basic Report](#performance-test-basic-report).
 
 The `launch_generators.py` support script provides a means to easily calculate and spawn the number of transaction generator instances to generate a given target TPS, distributing generation load between the instances in a fair manner such that the aggregate load meets the requested test load.
 
@@ -19,28 +23,28 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
 2. Run Performance Tests
     1. Full Performance Harness Test Run (Standard):
         ``` bash
-        ./build/tests/PerformanceHarness/performance_test.py testBpOpMode
+        ./build/tests/PerformanceHarnessScenarioRunner.py findMax testBpOpMode
         ```
     2. Single Performance Test Basic Run (Manually run one-off test):
         ```bash
-        ./build/tests/PerformanceHarness/performance_test_basic.py
+        ./build/tests/PerformanceHarnessScenarioRunner.py singleTest
         ```
 3. Collect Results - By default the Performance Harness will capture and save logs.  To delete logs, use `--del-perf-logs`.  Additionally, final reports will be collected by default.  To omit final reports, use `--del-report` and/or `--del-test-report`.
     1. Navigate to performance test logs directory
         ```bash
-        cd ./build/performance_test/
+        cd ./build/PerformanceHarnessScenarioRunnerLogs/
         ```
-    2. Log Directory Structure is hierarchical with each run of the `performance_test.py` reporting into a timestamped directory where it includes the full performance report as well as a directory containing output from each test type run (here, `performance_test_basic.py`) and each individual test run outputs into a timestamped directory that may contain block data logs and transaction generator logs as well as the test's basic report.  An example directory structure follows:
+    2. Log Directory Structure is hierarchical with each run of the `PerformanceHarnessScenarioRunner` reporting into a timestamped directory where it includes the full performance report as well as a directory containing output from each test type run (here, `PerformanceTestBasic`) and each individual test run outputs into a timestamped directory within `testRunLogs` that may contain block data logs and transaction generator logs as well as the test's basic report.  An example directory structure follows:
         <details>
             <summary>Expand Example Directory Structure</summary>
 
         ``` bash
-        performance_test/
+        PerformanceHarnessScenarioRunnerLogs/
         └── 2023-04-05_14-35-59
             ├── pluginThreadOptRunLogs
             │   ├── chainThreadResults.txt
             │   ├── netThreadResults.txt
-            │   ├── performance_test
+            │   ├── PerformanceHarnessScenarioRunnerLogs
             │   │   ├── 2023-04-05_14-35-59-50000
             │   │   │   ├── blockDataLogs
             │   │   │   │   ├── blockData.txt
@@ -104,7 +108,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
             │   │   │   │   .
             │   │   │   │   └── trx_data_output_9498.txt
             │   │   │   └── var
-            │   │   │       └── performance_test8480
+            │   │   │       └── PerformanceHarnessScenarioRunner8480
             │   │   │           ├── node_00
             │   │   │           │   ├── blocks
             │   │   │           │   │   ├── blocks.index
@@ -159,7 +163,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
             │   └── producerThreadResults.txt
             ├── report.json
             └── testRunLogs
-                └── performance_test
+                └── PerformanceHarnessScenarioRunnerLogs
                     ├── 2023-04-05_16-14-31-50000
                     │   ├── blockDataLogs
                     │   │   ├── blockData.txt
@@ -224,7 +228,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
                     │   │   .
                     │   │   └── trx_data_output_20211.txt
                     │   └── var
-                    │       └── performance_test8480
+                    │       └── PerformanceHarnessScenarioRunner8480
                     │           ├── node_00
                     │           │   ├── blocks
                     │           │   │   ├── blocks.index
@@ -281,15 +285,45 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
 
 # Configuring Performance Harness Tests
 
-## Performance Test
+## Performance Harness Scenario Runner
 
-The Performance Harness main script `performance_test.py` can be configured using the following command line arguments:
+The Performance Harness Scenario Runner is the main script that configures and runs `PerformanceTest` runs or single `PerformanceTestBasic` runs.
 
 <details open>
     <summary>Usage</summary>
 
 ```
-usage: performance_test.py [-h] {testBpOpMode,testApiOpMode} ...
+usage: PerformanceHarnessScenarioRunner.py [-h] {singleTest,findMax} ...
+```
+
+</details>
+
+<details open>
+    <summary>Expand Scenario Type Sub-Command List</summary>
+
+```
+optional arguments:
+  -h, --help            show this help message and exit
+
+Scenario Types:
+  Each Scenario Type sets up either a Performance Test Basic or Performance Test testing scenario and allows further configuration of the scenario.
+
+  {singleTest,findMax}  Currently supported scenario type sub-commands.
+    singleTest          Run a single Performance Test Basic test scenario.
+    findMax             Runs a Performance Test scenario.
+```
+
+</details>
+
+## Performance Test
+
+The Performance Harness main test class `PerformanceTest` (residing in `performance_test.py`) can be configured through the `findMax` sub-command to `PerformanceHarnessScenarioRunner` using the following command line arguments:
+
+<details open>
+    <summary>Usage</summary>
+
+```
+usage: PerformanceHarnessScenarioRunner.py findMax [-h] {testBpOpMode,testApiOpMode} ...
 ```
 
 </details>
@@ -336,18 +370,18 @@ Operational Modes:
     <summary>Usage</summary>
 
 ```
-usage: performance_test.py testBpOpMode [--skip-tps-test]
-                                        [--calc-producer-threads {none,lmax,full}]
-                                        [--calc-chain-threads {none,lmax,full}]
-                                        [--calc-net-threads {none,lmax,full}]
-                                        [--del-test-report]
-                                        [--max-tps-to-test MAX_TPS_TO_TEST]
-                                        [--min-tps-to-test MIN_TPS_TO_TEST]
-                                        [--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC]
-                                        [--test-iteration-min-step TEST_ITERATION_MIN_STEP]
-                                        [--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC]
-                                        [-h]
-                                        {overrideBasicTestConfig} ...
+usage: PerformanceHarnessScenarioRunner.py findMax testBpOpMode [--skip-tps-test]
+                                                                [--calc-producer-threads {none,lmax,full}]
+                                                                [--calc-chain-threads {none,lmax,full}]
+                                                                [--calc-net-threads {none,lmax,full}]
+                                                                [--del-test-report]
+                                                                [--max-tps-to-test MAX_TPS_TO_TEST]
+                                                                [--min-tps-to-test MIN_TPS_TO_TEST]
+                                                                [--test-iteration-duration-sec TEST_ITERATION_DURATION_SEC]
+                                                                [--test-iteration-min-step TEST_ITERATION_MIN_STEP]
+                                                                [--final-iterations-duration-sec FINAL_ITERATIONS_DURATION_SEC]
+                                                                [-h]
+                                                                {overrideBasicTestConfig} ...
 ```
 
 </details>
@@ -457,7 +491,7 @@ Advanced Configuration Options:
     <summary>Usage</summary>
 
 ```
-usage: performance_test.py testBpOpMode overrideBasicTestConfig
+usage: PerformanceHarnessScenarioRunner.py findMax testBpOpMode overrideBasicTestConfig
        [-h] [-d D] [--dump-error-details] [-v] [--leave-running] [--unshared]
        [--endpoint-mode {p2p,http}]
        [--producer-nodes PRODUCER_NODES] [--validation-nodes VALIDATION_NODES] [--api-nodes API_NODES]
@@ -592,19 +626,20 @@ Performance Test Basic Base:
 </details>
 <br/>
 
-# Support Scripts
+# Support Classes and Scripts
 
-The following scripts are typically used by the Performance Harness main script `performance_test.py` to perform specific tasks as delegated and configured by the main script.  However, there may be applications in certain use cases where running a single one-off test or transaction generator is desired.  In those situations, the following argument details might be useful to understanding how to run these utilities in stand-alone mode.  The argument breakdown may also be useful in understanding how the Performance Harness main script's arguments are being passed through to configure lower-level entities.
+The following classes and scripts are typically used by the Performance Harness main test class `PerformanceTest` to perform specific tasks as delegated and configured by the main scenario.  However, there may be applications in certain use cases where running a single one-off test or transaction generator is desired.  In those situations, the following argument details might be useful to understanding how to run these utilities in stand-alone mode.  The argument breakdown may also be useful in understanding how the Performance Harness arguments are being passed through to configure lower-level entities.
 
 ## Performance Test Basic
 
-`performance_test_basic.py` can be configured using the following command line arguments:
+`PerformanceTestBasic` (file: `performance_test_basic.py`) can be configured using the following command line arguments:
 
 <details>
     <summary>Usage</summary>
 
   ```
-  usage: performance_test_basic.py [-h] [-d D]
+  usage: PerformanceHarnessScenarioRunner.py singleTest
+                                  [-h] [-d D]
                                   [--dump-error-details] [-v] [--leave-running]
                                   [--unshared]
                                   [--endpoint-mode {p2p,http}]
@@ -829,12 +864,12 @@ Transaction Generator command line options.:
 
 ## Performance Test Report
 
-The Performance Harness generates a report to summarize results of test scenarios as well as overarching results of the performance harness run.  By default the report described below will be written to the top level timestamped directory for the performance run with the file name `report.json`. To omit final report, use `--del-report`.
+The Performance Harness Scenario Runner, through the `PerformanceTest` and `PerformanceTestBasic` classes in the `PerformanceHarness` module, generates a report to summarize results of test scenarios as well as overarching results of the performance harness run.  By default the report described below will be written to the top level timestamped directory for the performance run with the file name `report.json`. To omit final report, use `--del-report`.
 
 Command used to run test and generate report:
 
 ``` bash
-./build/tests/PerformanceHarness/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
+./tests/PerformanceHarnessScenarioRunner.py findMax testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
 ```
 
 ### Report Breakdown
@@ -855,11 +890,11 @@ Next, a high level summary of the search scenario target and results is included
     "19001": "FAIL",
     "16001": "FAIL",
     "14501": "FAIL",
-    "13501": "FAIL",
-    "13001": "PASS"
+    "13501": "PASS",
+    "14001": "PASS"
   },
   "LongRunningSearchScenariosSummary": {
-    "13001": "PASS"
+    "14001": "PASS"
   },
 ```
 </details>
@@ -869,26 +904,26 @@ Next, a summary of the search scenario conducted and respective results is inclu
     <summary>Expand Search Scenario Summary Example</summary>
 
 ``` json
-    "2": {
+    "0": {
       "success": true,
-      "searchTarget": 12501,
+      "searchTarget": 14001,
       "searchFloor": 1,
-      "searchCeiling": 24501,
+      "searchCeiling": 14001,
       "basicTestResult": {
-        "testStart": "2023-06-05T19:13:42.528121",
-        "testEnd": "2023-06-05T19:15:00.441933",
-        "testDuration": "0:01:17.913812",
+        "testStart": "2023-08-18T17:49:42.016053",
+        "testEnd": "2023-08-18T17:50:56.550087",
+        "testDuration": "0:01:14.534034",
         "testPassed": true,
         "testRunSuccessful": true,
         "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "targetTPS": 12501,
-        "resultAvgTps": 12523.6875,
-        "expectedTxns": 125010,
-        "resultTxns": 125010,
+        "targetTPS": 14001,
+        "resultAvgTps": 14060.375,
+        "expectedTxns": 140010,
+        "resultTxns": 140010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-13-42-12501"
+        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-49-42-14001"
       }
     }
 ```
@@ -924,15 +959,15 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ``` json
 {
-  "perfTestsBegin": "2023-06-05T17:59:49.175441",
-  "perfTestsFinish": "2023-06-05T19:23:03.723738",
-  "perfTestsDuration": "1:23:14.548297",
+  "perfTestsBegin": "2023-08-18T16:16:57.515935",
+  "perfTestsFinish": "2023-08-18T17:50:56.573105",
+  "perfTestsDuration": "1:33:59.057170",
   "operationalMode": "Block Producer Operational Mode",
-  "InitialMaxTpsAchieved": 13001,
-  "LongRunningMaxTpsAchieved": 13001,
-  "tpsTestStart": "2023-06-05T19:10:32.123231",
-  "tpsTestFinish": "2023-06-05T19:23:03.723722",
-  "tpsTestDuration": "0:12:31.600491",
+  "InitialMaxTpsAchieved": 14001,
+  "LongRunningMaxTpsAchieved": 14001,
+  "tpsTestStart": "2023-08-18T17:39:08.002919",
+  "tpsTestFinish": "2023-08-18T17:50:56.573095",
+  "tpsTestDuration": "0:11:48.570176",
   "InitialSearchScenariosSummary": {
     "50000": "FAIL",
     "25001": "FAIL",
@@ -940,11 +975,11 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "19001": "FAIL",
     "16001": "FAIL",
     "14501": "FAIL",
-    "13501": "FAIL",
-    "13001": "PASS"
+    "13501": "PASS",
+    "14001": "PASS"
   },
   "LongRunningSearchScenariosSummary": {
-    "13001": "PASS"
+    "14001": "PASS"
   },
   "InitialSearchResults": {
     "0": {
@@ -953,20 +988,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 1,
       "searchCeiling": 50000,
       "basicTestResult": {
-        "testStart": "2023-06-05T19:10:32.123282",
-        "testEnd": "2023-06-05T19:12:12.746349",
-        "testDuration": "0:01:40.623067",
+        "testStart": "2023-08-18T17:39:08.002959",
+        "testEnd": "2023-08-18T17:40:45.539974",
+        "testDuration": "0:01:37.537015",
         "testPassed": false,
         "testRunSuccessful": false,
         "testRunCompleted": true,
         "tpsExpectMet": false,
         "trxExpectMet": false,
         "targetTPS": 50000,
-        "resultAvgTps": 14015.564102564103,
+        "resultAvgTps": 13264.95,
         "expectedTxns": 500000,
-        "resultTxns": 309515,
-        "testAnalysisBlockCnt": 40,
-        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-10-32-50000"
+        "resultTxns": 295339,
+        "testAnalysisBlockCnt": 41,
+        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-39-08-50000"
       }
     },
     "1": {
@@ -975,20 +1010,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 1,
       "searchCeiling": 49500,
       "basicTestResult": {
-        "testStart": "2023-06-05T19:12:12.749120",
-        "testEnd": "2023-06-05T19:13:42.524984",
-        "testDuration": "0:01:29.775864",
+        "testStart": "2023-08-18T17:40:45.541240",
+        "testEnd": "2023-08-18T17:42:10.566883",
+        "testDuration": "0:01:25.025643",
         "testPassed": false,
         "testRunSuccessful": false,
         "testRunCompleted": true,
         "tpsExpectMet": false,
         "trxExpectMet": false,
         "targetTPS": 25001,
-        "resultAvgTps": 13971.5,
+        "resultAvgTps": 13415.515151515152,
         "expectedTxns": 250010,
-        "resultTxns": 249981,
-        "testAnalysisBlockCnt": 33,
-        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-12-12-25001"
+        "resultTxns": 249933,
+        "testAnalysisBlockCnt": 34,
+        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-40-45-25001"
       }
     },
     "2": {
@@ -997,20 +1032,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 1,
       "searchCeiling": 24501,
       "basicTestResult": {
-        "testStart": "2023-06-05T19:13:42.528121",
-        "testEnd": "2023-06-05T19:15:00.441933",
-        "testDuration": "0:01:17.913812",
+        "testStart": "2023-08-18T17:42:10.568046",
+        "testEnd": "2023-08-18T17:43:23.733271",
+        "testDuration": "0:01:13.165225",
         "testPassed": true,
         "testRunSuccessful": true,
         "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
         "targetTPS": 12501,
-        "resultAvgTps": 12523.6875,
+        "resultAvgTps": 12509.9375,
         "expectedTxns": 125010,
         "resultTxns": 125010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-13-42-12501"
+        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-42-10-12501"
       }
     },
     "3": {
@@ -1019,20 +1054,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 13001,
       "searchCeiling": 24501,
       "basicTestResult": {
-        "testStart": "2023-06-05T19:15:00.444109",
-        "testEnd": "2023-06-05T19:16:25.749654",
-        "testDuration": "0:01:25.305545",
+        "testStart": "2023-08-18T17:43:23.734927",
+        "testEnd": "2023-08-18T17:44:44.562268",
+        "testDuration": "0:01:20.827341",
         "testPassed": false,
-        "testRunSuccessful": false,
+        "testRunSuccessful": true,
         "testRunCompleted": true,
         "tpsExpectMet": false,
-        "trxExpectMet": false,
+        "trxExpectMet": true,
         "targetTPS": 19001,
-        "resultAvgTps": 14858.095238095239,
+        "resultAvgTps": 14669.863636363636,
         "expectedTxns": 190010,
-        "resultTxns": 189891,
-        "testAnalysisBlockCnt": 22,
-        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-15-00-19001"
+        "resultTxns": 190010,
+        "testAnalysisBlockCnt": 23,
+        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-43-23-19001"
       }
     },
     "4": {
@@ -1041,20 +1076,20 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 13001,
       "searchCeiling": 18501,
       "basicTestResult": {
-        "testStart": "2023-06-05T19:16:25.751860",
-        "testEnd": "2023-06-05T19:17:48.336896",
-        "testDuration": "0:01:22.585036",
+        "testStart": "2023-08-18T17:44:44.563387",
+        "testEnd": "2023-08-18T17:46:01.838736",
+        "testDuration": "0:01:17.275349",
         "testPassed": false,
-        "testRunSuccessful": false,
+        "testRunSuccessful": true,
         "testRunCompleted": true,
         "tpsExpectMet": false,
-        "trxExpectMet": false,
+        "trxExpectMet": true,
         "targetTPS": 16001,
-        "resultAvgTps": 14846.0,
+        "resultAvgTps": 14538.444444444445,
         "expectedTxns": 160010,
-        "resultTxns": 159988,
+        "resultTxns": 160010,
         "testAnalysisBlockCnt": 19,
-        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-16-25-16001"
+        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-44-44-16001"
       }
     },
     "5": {
@@ -1063,64 +1098,64 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "searchFloor": 13001,
       "searchCeiling": 15501,
       "basicTestResult": {
-        "testStart": "2023-06-05T19:17:48.339990",
-        "testEnd": "2023-06-05T19:19:07.843311",
-        "testDuration": "0:01:19.503321",
-        "testPassed": false,
-        "testRunSuccessful": false,
-        "testRunCompleted": true,
-        "tpsExpectMet": false,
-        "trxExpectMet": false,
-        "targetTPS": 14501,
-        "resultAvgTps": 13829.588235294117,
-        "expectedTxns": 145010,
-        "resultTxns": 144964,
-        "testAnalysisBlockCnt": 18,
-        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-17-48-14501"
-      }
-    },
-    "6": {
-      "success": false,
-      "searchTarget": 13501,
-      "searchFloor": 13001,
-      "searchCeiling": 14001,
-      "basicTestResult": {
-        "testStart": "2023-06-05T19:19:07.845657",
-        "testEnd": "2023-06-05T19:20:27.815030",
-        "testDuration": "0:01:19.969373",
+        "testStart": "2023-08-18T17:46:01.839865",
+        "testEnd": "2023-08-18T17:47:15.595123",
+        "testDuration": "0:01:13.755258",
         "testPassed": false,
         "testRunSuccessful": false,
         "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": false,
-        "targetTPS": 13501,
-        "resultAvgTps": 13470.375,
-        "expectedTxns": 135010,
-        "resultTxns": 135000,
+        "targetTPS": 14501,
+        "resultAvgTps": 14433.25,
+        "expectedTxns": 145010,
+        "resultTxns": 144898,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-19-07-13501"
+        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-46-01-14501"
       }
     },
-    "7": {
+    "6": {
       "success": true,
-      "searchTarget": 13001,
+      "searchTarget": 13501,
       "searchFloor": 13001,
-      "searchCeiling": 13001,
+      "searchCeiling": 14001,
       "basicTestResult": {
-        "testStart": "2023-06-05T19:20:27.817483",
-        "testEnd": "2023-06-05T19:21:44.846130",
-        "testDuration": "0:01:17.028647",
+        "testStart": "2023-08-18T17:47:15.596266",
+        "testEnd": "2023-08-18T17:48:29.481603",
+        "testDuration": "0:01:13.885337",
         "testPassed": true,
         "testRunSuccessful": true,
         "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "targetTPS": 13001,
-        "resultAvgTps": 13032.5625,
-        "expectedTxns": 130010,
-        "resultTxns": 130010,
+        "targetTPS": 13501,
+        "resultAvgTps": 13542.625,
+        "expectedTxns": 135010,
+        "resultTxns": 135010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-20-27-13001"
+        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-47-15-13501"
+      }
+    },
+    "7": {
+      "success": true,
+      "searchTarget": 14001,
+      "searchFloor": 14001,
+      "searchCeiling": 14001,
+      "basicTestResult": {
+        "testStart": "2023-08-18T17:48:29.482846",
+        "testEnd": "2023-08-18T17:49:41.993743",
+        "testDuration": "0:01:12.510897",
+        "testPassed": true,
+        "testRunSuccessful": true,
+        "testRunCompleted": true,
+        "tpsExpectMet": true,
+        "trxExpectMet": true,
+        "targetTPS": 14001,
+        "resultAvgTps": 14035.8125,
+        "expectedTxns": 140010,
+        "resultTxns": 140010,
+        "testAnalysisBlockCnt": 17,
+        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-48-29-14001"
       }
     }
   },
@@ -1143,24 +1178,24 @@ Finally, the full detail test report for each of the determined max TPS throughp
   "LongRunningSearchResults": {
     "0": {
       "success": true,
-      "searchTarget": 13001,
+      "searchTarget": 14001,
       "searchFloor": 1,
-      "searchCeiling": 13001,
+      "searchCeiling": 14001,
       "basicTestResult": {
-        "testStart": "2023-06-05T19:21:44.879637",
-        "testEnd": "2023-06-05T19:23:03.697671",
-        "testDuration": "0:01:18.818034",
+        "testStart": "2023-08-18T17:49:42.016053",
+        "testEnd": "2023-08-18T17:50:56.550087",
+        "testDuration": "0:01:14.534034",
         "testPassed": true,
         "testRunSuccessful": true,
         "testRunCompleted": true,
         "tpsExpectMet": true,
         "trxExpectMet": true,
-        "targetTPS": 13001,
-        "resultAvgTps": 13027.0,
-        "expectedTxns": 130010,
-        "resultTxns": 130010,
+        "targetTPS": 14001,
+        "resultAvgTps": 14060.375,
+        "expectedTxns": 140010,
+        "resultTxns": 140010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-21-44-13001"
+        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-49-42-14001"
       }
     }
   },
@@ -1181,35 +1216,36 @@ Finally, the full detail test report for each of the determined max TPS throughp
     <truncated>
   },
   "ProducerThreadAnalysis": {
-    "recommendedThreadCount": 2,
-    "threadToMaxTpsDict": {
-      "2": 12001,
-      "3": 12001
-    },
-    "analysisStart": "2023-06-05T17:59:49.197967",
-    "analysisFinish": "2023-06-05T18:18:33.449126"
-  },
-  "ChainThreadAnalysis": {
     "recommendedThreadCount": 3,
     "threadToMaxTpsDict": {
-      "2": 4001,
-      "3": 13001,
-      "4": 5501
+      "2": 12001,
+      "3": 16001,
+      "4": 14001
     },
-    "analysisStart": "2023-06-05T18:18:33.449689",
-    "analysisFinish": "2023-06-05T18:48:02.262053"
+    "analysisStart": "2023-08-18T16:16:57.535103",
+    "analysisFinish": "2023-08-18T16:46:36.202669"
+  },
+  "ChainThreadAnalysis": {
+    "recommendedThreadCount": 2,
+    "threadToMaxTpsDict": {
+      "2": 14001,
+      "3": 13001
+    },
+    "analysisStart": "2023-08-18T16:46:36.203279",
+    "analysisFinish": "2023-08-18T17:07:30.813917"
   },
   "NetThreadAnalysis": {
-    "recommendedThreadCount": 4,
+    "recommendedThreadCount": 5,
     "threadToMaxTpsDict": {
-      "4": 14501,
-      "5": 13501
+      "4": 12501,
+      "5": 13001,
+      "6": 11001
     },
-    "analysisStart": "2023-06-05T18:48:02.262594",
-    "analysisFinish": "2023-06-05T19:10:32.123003"
+    "analysisStart": "2023-08-18T17:07:30.814441",
+    "analysisFinish": "2023-08-18T17:39:08.002767"
   },
   "args": {
-    "rawCmdLine ": "./tests/PerformanceHarness/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
+    "rawCmdLine ": "tests/PerformanceHarnessScenarioRunner.py findMax testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
@@ -1323,7 +1359,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "_eosVmOcCompileThreadsNodeosDefault": 1,
         "_eosVmOcCompileThreadsNodeosArg": "--eos-vm-oc-compile-threads",
         "eosVmOcEnable": null,
-        "_eosVmOcEnableNodeosDefault": false,
+        "_eosVmOcEnableNodeosDefault": "auto",
         "_eosVmOcEnableNodeosArg": "--eos-vm-oc-enable",
         "enableAccountQueries": null,
         "_enableAccountQueriesNodeosDefault": 0,
@@ -1349,6 +1385,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "transactionFinalityStatusFailureDurationSec": null,
         "_transactionFinalityStatusFailureDurationSecNodeosDefault": 180,
         "_transactionFinalityStatusFailureDurationSecNodeosArg": "--transaction-finality-status-failure-duration-sec",
+        "disableReplayOpts": null,
+        "_disableReplayOptsNodeosDefault": false,
+        "_disableReplayOptsNodeosArg": "--disable-replay-opts",
         "integrityHashOnStart": null,
         "_integrityHashOnStartNodeosDefault": false,
         "_integrityHashOnStartNodeosArg": "--integrity-hash-on-start",
@@ -1379,9 +1418,6 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "forceAllChecks": null,
         "_forceAllChecksNodeosDefault": false,
         "_forceAllChecksNodeosArg": "--force-all-checks",
-        "disableReplayOpts": null,
-        "_disableReplayOptsNodeosDefault": false,
-        "_disableReplayOptsNodeosArg": "--disable-replay-opts",
         "replayBlockchain": null,
         "_replayBlockchainNodeosDefault": false,
         "_replayBlockchainNodeosArg": "--replay-blockchain",
@@ -1703,10 +1739,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
       "bios": "off"
     },
     "prodsEnableTraceApi": false,
-    "nodeosVers": "v4",
+    "nodeosVers": "v4.1.0-dev",
     "specificExtraNodeosArgs": {
-      "1": "--plugin eosio::trace_api_plugin ",
-      "2": "--plugin eosio::chain_api_plugin --plugin eosio::net_api_plugin --read-only-threads 0 "
+      "1": "--plugin eosio::trace_api_plugin "
     },
     "_totalNodes": 2,
     "_pNodes": 1,
@@ -1740,11 +1775,11 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "userTrxDataFile": null,
     "endpointMode": "p2p",
     "opModeCmd": "testBpOpMode",
-    "logDirBase": "performance_test",
-    "logDirTimestamp": "2023-06-05_17-59-49",
-    "logDirPath": "performance_test/2023-06-05_17-59-49",
-    "ptbLogsDirPath": "performance_test/2023-06-05_17-59-49/testRunLogs",
-    "pluginThreadOptLogsDirPath": "performance_test/2023-06-05_17-59-49/pluginThreadOptRunLogs"
+    "logDirBase": "PerformanceHarnessScenarioRunnerLogs",
+    "logDirTimestamp": "2023-08-18_16-16-57",
+    "logDirPath": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57",
+    "ptbLogsDirPath": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs",
+    "pluginThreadOptLogsDirPath": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/pluginThreadOptRunLogs"
   },
   "env": {
     "system": "Linux",
@@ -1752,7 +1787,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "release": "5.15.90.1-microsoft-standard-WSL2",
     "logical_cpu_count": 16
   },
-  "nodeosVersion": "v4"
+  "nodeosVersion": "v4.1.0-dev"
 }
 ```
 </details>
@@ -1760,7 +1795,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ## Performance Test Basic Report
 
-The Performance Test Basic generates, by default, a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `performance_test.py` is run with `--del-test-report`, or `performance_test_basic.py` is run with `--del-report`, the report described below will not be written.  Otherwise the report will be written to the timestamped directory within the `performance_test_basic` log directory for the test run with the file name `data.json`.
+The Performance Test Basic generates, by default, a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `PerformanceHarnessScenarioRunner.py findMax` is run with `--del-test-report`, or `PerformanceHarnessScenarioRunner.py singleTest` is run with `--del-report`, the report described below will not be written.  Otherwise the report will be written to the timestamped directory within the `PerformanceHarnessScenarioRunnerLogs` log directory for the test run with the file name `data.json`.
 
 <details>
     <summary>Expand for full sample report</summary>
@@ -1770,92 +1805,92 @@ The Performance Test Basic generates, by default, a report that details results 
   "targetApiEndpointType": "p2p",
   "targetApiEndpoint": "NA for P2P",
   "Result": {
-    "testStart": "2023-06-05T19:21:44.879637",
-    "testEnd": "2023-06-05T19:23:03.697671",
-    "testDuration": "0:01:18.818034",
+    "testStart": "2023-08-18T17:49:42.016053",
+    "testEnd": "2023-08-18T17:50:56.550087",
+    "testDuration": "0:01:14.534034",
     "testPassed": true,
     "testRunSuccessful": true,
     "testRunCompleted": true,
     "tpsExpectMet": true,
     "trxExpectMet": true,
-    "targetTPS": 13001,
-    "resultAvgTps": 13027.0,
-    "expectedTxns": 130010,
-    "resultTxns": 130010,
+    "targetTPS": 14001,
+    "resultAvgTps": 14060.375,
+    "expectedTxns": 140010,
+    "resultTxns": 140010,
     "testAnalysisBlockCnt": 17,
-    "logsDir": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-21-44-13001"
+    "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-49-42-14001"
   },
   "Analysis": {
     "BlockSize": {
-      "min": 153503,
-      "max": 169275,
-      "avg": 162269.76470588235,
-      "sigma": 3152.279353278714,
+      "min": 164525,
+      "max": 181650,
+      "avg": 175497.23529411765,
+      "sigma": 4638.469493136106,
       "emptyBlocks": 0,
       "numBlocks": 17
     },
     "BlocksGuide": {
-      "firstBlockNum": 110,
-      "lastBlockNum": 140,
-      "totalBlocks": 31,
-      "testStartBlockNum": 110,
-      "testEndBlockNum": 140,
+      "firstBlockNum": 99,
+      "lastBlockNum": 130,
+      "totalBlocks": 32,
+      "testStartBlockNum": 99,
+      "testEndBlockNum": 130,
       "setupBlocksCnt": 0,
       "tearDownBlocksCnt": 0,
       "leadingEmptyBlocksCnt": 1,
-      "trailingEmptyBlocksCnt": 9,
+      "trailingEmptyBlocksCnt": 10,
       "configAddlDropCnt": 2,
       "testAnalysisBlockCnt": 17
     },
     "TPS": {
-      "min": 12775,
-      "max": 13285,
-      "avg": 13027.0,
-      "sigma": 92.70854868888844,
+      "min": 13598,
+      "max": 14344,
+      "avg": 14060.375,
+      "sigma": 202.9254404331798,
       "emptyBlocks": 0,
       "numBlocks": 17,
-      "configTps": 13001,
+      "configTps": 14001,
       "configTestDuration": 10,
       "tpsPerGenerator": [
-        3250,
-        3250,
-        3250,
-        3251
+        3500,
+        3500,
+        3500,
+        3501
       ],
       "generatorCount": 4
     },
     "TrxCPU": {
       "min": 8.0,
-      "max": 1180.0,
-      "avg": 25.89257749403892,
-      "sigma": 12.604252354938811,
-      "samples": 130010
+      "max": 767.0,
+      "avg": 24.468759374330403,
+      "sigma": 11.149625462006687,
+      "samples": 140010
     },
     "TrxLatency": {
       "min": 0.0009999275207519531,
-      "max": 0.5399999618530273,
-      "avg": 0.2522121298066488,
-      "sigma": 0.14457374598663084,
-      "samples": 130010,
+      "max": 0.5320000648498535,
+      "avg": 0.25838474393291105,
+      "sigma": 0.14487074243481057,
+      "samples": 140010,
       "units": "seconds"
     },
     "TrxNet": {
       "min": 24.0,
       "max": 25.0,
-      "avg": 24.846196446427196,
-      "sigma": 0.3607603366241642,
-      "samples": 130010
+      "avg": 24.85718162988358,
+      "sigma": 0.3498875294629824,
+      "samples": 140010
     },
     "TrxAckResponseTime": {
       "min": -1.0,
       "max": -1.0,
       "avg": -1.0,
       "sigma": 0.0,
-      "samples": 130010,
+      "samples": 140010,
       "measurementApplicable": "NOT APPLICABLE",
       "units": "microseconds"
     },
-    "ExpectedTransactions": 130010,
+    "ExpectedTransactions": 140010,
     "DroppedTransactions": 0,
     "ProductionWindowsTotal": 2,
     "ProductionWindowsAverageSize": 12.0,
@@ -1878,7 +1913,7 @@ The Performance Test Basic generates, by default, a report that details results 
     }
   },
   "args": {
-    "rawCmdLine ": "./tests/PerformanceHarness/performance_test.py testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
+    "rawCmdLine ": "tests/PerformanceHarnessScenarioRunner.py findMax testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
@@ -1992,7 +2027,7 @@ The Performance Test Basic generates, by default, a report that details results 
         "_eosVmOcCompileThreadsNodeosDefault": 1,
         "_eosVmOcCompileThreadsNodeosArg": "--eos-vm-oc-compile-threads",
         "eosVmOcEnable": null,
-        "_eosVmOcEnableNodeosDefault": false,
+        "_eosVmOcEnableNodeosDefault": "auto",
         "_eosVmOcEnableNodeosArg": "--eos-vm-oc-enable",
         "enableAccountQueries": null,
         "_enableAccountQueriesNodeosDefault": 0,
@@ -2018,6 +2053,9 @@ The Performance Test Basic generates, by default, a report that details results 
         "transactionFinalityStatusFailureDurationSec": null,
         "_transactionFinalityStatusFailureDurationSecNodeosDefault": 180,
         "_transactionFinalityStatusFailureDurationSecNodeosArg": "--transaction-finality-status-failure-duration-sec",
+        "disableReplayOpts": null,
+        "_disableReplayOptsNodeosDefault": false,
+        "_disableReplayOptsNodeosArg": "--disable-replay-opts",
         "integrityHashOnStart": null,
         "_integrityHashOnStartNodeosDefault": false,
         "_integrityHashOnStartNodeosArg": "--integrity-hash-on-start",
@@ -2048,9 +2086,6 @@ The Performance Test Basic generates, by default, a report that details results 
         "forceAllChecks": null,
         "_forceAllChecksNodeosDefault": false,
         "_forceAllChecksNodeosArg": "--force-all-checks",
-        "disableReplayOpts": null,
-        "_disableReplayOptsNodeosDefault": false,
-        "_disableReplayOptsNodeosArg": "--disable-replay-opts",
         "replayBlockchain": null,
         "_replayBlockchainNodeosDefault": false,
         "_replayBlockchainNodeosArg": "--replay-blockchain",
@@ -2372,10 +2407,9 @@ The Performance Test Basic generates, by default, a report that details results 
       "bios": "off"
     },
     "prodsEnableTraceApi": false,
-    "nodeosVers": "v4",
+    "nodeosVers": "v4.1.0-dev",
     "specificExtraNodeosArgs": {
-      "1": "--plugin eosio::trace_api_plugin ",
-      "2": "--plugin eosio::chain_api_plugin --plugin eosio::net_api_plugin --read-only-threads 0 "
+      "1": "--plugin eosio::trace_api_plugin "
     },
     "_totalNodes": 2,
     "_pNodes": 1,
@@ -2390,23 +2424,23 @@ The Performance Test Basic generates, by default, a report that details results 
     ],
     "nonProdsEosVmOcEnable": false,
     "apiNodesReadOnlyThreadCount": 0,
-    "targetTps": 13001,
+    "targetTps": 14001,
     "testTrxGenDurationSec": 10,
     "tpsLimitPerGenerator": 4000,
     "numAddlBlocksToPrune": 2,
-    "logDirRoot": "performance_test/2023-06-05_17-59-49/testRunLogs",
+    "logDirRoot": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs",
     "delReport": false,
     "quiet": false,
     "delPerfLogs": false,
-    "expectedTransactionsSent": 130010,
+    "expectedTransactionsSent": 140010,
     "printMissingTransactions": false,
     "userTrxDataFile": null,
     "endpointMode": "p2p",
     "apiEndpoint": null,
-    "logDirBase": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test",
-    "logDirTimestamp": "2023-06-05_19-21-44",
-    "logDirTimestampedOptSuffix": "-13001",
-    "logDirPath": "performance_test/2023-06-05_17-59-49/testRunLogs/performance_test/2023-06-05_19-21-44-13001",
+    "logDirBase": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs",
+    "logDirTimestamp": "2023-08-18_17-49-42",
+    "logDirTimestampedOptSuffix": "-14001",
+    "logDirPath": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-49-42-14001",
     "userTrxData": "NOT CONFIGURED"
   },
   "env": {
@@ -2415,7 +2449,7 @@ The Performance Test Basic generates, by default, a report that details results 
     "release": "5.15.90.1-microsoft-standard-WSL2",
     "logical_cpu_count": 16
   },
-  "nodeosVersion": "v4"
+  "nodeosVersion": "v4.1.0-dev"
 }
 ```
 </details>

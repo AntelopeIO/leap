@@ -8,13 +8,13 @@ import sys
 import shutil
 import signal
 import json
-import log_reader
 import traceback
 
 from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
-from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
+from .log_reader import blockData, trxData, chainData, scrapeTrxGenTrxSentDataLogs, JsonReportHandler, analyzeLogResults, TpsTestConfig, ArtifactPaths, LogAnalysis
+from .NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs, SignatureProviderPluginArgs, StateHistoryPluginArgs, TraceApiPluginArgs
 from TestHarness import Account, Cluster, TestHelper, Utils, WalletMgr, TransactionGeneratorsLauncher, TpsTrxGensConfig
 from TestHarness.TestHelper import AppArgs
 from dataclasses import dataclass, asdict, field
@@ -152,12 +152,12 @@ class PerformanceTestBasic:
             assert "v1" not in self.nodeosVers and "v0" not in self.nodeosVers, f"nodeos version {Utils.getNodeosVersion()} is unsupported by performance test"
             if "v2" in self.nodeosVers:
                 self.writeTrx = lambda trxDataFile, blockNum, trx: [trxDataFile.write(f"{trx['trx']['id']},{blockNum},{trx['cpu_usage_us']},{trx['net_usage_words']}\n")]
-                self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: log_reader.blockData(blockId=block["payload"]["id"], blockNum=block['payload']['block_num'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"])
-                self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction['trx']['id'], log_reader.trxData(blockNum, transaction['cpu_usage_us'], transaction['net_usage_words']))]))
+                self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: blockData(blockId=block["payload"]["id"], blockNum=block['payload']['block_num'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["confirmed"], _timestamp=block["payload"]["timestamp"])
+                self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction['trx']['id'], trxData(blockNum, transaction['cpu_usage_us'], transaction['net_usage_words']))]))
             else:
                 self.writeTrx = lambda trxDataFile, blockNum, trx:[ trxDataFile.write(f"{trx['id']},{trx['block_num']},{trx['block_time']},{trx['cpu_usage_us']},{trx['net_usage_words']},{trx['actions']}\n") ]
-                self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: log_reader.blockData(blockId=block["payload"]["id"], blockNum=block['payload']['number'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["status"], _timestamp=block["payload"]["timestamp"])
-                self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction["id"], log_reader.trxData(blockNum=transaction["block_num"], cpuUsageUs=transaction["cpu_usage_us"], netUsageUs=transaction["net_usage_words"], blockTime=transaction["block_time"]))]))
+                self.createBlockData = lambda block, blockTransactionTotal, blockNetTotal, blockCpuTotal: blockData(blockId=block["payload"]["id"], blockNum=block['payload']['number'], transactions=blockTransactionTotal, net=blockNetTotal, cpu=blockCpuTotal, producer=block["payload"]["producer"], status=block["payload"]["status"], _timestamp=block["payload"]["timestamp"])
+                self.updateTrxDict = lambda blockNum, transaction, trxDict: trxDict.update(dict([(transaction["id"], trxData(blockNum=transaction["block_num"], cpuUsageUs=transaction["cpu_usage_us"], netUsageUs=transaction["net_usage_words"], blockTime=transaction["block_time"]))]))
     @dataclass
     class PtbConfig:
         targetTps: int=8000
@@ -208,7 +208,7 @@ class PerformanceTestBasic:
         self.testStart = datetime.utcnow()
         self.testEnd = self.testStart
         self.testNamePath = testNamePath
-        self.loggingConfig = PerformanceTestBasic.LoggingConfig(logDirBase=Path(self.ptbConfig.logDirRoot)/self.testNamePath,
+        self.loggingConfig = PerformanceTestBasic.LoggingConfig(logDirBase=Path(self.ptbConfig.logDirRoot)/f"{self.testNamePath}Logs",
                                                                 logDirTimestamp=f"{self.testStart.strftime('%Y-%m-%d_%H-%M-%S')}",
                                                                 logDirTimestampedOptSuffix = f"-{self.ptbConfig.targetTps}")
 
@@ -411,7 +411,7 @@ class PerformanceTestBasic:
         info = self.producerNode.getInfo()
         chainId = info['chain_id']
         lib_id = info['last_irreversible_block_id']
-        self.data = log_reader.chainData()
+        self.data = chainData()
         self.data.numNodes = self.clusterConfig._totalNodes
 
         abiFile=None
@@ -471,7 +471,7 @@ class PerformanceTestBasic:
 
         # Get stats after transaction generation stops
         trxSent = {}
-        log_reader.scrapeTrxGenTrxSentDataLogs(trxSent, self.trxGenLogDirPath, self.ptbConfig.quiet)
+        scrapeTrxGenTrxSentDataLogs(trxSent, self.trxGenLogDirPath, self.ptbConfig.quiet)
         if len(trxSent) != self.ptbConfig.expectedTransactionsSent:
             print(f"ERROR: Transactions generated: {len(trxSent)} does not match the expected number of transactions: {self.ptbConfig.expectedTransactionsSent}")
         blocksToWait = 2 * self.ptbConfig.testTrxGenDurationSec + 10
@@ -496,7 +496,7 @@ class PerformanceTestBasic:
         except Exception as e:
             print(f"Failed to move '{self.cluster.nodeosLogPath}' to '{self.varLogsDirPath}': {type(e)}: {e}")
 
-    def createReport(self, logAnalysis: log_reader.LogAnalysis, tpsTestConfig: log_reader.TpsTestConfig, argsDict: dict, testResult: PerfTestBasicResult) -> dict:
+    def createReport(self, logAnalysis: LogAnalysis, tpsTestConfig: TpsTestConfig, argsDict: dict, testResult: PerfTestBasicResult) -> dict:
         report = {}
         report['targetApiEndpointType'] = self.ptbConfig.endpointMode
         report['targetApiEndpoint'] = self.ptbConfig.apiEndpoint if self.ptbConfig.apiEndpoint is not None else "NA for P2P"
@@ -539,12 +539,12 @@ class PerformanceTestBasic:
 
     def analyzeResultsAndReport(self, testResult: PtbTpsTestResult):
         args = self.prepArgs()
-        artifactsLocate = log_reader.ArtifactPaths(nodeosLogDir=self.nodeosLogDir, nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
+        artifactsLocate = ArtifactPaths(nodeosLogDir=self.nodeosLogDir, nodeosLogPath=self.nodeosLogPath, trxGenLogDirPath=self.trxGenLogDirPath, blockTrxDataPath=self.blockTrxDataPath,
                                                    blockDataPath=self.blockDataPath, transactionMetricsDataPath=self.transactionMetricsDataPath)
-        tpsTestConfig = log_reader.TpsTestConfig(targetTps=self.ptbConfig.targetTps, testDurationSec=self.ptbConfig.testTrxGenDurationSec, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator,
+        tpsTestConfig = TpsTestConfig(targetTps=self.ptbConfig.targetTps, testDurationSec=self.ptbConfig.testTrxGenDurationSec, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator,
                                                  numBlocksToPrune=self.ptbConfig.numAddlBlocksToPrune, numTrxGensUsed=testResult.numGeneratorsUsed, targetTpsPerGenList=testResult.targetTpsPerGenList,
                                                  quiet=self.ptbConfig.quiet, printMissingTransactions=self.ptbConfig.printMissingTransactions)
-        self.logAnalysis = log_reader.analyzeLogResults(data=self.data, tpsTestConfig=tpsTestConfig, artifacts=artifactsLocate)
+        self.logAnalysis = analyzeLogResults(data=self.data, tpsTestConfig=tpsTestConfig, artifacts=artifactsLocate)
         self.testEnd = datetime.utcnow()
 
         self.testResult = PerformanceTestBasic.PerfTestBasicResult(targetTPS=self.ptbConfig.targetTps, resultAvgTps=self.logAnalysis.tpsStats.avg, expectedTxns=self.ptbConfig.expectedTransactionsSent,
@@ -568,7 +568,7 @@ class PerformanceTestBasic:
 
         jsonReport = None
         if not self.ptbConfig.quiet or not self.ptbConfig.delReport:
-            jsonReport = log_reader.JsonReportHandler.reportAsJSON(self.report)
+            jsonReport = JsonReportHandler.reportAsJSON(self.report)
 
         if not self.ptbConfig.quiet:
             print(self.data)
@@ -576,7 +576,7 @@ class PerformanceTestBasic:
             print(f"Report:\n{jsonReport}")
 
         if not self.ptbConfig.delReport:
-            log_reader.JsonReportHandler.exportReportAsJSON(jsonReport, self.reportPath)
+            JsonReportHandler.exportReportAsJSON(jsonReport, self.reportPath)
 
     def preTestSpinup(self):
         self.testDirsCleanup()
@@ -754,36 +754,3 @@ class PtbArgumentsHandler(object):
         ptbParser=PtbArgumentsHandler.createArgumentParser()
         args=ptbParser.parse_args()
         return args
-
-def main():
-
-    args = PtbArgumentsHandler.parseArgs()
-    Utils.Debug = args.v
-
-    testHelperConfig = PerformanceTestBasic.setupTestHelperConfig(args)
-    testClusterConfig = PerformanceTestBasic.setupClusterConfig(args)
-
-    if args.contracts_console and testClusterConfig.loggingLevel != "debug" and testClusterConfig.loggingLevel != "all":
-        print("Enabling contracts-console will not print anything unless debug level is 'debug' or higher."
-              f" Current debug level is: {testClusterConfig.loggingLevel}")
-
-    ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=args.target_tps,
-                                               testTrxGenDurationSec=args.test_duration_sec,
-                                               tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                               numAddlBlocksToPrune=args.num_blocks_to_prune,
-                                               logDirRoot=".",
-                                               delReport=args.del_report, quiet=args.quiet,
-                                               delPerfLogs=args.del_perf_logs,
-                                               printMissingTransactions=args.print_missing_transactions,
-                                               userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None,
-                                               endpointMode=args.endpoint_mode)
-
-    myTest = PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig)
-
-    testSuccessful = myTest.runTest()
-
-    exitCode = 0 if testSuccessful else 1
-    exit(exitCode)
-
-if __name__ == '__main__':
-    main()
