@@ -44,7 +44,7 @@ namespace eosio::trace_api {
     */
    class compressed_file {
    public:
-      explicit compressed_file( fc::path file_path );
+      explicit compressed_file( std::filesystem::path file_path );
       ~compressed_file();
 
       /**
@@ -99,7 +99,7 @@ namespace eosio::trace_api {
 
       /**
        * return the file path associated with this compressed_file
-       * @return the fc::path associated with this file
+       * @return the std::filesystem::path associated with this file
        */
       auto get_file_path() const {
          return file_path;
@@ -117,10 +117,10 @@ namespace eosio::trace_api {
        * @throws std::ios_base::failure if the input_path does not exist or the output_path cannot be written to
        * @throws compressed_file_error if there is an issue during compression of the data stream
        */
-      static bool process( const fc::path& input_path, const fc::path& output_path, size_t seek_point_stride );
+      static bool process( const std::filesystem::path& input_path, const std::filesystem::path& output_path, size_t seek_point_stride );
 
    private:
-      fc::path file_path;
+      std::filesystem::path file_path;
       std::unique_ptr<fc::cfile> file_ptr;
       std::unique_ptr<compressed_file_impl> impl;
    };

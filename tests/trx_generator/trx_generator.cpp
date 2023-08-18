@@ -14,7 +14,7 @@ namespace eosio::testing {
    namespace chain = eosio::chain;
 
    void trx_generator_base::set_transaction_headers(chain::transaction& trx, const chain::block_id_type& last_irr_block_id, const fc::microseconds& expiration, uint32_t delay_sec) {
-      trx.expiration = fc::time_point::now() + expiration;
+      trx.expiration = fc::time_point_sec{fc::time_point::now() + expiration};
       trx.set_reference_block(last_irr_block_id);
 
       trx.max_net_usage_words = 0;// No limit
@@ -119,7 +119,7 @@ namespace eosio::testing {
 
    fc::variant json_from_file_or_string(const std::string& file_or_str, fc::json::parse_type ptype) {
       std::regex r("^[ \t]*[\{\[]");
-      if ( !regex_search(file_or_str, r) && fc::is_regular_file(file_or_str) ) {
+      if ( !regex_search(file_or_str, r) && std::filesystem::is_regular_file(file_or_str) ) {
          try {
             return fc::json::from_file(file_or_str, ptype);
          } EOS_RETHROW_EXCEPTIONS(chain::json_parse_exception, "Fail to parse JSON from file: ${file}", ("file", file_or_str));
@@ -146,13 +146,16 @@ namespace eosio::testing {
       for (size_t i = 0; i < action_array.size(); ++i) {
          auto action_mvo = fc::mutable_variant_object(action_array[i]);
          locate_key_words_in_action_mvo(acct_gen_fields_out[i], action_mvo, key_word);
+         if(acct_gen_fields_out[i].empty()) {
+            acct_gen_fields_out.erase(i);
+         }
       }
    }
 
    void update_key_word_fields_in_sub_action(const std::string& key, fc::mutable_variant_object& action_mvo, const std::string& action_inner_key,
                                                             const std::string& key_word) {
       if (action_mvo.find(action_inner_key) != action_mvo.end()) {
-         auto inner = action_mvo[action_inner_key].get_object();
+         const auto& inner = action_mvo[action_inner_key].get_object();
          if (inner.find(key) != inner.end()) {
             fc::mutable_variant_object inner_mvo = fc::mutable_variant_object(inner);
             inner_mvo.set(key, key_word);
@@ -210,10 +213,15 @@ namespace eosio::testing {
                         }
                         EOS_RETHROW_EXCEPTIONS(chain::transaction_type_exception, "Fail to parse unpacked action data JSON")
 
-                        chain::name auth_actor = chain::name(action_mvo["authorization"].get_object()["actor"].as_string());
-                        chain::name auth_perm = chain::name(action_mvo["authorization"].get_object()["permission"].as_string());
+                        std::vector<eosio::chain::permission_level> auth = {};
+                        if (action_mvo["authorization"].get_object().find("actor") != action_mvo["authorization"].get_object().end() &&
+                            action_mvo["authorization"].get_object().find("permission") != action_mvo["authorization"].get_object().end()) {
+                           chain::name auth_actor = chain::name(action_mvo["authorization"].get_object()["actor"].as_string());
+                           chain::name auth_perm = chain::name(action_mvo["authorization"].get_object()["permission"].as_string());
+                           auth.push_back({auth_actor, auth_perm});
+                        }
 
-                        return chain::action({{auth_actor, auth_perm}}, _config._contract_owner_account, action_name, std::move(packed_action_data));
+                        return chain::action(auth, _config._contract_owner_account, action_name, std::move(packed_action_data));
                      });
 
       return actions;
@@ -235,7 +243,7 @@ namespace eosio::testing {
 
       const std::string gen_acct_name_per_trx("ACCT_PER_TRX");
 
-      auto action_array = unpacked_actions_data_json.get_array();
+      const auto& action_array = unpacked_actions_data_json.get_array();
       _unpacked_actions.reserve(action_array.size());
       std::transform(action_array.begin(), action_array.end(), std::back_inserter(_unpacked_actions),
                      [&](const auto& var) {
@@ -278,8 +286,8 @@ namespace eosio::testing {
    }
 
    bool trx_generator_base::tear_down() {
-      _provider.log_trxs(_config._log_dir);
       _provider.teardown();
+      _provider.log_trxs(_config._log_dir);
 
       ilog("Sent transactions: ${cnt}", ("cnt", _txcount));
       ilog("Tear down p2p transaction provider");
@@ -294,7 +302,7 @@ namespace eosio::testing {
       try {
          if (_trxs.size()) {
             size_t index_to_send = _txcount % _trxs.size();
-            push_transaction(_provider, _trxs.at(index_to_send), ++_nonce_prefix, _nonce, _config._trx_expiration_us, _config._chain_id,
+            push_transaction(_trxs.at(index_to_send), ++_nonce_prefix, _nonce, _config._trx_expiration_us, _config._chain_id,
                              _config._last_irr_block_id);
             ++_txcount;
          } else {
@@ -321,13 +329,13 @@ namespace eosio::testing {
       out.close();
    }
 
-   void trx_generator_base::push_transaction(p2p_trx_provider& provider, signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce,
+   void trx_generator_base::push_transaction(signed_transaction_w_signer& trx, uint64_t& nonce_prefix, uint64_t& nonce,
                                              const fc::microseconds& trx_expiration, const chain::chain_id_type& chain_id, const chain::block_id_type& last_irr_block_id) {
       update_resign_transaction(trx._trx, trx._signer, ++nonce_prefix, nonce, trx_expiration, chain_id, last_irr_block_id);
       if (_txcount == 0) {
          log_first_trx(_config._log_dir, trx._trx);
       }
-      provider.send(trx._trx);
+      _provider.send(trx._trx);
    }
 
    void trx_generator_base::stop_generation() {

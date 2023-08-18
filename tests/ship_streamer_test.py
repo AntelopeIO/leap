@@ -7,7 +7,7 @@ import shutil
 import signal
 import sys
 
-from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL
+from TestHarness import Cluster, TestHelper, Utils, WalletMgr, CORE_SYMBOL, createAccountKeys
 from TestHarness.TestHelper import AppArgs
 
 ###############################################################
@@ -31,14 +31,11 @@ Print=Utils.Print
 
 appArgs = AppArgs()
 extraArgs = appArgs.add(flag="--num-clients", type=int, help="How many ship_streamers should be started", default=1)
-args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--clean-run","--unshared"}, applicationSpecificArgs=appArgs)
+args = TestHelper.parse_args({"--dump-error-details","--keep-logs","-v","--leave-running","--unshared"}, applicationSpecificArgs=appArgs)
 
 Utils.Debug=args.v
-cluster=Cluster(walletd=True,unshared=args.unshared)
+cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 dumpErrorDetails=args.dump_error_details
-keepLogs=args.keep_logs
-dontKill=args.leave_running
-killAll=args.clean_run
 walletPort=TestHelper.DEFAULT_WALLET_PORT
 
 totalProducerNodes=2
@@ -49,20 +46,22 @@ totalProducers=maxActiveProducers
 
 walletMgr=WalletMgr(True, port=walletPort)
 testSuccessful=False
-killEosInstances=not dontKill
-killWallet=not dontKill
 
 WalletdName=Utils.EosWalletName
 shipTempDir=None
+
+def getLatestSnapshot(nodeId):
+    snapshotDir = os.path.join(Utils.getNodeDataDir(nodeId), "snapshots")
+    snapshotDirContents = os.listdir(snapshotDir)
+    assert len(snapshotDirContents) > 0
+    snapshotDirContents.sort()
+    return os.path.join(snapshotDir, snapshotDirContents[-1])
 
 try:
     TestHelper.printSystemInfo("BEGIN")
 
     cluster.setWalletMgr(walletMgr)
-    cluster.killall(allInstances=killAll)
-    cluster.cleanup()
     Print("Stand up cluster")
-
 
     # ***   setup topogrophy   ***
 
@@ -71,7 +70,7 @@ try:
 
     shipNodeNum = 1
     specificExtraNodeosArgs={}
-    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --disable-replay-opts --trace-history --chain-state-history --plugin eosio::net_api_plugin "
+    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --trace-history --chain-state-history --plugin eosio::net_api_plugin --plugin eosio::producer_api_plugin "
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin  "
 
@@ -94,7 +93,7 @@ try:
     shipNode = cluster.getNode(shipNodeNum)
 
 
-    accounts=cluster.createAccountKeys(6)
+    accounts=createAccountKeys(6)
     if accounts is None:
         Utils.errorExit("FAILURE - create keys")
 
@@ -123,13 +122,18 @@ try:
                 trans=node.regproducer(cluster.defProducerAccounts[prod], "http://mysite.com", 0, waitForTransBlock=False, exitOnError=True)
 
     # create accounts via eosio as otherwise a bid is needed
+    transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
     for account in accounts:
         Print(f"Create new account {account.name} via {cluster.eosioAccount.name} with private key: {account.activePrivateKey}")
-        trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=True, stakeNet=10000, stakeCPU=10000, buyRAM=10000000, exitOnError=True)
-        transferAmount="100000000.0000 {0}".format(CORE_SYMBOL)
+        trans=nonProdNode.createInitializeAccount(account, cluster.eosioAccount, stakedDeposit=0, waitForTransBlock=False, stakeNet=10000, stakeCPU=10000, buyRAM=10000000, exitOnError=True)
+    nonProdNode.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
+    for account in accounts:
         Print(f"Transfer funds {transferAmount} from account {cluster.eosioAccount.name} to {account.name}")
-        nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=True)
+        trans=nonProdNode.transferFunds(cluster.eosioAccount, account, transferAmount, "test transfer", waitForTransBlock=False)
+    nonProdNode.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
+    for account in accounts:
         trans=nonProdNode.delegatebw(account, 20000000.0000, 20000000.0000, waitForTransBlock=False, exitOnError=True)
+    nonProdNode.waitForTransBlockIfNeeded(trans, True, exitOnError=True)
 
     # ***   vote using accounts   ***
 
@@ -150,6 +154,19 @@ try:
     cluster.waitOnClusterSync(blockAdvancing=3)
     Print("Shutdown unneeded bios node")
     cluster.biosNode.kill(signal.SIGTERM)
+
+    Print("Configure and launch txn generators")
+    targetTpsPerGenerator = 10
+    testTrxGenDurationSec=60*60
+    numTrxGenerators=2
+    cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[accounts[0].name, accounts[1].name],
+                                acctPrivKeysList=[accounts[0].activePrivateKey,accounts[1].activePrivateKey], nodeId=prodNode1.nodeId,
+                                tpsPerGenerator=targetTpsPerGenerator, numGenerators=numTrxGenerators, durationSec=testTrxGenDurationSec,
+                                waitToComplete=False)
+
+    status = cluster.waitForTrxGeneratorsSpinup(nodeId=prodNode1.nodeId, numGenerators=numTrxGenerators)
+    assert status is not None and status is not False, "ERROR: Failed to spinup Transaction Generators"
+
     prodNode0.waitForProducer("defproducerc")
 
     block_range = 350
@@ -177,10 +194,10 @@ try:
         Print(f"Client {i} started, Ship node head is: {shipNode.getBlockNum()}")
 
     # Generate a fork
-    forkAtProducer="defproducera"
     prodNode1Prod="defproduceru"
     preKillBlockNum=nonProdNode.getBlockNum()
     preKillBlockProducer=nonProdNode.getBlockProducerByNum(preKillBlockNum)
+    forkAtProducer="defproducer" + chr(ord(preKillBlockProducer[-1])+2)
     nonProdNode.killNodeOnProducer(producer=forkAtProducer, whereInSequence=1)
     Print(f"Current block producer {preKillBlockProducer} fork will be at producer {forkAtProducer}")
     prodNode0.waitForProducer(forkAtProducer)
@@ -192,7 +209,8 @@ try:
         Utils.errorExit("Bridge did not shutdown");
     Print("Fork started")
 
-    prodNode0.waitForProducer("defproducerb") # wait for fork to progress a bit
+    forkProgress="defproducer" + chr(ord(forkAtProducer[-1])+3)
+    prodNode0.waitForProducer(forkProgress) # wait for fork to progress a bit
 
     Print("Restore fork")
     Print("Relaunching the non-producing bridge node to connect the producing nodes again")
@@ -204,7 +222,7 @@ try:
     nonProdNode.waitForProducer(forkAtProducer)
     nonProdNode.waitForProducer(prodNode1Prod)
     afterForkBlockNum = nonProdNode.getBlockNum()
-    if int(afterForkBlockNum) > int(end_block_num):
+    if int(afterForkBlockNum) < int(end_block_num):
         Utils.errorExit(f"Did not stream long enough {end_block_num} to cover the fork {afterForkBlockNum}, increase block_range {block_range}")
 
     Print(f"Stopping all {args.num_clients} clients")
@@ -226,14 +244,66 @@ try:
             block_num += 1
         assert block_num-1 == end_block_num, f"{block_num-1} != {end_block_num}"
 
+    Print("Generate snapshot")
+    shipNode.createSnapshot()
+
     Print("Shutdown state_history_plugin nodeos")
     shipNode.kill(signal.SIGTERM)
 
+    Print("Shutdown bridge node")
+    nonProdNode.kill(signal.SIGTERM)
+
+    Print("Test starting ship from snapshot")
+    Utils.rmNodeDataDir(shipNodeNum)
+    isRelaunchSuccess = shipNode.relaunch(chainArg=" --snapshot {}".format(getLatestSnapshot(shipNodeNum)))
+    assert isRelaunchSuccess, "relaunch from snapshot failed"
+
+    afterSnapshotBlockNum = shipNode.getBlockNum()
+
+    Print("Verify we can stream from ship after start from a snapshot with no incoming trxs")
+    start_block_num = afterSnapshotBlockNum
+    block_range = 0
+    end_block_num = start_block_num + block_range
+    cmd = f"{shipClient} --start-block-num {start_block_num} --end-block-num {end_block_num} --fetch-block --fetch-traces --fetch-deltas"
+    if Utils.Debug: Utils.Print(f"cmd: {cmd}")
+    clients = []
+    files = []
+    starts = []
+    for i in range(0, args.num_clients):
+        start = time.perf_counter()
+        outFile = open(f"{shipClientFilePrefix}{i}_snapshot.out", "w")
+        errFile = open(f"{shipClientFilePrefix}{i}_snapshot.err", "w")
+        Print(f"Start client {i}")
+        popen=Utils.delayedCheckOutput(cmd, stdout=outFile, stderr=errFile)
+        starts.append(time.perf_counter())
+        clients.append((popen, cmd))
+        files.append((outFile, errFile))
+        Print(f"Client {i} started, Ship node head is: {shipNode.getBlockNum()}")
+
+    Print(f"Stopping all {args.num_clients} clients")
+    for index, (popen, _), (out, err), start in zip(range(len(clients)), clients, files, starts):
+        popen.wait()
+        Print(f"Stopped client {index}.  Ran for {time.perf_counter() - start:.3f} seconds.")
+        out.close()
+        err.close()
+        outFile = open(f"{shipClientFilePrefix}{index}_snapshot.out", "r")
+        data = json.load(outFile)
+        block_num = start_block_num
+        for i in data:
+            # fork can cause block numbers to be repeated
+            this_block_num = i['get_blocks_result_v0']['this_block']['block_num']
+            if this_block_num < block_num:
+                block_num = this_block_num
+            assert block_num == this_block_num, f"{block_num} != {this_block_num}"
+            assert isinstance(i['get_blocks_result_v0']['deltas'], str) # verify deltas in result
+            block_num += 1
+        assert block_num-1 == end_block_num, f"{block_num-1} != {end_block_num}"
+
     testSuccessful = True
 finally:
-    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, killEosInstances=killEosInstances, killWallet=killWallet, keepLogs=keepLogs, cleanRun=killAll, dumpErrorDetails=dumpErrorDetails)
+    TestHelper.shutdown(cluster, walletMgr, testSuccessful=testSuccessful, dumpErrorDetails=dumpErrorDetails)
     if shipTempDir is not None:
-        if testSuccessful and not keepLogs:
+        if testSuccessful and not args.keep_logs:
             shutil.rmtree(shipTempDir, ignore_errors=True)
 
 errorCode = 0 if testSuccessful else 1

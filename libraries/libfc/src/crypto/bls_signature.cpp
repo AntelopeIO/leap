@@ -17,7 +17,7 @@ namespace fc { namespace crypto { namespace blslib {
       }*/
    };
 
-   static vector<uint8_t> sig_parse_base58(const std::string& base58str)
+   static bls12_381::g2 sig_parse_base58(const std::string& base58str)
    { try {
 
 
@@ -28,20 +28,21 @@ namespace fc { namespace crypto { namespace blslib {
 
       std::vector<char> v1 = fc::from_base58(data_str);
 
-      std::vector<uint8_t> v2;
-      std::copy(v1.begin(), v1.end(), std::back_inserter(v2));
-
-      return v2;
-
+      FC_ASSERT(v1.size() == 96);
+      std::array<uint8_t, 96> v2;
+      std::copy(v1.begin(), v1.end(), v2.begin());
+      std::optional<bls12_381::g2> g2 = bls12_381::g2::fromCompressedBytesBE(v2);
+      FC_ASSERT(g2);
+      return *g2;
    } FC_RETHROW_EXCEPTIONS( warn, "error parsing bls_signature", ("str", base58str ) ) }
 
    bls_signature::bls_signature(const std::string& base58str)
      :_sig(sig_parse_base58(base58str))
    {}
 
-   size_t bls_signature::which() const {
-      //return _storage.index();
-   }
+//   size_t bls_signature::which() const {
+//      //return _storage.index();
+//   }
 
 
    //template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
@@ -62,7 +63,8 @@ namespace fc { namespace crypto { namespace blslib {
    {
 
       std::vector<char> v2;
-      std::copy(_sig.begin(), _sig.end(), std::back_inserter(v2));
+      std::array<uint8_t, 96> bytes = _sig.toCompressedBytesBE();
+      std::copy(bytes.begin(), bytes.end(), std::back_inserter(v2));
 
       std::string data_str = fc::to_base58(v2, yield);
 

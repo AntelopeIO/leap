@@ -15,6 +15,8 @@
 
 #include <boost/hana/equal.hpp>
 
+#include "IR/Types.h"
+
 #include <asm/prctl.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
@@ -264,6 +266,7 @@ void executor::execute(const code_descriptor& code, memory& mem, apply_context& 
 
 executor::~executor() {
    arch_prctl(ARCH_SET_GS, nullptr);
+   munmap(code_mapping, code_mapping_size);
 }
 
 }}}

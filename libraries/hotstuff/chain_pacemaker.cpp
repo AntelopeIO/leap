@@ -100,19 +100,19 @@ namespace eosio { namespace hotstuff {
 #endif
 //===============================================================================================
 
-   chain_pacemaker::chain_pacemaker(controller* chain, std::set<name> my_producers, bool info_logging, bool error_logging)
+   chain_pacemaker::chain_pacemaker(controller* chain, std::set<account_name> my_producers, bool info_logging, bool error_logging)
       : _chain(chain),
-        _qc_chain("default"_n, this, my_producers, info_logging, error_logging)
+        _qc_chain("default"_n, this, std::move(my_producers), info_logging, error_logging)
    {
    }
 
    // Called internally by the chain_pacemaker to decide whether it should do something or not, based on feature activation.
    // Only methods called by the outside need to call this; methods called by qc_chain only don't need to check for enable().
-   bool chain_pacemaker::enabled() {
+   bool chain_pacemaker::enabled() const {
       return _chain->is_builtin_activated( builtin_protocol_feature_t::instant_finality );
    }
 
-   void chain_pacemaker::get_state( finalizer_state & fs ) {
+   void chain_pacemaker::get_state( finalizer_state& fs ) const {
       if (enabled())
          _qc_chain.get_state( fs ); // get_state() takes scare of finer-grained synchronization internally
    }

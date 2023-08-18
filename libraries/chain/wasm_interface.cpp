@@ -32,16 +32,14 @@
 
 namespace eosio { namespace chain {
 
-   wasm_interface::wasm_interface(vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
-     : my( new wasm_interface_impl(vm, eosvmoc_tierup, d, data_dir, eosvmoc_config, profile) ), vm( vm ) {}
+   wasm_interface::wasm_interface(vm_type vm, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
+     : my( new wasm_interface_impl(vm, d, data_dir, eosvmoc_config, profile) ) {}
 
    wasm_interface::~wasm_interface() {}
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
    void wasm_interface::init_thread_local_data() {
-      if (my->eosvmoc)
-         my->eosvmoc->init_thread_local_data();
-      else if (vm == wasm_interface::vm_type::eos_vm_oc && my->runtime_interface)
+      if (my->wasm_runtime_time == wasm_interface::vm_type::eos_vm_oc && my->runtime_interface)
          my->runtime_interface->init_thread_local_data();
    }
 #endif
@@ -72,61 +70,26 @@ namespace eosio { namespace chain {
       //there are a couple opportunties for improvement here--
       //Easy: Cache the Module created here so it can be reused for instantiaion
       //Hard: Kick off instantiation in a separate thread at this location
-	 }
-
-   void wasm_interface::indicate_shutting_down() {
-      my->is_shutting_down = true;
    }
 
    void wasm_interface::code_block_num_last_used(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, const uint32_t& block_num) {
       my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
    }
 
-   void wasm_interface::current_lib(const uint32_t lib) {
-      my->current_lib(lib);
+   void wasm_interface::current_lib(const uint32_t lib, const std::function<void(const digest_type&, uint8_t)>& callback) {
+      my->current_lib(lib, callback);
    }
 
    void wasm_interface::apply( const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, apply_context& context ) {
-      if(substitute_apply && substitute_apply(code_hash, vm_type, vm_version, context))
-         return;
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      if(my->eosvmoc) {
-         const chain::eosvmoc::code_descriptor* cd = nullptr;
-         try {
-            cd = my->eosvmoc->cc.get_descriptor_for_code(code_hash, vm_version, context.control.is_write_window());
-         }
-         catch(...) {
-            //swallow errors here, if EOS VM OC has gone in to the weeds we shouldn't bail: continue to try and run baseline
-            //In the future, consider moving bits of EOS VM that can fire exceptions and such out of this call path
-            static bool once_is_enough;
-            if(!once_is_enough)
-               elog("EOS VM OC has encountered an unexpected failure");
-            once_is_enough = true;
-         }
-         if(cd) {
-            my->eosvmoc->exec->execute(*cd, my->eosvmoc->mem, context);
-            return;
-         }
-      }
-#endif
       my->get_instantiated_module(code_hash, vm_type, vm_version, context.trx_context)->apply(context);
-   }
-
-   void wasm_interface::exit() {
-      my->runtime_interface->immediately_exit_currently_running_module();
    }
 
    bool wasm_interface::is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {
       return my->is_code_cached(code_hash, vm_type, vm_version);
    }
 
-   wasm_instantiated_module_interface::~wasm_instantiated_module_interface() {}
-   wasm_runtime_interface::~wasm_runtime_interface() {}
-
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-   thread_local std::unique_ptr<eosvmoc::executor> wasm_interface_impl::eosvmoc_tier::exec {};
-   thread_local eosvmoc::memory wasm_interface_impl::eosvmoc_tier::mem{ wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size };
-#endif
+   wasm_instantiated_module_interface::~wasm_instantiated_module_interface() = default;
+   wasm_runtime_interface::~wasm_runtime_interface() = default;
 
 std::istream& operator>>(std::istream& in, wasm_interface::vm_type& runtime) {
    std::string s;

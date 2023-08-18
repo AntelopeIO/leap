@@ -6,7 +6,7 @@
 #include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
 #include <fc/static_variant.hpp>
-//#include <bls.hpp>
+#include <bls12-381/bls12-381.hpp>
 
 namespace fc { namespace crypto { namespace blslib {
 
@@ -28,7 +28,7 @@ namespace fc { namespace crypto { namespace blslib {
          bls_public_key( const bls_public_key& ) = default;
          bls_public_key& operator= (const bls_public_key& ) = default;
 
-         bls_public_key( std::vector<uint8_t> pkey ){
+         bls_public_key( bls12_381::g1 pkey ){
             _pkey = pkey;
          }
 
@@ -54,8 +54,7 @@ namespace fc { namespace crypto { namespace blslib {
          std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
 
          //storage_type _storage;
-         
-         std::vector<uint8_t> _pkey;
+         bls12_381::g1 _pkey;
 
       private:
          
@@ -76,4 +75,5 @@ namespace fc {
    void from_variant(const variant& var, crypto::blslib::bls_public_key& vo);
 } // namespace fc
 
+FC_REFLECT(bls12_381::g1, (x)(y)(z))
 FC_REFLECT(fc::crypto::blslib::bls_public_key, (_pkey) )

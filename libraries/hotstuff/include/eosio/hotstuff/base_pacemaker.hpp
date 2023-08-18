@@ -20,6 +20,8 @@ namespace eosio { namespace hotstuff {
    class base_pacemaker {
    public:
 
+      virtual ~base_pacemaker() = default;
+
       //TODO: discuss
       virtual uint32_t get_quorum_threshold() = 0;
 
@@ -32,10 +34,10 @@ namespace eosio { namespace hotstuff {
       virtual std::vector<name> get_finalizers() = 0;
 
       //outbound communications; 'id' is the producer name (can be ignored if/when irrelevant to the implementer)
-      virtual void send_hs_proposal_msg(const hs_proposal_message & msg, name id) = 0;
-      virtual void send_hs_vote_msg(const hs_vote_message & msg, name id) = 0;
-      virtual void send_hs_new_view_msg(const hs_new_view_message & msg, name id) = 0;
-      virtual void send_hs_new_block_msg(const hs_new_block_message & msg, name id) = 0;
+      virtual void send_hs_proposal_msg(const hs_proposal_message& msg, name id) = 0;
+      virtual void send_hs_vote_msg(const hs_vote_message& msg, name id) = 0;
+      virtual void send_hs_new_view_msg(const hs_new_view_message& msg, name id) = 0;
+      virtual void send_hs_new_block_msg(const hs_new_block_message& msg, name id) = 0;
    };
 
 }}

@@ -6,6 +6,10 @@
 
 using namespace Serialization;
 
+namespace WASM
+{
+	bool check_limits = true;
+}
 namespace IR
 {
 	void getDisassemblyNames(const Module& module,DisassemblyNames& outNames)

@@ -8,7 +8,6 @@
 #include <fc/io/varint.hpp>
 #include <fc/io/enum_type.hpp>
 #include <fc/crypto/sha224.hpp>
-#include <fc/safe.hpp>
 #include <fc/container/flat.hpp>
 #include <fc/string.hpp>
 #include <fc/io/raw.hpp>
@@ -16,7 +15,6 @@
 #include <fc/crypto/ripemd160.hpp>
 #include <fc/fixed_string.hpp>
 #include <fc/crypto/private_key.hpp>
-#include <fc/crypto/bls_public_key.hpp>
 
 #include <boost/version.hpp>
 #include <boost/container/deque.hpp>
@@ -44,7 +42,7 @@
 
 #define _V(n, v)  fc::mutable_variant_object(n, v)
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
    using                               std::map;
    using                               std::vector;
    using                               std::unordered_map;
@@ -62,7 +60,7 @@ namespace eosio { namespace chain {
    using                               std::to_string;
    using                               std::all_of;
 
-   using                               fc::path;
+   using                               std::filesystem::path;
    using                               fc::variant_object;
    using                               fc::variant;
    using                               fc::enum_type;
@@ -70,7 +68,6 @@ namespace eosio { namespace chain {
    using                               fc::signed_int;
    using                               fc::time_point_sec;
    using                               fc::time_point;
-   using                               fc::safe;
    using                               fc::flat_map;
    using                               fc::flat_multimap;
    using                               fc::flat_set;
@@ -80,20 +77,11 @@ namespace eosio { namespace chain {
    using private_key_type = fc::crypto::private_key;
    using signature_type   = fc::crypto::signature;
 
-
-   using bls_public_key_type  = fc::crypto::blslib::bls_public_key;
-   using bls_signature_type   = fc::crypto::blslib::bls_signature;
+   // configurable boost deque (for boost >= 1.71) performs much better than std::deque in our use cases
+   using block_1024_option_t = boost::container::deque_options< boost::container::block_size<1024u> >::type;
+   template<typename T>
+   using deque = boost::container::deque< T, void, block_1024_option_t >;
    
-
-#if BOOST_VERSION >= 107100
-      // configurable boost deque performs much better than std::deque in our use cases
-      using block_1024_option_t = boost::container::deque_options< boost::container::block_size<1024u> >::type;
-      template<typename T>
-      using deque = boost::container::deque< T, void, block_1024_option_t >;
-#else
-      template<typename T>
-    using deque = std::deque<T>;
-#endif
    struct void_t{};
 
    using chainbase::allocator;
@@ -382,7 +370,7 @@ namespace eosio { namespace chain {
    }
 
    template<typename E, typename F>
-   static inline auto has_field( F flags, E field )
+   static constexpr auto has_field( F flags, E field )
    -> std::enable_if_t< std::is_integral<F>::value && std::is_unsigned<F>::value &&
                         std::is_enum<E>::value && std::is_same< F, std::underlying_type_t<E> >::value, bool>
    {
@@ -390,7 +378,7 @@ namespace eosio { namespace chain {
    }
 
    template<typename E, typename F>
-   static inline auto set_field( F flags, E field, bool value = true )
+   static constexpr auto set_field( F flags, E field, bool value = true )
    -> std::enable_if_t< std::is_integral<F>::value && std::is_unsigned<F>::value &&
                         std::is_enum<E>::value && std::is_same< F, std::underlying_type_t<E> >::value, F >
    {
@@ -403,7 +391,24 @@ namespace eosio { namespace chain {
    template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
    template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
 
-} }  // eosio::chain
+   // next_function is a function passed to an API (like send_transaction) and which is called at the end of
+   // the API processing on the main thread. The type T is a description of the API result that can be
+   // serialized as output.
+   // The function accepts a variant which can contain an exception_ptr (if an exception occured while
+   // processing the API) or the result T.
+   // The third option is a function which can be executed in a multithreaded context (likely on the
+   // http_plugin thread pool) and which completes the API processing and returns the result T.
+   // -------------------------------------------------------------------------------------------------------
+   template<typename T>
+   using t_or_exception = std::variant<T, fc::exception_ptr>;
+
+   template<typename T>
+   using next_function_variant = std::variant<fc::exception_ptr, T, std::function<t_or_exception<T>()>>;
+
+   template<typename T>
+   using next_function = std::function<void(const next_function_variant<T>&)>;
+
+}  // eosio::chain
 
 namespace chainbase {
    // chainbase::shared_cow_string

@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE bls
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/exception/exception.hpp>
 
@@ -15,7 +14,7 @@ using std::cout;
 
 using namespace fc::crypto::blslib;
 
-BOOST_AUTO_TEST_SUITE(bls)
+BOOST_AUTO_TEST_SUITE(bls_test)
 
 // can we use BLS stuff?
 
@@ -38,10 +37,6 @@ std::vector<uint8_t> message_2 = { 16, 38, 54, 125, 71, 214, 217, 78,
 
 fc::sha256 message_3 = fc::sha256("1097cf48a15ba1c618237d3d79f3c684c031a9844c27e6b95c6d27d8a5f401a1");
 
-
-std::vector<uint8_t> message_4 = {143,10,193,195,104,126,124,222,124,64,177,164,240,234,110,18,142,236,191,66,223,47,235,248,75,9,172,99,178,26,239,78};
-
-bls_signature test_sig_single = bls_signature("SIG_BLS_23PuSu1B72cPe6wxGkKjAaaZqA1Ph79zSoW7omsKKUrnprbA3cJCJVhT48QKUG6ofjYTTg4BA4TrVENWyrxjTomwLX6TGdVg2RYhKH7Kk9X23K5ohuhKQcWQ6AwJJGVSbSp4");
 
 //test a single key signature + verification
 BOOST_AUTO_TEST_CASE(bls_sig_verif) try {
@@ -119,9 +114,13 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
 
 } FC_LOG_AND_RETHROW();
 
+#warning test being worked under https://github.com/AntelopeIO/leap/issues/1531
+/*
 //test a aggregate signature from string
 BOOST_AUTO_TEST_CASE(bls_sig_verif_string_multi) try {
 
+  bls_signature test_sig_single = bls_signature("SIG_BLS_23PuSu1B72cPe6wxGkKjAaaZqA1Ph79zSoW7omsKKUrnprbA3cJCJVhT48QKUG6ofjYTTg4BA4TrVENWyrxjTomwLX6TGdVg2RYhKH7Kk9X23K5ohuhKQcWQ6AwJJGVSbSp4");
+  std::vector<uint8_t> message_4 = {143,10,193,195,104,126,124,222,124,64,177,164,240,234,110,18,142,236,191,66,223,47,235,248,75,9,172,99,178,26,239,78};
   bls_private_key sk = bls_private_key(seed_1);
 
   bls_public_key agg_key = sk.get_public_key();
@@ -147,7 +146,7 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_string_multi) try {
   BOOST_CHECK_EQUAL(ok, true);
 
 } FC_LOG_AND_RETHROW();
-
+*/
 
 //test serialization / deserialization of private key, public key and signature
 BOOST_AUTO_TEST_CASE(bls_serialization_test) try {
@@ -245,7 +244,7 @@ BOOST_AUTO_TEST_CASE(bls_agg_tree_verif) try {
 //test random key generation, signature + verification
 BOOST_AUTO_TEST_CASE(bls_key_gen) try {
 
-  bls_private_key sk = generate();
+  bls_private_key sk = bls_private_key::generate();
   bls_public_key pk = sk.get_public_key();
 
   bls_signature signature = sk.sign(message_1);

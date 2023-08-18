@@ -1,10 +1,12 @@
 #include <eosio/testing/tester.hpp>
 #include <fc/log/logger_config.hpp>
+#include <fc/io/cfile.hpp>
 #include <eosio/chain/deep_mind.hpp>
 
 #include <boost/test/unit_test.hpp>
 
 #include <deep-mind.hpp>
+
 
 using namespace eosio::testing;
 
@@ -12,16 +14,18 @@ extern void setup_test_logging();
 
 struct deep_mind_log_fixture
 {
+   fc::temp_cfile tmp;
    deep_mind_handler deep_mind_logger;
-   fc::temp_file log_output;
+
    deep_mind_log_fixture()
    {
       auto cfg = fc::logging_config::default_config();
+      tmp.file().close();
 
       cfg.appenders.push_back(
          appender_config( "deep-mind", "dmlog",
             mutable_variant_object()
-               ( "file", log_output.path().preferred_string().c_str())
+               ( "file", tmp.file().get_file_path().c_str())
          ) );
 
       fc::logger_config lc;
@@ -100,14 +104,15 @@ BOOST_FIXTURE_TEST_CASE(deep_mind, deep_mind_tester)
       return std::find(argv, argv + argc, std::string("--save-dmlog")) != (argv + argc);
    }();
 
+   auto log_output_path = tmp.file().get_file_path();
+
    if(save_log)
    {
-      // Cannot use fc::copy as it does not copy to an existing destination file 
-      fc::rename(log_output.path().preferred_string(), DEEP_MIND_LOGFILE);
+      std::filesystem::copy(log_output_path, DEEP_MIND_LOGFILE, std::filesystem::copy_options::update_existing);
    }
    else
    {
-      compare_files(log_output.path().preferred_string(), DEEP_MIND_LOGFILE);
+      compare_files(log_output_path.string(), DEEP_MIND_LOGFILE);
    }
 }
 

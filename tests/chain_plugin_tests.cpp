@@ -9,12 +9,11 @@
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
+#include <eosio/hotstuff/chain_pacemaker.hpp>
 
 #include <test_contracts.hpp>
 
 #include <fc/io/fstream.hpp>
-
-#include <Runtime/Runtime.h>
 
 #include <fc/variant_object.hpp>
 #include <fc/io/json.hpp>
@@ -22,20 +21,22 @@
 #include <array>
 #include <utility>
 
-#ifdef NON_VALIDATING_TEST
-#define TESTER tester
-#else
-#define TESTER validating_tester
-#endif
-
 using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
+static auto get_account_full = [](chain_apis::read_only& plugin,
+                                  chain_apis::read_only::get_account_params& params,
+                                  const fc::time_point& deadline) -> chain_apis::read_only::get_account_results {   
+   auto res =  plugin.get_account(params, deadline)();
+   BOOST_REQUIRE(!std::holds_alternative<fc::exception_ptr>(res));
+   return std::get<chain_apis::read_only::get_account_results>(std::move(res));
+};
+
 BOOST_AUTO_TEST_SUITE(chain_plugin_tests)
 
-BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, validating_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"asserter"_n} );
@@ -43,7 +44,7 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
 
    // setup contract and abi
    set_code( "asserter"_n, test_contracts::asserter_wasm() );
-   set_abi( "asserter"_n, test_contracts::asserter_abi().data() );
+   set_abi( "asserter"_n, test_contracts::asserter_abi() );
    produce_blocks(1);
 
    auto resolver = [&,this]( const account_name& name ) -> std::optional<abi_serializer> {
@@ -89,19 +90,19 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    char headnumstr[20];
    sprintf(headnumstr, "%d", headnum);
    chain_apis::read_only::get_raw_block_params param{headnumstr};
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {}, {});
+   chain_apis::read_only plugin(*(this->control), {}, {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
 
    // block should be decoded successfully
    auto block = plugin.get_raw_block(param, fc::time_point::maximum());
    auto abi_cache = plugin.get_block_serializers(block, fc::microseconds::maximum());
-   std::string block_str = json::to_pretty_string(plugin.convert_block(block, abi_cache, fc::microseconds::maximum()));
+   std::string block_str = json::to_pretty_string(plugin.convert_block(block, abi_cache));
    BOOST_TEST(block_str.find("procassert") != std::string::npos);
    BOOST_TEST(block_str.find("condition") != std::string::npos);
    BOOST_TEST(block_str.find("Should Not Assert!") != std::string::npos);
    BOOST_TEST(block_str.find("011253686f756c64204e6f742041737365727421") != std::string::npos); //action data
 
    // set an invalid abi (int8->xxxx)
-   std::string abi2 = test_contracts::asserter_abi().data();
+   std::string abi2 = test_contracts::asserter_abi();
    auto pos = abi2.find("int8");
    BOOST_TEST(pos != std::string::npos);
    abi2.replace(pos, 4, "xxxx");
@@ -114,7 +115,7 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
    // get the same block as string, results in decode failed(invalid abi) but not exception
    auto block2 = plugin.get_raw_block(param, fc::time_point::maximum());
    auto abi_cache2 = plugin.get_block_serializers(block2, fc::microseconds::maximum());
-   std::string block_str2 = json::to_pretty_string(plugin.convert_block(block2, abi_cache2, fc::microseconds::maximum()));
+   std::string block_str2 = json::to_pretty_string(plugin.convert_block(block2, abi_cache2));
    BOOST_TEST(block_str2.find("procassert") != std::string::npos);
    BOOST_TEST(block_str2.find("condition") == std::string::npos); // decode failed
    BOOST_TEST(block_str2.find("Should Not Assert!") == std::string::npos); // decode failed
@@ -130,10 +131,10 @@ BOOST_FIXTURE_TEST_CASE( get_block_with_invalid_abi, TESTER ) try {
 
 } FC_LOG_AND_RETHROW() /// get_block_with_invalid_abi
 
-BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, validating_tester ) try {
    produce_blocks(1);
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr, nullptr);
+   chain_apis::read_only plugin(*(this->control), {}, {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr);
 
    auto parms = plugin.get_consensus_parameters({}, fc::time_point::maximum());
 
@@ -172,7 +173,7 @@ BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {
 
 } FC_LOG_AND_RETHROW() //get_consensus_parameters
 
-BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
+BOOST_FIXTURE_TEST_CASE( get_account, validating_tester ) try {
    produce_blocks(2);
 
    std::vector<account_name> accs{{ "alice"_n, "bob"_n, "cindy"_n}};
@@ -180,35 +181,35 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
 
    produce_block();
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr, nullptr);
+   chain_apis::read_only plugin(*(this->control), {}, {}, fc::microseconds::maximum(), fc::microseconds::maximum(), nullptr);
 
    chain_apis::read_only::get_account_params p{"alice"_n};
 
-   chain_apis::read_only::get_account_results result = plugin.read_only::get_account(p, fc::time_point::maximum());
+   chain_apis::read_only::get_account_results result = get_account_full(plugin, p, fc::time_point::maximum());
 
    auto check_result_basic = [](chain_apis::read_only::get_account_results result, eosio::name nm, bool isPriv) {
       BOOST_REQUIRE_EQUAL(nm, result.account_name);
       BOOST_REQUIRE_EQUAL(isPriv, result.privileged);
 
-      BOOST_REQUIRE_EQUAL(2, result.permissions.size());
-      if (result.permissions.size() > 1) {
+      BOOST_REQUIRE_EQUAL(2u, result.permissions.size());
+      if (result.permissions.size() > 1u) {
          auto perm = result.permissions[0];
          BOOST_REQUIRE_EQUAL(name("active"_n), perm.perm_name);
          BOOST_REQUIRE_EQUAL(name("owner"_n), perm.parent);
          auto auth = perm.required_auth;
-         BOOST_REQUIRE_EQUAL(1, auth.threshold);
-         BOOST_REQUIRE_EQUAL(1, auth.keys.size());
-         BOOST_REQUIRE_EQUAL(0, auth.accounts.size());
-         BOOST_REQUIRE_EQUAL(0, auth.waits.size());
+         BOOST_REQUIRE_EQUAL(1u, auth.threshold);
+         BOOST_REQUIRE_EQUAL(1u, auth.keys.size());
+         BOOST_REQUIRE_EQUAL(0u, auth.accounts.size());
+         BOOST_REQUIRE_EQUAL(0u, auth.waits.size());
 
          perm = result.permissions[1];
          BOOST_REQUIRE_EQUAL(name("owner"_n), perm.perm_name);
          BOOST_REQUIRE_EQUAL(name(""_n), perm.parent);
          auth = perm.required_auth;
-         BOOST_REQUIRE_EQUAL(1, auth.threshold);
-         BOOST_REQUIRE_EQUAL(1, auth.keys.size());
-         BOOST_REQUIRE_EQUAL(0, auth.accounts.size());
-         BOOST_REQUIRE_EQUAL(0, auth.waits.size());
+         BOOST_REQUIRE_EQUAL(1u, auth.threshold);
+         BOOST_REQUIRE_EQUAL(1u, auth.keys.size());
+         BOOST_REQUIRE_EQUAL(0u, auth.accounts.size());
+         BOOST_REQUIRE_EQUAL(0u, auth.waits.size());
       }
    };
 
@@ -217,19 +218,19 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
    for (auto perm : result.permissions) {
       BOOST_REQUIRE_EQUAL(true, perm.linked_actions.has_value());
       if (perm.linked_actions.has_value())
-         BOOST_REQUIRE_EQUAL(0, perm.linked_actions->size());
+         BOOST_REQUIRE_EQUAL(0u, perm.linked_actions->size());
    }
-   BOOST_REQUIRE_EQUAL(0, result.eosio_any_linked_actions.size());
+   BOOST_REQUIRE_EQUAL(0u, result.eosio_any_linked_actions.size());
 
    // test link authority
    link_authority(name("alice"_n), name("bob"_n), name("active"_n), name("foo"_n));
    produce_block();
-   result = plugin.read_only::get_account(p, fc::time_point::maximum());
+   result = get_account_full(plugin, p, fc::time_point::maximum());
 
    check_result_basic(result, name("alice"_n), false);
    auto perm = result.permissions[0];
-   BOOST_REQUIRE_EQUAL(1, perm.linked_actions->size());
-   if (perm.linked_actions->size() >= 1) {
+   BOOST_REQUIRE_EQUAL(1u, perm.linked_actions->size());
+   if (perm.linked_actions->size() >= 1u) {
       auto la = (*perm.linked_actions)[0];
       BOOST_REQUIRE_EQUAL(name("bob"_n), la.account);
       BOOST_REQUIRE_EQUAL(true, la.action.has_value());
@@ -237,20 +238,20 @@ BOOST_FIXTURE_TEST_CASE( get_account, TESTER ) try {
          BOOST_REQUIRE_EQUAL(name("foo"_n), la.action.value());
       }
    }
-   BOOST_REQUIRE_EQUAL(0, result.eosio_any_linked_actions.size());
+   BOOST_REQUIRE_EQUAL(0u, result.eosio_any_linked_actions.size());
 
    // test link authority to eosio.any
    link_authority(name("alice"_n), name("bob"_n), name("eosio.any"_n), name("foo"_n));
    produce_block();
-   result = plugin.read_only::get_account(p, fc::time_point::maximum());
+   result = get_account_full(plugin, p, fc::time_point::maximum());
    check_result_basic(result, name("alice"_n), false);
    // active permission should no longer have linked auth, as eosio.any replaces it
    perm = result.permissions[0];
-   BOOST_REQUIRE_EQUAL(0, perm.linked_actions->size());
+   BOOST_REQUIRE_EQUAL(0u, perm.linked_actions->size());
 
    auto eosio_any_la = result.eosio_any_linked_actions;
-   BOOST_REQUIRE_EQUAL(1, eosio_any_la.size());
-   if (eosio_any_la.size() >= 1) {
+   BOOST_REQUIRE_EQUAL(1u, eosio_any_la.size());
+   if (eosio_any_la.size() >= 1u) {
       auto la = eosio_any_la[0];
       BOOST_REQUIRE_EQUAL(name("bob"_n), la.account);
       BOOST_REQUIRE_EQUAL(true, la.action.has_value());

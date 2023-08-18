@@ -3,15 +3,12 @@
 #include <eosio/chain/types.hpp>
 #include <eosio/wallet_plugin/wallet_api.hpp>
 
-#include <fc/real128.hpp>
 #include <fc/crypto/base58.hpp>
 
 using namespace std;
 using namespace eosio::chain;
 
 namespace eosio { namespace wallet {
-
-typedef uint16_t transaction_handle_type;
 
 struct wallet_data
 {

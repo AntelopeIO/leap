@@ -1,20 +1,18 @@
 #pragma once
-#include <boost/filesystem/path.hpp>
 #include <variant>
 
 namespace eosio { namespace chain {
 
-   namespace bfs = boost::filesystem;
 
    struct basic_blocklog_config {};
 
    struct empty_blocklog_config {};
 
    struct partitioned_blocklog_config {
-      bfs::path retained_dir;
-      bfs::path archive_dir;
-      uint32_t  stride                  = UINT32_MAX;
-      uint32_t  max_retained_files      = UINT32_MAX;
+      std::filesystem::path retained_dir;
+      std::filesystem::path archive_dir;
+      uint32_t              stride             = UINT32_MAX;
+      uint32_t              max_retained_files = UINT32_MAX;
    };
 
    struct prune_blocklog_config {

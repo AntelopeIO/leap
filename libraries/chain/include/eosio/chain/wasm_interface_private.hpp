@@ -15,7 +15,6 @@
 #include <fc/scoped_exit.hpp>
 
 #include "IR/Module.h"
-#include "Runtime/Intrinsics.h"
 #include "Platform/Platform.h"
 #include "WAST/WAST.h"
 #include "IR/Validate.h"
@@ -26,7 +25,6 @@
 using namespace fc;
 using namespace eosio::chain::webassembly;
 using namespace IR;
-using namespace Runtime;
 
 using boost::multi_index_container;
 
@@ -37,38 +35,19 @@ namespace eosio { namespace chain {
    struct wasm_interface_impl {
       struct wasm_cache_entry {
          digest_type                                          code_hash;
-         uint32_t                                             first_block_num_used;
          uint32_t                                             last_block_num_used;
          std::unique_ptr<wasm_instantiated_module_interface>  module;
          uint8_t                                              vm_type = 0;
          uint8_t                                              vm_version = 0;
       };
       struct by_hash;
-      struct by_first_block_num;
       struct by_last_block_num;
 
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      struct eosvmoc_tier {
-         eosvmoc_tier(const boost::filesystem::path& d, const eosvmoc::config& c, const chainbase::database& db)
-          : cc(d, c, db) {
-             // construct exec for the main thread
-             init_thread_local_data();
-          }
-
-         // Support multi-threaded execution.
-         void init_thread_local_data() {
-            exec = std::make_unique<eosvmoc::executor>(cc);
-         }
-
-         eosvmoc::code_cache_async cc;
-
-         // Each thread requires its own exec and mem. Defined in wasm_interface.cpp
-         thread_local static std::unique_ptr<eosvmoc::executor> exec;
-         thread_local static eosvmoc::memory mem;
-      };
-#endif
-
-      wasm_interface_impl(wasm_interface::vm_type vm, bool eosvmoc_tierup, const chainbase::database& d, const boost::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile) : db(d), wasm_runtime_time(vm) {
+      wasm_interface_impl(wasm_interface::vm_type vm, const chainbase::database& d,
+                          const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
+         : db(d)
+         , wasm_runtime_time(vm)
+      {
 #ifdef EOSIO_EOS_VM_RUNTIME_ENABLED
          if(vm == wasm_interface::vm_type::eos_vm)
             runtime_interface = std::make_unique<webassembly::eos_vm_runtime::eos_vm_runtime<eosio::vm::interpreter>>();
@@ -87,44 +66,13 @@ namespace eosio { namespace chain {
 #endif
          if(!runtime_interface)
             EOS_THROW(wasm_exception, "${r} wasm runtime not supported on this platform and/or configuration", ("r", vm));
-
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-         if(eosvmoc_tierup) {
-            EOS_ASSERT(vm != wasm_interface::vm_type::eos_vm_oc, wasm_exception, "You can't use EOS VM OC as the base runtime when tier up is activated");
-            eosvmoc.emplace(data_dir, eosvmoc_config, d);
-         }
-#endif
       }
 
-      ~wasm_interface_impl() {
-         if(is_shutting_down)
-            for(wasm_cache_index::iterator it = wasm_instantiation_cache.begin(); it != wasm_instantiation_cache.end(); ++it)
-               wasm_instantiation_cache.modify(it, [](wasm_cache_entry& e) {
-                  e.module.release()->fast_shutdown();
-               });
-      }
+      ~wasm_interface_impl() = default;
 
       bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {
          wasm_cache_index::iterator it = wasm_instantiation_cache.find( boost::make_tuple(code_hash, vm_type, vm_version) );
          return it != wasm_instantiation_cache.end();
-      }
-
-      std::vector<uint8_t> parse_initial_memory(const Module& module) {
-         std::vector<uint8_t> mem_image;
-
-         for(const DataSegment& data_segment : module.dataSegments) {
-            EOS_ASSERT(data_segment.baseOffset.type == InitializerExpression::Type::i32_const, wasm_exception, "");
-            EOS_ASSERT(module.memories.defs.size(), wasm_exception, "");
-            const U32 base_offset = data_segment.baseOffset.i32;
-            const Uptr memory_size = (module.memories.defs[0].type.size.min << IR::numBytesPerPageLog2);
-            if(base_offset >= memory_size || base_offset + data_segment.data.size() > memory_size)
-               FC_THROW_EXCEPTION(wasm_execution_error, "WASM data segment outside of valid memory range");
-            if(base_offset + data_segment.data.size() > mem_image.size())
-               mem_image.resize(base_offset + data_segment.data.size(), 0x00);
-            memcpy(mem_image.data() + base_offset, data_segment.data.data(), data_segment.data.size());
-         }
-
-         return mem_image;
       }
 
       void code_block_num_last_used(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, const uint32_t& block_num) {
@@ -135,14 +83,16 @@ namespace eosio { namespace chain {
             });
       }
 
-      void current_lib(uint32_t lib) {
+      // reports each code_hash and vm_version that will be erased to callback
+      void current_lib(uint32_t lib, const std::function<void(const digest_type&, uint8_t)>& callback) {
          //anything last used before or on the LIB can be evicted
          const auto first_it = wasm_instantiation_cache.get<by_last_block_num>().begin();
          const auto last_it  = wasm_instantiation_cache.get<by_last_block_num>().upper_bound(lib);
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-         if(eosvmoc) for(auto it = first_it; it != last_it; it++)
-            eosvmoc->cc.free_code(it->code_hash, it->vm_version);
-#endif
+         if (callback) {
+            for(auto it = first_it; it != last_it; it++) {
+               callback(it->code_hash, it->vm_version);
+            }
+         }
          wasm_instantiation_cache.get<by_last_block_num>().erase(first_it, last_it);
       }
 
@@ -157,7 +107,6 @@ namespace eosio { namespace chain {
 
             it = wasm_instantiation_cache.emplace( wasm_interface_impl::wasm_cache_entry{
                                                       .code_hash = code_hash,
-                                                      .first_block_num_used = codeobject->first_block_used,
                                                       .last_block_num_used = UINT32_MAX,
                                                       .module = nullptr,
                                                       .vm_type = vm_type,
@@ -173,30 +122,13 @@ namespace eosio { namespace chain {
                trx_context.resume_billing_timer();
             });
             trx_context.pause_billing_timer();
-            IR::Module module;
-            std::vector<U8> bytes = {
-                (const U8*)codeobject->code.data(),
-                (const U8*)codeobject->code.data() + codeobject->code.size()};
-            try {
-               Serialization::MemoryInputStream stream((const U8*)bytes.data(),
-                                                       bytes.size());
-               WASM::scoped_skip_checks no_check;
-               WASM::serialize(stream, module);
-               module.userSections.clear();
-            } catch (const Serialization::FatalSerializationException& e) {
-               EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
-            } catch (const IR::ValidationException& e) {
-               EOS_ASSERT(false, wasm_serialization_error, e.message.c_str());
-            }
-
             wasm_instantiation_cache.modify(it, [&](auto& c) {
-               c.module = runtime_interface->instantiate_module((const char*)bytes.data(), bytes.size(), parse_initial_memory(module), code_hash, vm_type, vm_version);
+               c.module = runtime_interface->instantiate_module(codeobject->code.data(), codeobject->code.size(), code_hash, vm_type, vm_version);
             });
          }
          return it->module;
       }
 
-      bool is_shutting_down = false;
       std::unique_ptr<wasm_runtime_interface> runtime_interface;
 
       typedef boost::multi_index_container<
@@ -209,7 +141,6 @@ namespace eosio { namespace chain {
                   member<wasm_cache_entry, uint8_t,     &wasm_cache_entry::vm_version>
                >
             >,
-            ordered_non_unique<tag<by_first_block_num>, member<wasm_cache_entry, uint32_t, &wasm_cache_entry::first_block_num_used>>,
             ordered_non_unique<tag<by_last_block_num>, member<wasm_cache_entry, uint32_t, &wasm_cache_entry::last_block_num_used>>
          >
       > wasm_cache_index;
@@ -217,10 +148,6 @@ namespace eosio { namespace chain {
 
       const chainbase::database& db;
       const wasm_interface::vm_type wasm_runtime_time;
-
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      std::optional<eosvmoc_tier> eosvmoc;
-#endif
    };
 
 } } // eosio::chain

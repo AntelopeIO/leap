@@ -9,7 +9,6 @@
 #include <string>
 #include <list>
 
-#include <fc/container/deque.hpp>
 #include <fc/crypto/elliptic.hpp>
 #include <fc/git_revision.hpp>
 #include <fc/io/json.hpp>
@@ -77,12 +76,12 @@ public:
 
    bool copy_wallet_file( string destination_filename )
    {
-      fc::path src_path = get_wallet_filename();
-      if( !fc::exists( src_path ) )
+      std::filesystem::path src_path = get_wallet_filename();
+      if( !std::filesystem::exists( src_path ) )
          return false;
-      fc::path dest_path = destination_filename + _wallet_filename_extension;
+      std::filesystem::path dest_path = destination_filename + _wallet_filename_extension;
       int suffix = 0;
-      while( fc::exists(dest_path) )
+      while( std::filesystem::exists(dest_path) )
       {
          ++suffix;
          dest_path = destination_filename + "-" + std::to_string( suffix ) + _wallet_filename_extension;
@@ -91,13 +90,13 @@ public:
             ("src", src_path)
             ("dest", dest_path) );
 
-      fc::path dest_parent = fc::absolute(dest_path).parent_path();
+      std::filesystem::path dest_parent = std::filesystem::absolute(dest_path).parent_path();
       try
       {
          enable_umask_protection();
-         if( !fc::exists( dest_parent ) )
-            fc::create_directories( dest_parent );
-         fc::copy( src_path, dest_path );
+         if( !std::filesystem::exists( dest_parent ) )
+            std::filesystem::create_directories( dest_parent );
+         std::filesystem::copy_file( src_path, dest_path, std::filesystem::copy_options::none );
          disable_umask_protection();
       }
       catch(...)
@@ -193,7 +192,7 @@ public:
       if( wallet_filename == "" )
          wallet_filename = _wallet_filename;
 
-      if( ! fc::exists( wallet_filename ) )
+      if( ! std::filesystem::exists( wallet_filename ) )
          return false;
 
       _wallet = fc::json::from_file( wallet_filename ).as< wallet_data >();
@@ -414,4 +413,3 @@ void soft_wallet::set_wallet_filename(string wallet_filename)
 }
 
 } } // eosio::wallet
-

@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE test --state-dir option
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/producer_plugin/producer_plugin.hpp>
 
@@ -31,17 +30,21 @@ BOOST_AUTO_TEST_CASE(state_dir) {
    std::promise<std::tuple<producer_plugin*, chain_plugin*>> plugin_promise;
    std::future<std::tuple<producer_plugin*, chain_plugin*>> plugin_fut = plugin_promise.get_future();
    std::thread app_thread( [&]() {
-      fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
-      std::vector<const char*> argv =
-         {"test",
-          "--data-dir",   temp_dir_str.c_str(),
-          "--state-dir",  custom_state_dir_str.c_str(),
-          "--config-dir", temp_dir_str.c_str(),
-          "-p", "eosio", "-e", "--max-transaction-time", "475", "--disable-subjective-billing=true" };
-      app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
-      app->startup();
-      plugin_promise.set_value( {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()} );
-      app->exec();
+      try {
+         fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
+         std::vector<const char*> argv =
+            {"test",
+             "--data-dir",   temp_dir_str.c_str(),
+             "--state-dir",  custom_state_dir_str.c_str(),
+             "--config-dir", temp_dir_str.c_str(),
+             "-p", "eosio", "-e" };
+         app->initialize<chain_plugin, producer_plugin>( argv.size(), (char**) &argv[0] );
+         app->startup();
+         plugin_promise.set_value( {app->find_plugin<producer_plugin>(), app->find_plugin<chain_plugin>()} );
+         app->exec();
+         return;
+      } FC_LOG_AND_DROP()
+      BOOST_CHECK(!"app threw exception see logged error");
    } );
 
    auto[prod_plug, chain_plug] = plugin_fut.get();

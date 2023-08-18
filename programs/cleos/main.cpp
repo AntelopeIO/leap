@@ -92,13 +92,13 @@ Options:
 
 #include <boost/asio.hpp>
 #include <boost/format.hpp>
-#include <boost/dll/runtime_symbol_info.hpp>
-#include <boost/filesystem.hpp>
 #include <boost/process.hpp>
 #include <boost/process/spawn.hpp>
 #include <boost/range/adaptor/transformed.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <boost/range/algorithm/copy.hpp>
+#define BOOST_DLL_USE_STD_FS
+#include <boost/dll/runtime_symbol_info.hpp>
 
 #pragma pop_macro("N")
 
@@ -119,7 +119,6 @@ using namespace eosio::client::help;
 using namespace eosio::client::http;
 using namespace eosio::client::localize;
 using namespace eosio::client::config;
-using namespace boost::filesystem;
 
 FC_DECLARE_EXCEPTION( explained_exception, 9000000, "explained exception, see error log" );
 FC_DECLARE_EXCEPTION( localized_exception, 10000000, "an error occured" );
@@ -135,9 +134,9 @@ FC_DECLARE_EXCEPTION( localized_exception, 10000000, "an error occured" );
   )
 
 //copy pasta from keosd's main.cpp
-bfs::path determine_home_directory()
+std::filesystem::path determine_home_directory()
 {
-   bfs::path home;
+   std::filesystem::path home;
    struct passwd* pwd = getpwuid(getuid());
    if(pwd) {
       home = pwd->pw_dir;
@@ -348,7 +347,7 @@ eosio::chain_apis::read_only::get_info_results get_info() {
 }
 
 string generate_nonce_string() {
-   return fc::to_string(fc::time_point::now().time_since_epoch().count());
+   return std::to_string(fc::time_point::now().time_since_epoch().count());
 }
 
 chain::action generate_nonce_action() {
@@ -414,7 +413,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
    auto info = get_info();
 
    if (trx.signatures.size() == 0) { // #5445 can't change txn content if already signed
-      trx.expiration = info.head_block_time + tx_expiration;
+      trx.expiration = fc::time_point_sec{info.head_block_time + tx_expiration};
 
       // Set tapos, default to last irreversible block if it's not specified by the user
       block_id_type ref_block_id = info.last_irreversible_block_id;
@@ -515,7 +514,7 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
       if (!tx_return_packed) {
          if( tx_unpack_data ) {
             fc::variant unpacked_data_trx;
-            abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer::create_yield_function(abi_serializer_max_time));
+            abi_serializer::to_variant(trx, unpacked_data_trx, abi_serializer_resolver, abi_serializer_max_time);
             return unpacked_data_trx;
          } else {
             return fc::variant(trx);
@@ -525,6 +524,9 @@ fc::variant push_transaction( signed_transaction& trx, const std::vector<public_
         return fc::variant(packed_transaction(trx, compression));
       }
    }
+
+   EOSC_ASSERT( false, "control reaches end of push_transaction" );
+   return {};
 }
 
 fc::variant push_actions(std::vector<chain::action>&& actions, const std::vector<public_key_type>& signing_keys = std::vector<public_key_type>() ) {
@@ -604,7 +606,7 @@ fc::variant bin_to_variant( const account_name& account, const action_name& acti
 fc::variant json_from_file_or_string(const string& file_or_str, fc::json::parse_type ptype = fc::json::parse_type::legacy_parser)
 {
    regex r("^[ \t]*[\{\[]");
-   if ( !regex_search(file_or_str, r) && fc::is_regular_file(file_or_str) ) {
+   if ( !regex_search(file_or_str, r) && std::filesystem::is_regular_file(file_or_str) ) {
       try {
          return fc::json::from_file(file_or_str, ptype);
       } EOS_RETHROW_EXCEPTIONS(json_parse_exception, "Fail to parse JSON from file: ${file}", ("file", file_or_str));
@@ -715,7 +717,7 @@ void send_actions(std::vector<chain::action>&& actions, const std::vector<public
       out.open(tx_json_save_file);
       EOSC_ASSERT(!out.fail(), "ERROR: Failed to create file \"${p}\"", ("p", tx_json_save_file));
    }
-   auto result = push_actions( move(actions), signing_keys);
+   auto result = push_actions( std::move(actions), signing_keys);
 
    string jsonstr;
    if (tx_json_save_file.length()) {
@@ -1050,29 +1052,29 @@ struct set_account_permission_subcommand {
 struct set_action_permission_subcommand {
    string accountStr;
    string codeStr;
-   string typeStr;
+   string actionStr;
    string requirementStr;
 
    set_action_permission_subcommand(CLI::App* actionRoot) {
       auto permissions = actionRoot->add_subcommand("permission", localized("Set parameters dealing with account permissions"));
       permissions->add_option("account", accountStr, localized("The account to set/delete a permission authority for"))->required();
       permissions->add_option("code", codeStr, localized("The account that owns the code for the action"))->required();
-      permissions->add_option("type", typeStr, localized("The type of the action"))->required();
-      permissions->add_option("requirement", requirementStr, localized("[delete] NULL, [set/update] The permission name require for executing the given action"))->required();
+      permissions->add_option("action", actionStr, localized("The name of the action [use ALL for all actions]"))->required();
+      permissions->add_option("requirement", requirementStr, localized("The permission name required for executing the given action [use NULL to delete]"))->required();
 
       add_standard_transaction_options_plus_signing(permissions, "account@active");
 
       permissions->callback([this] {
          name account = name(accountStr);
          name code = name(codeStr);
-         name type = name(typeStr);
-         bool is_delete = boost::iequals(requirementStr, "null");
+         name action = (actionStr == "ALL") ? name{} : name(actionStr);
+         bool is_delete = (requirementStr == "NULL");
 
          if (is_delete) {
-            send_actions({create_unlinkauth(account, code, type)}, signing_keys_opt.get_keys());
+            send_actions({create_unlinkauth(account, code, action)}, signing_keys_opt.get_keys());
          } else {
             name requirement = name(requirementStr);
-            send_actions({create_linkauth(account, code, type, requirement)}, signing_keys_opt.get_keys());
+            send_actions({create_linkauth(account, code, action, requirement)}, signing_keys_opt.get_keys());
          }
       });
    }
@@ -1122,19 +1124,15 @@ void ensure_keosd_running(CLI::App* app) {
     if (local_port_used())
        return;
 
-    boost::filesystem::path binPath = boost::dll::program_location();
-    binPath.remove_filename();
-    // This extra check is necessary when running cleos like this: ./cleos ...
-    if (binPath.filename_is_dot())
-        binPath.remove_filename();
-    binPath.append(key_store_executable_name); // if cleos and keosd are in the same installation directory
-    if (!boost::filesystem::exists(binPath)) {
-        binPath.remove_filename().remove_filename().append("keosd").append(key_store_executable_name);
+    auto parent_path = boost::dll::program_location().parent_path();
+    auto binPath = parent_path / key_store_executable_name;
+    if (!std::filesystem::exists(binPath)) {
+        binPath = parent_path.parent_path() / "keosd"/ key_store_executable_name;
     }
 
-    if (boost::filesystem::exists(binPath)) {
+    if (std::filesystem::exists(binPath)) {
         namespace bp = boost::process;
-        binPath = boost::filesystem::canonical(binPath);
+        binPath = std::filesystem::canonical(binPath);
 
         vector<std::string> pargs;
         pargs.push_back("--http-server-address");
@@ -1142,7 +1140,7 @@ void ensure_keosd_running(CLI::App* app) {
         pargs.push_back("--unix-socket-path");
         pargs.push_back(string(key_store_executable_name) + ".sock");
 
-        ::boost::process::child keos(binPath, pargs,
+        ::boost::process::child keos(binPath.string(), pargs,
                                      bp::std_in.close(),
                                      bp::std_out > bp::null,
                                      bp::std_err > bp::null);
@@ -1460,7 +1458,7 @@ struct unapprove_producer_subcommand {
 struct list_producers_subcommand {
    bool print_json = false;
    uint32_t limit = 50;
-   uint32_t time_limit_ms = 10;
+   uint32_t time_limit_ms = 0;
    std::string lower;
 
    list_producers_subcommand(CLI::App* actionRoot) {
@@ -1468,11 +1466,11 @@ struct list_producers_subcommand {
       list_producers->add_flag("--json,-j", print_json, localized("Output in JSON format"));
       list_producers->add_option("-l,--limit", limit, localized("The maximum number of rows to return"));
       list_producers->add_option("-L,--lower", lower, localized("Lower bound value of key, defaults to first"));
-      list_producers->add_option("--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds, defaults to 10ms"));
+      list_producers->add_option("--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds"));
       list_producers->callback([this] {
          fc::mutable_variant_object mo;
          mo("json", true)("lower_bound", lower)("limit", limit);
-         if( time_limit_ms != 10 ) mo("time_limit_ms", time_limit_ms);
+         if( time_limit_ms != 0 ) mo("time_limit_ms", time_limit_ms);
          auto rawResult = call(get_producers_func, mo);
          if ( print_json ) {
             std::cout << fc::json::to_pretty_string(rawResult) << std::endl;
@@ -1557,7 +1555,7 @@ struct get_transaction_id_subcommand {
                // if actions.data & actions.hex_data provided, use the hex_data since only currently support unexploded data
                if( vo.contains("actions") ) {
                   if( vo["actions"].is_array() ) {
-                     fc::mutable_variant_object mvo = vo;
+                     fc::mutable_variant_object mvo{vo};
                      fc::variants& action_variants = mvo["actions"].get_array();
                      for( auto& action_v : action_variants ) {
                         if( !action_v.is_object() ) {
@@ -1566,7 +1564,7 @@ struct get_transaction_id_subcommand {
                         }
                         fc::variant_object& action_vo = action_v.get_object();
                         if( action_vo.contains( "data" ) && action_vo.contains( "hex_data" ) ) {
-                           fc::mutable_variant_object maction_vo = action_vo;
+                           fc::mutable_variant_object maction_vo{action_vo};
                            maction_vo["data"] = maction_vo["hex_data"];
                            action_vo = maction_vo;
                            vo = mvo;
@@ -1720,7 +1718,7 @@ struct bidname_info_subcommand {
          const auto& row = result.rows[0];
          string time = row["last_bid_time"].as_string();
          try {
-             time = (string)fc::time_point(fc::microseconds(to_uint64(time)));
+             time = fc::time_point(fc::microseconds(to_uint64(time))).to_iso_string();
          } catch (fc::parse_error_exception&) {
          }
          int64_t bid = row["high_bid"].as_int64();
@@ -2429,7 +2427,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          staked = asset( 0, res.core_liquid_balance->get_symbol() );    // Correct core symbol for staked asset.
       }
 
-      std::cout << "created: " << string(res.created) << std::endl;
+      std::cout << "created: " << res.created.to_iso_string() << std::endl;
 
       if(res.privileged) std::cout << "privileged: true" << std::endl;
 
@@ -2663,7 +2661,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
       if( res.refund_request.is_object() ) {
          auto obj = res.refund_request.get_object();
          auto request_time = fc::time_point_sec::from_iso_string( obj["request_time"].as_string() );
-         fc::time_point refund_time = request_time + fc::days(3);
+         fc::time_point refund_time = request_time.to_time_point() + fc::days(3);
          auto now = res.head_block_time;
          asset net = asset::from_string( obj["net_amount"].as_string() );
          asset cpu = asset::from_string( obj["cpu_amount"].as_string() );
@@ -2672,7 +2670,7 @@ void get_account( const string& accountName, const string& coresym, bool json_fo
          if( unstaking > asset( 0, unstaking.get_symbol() ) ) {
             std::cout << std::fixed << setprecision(3);
             std::cout << "unstaking tokens:" << std::endl;
-            std::cout << indent << std::left << std::setw(25) << "time of unstake request:" << std::right << std::setw(20) << string(request_time);
+            std::cout << indent << std::left << std::setw(25) << "time of unstake request:" << std::right << std::setw(20) << request_time.to_iso_string();
             if( now >= refund_time ) {
                std::cout << " (available to claim now with 'eosio::refund' action)\n";
             } else {
@@ -2909,7 +2907,7 @@ int main( int argc, char** argv ) {
       signed_transaction strx = packed_trx.get_signed_transaction();
       fc::variant trx_var;
       if( unpack_action_data_flag ) {
-         abi_serializer::to_variant( strx, trx_var, abi_serializer_resolver, abi_serializer::create_yield_function( abi_serializer_max_time ) );
+         abi_serializer::to_variant( strx, trx_var, abi_serializer_resolver, abi_serializer_max_time );
       } else {
          trx_var = strx;
       }
@@ -3148,7 +3146,7 @@ int main( int argc, char** argv ) {
    string encode_type{"dec"};
    bool binary = false;
    uint32_t limit = 10;
-   uint32_t time_limit_ms = 10;
+   uint32_t time_limit_ms = 0;
    string index_position;
    bool reverse = false;
    bool show_payer = false;
@@ -3157,7 +3155,7 @@ int main( int argc, char** argv ) {
    getTable->add_option( "scope", scope, localized("The scope within the contract in which the table is found") )->required();
    getTable->add_option( "table", table, localized("The name of the table as specified by the contract abi") )->required();
    getTable->add_option( "-l,--limit", limit, localized("The maximum number of rows to return") );
-   getTable->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds, defaults to 10ms"));
+   getTable->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds"));
    getTable->add_option( "-k,--key", table_key, localized("Deprecated") );
    getTable->add_option( "-L,--lower", lower, localized("JSON representation of lower bound value of key, defaults to first") );
    getTable->add_option( "-U,--upper", upper, localized("JSON representation of upper bound value of key, defaults to last") );
@@ -3190,7 +3188,7 @@ int main( int argc, char** argv ) {
         ( "encode_type", encode_type )
         ( "reverse", reverse )
         ( "show_payer", show_payer );
-      if( time_limit_ms != 10 ) mo( "time_limit_ms", time_limit_ms );
+      if( time_limit_ms != 0 ) mo( "time_limit_ms", time_limit_ms );
       auto result = call( get_table_func, mo );
 
       std::cout << fc::json::to_pretty_string(result)
@@ -3201,7 +3199,7 @@ int main( int argc, char** argv ) {
    getScope->add_option( "contract", code, localized("The contract who owns the table") )->required();
    getScope->add_option( "-t,--table", table, localized("The name of the table as filter") );
    getScope->add_option( "-l,--limit", limit, localized("The maximum number of rows to return") );
-   getScope->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds, defaults to 10ms"));
+   getScope->add_option( "--time-limit", time_limit_ms, localized("Limit time of execution in milliseconds"));
    getScope->add_option( "-L,--lower", lower, localized("Lower bound of scope") );
    getScope->add_option( "-U,--upper", upper, localized("Upper bound of scope") );
    getScope->add_flag("-r,--reverse", reverse, localized("Iterate in reverse order"));
@@ -3213,7 +3211,7 @@ int main( int argc, char** argv ) {
         ( "upper_bound", upper )
         ( "limit", limit )
         ( "reverse", reverse );
-      if( time_limit_ms != 10 ) mo( "time_limit_ms", time_limit_ms );
+      if( time_limit_ms != 0 ) mo( "time_limit_ms", time_limit_ms );
       auto result = call( get_table_by_scope_func, mo );
 
       std::cout << fc::json::to_pretty_string(result)
@@ -3482,12 +3480,12 @@ int main( int argc, char** argv ) {
       bytes code_bytes;
       if(!contract_clear){
         std::string wasm;
-        fc::path cpath = fc::canonical(fc::path(contractPath));
+        std::filesystem::path cpath = std::filesystem::canonical(std::filesystem::path(contractPath));
 
         if( wasmPath.empty() ) {
-           wasmPath = (cpath / fc::path(cpath.filename().generic_string()+".wasm")).generic_string();
-        } else if ( boost::filesystem::path(wasmPath).is_relative() ) {
-           wasmPath = (cpath / fc::path(wasmPath)).generic_string();
+           wasmPath = (cpath / std::filesystem::path(cpath.filename().generic_string()+".wasm")).generic_string();
+        } else if ( std::filesystem::path(wasmPath).is_relative() ) {
+           wasmPath = (cpath / std::filesystem::path(wasmPath)).generic_string();
         }
 
         std::cerr << localized(("Reading WASM from " + wasmPath + "...").c_str()) << std::endl;
@@ -3538,15 +3536,15 @@ int main( int argc, char** argv ) {
 
       bytes abi_bytes;
       if(!contract_clear){
-        fc::path cpath = fc::canonical(fc::path(contractPath));
+        std::filesystem::path cpath = std::filesystem::canonical(std::filesystem::path(contractPath));
 
         if( abiPath.empty() ) {
-           abiPath = (cpath / fc::path(cpath.filename().generic_string()+".abi")).generic_string();
-        } else if ( boost::filesystem::path(abiPath).is_relative() ) {
-           abiPath = (cpath / fc::path(abiPath)).generic_string();
+           abiPath = (cpath / std::filesystem::path(cpath.filename().generic_string()+".abi")).generic_string();
+        } else if ( std::filesystem::path(abiPath).is_relative() ) {
+           abiPath = (cpath / std::filesystem::path(abiPath)).generic_string();
         }
 
-        EOS_ASSERT( fc::exists( abiPath ), abi_file_not_found, "no abi file found ${f}", ("f", abiPath)  );
+        EOS_ASSERT( std::filesystem::exists( abiPath ), abi_file_not_found, "no abi file found ${f}", ("f", abiPath)  );
 
         abi_bytes = fc::raw::pack(fc::json::from_file(abiPath).as<abi_def>());
       } else {

@@ -197,7 +197,7 @@ namespace fc {
         BN_copy( n, a.n );
         return *this;
       }
-      bigint::operator fc::string()const {
+      bigint::operator std::string()const {
         return BN_bn2dec(n);
       }
 

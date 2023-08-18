@@ -105,7 +105,7 @@ namespace fc { namespace crypto {
          auto data_str = to_base58( packed.data(), packed.size(), _yield );
          _yield();
          if (!is_default) {
-            data_str = string(Prefixes[position]) + "_" + data_str;
+            data_str = std::string(Prefixes[position]) + "_" + data_str;
          }
          _yield();
 
@@ -178,7 +178,7 @@ namespace fc { namespace crypto {
       {}
 
       shim(data_type&& data)
-      :_data(forward<data_type>(data))
+         :_data(std::move(data))
       {}
 
       shim(const data_type& data)

@@ -6,7 +6,8 @@
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
-//#include <bls.hpp>
+#include <bls12-381/bls12-381.hpp>
+
 
 namespace fc { namespace crypto { namespace blslib {
 
@@ -27,7 +28,7 @@ namespace fc { namespace crypto { namespace blslib {
          bls_signature( const bls_signature& ) = default;
          bls_signature& operator= (const bls_signature& ) = default;
 
-         bls_signature( std::vector<uint8_t> sig ){
+         bls_signature( bls12_381::g2 sig ){
             _sig = sig;
          }
 
@@ -39,12 +40,12 @@ namespace fc { namespace crypto { namespace blslib {
          explicit bls_signature(const string& base58str);
          std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
 
-         size_t which() const;
+//         size_t which() const;
 
          size_t variable_size() const;
 
 
-         std::vector<uint8_t> _sig;
+         bls12_381::g2 _sig;
 
       private:
 
@@ -83,4 +84,7 @@ namespace std {
    };
 } // std
 
+FC_REFLECT(bls12_381::fp, (d))
+FC_REFLECT(bls12_381::fp2, (c0)(c1))
+FC_REFLECT(bls12_381::g2, (x)(y)(z))
 FC_REFLECT(fc::crypto::blslib::bls_signature, (_sig) )

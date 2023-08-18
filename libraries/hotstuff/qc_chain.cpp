@@ -99,7 +99,7 @@ namespace eosio { namespace hotstuff {
 #endif
    }
 
-   void qc_chain::get_state( finalizer_state & fs ) {
+   void qc_chain::get_state( finalizer_state& fs ) const {
       std::lock_guard g( _state_mutex );
       fs.chained_mode           = _chained_mode;
       fs.b_leaf                 = _b_leaf;
@@ -313,7 +313,7 @@ namespace eosio { namespace hotstuff {
    qc_chain::qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, bool info_logging, bool error_logging)
       : _id(id),
         _pacemaker(pacemaker),
-        _my_producers(my_producers),
+        _my_producers(std::move(my_producers)),
         _log(info_logging),
         _errors(error_logging)
    {

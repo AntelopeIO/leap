@@ -23,8 +23,6 @@ namespace eosio { namespace chain {
    struct extended_schedule {
       producer_authority_schedule                          producer_schedule;
       std::map<name, fc::crypto::blslib::bls_public_key>   bls_pub_keys;
-
-      extended_schedule() = default;
    };
 
    struct quorum_certificate {
@@ -32,16 +30,12 @@ namespace eosio { namespace chain {
       fc::unsigned_int                    active_finalizers = 0; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
       bool                                quorum_met = false;
-
-      quorum_certificate() = default;
    };
 
    struct hs_vote_message {
       fc::sha256                          proposal_id = NULL_PROPOSAL_ID; //vote on proposal
       name                                finalizer;
       fc::crypto::blslib::bls_signature   sig;
-
-      hs_vote_message() = default;
    };
 
    struct hs_proposal_message {
@@ -52,8 +46,6 @@ namespace eosio { namespace chain {
       quorum_certificate                  justify; //justification
       uint8_t                             phase_counter = 0;
 
-      hs_proposal_message() = default;
-
       uint32_t block_num() const { return compute_block_num(block_id); }
       uint64_t get_height() const { return compute_height(compute_block_num(block_id), phase_counter); };
    };
@@ -61,12 +53,10 @@ namespace eosio { namespace chain {
    struct hs_new_block_message {
       block_id_type        block_id = NULL_BLOCK_ID; //new proposal
       quorum_certificate   justify; //justification
-      hs_new_block_message() = default;
    };
 
    struct hs_new_view_message {
       quorum_certificate   high_qc; //justification
-      hs_new_view_message() = default;
    };
 
    struct finalizer_state {
@@ -83,8 +73,6 @@ namespace eosio { namespace chain {
       eosio::chain::quorum_certificate current_qc;
       eosio::chain::extended_schedule schedule;
       map<fc::sha256, hs_proposal_message> proposals;
-
-      finalizer_state() = default;
    };
 
    using hs_proposal_message_ptr = std::shared_ptr<hs_proposal_message>;

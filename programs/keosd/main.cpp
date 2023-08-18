@@ -16,7 +16,7 @@
 using namespace appbase;
 using namespace eosio;
 
-void configure_logging(const bfs::path& config_path) {
+void configure_logging(const std::filesystem::path& config_path) {
    try {
       try {
          fc::configure_logging(config_path);
@@ -37,7 +37,7 @@ void configure_logging(const bfs::path& config_path) {
 
 void logging_conf_handler() {
    auto config_path = app().get_logging_conf();
-   if (fc::exists(config_path)) {
+   if (std::filesystem::exists(config_path)) {
       ilog("Received HUP.  Reloading logging configuration from ${p}.", ("p", config_path.string()));
    } else {
       ilog("Received HUP.  No log config found at ${p}, setting to default.", ("p", config_path.string()));
@@ -48,7 +48,7 @@ void logging_conf_handler() {
 
 void initialize_logging() {
    auto config_path = app().get_logging_conf();
-   if (fc::exists(config_path))
+   if (std::filesystem::exists(config_path))
       fc::configure_logging(config_path); // intentionally allowing exceptions to escape
    fc::log_config::initialize_appenders();
 
@@ -56,9 +56,9 @@ void initialize_logging() {
 }
 
 
-bfs::path determine_home_directory()
+std::filesystem::path determine_home_directory()
 {
-   bfs::path home;
+   std::filesystem::path home;
    struct passwd* pwd = getpwuid(getuid());
    if(pwd) {
       home = pwd->pw_dir;
@@ -89,13 +89,14 @@ int main(int argc, char** argv)
 
       app->set_version_string(eosio::version::version_client());
       app->set_full_version_string(eosio::version::version_full());
-      bfs::path home = determine_home_directory();
+      std::filesystem::path home = determine_home_directory();
       app->set_default_data_dir(home / "eosio-wallet");
       app->set_default_config_dir(home / "eosio-wallet");
       http_plugin::set_defaults({
          .default_unix_socket_path = keosd::config::key_store_executable_name + ".sock",
          .default_http_port = 0,
-         .server_header = keosd::config::key_store_executable_name + "/" + app->version_string()
+         .server_header = keosd::config::key_store_executable_name + "/" + app->version_string(),
+         .support_categories = false
       });
       application::register_plugin<wallet_api_plugin>();
       if(!app->initialize<wallet_plugin, wallet_api_plugin, http_plugin>(argc, argv, initialize_logging)) {
@@ -107,11 +108,12 @@ int main(int argc, char** argv)
          return INITIALIZE_FAIL;
       }
       auto& http = app->get_plugin<http_plugin>();
-      http.add_handler("/v1/" + keosd::config::key_store_executable_name + "/stop",
+      http.add_handler({"/v1/" + keosd::config::key_store_executable_name + "/stop",
+                       api_category::node,
                        [&a=app](string, string, url_response_callback cb) {
-         cb(200, fc::time_point::maximum(), fc::variant(fc::variant_object()));
+         cb(200, fc::variant(fc::variant_object()));
          a->quit();
-      }, appbase::exec_queue::read_write );
+      }}, appbase::exec_queue::read_write );
       app->startup();
       app->exec();
    } catch (const fc::exception& e) {

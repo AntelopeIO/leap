@@ -1,3 +1,4 @@
+import atexit
 import subprocess
 import time
 import shutil
@@ -12,21 +13,26 @@ from .testUtils import Utils
 Wallet=namedtuple("Wallet", "name password host port")
 # pylint: disable=too-many-instance-attributes
 class WalletMgr(object):
-    __walletDataDir=f"{Utils.TestLogRoot}/test_wallet_0"
+    __walletDataDir=f"{Utils.DataPath}/test_wallet_0"
     __walletLogOutFile=f"{__walletDataDir}/test_keosd_out.log"
     __walletLogErrFile=f"{__walletDataDir}/test_keosd_err.log"
     __MaxPort=9999
 
     # pylint: disable=too-many-arguments
     # walletd [True|False] True=Launch wallet(keosd) process; False=Manage launch process externally.
-    def __init__(self, walletd, nodeosPort=8888, nodeosHost="localhost", port=9899, host="localhost"):
+    def __init__(self, walletd, nodeosPort=8888, nodeosHost="localhost", port=9899, host="localhost", keepRunning=False, keepLogs=False):
+        atexit.register(self.shutdown)
         self.walletd=walletd
         self.nodeosPort=nodeosPort
         self.nodeosHost=nodeosHost
         self.port=port
         self.host=host
+        self.keepRunning=keepRunning
+        self.keepLogs=keepLogs or keepRunning
+        self.testFailed=False
         self.wallets={}
-        self.__walletPid=None
+        self.popenProc=None
+        self.walletPid=None
 
     def getWalletEndpointArgs(self):
         if not self.walletd or not self.isLaunched():
@@ -38,7 +44,7 @@ class WalletMgr(object):
         return " --url http://%s:%d%s %s" % (self.nodeosHost, self.nodeosPort, self.getWalletEndpointArgs(), Utils.MiscEosClientArgs)
 
     def isLaunched(self):
-        return self.__walletPid is not None
+        return self.walletPid is not None
 
     def isLocal(self):
         return self.host=="localhost" or self.host=="127.0.0.1"
@@ -85,10 +91,10 @@ class WalletMgr(object):
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         if not os.path.isdir(WalletMgr.__walletDataDir):
             if Utils.Debug: Utils.Print(f"Creating dir {WalletMgr.__walletDataDir} in dir: {os.getcwd()}")
-            os.mkdir(WalletMgr.__walletDataDir)
+            os.makedirs(WalletMgr.__walletDataDir)
         with open(WalletMgr.__walletLogOutFile, 'w') as sout, open(WalletMgr.__walletLogErrFile, 'w') as serr:
-            popen=subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
-            self.__walletPid=popen.pid
+            self.popenProc=subprocess.Popen(cmd.split(), stdout=sout, stderr=serr)
+            self.walletPid=self.popenProc.pid
 
         # Give keosd time to warm up
         time.sleep(2)
@@ -278,7 +284,7 @@ class WalletMgr(object):
 
     def dumpErrorDetails(self):
         Utils.Print("=================================================================")
-        if self.__walletPid is not None:
+        if self.walletPid is not None:
             Utils.Print("Contents of %s:" % (WalletMgr.__walletLogOutFile))
             Utils.Print("=================================================================")
             with open(WalletMgr.__walletLogOutFile, "r") as f:
@@ -288,19 +294,21 @@ class WalletMgr(object):
             with open(WalletMgr.__walletLogErrFile, "r") as f:
                 shutil.copyfileobj(f, sys.stdout)
 
-    def killall(self, allInstances=False):
-        """Kill keos instances. allInstances will kill all keos instances running on the system."""
-        if self.__walletPid:
-            Utils.Print("Killing wallet manager process %d" % (self.__walletPid))
-            os.kill(self.__walletPid, signal.SIGKILL)
+    def shutdown(self):
+        '''Shutdown the managed keosd instance unless keepRunning was set.'''
+        if self.keepRunning:
+            return
+        if self.popenProc:
+            Utils.Print(f"Shutting down wallet manager process {self.walletPid}")
+            self.popenProc.send_signal(signal.SIGTERM)
+            self.popenProc.wait()
+        elif self.walletPid:
+            Utils.Print("Killing wallet manager process %d" % (self.walletPid))
+            os.kill(self.walletPid, signal.SIGKILL)
+        self.cleanup()
 
-        if allInstances:
-            cmd="pkill -9 %s" % (Utils.EosWalletName)
-            if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-            subprocess.call(cmd.split())
-
-
-    @staticmethod
-    def cleanup():
+    def cleanup(self):
+        if self.keepLogs or self.keepRunning or self.testFailed:
+            return
         if os.path.isdir(WalletMgr.__walletDataDir) and os.path.exists(WalletMgr.__walletDataDir):
             shutil.rmtree(WalletMgr.__walletDataDir)

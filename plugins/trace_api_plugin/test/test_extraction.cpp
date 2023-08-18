@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE trace_data_extraction
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/contract_types.hpp>
@@ -229,8 +228,8 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
          }
       };
 
-      BOOST_REQUIRE_EQUAL(max_lib, 0);
-      BOOST_REQUIRE(data_log.size() == 1);
+      BOOST_REQUIRE_EQUAL(max_lib, 0u);
+      BOOST_REQUIRE(data_log.size() == 1u);
       BOOST_REQUIRE(std::holds_alternative<block_trace_v2>(data_log.at(0)));
       BOOST_REQUIRE_EQUAL(std::get<block_trace_v2>(data_log.at(0)), expected_block_trace);
       BOOST_REQUIRE_EQUAL(id_log.at(bsp1->block_num).size(),  bsp1->block->transactions.size());
@@ -349,8 +348,8 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
          expected_transaction_traces
       };
 
-      BOOST_REQUIRE_EQUAL(max_lib, 0);
-      BOOST_REQUIRE(data_log.size() == 1);
+      BOOST_REQUIRE_EQUAL(max_lib, 0u);
+      BOOST_REQUIRE(data_log.size() == 1u);
       BOOST_REQUIRE(std::holds_alternative<block_trace_v2>(data_log.at(0)));
       BOOST_REQUIRE_EQUAL(std::get<block_trace_v2>(data_log.at(0)), expected_block_trace);
    }
@@ -415,8 +414,8 @@ BOOST_AUTO_TEST_SUITE(block_extraction)
          expected_transaction_traces
       };
 
-      BOOST_REQUIRE_EQUAL(max_lib, 0);
-      BOOST_REQUIRE(data_log.size() == 1);
+      BOOST_REQUIRE_EQUAL(max_lib, 0u);
+      BOOST_REQUIRE(data_log.size() == 1u);
       BOOST_REQUIRE(std::holds_alternative<block_trace_v2>(data_log.at(0)));
       BOOST_REQUIRE_EQUAL(std::get<block_trace_v2>(data_log.at(0)), expected_block_trace);
    }

@@ -14,7 +14,7 @@ namespace eosio::trace_api::configuration_utils {
     * @return the ABI implied
     * @throws json_parse_exception if the JSON is malformed
     */
-   chain::abi_def abi_def_from_file(const std::string& file_name, const fc::path& data_dir );
+   chain::abi_def abi_def_from_file(const std::string& file_name, const std::filesystem::path& data_dir );
 
    /**
     * Given a string in the form <key>=<value> where key cannot contain an `=` character and value can contain anything
