@@ -53,7 +53,7 @@ namespace fc { namespace crypto {
          storage_type _storage;
 
          private_key( storage_type&& other_storage )
-            :_storage(other_storage)
+            :_storage(std::move(other_storage))
          {}
 
          friend bool operator == ( const private_key& p1, const private_key& p2);

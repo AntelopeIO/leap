@@ -215,7 +215,7 @@ std::string base64_encode(unsigned char const* bytes_to_encode, size_t in_len, b
 }
 
 template <typename String>
-static std::string decode(String const& encoded_string, bool remove_linebreaks) {
+static std::string decode(const String& encoded_string, bool remove_linebreaks) {
  //
  // decode(…) is templated so that it can be used with String = const std::string&
  // or std::string_view (requires at least C++17)
@@ -343,20 +343,20 @@ std::string base64_decode(std::string_view s, bool remove_linebreaks) {
 std::string base64_encode(unsigned char const* bytes_to_encode, unsigned int in_len) {
    return base64_encode(bytes_to_encode, in_len, false);
 }
-std::string base64_encode(const std::string_view& enc) {
+std::string base64_encode(std::string_view enc) {
    return base64_encode(enc, false);
 }
-std::string base64_decode(const std::string_view& encoded_string) {
+std::string base64_decode(std::string_view encoded_string) {
    return base64_decode(encoded_string, false);
 }
 
 std::string base64url_encode(unsigned char const* bytes_to_encode, unsigned int in_len) {
    return base64_encode(bytes_to_encode, in_len, true);
 }
-std::string base64url_encode(const std::string_view& enc) {
+std::string base64url_encode(std::string_view enc) {
    return base64_encode(enc, true);
 }
-std::string base64url_decode(const std::string_view& encoded_string) {
+std::string base64url_decode(std::string_view encoded_string) {
    return base64_decode(encoded_string, true);
 }
 
