@@ -20,58 +20,64 @@ namespace fc { namespace crypto { namespace blslib {
       return bls_signature(sig);
    }
 
-   /*struct public_key_visitor : visitor<bls_public_key::storage_type> {
-      template<typename KeyType>
-      bls_public_key::storage_type operator()(const KeyType& key) const
-      {
-        //return bls_public_key::storage_type(key.get_public_key());
-      }
-   };
-
-   struct sign_visitor : visitor<bls_signature::storage_type> {
-      sign_visitor( const sha256& digest, bool require_canonical )
-      :_digest(digest)
-      ,_require_canonical(require_canonical)
-      {}
-
-      template<typename KeyType>
-      bls_signature::storage_type operator()(const KeyType& key) const
-      {
-         return bls_signature::storage_type(key.sign(_digest, _require_canonical));
-      }
-
-      const sha256&  _digest;
-      bool           _require_canonical;
-   };
-
-   bls_signature bls_private_key::sign( vector<uint8_t> message ) const
-   {
-      //return bls_signature(std::visit(sign_visitor(digest, require_canonical), _seed));
+   bls_private_key bls_private_key::generate() {
+      std::vector<uint8_t> v(32);
+      rand_bytes(reinterpret_cast<char*>(&v[0]), 32);
+      return bls_private_key(v);
    }
 
-   struct generate_shared_secret_visitor : visitor<sha512> {
-      generate_shared_secret_visitor( const bls_public_key::storage_type& pub_storage )
-      :_pub_storage(pub_storage)
-      {}
+      /*struct public_key_visitor : visitor<bls_public_key::storage_type> {
+         template<typename KeyType>
+         bls_public_key::storage_type operator()(const KeyType& key) const
+         {
+           //return bls_public_key::storage_type(key.get_public_key());
+         }
+      };
 
-      template<typename KeyType>
-      sha512 operator()(const KeyType& key) const
+      struct sign_visitor : visitor<bls_signature::storage_type> {
+         sign_visitor( const sha256& digest, bool require_canonical )
+         :_digest(digest)
+         ,_require_canonical(require_canonical)
+         {}
+
+         template<typename KeyType>
+         bls_signature::storage_type operator()(const KeyType& key) const
+         {
+            return bls_signature::storage_type(key.sign(_digest, _require_canonical));
+         }
+
+         const sha256&  _digest;
+         bool           _require_canonical;
+      };
+
+      bls_signature bls_private_key::sign( vector<uint8_t> message ) const
       {
-         using PublicKeyType = typename KeyType::public_key_type;
-         return key.generate_shared_secret(std::template get<PublicKeyType>(_pub_storage));
+         //return bls_signature(std::visit(sign_visitor(digest, require_canonical), _seed));
       }
 
-      const bls_public_key::storage_type&  _pub_storage;
-   };
+      struct generate_shared_secret_visitor : visitor<sha512> {
+         generate_shared_secret_visitor( const bls_public_key::storage_type& pub_storage )
+         :_pub_storage(pub_storage)
+         {}
 
-   sha512 bls_private_key::generate_shared_secret( const bls_public_key& pub ) const
+         template<typename KeyType>
+         sha512 operator()(const KeyType& key) const
+         {
+            using PublicKeyType = typename KeyType::public_key_type;
+            return key.generate_shared_secret(std::template get<PublicKeyType>(_pub_storage));
+         }
 
-   template<typename Data>
-   string to_wif( const Data& secret, const fc::yield_function_t& yield )
-   {
-   {
-      return std::visit(generate_shared_secret_visitor(pub._storage), _seed);
-   }*/
+         const bls_public_key::storage_type&  _pub_storage;
+      };
+
+      sha512 bls_private_key::generate_shared_secret( const bls_public_key& pub ) const
+
+      template<typename Data>
+      string to_wif( const Data& secret, const fc::yield_function_t& yield )
+      {
+      {
+         return std::visit(generate_shared_secret_visitor(pub._storage), _seed);
+      }*/
   /*    const size_t size_of_data_to_hash = sizeof(typename Data::data_type) + 1;
       const size_t size_of_hash_bytes = 4;
       char data[size_of_data_to_hash + size_of_hash_bytes];

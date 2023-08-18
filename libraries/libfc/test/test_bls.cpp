@@ -243,7 +243,7 @@ BOOST_AUTO_TEST_CASE(bls_agg_tree_verif) try {
 //test random key generation, signature + verification
 BOOST_AUTO_TEST_CASE(bls_key_gen) try {
 
-  bls_private_key sk = generate();
+  bls_private_key sk = bls_private_key::generate();
   bls_public_key pk = sk.get_public_key();
 
   bls_signature signature = sk.sign(message_1);

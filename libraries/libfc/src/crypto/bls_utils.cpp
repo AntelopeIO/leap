@@ -1,18 +1,6 @@
 #include <fc/crypto/bls_utils.hpp>
 
-namespace fc { namespace crypto { namespace blslib {
-
-   bls_private_key generate() {
-
-     char* r = (char*) malloc(32);
-
-     rand_bytes(r, 32);
-
-     vector<uint8_t> v(r, r+32);
-
-     return bls_private_key(v);
-
-   }
+namespace fc::crypto::blslib {
 
    bool verify(const bls_public_key& pubkey,
                const vector<uint8_t>& message,
@@ -53,4 +41,4 @@ namespace fc { namespace crypto { namespace blslib {
       return bls12_381::aggregate_verify(ks, messages, signature._sig);
    };
 
-} } }  // fc::crypto::blslib
+} // fc::crypto::blslib

@@ -36,16 +36,7 @@ namespace fc { namespace crypto { namespace blslib {
 
          std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
 
-         static bls_private_key generate() {
-
-            char* r = (char*) malloc(32);
-
-            rand_bytes(r, 32);
-            
-            vector<uint8_t> v(r, r+32);
-
-            return bls_private_key(v);
-         }
+         static bls_private_key generate();
 
 /*         template< typename KeyType = r1::private_key_shim >
          static bls_private_key generate_r1() {
