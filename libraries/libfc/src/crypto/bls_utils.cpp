@@ -14,9 +14,9 @@ namespace fc { namespace crypto { namespace blslib {
 
    }
 
-   bool verify(const bls_public_key &pubkey,
-               const vector<uint8_t> &message,
-               const bls_signature &signature) {
+   bool verify(const bls_public_key& pubkey,
+               const vector<uint8_t>& message,
+               const bls_signature& signature) {
       return bls12_381::verify(pubkey._pkey, message, signature._sig);
    };
 
@@ -33,6 +33,9 @@ namespace fc { namespace crypto { namespace blslib {
    bls_signature aggregate(const vector<bls_signature>& signatures) {
       std::vector<bls12_381::g2> sigs;
       sigs.reserve(signatures.size());
+      for( const auto& s : signatures ) {
+         sigs.push_back(s._sig);
+      }
 
       bls12_381::g2 agg = bls12_381::aggregate_signatures(sigs);
       return bls_signature{agg};
