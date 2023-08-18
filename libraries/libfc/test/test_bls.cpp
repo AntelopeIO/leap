@@ -38,8 +38,6 @@ std::vector<uint8_t> message_2 = { 16, 38, 54, 125, 71, 214, 217, 78,
 fc::sha256 message_3 = fc::sha256("1097cf48a15ba1c618237d3d79f3c684c031a9844c27e6b95c6d27d8a5f401a1");
 
 
-std::vector<uint8_t> message_4 = {143,10,193,195,104,126,124,222,124,64,177,164,240,234,110,18,142,236,191,66,223,47,235,248,75,9,172,99,178,26,239,78};
-
 //test a single key signature + verification
 BOOST_AUTO_TEST_CASE(bls_sig_verif) try {
 
@@ -120,6 +118,7 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
 BOOST_AUTO_TEST_CASE(bls_sig_verif_string_multi) try {
 
   bls_signature test_sig_single = bls_signature("SIG_BLS_23PuSu1B72cPe6wxGkKjAaaZqA1Ph79zSoW7omsKKUrnprbA3cJCJVhT48QKUG6ofjYTTg4BA4TrVENWyrxjTomwLX6TGdVg2RYhKH7Kk9X23K5ohuhKQcWQ6AwJJGVSbSp4");
+  std::vector<uint8_t> message_4 = {143,10,193,195,104,126,124,222,124,64,177,164,240,234,110,18,142,236,191,66,223,47,235,248,75,9,172,99,178,26,239,78};
   bls_private_key sk = bls_private_key(seed_1);
 
   bls_public_key agg_key = sk.get_public_key();

@@ -1,22 +1,21 @@
 #include <fc/crypto/bls_private_key.hpp>
+#include <fc/crypto/rand.hpp>
 #include <fc/utility.hpp>
 #include <fc/exception/exception.hpp>
 
-namespace fc { namespace crypto { namespace blslib {
-
-   using namespace std;
+namespace fc::crypto::blslib {
 
    bls_public_key bls_private_key::get_public_key() const
    {
       auto sk = bls12_381::secret_key(_seed);
-      g1 pk = bls12_381::public_key(sk);
+      bls12_381::g1 pk = bls12_381::public_key(sk);
       return bls_public_key(pk);
    }
 
-   bls_signature bls_private_key::sign( vector<uint8_t> message ) const
+   bls_signature bls_private_key::sign( const vector<uint8_t>& message ) const
    {
-      std::array<uint64_t, 4> sk = secret_key(_seed);
-      g2 sig = bls12_381::sign(sk, message);
+      std::array<uint64_t, 4> sk = bls12_381::secret_key(_seed);
+      bls12_381::g2 sig = bls12_381::sign(sk, message);
       return bls_signature(sig);
    }
 
@@ -25,70 +24,6 @@ namespace fc { namespace crypto { namespace blslib {
       rand_bytes(reinterpret_cast<char*>(&v[0]), 32);
       return bls_private_key(v);
    }
-
-      /*struct public_key_visitor : visitor<bls_public_key::storage_type> {
-         template<typename KeyType>
-         bls_public_key::storage_type operator()(const KeyType& key) const
-         {
-           //return bls_public_key::storage_type(key.get_public_key());
-         }
-      };
-
-      struct sign_visitor : visitor<bls_signature::storage_type> {
-         sign_visitor( const sha256& digest, bool require_canonical )
-         :_digest(digest)
-         ,_require_canonical(require_canonical)
-         {}
-
-         template<typename KeyType>
-         bls_signature::storage_type operator()(const KeyType& key) const
-         {
-            return bls_signature::storage_type(key.sign(_digest, _require_canonical));
-         }
-
-         const sha256&  _digest;
-         bool           _require_canonical;
-      };
-
-      bls_signature bls_private_key::sign( vector<uint8_t> message ) const
-      {
-         //return bls_signature(std::visit(sign_visitor(digest, require_canonical), _seed));
-      }
-
-      struct generate_shared_secret_visitor : visitor<sha512> {
-         generate_shared_secret_visitor( const bls_public_key::storage_type& pub_storage )
-         :_pub_storage(pub_storage)
-         {}
-
-         template<typename KeyType>
-         sha512 operator()(const KeyType& key) const
-         {
-            using PublicKeyType = typename KeyType::public_key_type;
-            return key.generate_shared_secret(std::template get<PublicKeyType>(_pub_storage));
-         }
-
-         const bls_public_key::storage_type&  _pub_storage;
-      };
-
-      sha512 bls_private_key::generate_shared_secret( const bls_public_key& pub ) const
-
-      template<typename Data>
-      string to_wif( const Data& secret, const fc::yield_function_t& yield )
-      {
-      {
-         return std::visit(generate_shared_secret_visitor(pub._storage), _seed);
-      }*/
-  /*    const size_t size_of_data_to_hash = sizeof(typename Data::data_type) + 1;
-      const size_t size_of_hash_bytes = 4;
-      char data[size_of_data_to_hash + size_of_hash_bytes];
-      data[0] = (char)0x80; // this is the Bitcoin MainNet code
-      memcpy(&data[1], (const char*)&secret.serialize(), sizeof(typename Data::data_type));
-      sha256 digest = sha256::hash(data, size_of_data_to_hash);
-      digest = sha256::hash(digest);
-      memcpy(data + size_of_data_to_hash, (char*)&digest, size_of_hash_bytes);
-      return to_base58(data, sizeof(data), yield);
-   }
-*/
 
    template<typename Data>
    Data from_wif( const string& wif_key )
@@ -107,8 +42,8 @@ namespace fc { namespace crypto { namespace blslib {
 
    static vector<uint8_t> priv_parse_base58(const string& base58str)
    {
-   /*   const auto pivot = base58str.find('_');
-
+      const auto pivot = base58str.find('_');
+/*
       if (pivot == std::string::npos) {
          // wif import
          using default_type = std::variant_alternative_t<0, bls_private_key::storage_type>;
@@ -139,29 +74,7 @@ namespace fc { namespace crypto { namespace blslib {
       return std::string(config::private_key_base_prefix) + "_" + data_str;*/
    }
 
-/*   std::string bls_private_key::serialize(){
-
-      PrivateKey sk = AugSchemeMPL().KeyGen(_seed);
-
-      return Util::HexStr(sk.Serialize());
-   }*/
-
-   std::ostream& operator<<(std::ostream& s, const bls_private_key& k) {
-      s << "bls_private_key(" << k.to_string() << ')';
-      return s;
-   }
-/*
-   bool operator == ( const bls_private_key& p1, const bls_private_key& p2) {
-
-      return eq_comparator<vector<char>>::apply(p1._seed, p2._seed);
-   }
-
-   bool operator < ( const bls_private_key& p1, const bls_private_key& p2){
-
-
-      return less_comparator<vector<char>>::apply(p1._seed, p2._seed);
-   }*/
-} } }  // fc::crypto::blslib
+} // fc::crypto::blslib
 
 namespace fc
 {
