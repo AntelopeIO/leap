@@ -10,7 +10,6 @@ import shutil
 from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
-# from .NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs
 from TestHarness import TestHelper, Utils, Account
 from .performance_test_basic import PerformanceTestBasic, PtbArgumentsHandler
 from platform import release, system
