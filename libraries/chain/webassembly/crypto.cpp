@@ -422,9 +422,9 @@ namespace eosio { namespace chain { namespace webassembly {
       fc::datastream<const char*> s_digest( digest.data(), digest.size() );
 
       // TODO determine how we want to serialize signature
-//      fc::raw::unpack( s_sig, u_sig );
-//      fc::raw::unpack( s_pub, u_pub );
-//      fc::raw::unpack( s_digest, u_digest );
+      fc::raw::unpack( s_sig, u_sig );
+      fc::raw::unpack( s_pub, u_pub );
+      fc::raw::unpack( s_digest, u_digest );
 
       std::cerr << u_pub.to_string() << "\n";
       std::cerr << u_sig.to_string() << "\n";
@@ -432,7 +432,6 @@ namespace eosio { namespace chain { namespace webassembly {
       bool result = fc::crypto::blslib::verify(u_pub, u_digest, u_sig);
 
       return result;
-
    }
 
    int32_t interface::bls_aggregate_pubkeys( span<const char> pubkeys, span<char> aggregate) const {
@@ -442,18 +441,17 @@ namespace eosio { namespace chain { namespace webassembly {
       fc::datastream<const char*> s_pubkeys( pubkeys.data(), pubkeys.size() );
 
       // TODO determine how we want to serialize bls_public_key
-      //fc::raw::unpack( s_pubkeys, u_pubkeys );
+      fc::raw::unpack( s_pubkeys, u_pubkeys );
 
       fc::crypto::blslib::bls_public_key agg_pubkey = fc::crypto::blslib::aggregate(u_pubkeys);
 
-//      auto packed = fc::raw::pack(agg_pubkey);
-//
-//      auto copy_size = std::min<size_t>(aggregate.size(), packed.size());
-//
-//      std::memcpy(aggregate.data(), packed.data(), copy_size);
-//
-//      return packed.size();
-      return 0;
+      auto packed = fc::raw::pack(agg_pubkey);
+
+      auto copy_size = std::min<size_t>(aggregate.size(), packed.size());
+
+      std::memcpy(aggregate.data(), packed.data(), copy_size);
+
+      return packed.size();
    }
 
    int32_t interface::bls_aggregate_sigs( span<const char> signatures, span<char> aggregate) const {
@@ -462,19 +460,18 @@ namespace eosio { namespace chain { namespace webassembly {
 
       fc::datastream<const char*> s_sigs( signatures.data(), signatures.size() );
 
-//      fc::raw::unpack( s_sigs, u_sigs );
+      fc::raw::unpack( s_sigs, u_sigs );
 
       fc::crypto::blslib::bls_signature agg_sig = fc::crypto::blslib::aggregate(u_sigs);
 
       // TODO determine how we want to serialize signature
-//      auto packed = fc::raw::pack(agg_sig);
-//
-//      auto copy_size = std::min<size_t>(aggregate.size(), packed.size());
-//
-//      std::memcpy(aggregate.data(), packed.data(), copy_size);
-//
-//      return packed.size();
-      return 0;
+      auto packed = fc::raw::pack(agg_sig);
+
+      auto copy_size = std::min<size_t>(aggregate.size(), packed.size());
+
+      std::memcpy(aggregate.data(), packed.data(), copy_size);
+
+      return packed.size();
    }
 
    bool interface::bls_aggregate_verify( span<const char> signature, span<const char> digests, span<const char> pubs) const {
@@ -489,9 +486,9 @@ namespace eosio { namespace chain { namespace webassembly {
 
       // TODO determine how we want to serialize signature
       // TODO determine how we want to serialize bls_public_key
-//      fc::raw::unpack( s_sig, u_sig );
-//      fc::raw::unpack( s_pubs, u_pubs );
-//      fc::raw::unpack( s_digests, u_digests );
+      fc::raw::unpack( s_sig, u_sig );
+      fc::raw::unpack( s_pubs, u_pubs );
+      fc::raw::unpack( s_digests, u_digests );
 
       bool result = fc::crypto::blslib::aggregate_verify(u_pubs, u_digests, u_sig);
 
