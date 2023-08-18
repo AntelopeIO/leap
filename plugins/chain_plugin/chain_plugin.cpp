@@ -16,6 +16,7 @@
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
+#include <eosio/hotstuff/chain_pacemaker.hpp>
 
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 
@@ -207,7 +208,7 @@ public:
    std::optional<scoped_connection>                                   applied_transaction_connection;
    std::optional<scoped_connection>                                   block_start_connection;
 
-
+   std::optional<eosio::hotstuff::chain_pacemaker>                    _chain_pacemaker;
    std::optional<chain_apis::account_query_db>                        _account_query_db;
    std::optional<chain_apis::trx_retry_db>                            _trx_retry_db;
    chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
@@ -1108,7 +1109,13 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
       }
       chain->add_indices();
    } FC_LOG_AND_RETHROW()
+}
 
+void chain_plugin::create_pacemaker(std::set<chain::account_name> my_producers) {
+   EOS_ASSERT( !my->_chain_pacemaker, plugin_config_exception, "duplicate chain_pacemaker initialization" );
+   const bool info_logging = true;
+   const bool error_logging = true;
+   my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), info_logging, error_logging);
 }
 
 void chain_plugin::plugin_initialize(const variables_map& options) {
@@ -1120,6 +1127,7 @@ void chain_plugin_impl::plugin_startup()
 { try {
    EOS_ASSERT( chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions, plugin_config_exception,
                "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions" );
+   EOS_ASSERT( _chain_pacemaker, plugin_config_exception, "chain_pacemaker not initialization" );
    try {
       auto shutdown = [](){ return app().quit(); };
       auto check_shutdown = [](){ return app().is_quiting(); };
@@ -1211,7 +1219,7 @@ chain_apis::read_write chain_plugin::get_read_write_api(const fc::microseconds& 
 }
 
 chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& http_max_response_time) const {
-   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), http_max_response_time, my->_trx_finality_status_processing.get());
+   return chain_apis::read_only(chain(), my->_account_query_db, my->_chain_pacemaker, get_abi_serializer_max_time(), http_max_response_time, my->_trx_finality_status_processing.get());
 }
 
 
@@ -2640,30 +2648,50 @@ read_only::get_consensus_parameters(const get_consensus_parameters_params&, cons
 read_only::get_finalizer_state_results
 read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time_point& deadline ) const {
    get_finalizer_state_results results;
-   // TODO: move to producer_plugin
-//   if ( producer_plug ) {  // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
-//      finalizer_state fs;
-//      producer_plug->get_finalizer_state( fs );
-//      results.chained_mode           = fs.chained_mode;
-//      results.b_leaf                 = fs.b_leaf;
-//      results.b_lock                 = fs.b_lock;
-//      results.b_exec                 = fs.b_exec;
-//      results.b_finality_violation   = fs.b_finality_violation;
-//      results.block_exec             = fs.block_exec;
-//      results.pending_proposal_block = fs.pending_proposal_block;
-//      results.v_height               = fs.v_height;
-//      results.high_qc                = fs.high_qc;
-//      results.current_qc             = fs.current_qc;
-//      results.schedule               = fs.schedule;
-//      for (auto proposal: fs.proposals) {
-//         chain::hs_proposal_message & p = proposal.second;
-//         results.proposals.push_back( hs_complete_proposal_message( p ) );
-//      }
-//   }
+
+   if ( chain_pacemaker ) {  // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
+      finalizer_state fs;
+      chain_pacemaker->get_state( fs );
+      results.chained_mode           = fs.chained_mode;
+      results.b_leaf                 = fs.b_leaf;
+      results.b_lock                 = fs.b_lock;
+      results.b_exec                 = fs.b_exec;
+      results.b_finality_violation   = fs.b_finality_violation;
+      results.block_exec             = fs.block_exec;
+      results.pending_proposal_block = fs.pending_proposal_block;
+      results.v_height               = fs.v_height;
+      results.high_qc                = fs.high_qc;
+      results.current_qc             = fs.current_qc;
+      results.schedule               = fs.schedule;
+      for (auto proposal: fs.proposals) {
+         chain::hs_proposal_message & p = proposal.second;
+         results.proposals.push_back( hs_complete_proposal_message( p ) );
+      }
+   }
    return results;
 }
 
 } // namespace chain_apis
+
+void chain_plugin::notify_hs_vote_message( const hs_vote_message& msg ) {
+   my->_chain_pacemaker->on_hs_vote_msg(msg);
+};
+
+void chain_plugin::notify_hs_proposal_message( const hs_proposal_message& msg ) {
+   my->_chain_pacemaker->on_hs_proposal_msg(msg);
+};
+
+void chain_plugin::notify_hs_new_view_message( const hs_new_view_message& msg ) {
+   my->_chain_pacemaker->on_hs_new_view_msg(msg);
+};
+
+void chain_plugin::notify_hs_new_block_message( const hs_new_block_message& msg ) {
+   my->_chain_pacemaker->on_hs_new_block_msg(msg);
+};
+
+void chain_plugin::notify_hs_block_produced() {
+   my->_chain_pacemaker->beat();
+}
 
 fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_trace ) const {
     fc::variant pretty_output;

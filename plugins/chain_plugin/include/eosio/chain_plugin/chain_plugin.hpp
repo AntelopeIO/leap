@@ -28,6 +28,7 @@ namespace fc { class variant; }
 
 namespace eosio {
    namespace chain { class abi_resolver; }
+   namespace hotstuff { class chain_pacemaker; }
 
    using chain::controller;
    using std::unique_ptr;
@@ -140,6 +141,7 @@ protected:
 class read_only : public api_base {
    const controller& db;
    const std::optional<account_query_db>& aqdb;
+   const std::optional<hotstuff::chain_pacemaker>& chain_pacemaker;
    const fc::microseconds abi_serializer_max_time;
    const fc::microseconds http_max_response_time;
    bool  shorten_abi_errors = true;
@@ -150,10 +152,12 @@ public:
    static const string KEYi64;
 
    read_only(const controller& db, const std::optional<account_query_db>& aqdb,
+             const std::optional<hotstuff::chain_pacemaker>& chain_pacemaker,
              const fc::microseconds& abi_serializer_max_time, const fc::microseconds& http_max_response_time,
              const trx_finality_status_processing* trx_finality_status_proc)
       : db(db)
       , aqdb(aqdb)
+      , chain_pacemaker(chain_pacemaker)
       , abi_serializer_max_time(abi_serializer_max_time)
       , http_max_response_time(http_max_response_time)
       , trx_finality_status_proc(trx_finality_status_proc) {
@@ -1026,6 +1030,13 @@ public:
    controller& chain();
    // Only call this after plugin_initialize()!
    const controller& chain() const;
+
+   void create_pacemaker(std::set<chain::account_name> my_producers);
+   void notify_hs_vote_message( const chain::hs_vote_message& msg );
+   void notify_hs_proposal_message( const chain::hs_proposal_message& msg );
+   void notify_hs_new_view_message( const chain::hs_new_view_message& msg );
+   void notify_hs_new_block_message( const chain::hs_new_block_message& msg );
+   void notify_hs_block_produced();
 
    chain::chain_id_type get_chain_id() const;
    fc::microseconds get_abi_serializer_max_time() const;

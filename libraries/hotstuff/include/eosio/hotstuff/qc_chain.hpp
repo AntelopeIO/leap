@@ -87,7 +87,7 @@ namespace eosio { namespace hotstuff {
       // returns false if proposal with that same ID already exists at the store of its height
       bool insert_proposal(const hs_proposal_message & proposal);
 
-      void get_state( finalizer_state & fs );
+      void get_state( finalizer_state& fs ) const;
 
       uint32_t positive_bits_count(fc::unsigned_int value);
 
@@ -159,7 +159,7 @@ private:
       // And if the chain_pacemaker::_hotstuff_global_mutex locking strategy is ever
       //   changed, then this probably needs to be reviewed as well.
       //
-      std::mutex     _state_mutex;
+      mutable std::mutex     _state_mutex;
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       // keep one proposal store (id -> proposal) by each height (height -> proposal store)

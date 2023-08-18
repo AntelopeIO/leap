@@ -3632,48 +3632,21 @@ namespace eosio {
    }
 
    void connection::handle_message( const hs_vote_message& msg ) {
-      //peer_ilog( this, "received confirmation message" );
-      //ilog("received confirmation message");
-
-      if (my_impl->producer_plug != nullptr){
-         hs_vote_message_ptr msg_ptr = std::make_shared<hs_vote_message>(msg);
-         my_impl->producer_plug->notify_hs_vote_message(msg_ptr);
-      }
-
+      my_impl->chain_plug->notify_hs_vote_message(msg);
    }
 
    void connection::handle_message( const hs_proposal_message& msg ) {
-      //peer_ilog( this, "received consensus message" );
-      //ilog("received consensus message");
-
-      if (my_impl->producer_plug != nullptr){
-         hs_proposal_message_ptr msg_ptr = std::make_shared<hs_proposal_message>(msg);
-         my_impl->producer_plug->notify_hs_proposal_message(msg_ptr);
-      }
-
+      my_impl->chain_plug->notify_hs_proposal_message(msg);
    }
 
    void connection::handle_message( const hs_new_view_message& msg ) {
-      //peer_ilog( this, "received new view message" );
-      //ilog("received new view message");
-
-      if (my_impl->producer_plug != nullptr){
-         hs_new_view_message_ptr msg_ptr = std::make_shared<hs_new_view_message>(msg);
-         my_impl->producer_plug->notify_hs_new_view_message(msg_ptr);
-      }
-
+      my_impl->chain_plug->notify_hs_new_view_message(msg);
    }
 
    void connection::handle_message( const hs_new_block_message& msg ) {
-      //peer_ilog( this, "received new block message" );
-      //ilog("received new block message");
-
-      if (my_impl->producer_plug != nullptr){
-         hs_new_block_message_ptr msg_ptr = std::make_shared<hs_new_block_message>(msg);
-         my_impl->producer_plug->notify_hs_new_block_message(msg_ptr);
-      }
-
+      my_impl->chain_plug->notify_hs_new_block_message(msg);
    }
+
    size_t calc_trx_size( const packed_transaction_ptr& trx ) {
       return trx->get_estimated_size();
    }

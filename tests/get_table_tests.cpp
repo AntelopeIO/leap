@@ -8,6 +8,7 @@
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
+#include <eosio/hotstuff/chain_pacemaker.hpp>
 
 #include <contracts.hpp>
 #include <test_contracts.hpp>
@@ -90,7 +91,7 @@ BOOST_FIXTURE_TEST_CASE( get_scope_test, validating_tester ) try {
    produce_blocks(1);
 
    // iterate over scope
-   eosio::chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
+   eosio::chain_apis::read_only plugin(*(this->control), {}, {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
    eosio::chain_apis::read_only::get_table_by_scope_params param{"eosio.token"_n, "accounts"_n, "inita", "", 10};
    eosio::chain_apis::read_only::get_table_by_scope_result result = plugin.read_only::get_table_by_scope(param, fc::time_point::maximum());
 
@@ -195,7 +196,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_test, validating_tester ) try {
    produce_blocks(1);
 
    // get table: normal case
-   eosio::chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
+   eosio::chain_apis::read_only plugin(*(this->control), {}, {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
    eosio::chain_apis::read_only::get_table_rows_params p;
    p.code = "eosio.token"_n;
    p.scope = "inita";
@@ -365,7 +366,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_by_seckey_test, validating_tester ) try {
    produce_blocks(1);
 
    // get table: normal case
-   eosio::chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
+   eosio::chain_apis::read_only plugin(*(this->control), {}, {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
    eosio::chain_apis::read_only::get_table_rows_params p;
    p.code = "eosio"_n;
    p.scope = "eosio";
@@ -517,7 +518,7 @@ BOOST_FIXTURE_TEST_CASE( get_table_next_key_test, validating_tester ) try {
    // }
 
 
-   chain_apis::read_only plugin(*(this->control), {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
+   chain_apis::read_only plugin(*(this->control), {}, {}, fc::microseconds::maximum(), fc::microseconds::maximum(), {});
    chain_apis::read_only::get_table_rows_params params = []{
       chain_apis::read_only::get_table_rows_params params{};
       params.json=true;

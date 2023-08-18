@@ -383,11 +383,6 @@ public:
       , _transaction_ack_channel(app().get_channel<compat::channels::transaction_ack>())
       , _ro_timer(io) {}
 
-   void notify_hs_vote_message( const hs_vote_message_ptr& msg);
-   void notify_hs_proposal_message( const hs_proposal_message_ptr& msg );
-   void notify_hs_new_view_message( const hs_new_view_message_ptr& msg);
-   void notify_hs_new_block_message( const hs_new_block_message_ptr& msg );
-
    void     schedule_production_loop();
    void     schedule_maybe_produce_block(bool exhausted);
    void     produce_block();
@@ -555,8 +550,6 @@ public:
    std::optional<scoped_connection> _accepted_block_header_connection;
    std::optional<scoped_connection> _irreversible_block_connection;
    std::optional<scoped_connection> _block_start_connection;
-
-   std::optional<eosio::hotstuff::chain_pacemaker> _chain_pacemaker;
 
    /*
     * HACK ALERT
@@ -1320,8 +1313,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    _snapshot_scheduler.set_db_path(_snapshots_dir);
    _snapshot_scheduler.set_snapshots_path(_snapshots_dir);
 
-   EOS_ASSERT( !_chain_pacemaker, plugin_config_exception, "duplicate chain_pacemaker initialization" );
-   _chain_pacemaker.emplace(&chain, _producers, true, true);
+   chain_plug->create_pacemaker(_producers);
 }
 
 void producer_plugin::plugin_initialize(const boost::program_options::variables_map& options) {
@@ -1599,30 +1591,6 @@ void producer_plugin_impl::schedule_protocol_feature_activations(const producer_
    }
    _protocol_features_to_activate = schedule.protocol_features_to_activate;
    _protocol_features_signaled    = false;
-}
-
-void producer_plugin::notify_hs_vote_message( const hs_vote_message_ptr& msg){
-   my->notify_hs_vote_message(msg);
-};
-
-void producer_plugin::notify_hs_proposal_message( const hs_proposal_message_ptr& msg ){
-   my->notify_hs_proposal_message(msg);
-};
-
-void producer_plugin::notify_hs_new_view_message( const hs_new_view_message_ptr& msg){
-   my->notify_hs_new_view_message(msg);
-};
-
-void producer_plugin::notify_hs_new_block_message( const hs_new_block_message_ptr& msg ){
-   my->notify_hs_new_block_message(msg);
-};
-
-bool producer_plugin::get_finalizer_state( finalizer_state & fs ) const {
-   if (my->_chain_pacemaker) {
-      my->_chain_pacemaker->get_state( fs );
-      return true;
-   }
-   return false;
 }
 
 void producer_plugin::schedule_protocol_feature_activations(const scheduled_protocol_feature_activations& schedule) {
@@ -2714,27 +2682,6 @@ static auto maybe_make_debug_time_logger() -> std::optional<decltype(make_debug_
 }
 
 
-void producer_plugin_impl::notify_hs_vote_message( const hs_vote_message_ptr& msg ){
-   if (_chain_pacemaker)
-      _chain_pacemaker->on_hs_vote_msg(*msg);
-};
-
-void producer_plugin_impl::notify_hs_proposal_message( const hs_proposal_message_ptr& msg ){
-   if (_chain_pacemaker)
-      _chain_pacemaker->on_hs_proposal_msg(*msg);
-};
-
-void producer_plugin_impl::notify_hs_new_view_message( const hs_new_view_message_ptr& msg ){
-   if (_chain_pacemaker)
-      _chain_pacemaker->on_hs_new_view_msg(*msg);
-};
-
-void producer_plugin_impl::notify_hs_new_block_message( const hs_new_block_message_ptr& msg ){
-   if (_chain_pacemaker)
-      _chain_pacemaker->on_hs_new_block_msg(*msg);
-};
-
-
 void producer_plugin_impl::produce_block() {
    auto start = fc::time_point::now();
    _time_tracker.add_idle_time(start);
@@ -2782,28 +2729,7 @@ void producer_plugin_impl::produce_block() {
 
    block_state_ptr new_bs = chain.head_block_state();
 
-/*   const auto& hbs = chain.head_block_state();
-   const auto& active_schedule = hbs->active_schedule.producers;
-*/
-   //if we're producing after chain has activated, and we're not currently in the middle of a view
-   //if (hbs->header.producer != name("eosio")  &&
-   //  (_qc_chain._qc_chain_state == qc_chain::qc_chain_state::initializing || _qc_chain._qc_chain_state == qc_chain::qc_chain_state::finished_view)){
-   //   _qc_chain.create_new_view(*hbs); //we create a new view
-   //}
-
-   if (_chain_pacemaker) {
-
-      // FIXME/REVIEW: For now, we are not participating in the IF protocol as proposers
-      //   when we have the enable-stale-production plugin configuration option set.
-      // NOTE: This entire feature will likely disappear (deleted) before delivery, as
-      //   hotstuff activation only takes place, realistically, after the
-      //   stale-block-production producing/proposing boot node has been gone.
-      // Stale producing nodes being hotstuff leaders is probably fine.
-      if (!_enable_stale_production_config)
-         _chain_pacemaker->beat();
-      else
-         ilog("producer plugin will not check for Instant Finality proposer (and maybe also leader) role due to enable-stale-production option set.");
-   }
+   chain_plug->notify_hs_block_produced();
 
    br.total_time += fc::time_point::now() - start;
 

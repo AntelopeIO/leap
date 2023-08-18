@@ -3,7 +3,6 @@
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/chain/snapshot_scheduler.hpp>
 #include <eosio/hotstuff/qc_chain.hpp>
-#include <eosio/hotstuff/chain_pacemaker.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
 #include <eosio/chain/application.hpp>
@@ -106,13 +105,6 @@ public:
 
    scheduled_protocol_feature_activations get_scheduled_protocol_feature_activations() const;
    void schedule_protocol_feature_activations(const scheduled_protocol_feature_activations& schedule);
-
-   void notify_hs_vote_message( const chain::hs_vote_message_ptr& msg);
-   void notify_hs_proposal_message( const chain::hs_proposal_message_ptr& msg );
-   void notify_hs_new_view_message( const chain::hs_new_view_message_ptr& msg);
-   void notify_hs_new_block_message( const chain::hs_new_block_message_ptr& msg );
-
-   bool get_finalizer_state(finalizer_state & fs) const;
 
    fc::variants get_supported_protocol_features( const get_supported_protocol_features_params& params ) const;
 
