@@ -3876,6 +3876,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
    } );
 }
 
+template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::aggregate_signatures>() {
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_verify" );

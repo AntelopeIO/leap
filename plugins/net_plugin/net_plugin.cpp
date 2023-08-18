@@ -2561,9 +2561,9 @@ namespace eosio {
    }
 
    void dispatch_manager::bcast_hs_proposal_msg(const hs_proposal_message_ptr& msg) {
-      if( my_impl->sync_master->syncing_with_peer() ) return;
+      if( my_impl->sync_master->syncing_from_peer() ) return;
       hs_proposal_message & msg_val = *(msg.get());
-      for_each_block_connection( [this, &msg_val]( auto& cp ) {
+      my_impl->connections.for_each_block_connection( [this, &msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
          cp->strand.post( [this, cp, msg_val]() {
             if (cp->protocol_version >= proto_instant_finality)
@@ -2574,9 +2574,9 @@ namespace eosio {
    }
 
    void dispatch_manager::bcast_hs_vote_msg(const hs_vote_message_ptr& msg) {
-      if( my_impl->sync_master->syncing_with_peer() ) return;
+      if( my_impl->sync_master->syncing_from_peer() ) return;
       hs_vote_message & msg_val = *(msg.get());
-      for_each_block_connection( [this, &msg_val]( auto& cp ) {
+      my_impl->connections.for_each_block_connection( [this, &msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
          cp->strand.post( [this, cp, msg_val]() {
             if (cp->protocol_version >= proto_instant_finality)
@@ -2587,9 +2587,9 @@ namespace eosio {
    }
 
    void dispatch_manager::bcast_hs_new_block_msg(const hs_new_block_message_ptr& msg) {
-      if( my_impl->sync_master->syncing_with_peer() ) return;
+      if( my_impl->sync_master->syncing_from_peer() ) return;
       hs_new_block_message & msg_val = *(msg.get());
-      for_each_block_connection( [this, &msg_val]( auto& cp ) {
+      my_impl->connections.for_each_block_connection( [this, &msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
          cp->strand.post( [this, cp, msg_val]() {
             if (cp->protocol_version >= proto_instant_finality)
@@ -2600,9 +2600,9 @@ namespace eosio {
    }
 
    void dispatch_manager::bcast_hs_new_view_msg(const hs_new_view_message_ptr& msg) {
-      if( my_impl->sync_master->syncing_with_peer() ) return;
+      if( my_impl->sync_master->syncing_from_peer() ) return;
       hs_new_view_message & msg_val = *(msg.get());
-      for_each_block_connection( [this, &msg_val]( auto& cp ) {
+      my_impl->connections.for_each_block_connection( [this, &msg_val]( auto& cp ) {
          if( !cp->current() ) return true;
          cp->strand.post( [this, cp, msg_val]() {
             if (cp->protocol_version >= proto_instant_finality)
@@ -4349,16 +4349,16 @@ namespace eosio {
             my->on_irreversible_block( s );
          } );
 
-         cc.new_hs_proposal_message.connect( [my = my]( const hs_proposal_message_ptr& s ) {
+         cc.new_hs_proposal_message.connect( [my = shared_from_this()]( const hs_proposal_message_ptr& s ) {
             my->on_hs_proposal_message( s );
          } );
-         cc.new_hs_vote_message.connect( [my = my]( const hs_vote_message_ptr& s ) {
+         cc.new_hs_vote_message.connect( [my = shared_from_this()]( const hs_vote_message_ptr& s ) {
             my->on_hs_vote_message( s );
          } );
-         cc.new_hs_new_view_message.connect( [my = my]( const hs_new_view_message_ptr& s ) {
+         cc.new_hs_new_view_message.connect( [my = shared_from_this()]( const hs_new_view_message_ptr& s ) {
             my->on_hs_new_view_message( s );
          } );
-         cc.new_hs_new_block_message.connect( [my = my]( const hs_new_block_message_ptr& s ) {
+         cc.new_hs_new_block_message.connect( [my = shared_from_this()]( const hs_new_block_message_ptr& s ) {
             my->on_hs_new_block_message( s );
          } );
 

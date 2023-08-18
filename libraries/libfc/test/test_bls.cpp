@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE bls
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 
 #include <fc/exception/exception.hpp>
 
@@ -15,7 +14,7 @@ using std::cout;
 
 using namespace fc::crypto::blslib;
 
-BOOST_AUTO_TEST_SUITE(bls)
+BOOST_AUTO_TEST_SUITE(bls_test)
 
 // can we use BLS stuff?
 

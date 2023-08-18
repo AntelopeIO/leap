@@ -417,9 +417,9 @@ namespace eosio { namespace chain { namespace webassembly {
       fc::crypto::blslib::bls_public_key u_pub;
       vector<uint8_t> u_digest;
 
-      datastream<const char*> s_sig( signature.data(), signature.size() );
-      datastream<const char*> s_pub( pub.data(), pub.size() );
-      datastream<const char*> s_digest( digest.data(), digest.size() );
+      fc::datastream<const char*> s_sig( signature.data(), signature.size() );
+      fc::datastream<const char*> s_pub( pub.data(), pub.size() );
+      fc::datastream<const char*> s_digest( digest.data(), digest.size() );
 
       fc::raw::unpack( s_sig, u_sig );
       fc::raw::unpack( s_pub, u_pub );
@@ -438,7 +438,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
       vector<fc::crypto::blslib::bls_public_key> u_pubkeys;
 
-      datastream<const char*> s_pubkeys( pubkeys.data(), pubkeys.size() );
+      fc::datastream<const char*> s_pubkeys( pubkeys.data(), pubkeys.size() );
 
       fc::raw::unpack( s_pubkeys, u_pubkeys );
 
@@ -458,7 +458,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
       vector<fc::crypto::blslib::bls_signature> u_sigs;
 
-      datastream<const char*> s_sigs( signatures.data(), signatures.size() );
+      fc::datastream<const char*> s_sigs( signatures.data(), signatures.size() );
 
       fc::raw::unpack( s_sigs, u_sigs );
 
@@ -480,9 +480,9 @@ namespace eosio { namespace chain { namespace webassembly {
       vector<fc::crypto::blslib::bls_public_key> u_pubs;
       vector<vector<uint8_t>> u_digests;
 
-      datastream<const char*> s_sig( signature.data(), signature.size() );
-      datastream<const char*> s_pubs( pubs.data(), pubs.size() );
-      datastream<const char*> s_digests( digests.data(), digests.size() );
+      fc::datastream<const char*> s_sig( signature.data(), signature.size() );
+      fc::datastream<const char*> s_pubs( pubs.data(), pubs.size() );
+      fc::datastream<const char*> s_digests( digests.data(), digests.size() );
 
       fc::raw::unpack( s_sig, u_sig );
       fc::raw::unpack( s_pubs, u_pubs );
