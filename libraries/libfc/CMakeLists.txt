@@ -2,8 +2,6 @@ add_subdirectory( secp256k1 )
 add_subdirectory( libraries/bn256/src )
 add_subdirectory( libraries/bls12-381 )
 
-add_subdirectory( libraries/bls-signatures )
-
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
