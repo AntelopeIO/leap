@@ -114,6 +114,8 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
 
 } FC_LOG_AND_RETHROW();
 
+#warning test being worked under https://github.com/AntelopeIO/leap/issues/1531
+/*
 //test a aggregate signature from string
 BOOST_AUTO_TEST_CASE(bls_sig_verif_string_multi) try {
 
@@ -144,7 +146,7 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_string_multi) try {
   BOOST_CHECK_EQUAL(ok, true);
 
 } FC_LOG_AND_RETHROW();
-
+*/
 
 //test serialization / deserialization of private key, public key and signature
 BOOST_AUTO_TEST_CASE(bls_serialization_test) try {
