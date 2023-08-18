@@ -12,6 +12,7 @@
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/fixed_bytes.hpp>
+#include <eosio/chain/hotstuff.hpp>
 
 #include <boost/container/flat_set.hpp>
 #include <boost/multiprecision/cpp_int.hpp>

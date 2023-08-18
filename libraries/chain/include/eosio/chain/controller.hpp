@@ -5,7 +5,6 @@
 #include <eosio/chain/genesis_state.hpp>
 #include <chainbase/pinnable_mapped_file.hpp>
 #include <boost/signals2/signal.hpp>
-#include <eosio/chain/hotstuff.hpp>
 
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
@@ -21,6 +20,15 @@ namespace boost { namespace asio {
 namespace eosio { namespace vm { class wasm_allocator; }}
 
 namespace eosio { namespace chain {
+
+   struct hs_proposal_message;
+   struct hs_vote_message;
+   struct hs_new_view_message;
+   struct hs_new_block_message;
+   using hs_proposal_message_ptr = std::shared_ptr<hs_proposal_message>;
+   using hs_vote_message_ptr = std::shared_ptr<hs_vote_message>;
+   using hs_new_view_message_ptr = std::shared_ptr<hs_new_view_message>;
+   using hs_new_block_message_ptr = std::shared_ptr<hs_new_block_message>;
 
    class authorization_manager;
 
