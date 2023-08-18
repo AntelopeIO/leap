@@ -341,7 +341,6 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
-      set_activation_handler<builtin_protocol_feature_t::aggregate_signatures>();
       set_activation_handler<builtin_protocol_feature_t::instant_finality>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
@@ -3874,16 +3873,6 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_map" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_map" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_mod" );
-   } );
-}
-
-template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::aggregate_signatures>() {
-   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_verify" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_aggregate_pubkeys" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_aggregate_sigs" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_aggregate_verify" );
    } );
 }
 

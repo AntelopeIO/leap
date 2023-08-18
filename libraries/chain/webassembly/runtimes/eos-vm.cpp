@@ -641,12 +641,6 @@ REGISTER_CF_HOST_FUNCTION( bls_g1_map );
 REGISTER_CF_HOST_FUNCTION( bls_g2_map );
 REGISTER_CF_HOST_FUNCTION( bls_fp_mod );
 
-// aggregate_signatures protocol feature
-REGISTER_CF_HOST_FUNCTION( bls_verify );
-REGISTER_CF_HOST_FUNCTION( bls_aggregate_pubkeys );
-REGISTER_CF_HOST_FUNCTION( bls_aggregate_sigs );
-REGISTER_CF_HOST_FUNCTION( bls_aggregate_verify );
-
 } // namespace webassembly
 } // namespace chain
 } // namespace eosio

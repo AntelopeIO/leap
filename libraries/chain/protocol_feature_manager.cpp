@@ -272,15 +272,6 @@ Adds new cryptographic host functions
 */
             {}
          } )
-         (  builtin_protocol_feature_t::aggregate_signatures, builtin_protocol_feature_spec{
-            "AGGREGATE_SIGNATURES",
-            fc::variant("997de2624c039e38993953ff1091aeb1ecff723d06fe78a5ade08931b0b22896").as<digest_type>(),
-            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
-/*
-Builtin protocol feature: AGGREGATE_SIGNATURES
-*/
-            {}
-         } )
          (  builtin_protocol_feature_t::instant_finality, builtin_protocol_feature_spec{
             "INSTANT_FINALITY",
             fc::variant("bc726a24928ea2d71ba294b70c5c9efc515c1542139bcf9e42f8bc174f2e72ff").as<digest_type>(),

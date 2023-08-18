@@ -36,8 +36,7 @@ enum class builtin_protocol_feature_t : uint32_t {
    crypto_primitives = 19,
    get_block_num = 20,
    bls_primitives = 21,
-   aggregate_signatures = 22,
-   instant_finality = 23,
+   instant_finality = 22,
    reserved_private_fork_protocol_features = 500000,
 };
 

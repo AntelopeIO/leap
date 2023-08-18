@@ -277,11 +277,7 @@ inline constexpr auto get_intrinsic_table() {
       "env.bls_pairing",
       "env.bls_g1_map",
       "env.bls_g2_map",
-      "env.bls_fp_mod",
-      "env.bls_verify",
-      "env.bls_aggregate_pubkeys",
-      "env.bls_aggregate_sigs",
-      "env.bls_aggregate_verify"
+      "env.bls_fp_mod"
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {
