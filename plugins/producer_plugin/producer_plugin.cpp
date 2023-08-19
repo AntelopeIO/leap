@@ -17,8 +17,6 @@
 
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/range/adaptor/map.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -308,11 +306,11 @@ struct block_time_tracker {
       last_time_point = now;
    }
 
-   void report(uint32_t block_num, account_name producer) {
+   void report(uint32_t block_num, account_name producer, producer_plugin::speculative_block_metrics& metrics) {
       using namespace std::string_literals;
       assert(!paused);
+      auto now = fc::time_point::now();
       if( _log.is_enabled( fc::log_level::debug ) ) {
-         auto now = fc::time_point::now();
          auto diff = now - clear_time_point - block_idle_time - trx_success_time - trx_fail_time - transient_trx_time - other_time;
          fc_dlog( _log, "Block #${n} ${p} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, "
                   "transient: ${ttn}, ${tt}us, other: ${o}us${rest}",
@@ -322,6 +320,17 @@ struct block_time_tracker {
                   ("ttn", transient_trx_num)("tt", transient_trx_time)
                   ("o", other_time)("rest", diff.count() > 5 ? ", diff: "s + std::to_string(diff.count()) + "us"s : ""s ) );
       }
+      metrics.block_producer = producer;
+      metrics.block_num = block_num;
+      metrics.block_total_time_us = (now - clear_time_point).count();
+      metrics.block_idle_us = block_idle_time.count();
+      metrics.num_success_trx = trx_success_num;
+      metrics.success_trx_time_us = trx_success_time.count();
+      metrics.num_fail_trx = trx_fail_num;
+      metrics.fail_trx_time_us = trx_fail_time.count();
+      metrics.num_transient_trx = transient_trx_num;
+      metrics.transient_trx_time_us = transient_trx_time.count();
+      metrics.block_other_time_us = other_time.count();
    }
 
    void clear() {
@@ -573,6 +582,7 @@ public:
    snapshot_scheduler _snapshot_scheduler;
 
    std::function<void(producer_plugin::produced_block_metrics)> _update_produced_block_metrics;
+   std::function<void(producer_plugin::speculative_block_metrics)> _update_speculative_block_metrics;
    std::function<void(producer_plugin::incoming_block_metrics)> _update_incoming_block_metrics;
 
    // ro for read-only
@@ -668,7 +678,10 @@ public:
 
       if (block_info) {
          auto[block_num, block_producer] = *block_info;
-         _time_tracker.report(block_num, block_producer);
+         producer_plugin::speculative_block_metrics metrics;
+         _time_tracker.report(block_num, block_producer, metrics);
+         if (_update_speculative_block_metrics)
+            _update_speculative_block_metrics(metrics);
       }
       _time_tracker.clear();
    }
@@ -766,11 +779,14 @@ public:
          }
       }
       if (_update_incoming_block_metrics) {
-         _update_incoming_block_metrics({.trxs_incoming_total = block->transactions.size(),
-                                         .cpu_usage_us        = br.total_cpu_usage_us,
-                                         .net_usage_us        = br.total_net_usage,
-                                         .last_irreversible   = chain.last_irreversible_block_num(),
-                                         .head_block_num      = chain.head_block_num()});
+         _update_incoming_block_metrics({.trxs_incoming_total   = block->transactions.size(),
+                                         .cpu_usage_us          = br.total_cpu_usage_us,
+                                         .total_elapsed_time_us = br.total_elapsed_time.count(),
+                                         .total_time_us         = br.total_time.count(),
+                                         .net_usage_us          = br.total_net_usage,
+                                         .block_latency_us      = (now - block->timestamp).count(),
+                                         .last_irreversible     = chain.last_irreversible_block_num(),
+                                         .head_block_num        = blk_num});
       }
 
       return true;
@@ -2729,22 +2745,10 @@ void producer_plugin_impl::produce_block() {
 
    block_state_ptr new_bs = chain.head_block_state();
 
+   producer_plugin::produced_block_metrics metrics;
    chain_plug->notify_hs_block_produced();
 
    br.total_time += fc::time_point::now() - start;
-
-   if (_update_produced_block_metrics) {
-      _update_produced_block_metrics(
-         {.unapplied_transactions_total       = _unapplied_transactions.size(),
-          .blacklisted_transactions_total     = _blacklisted_transactions.size(),
-          .subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size(),
-          .scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size(),
-          .trxs_produced_total  = new_bs->block->transactions.size(),
-          .cpu_usage_us         = br.total_cpu_usage_us,
-          .net_usage_us         = br.total_net_usage,
-          .last_irreversible    = chain.last_irreversible_block_num(),
-          .head_block_num       = chain.head_block_num()});
-   }
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
@@ -2753,8 +2757,23 @@ void producer_plugin_impl::produce_block() {
         ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_bs->header.confirmed));
 
    _time_tracker.add_other_time();
-   _time_tracker.report(new_bs->block_num, new_bs->block->producer);
+   _time_tracker.report(new_bs->block_num, new_bs->block->producer, metrics);
    _time_tracker.clear();
+
+   if (_update_produced_block_metrics) {
+      metrics.unapplied_transactions_total = _unapplied_transactions.size();
+      metrics.blacklisted_transactions_total = _blacklisted_transactions.size();
+      metrics.subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size();
+      metrics.scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size();
+      metrics.trxs_produced_total = new_bs->block->transactions.size();
+      metrics.cpu_usage_us = br.total_cpu_usage_us;
+      metrics.total_elapsed_time_us = br.total_elapsed_time.count();
+      metrics.total_time_us = br.total_time.count();
+      metrics.net_usage_us = br.total_net_usage;
+      metrics.last_irreversible = chain.last_irreversible_block_num();
+      metrics.head_block_num = chain.head_block_num();
+      _update_produced_block_metrics(metrics);
+   }
 }
 
 void producer_plugin::received_block(uint32_t block_num) {
@@ -2986,6 +3005,10 @@ const std::set<account_name>& producer_plugin::producer_accounts() const {
 
 void producer_plugin::register_update_produced_block_metrics(std::function<void(producer_plugin::produced_block_metrics)>&& fun) {
    my->_update_produced_block_metrics = std::move(fun);
+}
+
+void producer_plugin::register_update_speculative_block_metrics(std::function<void(speculative_block_metrics)> && fun) {
+   my->_update_speculative_block_metrics = std::move(fun);
 }
 
 void producer_plugin::register_update_incoming_block_metrics(std::function<void(producer_plugin::incoming_block_metrics)>&& fun) {
