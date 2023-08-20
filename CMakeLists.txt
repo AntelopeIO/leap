@@ -37,8 +37,8 @@ set( LEAP_UTIL_EXECUTABLE_NAME leap-util )
 
 # http://stackoverflow.com/a/18369825
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)
-        message(FATAL_ERROR "GCC version must be at least 9.0!")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.2)
+        message(FATAL_ERROR "GCC version must be at least 10.2.0!")
     endif()
 endif()
 
@@ -225,6 +225,7 @@ configure_file(libraries/libfc/include/fc/crypto/webauthn_json/license.txt licen
 configure_file(libraries/eos-vm/LICENSE                                    licenses/leap/LICENSE.eos-vm    COPYONLY)
 configure_file(libraries/prometheus/prometheus-cpp/LICENSE                 licenses/leap/LICENSE.prom      COPYONLY)
 configure_file(programs/cleos/LICENSE.CLI11                                licenses/leap/LICENSE.CLI11     COPYONLY)
+configure_file(libraries/libfc/libraries/bls12-381/LICENSE                 licenses/leap/LICENSE.bls12-381 COPYONLY)
 
 install(DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/licenses/leap" DESTINATION "${CMAKE_INSTALL_FULL_DATAROOTDIR}/licenses/" COMPONENT base)
 

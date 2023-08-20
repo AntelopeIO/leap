@@ -9,26 +9,29 @@ namespace eosio::chain {
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
 struct eosvmoc_tier {
+   // Called from main thread
    eosvmoc_tier(const std::filesystem::path& d, const eosvmoc::config& c, const chainbase::database& db)
       : cc(d, c, db) {
-      // construct exec for the main thread
-      init_thread_local_data();
+      // Construct exec and mem for the main thread
+      exec = std::make_unique<eosvmoc::executor>(cc);
+      mem  = std::make_unique<eosvmoc::memory>(wasm_constraints::maximum_linear_memory/wasm_constraints::wasm_page_size);
    }
 
-   // Support multi-threaded execution.
+   // Called from read-only threads
    void init_thread_local_data() {
       exec = std::make_unique<eosvmoc::executor>(cc);
+      mem  = std::make_unique<eosvmoc::memory>(eosvmoc::memory::sliced_pages_for_ro_thread);
    }
 
    eosvmoc::code_cache_async cc;
 
    // Each thread requires its own exec and mem.
    thread_local static std::unique_ptr<eosvmoc::executor> exec;
-   thread_local static eosvmoc::memory mem;
+   thread_local static std::unique_ptr<eosvmoc::memory>   mem;
 };
 
 thread_local std::unique_ptr<eosvmoc::executor> eosvmoc_tier::exec{};
-thread_local eosvmoc::memory eosvmoc_tier::mem{wasm_constraints::maximum_linear_memory / wasm_constraints::wasm_page_size};
+thread_local std::unique_ptr<eosvmoc::memory>   eosvmoc_tier::mem{};
 #endif
 
 wasm_interface_collection::wasm_interface_collection(wasm_interface::vm_type vm, wasm_interface::vm_oc_enable eosvmoc_tierup,
@@ -71,7 +74,7 @@ void wasm_interface_collection::apply(const digest_type& code_hash, const uint8_
       if (cd) {
          if (!context.is_applying_block()) // read_only_trx_test.py looks for this log statement
             tlog("${a} speculatively executing ${h} with eos vm oc", ("a", context.get_receiver())("h", code_hash));
-         eosvmoc->exec->execute(*cd, eosvmoc->mem, context);
+         eosvmoc->exec->execute(*cd, *eosvmoc->mem, context);
          return;
       }
    }

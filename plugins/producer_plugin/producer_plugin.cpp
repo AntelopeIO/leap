@@ -17,8 +17,6 @@
 
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/algorithm/string/predicate.hpp>
-#include <boost/range/adaptor/map.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/hashed_index.hpp>
@@ -307,11 +305,11 @@ struct block_time_tracker {
       last_time_point = now;
    }
 
-   void report(uint32_t block_num, account_name producer) {
+   void report(uint32_t block_num, account_name producer, producer_plugin::speculative_block_metrics& metrics) {
       using namespace std::string_literals;
       assert(!paused);
+      auto now = fc::time_point::now();
       if( _log.is_enabled( fc::log_level::debug ) ) {
-         auto now = fc::time_point::now();
          auto diff = now - clear_time_point - block_idle_time - trx_success_time - trx_fail_time - transient_trx_time - other_time;
          fc_dlog( _log, "Block #${n} ${p} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, "
                   "transient: ${ttn}, ${tt}us, other: ${o}us${rest}",
@@ -321,6 +319,17 @@ struct block_time_tracker {
                   ("ttn", transient_trx_num)("tt", transient_trx_time)
                   ("o", other_time)("rest", diff.count() > 5 ? ", diff: "s + std::to_string(diff.count()) + "us"s : ""s ) );
       }
+      metrics.block_producer = producer;
+      metrics.block_num = block_num;
+      metrics.block_total_time_us = (now - clear_time_point).count();
+      metrics.block_idle_us = block_idle_time.count();
+      metrics.num_success_trx = trx_success_num;
+      metrics.success_trx_time_us = trx_success_time.count();
+      metrics.num_fail_trx = trx_fail_num;
+      metrics.fail_trx_time_us = trx_fail_time.count();
+      metrics.num_transient_trx = transient_trx_num;
+      metrics.transient_trx_time_us = transient_trx_time.count();
+      metrics.block_other_time_us = other_time.count();
    }
 
    void clear() {
@@ -382,7 +391,6 @@ public:
       , _transaction_ack_channel(app().get_channel<compat::channels::transaction_ack>())
       , _ro_timer(io) {}
 
-   uint32_t calculate_next_block_slot(const account_name& producer_name, uint32_t current_block_slot) const;
    void     schedule_production_loop();
    void     schedule_maybe_produce_block(bool exhausted);
    void     produce_block();
@@ -513,8 +521,7 @@ public:
    std::map<chain::public_key_type, signature_provider_type> _signature_providers;
    std::set<chain::account_name>                             _producers;
    boost::asio::deadline_timer                               _timer;
-   using producer_watermark = std::pair<uint32_t, block_timestamp_type>;
-   std::map<chain::account_name, producer_watermark> _producer_watermarks;
+   block_timing_util::producer_watermarks            _producer_watermarks;
    pending_block_mode                                _pending_block_mode = pending_block_mode::speculating;
    unapplied_transaction_queue                       _unapplied_transactions;
    size_t                                            _thread_pool_size = config::default_controller_thread_pool_size;
@@ -573,6 +580,7 @@ public:
    snapshot_scheduler _snapshot_scheduler;
 
    std::function<void(producer_plugin::produced_block_metrics)> _update_produced_block_metrics;
+   std::function<void(producer_plugin::speculative_block_metrics)> _update_speculative_block_metrics;
    std::function<void(producer_plugin::incoming_block_metrics)> _update_incoming_block_metrics;
 
    // ro for read-only
@@ -634,25 +642,6 @@ public:
    void repost_exhausted_transactions(const fc::time_point& deadline);
    bool push_read_only_transaction(transaction_metadata_ptr trx, next_function<transaction_trace_ptr> next);
 
-   void consider_new_watermark(account_name producer, uint32_t block_num, block_timestamp_type timestamp) {
-      auto itr = _producer_watermarks.find(producer);
-      if (itr != _producer_watermarks.end()) {
-         itr->second.first  = std::max(itr->second.first, block_num);
-         itr->second.second = std::max(itr->second.second, timestamp);
-      } else if (_producers.count(producer) > 0) {
-         _producer_watermarks.emplace(producer, std::make_pair(block_num, timestamp));
-      }
-   }
-
-   std::optional<producer_watermark> get_watermark(account_name producer) const {
-      auto itr = _producer_watermarks.find(producer);
-
-      if (itr == _producer_watermarks.end())
-         return {};
-
-      return itr->second;
-   }
-
    void on_block(const block_state_ptr& bsp) {
       auto& chain  = chain_plug->chain();
       auto  before = _unapplied_transactions.size();
@@ -663,7 +652,10 @@ public:
       }
    }
 
-   void on_block_header(const block_state_ptr& bsp) { consider_new_watermark(bsp->header.producer, bsp->block_num, bsp->block->timestamp); }
+   void on_block_header(const block_state_ptr& bsp) {
+      if (_producers.contains(bsp->header.producer))
+         _producer_watermarks.consider_new_watermark(bsp->header.producer, bsp->block_num, bsp->block->timestamp);
+   }
 
    void on_irreversible_block(const signed_block_ptr& lib) {
       const chain::controller& chain = chain_plug->chain();
@@ -684,7 +676,10 @@ public:
 
       if (block_info) {
          auto[block_num, block_producer] = *block_info;
-         _time_tracker.report(block_num, block_producer);
+         producer_plugin::speculative_block_metrics metrics;
+         _time_tracker.report(block_num, block_producer, metrics);
+         if (_update_speculative_block_metrics)
+            _update_speculative_block_metrics(metrics);
       }
       _time_tracker.clear();
    }
@@ -782,11 +777,14 @@ public:
          }
       }
       if (_update_incoming_block_metrics) {
-         _update_incoming_block_metrics({.trxs_incoming_total = block->transactions.size(),
-                                         .cpu_usage_us        = br.total_cpu_usage_us,
-                                         .net_usage_us        = br.total_net_usage,
-                                         .last_irreversible   = chain.last_irreversible_block_num(),
-                                         .head_block_num      = chain.head_block_num()});
+         _update_incoming_block_metrics({.trxs_incoming_total   = block->transactions.size(),
+                                         .cpu_usage_us          = br.total_cpu_usage_us,
+                                         .total_elapsed_time_us = br.total_elapsed_time.count(),
+                                         .total_time_us         = br.total_time.count(),
+                                         .net_usage_us          = br.total_net_usage,
+                                         .block_latency_us      = (now - block->timestamp).count(),
+                                         .last_irreversible     = chain.last_irreversible_block_num(),
+                                         .head_block_num        = blk_num});
       }
 
       return true;
@@ -999,7 +997,6 @@ public:
 
    block_timestamp_type calculate_pending_block_time() const;
    void schedule_delayed_production_loop(const std::weak_ptr<producer_plugin_impl>& weak_this, std::optional<fc::time_point> wake_up_time);
-   std::optional<fc::time_point> calculate_producer_wake_up_time( const block_timestamp_type& ref_block_time ) const;
 
    bool in_producing_mode()   const { return _pending_block_mode == pending_block_mode::producing; }
    bool in_speculating_mode() const { return _pending_block_mode == pending_block_mode::speculating; }
@@ -1256,48 +1253,6 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
 
    // only initialize other read-only options when read-only thread pool is enabled
    if (_ro_thread_pool_size > 0) {
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-      if (chain.is_eos_vm_oc_enabled()) {
-         // EOS VM OC requires 4.2TB Virtual for each executing thread. Make sure the memory
-         // required by configured read-only threads does not exceed the total system virtual memory.
-         std::string   attr_name;
-         size_t        vm_total_kb{0};
-         size_t        vm_used_kb{0};
-         std::ifstream meminfo_file("/proc/meminfo");
-         while (meminfo_file >> attr_name) {
-            if (attr_name == "VmallocTotal:") {
-               if (!(meminfo_file >> vm_total_kb))
-                  break;
-            } else if (attr_name == "VmallocUsed:") {
-               if (!(meminfo_file >> vm_used_kb))
-                  break;
-            }
-            meminfo_file.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
-         }
-
-         EOS_ASSERT(vm_total_kb > 0, plugin_config_exception,
-                    "Unable to get system virtual memory size (not a Linux?), therefore cannot determine if the system has enough "
-                    "virtual memory for multi-threaded read-only transactions on EOS VM OC");
-         EOS_ASSERT(vm_total_kb > vm_used_kb, plugin_config_exception,
-                    "vm total (${t}) must be greater than vm used (${u})",
-                    ("t", vm_total_kb)("u", vm_used_kb));
-         uint32_t num_threads_supported = (vm_total_kb - vm_used_kb) / 4200000000;
-         // reserve 1 for the app thread, 1 for anything else which might use VM
-         EOS_ASSERT(num_threads_supported > 2, plugin_config_exception,
-                    "With the EOS VM OC configured, there is not enough system virtual memory to support the required minimum of "
-                    "3 threads (1 for main thread, 1 for read-only, and 1 for anything else), vm total: ${t}, vm used: ${u}",
-                    ("t", vm_total_kb)("u", vm_used_kb));
-         num_threads_supported -= 2;
-         auto actual_threads_allowed = std::min(_ro_max_threads_allowed, num_threads_supported);
-         ilog("vm total in kb: ${total}, vm used in kb: ${used}, number of EOS VM OC threads supported "
-              "((vm total - vm used)/4.2 TB - 2): ${supp}, max allowed: ${max}, actual allowed: ${actual}",
-              ("total", vm_total_kb)("used", vm_used_kb)("supp", num_threads_supported)("max", _ro_max_threads_allowed)
-              ("actual", actual_threads_allowed));
-         EOS_ASSERT(_ro_thread_pool_size <= actual_threads_allowed, plugin_config_exception,
-                    "read-only-threads (${th}) greater than number of threads allowed for EOS VM OC (${allowed})",
-                    ("th", _ro_thread_pool_size)("allowed", actual_threads_allowed));
-      }
-#endif
       EOS_ASSERT(_ro_thread_pool_size <= _ro_max_threads_allowed,
                  plugin_config_exception,
                  "read-only-threads (${th}) greater than the number of threads allowed (${allowed})",
@@ -1811,69 +1766,6 @@ producer_plugin::get_unapplied_transactions_result producer_plugin::get_unapplie
    return result;
 }
 
-
-uint32_t producer_plugin_impl::calculate_next_block_slot(const account_name& producer_name, uint32_t current_block_slot) const {
-   chain::controller& chain           = chain_plug->chain();
-   const auto&        hbs             = chain.head_block_state();
-   const auto&        active_schedule = hbs->active_schedule.producers;
-
-   // determine if this producer is in the active schedule and if so, where
-   auto itr =
-      std::find_if(active_schedule.begin(), active_schedule.end(), [&](const auto& asp) { return asp.producer_name == producer_name; });
-   if (itr == active_schedule.end()) {
-      // this producer is not in the active producer set
-      return UINT32_MAX;
-   }
-
-   size_t   producer_index = itr - active_schedule.begin();
-   uint32_t minimum_offset = 1; // must at least be the "next" block
-
-   // account for a watermark in the future which is disqualifying this producer for now
-   // this is conservative assuming no blocks are dropped.  If blocks are dropped the watermark will
-   // disqualify this producer for longer but it is assumed they will wake up, determine that they
-   // are disqualified for longer due to skipped blocks and re-calculate their next block with better
-   // information then
-   auto current_watermark = get_watermark(producer_name);
-   if (current_watermark) {
-      const auto watermark = *current_watermark;
-      auto       block_num = chain.head_block_state()->block_num;
-      if (chain.is_building_block()) {
-         ++block_num;
-      }
-      if (watermark.first > block_num) {
-         // if I have a watermark block number then I need to wait until after that watermark
-         minimum_offset = watermark.first - block_num + 1;
-      }
-      if (watermark.second.slot > current_block_slot) {
-         // if I have a watermark block timestamp then I need to wait until after that watermark timestamp
-         minimum_offset = std::max(minimum_offset, watermark.second.slot - current_block_slot + 1);
-      }
-   }
-
-   // this producers next opportunity to produce is the next time its slot arrives after or at the calculated minimum
-   uint32_t minimum_slot = current_block_slot + minimum_offset;
-   size_t   minimum_slot_producer_index =
-      (minimum_slot % (active_schedule.size() * config::producer_repetitions)) / config::producer_repetitions;
-   if (producer_index == minimum_slot_producer_index) {
-      // this is the producer for the minimum slot, go with that
-      return minimum_slot;
-   } else {
-      // calculate how many rounds are between the minimum producer and the producer in question
-      size_t producer_distance = producer_index - minimum_slot_producer_index;
-      // check for unsigned underflow
-      if (producer_distance > producer_index) {
-         producer_distance += active_schedule.size();
-      }
-
-      // align the minimum slot to the first of its set of reps
-      uint32_t first_minimum_producer_slot = minimum_slot - (minimum_slot % config::producer_repetitions);
-
-      // offset the aligned minimum to the *earliest* next set of slots for this producer
-      uint32_t next_block_slot = first_minimum_producer_slot + (producer_distance * config::producer_repetitions);
-      return next_block_slot;
-   }
-}
-
 block_timestamp_type producer_plugin_impl::calculate_pending_block_time() const {
    const chain::controller& chain = chain_plug->chain();
    const fc::time_point     now   = fc::time_point::now();
@@ -1912,7 +1804,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    // Not our turn
    const auto& scheduled_producer = hbs->get_scheduled_producer(block_time);
 
-   const auto current_watermark = get_watermark(scheduled_producer.producer_name);
+   const auto current_watermark = _producer_watermarks.get_watermark(scheduled_producer.producer_name);
 
    size_t num_relevant_signatures = 0;
    scheduled_producer.for_each_key([&](const public_key_type& key) {
@@ -1961,23 +1853,41 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    }
 
    if (in_speculating_mode()) {
-      auto head_block_age = now - chain.head_block_time();
-      if (head_block_age > fc::seconds(5))
-         return start_block_result::waiting_for_block;
+      static fc::time_point last_start_block_time = fc::time_point::maximum(); // always start with speculative block
+      // Determine if we are syncing: if we have recently started an old block then assume we are syncing
+      if (last_start_block_time < now + fc::microseconds(config::block_interval_us)) {
+         auto head_block_age = now - chain.head_block_time();
+         if (head_block_age > fc::seconds(5))
+            return start_block_result::waiting_for_block; // if syncing no need to create a block just to immediately abort it
+      }
+      last_start_block_time = now;
    }
 
-   _pending_block_deadline         = block_timing_util::calculate_block_deadline(_cpu_effort_us, _pending_block_mode, block_time);
-   auto     preprocess_deadline    = _pending_block_deadline;
-   uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
-   if (production_round_index == 0) {
-      // first block of our round, wait for block production window
-      const auto start_block_time = block_time.to_time_point() - fc::microseconds(config::block_interval_us);
-      if (now < start_block_time) {
-         fc_dlog(_log, "Not starting block until ${bt}", ("bt", start_block_time));
-         schedule_delayed_production_loop(weak_from_this(), start_block_time);
-         return start_block_result::waiting_for_production;
+   // create speculative blocks at regular intervals, so we create blocks with "current" block time
+   _pending_block_deadline = now + fc::microseconds(config::block_interval_us);
+   if (in_producing_mode()) {
+      uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
+      if (production_round_index == 0) {
+         // first block of our round, wait for block production window
+         const auto start_block_time = block_time.to_time_point() - fc::microseconds(config::block_interval_us);
+         if (now < start_block_time) {
+            fc_dlog(_log, "Not starting block until ${bt}", ("bt", start_block_time));
+            schedule_delayed_production_loop(weak_from_this(), start_block_time);
+            return start_block_result::waiting_for_production;
+         }
       }
+
+      _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_cpu_effort_us, block_time);
+   } else if (!_producers.empty()) {
+      // cpu effort percent doesn't matter for the first block of the round, use max (block_interval_us) for cpu effort
+      auto wake_time = block_timing_util::calculate_producer_wake_up_time(config::block_interval_us, chain.head_block_num(), chain.head_block_time(),
+                                                                          _producers, chain.head_block_state()->active_schedule.producers,
+                                                                          _producer_watermarks);
+      if (wake_time)
+         _pending_block_deadline = std::min(*wake_time, _pending_block_deadline);
    }
+
+   const auto& preprocess_deadline = _pending_block_deadline;
 
    fc_dlog(_log, "Starting block #${n} at ${time} producer ${p}", ("n", pending_block_num)("time", now)("p", scheduled_producer.producer_name));
 
@@ -2668,8 +2578,12 @@ void producer_plugin_impl::schedule_production_loop() {
                                }));
    } else if (result == start_block_result::waiting_for_block) {
       if (!_producers.empty() && !production_disabled_by_policy()) {
+         chain::controller& chain = chain_plug->chain();
          fc_dlog(_log, "Waiting till another block is received and scheduling Speculative/Production Change");
-         schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(calculate_pending_block_time()));
+         auto wake_time = block_timing_util::calculate_producer_wake_up_time(_cpu_effort_us, chain.head_block_num(), calculate_pending_block_time(),
+                                                                             _producers, chain.head_block_state()->active_schedule.producers,
+                                                                             _producer_watermarks);
+         schedule_delayed_production_loop(weak_from_this(), wake_time);
       } else {
          fc_tlog(_log, "Waiting till another block is received");
          // nothing to do until more blocks arrive
@@ -2685,7 +2599,10 @@ void producer_plugin_impl::schedule_production_loop() {
       chain::controller& chain = chain_plug->chain();
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state");
-      schedule_delayed_production_loop(weak_from_this(), calculate_producer_wake_up_time(chain.pending_block_timestamp()));
+      auto wake_time = block_timing_util::calculate_producer_wake_up_time(_cpu_effort_us, chain.pending_block_num(), chain.pending_block_timestamp(),
+                                                                          _producers, chain.head_block_state()->active_schedule.producers,
+                                                                          _producer_watermarks);
+      schedule_delayed_production_loop(weak_from_this(), wake_time);
    } else {
       fc_dlog(_log, "Speculative Block Created");
    }
@@ -2696,9 +2613,10 @@ void producer_plugin_impl::schedule_production_loop() {
 void producer_plugin_impl::schedule_maybe_produce_block(bool exhausted) {
    chain::controller& chain = chain_plug->chain();
 
+   assert(in_producing_mode());
    // we succeeded but block may be exhausted
    static const boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
-   auto deadline = block_timing_util::calculate_block_deadline(_cpu_effort_us, _pending_block_mode, chain.pending_block_time());
+   auto deadline = block_timing_util::calculate_producing_block_deadline(_cpu_effort_us, chain.pending_block_time());
 
    if (!exhausted && deadline > fc::time_point::now()) {
       // ship this block off no later than its deadline
@@ -2728,24 +2646,6 @@ void producer_plugin_impl::schedule_maybe_produce_block(bool exhausted) {
       }));
 }
 
-
-
-std::optional<fc::time_point> producer_plugin_impl::calculate_producer_wake_up_time(const block_timestamp_type& ref_block_time) const {
-   auto ref_block_slot = ref_block_time.slot;
-   // if we have any producers then we should at least set a timer for our next available slot
-   uint32_t wake_up_slot = UINT32_MAX;
-   for (const auto& p : _producers) {
-      auto next_producer_block_slot = calculate_next_block_slot(p, ref_block_slot);
-      wake_up_slot                  = std::min(next_producer_block_slot, wake_up_slot);
-   }
-   if (wake_up_slot == UINT32_MAX) {
-      fc_dlog(_log, "Not Scheduling Speculative/Production, no local producers had valid wake up times");
-      return {};
-   }
-
-   return block_timing_util::production_round_block_start_time(_cpu_effort_us, block_timestamp_type(wake_up_slot));
-}
-
 void producer_plugin_impl::schedule_delayed_production_loop(const std::weak_ptr<producer_plugin_impl>& weak_this,
                                                             std::optional<fc::time_point>              wake_up_time) {
    if (wake_up_time) {
@@ -2759,6 +2659,8 @@ void producer_plugin_impl::schedule_delayed_production_loop(const std::weak_ptr<
                self->schedule_production_loop();
             }
          }));
+   } else {
+      fc_dlog(_log, "Not Scheduling Speculative/Production, no local producers had valid wake up times");
    }
 }
 
@@ -2836,21 +2738,8 @@ void producer_plugin_impl::produce_block() {
    chain.commit_block();
 
    block_state_ptr new_bs = chain.head_block_state();
-
+   producer_plugin::produced_block_metrics metrics;
    br.total_time += fc::time_point::now() - start;
-
-   if (_update_produced_block_metrics) {
-      _update_produced_block_metrics(
-         {.unapplied_transactions_total       = _unapplied_transactions.size(),
-          .blacklisted_transactions_total     = _blacklisted_transactions.size(),
-          .subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size(),
-          .scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size(),
-          .trxs_produced_total  = new_bs->block->transactions.size(),
-          .cpu_usage_us         = br.total_cpu_usage_us,
-          .net_usage_us         = br.total_net_usage,
-          .last_irreversible    = chain.last_irreversible_block_num(),
-          .head_block_num       = chain.head_block_num()});
-   }
 
    ilog("Produced block ${id}... #${n} @ ${t} signed by ${p} "
         "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${et}, time: ${tt}]",
@@ -2859,8 +2748,23 @@ void producer_plugin_impl::produce_block() {
         ("cpu", br.total_cpu_usage_us)("et", br.total_elapsed_time)("tt", br.total_time)("confs", new_bs->header.confirmed));
 
    _time_tracker.add_other_time();
-   _time_tracker.report(new_bs->block_num, new_bs->block->producer);
+   _time_tracker.report(new_bs->block_num, new_bs->block->producer, metrics);
    _time_tracker.clear();
+
+   if (_update_produced_block_metrics) {
+      metrics.unapplied_transactions_total = _unapplied_transactions.size();
+      metrics.blacklisted_transactions_total = _blacklisted_transactions.size();
+      metrics.subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size();
+      metrics.scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size();
+      metrics.trxs_produced_total = new_bs->block->transactions.size();
+      metrics.cpu_usage_us = br.total_cpu_usage_us;
+      metrics.total_elapsed_time_us = br.total_elapsed_time.count();
+      metrics.total_time_us = br.total_time.count();
+      metrics.net_usage_us = br.total_net_usage;
+      metrics.last_irreversible = chain.last_irreversible_block_num();
+      metrics.head_block_num = chain.head_block_num();
+      _update_produced_block_metrics(metrics);
+   }
 }
 
 void producer_plugin::received_block(uint32_t block_num) {
@@ -3092,6 +2996,10 @@ const std::set<account_name>& producer_plugin::producer_accounts() const {
 
 void producer_plugin::register_update_produced_block_metrics(std::function<void(producer_plugin::produced_block_metrics)>&& fun) {
    my->_update_produced_block_metrics = std::move(fun);
+}
+
+void producer_plugin::register_update_speculative_block_metrics(std::function<void(speculative_block_metrics)> && fun) {
+   my->_update_speculative_block_metrics = std::move(fun);
 }
 
 void producer_plugin::register_update_incoming_block_metrics(std::function<void(producer_plugin::incoming_block_metrics)>&& fun) {

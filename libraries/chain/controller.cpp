@@ -34,6 +34,7 @@
 #include <fc/log/logger_config.hpp>
 #include <fc/scoped_exit.hpp>
 #include <fc/variant_object.hpp>
+#include <bls12-381/bls12-381.hpp>
 
 #include <new>
 #include <shared_mutex>
@@ -338,6 +339,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::get_code_hash>();
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
+      set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
          wasm_if_collect.current_lib(bsp->block_num);
@@ -1014,8 +1016,8 @@ struct controller_impl {
       );
    }
 
-   sha256 calculate_integrity_hash() {
-      sha256::encoder enc;
+   fc::sha256 calculate_integrity_hash() {
+      fc::sha256::encoder enc;
       auto hash_writer = std::make_shared<integrity_hash_snapshot_writer>(enc);
       add_to_snapshot(hash_writer);
       hash_writer->finalize();
@@ -2091,7 +2093,7 @@ struct controller_impl {
                   } else {
                      packed_transaction_ptr ptrx( b, &pt ); // alias signed_block_ptr
                      auto fut = transaction_metadata::start_recover_keys(
-                           std::move( ptrx ), thread_pool.get_executor(), chain_id, microseconds::maximum(), transaction_metadata::trx_type::input  );
+                           std::move( ptrx ), thread_pool.get_executor(), chain_id, fc::microseconds::maximum(), transaction_metadata::trx_type::input  );
                      trx_metas.emplace_back( transaction_metadata_ptr{}, std::move( fut ) );
                   }
                }
@@ -3218,7 +3220,7 @@ block_id_type controller::get_block_id_for_num( uint32_t block_num )const { try 
    return id;
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
-sha256 controller::calculate_integrity_hash() { try {
+fc::sha256 controller::calculate_integrity_hash() { try {
    return my->calculate_integrity_hash();
 } FC_LOG_AND_RETHROW() }
 
@@ -3819,6 +3821,22 @@ void controller_impl::on_activation<builtin_protocol_feature_t::crypto_primitive
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "blake2_f" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "sha3" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "k1_recover" );
+   } );
+}
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>() {
+   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_add" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_add" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_mul" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_mul" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_exp" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_exp" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_pairing" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_map" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_map" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_mod" );
    } );
 }
 
