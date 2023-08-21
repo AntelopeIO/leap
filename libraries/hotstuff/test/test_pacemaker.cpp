@@ -1,7 +1,7 @@
 #include <eosio/hotstuff/test_pacemaker.hpp>
 #include <iostream>
 
-namespace eosio { namespace hotstuff {
+namespace eosio::hotstuff {
 
    void test_pacemaker::set_proposer(name proposer) {
       _proposer = proposer;
@@ -93,11 +93,11 @@ namespace eosio { namespace hotstuff {
          ilog(" === ${memo} : ", ("memo", memo));
       }
 
-      //ilog(" === pacemaker dispatched ${proposals} proposals, ${votes} votes, ${new_blocks} new_blocks, ${new_views} new_views",
-      //     ("proposals", proposals_count)
-      //     ("votes", votes_count)
-      //     ("new_blocks", new_blocks_count)
-      //     ("new_views", new_views_count));
+      ilog(" === pacemaker dispatched ${proposals} proposals, ${votes} votes, ${new_blocks} new_blocks, ${new_views} new_views",
+           ("proposals", proposals_count)
+           ("votes", votes_count)
+           ("new_blocks", new_blocks_count)
+           ("new_views", new_views_count));
 
       return dispatched_messages;
    }
@@ -158,23 +158,23 @@ namespace eosio { namespace hotstuff {
          _qcc_store.emplace( name, qcc_ptr );
    };
 
-   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message & msg, name id) {
+   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, name id) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_vote_msg(const hs_vote_message & msg, name id) {
+   void test_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, name id) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_block_msg(const hs_new_block_message & msg, name id) {
+   void test_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, name id) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_view_msg(const hs_new_view_message & msg, name id) {
+   void test_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, name id) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message & msg, name id) {
+   void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg, name id) {
       auto qc_itr = _qcc_store.begin();
       while (qc_itr != _qcc_store.end()){
          const name                & qcc_name = qc_itr->first;
@@ -185,7 +185,7 @@ namespace eosio { namespace hotstuff {
       }
    }
 
-   void test_pacemaker::on_hs_vote_msg(const hs_vote_message & msg, name id) {
+   void test_pacemaker::on_hs_vote_msg(const hs_vote_message& msg, name id) {
       auto qc_itr = _qcc_store.begin();
       while (qc_itr != _qcc_store.end()) {
          const name                & qcc_name = qc_itr->first;
@@ -196,7 +196,7 @@ namespace eosio { namespace hotstuff {
       }
    }
 
-   void test_pacemaker::on_hs_new_block_msg(const hs_new_block_message & msg, name id) {
+   void test_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg, name id) {
       auto qc_itr = _qcc_store.begin();
       while (qc_itr != _qcc_store.end()) {
          const name                & qcc_name = qc_itr->first;
@@ -207,7 +207,7 @@ namespace eosio { namespace hotstuff {
       }
    }
 
-   void test_pacemaker::on_hs_new_view_msg(const hs_new_view_message & msg, name id) {
+   void test_pacemaker::on_hs_new_view_msg(const hs_new_view_message& msg, name id) {
       auto qc_itr = _qcc_store.begin();
       while (qc_itr != _qcc_store.end()){
          const name                & qcc_name = qc_itr->first;
@@ -218,4 +218,4 @@ namespace eosio { namespace hotstuff {
       }
    }
 
-}}
+} // namespace eosio::hotstuff

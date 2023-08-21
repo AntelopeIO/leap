@@ -1,22 +1,17 @@
 #pragma once
 #include <eosio/chain/block_header.hpp>
 #include <fc/bitutil.hpp>
-#include <eosio/chain/block_header.hpp>
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/crypto/bls_signature.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    const block_id_type NULL_BLOCK_ID = block_id_type("00");
    const fc::sha256 NULL_PROPOSAL_ID = fc::sha256("00");
 
-   static uint32_t compute_block_num(block_id_type block_id) {
-      return fc::endian_reverse_u32(block_id._hash[0]);
-   }
-
-   static uint64_t compute_height(uint32_t block_height, uint32_t phase_counter) {
+   inline uint64_t compute_height(uint32_t block_height, uint32_t phase_counter) {
       return (uint64_t{block_height} << 32) | phase_counter;
    }
 
@@ -46,8 +41,8 @@ namespace eosio { namespace chain {
       quorum_certificate                  justify; //justification
       uint8_t                             phase_counter = 0;
 
-      uint32_t block_num() const { return compute_block_num(block_id); }
-      uint64_t get_height() const { return compute_height(compute_block_num(block_id), phase_counter); };
+      uint32_t block_num() const { return block_header::num_from_id(block_id); }
+      uint64_t get_height() const { return compute_height(block_header::num_from_id(block_id), phase_counter); };
    };
 
    struct hs_new_block_message {
@@ -80,7 +75,7 @@ namespace eosio { namespace chain {
    using hs_new_view_message_ptr = std::shared_ptr<hs_new_view_message>;
    using hs_new_block_message_ptr = std::shared_ptr<hs_new_block_message>;
 
-}} //eosio::chain
+} //eosio::chain
 
 FC_REFLECT(eosio::chain::quorum_certificate, (proposal_id)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));

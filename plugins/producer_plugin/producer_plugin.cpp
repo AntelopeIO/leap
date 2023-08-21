@@ -23,7 +23,6 @@
 #include <boost/multi_index/ordered_index.hpp>
 #include <boost/signals2/connection.hpp>
 
-#include <unistd.h>
 #include <cstdint>
 #include <iostream>
 #include <algorithm>
@@ -517,7 +516,6 @@ public:
    boost::program_options::variables_map _options;
    bool                                  _production_enabled = false;
    bool                                  _pause_production   = false;
-   bool                                  _enable_stale_production_config = false;
 
    using signature_provider_type = signature_provider_plugin::signature_provider_type;
    std::map<chain::public_key_type, signature_provider_type> _signature_providers;
@@ -1043,7 +1041,7 @@ void producer_plugin::set_program_options(
    boost::program_options::options_description producer_options;
 
    producer_options.add_options()
-      ("enable-stale-production,e", boost::program_options::bool_switch()->notifier([this](bool e){my->_production_enabled = e; my->_enable_stale_production_config = e;}),
+      ("enable-stale-production,e", boost::program_options::bool_switch()->notifier([this](bool e){my->_production_enabled = e;}),
        "Enable block production, even if the chain is stale.")
          ("pause-on-startup,x", boost::program_options::bool_switch()->notifier([this](bool p){my->_pause_production = p;}), "Start this node in a state where production is paused")
          ("max-transaction-time", bpo::value<int32_t>()->default_value(30),
