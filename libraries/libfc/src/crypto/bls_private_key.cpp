@@ -65,7 +65,7 @@ namespace fc::crypto::blslib {
 
    static vector<uint8_t> priv_parse_base58(const string& base58str)
    {  
-      cout << base58str << "\n";
+      //cout << base58str << "\n";
       
       return from_wif(base58str);
    }
@@ -80,7 +80,7 @@ namespace fc::crypto::blslib {
       FC_ASSERT(_seed.size() == 32);
       string wif = to_wif(_seed, yield);
 
-      cout << wif << "\n";
+      //cout << wif << "\n";
 
       return wif;
    }
