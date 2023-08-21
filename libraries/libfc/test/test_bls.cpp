@@ -255,16 +255,15 @@ BOOST_AUTO_TEST_CASE(bls_private_key_string_encoding) try {
   
   std::string priv_base58_str = sk.to_string();
 
-  //cout << "priv_base58_str : " << priv_base58_str << "\n";
+  cout << "priv_base58_str : " << priv_base58_str << "\n";
 
   bls_private_key sk2 = bls_private_key(priv_base58_str);
 
-  //cout << "sk2 : " << sk2.to_string() << "\n";
+  cout << "sk2 : " << sk2.to_string() << "\n";
 
   bls_signature signature = sk2.sign(message_1);
 
-  //cout << "pk : " << pk.to_string() << "\n";
-  //cout << "signature : " << signature.to_string() << "\n";
+  cout << "signature : " << signature.to_string() << "\n";
 
   // Verify the signature
   bool ok = verify(pk, message_1, signature);
