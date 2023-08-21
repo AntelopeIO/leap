@@ -4,29 +4,11 @@
 
 namespace fc { namespace crypto { namespace blslib {
 
-   struct hash_visitor : public fc::visitor<size_t> {
-/*      template<typename SigType>
-      size_t operator()(const SigType& sig) const {
-         static_assert(sizeof(sig._data.data) == 65, "sig size is expected to be 65");
-         //signatures are two bignums: r & s. Just add up least significant digits of the two
-         return *(size_t*)&sig._data.data[32-sizeof(size_t)] + *(size_t*)&sig._data.data[64-sizeof(size_t)];
-      }
-
-      size_t operator()(const webauthn::bls_signature& sig) const {
-         return sig.get_hash();
-      }*/
-   };
 
    static bls12_381::g2 sig_parse_base58(const std::string& base58str)
    { try {
 
-
-      const auto pivot = base58str.find('_');
-      auto base_str = base58str.substr(pivot + 1);
-      const auto pivot2 = base_str.find('_');
-      auto data_str = base_str.substr(pivot2 + 1);
-
-      std::vector<char> v1 = fc::from_base58(data_str);
+      std::vector<char> v1 = fc::from_base58(base58str);
 
       FC_ASSERT(v1.size() == 96);
       std::array<uint8_t, 96> v2;
@@ -40,25 +22,6 @@ namespace fc { namespace crypto { namespace blslib {
      :_sig(sig_parse_base58(base58str))
    {}
 
-//   size_t bls_signature::which() const {
-//      //return _storage.index();
-//   }
-
-
-   //template<class... Ts> struct overloaded : Ts... { using Ts::operator()...; };
-   //template<class... Ts> overloaded(Ts...) -> overloaded<Ts...>;
-
-   size_t bls_signature::variable_size() const {
-     /* return std::visit(overloaded {
-         [&](const auto& k1r1) {
-            return static_cast<size_t>(0);
-         },
-         [&](const webauthn::bls_signature& wa) {
-            return static_cast<size_t>(wa.variable_size());
-         }
-      }, _storage);*/
-   }
-
    std::string bls_signature::to_string(const fc::yield_function_t& yield) const
    {
 
@@ -68,7 +31,7 @@ namespace fc { namespace crypto { namespace blslib {
 
       std::string data_str = fc::to_base58(v2, yield);
 
-      return std::string(config::bls_signature_base_prefix) + "_" + std::string(config::bls_signature_prefix) + "_" + data_str;
+      return data_str;
 
    }
 
@@ -81,19 +44,6 @@ namespace fc { namespace crypto { namespace blslib {
       return p1._sig == p2._sig;
    }
 
-/*
-   bool operator != ( const bls_signature& p1, const bls_signature& p2) {
-      return !eq_comparator<bls_signature::storage_type>::apply(p1._storage, p2._storage);
-   }
-
-   bool operator < ( const bls_signature& p1, const bls_signature& p2)
-   {
-      return less_comparator<bls_signature::storage_type>::apply(p1._storage, p2._storage);
-   }
-*/
-   size_t hash_value(const bls_signature& b) {
-     //  return std::visit(hash_visitor(), b._storage);
-   }
 } } }  // fc::crypto::blslib
 
 namespace fc

@@ -114,40 +114,6 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
 
 } FC_LOG_AND_RETHROW();
 
-#warning test being worked under https://github.com/AntelopeIO/leap/issues/1531
-/*
-//test a aggregate signature from string
-BOOST_AUTO_TEST_CASE(bls_sig_verif_string_multi) try {
-
-  bls_signature test_sig_single = bls_signature("SIG_BLS_23PuSu1B72cPe6wxGkKjAaaZqA1Ph79zSoW7omsKKUrnprbA3cJCJVhT48QKUG6ofjYTTg4BA4TrVENWyrxjTomwLX6TGdVg2RYhKH7Kk9X23K5ohuhKQcWQ6AwJJGVSbSp4");
-  std::vector<uint8_t> message_4 = {143,10,193,195,104,126,124,222,124,64,177,164,240,234,110,18,142,236,191,66,223,47,235,248,75,9,172,99,178,26,239,78};
-  bls_private_key sk = bls_private_key(seed_1);
-
-  bls_public_key agg_key = sk.get_public_key();
-  bls_signature agg_sig = test_sig_single;
-  
-  cout << 0 << "\n";
-  cout << agg_key.to_string() << "\n";
-  cout << agg_sig.to_string() << "\n";
-
-  for (int i = 1 ;i<14;i++){
-
-    agg_key = aggregate({agg_key, sk.get_public_key() });
-    agg_sig = aggregate({agg_sig, test_sig_single});
-
-    cout << i << "\n";
-    cout << agg_key.to_string() << "\n";
-    cout << agg_sig.to_string() << "\n";
-
-  }
-  
-  bool ok = verify(agg_key, message_4, agg_sig);
-
-  BOOST_CHECK_EQUAL(ok, true);
-
-} FC_LOG_AND_RETHROW();
-*/
-
 //test serialization / deserialization of private key, public key and signature
 BOOST_AUTO_TEST_CASE(bls_serialization_test) try {
 
@@ -279,6 +245,34 @@ BOOST_AUTO_TEST_CASE(bls_bad_sig_verif) try {
 
 
 } FC_LOG_AND_RETHROW();
+
+//test private key base58 encoding
+BOOST_AUTO_TEST_CASE(bls_private_key_string_encoding) try {
+
+  bls_private_key sk = bls_private_key(seed_1);
+
+  bls_public_key pk = sk.get_public_key();
+  
+  std::string priv_base58_str = sk.to_string();
+
+  //cout << "priv_base58_str : " << priv_base58_str << "\n";
+
+  bls_private_key sk2 = bls_private_key(priv_base58_str);
+
+  //cout << "sk2 : " << sk2.to_string() << "\n";
+
+  bls_signature signature = sk2.sign(message_1);
+
+  //cout << "pk : " << pk.to_string() << "\n";
+  //cout << "signature : " << signature.to_string() << "\n";
+
+  // Verify the signature
+  bool ok = verify(pk, message_1, signature);
+
+  BOOST_CHECK_EQUAL(ok, true);
+
+} FC_LOG_AND_RETHROW();
+
 
 
 BOOST_AUTO_TEST_SUITE_END()

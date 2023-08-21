@@ -4,39 +4,10 @@
 
 namespace fc { namespace crypto { namespace blslib {
 
-  /* struct recovery_visitor : fc::visitor<bls_public_key::storage_type> {
-      recovery_visitor(const sha256& digest, bool check_canonical)
-      :_digest(digest)
-      ,_check_canonical(check_canonical)
-      {}
-
-      template<typename SignatureType>
-      bls_public_key::storage_type operator()(const SignatureType& s) const {
-         return bls_public_key::storage_type(s.recover(_digest, _check_canonical));
-      }
-
-      const sha256& _digest;
-      bool _check_canonical;
-   };
-
-   bls_public_key::bls_public_key( const bls_signature& c, const sha256& digest, bool check_canonical )
-   :_storage(std::visit(recovery_visitor(digest, check_canonical), c._storage))
-   {
-   }
-
-   size_t bls_public_key::which() const {
-      return _storage.index();
-   }*/
-
    static bls12_381::g1 parse_base58(const std::string& base58str)
    {  
       
-      constexpr auto prefix = config::bls_public_key_base_prefix;
-      const auto pivot = base58str.find('_');
-      const auto prefix_str = base58str.substr(0, pivot);
-      auto data_str = base58str.substr(pivot + 1);
-   
-      std::vector<char> v1 = fc::from_base58(data_str);
+      std::vector<char> v1 = fc::from_base58(base58str);
 
       FC_ASSERT(v1.size() == 48);
       std::array<uint8_t, 48> v2;
@@ -50,13 +21,6 @@ namespace fc { namespace crypto { namespace blslib {
    :_pkey(parse_base58(base58str))
    {}
 
-
-   bool bls_public_key::valid()const
-   {
-      //return std::visit(is_valid_visitor(), _storage);
-   }
-
-
    std::string bls_public_key::to_string(const fc::yield_function_t& yield)const {
 
       std::vector<char> v2;
@@ -64,10 +28,10 @@ namespace fc { namespace crypto { namespace blslib {
       std::copy(bytes.begin(), bytes.end(), std::back_inserter(v2));
 
       std::string data_str = fc::to_base58(v2, yield);
-
-      //std::string data_str = Util::HexStr(_pkey);
       
-      return std::string(config::bls_public_key_base_prefix) + "_" + data_str;
+      //return std::string(config::bls_public_key_base_prefix) + "_" + data_str;
+      return data_str;
+
 
    }
 

@@ -5,14 +5,10 @@
 
 namespace fc::crypto::blslib {
 
-   namespace config {
-      constexpr const char* bls_private_key_base_prefix = "PVT";
-      constexpr const char* bls_private_key_prefix = "BLS";
-   };
-
    class bls_private_key
    {
       public:
+
          bls_private_key() = default;
          bls_private_key( bls_private_key&& ) = default;
          bls_private_key( const bls_private_key& ) = default;

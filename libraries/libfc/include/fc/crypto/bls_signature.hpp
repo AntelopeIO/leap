@@ -42,7 +42,7 @@ namespace fc { namespace crypto { namespace blslib {
 
 //         size_t which() const;
 
-         size_t variable_size() const;
+         //size_t variable_size() const;
 
 
          bls12_381::g2 _sig;
@@ -58,7 +58,7 @@ namespace fc { namespace crypto { namespace blslib {
          //friend bool operator == ( const bls_signature& p1, const bls_signature& p2);
          //friend bool operator != ( const bls_signature& p1, const bls_signature& p2);
         //friend bool operator < ( const bls_signature& p1, const bls_signature& p2);
-         friend std::size_t hash_value(const bls_signature& b); //not cryptographic; for containers
+         //friend std::size_t hash_value(const bls_signature& b); //not cryptographic; for containers
          friend bool operator == ( const bls_signature& p1, const bls_signature& p2);
          friend struct reflector<bls_signature>;
          friend class bls_private_key;
