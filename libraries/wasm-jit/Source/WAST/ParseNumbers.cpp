@@ -239,7 +239,7 @@ bool tryParseInt(ParseState& state,UnsignedInt& outUnsignedInt,I64 minSignedValu
 		return false;
 	};
 
-	outUnsignedInt = isNegative ? -UnsignedInt(I64(u64)) : UnsignedInt(u64);
+	outUnsignedInt = isNegative ? -UnsignedInt(u64) : UnsignedInt(u64);
 		
 	++state.nextToken;
 	WAVM_ASSERT_THROW(nextChar <= state.string + state.nextToken->begin);
