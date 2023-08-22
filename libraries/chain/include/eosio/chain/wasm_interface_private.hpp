@@ -137,31 +137,30 @@ struct eosvmoc_tier {
       {
          wasm_cache_index::iterator it = wasm_instantiation_cache.find(
                                              boost::make_tuple(code_hash, vm_type, vm_version) );
-         const code_object* codeobject = nullptr;
-         if(it == wasm_instantiation_cache.end()) {
-            codeobject = &db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
-
-            it = wasm_instantiation_cache.emplace( wasm_interface_impl::wasm_cache_entry{
-                                                      .code_hash = code_hash,
-                                                      .last_block_num_used = UINT32_MAX,
-                                                      .module = nullptr,
-                                                      .vm_type = vm_type,
-                                                      .vm_version = vm_version
-                                                   } ).first;
+         if(it != wasm_instantiation_cache.end()) {
+            // An instantiated module's module should never be null.
+            assert(it->module);
+            return it->module;
          }
 
-         if(!it->module) {
-            if(!codeobject)
-               codeobject = &db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
+         // Parse the contract WASM into an instantiated module and
+         // cache the instantiated module.
+         const code_object* codeobject = &db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
+         it = wasm_instantiation_cache.emplace( wasm_interface_impl::wasm_cache_entry{
+                                                   .code_hash = code_hash,
+                                                   .last_block_num_used = UINT32_MAX,
+                                                   .module = nullptr,
+                                                   .vm_type = vm_type,
+                                                   .vm_version = vm_version
+                                                } ).first;
+         auto timer_pause = fc::make_scoped_exit([&](){
+            trx_context.resume_billing_timer();
+         });
+         trx_context.pause_billing_timer();
+         wasm_instantiation_cache.modify(it, [&](auto& c) {
+            c.module = runtime_interface->instantiate_module(codeobject->code.data(), codeobject->code.size(), code_hash, vm_type, vm_version);
+         });
 
-            auto timer_pause = fc::make_scoped_exit([&](){
-               trx_context.resume_billing_timer();
-            });
-            trx_context.pause_billing_timer();
-            wasm_instantiation_cache.modify(it, [&](auto& c) {
-               c.module = runtime_interface->instantiate_module(codeobject->code.data(), codeobject->code.size(), code_hash, vm_type, vm_version);
-            });
-         }
          return it->module;
       }
 
