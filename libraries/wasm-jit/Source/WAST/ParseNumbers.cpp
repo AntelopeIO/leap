@@ -229,7 +229,7 @@ bool tryParseInt(ParseState& state,UnsignedInt& outUnsignedInt,I64 minSignedValu
 	{
 	case t_decimalInt:
 		isNegative = parseSign(nextChar);
-		u64 = parseDecimalUnsignedInt(nextChar,state,isNegative ? U64(-minSignedValue) : maxUnsignedValue,"int literal");
+		u64 = parseDecimalUnsignedInt(nextChar,state,isNegative ? -U64(minSignedValue) : maxUnsignedValue,"int literal");
 		break;
 	case t_hexInt:
 		isNegative = parseSign(nextChar);
@@ -239,7 +239,7 @@ bool tryParseInt(ParseState& state,UnsignedInt& outUnsignedInt,I64 minSignedValu
 		return false;
 	};
 
-	outUnsignedInt = isNegative ? UnsignedInt(-I64(u64)) : UnsignedInt(u64);
+	outUnsignedInt = isNegative ? -UnsignedInt(u64) : UnsignedInt(u64);
 		
 	++state.nextToken;
 	WAVM_ASSERT_THROW(nextChar <= state.string + state.nextToken->begin);
