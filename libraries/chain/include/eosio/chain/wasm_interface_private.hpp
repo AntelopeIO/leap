@@ -22,6 +22,8 @@
 #include <eosio/chain/webassembly/eos-vm.hpp>
 #include <eosio/vm/allocator.hpp>
 
+#include <shared_mutex>
+
 using namespace fc;
 using namespace eosio::chain::webassembly;
 using namespace IR;
@@ -102,11 +104,16 @@ struct eosvmoc_tier {
       ~wasm_interface_impl() = default;
 
       bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {
+         std::shared_lock g(instantiation_cache_mutex);
          wasm_cache_index::iterator it = wasm_instantiation_cache.find( boost::make_tuple(code_hash, vm_type, vm_version) );
          return it != wasm_instantiation_cache.end();
       }
 
       void code_block_num_last_used(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, const uint32_t& block_num) {
+         // The caller of this method apply_eosio_setcode has asserted that
+         // the transaction is not read-only, implying we are
+         // in write window. Read-only threads are not running.
+         // Safe to update the cache without locking.
          wasm_cache_index::iterator it = wasm_instantiation_cache.find(boost::make_tuple(code_hash, vm_type, vm_version));
          if(it != wasm_instantiation_cache.end())
             wasm_instantiation_cache.modify(it, [block_num](wasm_cache_entry& e) {
@@ -116,7 +123,10 @@ struct eosvmoc_tier {
 
       // reports each code_hash and vm_version that will be erased to callback
       void current_lib(uint32_t lib) {
-         //anything last used before or on the LIB can be evicted
+         // producer_plugin has asserted irreversible_block signal is called
+         // in write window. Read-only threads are not running.
+         // Safe to update the cache without locking.
+         // Anything last used before or on the LIB can be evicted.
          const auto first_it = wasm_instantiation_cache.get<by_last_block_num>().begin();
          const auto last_it  = wasm_instantiation_cache.get<by_last_block_num>().upper_bound(lib);
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
@@ -135,10 +145,24 @@ struct eosvmoc_tier {
       const std::unique_ptr<wasm_instantiated_module_interface>& get_instantiated_module( const digest_type& code_hash, const uint8_t& vm_type,
                                                                                  const uint8_t& vm_version, transaction_context& trx_context )
       {
+         std::shared_lock r_lock(instantiation_cache_mutex);
          wasm_cache_index::iterator it = wasm_instantiation_cache.find(
                                              boost::make_tuple(code_hash, vm_type, vm_version) );
          if(it != wasm_instantiation_cache.end()) {
             // An instantiated module's module should never be null.
+            assert(it->module);
+            return it->module;
+         }
+         r_lock.unlock();
+
+         // Acquire a unique lock as we need to modify the cache
+         std::unique_lock rw_lock(instantiation_cache_mutex);
+
+         // While waiting for aquiring the write lock, another thread might
+         // have already compiled the contract and it is ready for use.
+         // Check again if that's the case.
+         it = wasm_instantiation_cache.find(boost::make_tuple(code_hash, vm_type, vm_version) );
+         if (it != wasm_instantiation_cache.end()) {
             assert(it->module);
             return it->module;
          }
@@ -183,6 +207,7 @@ struct eosvmoc_tier {
 
       const chainbase::database& db;
       const wasm_interface::vm_type wasm_runtime_time;
+      mutable std::shared_mutex instantiation_cache_mutex;
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       std::unique_ptr<struct eosvmoc_tier> eosvmoc{nullptr}; // used by all threads
