@@ -1,12 +1,13 @@
 #pragma once
 
 #include <eosio/hotstuff/base_pacemaker.hpp>
-
-#include <eosio/chain/controller.hpp>
-
 #include <eosio/hotstuff/qc_chain.hpp>
 
-namespace eosio { namespace hotstuff {
+namespace eosio::chain {
+   class controller;
+}
+
+namespace eosio::hotstuff {
 
    class chain_pacemaker : public base_pacemaker {
    public:
@@ -52,6 +53,7 @@ namespace eosio { namespace hotstuff {
       // For maximum safety, the qc_chain core will only process one request at a time.
       // These requests can come directly from the net threads, or indirectly from a
       //   dedicated finalizer thread (TODO: discuss).
+#warning discuss
       std::mutex              _hotstuff_global_mutex;
 
       chain::controller*      _chain = nullptr;
@@ -61,4 +63,4 @@ namespace eosio { namespace hotstuff {
       uint32_t                _quorum_threshold = 15; //FIXME/TODO: calculate from schedule
    };
 
-}}
+} // namespace eosio::hotstuff

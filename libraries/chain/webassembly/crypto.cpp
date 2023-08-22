@@ -7,8 +7,6 @@
 #include <fc/crypto/blake2.hpp>
 #include <fc/crypto/sha3.hpp>
 #include <fc/crypto/k1_recover.hpp>
-#undef g1_add
-#include <fc/crypto/bls_utils.hpp>
 #include <bn256/bn256.h>
 #include <bls12-381/bls12-381.hpp>
 
@@ -119,8 +117,6 @@ namespace eosio { namespace chain { namespace webassembly {
    void interface::ripemd160(legacy_span<const char> data, legacy_ptr<fc::ripemd160> hash_val) const {
       *hash_val = context.trx_context.hash_with_checktime<fc::ripemd160>( data.data(), data.size() );
    }
-
-#undef g1_add
 
    int32_t interface::alt_bn128_add(span<const char> op1, span<const char> op2, span<char> result ) const {
       if (op1.size() != 64 ||  op2.size() != 64 ||  result.size() < 64 ||

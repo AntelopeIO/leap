@@ -49,7 +49,7 @@
 
 namespace eosio { namespace hotstuff {
 
-   const hs_proposal_message* qc_chain::get_proposal(fc::sha256 proposal_id) {
+   const hs_proposal_message* qc_chain::get_proposal(const fc::sha256& proposal_id) {
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       if (proposal_id == NULL_PROPOSAL_ID)
          return nullptr;
@@ -173,13 +173,13 @@ namespace eosio { namespace hotstuff {
       throw std::runtime_error("qc_chain internal error: finalizer not found");
    }
 
-   digest_type qc_chain::get_digest_to_sign(block_id_type block_id, uint8_t phase_counter, fc::sha256 final_on_qc){
+   digest_type qc_chain::get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc){
       digest_type h1 = digest_type::hash( std::make_pair( block_id, phase_counter ) );
       digest_type h2 = digest_type::hash( std::make_pair( h1, final_on_qc ) );
       return h2;
    }
 
-   std::vector<hs_proposal_message> qc_chain::get_qc_chain(fc::sha256 proposal_id) {
+   std::vector<hs_proposal_message> qc_chain::get_qc_chain(const fc::sha256& proposal_id) {
       std::vector<hs_proposal_message> ret_arr;
       const hs_proposal_message *b, *b1, *b2;
       b2 = get_proposal( proposal_id );
@@ -196,7 +196,7 @@ namespace eosio { namespace hotstuff {
       return ret_arr;
    }
 
-   hs_proposal_message qc_chain::new_proposal_candidate(block_id_type block_id, uint8_t phase_counter) {
+   hs_proposal_message qc_chain::new_proposal_candidate(const block_id_type& block_id, uint8_t phase_counter) {
       hs_proposal_message b_new;
       b_new.block_id = block_id;
       b_new.parent_id =  _b_leaf;
@@ -237,7 +237,7 @@ namespace eosio { namespace hotstuff {
       return b_new;
    }
 
-   void qc_chain::reset_qc(fc::sha256 proposal_id){
+   void qc_chain::reset_qc(const fc::sha256& proposal_id){
       std::lock_guard g( _state_mutex );
 #ifdef QC_CHAIN_TRACE_DEBUG
       if (_log) ilog(" === ${id} resetting qc : ${proposal_id}", ("proposal_id" , proposal_id)("id", _id));
@@ -248,7 +248,7 @@ namespace eosio { namespace hotstuff {
       _current_qc.active_agg_sig = fc::crypto::blslib::bls_signature();
    }
 
-   hs_new_block_message qc_chain::new_block_candidate(block_id_type block_id) {
+   hs_new_block_message qc_chain::new_block_candidate(const block_id_type& block_id) {
       hs_new_block_message b;
       b.block_id = block_id;
       b.justify = _high_qc; //or null if no _high_qc upon activation or chain launch
@@ -276,7 +276,7 @@ namespace eosio { namespace hotstuff {
             else agg_key = fc::crypto::blslib::aggregate({agg_key, _private_key.get_public_key() });
          }
       }
-
+#warning fix todo
       // ****************************************************************************************************
       // FIXME/TODO: I removed this since it doesn't seem to be doing anything at the moment
       // ****************************************************************************************************
@@ -355,7 +355,7 @@ namespace eosio { namespace hotstuff {
       digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
 
       std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
-
+#warning use appropriate private key for each producer
       fc::crypto::blslib::bls_signature sig = _private_key.sign(h); //FIXME/TODO: use appropriate private key for each producer
 
       hs_vote_message v_msg = {proposal.proposal_id, finalizer, sig};
@@ -504,7 +504,7 @@ namespace eosio { namespace hotstuff {
    void qc_chain::process_vote(const hs_vote_message & vote){
 
       //auto start = fc::time_point::now();
-
+#warning check for duplicate or invalid vote. We will return in either case, but keep proposals for evidence of double signing
       //TODO: check for duplicate or invalid vote. We will return in either case, but keep proposals for evidence of double signing
 
       bool am_leader = am_i_leader();
@@ -602,6 +602,7 @@ namespace eosio { namespace hotstuff {
    void qc_chain::process_new_block(const hs_new_block_message & msg){
 
       // If I'm not a leader, I probably don't care about hs-new-block messages.
+#warning check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
       // TODO: check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
       if (! am_i_leader()) {
 
@@ -615,6 +616,7 @@ namespace eosio { namespace hotstuff {
       if (_log) ilog(" === ${id} process_new_block === am leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
 #endif
 
+#warning What to do with the received msg.justify?
       // ------------------------------------------------------------------
       //
       //   FIXME/REVIEW/TODO: What to do with the received msg.justify?
@@ -697,8 +699,9 @@ namespace eosio { namespace hotstuff {
    }
 
    //extends predicate
-   bool qc_chain::extends(fc::sha256 descendant, fc::sha256 ancestor){
+   bool qc_chain::extends(const fc::sha256& descendant, const fc::sha256& ancestor){
 
+#warning confirm the extends predicate never has to verify extension of irreversible blocks, otherwise this function needs to be modified
       //TODO: confirm the extends predicate never has to verify extension of irreversible blocks, otherwise this function needs to be modified
 
       uint32_t counter = 0;
