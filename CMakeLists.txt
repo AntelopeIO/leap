@@ -37,8 +37,8 @@ set( LEAP_UTIL_EXECUTABLE_NAME leap-util )
 
 # http://stackoverflow.com/a/18369825
 if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "GNU")
-    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 9.0)
-        message(FATAL_ERROR "GCC version must be at least 9.0!")
+    if (CMAKE_CXX_COMPILER_VERSION VERSION_LESS 10.2)
+        message(FATAL_ERROR "GCC version must be at least 10.2.0!")
     endif()
 endif()
 
