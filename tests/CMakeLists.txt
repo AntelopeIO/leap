@@ -52,6 +52,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/p2p_high_latency_test.py ${CMAKE_CURR
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/p2p_multiple_listen_test.py ${CMAKE_CURRENT_BINARY_DIR}/p2p_multiple_listen_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/p2p_no_listen_test.py ${CMAKE_CURRENT_BINARY_DIR}/p2p_no_listen_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/p2p_sync_throttle_test.py ${CMAKE_CURRENT_BINARY_DIR}/p2p_sync_throttle_test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/p2p_sync_throttle_test_shape.json ${CMAKE_CURRENT_BINARY_DIR}/p2p_sync_throttle_test_shape.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/compute_transaction_test.py ${CMAKE_CURRENT_BINARY_DIR}/compute_transaction_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/subjective_billing_test.py ${CMAKE_CURRENT_BINARY_DIR}/subjective_billing_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/get_account_test.py ${CMAKE_CURRENT_BINARY_DIR}/get_account_test.py COPYONLY)

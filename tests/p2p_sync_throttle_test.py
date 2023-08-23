@@ -50,8 +50,9 @@ try:
         extraNodeosArgs = ''.join([i+j for i,j in zip([' --plugin '] * len(args.plugin), args.plugin)])
     else:
         extraNodeosArgs = ''
-    if cluster.launch(pnodes=pnodes, unstartedNodes=2, totalNodes=total_nodes, prodCount=prod_count, topo='line', 
-                      delay=delay, extraNodeosArgs=extraNodeosArgs) is False:
+    if cluster.launch(pnodes=pnodes, unstartedNodes=2, totalNodes=total_nodes, prodCount=prod_count, 
+                      topo='./tests/p2p_sync_throttle_test_shape.json', delay=delay, 
+                      extraNodeosArgs=extraNodeosArgs) is False:
         errorExit("Failed to stand up eos cluster.")
 
     prodNode = cluster.getNode(0)
@@ -95,7 +96,7 @@ try:
 
     throttleNode = cluster.unstartedNodes[0]
     i = throttleNode.cmd.index('--p2p-listen-endpoint')
-    throttleNode.cmd[i+1] = throttleNode.cmd[i+1] + ':100B/s'
+    throttleNode.cmd[i+1] = throttleNode.cmd[i+1] + ':1000B/s'
 
     cluster.biosNode.kill(signal.SIGTERM)
     clusterStart = time.time()
@@ -109,7 +110,7 @@ try:
     endSync = time.time()
     Print(f'Unthrottled sync time: {endUnthrottledSync - clusterStart} seconds')
     Print(f'Throttled sync time: {endSync - clusterStart} seconds')
-    assert endSync - clusterStart > endUnthrottledSync - clusterStart + 10, 'Throttled sync time must be at least 10 seconds greater than unthrottled'
+    assert endSync - clusterStart > endUnthrottledSync - clusterStart + 50, 'Throttled sync time must be at least 50 seconds greater than unthrottled'
 
     testSuccessful=True
 finally:

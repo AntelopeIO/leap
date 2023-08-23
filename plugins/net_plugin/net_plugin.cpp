@@ -968,10 +968,11 @@ namespace eosio {
       void send_time(const time_message& msg);
       /** \brief Read system time and convert to a 64 bit integer.
        *
-       * There are five calls to this routine in the program.  One
+       * There are six calls to this routine in the program.  One
        * when a packet arrives from the network, one when a packet
-       * is placed on the send queue, one during start session, and
-       * one each when data is counted as received or sent.
+       * is placed on the send queue, one during start session, one
+       * when a sync block is queued and one each when data is
+       * counted as received or sent.
        * Calls the kernel time of day routine and converts to 
        * a (at least) 64 bit integer.
        */
@@ -1218,7 +1219,7 @@ namespace eosio {
          std::regex_match(units, units_match, units_regex);
          if( units_match.size() == 2 ) {
             block_sync_rate_limit = static_cast<size_t>(limit * prefix_multipliers.at(units_match[1].str()));
-            peer_dlog( this, "setting block_sync_rate_limit to ${limit}", ("limit", block_sync_rate_limit));
+            fc_dlog( logger, "setting block_sync_rate_limit to ${limit}", ("limit", block_sync_rate_limit));
          } else {
             fc_wlog( logger, "listen address ${la} has invalid block sync limit specification, connection will not be throttled", ("la", listen_address));
             block_sync_rate_limit = 0;
@@ -1820,16 +1821,17 @@ namespace eosio {
       auto sb = buff_factory.get_send_buffer( b );
       latest_blk_time = std::chrono::system_clock::now();
       if( block_sync_rate_limit > 0 ) {
-         peer_dlog( this, "block_sync_rate_limit is set to ${l}", ("l", block_sync_rate_limit));
+         int sleep_time_us = 100;
+         const int max_sleep_time_us = 100000;
          while( true) {
-            auto elapsed = std::chrono::time_point_cast<std::chrono::nanoseconds>(latest_blk_time) - connection_start_time;
-            auto current_rate = block_sync_bytes_sent / elapsed.time_since_epoch().count();
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(get_time() - connection_start_time);
+            auto current_rate = double(block_sync_bytes_sent) / elapsed.count();
             if( current_rate < block_sync_rate_limit ) {
                enqueue_buffer( sb, no_reason, to_sync_queue);
                break;
             }
-            peer_dlog( this, "throttling sending to peer ${remote}", ("remote", log_remote_endpoint_ip));
-            usleep(100);
+            usleep(sleep_time_us);
+            sleep_time_us = sleep_time_us*2 > max_sleep_time_us ? max_sleep_time_us : sleep_time_us*2;
          }
       } else {
          enqueue_buffer( sb, no_reason, to_sync_queue);
