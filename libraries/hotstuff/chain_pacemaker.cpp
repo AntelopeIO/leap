@@ -124,11 +124,12 @@ namespace eosio { namespace hotstuff {
             csc prof("stat");
             std::lock_guard g( _hotstuff_global_mutex ); // lock IF engine to read state
             prof.core_in();
-            _qc_chain.get_state(current_state);
             current_state_version = _qc_chain.get_state_version(); // get potentially fresher version
+            if (_state_cache_version != current_state_version) 
+               _qc_chain.get_state(current_state);
             prof.core_out();
          }
-         {
+         if (_state_cache_version != current_state_version) {
             std::unique_lock ul(_state_cache_mutex); // lock cache for writing
             _state_cache = current_state;
             _state_cache_version = current_state_version;
