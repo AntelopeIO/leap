@@ -151,9 +151,9 @@ namespace eosio {
     }
 
     struct address_request_message {
-        address_request_message(request_type_enum t = pull) : request_type(t), addresses() {}
-        request_type_enum   request_type;
-        std::unordered_set<string>      addresses;
+       explicit address_request_message(request_type_enum t = pull) : request_type(t), addresses() {}
+       request_type_enum   request_type;
+       std::unordered_set<string>      addresses;
     };
 
 

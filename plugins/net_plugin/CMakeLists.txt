@@ -1,5 +1,6 @@
 file(GLOB HEADERS "include/eosio/net_plugin/*.hpp" )
 add_library( net_plugin
+             address_manager.cpp
              net_plugin.cpp
              ${HEADERS} )
 

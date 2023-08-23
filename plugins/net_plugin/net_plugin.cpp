@@ -144,170 +144,6 @@ namespace eosio {
       >
       > peer_block_state_index;
 
-    void address_manager::add_address(const peer_address& address) {
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-        fc_dlog( logger, "Address Manager add_address: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
-        addresses.emplace(address.to_key(), address);
-    }
-
-    void address_manager::add_or_update_address(const peer_address& address) {
-        peer_address pa = address;
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-        fc_dlog( logger, "Address Manager add_or_update_address: ${host} ${port} ${type}", ("host",address.host)("port",address.port)("type", address_type_str(address.address_type)) );
-        auto it = addresses.find(address.to_key());
-        if (it != addresses.end()) {
-            pa.manual = it->second.manual;
-            pa.receive = it->second.receive;
-            //type and last_active will change
-        }
-        addresses[address.to_key()] = pa;
-    }
-
-    void address_manager::touch_address(const std::string& address) {
-        peer_address pa = peer_address::from_str(address);
-        pa.last_active = fc::time_point::now();
-        add_or_update_address(pa);
-    }
-
-    void address_manager::add_address_str(const std::string& address, bool is_manual ) {
-        peer_address addr = peer_address::from_str(address, is_manual);
-        // same address with different configurations is ignored
-        add_address(addr);
-    }
-
-    void address_manager::add_active_address(const std::string& address) {
-        peer_address addr = peer_address::from_str(address, false);
-        addr.last_active = fc::time_point::now();
-        add_address(addr);
-    }
-
-
-    void address_manager::add_addresses(const std::unordered_set<std::string>& new_addresses_str, bool is_manual) {
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-        for (const auto& address : new_addresses_str) {
-            peer_address pa = peer_address::from_str(address);
-            // Check if address already exists in the map
-            if (addresses.find(pa.to_key()) == addresses.end()) {
-                pa.manual = is_manual;
-                addresses.emplace(pa.to_key(), pa);
-            }
-        }
-    }
-
-    void address_manager::add_addresses2(const std::unordered_set<std::string>& new_addresses_str, bool is_manual) {
-        for (const auto& address : new_addresses_str) {
-            peer_address pa = peer_address::from_str(address);
-            std::lock_guard<std::mutex> lock(addresses_mutex);
-            // Check if address already exists in the map
-            if (addresses.find(pa.to_key()) == addresses.end()) {
-                pa.manual = is_manual;
-                addresses.emplace(pa.to_address(), pa);
-            }
-        }
-    }
-
-    void address_manager::remove_address(const peer_address& address) {
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-        std::string key = address.to_key();
-        auto iter = addresses.find(key);
-        if (iter != addresses.end()) {
-            addresses.erase(iter);
-        }
-    }
-
-    void address_manager::remove_address_str(const std::string& address) {
-        remove_address(peer_address::from_str(address));
-    }
-
-    void address_manager::remove_addresses_str(const std::unordered_set<string>& addresses_to_remove) {
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-        for (const auto& address_str : addresses_to_remove) {
-            peer_address pa = peer_address::from_str(address_str);
-            auto it = addresses.find(pa.to_key());
-            if (it != addresses.end()) {
-                addresses.erase(it);
-                fc_dlog(logger, "Address Manager remove_address: ${host}", ("host", it->second.host));
-            }
-        }
-    }
-
-    void address_manager::remove_addresses_str2(const std::unordered_set<string>& addresses_to_remove) {
-        for (const auto& address_str : addresses_to_remove) {
-            peer_address pa = peer_address::from_str(address_str);
-            std::lock_guard<std::mutex> lock(addresses_mutex);
-            auto it = addresses.find(pa.to_key());
-            if (it != addresses.end()) {
-                addresses.erase(it);
-                fc_dlog(logger, "Address Manager remove_address: ${host}", ("host", it->second.host));
-            }
-        }
-    }
-
-    void address_manager::update_address(const peer_address& updated_address) {
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-        auto it = addresses.find(updated_address.to_key());
-        if (it != addresses.end()) {
-            it->second = updated_address;
-        }
-    }
-
-    std::unordered_set<std::string> address_manager::get_addresses() const {
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-        std::unordered_set<std::string> result;
-        for (const auto& item : addresses) {
-            result.emplace(item.second.to_str());
-        }
-        return result;
-    }
-
-    std::unordered_map<std::string, peer_address> address_manager::get_addresses_map() const {
-        return addresses;
-    }
-
-    std::unordered_set<std::string> address_manager::get_manual_addresses() const {
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-        std::unordered_set<std::string> manual_addresses;
-        for (const auto& [key, address] : addresses) {
-            if (address.manual) {
-                manual_addresses.insert(address.to_str());
-            }
-        }
-        return manual_addresses;
-    }
-
-    std::unordered_set<string> address_manager::get_diff_addresses(const std::unordered_set<string>& addresses_exist, bool manual) const {
-        std::unordered_set<string> diff_addresses;
-        std::unordered_set<string> addr_str_set = manual?get_manual_addresses():get_addresses();
-        for (const auto& addr_str : addr_str_set) {
-            if (addresses_exist.find(addr_str) == addresses_exist.end()) {
-                diff_addresses.insert(addr_str);
-            }
-        }
-        return diff_addresses;
-    }
-
-    std::unordered_set<std::string> address_manager::get_latest_active_addresses(const std::chrono::seconds& secs, bool manual) const {
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-
-        std::unordered_set<std::string> active_addresses;
-        fc::time_point oldest_time = fc::time_point::now() - fc::seconds(secs.count());
-
-        for (const auto& [key, address] : addresses) {
-            if((!manual || address.manual == manual) && address.last_active >= oldest_time) {
-                active_addresses.insert(address.to_str());
-            }
-        }
-        return active_addresses;
-    }
-
-
-    bool address_manager::has_address(const std::string& address_str) const {
-        std::lock_guard<std::mutex> lock(addresses_mutex);
-        peer_address pa = peer_address::from_str(address_str);
-        auto it = addresses.find(pa.to_key());
-        return it != addresses.end();
-    }
-
    struct unlinkable_block_state {
       block_id_type    id;
       signed_block_ptr block;
@@ -507,9 +343,6 @@ namespace eosio {
       mutable std::shared_mutex        connections_mtx;
       chain::flat_set<connection_ptr>  connections;
 
-      // PR918 add address manager class for peers management
-      //chain::flat_set<string>          supplied_peers;
-
       alignas(hardware_destructive_interference_size)
       fc::mutex                             connector_check_timer_mtx;
       unique_ptr<boost::asio::steady_timer> connector_check_timer GUARDED_BY(connector_check_timer_mtx);
@@ -532,8 +365,6 @@ namespace eosio {
       size_t number_connections() const;
 
       std::unordered_set<std::string> get_connections();
-
-       //void add_supplied_peers(const vector<string>& peers );
 
       // not thread safe, only call on startup
       void init(std::chrono::milliseconds heartbeat_timeout_ms,
@@ -994,11 +825,6 @@ namespace eosio {
       bool is_blocks_connection() const { return connection_type == blocks_only || is_both_connection() || is_all_connection(); }
       bool is_peers_connection() const { return connection_type == peers_only || is_all_connection(); }
 
-      bool is_no_transactions_connection() const { return !is_transactions_connection(); }
-      bool is_no_blocks_connection() const { return !is_blocks_connection(); }
-      bool is_no_peers_connection() const { return !is_peers_connection(); }
-
-
       uint32_t get_peer_start_block_num() const { return peer_start_block_num.load(); }
       uint32_t get_peer_head_block_num() const { return peer_head_block_num.load(); }
       uint32_t get_last_received_block_num() const { return last_received_block_num.load(); }
@@ -1341,30 +1167,6 @@ namespace eosio {
       }
    };
 
-   
-
-     // peer_address::from_str will do this
-//   std::tuple<std::string, std::string, std::string> split_host_port_type(const std::string& peer_add) {
-//      // host:port:[<trx>|<blk>]
-//      if (peer_add.empty()) return {};
-//
-//      string::size_type p = peer_add[0] == '[' ? peer_add.find(']') : 0;
-//      if (p == string::npos) {
-//         fc_wlog( logger, "Invalid peer address: ${peer}", ("peer", peer_add) );
-//         return {};
-//      }
-//      string::size_type colon = peer_add.find(':', p);
-//      string::size_type colon2 = peer_add.find(':', colon + 1);
-//      string::size_type end = colon2 == string::npos
-//            ? string::npos : peer_add.find_first_of( " :+=.,<>!$%^&(*)|-#@\t", colon2 + 1 ); // future proof by including most symbols without using regex
-//      string host = (p > 0) ? peer_add.substr( 1, p-1 ) : peer_add.substr( 0, colon );
-//      string port = peer_add.substr( colon + 1, colon2 == string::npos ? string::npos : colon2 - (colon + 1));
-//      string type = colon2 == string::npos ? "" : end == string::npos ?
-//         peer_add.substr( colon2 + 1 ) : peer_add.substr( colon2 + 1, end - (colon2 + 1) );
-//      return {std::move(host), std::move(port), std::move(type)};
-//   }
-
-
    template<typename Function>
    void connections_manager::for_each_connection( Function&& f ) const {
       std::shared_lock g( connections_mtx );
@@ -1462,9 +1264,9 @@ namespace eosio {
    // called from connection strand
    void connection::set_connection_type( const string& peer_add_str ) {
 
-       auto address = peer_address::from_str(peer_add_str);
-       string peer_add = address.to_address();
-       string type = address_type_str(address.address_type);
+      auto address = peer_address::from_str(peer_add_str);
+      string peer_add = address.to_address();
+      string type = address_type_str(address.address_type);
 
       if( type.empty() ) {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to both transactions and blocks", ("c", connection_id)("peer", peer_add) );
@@ -2415,8 +2217,7 @@ namespace eosio {
    // called from c's connection strand
    void sync_manager::recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency ) {
 
-      // since connection type changed, choose connection accept blocks
-      if (c->is_no_blocks_connection())
+      if (!c->is_blocks_connection())
          return;
 
       auto chain_info = my_impl->get_chain_info();
@@ -2835,7 +2636,7 @@ namespace eosio {
       const fc::time_point_sec now{fc::time_point::now()};
       my_impl->connections.for_each_connection( [this, &trx, &now, &buff_factory]( auto& cp ) {
           // since connection type changed, skip connection not accept transactions
-         if( cp->is_no_transactions_connection() || !cp->current() ) {
+         if( !cp->is_transactions_connection() || !cp->current() ) {
             return;
          }
          if( !add_peer_txn(trx->id(), trx->expiration(), cp->connection_id, now) ) {
@@ -4261,7 +4062,7 @@ namespace eosio {
       hello.p2p_address = listen_address;
       if( is_transactions_only_connection() ) hello.p2p_address += ":trx";
       // if we are not accepting transactions tell peer we are blocks only
-      if( is_blocks_only_connection() || !my_impl->p2p_accept_transactions ) hello.p2p_address += ":blk";
+      if( is_blocks_only_connection() ) hello.p2p_address += ":blk";
       if( is_peers_only_connection() ) hello.p2p_address += ":peer";
       if( is_all_connection() ) hello.p2p_address += ":all";
       if( !is_blocks_only_connection() && !my_impl->p2p_accept_transactions ) {
@@ -4319,7 +4120,7 @@ namespace eosio {
          ( "peer-key", bpo::value<vector<string>>()->composing()->multitoken(), "Optional public key of peer allowed to connect.  May be used multiple times.")
          ( "peer-private-key", bpo::value<vector<string>>()->composing()->multitoken(),
            "Tuple of [PublicKey, WIF private key] (may specify multiple times)")
-         ( "min-peers", bpo::value<uint32_t>()->default_value(def_min_peers), "Maintain minimum number of connected peer nodes, if not enough, node will try to connect more")
+         ( "p2p-min-peers", bpo::value<uint32_t>()->default_value(def_min_peers), "Maintain minimum number of connected peer nodes, if not enough, node will try to connect more")
          ( "max-clients", bpo::value<uint32_t>()->default_value(def_max_clients), "Maximum number of clients from which connections are accepted, use 0 for no limit")
          ( "connection-cleanup-period", bpo::value<int>()->default_value(def_conn_retry_wait), "number of seconds to wait before cleaning up dead connections")
          ( "max-cleanup-time-msec", bpo::value<uint32_t>()->default_value(10), "max connection cleanup time per cleanup call in milliseconds")
@@ -4358,8 +4159,7 @@ namespace eosio {
 
          peer_log_format = options.at( "peer-log-format" ).as<string>();
 
-         //init address manager, timeout function is yet to be implemented
-         address_master = std::make_unique<address_manager>(0);
+         address_manager address_master{};
 
          max_addresses_per_request = options.at("p2p-max-addresses-per-request").as<uint32_t>();
          p2p_only_send_manual_addresses = options.at("p2p-only-send-manual-addresses").as<bool>();
@@ -4385,23 +4185,23 @@ namespace eosio {
                                std::chrono::seconds( options.at("connection-cleanup-period").as<int>() ),
                                options.at("max-clients").as<uint32_t>() );
 
-          if( options.count( "p2p-listen-endpoint" )) {
-            auto p2ps =  options.at("p2p-listen-endpoint").as<vector<string>>();
-            if (!p2ps.front().empty()) {
-               p2p_addresses = p2ps;
-               auto addr_count = p2p_addresses.size();
-               std::sort(p2p_addresses.begin(), p2p_addresses.end());
-               auto last = std::unique(p2p_addresses.begin(), p2p_addresses.end());
-               p2p_addresses.erase(last, p2p_addresses.end());
-               if( size_t addr_diff = addr_count - p2p_addresses.size(); addr_diff != 0) {
-                  fc_wlog( logger, "Removed ${count} duplicate p2p-listen-endpoint entries", ("count", addr_diff));
-               }
-               for( const auto& addr : p2p_addresses ) {
-                  EOS_ASSERT( addr.length() <= max_p2p_address_length, chain::plugin_config_exception,
-                              "p2p-listen-endpoint ${a} too long, must be less than ${m}", 
-                              ("a", addr)("m", max_p2p_address_length) );
-               }
+         if( options.count( "p2p-listen-endpoint" )) {
+         auto p2ps =  options.at("p2p-listen-endpoint").as<vector<string>>();
+         if (!p2ps.front().empty()) {
+            p2p_addresses = p2ps;
+            auto addr_count = p2p_addresses.size();
+            std::sort(p2p_addresses.begin(), p2p_addresses.end());
+            auto last = std::unique(p2p_addresses.begin(), p2p_addresses.end());
+            p2p_addresses.erase(last, p2p_addresses.end());
+            if( size_t addr_diff = addr_count - p2p_addresses.size(); addr_diff != 0) {
+               fc_wlog( logger, "Removed ${count} duplicate p2p-listen-endpoint entries", ("count", addr_diff));
             }
+            for( const auto& addr : p2p_addresses ) {
+               EOS_ASSERT( addr.length() <= max_p2p_address_length, chain::plugin_config_exception,
+                           "p2p-listen-endpoint ${a} too long, must be less than ${m}",
+                           ("a", addr)("m", max_p2p_address_length) );
+            }
+         }
          }
          if( options.count( "p2p-server-address" ) ) {
             p2p_server_addresses = options.at( "p2p-server-address" ).as<vector<string>>();
@@ -4421,11 +4221,11 @@ namespace eosio {
 
          std::vector<std::string> peers;
          if( options.count( "p2p-peer-address" )) {
-            auto v = options.at( "p2p-peer-address" ).as<vector<string> >();
-            std::unordered_set<std::string> addresses(v.begin(), v.end());
-            address_master->add_addresses(addresses, true);
-
+            peers = options.at( "p2p-peer-address" ).as<vector<string>>();
+            std::unordered_set<std::string> addresses(peers.begin(), peers.end());
+            address_master.add_addresses(addresses, true);
          }
+
          if( options.count( "agent-name" )) {
             user_agent_name = options.at( "agent-name" ).as<string>();
             EOS_ASSERT( user_agent_name.length() <= max_handshake_str_length, chain::plugin_config_exception,
@@ -4673,21 +4473,16 @@ namespace eosio {
       return connections.size();
    }
 
-    std::unordered_set<std::string> connections_manager::get_connections() {
-        std::shared_lock<std::shared_mutex> g( connections_mtx );
+   std::unordered_set<std::string> connections_manager::get_connections() {
+      std::shared_lock<std::shared_mutex> g( connections_mtx );
 
-        std::unordered_set<std::string> addresses;
-        for (const auto& conn : connections) {
-            addresses.emplace(conn->peer_address());
-        }
-        return addresses;
-    }
-
-   //add_supplied_peers should be done by address master
-//   void connections_manager::add_supplied_peers(const vector<string>& peers ) {
-//      std::lock_guard g(connections_mtx);
-//      supplied_peers.insert( peers.begin(), peers.end() );
-//   }
+      std::unordered_set<std::string> addresses;
+      addresses.reserve(connections.size());
+      for (const auto& conn : connections) {
+         addresses.emplace(conn->peer_address());
+      }
+      return addresses;
+   }
 
    // not thread safe, only call on startup
    void connections_manager::init( std::chrono::milliseconds heartbeat_timeout_ms,
@@ -4904,15 +4699,19 @@ namespace eosio {
       //check if count all connections, or the num_peers is part of actual num;
       //if num_peers < min, get addresses from address manager to connect
       //try to add min_peers_count - num_peers connections from address manager
-      if(from_begin && num_peers < my_impl->min_peers_count) {
-          fc_ilog( logger, "peer connections not enough: ${pnum}/[${pmin}-${pmax}], trying to increase it",("pnum", num_peers)("pmin",my_impl->min_peers_count)("pmax", my_impl->address_master->get_addresses().size()));
-          uint32_t count = 0;
-          for( const auto& peer : my_impl->address_master->get_diff_addresses(get_connections()) ) {
-              connect_i( peer, *my_impl->p2p_addresses.begin() );
-              count++;
-              if(count == my_impl->min_peers_count - num_peers)
-                  break;
-          }
+      if (from_begin && num_peers < my_impl->min_peers_count) {
+         fc_ilog(logger, "peer connections not enough: ${pnum}/[${pmin}-${pmax}], trying to increase it",
+                 ("pnum", num_peers)("pmin", my_impl->min_peers_count)("pmax",
+                                                                       my_impl->address_master->get_addresses().size()));
+         uint32_t count = 0;
+         std::unique_lock g(connections_mtx);
+         for (const auto &peer: my_impl->address_master->get_diff_addresses(get_connections())) {
+            connect_i(peer, *my_impl->p2p_addresses.begin());
+            count++;
+            if (count == my_impl->min_peers_count - num_peers)
+               break;
+         }
+         g.unlock();
       }
 
       if (update_p2p_connection_metrics) {
