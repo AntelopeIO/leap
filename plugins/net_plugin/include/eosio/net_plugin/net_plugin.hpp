@@ -15,8 +15,9 @@ namespace eosio {
       bool              syncing              = false;
       bool              is_bp_peer           = false;
       bool              is_socket_open       = false;
-      bool              is_blocks_only       = false;
-      bool              is_transactions_only = false;
+      bool              allow_blocks         = false;
+      bool              allow_transactions   = false;
+      bool              allow_peers          = false;
       handshake_message last_handshake;
    };
 
@@ -94,4 +95,4 @@ namespace eosio {
 
 }
 
-FC_REFLECT( eosio::connection_status, (peer)(remote_ip)(remote_port)(connecting)(syncing)(is_bp_peer)(is_socket_open)(is_blocks_only)(is_transactions_only)(last_handshake) )
+FC_REFLECT( eosio::connection_status, (peer)(remote_ip)(remote_port)(connecting)(syncing)(is_bp_peer)(is_socket_open)(allow_blocks)(allow_transactions)(allow_peers)(last_handshake) )

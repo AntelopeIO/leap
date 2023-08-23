@@ -1522,6 +1522,9 @@ namespace eosio {
       stat.remote_ip = log_remote_endpoint_ip;
       stat.remote_port = log_remote_endpoint_port;
       stat.last_handshake = last_handshake_recv;
+      stat.allow_blocks = is_blocks_connection();
+      stat.allow_transactions = is_transactions_connection();
+      stat.allow_peers = is_peers_connection();
       return stat;
    }
 
