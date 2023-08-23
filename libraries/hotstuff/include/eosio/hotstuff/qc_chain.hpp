@@ -21,9 +21,6 @@
 #include <exception>
 #include <stdexcept>
 
-#include <mutex>
-#include <shared_mutex>
-
 // Enable this to swap the multi-index proposal store with std::map
 //#define QC_CHAIN_SIMPLE_PROPOSAL_STORE
 
@@ -44,7 +41,7 @@ namespace eosio::hotstuff {
 
       uint64_t get_state_version() const { return _state_version; } // calling this w/ thread sync is optional
 
-      name get_id() const { return _id; } // so far, only ever relevant in a test environment (no sync)
+      name get_id_i() const { return _id; } // so far, only ever relevant in a test environment (no sync)
 
       // Calls to the following methods should be thread-synchronized externally:
 
@@ -144,7 +141,7 @@ namespace eosio::hotstuff {
       bool _errors = true;
       name _id;
 
-      mutable uint64_t _state_version = 1;
+      mutable std::atomic<uint64_t> _state_version = 1;
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       // keep one proposal store (id -> proposal) by each height (height -> proposal store)

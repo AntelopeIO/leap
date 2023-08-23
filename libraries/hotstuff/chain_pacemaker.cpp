@@ -112,13 +112,13 @@ namespace eosio { namespace hotstuff {
       return _chain->is_builtin_activated( builtin_protocol_feature_t::instant_finality );
    }
 
-   void chain_pacemaker::get_state(finalizer_state& fs, bool force) const {
+   void chain_pacemaker::get_state(finalizer_state& fs) const {
       if (! enabled())
          return;
 
       // lock-free state version check
       uint64_t current_state_version = _qc_chain.get_state_version();
-      if (force || _state_cache_version != current_state_version) {
+      if (_state_cache_version != current_state_version) {
          finalizer_state current_state;
          {
             csc prof("stat");
