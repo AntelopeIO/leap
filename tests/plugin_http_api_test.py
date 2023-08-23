@@ -791,7 +791,7 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3200006)
-        payload = "localhost"
+        payload = "localhost:1234"
         ret_str = self.nodeos.processUrllibRequest(resource, command, payload, returnType=ReturnType.raw, endpoint=endpoint).decode('ascii')
         self.assertEqual("\"added connection\"", ret_str)
 
