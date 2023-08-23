@@ -8,8 +8,7 @@
 #include <fc/reflect/variant.hpp>
 #include <bls12-381/bls12-381.hpp>
 
-
-namespace fc { namespace crypto { namespace blslib {
+namespace fc::crypto::blslib {
 
    using namespace std;
 
@@ -21,7 +20,6 @@ namespace fc { namespace crypto { namespace blslib {
    class bls_signature
    {
       public:
-         //using storage_type = ecc::signature_shim;//std::variant<ecc::signature_shim, r1::signature_shim, webauthn::signature>;
 
          bls_signature() = default;
          bls_signature( bls_signature&& ) = default;
@@ -32,59 +30,39 @@ namespace fc { namespace crypto { namespace blslib {
             _sig = sig;
          }
 
-/*         bls_signature( G2Element sig ){
-            _sig = sig.Serialize();
-         }
-*/
          // serialize to/from string
          explicit bls_signature(const string& base58str);
-         std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
-
-//         size_t which() const;
-
-         //size_t variable_size() const;
+         std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 
 
          bls12_381::g2 _sig;
 
       private:
 
-         //storage_type _storage;
-
-/*         bls_signature( storage_type&& other_storage )
-         :_storage(std::forward<storage_type>(other_storage))
-         {}
-*/
-         //friend bool operator == ( const bls_signature& p1, const bls_signature& p2);
-         //friend bool operator != ( const bls_signature& p1, const bls_signature& p2);
-        //friend bool operator < ( const bls_signature& p1, const bls_signature& p2);
-         //friend std::size_t hash_value(const bls_signature& b); //not cryptographic; for containers
          friend bool operator == ( const bls_signature& p1, const bls_signature& p2);
          friend struct reflector<bls_signature>;
          friend class bls_private_key;
          friend class bls_public_key;
-   }; // bls_public_key
+   }; // bls_signature
 
-   //size_t hash_value(const bls_signature& b);
-
-} } }  // fc::crypto::blslib
+}  // fc::crypto::blslib
 
 namespace fc {
-   void to_variant(const crypto::blslib::bls_signature& var, variant& vo, const fc::yield_function_t& yield = fc::yield_function_t());
+   void to_variant(const crypto::blslib::bls_signature& var, variant& vo, const yield_function_t& yield = yield_function_t());
 
    void from_variant(const variant& var, crypto::blslib::bls_signature& vo);
 } // namespace fc
 
-namespace std {
-   template <> struct hash<fc::crypto::blslib::bls_signature> {
-      std::size_t operator()(const fc::crypto::blslib::bls_signature& k) const {
+/*namespace std {
+   template <> struct hash<crypto::blslib::bls_signature> {
+      std::size_t operator()(const crypto::blslib::bls_signature& k) const {
          //return fc::crypto::hash_value(k);
          return 0;
       }
    };
-} // std
+} // std*/
 
 FC_REFLECT(bls12_381::fp, (d))
 FC_REFLECT(bls12_381::fp2, (c0)(c1))
 FC_REFLECT(bls12_381::g2, (x)(y)(z))
-FC_REFLECT(fc::crypto::blslib::bls_signature, (_sig) )
+FC_REFLECT(crypto::blslib::bls_signature, (_sig) )

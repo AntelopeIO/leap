@@ -8,9 +8,14 @@
 #include <fc/static_variant.hpp>
 #include <bls12-381/bls12-381.hpp>
 
-namespace fc { namespace crypto { namespace blslib {
+namespace fc::crypto::blslib {
 
    using namespace std;
+
+   namespace config {
+      constexpr const char* bls_public_key_base_prefix = "PUB";
+      constexpr const char* bls_public_key_prefix = "BLS";
+   };
 
    class bls_public_key
    {
@@ -28,7 +33,7 @@ namespace fc { namespace crypto { namespace blslib {
          // serialize to/from string
          explicit bls_public_key(const string& base58str);
 
-         std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
+         std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 
          //storage_type _storage;
          bls12_381::g1 _pkey;
@@ -41,13 +46,13 @@ namespace fc { namespace crypto { namespace blslib {
          friend class bls_private_key;
    }; // bls_public_key
 
-} } }  // fc::crypto::blslib
+}  // fc::crypto::blslib
 
 namespace fc {
-   void to_variant(const crypto::blslib::bls_public_key& var, variant& vo, const fc::yield_function_t& yield = fc::yield_function_t());
+   void to_variant(const crypto::blslib::bls_public_key& var, variant& vo, const yield_function_t& yield = yield_function_t());
 
    void from_variant(const variant& var, crypto::blslib::bls_public_key& vo);
 } // namespace fc
 
 FC_REFLECT(bls12_381::g1, (x)(y)(z))
-FC_REFLECT(fc::crypto::blslib::bls_public_key, (_pkey) )
+FC_REFLECT(crypto::blslib::bls_public_key, (_pkey) )

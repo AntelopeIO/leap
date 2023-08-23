@@ -114,7 +114,7 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
 
 } FC_LOG_AND_RETHROW();
 
-//test serialization / deserialization of private key, public key and signature
+//test serialization / deserialization of public key and signature
 BOOST_AUTO_TEST_CASE(bls_serialization_test) try {
 
   bls_private_key sk = bls_private_key(seed_1);
@@ -248,6 +248,8 @@ BOOST_AUTO_TEST_CASE(bls_bad_sig_verif) try {
 
 //test private key base58 encoding
 BOOST_AUTO_TEST_CASE(bls_private_key_string_encoding) try {
+
+  //cout << "seed_1.size() : " << seed_1.size() << "\n";
 
   bls_private_key sk = bls_private_key(seed_1);
 

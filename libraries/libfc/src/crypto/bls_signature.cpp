@@ -2,17 +2,30 @@
 #include <fc/crypto/common.hpp>
 #include <fc/exception/exception.hpp>
 
-namespace fc { namespace crypto { namespace blslib {
+namespace fc::crypto::blslib {
 
 
    static bls12_381::g2 sig_parse_base58(const std::string& base58str)
    { try {
 
-      std::vector<char> v1 = fc::from_base58(base58str);
+      const auto pivot = base58str.find('_');
+      FC_ASSERT(pivot != std::string::npos, "No delimiter in string, cannot determine data type: ${str}", ("str", base58str));
 
-      FC_ASSERT(v1.size() == 96);
+      const auto base_prefix_str = base58str.substr(0, 3);
+      FC_ASSERT(config::bls_signature_base_prefix == base_prefix_str, "BLS Signature has invalid base prefix: ${str}", ("str", base58str)("base_prefix_str", base_prefix_str));
+      
+      const auto prefix_str = base58str.substr(pivot + 1, 3);
+      FC_ASSERT(config::bls_signature_prefix == prefix_str, "BLS Signature has invalid prefix: ${str}", ("str", base58str)("prefix_str", prefix_str));
+
+      auto data_str = base58str.substr(8);
+
+      std::vector<char> bytes = from_base58(data_str);
+
+      //std::vector<char> v1 = from_base58(base58str);
+
+      FC_ASSERT(bytes.size() == 96);
       std::array<uint8_t, 96> v2;
-      std::copy(v1.begin(), v1.end(), v2.begin());
+      std::copy(bytes.begin(), bytes.end(), v2.begin());
       std::optional<bls12_381::g2> g2 = bls12_381::g2::fromCompressedBytesBE(v2);
       FC_ASSERT(g2);
       return *g2;
@@ -22,16 +35,16 @@ namespace fc { namespace crypto { namespace blslib {
      :_sig(sig_parse_base58(base58str))
    {}
 
-   std::string bls_signature::to_string(const fc::yield_function_t& yield) const
+   std::string bls_signature::to_string(const yield_function_t& yield) const
    {
 
       std::vector<char> v2;
       std::array<uint8_t, 96> bytes = _sig.toCompressedBytesBE();
       std::copy(bytes.begin(), bytes.end(), std::back_inserter(v2));
 
-      std::string data_str = fc::to_base58(v2, yield);
+      std::string data_str = to_base58(v2, yield);
 
-      return data_str;
+      return std::string(config::bls_signature_base_prefix) + "_" + std::string(config::bls_signature_prefix) + "_" + data_str;
 
    }
 
@@ -44,17 +57,17 @@ namespace fc { namespace crypto { namespace blslib {
       return p1._sig == p2._sig;
    }
 
-} } }  // fc::crypto::blslib
+} // fc::crypto::blslib
 
 namespace fc
 {
-   void to_variant(const fc::crypto::blslib::bls_signature& var, fc::variant& vo, const fc::yield_function_t& yield)
+   void to_variant(const crypto::blslib::bls_signature& var, variant& vo, const yield_function_t& yield)
    {
       vo = var.to_string(yield);
    }
 
-   void from_variant(const fc::variant& var, fc::crypto::blslib::bls_signature& vo)
+   void from_variant(const variant& var, crypto::blslib::bls_signature& vo)
    {
-      vo = fc::crypto::blslib::bls_signature(var.as_string());
+      vo = crypto::blslib::bls_signature(var.as_string());
    }
 } // fc

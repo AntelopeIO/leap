@@ -5,6 +5,11 @@
 
 namespace fc::crypto::blslib {
 
+   namespace config {
+      constexpr const char* bls_private_key_base_prefix = "PVT";
+      constexpr const char* bls_private_key_prefix = "BLS";
+   };
+
    class bls_private_key
    {
       public:
@@ -20,7 +25,7 @@ namespace fc::crypto::blslib {
          // serialize to/from string
          // TODO: determine format to use for string of private key
          explicit bls_private_key(const string& base58str);
-         std::string to_string(const fc::yield_function_t& yield = fc::yield_function_t()) const;
+         std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 
          bls_public_key     get_public_key() const;
          bls_signature      sign( const vector<uint8_t>& message ) const;
@@ -40,9 +45,9 @@ namespace fc::crypto::blslib {
 } // fc::crypto::blslib
 
 namespace fc {
-   void to_variant(const crypto::blslib::bls_private_key& var, variant& vo, const fc::yield_function_t& yield = fc::yield_function_t());
+   void to_variant(const crypto::blslib::bls_private_key& var, variant& vo, const yield_function_t& yield = yield_function_t());
 
    void from_variant(const variant& var, crypto::blslib::bls_private_key& vo);
 } // namespace fc
 
-FC_REFLECT(fc::crypto::blslib::bls_private_key, (_seed) )
+FC_REFLECT(crypto::blslib::bls_private_key, (_seed) )
