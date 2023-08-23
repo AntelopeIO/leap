@@ -69,7 +69,7 @@ namespace eosio::chain {
       eosio::chain::extended_schedule schedule;
       map<fc::sha256, hs_proposal_message> proposals;
 
-      hs_proposal_message* get_proposal(const fc::sha256& id) {
+      const hs_proposal_message* get_proposal(const fc::sha256& id) const {
          auto it = proposals.find(id);
          if (it == proposals.end())
             return nullptr;

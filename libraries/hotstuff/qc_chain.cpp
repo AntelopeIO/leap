@@ -1,5 +1,7 @@
 #include <eosio/hotstuff/qc_chain.hpp>
 
+#include <fc/scoped_exit.hpp>
+
 /*
 
   Todo list / notes:
@@ -434,6 +436,8 @@ namespace eosio { namespace hotstuff {
       bool success = insert_proposal( proposal );
       EOS_ASSERT( success , chain_exception, "internal error: duplicate proposal insert attempt" ); // can't happen unless bad mutex somewhere; already checked for this
 
+      auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; }); // assert failing above would mean no change
+
       //if I am a finalizer for this proposal and the safenode predicate for a possible vote is true, sign
       bool am_finalizer = am_i_finalizer();
       bool node_safe = is_node_safe(proposal);
@@ -491,8 +495,6 @@ namespace eosio { namespace hotstuff {
       //check for leader change
       leader_rotation_check();
 
-      ++_state_version;
-
       //auto total_time = fc::time_point::now() - start;
       //if (_log) ilog(" ... process_proposal() total time : ${total_time}", ("total_time", total_time));
    }
@@ -525,6 +527,8 @@ namespace eosio { namespace hotstuff {
 
       // If quorum is already met, we don't need to do anything else. Otherwise, we aggregate the signature.
       if (!quorum_met){
+
+         auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
          if (_current_qc.active_finalizers>0)
             _current_qc.active_agg_sig = fc::crypto::blslib::aggregate({_current_qc.active_agg_sig, vote.sig });
@@ -576,8 +580,6 @@ namespace eosio { namespace hotstuff {
 #endif
             }
          }
-
-         ++_state_version;
       }
 
       //auto total_time = fc::time_point::now() - start;
@@ -589,7 +591,7 @@ namespace eosio { namespace hotstuff {
       if (_log) ilog(" === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
 #endif
       if (update_high_qc(msg.high_qc)) {
-         ++_state_version;
+         ++_state_version; // should be OK; update_high_qc() should not throw
       }
    }
 
@@ -620,6 +622,8 @@ namespace eosio { namespace hotstuff {
       //     comes with it (which is the _high_qc of the proposer (?))
       //
       // ------------------------------------------------------------------
+
+      auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
       if (_current_qc.proposal_id != NULL_PROPOSAL_ID && _current_qc.quorum_met == false) {
 
@@ -656,8 +660,6 @@ namespace eosio { namespace hotstuff {
          if (_log) ilog(" === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
 #endif
       }
-
-      ++_state_version;
    }
 
    void qc_chain::send_hs_proposal_msg(const hs_proposal_message & msg){
