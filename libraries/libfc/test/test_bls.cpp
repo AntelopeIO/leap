@@ -46,9 +46,6 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif) try {
 
   bls_signature signature = sk.sign(message_1);
 
-  //cout << "pk : " << pk.to_string() << "\n";
-  //cout << "signature : " << signature.to_string() << "\n";
-
   // Verify the signature
   bool ok = verify(pk, message_1, signature);
 
@@ -65,9 +62,6 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_digest) try {
   std::vector<unsigned char> v = std::vector<unsigned char>(message_3.data(), message_3.data() + 32);
 
   bls_signature signature = sk.sign(v);
-
-  //cout << "pk : " << pk.to_string() << "\n";
-  //cout << "signature : " << signature.to_string() << "\n";
 
   // Verify the signature
   bool ok = verify(pk, v, signature);
@@ -104,9 +98,6 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
     agg_signature = aggregate({agg_signature, signature});
   }
 
-  //cout << "pk : " << pk.to_string() << "\n";
-  //cout << "signature : " << signature.to_string() << "\n";
-
   // Verify the signature
   bool ok = verify(agg_pk, v, agg_signature);
 
@@ -114,31 +105,6 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
 
 } FC_LOG_AND_RETHROW();
 
-//test serialization / deserialization of public key and signature
-BOOST_AUTO_TEST_CASE(bls_serialization_test) try {
-
-  bls_private_key sk = bls_private_key(seed_1);
-  bls_public_key pk = sk.get_public_key();
-
-  bls_signature signature = sk.sign(message_1);
-
-  std::string pk_string = pk.to_string();
-  std::string signature_string = signature.to_string();
-
-  //cout << pk_string << "\n";
-  //cout << signature_string << "\n";
-
-  bls_public_key pk2 = bls_public_key(pk_string);
-  bls_signature signature2 = bls_signature(signature_string);
-
-  //cout << pk2.to_string() << "\n";
-  //cout << signature2.to_string() << "\n";
-
-  bool ok = verify(pk2, message_1, signature2);
-
-  BOOST_CHECK_EQUAL(ok, true);
-
-} FC_LOG_AND_RETHROW();
 
 //test public keys + signatures aggregation + verification
 BOOST_AUTO_TEST_CASE(bls_agg_sig_verif) try {
@@ -148,22 +114,13 @@ BOOST_AUTO_TEST_CASE(bls_agg_sig_verif) try {
 
   bls_signature sig1 = sk1.sign(message_1);
 
-  //cout << "pk1 : " << pk1.to_string() << "\n";
-  //cout << "sig1 : " << sig1.to_string() << "\n";
-
   bls_private_key sk2 = bls_private_key(seed_2);
   bls_public_key pk2 = sk2.get_public_key();
 
   bls_signature sig2 = sk2.sign(message_1);
 
-  //cout << "pk2 : "  << pk2.to_string() << "\n";
-  //cout << "sig2 : "  << sig2.to_string() << "\n";
-
   bls_public_key aggKey = aggregate({pk1, pk2});
   bls_signature aggSig = aggregate({sig1, sig2});
-
- // cout << "aggKey : "  << aggKey.to_string() << "\n";
-  //cout << "aggSig : "  << aggSig.to_string() << "\n";
 
   // Verify the signature
   bool ok = verify(aggKey, message_1, aggSig);
@@ -181,20 +138,12 @@ BOOST_AUTO_TEST_CASE(bls_agg_tree_verif) try {
 
   bls_signature sig1 = sk1.sign(message_1);
 
-  //cout << "pk1 : " << pk1.to_string() << "\n";
-  //cout << "sig1 : " << sig1.to_string() << "\n";
-
   bls_private_key sk2 = bls_private_key(seed_2);
   bls_public_key pk2 = sk2.get_public_key();
 
   bls_signature sig2 = sk2.sign(message_2);
 
-  //cout << "pk2 : "  << pk2.to_string() << "\n";
-  //cout << "sig2 : "  << sig2.to_string() << "\n";
-
   bls_signature aggSig = aggregate({sig1, sig2});
-
-  //cout << "aggSig : "  << aggSig.to_string() << "\n";
 
   vector<bls_public_key> pubkeys = {pk1, pk2};
   vector<vector<uint8_t>> messages = {message_1, message_2};
@@ -246,10 +195,8 @@ BOOST_AUTO_TEST_CASE(bls_bad_sig_verif) try {
 
 } FC_LOG_AND_RETHROW();
 
-//test private key base58 encoding
-BOOST_AUTO_TEST_CASE(bls_private_key_string_encoding) try {
-
-  //cout << "seed_1.size() : " << seed_1.size() << "\n";
+//test bls private key base58 encoding / decoding / serialization / deserialization
+BOOST_AUTO_TEST_CASE(bls_private_key_serialization) try {
 
   bls_private_key sk = bls_private_key(seed_1);
 
@@ -257,15 +204,9 @@ BOOST_AUTO_TEST_CASE(bls_private_key_string_encoding) try {
 
   std::string priv_base58_str = sk.to_string();
 
-  //cout << "priv_base58_str : " << priv_base58_str << "\n";
-
   bls_private_key sk2 = bls_private_key(priv_base58_str);
 
-  //cout << "sk2 : " << sk2.to_string() << "\n";
-
   bls_signature signature = sk2.sign(message_1);
-
-  //cout << "signature : " << signature.to_string() << "\n";
 
   // Verify the signature
   bool ok = verify(pk, message_1, signature);
@@ -275,5 +216,24 @@ BOOST_AUTO_TEST_CASE(bls_private_key_string_encoding) try {
 } FC_LOG_AND_RETHROW();
 
 
+//test bls public key and bls signature base58 encoding / decoding / serialization / deserialization
+BOOST_AUTO_TEST_CASE(bls_pub_key_sig_serialization) try {
+
+  bls_private_key sk = bls_private_key(seed_1);
+  bls_public_key pk = sk.get_public_key();
+
+  bls_signature signature = sk.sign(message_1);
+
+  std::string pk_string = pk.to_string();
+  std::string signature_string = signature.to_string();
+
+  bls_public_key pk2 = bls_public_key(pk_string);
+  bls_signature signature2 = bls_signature(signature_string);
+
+  bool ok = verify(pk2, message_1, signature2);
+
+  BOOST_CHECK_EQUAL(ok, true);
+
+} FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_SUITE_END()
