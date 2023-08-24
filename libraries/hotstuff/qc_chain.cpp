@@ -590,8 +590,9 @@ namespace eosio { namespace hotstuff {
 #ifdef QC_CHAIN_TRACE_DEBUG
       if (_log) ilog(" === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
 #endif
-      if (update_high_qc(msg.high_qc)) {
-         ++_state_version; // should be OK; update_high_qc() should not throw
+      auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
+      if (!update_high_qc(msg.high_qc)) {
+         increment_version.cancel();
       }
    }
 
