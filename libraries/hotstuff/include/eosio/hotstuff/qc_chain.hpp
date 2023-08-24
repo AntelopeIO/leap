@@ -37,7 +37,7 @@ namespace eosio::hotstuff {
 
       qc_chain() = delete;
 
-      qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, bool info_logging, bool error_logging);
+      qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, fc::logger& logger);
 
       uint64_t get_state_version() const { return _state_version; } // calling this w/ thread sync is optional
 
@@ -142,6 +142,8 @@ namespace eosio::hotstuff {
       name _id;
 
       mutable std::atomic<uint64_t> _state_version = 1;
+
+      fc::logger&            _logger;
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       // keep one proposal store (id -> proposal) by each height (height -> proposal store)

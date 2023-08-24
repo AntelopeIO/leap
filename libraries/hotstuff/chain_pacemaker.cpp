@@ -100,9 +100,10 @@ namespace eosio { namespace hotstuff {
 #endif
 //===============================================================================================
 
-   chain_pacemaker::chain_pacemaker(controller* chain, std::set<account_name> my_producers, bool info_logging, bool error_logging)
+   chain_pacemaker::chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger)
       : _chain(chain),
-        _qc_chain("default"_n, this, std::move(my_producers), info_logging, error_logging)
+        _qc_chain("default"_n, this, std::move(my_producers), logger),
+        _logger(logger)
    {
    }
 
