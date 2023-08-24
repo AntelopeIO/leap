@@ -113,9 +113,32 @@ namespace eosio { namespace hotstuff {
       return _chain->is_builtin_activated( builtin_protocol_feature_t::instant_finality );
    }
 
-   void chain_pacemaker::get_state( finalizer_state& fs ) const {
-      if (enabled())
-         _qc_chain.get_state( fs ); // get_state() takes scare of finer-grained synchronization internally
+   void chain_pacemaker::get_state(finalizer_state& fs) const {
+      if (! enabled())
+         return;
+
+      // lock-free state version check
+      uint64_t current_state_version = _qc_chain.get_state_version();
+      if (_state_cache_version != current_state_version) {
+         finalizer_state current_state;
+         {
+            csc prof("stat");
+            std::lock_guard g( _hotstuff_global_mutex ); // lock IF engine to read state
+            prof.core_in();
+            current_state_version = _qc_chain.get_state_version(); // get potentially fresher version
+            if (_state_cache_version != current_state_version) 
+               _qc_chain.get_state(current_state);
+            prof.core_out();
+         }
+         if (_state_cache_version != current_state_version) {
+            std::unique_lock ul(_state_cache_mutex); // lock cache for writing
+            _state_cache = current_state;
+            _state_cache_version = current_state_version;
+         }
+      }
+
+      std::shared_lock sl(_state_cache_mutex); // lock cache for reading
+      fs = _state_cache;
    }
 
    name chain_pacemaker::get_proposer() {

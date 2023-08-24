@@ -1,5 +1,7 @@
 #include <eosio/hotstuff/qc_chain.hpp>
 
+#include <fc/scoped_exit.hpp>
+
 /*
 
   Todo list / notes:
@@ -69,7 +71,6 @@ namespace eosio { namespace hotstuff {
    }
 
    bool qc_chain::insert_proposal(const hs_proposal_message & proposal) {
-      std::lock_guard g( _state_mutex );
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       uint64_t proposal_height = proposal.get_height();
       ps_height_iterator psh_it = _proposal_stores_by_height.find( proposal_height );
@@ -93,8 +94,7 @@ namespace eosio { namespace hotstuff {
 #endif
    }
 
-   void qc_chain::get_state( finalizer_state& fs ) const {
-      std::lock_guard g( _state_mutex );
+   void qc_chain::get_state(finalizer_state& fs) const {
       fs.chained_mode           = _chained_mode;
       fs.b_leaf                 = _b_leaf;
       fs.b_lock                 = _b_lock;
@@ -225,7 +225,6 @@ namespace eosio { namespace hotstuff {
    }
 
    void qc_chain::reset_qc(const fc::sha256& proposal_id){
-      std::lock_guard g( _state_mutex );
       fc_tlog(_logger, " === ${id} resetting qc : ${proposal_id}", ("proposal_id" , proposal_id)("id", _id));
       _current_qc.proposal_id = proposal_id;
       _current_qc.quorum_met = false;
@@ -329,10 +328,7 @@ namespace eosio { namespace hotstuff {
    }
 
    hs_vote_message qc_chain::sign_proposal(const hs_proposal_message & proposal, name finalizer){
-
-      std::unique_lock state_lock( _state_mutex );
       _v_height = proposal.get_height();
-      state_lock.unlock();
 
       digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
 
@@ -422,6 +418,8 @@ namespace eosio { namespace hotstuff {
       bool success = insert_proposal( proposal );
       EOS_ASSERT( success , chain_exception, "internal error: duplicate proposal insert attempt" ); // can't happen unless bad mutex somewhere; already checked for this
 
+      auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; }); // assert failing above would mean no change
+
       //if I am a finalizer for this proposal and the safenode predicate for a possible vote is true, sign
       bool am_finalizer = am_i_finalizer();
       bool node_safe = is_node_safe(proposal);
@@ -505,14 +503,14 @@ namespace eosio { namespace hotstuff {
       // If quorum is already met, we don't need to do anything else. Otherwise, we aggregate the signature.
       if (!quorum_met){
 
-         std::unique_lock state_lock( _state_mutex );
+         auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
+
          if (_current_qc.active_finalizers>0)
             _current_qc.active_agg_sig = fc::crypto::blslib::aggregate({_current_qc.active_agg_sig, vote.sig });
          else
             _current_qc.active_agg_sig = vote.sig;
 
          _current_qc.active_finalizers = update_bitset(_current_qc.active_finalizers, vote.finalizer);
-         state_lock.unlock();
 
          quorum_met = is_quorum_met(_current_qc, _schedule, *p);
 
@@ -524,9 +522,7 @@ namespace eosio { namespace hotstuff {
                            ("proposal_id", vote.proposal_id)
                            ("id", _id));
 
-            state_lock.lock();
             _current_qc.quorum_met = true;
-            state_lock.unlock();
 
             //fc_tlog(_logger, " === update_high_qc : _current_qc ===");
             update_high_qc(_current_qc);
@@ -546,10 +542,8 @@ namespace eosio { namespace hotstuff {
 
                reset_qc(proposal_candidate.proposal_id);
                fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
-               state_lock.lock();
                _pending_proposal_block = NULL_BLOCK_ID;
                _b_leaf = proposal_candidate.proposal_id;
-               state_lock.unlock();
 
                send_hs_proposal_msg(proposal_candidate);
                fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
@@ -563,7 +557,10 @@ namespace eosio { namespace hotstuff {
 
    void qc_chain::process_new_view(const hs_new_view_message & msg){
       fc_tlog(_logger, " === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
-      update_high_qc(msg.high_qc);
+      auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
+      if (!update_high_qc(msg.high_qc)) {
+         increment_version.cancel();
+      }
    }
 
    void qc_chain::process_new_block(const hs_new_block_message & msg){
@@ -589,16 +586,17 @@ namespace eosio { namespace hotstuff {
       //
       // ------------------------------------------------------------------
 
+      auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
+
       if (_current_qc.proposal_id != NULL_PROPOSAL_ID && _current_qc.quorum_met == false) {
 
          fc_tlog(_logger, " === ${id} pending proposal found ${proposal_id} : quorum met ${quorum_met}",
                         ("id", _id)
                         ("proposal_id", _current_qc.proposal_id)
                         ("quorum_met", _current_qc.quorum_met));
+
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to ${block_id} (on_beat)", ("id", _id)("block_id", msg.block_id));
-         std::unique_lock state_lock( _state_mutex );
          _pending_proposal_block = msg.block_id;
-         state_lock.unlock();
 
       } else {
 
@@ -611,10 +609,9 @@ namespace eosio { namespace hotstuff {
          reset_qc(proposal_candidate.proposal_id);
 
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_new_block)", ("id", _id));
-         std::unique_lock state_lock( _state_mutex );
+
          _pending_proposal_block = NULL_BLOCK_ID;
          _b_leaf = proposal_candidate.proposal_id;
-         state_lock.unlock();
 
          send_hs_proposal_msg(proposal_candidate);
 
@@ -715,7 +712,8 @@ namespace eosio { namespace hotstuff {
       }
    }
 
-   void qc_chain::update_high_qc(const eosio::chain::quorum_certificate & high_qc){
+   // returns true on state change (caller decides update on state version
+   bool qc_chain::update_high_qc(const eosio::chain::quorum_certificate & high_qc){
 
       fc_tlog(_logger, " === check to update high qc ${proposal_id}", ("proposal_id", high_qc.proposal_id));
 
@@ -723,19 +721,18 @@ namespace eosio { namespace hotstuff {
 
       if (_high_qc.proposal_id == NULL_PROPOSAL_ID){
 
-         std::unique_lock state_lock( _state_mutex );
          _high_qc = high_qc;
          _b_leaf = _high_qc.proposal_id;
-         state_lock.unlock();
 
          fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
+         return true;
       } else {
          const hs_proposal_message *old_high_qc_prop = get_proposal( _high_qc.proposal_id );
          const hs_proposal_message *new_high_qc_prop = get_proposal( high_qc.proposal_id );
          if (old_high_qc_prop == nullptr)
-            return;
+            return false;
          if (new_high_qc_prop == nullptr)
-            return;
+            return false;
 
          if (new_high_qc_prop->get_height() > old_high_qc_prop->get_height()
              && is_quorum_met(high_qc, _schedule, *new_high_qc_prop))
@@ -744,19 +741,18 @@ namespace eosio { namespace hotstuff {
             //high_qc.quorum_met = true;
 
             fc_tlog(_logger, " === updated high qc, now is : #${get_height}  ${proposal_id}", ("get_height", new_high_qc_prop->get_height())("proposal_id", new_high_qc_prop->proposal_id));
-            std::unique_lock state_lock( _state_mutex );
             _high_qc = high_qc;
             _high_qc.quorum_met = true;
             _b_leaf = _high_qc.proposal_id;
-            state_lock.unlock();
 
             fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
+            return true;
          }
       }
+      return false;
    }
 
    void qc_chain::leader_rotation_check(){
-
       //verify if leader changed
 
       name current_leader = _pacemaker->get_leader();
@@ -775,9 +771,7 @@ namespace eosio { namespace hotstuff {
 
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (leader_rotation_check)", ("id", _id));
 
-         std::unique_lock state_lock( _state_mutex );
          _pending_proposal_block = NULL_BLOCK_ID;
-         state_lock.unlock();
 
          hs_new_view_message new_view;
 
@@ -956,10 +950,9 @@ namespace eosio { namespace hotstuff {
       }
 
       if (_b_lock == NULL_PROPOSAL_ID || b_1.get_height() > b_lock->get_height()){
+
          fc_tlog(_logger, "setting _b_lock to ${proposal_id}", ("proposal_id",b_1.proposal_id ));
-         std::unique_lock state_lock( _state_mutex );
          _b_lock = b_1.proposal_id; //commit phase on b1
-         state_lock.unlock();
 
          fc_tlog(_logger, " === ${id} _b_lock updated : ${proposal_id}", ("proposal_id", b_1.proposal_id)("id", _id));
       }
@@ -996,9 +989,7 @@ namespace eosio { namespace hotstuff {
                        ("proposal_id_1", b.proposal_id)
                        ("proposal_id_2", b_exec->proposal_id));
 
-               std::unique_lock state_lock( _state_mutex );
                _b_finality_violation = b.proposal_id;
-               state_lock.unlock();
 
                //protocol failure
                return;
@@ -1009,10 +1000,8 @@ namespace eosio { namespace hotstuff {
 
          fc_tlog(_logger, " === last executed proposal : #${block_num} ${block_id}", ("block_num", b.block_num())("block_id", b.block_id));
 
-         std::unique_lock state_lock( _state_mutex );
          _b_exec = b.proposal_id; //decide phase on b
          _block_exec = b.block_id;
-         state_lock.unlock();
 
          gc_proposals( b.get_height()-1);
       }
@@ -1026,7 +1015,7 @@ namespace eosio { namespace hotstuff {
 
    void qc_chain::gc_proposals(uint64_t cutoff){
       //fc_tlog(_logger, " === garbage collection on old data");
-      std::lock_guard g( _state_mutex );
+
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       ps_height_iterator psh_it = _proposal_stores_by_height.begin();
       while (psh_it != _proposal_stores_by_height.end()) {
