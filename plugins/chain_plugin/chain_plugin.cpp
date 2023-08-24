@@ -1116,9 +1116,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
 
 void chain_plugin::create_pacemaker(std::set<chain::account_name> my_producers) {
    EOS_ASSERT( !my->_chain_pacemaker, plugin_config_exception, "duplicate chain_pacemaker initialization" );
-   const bool info_logging = true;
-   const bool error_logging = true;
-   my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), info_logging, error_logging);
+   my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), hotstuff_logger);
 }
 
 void chain_plugin::plugin_initialize(const variables_map& options) {

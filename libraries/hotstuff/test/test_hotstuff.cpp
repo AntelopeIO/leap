@@ -35,12 +35,14 @@ std::vector<name> unique_replicas {
    "bpp"_n, "bpq"_n, "bpr"_n,
    "bps"_n, "bpt"_n, "bpu"_n };
 
+fc::logger hotstuff_logger;
+
 class hotstuff_test_handler {
 public:
 
    std::vector<std::pair<name, std::shared_ptr<qc_chain>>> _qc_chains;
 
-   void initialize_qc_chains(test_pacemaker& tpm, std::vector<name> info_loggers, std::vector<name> error_loggers, std::vector<name> replicas){
+   void initialize_qc_chains(test_pacemaker& tpm, std::vector<name> replicas){
 
       _qc_chains.clear();
 
@@ -51,14 +53,7 @@ public:
       //_qc_chains.reserve( replicas.size() );
 
       for (name r : replicas) {
-
-         bool log = std::find(info_loggers.begin(), info_loggers.end(), r) != info_loggers.end();
-         bool err = std::find(error_loggers.begin(), error_loggers.end(), r) != error_loggers.end();
-
-         //If you want to force logging everything
-         //log = err = true;
-
-         qc_chain *qcc_ptr = new qc_chain(r, &tpm, {r}, log, err);
+         qc_chain *qcc_ptr = new qc_chain(r, &tpm, {r}, hotstuff_logger);
          std::shared_ptr<qc_chain> qcc_shared_ptr(qcc_ptr);
 
          _qc_chains.push_back( std::make_pair(r, qcc_shared_ptr) );
@@ -183,7 +178,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    hotstuff_test_handler ht;
 
-   ht.initialize_qc_chains(tpm, {"bpa"_n, "bpb"_n}, {"bpa"_n, "bpb"_n}, unique_replicas);
+   ht.initialize_qc_chains(tpm, unique_replicas);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
@@ -299,7 +294,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_2) try {
 
    hotstuff_test_handler ht;
 
-   ht.initialize_qc_chains(tpm, {"bpa"_n}, {"bpa"_n}, unique_replicas);
+   ht.initialize_qc_chains(tpm, unique_replicas);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
@@ -386,7 +381,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_3) try {
 
    hotstuff_test_handler ht;
 
-   ht.initialize_qc_chains(tpm, {"bpa"_n, "bpb"_n}, {"bpa"_n, "bpb"_n},unique_replicas);
+   ht.initialize_qc_chains(tpm, unique_replicas);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
@@ -502,7 +497,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_4) try {
 
    hotstuff_test_handler ht;
 
-   ht.initialize_qc_chains(tpm, {"bpa"_n, "bpb"_n}, {"bpa"_n, "bpb"_n}, unique_replicas);
+   ht.initialize_qc_chains(tpm, unique_replicas);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
@@ -684,9 +679,9 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
    hotstuff_test_handler ht1;
    hotstuff_test_handler ht2;
 
-   ht1.initialize_qc_chains(tpm1, {"bpe"_n}, {"bpe"_n}, replica_set_1);
+   ht1.initialize_qc_chains(tpm1, replica_set_1);
 
-   ht2.initialize_qc_chains(tpm2, {}, {}, replica_set_2);
+   ht2.initialize_qc_chains(tpm2, replica_set_2);
 
    tpm1.set_proposer("bpe"_n); //honest leader
    tpm1.set_leader("bpe"_n);
@@ -831,7 +826,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_6) try {
 
    hotstuff_test_handler ht;
 
-   ht.initialize_qc_chains(tpm, {"bpa"_n, "bpb"_n}, {"bpa"_n, "bpb"_n},unique_replicas);
+   ht.initialize_qc_chains(tpm, unique_replicas);
 
    tpm.set_proposer("bpg"_n); // can be any proposer that's not the leader for this test
    tpm.set_leader("bpa"_n);

@@ -310,12 +310,11 @@ namespace eosio { namespace hotstuff {
    }
 
 
-   qc_chain::qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, bool info_logging, bool error_logging)
+   qc_chain::qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, const fc::logger& logger)
       : _id(id),
         _pacemaker(pacemaker),
         _my_producers(std::move(my_producers)),
-        _log(info_logging),
-        _errors(error_logging)
+        _logger(logger)
    {
       if (_log) ilog(" === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
    }
