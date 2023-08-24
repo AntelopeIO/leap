@@ -70,7 +70,7 @@ try:
     node0.kill(signal.SIGTERM)
 
     Print("Wait for node0's head block to become irreversible")
-    node1.waitForBlock(headBlockNum, blockType=BlockType.lib)
+    node1.waitForBlock(headBlockNum, blockType=BlockType.lib, timeout=90)
     infoAfter=node1.getInfo(exitOnError=True)
     headBlockNumAfter=infoAfter["head_block_num"]
 

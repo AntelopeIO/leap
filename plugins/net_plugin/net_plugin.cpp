@@ -536,7 +536,7 @@ namespace eosio {
       bool in_sync() const;
       fc::logger& get_logger() { return logger; }
 
-      void create_session(tcp::socket&& socket, const string listen_address, const string limit);
+      void create_session(tcp::socket&& socket, const string listen_address, const string& limit);
    };
 
    // peer_[x]log must be called from thread in connection strand
@@ -788,6 +788,7 @@ namespace eosio {
       static std::string state_str(connection_state s);
       const string& peer_address() const { return peer_addr; } // thread safe, const
 
+      void set_connection_limit( const string& limit_str );
       void set_connection_type( const string& peer_addr );
       bool is_transactions_only_connection()const { return connection_type == transactions_only; } // thread safe, atomic
       bool is_blocks_only_connection()const { return connection_type == blocks_only; }
@@ -1206,32 +1207,11 @@ namespace eosio {
         last_handshake_recv(),
         last_handshake_sent()
    {
-      std::istringstream in(limit_str);
-      fc_dlog( logger, "parsing connection endpoint with locale ${l}", ("l", std::locale("").name()));
-      in.imbue(std::locale(""));
-      double limit{0};
-      in >> limit;
-      if( limit > 0.0f ) {
-         std::string units;
-         in >> units;
-         std::regex units_regex{"([KMGT]?[i]?)B/s"};
-         std::smatch units_match;
-         std::regex_match(units, units_match, units_regex);
-         if( units_match.size() == 2 ) {
-            block_sync_rate_limit = static_cast<size_t>(limit * prefix_multipliers.at(units_match[1].str()));
-            fc_dlog( logger, "setting block_sync_rate_limit to ${limit}", ("limit", block_sync_rate_limit));
-         } else {
-            fc_wlog( logger, "listen address ${la} has invalid block sync limit specification, connection will not be throttled", ("la", listen_address));
-            block_sync_rate_limit = 0;
-         }
-      } else {
-         block_sync_rate_limit = static_cast<size_t>(limit);
-      }
+      set_connection_limit(limit_str);
       update_endpoints();
       fc_dlog( logger, "new connection object created for peer ${address}:${port} from listener ${addr}", ("address", log_remote_endpoint_ip)("port", log_remote_endpoint_port)("addr", listen_address) );
    }
 
-   // called from connection strand
    void connection::update_endpoints() {
       boost::system::error_code ec;
       boost::system::error_code ec2;
@@ -1255,6 +1235,30 @@ namespace eosio {
       else {
          fc_dlog( logger, "unable to retrieve remote endpoint for local ${address}:${port}", ("address", local_endpoint_ip)("port", local_endpoint_port));
          remote_endpoint_ip_array = boost::asio::ip::address_v6().to_bytes();
+      }
+   }
+
+   void connection::set_connection_limit( const std::string& limit_str) {
+      std::istringstream in(limit_str);
+      fc_dlog( logger, "parsing connection endpoint with locale ${l}", ("l", std::locale("").name()));
+      in.imbue(std::locale(""));
+      double limit{0};
+      in >> limit;
+      if( limit > 0.0f ) {
+         std::string units;
+         in >> units;
+         std::regex units_regex{"([KMGT]?[i]?)B/s"};
+         std::smatch units_match;
+         std::regex_match(units, units_match, units_regex);
+         try {
+            block_sync_rate_limit = boost::numeric_cast<size_t>(limit * prefix_multipliers.at(units_match[1].str()));
+            fc_dlog( logger, "setting block_sync_rate_limit to ${limit}", ("limit", block_sync_rate_limit));
+         } catch (boost::numeric::bad_numeric_cast&) {
+            fc_wlog( logger, "listen address ${la} block sync limit specification overflowed, connection will not be throttled", ("la", listen_address));
+            block_sync_rate_limit = 0;
+         }
+      } else {
+         block_sync_rate_limit = 0;
       }
    }
 
@@ -2767,7 +2771,7 @@ namespace eosio {
    }
 
 
-   void net_plugin_impl::create_session(tcp::socket&& socket, const string listen_address, const string limit) {
+   void net_plugin_impl::create_session(tcp::socket&& socket, const string listen_address, const string& limit) {
       uint32_t                  visitors  = 0;
       uint32_t                  from_addr = 0;
       boost::system::error_code rec;
@@ -3975,24 +3979,24 @@ namespace eosio {
    void net_plugin::set_program_options( options_description& /*cli*/, options_description& cfg )
    {
       cfg.add_options()
-         ( "p2p-listen-endpoint", bpo::value< vector<string> >()->default_value( vector<string>(1, string("0.0.0.0:9876:0")) ), "The actual host:port used to listen for incoming p2p connections. May be used multiple times. "
-           "Block syncing to all peers connected via the port will be throttled to the specified rate. "
-           "See the 'p2p-peer-address' argument for format details.")
+         ( "p2p-listen-endpoint", bpo::value< vector<string> >()->default_value( vector<string>(1, string("0.0.0.0:9876:0")) ), "The actual host:port[:<rate-cap>] used to listen for incoming p2p connections. May be used multiple times. "
+           "  The optional rate cap will limit block sync bandwidth to the specified rate.  A number alone will be "
+           "  interpreted as bytes per second.  The number may be suffixed with units.  Supported units are: "
+           "  'B/s', 'KB/s', 'MB/s, 'GB/s', 'TB/s', 'KiB/s', 'MiB/s', 'GiB/s', 'TiB/s'."
+           "  Transactions and blocks outside of sync mode are not throttled."
+           "  Examples:\n"
+           "    192.168.0.100:9876:1MiB/s\n"
+           "    node.eos.io:9876:250KB/s\n"
+           "    node.eos.io:9876:0.5GB/s")
          ( "p2p-server-address", bpo::value< vector<string> >(), "An externally accessible host:port for identifying this node. Defaults to p2p-listen-endpoint. May be used as many times as p2p-listen-endpoint. If provided, the first address will be used in handshakes with other nodes. Otherwise the default is used.")
          ( "p2p-peer-address", bpo::value< vector<string> >()->composing(),
            "The public endpoint of a peer node to connect to. Use multiple p2p-peer-address options as needed to compose a network.\n"
-           "  Syntax: host:port[:<trx>|<blk>][:<rate-cap>]\n"
+           "  Syntax: host:port[:<trx>|<blk>]\n"
            "  The optional 'trx' and 'blk' indicates to node that only transactions 'trx' or blocks 'blk' should be sent."
-           "  The optional rate cap will limit block sync bandwidth to the specified rate.  A number alone will be "
-           "  interpreted as bytes per second.  The number may be suffixed with units.  Supported units are: "
-           "  'B/s', 'KB/s', 'MB/s, 'GB/s', and 'TB/s'. Transactions and blocks outside of sync mode are not throttled."
            "  Examples:\n"
            "    p2p.eos.io:9876\n"
            "    p2p.trx.eos.io:9876:trx\n"
-           "    p2p.blk.eos.io:9876:blk\n"
-           "    p2p.eos.io:9876:1MB/s\n"
-           "    p2p.blk.eos.io:9876:blk:250KB/s\n"
-           "    p2p.eos.io:9876:0.5GB/s")
+           "    p2p.blk.eos.io:9876:blk\n")
          ( "p2p-max-nodes-per-host", bpo::value<int>()->default_value(def_max_nodes_per_host), "Maximum number of client nodes from any single IP address")
          ( "p2p-accept-transactions", bpo::value<bool>()->default_value(true), "Allow transactions received over p2p network to be evaluated and relayed if valid.")
          ( "p2p-auto-bp-peer", bpo::value< vector<string> >()->composing(),

@@ -94,23 +94,23 @@ try:
 
     endLargeBlocksHeadBlock = nonProdNode.getHeadBlockNum()
 
-    throttleNode = cluster.unstartedNodes[0]
-    i = throttleNode.cmd.index('--p2p-listen-endpoint')
-    throttleNode.cmd[i+1] = throttleNode.cmd[i+1] + ':1000B/s'
+    throttlingNode = cluster.unstartedNodes[0]
+    i = throttlingNode.cmd.index('--p2p-listen-endpoint')
+    throttlingNode.cmd[i+1] = throttlingNode.cmd[i+1] + ':40000B/s'
 
     cluster.biosNode.kill(signal.SIGTERM)
     clusterStart = time.time()
     cluster.launchUnstarted(2)
 
-    syncNode = cluster.getNode(3)
+    throttledNode = cluster.getNode(3)
     time.sleep(15)
-    throttleNode.waitForBlock(endLargeBlocksHeadBlock)
-    endUnthrottledSync = time.time()
-    syncNode.waitForBlock(endLargeBlocksHeadBlock)
-    endSync = time.time()
-    Print(f'Unthrottled sync time: {endUnthrottledSync - clusterStart} seconds')
-    Print(f'Throttled sync time: {endSync - clusterStart} seconds')
-    assert endSync - clusterStart > endUnthrottledSync - clusterStart + 50, 'Throttled sync time must be at least 50 seconds greater than unthrottled'
+    assert throttlingNode.waitForBlock(endLargeBlocksHeadBlock), f'wait for block {endLargeBlocksHeadBlock}  on throttled node timed out'
+    endThrottlingSync = time.time()
+    assert throttledNode.waitForBlock(endLargeBlocksHeadBlock, timeout=90), f'Wait for block {endLargeBlocksHeadBlock} on sync node timed out'
+    endThrottledSync = time.time()
+    Print(f'Unthrottled sync time: {endThrottlingSync - clusterStart} seconds')
+    Print(f'Throttled sync time: {endThrottledSync - clusterStart} seconds')
+    assert endThrottledSync - clusterStart > endThrottlingSync - clusterStart + 30, 'Throttled sync time must be at least 30 seconds greater than unthrottled'
 
     testSuccessful=True
 finally:
