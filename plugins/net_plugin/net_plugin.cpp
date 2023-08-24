@@ -412,7 +412,7 @@ namespace eosio {
 
       unique_ptr< sync_manager >       sync_master;
       unique_ptr< dispatch_manager >   dispatcher;
-      unique_ptr< address_manager >    address_master;
+      address_manager                  address_master;
 
       connections_manager              connections;
 
@@ -1570,7 +1570,7 @@ namespace eosio {
            request_msg.request_type = request_type;
            // request push type will send addresses to other node
            if (request_type == push) {
-               std::unordered_set<std::string> addresses = my_impl->address_master->get_addresses();
+               std::unordered_set<std::string> addresses = my_impl->address_master.get_addresses();
                std::size_t count = 0;
                for (const auto &address: addresses) {
                    // host:port:type
@@ -3407,7 +3407,7 @@ namespace eosio {
           // try to touch connection every address_touch_frequency handshakes
           // add all kind address to manager, only peer or all type will be send to others
           // if address in manager, update type and last_active
-          my_impl->address_master->touch_address(msg.p2p_address);
+          my_impl->address_master.touch_address(msg.p2p_address);
       }
 
       uint32_t nblk_combined_latency = calc_block_latency();
@@ -3657,18 +3657,18 @@ namespace eosio {
                //check incoming addresses, send back different one:
                std::unordered_set<string> addresses_incoming = msg.addresses;
 
-               addresses = my_impl->address_master->get_diff_addresses(addresses_incoming, my_impl->p2p_only_send_manual_addresses);
+               addresses = my_impl->address_master.get_diff_addresses(addresses_incoming, my_impl->p2p_only_send_manual_addresses);
 
                // add address from addresses_incoming to address pool
-               my_impl->address_master->add_addresses(addresses_incoming);
+               my_impl->address_master.add_addresses(addresses_incoming);
            } else if(msg.request_type == latest_active) {
-               addresses = my_impl->address_master->get_latest_active_addresses(my_impl->address_request_last_active_secs, my_impl->p2p_only_send_manual_addresses);
+               addresses = my_impl->address_master.get_latest_active_addresses(my_impl->address_request_last_active_secs, my_impl->p2p_only_send_manual_addresses);
            } else {
                // default msg.request_type == pull
                if(my_impl->p2p_only_send_manual_addresses) {
-                   addresses = my_impl->address_master->get_manual_addresses();
+                   addresses = my_impl->address_master.get_manual_addresses();
                } else {
-                   addresses = my_impl->address_master->get_addresses();
+                   addresses = my_impl->address_master.get_addresses();
                }
            }
 
@@ -3698,7 +3698,7 @@ namespace eosio {
        peer_dlog(this, "address sync message with ${size} addresses", ("size", msg.addresses.size()) );
        for (const auto& address_str : msg.addresses) {
            // host:port:type
-           my_impl->address_master->add_address_str(address_str, false);
+           my_impl->address_master.add_address_str(address_str, false);
        }
    }
 
@@ -4163,7 +4163,7 @@ namespace eosio {
 
          max_addresses_per_request = options.at("p2p-max-addresses-per-request").as<uint32_t>();
          p2p_only_send_manual_addresses = options.at("p2p-only-send-manual-addresses").as<bool>();
-         min_peers_count = options.at( "min-peers" ).as<uint32_t>();
+         min_peers_count = options.at( "p2p-min-peers" ).as<uint32_t>();
 
          sync_master = std::make_unique<sync_manager>(
              options.at( "sync-fetch-span" ).as<uint32_t>(),
@@ -4387,7 +4387,7 @@ namespace eosio {
          my->start_monitors();
          my->update_chain_info();
          // when plugin_startup, address master only have addresses from config
-         my->connections.connect_peers(my->address_master->get_addresses(), *my->p2p_addresses.begin());
+         my->connections.connect_peers(my->address_master.get_addresses(), *my->p2p_addresses.begin());
       });
    }
 
@@ -4525,7 +4525,7 @@ namespace eosio {
 
       connect_i( host, p2p_address );
       //supplied_peers.insert(host);
-      my_impl->address_master->add_address_str(host);
+      my_impl->address_master.add_address_str(host);
       return "added connection";
    }
 
@@ -4537,7 +4537,7 @@ namespace eosio {
          c->close();
          connections.erase(c);
          //supplied_peers.erase(host);
-         my_impl->address_master->remove_address_str(host);
+         my_impl->address_master.remove_address_str(host);
          return "connection removed";
       }
       return "no known connection for host";
@@ -4642,7 +4642,7 @@ namespace eosio {
             g.unlock();
             fc_dlog( logger, "Exiting connection monitor early, ran out of time: ${t}", ("t", max_time - fc::time_point::now()) );
             fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}",
-                    ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", my_impl->address_master->get_addresses().size()) );
+                    ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", my_impl->address_master.get_addresses().size()) );
             start_conn_timer( std::chrono::milliseconds( 1 ), wit ); // avoid exhausting
             return;
          }
@@ -4702,10 +4702,10 @@ namespace eosio {
       if (from_begin && num_peers < my_impl->min_peers_count) {
          fc_ilog(logger, "peer connections not enough: ${pnum}/[${pmin}-${pmax}], trying to increase it",
                  ("pnum", num_peers)("pmin", my_impl->min_peers_count)("pmax",
-                                                                       my_impl->address_master->get_addresses().size()));
+                                                                       my_impl->address_master.get_addresses().size()));
          uint32_t count = 0;
          std::unique_lock g(connections_mtx);
-         for (const auto &peer: my_impl->address_master->get_diff_addresses(get_connections())) {
+         for (const auto &peer: my_impl->address_master.get_diff_addresses(get_connections())) {
             connect_i(peer, *my_impl->p2p_addresses.begin());
             count++;
             if (count == my_impl->min_peers_count - num_peers)
@@ -4720,7 +4720,7 @@ namespace eosio {
 
       if( num_clients > 0 || num_peers > 0 ) {
          fc_ilog(logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}, block producer peers: ${num_bp_peers}",
-                 ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax",  my_impl->address_master->get_addresses().size())("num_bp_peers", num_bp_peers));
+                 ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax",  my_impl->address_master.get_addresses().size())("num_bp_peers", num_bp_peers));
       }
       fc_dlog( logger, "connection monitor, removed ${n} connections", ("n", num_rm) );
       start_conn_timer( connector_period, {});
