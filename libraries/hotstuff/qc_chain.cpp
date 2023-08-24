@@ -41,12 +41,6 @@
   -- skip BPs without a bls key in the selection, new host functions are available
 */
 
-
-// FIXME/REMOVE: remove all of this tracing
-// Enables extra logging to help with debugging
-//#define QC_CHAIN_TRACE_DEBUG
-
-
 namespace eosio { namespace hotstuff {
 
    const hs_proposal_message* qc_chain::get_proposal(const fc::sha256& proposal_id) {
@@ -145,11 +139,9 @@ namespace eosio { namespace hotstuff {
 
    fc::unsigned_int qc_chain::update_bitset(fc::unsigned_int value, name finalizer ) {
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" === update bitset ${value} ${finalizer}",
+      fc_tlog(_logger, " === update bitset ${value} ${finalizer}",
            ("value", value)
            ("finalizer", finalizer));
-#endif
 
       boost::dynamic_bitset b( 21, value );
       vector<name> finalizers = _pacemaker->get_finalizers();
@@ -157,19 +149,15 @@ namespace eosio { namespace hotstuff {
          if (finalizers[i] == finalizer) {
             b.flip(i);
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-            ilog(" === finalizer found ${finalizer} new value : ${value}",
+            fc_tlog(_logger, " === finalizer found ${finalizer} new value : ${value}",
                  ("finalizer", finalizer)
                  ("value", b.to_ulong()));
-#endif
 
             return b.to_ulong();
          }
       }
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" *** finalizer not found ${finalizer}",
+      fc_tlog(_logger, " *** finalizer not found ${finalizer}",
            ("finalizer", finalizer));
-#endif
       throw std::runtime_error("qc_chain internal error: finalizer not found");
    }
 
@@ -217,7 +205,7 @@ namespace eosio { namespace hotstuff {
                if (p != nullptr) {
                   b_new.final_on_qc = p->final_on_qc;
                } else {
-                  if (_errors) ilog(" *** ${id} expected to find proposal in new_proposal_candidate() but not found : ${proposal_id}", ("id",_id)("proposal_id", b1.parent_id));
+                  fc_elog(_logger, " *** ${id} expected to find proposal in new_proposal_candidate() but not found : ${proposal_id}", ("id",_id)("proposal_id", b1.parent_id));
                }
             }
          }
@@ -225,8 +213,7 @@ namespace eosio { namespace hotstuff {
 
       b_new.proposal_id = get_digest_to_sign(b_new.block_id, b_new.phase_counter, b_new.final_on_qc);
 
-      if (_log)
-         ilog(" === ${id} creating new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} : justify ${justify}",
+      fc_dlog(_logger, " === ${id} creating new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} : justify ${justify}",
               ("id", _id)
               ("block_num", b_new.block_num())
               ("phase_counter", b_new.phase_counter)
@@ -239,9 +226,7 @@ namespace eosio { namespace hotstuff {
 
    void qc_chain::reset_qc(const fc::sha256& proposal_id){
       std::lock_guard g( _state_mutex );
-#ifdef QC_CHAIN_TRACE_DEBUG
-      if (_log) ilog(" === ${id} resetting qc : ${proposal_id}", ("proposal_id" , proposal_id)("id", _id));
-#endif
+      fc_tlog(_logger, " === ${id} resetting qc : ${proposal_id}", ("proposal_id" , proposal_id)("id", _id));
       _current_qc.proposal_id = proposal_id;
       _current_qc.quorum_met = false;
       _current_qc.active_finalizers = 0;
@@ -300,9 +285,7 @@ namespace eosio { namespace hotstuff {
          return true; //skip evaluation if we've already verified quorum was met
       }
       else {
-#ifdef QC_CHAIN_TRACE_DEBUG
-         ilog(" === qc : ${qc}", ("qc", qc));
-#endif
+         fc_tlog(_logger, " === qc : ${qc}", ("qc", qc));
          // If the caller wants to update the quorum_met flag on its "qc" object, it will have to do so
          //   based on the return value of this method, since "qc" here is const.
          return evaluate_quorum(schedule, qc.active_finalizers, qc.active_agg_sig, proposal);
@@ -310,13 +293,13 @@ namespace eosio { namespace hotstuff {
    }
 
 
-   qc_chain::qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, const fc::logger& logger)
+   qc_chain::qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, fc::logger& logger)
       : _id(id),
         _pacemaker(pacemaker),
         _my_producers(std::move(my_producers)),
         _logger(logger)
    {
-      if (_log) ilog(" === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
+      fc_dlog(_logger, " === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
    }
 
    bool qc_chain::am_i_proposer(){
@@ -369,7 +352,7 @@ namespace eosio { namespace hotstuff {
 
          const hs_proposal_message *jp = get_proposal( proposal.justify.proposal_id );
          if (jp == nullptr) {
-            if (_errors) ilog(" *** ${id} proposal justification unknown : ${proposal_id}", ("id",_id)("proposal_id", proposal.justify.proposal_id));
+            fc_elog(_logger, " *** ${id} proposal justification unknown : ${proposal_id}", ("id",_id)("proposal_id", proposal.justify.proposal_id));
             return; //can't recognize a proposal with an unknown justification
          }
       }
@@ -377,11 +360,11 @@ namespace eosio { namespace hotstuff {
       const hs_proposal_message *p = get_proposal( proposal.proposal_id );
       if (p != nullptr) {
 
-         if (_errors) ilog(" *** ${id} proposal received twice : ${proposal_id}", ("id",_id)("proposal_id", proposal.proposal_id));
+         fc_elog(_logger, " *** ${id} proposal received twice : ${proposal_id}", ("id",_id)("proposal_id", proposal.proposal_id));
 
          if (p->justify.proposal_id != proposal.justify.proposal_id) {
 
-            if (_errors) ilog(" *** ${id} two identical proposals (${proposal_id}) have different justifications :  ${justify_1} vs  ${justify_2}",
+            fc_elog(_logger, " *** ${id} two identical proposals (${proposal_id}) have different justifications :  ${justify_1} vs  ${justify_2}",
                               ("id",_id)
                               ("proposal_id", proposal.proposal_id)
                               ("justify_1", p->justify.proposal_id)
@@ -410,12 +393,12 @@ namespace eosio { namespace hotstuff {
          const hs_proposal_message & existing_proposal = *hgt_itr;
 #endif
 
-         if (_errors) ilog(" *** ${id} received a different proposal at the same height (${block_num}, ${phase_counter})",
+         fc_elog(_logger, " *** ${id} received a different proposal at the same height (${block_num}, ${phase_counter})",
                            ("id",_id)
                            ("block_num", existing_proposal.block_num())
                            ("phase_counter", existing_proposal.phase_counter));
 
-         if (_errors) ilog(" *** Proposal #1 : ${proposal_id_1} Proposal #2 : ${proposal_id_2}",
+         fc_elog(_logger, " *** Proposal #1 : ${proposal_id_1} Proposal #2 : ${proposal_id_2}",
                            ("proposal_id_1", existing_proposal.proposal_id)
                            ("proposal_id_2", proposal.proposal_id));
 
@@ -428,7 +411,7 @@ namespace eosio { namespace hotstuff {
       }
 #endif
 
-      if (_log) ilog(" === ${id} received new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} justify ${justify}",
+      fc_dlog(_logger, " === ${id} received new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} justify ${justify}",
                      ("id", _id)
                      ("block_num", proposal.block_num())
                      ("phase_counter", proposal.phase_counter)
@@ -461,13 +444,11 @@ namespace eosio { namespace hotstuff {
 
                hs_vote_message v_msg = sign_proposal(proposal, *prod_itr);
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-               if (_log) ilog(" === ${id} signed proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id}",
+               fc_tlog(_logger, " === ${id} signed proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id}",
                               ("id", _id)
                               ("block_num", proposal.block_num())
                               ("phase_counter", proposal.phase_counter)
                               ("proposal_id", proposal.proposal_id));
-#endif
 
                //send_hs_vote_msg(v_msg);
                msgs.push_back(v_msg);
@@ -478,13 +459,11 @@ namespace eosio { namespace hotstuff {
          }
       }
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-      else if (_log) ilog(" === ${id} skipping signature on proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id}",
+      else fc_tlog(_logger, " === ${id} skipping signature on proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id}",
                           ("id", _id)
                           ("block_num", proposal.block_num())
                           ("phase_counter", proposal.phase_counter)
                           ("proposal_id", proposal.proposal_id));
-#endif
 
       //update internal state
       update(proposal);
@@ -497,7 +476,7 @@ namespace eosio { namespace hotstuff {
       leader_rotation_check();
 
       //auto total_time = fc::time_point::now() - start;
-      //if (_log) ilog(" ... process_proposal() total time : ${total_time}", ("total_time", total_time));
+      //fc_dlog(_logger, " ... process_proposal() total time : ${total_time}", ("total_time", total_time));
    }
 
    void qc_chain::process_vote(const hs_vote_message & vote){
@@ -510,17 +489,14 @@ namespace eosio { namespace hotstuff {
 
       if (!am_leader)
          return;
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" === Process vote from ${finalizer} : current bitset ${value}" , ("finalizer", vote.finalizer)("value", _current_qc.active_finalizers));
-#endif
+      fc_tlog(_logger, " === Process vote from ${finalizer} : current bitset ${value}" , ("finalizer", vote.finalizer)("value", _current_qc.active_finalizers));
       // only leader need to take action on votes
       if (vote.proposal_id != _current_qc.proposal_id)
          return;
 
       const hs_proposal_message *p = get_proposal( vote.proposal_id );
       if (p == nullptr) {
-         if (_errors) ilog(" *** ${id} couldn't find proposal", ("id",_id));
-         if (_errors) ilog(" *** ${id} vote : ${vote}", ("vote", vote)("id",_id));
+         fc_elog(_logger, " *** ${id} couldn't find proposal, vote : ${vote}", ("id",_id)("vote", vote));
          return;
       }
 
@@ -542,7 +518,7 @@ namespace eosio { namespace hotstuff {
 
          if (quorum_met){
 
-            if (_log) ilog(" === ${id} quorum met on #${block_num} ${phase_counter} ${proposal_id} ",
+            fc_dlog(_logger, " === ${id} quorum met on #${block_num} ${phase_counter} ${proposal_id} ",
                            ("block_num", p->block_num())
                            ("phase_counter", p->phase_counter)
                            ("proposal_id", vote.proposal_id)
@@ -552,7 +528,7 @@ namespace eosio { namespace hotstuff {
             _current_qc.quorum_met = true;
             state_lock.unlock();
 
-            //ilog(" === update_high_qc : _current_qc ===");
+            //fc_tlog(_logger, " === update_high_qc : _current_qc ===");
             update_high_qc(_current_qc);
 
             //check for leader change
@@ -560,9 +536,7 @@ namespace eosio { namespace hotstuff {
 
             //if we're operating in event-driven mode and the proposal hasn't reached the decide phase yet
             if (_chained_mode == false && p->phase_counter < 3) {
-#ifdef QC_CHAIN_TRACE_DEBUG
-               if (_log) ilog(" === ${id} phase increment on proposal ${proposal_id}", ("proposal_id", vote.proposal_id)("id", _id));
-#endif
+               fc_tlog(_logger, " === ${id} phase increment on proposal ${proposal_id}", ("proposal_id", vote.proposal_id)("id", _id));
                hs_proposal_message proposal_candidate;
 
                if (_pending_proposal_block == NULL_BLOCK_ID)
@@ -571,30 +545,24 @@ namespace eosio { namespace hotstuff {
                   proposal_candidate = new_proposal_candidate( _pending_proposal_block, 0 );
 
                reset_qc(proposal_candidate.proposal_id);
-#ifdef QC_CHAIN_TRACE_DEBUG
-               if (_log) ilog(" === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
-#endif
+               fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
                state_lock.lock();
                _pending_proposal_block = NULL_BLOCK_ID;
                _b_leaf = proposal_candidate.proposal_id;
                state_lock.unlock();
 
                send_hs_proposal_msg(proposal_candidate);
-#ifdef QC_CHAIN_TRACE_DEBUG
-               if (_log) ilog(" === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
-#endif
+               fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
             }
          }
       }
 
       //auto total_time = fc::time_point::now() - start;
-      //if (_log) ilog(" ... process_vote() total time : ${total_time}", ("total_time", total_time));
+      //fc_tlog(_logger, " ... process_vote() total time : ${total_time}", ("total_time", total_time));
    }
 
    void qc_chain::process_new_view(const hs_new_view_message & msg){
-#ifdef QC_CHAIN_TRACE_DEBUG
-      if (_log) ilog(" === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
-#endif
+      fc_tlog(_logger, " === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
       update_high_qc(msg.high_qc);
    }
 
@@ -604,16 +572,11 @@ namespace eosio { namespace hotstuff {
 #warning check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
       // TODO: check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
       if (! am_i_leader()) {
-
-#ifdef QC_CHAIN_TRACE_DEBUG
-         ilog(" === ${id} process_new_block === discarding because I'm not the leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
-#endif
+         fc_tlog(_logger, " === ${id} process_new_block === discarding because I'm not the leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
          return;
       }
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-      if (_log) ilog(" === ${id} process_new_block === am leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
-#endif
+      fc_tlog(_logger, " === ${id} process_new_block === am leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
 
 #warning What to do with the received msg.justify?
       // ------------------------------------------------------------------
@@ -628,32 +591,26 @@ namespace eosio { namespace hotstuff {
 
       if (_current_qc.proposal_id != NULL_PROPOSAL_ID && _current_qc.quorum_met == false) {
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         if (_log) ilog(" === ${id} pending proposal found ${proposal_id} : quorum met ${quorum_met}",
+         fc_tlog(_logger, " === ${id} pending proposal found ${proposal_id} : quorum met ${quorum_met}",
                         ("id", _id)
                         ("proposal_id", _current_qc.proposal_id)
                         ("quorum_met", _current_qc.quorum_met));
-         if (_log) ilog(" === ${id} setting _pending_proposal_block to ${block_id} (on_beat)", ("id", _id)("block_id", msg.block_id));
-#endif
+         fc_tlog(_logger, " === ${id} setting _pending_proposal_block to ${block_id} (on_beat)", ("id", _id)("block_id", msg.block_id));
          std::unique_lock state_lock( _state_mutex );
          _pending_proposal_block = msg.block_id;
          state_lock.unlock();
 
       } else {
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         if (_log) ilog(" === ${id} preparing new proposal ${proposal_id} : quorum met ${quorum_met}",
+         fc_tlog(_logger, " === ${id} preparing new proposal ${proposal_id} : quorum met ${quorum_met}",
                         ("id", _id)
                         ("proposal_id", _current_qc.proposal_id)
                         ("quorum_met", _current_qc.quorum_met));
-#endif
          hs_proposal_message proposal_candidate = new_proposal_candidate( msg.block_id, 0 );
 
          reset_qc(proposal_candidate.proposal_id);
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         if (_log) ilog(" === ${id} setting _pending_proposal_block to null (process_new_block)", ("id", _id));
-#endif
+         fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_new_block)", ("id", _id));
          std::unique_lock state_lock( _state_mutex );
          _pending_proposal_block = NULL_BLOCK_ID;
          _b_leaf = proposal_candidate.proposal_id;
@@ -661,39 +618,29 @@ namespace eosio { namespace hotstuff {
 
          send_hs_proposal_msg(proposal_candidate);
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         if (_log) ilog(" === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
-#endif
+         fc_tlog(_logger, " === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
       }
    }
 
    void qc_chain::send_hs_proposal_msg(const hs_proposal_message & msg){
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" === broadcast_hs_proposal ===");
-#endif
+      fc_tlog(_logger, " === broadcast_hs_proposal ===");
       _pacemaker->send_hs_proposal_msg(msg, _id);
       process_proposal(msg);
    }
 
    void qc_chain::send_hs_vote_msg(const hs_vote_message & msg){
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" === broadcast_hs_vote ===");
-#endif
+      fc_tlog(_logger, " === broadcast_hs_vote ===");
       _pacemaker->send_hs_vote_msg(msg, _id);
       process_vote(msg);
    }
 
    void qc_chain::send_hs_new_view_msg(const hs_new_view_message & msg){
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" === broadcast_hs_new_view ===");
-#endif
+      fc_tlog(_logger, " === broadcast_hs_new_view ===");
       _pacemaker->send_hs_new_view_msg(msg, _id);
    }
 
    void qc_chain::send_hs_new_block_msg(const hs_new_block_message & msg){
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" === broadcast_hs_new_block ===");
-#endif
+      fc_tlog(_logger, " === broadcast_hs_new_block ===");
       _pacemaker->send_hs_new_block_msg(msg, _id);
    }
 
@@ -709,19 +656,19 @@ namespace eosio { namespace hotstuff {
          fc::sha256 parent_id = p->parent_id;
          p = get_proposal( parent_id );
          if (p == nullptr) {
-            if (_errors) ilog(" *** ${id} cannot find proposal id while looking for ancestor : ${proposal_id}", ("id",_id)("proposal_id", parent_id));
+            fc_elog(_logger, " *** ${id} cannot find proposal id while looking for ancestor : ${proposal_id}", ("id",_id)("proposal_id", parent_id));
             return false;
          }
          if (p->proposal_id == ancestor) {
             if (counter > 25) {
-               if (_errors) ilog(" *** ${id} took ${counter} iterations to find ancestor ", ("id",_id)("counter", counter));
+               fc_elog(_logger, " *** ${id} took ${counter} iterations to find ancestor ", ("id",_id)("counter", counter));
             }
             return true;
          }
          ++counter;
       }
 
-      if (_errors) ilog(" *** ${id} extends returned false : could not find ${d_proposal_id} descending from ${a_proposal_id} ",
+      fc_elog(_logger, " *** ${id} extends returned false : could not find ${d_proposal_id} descending from ${a_proposal_id} ",
                         ("id",_id)
                         ("d_proposal_id", descendant)
                         ("a_proposal_id", ancestor));
@@ -754,9 +701,7 @@ namespace eosio { namespace hotstuff {
 
          // I am the proposer; so this assumes that no additional proposal validation is required.
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         ilog(" === I am a leader-proposer that is proposing a block for itself to lead");
-#endif
+         fc_tlog(_logger, " === I am a leader-proposer that is proposing a block for itself to lead");
          // Hardwired consumption by self; no networking.
          process_new_block( block_candidate );
 
@@ -765,18 +710,14 @@ namespace eosio { namespace hotstuff {
          // I'm only a proposer and not the leader; send a new-block-proposal message out to
          //   the network, until it reaches the leader.
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         ilog(" === broadcasting new block = #${block_height} ${proposal_id}", ("proposal_id", block_candidate.block_id)("block_height",compute_block_num(block_candidate.block_id) ));
-#endif
+         fc_tlog(_logger, " === broadcasting new block = #${block_num} ${proposal_id}", ("proposal_id", block_candidate.block_id)("block_num",(block_header::num_from_id(block_candidate.block_id))));
          send_hs_new_block_msg( block_candidate );
       }
    }
 
    void qc_chain::update_high_qc(const eosio::chain::quorum_certificate & high_qc){
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" === check to update high qc ${proposal_id}", ("proposal_id", high_qc.proposal_id));
-#endif
+      fc_tlog(_logger, " === check to update high qc ${proposal_id}", ("proposal_id", high_qc.proposal_id));
 
       // if new high QC is higher than current, update to new
 
@@ -787,9 +728,7 @@ namespace eosio { namespace hotstuff {
          _b_leaf = _high_qc.proposal_id;
          state_lock.unlock();
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         if (_log) ilog(" === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
-#endif
+         fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
       } else {
          const hs_proposal_message *old_high_qc_prop = get_proposal( _high_qc.proposal_id );
          const hs_proposal_message *new_high_qc_prop = get_proposal( high_qc.proposal_id );
@@ -804,18 +743,14 @@ namespace eosio { namespace hotstuff {
             // "The caller does not need this updated on their high_qc structure" -- g
             //high_qc.quorum_met = true;
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-            ilog(" === updated high qc, now is : #${get_height}  ${proposal_id}", ("get_height", new_high_qc_prop->get_height())("proposal_id", new_high_qc_prop->proposal_id));
-#endif
+            fc_tlog(_logger, " === updated high qc, now is : #${get_height}  ${proposal_id}", ("get_height", new_high_qc_prop->get_height())("proposal_id", new_high_qc_prop->proposal_id));
             std::unique_lock state_lock( _state_mutex );
             _high_qc = high_qc;
             _high_qc.quorum_met = true;
             _b_leaf = _high_qc.proposal_id;
             state_lock.unlock();
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-            if (_log) ilog(" === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
-#endif
+            fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
          }
       }
    }
@@ -829,7 +764,7 @@ namespace eosio { namespace hotstuff {
 
       if (current_leader != next_leader){
 
-         if (_log) ilog(" /// ${id} rotating leader : ${old_leader} -> ${new_leader} ",
+         fc_dlog(_logger, " /// ${id} rotating leader : ${old_leader} -> ${new_leader} ",
                         ("id", _id)
                         ("old_leader", current_leader)
                         ("new_leader", next_leader));
@@ -838,9 +773,7 @@ namespace eosio { namespace hotstuff {
 
          reset_qc(NULL_PROPOSAL_ID);
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         if (_log) ilog(" === ${id} setting _pending_proposal_block to null (leader_rotation_check)", ("id", _id));
-#endif
+         fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (leader_rotation_check)", ("id", _id));
 
          std::unique_lock state_lock( _state_mutex );
          _pending_proposal_block = NULL_BLOCK_ID;
@@ -857,7 +790,7 @@ namespace eosio { namespace hotstuff {
    //safenode predicate
    bool qc_chain::is_node_safe(const hs_proposal_message & proposal){
 
-      //ilog(" === is_node_safe ===");
+      //fc_tlog(_logger, " === is_node_safe ===");
 
       bool monotony_check = false;
       bool safety_check = false;
@@ -890,7 +823,7 @@ namespace eosio { namespace hotstuff {
                if (p != nullptr) {
                   upcoming_commit = p->final_on_qc;
                } else {
-                  if (_errors) ilog(" *** ${id} in is_node_safe did not find expected proposal id: ${proposal_id}", ("id",_id)("proposal_id", b1.parent_id));
+                  fc_elog(_logger, " *** ${id} in is_node_safe did not find expected proposal id: ${proposal_id}", ("id",_id)("proposal_id", b1.parent_id));
                }
             }
          }
@@ -930,24 +863,19 @@ namespace eosio { namespace hotstuff {
          liveness_check = true;
          safety_check = true;
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         if (_log) ilog(" === ${id} not locked on anything, liveness and safety are true", ("id", _id));
-#endif
+         fc_tlog(_logger, " === ${id} not locked on anything, liveness and safety are true", ("id", _id));
       }
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" === final_on_qc_check : ${final_on_qc_check}, monotony_check : ${monotony_check}, liveness_check : ${liveness_check}, safety_check : ${safety_check}",
+      fc_tlog(_logger, " === final_on_qc_check : ${final_on_qc_check}, monotony_check : ${monotony_check}, liveness_check : ${liveness_check}, safety_check : ${safety_check}",
            ("final_on_qc_check", final_on_qc_check)
            ("monotony_check", monotony_check)
            ("liveness_check", liveness_check)
            ("safety_check", safety_check));
-#endif
 
       bool node_is_safe = final_on_qc_check && monotony_check && (liveness_check || safety_check);
       if (!node_is_safe) {
 
-         if (_errors)
-            ilog(" *** node is NOT safe. Checks : final_on_qc: ${final_on_qc}, monotony_check: ${monotony_check}, liveness_check: ${liveness_check}, safety_check: ${safety_check})",
+         fc_elog(_logger, " *** node is NOT safe. Checks : final_on_qc: ${final_on_qc}, monotony_check: ${monotony_check}, liveness_check: ${liveness_check}, safety_check: ${safety_check})",
                  ("final_on_qc_check",final_on_qc_check)
                  ("monotony_check",monotony_check)
                  ("liveness_check",liveness_check)
@@ -979,10 +907,10 @@ namespace eosio { namespace hotstuff {
    }
 
    void qc_chain::update(const hs_proposal_message & proposal){
-      //ilog(" === update internal state ===");
+      //fc_tlog(_logger, " === update internal state ===");
       //if proposal has no justification, means we either just activated the feature or launched the chain, or the proposal is invalid
       if (proposal.justify.proposal_id == NULL_PROPOSAL_ID){
-         if (_log) ilog(" === ${id} proposal has no justification ${proposal_id}", ("proposal_id", proposal.proposal_id)("id", _id));
+         fc_dlog(_logger, " === ${id} proposal has no justification ${proposal_id}", ("proposal_id", proposal.proposal_id)("id", _id));
          return;
       }
 
@@ -993,11 +921,11 @@ namespace eosio { namespace hotstuff {
       const hs_proposal_message *b_lock = get_proposal( _b_lock );
       EOS_ASSERT( b_lock != nullptr || _b_lock == NULL_PROPOSAL_ID , chain_exception, "expected hs_proposal ${id} not found", ("id", _b_lock) );
 
-      //ilog(" === update_high_qc : proposal.justify ===");
+      //fc_tlog(_logger, " === update_high_qc : proposal.justify ===");
       update_high_qc(proposal.justify);
 
       if (chain_length<1){
-         if (_log) ilog(" === ${id} qc chain length is 0", ("id", _id));
+         fc_dlog(_logger, " === ${id} qc chain length is 0", ("id", _id));
          return;
       }
 
@@ -1005,7 +933,7 @@ namespace eosio { namespace hotstuff {
       hs_proposal_message b_2 = *itr;
 
       if (chain_length<2){
-         if (_log) ilog(" === ${id} qc chain length is 1", ("id", _id));
+         fc_dlog(_logger, " === ${id} qc chain length is 1", ("id", _id));
          return;
       }
 
@@ -1015,35 +943,29 @@ namespace eosio { namespace hotstuff {
 
       //if we're not locked on anything, means we just activated or chain just launched, else we verify if we've progressed enough to establish a new lock
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-      if (_log) ilog(" === ${id} _b_lock ${_b_lock} b_1 height ${b_1_height}",
+      fc_tlog(_logger, " === ${id} _b_lock ${_b_lock} b_1 height ${b_1_height}",
                      ("id", _id)
                      ("_b_lock", _b_lock)
                      ("b_1_height", b_1.block_num())
                      ("b_1_phase", b_1.phase_counter));
 
       if ( b_lock != nullptr ) {
-         if (_log) ilog(" === b_lock height ${b_lock_height} b_lock phase ${b_lock_phase}",
+         fc_tlog(_logger, " === b_lock height ${b_lock_height} b_lock phase ${b_lock_phase}",
                         ("b_lock_height", b_lock->block_num())
                         ("b_lock_phase", b_lock->phase_counter));
       }
-#endif
 
       if (_b_lock == NULL_PROPOSAL_ID || b_1.get_height() > b_lock->get_height()){
-#ifdef QC_CHAIN_TRACE_DEBUG
-         ilog("setting _b_lock to ${proposal_id}", ("proposal_id",b_1.proposal_id ));
-#endif
+         fc_tlog(_logger, "setting _b_lock to ${proposal_id}", ("proposal_id",b_1.proposal_id ));
          std::unique_lock state_lock( _state_mutex );
          _b_lock = b_1.proposal_id; //commit phase on b1
          state_lock.unlock();
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         if (_log) ilog(" === ${id} _b_lock updated : ${proposal_id}", ("proposal_id", b_1.proposal_id)("id", _id));
-#endif
+         fc_tlog(_logger, " === ${id} _b_lock updated : ${proposal_id}", ("proposal_id", b_1.proposal_id)("id", _id));
       }
 
       if (chain_length < 3) {
-         if (_log) ilog(" === ${id} qc chain length is 2",("id", _id));
+         fc_dlog(_logger, " === ${id} qc chain length is 2",("id", _id));
          return;
       }
 
@@ -1051,13 +973,11 @@ namespace eosio { namespace hotstuff {
 
       hs_proposal_message b = *itr;
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" === direct parent relationship verification : b_2.parent_id ${b_2.parent_id} b_1.proposal_id ${b_1.proposal_id} b_1.parent_id ${b_1.parent_id} b.proposal_id ${b.proposal_id} ",
+      fc_tlog(_logger, " === direct parent relationship verification : b_2.parent_id ${b_2.parent_id} b_1.proposal_id ${b_1.proposal_id} b_1.parent_id ${b_1.parent_id} b.proposal_id ${b.proposal_id} ",
                 ("b_2.parent_id",b_2.parent_id)
                 ("b_1.proposal_id", b_1.proposal_id)
                 ("b_1.parent_id", b_1.parent_id)
                 ("b.proposal_id", b.proposal_id));
-#endif
 
       //direct parent relationship verification
       if (b_2.parent_id == b_1.proposal_id && b_1.parent_id == b.proposal_id){
@@ -1069,8 +989,7 @@ namespace eosio { namespace hotstuff {
 
             if (b_exec->get_height() >= b.get_height() && b_exec->proposal_id != b.proposal_id){
 
-               if (_errors)
-                  ilog(" *** ${id} finality violation detected at height ${block_num}, phase : ${phase}. Proposal ${proposal_id_1} conflicts with ${proposal_id_2}",
+               fc_elog(_logger, " *** ${id} finality violation detected at height ${block_num}, phase : ${phase}. Proposal ${proposal_id_1} conflicts with ${proposal_id_2}",
                        ("id", _id)
                        ("block_num", b.block_num())
                        ("phase", b.phase_counter)
@@ -1088,9 +1007,7 @@ namespace eosio { namespace hotstuff {
 
          commit(b);
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-         ilog(" === last executed proposal : #${block_num} ${block_id}", ("block_num", b.block_num())("block_id", b.block_id));
-#endif
+         fc_tlog(_logger, " === last executed proposal : #${block_num} ${block_id}", ("block_num", b.block_num())("block_id", b.block_id));
 
          std::unique_lock state_lock( _state_mutex );
          _b_exec = b.proposal_id; //decide phase on b
@@ -1100,15 +1017,15 @@ namespace eosio { namespace hotstuff {
          gc_proposals( b.get_height()-1);
       }
       else {
-         if (_errors) ilog(" *** ${id} could not verify direct parent relationship", ("id",_id));
-         if (_errors) ilog("   *** b_2 ${b_2}", ("b_2", b_2));
-         if (_errors) ilog("   *** b_1 ${b_1}", ("b_1", b_1));
-         if (_errors) ilog("   *** b   ${b}", ("b", b));
+         fc_elog(_logger, " *** ${id} could not verify direct parent relationship", ("id",_id));
+         fc_elog(_logger, "   *** b_2 ${b_2}", ("b_2", b_2));
+         fc_elog(_logger, "   *** b_1 ${b_1}", ("b_1", b_1));
+         fc_elog(_logger, "   *** b   ${b}", ("b", b));
       }
    }
 
    void qc_chain::gc_proposals(uint64_t cutoff){
-      //ilog(" === garbage collection on old data");
+      //fc_tlog(_logger, " === garbage collection on old data");
       std::lock_guard g( _state_mutex );
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       ps_height_iterator psh_it = _proposal_stores_by_height.begin();
@@ -1137,14 +1054,12 @@ namespace eosio { namespace hotstuff {
       auto end_itr = _proposal_store.get<by_proposal_height>().upper_bound(cutoff);
       while (_proposal_store.get<by_proposal_height>().begin() != end_itr){
          auto itr = _proposal_store.get<by_proposal_height>().begin();
-#ifdef QC_CHAIN_TRACE_DEBUG
-         if (_log) ilog(" === ${id} erasing ${block_num} ${phase_counter} ${block_id} proposal_id ${proposal_id}",
+         fc_tlog(_logger, " === ${id} erasing ${block_num} ${phase_counter} ${block_id} proposal_id ${proposal_id}",
                         ("id", _id)
                         ("block_num", itr->block_num())
                         ("phase_counter", itr->phase_counter)
                         ("block_id", itr->block_id)
                         ("proposal_id", itr->proposal_id));
-#endif
          _proposal_store.get<by_proposal_height>().erase(itr);
       }
 #endif
@@ -1152,40 +1067,36 @@ namespace eosio { namespace hotstuff {
 
    void qc_chain::commit(const hs_proposal_message & proposal){
 
-#ifdef QC_CHAIN_TRACE_DEBUG
-      ilog(" === attempting to commit proposal #${block_num} ${proposal_id} block_id : ${block_id} phase : ${phase_counter} parent_id : ${parent_id}",
+      fc_tlog(_logger, " === attempting to commit proposal #${block_num} ${proposal_id} block_id : ${block_id} phase : ${phase_counter} parent_id : ${parent_id}",
                 ("block_num", proposal.block_num())
                 ("proposal_id", proposal.proposal_id)
                 ("block_id", proposal.block_id)
                 ("phase_counter", proposal.phase_counter)
                 ("parent_id", proposal.parent_id));
-#endif
 
       bool exec_height_check = false;
 
       const hs_proposal_message *last_exec_prop = get_proposal( _b_exec );
       EOS_ASSERT( last_exec_prop != nullptr || _b_exec == NULL_PROPOSAL_ID, chain_exception, "expected hs_proposal ${id} not found", ("id", _b_exec) );
 
-#ifdef QC_CHAIN_TRACE_DEBUG
       if (last_exec_prop != nullptr) {
-         ilog(" === _b_exec proposal #${block_num} ${proposal_id} block_id : ${block_id} phase : ${phase_counter} parent_id : ${parent_id}",
+         fc_tlog(_logger, " === _b_exec proposal #${block_num} ${proposal_id} block_id : ${block_id} phase : ${phase_counter} parent_id : ${parent_id}",
               ("block_num", last_exec_prop->block_num())
               ("proposal_id", last_exec_prop->proposal_id)
               ("block_id", last_exec_prop->block_id)
               ("phase_counter", last_exec_prop->phase_counter)
               ("parent_id", last_exec_prop->parent_id));
 
-         ilog(" *** last_exec_prop ${proposal_id_1} ${phase_counter_1} vs proposal ${proposal_id_2} ${phase_counter_2} ",
+         fc_tlog(_logger, " *** last_exec_prop ${proposal_id_1} ${phase_counter_1} vs proposal ${proposal_id_2} ${phase_counter_2} ",
               ("proposal_id_1", last_exec_prop->block_num())
               ("phase_counter_1", last_exec_prop->phase_counter)
               ("proposal_id_2", proposal.block_num())
               ("phase_counter_2", proposal.phase_counter));
       } else {
-         ilog(" === _b_exec proposal is null vs proposal ${proposal_id_2} ${phase_counter_2} ",
+         fc_tlog(_logger, " === _b_exec proposal is null vs proposal ${proposal_id_2} ${phase_counter_2} ",
               ("proposal_id_2", proposal.block_num())
               ("phase_counter_2", proposal.phase_counter));
       }
-#endif
 
       if (_b_exec == NULL_PROPOSAL_ID)
          exec_height_check = true;
@@ -1196,13 +1107,13 @@ namespace eosio { namespace hotstuff {
 
          const hs_proposal_message *p = get_proposal( proposal.parent_id );
          if (p != nullptr) {
-            //ilog(" === recursively committing" );
+            //fc_tlog(_logger, " === recursively committing" );
             commit(*p); //recursively commit all non-committed ancestor blocks sequentially first
          }
 
          //Execute commands [...]
 
-         if (_log) ilog(" === ${id} committed proposal #${block_num} phase ${phase_counter} block_id : ${block_id} proposal_id : ${proposal_id}",
+         fc_dlog(_logger, " === ${id} committed proposal #${block_num} phase ${phase_counter} block_id : ${block_id} proposal_id : ${proposal_id}",
                         ("id", _id)
                         ("block_num", proposal.block_num())
                         ("phase_counter", proposal.phase_counter)
@@ -1210,13 +1121,11 @@ namespace eosio { namespace hotstuff {
                         ("proposal_id", proposal.proposal_id));
       }
       else {
-#ifdef QC_CHAIN_TRACE_DEBUG
-         if (_errors) ilog(" *** ${id} sequence not respected on #${block_num} phase ${phase_counter} proposal_id : ${proposal_id}",
+         fc_elog(_logger, " *** ${id} sequence not respected on #${block_num} phase ${phase_counter} proposal_id : ${proposal_id}",
                 ("id", _id)
                 ("block_num", proposal.block_num())
                 ("phase_counter", proposal.phase_counter)
                 ("proposal_id", proposal.proposal_id));
-#endif
       }
    }
 

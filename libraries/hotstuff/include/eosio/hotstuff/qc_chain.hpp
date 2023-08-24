@@ -36,7 +36,7 @@ namespace eosio::hotstuff {
 
       qc_chain() = delete;
 
-      qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, const fc::logger& logger);
+      qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, fc::logger& logger);
 
 #warning remove. bls12-381 key used for testing purposes
       //todo : remove. bls12-381 key used for testing purposes
@@ -160,7 +160,7 @@ private:
       //
       mutable std::mutex     _state_mutex;
 
-      const fc::logger&      _logger;
+      fc::logger&            _logger;
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       // keep one proposal store (id -> proposal) by each height (height -> proposal store)

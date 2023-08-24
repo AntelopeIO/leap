@@ -14,7 +14,7 @@ namespace eosio::hotstuff {
 
       //class-specific functions
 
-      chain_pacemaker(controller* chain, std::set<account_name> my_producers, const fc::logger& logger);
+      chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger);
 
       void beat();
 
@@ -61,7 +61,7 @@ namespace eosio::hotstuff {
       qc_chain                _qc_chain;
 
       uint32_t                _quorum_threshold = 15; //FIXME/TODO: calculate from schedule
-      const fc::logger&       _logger;
+      fc::logger&             _logger;
 
    };
 
