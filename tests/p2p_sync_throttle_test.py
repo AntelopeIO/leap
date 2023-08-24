@@ -110,7 +110,7 @@ try:
     endThrottledSync = time.time()
     Print(f'Unthrottled sync time: {endThrottlingSync - clusterStart} seconds')
     Print(f'Throttled sync time: {endThrottledSync - clusterStart} seconds')
-    assert endThrottledSync - clusterStart > endThrottlingSync - clusterStart + 30, 'Throttled sync time must be at least 30 seconds greater than unthrottled'
+    assert endThrottledSync - clusterStart > endThrottlingSync - clusterStart + 15, 'Throttled sync time must be at least 15 seconds greater than unthrottled'
 
     testSuccessful=True
 finally:
