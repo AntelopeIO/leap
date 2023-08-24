@@ -21,7 +21,6 @@
 #include <exception>
 #include <stdexcept>
 
-
 // Enable this to swap the multi-index proposal store with std::map
 //#define QC_CHAIN_SIMPLE_PROPOSAL_STORE
 
@@ -31,6 +30,8 @@ namespace eosio::hotstuff {
    using namespace boost::multi_index;
    using namespace eosio::chain;
 
+   // Concurrency note: qc_chain is a single-threaded and lock-free decision engine.
+   //                   All thread synchronization, if any, is external.
    class qc_chain {
    public:
 
@@ -38,57 +39,27 @@ namespace eosio::hotstuff {
 
       qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, bool info_logging, bool error_logging);
 
-#warning remove. bls12-381 key used for testing purposes
-      //todo : remove. bls12-381 key used for testing purposes
-      std::vector<uint8_t> _seed =
-         {  0,  50, 6,  244, 24,  199, 1,  25,  52,  88,  192,
-            19, 18, 12, 89,  6,   220, 18, 102, 58,  209, 82,
-            12, 62, 89, 110, 182, 9,   44, 20,  254, 22 };
+      uint64_t get_state_version() const { return _state_version; } // calling this w/ thread sync is optional
 
-      fc::crypto::blslib::bls_private_key _private_key = fc::crypto::blslib::bls_private_key(_seed);
+      name get_id_i() const { return _id; } // so far, only ever relevant in a test environment (no sync)
 
-      enum msg_type {
-         new_view = 1,
-         new_block = 2,
-         qc = 3,
-         vote = 4
-      };
+      // Calls to the following methods should be thread-synchronized externally:
 
-      bool _chained_mode = false;
+      void get_state(finalizer_state& fs) const;
 
-      fc::sha256 _b_leaf = NULL_PROPOSAL_ID;
-      fc::sha256 _b_lock = NULL_PROPOSAL_ID;
-      fc::sha256 _b_exec = NULL_PROPOSAL_ID;
+      void on_beat(); //handler for pacemaker beat()
 
-      fc::sha256 _b_finality_violation = NULL_PROPOSAL_ID;
+      void on_hs_vote_msg(const hs_vote_message& msg); //vote msg event handler
+      void on_hs_proposal_msg(const hs_proposal_message& msg); //proposal msg event handler
+      void on_hs_new_view_msg(const hs_new_view_message& msg); //new view msg event handler
+      void on_hs_new_block_msg(const hs_new_block_message& msg); //new block msg event handler
 
-      block_id_type _block_exec = NULL_BLOCK_ID;
+   private:
 
-      block_id_type _pending_proposal_block = NULL_BLOCK_ID;
-
-      uint32_t _v_height = 0;
-
-      eosio::chain::quorum_certificate _high_qc;
-      eosio::chain::quorum_certificate _current_qc;
-
-      eosio::chain::extended_schedule _schedule;
-
-      name _id;
-
-      base_pacemaker* _pacemaker = nullptr;
-
-      std::set<name> _my_producers;
-
-      bool _log = true;
-      bool _errors = true;
-
-      // returns nullptr if not found
-      const hs_proposal_message* get_proposal(const fc::sha256& proposal_id);
+      const hs_proposal_message* get_proposal(const fc::sha256& proposal_id); // returns nullptr if not found
 
       // returns false if proposal with that same ID already exists at the store of its height
       bool insert_proposal(const hs_proposal_message& proposal);
-
-      void get_state( finalizer_state& fs ) const;
 
       uint32_t positive_bits_count(fc::unsigned_int value);
 
@@ -119,9 +90,7 @@ namespace eosio::hotstuff {
 
       bool extends(const fc::sha256& descendant, const fc::sha256& ancestor); //verify that a proposal descends from another
 
-      void on_beat(); //handler for pacemaker beat()
-
-      void update_high_qc(const eosio::chain::quorum_certificate& high_qc); //check if update to our high qc is required
+      bool update_high_qc(const eosio::chain::quorum_certificate& high_qc); //check if update to our high qc is required
 
       void leader_rotation_check(); //check if leader rotation is required
 
@@ -134,31 +103,45 @@ namespace eosio::hotstuff {
       void send_hs_new_view_msg(const hs_new_view_message& msg); //send new view msg
       void send_hs_new_block_msg(const hs_new_block_message& msg); //send new block msg
 
-      void on_hs_vote_msg(const hs_vote_message& msg); //vote msg event handler
-      void on_hs_proposal_msg(const hs_proposal_message& msg); //proposal msg event handler
-      void on_hs_new_view_msg(const hs_new_view_message& msg); //new view msg event handler
-      void on_hs_new_block_msg(const hs_new_block_message& msg); //new block msg event handler
-
       void update(const hs_proposal_message& proposal); //update internal state
       void commit(const hs_proposal_message& proposal); //commit proposal (finality)
 
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
 
-private:
+#warning remove. bls12-381 key used for testing purposes
+      //todo : remove. bls12-381 key used for testing purposes
+      std::vector<uint8_t> _seed =
+         {  0,  50, 6,  244, 24,  199, 1,  25,  52,  88,  192,
+            19, 18, 12, 89,  6,   220, 18, 102, 58,  209, 82,
+            12, 62, 89, 110, 182, 9,   44, 20,  254, 22 };
 
-      // This mutex synchronizes all writes to the data members of this qc_chain against
-      //   get_state() calls (which ultimately come from e.g. the HTTP plugin).
-      // This could result in a HTTP query that gets the state of the core while it is
-      //   in the middle of processing a given request, since this is not serializing
-      //   against high-level message or request processing borders.
-      // If that behavior is not desired, we can instead synchronize this against a
-      //   consistent past snapshot of the qc_chain's state for e.g. the HTTP plugin,
-      //   which would be updated at the end of processing every request to the core
-      //   that does alter the qc_chain (hotstuff protocol state).
-      // And if the chain_pacemaker::_hotstuff_global_mutex locking strategy is ever
-      //   changed, then this probably needs to be reviewed as well.
-      //
-      mutable std::mutex     _state_mutex;
+      fc::crypto::blslib::bls_private_key _private_key = fc::crypto::blslib::bls_private_key(_seed);
+
+      enum msg_type {
+         new_view = 1,
+         new_block = 2,
+         qc = 3,
+         vote = 4
+      };
+
+      bool _chained_mode = false;
+      block_id_type _block_exec = NULL_BLOCK_ID;
+      block_id_type _pending_proposal_block = NULL_BLOCK_ID;
+      fc::sha256 _b_leaf = NULL_PROPOSAL_ID;
+      fc::sha256 _b_lock = NULL_PROPOSAL_ID;
+      fc::sha256 _b_exec = NULL_PROPOSAL_ID;
+      fc::sha256 _b_finality_violation = NULL_PROPOSAL_ID;
+      eosio::chain::quorum_certificate _high_qc;
+      eosio::chain::quorum_certificate _current_qc;
+      uint32_t _v_height = 0;
+      eosio::chain::extended_schedule _schedule;
+      base_pacemaker* _pacemaker = nullptr;
+      std::set<name> _my_producers;
+      bool _log = true;
+      bool _errors = true;
+      name _id;
+
+      mutable std::atomic<uint64_t> _state_version = 1;
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       // keep one proposal store (id -> proposal) by each height (height -> proposal store)

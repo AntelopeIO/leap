@@ -3,6 +3,8 @@
 #include <eosio/hotstuff/base_pacemaker.hpp>
 #include <eosio/hotstuff/qc_chain.hpp>
 
+#include <shared_mutex>
+
 namespace eosio::chain {
    class controller;
 }
@@ -23,7 +25,7 @@ namespace eosio::hotstuff {
       void on_hs_new_view_msg(const hs_new_view_message& msg); //new view msg event handler
       void on_hs_new_block_msg(const hs_new_block_message& msg); //new block msg event handler
 
-      void get_state( finalizer_state& fs ) const;
+      void get_state(finalizer_state& fs) const;
 
       //base_pacemaker interface functions
 
@@ -54,7 +56,13 @@ namespace eosio::hotstuff {
       // These requests can come directly from the net threads, or indirectly from a
       //   dedicated finalizer thread (TODO: discuss).
 #warning discuss
-      std::mutex              _hotstuff_global_mutex;
+      mutable std::mutex      _hotstuff_global_mutex;
+
+      // _state_cache_mutex provides a R/W lock over _state_cache and _state_cache_version,
+      //   which implement a cache of the finalizer_state (_qc_chain::get_state()).
+      mutable std::shared_mutex      _state_cache_mutex;
+      mutable finalizer_state        _state_cache;
+      mutable std::atomic<uint64_t>  _state_cache_version = 0;
 
       chain::controller*      _chain = nullptr;
 

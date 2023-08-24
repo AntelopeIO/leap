@@ -68,6 +68,13 @@ namespace eosio::chain {
       eosio::chain::quorum_certificate current_qc;
       eosio::chain::extended_schedule schedule;
       map<fc::sha256, hs_proposal_message> proposals;
+
+      const hs_proposal_message* get_proposal(const fc::sha256& id) const {
+         auto it = proposals.find(id);
+         if (it == proposals.end())
+            return nullptr;
+         return & it->second;
+      }
    };
 
    using hs_proposal_message_ptr = std::shared_ptr<hs_proposal_message>;
