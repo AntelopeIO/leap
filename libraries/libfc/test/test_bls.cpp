@@ -77,11 +77,11 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
   bls_private_key sk = bls_private_key(seed_1);
   bls_public_key pk = sk.get_public_key();
 
-  string cmt = "cm_prepare";
+  std::string cmt = "cm_prepare";
   uint32_t view_number = 264;
 
-  string s_view_number = to_string(view_number);
-  string c_s = cmt + s_view_number;
+  std::string s_view_number = std::to_string(view_number);
+  std::string c_s = cmt + s_view_number;
 
   fc::sha256 h1 = fc::sha256::hash(c_s);
   fc::sha256 h2 = fc::sha256::hash( std::make_pair( h1, message_3 ) );
@@ -145,8 +145,8 @@ BOOST_AUTO_TEST_CASE(bls_agg_tree_verif) try {
 
   bls_signature aggSig = aggregate({sig1, sig2});
 
-  vector<bls_public_key> pubkeys = {pk1, pk2};
-  vector<vector<uint8_t>> messages = {message_1, message_2};
+  std::vector<bls_public_key> pubkeys = {pk1, pk2};
+  std::vector<std::vector<uint8_t>> messages = {message_1, message_2};
   
   // Verify the signature
   bool ok = aggregate_verify(pubkeys, messages, aggSig);

@@ -10,11 +10,8 @@
 
 namespace fc::crypto::blslib {
 
-   using namespace std;
-
    namespace config {
-      constexpr const char* bls_public_key_base_prefix = "PUB";
-      constexpr const char* bls_public_key_prefix = "BLS";
+      constexpr std::string_view bls_public_key_prefix = "PUB_BLS_";
    };
 
    class bls_public_key
@@ -24,21 +21,19 @@ namespace fc::crypto::blslib {
          bls_public_key() = default;
          bls_public_key( bls_public_key&& ) = default;
          bls_public_key( const bls_public_key& ) = default;
-         bls_public_key& operator= (const bls_public_key& ) = default;
-
-         bls_public_key( bls12_381::g1 pkey ){
+         bls_public_key( const bls12_381::g1& pkey ){
             _pkey = pkey;
          }
 
-         explicit bls_public_key(const string& base58str);
+         bls_public_key& operator= (const bls_public_key& ) = default;
+
+         explicit bls_public_key(const std::string& base58str);
 
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 
          bls12_381::g1 _pkey;
 
       private:
-         
-
          friend std::ostream& operator<< (std::ostream& s, const bls_public_key& k);
          friend struct reflector<bls_public_key>;
          friend class bls_private_key;

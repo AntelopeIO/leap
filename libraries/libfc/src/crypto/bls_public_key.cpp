@@ -7,17 +7,11 @@ namespace fc::crypto::blslib {
 
    static bls12_381::g1 pub_parse_base58(const std::string& base58str)
    {  
-      
-      const auto pivot = base58str.find('_');
-      FC_ASSERT(pivot != std::string::npos, "No delimiter in string, cannot determine data type: ${str}", ("str", base58str));
+      auto res = std::mismatch(config::bls_public_key_prefix.begin(), config::bls_public_key_prefix.end(),
+                               base58str.begin());
+      FC_ASSERT(res.first == config::bls_public_key_prefix.end(), "BLS Public Key has invalid format : ${str}", ("str", base58str));
 
-      const auto base_prefix_str = base58str.substr(0, 3);
-      FC_ASSERT(config::bls_public_key_base_prefix == base_prefix_str, "BLS Public Key has invalid base prefix: ${str}", ("str", base58str)("base_prefix_str", base_prefix_str));
-      
-      const auto prefix_str = base58str.substr(pivot + 1, 3);
-      FC_ASSERT(config::bls_public_key_prefix == prefix_str, "BLS Public Key has invalid prefix: ${str}", ("str", base58str)("prefix_str", prefix_str));
-
-      auto data_str = base58str.substr(8);
+      auto data_str = base58str.substr(config::bls_public_key_prefix.size());
 
       std::array<uint8_t, 48> bytes = fc::crypto::blslib::serialize_base58<std::array<uint8_t, 48>>(data_str);
       
@@ -36,7 +30,7 @@ namespace fc::crypto::blslib {
 
       std::string data_str = fc::crypto::blslib::deserialize_base58<std::array<uint8_t, 48>>(bytes, yield); 
 
-      return std::string(config::bls_public_key_base_prefix) + "_" + std::string(config::bls_public_key_prefix) + "_" + data_str;
+      return std::string(config::bls_public_key_prefix)  + data_str;
 
    }
 

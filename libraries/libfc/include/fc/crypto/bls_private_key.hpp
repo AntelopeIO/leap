@@ -6,8 +6,7 @@
 namespace fc::crypto::blslib {
 
    namespace config {
-      constexpr const char* bls_private_key_base_prefix = "PVT";
-      constexpr const char* bls_private_key_prefix = "BLS";
+      constexpr std::string_view bls_private_key_prefix = "PVT_BLS_";
    };
 
    class bls_private_key
@@ -17,20 +16,21 @@ namespace fc::crypto::blslib {
          bls_private_key() = default;
          bls_private_key( bls_private_key&& ) = default;
          bls_private_key( const bls_private_key& ) = default;
-         bls_private_key& operator=( const bls_private_key& ) = default;
-         explicit bls_private_key( std::vector<uint8_t> seed ) {
+         explicit bls_private_key(const std::vector<uint8_t>& seed ) {
             _sk = bls12_381::secret_key(seed);
          }
 
-         explicit bls_private_key(const string& base58str);
+         bls_private_key& operator=( const bls_private_key& ) = default;
+
+         explicit bls_private_key(const std::string& base58str);
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 
          bls_public_key     get_public_key() const;
-         bls_signature      sign( const vector<uint8_t>& message ) const;
+         bls_signature      sign( const std::vector<uint8_t>& message ) const;
 
          static bls_private_key generate();
 
-         static bls_private_key regenerate( vector<uint8_t> seed ) {
+         static bls_private_key regenerate( std::vector<uint8_t> seed ) {
             return bls_private_key(std::move(seed));
          }
 
