@@ -85,12 +85,19 @@ namespace eosio {
 
       std::string to_str() const {
          std::string type_colon = address_type == address_type_enum::both ? "" : ":";
+         if(host.empty() && port.empty())
+            return "";
          return host + ":" + port + type_colon + address_type_str(address_type);
       }
 
       static peer_address from_str(const std::string &input_address_str, bool is_manual = false) {
          try {
             std::string address_str = input_address_str;
+            peer_address address;
+
+            if(input_address_str.empty())
+               return address;
+
             // for "localhost:1234 - 012345" str
             string::size_type pos = address_str.find(' ');
             if (pos != std::string::npos) {
@@ -130,7 +137,6 @@ namespace eosio {
                throw std::invalid_argument("port number " + port_str);
             }
 
-            peer_address address;
             address.host = host_str;
             address.port = port_str;
             address.address_type = str_to_address_type(type_str);
