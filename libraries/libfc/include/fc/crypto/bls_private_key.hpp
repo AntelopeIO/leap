@@ -8,7 +8,6 @@ namespace fc::crypto::blslib {
    namespace config {
       constexpr const char* bls_private_key_base_prefix = "PVT";
       constexpr const char* bls_private_key_prefix = "BLS";
-      //constexpr const char* bls_private_key_prefix[] = {"BLS"};
    };
 
    class bls_private_key
@@ -36,7 +35,6 @@ namespace fc::crypto::blslib {
          }
 
       private:
-         //std::vector<uint8_t> _seed;
          std::array<uint64_t, 4> _sk;
 
          friend struct reflector<bls_private_key>;

@@ -9,14 +9,12 @@ namespace fc::crypto::blslib {
 
    bls_public_key bls_private_key::get_public_key() const
    {
-      //auto sk = bls12_381::secret_key(_seed);
       bls12_381::g1 pk = bls12_381::public_key(_sk);
       return bls_public_key(pk);
    }
 
    bls_signature bls_private_key::sign( const vector<uint8_t>& message ) const
    {
-      //std::array<uint64_t, 4> sk = bls12_381::secret_key(_seed);
       bls12_381::g2 sig = bls12_381::sign(_sk, message);
       return bls_signature(sig);
    }
