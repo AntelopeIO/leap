@@ -179,7 +179,7 @@ namespace config {
 struct shared_authority;
 
 struct authority {
-   explicit authority( public_key_type k, uint32_t delay_sec = 0 )
+   authority( public_key_type k, uint32_t delay_sec = 0 )
    :threshold(1),keys({{k,1}})
    {
       if( delay_sec > 0 ) {
@@ -341,7 +341,7 @@ inline bool validate( const Authority& auth ) {
 } } // namespace eosio::chain
 
 namespace fc {
-   void to_variant(const eosio::chain::shared_public_key& var, fc::variant& vo, const fc::yield_function_t& yield);
+   void to_variant(const eosio::chain::shared_public_key& var, fc::variant& vo);
 } // namespace fc
 
 FC_REFLECT(eosio::chain::permission_level_weight, (permission)(weight) )
