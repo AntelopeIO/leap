@@ -9,6 +9,10 @@ namespace fc::crypto::blslib {
    { 
       try {
 
+         auto res = std::mismatch(config::bls_signature_prefix.begin(), config::bls_signature_prefix.end(),
+                                  base58str.begin());
+         FC_ASSERT(res.first == config::bls_signature_prefix.end(), "BLS Signature has invalid format : ${str}", ("str", base58str));
+
          auto data_str = base58str.substr(config::bls_signature_prefix.size());
 
          std::array<uint8_t, 96> bytes = fc::crypto::blslib::serialize_base58<std::array<uint8_t, 96>>(data_str);
