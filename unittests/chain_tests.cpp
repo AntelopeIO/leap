@@ -46,7 +46,7 @@ BOOST_AUTO_TEST_CASE( replace_producer_keys ) try {
    for(const auto& prod : head_ptr->active_schedule.producers) {
       BOOST_REQUIRE_EQUAL(std::get<block_signing_authority_v0>(prod.authority).threshold, expected_threshold);
       for(const auto& key : std::get<block_signing_authority_v0>(prod.authority).keys){
-         BOOST_REQUIRE_EQUAL(key.key, new_key);
+         BOOST_REQUIRE((key.key == new_key));
          BOOST_REQUIRE_EQUAL(key.weight, expected_key_weight);
        }
    }

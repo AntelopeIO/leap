@@ -2440,7 +2440,7 @@ struct controller_impl {
             auth.accounts.push_back({{p.producer_name, config::active_name}, 1});
          }
 
-         if( static_cast<authority>(permission.auth) != auth ) { // TODO: use a more efficient way to check that authority has not changed
+         if( permission.auth != auth ) {
             db.modify(permission, [&]( auto& po ) {
                po.auth = auth;
             });
