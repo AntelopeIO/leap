@@ -5,6 +5,7 @@
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/apply_context.hpp>
+#include <eosio/chain/finalizer_set.hpp>
 
 #include <fc/io/datastream.hpp>
 
@@ -148,6 +149,35 @@ namespace eosio { namespace chain { namespace webassembly {
       } else {
          EOS_THROW(wasm_execution_error, "Producer schedule is in an unknown format!");
       }
+   }
+
+   void interface::set_finalizers(legacy_span<const char> packed_finalizer_set) {
+      EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_proposed_finalizers not allowed in a readonly transaction");
+      fc::datastream<const char*> ds( packed_finalizer_set.data(), packed_finalizer_set.size() );
+      finalizer_set finset;
+      fc::raw::unpack(ds, finset);
+      vector<finalizer_authority> & finalizers = finset.finalizers;
+
+      EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer set exceeds the maximum finalizer count for this chain" );
+      EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizer set cannot be empty" );
+
+      std::set<fc::crypto::blslib::bls_public_key> unique_finalizer_keys;
+      std::set<account_name> unique_finalizers;
+      uint64_t f_weight_sum = 0;
+
+      for (const auto& f: finalizers) {
+         EOS_ASSERT( context.is_account(f.finalizer_name), wasm_execution_error, "Finalizer set includes a nonexisting account" );
+         EOS_ASSERT( f.public_key.valid(), wasm_execution_error, "Finalizer set includes an invalid key" );
+         f_weight_sum += f.fweight;
+         unique_finalizer_keys.insert(f.public_key);
+         unique_finalizers.insert(f.finalizer_name);
+      }
+
+      EOS_ASSERT( finalizers.size() == unique_finalizers.size(), wasm_execution_error, "Duplicate finalizer name in finalizer set" );
+      EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );
+      EOS_ASSERT( finset.fthreshold > f_weight_sum / 2, wasm_execution_error, "Finalizer set treshold cannot be met by finalizer weights" );
+
+      context.control.set_finalizers( finset.fthreshold, std::move(finalizers) );
    }
 
    uint32_t interface::get_blockchain_parameters_packed( legacy_span<char> packed_blockchain_parameters ) const {

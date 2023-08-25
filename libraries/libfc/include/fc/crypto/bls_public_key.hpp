@@ -60,9 +60,10 @@ namespace fc { namespace crypto { namespace blslib {
          
 
          friend std::ostream& operator<< (std::ostream& s, const bls_public_key& k);
-         //friend bool operator == ( const bls_public_key& p1, const bls_public_key& p2);
-         //friend bool operator != ( const bls_public_key& p1, const bls_public_key& p2);
-         //friend bool operator < ( const bls_public_key& p1, const bls_public_key& p2);
+#warning FIXME/TODO: Must implement these operators. 
+      friend bool operator == ( const bls_public_key& p1, const bls_public_key& p2) { return false; /*p1._pkey == p2._pkey;*/ }
+      friend bool operator != ( const bls_public_key& p1, const bls_public_key& p2) { return false; /*p1._pkey != p2._pkey;*/ }
+      friend bool operator < ( const bls_public_key& p1, const bls_public_key& p2) { return false; /*p1._pkey < p2._pkey;*/ }
          friend struct reflector<bls_public_key>;
          friend class bls_private_key;
    }; // bls_public_key

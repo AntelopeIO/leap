@@ -1990,6 +1990,10 @@ struct controller_impl {
       emit( self.new_hs_new_block_message, msg );
    }
 
+   void set_finalizers_impl(uint64_t fthreshold, vector<finalizer_authority> finalizers) {
+      emit( self.notify_set_finalizers, std::tie(fthreshold, finalizers) );
+   }
+
    /**
     *  This method is called from other threads. The controller_impl should outlive those threads.
     *  However, to avoid race conditions, it means that the behavior of this function should not change
@@ -3311,6 +3315,10 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
       gp.proposed_schedule = sch.to_shared(gp.proposed_schedule.producers.get_allocator());
    });
    return version;
+}
+
+void controller::set_finalizers( uint64_t fthreshold, vector<finalizer_authority> finalizers ) {
+   my->set_finalizers_impl(fthreshold, finalizers);
 }
 
 const producer_authority_schedule&    controller::active_producers()const {

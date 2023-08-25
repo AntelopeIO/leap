@@ -10,6 +10,8 @@
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
 
+#include <eosio/chain/finalizer_set.hpp>
+
 namespace chainbase {
    class database;
 }
@@ -306,6 +308,8 @@ namespace eosio { namespace chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
+         void set_finalizers( uint64_t fthreshold, vector<finalizer_authority> finalizers );
+
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
          bool skip_trx_checks()const;
@@ -356,6 +360,7 @@ namespace eosio { namespace chain {
          signal<void(const hs_vote_message_ptr&)> new_hs_vote_message;
          signal<void(const hs_new_view_message_ptr&)>    new_hs_new_view_message;
          signal<void(const hs_new_block_message_ptr&)> new_hs_new_block_message;
+         signal<void(std::tuple<const uint64_t, const vector<finalizer_authority>&>)> notify_set_finalizers;
 
          /*
          signal<void()>                                  pre_apply_block;

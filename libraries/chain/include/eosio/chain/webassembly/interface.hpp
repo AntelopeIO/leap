@@ -174,6 +174,15 @@ namespace webassembly {
          int64_t set_proposed_producers_ex(uint64_t packed_producer_format, legacy_span<const char> packed_producer_schedule);
 
          /**
+          * Submits a finalizer set change to Hotstuff.
+          *
+          * @ingroup privileged
+          *
+          * @param packed_finalizer_set - a serialized finalizer_set object.
+         */
+         void set_finalizers(legacy_span<const char> packed_finalizer_set);
+
+         /**
           * Retrieve the blockchain config parameters.
           *
           * @ingroup privileged
