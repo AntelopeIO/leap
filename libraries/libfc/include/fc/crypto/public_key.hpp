@@ -45,6 +45,7 @@ namespace fc { namespace crypto {
          storage_type _storage;
 
       private:
+         friend std::ostream& operator<<(std::ostream& s, const public_key& k);
          friend bool operator==( const public_key& p1, const public_key& p2);
          friend bool operator!=( const public_key& p1, const public_key& p2);
          friend bool operator<( const public_key& p1, const public_key& p2);
