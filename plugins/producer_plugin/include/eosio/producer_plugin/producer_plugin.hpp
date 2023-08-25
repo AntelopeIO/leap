@@ -2,7 +2,6 @@
 
 #include <eosio/chain_plugin/chain_plugin.hpp>
 #include <eosio/chain/snapshot_scheduler.hpp>
-#include <eosio/hotstuff/qc_chain.hpp>
 #include <eosio/signature_provider_plugin/signature_provider_plugin.hpp>
 
 #include <eosio/chain/application.hpp>

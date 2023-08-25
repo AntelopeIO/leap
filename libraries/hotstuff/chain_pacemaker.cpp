@@ -100,9 +100,10 @@ namespace eosio { namespace hotstuff {
 #endif
 //===============================================================================================
 
-   chain_pacemaker::chain_pacemaker(controller* chain, std::set<account_name> my_producers, bool info_logging, bool error_logging)
+   chain_pacemaker::chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger)
       : _chain(chain),
-        _qc_chain("default"_n, this, std::move(my_producers), info_logging, error_logging)
+        _qc_chain("default"_n, this, std::move(my_producers), logger),
+        _logger(logger)
    {
    }
 
@@ -112,12 +113,35 @@ namespace eosio { namespace hotstuff {
       return _chain->is_builtin_activated( builtin_protocol_feature_t::instant_finality );
    }
 
-   void chain_pacemaker::get_state( finalizer_state& fs ) const {
-      if (enabled())
-         _qc_chain.get_state( fs ); // get_state() takes scare of finer-grained synchronization internally
+   void chain_pacemaker::get_state(finalizer_state& fs) const {
+      if (! enabled())
+         return;
+
+      // lock-free state version check
+      uint64_t current_state_version = _qc_chain.get_state_version();
+      if (_state_cache_version != current_state_version) {
+         finalizer_state current_state;
+         {
+            csc prof("stat");
+            std::lock_guard g( _hotstuff_global_mutex ); // lock IF engine to read state
+            prof.core_in();
+            current_state_version = _qc_chain.get_state_version(); // get potentially fresher version
+            if (_state_cache_version != current_state_version) 
+               _qc_chain.get_state(current_state);
+            prof.core_out();
+         }
+         if (_state_cache_version != current_state_version) {
+            std::unique_lock ul(_state_cache_mutex); // lock cache for writing
+            _state_cache = current_state;
+            _state_cache_version = current_state_version;
+         }
+      }
+
+      std::shared_lock sl(_state_cache_mutex); // lock cache for reading
+      fs = _state_cache;
    }
 
-   name chain_pacemaker::get_proposer(){
+   name chain_pacemaker::get_proposer() {
       const block_state_ptr& hbs = _chain->head_block_state();
       name n = hbs->header.producer;
       return n;
@@ -188,7 +212,7 @@ namespace eosio { namespace hotstuff {
       return n;
    }
 
-   name chain_pacemaker::get_leader(){
+   name chain_pacemaker::get_leader() {
       const block_state_ptr& hbs = _chain->head_block_state();
       name n = hbs->header.producer;
 
@@ -198,7 +222,7 @@ namespace eosio { namespace hotstuff {
       return n;
    }
 
-   name chain_pacemaker::get_next_leader(){
+   name chain_pacemaker::get_next_leader() {
       const block_state_ptr& hbs = _chain->head_block_state();
       block_timestamp_type next_block_time = hbs->header.timestamp.next();
       producer_authority p_auth = hbs->get_scheduled_producer(next_block_time);
@@ -210,27 +234,26 @@ namespace eosio { namespace hotstuff {
       return n;
    }
 
-   std::vector<name> chain_pacemaker::get_finalizers(){
+   std::vector<name> chain_pacemaker::get_finalizers() {
       const block_state_ptr& hbs = _chain->head_block_state();
-      std::vector<producer_authority> pa_list = hbs->active_schedule.producers;
+      const std::vector<producer_authority>& pa_list = hbs->active_schedule.producers;
       std::vector<name> pn_list;
+      pn_list.reserve(pa_list.size());
       std::transform(pa_list.begin(), pa_list.end(),
                      std::back_inserter(pn_list),
                      [](const producer_authority& p) { return p.producer_name; });
       return pn_list;
    }
 
-   block_id_type chain_pacemaker::get_current_block_id(){
-      block_header header = _chain->head_block_state()->header;
-      block_id_type block_id = header.calculate_id();
-      return block_id;
+   block_id_type chain_pacemaker::get_current_block_id() {
+      return _chain->head_block_id();
    }
 
-   uint32_t chain_pacemaker::get_quorum_threshold(){
+   uint32_t chain_pacemaker::get_quorum_threshold() {
       return _quorum_threshold;
    }
 
-   void chain_pacemaker::beat(){
+   void chain_pacemaker::beat() {
       if (! enabled())
          return;
 
@@ -241,27 +264,27 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message & msg, name id){
+   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, name id) {
       hs_proposal_message_ptr msg_ptr = std::make_shared<hs_proposal_message>(msg);
       _chain->commit_hs_proposal_msg(msg_ptr);
    }
 
-   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message & msg, name id){
+   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, name id) {
       hs_vote_message_ptr msg_ptr = std::make_shared<hs_vote_message>(msg);
       _chain->commit_hs_vote_msg(msg_ptr);
    }
 
-   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message & msg, name id){
+   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, name id) {
       hs_new_block_message_ptr msg_ptr = std::make_shared<hs_new_block_message>(msg);
       _chain->commit_hs_new_block_msg(msg_ptr);
    }
 
-   void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message & msg, name id){
+   void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, name id) {
       hs_new_view_message_ptr msg_ptr = std::make_shared<hs_new_view_message>(msg);
       _chain->commit_hs_new_view_msg(msg_ptr);
    }
 
-   void chain_pacemaker::on_hs_proposal_msg(const hs_proposal_message & msg){
+   void chain_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg) {
       if (! enabled())
          return;
 
@@ -272,7 +295,7 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::on_hs_vote_msg(const hs_vote_message & msg){
+   void chain_pacemaker::on_hs_vote_msg(const hs_vote_message& msg) {
       if (! enabled())
          return;
 
@@ -283,7 +306,7 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::on_hs_new_block_msg(const hs_new_block_message & msg){
+   void chain_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg) {
       if (! enabled())
          return;
 
@@ -294,7 +317,7 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::on_hs_new_view_msg(const hs_new_view_message & msg){
+   void chain_pacemaker::on_hs_new_view_msg(const hs_new_view_message& msg) {
       if (! enabled())
          return;
 

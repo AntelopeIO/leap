@@ -1696,8 +1696,6 @@ struct controller_impl {
    {
       EOS_ASSERT( !pending, block_validate_exception, "pending block already exists" );
 
-      //ilog("starting block... ");
-
       emit( self.block_start, head->block_num + 1 );
 
       // at block level, no transaction specific logging is possible
@@ -3878,6 +3876,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::instant_finality>() {
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
+#warning host functions to set proposers, leaders, finalizers/validators
       // FIXME/TODO: host functions to set proposers, leaders, finalizers/validators
    } );
 }
