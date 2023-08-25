@@ -1685,7 +1685,7 @@ namespace eosio {
       } else {
          peer_dlog( this, "enqueue sync block ${num}", ("num", peer_requested->last + 1) );
       }
-      uint32_t num = ++peer_requested->last;
+      uint32_t num = peer_requested->last + 1;
       if(num == peer_requested->end_block) {
          peer_requested.reset();
          peer_dlog( this, "completing enqueue_sync_block ${num}", ("num", num) );
@@ -1697,14 +1697,25 @@ namespace eosio {
          sb = cc.fetch_block_by_number( num ); // thread-safe
       } FC_LOG_AND_DROP();
       if( sb ) {
-         block_sync_bytes_sent += enqueue_block( sb, true );
+         if( block_sync_rate_limit > 0 ) {
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(get_time() - connection_start_time);
+            auto current_rate = double(block_sync_bytes_sent) / elapsed.count();
+            if( current_rate < block_sync_rate_limit ) {
+               block_sync_bytes_sent += enqueue_block( sb, true );
+               ++peer_requested->last;
+            } else {
+               return false;
+            }
+         } else {
+            block_sync_bytes_sent += enqueue_block( sb, true );
+            ++peer_requested->last;
+         }
       } else {
          peer_ilog( this, "enqueue sync, unable to fetch block ${num}, sending benign_other go away", ("num", num) );
          peer_requested.reset(); // unable to provide requested blocks
          no_retry = benign_other;
          enqueue( go_away_message( benign_other ) );
       }
-
       return true;
    }
 
@@ -1824,22 +1835,7 @@ namespace eosio {
       block_buffer_factory buff_factory;
       auto sb = buff_factory.get_send_buffer( b );
       latest_blk_time = std::chrono::system_clock::now();
-      if( block_sync_rate_limit > 0 ) {
-         int sleep_time_us = 100;
-         const int max_sleep_time_us = 100000;
-         while( true) {
-            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(get_time() - connection_start_time);
-            auto current_rate = double(block_sync_bytes_sent) / elapsed.count();
-            if( current_rate < block_sync_rate_limit ) {
-               enqueue_buffer( sb, no_reason, to_sync_queue);
-               break;
-            }
-            usleep(sleep_time_us);
-            sleep_time_us = sleep_time_us*2 > max_sleep_time_us ? max_sleep_time_us : sleep_time_us*2;
-         }
-      } else {
-         enqueue_buffer( sb, no_reason, to_sync_queue);
-      }
+      enqueue_buffer( sb, no_reason, to_sync_queue);
       return sb->size();
    }
 
