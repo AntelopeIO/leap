@@ -17,13 +17,13 @@ namespace eosio::chain {
       shared_finalizer_authority& operator= ( shared_finalizer_authority && ) = default;
       shared_finalizer_authority& operator= ( const shared_finalizer_authority & ) = default;
 
-      shared_finalizer_authority( const name& finalizer_name, const uint64_t fweight, const fc::crypto::blslib::bls_public_key& public_key )
-      :finalizer_name(finalizer_name)
+      shared_finalizer_authority( const std::string& description, const uint64_t fweight, const fc::crypto::blslib::bls_public_key& public_key )
+      :description(description)
       ,fweight(fweight)
       ,public_key(public_key)
       {}
 
-      name             finalizer_name;
+      std::string      description;
       uint64_t         fweight;
       fc::crypto::blslib::bls_public_key   public_key;
    };
@@ -46,17 +46,17 @@ namespace eosio::chain {
 
    struct finalizer_authority {
 
-      name      finalizer_name;
-      uint64_t  fweight; // weight that this finalizer's vote has for meeting fthreshold
+      std::string  description;
+      uint64_t     fweight; // weight that this finalizer's vote has for meeting fthreshold
       fc::crypto::blslib::bls_public_key  public_key;
 
       auto to_shared(chainbase::allocator<char> alloc) const {
-         return shared_finalizer_authority(finalizer_name, fweight, public_key);
+         return shared_finalizer_authority(description, fweight, public_key);
       }
 
       static auto from_shared( const shared_finalizer_authority& src ) {
          finalizer_authority result;
-         result.finalizer_name = src.finalizer_name;
+         result.description = src.description;
          result.fweight = src.fweight;
          result.public_key = src.public_key;
          return result;
@@ -77,10 +77,10 @@ namespace eosio::chain {
       fc::variant get_abi_variant() const;
 
       friend bool operator == ( const finalizer_authority& lhs, const finalizer_authority& rhs ) {
-         return tie( lhs.finalizer_name, lhs.fweight, lhs.public_key ) == tie( rhs.finalizer_name, rhs.fweight, rhs.public_key );
+         return tie( lhs.description, lhs.fweight, lhs.public_key ) == tie( rhs.description, rhs.fweight, rhs.public_key );
       }
       friend bool operator != ( const finalizer_authority& lhs, const finalizer_authority& rhs ) {
-         return tie( lhs.finalizer_name, lhs.fweight, lhs.public_key ) != tie( rhs.finalizer_name, rhs.fweight, rhs.public_key );
+         return tie( lhs.description, lhs.fweight, lhs.public_key ) != tie( rhs.description, rhs.fweight, rhs.public_key );
       }
    };
 
@@ -138,7 +138,7 @@ namespace eosio::chain {
 
 } /// eosio::chain
 
-FC_REFLECT( eosio::chain::finalizer_authority, (finalizer_name)(fweight)(public_key) )
+FC_REFLECT( eosio::chain::finalizer_authority, (description)(fweight)(public_key) )
 FC_REFLECT( eosio::chain::finalizer_set, (version)(fthreshold)(finalizers) )
-FC_REFLECT( eosio::chain::shared_finalizer_authority, (finalizer_name)(fweight)(public_key) )
+FC_REFLECT( eosio::chain::shared_finalizer_authority, (description)(fweight)(public_key) )
 FC_REFLECT( eosio::chain::shared_finalizer_set, (version)(fthreshold)(finalizers) )

@@ -309,6 +309,7 @@ namespace eosio { namespace chain {
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
          void set_finalizers( uint64_t fthreshold, vector<finalizer_authority> finalizers );
+         void get_finalizers( uint64_t& fthreshold, vector<finalizer_authority>& finalizers );
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
@@ -360,7 +361,6 @@ namespace eosio { namespace chain {
          signal<void(const hs_vote_message_ptr&)> new_hs_vote_message;
          signal<void(const hs_new_view_message_ptr&)>    new_hs_new_view_message;
          signal<void(const hs_new_block_message_ptr&)> new_hs_new_block_message;
-         signal<void(std::tuple<const uint64_t, const vector<finalizer_authority>&>)> notify_set_finalizers;
 
          /*
          signal<void()>                                  pre_apply_block;
@@ -400,7 +400,6 @@ namespace eosio { namespace chain {
          chainbase::database& mutable_db()const;
 
          std::unique_ptr<controller_impl> my;
-
    };
 
 } }  /// eosio::chain

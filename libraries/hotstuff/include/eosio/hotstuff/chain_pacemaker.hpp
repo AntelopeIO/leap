@@ -3,6 +3,8 @@
 #include <eosio/hotstuff/base_pacemaker.hpp>
 #include <eosio/hotstuff/qc_chain.hpp>
 
+#include <eosio/chain/finalizer_set.hpp>
+
 #include <shared_mutex>
 
 namespace eosio::chain {
@@ -70,7 +72,6 @@ namespace eosio::hotstuff {
 
       uint32_t                _quorum_threshold = 15; //FIXME/TODO: calculate from schedule
       fc::logger&             _logger;
-
    };
 
 } // namespace eosio::hotstuff

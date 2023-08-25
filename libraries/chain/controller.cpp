@@ -263,6 +263,10 @@ struct controller_impl {
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
    unordered_map< builtin_protocol_feature_t, std::function<void(controller_impl&)>, enum_hash<builtin_protocol_feature_t> > protocol_feature_activation_handlers;
 
+   // TODO: This probably wants to be something better;
+   //       Storing when set_finalizers() is called; retrievable via get_finalizers() (called by chain_pacemaker)
+   uint64_t                     fthreshold;
+   vector<finalizer_authority>  finalizers;
 
    void pop_block() {
       auto prev = fork_db.get_block( head->header.previous );
@@ -1991,7 +1995,13 @@ struct controller_impl {
    }
 
    void set_finalizers_impl(uint64_t fthreshold, vector<finalizer_authority> finalizers) {
-      emit( self.notify_set_finalizers, std::tie(fthreshold, finalizers) );
+      this->fthreshold = fthreshold;
+      this->finalizers = finalizers;
+   }
+
+   void get_finalizers_impl(uint64_t& fthreshold, vector<finalizer_authority>& finalizers) {
+      fthreshold = this->fthreshold;
+      finalizers = this->finalizers;
    }
 
    /**
@@ -3318,7 +3328,11 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
 }
 
 void controller::set_finalizers( uint64_t fthreshold, vector<finalizer_authority> finalizers ) {
-   my->set_finalizers_impl(fthreshold, finalizers);
+   my->set_finalizers_impl(fthreshold, std::move(finalizers));
+}
+
+void controller::get_finalizers( uint64_t& fthreshold, vector<finalizer_authority>& finalizers ) {
+   my->get_finalizers_impl(fthreshold, finalizers);
 }
 
 const producer_authority_schedule&    controller::active_producers()const {
@@ -3884,8 +3898,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::instant_finality>() {
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
-#warning host functions to set proposers, leaders, finalizers/validators
-      // FIXME/TODO: host functions to set proposers, leaders, finalizers/validators
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "set_finalizers" );
    } );
 }
 

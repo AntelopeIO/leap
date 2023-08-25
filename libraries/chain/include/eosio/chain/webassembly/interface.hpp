@@ -180,7 +180,7 @@ namespace webassembly {
           *
           * @param packed_finalizer_set - a serialized finalizer_set object.
          */
-         void set_finalizers(legacy_span<const char> packed_finalizer_set);
+         void set_finalizers(span<const char> packed_finalizer_set);
 
          /**
           * Retrieve the blockchain config parameters.

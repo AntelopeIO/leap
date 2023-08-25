@@ -235,6 +235,25 @@ namespace eosio { namespace hotstuff {
    }
 
    std::vector<name> chain_pacemaker::get_finalizers() {
+
+#warning FIXME: Use new finalizer list in pacemaker/qc_chain.
+      // Every time qc_chain wants to know what the finalizers are, we get it from the controller, which
+      //   is where it's currently stored.
+      //
+      // TODO:
+      // - solve threading. for this particular case, I don't think using _chain-> is a big deal really;
+      //   set_finalizers is called once in a blue moon, and this could be solved by a simple mutex even
+      //   if it is the main thread that is waiting for a lock. But maybe there's a better way to do this
+      //   overall.
+      // - use this information in qc_chain and delete the old code below
+      // - list of string finalizer descriptions instead of eosio name now
+      // - also return the keys for each finalizer, not just name/description so qc_chain can use them
+      //
+      uint64_t                     fthreshold;
+      vector<finalizer_authority>  finalizers;
+      _chain->get_finalizers(fthreshold, finalizers);
+
+      // Old code: get eosio::name from the producer schedule
       const block_state_ptr& hbs = _chain->head_block_state();
       const std::vector<producer_authority>& pa_list = hbs->active_schedule.producers;
       std::vector<name> pn_list;
