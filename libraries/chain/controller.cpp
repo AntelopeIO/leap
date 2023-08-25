@@ -1974,22 +1974,6 @@ struct controller_impl {
       pending->push();
    }
 
-   void commit_hs_proposal_msg(hs_proposal_message_ptr msg){
-      emit( self.new_hs_proposal_message, msg );
-   }
-
-   void commit_hs_vote_msg(hs_vote_message_ptr msg){
-      emit( self.new_hs_vote_message, msg );
-   }
-
-   void commit_hs_new_view_msg(hs_new_view_message_ptr msg){
-      emit( self.new_hs_new_view_message, msg );
-   }
-
-   void commit_hs_new_block_msg(hs_new_block_message_ptr msg){
-      emit( self.new_hs_new_block_message, msg );
-   }
-
    /**
     *  This method is called from other threads. The controller_impl should outlive those threads.
     *  However, to avoid race conditions, it means that the behavior of this function should not change
@@ -2981,22 +2965,6 @@ block_state_ptr controller::finalize_block( block_report& br, const signer_callb
 void controller::commit_block() {
    validate_db_available_size();
    my->commit_block(block_status::incomplete);
-}
-
-void controller::commit_hs_proposal_msg(hs_proposal_message_ptr msg) {
-   my->commit_hs_proposal_msg(msg);
-}
-
-void controller::commit_hs_vote_msg(hs_vote_message_ptr msg) {
-   my->commit_hs_vote_msg(msg);
-}
-
-void controller::commit_hs_new_view_msg(hs_new_view_message_ptr msg) {
-   my->commit_hs_new_view_msg(msg);
-}
-
-void controller::commit_hs_new_block_msg(hs_new_block_message_ptr msg) {
-   my->commit_hs_new_block_msg(msg);
 }
 
 deque<transaction_metadata_ptr> controller::abort_block() {

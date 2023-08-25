@@ -17,6 +17,12 @@ namespace eosio::hotstuff {
       //class-specific functions
 
       chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger);
+      void register_bcast_functions(
+              std::function<void(const chain::hs_proposal_message&)> on_proposal_message,
+              std::function<void(const chain::hs_vote_message&)> on_vote_message,
+              std::function<void(const chain::hs_new_block_message&)> on_new_block_message,
+              std::function<void(const chain::hs_new_view_message&)> on_new_view_message
+      );
 
       void beat();
 
@@ -67,6 +73,10 @@ namespace eosio::hotstuff {
       chain::controller*      _chain = nullptr;
 
       qc_chain                _qc_chain;
+      std::function<void(const chain::hs_proposal_message&)>  bcast_proposal_message;
+      std::function<void(const chain::hs_vote_message&)>      bcast_vote_message;
+      std::function<void(const chain::hs_new_block_message&)> bcast_new_block_message;
+      std::function<void(const chain::hs_new_view_message&)>  bcast_new_view_message;
 
       uint32_t                _quorum_threshold = 15; //FIXME/TODO: calculate from schedule
       fc::logger&             _logger;

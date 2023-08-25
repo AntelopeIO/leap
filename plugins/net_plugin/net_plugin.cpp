@@ -78,6 +78,7 @@ namespace eosio {
 
    using connection_ptr = std::shared_ptr<connection>;
    using connection_wptr = std::weak_ptr<connection>;
+   using send_buffer_type = std::shared_ptr<std::vector<char>>;
 
    static constexpr int64_t block_interval_ns =
       std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(config::block_interval_ms)).count();
@@ -300,10 +301,7 @@ namespace eosio {
       bool have_txn( const transaction_id_type& tid ) const;
       void expire_txns();
 
-      void bcast_hs_proposal_msg(const hs_proposal_message_ptr& msg);
-      void bcast_hs_vote_msg(const hs_vote_message_ptr& msg);
-      void bcast_hs_new_view_msg(const hs_new_view_message_ptr& msg);
-      void bcast_hs_new_block_msg(const hs_new_block_message_ptr& msg);
+      void bcast_msg( send_buffer_type msg );
 
       void add_unlinkable_block( signed_block_ptr b, const block_id_type& id ) {
          std::optional<block_id_type> rm_blk_id = unlinkable_block_cache.add_unlinkable_block(std::move(b), id);
@@ -497,10 +495,10 @@ namespace eosio {
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_ptr& block );
 
-      void on_hs_proposal_message( const hs_proposal_message_ptr& msg );
-      void on_hs_vote_message( const hs_vote_message_ptr& msg );
-      void on_hs_new_view_message( const hs_new_view_message_ptr& msg );
-      void on_hs_new_block_message( const hs_new_block_message_ptr& msg );
+      void on_hs_proposal_message( const hs_proposal_message& msg );
+      void on_hs_vote_message( const hs_vote_message& msg );
+      void on_hs_new_view_message( const hs_new_view_message& msg );
+      void on_hs_new_block_message( const hs_new_block_message& msg );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
       void start_expire_timer();
@@ -1715,8 +1713,6 @@ namespace eosio {
 
    //------------------------------------------------------------------------
 
-   using send_buffer_type = std::shared_ptr<std::vector<char>>;
-
    struct buffer_factory {
 
       /// caches result for subsequent calls, only provide same net_message instance for each invocation
@@ -1817,7 +1813,7 @@ namespace eosio {
       }
 
       buffer_factory buff_factory;
-      auto send_buffer = buff_factory.get_send_buffer( m );
+      const auto& send_buffer = buff_factory.get_send_buffer( m );
       enqueue_buffer( send_buffer, close_after_send );
    }
 
@@ -1827,7 +1823,7 @@ namespace eosio {
       verify_strand_in_this_thread( strand, __func__, __LINE__ );
 
       block_buffer_factory buff_factory;
-      auto sb = buff_factory.get_send_buffer( b );
+      const auto& sb = buff_factory.get_send_buffer( b );
       latest_blk_time = std::chrono::system_clock::now();
       enqueue_buffer( sb, no_reason, to_sync_queue);
    }
@@ -2560,53 +2556,12 @@ namespace eosio {
       } );
    }
 
-   void dispatch_manager::bcast_hs_proposal_msg(const hs_proposal_message_ptr& msg) {
-      if( my_impl->sync_master->syncing_from_peer() ) return;
-      hs_proposal_message& msg_val = *(msg.get());
-      my_impl->connections.for_each_block_connection( [&msg_val]( auto& cp ) {
+   void dispatch_manager::bcast_msg( send_buffer_type msg ) {
+      my_impl->connections.for_each_block_connection( [msg{std::move(msg)}]( auto& cp ) {
          if( !cp->current() ) return true;
-         cp->strand.post( [cp, msg_val]() {
+         cp->strand.post( [cp, msg]() {
             if (cp->protocol_version >= proto_instant_finality)
-               cp->enqueue( msg_val );
-         });
-         return true;
-      } );
-   }
-
-   void dispatch_manager::bcast_hs_vote_msg(const hs_vote_message_ptr& msg) {
-      if( my_impl->sync_master->syncing_from_peer() ) return;
-      hs_vote_message& msg_val = *(msg.get());
-      my_impl->connections.for_each_block_connection( [&msg_val]( auto& cp ) {
-         if( !cp->current() ) return true;
-         cp->strand.post( [cp, msg_val]() {
-            if (cp->protocol_version >= proto_instant_finality)
-               cp->enqueue( msg_val );
-         });
-         return true;
-      } );
-   }
-
-   void dispatch_manager::bcast_hs_new_block_msg(const hs_new_block_message_ptr& msg) {
-      if( my_impl->sync_master->syncing_from_peer() ) return;
-      hs_new_block_message& msg_val = *(msg.get());
-      my_impl->connections.for_each_block_connection( [&msg_val]( auto& cp ) {
-         if( !cp->current() ) return true;
-         cp->strand.post( [cp, msg_val]() {
-            if (cp->protocol_version >= proto_instant_finality)
-               cp->enqueue( msg_val );
-         });
-         return true;
-      } );
-   }
-
-   void dispatch_manager::bcast_hs_new_view_msg(const hs_new_view_message_ptr& msg) {
-      if( my_impl->sync_master->syncing_from_peer() ) return;
-      hs_new_view_message& msg_val = *(msg.get());
-      my_impl->connections.for_each_block_connection( [&msg_val]( auto& cp ) {
-         if( !cp->current() ) return true;
-         cp->strand.post( [cp, msg_val]() {
-            if (cp->protocol_version >= proto_instant_finality)
-               cp->enqueue( msg_val );
+               cp->enqueue_buffer( msg, no_reason );
          });
          return true;
       } );
@@ -3632,18 +3587,22 @@ namespace eosio {
    }
 
    void connection::handle_message( const hs_vote_message& msg ) {
+      peer_dlog(this, "received vote: ${msg}", ("msg", msg));
       my_impl->chain_plug->notify_hs_vote_message(msg);
    }
 
    void connection::handle_message( const hs_proposal_message& msg ) {
+      peer_dlog(this, "received proposal: ${msg}", ("msg", msg));
       my_impl->chain_plug->notify_hs_proposal_message(msg);
    }
 
    void connection::handle_message( const hs_new_view_message& msg ) {
+      peer_dlog(this, "received new view: ${msg}", ("msg", msg));
       my_impl->chain_plug->notify_hs_new_view_message(msg);
    }
 
    void connection::handle_message( const hs_new_block_message& msg ) {
+      peer_dlog(this, "received new block msg: ${msg}", ("msg", msg));
       my_impl->chain_plug->notify_hs_new_block_message(msg);
    }
 
@@ -3898,44 +3857,48 @@ namespace eosio {
       on_active_schedule(chain_plug->chain().active_producers());
    }
 
-   // called from application thread
-   void net_plugin_impl::on_hs_proposal_message( const hs_proposal_message_ptr& msg ){
-      //ilog("network plugin received consensus message from application");
+   void net_plugin_impl::on_hs_proposal_message( const hs_proposal_message& msg ) {
+      fc_dlog(logger, "sending proposal msg: ${msg}", ("msg", msg));
 
-      dispatcher->strand.post( [this, msg]() {
-         dispatcher->bcast_hs_proposal_msg( msg );
+      buffer_factory buff_factory;
+      auto send_buffer = buff_factory.get_send_buffer( msg );
+
+      dispatcher->strand.post( [this, msg{std::move(send_buffer)}]() mutable {
+         dispatcher->bcast_msg( std::move(msg) );
       });
-
    }
 
-   // called from application thread
-   void net_plugin_impl::on_hs_vote_message( const hs_vote_message_ptr& msg ){
-      //ilog("network plugin received confirmation message from application");
+   void net_plugin_impl::on_hs_vote_message( const hs_vote_message& msg ) {
+      fc_dlog(logger, "sending vote msg: ${msg}", ("msg", msg));
 
-      dispatcher->strand.post( [this, msg]() {
-         dispatcher->bcast_hs_vote_msg( msg );
+      buffer_factory buff_factory;
+      auto send_buffer = buff_factory.get_send_buffer( msg );
+
+      dispatcher->strand.post( [this, msg{std::move(send_buffer)}]() mutable {
+         dispatcher->bcast_msg( std::move(msg) );
       });
-
    }
 
-   // called from application thread
-   void net_plugin_impl::on_hs_new_view_message( const hs_new_view_message_ptr& msg ){
-      //ilog("network plugin received new_view message from application");
+   void net_plugin_impl::on_hs_new_view_message( const hs_new_view_message& msg ) {
+      fc_dlog(logger, "sending new_view msg: ${msg}", ("msg", msg));
 
-      dispatcher->strand.post( [this, msg]() {
-         dispatcher->bcast_hs_new_view_msg( msg );
+      buffer_factory buff_factory;
+      auto send_buffer = buff_factory.get_send_buffer( msg );
+
+      dispatcher->strand.post( [this, msg{std::move(send_buffer)}]() mutable {
+         dispatcher->bcast_msg( std::move(msg) );
       });
-
    }
 
-   // called from application thread
-   void net_plugin_impl::on_hs_new_block_message( const hs_new_block_message_ptr& msg ){
-      //ilog("network plugin received new_block message from application");
+   void net_plugin_impl::on_hs_new_block_message( const hs_new_block_message& msg ) {
+      fc_dlog(logger, "sending new_block msg: ${msg}", ("msg", msg));
 
-      dispatcher->strand.post( [this, msg]() {
-         dispatcher->bcast_hs_new_block_msg( msg );
+      buffer_factory buff_factory;
+      auto send_buffer = buff_factory.get_send_buffer( msg );
+
+      dispatcher->strand.post( [this, msg{std::move(send_buffer)}]() mutable {
+         dispatcher->bcast_msg( std::move(msg) );
       });
-
    }
 
    // called from application thread
@@ -4262,6 +4225,21 @@ namespace eosio {
             chain_plug->enable_accept_transactions();
          }
 
+         chain_plug->register_pacemaker_bcast_functions(
+                 [my = shared_from_this()](const hs_proposal_message& s) {
+                    my->on_hs_proposal_message(s);
+                 },
+                 [my = shared_from_this()](const hs_vote_message& s) {
+                    my->on_hs_vote_message(s);
+                 },
+                 [my = shared_from_this()](const hs_new_block_message& s) {
+                    my->on_hs_new_block_message(s);
+                 },
+                 [my = shared_from_this()](const hs_new_view_message& s) {
+                    my->on_hs_new_view_message(s);
+                 } );
+
+
       } FC_LOG_AND_RETHROW()
    }
 
@@ -4320,19 +4298,6 @@ namespace eosio {
          } );
          cc.irreversible_block.connect( [my = shared_from_this()]( const block_state_ptr& s ) {
             my->on_irreversible_block( s );
-         } );
-
-         cc.new_hs_proposal_message.connect( [my = shared_from_this()]( const hs_proposal_message_ptr& s ) {
-            my->on_hs_proposal_message( s );
-         } );
-         cc.new_hs_vote_message.connect( [my = shared_from_this()]( const hs_vote_message_ptr& s ) {
-            my->on_hs_vote_message( s );
-         } );
-         cc.new_hs_new_view_message.connect( [my = shared_from_this()]( const hs_new_view_message_ptr& s ) {
-            my->on_hs_new_view_message( s );
-         } );
-         cc.new_hs_new_block_message.connect( [my = shared_from_this()]( const hs_new_block_message_ptr& s ) {
-            my->on_hs_new_block_message( s );
          } );
 
       }
