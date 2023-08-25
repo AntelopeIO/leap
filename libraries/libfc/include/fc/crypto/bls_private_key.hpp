@@ -37,6 +37,7 @@ namespace fc::crypto::blslib {
       private:
          std::array<uint64_t, 4> _sk;
 
+         friend bool operator == ( const bls_private_key& pk1, const bls_private_key& pk2);
          friend struct reflector<bls_private_key>;
    }; // bls_private_key
 

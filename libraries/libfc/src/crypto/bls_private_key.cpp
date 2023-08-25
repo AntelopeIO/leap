@@ -49,6 +49,10 @@ namespace fc::crypto::blslib {
       return std::string(config::bls_private_key_prefix) + data_str;
    }
 
+   bool operator == ( const bls_private_key& pk1, const bls_private_key& pk2) {
+      return std::memcmp(&pk1, &pk2, sizeof(pk1)) == 0;
+   }
+
 } // fc::crypto::blslib
 
 namespace fc

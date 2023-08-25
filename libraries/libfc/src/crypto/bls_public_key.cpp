@@ -34,11 +34,6 @@ namespace fc::crypto::blslib {
 
    }
 
-   std::ostream& operator<<(std::ostream& s, const bls_public_key& k) {
-      s << "bls_public_key(" << k.to_string() << ')';
-      return s;
-   }
-
 } // fc::crypto::blslib
 
 namespace fc

@@ -236,4 +236,22 @@ BOOST_AUTO_TEST_CASE(bls_pub_key_sig_serialization) try {
 
 } FC_LOG_AND_RETHROW();
 
+
+BOOST_AUTO_TEST_CASE(bls_cbinary_keys_encoding_check) try {
+
+  bls_private_key sk = bls_private_key(seed_1);
+
+  bool ok1 = bls_private_key(sk.to_string()) == sk;
+
+  std::string str =  sk.to_string();
+
+  bool ok2 = bls_private_key(str).to_string() == str;
+
+  BOOST_CHECK_EQUAL(ok1, true);
+  BOOST_CHECK_EQUAL(ok2, true);
+
+} FC_LOG_AND_RETHROW();
+
+
+
 BOOST_AUTO_TEST_SUITE_END()

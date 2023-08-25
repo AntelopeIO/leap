@@ -34,7 +34,6 @@ namespace fc::crypto::blslib {
          bls12_381::g1 _pkey;
 
       private:
-         friend std::ostream& operator<< (std::ostream& s, const bls_public_key& k);
          friend struct reflector<bls_public_key>;
          friend class bls_private_key;
    }; // bls_public_key

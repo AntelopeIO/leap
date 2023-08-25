@@ -39,11 +39,6 @@ namespace fc::crypto::blslib {
 
    }
 
-   std::ostream& operator<<(std::ostream& s, const bls_signature& k) {
-      s << "bls_signature(" << k.to_string() << ')';
-      return s;
-   }
-
    bool operator == ( const bls_signature& p1, const bls_signature& p2) {
       
       // until `bls12_381::g2` has an `operator==`, do binary comparison
