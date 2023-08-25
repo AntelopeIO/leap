@@ -6,6 +6,8 @@
 #include <fc/crypto/bls_signature.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
+#include <boost/dynamic_bitset.hpp>
+
 namespace eosio::chain {
 
    const block_id_type NULL_BLOCK_ID = block_id_type("00");
@@ -21,10 +23,41 @@ namespace eosio::chain {
    };
 
    struct quorum_certificate {
+      explicit quorum_certificate(uint32_t finalizer_size = 0) {
+         reset(NULL_PROPOSAL_ID, finalizer_size);
+      }
+
+      void reset(const fc::sha256& proposal, uint32_t finalizer_size) {
+         proposal_id = proposal;
+         boost::dynamic_bitset b;
+         b.resize(finalizer_size);
+         boost::to_string(b, active_finalizers);
+         active_agg_sig = fc::crypto::blslib::bls_signature();
+         quorum_met = false;
+      }
+
+      auto get_active_finalizers() const {
+         assert(!active_finalizers.empty());
+         return boost::dynamic_bitset(active_finalizers);
+      }
+      void set_active_finalizers(const auto& bs) {
+         assert(!bs.empty());
+         boost::to_string(bs, active_finalizers);
+      }
+      const std::string& get_active_finalizers_string() const { return active_finalizers; }
+
+      const fc::sha256& get_proposal_id() const { return proposal_id; }
+      const fc::crypto::blslib::bls_signature& get_active_agg_sig() const { return active_agg_sig; }
+      void set_active_agg_sig( const fc::crypto::blslib::bls_signature& sig) { active_agg_sig = sig; }
+      bool is_quorum_met() const { return quorum_met; }
+      void set_quorum_met() { quorum_met = true; }
+
+   private:
+      friend struct fc::reflector<quorum_certificate>;
       fc::sha256                          proposal_id = NULL_PROPOSAL_ID;
-      fc::unsigned_int                    active_finalizers = 0; //bitset encoding, following canonical order
+      std::string                         active_finalizers; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
-      bool                                quorum_met = false;
+      bool                                quorum_met = false; // not serialized across network
    };
 
    struct hs_vote_message {
@@ -84,6 +117,7 @@ namespace eosio::chain {
 
 } //eosio::chain
 
+// // @ignore quorum_met
 FC_REFLECT(eosio::chain::quorum_certificate, (proposal_id)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer)(sig));

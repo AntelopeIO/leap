@@ -61,15 +61,15 @@ namespace eosio::hotstuff {
       // returns false if proposal with that same ID already exists at the store of its height
       bool insert_proposal(const hs_proposal_message& proposal);
 
-      uint32_t positive_bits_count(fc::unsigned_int value);
+      uint32_t positive_bits_count(const boost::dynamic_bitset<>& finalizers);
 
-      fc::unsigned_int update_bitset(fc::unsigned_int value, name finalizer);
+      boost::dynamic_bitset<> update_bitset(const boost::dynamic_bitset<>& finalizer_set, name finalizer);
 
       digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc); //get digest to sign from proposal data
 
       void reset_qc(const fc::sha256& proposal_id); //reset current internal qc
 
-      bool evaluate_quorum(const extended_schedule& es, fc::unsigned_int finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
+      bool evaluate_quorum(const extended_schedule& es, const boost::dynamic_bitset<>& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
 
       // qc.quorum_met has to be updated by the caller (if it wants to) based on the return value of this method
       bool is_quorum_met(const eosio::chain::quorum_certificate& qc, const extended_schedule& schedule, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
@@ -137,8 +137,6 @@ namespace eosio::hotstuff {
       eosio::chain::extended_schedule _schedule;
       base_pacemaker* _pacemaker = nullptr;
       std::set<name> _my_producers;
-      bool _log = true;
-      bool _errors = true;
       name _id;
 
       mutable std::atomic<uint64_t> _state_version = 1;

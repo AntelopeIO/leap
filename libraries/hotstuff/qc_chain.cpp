@@ -128,32 +128,22 @@ namespace eosio { namespace hotstuff {
 #endif
    }
 
-   uint32_t qc_chain::positive_bits_count(fc::unsigned_int value){
-      boost::dynamic_bitset b(21, value);
-      uint32_t count = 0;
-      for (boost::dynamic_bitset<>::size_type i = 0; i < b.size(); i++){
-         if (b[i]==true)count++;
-      }
-      return count;
+   uint32_t qc_chain::positive_bits_count(const boost::dynamic_bitset<>& finalizers) {
+      return finalizers.count(); // the number of bits in this bitset that are set.
    }
 
-   fc::unsigned_int qc_chain::update_bitset(fc::unsigned_int value, name finalizer ) {
+   boost::dynamic_bitset<> qc_chain::update_bitset(const boost::dynamic_bitset<>& finalizer_set, name finalizer ) {
 
-      fc_tlog(_logger, " === update bitset ${value} ${finalizer}",
-           ("value", value)
-           ("finalizer", finalizer));
-
-      boost::dynamic_bitset b( 21, value );
+      boost::dynamic_bitset b( finalizer_set );
       vector<name> finalizers = _pacemaker->get_finalizers();
       for (size_t i = 0; i < finalizers.size();i++) {
          if (finalizers[i] == finalizer) {
             b.flip(i);
 
             fc_tlog(_logger, " === finalizer found ${finalizer} new value : ${value}",
-                 ("finalizer", finalizer)
-                 ("value", b.to_ulong()));
+                    ("finalizer", finalizer)("value", [&](){ std::string r; boost::to_string(b, r); return r; }()));
 
-            return b.to_ulong();
+            return b;
          }
       }
       fc_tlog(_logger, " *** finalizer not found ${finalizer}",
@@ -173,10 +163,10 @@ namespace eosio { namespace hotstuff {
       b2 = get_proposal( proposal_id );
       if (b2 != nullptr) {
          ret_arr.push_back( *b2 );
-         b1 = get_proposal( b2->justify.proposal_id );
+         b1 = get_proposal( b2->justify.get_proposal_id() );
          if (b1 != nullptr) {
             ret_arr.push_back( *b1 );
-            b = get_proposal( b1->justify.proposal_id );
+            b = get_proposal( b1->justify.get_proposal_id() );
             if (b != nullptr)
                ret_arr.push_back( *b );
          }
@@ -190,8 +180,8 @@ namespace eosio { namespace hotstuff {
       b_new.parent_id =  _b_leaf;
       b_new.phase_counter = phase_counter;
       b_new.justify = _high_qc; //or null if no _high_qc upon activation or chain launch
-      if (b_new.justify.proposal_id != NULL_PROPOSAL_ID){
-         std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(b_new.justify.proposal_id);
+      if (b_new.justify.get_proposal_id() != NULL_PROPOSAL_ID){
+         std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(b_new.justify.get_proposal_id());
          size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
          if (chain_length>=2){
             auto itr = current_qc_chain.begin();
@@ -219,17 +209,14 @@ namespace eosio { namespace hotstuff {
               ("phase_counter", b_new.phase_counter)
               ("proposal_id", b_new.proposal_id)
               ("parent_id", b_new.parent_id)
-              ("justify", b_new.justify.proposal_id));
+              ("justify", b_new.justify.get_proposal_id()));
 
       return b_new;
    }
 
-   void qc_chain::reset_qc(const fc::sha256& proposal_id){
+   void qc_chain::reset_qc(const fc::sha256& proposal_id) {
       fc_tlog(_logger, " === ${id} resetting qc : ${proposal_id}", ("proposal_id" , proposal_id)("id", _id));
-      _current_qc.proposal_id = proposal_id;
-      _current_qc.quorum_met = false;
-      _current_qc.active_finalizers = 0;
-      _current_qc.active_agg_sig = fc::crypto::blslib::bls_signature();
+      _current_qc.reset(proposal_id, 21); // TODO: use active schedule size
    }
 
    hs_new_block_message qc_chain::new_block_candidate(const block_id_type& block_id) {
@@ -239,7 +226,7 @@ namespace eosio { namespace hotstuff {
       return b;
    }
 
-   bool qc_chain::evaluate_quorum(const extended_schedule & es, fc::unsigned_int finalizers, const fc::crypto::blslib::bls_signature & agg_sig, const hs_proposal_message & proposal){
+   bool qc_chain::evaluate_quorum(const extended_schedule& es, const boost::dynamic_bitset<>& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
 
       bool first = true;
 
@@ -247,17 +234,17 @@ namespace eosio { namespace hotstuff {
          return false;
       }
 
-      boost::dynamic_bitset fb(21, finalizers.value);
       fc::crypto::blslib::bls_public_key agg_key;
 
-      for (boost::dynamic_bitset<>::size_type i = 0; i < fb.size(); i++) {
-         if (fb[i] == 1){
+      for (boost::dynamic_bitset<>::size_type i = 0; i < finalizers.size(); i++) {
+         if (finalizers[i] == 1){
             //adding finalizer's key to the aggregate pub key
             if (first) {
                first = false;
                agg_key = _private_key.get_public_key();
+            } else {
+               agg_key = fc::crypto::blslib::aggregate({agg_key, _private_key.get_public_key()});
             }
-            else agg_key = fc::crypto::blslib::aggregate({agg_key, _private_key.get_public_key() });
          }
       }
 #warning fix todo
@@ -278,16 +265,16 @@ namespace eosio { namespace hotstuff {
       return ok;
    }
 
-   bool qc_chain::is_quorum_met(const eosio::chain::quorum_certificate & qc, const extended_schedule & schedule, const hs_proposal_message & proposal){
+   bool qc_chain::is_quorum_met(const eosio::chain::quorum_certificate& qc, const extended_schedule& schedule, const hs_proposal_message& proposal) {
 
-      if (qc.quorum_met) {
+      if (qc.is_quorum_met()) {
          return true; //skip evaluation if we've already verified quorum was met
       }
       else {
          fc_tlog(_logger, " === qc : ${qc}", ("qc", qc));
          // If the caller wants to update the quorum_met flag on its "qc" object, it will have to do so
          //   based on the return value of this method, since "qc" here is const.
-         return evaluate_quorum(schedule, qc.active_finalizers, qc.active_agg_sig, proposal);
+         return evaluate_quorum(schedule, qc.get_active_finalizers(), qc.get_active_agg_sig(), proposal);
       }
    }
 
@@ -298,6 +285,9 @@ namespace eosio { namespace hotstuff {
         _my_producers(std::move(my_producers)),
         _logger(logger)
    {
+      _high_qc.reset(NULL_PROPOSAL_ID, 21); // TODO: use active schedule size
+      _current_qc.reset(NULL_PROPOSAL_ID, 21); // TODO: use active schedule size
+
       fc_dlog(_logger, " === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
    }
 
@@ -344,11 +334,11 @@ namespace eosio { namespace hotstuff {
 
       //auto start = fc::time_point::now();
 
-      if (proposal.justify.proposal_id != NULL_PROPOSAL_ID){
+      if (proposal.justify.get_proposal_id() != NULL_PROPOSAL_ID){
 
-         const hs_proposal_message *jp = get_proposal( proposal.justify.proposal_id );
+         const hs_proposal_message *jp = get_proposal( proposal.justify.get_proposal_id() );
          if (jp == nullptr) {
-            fc_elog(_logger, " *** ${id} proposal justification unknown : ${proposal_id}", ("id",_id)("proposal_id", proposal.justify.proposal_id));
+            fc_elog(_logger, " *** ${id} proposal justification unknown : ${proposal_id}", ("id",_id)("proposal_id", proposal.justify.get_proposal_id()));
             return; //can't recognize a proposal with an unknown justification
          }
       }
@@ -358,13 +348,13 @@ namespace eosio { namespace hotstuff {
 
          fc_elog(_logger, " *** ${id} proposal received twice : ${proposal_id}", ("id",_id)("proposal_id", proposal.proposal_id));
 
-         if (p->justify.proposal_id != proposal.justify.proposal_id) {
+         if (p->justify.get_proposal_id() != proposal.justify.get_proposal_id()) {
 
             fc_elog(_logger, " *** ${id} two identical proposals (${proposal_id}) have different justifications :  ${justify_1} vs  ${justify_2}",
                               ("id",_id)
                               ("proposal_id", proposal.proposal_id)
-                              ("justify_1", p->justify.proposal_id)
-                              ("justify_2", proposal.justify.proposal_id));
+                              ("justify_1", p->justify.get_proposal_id())
+                              ("justify_2", proposal.justify.get_proposal_id()));
 
          }
 
@@ -413,7 +403,7 @@ namespace eosio { namespace hotstuff {
                      ("phase_counter", proposal.phase_counter)
                      ("proposal_id", proposal.proposal_id)
                      ("parent_id", proposal.parent_id)
-                     ("justify", proposal.justify.proposal_id));
+                     ("justify", proposal.justify.get_proposal_id()));
 
       bool success = insert_proposal( proposal );
       EOS_ASSERT( success , chain_exception, "internal error: duplicate proposal insert attempt" ); // can't happen unless bad mutex somewhere; already checked for this
@@ -487,9 +477,10 @@ namespace eosio { namespace hotstuff {
 
       if (!am_leader)
          return;
-      fc_tlog(_logger, " === Process vote from ${finalizer} : current bitset ${value}" , ("finalizer", vote.finalizer)("value", _current_qc.active_finalizers));
+      fc_tlog(_logger, " === Process vote from ${finalizer} : current bitset ${value}" ,
+              ("finalizer", vote.finalizer)("value", _current_qc.get_active_finalizers_string()));
       // only leader need to take action on votes
-      if (vote.proposal_id != _current_qc.proposal_id)
+      if (vote.proposal_id != _current_qc.get_proposal_id())
          return;
 
       const hs_proposal_message *p = get_proposal( vote.proposal_id );
@@ -498,19 +489,21 @@ namespace eosio { namespace hotstuff {
          return;
       }
 
-      bool quorum_met = _current_qc.quorum_met; //check if quorum already met
+      bool quorum_met = _current_qc.is_quorum_met(); //check if quorum already met
 
       // If quorum is already met, we don't need to do anything else. Otherwise, we aggregate the signature.
       if (!quorum_met){
 
          auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
-         if (_current_qc.active_finalizers>0)
-            _current_qc.active_agg_sig = fc::crypto::blslib::aggregate({_current_qc.active_agg_sig, vote.sig });
+         boost::dynamic_bitset finalizer_set = _current_qc.get_active_finalizers();
+         if (finalizer_set.any())
+            _current_qc.set_active_agg_sig(fc::crypto::blslib::aggregate({_current_qc.get_active_agg_sig(), vote.sig }));
          else
-            _current_qc.active_agg_sig = vote.sig;
+            _current_qc.set_active_agg_sig(vote.sig);
 
-         _current_qc.active_finalizers = update_bitset(_current_qc.active_finalizers, vote.finalizer);
+         fc_tlog(_logger, " === update bitset ${value} ${finalizer}", ("value", _current_qc.get_active_finalizers_string())("finalizer", vote.finalizer));
+         _current_qc.set_active_finalizers(update_bitset(finalizer_set, vote.finalizer));
 
          quorum_met = is_quorum_met(_current_qc, _schedule, *p);
 
@@ -522,7 +515,7 @@ namespace eosio { namespace hotstuff {
                            ("proposal_id", vote.proposal_id)
                            ("id", _id));
 
-            _current_qc.quorum_met = true;
+            _current_qc.set_quorum_met();
 
             //fc_tlog(_logger, " === update_high_qc : _current_qc ===");
             update_high_qc(_current_qc);
@@ -588,12 +581,12 @@ namespace eosio { namespace hotstuff {
 
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
-      if (_current_qc.proposal_id != NULL_PROPOSAL_ID && _current_qc.quorum_met == false) {
+      if (_current_qc.get_proposal_id() != NULL_PROPOSAL_ID && _current_qc.is_quorum_met() == false) {
 
          fc_tlog(_logger, " === ${id} pending proposal found ${proposal_id} : quorum met ${quorum_met}",
                         ("id", _id)
-                        ("proposal_id", _current_qc.proposal_id)
-                        ("quorum_met", _current_qc.quorum_met));
+                        ("proposal_id", _current_qc.get_proposal_id())
+                        ("quorum_met", _current_qc.is_quorum_met()));
 
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to ${block_id} (on_beat)", ("id", _id)("block_id", msg.block_id));
          _pending_proposal_block = msg.block_id;
@@ -602,8 +595,8 @@ namespace eosio { namespace hotstuff {
 
          fc_tlog(_logger, " === ${id} preparing new proposal ${proposal_id} : quorum met ${quorum_met}",
                         ("id", _id)
-                        ("proposal_id", _current_qc.proposal_id)
-                        ("quorum_met", _current_qc.quorum_met));
+                        ("proposal_id", _current_qc.get_proposal_id())
+                        ("quorum_met", _current_qc.is_quorum_met()));
          hs_proposal_message proposal_candidate = new_proposal_candidate( msg.block_id, 0 );
 
          reset_qc(proposal_candidate.proposal_id);
@@ -715,20 +708,20 @@ namespace eosio { namespace hotstuff {
    // returns true on state change (caller decides update on state version
    bool qc_chain::update_high_qc(const eosio::chain::quorum_certificate & high_qc){
 
-      fc_tlog(_logger, " === check to update high qc ${proposal_id}", ("proposal_id", high_qc.proposal_id));
+      fc_tlog(_logger, " === check to update high qc ${proposal_id}", ("proposal_id", high_qc.get_proposal_id()));
 
       // if new high QC is higher than current, update to new
 
-      if (_high_qc.proposal_id == NULL_PROPOSAL_ID){
+      if (_high_qc.get_proposal_id() == NULL_PROPOSAL_ID){
 
          _high_qc = high_qc;
-         _b_leaf = _high_qc.proposal_id;
+         _b_leaf = _high_qc.get_proposal_id();
 
-         fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
+         fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.get_proposal_id())("id", _id));
          return true;
       } else {
-         const hs_proposal_message *old_high_qc_prop = get_proposal( _high_qc.proposal_id );
-         const hs_proposal_message *new_high_qc_prop = get_proposal( high_qc.proposal_id );
+         const hs_proposal_message *old_high_qc_prop = get_proposal( _high_qc.get_proposal_id() );
+         const hs_proposal_message *new_high_qc_prop = get_proposal( high_qc.get_proposal_id() );
          if (old_high_qc_prop == nullptr)
             return false;
          if (new_high_qc_prop == nullptr)
@@ -742,10 +735,10 @@ namespace eosio { namespace hotstuff {
 
             fc_tlog(_logger, " === updated high qc, now is : #${get_height}  ${proposal_id}", ("get_height", new_high_qc_prop->get_height())("proposal_id", new_high_qc_prop->proposal_id));
             _high_qc = high_qc;
-            _high_qc.quorum_met = true;
-            _b_leaf = _high_qc.proposal_id;
+            _high_qc.set_quorum_met();
+            _b_leaf = _high_qc.get_proposal_id();
 
-            fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
+            fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.get_proposal_id())("id", _id));
             return true;
          }
       }
@@ -793,11 +786,11 @@ namespace eosio { namespace hotstuff {
 
       fc::sha256 upcoming_commit;
 
-      if (proposal.justify.proposal_id == NULL_PROPOSAL_ID && _b_lock == NULL_PROPOSAL_ID)
+      if (proposal.justify.get_proposal_id() == NULL_PROPOSAL_ID && _b_lock == NULL_PROPOSAL_ID)
          final_on_qc_check = true; //if chain just launched or feature just activated
       else {
 
-         std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(proposal.justify.proposal_id);
+         std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(proposal.justify.get_proposal_id());
 
          size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
 
@@ -840,13 +833,13 @@ namespace eosio { namespace hotstuff {
          }
 
          //Liveness check : check if the height of this proposal's justification is higher than the height of the proposal I'm locked on. This allows restoration of liveness if a replica is locked on a stale block.
-         if (proposal.justify.proposal_id == NULL_PROPOSAL_ID && _b_lock == NULL_PROPOSAL_ID) {
+         if (proposal.justify.get_proposal_id() == NULL_PROPOSAL_ID && _b_lock == NULL_PROPOSAL_ID) {
             liveness_check = true; //if there is no justification on the proposal and I am not locked on anything, means the chain just launched or feature just activated
          } else {
             const hs_proposal_message *b_lock = get_proposal( _b_lock );
             EOS_ASSERT( b_lock != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", _b_lock) );
-            const hs_proposal_message *prop_justification = get_proposal( proposal.justify.proposal_id );
-            EOS_ASSERT( prop_justification != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", proposal.justify.proposal_id) );
+            const hs_proposal_message *prop_justification = get_proposal( proposal.justify.get_proposal_id() );
+            EOS_ASSERT( prop_justification != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", proposal.justify.get_proposal_id()) );
 
             if (prop_justification->get_height() > b_lock->get_height()) {
                liveness_check = true;
@@ -903,12 +896,12 @@ namespace eosio { namespace hotstuff {
    void qc_chain::update(const hs_proposal_message & proposal){
       //fc_tlog(_logger, " === update internal state ===");
       //if proposal has no justification, means we either just activated the feature or launched the chain, or the proposal is invalid
-      if (proposal.justify.proposal_id == NULL_PROPOSAL_ID){
+      if (proposal.justify.get_proposal_id() == NULL_PROPOSAL_ID){
          fc_dlog(_logger, " === ${id} proposal has no justification ${proposal_id}", ("proposal_id", proposal.proposal_id)("id", _id));
          return;
       }
 
-      std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(proposal.justify.proposal_id);
+      std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(proposal.justify.get_proposal_id());
 
       size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
 
