@@ -19,6 +19,7 @@ class HttpCategoryConfig:
     categories = ["chain_ro", "chain_rw", "db_size", "net_ro", "net_rw", "producer_ro",
                   "producer_rw", "snapshot", "trace_api", "prometheus", "test_control"]
     default_port = int(TestHelper.DEFAULT_PORT)
+    print(default_port)
     def __init__(self, use_category: bool):
         if use_category:
             self.ports = dict(zip(HttpCategoryConfig.categories, range(
@@ -791,7 +792,7 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3200006)
-        payload = "localhost:1234"
+        payload = "localhost:9011"
         ret_str = self.nodeos.processUrllibRequest(resource, command, payload, returnType=ReturnType.raw, endpoint=endpoint).decode('ascii')
         self.assertEqual("\"added connection\"", ret_str)
 
@@ -827,6 +828,7 @@ class PluginHttpTest(unittest.TestCase):
         # connections with empty parameter
         command = "connections"
         ret_str = self.nodeos.processUrllibRequest(resource, command, returnType=ReturnType.raw, endpoint=endpoint).decode('ascii')
+        print(ret_str)
         self.assertIn("\"peer\":\"localhost:9011\"", ret_str)
         # connections with empty content parameter
         ret_str = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict, returnType=ReturnType.raw, endpoint=endpoint).decode('ascii')

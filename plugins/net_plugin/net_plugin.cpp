@@ -2216,7 +2216,7 @@ namespace eosio {
 
    // called from c's connection strand
    void sync_manager::recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency ) {
-
+      // blk,both,all
       if (!c->is_blocks_connection())
          return;
 
@@ -2635,7 +2635,7 @@ namespace eosio {
 
       const fc::time_point_sec now{fc::time_point::now()};
       my_impl->connections.for_each_connection( [this, &trx, &now, &buff_factory]( auto& cp ) {
-          // since connection type changed, skip connection not accept transactions
+         // trx,both,all
          if( !cp->is_transactions_connection() || !cp->current() ) {
             return;
          }
@@ -4062,9 +4062,10 @@ namespace eosio {
       hello.p2p_address = listen_address;
       if( is_transactions_only_connection() ) hello.p2p_address += ":trx";
       // if we are not accepting transactions tell peer we are blocks only
-      if( is_blocks_only_connection() ) hello.p2p_address += ":blk";
+      if( is_blocks_only_connection() || !my_impl->p2p_accept_transactions ) hello.p2p_address += ":blk";
       if( is_peers_only_connection() ) hello.p2p_address += ":peer";
       if( is_all_connection() ) hello.p2p_address += ":all";
+      // if no suffix, means both trx & blk
       if( !is_blocks_only_connection() && !my_impl->p2p_accept_transactions ) {
          peer_dlog( this, "p2p-accept-transactions=false inform peer blocks only connection ${a}", ("a", hello.p2p_address) );
       }
@@ -4504,7 +4505,6 @@ namespace eosio {
       update_p2p_connection_metrics = std::move(fun);
    }
 
-   // since address is managed by address manager, connection manager
    void connections_manager::connect_peers(const std::unordered_set<std::string>& peers, const string& p2p_address) {
       std::lock_guard g(connections_mtx);
       for (const auto& peer : peers) {
@@ -4524,7 +4524,6 @@ namespace eosio {
          return "already connected";
 
       connect_i( host, p2p_address );
-      //supplied_peers.insert(host);
       my_impl->address_master.add_address_str(host);
       return "added connection";
    }
