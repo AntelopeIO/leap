@@ -16,7 +16,7 @@ namespace fc::crypto::blslib {
       constexpr const char* bls_signature_base_prefix = "SIG";
       constexpr const char* bls_signature_prefix = "BLS";
    };
-
+   
    class bls_signature
    {
       public:
@@ -30,7 +30,6 @@ namespace fc::crypto::blslib {
             _sig = sig;
          }
 
-         // serialize to/from string
          explicit bls_signature(const string& base58str);
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 
@@ -52,15 +51,6 @@ namespace fc {
 
    void from_variant(const variant& var, crypto::blslib::bls_signature& vo);
 } // namespace fc
-
-/*namespace std {
-   template <> struct hash<crypto::blslib::bls_signature> {
-      std::size_t operator()(const crypto::blslib::bls_signature& k) const {
-         //return fc::crypto::hash_value(k);
-         return 0;
-      }
-   };
-} // std*/
 
 FC_REFLECT(bls12_381::fp, (d))
 FC_REFLECT(bls12_381::fp2, (c0)(c1))

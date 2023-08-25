@@ -8,11 +8,14 @@ namespace fc::crypto::blslib {
    namespace config {
       constexpr const char* bls_private_key_base_prefix = "PVT";
       constexpr const char* bls_private_key_prefix = "BLS";
+      //constexpr const char* bls_private_key_prefix[] = {"BLS"};
    };
 
    class bls_private_key
    {
       public:
+
+         using storage_type = std::variant<vector<uint8_t>>;
 
          bls_private_key() = default;
          bls_private_key( bls_private_key&& ) = default;
@@ -22,8 +25,6 @@ namespace fc::crypto::blslib {
             _seed = std::move(seed);
          }
 
-         // serialize to/from string
-         // TODO: determine format to use for string of private key
          explicit bls_private_key(const string& base58str);
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 

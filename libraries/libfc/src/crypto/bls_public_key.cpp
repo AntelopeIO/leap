@@ -1,10 +1,11 @@
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/crypto/common.hpp>
 #include <fc/exception/exception.hpp>
+#include <fc/crypto/bls_common.hpp>
 
 namespace fc::crypto::blslib {
 
-   static bls12_381::g1 parse_base58(const std::string& base58str)
+   static bls12_381::g1 pub_parse_base58(const std::string& base58str)
    {  
       
       const auto pivot = base58str.find('_');
@@ -18,29 +19,23 @@ namespace fc::crypto::blslib {
 
       auto data_str = base58str.substr(8);
 
-      std::vector<char> bytes = from_base58(data_str);
-
-      FC_ASSERT(bytes.size() == 48);
+      std::array<uint8_t, 48> bytes = fc::crypto::blslib::serialize_base58<std::array<uint8_t, 48>>(data_str);
       
-      std::array<uint8_t, 48> v2;
-      std::copy(bytes.begin(), bytes.end(), v2.begin());
-      std::optional<bls12_381::g1> g1 = bls12_381::g1::fromCompressedBytesBE(v2);
+      std::optional<bls12_381::g1> g1 = bls12_381::g1::fromCompressedBytesBE(bytes);
       FC_ASSERT(g1);
       return *g1;
    }
 
    bls_public_key::bls_public_key(const std::string& base58str)
-   :_pkey(parse_base58(base58str))
+   :_pkey(pub_parse_base58(base58str))
    {}
 
    std::string bls_public_key::to_string(const yield_function_t& yield)const {
 
-      std::vector<char> v2;
       std::array<uint8_t, 48> bytes = _pkey.toCompressedBytesBE();
-      std::copy(bytes.begin(), bytes.end(), std::back_inserter(v2));
 
-      std::string data_str = to_base58(v2, yield);
-      
+      std::string data_str = fc::crypto::blslib::deserialize_base58<std::array<uint8_t, 48>>(bytes, yield); 
+
       return std::string(config::bls_public_key_base_prefix) + "_" + std::string(config::bls_public_key_prefix) + "_" + data_str;
 
    }

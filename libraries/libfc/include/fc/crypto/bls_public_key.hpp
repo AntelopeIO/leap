@@ -30,12 +30,10 @@ namespace fc::crypto::blslib {
             _pkey = pkey;
          }
 
-         // serialize to/from string
          explicit bls_public_key(const string& base58str);
 
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 
-         //storage_type _storage;
          bls12_381::g1 _pkey;
 
       private:

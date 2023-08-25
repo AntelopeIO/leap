@@ -1,45 +1,5 @@
 #include <eosio/hotstuff/qc_chain.hpp>
 
-/*
-
-  Todo list / notes:
-  - fork tests in unittests
-  - network plugin versioning
-  - handshake_message.network_version
-  - independant of protocol feature activation
-  - separate library for hotstuff (look at SHIP libray used by state history plugin )
-  - boost tests producer plugin test
-  - regression tests python framework as a base
-  - performance testing
-  - complete proposer / leader differentiation
-  - integration with new bls implementation
-  - hotstuff as a library with its own tests (model on state history plugin + state_history library )
-  - unit / integration tests -> producer_plugin + fork_tests tests as a model
-  - test deterministic sequence
-  - test non-replica participation
-  - test finality vioaltion
-  - test loss of liveness
-  - test split chain
-  - store schedules and transition view height, and prune on commit
-  - integration with fork_db / LIB overhaul
-  - integration with performance testing
-  - regression testing ci/cd -> python regression tests
-  - implement bitset for efficiency
-  - add APIs for proof data
-  - add election proposal in block header
-  - map proposers / finalizers / leader to new host functions
-  - support pause / resume producer
-  - keep track of proposals sent to peers
-  - allow syncing of proposals
-  - versioning of net protocol version
-  - protocol feature activation HOTSTUFF_CONSENSUS
-  - system contract update 1
-  -- allow BPs to register + prove their aggregate pub key.
-  -- Allow existing BPs to unreg + reg without new aggregate key.
-  -- Prevent new BPs from registering without proving aggregate pub key
-  - system contract update 2 (once all or at least overwhelming majority of BPs added a bls key)
-  -- skip BPs without a bls key in the selection, new host functions are available
-*/
 
 
 // FIXME/REMOVE: remove all of this tracing

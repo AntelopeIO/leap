@@ -3,6 +3,7 @@
 #include <fc/utility.hpp>
 #include <fc/crypto/common.hpp>
 #include <fc/exception/exception.hpp>
+#include <fc/crypto/bls_common.hpp>
 
 namespace fc::crypto::blslib {
 
@@ -32,22 +33,20 @@ namespace fc::crypto::blslib {
       const auto pivot = base58str.find('_');
       FC_ASSERT(pivot != std::string::npos, "No delimiter in string, cannot determine data type: ${str}", ("str", base58str));
 
-      const auto base_prefix_str = base58str.substr(0, 3);
+      const auto base_prefix_str = base58str.substr(0, 3); //pvt
       FC_ASSERT(config::bls_private_key_base_prefix == base_prefix_str, "BLS Private Key has invalid base prefix: ${str}", ("str", base58str)("base_prefix_str", base_prefix_str));
       
-      const auto prefix_str = base58str.substr(pivot + 1, 3);
+      const auto prefix_str = base58str.substr(pivot + 1, 3); //bls
       FC_ASSERT(config::bls_private_key_prefix == prefix_str, "BLS Private Key has invalid prefix: ${str}", ("str", base58str)("prefix_str", prefix_str));
 
       auto data_str = base58str.substr(8);
 
-      auto bytes = from_base58(data_str);
+      vector<uint8_t> bytes = fc::crypto::blslib::serialize_base58<std::vector<uint8_t>>(data_str);
 
-      FC_ASSERT(bytes.size() == 32 );
+      FC_ASSERT(bytes.size() == 32);
 
-      std::vector<uint8_t> v2(32);
-      std::copy(bytes.begin(), bytes.end(), v2.begin());
+      return bytes;
 
-      return v2;
    }
 
    bls_private_key::bls_private_key(const std::string& base58str)
@@ -56,10 +55,10 @@ namespace fc::crypto::blslib {
 
    std::string bls_private_key::to_string(const yield_function_t& yield) const
    {
+      
+      string data_str = fc::crypto::blslib::deserialize_base58<std::vector<uint8_t>>(_seed, yield); 
 
-      string pk = to_base58((const char*)&(_seed[0]), 32, yield);
-
-      return std::string(config::bls_private_key_base_prefix) + "_" + std::string(config::bls_private_key_prefix) + "_" + pk;
+      return std::string(config::bls_private_key_base_prefix) + "_" + std::string(config::bls_private_key_prefix)+ "_" + data_str;
       
    }
 

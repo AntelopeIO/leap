@@ -1,9 +1,9 @@
 #include <fc/crypto/bls_signature.hpp>
 #include <fc/crypto/common.hpp>
 #include <fc/exception/exception.hpp>
+#include <fc/crypto/bls_common.hpp>
 
 namespace fc::crypto::blslib {
-
 
    static bls12_381::g2 sig_parse_base58(const std::string& base58str)
    { try {
@@ -19,14 +19,9 @@ namespace fc::crypto::blslib {
 
       auto data_str = base58str.substr(8);
 
-      std::vector<char> bytes = from_base58(data_str);
+      std::array<uint8_t, 96> bytes = fc::crypto::blslib::serialize_base58<std::array<uint8_t, 96>>(data_str);
 
-      //std::vector<char> v1 = from_base58(base58str);
-
-      FC_ASSERT(bytes.size() == 96);
-      std::array<uint8_t, 96> v2;
-      std::copy(bytes.begin(), bytes.end(), v2.begin());
-      std::optional<bls12_381::g2> g2 = bls12_381::g2::fromCompressedBytesBE(v2);
+      std::optional<bls12_381::g2> g2 = bls12_381::g2::fromCompressedBytesBE(bytes);
       FC_ASSERT(g2);
       return *g2;
    } FC_RETHROW_EXCEPTIONS( warn, "error parsing bls_signature", ("str", base58str ) ) }
@@ -38,11 +33,9 @@ namespace fc::crypto::blslib {
    std::string bls_signature::to_string(const yield_function_t& yield) const
    {
 
-      std::vector<char> v2;
       std::array<uint8_t, 96> bytes = _sig.toCompressedBytesBE();
-      std::copy(bytes.begin(), bytes.end(), std::back_inserter(v2));
 
-      std::string data_str = to_base58(v2, yield);
+      std::string data_str = fc::crypto::blslib::deserialize_base58<std::array<uint8_t, 96>>(bytes, yield); 
 
       return std::string(config::bls_signature_base_prefix) + "_" + std::string(config::bls_signature_prefix) + "_" + data_str;
 
