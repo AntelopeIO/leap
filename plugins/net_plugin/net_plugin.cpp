@@ -476,6 +476,7 @@ namespace eosio {
       std::function<void()> increment_dropped_trxs;
       
    private:
+      static const std::map<std::string, int> prefix_multipliers;
       alignas(hardware_destructive_interference_size)
       mutable fc::mutex             chain_info_mtx; // protects chain_info_t
       chain_info_t                  chain_info GUARDED_BY(chain_info_mtx);
@@ -530,14 +531,15 @@ namespace eosio {
 
       constexpr static uint16_t to_protocol_version(uint16_t v);
 
+      size_t parse_connection_limit(const string& limit_str);
       void plugin_initialize(const variables_map& options);
       void plugin_startup();
       void plugin_shutdown();
       bool in_sync() const;
       fc::logger& get_logger() { return logger; }
 
-      void create_session(tcp::socket&& socket, const string listen_address, const string& limit);
-   };
+      void create_session(tcp::socket&& socket, const string listen_address, size_t limit);
+   }; //net_plugin_impl
 
    // peer_[x]log must be called from thread in connection strand
 #define peer_dlog( PEER, FORMAT, ... ) \
@@ -772,7 +774,7 @@ namespace eosio {
       /// @brief ctor
       /// @param socket created by boost::asio in fc::listener
       /// @param address identifier of listen socket which accepted this new connection
-      explicit connection( tcp::socket&& socket, const string& listen_address, const string& limit_str );
+      explicit connection( tcp::socket&& socket, const string& listen_address, size_t block_sync_rate_limit );
       ~connection() = default;
 
       connection( const connection& ) = delete;
@@ -788,7 +790,6 @@ namespace eosio {
       static std::string state_str(connection_state s);
       const string& peer_address() const { return peer_addr; } // thread safe, const
 
-      void set_connection_limit( const string& limit_str );
       void set_connection_type( const string& peer_addr );
       bool is_transactions_only_connection()const { return connection_type == transactions_only; } // thread safe, atomic
       bool is_blocks_only_connection()const { return connection_type == blocks_only; }
@@ -812,7 +813,6 @@ namespace eosio {
 
    private:
       static const string unknown;
-      static const std::map<std::string, int> prefix_multipliers;
 
       std::atomic<uint64_t> peer_ping_time_ns = std::numeric_limits<uint64_t>::max();
 
@@ -1063,7 +1063,7 @@ namespace eosio {
    }; // class connection
 
    const string connection::unknown = "<unknown>";
-   const std::map<std::string, int> connection::prefix_multipliers{
+   const std::map<std::string, int> net_plugin_impl::prefix_multipliers{
       {"",1},{"K",pow(10,3)},{"M",pow(10,6)},{"G",pow(10, 9)},{"T",pow(10, 12)},
              {"Ki",pow(2,10)},{"Mi",pow(2,20)},{"Gi",pow(2,30)},{"Ti",pow(2,40)}
    };
@@ -1197,9 +1197,10 @@ namespace eosio {
       fc_ilog( logger, "created connection ${c} to ${n}", ("c", connection_id)("n", endpoint) );
    }
 
-   connection::connection(tcp::socket&& s, const string& listen_address, const string& limit_str)
+   connection::connection(tcp::socket&& s, const string& listen_address, size_t block_sync_rate_limit)
       : listen_address( listen_address ),
         peer_addr(),
+        block_sync_rate_limit(block_sync_rate_limit),
         strand( my_impl->thread_pool.get_executor() ),
         socket( new tcp::socket( std::move(s) ) ),
         connection_id( ++my_impl->current_connection_id ),
@@ -1207,7 +1208,6 @@ namespace eosio {
         last_handshake_recv(),
         last_handshake_sent()
    {
-      set_connection_limit(limit_str);
       update_endpoints();
       fc_dlog( logger, "new connection object created for peer ${address}:${port} from listener ${addr}", ("address", log_remote_endpoint_ip)("port", log_remote_endpoint_port)("addr", listen_address) );
    }
@@ -1235,30 +1235,6 @@ namespace eosio {
       else {
          fc_dlog( logger, "unable to retrieve remote endpoint for local ${address}:${port}", ("address", local_endpoint_ip)("port", local_endpoint_port));
          remote_endpoint_ip_array = boost::asio::ip::address_v6().to_bytes();
-      }
-   }
-
-   void connection::set_connection_limit( const std::string& limit_str) {
-      std::istringstream in(limit_str);
-      fc_dlog( logger, "parsing connection endpoint with locale ${l}", ("l", std::locale("").name()));
-      in.imbue(std::locale(""));
-      double limit{0};
-      in >> limit;
-      if( limit > 0.0f ) {
-         std::string units;
-         in >> units;
-         std::regex units_regex{"([KMGT]?[i]?)B/s"};
-         std::smatch units_match;
-         std::regex_match(units, units_match, units_regex);
-         try {
-            block_sync_rate_limit = boost::numeric_cast<size_t>(limit * prefix_multipliers.at(units_match[1].str()));
-            fc_dlog( logger, "setting block_sync_rate_limit to ${limit}", ("limit", block_sync_rate_limit));
-         } catch (boost::numeric::bad_numeric_cast&) {
-            fc_wlog( logger, "listen address ${la} block sync limit specification overflowed, connection will not be throttled", ("la", listen_address));
-            block_sync_rate_limit = 0;
-         }
-      } else {
-         block_sync_rate_limit = 0;
       }
    }
 
@@ -2767,7 +2743,7 @@ namespace eosio {
    }
 
 
-   void net_plugin_impl::create_session(tcp::socket&& socket, const string listen_address, const string& limit) {
+   void net_plugin_impl::create_session(tcp::socket&& socket, const string listen_address, size_t limit) {
       uint32_t                  visitors  = 0;
       uint32_t                  from_addr = 0;
       boost::system::error_code rec;
@@ -4039,6 +4015,29 @@ namespace eosio {
       return fc::json::from_string(s).as<T>();
    }
 
+   size_t net_plugin_impl::parse_connection_limit( const std::string& limit_str) {
+      std::istringstream in(limit_str);
+      fc_dlog( logger, "parsing connection endpoint with locale ${l}", ("l", std::locale("").name()));
+      in.imbue(std::locale(""));
+      double limit{0};
+      in >> limit;
+      size_t block_sync_rate_limit = 0;
+      if( limit > 0.0f ) {
+         std::string units;
+         in >> units;
+         std::regex units_regex{"([KMGT]?[i]?)B/s"};
+         std::smatch units_match;
+         std::regex_match(units, units_match, units_regex);
+         try {
+            block_sync_rate_limit = boost::numeric_cast<size_t>(limit * prefix_multipliers.at(units_match[1].str()));
+            fc_dlog( logger, "setting block_sync_rate_limit to ${limit}", ("limit", block_sync_rate_limit));
+         } catch (boost::numeric::bad_numeric_cast&) {
+            EOS_ASSERT(false, plugin_config_exception, "block sync limit specification overflowed: ${limit}", ("limit", limit_str));
+         }
+      }
+      return block_sync_rate_limit;
+   }
+
    void net_plugin_impl::plugin_initialize( const variables_map& options ) {
       try {
          fc_ilog( logger, "Initialize net plugin" );
@@ -4257,9 +4256,11 @@ namespace eosio {
                   limit = std::string(address, last_colon_location+1);
                }
 
+               auto block_sync_rate_limit = my->parse_connection_limit(limit);
+
                fc::create_listener<tcp>(
                      my->thread_pool.get_executor(), logger, accept_timeout, listen_addr, extra_listening_log_info,
-                     [my = my, addr = p2p_addr, limit = limit](tcp::socket&& socket) { fc_dlog( logger, "start listening on ${addr} with peer sync throttle ${limit}", ("addr", addr)("limit", limit)); my->create_session(std::move(socket), addr, limit); });
+                     [my = my, addr = p2p_addr, block_sync_rate_limit = block_sync_rate_limit](tcp::socket&& socket) { fc_dlog( logger, "start listening on ${addr} with peer sync throttle ${limit}", ("addr", addr)("limit", block_sync_rate_limit)); my->create_session(std::move(socket), addr, block_sync_rate_limit); });
             } catch (const std::exception& e) {
                fc_elog( logger, "net_plugin::plugin_startup failed to listen on ${addr}, ${what}",
                      ("addr", address)("what", e.what()) );
