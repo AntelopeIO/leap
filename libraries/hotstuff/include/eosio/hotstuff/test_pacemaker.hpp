@@ -83,7 +83,7 @@ namespace eosio { namespace hotstuff {
       block_id_type _current_block_id;
 
       std::vector<name> _unique_replicas;
-
+#warning calculate from schedule
       uint32_t _quorum_threshold = 15; //todo : calculate from schedule
    };
 

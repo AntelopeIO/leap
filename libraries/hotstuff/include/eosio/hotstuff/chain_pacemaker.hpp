@@ -1,19 +1,22 @@
 #pragma once
 
 #include <eosio/hotstuff/base_pacemaker.hpp>
-
-#include <eosio/chain/controller.hpp>
-
 #include <eosio/hotstuff/qc_chain.hpp>
 
-namespace eosio { namespace hotstuff {
+#include <shared_mutex>
+
+namespace eosio::chain {
+   class controller;
+}
+
+namespace eosio::hotstuff {
 
    class chain_pacemaker : public base_pacemaker {
    public:
 
       //class-specific functions
 
-      chain_pacemaker(controller* chain, std::set<account_name> my_producers, bool info_logging, bool error_logging);
+      chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger);
 
       void beat();
 
@@ -22,7 +25,7 @@ namespace eosio { namespace hotstuff {
       void on_hs_new_view_msg(const hs_new_view_message& msg); //new view msg event handler
       void on_hs_new_block_msg(const hs_new_block_message& msg); //new block msg event handler
 
-      void get_state( finalizer_state& fs ) const;
+      void get_state(finalizer_state& fs) const;
 
       //base_pacemaker interface functions
 
@@ -52,13 +55,22 @@ namespace eosio { namespace hotstuff {
       // For maximum safety, the qc_chain core will only process one request at a time.
       // These requests can come directly from the net threads, or indirectly from a
       //   dedicated finalizer thread (TODO: discuss).
-      std::mutex              _hotstuff_global_mutex;
+#warning discuss
+      mutable std::mutex      _hotstuff_global_mutex;
+
+      // _state_cache_mutex provides a R/W lock over _state_cache and _state_cache_version,
+      //   which implement a cache of the finalizer_state (_qc_chain::get_state()).
+      mutable std::shared_mutex      _state_cache_mutex;
+      mutable finalizer_state        _state_cache;
+      mutable std::atomic<uint64_t>  _state_cache_version = 0;
 
       chain::controller*      _chain = nullptr;
 
       qc_chain                _qc_chain;
 
       uint32_t                _quorum_threshold = 15; //FIXME/TODO: calculate from schedule
+      fc::logger&             _logger;
+
    };
 
-}}
+} // namespace eosio::hotstuff

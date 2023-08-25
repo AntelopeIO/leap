@@ -40,6 +40,9 @@ FC_REFLECT(chainbase::environment, (debug)(os)(arch)(boost_version)(compiler) )
 const std::string deep_mind_logger_name("deep-mind");
 eosio::chain::deep_mind_handler _deep_mind_log;
 
+const std::string hotstuff_logger_name("hotstuff");
+fc::logger hotstuff_logger;
+
 namespace eosio {
 
 //declare operator<< and validate function for read_mode in the same namespace as read_mode itself
@@ -1113,9 +1116,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
 
 void chain_plugin::create_pacemaker(std::set<chain::account_name> my_producers) {
    EOS_ASSERT( !my->_chain_pacemaker, plugin_config_exception, "duplicate chain_pacemaker initialization" );
-   const bool info_logging = true;
-   const bool error_logging = true;
-   my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), info_logging, error_logging);
+   my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), hotstuff_logger);
 }
 
 void chain_plugin::plugin_initialize(const variables_map& options) {
@@ -1194,6 +1195,7 @@ void chain_plugin::plugin_shutdown() {
 
 void chain_plugin::handle_sighup() {
    _deep_mind_log.update_logger( deep_mind_logger_name );
+   fc::logger::update( hotstuff_logger_name, hotstuff_logger );
 }
 
 chain_apis::read_write::read_write(controller& db,

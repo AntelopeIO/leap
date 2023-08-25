@@ -1,7 +1,6 @@
 file(GLOB HEADERS "include/eosio/hotstuff/*.hpp")
 
 add_library( hotstuff
-             test_pacemaker.cpp
              chain_pacemaker.cpp
              qc_chain.cpp
              ${HEADERS}
