@@ -9,15 +9,15 @@ namespace fc::crypto::blslib {
 
    bls_public_key bls_private_key::get_public_key() const
    {
-      auto sk = bls12_381::secret_key(_seed);
-      bls12_381::g1 pk = bls12_381::public_key(sk);
+      //auto sk = bls12_381::secret_key(_seed);
+      bls12_381::g1 pk = bls12_381::public_key(_sk);
       return bls_public_key(pk);
    }
 
    bls_signature bls_private_key::sign( const vector<uint8_t>& message ) const
    {
-      std::array<uint64_t, 4> sk = bls12_381::secret_key(_seed);
-      bls12_381::g2 sig = bls12_381::sign(sk, message);
+      //std::array<uint64_t, 4> sk = bls12_381::secret_key(_seed);
+      bls12_381::g2 sig = bls12_381::sign(_sk, message);
       return bls_signature(sig);
    }
 
@@ -27,7 +27,7 @@ namespace fc::crypto::blslib {
       return bls_private_key(v);
    }
 
-   static vector<uint8_t> priv_parse_base58(const string& base58str)
+   static std::array<uint64_t, 4> priv_parse_base58(const string& base58str)
    {  
 
       const auto pivot = base58str.find('_');
@@ -41,22 +41,20 @@ namespace fc::crypto::blslib {
 
       auto data_str = base58str.substr(8);
 
-      vector<uint8_t> bytes = fc::crypto::blslib::serialize_base58<std::vector<uint8_t>>(data_str);
-
-      FC_ASSERT(bytes.size() == 32);
+      std::array<uint64_t, 4> bytes = fc::crypto::blslib::serialize_base58<std::array<uint64_t, 4>>(data_str);
 
       return bytes;
 
    }
 
    bls_private_key::bls_private_key(const std::string& base58str)
-   :_seed(priv_parse_base58(base58str))
+   :_sk(priv_parse_base58(base58str))
    {}
 
    std::string bls_private_key::to_string(const yield_function_t& yield) const
    {
       
-      string data_str = fc::crypto::blslib::deserialize_base58<std::vector<uint8_t>>(_seed, yield); 
+      string data_str = fc::crypto::blslib::deserialize_base58<std::array<uint64_t, 4>>(_sk, yield); 
 
       return std::string(config::bls_private_key_base_prefix) + "_" + std::string(config::bls_private_key_prefix)+ "_" + data_str;
       

@@ -15,14 +15,12 @@ namespace fc::crypto::blslib {
    {
       public:
 
-         using storage_type = std::variant<vector<uint8_t>>;
-
          bls_private_key() = default;
          bls_private_key( bls_private_key&& ) = default;
          bls_private_key( const bls_private_key& ) = default;
          bls_private_key& operator=( const bls_private_key& ) = default;
          explicit bls_private_key( std::vector<uint8_t> seed ) {
-            _seed = std::move(seed);
+            _sk = bls12_381::secret_key(seed);
          }
 
          explicit bls_private_key(const string& base58str);
@@ -38,7 +36,8 @@ namespace fc::crypto::blslib {
          }
 
       private:
-         std::vector<uint8_t> _seed;
+         //std::vector<uint8_t> _seed;
+         std::array<uint64_t, 4> _sk;
 
          friend struct reflector<bls_private_key>;
    }; // bls_private_key
@@ -51,4 +50,4 @@ namespace fc {
    void from_variant(const variant& var, crypto::blslib::bls_private_key& vo);
 } // namespace fc
 
-FC_REFLECT(crypto::blslib::bls_private_key, (_seed) )
+FC_REFLECT(crypto::blslib::bls_private_key, (_sk) )
