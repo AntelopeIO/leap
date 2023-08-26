@@ -55,11 +55,7 @@ namespace eosio::chain {
       }
 
       static auto from_shared( const shared_finalizer_authority& src ) {
-         finalizer_authority result;
-         result.description = src.description;
-         result.fweight = src.fweight;
-         result.public_key = src.public_key;
-         return result;
+         return finalizer_authority { src.description, src.fweight, src.public_key };
       }
 
       /**
