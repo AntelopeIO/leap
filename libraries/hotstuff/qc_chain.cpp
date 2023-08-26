@@ -225,7 +225,6 @@ namespace eosio { namespace hotstuff {
 
    bool qc_chain::evaluate_quorum(const extended_schedule& es, const boost::dynamic_bitset<>& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
 
-      bool first = true;
 
       if (positive_bits_count(finalizers) < _pacemaker->get_quorum_threshold()){
          return false;
@@ -233,7 +232,8 @@ namespace eosio { namespace hotstuff {
 
       fc::crypto::blslib::bls_public_key agg_key;
 
-      for (boost::dynamic_bitset<>::size_type i = 0; i < finalizers.size(); i++) {
+      bool first = true;
+      for (boost::dynamic_bitset<>::size_type i = 0; i < finalizers.size(); ++i) {
          if (finalizers[i]){
             //adding finalizer's key to the aggregate pub key
             if (first) {
@@ -493,7 +493,7 @@ namespace eosio { namespace hotstuff {
 
          auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
-         boost::dynamic_bitset finalizer_set = _current_qc.get_active_finalizers();
+         const boost::dynamic_bitset<>& finalizer_set = _current_qc.get_active_finalizers();
          if (finalizer_set.any())
             _current_qc.set_active_agg_sig(fc::crypto::blslib::aggregate({_current_qc.get_active_agg_sig(), vote.sig }));
          else

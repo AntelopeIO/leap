@@ -32,7 +32,7 @@ namespace eosio::hotstuff {
 
    class quorum_certificate {
    public:
-      explicit quorum_certificate(uint32_t finalizer_size = 0) {
+      explicit quorum_certificate(size_t finalizer_size = 0) {
          active_finalizers.resize(finalizer_size);
       }
 
@@ -48,17 +48,16 @@ namespace eosio::hotstuff {
                  .active_agg_sig = active_agg_sig};
       }
 
-      void reset(const fc::sha256& proposal, uint32_t finalizer_size) {
+      void reset(const fc::sha256& proposal, size_t finalizer_size) {
          proposal_id = proposal;
-         active_finalizers.clear();
-         active_finalizers.resize(finalizer_size);
+         active_finalizers = boost::dynamic_bitset<>{finalizer_size};
          active_agg_sig = fc::crypto::blslib::bls_signature();
          quorum_met = false;
       }
 
-      boost::dynamic_bitset<> get_active_finalizers() const {
+      const boost::dynamic_bitset<>& get_active_finalizers() const {
          assert(!active_finalizers.empty());
-         return boost::dynamic_bitset(active_finalizers);
+         return active_finalizers;
       }
       void set_active_finalizers(const boost::dynamic_bitset<>& bs) {
          assert(!bs.empty());
