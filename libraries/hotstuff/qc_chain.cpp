@@ -532,7 +532,7 @@ namespace eosio { namespace hotstuff {
 
                reset_qc(proposal_candidate.proposal_id);
                fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
-               _pending_proposal_block = block_id_type{};
+               _pending_proposal_block = {};
                _b_leaf = proposal_candidate.proposal_id;
 
                send_hs_proposal_msg(proposal_candidate);
@@ -600,7 +600,7 @@ namespace eosio { namespace hotstuff {
 
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_new_block)", ("id", _id));
 
-         _pending_proposal_block = block_id_type{};
+         _pending_proposal_block = {};
          _b_leaf = proposal_candidate.proposal_id;
 
          send_hs_proposal_msg(proposal_candidate);
@@ -760,7 +760,7 @@ namespace eosio { namespace hotstuff {
 
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (leader_rotation_check)", ("id", _id));
 
-         _pending_proposal_block = block_id_type{};
+         _pending_proposal_block = {};
 
          hs_new_view_message new_view;
 
