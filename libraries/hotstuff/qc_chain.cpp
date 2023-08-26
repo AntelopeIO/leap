@@ -237,7 +237,7 @@ namespace eosio { namespace hotstuff {
       fc::crypto::blslib::bls_public_key agg_key;
 
       for (boost::dynamic_bitset<>::size_type i = 0; i < finalizers.size(); i++) {
-         if (finalizers[i] == 1){
+         if (finalizers[i]){
             //adding finalizer's key to the aggregate pub key
             if (first) {
                first = false;

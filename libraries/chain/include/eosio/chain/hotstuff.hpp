@@ -36,11 +36,11 @@ namespace eosio::chain {
          quorum_met = false;
       }
 
-      auto get_active_finalizers() const {
+      boost::dynamic_bitset<> get_active_finalizers() const {
          assert(!active_finalizers.empty());
          return boost::dynamic_bitset(active_finalizers);
       }
-      void set_active_finalizers(const auto& bs) {
+      void set_active_finalizers(const boost::dynamic_bitset<>& bs) {
          assert(!bs.empty());
          boost::to_string(bs, active_finalizers);
       }
