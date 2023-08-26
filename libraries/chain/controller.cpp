@@ -3331,8 +3331,8 @@ void controller::set_finalizers( uint64_t fthreshold, vector<finalizer_authority
    my->set_finalizers_impl(fthreshold, std::move(finalizers));
 }
 
-void controller::get_finalizers( uint64_t& fthreshold, vector<finalizer_authority>& finalizers ) {
-   my->get_finalizers_impl(fthreshold, finalizers);
+std::pair<uint64_t, vector<finalizer_authority>> controller::get_finalizers() const {
+   return my->get_finalizers_impl();
 }
 
 const producer_authority_schedule&    controller::active_producers()const {
