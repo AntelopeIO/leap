@@ -249,9 +249,7 @@ namespace eosio { namespace hotstuff {
       // - list of string finalizer descriptions instead of eosio name now
       // - also return the keys for each finalizer, not just name/description so qc_chain can use them
       //
-      uint64_t                     fthreshold;
-      vector<finalizer_authority>  finalizers;
-      _chain->get_finalizers(fthreshold, finalizers);
+      auto [threshold, finalizers] = _chain->get_finalizers();
 
       // Old code: get eosio::name from the producer schedule
       const block_state_ptr& hbs = _chain->head_block_state();

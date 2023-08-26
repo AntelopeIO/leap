@@ -309,7 +309,7 @@ namespace eosio { namespace chain {
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
          void set_finalizers( uint64_t fthreshold, vector<finalizer_authority> finalizers );
-         void get_finalizers( uint64_t& fthreshold, vector<finalizer_authority>& finalizers );
+         std::pair<uint64_t, vector<finalizer_authority>> get_finalizers() const;
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;

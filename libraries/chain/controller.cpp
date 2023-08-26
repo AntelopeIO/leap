@@ -1999,9 +1999,8 @@ struct controller_impl {
       this->finalizers = std::move(finalizers);
    }
 
-   void get_finalizers_impl(uint64_t& fthreshold, vector<finalizer_authority>& finalizers) {
-      fthreshold = this->fthreshold;
-      finalizers = this->finalizers;
+   std::pair<uint64_t, vector<finalizer_authority>> get_finalizers_impl() {
+      return { fthreshold, finalizers };
    }
 
    /**

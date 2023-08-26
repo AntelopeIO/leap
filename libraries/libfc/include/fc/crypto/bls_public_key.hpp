@@ -7,7 +7,6 @@
 #include <fc/reflect/variant.hpp>
 #include <fc/static_variant.hpp>
 #include <bls12-381/bls12-381.hpp>
-#include <bls12-381/scalar.hpp>
 
 namespace fc { namespace crypto { namespace blslib {
 
@@ -63,7 +62,7 @@ namespace fc { namespace crypto { namespace blslib {
          friend std::ostream& operator<< (std::ostream& s, const bls_public_key& k);
       friend bool operator == ( const bls_public_key& p1, const bls_public_key& p2) { return p1._pkey.equal(p2._pkey); }
       friend bool operator != ( const bls_public_key& p1, const bls_public_key& p2) { return !p1._pkey.equal(p2._pkey);  }
-      friend bool operator < ( const bls_public_key& p1, const bls_public_key& p2) { return bls12_381::scalar::cmp(p1._pkey.x.d, p2._pkey.x.d) < 0; }
+      friend bool operator < ( const bls_public_key& p1, const bls_public_key& p2) { return p1._pkey.affine().x.cmp(p2._pkey.affine().x) < 0; }
          friend struct reflector<bls_public_key>;
          friend class bls_private_key;
    }; // bls_public_key
