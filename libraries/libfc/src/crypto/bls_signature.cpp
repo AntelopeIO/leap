@@ -40,9 +40,7 @@ namespace fc::crypto::blslib {
    }
 
    bool operator == ( const bls_signature& p1, const bls_signature& p2) {
-      
-      // until `bls12_381::g2` has an `operator==`, do binary comparison
-      return std::memcmp(&p1._sig, &p2._sig, sizeof(p1._sig)) == 0;
+      return p1._sig == p2._sig;
    }
 
 } // fc::crypto::blslib

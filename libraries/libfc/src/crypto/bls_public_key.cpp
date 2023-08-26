@@ -30,8 +30,14 @@ namespace fc::crypto::blslib {
 
       std::string data_str = fc::crypto::blslib::deserialize_base58<std::array<uint8_t, 48>>(bytes, yield); 
 
-      return std::string(config::bls_public_key_prefix)  + data_str;
+      return config::bls_public_key_prefix + data_str;
 
+   }
+
+   bool operator == ( const bls_public_key& p1, const bls_public_key& p2) {
+      
+      // until `bls12_381::g1` has an `operator==`, do binary comparison
+      return std::memcmp(&p1._pkey, &p2._pkey, sizeof(p1._pkey)) == 0;
    }
 
 } // fc::crypto::blslib

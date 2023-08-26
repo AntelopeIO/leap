@@ -6,7 +6,7 @@
 namespace fc::crypto::blslib {
 
    namespace config {
-      constexpr std::string_view bls_private_key_prefix = "PVT_BLS_";
+      const std::string bls_private_key_prefix = "PVT_BLS_";
    };
 
    class bls_private_key
@@ -19,10 +19,10 @@ namespace fc::crypto::blslib {
          explicit bls_private_key(const std::vector<uint8_t>& seed ) {
             _sk = bls12_381::secret_key(seed);
          }
+         explicit bls_private_key(const std::string& base58str);
 
          bls_private_key& operator=( const bls_private_key& ) = default;
 
-         explicit bls_private_key(const std::string& base58str);
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
 
          bls_public_key     get_public_key() const;
@@ -36,7 +36,6 @@ namespace fc::crypto::blslib {
 
       private:
          std::array<uint64_t, 4> _sk;
-
          friend bool operator == ( const bls_private_key& pk1, const bls_private_key& pk2);
          friend struct reflector<bls_private_key>;
    }; // bls_private_key

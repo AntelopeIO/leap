@@ -46,11 +46,11 @@ namespace fc::crypto::blslib {
    {
       std::string data_str = fc::crypto::blslib::deserialize_base58<std::array<uint64_t, 4>>(_sk, yield); 
 
-      return std::string(config::bls_private_key_prefix) + data_str;
+      return config::bls_private_key_prefix + data_str;
    }
 
    bool operator == ( const bls_private_key& pk1, const bls_private_key& pk2) {
-      return std::memcmp(&pk1, &pk2, sizeof(pk1)) == 0;
+      return pk1._sk == pk2._sk;
    }
 
 } // fc::crypto::blslib

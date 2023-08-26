@@ -237,18 +237,38 @@ BOOST_AUTO_TEST_CASE(bls_pub_key_sig_serialization) try {
 } FC_LOG_AND_RETHROW();
 
 
-BOOST_AUTO_TEST_CASE(bls_cbinary_keys_encoding_check) try {
+BOOST_AUTO_TEST_CASE(bls_binary_keys_encoding_check) try {
 
   bls_private_key sk = bls_private_key(seed_1);
 
   bool ok1 = bls_private_key(sk.to_string()) == sk;
 
-  std::string str =  sk.to_string();
+  std::string priv_str = sk.to_string();
 
-  bool ok2 = bls_private_key(str).to_string() == str;
+  bool ok2 = bls_private_key(priv_str).to_string() == priv_str;
+
+  bls_public_key pk = sk.get_public_key();
+
+  bool ok3 = bls_public_key(pk.to_string()) == pk;
+
+  std::string pub_str = pk.to_string();
+
+  bool ok4 = bls_public_key(pub_str).to_string() == pub_str;
+
+  //bls_signature sig = sk.sign(message_1);
+
+  //bool ok5 = bls_signature(sig.to_string()) == sig;
+
+  //std::string sig_str = sig.to_string();
+
+  //bool ok6 = bls_signature(sig_str).to_string() == sig_str;
 
   BOOST_CHECK_EQUAL(ok1, true);
   BOOST_CHECK_EQUAL(ok2, true);
+  BOOST_CHECK_EQUAL(ok3, true);
+  BOOST_CHECK_EQUAL(ok4, true);
+  //BOOST_CHECK_EQUAL(ok5, true);
+  //BOOST_CHECK_EQUAL(ok6, true);
 
 } FC_LOG_AND_RETHROW();
 
