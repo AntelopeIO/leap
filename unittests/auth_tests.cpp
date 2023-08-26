@@ -117,7 +117,7 @@ try {
       BOOST_TEST(auth.keys.size() == 1u);
       BOOST_TEST(auth.accounts.size() == 0u);
       BOOST_TEST(auth.keys[0].key.to_string({}) == new_owner_pub_key.to_string({}));
-      BOOST_TEST((auth.keys[0].key == new_owner_pub_key));
+      BOOST_TEST(auth.keys[0].key == new_owner_pub_key);
       BOOST_TEST(auth.keys[0].weight == 1);
    }
 
@@ -138,7 +138,7 @@ try {
       BOOST_TEST(auth.threshold == 1u);
       BOOST_TEST(auth.keys.size() == 1u);
       BOOST_TEST(auth.accounts.size() == 0u);
-      BOOST_TEST((auth.keys[0].key == new_active_pub_key));
+      BOOST_TEST(auth.keys[0].key == new_active_pub_key);
       BOOST_TEST(auth.keys[0].weight == 1u);
    }
 
@@ -250,7 +250,7 @@ BOOST_AUTO_TEST_CASE(update_auth_unknown_private_key) {
          BOOST_TEST(auth.threshold == 1u);
          BOOST_TEST(auth.keys.size() == 1u);
          BOOST_TEST(auth.accounts.size() == 0u);
-         BOOST_TEST((auth.keys[0].key == new_owner_pub_key));
+         BOOST_TEST(auth.keys[0].key == new_owner_pub_key);
          BOOST_TEST(auth.keys[0].weight == 1);
       }
    } FC_LOG_AND_RETHROW()

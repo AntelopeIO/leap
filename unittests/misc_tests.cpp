@@ -579,9 +579,9 @@ BOOST_AUTO_TEST_CASE(authority_checker)
    // Fails due to short recursion depth limit
    BOOST_TEST(!make_auth_checker(GetAuthority, 1, {d, e}).satisfied(A));
 
-   BOOST_TEST((b < a));
-   BOOST_TEST((b < c));
-   BOOST_TEST((a < c));
+   BOOST_TEST(b < a);
+   BOOST_TEST(b < c);
+   BOOST_TEST(a < c);
    {
       // valid key order: b < a < c
       A = authority(2, {key_weight{b, 1}, key_weight{a, 1}, key_weight{c, 1}});
@@ -776,11 +776,11 @@ BOOST_AUTO_TEST_CASE(transaction_test) { try {
    flat_set<public_key_type> keys;
    auto cpu_time1 = pkt.get_signed_transaction().get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
    BOOST_CHECK_EQUAL(1u, keys.size());
-   BOOST_CHECK((public_key == *keys.begin()));
+   BOOST_CHECK_EQUAL(public_key, *keys.begin());
    keys.clear();
    auto cpu_time2 = pkt.get_signed_transaction().get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
    BOOST_CHECK_EQUAL(1u, keys.size());
-   BOOST_CHECK((public_key == *keys.begin()));
+   BOOST_CHECK_EQUAL(public_key, *keys.begin());
 
    BOOST_CHECK(cpu_time1 > fc::microseconds(0));
    BOOST_CHECK(cpu_time2 > fc::microseconds(0));
@@ -823,7 +823,7 @@ BOOST_AUTO_TEST_CASE(transaction_test) { try {
    keys.clear();
    pkt4.get_signed_transaction().get_signature_keys(test.control->get_chain_id(), fc::time_point::maximum(), keys);
    BOOST_CHECK_EQUAL(1u, keys.size());
-   BOOST_CHECK((public_key == *keys.begin()));
+   BOOST_CHECK_EQUAL(public_key, *keys.begin());
 
    // verify packed_transaction creation from packed data
    {
@@ -938,7 +938,7 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
       auto mtrx = fut.get();
       const auto& keys = mtrx->recovered_keys();
       BOOST_CHECK_EQUAL(1u, keys.size());
-      BOOST_CHECK((public_key == *keys.begin()));
+      BOOST_CHECK_EQUAL(public_key, *keys.begin());
 
       // again, can be called multiple times, current implementation it is just an attribute of transaction_metadata
       const auto& keys2 = mtrx->recovered_keys();
@@ -948,7 +948,7 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
       auto mtrx2 = fut2.get();
       const auto& keys3 = mtrx2->recovered_keys();
       BOOST_CHECK_EQUAL(1u, keys3.size());
-      BOOST_CHECK((public_key == *keys3.begin()));
+      BOOST_CHECK_EQUAL(public_key, *keys3.begin());
 
       thread_pool.stop();
 

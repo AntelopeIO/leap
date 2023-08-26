@@ -961,9 +961,9 @@ BOOST_AUTO_TEST_CASE(updateauth_test)
    BOOST_TEST(updauth.auth.threshold == updateauth2.auth.threshold);
 
    BOOST_TEST_REQUIRE(updauth.auth.keys.size() == updateauth2.auth.keys.size());
-   BOOST_TEST((updauth.auth.keys[0].key == updateauth2.auth.keys[0].key));
+   BOOST_TEST(updauth.auth.keys[0].key == updateauth2.auth.keys[0].key);
    BOOST_TEST(updauth.auth.keys[0].weight == updateauth2.auth.keys[0].weight);
-   BOOST_TEST((updauth.auth.keys[1].key == updateauth2.auth.keys[1].key));
+   BOOST_TEST(updauth.auth.keys[1].key == updateauth2.auth.keys[1].key);
    BOOST_TEST(updauth.auth.keys[1].weight == updateauth2.auth.keys[1].weight);
 
    BOOST_TEST_REQUIRE(updauth.auth.accounts.size() == updateauth2.auth.accounts.size());
@@ -1081,9 +1081,9 @@ BOOST_AUTO_TEST_CASE(newaccount_test)
    BOOST_TEST(newacct.owner.threshold == newaccount2.owner.threshold);
 
    BOOST_TEST_REQUIRE(newacct.owner.keys.size() == newaccount2.owner.keys.size());
-   BOOST_TEST((newacct.owner.keys[0].key == newaccount2.owner.keys[0].key));
+   BOOST_TEST(newacct.owner.keys[0].key == newaccount2.owner.keys[0].key);
    BOOST_TEST(newacct.owner.keys[0].weight == newaccount2.owner.keys[0].weight);
-   BOOST_TEST((newacct.owner.keys[1].key == newaccount2.owner.keys[1].key));
+   BOOST_TEST(newacct.owner.keys[1].key == newaccount2.owner.keys[1].key);
    BOOST_TEST(newacct.owner.keys[1].weight == newaccount2.owner.keys[1].weight);
 
    BOOST_TEST_REQUIRE(newacct.owner.accounts.size() == newaccount2.owner.accounts.size());
@@ -1097,9 +1097,9 @@ BOOST_AUTO_TEST_CASE(newaccount_test)
    BOOST_TEST(newacct.active.threshold == newaccount2.active.threshold);
 
    BOOST_TEST_REQUIRE(newacct.active.keys.size() == newaccount2.active.keys.size());
-   BOOST_TEST((newacct.active.keys[0].key == newaccount2.active.keys[0].key));
+   BOOST_TEST(newacct.active.keys[0].key == newaccount2.active.keys[0].key);
    BOOST_TEST(newacct.active.keys[0].weight == newaccount2.active.keys[0].weight);
-   BOOST_TEST((newacct.active.keys[1].key == newaccount2.active.keys[1].key));
+   BOOST_TEST(newacct.active.keys[1].key == newaccount2.active.keys[1].key);
    BOOST_TEST(newacct.active.keys[1].weight == newaccount2.active.keys[1].weight);
 
    BOOST_TEST_REQUIRE(newacct.active.accounts.size() == newaccount2.active.accounts.size());
