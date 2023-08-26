@@ -943,7 +943,7 @@ BOOST_AUTO_TEST_CASE(transaction_metadata_test) { try {
       // again, can be called multiple times, current implementation it is just an attribute of transaction_metadata
       const auto& keys2 = mtrx->recovered_keys();
       BOOST_CHECK_EQUAL(1u, keys2.size());
-      BOOST_CHECK((public_key == *keys2.begin()));
+      BOOST_CHECK_EQUAL(public_key, *keys2.begin());
 
       auto mtrx2 = fut2.get();
       const auto& keys3 = mtrx2->recovered_keys();
