@@ -10,9 +10,6 @@
 
 namespace eosio::chain {
 
-   const block_id_type NULL_BLOCK_ID = block_id_type("00");
-   const fc::sha256 NULL_PROPOSAL_ID = fc::sha256("00");
-
    inline uint64_t compute_height(uint32_t block_height, uint32_t phase_counter) {
       return (uint64_t{block_height} << 32) | phase_counter;
    }
@@ -23,22 +20,22 @@ namespace eosio::chain {
    };
 
    struct quorum_certificate_message {
-      fc::sha256                          proposal_id = NULL_PROPOSAL_ID;
+      fc::sha256                          proposal_id;
       std::string                         active_finalizers; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
    };
 
    struct hs_vote_message {
-      fc::sha256                          proposal_id = NULL_PROPOSAL_ID; //vote on proposal
+      fc::sha256                          proposal_id; //vote on proposal
       name                                finalizer;
       fc::crypto::blslib::bls_signature   sig;
    };
 
    struct hs_proposal_message {
-      fc::sha256                          proposal_id = NULL_PROPOSAL_ID; //vote on proposal
-      block_id_type                       block_id = NULL_BLOCK_ID;
-      fc::sha256                          parent_id = NULL_PROPOSAL_ID; //new proposal
-      fc::sha256                          final_on_qc = NULL_PROPOSAL_ID;
+      fc::sha256                          proposal_id; //vote on proposal
+      block_id_type                       block_id;
+      fc::sha256                          parent_id; //new proposal
+      fc::sha256                          final_on_qc;
       quorum_certificate_message          justify; //justification
       uint8_t                             phase_counter = 0;
 
@@ -47,7 +44,7 @@ namespace eosio::chain {
    };
 
    struct hs_new_block_message {
-      block_id_type                block_id = NULL_BLOCK_ID; //new proposal
+      block_id_type                block_id; //new proposal
       quorum_certificate_message   justify; //justification
    };
 
@@ -57,12 +54,12 @@ namespace eosio::chain {
 
    struct finalizer_state {
       bool chained_mode = false;
-      fc::sha256 b_leaf = NULL_PROPOSAL_ID;
-      fc::sha256 b_lock = NULL_PROPOSAL_ID;
-      fc::sha256 b_exec = NULL_PROPOSAL_ID;
-      fc::sha256 b_finality_violation = NULL_PROPOSAL_ID;
-      block_id_type block_exec = NULL_BLOCK_ID;
-      block_id_type pending_proposal_block = NULL_BLOCK_ID;
+      fc::sha256 b_leaf;
+      fc::sha256 b_lock;
+      fc::sha256 b_exec;
+      fc::sha256 b_finality_violation;
+      block_id_type block_exec;
+      block_id_type pending_proposal_block;
       uint32_t v_height = 0;
       eosio::chain::quorum_certificate_message high_qc;
       eosio::chain::quorum_certificate_message current_qc;

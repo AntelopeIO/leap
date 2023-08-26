@@ -177,7 +177,7 @@ namespace eosio { namespace hotstuff {
       b_new.parent_id =  _b_leaf;
       b_new.phase_counter = phase_counter;
       b_new.justify = _high_qc.to_msg(); //or null if no _high_qc upon activation or chain launch
-      if (b_new.justify.proposal_id != NULL_PROPOSAL_ID){
+      if (!b_new.justify.proposal_id.empty()) {
          std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(b_new.justify.proposal_id);
          size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
          if (chain_length>=2){
@@ -278,12 +278,12 @@ namespace eosio { namespace hotstuff {
 
    qc_chain::qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, fc::logger& logger)
       : _pacemaker(pacemaker),
-        _id(id),
         _my_producers(std::move(my_producers)),
+        _id(id),
         _logger(logger)
    {
-      _high_qc.reset(NULL_PROPOSAL_ID, 21); // TODO: use active schedule size
-      _current_qc.reset(NULL_PROPOSAL_ID, 21); // TODO: use active schedule size
+      _high_qc.reset({}, 21); // TODO: use active schedule size
+      _current_qc.reset({}, 21); // TODO: use active schedule size
 
       fc_dlog(_logger, " === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
    }
@@ -331,7 +331,7 @@ namespace eosio { namespace hotstuff {
 
       //auto start = fc::time_point::now();
 
-      if (proposal.justify.proposal_id != NULL_PROPOSAL_ID){
+      if (!proposal.justify.proposal_id.empty()) {
 
          const hs_proposal_message *jp = get_proposal( proposal.justify.proposal_id );
          if (jp == nullptr) {
@@ -525,14 +525,14 @@ namespace eosio { namespace hotstuff {
                fc_tlog(_logger, " === ${id} phase increment on proposal ${proposal_id}", ("proposal_id", vote.proposal_id)("id", _id));
                hs_proposal_message proposal_candidate;
 
-               if (_pending_proposal_block == NULL_BLOCK_ID)
+               if (_pending_proposal_block.empty())
                   proposal_candidate = new_proposal_candidate( p->block_id, p->phase_counter + 1 );
                else
                   proposal_candidate = new_proposal_candidate( _pending_proposal_block, 0 );
 
                reset_qc(proposal_candidate.proposal_id);
                fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
-               _pending_proposal_block = NULL_BLOCK_ID;
+               _pending_proposal_block = block_id_type{};
                _b_leaf = proposal_candidate.proposal_id;
 
                send_hs_proposal_msg(proposal_candidate);
@@ -578,7 +578,7 @@ namespace eosio { namespace hotstuff {
 
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
-      if (_current_qc.get_proposal_id() != NULL_PROPOSAL_ID && _current_qc.is_quorum_met() == false) {
+      if (!_current_qc.get_proposal_id().empty() && !_current_qc.is_quorum_met()) {
 
          fc_tlog(_logger, " === ${id} pending proposal found ${proposal_id} : quorum met ${quorum_met}",
                         ("id", _id)
@@ -600,7 +600,7 @@ namespace eosio { namespace hotstuff {
 
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_new_block)", ("id", _id));
 
-         _pending_proposal_block = NULL_BLOCK_ID;
+         _pending_proposal_block = block_id_type{};
          _b_leaf = proposal_candidate.proposal_id;
 
          send_hs_proposal_msg(proposal_candidate);
@@ -709,8 +709,7 @@ namespace eosio { namespace hotstuff {
 
       // if new high QC is higher than current, update to new
 
-      if (_high_qc.get_proposal_id() == NULL_PROPOSAL_ID){
-
+      if (_high_qc.get_proposal_id().empty()) {
          _high_qc = high_qc;
          _b_leaf = _high_qc.get_proposal_id();
 
@@ -757,11 +756,11 @@ namespace eosio { namespace hotstuff {
 
          //leader changed, we send our new_view message
 
-         reset_qc(NULL_PROPOSAL_ID);
+         reset_qc({});
 
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (leader_rotation_check)", ("id", _id));
 
-         _pending_proposal_block = NULL_BLOCK_ID;
+         _pending_proposal_block = block_id_type{};
 
          hs_new_view_message new_view;
 
@@ -783,9 +782,9 @@ namespace eosio { namespace hotstuff {
 
       fc::sha256 upcoming_commit;
 
-      if (proposal.justify.proposal_id == NULL_PROPOSAL_ID && _b_lock == NULL_PROPOSAL_ID)
+      if (proposal.justify.proposal_id.empty() && _b_lock.empty()) {
          final_on_qc_check = true; //if chain just launched or feature just activated
-      else {
+      } else {
 
          std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(proposal.justify.proposal_id);
 
@@ -822,7 +821,7 @@ namespace eosio { namespace hotstuff {
          monotony_check = true;
       }
 
-      if (_b_lock != NULL_PROPOSAL_ID){
+      if (!_b_lock.empty()) {
 
          //Safety check : check if this proposal extends the chain I'm locked on
          if (extends(proposal.proposal_id, _b_lock)) {
@@ -830,7 +829,7 @@ namespace eosio { namespace hotstuff {
          }
 
          //Liveness check : check if the height of this proposal's justification is higher than the height of the proposal I'm locked on. This allows restoration of liveness if a replica is locked on a stale block.
-         if (proposal.justify.proposal_id == NULL_PROPOSAL_ID && _b_lock == NULL_PROPOSAL_ID) {
+         if (proposal.justify.proposal_id.empty() && _b_lock.empty()) {
             liveness_check = true; //if there is no justification on the proposal and I am not locked on anything, means the chain just launched or feature just activated
          } else {
             const hs_proposal_message *b_lock = get_proposal( _b_lock );
@@ -893,7 +892,7 @@ namespace eosio { namespace hotstuff {
    void qc_chain::update(const hs_proposal_message& proposal) {
       //fc_tlog(_logger, " === update internal state ===");
       //if proposal has no justification, means we either just activated the feature or launched the chain, or the proposal is invalid
-      if (proposal.justify.proposal_id == NULL_PROPOSAL_ID){
+      if (proposal.justify.proposal_id.empty()) {
          fc_dlog(_logger, " === ${id} proposal has no justification ${proposal_id}", ("proposal_id", proposal.proposal_id)("id", _id));
          return;
       }
@@ -903,7 +902,7 @@ namespace eosio { namespace hotstuff {
       size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
 
       const hs_proposal_message *b_lock = get_proposal( _b_lock );
-      EOS_ASSERT( b_lock != nullptr || _b_lock == NULL_PROPOSAL_ID , chain_exception, "expected hs_proposal ${id} not found", ("id", _b_lock) );
+      EOS_ASSERT( b_lock != nullptr || _b_lock.empty(), chain_exception, "expected hs_proposal ${id} not found", ("id", _b_lock) );
 
       //fc_tlog(_logger, " === update_high_qc : proposal.justify ===");
       update_high_qc(quorum_certificate{proposal.justify});
@@ -939,8 +938,7 @@ namespace eosio { namespace hotstuff {
                         ("b_lock_phase", b_lock->phase_counter));
       }
 
-      if (_b_lock == NULL_PROPOSAL_ID || b_1.get_height() > b_lock->get_height()){
-
+      if (_b_lock.empty() || b_1.get_height() > b_lock->get_height()) {
          fc_tlog(_logger, "setting _b_lock to ${proposal_id}", ("proposal_id",b_1.proposal_id ));
          _b_lock = b_1.proposal_id; //commit phase on b1
 
@@ -965,7 +963,7 @@ namespace eosio { namespace hotstuff {
       //direct parent relationship verification
       if (b_2.parent_id == b_1.proposal_id && b_1.parent_id == b.proposal_id){
 
-         if (_b_exec!= NULL_PROPOSAL_ID){
+         if (!_b_exec.empty()) {
 
             const hs_proposal_message *b_exec = get_proposal( _b_exec );
             EOS_ASSERT( b_exec != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", _b_exec) );
@@ -1056,7 +1054,7 @@ namespace eosio { namespace hotstuff {
       bool exec_height_check = false;
 
       const hs_proposal_message *last_exec_prop = get_proposal( _b_exec );
-      EOS_ASSERT( last_exec_prop != nullptr || _b_exec == NULL_PROPOSAL_ID, chain_exception, "expected hs_proposal ${id} not found", ("id", _b_exec) );
+      EOS_ASSERT( last_exec_prop != nullptr || _b_exec.empty(), chain_exception, "expected hs_proposal ${id} not found", ("id", _b_exec) );
 
       if (last_exec_prop != nullptr) {
          fc_tlog(_logger, " === _b_exec proposal #${block_num} ${proposal_id} block_id : ${block_id} phase : ${phase_counter} parent_id : ${parent_id}",
@@ -1077,13 +1075,13 @@ namespace eosio { namespace hotstuff {
               ("phase_counter_2", proposal.phase_counter));
       }
 
-      if (_b_exec == NULL_PROPOSAL_ID)
+      if (_b_exec.empty()) {
          exec_height_check = true;
-      else
+      } else {
          exec_height_check = last_exec_prop->get_height() < proposal.get_height();
+      }
 
-      if (exec_height_check){
-
+      if (exec_height_check) {
          const hs_proposal_message *p = get_proposal( proposal.parent_id );
          if (p != nullptr) {
             //fc_tlog(_logger, " === recursively committing" );

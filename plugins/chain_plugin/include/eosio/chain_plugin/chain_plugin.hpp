@@ -835,10 +835,10 @@ public:
    get_consensus_parameters_results get_consensus_parameters(const get_consensus_parameters_params&, const fc::time_point& deadline) const;
 
    struct hs_complete_proposal_message {
-      fc::sha256                 proposal_id     = chain::NULL_PROPOSAL_ID;
-      chain::block_id_type       block_id        = chain::NULL_BLOCK_ID;
-      fc::sha256                 parent_id       = chain::NULL_PROPOSAL_ID;
-      fc::sha256                 final_on_qc     = chain::NULL_PROPOSAL_ID;
+      fc::sha256                 proposal_id;
+      chain::block_id_type       block_id;
+      fc::sha256                 parent_id;
+      fc::sha256                 final_on_qc;
       chain::quorum_certificate_message  justify;
       uint8_t                    phase_counter   = 0;
       uint32_t                   block_height    = 0;
@@ -859,12 +859,12 @@ public:
    using get_finalizer_state_params = empty;
    struct get_finalizer_state_results {
       bool chained_mode = false;
-      fc::sha256 b_leaf = chain::NULL_PROPOSAL_ID;
-      fc::sha256 b_lock = chain::NULL_PROPOSAL_ID;
-      fc::sha256 b_exec = chain::NULL_PROPOSAL_ID;
-      fc::sha256 b_finality_violation = chain::NULL_PROPOSAL_ID;
-      chain::block_id_type block_exec = chain::NULL_BLOCK_ID;
-      chain::block_id_type pending_proposal_block = chain::NULL_BLOCK_ID;
+      fc::sha256 b_leaf;
+      fc::sha256 b_lock;
+      fc::sha256 b_exec;
+      fc::sha256 b_finality_violation;
+      chain::block_id_type block_exec;
+      chain::block_id_type pending_proposal_block;
       uint32_t v_height = 0;
       chain::quorum_certificate_message high_qc;
       chain::quorum_certificate_message current_qc;
