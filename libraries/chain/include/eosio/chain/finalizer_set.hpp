@@ -23,6 +23,7 @@ namespace eosio::chain {
       ,public_key(public_key)
       {}
 
+#warning FIXME: Must change std::string to shared_string.
       std::string      description;
       uint64_t         fweight;
       fc::crypto::blslib::bls_public_key   public_key;
@@ -57,20 +58,6 @@ namespace eosio::chain {
       static auto from_shared( const shared_finalizer_authority& src ) {
          return finalizer_authority { src.description, src.fweight, src.public_key };
       }
-
-      /**
-       * ABI's for contracts expect variants to be serialized as a 2 entry array of
-       * [type-name, value].
-       *
-       * This is incompatible with standard FC rules for
-       * static_variants which produce
-       *
-       * [ordinal, value]
-       *
-       * this method produces an appropriate variant for contracts where the authority field
-       * is correctly formatted
-       */
-      fc::variant get_abi_variant() const;
 
       friend bool operator == ( const finalizer_authority& lhs, const finalizer_authority& rhs ) {
          return tie( lhs.description, lhs.fweight, lhs.public_key ) == tie( rhs.description, rhs.fweight, rhs.public_key );

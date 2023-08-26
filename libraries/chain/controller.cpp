@@ -27,6 +27,7 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/wasm_interface_collection.hpp>
+#include <eosio/chain/finalizer_set.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -265,7 +266,7 @@ struct controller_impl {
 
    // TODO: This probably wants to be something better;
    //       Storing when set_finalizers() is called; retrievable via get_finalizers() (called by chain_pacemaker)
-   uint64_t                     fthreshold;
+   uint64_t                     fthreshold = 0;
    vector<finalizer_authority>  finalizers;
 
    void pop_block() {
@@ -1999,7 +2000,7 @@ struct controller_impl {
       this->finalizers = std::move(finalizers);
    }
 
-   std::pair<uint64_t, vector<finalizer_authority>> get_finalizers_impl() {
+   std::pair<uint64_t, vector<finalizer_authority>> get_finalizers_impl() const {
       return { fthreshold, finalizers };
    }
 

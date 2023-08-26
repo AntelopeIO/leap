@@ -10,8 +10,6 @@
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
 
-#include <eosio/chain/finalizer_set.hpp>
-
 namespace chainbase {
    class database;
 }
@@ -31,6 +29,7 @@ namespace eosio { namespace chain {
    using hs_vote_message_ptr = std::shared_ptr<hs_vote_message>;
    using hs_new_view_message_ptr = std::shared_ptr<hs_new_view_message>;
    using hs_new_block_message_ptr = std::shared_ptr<hs_new_block_message>;
+   struct finalizer_authority;
 
    class authorization_manager;
 
