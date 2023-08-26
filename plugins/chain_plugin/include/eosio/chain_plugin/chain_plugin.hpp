@@ -839,7 +839,7 @@ public:
       chain::block_id_type       block_id        = chain::NULL_BLOCK_ID;
       fc::sha256                 parent_id       = chain::NULL_PROPOSAL_ID;
       fc::sha256                 final_on_qc     = chain::NULL_PROPOSAL_ID;
-      chain::quorum_certificate  justify;
+      chain::quorum_certificate_message  justify;
       uint8_t                    phase_counter   = 0;
       uint32_t                   block_height    = 0;
       uint64_t                   view_number     = 0;
@@ -866,8 +866,8 @@ public:
       chain::block_id_type block_exec = chain::NULL_BLOCK_ID;
       chain::block_id_type pending_proposal_block = chain::NULL_BLOCK_ID;
       uint32_t v_height = 0;
-      chain::quorum_certificate high_qc;
-      chain::quorum_certificate current_qc;
+      chain::quorum_certificate_message high_qc;
+      chain::quorum_certificate_message current_qc;
       chain::extended_schedule schedule;
       vector<hs_complete_proposal_message> proposals;
    };

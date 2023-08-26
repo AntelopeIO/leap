@@ -30,6 +30,60 @@ namespace eosio::hotstuff {
    using namespace boost::multi_index;
    using namespace eosio::chain;
 
+   class quorum_certificate {
+   public:
+      explicit quorum_certificate(uint32_t finalizer_size = 0) {
+         active_finalizers.resize(finalizer_size);
+      }
+
+      explicit quorum_certificate(const quorum_certificate_message& msg)
+              : proposal_id(msg.proposal_id)
+              , active_finalizers(msg.active_finalizers) // conversion from string
+              , active_agg_sig(msg.active_agg_sig) {
+      }
+
+      quorum_certificate_message to_msg() const {
+         return {.proposal_id = proposal_id,
+                 .active_finalizers = [this](){ std::string r; boost::to_string(active_finalizers, r); return r;}(),
+                 .active_agg_sig = active_agg_sig};
+      }
+
+      void reset(const fc::sha256& proposal, uint32_t finalizer_size) {
+         proposal_id = proposal;
+         active_finalizers.clear();
+         active_finalizers.resize(finalizer_size);
+         active_agg_sig = fc::crypto::blslib::bls_signature();
+         quorum_met = false;
+      }
+
+      boost::dynamic_bitset<> get_active_finalizers() const {
+         assert(!active_finalizers.empty());
+         return boost::dynamic_bitset(active_finalizers);
+      }
+      void set_active_finalizers(const boost::dynamic_bitset<>& bs) {
+         assert(!bs.empty());
+         active_finalizers = bs;
+      }
+      std::string get_active_finalizers_string() const {
+         std::string r;
+         boost::to_string(active_finalizers, r);
+         return r;
+      }
+
+      const fc::sha256& get_proposal_id() const { return proposal_id; }
+      const fc::crypto::blslib::bls_signature& get_active_agg_sig() const { return active_agg_sig; }
+      void set_active_agg_sig( const fc::crypto::blslib::bls_signature& sig) { active_agg_sig = sig; }
+      bool is_quorum_met() const { return quorum_met; }
+      void set_quorum_met() { quorum_met = true; }
+
+   private:
+      friend struct fc::reflector<quorum_certificate>;
+      fc::sha256                          proposal_id = NULL_PROPOSAL_ID;
+      boost::dynamic_bitset<>             active_finalizers; //bitset encoding, following canonical order
+      fc::crypto::blslib::bls_signature   active_agg_sig;
+      bool                                quorum_met = false; // not serialized across network
+   };
+
    // Concurrency note: qc_chain is a single-threaded and lock-free decision engine.
    //                   All thread synchronization, if any, is external.
    class qc_chain {
@@ -72,7 +126,7 @@ namespace eosio::hotstuff {
       bool evaluate_quorum(const extended_schedule& es, const boost::dynamic_bitset<>& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
 
       // qc.quorum_met has to be updated by the caller (if it wants to) based on the return value of this method
-      bool is_quorum_met(const eosio::chain::quorum_certificate& qc, const extended_schedule& schedule, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
+      bool is_quorum_met(const quorum_certificate& qc, const extended_schedule& schedule, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
 
       hs_proposal_message new_proposal_candidate(const block_id_type& block_id, uint8_t phase_counter); //create new proposal message
       hs_new_block_message new_block_candidate(const block_id_type& block_id); //create new block message
@@ -90,7 +144,7 @@ namespace eosio::hotstuff {
 
       bool extends(const fc::sha256& descendant, const fc::sha256& ancestor); //verify that a proposal descends from another
 
-      bool update_high_qc(const eosio::chain::quorum_certificate& high_qc); //check if update to our high qc is required
+      bool update_high_qc(const quorum_certificate& high_qc); //check if update to our high qc is required
 
       void leader_rotation_check(); //check if leader rotation is required
 
@@ -131,8 +185,8 @@ namespace eosio::hotstuff {
       fc::sha256 _b_lock = NULL_PROPOSAL_ID;
       fc::sha256 _b_exec = NULL_PROPOSAL_ID;
       fc::sha256 _b_finality_violation = NULL_PROPOSAL_ID;
-      eosio::chain::quorum_certificate _high_qc;
-      eosio::chain::quorum_certificate _current_qc;
+      quorum_certificate _high_qc;
+      quorum_certificate _current_qc;
       uint32_t _v_height = 0;
       eosio::chain::extended_schedule _schedule;
       base_pacemaker* _pacemaker = nullptr;
