@@ -1996,7 +1996,7 @@ struct controller_impl {
 
    void set_finalizers_impl(uint64_t fthreshold, vector<finalizer_authority> finalizers) {
       this->fthreshold = fthreshold;
-      this->finalizers = finalizers;
+      this->finalizers = std::move(finalizers);
    }
 
    void get_finalizers_impl(uint64_t& fthreshold, vector<finalizer_authority>& finalizers) {
