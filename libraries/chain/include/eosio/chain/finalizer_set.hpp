@@ -76,7 +76,7 @@ namespace eosio::chain {
          return tie( lhs.description, lhs.fweight, lhs.public_key ) == tie( rhs.description, rhs.fweight, rhs.public_key );
       }
       friend bool operator != ( const finalizer_authority& lhs, const finalizer_authority& rhs ) {
-         return tie( lhs.description, lhs.fweight, lhs.public_key ) != tie( rhs.description, rhs.fweight, rhs.public_key );
+         return !(lhs == rhs);
       }
    };
 
