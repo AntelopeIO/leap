@@ -40,9 +40,7 @@ namespace fc::crypto::blslib {
    }
 
    bool operator == ( const bls_signature& p1, const bls_signature& p2) {
-      
       return p1._sig.equal(p2._sig);
-      
    }
 
 } // fc::crypto::blslib
