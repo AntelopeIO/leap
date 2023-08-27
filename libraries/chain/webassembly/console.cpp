@@ -46,8 +46,9 @@ namespace eosio { namespace chain { namespace webassembly {
 			bool is_negative = (*val < 0);
 			unsigned __int128 val_magnitude;
 
+			// negate after conversion to unsigned to avoid possible integer overflow
 			if( is_negative )
-				val_magnitude = static_cast<unsigned __int128>(-*val); // Works even if val is at the lowest possible value of a int128_t
+				val_magnitude = -static_cast<unsigned __int128>(*val); // Works even if val is at the lowest possible value of a int128_t
 			else
 				val_magnitude = static_cast<unsigned __int128>(*val);
 
