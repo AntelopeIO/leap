@@ -35,7 +35,7 @@ namespace fc::crypto::blslib {
 
       std::string data_str = fc::crypto::blslib::deserialize_base58<std::array<uint8_t, 96>>(bytes, yield); 
 
-      return std::string(config::bls_signature_prefix) + data_str;
+      return config::bls_signature_prefix + data_str;
 
    }
 
