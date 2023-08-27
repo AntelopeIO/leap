@@ -11,7 +11,7 @@
 namespace fc::crypto::blslib {
 
    namespace config {
-      constexpr std::string bls_signature_prefix = "SIG_BLS_";
+      const std::string bls_signature_prefix = "SIG_BLS_";
    };
    
    class bls_signature
