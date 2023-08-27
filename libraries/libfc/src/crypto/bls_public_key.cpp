@@ -35,9 +35,7 @@ namespace fc::crypto::blslib {
    }
 
    bool operator == ( const bls_public_key& p1, const bls_public_key& p2) {
-      
-      // until `bls12_381::g1` has an `operator==`, do binary comparison
-      return std::memcmp(&p1._pkey, &p2._pkey, sizeof(p1._pkey)) == 0;
+      return p1._pkey == p2._pkey;
    }
 
 } // fc::crypto::blslib

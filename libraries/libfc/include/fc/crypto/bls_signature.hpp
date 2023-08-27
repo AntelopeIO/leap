@@ -21,25 +21,15 @@ namespace fc::crypto::blslib {
          bls_signature() = default;
          bls_signature( bls_signature&& ) = default;
          bls_signature( const bls_signature& ) = default;
-         bls_signature( const bls12_381::g2& sig ){
-            _sig = sig;
-         }
+         explicit bls_signature( const bls12_381::g2& sig ){_sig = sig;}
+         explicit bls_signature(const std::string& base58str);
 
          bls_signature& operator= (const bls_signature& ) = default;
-
-
-         explicit bls_signature(const std::string& base58str);
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
-
+         friend bool operator == ( const bls_signature& p1, const bls_signature& p2);
 
          bls12_381::g2 _sig;
 
-      private:
-
-         friend bool operator == ( const bls_signature& p1, const bls_signature& p2);
-         friend struct reflector<bls_signature>;
-         friend class bls_private_key;
-         friend class bls_public_key;
    }; // bls_signature
 
 }  // fc::crypto::blslib

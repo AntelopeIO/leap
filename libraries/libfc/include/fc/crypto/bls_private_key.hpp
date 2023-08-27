@@ -30,10 +30,6 @@ namespace fc::crypto::blslib {
 
          static bls_private_key generate();
 
-         static bls_private_key regenerate( std::vector<uint8_t> seed ) {
-            return bls_private_key(std::move(seed));
-         }
-
       private:
          std::array<uint64_t, 4> _sk;
          friend bool operator == ( const bls_private_key& pk1, const bls_private_key& pk2);
