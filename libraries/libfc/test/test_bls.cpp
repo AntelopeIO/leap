@@ -270,7 +270,7 @@ BOOST_AUTO_TEST_CASE(bls_binary_keys_encoding_check) try {
   BOOST_CHECK_EQUAL(ok2, true); //succeeds
   BOOST_CHECK_EQUAL(ok3, true); //succeeds
   BOOST_CHECK_EQUAL(ok4, true); //succeeds
-  //BOOST_CHECK_EQUAL(ok5, true); //fails
+  BOOST_CHECK_EQUAL(ok5, true); //fails
   BOOST_CHECK_EQUAL(ok6, true); //succeeds
   BOOST_CHECK_EQUAL(ok7, true); //succeeds
   BOOST_CHECK_EQUAL(ok8, true); //succeeds

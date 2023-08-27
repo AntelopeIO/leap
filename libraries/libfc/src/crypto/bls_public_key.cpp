@@ -35,7 +35,7 @@ namespace fc::crypto::blslib {
    }
 
    bool operator == ( const bls_public_key& p1, const bls_public_key& p2) {
-      return p1._pkey == p2._pkey;
+      return p1._pkey.equal(p2._pkey);
    }
 
 } // fc::crypto::blslib
