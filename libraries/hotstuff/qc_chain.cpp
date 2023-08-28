@@ -128,13 +128,13 @@ namespace eosio { namespace hotstuff {
 #endif
    }
 
-   uint32_t qc_chain::positive_bits_count(const hs_dynamic_bitset& finalizers) {
+   uint32_t qc_chain::positive_bits_count(const hs_bitset& finalizers) {
       return finalizers.count(); // the number of bits in this bitset that are set.
    }
 
-      hs_dynamic_bitset qc_chain::update_bitset(const hs_dynamic_bitset& finalizer_set, name finalizer ) {
+      hs_bitset qc_chain::update_bitset(const hs_bitset& finalizer_set, name finalizer ) {
 
-      hs_dynamic_bitset b( finalizer_set );
+      hs_bitset b(finalizer_set );
       vector<name> finalizers = _pacemaker->get_finalizers();
       for (size_t i = 0; i < finalizers.size();i++) {
          if (finalizers[i] == finalizer) {
@@ -223,7 +223,7 @@ namespace eosio { namespace hotstuff {
       return b;
    }
 
-   bool qc_chain::evaluate_quorum(const extended_schedule& es, const hs_dynamic_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
+   bool qc_chain::evaluate_quorum(const extended_schedule& es, const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
 
 
       if (positive_bits_count(finalizers) < _pacemaker->get_quorum_threshold()){
@@ -233,7 +233,7 @@ namespace eosio { namespace hotstuff {
       fc::crypto::blslib::bls_public_key agg_key;
 
       bool first = true;
-      for (hs_dynamic_bitset::size_type i = 0; i < finalizers.size(); ++i) {
+      for (hs_bitset::size_type i = 0; i < finalizers.size(); ++i) {
          if (finalizers[i]){
             //adding finalizer's key to the aggregate pub key
             if (first) {
@@ -493,7 +493,7 @@ namespace eosio { namespace hotstuff {
 
          auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
-         const hs_dynamic_bitset& finalizer_set = _current_qc.get_active_finalizers();
+         const hs_bitset& finalizer_set = _current_qc.get_active_finalizers();
          if (finalizer_set.any())
             _current_qc.set_active_agg_sig(fc::crypto::blslib::aggregate({_current_qc.get_active_agg_sig(), vote.sig }));
          else

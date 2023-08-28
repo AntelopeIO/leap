@@ -13,7 +13,7 @@ namespace eosio::chain {
    const block_id_type NULL_BLOCK_ID = block_id_type("00");
    const fc::sha256 NULL_PROPOSAL_ID = fc::sha256("00");
 
-   using hs_dynamic_bitset = boost::dynamic_bitset<uint32_t>;
+   using hs_bitset = boost::dynamic_bitset<uint32_t>;
 
    inline uint64_t compute_height(uint32_t block_height, uint32_t phase_counter) {
       return (uint64_t{block_height} << 32) | phase_counter;
