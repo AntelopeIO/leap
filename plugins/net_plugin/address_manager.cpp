@@ -148,4 +148,9 @@ namespace eosio {
       auto it = addresses.find(pa.to_key());
       return it != addresses.end();
    }
+
+   uint32_t address_manager::get_addresses_count() const {
+      std::lock_guard <std::mutex> lock(addresses_mutex);
+      return addresses.size();
+   }
 }

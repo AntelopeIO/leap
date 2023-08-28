@@ -446,6 +446,7 @@ namespace eosio {
       // address touch frequency, to update address last_active, by handshakes count
       uint32_t                              address_touch_frequency = 10;
       std::chrono::seconds                  address_request_last_active_secs = def_address_request_last_active_secs;
+      bool                                  p2p_exchange_peers = true;
 
       // maintain a configurable minimum number of connected peer nodes.
       uint32_t                              min_peers_count = 0;
@@ -821,9 +822,9 @@ namespace eosio {
       bool is_all_connection() const { return connection_type == all; }
       bool is_both_connection() const { return connection_type == both; }
 
-      bool is_transactions_connection() const { return connection_type == transactions_only || is_both_connection() || is_all_connection(); }
-      bool is_blocks_connection() const { return connection_type == blocks_only || is_both_connection() || is_all_connection(); }
-      bool is_peers_connection() const { return connection_type == peers_only || is_all_connection(); }
+      bool is_transactions_connection() const { return connection_type == transactions_only || connection_type == trxs_peers || is_both_connection() || is_all_connection(); }
+      bool is_blocks_connection() const { return connection_type == blocks_only || connection_type == blks_peers || is_both_connection() || is_all_connection(); }
+      bool is_peers_connection() const { return connection_type == peers_only || connection_type == blks_peers || connection_type == trxs_peers || is_all_connection(); }
 
       uint32_t get_peer_start_block_num() const { return peer_start_block_num.load(); }
       uint32_t get_peer_head_block_num() const { return peer_head_block_num.load(); }
@@ -861,6 +862,8 @@ namespace eosio {
          transactions_only,
          blocks_only,
          peers_only,
+         trxs_peers,
+         blks_peers,
          all
       };
 
@@ -1278,11 +1281,18 @@ namespace eosio {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to blocks only", ("c", connection_id)("peer", peer_add) );
          connection_type = blocks_only;
       } else if( type == "peer" ) {
-          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to peers only", ("c", connection_id)("peer", peer_add) );
-          connection_type = peers_only;
+         fc_dlog(logger, "Setting connection ${c} type for: ${peer} to peers only",
+                 ("c", connection_id)("peer", peer_add));
+         connection_type = peers_only;
+      } else if( type == "bnp" ) {
+         fc_dlog( logger, "Setting connection ${c} type for: ${peer} to blocks and peers", ("c", connection_id)("peer", peer_add) );
+         connection_type = blks_peers;
+      } else if( type == "tnp" ) {
+         fc_dlog( logger, "Setting connection ${c} type for: ${peer} to transactions and peers", ("c", connection_id)("peer", peer_add) );
+         connection_type = trxs_peers;
       } else if( type == "all" ) {
-          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to all types", ("c", connection_id)("peer", peer_add) );
-          connection_type = all;
+         fc_dlog( logger, "Setting connection ${c} type for: ${peer} to all types", ("c", connection_id)("peer", peer_add) );
+         connection_type = all;
       } else {
          fc_wlog( logger, "Unknown connection ${c} type: ${t}, for ${peer}", ("c", connection_id)("t", type)("peer", peer_add) );
       }
@@ -2216,7 +2226,7 @@ namespace eosio {
 
    // called from c's connection strand
    void sync_manager::recv_handshake( const connection_ptr& c, const handshake_message& msg, uint32_t nblk_combined_latency ) {
-      // blk,both,all
+      // accept blks
       if (!c->is_blocks_connection())
          return;
 
@@ -2767,7 +2777,6 @@ namespace eosio {
          string host = address.host;
          string port = address.port;
          string type = address_type_str(address.address_type);
-         //auto [host, port, type] = split_host_port_type(c->peer_address());
          c->set_connection_type( c->peer_address() );
 
          auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
@@ -4061,7 +4070,7 @@ namespace eosio {
          hello.token = sha256();
       hello.p2p_address = listen_address;
       if( is_transactions_only_connection() ) hello.p2p_address += ":trx";
-      // if we are not accepting transactions tell peer we are blocks only
+      // if we are not accepting transactions tell peer we are blocks only (ignore new added type peer)
       if( is_blocks_only_connection() || !my_impl->p2p_accept_transactions ) hello.p2p_address += ":blk";
       if( is_peers_only_connection() ) hello.p2p_address += ":peer";
       if( is_all_connection() ) hello.p2p_address += ":all";
@@ -4108,6 +4117,7 @@ namespace eosio {
          ( "p2p-max-nodes-per-host", bpo::value<uint32_t>()->default_value(def_max_nodes_per_host), "Maximum number of client nodes from any single IP address")
          ( "p2p-max-addresses-per-request", bpo::value<uint32_t>()->default_value(def_max_address_per_request), "Maximum number of addresses in address request or sync message")
          ( "p2p-accept-transactions", bpo::value<bool>()->default_value(true), "Allow transactions received over p2p network to be evaluated and relayed if valid.")
+         ( "p2p-exchange-peers", bpo::value<bool>()->default_value(true), "Allow peer addresses receive and broadcast.")
          ( "p2p-only-send-manual-addresses", bpo::value<bool>()->default_value(false), "Only send addresses from configuration instead from automated peer discovery")
          ( "p2p-auto-bp-peer", bpo::value< vector<string> >()->composing(),
            "The account and public p2p endpoint of a block producer node to automatically connect to when the it is in producer schedule proximity\n."
@@ -4160,11 +4170,10 @@ namespace eosio {
 
          peer_log_format = options.at( "peer-log-format" ).as<string>();
 
-         address_manager address_master{};
-
          max_addresses_per_request = options.at("p2p-max-addresses-per-request").as<uint32_t>();
          p2p_only_send_manual_addresses = options.at("p2p-only-send-manual-addresses").as<bool>();
          min_peers_count = options.at( "p2p-min-peers" ).as<uint32_t>();
+         p2p_exchange_peers = options.at( "p2p-exchange-peers" ).as<bool>();
 
          sync_master = std::make_unique<sync_manager>(
              options.at( "sync-fetch-span" ).as<uint32_t>(),
@@ -4701,7 +4710,7 @@ namespace eosio {
       if (from_begin && num_peers < my_impl->min_peers_count) {
          fc_ilog(logger, "peer connections not enough: ${pnum}/[${pmin}-${pmax}], trying to increase it",
                  ("pnum", num_peers)("pmin", my_impl->min_peers_count)("pmax",
-                                                                       my_impl->address_master.get_addresses().size()));
+                                                                       my_impl->address_master.get_addresses_count()));
          uint32_t count = 0;
          std::unique_lock g(connections_mtx);
          for (const auto &peer: my_impl->address_master.get_diff_addresses(get_connections())) {
@@ -4719,7 +4728,7 @@ namespace eosio {
 
       if( num_clients > 0 || num_peers > 0 ) {
          fc_ilog(logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}, block producer peers: ${num_bp_peers}",
-                 ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax",  my_impl->address_master.get_addresses().size())("num_bp_peers", num_bp_peers));
+                 ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax",  my_impl->address_master.get_addresses_count())("num_bp_peers", num_bp_peers));
       }
       fc_dlog( logger, "connection monitor, removed ${n} connections", ("n", num_rm) );
       start_conn_timer( connector_period, {});
