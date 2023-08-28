@@ -133,7 +133,7 @@ namespace eosio::hotstuff {
       fc::sha256 _b_finality_violation = NULL_PROPOSAL_ID;
       eosio::chain::quorum_certificate _high_qc;
       eosio::chain::quorum_certificate _current_qc;
-      uint32_t _v_height = 0;
+      eosio::chain::view_number _v_height;
       eosio::chain::extended_schedule _schedule;
       base_pacemaker* _pacemaker = nullptr;
       std::set<name> _my_producers;
@@ -164,11 +164,11 @@ namespace eosio::hotstuff {
          indexed_by<
             hashed_unique<
                tag<by_proposal_id>,
-               BOOST_MULTI_INDEX_MEMBER(hs_proposal_message,fc::sha256,proposal_id)
+               BOOST_MULTI_INDEX_MEMBER(hs_proposal_message, fc::sha256,proposal_id)
                >,
             ordered_non_unique<
                tag<by_proposal_height>,
-               BOOST_MULTI_INDEX_CONST_MEM_FUN(hs_proposal_message,uint64_t,get_height)
+               BOOST_MULTI_INDEX_CONST_MEM_FUN(hs_proposal_message, uint64_t, get_key)
                >
             >
          > proposal_store_type;

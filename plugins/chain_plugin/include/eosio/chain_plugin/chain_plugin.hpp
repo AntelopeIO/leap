@@ -851,7 +851,7 @@ public:
          justify        = p.justify;
          phase_counter  = p.phase_counter;
          block_height   = p.block_num();
-         view_number    = p.get_height();
+         view_number    = p.get_key();
       }
       hs_complete_proposal_message() = default; // cleos requires this
    };
@@ -865,7 +865,7 @@ public:
       fc::sha256 b_finality_violation = chain::NULL_PROPOSAL_ID;
       chain::block_id_type block_exec = chain::NULL_BLOCK_ID;
       chain::block_id_type pending_proposal_block = chain::NULL_BLOCK_ID;
-      uint32_t v_height = 0;
+      chain::view_number v_height;
       chain::quorum_certificate high_qc;
       chain::quorum_certificate current_qc;
       chain::extended_schedule schedule;

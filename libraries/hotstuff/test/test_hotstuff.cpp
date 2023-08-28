@@ -172,7 +172,6 @@ BOOST_AUTO_TEST_CASE(hotstuff_bitset) try {
 
 } FC_LOG_AND_RETHROW();
 
-
 BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    //test optimistic responsiveness (3 confirmations per block)

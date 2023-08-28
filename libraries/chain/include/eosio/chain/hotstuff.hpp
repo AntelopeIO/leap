@@ -15,6 +15,37 @@ namespace eosio::chain {
       return (uint64_t{block_height} << 32) | phase_counter;
    }
 
+   struct view_number{
+
+      view_number(){
+         _data = std::make_pair(0,0);
+      }
+      view_number(std::pair<uint32_t, uint8_t> data){
+         _data = data;
+      }
+
+      auto operator<=>(const view_number&) const = default;
+
+      uint32_t block_height(){
+         return _data.first;
+      }
+
+      uint8_t phase_counter(){
+         return _data.second;
+      }
+
+      uint64_t to_uint64_t(){
+         return compute_height(_data.first, _data.second);
+      }
+
+      std::string to_string(){
+         return _data.first + "::" + _data.second;
+      }
+      
+      std::pair<uint32_t, uint8_t> _data;
+
+   };
+
    struct extended_schedule {
       producer_authority_schedule                          producer_schedule;
       std::map<name, fc::crypto::blslib::bls_public_key>   bls_pub_keys;
@@ -42,7 +73,10 @@ namespace eosio::chain {
       uint8_t                             phase_counter = 0;
 
       uint32_t block_num() const { return block_header::num_from_id(block_id); }
-      uint64_t get_height() const { return compute_height(block_header::num_from_id(block_id), phase_counter); };
+      uint64_t get_key() const { return compute_height(block_header::num_from_id(block_id), phase_counter); };
+
+      view_number get_view_number() const { return std::make_pair(block_header::num_from_id(block_id), phase_counter); };
+
    };
 
    struct hs_new_block_message {
@@ -63,7 +97,7 @@ namespace eosio::chain {
       fc::sha256 b_finality_violation = NULL_PROPOSAL_ID;
       block_id_type block_exec = NULL_BLOCK_ID;
       block_id_type pending_proposal_block = NULL_BLOCK_ID;
-      uint32_t v_height = 0;
+      eosio::chain::view_number v_height;
       eosio::chain::quorum_certificate high_qc;
       eosio::chain::quorum_certificate current_qc;
       eosio::chain::extended_schedule schedule;
@@ -84,6 +118,7 @@ namespace eosio::chain {
 
 } //eosio::chain
 
+FC_REFLECT(eosio::chain::view_number, (_data));
 FC_REFLECT(eosio::chain::quorum_certificate, (proposal_id)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer)(sig));

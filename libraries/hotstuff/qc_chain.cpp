@@ -72,7 +72,7 @@ namespace eosio { namespace hotstuff {
 
    bool qc_chain::insert_proposal(const hs_proposal_message & proposal) {
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
-      uint64_t proposal_height = proposal.get_height();
+      uint64_t proposal_height = proposal.get_key();
       ps_height_iterator psh_it = _proposal_stores_by_height.find( proposal_height );
       if (psh_it == _proposal_stores_by_height.end()) {
          _proposal_stores_by_height.emplace( proposal_height, proposal_store() );
@@ -328,7 +328,7 @@ namespace eosio { namespace hotstuff {
    }
 
    hs_vote_message qc_chain::sign_proposal(const hs_proposal_message & proposal, name finalizer){
-      _v_height = proposal.get_height();
+      _v_height = proposal.get_view_number();
 
       digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
 
@@ -372,7 +372,7 @@ namespace eosio { namespace hotstuff {
       }
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
-      ps_height_iterator psh_it = _proposal_stores_by_height.find( proposal.get_height() );
+      ps_height_iterator psh_it = _proposal_stores_by_height.find( proposal.get_key() );
       if (psh_it != _proposal_stores_by_height.end())
       {
          proposal_store & pstore = psh_it->second;
@@ -382,8 +382,8 @@ namespace eosio { namespace hotstuff {
             hs_proposal_message & existing_proposal = ps_it->second;
 #else
       //height is not necessarily unique, so we iterate over all prior proposals at this height
-      auto hgt_itr = _proposal_store.get<by_proposal_height>().lower_bound( proposal.get_height() );
-      auto end_itr = _proposal_store.get<by_proposal_height>().upper_bound( proposal.get_height() );
+      auto hgt_itr = _proposal_store.get<by_proposal_height>().lower_bound( proposal.get_key() );
+      auto end_itr = _proposal_store.get<by_proposal_height>().upper_bound( proposal.get_key() );
       while (hgt_itr != end_itr)
       {
          const hs_proposal_message & existing_proposal = *hgt_itr;
@@ -734,13 +734,13 @@ namespace eosio { namespace hotstuff {
          if (new_high_qc_prop == nullptr)
             return false;
 
-         if (new_high_qc_prop->get_height() > old_high_qc_prop->get_height()
+         if (new_high_qc_prop->get_view_number() > old_high_qc_prop->get_view_number()
              && is_quorum_met(high_qc, _schedule, *new_high_qc_prop))
          {
             // "The caller does not need this updated on their high_qc structure" -- g
             //high_qc.quorum_met = true;
 
-            fc_tlog(_logger, " === updated high qc, now is : #${get_height}  ${proposal_id}", ("get_height", new_high_qc_prop->get_height())("proposal_id", new_high_qc_prop->proposal_id));
+            fc_tlog(_logger, " === updated high qc, now is : #${view_number}  ${proposal_id}", ("view_number", new_high_qc_prop->get_view_number())("proposal_id", new_high_qc_prop->proposal_id));
             _high_qc = high_qc;
             _high_qc.quorum_met = true;
             _b_leaf = _high_qc.proposal_id;
@@ -828,7 +828,7 @@ namespace eosio { namespace hotstuff {
          }
       }
 
-      if (proposal.get_height() > _v_height) {
+      if (proposal.get_view_number() > _v_height) {
          monotony_check = true;
       }
 
@@ -848,7 +848,7 @@ namespace eosio { namespace hotstuff {
             const hs_proposal_message *prop_justification = get_proposal( proposal.justify.proposal_id );
             EOS_ASSERT( prop_justification != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", proposal.justify.proposal_id) );
 
-            if (prop_justification->get_height() > b_lock->get_height()) {
+            if (prop_justification->get_view_number() > b_lock->get_view_number()) {
                liveness_check = true;
             }
          }
@@ -949,7 +949,7 @@ namespace eosio { namespace hotstuff {
                         ("b_lock_phase", b_lock->phase_counter));
       }
 
-      if (_b_lock == NULL_PROPOSAL_ID || b_1.get_height() > b_lock->get_height()){
+      if (_b_lock == NULL_PROPOSAL_ID || b_1.get_view_number() > b_lock->get_view_number()){
 
          fc_tlog(_logger, "setting _b_lock to ${proposal_id}", ("proposal_id",b_1.proposal_id ));
          _b_lock = b_1.proposal_id; //commit phase on b1
@@ -980,7 +980,7 @@ namespace eosio { namespace hotstuff {
             const hs_proposal_message *b_exec = get_proposal( _b_exec );
             EOS_ASSERT( b_exec != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", _b_exec) );
 
-            if (b_exec->get_height() >= b.get_height() && b_exec->proposal_id != b.proposal_id){
+            if (b_exec->get_view_number() >= b.get_view_number() && b_exec->proposal_id != b.proposal_id){
 
                fc_elog(_logger, " *** ${id} finality violation detected at height ${block_num}, phase : ${phase}. Proposal ${proposal_id_1} conflicts with ${proposal_id_2}",
                        ("id", _id)
@@ -1003,7 +1003,7 @@ namespace eosio { namespace hotstuff {
          _b_exec = b.proposal_id; //decide phase on b
          _block_exec = b.block_id;
 
-         gc_proposals( b.get_height()-1);
+         gc_proposals( b.get_key()-1);
       }
       else {
          fc_elog(_logger, " *** ${id} could not verify direct parent relationship", ("id",_id));
@@ -1029,7 +1029,7 @@ namespace eosio { namespace hotstuff {
                ph_iterator ph_it = _proposal_height.find( p.proposal_id );
                EOS_ASSERT( ph_it != _proposal_height.end(), chain_exception, "gc_proposals internal error: no proposal height entry");
                uint64_t proposal_height = ph_it->second;
-               EOS_ASSERT(proposal_height == p.get_height(), chain_exception, "gc_proposals internal error: mismatched proposal height record"); // this check is unnecessary
+               EOS_ASSERT(proposal_height == p.get_key(), chain_exception, "gc_proposals internal error: mismatched proposal height record"); // this check is unnecessary
                _proposal_height.erase( ph_it );
                ++ps_it;
             }
@@ -1090,7 +1090,7 @@ namespace eosio { namespace hotstuff {
       if (_b_exec == NULL_PROPOSAL_ID)
          exec_height_check = true;
       else
-         exec_height_check = last_exec_prop->get_height() < proposal.get_height();
+         exec_height_check = last_exec_prop->get_view_number() < proposal.get_view_number();
 
       if (exec_height_check){
 
