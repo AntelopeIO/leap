@@ -54,6 +54,8 @@ namespace eosio::chain {
       quorum_certificate   high_qc; //justification
    };
 
+   using hs_message = std::variant<hs_vote_message, hs_proposal_message, hs_new_block_message, hs_new_view_message>;
+
    struct finalizer_state {
 
       bool chained_mode = false;
