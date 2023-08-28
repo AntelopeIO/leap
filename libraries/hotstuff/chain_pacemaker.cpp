@@ -108,6 +108,7 @@ namespace eosio { namespace hotstuff {
       _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
          on_accepted_block( blk );
       } );
+      _head_block_state = chain->head_block_state();
    }
 
    void chain_pacemaker::get_state(finalizer_state& fs) const {
