@@ -158,6 +158,7 @@ namespace eosio { namespace chain { namespace webassembly {
       fc::raw::unpack(ds, finset);
       vector<finalizer_authority> & finalizers = finset.finalizers;
 
+      // TODO: check version and increment it or verify correct
       EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer set exceeds the maximum finalizer count for this chain" );
       EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizer set cannot be empty" );
 
@@ -177,7 +178,7 @@ namespace eosio { namespace chain { namespace webassembly {
       EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );
       EOS_ASSERT( finset.fthreshold > f_weight_sum / 2, wasm_execution_error, "Finalizer set threshold cannot be met by finalizer weights" );
 
-      context.control.set_finalizers( finset.fthreshold, std::move(finalizers) );
+      context.control.set_finalizers( finset );
    }
 
    uint32_t interface::get_blockchain_parameters_packed( legacy_span<char> packed_blockchain_parameters ) const {

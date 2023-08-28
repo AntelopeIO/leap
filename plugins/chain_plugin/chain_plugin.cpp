@@ -2692,7 +2692,9 @@ void chain_plugin::notify_hs_new_block_message( const hs_new_block_message& msg 
 };
 
 void chain_plugin::notify_hs_block_produced() {
-   my->_chain_pacemaker->beat();
+   if (chain().is_builtin_activated( builtin_protocol_feature_t::instant_finality )) {
+      my->_chain_pacemaker->beat();
+   }
 }
 
 fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_trace ) const {

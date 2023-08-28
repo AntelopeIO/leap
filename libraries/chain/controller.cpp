@@ -264,10 +264,8 @@ struct controller_impl {
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
    unordered_map< builtin_protocol_feature_t, std::function<void(controller_impl&)>, enum_hash<builtin_protocol_feature_t> > protocol_feature_activation_handlers;
 
-   // TODO: This probably wants to be something better;
-   //       Storing when set_finalizers() is called; retrievable via get_finalizers() (called by chain_pacemaker)
-   uint64_t                     fthreshold = 0;
-   vector<finalizer_authority>  finalizers;
+   // TODO: This probably wants to be something better; store in chainbase and/or block_state
+   finalizer_set                current_finalizer_set;
 
    void pop_block() {
       auto prev = fork_db.get_block( head->header.previous );
@@ -1995,13 +1993,9 @@ struct controller_impl {
       emit( self.new_hs_new_block_message, msg );
    }
 
-   void set_finalizers_impl(uint64_t fthreshold, vector<finalizer_authority> finalizers) {
-      this->fthreshold = fthreshold;
-      this->finalizers = std::move(finalizers);
-   }
-
-   std::pair<uint64_t, vector<finalizer_authority>> get_finalizers_impl() const {
-      return { fthreshold, finalizers };
+   void set_finalizers_impl(const finalizer_set fin_set) {
+      // TODO store in chainbase
+      current_finalizer_set = fin_set;
    }
 
    /**
@@ -3327,12 +3321,12 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
    return version;
 }
 
-void controller::set_finalizers( uint64_t fthreshold, vector<finalizer_authority> finalizers ) {
-   my->set_finalizers_impl(fthreshold, std::move(finalizers));
+void controller::set_finalizers( const finalizer_set& fin_set ) {
+   my->set_finalizers_impl(fin_set);
 }
 
-std::pair<uint64_t, vector<finalizer_authority>> controller::get_finalizers() const {
-   return my->get_finalizers_impl();
+const finalizer_set& controller::get_finalizers() const {
+   return my->current_finalizer_set;
 }
 
 const producer_authority_schedule&    controller::active_producers()const {

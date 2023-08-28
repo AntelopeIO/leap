@@ -30,8 +30,6 @@ namespace eosio::hotstuff {
 
       virtual chain::block_id_type get_current_block_id() = 0;
 
-      //hotstuff getters. todo : implement relevant setters as host functions
-#warning hotstuff getters. todo : implement relevant setters as host functions
       virtual chain::name get_proposer() = 0;
       virtual chain::name get_leader() = 0;
       virtual chain::name get_next_leader() = 0;
