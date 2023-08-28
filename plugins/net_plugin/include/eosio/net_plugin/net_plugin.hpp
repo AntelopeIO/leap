@@ -15,9 +15,9 @@ namespace eosio {
       bool              syncing              = false;
       bool              is_bp_peer           = false;
       bool              is_socket_open       = false;
-      bool              allow_blocks         = false;
-      bool              allow_transactions   = false;
-      bool              allow_peers          = false;
+      bool              accepting_blocks         = false;
+      bool              accepting_transactions   = false;
+      bool              accepting_peers          = false;
       handshake_message last_handshake;
    };
 
@@ -46,6 +46,8 @@ namespace eosio {
                boost::asio::ip::address_v6::bytes_type address;
                unsigned short port{0};
                bool accepting_blocks{false};
+               bool accepting_transactions{false};
+               bool accepting_peers{false};
                uint32_t last_received_block{0};
                uint32_t first_available_block{0};
                uint32_t last_available_block{0};
@@ -95,4 +97,4 @@ namespace eosio {
 
 }
 
-FC_REFLECT( eosio::connection_status, (peer)(remote_ip)(remote_port)(connecting)(syncing)(is_bp_peer)(is_socket_open)(allow_blocks)(allow_transactions)(allow_peers)(last_handshake) )
+FC_REFLECT( eosio::connection_status, (peer)(remote_ip)(remote_port)(connecting)(syncing)(is_bp_peer)(is_socket_open)(accepting_blocks)(accepting_transactions)(accepting_peers)(last_handshake) )

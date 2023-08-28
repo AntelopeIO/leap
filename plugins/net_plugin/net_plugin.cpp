@@ -1317,9 +1317,9 @@ namespace eosio {
       stat.remote_ip = log_remote_endpoint_ip;
       stat.remote_port = log_remote_endpoint_port;
       stat.last_handshake = last_handshake_recv;
-      stat.allow_blocks = is_blocks_connection();
-      stat.allow_transactions = is_transactions_connection();
-      stat.allow_peers = is_peers_connection();
+      stat.accepting_blocks = is_blocks_connection();
+      stat.accepting_transactions = is_transactions_connection();
+      stat.accepting_peers = is_peers_connection();
       return stat;
    }
 
@@ -4667,6 +4667,8 @@ namespace eosio {
                , .address = addr
                , .port = (*it)->get_remote_endpoint_port()
                , .accepting_blocks = (*it)->is_blocks_connection()
+               , .accepting_transactions = (*it)->is_transactions_connection()
+               , .accepting_peers = (*it)->is_peers_connection()
                , .last_received_block = (*it)->get_last_received_block_num()
                , .first_available_block = (*it)->get_peer_start_block_num()
                , .last_available_block = (*it)->get_peer_head_block_num()
