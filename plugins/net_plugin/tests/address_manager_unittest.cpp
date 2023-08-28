@@ -29,6 +29,44 @@ std::unordered_set<std::string> gen_addresses(const std::string &host, uint32_t 
 
 BOOST_AUTO_TEST_SUITE(test_peer_address)
 
+   BOOST_AUTO_TEST_CASE(CheckEnumValues) {
+      BOOST_CHECK_EQUAL(static_cast<int>(address_type_enum::blk), 1);
+      BOOST_CHECK_EQUAL(static_cast<int>(address_type_enum::trx), 2);
+      BOOST_CHECK_EQUAL(static_cast<int>(address_type_enum::peer), 4);
+      BOOST_CHECK_EQUAL(static_cast<int>(address_type_enum::both), 3);  // 1 | 2
+      BOOST_CHECK_EQUAL(static_cast<int>(address_type_enum::bnp), 5);   // 1 | 4
+      BOOST_CHECK_EQUAL(static_cast<int>(address_type_enum::tnp), 6);   // 2 | 4
+      BOOST_CHECK_EQUAL(static_cast<int>(address_type_enum::all), 7);   // 1 | 2 | 4
+
+      int addressType = static_cast<int>(address_type_enum::bnp);
+
+      BOOST_REQUIRE(addressType & static_cast<int>(address_type_enum::blk));
+      BOOST_REQUIRE(addressType & static_cast<int>(address_type_enum::peer));
+      BOOST_REQUIRE(!(addressType & static_cast<int>(address_type_enum::trx)));
+   }
+
+   BOOST_AUTO_TEST_CASE(TestBitwiseAndOperator) {
+      address_type_enum bnp = address_type_enum::bnp;
+      address_type_enum blk = address_type_enum::blk;
+      address_type_enum tnp = address_type_enum::tnp;
+
+
+      address_type_enum result = bnp & blk;
+      address_type_enum result2 = tnp & blk;
+
+      BOOST_REQUIRE(result == address_type_enum::blk);
+      BOOST_REQUIRE(result2 == address_type_enum::none);
+   }
+
+   BOOST_AUTO_TEST_CASE(TestBitwiseOrOperator) {
+      address_type_enum blk = address_type_enum::blk;
+      address_type_enum trx = address_type_enum::trx;
+
+      address_type_enum result = blk | trx;
+
+      BOOST_REQUIRE(result == address_type_enum::both);
+   }
+
 
    BOOST_AUTO_TEST_CASE(test_from_str) {
 
