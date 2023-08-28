@@ -13,6 +13,8 @@ namespace eosio::chain {
    const block_id_type NULL_BLOCK_ID = block_id_type("00");
    const fc::sha256 NULL_PROPOSAL_ID = fc::sha256("00");
 
+   using hs_dynamic_bitset = boost::dynamic_bitset<uint32_t>;
+
    inline uint64_t compute_height(uint32_t block_height, uint32_t phase_counter) {
       return (uint64_t{block_height} << 32) | phase_counter;
    }
@@ -24,7 +26,7 @@ namespace eosio::chain {
 
    struct quorum_certificate_message {
       fc::sha256                          proposal_id = NULL_PROPOSAL_ID;
-      std::string                         active_finalizers; //bitset encoding, following canonical order
+      std::vector<unsigned_int>           active_finalizers; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
    };
 
