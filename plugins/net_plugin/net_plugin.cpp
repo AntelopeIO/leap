@@ -495,10 +495,7 @@ namespace eosio {
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_ptr& block );
 
-      void on_hs_proposal_message( const hs_proposal_message& msg );
-      void on_hs_vote_message( const hs_vote_message& msg );
-      void on_hs_new_view_message( const hs_new_view_message& msg );
-      void on_hs_new_block_message( const hs_new_block_message& msg );
+      void on_hs_message( const hs_message& msg );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
       void start_expire_timer();
@@ -1038,14 +1035,10 @@ namespace eosio {
       void handle_message( const block_id_type& id, signed_block_ptr ptr );
       void handle_message( const packed_transaction& msg ) = delete; // packed_transaction_ptr overload used instead
       void handle_message( packed_transaction_ptr trx );
+      void handle_message( const hs_message& msg );
 
       // returns calculated number of blocks combined latency
       uint32_t calc_block_latency();
-
-      void handle_message( const hs_vote_message& msg );
-      void handle_message( const hs_proposal_message& msg );
-      void handle_message( const hs_new_view_message& msg );
-      void handle_message( const hs_new_block_message& msg );
 
       void process_signed_block( const block_id_type& id, signed_block_ptr block, block_state_ptr bsp );
 
@@ -1124,30 +1117,12 @@ namespace eosio {
          c->handle_message( msg );
       }
 
-      void operator()( const hs_vote_message& msg ) const {
+      void operator()( const hs_message& msg ) const {
          // continue call to handle_message on connection strand
          peer_dlog( c, "handle hs_vote_message" );
          c->handle_message( msg );
       }
-      void operator()( const hs_proposal_message& msg ) const {
-         // continue call to handle_message on connection strand
-         peer_dlog( c, "handle hs_proposal_message" );
-         c->handle_message( msg );
-      }
-      void operator()( const hs_new_view_message& msg ) const {
-         // continue call to handle_message on connection strand
-         peer_dlog( c, "handle hs_new_view_message" );
-         c->handle_message( msg );
-      }
-      void operator()( const hs_new_block_message& msg ) const {
-         // continue call to handle_message on connection strand
-         peer_dlog( c, "handle hs_new_block_message" );
-         c->handle_message( msg );
-      }
-
-
    };
-
    
 
    std::tuple<std::string, std::string, std::string> split_host_port_type(const std::string& peer_add) {
@@ -3586,24 +3561,9 @@ namespace eosio {
       }
    }
 
-   void connection::handle_message( const hs_vote_message& msg ) {
-      peer_dlog(this, "received vote: ${msg}", ("msg", msg));
-      my_impl->chain_plug->notify_hs_vote_message(msg);
-   }
-
-   void connection::handle_message( const hs_proposal_message& msg ) {
-      peer_dlog(this, "received proposal: ${msg}", ("msg", msg));
-      my_impl->chain_plug->notify_hs_proposal_message(msg);
-   }
-
-   void connection::handle_message( const hs_new_view_message& msg ) {
-      peer_dlog(this, "received new view: ${msg}", ("msg", msg));
-      my_impl->chain_plug->notify_hs_new_view_message(msg);
-   }
-
-   void connection::handle_message( const hs_new_block_message& msg ) {
-      peer_dlog(this, "received new block msg: ${msg}", ("msg", msg));
-      my_impl->chain_plug->notify_hs_new_block_message(msg);
+   void connection::handle_message( const hs_message& msg ) {
+      peer_dlog(this, "received hs: ${msg}", ("msg", msg));
+      my_impl->chain_plug->notify_hs_message(msg);
    }
 
    size_t calc_trx_size( const packed_transaction_ptr& trx ) {
@@ -3857,41 +3817,8 @@ namespace eosio {
       on_active_schedule(chain_plug->chain().active_producers());
    }
 
-   void net_plugin_impl::on_hs_proposal_message( const hs_proposal_message& msg ) {
-      fc_dlog(logger, "sending proposal msg: ${msg}", ("msg", msg));
-
-      buffer_factory buff_factory;
-      auto send_buffer = buff_factory.get_send_buffer( msg );
-
-      dispatcher->strand.post( [this, msg{std::move(send_buffer)}]() mutable {
-         dispatcher->bcast_msg( std::move(msg) );
-      });
-   }
-
-   void net_plugin_impl::on_hs_vote_message( const hs_vote_message& msg ) {
-      fc_dlog(logger, "sending vote msg: ${msg}", ("msg", msg));
-
-      buffer_factory buff_factory;
-      auto send_buffer = buff_factory.get_send_buffer( msg );
-
-      dispatcher->strand.post( [this, msg{std::move(send_buffer)}]() mutable {
-         dispatcher->bcast_msg( std::move(msg) );
-      });
-   }
-
-   void net_plugin_impl::on_hs_new_view_message( const hs_new_view_message& msg ) {
-      fc_dlog(logger, "sending new_view msg: ${msg}", ("msg", msg));
-
-      buffer_factory buff_factory;
-      auto send_buffer = buff_factory.get_send_buffer( msg );
-
-      dispatcher->strand.post( [this, msg{std::move(send_buffer)}]() mutable {
-         dispatcher->bcast_msg( std::move(msg) );
-      });
-   }
-
-   void net_plugin_impl::on_hs_new_block_message( const hs_new_block_message& msg ) {
-      fc_dlog(logger, "sending new_block msg: ${msg}", ("msg", msg));
+   void net_plugin_impl::on_hs_message( const hs_message& msg ) {
+      fc_dlog(logger, "sending hs msg: ${msg}", ("msg", msg));
 
       buffer_factory buff_factory;
       auto send_buffer = buff_factory.get_send_buffer( msg );
@@ -4225,20 +4152,10 @@ namespace eosio {
             chain_plug->enable_accept_transactions();
          }
 
-         chain_plug->register_pacemaker_bcast_functions(
-                 [my = shared_from_this()](const hs_proposal_message& s) {
-                    my->on_hs_proposal_message(s);
-                 },
-                 [my = shared_from_this()](const hs_vote_message& s) {
-                    my->on_hs_vote_message(s);
-                 },
-                 [my = shared_from_this()](const hs_new_block_message& s) {
-                    my->on_hs_new_block_message(s);
-                 },
-                 [my = shared_from_this()](const hs_new_view_message& s) {
-                    my->on_hs_new_view_message(s);
+         chain_plug->register_pacemaker_bcast_function(
+                 [my = shared_from_this()](const hs_message& s) {
+                    my->on_hs_message(s);
                  } );
-
 
       } FC_LOG_AND_RETHROW()
    }
