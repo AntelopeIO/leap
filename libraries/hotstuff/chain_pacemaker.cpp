@@ -107,10 +107,10 @@ namespace eosio { namespace hotstuff {
    {
    }
 
-   void chain_pacemaker::register_bcast_function(std::function<void(const chain::hs_message&)> on_hs_message) {
-      FC_ASSERT(on_hs_message, "on_hs_message must be provided");
+   void chain_pacemaker::register_bcast_function(std::function<void(const chain::hs_message&)> broadcast_hs_message) {
+      FC_ASSERT(broadcast_hs_message, "on_hs_message must be provided");
       std::lock_guard g( _hotstuff_global_mutex ); // not actually needed but doesn't hurt
-      bcast_hs_message = std::move(on_hs_message);
+      bcast_hs_message = std::move(broadcast_hs_message);
    }
 
    // Called internally by the chain_pacemaker to decide whether it should do something or not, based on feature activation.

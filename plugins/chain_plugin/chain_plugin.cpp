@@ -1119,9 +1119,9 @@ void chain_plugin::create_pacemaker(std::set<chain::account_name> my_producers) 
    my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), hotstuff_logger);
 }
 
-void chain_plugin::register_pacemaker_bcast_function(std::function<void(const chain::hs_message&)> on_hs_message) {
+void chain_plugin::register_pacemaker_bcast_function(std::function<void(const chain::hs_message&)> bcast_hs_message) {
    EOS_ASSERT( my->_chain_pacemaker, plugin_config_exception, "chain_pacemaker not created" );
-   my->_chain_pacemaker->register_bcast_function(std::move(on_hs_message));
+   my->_chain_pacemaker->register_bcast_function(std::move(bcast_hs_message));
 }
 
 

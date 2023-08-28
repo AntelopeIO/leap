@@ -1032,7 +1032,7 @@ public:
    const controller& chain() const;
 
    void create_pacemaker(std::set<chain::account_name> my_producers);
-   void register_pacemaker_bcast_function(std::function<void(const chain::hs_message&)> on_hs_message);
+   void register_pacemaker_bcast_function(std::function<void(const chain::hs_message&)> bcast_hs_message);
    void notify_hs_message( const chain::hs_message& msg );
    void notify_hs_block_produced();
 
