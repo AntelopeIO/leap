@@ -19,7 +19,7 @@ class ScenarioArgumentsHandler(object):
         ptbParser=performance_test_basic.PtbArgumentsHandler.createArgumentParser()
         ptParser=performance_test.PerfTestArgumentsHandler.createArgumentParser()
 
-        #Let top level performance harness parser know there will be sub-commands, and that an scenario type sub-command is required
+        #Let top level performance harness parser know there will be sub-commands, and that a scenario type sub-command is required
         scenarioTypeDesc=("Each Scenario Type sets up either a Performance Test Basic or a Performance Test scenario and allows further configuration of the scenario.")
         scenarioParserSubparsers = scenarioParser.add_subparsers(title="Scenario Types",
                                                      description=scenarioTypeDesc,
@@ -31,7 +31,7 @@ class ScenarioArgumentsHandler(object):
         scenarioParserSubparsers.add_parser(name="singleTest", parents=[ptbParser], add_help=False, help="Run a single Performance Test Basic test scenario.")
 
         #Create the Find Max Test Scenario Type Sub-Command and Parsers
-        scenarioParserSubparsers.add_parser(name="findMax", parents=[ptParser], add_help=False, help="Runs a Performance Test scenario.")
+        scenarioParserSubparsers.add_parser(name="findMax", parents=[ptParser], add_help=False, help="Runs a Performance Test scenario that iteratively runs performance test basic test scenarios to determine a max tps.")
 
         return scenarioParser
 
