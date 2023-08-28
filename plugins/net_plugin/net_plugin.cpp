@@ -495,7 +495,7 @@ namespace eosio {
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_ptr& block );
 
-      void on_hs_message( const hs_message& msg );
+      void bcast_hs_message( const hs_message& msg );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
       void start_expire_timer();
@@ -1119,7 +1119,7 @@ namespace eosio {
 
       void operator()( const hs_message& msg ) const {
          // continue call to handle_message on connection strand
-         peer_dlog( c, "handle hs_vote_message" );
+         peer_dlog( c, "handle hs_message" );
          c->handle_message( msg );
       }
    };
@@ -3817,7 +3817,7 @@ namespace eosio {
       on_active_schedule(chain_plug->chain().active_producers());
    }
 
-   void net_plugin_impl::on_hs_message( const hs_message& msg ) {
+   void net_plugin_impl::bcast_hs_message( const hs_message& msg ) {
       fc_dlog(logger, "sending hs msg: ${msg}", ("msg", msg));
 
       buffer_factory buff_factory;
@@ -4154,7 +4154,7 @@ namespace eosio {
 
          chain_plug->register_pacemaker_bcast_function(
                  [my = shared_from_this()](const hs_message& s) {
-                    my->on_hs_message(s);
+                    my->bcast_hs_message(s);
                  } );
 
       } FC_LOG_AND_RETHROW()
