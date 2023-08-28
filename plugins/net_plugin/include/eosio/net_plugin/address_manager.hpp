@@ -4,13 +4,32 @@
 
 namespace eosio {
 
-   enum class address_type_enum {
+   enum class address_type_enum : int {
+      unknown = 0,
       blk = 1,
       trx = 2,
       peer = 4,
-      both = blk | trx,
-      all = blk | trx | peer
+      both = address_type_enum::blk | address_type_enum::trx,
+      bnp = address_type_enum::blk | address_type_enum::peer,
+      tnp = address_type_enum::trx | address_type_enum::peer,
+      all = address_type_enum::blk | address_type_enum::trx | address_type_enum::peer
    };
+
+   constexpr address_type_enum operator-(address_type_enum lhs, address_type_enum rhs) {
+      return static_cast<address_type_enum>(static_cast<int>(lhs) & ~static_cast<int>(rhs));
+   }
+
+   constexpr address_type_enum operator+(address_type_enum lhs, address_type_enum rhs) {
+      return static_cast<address_type_enum>(static_cast<int>(lhs) | static_cast<int>(rhs));
+   }
+
+   constexpr bool address_type_contains(address_type_enum container, address_type_enum value) {
+      return static_cast<int>(container) & static_cast<int>(value);
+   }
+
+   constexpr bool address_type_contains_only(address_type_enum container, address_type_enum value) {
+      return static_cast<int>(container) == static_cast<int>(value);
+   }
 
    constexpr auto address_type_str(address_type_enum t) {
       switch (t) {
@@ -22,6 +41,10 @@ namespace eosio {
             return "";
          case address_type_enum::peer :
             return "peer";
+         case address_type_enum::bnp :
+            return "bnp";
+         case address_type_enum::tnp :
+            return "tnp";
          default:
             return "all";
       }
@@ -34,6 +57,8 @@ namespace eosio {
               {"trx",  address_type_enum::trx},
               {"peer", address_type_enum::peer},
               {"",     address_type_enum::both},
+              {"bnp",     address_type_enum::bnp},
+              {"tnp",     address_type_enum::tnp},
               {"all",  address_type_enum::all},
       };
       const auto it = address_type_map.find(address_type_str);
@@ -152,6 +177,9 @@ namespace eosio {
 
    };
 
+   /**
+    * For P2P address management in net_plugin
+    */
    class address_manager {
    private:
       mutable std::mutex addresses_mutex;
@@ -193,5 +221,6 @@ namespace eosio {
 
       bool has_address(const std::string &address_str) const;
 
+      uint32_t get_addresses_count() const;
    };
 }

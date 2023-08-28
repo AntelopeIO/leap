@@ -813,18 +813,20 @@ namespace eosio {
       const string& peer_address() const { return peer_addr; } // thread safe, const
 
       void set_connection_type( const string& peer_addr );
-      bool is_transactions_only_connection()const { return connection_type == transactions_only; } // thread safe, atomic
-      bool is_blocks_only_connection()const { return connection_type == blocks_only; }
+      bool is_transactions_only_connection()const { return address_type_contains_only(connection_type , address_type_enum::trx) ; } // thread safe, atomic
+      bool is_blocks_only_connection()const { return address_type_contains_only(connection_type , address_type_enum::blk); }
 
       //add more connection type
-      bool is_peers_only_connection() const { return connection_type == peers_only; }
+      bool is_peers_only_connection() const { return address_type_contains_only(connection_type , address_type_enum::peer); }
 
-      bool is_all_connection() const { return connection_type == all; }
-      bool is_both_connection() const { return connection_type == both; }
+      bool is_all_connection() const { return connection_type == address_type_enum::all; }
+      bool is_both_connection() const { return connection_type == address_type_enum::both; }
+      bool is_bnp_connection() const { return connection_type == address_type_enum::bnp; }
+      bool is_tnp_connection() const { return connection_type == address_type_enum::tnp; }
 
-      bool is_transactions_connection() const { return connection_type == transactions_only || connection_type == trxs_peers || is_both_connection() || is_all_connection(); }
-      bool is_blocks_connection() const { return connection_type == blocks_only || connection_type == blks_peers || is_both_connection() || is_all_connection(); }
-      bool is_peers_connection() const { return connection_type == peers_only || connection_type == blks_peers || connection_type == trxs_peers || is_all_connection(); }
+      bool is_transactions_connection() const { return address_type_contains(connection_type , address_type_enum::trx) ; }
+      bool is_blocks_connection() const { return address_type_contains(connection_type , address_type_enum::blk) ; }
+      bool is_peers_connection() const { return address_type_contains(connection_type , address_type_enum::peer) ; }
 
       uint32_t get_peer_start_block_num() const { return peer_start_block_num.load(); }
       uint32_t get_peer_head_block_num() const { return peer_head_block_num.load(); }
@@ -857,17 +859,8 @@ namespace eosio {
 
       string                  listen_address; // address sent to peer in handshake
       const string            peer_addr;
-      enum connection_types : char {
-         both,
-         transactions_only,
-         blocks_only,
-         peers_only,
-         trxs_peers,
-         blks_peers,
-         all
-      };
 
-      std::atomic<connection_types>   connection_type{both};
+      std::atomic<address_type_enum>   connection_type{address_type_enum::both};
       std::atomic<uint32_t>           peer_start_block_num{0};
       std::atomic<uint32_t>           peer_head_block_num{0};
       std::atomic<uint32_t>           last_received_block_num{0};
@@ -1273,26 +1266,26 @@ namespace eosio {
 
       if( type.empty() ) {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to both transactions and blocks", ("c", connection_id)("peer", peer_add) );
-         connection_type = both;
+         connection_type = address_type_enum::both;
       } else if( type == "trx" ) {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to transactions only", ("c", connection_id)("peer", peer_add) );
-         connection_type = transactions_only;
+         connection_type = address_type_enum::trx;
       } else if( type == "blk" ) {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to blocks only", ("c", connection_id)("peer", peer_add) );
-         connection_type = blocks_only;
+         connection_type = address_type_enum::blk;
       } else if( type == "peer" ) {
          fc_dlog(logger, "Setting connection ${c} type for: ${peer} to peers only",
                  ("c", connection_id)("peer", peer_add));
-         connection_type = peers_only;
+         connection_type = address_type_enum::peer;
       } else if( type == "bnp" ) {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to blocks and peers", ("c", connection_id)("peer", peer_add) );
-         connection_type = blks_peers;
+         connection_type = address_type_enum::bnp;
       } else if( type == "tnp" ) {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to transactions and peers", ("c", connection_id)("peer", peer_add) );
-         connection_type = trxs_peers;
+         connection_type = address_type_enum::tnp;
       } else if( type == "all" ) {
          fc_dlog( logger, "Setting connection ${c} type for: ${peer} to all types", ("c", connection_id)("peer", peer_add) );
-         connection_type = all;
+         connection_type = address_type_enum::all;
       } else {
          fc_wlog( logger, "Unknown connection ${c} type: ${t}, for ${peer}", ("c", connection_id)("t", type)("peer", peer_add) );
       }
@@ -4069,14 +4062,28 @@ namespace eosio {
       if(hello.sig == chain::signature_type())
          hello.token = sha256();
       hello.p2p_address = listen_address;
-      if( is_transactions_only_connection() ) hello.p2p_address += ":trx";
+      address_type_enum result = connection_type;
+      //remove trx if not accepting transactions
+      if(!my_impl->p2p_accept_transactions) {
+         result = result - address_type_enum::trx;
+         peer_dlog( this, "p2p-accept-transactions=false inform connection ${a} not allow Trxs ", ("a", hello.p2p_address) );
+      }
+      if(!my_impl->p2p_exchange_peers) {
+         result = result - address_type_enum::peer;
+         peer_dlog( this, "p2p-exchange-peers=false inform peer connection ${a} not allow Peers ", ("a", hello.p2p_address) );
+      }
+
+      if( address_type_contains_only(result, address_type_enum::trx) ) hello.p2p_address += ":trx";
       // if we are not accepting transactions tell peer we are blocks only (ignore new added type peer)
-      if( is_blocks_only_connection() || !my_impl->p2p_accept_transactions ) hello.p2p_address += ":blk";
-      if( is_peers_only_connection() ) hello.p2p_address += ":peer";
-      if( is_all_connection() ) hello.p2p_address += ":all";
+      if( address_type_contains_only(result, address_type_enum::blk) ) hello.p2p_address += ":blk";
+      if( address_type_contains_only(result, address_type_enum::peer) ) hello.p2p_address += ":peer";
+      if( address_type_contains_only(result, address_type_enum::bnp) ) hello.p2p_address += ":bnp";
+      if( address_type_contains_only(result, address_type_enum::tnp) ) hello.p2p_address += ":tnp";
+      if( address_type_contains_only(result, address_type_enum::all) ) hello.p2p_address += ":all";
       // if no suffix, means both trx & blk
-      if( !is_blocks_only_connection() && !my_impl->p2p_accept_transactions ) {
-         peer_dlog( this, "p2p-accept-transactions=false inform peer blocks only connection ${a}", ("a", hello.p2p_address) );
+      if( result == address_type_enum::unknown) {
+         peer_dlog( this, "connection ${a} type unknown, fall back to blk only ", ("a", hello.p2p_address) );
+         hello.p2p_address += ":blk";
       }
       hello.p2p_address += " - " + hello.node_id.str().substr(0,7);
 #if defined( __APPLE__ )

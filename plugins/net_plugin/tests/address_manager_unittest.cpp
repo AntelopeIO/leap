@@ -45,28 +45,73 @@ BOOST_AUTO_TEST_SUITE(test_peer_address)
       BOOST_REQUIRE(!(addressType & static_cast<int>(address_type_enum::trx)));
    }
 
-   BOOST_AUTO_TEST_CASE(TestBitwiseAndOperator) {
+   BOOST_AUTO_TEST_CASE(TestMinusOperator) {
+      address_type_enum all = address_type_enum::all;
       address_type_enum bnp = address_type_enum::bnp;
       address_type_enum blk = address_type_enum::blk;
       address_type_enum tnp = address_type_enum::tnp;
 
 
-      address_type_enum result = bnp & blk;
-      address_type_enum result2 = tnp & blk;
+      address_type_enum result = bnp - blk;
+      address_type_enum result2 = tnp - blk;
+      address_type_enum result3 = all - tnp;
+      address_type_enum result4 = blk - blk;
 
-      BOOST_REQUIRE(result == address_type_enum::blk);
-      BOOST_REQUIRE(result2 == address_type_enum::none);
+      BOOST_REQUIRE(result == address_type_enum::peer);
+      BOOST_REQUIRE(result2 == address_type_enum::tnp);
+      BOOST_REQUIRE(result3 == address_type_enum::blk);
+      BOOST_REQUIRE(result4 == address_type_enum::unknown);
    }
 
-   BOOST_AUTO_TEST_CASE(TestBitwiseOrOperator) {
+   BOOST_AUTO_TEST_CASE(TestAddOperator) {
       address_type_enum blk = address_type_enum::blk;
       address_type_enum trx = address_type_enum::trx;
+      address_type_enum peer = address_type_enum::peer;
 
-      address_type_enum result = blk | trx;
+      address_type_enum result = blk + trx;
+      address_type_enum result2 = blk + peer;
+      address_type_enum result3 = trx + peer;
+      address_type_enum result4 = blk + trx + peer;
+      address_type_enum result5 = blk + blk;
 
       BOOST_REQUIRE(result == address_type_enum::both);
+      BOOST_REQUIRE(result2 == address_type_enum::bnp);
+      BOOST_REQUIRE(result3 == address_type_enum::tnp);
+      BOOST_REQUIRE(result4 == address_type_enum::all);
+      BOOST_REQUIRE(result5 == address_type_enum::blk);
    }
 
+   BOOST_AUTO_TEST_CASE(TestContains) {
+      address_type_enum blk = address_type_enum::blk;
+      address_type_enum trx = address_type_enum::trx;
+      address_type_enum peer = address_type_enum::peer;
+      address_type_enum both = address_type_enum::both;
+      address_type_enum tnp = address_type_enum::tnp;
+      address_type_enum all = address_type_enum::all;
+
+      BOOST_REQUIRE(address_type_contains(both, trx));
+      BOOST_REQUIRE(!address_type_contains(both, peer));
+      BOOST_REQUIRE(address_type_contains(all, tnp));
+      BOOST_REQUIRE(address_type_contains(all, both));
+      BOOST_REQUIRE(!address_type_contains(tnp, blk));
+   }
+
+   BOOST_AUTO_TEST_CASE(TestContainsOnly) {
+      address_type_enum blk = address_type_enum::blk;
+      address_type_enum trx = address_type_enum::trx;
+      address_type_enum peer = address_type_enum::peer;
+      address_type_enum both = address_type_enum::both;
+      address_type_enum tnp = address_type_enum::tnp;
+      address_type_enum all = address_type_enum::all;
+
+      BOOST_REQUIRE(address_type_contains_only(trx, trx));
+      BOOST_REQUIRE(!address_type_contains_only(both, peer));
+      BOOST_REQUIRE(!address_type_contains_only(all, peer));
+      BOOST_REQUIRE(!address_type_contains_only(all, both));
+      BOOST_REQUIRE(address_type_contains_only(tnp, tnp));
+      BOOST_REQUIRE(!address_type_contains_only(tnp, blk));
+      BOOST_REQUIRE(address_type_contains_only(all, all));
+   }
 
    BOOST_AUTO_TEST_CASE(test_from_str) {
 
