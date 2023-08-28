@@ -813,16 +813,6 @@ namespace eosio {
       const string& peer_address() const { return peer_addr; } // thread safe, const
 
       void set_connection_type( const string& peer_addr );
-      bool is_transactions_only_connection()const { return address_type_contains_only(connection_type , address_type_enum::trx) ; } // thread safe, atomic
-      bool is_blocks_only_connection()const { return address_type_contains_only(connection_type , address_type_enum::blk); }
-
-      //add more connection type
-      bool is_peers_only_connection() const { return address_type_contains_only(connection_type , address_type_enum::peer); }
-
-      bool is_all_connection() const { return connection_type == address_type_enum::all; }
-      bool is_both_connection() const { return connection_type == address_type_enum::both; }
-      bool is_bnp_connection() const { return connection_type == address_type_enum::bnp; }
-      bool is_tnp_connection() const { return connection_type == address_type_enum::tnp; }
 
       bool is_transactions_connection() const { return address_type_contains(connection_type , address_type_enum::trx) ; }
       bool is_blocks_connection() const { return address_type_contains(connection_type , address_type_enum::blk) ; }
