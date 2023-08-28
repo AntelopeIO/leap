@@ -1993,7 +1993,7 @@ struct controller_impl {
       emit( self.new_hs_new_block_message, msg );
    }
 
-   void set_finalizers_impl(const finalizer_set fin_set) {
+   void set_finalizers_impl(const finalizer_set& fin_set) {
       // TODO store in chainbase
       current_finalizer_set = fin_set;
    }

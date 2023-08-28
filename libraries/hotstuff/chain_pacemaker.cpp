@@ -227,8 +227,8 @@ namespace eosio { namespace hotstuff {
       std::unique_lock g( _chain_state_mutex );
       block_timestamp_type next_block_time = _head_block_state->header.timestamp.next();
       producer_authority p_auth = _head_block_state->get_scheduled_producer(next_block_time);
-      name n = p_auth.producer_name;
       g.unlock();
+      name n = p_auth.producer_name;
 
       // FIXME/REMOVE: testing leader/proposer separation
       n = debug_leader_remap(n);
