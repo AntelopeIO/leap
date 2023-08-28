@@ -100,7 +100,7 @@ namespace eosio::chain {
       }
 
       uint32_t                                       version = 0; ///< sequentially incrementing version number
-      uint64_t                                       fthreshold;  // vote fweight threshold to finalize blocks
+      uint64_t                                       fthreshold = 0;  // vote fweight threshold to finalize blocks
       vector<finalizer_authority>                    finalizers; // Instant Finality voter set
 
       friend bool operator == ( const finalizer_set& a, const finalizer_set& b )

@@ -204,6 +204,7 @@ namespace eosio { namespace hotstuff {
    void chain_pacemaker::on_accepted_block( const block_state_ptr& blk ) {
       std::scoped_lock g( _chain_state_mutex );
       _head_block_state = blk;
+      // TODO only update local cache if changed, check version or use !=
       _finalizer_set = _chain->get_finalizers(); // TODO get from chainbase or from block_state
    }
 
@@ -253,9 +254,11 @@ namespace eosio { namespace hotstuff {
       //
       std::unique_lock g( _chain_state_mutex );
       const auto& fin_set = _chain->get_finalizers(); // TODO use
+      block_state_ptr hbs = _head_block_state;
+      g.unlock();
 
       // Old code: get eosio::name from the producer schedule
-      const std::vector<producer_authority>& pa_list = _head_block_state->active_schedule.producers;
+      const std::vector<producer_authority>& pa_list = hbs->active_schedule.producers;
       std::vector<name> pn_list;
       pn_list.reserve(pa_list.size());
       std::transform(pa_list.begin(), pa_list.end(),
