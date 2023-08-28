@@ -138,7 +138,7 @@ namespace eosio { namespace hotstuff {
       vector<name> finalizers = _pacemaker->get_finalizers();
       for (size_t i = 0; i < finalizers.size();i++) {
          if (finalizers[i] == finalizer) {
-            b.flip(i);
+            b.set(i);
 
             fc_tlog(_logger, " === finalizer found ${finalizer} new value : ${value}",
                     ("finalizer", finalizer)("value", [&](){ std::string r; boost::to_string(b, r); return r; }()));
