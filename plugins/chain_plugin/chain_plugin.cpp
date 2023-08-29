@@ -1119,17 +1119,9 @@ void chain_plugin::create_pacemaker(std::set<chain::account_name> my_producers) 
    my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), hotstuff_logger);
 }
 
-void chain_plugin::register_pacemaker_bcast_functions(
-        std::function<void(const chain::hs_proposal_message&)> on_proposal_message,
-        std::function<void(const chain::hs_vote_message&)> on_vote_message,
-        std::function<void(const chain::hs_new_block_message&)> on_new_block_message,
-        std::function<void(const chain::hs_new_view_message&)> on_new_view_message) {
+void chain_plugin::register_pacemaker_bcast_function(std::function<void(const chain::hs_message&)> bcast_hs_message) {
    EOS_ASSERT( my->_chain_pacemaker, plugin_config_exception, "chain_pacemaker not created" );
-   my->_chain_pacemaker->register_bcast_functions(
-           std::move(on_proposal_message),
-           std::move(on_vote_message),
-           std::move(on_new_block_message),
-           std::move(on_new_view_message));
+   my->_chain_pacemaker->register_bcast_function(std::move(bcast_hs_message));
 }
 
 
@@ -2691,23 +2683,8 @@ read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time
 } // namespace chain_apis
 
 // called from net threads
-void chain_plugin::notify_hs_vote_message( const hs_vote_message& msg ) {
-   my->_chain_pacemaker->on_hs_vote_msg(msg);
-};
-
-// called from net threads
-void chain_plugin::notify_hs_proposal_message( const hs_proposal_message& msg ) {
-   my->_chain_pacemaker->on_hs_proposal_msg(msg);
-};
-
-// called from net threads
-void chain_plugin::notify_hs_new_view_message( const hs_new_view_message& msg ) {
-   my->_chain_pacemaker->on_hs_new_view_msg(msg);
-};
-
-// called from net threads
-void chain_plugin::notify_hs_new_block_message( const hs_new_block_message& msg ) {
-   my->_chain_pacemaker->on_hs_new_block_msg(msg);
+void chain_plugin::notify_hs_message( const hs_message& msg ) {
+   my->_chain_pacemaker->on_hs_msg(msg);
 };
 
 void chain_plugin::notify_hs_block_produced() {

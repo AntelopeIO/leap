@@ -1,47 +1,5 @@
 #include <eosio/hotstuff/qc_chain.hpp>
-
 #include <fc/scoped_exit.hpp>
-
-/*
-
-  Todo list / notes:
-  - fork tests in unittests
-  - network plugin versioning
-  - handshake_message.network_version
-  - independant of protocol feature activation
-  - separate library for hotstuff (look at SHIP libray used by state history plugin )
-  - boost tests producer plugin test
-  - regression tests python framework as a base
-  - performance testing
-  - complete proposer / leader differentiation
-  - integration with new bls implementation
-  - hotstuff as a library with its own tests (model on state history plugin + state_history library )
-  - unit / integration tests -> producer_plugin + fork_tests tests as a model
-  - test deterministic sequence
-  - test non-replica participation
-  - test finality vioaltion
-  - test loss of liveness
-  - test split chain
-  - store schedules and transition view height, and prune on commit
-  - integration with fork_db / LIB overhaul
-  - integration with performance testing
-  - regression testing ci/cd -> python regression tests
-  - implement bitset for efficiency
-  - add APIs for proof data
-  - add election proposal in block header
-  - map proposers / finalizers / leader to new host functions
-  - support pause / resume producer
-  - keep track of proposals sent to peers
-  - allow syncing of proposals
-  - versioning of net protocol version
-  - protocol feature activation HOTSTUFF_CONSENSUS
-  - system contract update 1
-  -- allow BPs to register + prove their aggregate pub key.
-  -- Allow existing BPs to unreg + reg without new aggregate key.
-  -- Prevent new BPs from registering without proving aggregate pub key
-  - system contract update 2 (once all or at least overwhelming majority of BPs added a bls key)
-  -- skip BPs without a bls key in the selection, new host functions are available
-*/
 
 namespace eosio { namespace hotstuff {
 
@@ -128,17 +86,17 @@ namespace eosio { namespace hotstuff {
 #endif
    }
 
-   uint32_t qc_chain::positive_bits_count(const boost::dynamic_bitset<>& finalizers) {
+   uint32_t qc_chain::positive_bits_count(const hs_bitset& finalizers) {
       return finalizers.count(); // the number of bits in this bitset that are set.
    }
 
-   boost::dynamic_bitset<> qc_chain::update_bitset(const boost::dynamic_bitset<>& finalizer_set, name finalizer ) {
+      hs_bitset qc_chain::update_bitset(const hs_bitset& finalizer_set, name finalizer ) {
 
-      boost::dynamic_bitset b( finalizer_set );
+      hs_bitset b(finalizer_set );
       vector<name> finalizers = _pacemaker->get_finalizers();
       for (size_t i = 0; i < finalizers.size();i++) {
          if (finalizers[i] == finalizer) {
-            b.flip(i);
+            b.set(i);
 
             fc_tlog(_logger, " === finalizer found ${finalizer} new value : ${value}",
                     ("finalizer", finalizer)("value", [&](){ std::string r; boost::to_string(b, r); return r; }()));
@@ -223,9 +181,8 @@ namespace eosio { namespace hotstuff {
       return b;
    }
 
-   bool qc_chain::evaluate_quorum(const extended_schedule& es, const boost::dynamic_bitset<>& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
+   bool qc_chain::evaluate_quorum(const extended_schedule& es, const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
 
-      bool first = true;
 
       if (positive_bits_count(finalizers) < _pacemaker->get_quorum_threshold()){
          return false;
@@ -233,7 +190,8 @@ namespace eosio { namespace hotstuff {
 
       fc::crypto::blslib::bls_public_key agg_key;
 
-      for (boost::dynamic_bitset<>::size_type i = 0; i < finalizers.size(); i++) {
+      bool first = true;
+      for (hs_bitset::size_type i = 0; i < finalizers.size(); ++i) {
          if (finalizers[i]){
             //adding finalizer's key to the aggregate pub key
             if (first) {
@@ -493,7 +451,7 @@ namespace eosio { namespace hotstuff {
 
          auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
-         boost::dynamic_bitset finalizer_set = _current_qc.get_active_finalizers();
+         const hs_bitset& finalizer_set = _current_qc.get_active_finalizers();
          if (finalizer_set.any())
             _current_qc.set_active_agg_sig(fc::crypto::blslib::aggregate({_current_qc.get_active_agg_sig(), vote.sig }));
          else

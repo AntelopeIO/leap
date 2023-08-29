@@ -10,6 +10,8 @@
 
 namespace eosio::chain {
 
+   using hs_bitset = boost::dynamic_bitset<uint32_t>;
+
    inline uint64_t compute_height(uint32_t block_height, uint32_t phase_counter) {
       return (uint64_t{block_height} << 32) | phase_counter;
    }
@@ -21,7 +23,7 @@ namespace eosio::chain {
 
    struct quorum_certificate_message {
       fc::sha256                          proposal_id;
-      std::string                         active_finalizers; //bitset encoding, following canonical order
+      std::vector<unsigned_int>           active_finalizers; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
    };
 
@@ -51,6 +53,8 @@ namespace eosio::chain {
    struct hs_new_view_message {
       quorum_certificate_message   high_qc; //justification
    };
+
+   using hs_message = std::variant<hs_vote_message, hs_proposal_message, hs_new_block_message, hs_new_view_message>;
 
    struct finalizer_state {
       bool chained_mode = false;

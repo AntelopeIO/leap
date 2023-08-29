@@ -1032,16 +1032,8 @@ public:
    const controller& chain() const;
 
    void create_pacemaker(std::set<chain::account_name> my_producers);
-   void register_pacemaker_bcast_functions(
-           std::function<void(const chain::hs_proposal_message&)> on_proposal_message,
-           std::function<void(const chain::hs_vote_message&)> on_vote_message,
-           std::function<void(const chain::hs_new_block_message&)> on_new_block_message,
-           std::function<void(const chain::hs_new_view_message&)> on_new_view_message
-   );
-   void notify_hs_vote_message( const chain::hs_vote_message& msg );
-   void notify_hs_proposal_message( const chain::hs_proposal_message& msg );
-   void notify_hs_new_view_message( const chain::hs_new_view_message& msg );
-   void notify_hs_new_block_message( const chain::hs_new_block_message& msg );
+   void register_pacemaker_bcast_function(std::function<void(const chain::hs_message&)> bcast_hs_message);
+   void notify_hs_message( const chain::hs_message& msg );
    void notify_hs_block_produced();
 
    chain::chain_id_type get_chain_id() const;

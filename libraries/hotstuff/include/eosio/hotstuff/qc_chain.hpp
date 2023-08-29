@@ -32,35 +32,39 @@ namespace eosio::hotstuff {
 
    class quorum_certificate {
    public:
-      explicit quorum_certificate(uint32_t finalizer_size = 0) {
+      explicit quorum_certificate(size_t finalizer_size = 0) {
          active_finalizers.resize(finalizer_size);
       }
 
       explicit quorum_certificate(const quorum_certificate_message& msg)
               : proposal_id(msg.proposal_id)
-              , active_finalizers(msg.active_finalizers) // conversion from string
+              , active_finalizers(msg.active_finalizers.cbegin(), msg.active_finalizers.cend())
               , active_agg_sig(msg.active_agg_sig) {
       }
 
       quorum_certificate_message to_msg() const {
          return {.proposal_id = proposal_id,
-                 .active_finalizers = [this](){ std::string r; boost::to_string(active_finalizers, r); return r;}(),
+                 .active_finalizers = [this]() {
+                           std::vector<unsigned_int> r;
+                           r.resize(active_finalizers.num_blocks());
+                           boost::to_block_range(active_finalizers, r.begin());
+                           return r;
+                        }(),
                  .active_agg_sig = active_agg_sig};
       }
 
-      void reset(const fc::sha256& proposal, uint32_t finalizer_size) {
+      void reset(const fc::sha256& proposal, size_t finalizer_size) {
          proposal_id = proposal;
-         active_finalizers.clear();
-         active_finalizers.resize(finalizer_size);
+         active_finalizers = hs_bitset{finalizer_size};
          active_agg_sig = fc::crypto::blslib::bls_signature();
          quorum_met = false;
       }
 
-      boost::dynamic_bitset<> get_active_finalizers() const {
+      const hs_bitset& get_active_finalizers() const {
          assert(!active_finalizers.empty());
-         return boost::dynamic_bitset(active_finalizers);
+         return active_finalizers;
       }
-      void set_active_finalizers(const boost::dynamic_bitset<>& bs) {
+      void set_active_finalizers(const hs_bitset& bs) {
          assert(!bs.empty());
          active_finalizers = bs;
       }
@@ -79,7 +83,7 @@ namespace eosio::hotstuff {
    private:
       friend struct fc::reflector<quorum_certificate>;
       fc::sha256                          proposal_id;
-      boost::dynamic_bitset<>             active_finalizers; //bitset encoding, following canonical order
+      hs_bitset                           active_finalizers; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
       bool                                quorum_met = false; // not serialized across network
    };
@@ -115,15 +119,15 @@ namespace eosio::hotstuff {
       // returns false if proposal with that same ID already exists at the store of its height
       bool insert_proposal(const hs_proposal_message& proposal);
 
-      uint32_t positive_bits_count(const boost::dynamic_bitset<>& finalizers);
+      uint32_t positive_bits_count(const hs_bitset& finalizers);
 
-      boost::dynamic_bitset<> update_bitset(const boost::dynamic_bitset<>& finalizer_set, name finalizer);
+      hs_bitset update_bitset(const hs_bitset& finalizer_set, name finalizer);
 
       digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc); //get digest to sign from proposal data
 
       void reset_qc(const fc::sha256& proposal_id); //reset current internal qc
 
-      bool evaluate_quorum(const extended_schedule& es, const boost::dynamic_bitset<>& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
+      bool evaluate_quorum(const extended_schedule& es, const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
 
       // qc.quorum_met has to be updated by the caller (if it wants to) based on the return value of this method
       bool is_quorum_met(const quorum_certificate& qc, const extended_schedule& schedule, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
