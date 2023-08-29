@@ -82,8 +82,8 @@ namespace eosio::hotstuff {
 
    private:
       friend struct fc::reflector<quorum_certificate>;
-      fc::sha256                          proposal_id = NULL_PROPOSAL_ID;
-      hs_bitset                   active_finalizers; //bitset encoding, following canonical order
+      fc::sha256                          proposal_id;
+      hs_bitset                           active_finalizers; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
       bool                                quorum_met = false; // not serialized across network
    };
@@ -183,12 +183,12 @@ namespace eosio::hotstuff {
       };
 
       bool _chained_mode = false;
-      block_id_type _block_exec = NULL_BLOCK_ID;
-      block_id_type _pending_proposal_block = NULL_BLOCK_ID;
-      fc::sha256 _b_leaf = NULL_PROPOSAL_ID;
-      fc::sha256 _b_lock = NULL_PROPOSAL_ID;
-      fc::sha256 _b_exec = NULL_PROPOSAL_ID;
-      fc::sha256 _b_finality_violation = NULL_PROPOSAL_ID;
+      block_id_type _block_exec;
+      block_id_type _pending_proposal_block;
+      fc::sha256 _b_leaf;
+      fc::sha256 _b_lock;
+      fc::sha256 _b_exec;
+      fc::sha256 _b_finality_violation;
       quorum_certificate _high_qc;
       quorum_certificate _current_qc;
       uint32_t _v_height = 0;
