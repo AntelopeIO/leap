@@ -145,7 +145,7 @@ try:
     # min and max are subjective, just assigned to make sure that many small changes in nodeos don't 
     # result in the test not correctly validating behavior
     if count < 12 or count > 24:
-        strMsg="little" if count < 20 else "much"
+        strMsg="little" if count < 25 else "much"
         Utils.cmdError("Was able to send %d store actions which was too %s" % (count, strMsg))
         errorExit("Incorrect number of store actions sent")
 
