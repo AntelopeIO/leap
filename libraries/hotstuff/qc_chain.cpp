@@ -161,11 +161,11 @@ namespace eosio { namespace hotstuff {
       throw std::runtime_error("qc_chain internal error: finalizer not found");
    }
 
-   digest_type qc_chain::get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc){
+/*   digest_type qc_chain::get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc){
       digest_type h1 = digest_type::hash( std::make_pair( block_id, phase_counter ) );
       digest_type h2 = digest_type::hash( std::make_pair( h1, final_on_qc ) );
       return h2;
-   }
+   }*/
 
    std::vector<hs_proposal_message> qc_chain::get_qc_chain(const fc::sha256& proposal_id) {
       std::vector<hs_proposal_message> ret_arr;
@@ -269,7 +269,7 @@ namespace eosio { namespace hotstuff {
       //
       //if (proposal.justify.proposal_id != NULL_PROPOSAL_ID) justification_agg_sig = proposal.justify.active_agg_sig;
 
-      digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
+      digest_type digest = proposal.get_proposal_id(); //get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
 
       std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
 
@@ -298,6 +298,9 @@ namespace eosio { namespace hotstuff {
         _my_producers(std::move(my_producers)),
         _logger(logger)
    {
+
+      //todo : read safety + liveness state
+
       fc_dlog(_logger, " === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
    }
 
@@ -330,7 +333,7 @@ namespace eosio { namespace hotstuff {
    hs_vote_message qc_chain::sign_proposal(const hs_proposal_message & proposal, name finalizer){
       _v_height = proposal.get_view_number();
 
-      digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
+      digest_type digest = proposal.get_proposal_id(); //get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
 
       std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
 #warning use appropriate private key for each producer
@@ -466,6 +469,8 @@ namespace eosio { namespace hotstuff {
       //update internal state
       update(proposal);
 
+      //todo : write safety state (must be synchronous)
+
       for (auto &msg : msgs) {
          send_hs_vote_msg(msg);
       }
@@ -545,6 +550,8 @@ namespace eosio { namespace hotstuff {
                _pending_proposal_block = NULL_BLOCK_ID;
                _b_leaf = proposal_candidate.proposal_id;
 
+               //todo : ?? write liveness state (can be asynchronous)
+
                send_hs_proposal_msg(proposal_candidate);
                fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
             }
@@ -612,6 +619,8 @@ namespace eosio { namespace hotstuff {
 
          _pending_proposal_block = NULL_BLOCK_ID;
          _b_leaf = proposal_candidate.proposal_id;
+
+         //todo : ?? write liveness state (can be asynchronous)
 
          send_hs_proposal_msg(proposal_candidate);
 
@@ -724,6 +733,8 @@ namespace eosio { namespace hotstuff {
          _high_qc = high_qc;
          _b_leaf = _high_qc.proposal_id;
 
+         //todo : write liveness state (can be asynchronous)
+
          fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
          return true;
       } else {
@@ -744,6 +755,8 @@ namespace eosio { namespace hotstuff {
             _high_qc = high_qc;
             _high_qc.quorum_met = true;
             _b_leaf = _high_qc.proposal_id;
+
+            //todo : write liveness state (can be asynchronous)
 
             fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
             return true;
@@ -996,7 +1009,9 @@ namespace eosio { namespace hotstuff {
             }
          }
 
-         commit(b);
+         commit(b); //todo : ensure that block is marked irreversible / lib is updated etc.
+
+         //todo : write liveness state (can be asynchronous)
 
          fc_tlog(_logger, " === last executed proposal : #${block_num} ${block_id}", ("block_num", b.block_num())("block_id", b.block_id));
 

@@ -30,6 +30,18 @@ namespace eosio::hotstuff {
    using namespace boost::multi_index;
    using namespace eosio::chain;
 
+/*
+
+   static void read_file(){
+
+   }
+
+   static void write_file(){
+
+   }
+
+*/
+   
    // Concurrency note: qc_chain is a single-threaded and lock-free decision engine.
    //                   All thread synchronization, if any, is external.
    class qc_chain {
@@ -65,7 +77,7 @@ namespace eosio::hotstuff {
 
       fc::unsigned_int update_bitset(fc::unsigned_int value, name finalizer);
 
-      digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc); //get digest to sign from proposal data
+      //digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc); //get digest to sign from proposal data
 
       void reset_qc(const fc::sha256& proposal_id); //reset current internal qc
 

@@ -48,6 +48,7 @@ BOOST_AUTO_TEST_CASE(view_number_tests) try {
   BOOST_CHECK_EQUAL(vn_2 < vn_3, true);
   BOOST_CHECK_EQUAL(vn_3 < vn_4, true);
   BOOST_CHECK_EQUAL(vn_4 < vn_5, true);
+  BOOST_CHECK_EQUAL(vn_4 <= vn_5, true);
 
   //test operators == false
   BOOST_CHECK_EQUAL(vn_1 >= vn_2, false);
