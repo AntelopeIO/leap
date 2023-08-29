@@ -48,7 +48,7 @@ namespace eosio::chain {
    struct finalizer_authority {
 
       std::string  description;
-      uint64_t     fweight; // weight that this finalizer's vote has for meeting fthreshold
+      uint64_t     fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
       fc::crypto::blslib::bls_public_key  public_key;
 
       auto to_shared(chainbase::allocator<char> alloc) const {

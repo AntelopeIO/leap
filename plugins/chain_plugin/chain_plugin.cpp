@@ -1128,7 +1128,6 @@ void chain_plugin_impl::plugin_startup()
 { try {
    EOS_ASSERT( chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions, plugin_config_exception,
                "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions" );
-   EOS_ASSERT( _chain_pacemaker, plugin_config_exception, "chain_pacemaker not initialization" );
    try {
       auto shutdown = [](){ return app().quit(); };
       auto check_shutdown = [](){ return app().is_quiting(); };
