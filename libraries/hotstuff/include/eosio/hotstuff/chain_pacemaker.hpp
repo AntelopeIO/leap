@@ -11,11 +11,14 @@ namespace eosio::chain {
 
 namespace eosio::hotstuff {
 
+   const std::string DEFAULT_SAFETY_STATE_FILE = "hs_tm_safety_state"; //todo : reversible blocks folder
+   const std::string DEFAULT_LIVENESS_STATE_FILE = "hs_tm_liveness_state"; //todo : reversible blocks folder
+
    class chain_pacemaker : public base_pacemaker {
    public:
 
       //class-specific functions
-
+   
       chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger);
 
       void beat();

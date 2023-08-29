@@ -12,21 +12,6 @@
 
 using std::cout;
 
-/*struct safety_state {
-
-  eosio::chain::view_number v_height;
-  fc::sha256 b_lock;
-
-};
-
-struct liveness_state {
-
-  eosio::chain::quorum_certificate high_qc;
-  fc::sha256 b_leaf;
-  fc::sha256 b_exec;
-
-};
-*/
 BOOST_AUTO_TEST_SUITE(test_hotstuff_state)
 
 const std::string file_path_1("temp_hs_safety");
@@ -49,20 +34,16 @@ BOOST_AUTO_TEST_CASE(write_safety_state_to_file) try {
 
   fc::sha256 b_lock = eosio::hotstuff::get_digest_to_sign(hspm_2.block_id, hspm_2.phase_counter, hspm_2.final_on_qc);
 
-  eosio::chain::safety_state ss(v_height, b_lock);
+  eosio::chain::safety_state ss;
 
-  // writing
-  fc::cfile pfile;
-  pfile.set_file_path(file_path_1);
-  pfile.open(fc::cfile::truncate_rw_mode);
-  auto data = fc::raw::pack(ss);
-  pfile.write(data.data(), data.size());
-  pfile.close();
+  ss.set_v_height(eosio::chain::name{""}, v_height);
+  ss.set_b_lock(eosio::chain::name{""}, b_lock);
+  
+  eosio::hotstuff::write_state(file_path_1, ss);
 
   bool ok = true;
 
   BOOST_CHECK_EQUAL(ok, true);
-
 
 } FC_LOG_AND_RETHROW();
 
@@ -70,13 +51,7 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
 
   eosio::chain::safety_state ss;
 
-  // reading
-  fc::cfile pfile;
-  pfile.set_file_path(file_path_1);
-  pfile.open("rb");
-  auto ds = pfile.create_datastream();
-  fc::raw::unpack(ds, ss);
-  pfile.close();
+  eosio::hotstuff::read_state(file_path_1, ss);
 
   std::remove(file_path_1.c_str());
 
@@ -96,15 +71,15 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
 
   fc::sha256 b_lock = eosio::hotstuff::get_digest_to_sign(hspm_2.block_id, hspm_2.phase_counter, hspm_2.final_on_qc);
 
-  bool ok1 = ss.v_height == v_height;
-  bool ok2 = ss.b_lock == b_lock;
+  //std::pair<eosio::chain::view_number, fc::sha256> ss = get_safety_state(eosio::chain::name{""});
+
+  bool ok1 = ss.get_v_height(eosio::chain::name{""}) == v_height;
+  bool ok2 = ss.get_b_lock(eosio::chain::name{""}) == b_lock;
 
   BOOST_CHECK_EQUAL(ok1, true);
   BOOST_CHECK_EQUAL(ok2, true);
 
 } FC_LOG_AND_RETHROW();
-
-
 
 BOOST_AUTO_TEST_CASE(write_liveness_state_to_file) try {
 
@@ -132,18 +107,11 @@ BOOST_AUTO_TEST_CASE(write_liveness_state_to_file) try {
 
   eosio::chain::liveness_state ls(high_qc, b_leaf, b_exec);
 
-  // writing
-  fc::cfile pfile;
-  pfile.set_file_path(file_path_2);
-  pfile.open(fc::cfile::truncate_rw_mode);
-  auto data = fc::raw::pack(ls);
-  pfile.write(data.data(), data.size());
-  pfile.close();
+  eosio::hotstuff::write_state(file_path_2, ls);
 
   bool ok = true;
 
   BOOST_CHECK_EQUAL(ok, true);
-
 
 } FC_LOG_AND_RETHROW();
 
@@ -151,13 +119,7 @@ BOOST_AUTO_TEST_CASE(read_liveness_state_from_file) try {
 
   eosio::chain::liveness_state ls;
 
-  // reading
-  fc::cfile pfile;
-  pfile.set_file_path(file_path_2);
-  pfile.open("rb");
-  auto ds = pfile.create_datastream();
-  fc::raw::unpack(ds, ls);
-  pfile.close();
+  eosio::hotstuff::read_state(file_path_2, ls);
 
   std::remove(file_path_2.c_str());
 

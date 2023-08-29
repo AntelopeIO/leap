@@ -96,14 +96,14 @@ namespace eosio { namespace hotstuff {
 
    void qc_chain::get_state(finalizer_state& fs) const {
       fs.chained_mode           = _chained_mode;
-      fs.b_leaf                 = _b_leaf;
-      fs.b_lock                 = _b_lock;
-      fs.b_exec                 = _b_exec;
+      fs.b_leaf                 = _liveness_state.b_leaf;
+      fs.b_lock                 = _safety_state.get_b_lock();
+      fs.b_exec                 = _liveness_state.b_exec;
       fs.b_finality_violation   = _b_finality_violation;
       fs.block_exec             = _block_exec;
       fs.pending_proposal_block = _pending_proposal_block;
-      fs.v_height               = _v_height;
-      fs.high_qc                = _high_qc;
+      fs.v_height               = _safety_state.get_v_height();
+      fs.high_qc                = _liveness_state.high_qc;
       fs.current_qc             = _current_qc;
       fs.schedule               = _schedule;
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
@@ -187,9 +187,9 @@ namespace eosio { namespace hotstuff {
    hs_proposal_message qc_chain::new_proposal_candidate(const block_id_type& block_id, uint8_t phase_counter) {
       hs_proposal_message b_new;
       b_new.block_id = block_id;
-      b_new.parent_id =  _b_leaf;
+      b_new.parent_id =  _liveness_state.b_leaf;
       b_new.phase_counter = phase_counter;
-      b_new.justify = _high_qc; //or null if no _high_qc upon activation or chain launch
+      b_new.justify = _liveness_state.high_qc; //or null if no _liveness_state.high_qc upon activation or chain launch
       if (b_new.justify.proposal_id != NULL_PROPOSAL_ID){
          std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(b_new.justify.proposal_id);
          size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
@@ -235,7 +235,7 @@ namespace eosio { namespace hotstuff {
    hs_new_block_message qc_chain::new_block_candidate(const block_id_type& block_id) {
       hs_new_block_message b;
       b.block_id = block_id;
-      b.justify = _high_qc; //or null if no _high_qc upon activation or chain launch
+      b.justify = _liveness_state.high_qc; //or null if no _liveness_state.high_qc upon activation or chain launch
       return b;
    }
 
@@ -292,7 +292,7 @@ namespace eosio { namespace hotstuff {
    }
 
 
-   qc_chain::qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, fc::logger& logger)
+   qc_chain::qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, fc::logger& logger, std::string safety_state_file, std::string liveness_state_file)
       : _id(id),
         _pacemaker(pacemaker),
         _my_producers(std::move(my_producers)),
@@ -300,6 +300,16 @@ namespace eosio { namespace hotstuff {
    {
 
       //todo : read safety + liveness state
+
+      if (safety_state_file!=std::string()){
+         eosio::hotstuff::read_state(safety_state_file, _safety_state);
+         _safety_state_file = safety_state_file;
+      }
+
+      if (liveness_state_file!=std::string()){
+         eosio::hotstuff::read_state(liveness_state_file, _liveness_state);
+         _liveness_state_file = liveness_state_file;
+      }
 
       fc_dlog(_logger, " === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
    }
@@ -331,7 +341,8 @@ namespace eosio { namespace hotstuff {
    }
 
    hs_vote_message qc_chain::sign_proposal(const hs_proposal_message & proposal, name finalizer){
-      _v_height = proposal.get_view_number();
+
+      _safety_state.set_v_height(finalizer, proposal.get_view_number());
 
       digest_type digest = proposal.get_proposal_id(); //get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
 
@@ -469,7 +480,7 @@ namespace eosio { namespace hotstuff {
       //update internal state
       update(proposal);
 
-      //todo : write safety state (must be synchronous)
+      write_state(_safety_state_file , _safety_state);
 
       for (auto &msg : msgs) {
          send_hs_vote_msg(msg);
@@ -548,12 +559,13 @@ namespace eosio { namespace hotstuff {
                reset_qc(proposal_candidate.proposal_id);
                fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
                _pending_proposal_block = NULL_BLOCK_ID;
-               _b_leaf = proposal_candidate.proposal_id;
+               _liveness_state.b_leaf = proposal_candidate.proposal_id;
 
-               //todo : ?? write liveness state (can be asynchronous)
+               //todo : asynchronous?
+               write_state(_liveness_state_file , _liveness_state);
 
                send_hs_proposal_msg(proposal_candidate);
-               fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
+               fc_tlog(_logger, " === ${id} _liveness_state.b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
             }
          }
       }
@@ -589,7 +601,7 @@ namespace eosio { namespace hotstuff {
       //
       //   We are the leader, and we got a block_id from a proposer, but
       //     we should probably do something with the justify QC that
-      //     comes with it (which is the _high_qc of the proposer (?))
+      //     comes with it (which is the _liveness_state.high_qc of the proposer (?))
       //
       // ------------------------------------------------------------------
 
@@ -618,13 +630,14 @@ namespace eosio { namespace hotstuff {
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_new_block)", ("id", _id));
 
          _pending_proposal_block = NULL_BLOCK_ID;
-         _b_leaf = proposal_candidate.proposal_id;
+         _liveness_state.b_leaf = proposal_candidate.proposal_id;
 
-         //todo : ?? write liveness state (can be asynchronous)
+         //todo : asynchronous?
+         write_state(_liveness_state_file , _liveness_state);
 
          send_hs_proposal_msg(proposal_candidate);
 
-         fc_tlog(_logger, " === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
+         fc_tlog(_logger, " === ${id} _liveness_state.b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
       }
    }
 
@@ -728,17 +741,18 @@ namespace eosio { namespace hotstuff {
 
       // if new high QC is higher than current, update to new
 
-      if (_high_qc.proposal_id == NULL_PROPOSAL_ID){
+      if (_liveness_state.high_qc.proposal_id == NULL_PROPOSAL_ID){
 
-         _high_qc = high_qc;
-         _b_leaf = _high_qc.proposal_id;
+         _liveness_state.high_qc = high_qc;
+         _liveness_state.b_leaf = _liveness_state.high_qc.proposal_id;
 
-         //todo : write liveness state (can be asynchronous)
+         //todo : asynchronous?
+         write_state(_liveness_state_file , _liveness_state);
 
-         fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
+         fc_tlog(_logger, " === ${id} _liveness_state.b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _liveness_state.high_qc.proposal_id)("id", _id));
          return true;
       } else {
-         const hs_proposal_message *old_high_qc_prop = get_proposal( _high_qc.proposal_id );
+         const hs_proposal_message *old_high_qc_prop = get_proposal( _liveness_state.high_qc.proposal_id );
          const hs_proposal_message *new_high_qc_prop = get_proposal( high_qc.proposal_id );
          if (old_high_qc_prop == nullptr)
             return false;
@@ -752,13 +766,14 @@ namespace eosio { namespace hotstuff {
             //high_qc.quorum_met = true;
 
             fc_tlog(_logger, " === updated high qc, now is : #${view_number}  ${proposal_id}", ("view_number", new_high_qc_prop->get_view_number())("proposal_id", new_high_qc_prop->proposal_id));
-            _high_qc = high_qc;
-            _high_qc.quorum_met = true;
-            _b_leaf = _high_qc.proposal_id;
+            _liveness_state.high_qc = high_qc;
+            _liveness_state.high_qc.quorum_met = true;
+            _liveness_state.b_leaf = _liveness_state.high_qc.proposal_id;
 
-            //todo : write liveness state (can be asynchronous)
+            //todo : asynchronous?
+            write_state(_liveness_state_file , _liveness_state);
 
-            fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.proposal_id)("id", _id));
+            fc_tlog(_logger, " === ${id} _liveness_state.b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _liveness_state.high_qc.proposal_id)("id", _id));
             return true;
          }
       }
@@ -788,7 +803,7 @@ namespace eosio { namespace hotstuff {
 
          hs_new_view_message new_view;
 
-         new_view.high_qc = _high_qc;
+         new_view.high_qc = _liveness_state.high_qc;
 
          send_hs_new_view_msg(new_view);
       }
@@ -806,7 +821,7 @@ namespace eosio { namespace hotstuff {
 
       fc::sha256 upcoming_commit;
 
-      if (proposal.justify.proposal_id == NULL_PROPOSAL_ID && _b_lock == NULL_PROPOSAL_ID)
+      if (proposal.justify.proposal_id == NULL_PROPOSAL_ID && _safety_state.get_b_lock() == NULL_PROPOSAL_ID)
          final_on_qc_check = true; //if chain just launched or feature just activated
       else {
 
@@ -841,23 +856,23 @@ namespace eosio { namespace hotstuff {
          }
       }
 
-      if (proposal.get_view_number() > _v_height) {
+      if (proposal.get_view_number() > _safety_state.get_v_height()) {
          monotony_check = true;
       }
 
-      if (_b_lock != NULL_PROPOSAL_ID){
+      if (_safety_state.get_b_lock() != NULL_PROPOSAL_ID){
 
          //Safety check : check if this proposal extends the chain I'm locked on
-         if (extends(proposal.proposal_id, _b_lock)) {
+         if (extends(proposal.proposal_id, _safety_state.get_b_lock())) {
             safety_check = true;
          }
 
          //Liveness check : check if the height of this proposal's justification is higher than the height of the proposal I'm locked on. This allows restoration of liveness if a replica is locked on a stale block.
-         if (proposal.justify.proposal_id == NULL_PROPOSAL_ID && _b_lock == NULL_PROPOSAL_ID) {
+         if (proposal.justify.proposal_id == NULL_PROPOSAL_ID && _safety_state.get_b_lock() == NULL_PROPOSAL_ID) {
             liveness_check = true; //if there is no justification on the proposal and I am not locked on anything, means the chain just launched or feature just activated
          } else {
-            const hs_proposal_message *b_lock = get_proposal( _b_lock );
-            EOS_ASSERT( b_lock != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", _b_lock) );
+            const hs_proposal_message *b_lock = get_proposal( _safety_state.get_b_lock() );
+            EOS_ASSERT( b_lock != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", _safety_state.get_b_lock()) );
             const hs_proposal_message *prop_justification = get_proposal( proposal.justify.proposal_id );
             EOS_ASSERT( prop_justification != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", proposal.justify.proposal_id) );
 
@@ -925,8 +940,8 @@ namespace eosio { namespace hotstuff {
 
       size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
 
-      const hs_proposal_message *b_lock = get_proposal( _b_lock );
-      EOS_ASSERT( b_lock != nullptr || _b_lock == NULL_PROPOSAL_ID , chain_exception, "expected hs_proposal ${id} not found", ("id", _b_lock) );
+      const hs_proposal_message *b_lock = get_proposal( _safety_state.get_b_lock() );
+      EOS_ASSERT( b_lock != nullptr || _safety_state.get_b_lock() == NULL_PROPOSAL_ID , chain_exception, "expected hs_proposal ${id} not found", ("id", _safety_state.get_b_lock()) );
 
       //fc_tlog(_logger, " === update_high_qc : proposal.justify ===");
       update_high_qc(proposal.justify);
@@ -952,7 +967,7 @@ namespace eosio { namespace hotstuff {
 
       fc_tlog(_logger, " === ${id} _b_lock ${_b_lock} b_1 height ${b_1_height}",
                      ("id", _id)
-                     ("_b_lock", _b_lock)
+                     ("_b_lock", _safety_state.get_b_lock())
                      ("b_1_height", b_1.block_num())
                      ("b_1_phase", b_1.phase_counter));
 
@@ -962,10 +977,13 @@ namespace eosio { namespace hotstuff {
                         ("b_lock_phase", b_lock->phase_counter));
       }
 
-      if (_b_lock == NULL_PROPOSAL_ID || b_1.get_view_number() > b_lock->get_view_number()){
+      if (_safety_state.get_b_lock() == NULL_PROPOSAL_ID || b_1.get_view_number() > b_lock->get_view_number()){
 
          fc_tlog(_logger, "setting _b_lock to ${proposal_id}", ("proposal_id",b_1.proposal_id ));
-         _b_lock = b_1.proposal_id; //commit phase on b1
+
+         for (auto p : _my_producers){
+            _safety_state.set_b_lock(p, b_1.proposal_id); //commit phase on b1
+         }
 
          fc_tlog(_logger, " === ${id} _b_lock updated : ${proposal_id}", ("proposal_id", b_1.proposal_id)("id", _id));
       }
@@ -988,10 +1006,10 @@ namespace eosio { namespace hotstuff {
       //direct parent relationship verification
       if (b_2.parent_id == b_1.proposal_id && b_1.parent_id == b.proposal_id){
 
-         if (_b_exec!= NULL_PROPOSAL_ID){
+         if (_liveness_state.b_exec!= NULL_PROPOSAL_ID){
 
-            const hs_proposal_message *b_exec = get_proposal( _b_exec );
-            EOS_ASSERT( b_exec != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", _b_exec) );
+            const hs_proposal_message *b_exec = get_proposal( _liveness_state.b_exec );
+            EOS_ASSERT( b_exec != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", _liveness_state.b_exec) );
 
             if (b_exec->get_view_number() >= b.get_view_number() && b_exec->proposal_id != b.proposal_id){
 
@@ -1011,11 +1029,12 @@ namespace eosio { namespace hotstuff {
 
          commit(b); //todo : ensure that block is marked irreversible / lib is updated etc.
 
-         //todo : write liveness state (can be asynchronous)
+         //todo : asynchronous?
+         write_state(_liveness_state_file , _liveness_state);
 
          fc_tlog(_logger, " === last executed proposal : #${block_num} ${block_id}", ("block_num", b.block_num())("block_id", b.block_id));
 
-         _b_exec = b.proposal_id; //decide phase on b
+         _liveness_state.b_exec = b.proposal_id; //decide phase on b
          _block_exec = b.block_id;
 
          gc_proposals( b.get_key()-1);
@@ -1080,11 +1099,11 @@ namespace eosio { namespace hotstuff {
 
       bool exec_height_check = false;
 
-      const hs_proposal_message *last_exec_prop = get_proposal( _b_exec );
-      EOS_ASSERT( last_exec_prop != nullptr || _b_exec == NULL_PROPOSAL_ID, chain_exception, "expected hs_proposal ${id} not found", ("id", _b_exec) );
+      const hs_proposal_message *last_exec_prop = get_proposal( _liveness_state.b_exec );
+      EOS_ASSERT( last_exec_prop != nullptr || _liveness_state.b_exec == NULL_PROPOSAL_ID, chain_exception, "expected hs_proposal ${id} not found", ("id", _liveness_state.b_exec) );
 
       if (last_exec_prop != nullptr) {
-         fc_tlog(_logger, " === _b_exec proposal #${block_num} ${proposal_id} block_id : ${block_id} phase : ${phase_counter} parent_id : ${parent_id}",
+         fc_tlog(_logger, " === _liveness_state.b_exec proposal #${block_num} ${proposal_id} block_id : ${block_id} phase : ${phase_counter} parent_id : ${parent_id}",
               ("block_num", last_exec_prop->block_num())
               ("proposal_id", last_exec_prop->proposal_id)
               ("block_id", last_exec_prop->block_id)
@@ -1097,12 +1116,12 @@ namespace eosio { namespace hotstuff {
               ("proposal_id_2", proposal.block_num())
               ("phase_counter_2", proposal.phase_counter));
       } else {
-         fc_tlog(_logger, " === _b_exec proposal is null vs proposal ${proposal_id_2} ${phase_counter_2} ",
+         fc_tlog(_logger, " === _liveness_state.b_exec proposal is null vs proposal ${proposal_id_2} ${phase_counter_2} ",
               ("proposal_id_2", proposal.block_num())
               ("phase_counter_2", proposal.phase_counter));
       }
 
-      if (_b_exec == NULL_PROPOSAL_ID)
+      if (_liveness_state.b_exec == NULL_PROPOSAL_ID)
          exec_height_check = true;
       else
          exec_height_check = last_exec_prop->get_view_number() < proposal.get_view_number();

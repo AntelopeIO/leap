@@ -102,7 +102,7 @@ namespace eosio { namespace hotstuff {
 
    chain_pacemaker::chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger)
       : _chain(chain),
-        _qc_chain("default"_n, this, std::move(my_producers), logger),
+        _qc_chain("default"_n, this, std::move(my_producers), logger, DEFAULT_SAFETY_STATE_FILE, DEFAULT_LIVENESS_STATE_FILE),
         _logger(logger)
    {
    }

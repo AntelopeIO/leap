@@ -18,6 +18,8 @@
 
 #include <boost/dynamic_bitset.hpp>
 
+#include <fc/io/cfile.hpp>
+
 #include <exception>
 #include <stdexcept>
 
@@ -30,17 +32,33 @@ namespace eosio::hotstuff {
    using namespace boost::multi_index;
    using namespace eosio::chain;
 
-/*
+   template <typename StateObj>
+   static void read_state(const std::string file_path, StateObj& s){
 
-   static void read_file(){
-
+      if (file_path != std::string()){
+         fc::cfile pfile;
+         pfile.set_file_path(file_path);
+         pfile.open("rb");
+         auto ds = pfile.create_datastream();
+         fc::raw::unpack(ds, s);
+         pfile.close();
+      }
+      
    }
 
-   static void write_file(){
+   template <typename StateObj>
+   static void write_state(const std::string file_path, const StateObj s){
+
+      if (file_path != std::string()){
+        fc::cfile pfile;
+        pfile.set_file_path(file_path);
+        pfile.open(fc::cfile::truncate_rw_mode);
+        auto data = fc::raw::pack(s);
+        pfile.write(data.data(), data.size());
+        pfile.close();
+      }
 
    }
-
-*/
    
    // Concurrency note: qc_chain is a single-threaded and lock-free decision engine.
    //                   All thread synchronization, if any, is external.
@@ -49,7 +67,7 @@ namespace eosio::hotstuff {
 
       qc_chain() = delete;
 
-      qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, fc::logger& logger);
+      qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, fc::logger& logger, std::string safety_state_file, std::string liveness_state_file);
 
       uint64_t get_state_version() const { return _state_version; } // calling this w/ thread sync is optional
 
@@ -139,13 +157,22 @@ namespace eosio::hotstuff {
       bool _chained_mode = false;
       block_id_type _block_exec = NULL_BLOCK_ID;
       block_id_type _pending_proposal_block = NULL_BLOCK_ID;
-      fc::sha256 _b_leaf = NULL_PROPOSAL_ID;
+
+/*      fc::sha256 _b_leaf = NULL_PROPOSAL_ID;
       fc::sha256 _b_lock = NULL_PROPOSAL_ID;
       fc::sha256 _b_exec = NULL_PROPOSAL_ID;
-      fc::sha256 _b_finality_violation = NULL_PROPOSAL_ID;
+
       eosio::chain::quorum_certificate _high_qc;
-      eosio::chain::quorum_certificate _current_qc;
       eosio::chain::view_number _v_height;
+*/
+      eosio::chain::safety_state _safety_state;
+      eosio::chain::liveness_state _liveness_state;
+
+      std::string _safety_state_file;
+      std::string _liveness_state_file;
+
+      fc::sha256 _b_finality_violation = NULL_PROPOSAL_ID;
+      eosio::chain::quorum_certificate _current_qc;
       eosio::chain::extended_schedule _schedule;
       base_pacemaker* _pacemaker = nullptr;
       std::set<name> _my_producers;
