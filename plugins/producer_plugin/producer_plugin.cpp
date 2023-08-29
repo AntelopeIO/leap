@@ -1326,8 +1326,6 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
 
    _snapshot_scheduler.set_db_path(_snapshots_dir);
    _snapshot_scheduler.set_snapshots_path(_snapshots_dir);
-
-   chain_plug->create_pacemaker(_producers);
 }
 
 void producer_plugin::plugin_initialize(const boost::program_options::variables_map& options) {
@@ -1359,6 +1357,8 @@ void producer_plugin_impl::plugin_startup() {
 
          EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
                     "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
+
+         chain_plug->create_pacemaker(_producers);
 
          _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
          _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));

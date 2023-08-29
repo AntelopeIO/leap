@@ -105,18 +105,13 @@ namespace eosio { namespace hotstuff {
         _qc_chain("default"_n, this, std::move(my_producers), logger),
         _logger(logger)
    {
-   }
-
-   // Called internally by the chain_pacemaker to decide whether it should do something or not, based on feature activation.
-   // Only methods called by the outside need to call this; methods called by qc_chain only don't need to check for enable().
-   bool chain_pacemaker::enabled() const {
-      return _chain->is_builtin_activated( builtin_protocol_feature_t::instant_finality );
+      _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
+         on_accepted_block( blk );
+      } );
+      _head_block_state = chain->head_block_state();
    }
 
    void chain_pacemaker::get_state(finalizer_state& fs) const {
-      if (! enabled())
-         return;
-
       // lock-free state version check
       uint64_t current_state_version = _qc_chain.get_state_version();
       if (_state_cache_version != current_state_version) {
@@ -139,12 +134,6 @@ namespace eosio { namespace hotstuff {
 
       std::shared_lock sl(_state_cache_mutex); // lock cache for reading
       fs = _state_cache;
-   }
-
-   name chain_pacemaker::get_proposer() {
-      const block_state_ptr& hbs = _chain->head_block_state();
-      name n = hbs->header.producer;
-      return n;
    }
 
    name chain_pacemaker::debug_leader_remap(name n) {
@@ -212,9 +201,23 @@ namespace eosio { namespace hotstuff {
       return n;
    }
 
+   // called from main thread
+   void chain_pacemaker::on_accepted_block( const block_state_ptr& blk ) {
+      std::scoped_lock g( _chain_state_mutex );
+      _head_block_state = blk;
+      // TODO only update local cache if changed, check version or use !=
+      _finalizer_set = _chain->get_finalizers(); // TODO get from chainbase or from block_state
+   }
+
+   name chain_pacemaker::get_proposer() {
+      std::scoped_lock g( _chain_state_mutex );
+      return _head_block_state->header.producer;
+   }
+
    name chain_pacemaker::get_leader() {
-      const block_state_ptr& hbs = _chain->head_block_state();
-      name n = hbs->header.producer;
+      std::unique_lock g( _chain_state_mutex );
+      name n = _head_block_state->header.producer;
+      g.unlock();
 
       // FIXME/REMOVE: testing leader/proposer separation
       n = debug_leader_remap(n);
@@ -223,9 +226,10 @@ namespace eosio { namespace hotstuff {
    }
 
    name chain_pacemaker::get_next_leader() {
-      const block_state_ptr& hbs = _chain->head_block_state();
-      block_timestamp_type next_block_time = hbs->header.timestamp.next();
-      producer_authority p_auth = hbs->get_scheduled_producer(next_block_time);
+      std::unique_lock g( _chain_state_mutex );
+      block_timestamp_type next_block_time = _head_block_state->header.timestamp.next();
+      producer_authority p_auth = _head_block_state->get_scheduled_producer(next_block_time);
+      g.unlock();
       name n = p_auth.producer_name;
 
       // FIXME/REMOVE: testing leader/proposer separation
@@ -249,10 +253,12 @@ namespace eosio { namespace hotstuff {
       // - list of string finalizer descriptions instead of eosio name now
       // - also return the keys for each finalizer, not just name/description so qc_chain can use them
       //
-      auto [threshold, finalizers] = _chain->get_finalizers();
+      std::unique_lock g( _chain_state_mutex );
+      const auto& fin_set = _chain->get_finalizers(); // TODO use
+      block_state_ptr hbs = _head_block_state;
+      g.unlock();
 
       // Old code: get eosio::name from the producer schedule
-      const block_state_ptr& hbs = _chain->head_block_state();
       const std::vector<producer_authority>& pa_list = hbs->active_schedule.producers;
       std::vector<name> pn_list;
       pn_list.reserve(pa_list.size());
@@ -263,17 +269,16 @@ namespace eosio { namespace hotstuff {
    }
 
    block_id_type chain_pacemaker::get_current_block_id() {
-      return _chain->head_block_id();
+      std::scoped_lock g( _chain_state_mutex );
+      return _head_block_state->id;
    }
 
    uint32_t chain_pacemaker::get_quorum_threshold() {
       return _quorum_threshold;
    }
 
+   // called from the main application thread
    void chain_pacemaker::beat() {
-      if (! enabled())
-         return;
-
       csc prof("beat");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
@@ -302,9 +307,6 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg) {
-      if (! enabled())
-         return;
-
       csc prof("prop");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
@@ -313,9 +315,6 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::on_hs_vote_msg(const hs_vote_message& msg) {
-      if (! enabled())
-         return;
-
       csc prof("vote");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
@@ -324,9 +323,6 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg) {
-      if (! enabled())
-         return;
-
       csc prof("nblk");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
@@ -335,9 +331,6 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::on_hs_new_view_msg(const hs_new_view_message& msg) {
-      if (! enabled())
-         return;
-
       csc prof("view");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();

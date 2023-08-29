@@ -30,6 +30,7 @@ namespace eosio { namespace chain {
    using hs_new_view_message_ptr = std::shared_ptr<hs_new_view_message>;
    using hs_new_block_message_ptr = std::shared_ptr<hs_new_block_message>;
    struct finalizer_authority;
+   struct finalizer_set;
 
    class authorization_manager;
 
@@ -307,8 +308,8 @@ namespace eosio { namespace chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
-         void set_finalizers( uint64_t fthreshold, vector<finalizer_authority> finalizers );
-         std::pair<uint64_t, vector<finalizer_authority>> get_finalizers() const;
+         void set_finalizers( const finalizer_set& fin_set );
+         const finalizer_set& get_finalizers() const;
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;

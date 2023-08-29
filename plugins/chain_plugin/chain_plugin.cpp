@@ -1128,7 +1128,6 @@ void chain_plugin_impl::plugin_startup()
 { try {
    EOS_ASSERT( chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions, plugin_config_exception,
                "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions" );
-   EOS_ASSERT( _chain_pacemaker, plugin_config_exception, "chain_pacemaker not initialization" );
    try {
       auto shutdown = [](){ return app().quit(); };
       auto check_shutdown = [](){ return app().is_quiting(); };
@@ -2692,7 +2691,9 @@ void chain_plugin::notify_hs_new_block_message( const hs_new_block_message& msg 
 };
 
 void chain_plugin::notify_hs_block_produced() {
-   my->_chain_pacemaker->beat();
+   if (chain().is_builtin_activated( builtin_protocol_feature_t::instant_finality )) {
+      my->_chain_pacemaker->beat();
+   }
 }
 
 fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_trace ) const {
