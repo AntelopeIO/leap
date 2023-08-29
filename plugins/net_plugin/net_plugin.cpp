@@ -4152,16 +4152,16 @@ namespace eosio {
             chain_plug->enable_accept_transactions();
          }
 
-         chain_plug->register_pacemaker_bcast_function(
-                 [my = shared_from_this()](const hs_message& s) {
-                    my->bcast_hs_message(s);
-                 } );
-
       } FC_LOG_AND_RETHROW()
    }
 
    void net_plugin_impl::plugin_startup() {
       fc_ilog( logger, "my node_id is ${id}", ("id", node_id ));
+
+      chain_plug->register_pacemaker_bcast_function(
+              [my = shared_from_this()](const hs_message& s) {
+                 my->bcast_hs_message(s);
+              } );
 
       producer_plug = app().find_plugin<producer_plugin>();
       set_producer_accounts(producer_plug->producer_accounts());
