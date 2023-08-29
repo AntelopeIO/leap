@@ -627,7 +627,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
       if( options.count( "chain-state-db-size-mb" )) {
          chain_config->state_size = options.at( "chain-state-db-size-mb" ).as<uint64_t>() * 1024 * 1024;
          EOS_ASSERT( chain_config->state_size <= 8ull * 1024 * 1024 * 1024 * 1024, plugin_config_exception,
-                     "The maximum supported size for the chain state db is 8TiB" );
+                     "The maximum supported size for the chain state db (chain-state-db-size-mb) is 8TiB" );
       }
 
       if( options.count( "chain-state-db-guard-size-mb" ))
