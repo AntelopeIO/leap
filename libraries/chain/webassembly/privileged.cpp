@@ -168,7 +168,6 @@ namespace eosio { namespace chain { namespace webassembly {
       uint64_t f_weight_sum = 0;
 
       for (const auto& f: finalizers) {
-         EOS_ASSERT( f.public_key.valid(), wasm_execution_error, "Finalizer set includes an invalid key" );
          f_weight_sum += f.fweight;
          unique_finalizer_keys.insert(f.public_key);
          unique_finalizers.insert(f.description);

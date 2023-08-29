@@ -839,11 +839,11 @@ public:
       chain::block_id_type       block_id        = chain::NULL_BLOCK_ID;
       fc::sha256                 parent_id       = chain::NULL_PROPOSAL_ID;
       fc::sha256                 final_on_qc     = chain::NULL_PROPOSAL_ID;
-      chain::quorum_certificate  justify;
+      chain::quorum_certificate_message  justify;
       uint8_t                    phase_counter   = 0;
       uint32_t                   block_height    = 0;
       uint64_t                   view_number     = 0;
-      explicit hs_complete_proposal_message( const chain::hs_proposal_message & p ) {
+      explicit hs_complete_proposal_message( const chain::hs_proposal_message& p ) {
          proposal_id    = p.proposal_id;
          block_id       = p.block_id;
          parent_id      = p.parent_id;
@@ -866,8 +866,8 @@ public:
       chain::block_id_type block_exec = chain::NULL_BLOCK_ID;
       chain::block_id_type pending_proposal_block = chain::NULL_BLOCK_ID;
       uint32_t v_height = 0;
-      chain::quorum_certificate high_qc;
-      chain::quorum_certificate current_qc;
+      chain::quorum_certificate_message high_qc;
+      chain::quorum_certificate_message current_qc;
       chain::extended_schedule schedule;
       vector<hs_complete_proposal_message> proposals;
    };
@@ -1032,10 +1032,8 @@ public:
    const controller& chain() const;
 
    void create_pacemaker(std::set<chain::account_name> my_producers);
-   void notify_hs_vote_message( const chain::hs_vote_message& msg );
-   void notify_hs_proposal_message( const chain::hs_proposal_message& msg );
-   void notify_hs_new_view_message( const chain::hs_new_view_message& msg );
-   void notify_hs_new_block_message( const chain::hs_new_block_message& msg );
+   void register_pacemaker_bcast_function(std::function<void(const chain::hs_message&)> bcast_hs_message);
+   void notify_hs_message( const chain::hs_message& msg );
    void notify_hs_block_produced();
 
    chain::chain_id_type get_chain_id() const;
