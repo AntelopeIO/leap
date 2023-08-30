@@ -50,6 +50,8 @@ try:
         extraNodeosArgs = ''.join([i+j for i,j in zip([' --plugin '] * len(args.plugin), args.plugin)])
     else:
         extraNodeosArgs = ''
+    # Custom topology is a line of singlely connected nodes from highest node number in sequence to lowest,
+    # the reverse of the usual TestHarness line topology.
     if cluster.launch(pnodes=pnodes, unstartedNodes=2, totalNodes=total_nodes, prodCount=prod_count, 
                       topo='./tests/p2p_sync_throttle_test_shape.json', delay=delay, 
                       extraNodeosArgs=extraNodeosArgs) is False:
@@ -97,6 +99,9 @@ try:
     throttlingNode = cluster.unstartedNodes[0]
     i = throttlingNode.cmd.index('--p2p-listen-endpoint')
     throttleListenAddr = throttlingNode.cmd[i+1]
+    # Using 40000 bytes per second to allow syncing of 10,000 byte blocks resulting from
+    # the trx generators in a reasonable amount of time, while still being reliably
+    # distinguishable from unthrottled throughput.
     throttlingNode.cmd[i+1] = throttlingNode.cmd[i+1] + ':40000B/s'
     throttleListenIP, throttleListenPort = throttleListenAddr.split(':')
     throttlingNode.cmd.append('--p2p-listen-endpoint')
@@ -108,12 +113,17 @@ try:
 
     throttledNode = cluster.getNode(3)
     time.sleep(15)
+    # Throttling node was offline during block generation and once online receives blocks as fast as possible while
+    # transmitting blocks to the next node in line at the above throttle setting.
     assert throttlingNode.waitForBlock(endLargeBlocksHeadBlock), f'wait for block {endLargeBlocksHeadBlock}  on throttled node timed out'
     endThrottlingSync = time.time()
+    # Throttled node is connecting to a listen port with a block sync throttle applied so it will receive
+    # blocks more slowly during syncing than an unthrottled node.
     assert throttledNode.waitForBlock(endLargeBlocksHeadBlock, timeout=90), f'Wait for block {endLargeBlocksHeadBlock} on sync node timed out'
     endThrottledSync = time.time()
     Print(f'Unthrottled sync time: {endThrottlingSync - clusterStart} seconds')
     Print(f'Throttled sync time: {endThrottledSync - clusterStart} seconds')
+    # 15 seconds chosen as the minimum reasonable sync time differential given the throttle and the average block size.
     assert endThrottledSync - clusterStart > endThrottlingSync - clusterStart + 15, 'Throttled sync time must be at least 15 seconds greater than unthrottled'
 
     testSuccessful=True
