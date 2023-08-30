@@ -1,11 +1,7 @@
 #pragma once
-#include <fc/crypto/elliptic.hpp>
-#include <fc/crypto/elliptic_r1.hpp>
-#include <fc/crypto/elliptic_webauthn.hpp>
 #include <fc/crypto/bls_signature.hpp>
 #include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
-#include <fc/static_variant.hpp>
 #include <bls12-381/bls12-381.hpp>
 
 namespace fc::crypto::blslib {
@@ -21,12 +17,14 @@ namespace fc::crypto::blslib {
          bls_public_key() = default;
          bls_public_key( bls_public_key&& ) = default;
          bls_public_key( const bls_public_key& ) = default;
-         explicit bls_public_key( const bls12_381::g1& pkey ){_pkey = pkey;}
+         explicit bls_public_key( const bls12_381::g1& pkey ) {_pkey = pkey;}
          explicit bls_public_key(const std::string& base58str);
 
-         bls_public_key& operator= (const bls_public_key& ) = default;
+         bls_public_key& operator=(const bls_public_key&) = default;
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
-         friend bool operator == ( const bls_public_key& p1, const bls_public_key& p2);
+         friend bool operator==(const bls_public_key& p1, const bls_public_key& p2);
+
+         auto operator<=>(const bls_public_key&) const = default;
 
          bls12_381::g1 _pkey;
 

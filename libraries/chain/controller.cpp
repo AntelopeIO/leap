@@ -27,6 +27,7 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/wasm_interface_collection.hpp>
+#include <eosio/chain/finalizer_set.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -263,6 +264,8 @@ struct controller_impl {
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
    unordered_map< builtin_protocol_feature_t, std::function<void(controller_impl&)>, enum_hash<builtin_protocol_feature_t> > protocol_feature_activation_handlers;
 
+   // TODO: This probably wants to be something better; store in chainbase and/or block_state
+   finalizer_set                current_finalizer_set;
 
    void pop_block() {
       auto prev = fork_db.get_block( head->header.previous );
@@ -1974,6 +1977,11 @@ struct controller_impl {
       pending->push();
    }
 
+   void set_finalizers_impl(const finalizer_set& fin_set) {
+      // TODO store in chainbase
+      current_finalizer_set = fin_set;
+   }
+
    /**
     *  This method is called from other threads. The controller_impl should outlive those threads.
     *  However, to avoid race conditions, it means that the behavior of this function should not change
@@ -3281,6 +3289,14 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
    return version;
 }
 
+void controller::set_finalizers( const finalizer_set& fin_set ) {
+   my->set_finalizers_impl(fin_set);
+}
+
+const finalizer_set& controller::get_finalizers() const {
+   return my->current_finalizer_set;
+}
+
 const producer_authority_schedule&    controller::active_producers()const {
    if( !(my->pending) )
       return  my->head->active_schedule;
@@ -3844,8 +3860,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::instant_finality>() {
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
-#warning host functions to set proposers, leaders, finalizers/validators
-      // FIXME/TODO: host functions to set proposers, leaders, finalizers/validators
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "set_finalizers" );
    } );
 }
 

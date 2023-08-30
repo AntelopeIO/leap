@@ -634,6 +634,7 @@ namespace eosio::hotstuff {
    }
 
    // Invoked when we could perhaps make a proposal to the network (or to ourselves, if we are the leader).
+   // Called from the main application thread
    void qc_chain::on_beat(){
 
       // Non-proposing leaders do not care about on_beat(), because leaders react to a block proposal
