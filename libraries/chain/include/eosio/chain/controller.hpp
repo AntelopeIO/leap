@@ -21,6 +21,8 @@ namespace eosio { namespace vm { class wasm_allocator; }}
 
 namespace eosio { namespace chain {
 
+   struct finalizer_set;
+
    class authorization_manager;
 
    namespace resource_limits {
@@ -291,6 +293,9 @@ namespace eosio { namespace chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
+         void set_finalizers( const finalizer_set& fin_set );
+         const finalizer_set& get_finalizers() const;
+
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
          bool skip_trx_checks()const;
@@ -366,7 +371,6 @@ namespace eosio { namespace chain {
          chainbase::database& mutable_db()const;
 
          std::unique_ptr<controller_impl> my;
-
    };
 
 } }  /// eosio::chain

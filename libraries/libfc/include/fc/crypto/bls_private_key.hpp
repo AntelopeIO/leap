@@ -1,5 +1,6 @@
 #pragma once
 #include <fc/crypto/bls_public_key.hpp>
+#include <fc/crypto/bls_signature.hpp>
 #include <fc/reflect/reflect.hpp>
 #include <fc/reflect/variant.hpp>
 
