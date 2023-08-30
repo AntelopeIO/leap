@@ -6,10 +6,11 @@
 #include <fc/crypto/bls_signature.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
+#include <boost/dynamic_bitset.hpp>
+
 namespace eosio::chain {
 
-   const block_id_type NULL_BLOCK_ID = block_id_type("00");
-   const fc::sha256 NULL_PROPOSAL_ID = fc::sha256("00");
+   using hs_bitset = boost::dynamic_bitset<uint32_t>;
 
    static digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc){
       digest_type h1 = digest_type::hash( std::make_pair( block_id, phase_counter ) );
@@ -56,28 +57,32 @@ namespace eosio::chain {
       std::map<name, fc::crypto::blslib::bls_public_key>   bls_pub_keys;
    };
 
-   struct quorum_certificate {
-      fc::sha256                          proposal_id = NULL_PROPOSAL_ID;
-      fc::unsigned_int                    active_finalizers = 0; //bitset encoding, following canonical order
+   struct quorum_certificate_message {
+      fc::sha256                          proposal_id;
+      std::vector<unsigned_int>           active_finalizers; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
+
+/*<<<<<<< HEAD
       bool                                quorum_met = false;
 
       auto operator<=>(const quorum_certificate&) const = default;
 
+=======
+>>>>>>> hotstuff_integration*/
    };
 
    struct hs_vote_message {
-      fc::sha256                          proposal_id = NULL_PROPOSAL_ID; //vote on proposal
+      fc::sha256                          proposal_id; //vote on proposal
       name                                finalizer;
       fc::crypto::blslib::bls_signature   sig;
    };
 
    struct hs_proposal_message {
-      fc::sha256                          proposal_id = NULL_PROPOSAL_ID; //vote on proposal
-      block_id_type                       block_id = NULL_BLOCK_ID;
-      fc::sha256                          parent_id = NULL_PROPOSAL_ID; //new proposal
-      fc::sha256                          final_on_qc = NULL_PROPOSAL_ID;
-      quorum_certificate                  justify; //justification
+      fc::sha256                          proposal_id; //vote on proposal
+      block_id_type                       block_id;
+      fc::sha256                          parent_id; //new proposal
+      fc::sha256                          final_on_qc;
+      quorum_certificate_message          justify; //justification
       uint8_t                             phase_counter = 0;
 
       digest_type get_proposal_id() const { return get_digest_to_sign(block_id, phase_counter, final_on_qc); };
@@ -90,26 +95,27 @@ namespace eosio::chain {
    };
 
    struct hs_new_block_message {
-      block_id_type        block_id = NULL_BLOCK_ID; //new proposal
-      quorum_certificate   justify; //justification
+      block_id_type                block_id; //new proposal
+      quorum_certificate_message   justify; //justification
    };
 
    struct hs_new_view_message {
-      quorum_certificate   high_qc; //justification
+      quorum_certificate_message   high_qc; //justification
    };
 
-   struct finalizer_state {
+   using hs_message = std::variant<hs_vote_message, hs_proposal_message, hs_new_block_message, hs_new_view_message>;
 
+   struct finalizer_state {
       bool chained_mode = false;
-      fc::sha256 b_leaf = NULL_PROPOSAL_ID;
-      fc::sha256 b_lock = NULL_PROPOSAL_ID;
-      fc::sha256 b_exec = NULL_PROPOSAL_ID;
-      fc::sha256 b_finality_violation = NULL_PROPOSAL_ID;
-      block_id_type block_exec = NULL_BLOCK_ID;
-      block_id_type pending_proposal_block = NULL_BLOCK_ID;
+      fc::sha256 b_leaf;
+      fc::sha256 b_lock;
+      fc::sha256 b_exec;
+      fc::sha256 b_finality_violation;
+      block_id_type block_exec;
+      block_id_type pending_proposal_block;
       eosio::chain::view_number v_height;
-      eosio::chain::quorum_certificate high_qc;
-      eosio::chain::quorum_certificate current_qc;
+      eosio::chain::quorum_certificate_message high_qc;
+      eosio::chain::quorum_certificate_message current_qc;
       eosio::chain::extended_schedule schedule;
       map<fc::sha256, hs_proposal_message> proposals;
 
@@ -121,65 +127,6 @@ namespace eosio::chain {
       }
    };
 
-   struct safety_state {
-
-      void set_v_height(const name finalizer, const eosio::chain::view_number v_height){
-         _states[finalizer.to_uint64_t()].first = v_height;
-      }  
-
-      void set_b_lock(const name finalizer, fc::sha256 b_lock){
-         _states[finalizer.to_uint64_t()].second = b_lock;
-      }  
-
-      std::pair<eosio::chain::view_number, fc::sha256> get_safety_state(const name finalizer) const{
-         auto s = _states.find(finalizer.to_uint64_t());
-         if (s != _states.end()) return s->second;
-         else return std::make_pair(eosio::chain::view_number(),fc::sha256());
-      }  
-
-      eosio::chain::view_number get_v_height(const name finalizer) const{
-         auto s = _states.find(finalizer.to_uint64_t());
-         if (s != _states.end()) return s->second.first;
-         else return eosio::chain::view_number();
-      };
-
-      fc::sha256 get_b_lock(const name finalizer) const{
-         auto s_itr = _states.find(finalizer.to_uint64_t());
-         if (s_itr != _states.end()) return s_itr->second.second;
-         else return fc::sha256();
-      };
-   
-      //todo : implement safety state default / sorting
-
-      std::pair<eosio::chain::view_number, fc::sha256> get_safety_state() const{
-         auto s = _states.begin();
-         if (s != _states.end()) return s->second;
-         else return std::make_pair(eosio::chain::view_number(),fc::sha256());
-      }  
-
-      eosio::chain::view_number get_v_height() const{
-         auto s = _states.begin();
-         if (s != _states.end()) return s->second.first;
-         else return eosio::chain::view_number();
-      };
-
-      fc::sha256 get_b_lock() const{
-         auto s_itr = _states.begin();
-         if (s_itr != _states.end()) return s_itr->second.second;
-         else return fc::sha256();
-      };
-
-      std::unordered_map<uint64_t, std::pair<eosio::chain::view_number, fc::sha256>> _states;
-
-   };
-
-   struct liveness_state {
-
-     eosio::chain::quorum_certificate high_qc;
-     fc::sha256 b_leaf;
-     fc::sha256 b_exec;
-
-   };
    
    using hs_proposal_message_ptr = std::shared_ptr<hs_proposal_message>;
    using hs_vote_message_ptr = std::shared_ptr<hs_vote_message>;
@@ -189,10 +136,8 @@ namespace eosio::chain {
 } //eosio::chain
 
 
-FC_REFLECT(eosio::chain::safety_state, (_states))
-FC_REFLECT(eosio::chain::liveness_state, (high_qc)(b_leaf)(b_exec))
 FC_REFLECT(eosio::chain::view_number, (_block_height)(_phase_counter));
-FC_REFLECT(eosio::chain::quorum_certificate, (proposal_id)(active_finalizers)(active_agg_sig));
+FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer)(sig));
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));

@@ -102,9 +102,15 @@ namespace eosio { namespace hotstuff {
 
    chain_pacemaker::chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger)
       : _chain(chain),
-        _qc_chain("default"_n, this, std::move(my_producers), logger, DEFAULT_SAFETY_STATE_FILE, DEFAULT_LIVENESS_STATE_FILE),
+        _qc_chain("default"_n, this, std::move(my_producers), logger, DEFAULT_SAFETY_STATE_FILE),
         _logger(logger)
    {
+   }
+
+   void chain_pacemaker::register_bcast_function(std::function<void(const chain::hs_message&)> broadcast_hs_message) {
+      FC_ASSERT(broadcast_hs_message, "on_hs_message must be provided");
+      std::lock_guard g( _hotstuff_global_mutex ); // not actually needed but doesn't hurt
+      bcast_hs_message = std::move(broadcast_hs_message);
    }
 
    // Called internally by the chain_pacemaker to decide whether it should do something or not, based on feature activation.
@@ -265,25 +271,31 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, name id) {
-      hs_proposal_message_ptr msg_ptr = std::make_shared<hs_proposal_message>(msg);
-      _chain->commit_hs_proposal_msg(msg_ptr);
+      bcast_hs_message(msg);
    }
 
    void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, name id) {
-      hs_vote_message_ptr msg_ptr = std::make_shared<hs_vote_message>(msg);
-      _chain->commit_hs_vote_msg(msg_ptr);
+      bcast_hs_message(msg);
    }
 
    void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, name id) {
-      hs_new_block_message_ptr msg_ptr = std::make_shared<hs_new_block_message>(msg);
-      _chain->commit_hs_new_block_msg(msg_ptr);
+      bcast_hs_message(msg);
    }
 
    void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, name id) {
-      hs_new_view_message_ptr msg_ptr = std::make_shared<hs_new_view_message>(msg);
-      _chain->commit_hs_new_view_msg(msg_ptr);
+      bcast_hs_message(msg);
    }
 
+   void chain_pacemaker::on_hs_msg(const eosio::chain::hs_message &msg) {
+      std::visit(overloaded{
+              [this](const hs_vote_message& m) { on_hs_vote_msg(m); },
+              [this](const hs_proposal_message& m) { on_hs_proposal_msg(m); },
+              [this](const hs_new_block_message& m) { on_hs_new_block_msg(m); },
+              [this](const hs_new_view_message& m) { on_hs_new_view_msg(m); },
+      }, msg);
+   }
+
+   // called from net threads
    void chain_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg) {
       if (! enabled())
          return;
@@ -295,6 +307,7 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
+   // called from net threads
    void chain_pacemaker::on_hs_vote_msg(const hs_vote_message& msg) {
       if (! enabled())
          return;
@@ -306,6 +319,7 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
+   // called from net threads
    void chain_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg) {
       if (! enabled())
          return;
@@ -317,6 +331,7 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
+   // called from net threads
    void chain_pacemaker::on_hs_new_view_msg(const hs_new_view_message& msg) {
       if (! enabled())
          return;

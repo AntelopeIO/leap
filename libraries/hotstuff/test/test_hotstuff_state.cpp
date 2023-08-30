@@ -15,7 +15,7 @@ using std::cout;
 BOOST_AUTO_TEST_SUITE(test_hotstuff_state)
 
 const std::string file_path_1("temp_hs_safety");
-const std::string file_path_2("temp_hs_liveness");
+//const std::string file_path_2("temp_hs_liveness");
 
 BOOST_AUTO_TEST_CASE(write_safety_state_to_file) try {
 
@@ -34,7 +34,7 @@ BOOST_AUTO_TEST_CASE(write_safety_state_to_file) try {
 
   fc::sha256 b_lock = eosio::hotstuff::get_digest_to_sign(hspm_2.block_id, hspm_2.phase_counter, hspm_2.final_on_qc);
 
-  eosio::chain::safety_state ss;
+  eosio::hotstuff::safety_state ss;
 
   ss.set_v_height(eosio::chain::name{""}, v_height);
   ss.set_b_lock(eosio::chain::name{""}, b_lock);
@@ -49,7 +49,7 @@ BOOST_AUTO_TEST_CASE(write_safety_state_to_file) try {
 
 BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
 
-  eosio::chain::safety_state ss;
+  eosio::hotstuff::safety_state ss;
 
   eosio::hotstuff::read_state(file_path_1, ss);
 
@@ -81,7 +81,7 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
 
 } FC_LOG_AND_RETHROW();
 
-BOOST_AUTO_TEST_CASE(write_liveness_state_to_file) try {
+/*BOOST_AUTO_TEST_CASE(write_liveness_state_to_file) try {
 
   eosio::hotstuff::hs_proposal_message hspm_1;
   eosio::hotstuff::hs_proposal_message hspm_2;
@@ -105,7 +105,7 @@ BOOST_AUTO_TEST_CASE(write_liveness_state_to_file) try {
   high_qc.active_finalizers = 1245;
   high_qc.active_agg_sig = fc::crypto::blslib::bls_signature("SIG_BLS_23PuSu1B72cPe6wxGkKjAaaZqA1Ph79zSoW7omsKKUrnprbA3cJCJVhT48QKUG6ofjYTTg4BA4TrVENWyrxjTomwLX6TGdVg2RYhKH7Kk9X23K5ohuhKQcWQ6AwJJGVSbSp4");
 
-  eosio::chain::liveness_state ls(high_qc, b_leaf, b_exec);
+  eosio::hotstuff::liveness_state ls(high_qc, b_leaf, b_exec);
 
   eosio::hotstuff::write_state(file_path_2, ls);
 
@@ -117,7 +117,7 @@ BOOST_AUTO_TEST_CASE(write_liveness_state_to_file) try {
 
 BOOST_AUTO_TEST_CASE(read_liveness_state_from_file) try {
 
-  eosio::chain::liveness_state ls;
+  eosio::hotstuff::liveness_state ls;
 
   eosio::hotstuff::read_state(file_path_2, ls);
 
@@ -155,6 +155,6 @@ BOOST_AUTO_TEST_CASE(read_liveness_state_from_file) try {
   BOOST_CHECK_EQUAL(ok2, true);
   BOOST_CHECK_EQUAL(ok3, true);
 
-} FC_LOG_AND_RETHROW();
+} FC_LOG_AND_RETHROW();*/
 
 BOOST_AUTO_TEST_SUITE_END()
