@@ -10,10 +10,10 @@ namespace eosio { namespace chain {
 using shared_public_key_data = std::variant<fc::ecc::public_key_shim, fc::crypto::r1::public_key_shim, shared_string>;
 
 struct shared_public_key {
-   shared_public_key( shared_public_key_data&& p ) :
+   explicit shared_public_key( shared_public_key_data&& p ) :
       pubkey(std::move(p)) {}
 
-   operator public_key_type() const {
+   public_key_type to_public_key() const {
       fc::crypto::public_key::storage_type public_key_storage;
       std::visit(overloaded {
          [&](const auto& k1r1) {
@@ -29,8 +29,8 @@ struct shared_public_key {
       return std::move(public_key_storage);
    }
 
-   std::string to_string() const {
-      return this->operator public_key_type().to_string();
+   std::string to_string(const fc::yield_function_t& yield) const {
+      return this->to_public_key().to_string(yield);
    }
 
    shared_public_key_data pubkey;
@@ -90,6 +90,8 @@ struct permission_level_weight {
    }
 };
 
+struct shared_key_weight;
+
 struct key_weight {
    public_key_type key;
    weight_type     weight;
@@ -97,6 +99,8 @@ struct key_weight {
    friend bool operator == ( const key_weight& lhs, const key_weight& rhs ) {
       return tie( lhs.key, lhs.weight ) == tie( rhs.key, rhs.weight );
    }
+
+   friend bool operator==( const key_weight& lhs, const shared_key_weight& rhs );
 
    friend bool operator < ( const key_weight& lhs, const key_weight& rhs ) {
       return tie( lhs.key, lhs.weight ) < tie( rhs.key, rhs.weight );
@@ -108,8 +112,8 @@ struct shared_key_weight {
    shared_key_weight(shared_public_key_data&& k, const weight_type& w) :
       key(std::move(k)), weight(w) {}
 
-   operator key_weight() const {
-      return key_weight{key, weight};
+   key_weight to_key_weight() const {
+      return key_weight{key.to_public_key(), weight};
    }
 
    static shared_key_weight convert(chainbase::allocator<char> allocator, const key_weight& k) {
@@ -137,6 +141,10 @@ struct shared_key_weight {
       return tie( lhs.key, lhs.weight ) == tie( rhs.key, rhs.weight );
    }
 };
+
+inline bool operator==( const key_weight& lhs, const shared_key_weight& rhs ) {
+   return tie( lhs.key, lhs.weight ) == tie( rhs.key, rhs.weight );
+}
 
 struct wait_weight {
    uint32_t     wait_sec;
@@ -168,6 +176,8 @@ namespace config {
    };
 }
 
+struct shared_authority;
+
 struct authority {
    authority( public_key_type k, uint32_t delay_sec = 0 )
    :threshold(1),keys({{k,1}})
@@ -178,7 +188,7 @@ struct authority {
       }
    }
 
-   authority( permission_level p, uint32_t delay_sec = 0 )
+   explicit authority( permission_level p, uint32_t delay_sec = 0 )
    :threshold(1),accounts({{p,1}})
    {
       if( delay_sec > 0 ) {
@@ -200,9 +210,7 @@ struct authority {
       return tie( lhs.threshold, lhs.keys, lhs.accounts, lhs.waits ) == tie( rhs.threshold, rhs.keys, rhs.accounts, rhs.waits );
    }
 
-   friend bool operator != ( const authority& lhs, const authority& rhs ) {
-      return tie( lhs.threshold, lhs.keys, lhs.accounts, lhs.waits ) != tie( rhs.threshold, rhs.keys, rhs.accounts, rhs.waits );
-   }
+   friend bool operator == ( const authority& lhs, const shared_authority& rhs );
 
    void sort_fields () {
       std::sort(std::begin(keys), std::end(keys));
@@ -213,7 +221,7 @@ struct authority {
 
 
 struct shared_authority {
-   shared_authority( chainbase::allocator<char> alloc )
+   explicit shared_authority( chainbase::allocator<char> alloc )
    :keys(alloc),accounts(alloc),waits(alloc){}
 
    shared_authority& operator=(const authority& a) {
@@ -233,14 +241,13 @@ struct shared_authority {
    shared_vector<permission_level_weight>     accounts;
    shared_vector<wait_weight>                 waits;
 
-   operator authority()const { return to_authority(); }
    authority to_authority()const {
       authority auth;
       auth.threshold = threshold;
       auth.keys.reserve(keys.size());
       auth.accounts.reserve(accounts.size());
       auth.waits.reserve(waits.size());
-      for( const auto& k : keys ) { auth.keys.emplace_back( k ); }
+      for( const auto& k : keys ) { auth.keys.emplace_back( k.to_key_weight() ); }
       for( const auto& a : accounts ) { auth.accounts.emplace_back( a ); }
       for( const auto& w : waits ) { auth.waits.emplace_back( w ); }
       return auth;
@@ -258,6 +265,16 @@ struct shared_authority {
       return accounts_size + waits_size + keys_size;
    }
 };
+
+inline bool operator==( const authority& lhs, const shared_authority& rhs ) {
+   return lhs.threshold == rhs.threshold &&
+          lhs.keys.size() == rhs.keys.size() &&
+          lhs.accounts.size() == rhs.accounts.size() &&
+          lhs.waits.size() == rhs.waits.size() &&
+          std::equal(lhs.keys.cbegin(), lhs.keys.cend(), rhs.keys.cbegin(), rhs.keys.cend()) &&
+          std::equal(lhs.accounts.cbegin(), lhs.accounts.cend(), rhs.accounts.cbegin(), rhs.accounts.cend()) &&
+          std::equal(lhs.waits.cbegin(), lhs.waits.cend(), rhs.waits.cbegin(), rhs.waits.cend());
+}
 
 namespace config {
    template<>
