@@ -46,9 +46,6 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif) try {
 
   bls_signature signature = sk.sign(message_1);
 
-  //cout << "pk : " << pk.to_string() << "\n";
-  //cout << "signature : " << signature.to_string() << "\n";
-
   // Verify the signature
   bool ok = verify(pk, message_1, signature);
 
@@ -66,9 +63,6 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_digest) try {
 
   bls_signature signature = sk.sign(v);
 
-  //cout << "pk : " << pk.to_string() << "\n";
-  //cout << "signature : " << signature.to_string() << "\n";
-
   // Verify the signature
   bool ok = verify(pk, v, signature);
 
@@ -83,11 +77,11 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
   bls_private_key sk = bls_private_key(seed_1);
   bls_public_key pk = sk.get_public_key();
 
-  string cmt = "cm_prepare";
+  std::string cmt = "cm_prepare";
   uint32_t view_number = 264;
 
-  string s_view_number = to_string(view_number);
-  string c_s = cmt + s_view_number;
+  std::string s_view_number = std::to_string(view_number);
+  std::string c_s = cmt + s_view_number;
 
   fc::sha256 h1 = fc::sha256::hash(c_s);
   fc::sha256 h2 = fc::sha256::hash( std::make_pair( h1, message_3 ) );
@@ -104,9 +98,6 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
     agg_signature = aggregate({agg_signature, signature});
   }
 
-  //cout << "pk : " << pk.to_string() << "\n";
-  //cout << "signature : " << signature.to_string() << "\n";
-
   // Verify the signature
   bool ok = verify(agg_pk, v, agg_signature);
 
@@ -114,65 +105,6 @@ BOOST_AUTO_TEST_CASE(bls_sig_verif_hotstuff_types) try {
 
 } FC_LOG_AND_RETHROW();
 
-#warning test being worked under https://github.com/AntelopeIO/leap/issues/1531
-/*
-//test a aggregate signature from string
-BOOST_AUTO_TEST_CASE(bls_sig_verif_string_multi) try {
-
-  bls_signature test_sig_single = bls_signature("SIG_BLS_23PuSu1B72cPe6wxGkKjAaaZqA1Ph79zSoW7omsKKUrnprbA3cJCJVhT48QKUG6ofjYTTg4BA4TrVENWyrxjTomwLX6TGdVg2RYhKH7Kk9X23K5ohuhKQcWQ6AwJJGVSbSp4");
-  std::vector<uint8_t> message_4 = {143,10,193,195,104,126,124,222,124,64,177,164,240,234,110,18,142,236,191,66,223,47,235,248,75,9,172,99,178,26,239,78};
-  bls_private_key sk = bls_private_key(seed_1);
-
-  bls_public_key agg_key = sk.get_public_key();
-  bls_signature agg_sig = test_sig_single;
-  
-  cout << 0 << "\n";
-  cout << agg_key.to_string() << "\n";
-  cout << agg_sig.to_string() << "\n";
-
-  for (int i = 1 ;i<14;i++){
-
-    agg_key = aggregate({agg_key, sk.get_public_key() });
-    agg_sig = aggregate({agg_sig, test_sig_single});
-
-    cout << i << "\n";
-    cout << agg_key.to_string() << "\n";
-    cout << agg_sig.to_string() << "\n";
-
-  }
-  
-  bool ok = verify(agg_key, message_4, agg_sig);
-
-  BOOST_CHECK_EQUAL(ok, true);
-
-} FC_LOG_AND_RETHROW();
-*/
-
-//test serialization / deserialization of private key, public key and signature
-BOOST_AUTO_TEST_CASE(bls_serialization_test) try {
-
-  bls_private_key sk = bls_private_key(seed_1);
-  bls_public_key pk = sk.get_public_key();
-
-  bls_signature signature = sk.sign(message_1);
-
-  std::string pk_string = pk.to_string();
-  std::string signature_string = signature.to_string();
-
-  //cout << pk_string << "\n";
-  //cout << signature_string << "\n";
-
-  bls_public_key pk2 = bls_public_key(pk_string);
-  bls_signature signature2 = bls_signature(signature_string);
-
-  //cout << pk2.to_string() << "\n";
-  //cout << signature2.to_string() << "\n";
-
-  bool ok = verify(pk2, message_1, signature2);
-
-  BOOST_CHECK_EQUAL(ok, true);
-
-} FC_LOG_AND_RETHROW();
 
 //test public keys + signatures aggregation + verification
 BOOST_AUTO_TEST_CASE(bls_agg_sig_verif) try {
@@ -182,22 +114,13 @@ BOOST_AUTO_TEST_CASE(bls_agg_sig_verif) try {
 
   bls_signature sig1 = sk1.sign(message_1);
 
-  //cout << "pk1 : " << pk1.to_string() << "\n";
-  //cout << "sig1 : " << sig1.to_string() << "\n";
-
   bls_private_key sk2 = bls_private_key(seed_2);
   bls_public_key pk2 = sk2.get_public_key();
 
   bls_signature sig2 = sk2.sign(message_1);
 
-  //cout << "pk2 : "  << pk2.to_string() << "\n";
-  //cout << "sig2 : "  << sig2.to_string() << "\n";
-
   bls_public_key aggKey = aggregate({pk1, pk2});
   bls_signature aggSig = aggregate({sig1, sig2});
-
- // cout << "aggKey : "  << aggKey.to_string() << "\n";
-  //cout << "aggSig : "  << aggSig.to_string() << "\n";
 
   // Verify the signature
   bool ok = verify(aggKey, message_1, aggSig);
@@ -215,23 +138,15 @@ BOOST_AUTO_TEST_CASE(bls_agg_tree_verif) try {
 
   bls_signature sig1 = sk1.sign(message_1);
 
-  //cout << "pk1 : " << pk1.to_string() << "\n";
-  //cout << "sig1 : " << sig1.to_string() << "\n";
-
   bls_private_key sk2 = bls_private_key(seed_2);
   bls_public_key pk2 = sk2.get_public_key();
 
   bls_signature sig2 = sk2.sign(message_2);
 
-  //cout << "pk2 : "  << pk2.to_string() << "\n";
-  //cout << "sig2 : "  << sig2.to_string() << "\n";
-
   bls_signature aggSig = aggregate({sig1, sig2});
 
-  //cout << "aggSig : "  << aggSig.to_string() << "\n";
-
-  vector<bls_public_key> pubkeys = {pk1, pk2};
-  vector<vector<uint8_t>> messages = {message_1, message_2};
+  std::vector<bls_public_key> pubkeys = {pk1, pk2};
+  std::vector<std::vector<uint8_t>> messages = {message_1, message_2};
   
   // Verify the signature
   bool ok = aggregate_verify(pubkeys, messages, aggSig);
@@ -280,5 +195,134 @@ BOOST_AUTO_TEST_CASE(bls_bad_sig_verif) try {
 
 } FC_LOG_AND_RETHROW();
 
+//test bls private key base58 encoding / decoding / serialization / deserialization
+BOOST_AUTO_TEST_CASE(bls_private_key_serialization) try {
+
+  bls_private_key sk = bls_private_key(seed_1);
+
+  bls_public_key pk = sk.get_public_key();
+
+  std::string priv_base58_str = sk.to_string();
+
+  bls_private_key sk2 = bls_private_key(priv_base58_str);
+
+  bls_signature signature = sk2.sign(message_1);
+
+  // Verify the signature
+  bool ok = verify(pk, message_1, signature);
+
+  BOOST_CHECK_EQUAL(ok, true);
+
+} FC_LOG_AND_RETHROW();
+
+
+//test bls public key and bls signature base58 encoding / decoding / serialization / deserialization
+BOOST_AUTO_TEST_CASE(bls_pub_key_sig_serialization) try {
+
+  bls_private_key sk = bls_private_key(seed_1);
+  bls_public_key pk = sk.get_public_key();
+
+  bls_signature signature = sk.sign(message_1);
+
+  std::string pk_string = pk.to_string();
+  std::string signature_string = signature.to_string();
+
+  bls_public_key pk2 = bls_public_key(pk_string);
+  bls_signature signature2 = bls_signature(signature_string);
+
+  bool ok = verify(pk2, message_1, signature2);
+
+  BOOST_CHECK_EQUAL(ok, true);
+
+} FC_LOG_AND_RETHROW();
+
+
+BOOST_AUTO_TEST_CASE(bls_binary_keys_encoding_check) try {
+
+  bls_private_key sk = bls_private_key(seed_1);
+
+  bool ok1 = bls_private_key(sk.to_string()) == sk;
+
+  std::string priv_str = sk.to_string();
+
+  bool ok2 = bls_private_key(priv_str).to_string() == priv_str;
+
+  bls_public_key pk = sk.get_public_key();
+
+  bool ok3 = bls_public_key(pk.to_string()) == pk;
+
+  std::string pub_str = pk.to_string();
+
+  bool ok4 = bls_public_key(pub_str).to_string() == pub_str;
+
+  bls_signature sig = sk.sign(message_1);
+
+  bool ok5 = bls_signature(sig.to_string()) == sig;
+
+  std::string sig_str = sig.to_string();
+
+  bool ok6 = bls_signature(sig_str).to_string() == sig_str;
+
+  bool ok7 = verify(pk, message_1, bls_signature(sig.to_string()));
+  bool ok8 = verify(pk, message_1, sig);
+
+  BOOST_CHECK_EQUAL(ok1, true); //succeeds
+  BOOST_CHECK_EQUAL(ok2, true); //succeeds
+  BOOST_CHECK_EQUAL(ok3, true); //succeeds
+  BOOST_CHECK_EQUAL(ok4, true); //succeeds
+  BOOST_CHECK_EQUAL(ok5, true); //fails
+  BOOST_CHECK_EQUAL(ok6, true); //succeeds
+  BOOST_CHECK_EQUAL(ok7, true); //succeeds
+  BOOST_CHECK_EQUAL(ok8, true); //succeeds
+
+} FC_LOG_AND_RETHROW();
+
+BOOST_AUTO_TEST_CASE(bls_prefix_encoding_check) try {
+
+  //test no_throw for correctly encoded keys
+  BOOST_CHECK_NO_THROW(bls_private_key("PVT_BLS_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"));
+  BOOST_CHECK_NO_THROW(bls_public_key("PUB_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"));
+  BOOST_CHECK_NO_THROW(bls_signature("SIG_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"));
+
+  //test no pivot delimiter
+  BOOST_CHECK_THROW(bls_private_key("PVTBLSM6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUBBLSZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("SIGBLS7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+
+  //test first prefix validation
+  BOOST_CHECK_THROW(bls_private_key("XYZ_BLS_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("XYZ_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("XYZ_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+
+  //test second prefix validation
+  BOOST_CHECK_THROW(bls_private_key("PVT_XYZ_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUB_XYZ_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("SIG_XYZ_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+
+  //test missing prefix
+  BOOST_CHECK_THROW(bls_private_key("M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+
+  //test incomplete prefix
+  BOOST_CHECK_THROW(bls_private_key("PVT_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUB_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("PUB_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("BLS_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+
+  //test invalid data / invalid checksum 
+  BOOST_CHECK_THROW(bls_private_key("PVT_BLS_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcH"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUB_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsv"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("PUB_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3p"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("PVT_BLS_N6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUB_BLS_ACYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("PUB_BLS_6dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("PVT_BLS_M6m7EUvzEbQErhkKUrsA96VGqdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUB_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtE3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("PUB_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHug1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+
+} FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_SUITE_END()

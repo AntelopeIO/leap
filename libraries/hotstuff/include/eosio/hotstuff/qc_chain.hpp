@@ -30,6 +30,64 @@ namespace eosio::hotstuff {
    using namespace boost::multi_index;
    using namespace eosio::chain;
 
+   class quorum_certificate {
+   public:
+      explicit quorum_certificate(size_t finalizer_size = 0) {
+         active_finalizers.resize(finalizer_size);
+      }
+
+      explicit quorum_certificate(const quorum_certificate_message& msg)
+              : proposal_id(msg.proposal_id)
+              , active_finalizers(msg.active_finalizers.cbegin(), msg.active_finalizers.cend())
+              , active_agg_sig(msg.active_agg_sig) {
+      }
+
+      quorum_certificate_message to_msg() const {
+         return {.proposal_id = proposal_id,
+                 .active_finalizers = [this]() {
+                           std::vector<unsigned_int> r;
+                           r.resize(active_finalizers.num_blocks());
+                           boost::to_block_range(active_finalizers, r.begin());
+                           return r;
+                        }(),
+                 .active_agg_sig = active_agg_sig};
+      }
+
+      void reset(const fc::sha256& proposal, size_t finalizer_size) {
+         proposal_id = proposal;
+         active_finalizers = hs_bitset{finalizer_size};
+         active_agg_sig = fc::crypto::blslib::bls_signature();
+         quorum_met = false;
+      }
+
+      const hs_bitset& get_active_finalizers() const {
+         assert(!active_finalizers.empty());
+         return active_finalizers;
+      }
+      void set_active_finalizers(const hs_bitset& bs) {
+         assert(!bs.empty());
+         active_finalizers = bs;
+      }
+      std::string get_active_finalizers_string() const {
+         std::string r;
+         boost::to_string(active_finalizers, r);
+         return r;
+      }
+
+      const fc::sha256& get_proposal_id() const { return proposal_id; }
+      const fc::crypto::blslib::bls_signature& get_active_agg_sig() const { return active_agg_sig; }
+      void set_active_agg_sig( const fc::crypto::blslib::bls_signature& sig) { active_agg_sig = sig; }
+      bool is_quorum_met() const { return quorum_met; }
+      void set_quorum_met() { quorum_met = true; }
+
+   private:
+      friend struct fc::reflector<quorum_certificate>;
+      fc::sha256                          proposal_id;
+      hs_bitset                           active_finalizers; //bitset encoding, following canonical order
+      fc::crypto::blslib::bls_signature   active_agg_sig;
+      bool                                quorum_met = false; // not serialized across network
+   };
+
    // Concurrency note: qc_chain is a single-threaded and lock-free decision engine.
    //                   All thread synchronization, if any, is external.
    class qc_chain {
@@ -61,18 +119,18 @@ namespace eosio::hotstuff {
       // returns false if proposal with that same ID already exists at the store of its height
       bool insert_proposal(const hs_proposal_message& proposal);
 
-      uint32_t positive_bits_count(fc::unsigned_int value);
+      uint32_t positive_bits_count(const hs_bitset& finalizers);
 
-      fc::unsigned_int update_bitset(fc::unsigned_int value, name finalizer);
+      hs_bitset update_bitset(const hs_bitset& finalizer_set, name finalizer);
 
       digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc); //get digest to sign from proposal data
 
       void reset_qc(const fc::sha256& proposal_id); //reset current internal qc
 
-      bool evaluate_quorum(const extended_schedule& es, fc::unsigned_int finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
+      bool evaluate_quorum(const extended_schedule& es, const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
 
       // qc.quorum_met has to be updated by the caller (if it wants to) based on the return value of this method
-      bool is_quorum_met(const eosio::chain::quorum_certificate& qc, const extended_schedule& schedule, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
+      bool is_quorum_met(const quorum_certificate& qc, const extended_schedule& schedule, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
 
       hs_proposal_message new_proposal_candidate(const block_id_type& block_id, uint8_t phase_counter); //create new proposal message
       hs_new_block_message new_block_candidate(const block_id_type& block_id); //create new block message
@@ -90,7 +148,7 @@ namespace eosio::hotstuff {
 
       bool extends(const fc::sha256& descendant, const fc::sha256& ancestor); //verify that a proposal descends from another
 
-      bool update_high_qc(const eosio::chain::quorum_certificate& high_qc); //check if update to our high qc is required
+      bool update_high_qc(const quorum_certificate& high_qc); //check if update to our high qc is required
 
       void leader_rotation_check(); //check if leader rotation is required
 
@@ -125,20 +183,18 @@ namespace eosio::hotstuff {
       };
 
       bool _chained_mode = false;
-      block_id_type _block_exec = NULL_BLOCK_ID;
-      block_id_type _pending_proposal_block = NULL_BLOCK_ID;
-      fc::sha256 _b_leaf = NULL_PROPOSAL_ID;
-      fc::sha256 _b_lock = NULL_PROPOSAL_ID;
-      fc::sha256 _b_exec = NULL_PROPOSAL_ID;
-      fc::sha256 _b_finality_violation = NULL_PROPOSAL_ID;
-      eosio::chain::quorum_certificate _high_qc;
-      eosio::chain::quorum_certificate _current_qc;
+      block_id_type _block_exec;
+      block_id_type _pending_proposal_block;
+      fc::sha256 _b_leaf;
+      fc::sha256 _b_lock;
+      fc::sha256 _b_exec;
+      fc::sha256 _b_finality_violation;
+      quorum_certificate _high_qc;
+      quorum_certificate _current_qc;
       uint32_t _v_height = 0;
       eosio::chain::extended_schedule _schedule;
       base_pacemaker* _pacemaker = nullptr;
       std::set<name> _my_producers;
-      bool _log = true;
-      bool _errors = true;
       name _id;
 
       mutable std::atomic<uint64_t> _state_version = 1;

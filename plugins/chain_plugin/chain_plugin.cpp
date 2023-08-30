@@ -1119,6 +1119,12 @@ void chain_plugin::create_pacemaker(std::set<chain::account_name> my_producers) 
    my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), hotstuff_logger);
 }
 
+void chain_plugin::register_pacemaker_bcast_function(std::function<void(const chain::hs_message&)> bcast_hs_message) {
+   EOS_ASSERT( my->_chain_pacemaker, plugin_config_exception, "chain_pacemaker not created" );
+   my->_chain_pacemaker->register_bcast_function(std::move(bcast_hs_message));
+}
+
+
 void chain_plugin::plugin_initialize(const variables_map& options) {
    handle_sighup(); // Sets loggers
    my->plugin_initialize(options);
@@ -1128,7 +1134,6 @@ void chain_plugin_impl::plugin_startup()
 { try {
    EOS_ASSERT( chain_config->read_mode != db_read_mode::IRREVERSIBLE || !accept_transactions, plugin_config_exception,
                "read-mode = irreversible. transactions should not be enabled by enable_accept_transactions" );
-   EOS_ASSERT( _chain_pacemaker, plugin_config_exception, "chain_pacemaker not initialization" );
    try {
       auto shutdown = [](){ return app().quit(); };
       auto check_shutdown = [](){ return app().is_quiting(); };
@@ -2651,7 +2656,7 @@ read_only::get_finalizer_state_results
 read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time_point& deadline ) const {
    get_finalizer_state_results results;
 
-   if ( chain_pacemaker ) {  // producer_plug is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
+   if ( chain_pacemaker ) {  // is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
       finalizer_state fs;
       chain_pacemaker->get_state( fs );
       results.chained_mode           = fs.chained_mode;
@@ -2665,8 +2670,9 @@ read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time
       results.high_qc                = fs.high_qc;
       results.current_qc             = fs.current_qc;
       results.schedule               = fs.schedule;
-      for (auto proposal: fs.proposals) {
-         chain::hs_proposal_message & p = proposal.second;
+      results.proposals.reserve( fs.proposals.size() );
+      for (const auto& proposal : fs.proposals) {
+         const chain::hs_proposal_message& p = proposal.second;
          results.proposals.push_back( hs_complete_proposal_message( p ) );
       }
    }
@@ -2675,24 +2681,15 @@ read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time
 
 } // namespace chain_apis
 
-void chain_plugin::notify_hs_vote_message( const hs_vote_message& msg ) {
-   my->_chain_pacemaker->on_hs_vote_msg(msg);
-};
-
-void chain_plugin::notify_hs_proposal_message( const hs_proposal_message& msg ) {
-   my->_chain_pacemaker->on_hs_proposal_msg(msg);
-};
-
-void chain_plugin::notify_hs_new_view_message( const hs_new_view_message& msg ) {
-   my->_chain_pacemaker->on_hs_new_view_msg(msg);
-};
-
-void chain_plugin::notify_hs_new_block_message( const hs_new_block_message& msg ) {
-   my->_chain_pacemaker->on_hs_new_block_msg(msg);
+// called from net threads
+void chain_plugin::notify_hs_message( const hs_message& msg ) {
+   my->_chain_pacemaker->on_hs_msg(msg);
 };
 
 void chain_plugin::notify_hs_block_produced() {
-   my->_chain_pacemaker->beat();
+   if (chain().is_builtin_activated( builtin_protocol_feature_t::instant_finality )) {
+      my->_chain_pacemaker->beat();
+   }
 }
 
 fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_trace ) const {

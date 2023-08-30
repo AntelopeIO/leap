@@ -27,6 +27,7 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/wasm_interface_collection.hpp>
+#include <eosio/chain/finalizer_set.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -263,6 +264,8 @@ struct controller_impl {
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
    unordered_map< builtin_protocol_feature_t, std::function<void(controller_impl&)>, enum_hash<builtin_protocol_feature_t> > protocol_feature_activation_handlers;
 
+   // TODO: This probably wants to be something better; store in chainbase and/or block_state
+   finalizer_set                current_finalizer_set;
 
    void pop_block() {
       auto prev = fork_db.get_block( head->header.previous );
@@ -1974,20 +1977,9 @@ struct controller_impl {
       pending->push();
    }
 
-   void commit_hs_proposal_msg(hs_proposal_message_ptr msg){
-      emit( self.new_hs_proposal_message, msg );
-   }
-
-   void commit_hs_vote_msg(hs_vote_message_ptr msg){
-      emit( self.new_hs_vote_message, msg );
-   }
-
-   void commit_hs_new_view_msg(hs_new_view_message_ptr msg){
-      emit( self.new_hs_new_view_message, msg );
-   }
-
-   void commit_hs_new_block_msg(hs_new_block_message_ptr msg){
-      emit( self.new_hs_new_block_message, msg );
+   void set_finalizers_impl(const finalizer_set& fin_set) {
+      // TODO store in chainbase
+      current_finalizer_set = fin_set;
    }
 
    /**
@@ -2983,22 +2975,6 @@ void controller::commit_block() {
    my->commit_block(block_status::incomplete);
 }
 
-void controller::commit_hs_proposal_msg(hs_proposal_message_ptr msg) {
-   my->commit_hs_proposal_msg(msg);
-}
-
-void controller::commit_hs_vote_msg(hs_vote_message_ptr msg) {
-   my->commit_hs_vote_msg(msg);
-}
-
-void controller::commit_hs_new_view_msg(hs_new_view_message_ptr msg) {
-   my->commit_hs_new_view_msg(msg);
-}
-
-void controller::commit_hs_new_block_msg(hs_new_block_message_ptr msg) {
-   my->commit_hs_new_block_msg(msg);
-}
-
 deque<transaction_metadata_ptr> controller::abort_block() {
    return my->abort_block();
 }
@@ -3311,6 +3287,14 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
       gp.proposed_schedule = sch.to_shared(gp.proposed_schedule.producers.get_allocator());
    });
    return version;
+}
+
+void controller::set_finalizers( const finalizer_set& fin_set ) {
+   my->set_finalizers_impl(fin_set);
+}
+
+const finalizer_set& controller::get_finalizers() const {
+   return my->current_finalizer_set;
 }
 
 const producer_authority_schedule&    controller::active_producers()const {
@@ -3876,8 +3860,7 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::instant_finality>() {
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
-#warning host functions to set proposers, leaders, finalizers/validators
-      // FIXME/TODO: host functions to set proposers, leaders, finalizers/validators
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "set_finalizers" );
    } );
 }
 

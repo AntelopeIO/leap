@@ -112,7 +112,7 @@ def startNode(nodeIndex, account):
         '    --config-dir ' + os.path.abspath(dir) +
         '    --data-dir ' + os.path.abspath(dir) +
         '    --chain-state-db-size-mb 1024'
-        '    --http-server-address 127.0.0.1:' + str(8000 + nodeIndex) +
+        '    --http-server-address 127.0.0.1:' + str(args.http_port + nodeIndex) +
         '    --p2p-listen-endpoint 127.0.0.1:' + str(9000 + nodeIndex) +
         '    --max-clients ' + str(maxClients) +
         '    --p2p-max-nodes-per-host ' + str(maxClients) +

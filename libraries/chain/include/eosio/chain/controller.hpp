@@ -21,14 +21,7 @@ namespace eosio { namespace vm { class wasm_allocator; }}
 
 namespace eosio { namespace chain {
 
-   struct hs_proposal_message;
-   struct hs_vote_message;
-   struct hs_new_view_message;
-   struct hs_new_block_message;
-   using hs_proposal_message_ptr = std::shared_ptr<hs_proposal_message>;
-   using hs_vote_message_ptr = std::shared_ptr<hs_vote_message>;
-   using hs_new_view_message_ptr = std::shared_ptr<hs_new_view_message>;
-   using hs_new_block_message_ptr = std::shared_ptr<hs_new_block_message>;
+   struct finalizer_set;
 
    class authorization_manager;
 
@@ -176,12 +169,6 @@ namespace eosio { namespace chain {
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
          
-         void commit_hs_proposal_msg(hs_proposal_message_ptr msg);
-         void commit_hs_vote_msg(hs_vote_message_ptr msg);
-
-         void commit_hs_new_view_msg(hs_new_view_message_ptr msg);
-         void commit_hs_new_block_msg(hs_new_block_message_ptr msg);
-
          // thread-safe
          std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );
          // thread-safe
@@ -306,6 +293,9 @@ namespace eosio { namespace chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
+         void set_finalizers( const finalizer_set& fin_set );
+         const finalizer_set& get_finalizers() const;
+
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
          bool skip_trx_checks()const;
@@ -352,20 +342,6 @@ namespace eosio { namespace chain {
          signal<void(const transaction_metadata_ptr&)> accepted_transaction;
          signal<void(std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&>)> applied_transaction;
          signal<void(const int&)>                      bad_alloc;
-         signal<void(const hs_proposal_message_ptr&)>    new_hs_proposal_message;
-         signal<void(const hs_vote_message_ptr&)> new_hs_vote_message;
-         signal<void(const hs_new_view_message_ptr&)>    new_hs_new_view_message;
-         signal<void(const hs_new_block_message_ptr&)> new_hs_new_block_message;
-
-         /*
-         signal<void()>                                  pre_apply_block;
-         signal<void()>                                  post_apply_block;
-         signal<void()>                                  abort_apply_block;
-         signal<void(const transaction_metadata_ptr&)>   pre_apply_transaction;
-         signal<void(const transaction_trace_ptr&)>      post_apply_transaction;
-         signal<void(const transaction_trace_ptr&)>  pre_apply_action;
-         signal<void(const transaction_trace_ptr&)>  post_apply_action;
-         */
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
          wasm_interface_collection& get_wasm_interface();
@@ -395,7 +371,6 @@ namespace eosio { namespace chain {
          chainbase::database& mutable_db()const;
 
          std::unique_ptr<controller_impl> my;
-
    };
 
 } }  /// eosio::chain
