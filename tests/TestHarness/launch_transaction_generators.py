@@ -122,23 +122,3 @@ def parseArgs():
 
     args = parser.parse_args()
     return args
-
-def main():
-    args = parseArgs()
-    connectionPairList = sub('[\s+]', '', args.connection_pair_list)
-    connectionPairList = connectionPairList.rsplit(',')
-
-    trxGenLauncher = TransactionGeneratorsLauncher(trxGenerator=args.trx_generator, chainId=args.chain_id, lastIrreversibleBlockId=args.last_irreversible_block_id,
-                                                   contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
-                                                   privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
-                                                   abiFile=args.abi_file, actionsData=args.actions_data, actionsAuths=args.actions_auths,
-                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                                                                     connectionPairList=connectionPairList),
-                                                   endpointMode=args.endpoint_mode, apiEndpoint=args.api_endpoint)
-
-
-    exit_codes = trxGenLauncher.launch()
-    exit(exit_codes)
-
-if __name__ == '__main__':
-    main()
