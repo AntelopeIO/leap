@@ -212,10 +212,6 @@ struct authority {
 
    friend bool operator == ( const authority& lhs, const shared_authority& rhs );
 
-   friend bool operator != ( const authority& lhs, const authority& rhs ) {
-      return tie( lhs.threshold, lhs.keys, lhs.accounts, lhs.waits ) != tie( rhs.threshold, rhs.keys, rhs.accounts, rhs.waits );
-   }
-
    void sort_fields () {
       std::sort(std::begin(keys), std::end(keys));
       std::sort(std::begin(accounts), std::end(accounts));
