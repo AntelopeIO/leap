@@ -1554,7 +1554,8 @@ class Cluster(object):
 
     def launchTrxGenerators(self, contractOwnerAcctName: str, acctNamesList: list, acctPrivKeysList: list,
                             nodeId: int=0, tpsPerGenerator: int=10, numGenerators: int=1, durationSec: int=60,
-                            waitToComplete:bool=False, abiFile=None, actionsData=None, actionsAuths=None):
+                            waitToComplete:bool=False, abiFile=None, actionsData=None, actionsAuths=None,
+                            trxGenerator=Path("./tests/trx_generator/trx_generator")):
         Utils.Print("Configure txn generators")
         node=self.getNode(nodeId)
         info = node.getInfo()
@@ -1567,7 +1568,7 @@ class Cluster(object):
         self.preExistingFirstTrxFiles = glob.glob(f"{Utils.DataDir}/first_trx_*.txt")
         connectionPairList = [f"{self.host}:{self.getNodeP2pPort(nodeId)}"]
         tpsTrxGensConfig = TpsTrxGensConfig(targetTps=targetTps, tpsLimitPerGenerator=tpsLimitPerGenerator, connectionPairList=connectionPairList)
-        self.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id,
+        self.trxGenLauncher = TransactionGeneratorsLauncher(trxGenerator=trxGenerator, chainId=chainId, lastIrreversibleBlockId=lib_id,
                                                     contractOwnerAccount=contractOwnerAcctName, accts=','.join(map(str, acctNamesList)),
                                                     privateKeys=','.join(map(str, acctPrivKeysList)), trxGenDurationSec=durationSec, logDir=Utils.DataDir,
                                                     abiFile=abiFile, actionsData=actionsData, actionsAuths=actionsAuths, tpsTrxGensConfig=tpsTrxGensConfig,
