@@ -1,4 +1,3 @@
-//#include <eosio/chain/hotstuff.hpp>
 #include <eosio/chain/block_header.hpp>
 
 #include <eosio/hotstuff/qc_chain.hpp>
@@ -59,15 +58,6 @@ namespace eosio::hotstuff {
 
     };
 
-/*    struct liveness_state {
-
-     quorum_certificate high_qc;
-     fc::sha256 b_leaf;
-     fc::sha256 b_exec;
-
-    };*/
-
 }
 
 FC_REFLECT(eosio::hotstuff::safety_state, (_states))
-/*FC_REFLECT(eosio::hotstuff::liveness_state, (high_qc)(b_leaf)(b_exec))*/

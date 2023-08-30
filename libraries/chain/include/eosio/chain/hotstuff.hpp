@@ -61,14 +61,6 @@ namespace eosio::chain {
       fc::sha256                          proposal_id;
       std::vector<unsigned_int>           active_finalizers; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
-
-/*<<<<<<< HEAD
-      bool                                quorum_met = false;
-
-      auto operator<=>(const quorum_certificate&) const = default;
-
-=======
->>>>>>> hotstuff_integration*/
    };
 
    struct hs_vote_message {

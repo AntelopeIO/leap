@@ -11,8 +11,7 @@ namespace eosio::chain {
 
 namespace eosio::hotstuff {
 
-   const std::string DEFAULT_SAFETY_STATE_FILE = "hs_tm_safety_state"; //todo : reversible blocks folder
-   //const std::string DEFAULT_LIVENESS_STATE_FILE = "hs_tm_liveness_state"; //todo : reversible blocks folder
+   const std::string DEFAULT_SAFETY_STATE_FILE = "hs_tm_safety_state"; //todo : add reversible blocks folder
 
    class chain_pacemaker : public base_pacemaker {
    public:
