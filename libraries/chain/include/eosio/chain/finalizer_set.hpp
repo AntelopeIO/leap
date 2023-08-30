@@ -10,54 +10,11 @@
 
 namespace eosio::chain {
 
-   struct shared_finalizer_authority {
-      shared_finalizer_authority() = delete;
-      shared_finalizer_authority( const shared_finalizer_authority& ) = default;
-      shared_finalizer_authority( shared_finalizer_authority&& ) = default;
-      shared_finalizer_authority& operator= ( shared_finalizer_authority && ) = default;
-      shared_finalizer_authority& operator= ( const shared_finalizer_authority & ) = default;
-
-      shared_finalizer_authority( const std::string& description, const uint64_t fweight, const fc::crypto::blslib::bls_public_key& public_key )
-      :description(description)
-      ,fweight(fweight)
-      ,public_key(public_key)
-      {}
-
-#warning FIXME: Must change std::string to shared_string.
-      std::string      description;
-      uint64_t         fweight;
-      fc::crypto::blslib::bls_public_key   public_key;
-   };
-
-   struct shared_finalizer_set {
-      shared_finalizer_set() = delete;
-
-      explicit shared_finalizer_set( chainbase::allocator<char> alloc )
-      :finalizers(alloc){}
-
-      shared_finalizer_set( const shared_finalizer_set& ) = default;
-      shared_finalizer_set( shared_finalizer_set&& ) = default;
-      shared_finalizer_set& operator= ( shared_finalizer_set && ) = default;
-      shared_finalizer_set& operator= ( const shared_finalizer_set & ) = default;
-
-      uint32_t                                   version = 0; ///< sequentially incrementing version number
-      uint64_t                                   fthreshold = 0; // minimum finalizer fweight sum for block finalization
-      shared_vector<shared_finalizer_authority>  finalizers;
-   };
-
    struct finalizer_authority {
 
       std::string  description;
       uint64_t     fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
       fc::crypto::blslib::bls_public_key  public_key;
-
-      auto to_shared(chainbase::allocator<char> alloc) const {
-         return shared_finalizer_authority(description, fweight, public_key);
-      }
-
-      static auto from_shared( const shared_finalizer_authority& src ) {
-         return finalizer_authority { src.description, src.fweight, src.public_key };
-      }
 
       friend bool operator == ( const finalizer_authority& lhs, const finalizer_authority& rhs ) {
          return tie( lhs.description, lhs.fweight, lhs.public_key ) == tie( rhs.description, rhs.fweight, rhs.public_key );
@@ -75,29 +32,6 @@ namespace eosio::chain {
       ,fthreshold(fthreshold)
       ,finalizers(finalizers)
       {}
-
-      auto to_shared(chainbase::allocator<char> alloc) const {
-         auto result = shared_finalizer_set(alloc);
-         result.version = version;
-         result.fthreshold = fthreshold;
-         result.finalizers.clear();
-         result.finalizers.reserve( finalizers.size() );
-         for( const auto& f : finalizers ) {
-            result.finalizers.emplace_back(f.to_shared(alloc));
-         }
-         return result;
-      }
-
-      static auto from_shared( const shared_finalizer_set& src ) {
-         finalizer_set result;
-         result.version = src.version;
-         result.fthreshold = src.fthreshold;
-         result.finalizers.reserve( src.finalizers.size() );
-         for( const auto& f : src.finalizers ) {
-            result.finalizers.emplace_back(finalizer_authority::from_shared(f));
-         }
-         return result;
-      }
 
       uint32_t                                       version = 0; ///< sequentially incrementing version number
       uint64_t                                       fthreshold = 0;  // vote fweight threshold to finalize blocks
@@ -123,5 +57,3 @@ namespace eosio::chain {
 
 FC_REFLECT( eosio::chain::finalizer_authority, (description)(fweight)(public_key) )
 FC_REFLECT( eosio::chain::finalizer_set, (version)(fthreshold)(finalizers) )
-FC_REFLECT( eosio::chain::shared_finalizer_authority, (description)(fweight)(public_key) )
-FC_REFLECT( eosio::chain::shared_finalizer_set, (version)(fthreshold)(finalizers) )
