@@ -237,7 +237,7 @@ namespace eosio::hotstuff {
 
       //todo : read liveness state / select initialization heuristics ?
 
-      if (safety_state_file!=std::string()){
+      if (safety_state_file!=std::string() && std::filesystem::exists(safety_state_file)){
          eosio::hotstuff::read_state(safety_state_file, _safety_state);
          _safety_state_file = safety_state_file;
       }
@@ -634,7 +634,6 @@ namespace eosio::hotstuff {
    }
 
    // Invoked when we could perhaps make a proposal to the network (or to ourselves, if we are the leader).
-   // Called from the main application thread
    void qc_chain::on_beat(){
 
       // Non-proposing leaders do not care about on_beat(), because leaders react to a block proposal
