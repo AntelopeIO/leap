@@ -1008,8 +1008,7 @@ void qc_chain::commit(const hs_proposal_message& initial_proposal) {
    
    const hs_proposal_message* p = &initial_proposal;
    while (p) {
-      fc_tlog(_logger, " === attempting to commit proposal #${block_num} ${prop_id} block_id: ${block_id} "
-              "phase: ${phase} parent_id: ${parent_id}",
+      fc_tlog(_logger, " === attempting to commit proposal #${block_num}:${phase} ${prop_id} block_id: ${block_id} parent_id: ${parent_id}",
               ("block_num", p->block_num())("prop_id", p->proposal_id)("block_id", p->block_id)
               ("phase", p->phase_counter)("parent_id", p->parent_id));
 
@@ -1018,8 +1017,7 @@ void qc_chain::commit(const hs_proposal_message& initial_proposal) {
                  "expected hs_proposal ${id} not found", ("id", _b_exec));
 
       if (last_exec_prop != nullptr) {
-         fc_tlog(_logger, " === _b_exec proposal #${block_num} ${prop_id} block_id: ${block_id} "
-                 "phase: ${phase} parent_id: ${parent_id}",
+         fc_tlog(_logger, " === _b_exec proposal #${block_num}:${phase} ${prop_id} block_id: ${block_id} parent_id: ${parent_id}",
                  ("block_num", last_exec_prop->block_num())("prop_id", last_exec_prop->proposal_id)
                  ("block_id", last_exec_prop->block_id)("phase", last_exec_prop->phase_counter)
                  ("parent_id", last_exec_prop->parent_id));
@@ -1037,7 +1035,7 @@ void qc_chain::commit(const hs_proposal_message& initial_proposal) {
          proposal_chain.push_back(p);         // add proposal to vector for further processing
          p = get_proposal(p->parent_id);      // process parent if non-null
       } else {
-         fc_elog(_logger, " *** ${id} sequence not respected on #${block_num} phase ${phase} proposal_id: ${prop_id}",
+         fc_elog(_logger, " *** ${id} sequence not respected on #${block_num}:${phase} proposal_id: ${prop_id}",
                  ("id", _id)("block_num", p->block_num())("phase", p->phase_counter)("prop_id", p->proposal_id));
       }
    }
@@ -1058,7 +1056,7 @@ void qc_chain::commit(const hs_proposal_message& initial_proposal) {
                  ("prop_id", p->proposal_id)("num", proposal_chain.size())("block_num_2", last->block_num())
                  ("phase_2", last->phase_counter)("block_id_2", last->block_id)("prop_id_2", last->proposal_id));
       } else {
-         fc_dlog(_logger, " === ${id} committed proposal #${block_num} phase ${phase} block_id: ${block_id} proposal_id: ${prop_id}",
+         fc_dlog(_logger, " === ${id} committed proposal #${block_num}:${phase} block_id: ${block_id} proposal_id: ${prop_id}",
                  ("id", _id)("block_num", p->block_num())("phase", p->phase_counter)
                  ("block_id", p->block_id)("prop_id", p->proposal_id));
       }
