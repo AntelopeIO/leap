@@ -476,7 +476,10 @@ namespace eosio {
       std::function<void()> increment_dropped_trxs;
       
    private:
-      static const std::map<std::string, int> prefix_multipliers;
+      inline static const std::map<std::string, size_t> prefix_multipliers{
+         {"",1},{"K",pow(10,3)},{"M",pow(10,6)},{"G",pow(10, 9)},{"T",pow(10, 12)},
+                {"Ki",pow(2,10)},{"Mi",pow(2,20)},{"Gi",pow(2,30)},{"Ti",pow(2,40)}
+      };
       alignas(hardware_destructive_interference_size)
       mutable fc::mutex             chain_info_mtx; // protects chain_info_t
       chain_info_t                  chain_info GUARDED_BY(chain_info_mtx);
@@ -531,7 +534,7 @@ namespace eosio {
 
       constexpr static uint16_t to_protocol_version(uint16_t v);
 
-      size_t parse_connection_limit(const string& limit_str);
+      size_t parse_connection_rate_limit(const string& limit_str);
       void plugin_initialize(const variables_map& options);
       void plugin_startup();
       void plugin_shutdown();
@@ -1063,10 +1066,6 @@ namespace eosio {
    }; // class connection
 
    const string connection::unknown = "<unknown>";
-   const std::map<std::string, int> net_plugin_impl::prefix_multipliers{
-      {"",1},{"K",pow(10,3)},{"M",pow(10,6)},{"G",pow(10, 9)},{"T",pow(10, 12)},
-             {"Ki",pow(2,10)},{"Mi",pow(2,20)},{"Gi",pow(2,30)},{"Ti",pow(2,40)}
-   };
 
    // called from connection strand
    struct msg_handler : public fc::visitor<void> {
@@ -4015,12 +4014,13 @@ namespace eosio {
       return fc::json::from_string(s).as<T>();
    }
 
-   size_t net_plugin_impl::parse_connection_limit( const std::string& limit_str) {
+   size_t net_plugin_impl::parse_connection_rate_limit( const std::string& limit_str) {
       std::istringstream in(limit_str);
-      fc_dlog( logger, "parsing connection endpoint with locale ${l}", ("l", std::locale("").name()));
+      fc_dlog( logger, "parsing connection endpoint limit ${limit} with locale ${l}", ("limit", limit_str)("l", std::locale("").name()));
       in.imbue(std::locale(""));
       double limit{0};
       in >> limit;
+      EOS_ASSERT(limit >= 0, plugin_config_exception, "block sync rate limit must be positive: ${limit}", ("limit", limit_str));
       size_t block_sync_rate_limit = 0;
       if( limit > 0.0f ) {
          std::string units;
@@ -4029,10 +4029,11 @@ namespace eosio {
          std::smatch units_match;
          std::regex_match(units, units_match, units_regex);
          try {
+            EOS_ASSERT(units_match.size() == 2, plugin_config_exception, "invalid block sync rate limit specification: ${limit}", ("limit", units));
             block_sync_rate_limit = boost::numeric_cast<size_t>(limit * prefix_multipliers.at(units_match[1].str()));
-            fc_dlog( logger, "setting block_sync_rate_limit to ${limit}", ("limit", block_sync_rate_limit));
+            fc_dlog( logger, "setting block_sync_rate_limit to ${limit} bytes per second", ("limit", block_sync_rate_limit));
          } catch (boost::numeric::bad_numeric_cast&) {
-            EOS_ASSERT(false, plugin_config_exception, "block sync limit specification overflowed: ${limit}", ("limit", limit_str));
+            EOS_ASSERT(false, plugin_config_exception, "block sync rate limit specification overflowed: ${limit}", ("limit", limit_str));
          }
       }
       return block_sync_rate_limit;
@@ -4250,13 +4251,21 @@ namespace eosio {
 
                auto listen_addr = address;
                auto limit = string("0");
-               if( std::count(address.begin(), address.end(), ':') > 1 ) {
-                  auto last_colon_location = address.rfind(':');
-                  listen_addr = std::string(address, 0, last_colon_location);
-                  limit = std::string(address, last_colon_location+1);
+               auto last_colon_location = address.rfind(':');
+               if( auto right_bracket_location = address.find(']'); right_bracket_location != address.npos ) {
+                  if( std::count(address.begin()+right_bracket_location, address.end(), ':') > 1 ) {
+                     listen_addr = std::string(address, 0, last_colon_location);
+                     limit = std::string(address, last_colon_location+1);
+                  }
+               } else {
+                  if( auto colon_count = std::count(address.begin(), address.end(), ':'); colon_count > 1 ) {
+                     EOS_ASSERT( colon_count <= 2, plugin_config_exception, "Invalid address specification ${addr}; IPv6 addresses must be enclosed in square brackets.", ("addr", address));
+                     listen_addr = std::string(address, 0, last_colon_location);
+                     limit = std::string(address, last_colon_location+1);
+                  }
                }
 
-               auto block_sync_rate_limit = my->parse_connection_limit(limit);
+               auto block_sync_rate_limit = my->parse_connection_rate_limit(limit);
 
                fc::create_listener<tcp>(
                      my->thread_pool.get_executor(), logger, accept_timeout, listen_addr, extra_listening_log_info,

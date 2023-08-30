@@ -96,7 +96,11 @@ try:
 
     throttlingNode = cluster.unstartedNodes[0]
     i = throttlingNode.cmd.index('--p2p-listen-endpoint')
+    throttleListenAddr = throttlingNode.cmd[i+1]
     throttlingNode.cmd[i+1] = throttlingNode.cmd[i+1] + ':40000B/s'
+    throttleListenIP, throttleListenPort = throttleListenAddr.split(':')
+    throttlingNode.cmd.append('--p2p-listen-endpoint')
+    throttlingNode.cmd.append(f'{throttleListenIP}:{int(throttleListenPort)+100}:1TB/s')
 
     cluster.biosNode.kill(signal.SIGTERM)
     clusterStart = time.time()
