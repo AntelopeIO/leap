@@ -1086,10 +1086,8 @@ void qc_chain::commit(const hs_proposal_message& initial_proposal) {
 
       bool exec_height_check = _b_exec == NULL_PROPOSAL_ID || last_exec_prop->get_height() < p->get_height();
       if (exec_height_check) {
-         if (auto parent = get_proposal(p->parent_id); parent != nullptr) {
-            proposal_chain.push_back(parent); // add proposal to vector for further processing
-            p = parent;                       // process parent proposal next in while loop
-         }
+         proposal_chain.push_back(p);         // add proposal to vector for further processing
+         p = get_proposal(p->parent_id);      // process parent if non-null
       } else {
          fc_elog(_logger, " *** ${id} sequence not respected on #${block_num} phase ${phase} proposal_id: ${prop_id}",
                  ("id", _id)("block_num", p->block_num())("phase", p->phase_counter)("prop_id", p->proposal_id));
