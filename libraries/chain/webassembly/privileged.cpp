@@ -156,10 +156,15 @@ namespace eosio { namespace chain { namespace webassembly {
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_proposed_finalizers not allowed in a readonly transaction");
       fc::datastream<const char*> ds( packed_finalizer_set.data(), packed_finalizer_set.size() );
       finalizer_set finset;
-      fc::raw::unpack(ds, finset);
+      // contract finalizer_set does not include uint32_t generation
+      // struct abi_finalizer_set {
+      //   uint64_t fthreshold
+      //   vector<finalizer_authority> finalizers; }
+      fc::raw::unpack(ds, finset.fthreshold);
+      fc::raw::unpack(ds, finset.finalizers);
+
       vector<finalizer_authority>& finalizers = finset.finalizers;
 
-      // TODO: check version and increment it or verify correct
       EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer set exceeds the maximum finalizer count for this chain" );
       EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizer set cannot be empty" );
 
@@ -169,7 +174,7 @@ namespace eosio { namespace chain { namespace webassembly {
       for (const auto& f: finalizers) {
          f_weight_sum += f.fweight;
          unique_finalizer_keys.insert(f.public_key);
-         EOS_ASSERT( f.description.size() <= 256, wasm_execution_error, "Finalizer description greater than 256" );
+         EOS_ASSERT( f.description.size() <= config::max_finalizer_description, wasm_execution_error, "Finalizer description greater than 256" );
       }
 
       EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );

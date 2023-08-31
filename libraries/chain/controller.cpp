@@ -1980,6 +1980,7 @@ struct controller_impl {
    void set_finalizers_impl(const finalizer_set& fin_set) {
       // TODO store in chainbase
       current_finalizer_set = fin_set;
+      ++current_finalizer_set.generation;
    }
 
    /**
