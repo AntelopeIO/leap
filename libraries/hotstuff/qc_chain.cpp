@@ -1,7 +1,8 @@
 #include <eosio/hotstuff/qc_chain.hpp>
 #include <fc/scoped_exit.hpp>
+#include <boost/range/adaptor/reversed.hpp>
 
-namespace eosio { namespace hotstuff {
+namespace eosio::hotstuff {
 
    const hs_proposal_message* qc_chain::get_proposal(const fc::sha256& proposal_id) {
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
@@ -1001,68 +1002,66 @@ namespace eosio { namespace hotstuff {
 #endif
    }
 
-   void qc_chain::commit(const hs_proposal_message & proposal){
+void qc_chain::commit(const hs_proposal_message& initial_proposal) {
+   std::vector<const hs_proposal_message*> proposal_chain;
+   proposal_chain.reserve(10);
+   
+   const hs_proposal_message* p = &initial_proposal;
+   while (p) {
+      fc_tlog(_logger, " === attempting to commit proposal #${block_num}:${phase} ${prop_id} block_id: ${block_id} parent_id: ${parent_id}",
+              ("block_num", p->block_num())("prop_id", p->proposal_id)("block_id", p->block_id)
+              ("phase", p->phase_counter)("parent_id", p->parent_id));
 
-      fc_tlog(_logger, " === attempting to commit proposal #${block_num} ${proposal_id} block_id : ${block_id} phase : ${phase_counter} parent_id : ${parent_id}",
-                ("block_num", proposal.block_num())
-                ("proposal_id", proposal.proposal_id)
-                ("block_id", proposal.block_id)
-                ("phase_counter", proposal.phase_counter)
-                ("parent_id", proposal.parent_id));
-
-      bool exec_height_check = false;
-
-      const hs_proposal_message *last_exec_prop = get_proposal( _b_exec );
-      EOS_ASSERT( last_exec_prop != nullptr || _b_exec.empty(), chain_exception, "expected hs_proposal ${id} not found", ("id", _b_exec) );
+      const hs_proposal_message* last_exec_prop = get_proposal(_b_exec);
+      EOS_ASSERT(last_exec_prop != nullptr || _b_exec.empty(), chain_exception,
+                 "expected hs_proposal ${id} not found", ("id", _b_exec));
 
       if (last_exec_prop != nullptr) {
-         fc_tlog(_logger, " === _b_exec proposal #${block_num} ${proposal_id} block_id : ${block_id} phase : ${phase_counter} parent_id : ${parent_id}",
-              ("block_num", last_exec_prop->block_num())
-              ("proposal_id", last_exec_prop->proposal_id)
-              ("block_id", last_exec_prop->block_id)
-              ("phase_counter", last_exec_prop->phase_counter)
-              ("parent_id", last_exec_prop->parent_id));
+         fc_tlog(_logger, " === _b_exec proposal #${block_num}:${phase} ${prop_id} block_id: ${block_id} parent_id: ${parent_id}",
+                 ("block_num", last_exec_prop->block_num())("prop_id", last_exec_prop->proposal_id)
+                 ("block_id", last_exec_prop->block_id)("phase", last_exec_prop->phase_counter)
+                 ("parent_id", last_exec_prop->parent_id));
 
-         fc_tlog(_logger, " *** last_exec_prop ${proposal_id_1} ${phase_counter_1} vs proposal ${proposal_id_2} ${phase_counter_2} ",
-              ("proposal_id_1", last_exec_prop->block_num())
-              ("phase_counter_1", last_exec_prop->phase_counter)
-              ("proposal_id_2", proposal.block_num())
-              ("phase_counter_2", proposal.phase_counter));
+         fc_tlog(_logger, " *** last_exec_prop ${prop_id_1} ${phase_1} vs proposal ${prop_id_2} ${phase_2} ",
+                 ("prop_id_1", last_exec_prop->block_num())("phase_1", last_exec_prop->phase_counter)
+                 ("prop_id_2", p->block_num())("phase_2", p->phase_counter));
       } else {
-         fc_tlog(_logger, " === _b_exec proposal is null vs proposal ${proposal_id_2} ${phase_counter_2} ",
-              ("proposal_id_2", proposal.block_num())
-              ("phase_counter_2", proposal.phase_counter));
+         fc_tlog(_logger, " === _b_exec proposal is null vs proposal ${prop_id_2} ${phase_2} ",
+                 ("prop_id_2", p->block_num())("phase_2", p->phase_counter));
       }
 
-      if (_b_exec.empty()) {
-         exec_height_check = true;
-      } else {
-         exec_height_check = last_exec_prop->get_height() < proposal.get_height();
-      }
-
+      bool exec_height_check = _b_exec.empty() || last_exec_prop->get_height() < p->get_height();
       if (exec_height_check) {
-         const hs_proposal_message *p = get_proposal( proposal.parent_id );
-         if (p != nullptr) {
-            //fc_tlog(_logger, " === recursively committing" );
-            commit(*p); //recursively commit all non-committed ancestor blocks sequentially first
-         }
-
-         //Execute commands [...]
-
-         fc_dlog(_logger, " === ${id} committed proposal #${block_num} phase ${phase_counter} block_id : ${block_id} proposal_id : ${proposal_id}",
-                        ("id", _id)
-                        ("block_num", proposal.block_num())
-                        ("phase_counter", proposal.phase_counter)
-                        ("block_id", proposal.block_id)
-                        ("proposal_id", proposal.proposal_id));
-      }
-      else {
-         fc_elog(_logger, " *** ${id} sequence not respected on #${block_num} phase ${phase_counter} proposal_id : ${proposal_id}",
-                ("id", _id)
-                ("block_num", proposal.block_num())
-                ("phase_counter", proposal.phase_counter)
-                ("proposal_id", proposal.proposal_id));
+         proposal_chain.push_back(p);         // add proposal to vector for further processing
+         p = get_proposal(p->parent_id);      // process parent if non-null
+      } else {
+         fc_elog(_logger, " *** ${id} sequence not respected on #${block_num}:${phase} proposal_id: ${prop_id}",
+                 ("id", _id)("block_num", p->block_num())("phase", p->phase_counter)("prop_id", p->proposal_id));
+         break;
       }
    }
 
-}}
+   if (!proposal_chain.empty()) {
+      // commit all ancestor blocks sequentially first (hence the reverse)
+      for (auto p : boost::adaptors::reverse(proposal_chain)) {
+         // Execute commands [...]
+         ;
+      }
+
+      auto p = proposal_chain.back();
+      if (proposal_chain.size() > 1) {
+         auto last = proposal_chain.front();
+         fc_dlog(_logger, " === ${id} committed {num} proposals from  #${block_num}:${phase} block_id: ${block_id} "
+                 "proposal_id: ${prop_id} to #${block_num_2}:${phase_2} block_id: ${block_id_2} proposal_id: ${prop_id_2}",
+                 ("id", _id)("block_num", p->block_num())("phase", p->phase_counter)("block_id", p->block_id)
+                 ("prop_id", p->proposal_id)("num", proposal_chain.size())("block_num_2", last->block_num())
+                 ("phase_2", last->phase_counter)("block_id_2", last->block_id)("prop_id_2", last->proposal_id));
+      } else {
+         fc_dlog(_logger, " === ${id} committed proposal #${block_num}:${phase} block_id: ${block_id} proposal_id: ${prop_id}",
+                 ("id", _id)("block_num", p->block_num())("phase", p->phase_counter)
+                 ("block_id", p->block_id)("prop_id", p->proposal_id));
+      }
+   }
+}
+
+}
