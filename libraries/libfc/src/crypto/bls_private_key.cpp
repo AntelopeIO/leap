@@ -25,26 +25,26 @@ namespace fc::crypto::blslib {
       return bls_private_key(v);
    }
 
-   static std::array<uint64_t, 4> priv_parse_base58(const std::string& base58str)
+   static std::array<uint64_t, 4> priv_parse_base64(const std::string& base64str)
    {  
       auto res = std::mismatch(config::bls_private_key_prefix.begin(), config::bls_private_key_prefix.end(),
-                               base58str.begin());
-      FC_ASSERT(res.first == config::bls_private_key_prefix.end(), "BLS Private Key has invalid format : ${str}", ("str", base58str));
+                               base64str.begin());
+      FC_ASSERT(res.first == config::bls_private_key_prefix.end(), "BLS Private Key has invalid format : ${str}", ("str", base64str));
 
-      auto data_str = base58str.substr(config::bls_private_key_prefix.size());
+      auto data_str = base64str.substr(config::bls_private_key_prefix.size());
 
-      std::array<uint64_t, 4> bytes = fc::crypto::blslib::serialize_base58<std::array<uint64_t, 4>>(data_str);
+      std::array<uint64_t, 4> bytes = fc::crypto::blslib::deserialize_base64<std::array<uint64_t, 4>>(data_str);
 
       return bytes;
    }
 
-   bls_private_key::bls_private_key(const std::string& base58str)
-   :_sk(priv_parse_base58(base58str))
+   bls_private_key::bls_private_key(const std::string& base64str)
+   :_sk(priv_parse_base64(base64str))
    {}
 
    std::string bls_private_key::to_string(const yield_function_t& yield) const
    {
-      std::string data_str = fc::crypto::blslib::deserialize_base58<std::array<uint64_t, 4>>(_sk, yield); 
+      std::string data_str = fc::crypto::blslib::serialize_base64<std::array<uint64_t, 4>>(_sk); 
 
       return config::bls_private_key_prefix + data_str;
    }
