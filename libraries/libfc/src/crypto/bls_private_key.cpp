@@ -33,7 +33,7 @@ namespace fc::crypto::blslib {
 
       auto data_str = base64str.substr(config::bls_private_key_prefix.size());
 
-      std::array<uint64_t, 4> bytes = fc::crypto::blslib::serialize_base64<std::array<uint64_t, 4>>(data_str);
+      std::array<uint64_t, 4> bytes = fc::crypto::blslib::deserialize_base64<std::array<uint64_t, 4>>(data_str);
 
       return bytes;
    }
@@ -44,7 +44,7 @@ namespace fc::crypto::blslib {
 
    std::string bls_private_key::to_string(const yield_function_t& yield) const
    {
-      std::string data_str = fc::crypto::blslib::deserialize_base64<std::array<uint64_t, 4>>(_sk, yield); 
+      std::string data_str = fc::crypto::blslib::serialize_base64<std::array<uint64_t, 4>>(_sk); 
 
       return config::bls_private_key_prefix + data_str;
    }
