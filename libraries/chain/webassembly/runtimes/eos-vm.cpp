@@ -129,15 +129,16 @@ class eos_vm_instantiated_module : public wasm_instantiated_module_interface {
          _instantiated_module(std::move(mod)) {}
 
       void apply(apply_context& context) override {
-         // re-initialize backend from the instantiate module of the contract
-         _runtime->_bkend = *_instantiated_module;
-         // re-initialize exec ctx with instantiate module
+         // initialize backend from the instantiated module of the contract
+         _runtime->_bkend.share(*_instantiated_module);
+         // set exec ctx's mod to instantiated module's mod
          _runtime->_exec_ctx.set_module(&(_instantiated_module->get_module()));
          // link exe ctx to backend
          _runtime->_bkend.set_context(&_runtime->_exec_ctx);
-         // set other per apply data
+         // set max_call_depth and max_pages to original values
          _runtime->_bkend.reset_max_call_depth();
          _runtime->_bkend.reset_max_pages();
+         // set wasm allocator per apply data
          _runtime->_bkend.set_wasm_allocator(&context.control.get_wasm_allocator());
 
          apply_options opts;
