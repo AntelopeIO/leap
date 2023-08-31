@@ -1037,6 +1037,7 @@ void qc_chain::commit(const hs_proposal_message& initial_proposal) {
       } else {
          fc_elog(_logger, " *** ${id} sequence not respected on #${block_num}:${phase} proposal_id: ${prop_id}",
                  ("id", _id)("block_num", p->block_num())("phase", p->phase_counter)("prop_id", p->proposal_id));
+         break;
       }
    }
 
