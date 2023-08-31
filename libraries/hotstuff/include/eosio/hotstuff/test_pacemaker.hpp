@@ -57,10 +57,10 @@ namespace eosio { namespace hotstuff {
 
       uint32_t get_quorum_threshold();
 
-      void send_hs_proposal_msg(const hs_proposal_message & msg, name id);
-      void send_hs_vote_msg(const hs_vote_message & msg, name id);
-      void send_hs_new_block_msg(const hs_new_block_message & msg, name id);
-      void send_hs_new_view_msg(const hs_new_view_message & msg, name id);
+      void send_hs_proposal_msg(const hs_proposal_message & msg, name id, const std::optional<uint32_t>& connection_id);
+      void send_hs_vote_msg(const hs_vote_message & msg, name id, const std::optional<uint32_t>& connection_id);
+      void send_hs_new_block_msg(const hs_new_block_message & msg, name id, const std::optional<uint32_t>& connection_id);
+      void send_hs_new_view_msg(const hs_new_view_message & msg, name id, const std::optional<uint32_t>& connection_id);
 
       std::vector<hotstuff_message> _pending_message_queue;
 

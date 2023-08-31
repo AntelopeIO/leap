@@ -8,6 +8,8 @@
 #include <fc/reflect/variant.hpp>
 #include <bls12-381/bls12-381.hpp>
 
+#include <functional>
+
 namespace fc::crypto::blslib {
 
    namespace config {
@@ -33,6 +35,21 @@ namespace fc::crypto::blslib {
    }; // bls_signature
 
 }  // fc::crypto::blslib
+
+// for std::unordered_set<bls_signature>
+namespace std {
+   template <>
+   struct hash<fc::crypto::blslib::bls_signature> {
+      size_t operator()(const fc::crypto::blslib::bls_signature& obj) const {
+         size_t seed = 0;
+         const auto& x_c0_d = obj._sig.x.c0.d;
+         for (const auto& val : x_c0_d) seed ^= val;
+         const auto& x_c1_d = obj._sig.x.c1.d;
+         for (const auto& val : x_c1_d) seed ^= val;
+         return seed;
+      }
+   };
+}
 
 namespace fc {
    void to_variant(const crypto::blslib::bls_signature& var, variant& vo, const yield_function_t& yield = yield_function_t());

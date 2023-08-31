@@ -285,7 +285,7 @@ namespace eosio { namespace hotstuff {
       return v_msg;
    }
 
-   void qc_chain::process_proposal(const hs_proposal_message & proposal){
+   void qc_chain::process_proposal(const hs_proposal_message & proposal, bool is_loopback){
 
       //auto start = fc::time_point::now();
 
@@ -411,6 +411,9 @@ namespace eosio { namespace hotstuff {
       //update internal state
       update(proposal);
 
+      if (!is_loopback)
+         send_hs_proposal_msg(proposal, true);
+
       for (auto &msg : msgs) {
          send_hs_vote_msg(msg);
       }
@@ -422,7 +425,7 @@ namespace eosio { namespace hotstuff {
       //fc_dlog(_logger, " ... process_proposal() total time : ${total_time}", ("total_time", total_time));
    }
 
-   void qc_chain::process_vote(const hs_vote_message & vote){
+   void qc_chain::process_vote(const hs_vote_message & vote, bool is_loopback){
 
       //auto start = fc::time_point::now();
 #warning check for duplicate or invalid vote. We will return in either case, but keep proposals for evidence of double signing
@@ -430,8 +433,16 @@ namespace eosio { namespace hotstuff {
 
       bool am_leader = am_i_leader();
 
-      if (!am_leader)
+      if (!am_leader) {
+         if (is_loopback)
+            return;
+         if (_seen_hs_votes.find(vote.sig) != _seen_hs_votes.end())
+            return;
+         _seen_hs_votes.insert(vote.sig);
+         send_hs_vote_msg(vote, true);
          return;
+      }
+
       fc_tlog(_logger, " === Process vote from ${finalizer} : current bitset ${value}" ,
               ("finalizer", vote.finalizer)("value", _current_qc.get_active_finalizers_string()));
       // only leader need to take action on votes
@@ -503,21 +514,31 @@ namespace eosio { namespace hotstuff {
       //fc_tlog(_logger, " ... process_vote() total time : ${total_time}", ("total_time", total_time));
    }
 
-   void qc_chain::process_new_view(const hs_new_view_message & msg){
+   void qc_chain::process_new_view(const hs_new_view_message & msg, bool is_loopback){
       fc_tlog(_logger, " === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
       if (!update_high_qc(quorum_certificate{msg.high_qc})) {
          increment_version.cancel();
+      } else {
+         if (!is_loopback) // currently, is_loopback is never true here
+            send_hs_new_view_msg(msg, true);
       }
    }
 
-   void qc_chain::process_new_block(const hs_new_block_message & msg){
+   void qc_chain::process_new_block(const hs_new_block_message & msg, bool is_loopback){
 
       // If I'm not a leader, I probably don't care about hs-new-block messages.
 #warning check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
       // TODO: check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
       if (! am_i_leader()) {
          fc_tlog(_logger, " === ${id} process_new_block === discarding because I'm not the leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
+
+         if (is_loopback) // currently, is_loopback is never true here
+            return;
+         if (_seen_hs_new_blocks.find(msg.block_id) != _seen_hs_new_blocks.end())
+            return;
+         _seen_hs_new_blocks.insert(msg.block_id);
+         send_hs_new_block_msg(msg, true);
          return;
       }
 
@@ -567,26 +588,28 @@ namespace eosio { namespace hotstuff {
       }
    }
 
-   void qc_chain::send_hs_proposal_msg(const hs_proposal_message & msg){
+   void qc_chain::send_hs_proposal_msg(const hs_proposal_message & msg, bool is_forwarding){
       fc_tlog(_logger, " === broadcast_hs_proposal ===");
-      _pacemaker->send_hs_proposal_msg(msg, _id);
-      process_proposal(msg);
+      _pacemaker->send_hs_proposal_msg(msg, _id, is_forwarding ? _connection_id : std::nullopt);
+      if (!is_forwarding)
+         process_proposal(msg, true);
    }
 
-   void qc_chain::send_hs_vote_msg(const hs_vote_message & msg){
+   void qc_chain::send_hs_vote_msg(const hs_vote_message & msg, bool is_forwarding){
       fc_tlog(_logger, " === broadcast_hs_vote ===");
-      _pacemaker->send_hs_vote_msg(msg, _id);
-      process_vote(msg);
+      _pacemaker->send_hs_vote_msg(msg, _id, is_forwarding ? _connection_id : std::nullopt);
+      if (!is_forwarding)
+         process_vote(msg, true);
    }
 
-   void qc_chain::send_hs_new_view_msg(const hs_new_view_message & msg){
+   void qc_chain::send_hs_new_view_msg(const hs_new_view_message & msg, bool is_forwarding){
       fc_tlog(_logger, " === broadcast_hs_new_view ===");
-      _pacemaker->send_hs_new_view_msg(msg, _id);
+      _pacemaker->send_hs_new_view_msg(msg, _id, is_forwarding ? _connection_id : std::nullopt);
    }
 
-   void qc_chain::send_hs_new_block_msg(const hs_new_block_message & msg){
+   void qc_chain::send_hs_new_block_msg(const hs_new_block_message & msg, bool is_forwarding){
       fc_tlog(_logger, " === broadcast_hs_new_block ===");
-      _pacemaker->send_hs_new_block_msg(msg, _id);
+      _pacemaker->send_hs_new_block_msg(msg, _id, is_forwarding ? _connection_id : std::nullopt);
    }
 
    //extends predicate
@@ -624,6 +647,8 @@ namespace eosio { namespace hotstuff {
    // Invoked when we could perhaps make a proposal to the network (or to ourselves, if we are the leader).
    // Called from the main application thread
    void qc_chain::on_beat(){
+
+      _connection_id = std::nullopt;
 
       // Non-proposing leaders do not care about on_beat(), because leaders react to a block proposal
       //   which comes from processing an incoming new block message from a proposer instead.
@@ -829,22 +854,26 @@ namespace eosio { namespace hotstuff {
    }
 
    //on proposal received, called from network thread
-   void qc_chain::on_hs_proposal_msg(const hs_proposal_message& msg) {
+   void qc_chain::on_hs_proposal_msg(const hs_proposal_message& msg, const std::optional<uint32_t>& connection_id) {
+      _connection_id = connection_id;
       process_proposal(msg);
    }
 
    //on vote received, called from network thread
-   void qc_chain::on_hs_vote_msg(const hs_vote_message& msg) {
+   void qc_chain::on_hs_vote_msg(const hs_vote_message& msg, const std::optional<uint32_t>& connection_id) {
+      _connection_id = connection_id;
       process_vote(msg);
    }
 
    //on new view received, called from network thread
-   void qc_chain::on_hs_new_view_msg(const hs_new_view_message& msg) {
+   void qc_chain::on_hs_new_view_msg(const hs_new_view_message& msg, const std::optional<uint32_t>& connection_id) {
+      _connection_id = connection_id;
       process_new_view(msg);
    }
 
    //on new block received, called from network thread
-   void qc_chain::on_hs_new_block_msg(const hs_new_block_message& msg) {
+   void qc_chain::on_hs_new_block_msg(const hs_new_block_message& msg, const std::optional<uint32_t>& connection_id) {
+      _connection_id = connection_id;
       process_new_block(msg);
    }
 
@@ -962,6 +991,15 @@ namespace eosio { namespace hotstuff {
 
    void qc_chain::gc_proposals(uint64_t cutoff){
       //fc_tlog(_logger, " === garbage collection on old data");
+
+      // REVIEW: Do something else to periodically flush seen-messages stores?
+      //
+      // Every time we check for clearing proposals, we clear the list of messages already gossiped.
+      // Should we do something with the "cutoff" (height) parameter instead? E.g. sort gossiped
+      //   messages by the height in which they have been gossiped, and clear buckets by height?
+      //
+      _seen_hs_votes.clear();
+      _seen_hs_new_blocks.clear();
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       ps_height_iterator psh_it = _proposal_stores_by_height.begin();
