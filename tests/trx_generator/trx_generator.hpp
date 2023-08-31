@@ -148,7 +148,7 @@ namespace eosio::testing {
          }
          ss << " ] keys: [ ";
          for(size_t i = 0; i < _priv_keys_vec.size(); ++i) {
-               ss << _priv_keys_vec.at(i).to_string();
+               ss << _priv_keys_vec.at(i).to_string({});
                if(i < _priv_keys_vec.size() - 1) {
                   ss << ", ";
                }
