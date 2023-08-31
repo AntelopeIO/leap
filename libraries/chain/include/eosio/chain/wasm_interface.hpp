@@ -54,6 +54,9 @@ namespace eosio { namespace chain {
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
          // initialize exec per thread
          void init_thread_local_data();
+
+         // returns true if EOS VM OC is enabled
+         bool is_eos_vm_oc_enabled() const;
 #endif
 
          //call before dtor to skip what can be minutes of dtor overhead with some runtimes; can cause leaks
@@ -66,18 +69,10 @@ namespace eosio { namespace chain {
          void code_block_num_last_used(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, const uint32_t& block_num);
 
          //indicate the current LIB. evicts old cache entries
-         //, each evicted entry is provided to callback
          void current_lib(const uint32_t lib);
 
          //Calls apply or error on a given code
          void apply(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, apply_context& context);
-
-         // only called from non-main threads (read-only trx execution threads) when      producer_plugin starts them
-         //void init_thread_local_data(const chainbase::database& d, const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, bool profile);
-
-#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
-         bool is_eos_vm_oc_enabled() const;
-#endif
 
          //Returns true if the code is cached
          bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const;

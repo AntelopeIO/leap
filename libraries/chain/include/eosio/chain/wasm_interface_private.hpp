@@ -22,7 +22,7 @@
 #include <eosio/chain/webassembly/eos-vm.hpp>
 #include <eosio/vm/allocator.hpp>
 
-#include <shared_mutex>
+#include <mutex>
 
 using namespace fc;
 using namespace eosio::chain::webassembly;
@@ -95,7 +95,7 @@ struct eosvmoc_tier {
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
          if(eosvmoc_tierup != wasm_interface::vm_oc_enable::oc_none) {
-            EOS_ASSERT(vm != wasm_interface::vm_type::eos_vm_oc, wasm_exception, "You can't use EOS VM OC as the base runtime when tier up is    activated");
+            EOS_ASSERT(vm != wasm_interface::vm_type::eos_vm_oc, wasm_exception, "You can't use EOS VM OC as the base runtime when tier up is activated");
             eosvmoc = std::make_unique<eosvmoc_tier>(data_dir, eosvmoc_config, d);
          }
 #endif
@@ -104,9 +104,9 @@ struct eosvmoc_tier {
       ~wasm_interface_impl() = default;
 
       bool is_code_cached(const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version) const {
-         // This method is only called from tests. No need to check if we should
-         // lock or not.
-         std::shared_lock g(instantiation_cache_mutex);
+         // This method is only called from tests; performance is not critical.
+         // No need for an additional check if we should lock or not.
+         std::lock_guard g(instantiation_cache_mutex);
          wasm_cache_index::iterator it = wasm_instantiation_cache.find( boost::make_tuple(code_hash, vm_type, vm_version) );
          return it != wasm_instantiation_cache.end();
       }
@@ -150,51 +150,33 @@ struct eosvmoc_tier {
          const uint8_t&       vm_version,
          transaction_context& trx_context)
       {
-         wasm_cache_index::iterator it;
          if (trx_context.control.is_write_window()) {
             // When in write window (either read only threads are not enabled or
             // they are not schedued to run), only main thread is processing
             // transactions. No need to lock.
-            it = wasm_instantiation_cache.find( boost::make_tuple(code_hash, vm_type, vm_version) );
+            return get_or_build_instantiated_module(code_hash, vm_type, vm_version, trx_context);
          } else {
-            std::shared_lock g(instantiation_cache_mutex);
-            it = wasm_instantiation_cache.find( boost::make_tuple(code_hash, vm_type, vm_version) );
+            std::lock_guard g(instantiation_cache_mutex);
+            return get_or_build_instantiated_module(code_hash, vm_type, vm_version, trx_context);
          }
+      }
 
+      // Locked by the caller if required.
+      const std::unique_ptr<wasm_instantiated_module_interface>& get_or_build_instantiated_module(
+         const digest_type&   code_hash,
+         const uint8_t&       vm_type,
+         const uint8_t&       vm_version,
+         transaction_context& trx_context )
+      {
+         wasm_cache_index::iterator it = wasm_instantiation_cache.find( boost::make_tuple(code_hash, vm_type, vm_version) );
          if (it != wasm_instantiation_cache.end()) {
             // An instantiated module's module should never be null.
             assert(it->module);
             return it->module;
          }
 
-         if (trx_context.control.is_write_window()) {
-            return build_and_get_instantiated_module(code_hash, vm_type, vm_version, trx_context);
-         } else {
-            // Use unique lock as we need to modify the cache
-            std::unique_lock g(instantiation_cache_mutex);
-
-            // While waiting for aquiring the lock, another thread might
-            // have already compiled the contract and it is ready for use.
-            // Check if that's the case.
-            it = wasm_instantiation_cache.find(boost::make_tuple(code_hash, vm_type, vm_version) );
-            if (it != wasm_instantiation_cache.end()) {
-               assert(it->module);
-               return it->module;
-            }
-
-            return build_and_get_instantiated_module(code_hash, vm_type, vm_version, trx_context);
-         }
-      }
-
-      // Locked by the caller if required.
-      const std::unique_ptr<wasm_instantiated_module_interface>& build_and_get_instantiated_module(
-         const digest_type&   code_hash,
-         const uint8_t&       vm_type,
-         const uint8_t&       vm_version,
-         transaction_context& trx_context )
-      {
          const code_object* codeobject = &db.get<code_object,by_code_hash>(boost::make_tuple(code_hash, vm_type, vm_version));
-         wasm_cache_index::iterator it = wasm_instantiation_cache.emplace( wasm_interface_impl::wasm_cache_entry {
+         it = wasm_instantiation_cache.emplace( wasm_interface_impl::wasm_cache_entry {
             .code_hash = code_hash,
             .last_block_num_used = UINT32_MAX,
             .module = nullptr,
@@ -226,11 +208,11 @@ struct eosvmoc_tier {
             ordered_non_unique<tag<by_last_block_num>, member<wasm_cache_entry, uint32_t, &wasm_cache_entry::last_block_num_used>>
          >
       > wasm_cache_index;
+      mutable std::mutex instantiation_cache_mutex;
       wasm_cache_index wasm_instantiation_cache;
 
       const chainbase::database& db;
       const wasm_interface::vm_type wasm_runtime_time;
-      mutable std::shared_mutex instantiation_cache_mutex;
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       std::unique_ptr<struct eosvmoc_tier> eosvmoc{nullptr}; // used by all threads

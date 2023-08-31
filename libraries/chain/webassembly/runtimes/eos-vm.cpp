@@ -129,7 +129,8 @@ class eos_vm_instantiated_module : public wasm_instantiated_module_interface {
          _instantiated_module(std::move(mod)) {}
 
       void apply(apply_context& context) override {
-         // initialize backend from the instantiated module of the contract
+         // set up backend to share the compiled mod in the instantiated
+         // module of the contract
          _runtime->_bkend.share(*_instantiated_module);
          // set exec ctx's mod to instantiated module's mod
          _runtime->_exec_ctx.set_module(&(_instantiated_module->get_module()));
