@@ -1282,9 +1282,9 @@ BOOST_AUTO_TEST_CASE(public_key_from_hash) {
    auto test_public_key = test_private_key.get_public_key();
    fc::crypto::public_key eos_pk(expected_public_key);
 
-   BOOST_CHECK_EQUAL(private_key_string, test_private_key.to_string());
-   BOOST_CHECK_EQUAL(expected_public_key, test_public_key.to_string());
-   BOOST_CHECK_EQUAL(expected_public_key, eos_pk.to_string());
+   BOOST_CHECK_EQUAL(private_key_string, test_private_key.to_string({}));
+   BOOST_CHECK_EQUAL(expected_public_key, test_public_key.to_string({}));
+   BOOST_CHECK_EQUAL(expected_public_key, eos_pk.to_string({}));
 
    fc::ecc::public_key_data data;
    data.data[0] = 0x80; // not necessary, 0 also works

@@ -85,19 +85,19 @@ namespace fc { namespace crypto {
    }
 
    std::ostream& operator<<(std::ostream& s, const public_key& k) {
-      s << "public_key(" << k.to_string() << ')';
+      s << "public_key(" << k.to_string({}) << ')';
       return s;
    }
 
-   bool operator == ( const public_key& p1, const public_key& p2) {
+   bool operator==( const public_key& p1, const public_key& p2) {
       return eq_comparator<public_key::storage_type>::apply(p1._storage, p2._storage);
    }
 
-   bool operator != ( const public_key& p1, const public_key& p2) {
+   bool operator!=( const public_key& p1, const public_key& p2) {
       return !(p1 == p2);
    }
 
-   bool operator < ( const public_key& p1, const public_key& p2)
+   bool operator<( const public_key& p1, const public_key& p2)
    {
       return less_comparator<public_key::storage_type>::apply(p1._storage, p2._storage);
    }

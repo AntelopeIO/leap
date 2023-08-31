@@ -32,7 +32,7 @@ jobs:
       - name: Setup Input Params
         id: overrides
         run: |
-          echo test-params=testBpOpMode >> $GITHUB_OUTPUT
+          echo test-params=findMax testBpOpMode >> $GITHUB_OUTPUT
 
           if [[ "${{inputs.override-test-params}}" != "" ]]; then
             echo test-params=${{inputs.override-test-params}} >> $GITHUB_OUTPUT
@@ -103,18 +103,18 @@ jobs:
         run: |
           zstdcat build.tar.zst | tar x
           cd build
-          ./tests/performance_tests/performance_test.py ${{needs.v.outputs.test-params}}
+          ./tests/PerformanceHarnessScenarioRunner.py ${{needs.v.outputs.test-params}}
       - name: Prepare results
         id: prep-results
         run: |
-          tar -pc build/performance_test | zstd --long -T0 -9 > performance_test_logs.tar.zst
+          tar -pc build/PerformanceHarnessScenarioRunnerLogs | zstd --long -T0 -9 > PerformanceHarnessScenarioRunnerLogs.tar.zst
       - name: Upload results
         uses: AntelopeIO/upload-artifact-large-chunks-action@v1
         with:
           name: performance-test-results
-          path: performance_test_logs.tar.zst
+          path: PerformanceHarnessScenarioRunnerLogs.tar.zst
       - name: Upload report
         uses: actions/upload-artifact@v3
         with:
           name: performance-test-report
-          path: ./build/performance_test/**/report.json
+          path: ./build/PerformanceHarnessScenarioRunnerLogs/**/report.json

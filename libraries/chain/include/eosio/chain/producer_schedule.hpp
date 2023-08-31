@@ -144,7 +144,7 @@ namespace eosio { namespace chain {
          result.threshold = src.threshold;
          result.keys.reserve(src.keys.size());
          for (const auto& k: src.keys) {
-            result.keys.push_back(k);
+            result.keys.push_back(k.to_key_weight());
          }
 
          return result;

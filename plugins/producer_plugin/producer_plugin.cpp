@@ -1051,8 +1051,8 @@ void producer_plugin::set_program_options(
          ("producer-name,p", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "ID of producer controlled by this node (e.g. inita; may specify multiple times)")
          ("signature-provider", boost::program_options::value<vector<string>>()->composing()->multitoken()->default_value(
-               {default_priv_key.get_public_key().to_string() + "=KEY:" + default_priv_key.to_string()},
-                default_priv_key.get_public_key().to_string() + "=KEY:" + default_priv_key.to_string()),
+               {default_priv_key.get_public_key().to_string({}) + "=KEY:" + default_priv_key.to_string({})},
+                default_priv_key.get_public_key().to_string({}) + "=KEY:" + default_priv_key.to_string({})),
                app().get_plugin<signature_provider_plugin>().signature_provider_help_text())
          ("greylist-account", boost::program_options::value<vector<string>>()->composing()->multitoken(),
           "account that can not access to extended CPU/NET virtual resources")

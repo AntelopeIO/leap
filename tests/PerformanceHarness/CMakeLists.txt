@@ -1,0 +1,11 @@
+configure_file(performance_test_basic.py . COPYONLY)
+configure_file(performance_test.py . COPYONLY)
+configure_file(log_reader.py . COPYONLY)
+configure_file(genesis.json . COPYONLY)
+configure_file(cpuTrxData.json . COPYONLY)
+configure_file(ramTrxData.json . COPYONLY)
+configure_file(readOnlyTrxData.json . COPYONLY)
+configure_file(userTrxDataTransfer.json . COPYONLY)
+configure_file(userTrxDataNewAccount.json . COPYONLY)
+
+add_subdirectory( NodeosPluginArgs )
