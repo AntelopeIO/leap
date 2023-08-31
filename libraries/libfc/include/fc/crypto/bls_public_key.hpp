@@ -18,7 +18,7 @@ namespace fc::crypto::blslib {
          bls_public_key( bls_public_key&& ) = default;
          bls_public_key( const bls_public_key& ) = default;
          explicit bls_public_key( const bls12_381::g1& pkey ) {_pkey = pkey;}
-         explicit bls_public_key(const std::string& base58str);
+         explicit bls_public_key(const std::string& base64str);
 
          bls_public_key& operator=(const bls_public_key&) = default;
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;
