@@ -6,6 +6,7 @@
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/finalizer_set.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 
 #include <fc/io/datastream.hpp>
 
@@ -156,24 +157,21 @@ namespace eosio { namespace chain { namespace webassembly {
       fc::datastream<const char*> ds( packed_finalizer_set.data(), packed_finalizer_set.size() );
       finalizer_set finset;
       fc::raw::unpack(ds, finset);
-      vector<finalizer_authority> & finalizers = finset.finalizers;
+      vector<finalizer_authority>& finalizers = finset.finalizers;
 
       // TODO: check version and increment it or verify correct
       EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer set exceeds the maximum finalizer count for this chain" );
       EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizer set cannot be empty" );
 
       std::set<fc::crypto::blslib::bls_public_key> unique_finalizer_keys;
-#warning REVIEW: Is checking for unique finalizer descriptions at all relevant?
-      std::set<std::string> unique_finalizers;
       uint64_t f_weight_sum = 0;
 
       for (const auto& f: finalizers) {
          f_weight_sum += f.fweight;
          unique_finalizer_keys.insert(f.public_key);
-         unique_finalizers.insert(f.description);
+         EOS_ASSERT( f.description.size() <= 256, wasm_execution_error, "Finalizer description greater than 256" );
       }
 
-      EOS_ASSERT( finalizers.size() == unique_finalizers.size(), wasm_execution_error, "Duplicate finalizer description in finalizer set" );
       EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );
       EOS_ASSERT( finset.fthreshold > f_weight_sum / 2, wasm_execution_error, "Finalizer set threshold cannot be met by finalizer weights" );
 
