@@ -184,7 +184,7 @@ namespace eosio { namespace chain { namespace webassembly {
          f_weight_sum += f.fweight;
          std::optional<bls12_381::g1> pk = bls12_381::g1::fromJacobianBytesLE(f.public_key_g1_jacobian);
          EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
-         finset.finalizers.push_back(finalizer_authority{.description = std::move(f.description), .fweight = f.fweight, .public_key{*pk}});
+         finset.finalizers.push_back(finalizer_authority{.description = std::move(f.description), .fweight = f.fweight, .public_key{fc::crypto::blslib::bls_public_key{*pk}}});
          unique_finalizer_keys.insert(finset.finalizers.back().public_key);
       }
 
