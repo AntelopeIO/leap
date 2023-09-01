@@ -1,4 +1,5 @@
 #include <eosio/chain/block.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 #include <eosio/chain/merkle.hpp>
 #include <fc/io/raw.hpp>
 #include <fc/bitutil.hpp>
@@ -62,6 +63,30 @@ namespace eosio { namespace chain {
       }
 
       return results;
+   }
+
+   std::optional<block_header_extension> block_header::extract_header_extension(uint16_t extension_id)const {
+      using decompose_t = block_header_extension_types::decompose_t;
+
+      for( size_t i = 0; i < header_extensions.size(); ++i ) {
+         const auto& e = header_extensions[i];
+         auto id = e.first;
+
+         if (id != extension_id)
+            continue;
+
+         block_header_extension ext;
+
+         auto match = decompose_t::extract<block_header_extension>( id, e.second, ext );
+         EOS_ASSERT( match, invalid_block_header_extension,
+                     "Block header extension with id type ${id} is not supported",
+                     ("id", id)
+         );
+
+         return ext;
+      }
+
+      return {};
    }
 
 } }

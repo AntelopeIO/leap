@@ -676,6 +676,13 @@ namespace impl {
                   std::get<producer_schedule_change_extension>(header_exts.lower_bound(producer_schedule_change_extension::extension_id())->second);
             mvo("new_producer_schedule", new_producer_schedule);
          }
+         if (header_exts.count(hs_finalizer_set_extension::extension_id())) {
+            // TODO: Will not compile without including finalizer_authority.hpp which includes bls12-381.
+            //       Should we store the bls_public_key in compressed form?
+//            const auto& finalizer_set_extension =
+//                    std::get<hs_finalizer_set_extension>(header_exts.lower_bound(hs_finalizer_set_extension::extension_id())->second);
+//            mvo("proposed_finalizer_set", finalizer_set_extension);
+         }
 
          mvo("producer_signature", block.producer_signature);
          add(mvo, "transactions", block.transactions, resolver, ctx);

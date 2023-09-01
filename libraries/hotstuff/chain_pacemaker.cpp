@@ -1,4 +1,5 @@
 #include <eosio/hotstuff/chain_pacemaker.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 #include <iostream>
 
 // comment this out to remove the core profiler
@@ -108,6 +109,9 @@ namespace eosio { namespace hotstuff {
       _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
          on_accepted_block( blk );
       } );
+      _irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_state_ptr& blk ) {
+         on_irreversible_block( blk );
+      } );
       _head_block_state = chain->head_block_state();
    }
 
@@ -211,8 +215,17 @@ namespace eosio { namespace hotstuff {
    void chain_pacemaker::on_accepted_block( const block_state_ptr& blk ) {
       std::scoped_lock g( _chain_state_mutex );
       _head_block_state = blk;
-      // TODO only update local cache if changed, check version or use !=
-      _finalizer_set = _chain->get_finalizers(); // TODO get from chainbase or from block_state
+   }
+
+   // called from main thread
+   void chain_pacemaker::on_irreversible_block( const block_state_ptr& blk ) {
+      if (!blk->block->header_extensions.empty()) {
+         std::optional<block_header_extension> ext = blk->block->extract_header_extension(hs_finalizer_set_extension::extension_id());
+         if (ext) {
+            std::scoped_lock g( _chain_state_mutex );
+            _active_finalizer_set = std::move(std::get<hs_finalizer_set_extension>(*ext));
+         }
+      }
    }
 
    name chain_pacemaker::get_proposer() {
@@ -246,21 +259,10 @@ namespace eosio { namespace hotstuff {
 
    std::vector<name> chain_pacemaker::get_finalizers() {
 
-#warning FIXME: Use new finalizer list in pacemaker/qc_chain.
-      // Every time qc_chain wants to know what the finalizers are, we get it from the controller, which
-      //   is where it's currently stored.
-      //
-      // TODO:
-      // - solve threading. for this particular case, I don't think using _chain-> is a big deal really;
-      //   set_finalizers is called once in a blue moon, and this could be solved by a simple mutex even
-      //   if it is the main thread that is waiting for a lock. But maybe there's a better way to do this
-      //   overall.
-      // - use this information in qc_chain and delete the old code below
-      // - list of string finalizer descriptions instead of eosio name now
-      // - also return the keys for each finalizer, not just name/description so qc_chain can use them
-      //
+#warning FIXME: Use _active_finalizer_set in pacemaker/qc_chain.
+      // _active_finalizer_set should be used
+
       std::unique_lock g( _chain_state_mutex );
-      const auto& fin_set = _chain->get_finalizers(); // TODO use
       block_state_ptr hbs = _head_block_state;
       g.unlock();
 
