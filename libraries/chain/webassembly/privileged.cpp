@@ -152,18 +152,24 @@ namespace eosio { namespace chain { namespace webassembly {
       }
    }
 
+   // format for packed_finalizer_set
+   struct abi_finalizer_authority {
+      std::string              description;
+      uint64_t                 fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
+      std::array<uint8_t, 144> public_key_g1_jacobian;
+   };
+   struct abi_finalizer_set {
+      uint64_t                        fthreshold = 0;
+      vector<abi_finalizer_authority> finalizers;
+   };
+
    void interface::set_finalizers(span<const char> packed_finalizer_set) {
       EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_finalizers not allowed in a readonly transaction");
       fc::datastream<const char*> ds( packed_finalizer_set.data(), packed_finalizer_set.size() );
-      finalizer_set finset;
-      // contract finalizer_set does not include uint32_t generation
-      // struct abi_finalizer_set {
-      //   uint64_t fthreshold
-      //   vector<finalizer_authority> finalizers; }
-      fc::raw::unpack(ds, finset.fthreshold);
-      fc::raw::unpack(ds, finset.finalizers);
+      abi_finalizer_set abi_finset;
+      fc::raw::unpack(ds, abi_finset);
 
-      vector<finalizer_authority>& finalizers = finset.finalizers;
+      vector<abi_finalizer_authority>& finalizers = abi_finset.finalizers;
 
       EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer set exceeds the maximum finalizer count for this chain" );
       EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizer set cannot be empty" );
@@ -171,10 +177,15 @@ namespace eosio { namespace chain { namespace webassembly {
       std::set<fc::crypto::blslib::bls_public_key> unique_finalizer_keys;
       uint64_t f_weight_sum = 0;
 
+      finalizer_set finset;
+      finset.fthreshold = abi_finset.fthreshold;
       for (const auto& f: finalizers) {
          EOS_ASSERT( f.description.size() <= config::max_finalizer_description, wasm_execution_error, "Finalizer description greater than 256" );
          f_weight_sum += f.fweight;
-         unique_finalizer_keys.insert(f.public_key);
+         std::optional<bls12_381::g1> pk = bls12_381::g1::fromJacobianBytesLE(f.public_key_g1_jacobian);
+         EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
+         finset.finalizers.push_back(finalizer_authority{.description = std::move(f.description), .fweight = f.fweight, .public_key{*pk}});
+         unique_finalizer_keys.insert(finset.finalizers.back().public_key);
       }
 
       EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );
@@ -257,3 +268,6 @@ namespace eosio { namespace chain { namespace webassembly {
       });
    }
 }}} // ns eosio::chain::webassembly
+
+FC_REFLECT(eosio::chain::webassembly::abi_finalizer_authority, (description)(fweight)(public_key_g1_jacobian));
+FC_REFLECT(eosio::chain::webassembly::abi_finalizer_set, (fthreshold)(finalizers));
