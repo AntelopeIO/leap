@@ -174,7 +174,7 @@ namespace eosio { namespace chain { namespace webassembly {
       EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer set exceeds the maximum finalizer count for this chain" );
       EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizer set cannot be empty" );
 
-      std::set<fc::crypto::blslib::bls_public_key> unique_finalizer_keys;
+      std::set<bls12_381::g1> unique_finalizer_keys;
       uint64_t f_weight_sum = 0;
 
       finalizer_set finset;
@@ -185,8 +185,10 @@ namespace eosio { namespace chain { namespace webassembly {
          f_weight_sum += f.fweight;
          std::optional<bls12_381::g1> pk = bls12_381::g1::fromJacobianBytesLE(f.public_key_g1_jacobian);
          EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
-         finset.finalizers.push_back(finalizer_authority{.description = std::move(f.description), .fweight = f.fweight, .public_key{fc::crypto::blslib::bls_public_key{*pk}}});
-         unique_finalizer_keys.insert(finset.finalizers.back().public_key);
+         finset.finalizers.push_back(finalizer_authority{.description = std::move(f.description),
+                                                         .fweight = f.fweight,
+                                                         .public_key{fc::crypto::blslib::bls_public_key{*pk}}});
+         unique_finalizer_keys.insert(*pk);
       }
 
       EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );
