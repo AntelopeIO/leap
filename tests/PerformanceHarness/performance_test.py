@@ -10,14 +10,13 @@ import shutil
 from pathlib import Path, PurePath
 sys.path.append(str(PurePath(PurePath(Path(__file__).absolute()).parent).parent))
 
-from NodeosPluginArgs import ChainPluginArgs, HttpPluginArgs, NetPluginArgs, ProducerPluginArgs, ResourceMonitorPluginArgs
 from TestHarness import TestHelper, Utils, Account
-from performance_test_basic import PerformanceTestBasic, PtbArgumentsHandler
+from .performance_test_basic import PerformanceTestBasic, PtbArgumentsHandler
 from platform import release, system
 from dataclasses import dataclass, asdict, field
 from datetime import datetime
 from enum import Enum
-from log_reader import JsonReportHandler
+from .log_reader import JsonReportHandler
 
 class PerformanceTest:
 
@@ -50,6 +49,8 @@ class PerformanceTest:
         userTrxDataFile: Path=None
         endpointMode: str="p2p"
         opModeCmd: str=""
+        trxGenerator: Path=Path(".")
+
 
         def __post_init__(self):
             self.opModeDesc = "Block Producer Operational Mode" if self.opModeCmd == "testBpOpMode" else "API Node Operational Mode" if self.opModeCmd == "testApiOpMode" else "Undefined Operational Mode"
@@ -76,7 +77,7 @@ class PerformanceTest:
 
     @dataclass
     class LoggingConfig:
-        logDirBase: Path = Path(".")/PurePath(PurePath(__file__).name).stem
+        logDirBase: Path = Path(".")/os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0]
         logDirTimestamp: str = f"{datetime.utcnow().strftime('%Y-%m-%d_%H-%M-%S')}"
         logDirPath: Path = field(default_factory=Path, init=False)
         ptbLogsDirPath: Path = field(default_factory=Path, init=False)
@@ -95,7 +96,7 @@ class PerformanceTest:
 
         self.testsStart = datetime.utcnow()
 
-        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/PurePath(PurePath(__file__).name).stem,
+        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/f"{os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0]}Logs",
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
     def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool) -> TpsTestResult.PerfTestSearchResults:
@@ -113,9 +114,10 @@ class PerformanceTest:
             scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                        numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=logDirRoot, delReport=delReport,
-                                                       quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointMode=self.ptConfig.endpointMode)
+                                                       quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointMode=self.ptConfig.endpointMode,
+                                                       trxGenerator=self.ptConfig.trxGenerator)
 
-            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig,  testNamePath="performance_test")
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig, testNamePath=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0])
             myTest.runTest()
             if myTest.testResult.testPassed:
                 maxTpsAchieved = binSearchTarget
@@ -155,9 +157,10 @@ class PerformanceTest:
             scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=searchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                     numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport,
-                                                    quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointMode=self.ptConfig.endpointMode)
+                                                    quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointMode=self.ptConfig.endpointMode,
+                                                    trxGenerator=self.ptConfig.trxGenerator)
 
-            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig, testNamePath="performance_test")
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig, testNamePath=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0])
             myTest.runTest()
             if myTest.testResult.testPassed:
                 maxTpsAchieved = searchTarget
@@ -521,40 +524,3 @@ class PerfTestArgumentsHandler(object):
         ptParser=PerfTestArgumentsHandler.createArgumentParser()
         args=ptParser.parse_args()
         return args
-
-def main():
-    args = PerfTestArgumentsHandler.parseArgs()
-    Utils.Debug = args.v
-
-    testHelperConfig = PerformanceTestBasic.setupTestHelperConfig(args)
-    testClusterConfig = PerformanceTestBasic.setupClusterConfig(args)
-
-    ptConfig = PerformanceTest.PtConfig(testDurationSec=args.test_iteration_duration_sec,
-                                        finalDurationSec=args.final_iterations_duration_sec,
-                                        delPerfLogs=args.del_perf_logs,
-                                        maxTpsToTest=args.max_tps_to_test,
-                                        minTpsToTest=args.min_tps_to_test,
-                                        testIterationMinStep=args.test_iteration_min_step,
-                                        tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                        delReport=args.del_report,
-                                        delTestReport=args.del_test_report,
-                                        numAddlBlocksToPrune=args.num_blocks_to_prune,
-                                        quiet=args.quiet,
-                                        logDirRoot=Path("."),
-                                        skipTpsTests=args.skip_tps_test,
-                                        calcProducerThreads=args.calc_producer_threads,
-                                        calcChainThreads=args.calc_chain_threads,
-                                        calcNetThreads=args.calc_net_threads,
-                                        userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None,
-                                        endpointMode=args.endpoint_mode,
-                                        opModeCmd=args.op_mode_sub_cmd)
-
-    myTest = PerformanceTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptConfig=ptConfig)
-
-    perfRunSuccessful = myTest.runTest()
-
-    exitCode = 0 if perfRunSuccessful else 1
-    exit(exitCode)
-
-if __name__ == '__main__':
-    main()
