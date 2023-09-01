@@ -122,6 +122,7 @@ add_library( eosio_chain
              ${CHAIN_WEBASSEMBLY_SOURCES}
 
              authority.cpp
+             finalizer_set.cpp
              trace.cpp
              transaction_metadata.cpp
              protocol_state_object.cpp
