@@ -134,7 +134,7 @@ static_assert(maximum_tracked_dpos_confirmations >= ((max_producers * 2 / 3) + 1
  * Maximum number of finalizers in the finalizer set
  */
 const static size_t max_finalizers = 64*1024;
-const static size_t max_finalizer_description = 256;
+const static size_t max_finalizer_description_size = 256;
 
 /**
  * The number of blocks produced per round is based upon all producers having a chance

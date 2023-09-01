@@ -159,8 +159,8 @@ namespace eosio { namespace chain { namespace webassembly {
       std::array<uint8_t, 144> public_key_g1_jacobian;
    };
    struct abi_finalizer_set {
-      uint64_t                        fthreshold = 0;
-      vector<abi_finalizer_authority> finalizers;
+      uint64_t                             fthreshold = 0;
+      std::vector<abi_finalizer_authority> finalizers;
    };
 
    void interface::set_finalizers(span<const char> packed_finalizer_set) {
@@ -169,7 +169,7 @@ namespace eosio { namespace chain { namespace webassembly {
       abi_finalizer_set abi_finset;
       fc::raw::unpack(ds, abi_finset);
 
-      vector<abi_finalizer_authority>& finalizers = abi_finset.finalizers;
+      std::vector<abi_finalizer_authority>& finalizers = abi_finset.finalizers;
 
       EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer set exceeds the maximum finalizer count for this chain" );
       EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizer set cannot be empty" );
@@ -180,7 +180,8 @@ namespace eosio { namespace chain { namespace webassembly {
       finalizer_set finset;
       finset.fthreshold = abi_finset.fthreshold;
       for (const auto& f: finalizers) {
-         EOS_ASSERT( f.description.size() <= config::max_finalizer_description, wasm_execution_error, "Finalizer description greater than 256" );
+         EOS_ASSERT( f.description.size() <= config::max_finalizer_description_size, wasm_execution_error,
+                     "Finalizer description greater than ${s}", ("s", config::max_finalizer_description_size) );
          f_weight_sum += f.fweight;
          std::optional<bls12_381::g1> pk = bls12_381::g1::fromJacobianBytesLE(f.public_key_g1_jacobian);
          EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
