@@ -1,6 +1,7 @@
 #include <eosio/chain/abi_serializer.hpp>
 #include <eosio/chain/asset.hpp>
 #include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 #include <fc/io/raw.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <fc/io/varint.hpp>
@@ -630,6 +631,14 @@ namespace eosio { namespace chain {
       impl::variant_to_binary_context ctx(*this, create_depth_yield_function(), max_action_data_serialization_time, type);
       ctx.short_path = short_path;
       _variant_to_binary(type, var, ds, ctx);
+   }
+
+   void impl::abi_to_variant::add_block_header_finalizer_set_extension( mutable_variant_object& mvo, const flat_multimap<uint16_t, block_header_extension>& header_exts ) {
+      if (header_exts.count(hs_finalizer_set_extension::extension_id())) {
+         const auto& finalizer_set_extension =
+                 std::get<hs_finalizer_set_extension>(header_exts.lower_bound(hs_finalizer_set_extension::extension_id())->second);
+         mvo("proposed_finalizer_set", finalizer_set_extension);
+      }
    }
 
    type_name abi_serializer::get_action_type(name action)const {
