@@ -1,0 +1,100 @@
+#include "bls.hpp"
+
+#include <fc/crypto/bls_private_key.hpp>
+#include <fc/crypto/bls_public_key.hpp>
+#include <fc/crypto/bls_signature.hpp>
+//#include <fc/crypto/bls_utils.hpp>
+
+#include <boost/program_options.hpp>
+
+using namespace fc::crypto::blslib;
+namespace bpo = boost::program_options;
+using bpo::options_description;
+
+void bls_actions::setup(CLI::App& app) {
+   // callback helper with error code handling
+   auto err_guard = [this](int (bls_actions::*fun)()) {
+      try {
+         int rc = (this->*fun)();
+         if(rc) throw(CLI::RuntimeError(rc));
+      } catch(...) {
+         print_exception();
+         throw(CLI::RuntimeError(-1));
+      }
+   };
+
+   // main command
+   auto* sub = app.add_subcommand("bls", "bls utility");
+   sub->require_subcommand();
+
+   // Create subcommand
+   auto create = sub->add_subcommand("create", "Create various items");
+   create->require_subcommand();
+
+   // sub-subcommand - key 
+   auto* create_key = create->add_subcommand("key", "Create a new keypair and print the public and private keys")->callback([err_guard]() { err_guard(&bls_actions::create_key); });
+   create_key->add_option("-f,--file", opt->key_file, "Name of file to write private/public key output to. (Must be set, unless \"--to-console\" is passed");
+   create_key->add_flag( "--to-console", opt->print_console, "Print private/public keys to console.");
+
+   // sub-subcommand - pop (proof of possession) 
+   auto* create_pop = create->add_subcommand("pop", "Create proof of possession for the corresponding public key of a given private key")->callback([err_guard]() { err_guard(&bls_actions::create_pop); });
+   create_pop->add_option("-f,--file", opt->key_file, "Name of file storing the private key. (one and only one of \"-f,--file\" and \"--private-key\" must be set)");
+   create_pop->add_option("--private-key", opt->private_key_str, "The private key. (one and only one of \"-f,--file\" and \"--private-key\" must be set)");
+}
+
+int bls_actions::create_key() {
+   if (opt->key_file.empty() && !opt->print_console) {
+      std::cerr << "ERROR: Either indicate a file using \"--file\" or pass \"--to-console\"" << std::endl;
+      return -1;
+   }
+
+   const bls_private_key private_key = bls_private_key::generate();
+   const bls_public_key public_key = private_key.get_public_key();
+
+   const std::array<uint8_t, 48> msg = public_key._pkey.toCompressedBytesBE();
+   const std::vector<uint8_t> msg_vector = std::vector<uint8_t>(msg.begin(), msg.end());
+   const bls_signature pop = private_key.sign(msg_vector);
+
+   std::string out_str = "Private key: " + private_key.to_string({}) + "\n";
+   out_str += "Public key: " + public_key.to_string({}) + "\n";
+   out_str += "Proof of Possession: " + pop.to_string({}) + "\n";
+
+   if (opt->print_console) {
+      std::cout << out_str;
+   } else {
+      std::cout << "saving keys to " << opt->key_file << std::endl;
+      std::ofstream out( opt->key_file.c_str() );
+      out << out_str;
+   }
+
+   return 0;
+}
+
+int bls_actions::create_pop() {
+   if (opt->key_file.empty() && opt->private_key_str.empty()) {
+      std::cerr << "ERROR: Either indicate a file using \"-f, --file\" or pass \"--private-key\"" << std::endl;
+      return -1;
+   } else if (!opt->key_file.empty() && !opt->private_key_str.empty()) {
+      std::cerr << "ERROR: Only one of \"-f, --file\" and \"--private-key\" can be provided" << std::endl;
+      return -1;
+   }
+
+   const bls_private_key private_key = bls_private_key(opt->private_key_str);
+   const bls_public_key public_key = private_key.get_public_key();
+   std::string pop_str = generate_pop_str(private_key); 
+
+   std::cout << "Proof of Possession: " << pop_str << std::endl;
+   std::cout << "Public key: " <<  public_key.to_string({}) << std::endl;
+
+   return 0;
+}
+
+std::string bls_actions::generate_pop_str(const bls_private_key& private_key) {
+   const bls_public_key public_key = private_key.get_public_key();
+
+   const std::array<uint8_t, 48> msg = public_key._pkey.toCompressedBytesBE();
+   const std::vector<uint8_t> msg_vector = std::vector<uint8_t>(msg.begin(), msg.end());
+   const bls_signature pop = private_key.sign(msg_vector);
+
+   return pop.to_string({});
+}
