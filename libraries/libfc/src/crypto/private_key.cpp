@@ -124,16 +124,11 @@ namespace fc { namespace crypto {
       return std::string(config::private_key_base_prefix) + "_" + data_str;
    }
 
-   std::ostream& operator<<(std::ostream& s, const private_key& k) {
-      s << "private_key(" << k.to_string() << ')';
-      return s;
-   }
-
-   bool operator == ( const private_key& p1, const private_key& p2) {
+   bool operator==( const private_key& p1, const private_key& p2 ) {
       return eq_comparator<private_key::storage_type>::apply(p1._storage, p2._storage);
    }
 
-   bool operator < ( const private_key& p1, const private_key& p2)
+   bool operator<( const private_key& p1, const private_key& p2 )
    {
       return less_comparator<private_key::storage_type>::apply(p1._storage, p2._storage);
    }

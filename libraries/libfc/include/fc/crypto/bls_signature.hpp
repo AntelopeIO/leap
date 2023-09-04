@@ -24,7 +24,7 @@ namespace fc::crypto::blslib {
          bls_signature( bls_signature&& ) = default;
          bls_signature( const bls_signature& ) = default;
          explicit bls_signature( const bls12_381::g2& sig ){_sig = sig;}
-         explicit bls_signature(const std::string& base58str);
+         explicit bls_signature(const std::string& base64str);
 
          bls_signature& operator= (const bls_signature& ) = default;
          std::string to_string(const yield_function_t& yield = yield_function_t()) const;

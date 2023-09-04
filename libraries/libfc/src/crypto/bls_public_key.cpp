@@ -5,30 +5,30 @@
 
 namespace fc::crypto::blslib {
 
-   static bls12_381::g1 pub_parse_base58(const std::string& base58str)
+   static bls12_381::g1 pub_parse_base64(const std::string& base64str)
    {  
       auto res = std::mismatch(config::bls_public_key_prefix.begin(), config::bls_public_key_prefix.end(),
-                               base58str.begin());
-      FC_ASSERT(res.first == config::bls_public_key_prefix.end(), "BLS Public Key has invalid format : ${str}", ("str", base58str));
+                               base64str.begin());
+      FC_ASSERT(res.first == config::bls_public_key_prefix.end(), "BLS Public Key has invalid format : ${str}", ("str", base64str));
 
-      auto data_str = base58str.substr(config::bls_public_key_prefix.size());
+      auto data_str = base64str.substr(config::bls_public_key_prefix.size());
 
-      std::array<uint8_t, 48> bytes = fc::crypto::blslib::serialize_base58<std::array<uint8_t, 48>>(data_str);
+      std::array<uint8_t, 48> bytes = fc::crypto::blslib::deserialize_base64<std::array<uint8_t, 48>>(data_str);
       
       std::optional<bls12_381::g1> g1 = bls12_381::g1::fromCompressedBytesBE(bytes);
       FC_ASSERT(g1);
       return *g1;
    }
 
-   bls_public_key::bls_public_key(const std::string& base58str)
-   :_pkey(pub_parse_base58(base58str))
+   bls_public_key::bls_public_key(const std::string& base64str)
+   :_pkey(pub_parse_base64(base64str))
    {}
 
    std::string bls_public_key::to_string(const yield_function_t& yield)const {
 
       std::array<uint8_t, 48> bytes = _pkey.toCompressedBytesBE();
 
-      std::string data_str = fc::crypto::blslib::deserialize_base58<std::array<uint8_t, 48>>(bytes, yield); 
+      std::string data_str = fc::crypto::blslib::serialize_base64<std::array<uint8_t, 48>>(bytes); 
 
       return config::bls_public_key_prefix + data_str;
 
