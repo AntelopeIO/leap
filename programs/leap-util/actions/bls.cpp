@@ -79,7 +79,29 @@ int bls_actions::create_pop() {
       return -1;
    }
 
-   const bls_private_key private_key = bls_private_key(opt->private_key_str);
+   std::string private_key_str;
+   if (!opt->private_key_str.empty()) {
+      private_key_str = opt->private_key_str;
+   } else {
+      std::ifstream key_file(opt->key_file);
+
+      if (!key_file.is_open()) {
+         std::cerr << "ERROR: failed to open file " << opt->key_file << std::endl;
+         return -1;
+      }
+
+      if (std::getline(key_file, private_key_str)) {
+         if (!key_file.eof()) {
+            std::cerr << "ERROR: file " << opt->key_file << " contains more than one line" << std::endl;
+            return -1;
+         }
+      } else {
+         std::cerr << "ERROR: file " << opt->key_file << " is empty" << std::endl;
+         return -1;
+      }
+   }
+
+   const bls_private_key private_key = bls_private_key(private_key_str);
    const bls_public_key public_key = private_key.get_public_key();
    std::string pop_str = generate_pop_str(private_key); 
 
