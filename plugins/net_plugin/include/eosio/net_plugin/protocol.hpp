@@ -142,7 +142,7 @@ namespace eosio {
                                     sync_request_message,
                                     signed_block,
                                     packed_transaction,
-                                    hs_message>;
+                                    hs_message_inner>;
 
 } // namespace eosio
 

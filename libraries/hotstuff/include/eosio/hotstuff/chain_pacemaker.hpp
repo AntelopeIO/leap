@@ -21,11 +21,11 @@ namespace eosio::hotstuff {
       //class-specific functions
 
       chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger);
-      void register_bcast_function(std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> broadcast_hs_message);
+      void register_bcast_function(std::function<void(const chain::hs_message&)> broadcast_hs_message);
 
       void beat();
 
-      void on_hs_msg(const uint32_t connection_id, const hs_message& msg);
+      void on_hs_msg(const hs_message& msg);
 
       void get_state(finalizer_state& fs) const;
 
@@ -79,7 +79,7 @@ namespace eosio::hotstuff {
       boost::signals2::scoped_connection _accepted_block_connection;
 
       qc_chain                _qc_chain;
-      std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> bcast_hs_message;
+      std::function<void(const chain::hs_message&)> bcast_hs_message;
 
       uint32_t                _quorum_threshold = 15; //FIXME/TODO: calculate from schedule
       fc::logger&             _logger;

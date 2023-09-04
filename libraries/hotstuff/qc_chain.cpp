@@ -411,8 +411,12 @@ namespace eosio { namespace hotstuff {
       //update internal state
       update(proposal);
 
-      if (!is_loopback)
+      // Conditional propagation of proposal messages: we only rebroadcast proposal
+      //   messages that have been considered new and relevant to this node; do not
+      //   rebroadcast if loopback (receiving our own proposal message).
+      if (!is_loopback) {
          send_hs_proposal_msg(proposal, true);
+      }
 
       for (auto &msg : msgs) {
          send_hs_vote_msg(msg);
@@ -434,12 +438,12 @@ namespace eosio { namespace hotstuff {
       bool am_leader = am_i_leader();
 
       if (!am_leader) {
-         if (is_loopback)
-            return;
-         if (_seen_hs_votes.find(vote.sig) != _seen_hs_votes.end())
-            return;
-         _seen_hs_votes.insert(vote.sig);
-         send_hs_vote_msg(vote, true);
+         // Unconditional propagation of vote messages: we rebroadcast all votes,
+         //   unless we are the leader, which is the single intended recipient.
+         // Do not rebroadcast if loopback (receiving our own vote message).
+         if (!is_loopback) {
+            send_hs_vote_msg(vote, true);
+         }
          return;
       }
 
@@ -516,12 +520,15 @@ namespace eosio { namespace hotstuff {
 
    void qc_chain::process_new_view(const hs_new_view_message & msg, bool is_loopback){
       fc_tlog(_logger, " === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
+
+      // Unconditional propagation of new-view messages.
+      if (!is_loopback) { // note: is_loopback==true may never happen here
+         send_hs_new_view_msg(msg, true);
+      }
+
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
       if (!update_high_qc(quorum_certificate{msg.high_qc})) {
          increment_version.cancel();
-      } else {
-         if (!is_loopback) // currently, is_loopback is never true here
-            send_hs_new_view_msg(msg, true);
       }
    }
 
@@ -532,13 +539,10 @@ namespace eosio { namespace hotstuff {
       // TODO: check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
       if (! am_i_leader()) {
          fc_tlog(_logger, " === ${id} process_new_block === discarding because I'm not the leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
-
-         if (is_loopback) // currently, is_loopback is never true here
-            return;
-         if (_seen_hs_new_blocks.find(msg.block_id) != _seen_hs_new_blocks.end())
-            return;
-         _seen_hs_new_blocks.insert(msg.block_id);
-         send_hs_new_block_msg(msg, true);
+         // Unconditional propagation of new-block messages (if not the leader, which is the final recipient).
+         if (!is_loopback) {
+            send_hs_new_block_msg(msg, true); // note: is_loopback==true may never happen here
+         }
          return;
       }
 
@@ -991,15 +995,6 @@ namespace eosio { namespace hotstuff {
 
    void qc_chain::gc_proposals(uint64_t cutoff){
       //fc_tlog(_logger, " === garbage collection on old data");
-
-      // REVIEW: Do something else to periodically flush seen-messages stores?
-      //
-      // Every time we check for clearing proposals, we clear the list of messages already gossiped.
-      // Should we do something with the "cutoff" (height) parameter instead? E.g. sort gossiped
-      //   messages by the height in which they have been gossiped, and clear buckets by height?
-      //
-      _seen_hs_votes.clear();
-      _seen_hs_new_blocks.clear();
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       ps_height_iterator psh_it = _proposal_stores_by_height.begin();

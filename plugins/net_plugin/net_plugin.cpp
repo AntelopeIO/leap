@@ -335,6 +335,7 @@ namespace eosio {
 
    constexpr uint32_t signed_block_which           = fc::get_index<net_message, signed_block>();         // see protocol net_message
    constexpr uint32_t packed_transaction_which     = fc::get_index<net_message, packed_transaction>();   // see protocol net_message
+   constexpr uint32_t hs_message_which             = fc::get_index<net_message, hs_message_inner>();     // see protocol net_message
 
    class connections_manager {
       alignas(hardware_destructive_interference_size)
@@ -483,6 +484,11 @@ namespace eosio {
       mutable fc::mutex             chain_info_mtx; // protects chain_info_t
       chain_info_t                  chain_info GUARDED_BY(chain_info_mtx);
 
+      mutable fc::mutex                           seen_hs_msgs_mtx;
+      std::vector<std::unordered_set<fc::sha256>> seen_hs_msgs_buckets            GUARDED_BY(seen_hs_msgs_mtx);
+      uint64_t                                    seen_hs_msgs_current_bucket = 0 GUARDED_BY(seen_hs_msgs_mtx);
+      const uint64_t                              seen_hs_msgs_bucket_max_size = 65536;
+
    public:
       void update_chain_info();
       chain_info_t get_chain_info() const;
@@ -495,7 +501,9 @@ namespace eosio {
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_ptr& block );
 
-      void bcast_hs_message( const std::optional<uint32_t>& connection_id, const hs_message& msg );
+      void bcast_hs_message( const hs_message& msg );
+      void add_seen_hs_message( const fc::sha256& hash );
+      bool check_seen_hs_message( const fc::sha256& hash );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
       void start_expire_timer();
@@ -1035,7 +1043,7 @@ namespace eosio {
       void handle_message( const block_id_type& id, signed_block_ptr ptr );
       void handle_message( const packed_transaction& msg ) = delete; // packed_transaction_ptr overload used instead
       void handle_message( packed_transaction_ptr trx );
-      void handle_message( const hs_message& msg );
+      void handle_message( const hs_message_inner& msg );
 
       // returns calculated number of blocks combined latency
       uint32_t calc_block_latency();
@@ -1117,7 +1125,7 @@ namespace eosio {
          c->handle_message( msg );
       }
 
-      void operator()( const hs_message& msg ) const {
+      void operator()( const hs_message_inner& msg ) const {
          // continue call to handle_message on connection strand
          peer_dlog( c, "handle hs_message" );
          c->handle_message( msg );
@@ -2947,13 +2955,23 @@ namespace eosio {
          } else if( which == packed_transaction_which ) {
             return process_next_trx_message( message_length );
          } else {
+            // Hotstuff messages are only received if this node has not seen them recently
+            if( which == hs_message_which ) {
+               auto hash_ds = pending_message_buffer.create_peek_datastream();
+               char buf[message_length];
+               hash_ds.read(buf, message_length);
+               sha256 hash = fc::sha256::hash(buf, message_length);
+               if (my_impl->check_seen_hs_message(hash))
+                  return true; // discard duplicate message
+               my_impl->add_seen_hs_message(hash);
+            }
+
             auto ds = pending_message_buffer.create_datastream();
             net_message msg;
             fc::raw::unpack( ds, msg );
             msg_handler m( shared_from_this() );
             std::visit( m, msg );
          }
-
       } catch( const fc::exception& e ) {
          peer_elog( this, "Exception in handling message: ${s}", ("s", e.to_detail_string()) );
          close();
@@ -3562,9 +3580,9 @@ namespace eosio {
       }
    }
 
-   void connection::handle_message( const hs_message& msg ) {
+   void connection::handle_message( const hs_message_inner& msg ) {
       peer_dlog(this, "received hs: ${msg}", ("msg", msg));
-      my_impl->chain_plug->notify_hs_message(connection_id, msg);
+      my_impl->chain_plug->notify_hs_message( { connection_id, msg } );
    }
 
    size_t calc_trx_size( const packed_transaction_ptr& trx ) {
@@ -3818,15 +3836,35 @@ namespace eosio {
       on_active_schedule(chain_plug->chain().active_producers());
    }
 
-   void net_plugin_impl::bcast_hs_message( const std::optional<uint32_t>& connection_id, const hs_message& msg ) {
-      fc_dlog(logger, "sending hs msg: ${msg}", ("msg", msg));
+   void net_plugin_impl::bcast_hs_message( const hs_message& msg ) {
+      fc_dlog(logger, "sending hs msg: ${msg}", ("msg", msg.message));
 
       buffer_factory buff_factory;
-      auto send_buffer = buff_factory.get_send_buffer( msg );
+      auto send_buffer = buff_factory.get_send_buffer( msg.message );
 
-      dispatcher->strand.post( [this, connection_id, msg{std::move(send_buffer)}]() mutable {
+      // record having seen own message
+      sha256 hash = fc::sha256::hash(send_buffer->data() + message_header_size, send_buffer->size() - message_header_size);
+      add_seen_hs_message(hash);
+
+      // optional connection_id is excluded from the broadcast
+      dispatcher->strand.post( [this, connection_id = msg.connection_id, msg{std::move(send_buffer)}]() mutable {
          dispatcher->bcast_msg( connection_id, std::move(msg) );
       });
+   }
+
+   void net_plugin_impl::add_seen_hs_message( const fc::sha256& hash ) {
+      fc::lock_guard g( seen_hs_msgs_mtx );
+      if (seen_hs_msgs_buckets[seen_hs_msgs_current_bucket].size() >= seen_hs_msgs_bucket_max_size) {
+         seen_hs_msgs_current_bucket = 1 - seen_hs_msgs_current_bucket; // swap bucket 0 <-> 1
+         seen_hs_msgs_buckets[seen_hs_msgs_current_bucket].clear();
+      }
+      seen_hs_msgs_buckets[seen_hs_msgs_current_bucket].insert(hash);
+   }
+
+   bool net_plugin_impl::check_seen_hs_message( const fc::sha256& hash ) {
+      fc::lock_guard g( seen_hs_msgs_mtx );
+      return seen_hs_msgs_buckets[seen_hs_msgs_current_bucket].find(hash) != seen_hs_msgs_buckets[seen_hs_msgs_current_bucket].end()
+         || seen_hs_msgs_buckets[1 - seen_hs_msgs_current_bucket].find(hash) != seen_hs_msgs_buckets[1 - seen_hs_msgs_current_bucket].end();
    }
 
    // called from application thread
@@ -4159,9 +4197,11 @@ namespace eosio {
    void net_plugin_impl::plugin_startup() {
       fc_ilog( logger, "my node_id is ${id}", ("id", node_id ));
 
+      seen_hs_msgs_buckets.clear();
+      seen_hs_msgs_buckets.resize(2);
       chain_plug->register_pacemaker_bcast_function(
-              [my = shared_from_this()](const std::optional<uint32_t>& c, const hs_message& s) {
-                 my->bcast_hs_message(c, s);
+              [my = shared_from_this()](const hs_message& s) {
+                 my->bcast_hs_message(s);
               } );
 
       producer_plug = app().find_plugin<producer_plugin>();

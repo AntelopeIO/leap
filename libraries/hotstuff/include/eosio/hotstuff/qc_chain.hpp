@@ -233,10 +233,6 @@ namespace eosio::hotstuff {
 #endif
 
       std::optional<uint32_t> _connection_id; // last net_plugin sender
-
-      // stop condition for the forwarding/gossiping/rebroadcasting of (at least) honest (non-spam) messages
-      std::unordered_set<fc::crypto::blslib::bls_signature> _seen_hs_votes;
-      std::unordered_set<block_id_type> _seen_hs_new_blocks;
    };
 
 } /// eosio::hotstuff
