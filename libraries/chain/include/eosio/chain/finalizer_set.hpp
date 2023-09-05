@@ -16,8 +16,6 @@ namespace eosio::chain {
       finalizer_set& operator=(const finalizer_set&);
       finalizer_set& operator=(finalizer_set&&) noexcept;
 
-      auto operator<=>(const finalizer_set&) const;
-
       uint32_t                         generation = 0; ///< sequentially incrementing version number
       uint64_t                         fthreshold = 0;  ///< vote fweight threshold to finalize blocks
       std::vector<finalizer_authority> finalizers; ///< Instant Finality voter set
