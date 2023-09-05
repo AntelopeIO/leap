@@ -15,7 +15,6 @@ struct bls_options {
 
 class bls_actions : public sub_command<bls_options> {
 public:
-   bls_actions() : sub_command() {}
    void setup(CLI::App& app);
 
 protected:

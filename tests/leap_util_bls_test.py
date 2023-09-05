@@ -39,7 +39,7 @@ def test_create_pop_from_command_line():
 
     # save results
     private_key = results["Private key"]
-    publick_key = results["Public key"]
+    public_key = results["Public key"]
     pop = results["Proof of Possession"]
 
     # use the private key to create POP
@@ -47,7 +47,7 @@ def test_create_pop_from_command_line():
     results = get_results(rslts)
 
     # check pop and public key are the same as those generated before
-    assert results["Public key"] == publick_key
+    assert results["Public key"] == public_key
     assert results["Proof of Possession"] == pop
 
 def test_create_pop_from_file():
@@ -57,7 +57,7 @@ def test_create_pop_from_file():
 
     # save results
     private_key = results["Private key"]
-    publick_key = results["Public key"]
+    public_key = results["Public key"]
     pop = results["Proof of Possession"]
 
     # save private key to a file
@@ -71,7 +71,7 @@ def test_create_pop_from_file():
     results = get_results(rslts)
 
     # check pop and public key are the same as those generated before
-    assert results["Public key"] == publick_key
+    assert results["Public key"] == public_key
     assert results["Proof of Possession"] == pop
 
 def test_create_key_error_handling():

@@ -23,20 +23,20 @@ void bls_actions::setup(CLI::App& app) {
    };
 
    // main command
-   auto* sub = app.add_subcommand("bls", "bls utility");
+   auto* sub = app.add_subcommand("bls", "BLS utility");
    sub->require_subcommand();
 
    // Create subcommand
-   auto create = sub->add_subcommand("create", "Create various items");
+   auto create = sub->add_subcommand("create", "Create BLS items");
    create->require_subcommand();
 
    // sub-subcommand - key 
-   auto* create_key = create->add_subcommand("key", "Create a new keypair and print the public and private keys")->callback([err_guard]() { err_guard(&bls_actions::create_key); });
+   auto* create_key = create->add_subcommand("key", "Create a new BLS keypair and print the public and private keys")->callback([err_guard]() { err_guard(&bls_actions::create_key); });
    create_key->add_option("-f,--file", opt->key_file, "Name of file to write private/public key output to. (Must be set, unless \"--to-console\" is passed");
    create_key->add_flag( "--to-console", opt->print_console, "Print private/public keys to console.");
 
    // sub-subcommand - pop (proof of possession) 
-   auto* create_pop = create->add_subcommand("pop", "Create proof of possession for the corresponding public key of a given private key")->callback([err_guard]() { err_guard(&bls_actions::create_pop); });
+   auto* create_pop = create->add_subcommand("pop", "Create proof of possession of the corresponding private key for a given public key")->callback([err_guard]() { err_guard(&bls_actions::create_pop); });
    create_pop->add_option("-f,--file", opt->key_file, "Name of file storing the private key. (one and only one of \"-f,--file\" and \"--private-key\" must be set)");
    create_pop->add_option("--private-key", opt->private_key_str, "The private key. (one and only one of \"-f,--file\" and \"--private-key\" must be set)");
 }
