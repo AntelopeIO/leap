@@ -19,7 +19,11 @@
 namespace fc {
 
 namespace detail {
-   using unique_file = std::unique_ptr<FILE, decltype( &fclose )>;
+   static void close_file(FILE* f) {
+      fclose(f);
+   }
+
+   using unique_file = std::unique_ptr<FILE, decltype( &close_file )>;
 }
 
 class cfile_datastream;
@@ -32,7 +36,7 @@ class cfile {
    friend class temp_cfile;
 public:
    cfile()
-     : _file(nullptr, &fclose)
+     : _file(nullptr, &detail::close_file)
    {}
 
    cfile(cfile&& other)
