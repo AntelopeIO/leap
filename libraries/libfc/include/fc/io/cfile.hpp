@@ -19,7 +19,7 @@
 namespace fc {
 
 namespace detail {
-   inline void close_file(FILE* f) {
+   inline void close_file(FILE* f) noexcept {
       fclose(f);
    }
 
