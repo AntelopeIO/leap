@@ -2,13 +2,14 @@
 
 #include <fc/exception/exception.hpp>
 
-
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/crypto/bls_signature.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
 #include <fc/crypto/sha256.hpp>
+#include <fc/io/json.hpp>
+#include <fc/variant.hpp>
 
 using std::cout;
 
@@ -323,6 +324,26 @@ BOOST_AUTO_TEST_CASE(bls_prefix_encoding_check) try {
   BOOST_CHECK_THROW(bls_public_key("PUB_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtE3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
   BOOST_CHECK_THROW(bls_signature("PUB_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHug1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
 
+} FC_LOG_AND_RETHROW();
+
+BOOST_AUTO_TEST_CASE(bls_variant) try {
+      bls_private_key prk("PVT_BLS_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG");
+      bls_public_key pk("PUB_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu");
+      bls_signature sig("SIG_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o");
+
+      fc::variant v;
+      std::string s;
+      v = prk;
+      s = fc::json::to_string(v, {});
+      BOOST_CHECK_EQUAL(s, "\"" + prk.to_string({}) + "\"");
+
+      v = pk;
+      s = fc::json::to_string(v, {});
+      BOOST_CHECK_EQUAL(s, "\"" + pk.to_string({}) + "\"");
+
+      v = sig;
+      s = fc::json::to_string(v, {});
+      BOOST_CHECK_EQUAL(s, "\"" + sig.to_string({}) + "\"");
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_SUITE_END()
