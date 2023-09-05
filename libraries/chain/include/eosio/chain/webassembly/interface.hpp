@@ -176,6 +176,17 @@ namespace webassembly {
          /**
           * Submits a finalizer set change to Hotstuff.
           *
+          *  // format for packed finalizer_set
+          *  struct abi_finalizer_authority {
+          *     std::string              description;
+          *     uint64_t                 fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
+          *     std::array<uint8_t, 144> public_key_g1_jacobian;
+          *  };
+          *  struct abi_finalizer_set {
+          *     uint64_t                             fthreshold = 0;
+          *     std::vector<abi_finalizer_authority> finalizers;
+          *  };
+          *
           * @ingroup privileged
           *
           * @param packed_finalizer_set - a serialized finalizer_set object.
