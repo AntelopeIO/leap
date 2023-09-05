@@ -37,3 +37,6 @@
 [submodule "libraries/boost"]
 	path = libraries/boost
 	url = https://github.com/boostorg/boost.git
+[submodule "libraries/libfc/libraries/boringssl/boringssl/src"]
+	path = libraries/libfc/libraries/boringssl/boringssl/src
+	url = https://github.com/AntelopeIO/boringssl/

@@ -49,6 +49,30 @@ jobs:
       packages: write
       contents: read
 
+  regen-boringssl:
+    name: Check BoringSSL Files
+    runs-on: ubuntu-latest
+    needs: platforms
+    container: ${{fromJSON(needs.platforms.outputs.p)['ubuntu22'].image}}
+    env:
+      GOPATH: /go
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          submodules: recursive
+      - name: Install Go 1.21
+        run: |
+          apt-get install curl
+          curl -L https://dl.google.com/go/go1.21.0.linux-amd64.tar.gz | tar -C /usr/local -xz
+          echo /usr/local/go/bin:$GOPATH/bin >> $GITHUB_PATH
+      - name: Regen & check BoringSSL files
+        run: |
+          # https://github.com/actions/runner/issues/2033
+          chown -R $(id -u):$(id -g) $PWD
+          cmake -B build
+          cmake --build build --target regenerate_boringssl
+          git diff --quiet
+
   v:
     name: Discover Versions
     runs-on: ubuntu-latest

@@ -37,6 +37,7 @@ endif ( APPLE )
 
 set( Boost_USE_MULTITHREADED      ON )
 set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
+set( BOOST_EXCLUDE_LIBRARIES "mysql" )
 
 add_subdirectory( @CMAKE_INSTALL_FULL_DATAROOTDIR@/leap_boost ${PROJECT_BINARY_DIR}/libraries/boost EXCLUDE_FROM_ALL)
 
@@ -52,8 +53,8 @@ find_library(libwast WAST @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libir IR     @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(liblogging Logging @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libsoftfloat softfloat @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
-get_filename_component(cryptodir @OPENSSL_CRYPTO_LIBRARY@ DIRECTORY)
-find_library(liboscrypto crypto "${cryptodir}" NO_DEFAULT_PATH)
+find_library(libbscrypto bscrypto @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
+find_library(libdecrepit decrepit @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libchainbase chainbase @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 find_library(libbuiltins builtins @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
 
@@ -77,7 +78,8 @@ macro(add_eosio_test_executable test_name)
        ${libwasm}
        ${libir}
        ${libsoftfloat}
-       ${liboscrypto}
+       ${libbscrypto}
+       ${libdecrepit}
        ${liblogging}
        ${libchainbase}
        ${libbuiltins}
@@ -113,10 +115,10 @@ macro(add_eosio_test_executable test_name)
    endif()
 
    target_include_directories( ${test_name} PUBLIC
-                               @OPENSSL_INCLUDE_DIR@
                                @CMAKE_INSTALL_PREFIX@
                                @CMAKE_INSTALL_FULL_INCLUDEDIR@
                                @CMAKE_INSTALL_FULL_INCLUDEDIR@/wasm-jit
+                               @CMAKE_INSTALL_FULL_INCLUDEDIR@/leapboringssl
                                @CMAKE_INSTALL_FULL_INCLUDEDIR@/softfloat )
 
 endmacro()
