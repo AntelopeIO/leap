@@ -180,7 +180,7 @@ namespace webassembly {
           *  struct abi_finalizer_authority {
           *     std::string              description;
           *     uint64_t                 fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
-          *     std::array<uint8_t, 144> public_key_g1_jacobian;
+          *     std::array<uint8_t, 96>  public_key_g1_affine_le;
           *  };
           *  struct abi_finalizer_set {
           *     uint64_t                             fthreshold = 0;
