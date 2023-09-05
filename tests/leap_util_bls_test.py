@@ -23,7 +23,6 @@ def test_create_key_to_console():
     check_create_key_results(rslts)
 
 def test_create_key_to_file():
-    # a random tmp file, to be deleted after use
     tmp_file = "tmp_key_file_dlkdx1x56pjy"
     Utils.processLeapUtilCmd("bls create key --file {}".format(tmp_file), "create key to file", silentErrors=False)
 
@@ -34,16 +33,66 @@ def test_create_key_to_file():
     os.remove(tmp_file)
 
 def test_create_pop_from_command_line():
-    pass
+    # Create a pair of keys
+    rslts = Utils.processLeapUtilCmd("bls create key --to-console", "create key to console", silentErrors=False)
+    results = get_results(rslts)
+
+    # save results
+    private_key = results["Private key"]
+    publick_key = results["Public key"]
+    pop = results["Proof of Possession"]
+
+    # use the private key to create POP
+    rslts = Utils.processLeapUtilCmd("bls create pop --private-key {}".format(private_key), "create pop from command line", silentErrors=False)
+    results = get_results(rslts)
+
+    # check pop and public key are the same as those generated before
+    assert results["Public key"] == publick_key
+    assert results["Proof of Possession"] == pop
 
 def test_create_pop_from_file():
-    pass
+    # Create a pair of keys
+    rslts = Utils.processLeapUtilCmd("bls create key --to-console", "create key to console", silentErrors=False)
+    results = get_results(rslts)
+
+    # save results
+    private_key = results["Private key"]
+    publick_key = results["Public key"]
+    pop = results["Proof of Possession"]
+
+    # save private key to a file
+    private_key_file = "tmp_key_file_dlkdx1x56pjy"
+    with open(private_key_file, 'w') as file:
+        file.write(private_key)
+
+    # use the private key file to create POP
+    rslts = Utils.processLeapUtilCmd("bls create pop --file {}".format(private_key_file), "create pop from command line", silentErrors=False)
+    os.remove(private_key_file)
+    results = get_results(rslts)
+
+    # check pop and public key are the same as those generated before
+    assert results["Public key"] == publick_key
+    assert results["Proof of Possession"] == pop
 
 def test_create_key_error_handling():
-    pass
+    # should fail with missing arguments (processLeapUtilCmd returning None)
+    assert Utils.processLeapUtilCmd("bls create key", "missing arguments") == None
+
+    # should fail when both arguments are present
+    assert Utils.processLeapUtilCmd("bls create key --file out_file --to-console", "conflicting arguments") == None
 
 def test_create_pop_error_handling():
-    pass
+    # should fail with missing arguments (processLeapUtilCmd returning None)
+    assert Utils.processLeapUtilCmd("bls create pop", "missing arguments") == None
+
+    # should fail when both arguments are present
+    assert Utils.processLeapUtilCmd("bls create pop --file private_key_file --private-key", "conflicting arguments") == None
+
+    # should fail when private key file does not exist
+    temp_file = "aRandomFileT6bej2pjsaz"
+    if os.path.exists(temp_file):
+        os.remove(temp_file)
+    assert Utils.processLeapUtilCmd("bls create pop --file {}".format(temp_file), "private file not existing") == None
 
 def check_create_key_results(rslts): 
     results = get_results(rslts)
@@ -85,7 +134,7 @@ try:
     test_create_key_error_handling()
 
     # test error handling in create pop
-    test_create_key_error_handling()
+    test_create_pop_error_handling()
 
     testSuccessful=True
 except Exception as e:

@@ -3,7 +3,6 @@
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/crypto/bls_signature.hpp>
-//#include <fc/crypto/bls_utils.hpp>
 
 #include <boost/program_options.hpp>
 
@@ -46,19 +45,22 @@ int bls_actions::create_key() {
    if (opt->key_file.empty() && !opt->print_console) {
       std::cerr << "ERROR: Either indicate a file using \"--file\" or pass \"--to-console\"" << std::endl;
       return -1;
+   } else if (!opt->key_file.empty() && opt->print_console) {
+      std::cerr << "ERROR: Only one of \"--file\" or pass \"--to-console\" can be provided" << std::endl;
+      return -1;
    }
 
+   // create a private key and get its corresponding public key
    const bls_private_key private_key = bls_private_key::generate();
    const bls_public_key public_key = private_key.get_public_key();
 
-   const std::array<uint8_t, 48> msg = public_key._pkey.toCompressedBytesBE();
-   const std::vector<uint8_t> msg_vector = std::vector<uint8_t>(msg.begin(), msg.end());
-   const bls_signature pop = private_key.sign(msg_vector);
+   // generate pop
+   const std::string pop_str = generate_pop_str(private_key);
 
+   // prepare output
    std::string out_str = "Private key: " + private_key.to_string({}) + "\n";
    out_str += "Public key: " + public_key.to_string({}) + "\n";
-   out_str += "Proof of Possession: " + pop.to_string({}) + "\n";
-
+   out_str += "Proof of Possession: " + pop_str + "\n";
    if (opt->print_console) {
       std::cout << out_str;
    } else {
@@ -101,6 +103,7 @@ int bls_actions::create_pop() {
       }
    }
 
+   // create private key object using input private key string
    const bls_private_key private_key = bls_private_key(private_key_str);
    const bls_public_key public_key = private_key.get_public_key();
    std::string pop_str = generate_pop_str(private_key); 
