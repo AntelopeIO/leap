@@ -18,6 +18,7 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/block_log_util_test.py ${CMAKE_CURREN
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/block_log_retain_blocks_test.py ${CMAKE_CURRENT_BINARY_DIR}/block_log_retain_blocks_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cluster_launcher.py ${CMAKE_CURRENT_BINARY_DIR}/cluster_launcher.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/distributed-transactions-test.py ${CMAKE_CURRENT_BINARY_DIR}/distributed-transactions-test.py COPYONLY)
+configure_file(${CMAKE_CURRENT_SOURCE_DIR}/leap_util_bls_test.py ${CMAKE_CURRENT_BINARY_DIR}/leap_util_bls_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/sample-cluster-map.json ${CMAKE_CURRENT_BINARY_DIR}/sample-cluster-map.json COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/restart-scenarios-test.py ${CMAKE_CURRENT_BINARY_DIR}/restart-scenarios-test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/terminate-scenarios-test.py ${CMAKE_CURRENT_BINARY_DIR}/terminate-scenarios-test.py COPYONLY)
@@ -240,6 +241,8 @@ set_property(TEST cli_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME larger_lib_test COMMAND tests/large-lib-test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST larger_lib_test PROPERTY LABELS nonparallelizable_tests)
+
+add_test(NAME leap_util_bls_test COMMAND tests/leap_util_bls_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 
 add_test(NAME http_plugin_test COMMAND tests/http_plugin_test.py ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_tests_properties(http_plugin_test PROPERTIES TIMEOUT 100)
