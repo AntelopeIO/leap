@@ -117,7 +117,7 @@ int bls_actions::create_pop() {
 std::string bls_actions::generate_pop_str(const bls_private_key& private_key) {
    const bls_public_key public_key = private_key.get_public_key();
 
-   const std::array<uint8_t, 48> msg = public_key._pkey.toCompressedBytesBE();
+   const std::array<uint8_t, 96> msg = public_key._pkey.toAffineBytesLE(true); // true means raw
    const std::vector<uint8_t> msg_vector = std::vector<uint8_t>(msg.begin(), msg.end());
    const bls_signature pop = private_key.sign(msg_vector);
 
