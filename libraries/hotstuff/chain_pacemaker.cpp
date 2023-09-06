@@ -101,9 +101,12 @@ namespace eosio { namespace hotstuff {
 #endif
 //===============================================================================================
 
-   chain_pacemaker::chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger)
+   chain_pacemaker::chain_pacemaker(controller* chain,
+                                    std::set<account_name> my_producers,
+                                    std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key> finalizer_keys,
+                                    fc::logger& logger)
       : _chain(chain),
-        _qc_chain("default"_n, this, std::move(my_producers), logger),
+        _qc_chain("default"_n, this, std::move(my_producers), std::move(finalizer_keys), logger),
         _logger(logger)
    {
       _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {

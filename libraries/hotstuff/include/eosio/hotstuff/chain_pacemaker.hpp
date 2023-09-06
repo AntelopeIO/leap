@@ -20,7 +20,10 @@ namespace eosio::hotstuff {
 
       //class-specific functions
 
-      chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger);
+      chain_pacemaker(controller* chain,
+                      std::set<account_name> my_producers,
+                      std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key> finalizer_keys,
+                      fc::logger& logger);
       void register_bcast_function(std::function<void(const chain::hs_message&)> broadcast_hs_message);
 
       void beat();

@@ -235,9 +235,13 @@ namespace eosio::hotstuff {
    }
 
 
-   qc_chain::qc_chain(name id, base_pacemaker* pacemaker, std::set<name> my_producers, fc::logger& logger)
+   qc_chain::qc_chain(name id, base_pacemaker* pacemaker,
+                      std::set<name> my_producers,
+                      std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key> finalizer_keys,
+                      fc::logger& logger)
       : _pacemaker(pacemaker),
         _my_producers(std::move(my_producers)),
+        _my_finalizer_keys(std::move(finalizer_keys)),
         _id(id),
         _logger(logger)
    {
