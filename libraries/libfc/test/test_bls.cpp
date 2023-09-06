@@ -327,9 +327,9 @@ BOOST_AUTO_TEST_CASE(bls_prefix_encoding_check) try {
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_CASE(bls_variant) try {
-      bls_private_key prk("PVT_BLS_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG");
-      bls_public_key pk("PUB_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu");
-      bls_signature sig("SIG_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o");
+      bls_private_key prk("PVT_BLS_LaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x");
+      bls_public_key pk("PUB_BLS_hiQykLvL/ZrnW97OeYGWU1AgjrXpmwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFCA==");
+      bls_signature sig("SIG_BLS_qn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqP8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS9g==");
 
       fc::variant v;
       std::string s;
