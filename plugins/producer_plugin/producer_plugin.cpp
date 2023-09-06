@@ -519,7 +519,7 @@ public:
 
    using signature_provider_type = signature_provider_plugin::signature_provider_type;
    std::map<chain::public_key_type, signature_provider_type> _signature_providers;
-   std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key> _finalizer_keys;
+   bls_key_map_t                                             _finalizer_keys;
    std::set<chain::account_name>                             _producers;
    boost::asio::deadline_timer                               _timer;
    block_timing_util::producer_watermarks            _producer_watermarks;

@@ -103,7 +103,7 @@ namespace eosio { namespace hotstuff {
 
    chain_pacemaker::chain_pacemaker(controller* chain,
                                     std::set<account_name> my_producers,
-                                    std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key> finalizer_keys,
+                                    bls_key_map_t finalizer_keys,
                                     fc::logger& logger)
       : _chain(chain),
         _qc_chain("default"_n, this, std::move(my_producers), std::move(finalizer_keys), logger),

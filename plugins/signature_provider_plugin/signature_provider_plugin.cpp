@@ -84,7 +84,7 @@ void signature_provider_plugin::set_program_options(options_description&, option
 const char* const signature_provider_plugin::signature_provider_help_text() const {
    return "Key=Value pairs in the form <public-key>=<provider-spec>\n"
           "Where:\n"
-          "   <public-key>    \tis a string form of a vaild Antelope public key, including BLS finalizer key\n"
+          "   <public-key>    \tis a string form of a valid Antelope public key, including BLS finalizer key\n"
           "   <provider-spec> \tis a string in the form <provider-type>:<data>\n"
           "   <provider-type> \tis KEY, KEOSD, or SE\n"
           "   KEY:<data>      \tis a string form of a valid Antelope private key which maps to the provided public key\n"

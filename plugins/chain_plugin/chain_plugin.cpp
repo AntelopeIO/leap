@@ -1117,7 +1117,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
    } FC_LOG_AND_RETHROW()
 }
 
-void chain_plugin::create_pacemaker(std::set<chain::account_name> my_producers, std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key> finalizer_keys) {
+void chain_plugin::create_pacemaker(std::set<chain::account_name> my_producers, chain::bls_key_map_t finalizer_keys) {
    EOS_ASSERT( !my->_chain_pacemaker, plugin_config_exception, "duplicate chain_pacemaker initialization" );
    my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), std::move(finalizer_keys), hotstuff_logger);
 }

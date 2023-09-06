@@ -97,7 +97,7 @@ namespace eosio::hotstuff {
 
       qc_chain(name id, base_pacemaker* pacemaker,
                std::set<name> my_producers,
-               std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key> finalizer_keys,
+               chain::bls_key_map_t finalizer_keys,
                fc::logger& logger);
 
       uint64_t get_state_version() const { return _state_version; } // calling this w/ thread sync is optional
@@ -198,7 +198,7 @@ namespace eosio::hotstuff {
       eosio::chain::extended_schedule _schedule;
       base_pacemaker* _pacemaker = nullptr;
       std::set<name> _my_producers;
-      std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key> _my_finalizer_keys;
+      chain::bls_key_map_t _my_finalizer_keys;
       name _id;
 
       mutable std::atomic<uint64_t> _state_version = 1;
