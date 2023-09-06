@@ -17,8 +17,8 @@ namespace eosio { namespace chain {
 
    const uint32_t fork_database::magic_number = 0x30510FDB;
 
-   const uint32_t fork_database::min_supported_version = 1;
-   const uint32_t fork_database::max_supported_version = 1;
+   const uint32_t fork_database::min_supported_version = 2;
+   const uint32_t fork_database::max_supported_version = 2;
 
    // work around block_state::is_valid being private
    inline bool block_state_is_valid( const block_state& bs ) {
@@ -28,6 +28,7 @@ namespace eosio { namespace chain {
    /**
     * History:
     * Version 1: initial version of the new refactored fork database portable format
+    * Version 2: New format for block_state for hotstuff/instant-finality
     */
 
    struct by_block_id;
