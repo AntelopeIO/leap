@@ -169,7 +169,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_account_permission_creation_and_deletion) {
    BOOST_REQUIRE(ptr != nullptr);
 
    // Create new permission
-   chain.set_authority("newacc"_n, "mypermission"_n, ptr->auth,  "active"_n);
+   chain.set_authority("newacc"_n, "mypermission"_n, ptr->auth.to_authority(),  "active"_n);
 
    const permission_object* ptr_sub = authorization_manager.find_permission( {"newacc"_n, "mypermission"_n} );
    BOOST_REQUIRE(ptr_sub != nullptr);
@@ -230,7 +230,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_account_permission_modification) {
       BOOST_REQUIRE_EQUAL(accounts_permissions[0].name.to_string(), "active");
       BOOST_REQUIRE_EQUAL(accounts_permissions[0].auth.keys.size(), 1u);
       if(key.which() != K1_storage_type_which_value)
-         BOOST_REQUIRE_EQUAL(public_key_to_string(accounts_permissions[0].auth.keys[0].key), key.to_string());
+         BOOST_REQUIRE_EQUAL(public_key_to_string(accounts_permissions[0].auth.keys[0].key), key.to_string({}));
       else
          BOOST_REQUIRE_EQUAL(public_key_to_string(accounts_permissions[0].auth.keys[0].key), "PUB_K1_12wkBET2rRgE8pahuaczxKbmv7ciehqsne57F9gtzf1PVb7Rf7o");
 
@@ -249,7 +249,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_permission_link) {
    const auto spending_priv_key = chain.get_private_key("newacc"_n, "spending");
    const auto spending_pub_key = spending_priv_key.get_public_key();
 
-   chain.set_authority("newacc"_n, "spending"_n, spending_pub_key, "active"_n);
+   chain.set_authority("newacc"_n, "spending"_n, authority{spending_pub_key}, "active"_n);
    chain.link_authority("newacc"_n, "eosio"_n, "spending"_n, "reqauth"_n);
    chain.push_reqauth("newacc"_n, { permission_level{"newacc"_n, "spending"_n} }, { spending_priv_key });
 

@@ -281,48 +281,48 @@ BOOST_AUTO_TEST_CASE(bls_binary_keys_encoding_check) try {
 BOOST_AUTO_TEST_CASE(bls_prefix_encoding_check) try {
 
   //test no_throw for correctly encoded keys
-  BOOST_CHECK_NO_THROW(bls_private_key("PVT_BLS_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"));
-  BOOST_CHECK_NO_THROW(bls_public_key("PUB_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"));
-  BOOST_CHECK_NO_THROW(bls_signature("SIG_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"));
+  BOOST_CHECK_NO_THROW(bls_private_key("PVT_BLS_LaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x"));
+  BOOST_CHECK_NO_THROW(bls_public_key("PUB_BLS_hiQykLvL/ZrnW97OeYGWU1AgjrXpmwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFCA=="));
+  BOOST_CHECK_NO_THROW(bls_signature("SIG_BLS_qn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqP8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS9g=="));
 
   //test no pivot delimiter
-  BOOST_CHECK_THROW(bls_private_key("PVTBLSM6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_public_key("PUBBLSZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_signature("SIGBLS7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("PVTBLSLaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUBBLShiQykLvL/ZrnW97OeYGWU1AgjrXpmwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFCA=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("SIGBLSqn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqP8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS9g=="), fc::assert_exception);
 
   //test first prefix validation
-  BOOST_CHECK_THROW(bls_private_key("XYZ_BLS_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_public_key("XYZ_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_signature("XYZ_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("XYZ_BLS_LaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("XYZ_BLS_hiQykLvL/ZrnW97OeYGWU1AgjrXpmwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFCA=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("XYZ_BLS_qn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqP8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS9g=="), fc::assert_exception);
 
   //test second prefix validation
-  BOOST_CHECK_THROW(bls_private_key("PVT_XYZ_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_public_key("PUB_XYZ_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_signature("SIG_XYZ_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("PVT_XYZ_LaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUB_XYZ_hiQykLvL/ZrnW97OeYGWU1AgjrXpmwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFCA=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("SIG_XYZ_qn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqP8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS9g=="), fc::assert_exception);
 
   //test missing prefix
-  BOOST_CHECK_THROW(bls_private_key("M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_public_key("ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_signature("7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("LaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("hiQykLvL/ZrnW97OeYGWU1AgjrXpmwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFCA=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("qn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqP8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS9g=="), fc::assert_exception);
 
   //test incomplete prefix
-  BOOST_CHECK_THROW(bls_private_key("PVT_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_public_key("PUB_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_signature("PUB_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_private_key("BLS_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_public_key("BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_signature("BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("PVT_LaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUB_hiQykLvL/ZrnW97OeYGWU1AgjrXpmwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFCA=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("SIG_qn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqP8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS9g=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("BLS_LaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("BLS_hiQykLvL/ZrnW97OeYGWU1AgjrXpmwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFCA=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("BLS_qn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqP8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS9g=="), fc::assert_exception);
 
   //test invalid data / invalid checksum 
-  BOOST_CHECK_THROW(bls_private_key("PVT_BLS_M6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcH"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_public_key("PUB_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsv"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_signature("PUB_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3p"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_private_key("PVT_BLS_N6m7EUvzEbQErhkKUrsA96VGpdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_public_key("PUB_BLS_ACYDaAqkbBChfXcFaa6QKvy3eiGuHtF3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_signature("PUB_BLS_6dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHuf1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_private_key("PVT_BLS_M6m7EUvzEbQErhkKUrsA96VGqdM3R3MTDszXnywcwPCt3XAcG"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_public_key("PUB_BLS_ZCYDaAqkbBChfXcFaa6QKvy3eiGuHtE3oZ9qJUqedttU9xQFESheHMjw1wEzFTXfoJaTHsu"), fc::assert_exception);
-  BOOST_CHECK_THROW(bls_signature("PUB_BLS_7dJV81MchymhckRBjZzJGPq5hySbAMrvhhWpvAou86YjhbpMuTm2RTcij1kxHug1M1ew3PW3dVxKv8LZxntYF5c7S7TsoemqmJmnUUyGUpd8Pvs58eDREExQoHE5q2PZwaXiPVN3o"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("PVT_BLS_LaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+y"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUB_BLS_hiQykLvL/ZrnW97OeYGWU1AgjrXpmwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFBA=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("SIG_BLS_qn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqP8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS8g=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("PVT_BLS_LaNRcYuQxSm/tRrMofQduPb5U2xUfdrCO0Yo5/CRcDeeHO+x"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUB_BLS_hiQykLvL/ZrnW97OeYGWU1AgjrXpnwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFCA=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("SIG_BLS_qn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqQ8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS9g=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_private_key("PVT_BLS_MaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x"), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_public_key("PUB_BLS_iiQykLvL/ZrnW97OeYGWU1AgjrXpmwTVzSTpVa2pYfjAoWLe50C+e9xsPAYTui6xbEYFCA=="), fc::assert_exception);
+  BOOST_CHECK_THROW(bls_signature("SIG_BLS_rn0BzfxSR4D6TK5c0MCYkX/hG4hp7NPwkEHvws4zoToZgPatfhqP8A62sEZd9gQ4FB95uVAQX04ZDj7nx85fsUdv4RtW6fxzUV2ZudfNUWRdjPX8ytXXnMEBAs6RRoF1TfiS9g=="), fc::assert_exception);
 
 } FC_LOG_AND_RETHROW();
 
