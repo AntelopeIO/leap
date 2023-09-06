@@ -31,9 +31,9 @@ namespace fc::crypto::blslib {
    std::string bls_signature::to_string(const yield_function_t& yield) const
    {
 
-      std::array<uint8_t, 96> bytes = _sig.toCompressedBytesBE();
+      std::array<uint8_t, 192> bytes = _sig.toAffineBytesLE(true); // true means raw
 
-      std::string data_str = fc::crypto::blslib::serialize_base64<std::array<uint8_t, 96>>(bytes); 
+      std::string data_str = fc::crypto::blslib::serialize_base64<std::array<uint8_t, 192>>(bytes);
 
       return config::bls_signature_prefix + data_str;
 

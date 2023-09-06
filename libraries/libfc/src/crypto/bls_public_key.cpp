@@ -26,9 +26,9 @@ namespace fc::crypto::blslib {
 
    std::string bls_public_key::to_string(const yield_function_t& yield)const {
 
-      std::array<uint8_t, 48> bytes = _pkey.toCompressedBytesBE();
+      std::array<uint8_t, 96> bytes = _pkey.toAffineBytesLE(true); // true means raw
 
-      std::string data_str = fc::crypto::blslib::serialize_base64<std::array<uint8_t, 48>>(bytes); 
+      std::string data_str = fc::crypto::blslib::serialize_base64<std::array<uint8_t, 96>>(bytes);
 
       return config::bls_public_key_prefix + data_str;
 
