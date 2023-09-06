@@ -43,10 +43,10 @@ void bls_actions::setup(CLI::App& app) {
 
 int bls_actions::create_key() {
    if (opt->key_file.empty() && !opt->print_console) {
-      std::cerr << "ERROR: Either indicate a file using \"--file\" or pass \"--to-console\"" << std::endl;
+      std::cerr << "ERROR: Either indicate a file using \"-f, --file\" or pass \"--to-console\"" << "\n";
       return -1;
    } else if (!opt->key_file.empty() && opt->print_console) {
-      std::cerr << "ERROR: Only one of \"--file\" or pass \"--to-console\" can be provided" << std::endl;
+      std::cerr << "ERROR: Only one of \"-f, --file\" or pass \"--to-console\" can be provided" << "\n";
       return -1;
    }
 
@@ -64,7 +64,7 @@ int bls_actions::create_key() {
    if (opt->print_console) {
       std::cout << out_str;
    } else {
-      std::cout << "saving keys to " << opt->key_file << std::endl;
+      std::cout << "saving keys to " << opt->key_file << "\n";
       std::ofstream out( opt->key_file.c_str() );
       out << out_str;
    }
@@ -74,10 +74,10 @@ int bls_actions::create_key() {
 
 int bls_actions::create_pop() {
    if (opt->key_file.empty() && opt->private_key_str.empty()) {
-      std::cerr << "ERROR: Either indicate a file using \"-f, --file\" or pass \"--private-key\"" << std::endl;
+      std::cerr << "ERROR: Either indicate a file using \"-f, --file\" or pass \"--private-key\"" << "\n";
       return -1;
    } else if (!opt->key_file.empty() && !opt->private_key_str.empty()) {
-      std::cerr << "ERROR: Only one of \"-f, --file\" and \"--private-key\" can be provided" << std::endl;
+      std::cerr << "ERROR: Only one of \"-f, --file\" and \"--private-key\" can be provided" << "\n";
       return -1;
    }
 
@@ -88,17 +88,17 @@ int bls_actions::create_pop() {
       std::ifstream key_file(opt->key_file);
 
       if (!key_file.is_open()) {
-         std::cerr << "ERROR: failed to open file " << opt->key_file << std::endl;
+         std::cerr << "ERROR: failed to open file " << opt->key_file << "\n";
          return -1;
       }
 
       if (std::getline(key_file, private_key_str)) {
          if (!key_file.eof()) {
-            std::cerr << "ERROR: file " << opt->key_file << " contains more than one line" << std::endl;
+            std::cerr << "ERROR: file " << opt->key_file << " contains more than one line" << "\n";
             return -1;
          }
       } else {
-         std::cerr << "ERROR: file " << opt->key_file << " is empty" << std::endl;
+         std::cerr << "ERROR: file " << opt->key_file << " is empty" << "\n";
          return -1;
       }
    }
@@ -108,8 +108,8 @@ int bls_actions::create_pop() {
    const bls_public_key public_key = private_key.get_public_key();
    std::string pop_str = generate_pop_str(private_key); 
 
-   std::cout << "Proof of Possession: " << pop_str << std::endl;
-   std::cout << "Public key: " <<  public_key.to_string({}) << std::endl;
+   std::cout << "Proof of Possession: " << pop_str << "\n";
+   std::cout << "Public key: " <<  public_key.to_string({}) << "\n";
 
    return 0;
 }
