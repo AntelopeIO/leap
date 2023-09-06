@@ -277,7 +277,8 @@ inline constexpr auto get_intrinsic_table() {
       "env.bls_pairing",
       "env.bls_g1_map",
       "env.bls_g2_map",
-      "env.bls_fp_mod"
+      "env.bls_fp_mod",
+      "env.set_finalizers"
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {
