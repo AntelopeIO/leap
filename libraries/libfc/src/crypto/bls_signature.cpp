@@ -15,9 +15,11 @@ namespace fc::crypto::blslib {
 
          auto data_str = base64str.substr(config::bls_signature_prefix.size());
 
-         std::array<uint8_t, 96> bytes = fc::crypto::blslib::deserialize_base64<std::array<uint8_t, 96>>(data_str);
+         std::array<uint8_t, 192> bytes = fc::crypto::blslib::deserialize_base64<std::array<uint8_t, 192>>(data_str);
 
-         std::optional<bls12_381::g2> g2 = bls12_381::g2::fromCompressedBytesBE(bytes);
+         constexpr bool check = false; // default
+         constexpr bool raw = true;
+         std::optional<bls12_381::g2> g2 = bls12_381::g2::fromAffineBytesLE(bytes, check, raw);
          FC_ASSERT(g2);
          return *g2;
 
@@ -31,7 +33,8 @@ namespace fc::crypto::blslib {
    std::string bls_signature::to_string(const yield_function_t& yield) const
    {
 
-      std::array<uint8_t, 192> bytes = _sig.toAffineBytesLE(true); // true means raw
+      constexpr bool raw = true;
+      std::array<uint8_t, 192> bytes = _sig.toAffineBytesLE(raw);
 
       std::string data_str = fc::crypto::blslib::serialize_base64<std::array<uint8_t, 192>>(bytes);
 
