@@ -11,6 +11,7 @@
 namespace eosio::chain {
 
    using hs_bitset = boost::dynamic_bitset<uint32_t>;
+   using bls_key_map_t = std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key>;
 
    inline uint64_t compute_height(uint32_t block_height, uint32_t phase_counter) {
       return (uint64_t{block_height} << 32) | phase_counter;

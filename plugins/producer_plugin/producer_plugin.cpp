@@ -519,6 +519,7 @@ public:
 
    using signature_provider_type = signature_provider_plugin::signature_provider_type;
    std::map<chain::public_key_type, signature_provider_type> _signature_providers;
+   bls_key_map_t                                             _finalizer_keys;
    std::set<chain::account_name>                             _producers;
    boost::asio::deadline_timer                               _timer;
    block_timing_util::producer_watermarks            _producer_watermarks;
@@ -1136,8 +1137,16 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
       const std::vector<std::string> key_spec_pairs = options["signature-provider"].as<std::vector<std::string>>();
       for (const auto& key_spec_pair : key_spec_pairs) {
          try {
-            const auto& [pubkey, provider] = app().get_plugin<signature_provider_plugin>().signature_provider_for_specification(key_spec_pair);
-            _signature_providers[pubkey] = provider;
+            const auto v = app().get_plugin<signature_provider_plugin>().signature_provider_for_specification(key_spec_pair);
+            if (v) {
+               const auto& [pubkey, provider] = *v;
+               _signature_providers[pubkey] = provider;
+            }
+            const auto bls = app().get_plugin<signature_provider_plugin>().bls_public_key_for_specification(key_spec_pair);
+            if (bls) {
+               const auto& [pubkey, privkey] = *bls;
+               _finalizer_keys[pubkey] = privkey;
+            }
          } catch(secure_enclave_exception& e) {
             elog("Error with Secure Enclave signature provider: ${e}; ignoring ${val}", ("e", e.top_message())("val", key_spec_pair));
          } catch (fc::exception& e) {
@@ -1358,7 +1367,8 @@ void producer_plugin_impl::plugin_startup() {
          EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
                     "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
 
-         chain_plug->create_pacemaker(_producers);
+         chain_plug->create_pacemaker(_producers, std::move(_finalizer_keys));
+         _finalizer_keys.clear();
 
          _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
          _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));
