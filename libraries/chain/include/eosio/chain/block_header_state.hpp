@@ -54,7 +54,6 @@ namespace detail {
       uint32_t                          dpos_proposed_irreversible_blocknum = 0;
       uint32_t                          dpos_irreversible_blocknum = 0;
       producer_authority_schedule       active_schedule;
-#warning Add to snapshot_block_header_state_v3
       uint32_t                          last_proposed_finalizer_set_generation = 0; // TODO: Add to snapshot_block_header_state_v3
       incremental_merkle                blockroot_merkle;
       flat_map<account_name,uint32_t>   producer_to_last_produced;
