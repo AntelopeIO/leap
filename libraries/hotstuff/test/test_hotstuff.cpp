@@ -53,7 +53,7 @@ public:
       //_qc_chains.reserve( replicas.size() );
 
       for (name r : replicas) {
-         qc_chain *qcc_ptr = new qc_chain(r, &tpm, {r}, hotstuff_logger);
+         qc_chain *qcc_ptr = new qc_chain(r, &tpm, {r}, {}, hotstuff_logger);
          std::shared_ptr<qc_chain> qcc_shared_ptr(qcc_ptr);
 
          _qc_chains.push_back( std::make_pair(r, qcc_shared_ptr) );

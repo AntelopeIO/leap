@@ -6,6 +6,7 @@
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/finalizer_set.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 
 #include <fc/io/datastream.hpp>
 
@@ -151,33 +152,52 @@ namespace eosio { namespace chain { namespace webassembly {
       }
    }
 
-   void interface::set_finalizers(span<const char> packed_finalizer_set) {
-      EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_proposed_finalizers not allowed in a readonly transaction");
-      fc::datastream<const char*> ds( packed_finalizer_set.data(), packed_finalizer_set.size() );
-      finalizer_set finset;
-      fc::raw::unpack(ds, finset);
-      vector<finalizer_authority> & finalizers = finset.finalizers;
+   // format for packed_finalizer_set
+   struct abi_finalizer_authority {
+      std::string              description;
+      uint64_t                 fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
+      std::array<uint8_t, 96>  public_key_g1_affine_le;
+   };
+   struct abi_finalizer_set {
+      uint64_t                             fthreshold = 0;
+      std::vector<abi_finalizer_authority> finalizers;
+   };
 
-      // TODO: check version and increment it or verify correct
+   void interface::set_finalizers(span<const char> packed_finalizer_set) {
+      EOS_ASSERT(!context.trx_context.is_read_only(), wasm_execution_error, "set_finalizers not allowed in a readonly transaction");
+      fc::datastream<const char*> ds( packed_finalizer_set.data(), packed_finalizer_set.size() );
+      abi_finalizer_set abi_finset;
+      fc::raw::unpack(ds, abi_finset);
+
+      std::vector<abi_finalizer_authority>& finalizers = abi_finset.finalizers;
+
       EOS_ASSERT( finalizers.size() <= config::max_finalizers, wasm_execution_error, "Finalizer set exceeds the maximum finalizer count for this chain" );
       EOS_ASSERT( finalizers.size() > 0, wasm_execution_error, "Finalizer set cannot be empty" );
 
-      std::set<fc::crypto::blslib::bls_public_key> unique_finalizer_keys;
-#warning REVIEW: Is checking for unique finalizer descriptions at all relevant?
-      std::set<std::string> unique_finalizers;
+      std::set<bls12_381::g1> unique_finalizer_keys;
       uint64_t f_weight_sum = 0;
 
+      finalizer_set finset;
+      finset.fthreshold = abi_finset.fthreshold;
       for (const auto& f: finalizers) {
+         EOS_ASSERT( f.description.size() <= config::max_finalizer_description_size, wasm_execution_error,
+                     "Finalizer description greater than ${s}", ("s", config::max_finalizer_description_size) );
          f_weight_sum += f.fweight;
-         unique_finalizer_keys.insert(f.public_key);
-         unique_finalizers.insert(f.description);
+         constexpr bool check = false; // system contract does proof of possession check which is a stronger check
+         constexpr bool raw = true;
+         std::optional<bls12_381::g1> pk = bls12_381::g1::fromAffineBytesLE(f.public_key_g1_affine_le, check, raw);
+         EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
+         finset.finalizers.push_back(finalizer_authority{.description = std::move(f.description),
+                                                         .fweight = f.fweight,
+                                                         .public_key{fc::crypto::blslib::bls_public_key{*pk}}});
+         unique_finalizer_keys.insert(*pk);
       }
 
-      EOS_ASSERT( finalizers.size() == unique_finalizers.size(), wasm_execution_error, "Duplicate finalizer description in finalizer set" );
+      // system contract should perform a duplicate check and fthreshold check before calling
       EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );
       EOS_ASSERT( finset.fthreshold > f_weight_sum / 2, wasm_execution_error, "Finalizer set threshold cannot be met by finalizer weights" );
 
-      context.control.set_finalizers( finset );
+      context.control.set_proposed_finalizers( finset );
    }
 
    uint32_t interface::get_blockchain_parameters_packed( legacy_span<char> packed_blockchain_parameters ) const {
@@ -254,3 +274,6 @@ namespace eosio { namespace chain { namespace webassembly {
       });
    }
 }}} // ns eosio::chain::webassembly
+
+FC_REFLECT(eosio::chain::webassembly::abi_finalizer_authority, (description)(fweight)(public_key_g1_affine_le));
+FC_REFLECT(eosio::chain::webassembly::abi_finalizer_set, (fthreshold)(finalizers));
