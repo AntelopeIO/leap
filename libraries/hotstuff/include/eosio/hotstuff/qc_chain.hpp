@@ -165,7 +165,7 @@ namespace eosio::hotstuff {
       void send_hs_new_block_msg(const hs_new_block_message& msg); //send new block msg
 
       void update(const hs_proposal_message& proposal); //update internal state
-      void commit(const hs_proposal_message& proposal, const quorum_certificate_message& qc); //commit proposal (finality)
+      void commit(const hs_commitment& commitment); //commit proposal (finality)
 
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
 

@@ -24,7 +24,7 @@ namespace eosio { namespace chain {
       static_assert( fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
                      "qc_extension expects FC to support reflector_init" );
 
-      #warning "Do validity checkes on QC"
+      #warning "Do validity checks on QC"
    }
 
    flat_multimap<uint16_t, block_extension> signed_block::validate_and_extract_extensions()const {

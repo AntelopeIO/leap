@@ -948,7 +948,7 @@ namespace eosio::hotstuff {
             }
          }
 
-         commit(b, b_2.justify);
+         commit({ .b = b, .b1 = b_1, .b2 = b_2 });
 
          fc_tlog(_logger, " === last executed proposal : #${block_num} ${block_id}", ("block_num", b.block_num())("block_id", b.block_id));
 
@@ -1006,11 +1006,11 @@ namespace eosio::hotstuff {
 #endif
    }
 
-void qc_chain::commit(const hs_proposal_message& initial_proposal, const quorum_certificate_message& qc) {
+void qc_chain::commit(const hs_commitment& commitment) {
    std::vector<const hs_proposal_message*> proposal_chain;
    proposal_chain.reserve(10);
    
-   const hs_proposal_message* p = &initial_proposal;
+   const hs_proposal_message* p = &commitment.b;
    while (p) {
       fc_tlog(_logger, " === attempting to commit proposal #${block_num}:${phase} ${prop_id} block_id: ${block_id} parent_id: ${parent_id}",
               ("block_num", p->block_num())("prop_id", p->proposal_id)("block_id", p->block_id)
@@ -1046,7 +1046,7 @@ void qc_chain::commit(const hs_proposal_message& initial_proposal, const quorum_
    }
 
    if (!proposal_chain.empty()) {
-      _last_commitment = { initial_proposal, qc };
+      _last_commitment = commitment;
       
       // commit all ancestor blocks sequentially first (hence the reverse)
       for (auto p : boost::adaptors::reverse(proposal_chain)) {

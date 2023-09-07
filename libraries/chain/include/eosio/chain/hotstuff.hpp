@@ -79,7 +79,11 @@ namespace eosio::chain {
       }
    };
 
-   using hs_commitment = std::pair<hs_proposal_message, quorum_certificate_message>;
+   struct hs_commitment {
+      hs_proposal_message b;
+      hs_proposal_message b1;
+      hs_proposal_message b2;
+   };
 
 } //eosio::chain
 
