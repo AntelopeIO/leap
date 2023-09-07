@@ -19,6 +19,13 @@ namespace eosio { namespace chain {
          );
       }
    }
+      
+   void qc_extension::reflector_init() {
+      static_assert( fc::raw::has_feature_reflector_init_on_unpacked_reflected_types,
+                     "qc_extension expects FC to support reflector_init" );
+
+      #warning "Do validity checkes on QC"
+   }
 
    flat_multimap<uint16_t, block_extension> signed_block::validate_and_extract_extensions()const {
       using decompose_t = block_extension_types::decompose_t;

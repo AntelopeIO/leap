@@ -1,6 +1,7 @@
 #pragma once
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/transaction.hpp>
+#include <eosio/chain/hotstuff.hpp>
 
 namespace eosio { namespace chain {
 
@@ -70,6 +71,15 @@ namespace eosio { namespace chain {
       vector<signature_type> signatures;
    };
 
+   struct qc_extension : fc::reflect_init {
+      static constexpr uint16_t extension_id()   { return 3; }
+      static constexpr bool     enforce_unique() { return true; }
+
+      void reflector_init();
+
+      quorum_certificate_message qc;
+   };
+
    namespace detail {
       template<typename... Ts>
       struct block_extension_types {
@@ -79,7 +89,8 @@ namespace eosio { namespace chain {
    }
 
    using block_extension_types = detail::block_extension_types<
-         additional_block_signatures_extension
+      additional_block_signatures_extension,
+      qc_extension
    >;
 
    using block_extension = block_extension_types::block_extension_t;
@@ -120,3 +131,4 @@ FC_REFLECT(eosio::chain::transaction_receipt_header, (status)(cpu_usage_us)(net_
 FC_REFLECT_DERIVED(eosio::chain::transaction_receipt, (eosio::chain::transaction_receipt_header), (trx) )
 FC_REFLECT(eosio::chain::additional_block_signatures_extension, (signatures));
 FC_REFLECT_DERIVED(eosio::chain::signed_block, (eosio::chain::signed_block_header), (transactions)(block_extensions) )
+FC_REFLECT(eosio::chain::qc_extension, (qc));
