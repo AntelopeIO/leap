@@ -2,13 +2,14 @@
 
 #include <fc/exception/exception.hpp>
 
-
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_public_key.hpp>
 #include <fc/crypto/bls_signature.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
 #include <fc/crypto/sha256.hpp>
+#include <fc/io/json.hpp>
+#include <fc/variant.hpp>
 
 using std::cout;
 
@@ -322,6 +323,26 @@ BOOST_AUTO_TEST_CASE(bls_prefix_encoding_check) try {
   BOOST_CHECK_THROW(bls_private_key("PVT_BLS_MaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x"), fc::assert_exception);
   BOOST_CHECK_THROW(bls_public_key("PUB_BLS_uCPHD1uL85ZWAX8xY06U00e72GZR0ux/RcB3DOFF5KV22F9eAVNAFU/enVJwLtQCG8N0v4KkwSSdoJo9ZRR042/xbiR3JgIsQmUqXoR0YyMuPcUGQbbon65ZgfsD3BkBUOPSSg=="), fc::assert_exception);
   BOOST_CHECK_THROW(bls_signature("SIG_BLS_Tyq5e23eMxcXnSGud+ACbKp5on4Rn2kOXdrA5sH/VNS/0i8V9RG/Oq1AliFBuJsNm7Y+LT1bqh/23+mVzYs/YVJAmDUHLFjimqyyMI+5wDLUhqFxVplSlezTOc3kj7cSFJRCfpcZUhD0gPffjBkxXctiNubjdtqLUjkLr6jWGNFrxKeSOXS9elB9tn5nZT4SGzygqNLjcWCu4Bza7tC5B7djLtzr/9SEpDb3XPPCUTmm6kMmi2tWwxGRmu06MMMI2sjQwQ=="), fc::assert_exception);
+} FC_LOG_AND_RETHROW();
+
+BOOST_AUTO_TEST_CASE(bls_variant) try {
+      bls_private_key prk("PVT_BLS_LaNRcYuQxSm/tRrMofQduPa5U2xUfdrCO0Yo5/CRcDeeHO+x");
+      bls_public_key pk("PUB_BLS_tCPHD1uL85ZWAX8xY06U00e72GZR0ux/RcB3DOFF5KV22F9eAVNAFU/enVJwLtQCG8N0v4KkwSSdoJo9ZRR042/xbiR3JgIsQmUqXoR0YyMuPcUGQbbon65ZgfsD3BkBUOPSRg==");
+      bls_signature sig("SIG_BLS_Syq5e23eMxcXnSGud+ACbKp5on4Rn2kOXdrA5sH/VNS/0i8V9RG/Oq1AliFBuJsNm7Y+LT1bqh/23+mVzYs/YVJAmDUHLFjimqyyMI+5wDLUhqFxVplSlezTOc3kj7cSFJRCfpcZUhD0gPffjBkxXctiNubjdtqLUjkLr6jWGNFrxKeSOXS9elB9tn5nZT4SGzygqNLjcWCu4Bza7tC5B7djLtzr/9SEpDb3XPPCUTmm6kMmi2tWwxGRmu06MMMI2sjQwQ==");
+
+      fc::variant v;
+      std::string s;
+      v = prk;
+      s = fc::json::to_string(v, {});
+      BOOST_CHECK_EQUAL(s, "\"" + prk.to_string({}) + "\"");
+
+      v = pk;
+      s = fc::json::to_string(v, {});
+      BOOST_CHECK_EQUAL(s, "\"" + pk.to_string({}) + "\"");
+
+      v = sig;
+      s = fc::json::to_string(v, {});
+      BOOST_CHECK_EQUAL(s, "\"" + sig.to_string({}) + "\"");
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -2,7 +2,9 @@
 #include <eosio/chain/block_timestamp.hpp>
 #include <eosio/chain/producer_schedule.hpp>
 #include <eosio/chain/protocol_feature_activation.hpp>
+#include <eosio/chain/finalizer_set.hpp>
 
+#include <optional>
 #include <type_traits>
 
 namespace eosio { namespace chain {
@@ -17,7 +19,8 @@ namespace eosio { namespace chain {
 
    using block_header_extension_types = detail::block_header_extension_types<
       protocol_feature_activation,
-      producer_schedule_change_extension
+      producer_schedule_change_extension,
+      hs_finalizer_set_extension
    >;
 
    using block_header_extension = block_header_extension_types::block_header_extension_t;
@@ -68,6 +71,7 @@ namespace eosio { namespace chain {
       static uint32_t   num_from_id(const block_id_type& id);
 
       flat_multimap<uint16_t, block_header_extension> validate_and_extract_header_extensions()const;
+      std::optional<block_header_extension> extract_header_extension(uint16_t extension_id)const;
    };
 
 

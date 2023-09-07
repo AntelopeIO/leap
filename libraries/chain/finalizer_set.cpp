@@ -18,6 +18,4 @@ namespace eosio::chain {
    finalizer_set& finalizer_set::operator=(const finalizer_set&) = default;
    finalizer_set& finalizer_set::operator=(finalizer_set&&) noexcept = default;
 
-   auto finalizer_set::operator<=>(const finalizer_set&) const = default;
-
 } /// eosio::chain

@@ -28,6 +28,7 @@
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/wasm_interface_collection.hpp>
 #include <eosio/chain/finalizer_set.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -1904,6 +1905,18 @@ struct controller_impl {
 
       block_ptr->transactions = std::move( bb._pending_trx_receipts );
 
+      if (bb._pending_block_header_state.proposed_finalizer_set) {
+         // proposed_finalizer_set can't be set until builtin_protocol_feature_t::instant_finality activated
+         finalizer_set& fin_set = *bb._pending_block_header_state.proposed_finalizer_set;
+         ++bb._pending_block_header_state.last_proposed_finalizer_set_generation;
+         fin_set.generation = bb._pending_block_header_state.last_proposed_finalizer_set_generation;
+         emplace_extension(
+                 block_ptr->header_extensions,
+                 hs_finalizer_set_extension::extension_id(),
+                 fc::raw::pack( hs_finalizer_set_extension{ std::move(fin_set) } )
+         );
+      }
+
       auto id = block_ptr->calculate_id();
 
       // Update TaPoS table:
@@ -1977,10 +1990,11 @@ struct controller_impl {
       pending->push();
    }
 
-   void set_finalizers_impl(const finalizer_set& fin_set) {
-      // TODO store in chainbase
-      current_finalizer_set = fin_set;
-      ++current_finalizer_set.generation;
+   void set_proposed_finalizers(const finalizer_set& fin_set) {
+      assert(pending); // has to exist and be building_block since called from host function
+      auto& bb = std::get<building_block>(pending->_block_stage);
+
+      bb._pending_block_header_state.proposed_finalizer_set.emplace(fin_set);
    }
 
    /**
@@ -3290,12 +3304,8 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
    return version;
 }
 
-void controller::set_finalizers( const finalizer_set& fin_set ) {
-   my->set_finalizers_impl(fin_set);
-}
-
-const finalizer_set& controller::get_finalizers() const {
-   return my->current_finalizer_set;
+void controller::set_proposed_finalizers( const finalizer_set& fin_set ) {
+   my->set_proposed_finalizers(fin_set);
 }
 
 const producer_authority_schedule&    controller::active_producers()const {

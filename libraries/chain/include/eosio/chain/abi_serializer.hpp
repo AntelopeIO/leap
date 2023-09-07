@@ -636,6 +636,8 @@ namespace impl {
          out(name, std::move(mvo));
       }
 
+      static void add_block_header_finalizer_set_extension( mutable_variant_object& mvo, const flat_multimap<uint16_t, block_header_extension>& header_exts );
+
       /**
        * overload of to_variant_object for signed_block
        *
@@ -676,6 +678,7 @@ namespace impl {
                   std::get<producer_schedule_change_extension>(header_exts.lower_bound(producer_schedule_change_extension::extension_id())->second);
             mvo("new_producer_schedule", new_producer_schedule);
          }
+         add_block_header_finalizer_set_extension(mvo, header_exts);
 
          mvo("producer_signature", block.producer_signature);
          add(mvo, "transactions", block.transactions, resolver, ctx);

@@ -156,7 +156,7 @@ namespace eosio { namespace chain { namespace webassembly {
    struct abi_finalizer_authority {
       std::string              description;
       uint64_t                 fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
-      std::array<uint8_t, 144> public_key_g1_jacobian;
+      std::array<uint8_t, 96>  public_key_g1_affine_le;
    };
    struct abi_finalizer_set {
       uint64_t                             fthreshold = 0;
@@ -183,7 +183,9 @@ namespace eosio { namespace chain { namespace webassembly {
          EOS_ASSERT( f.description.size() <= config::max_finalizer_description_size, wasm_execution_error,
                      "Finalizer description greater than ${s}", ("s", config::max_finalizer_description_size) );
          f_weight_sum += f.fweight;
-         std::optional<bls12_381::g1> pk = bls12_381::g1::fromJacobianBytesLE(f.public_key_g1_jacobian);
+         constexpr bool check = false; // system contract does proof of possession check which is a stronger check
+         constexpr bool raw = true;
+         std::optional<bls12_381::g1> pk = bls12_381::g1::fromAffineBytesLE(f.public_key_g1_affine_le, check, raw);
          EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
          finset.finalizers.push_back(finalizer_authority{.description = std::move(f.description),
                                                          .fweight = f.fweight,
@@ -191,10 +193,11 @@ namespace eosio { namespace chain { namespace webassembly {
          unique_finalizer_keys.insert(*pk);
       }
 
+      // system contract should perform a duplicate check and fthreshold check before calling
       EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );
       EOS_ASSERT( finset.fthreshold > f_weight_sum / 2, wasm_execution_error, "Finalizer set threshold cannot be met by finalizer weights" );
 
-      context.control.set_finalizers( finset );
+      context.control.set_proposed_finalizers( finset );
    }
 
    uint32_t interface::get_blockchain_parameters_packed( legacy_span<char> packed_blockchain_parameters ) const {
@@ -272,5 +275,5 @@ namespace eosio { namespace chain { namespace webassembly {
    }
 }}} // ns eosio::chain::webassembly
 
-FC_REFLECT(eosio::chain::webassembly::abi_finalizer_authority, (description)(fweight)(public_key_g1_jacobian));
+FC_REFLECT(eosio::chain::webassembly::abi_finalizer_authority, (description)(fweight)(public_key_g1_affine_le));
 FC_REFLECT(eosio::chain::webassembly::abi_finalizer_set, (fthreshold)(finalizers));

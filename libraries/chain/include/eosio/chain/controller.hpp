@@ -293,8 +293,8 @@ namespace eosio { namespace chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
-         void set_finalizers( const finalizer_set& fin_set );
-         const finalizer_set& get_finalizers() const;
+         // called by host function set_finalizers
+         void set_proposed_finalizers( const finalizer_set& fin_set );
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
