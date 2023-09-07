@@ -15,7 +15,7 @@ namespace fc::crypto::blslib {
 
       std::array<uint8_t, 96> bytes = fc::crypto::blslib::deserialize_base64<std::array<uint8_t, 96>>(data_str);
       
-      constexpr bool check = false; // default
+      constexpr bool check = true; // check if base64str is invalid
       constexpr bool raw = true;
       std::optional<bls12_381::g1> g1 = bls12_381::g1::fromAffineBytesLE(bytes, check, raw);
       FC_ASSERT(g1);
