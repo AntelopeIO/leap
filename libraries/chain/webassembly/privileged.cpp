@@ -183,7 +183,9 @@ namespace eosio { namespace chain { namespace webassembly {
          EOS_ASSERT( f.description.size() <= config::max_finalizer_description_size, wasm_execution_error,
                      "Finalizer description greater than ${s}", ("s", config::max_finalizer_description_size) );
          f_weight_sum += f.fweight;
-         std::optional<bls12_381::g1> pk = bls12_381::g1::fromAffineBytesLE(f.public_key_g1_affine_le);
+         constexpr bool check = false; // system contract does proof of possession check which is a stronger check
+         constexpr bool raw = true;
+         std::optional<bls12_381::g1> pk = bls12_381::g1::fromAffineBytesLE(f.public_key_g1_affine_le, check, raw);
          EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
          finset.finalizers.push_back(finalizer_authority{.description = std::move(f.description),
                                                          .fweight = f.fweight,
@@ -191,6 +193,7 @@ namespace eosio { namespace chain { namespace webassembly {
          unique_finalizer_keys.insert(*pk);
       }
 
+      // system contract should perform a duplicate check and fthreshold check before calling
       EOS_ASSERT( finalizers.size() == unique_finalizer_keys.size(), wasm_execution_error, "Duplicate finalizer bls key in finalizer set" );
       EOS_ASSERT( finset.fthreshold > f_weight_sum / 2, wasm_execution_error, "Finalizer set threshold cannot be met by finalizer weights" );
 
