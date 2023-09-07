@@ -79,6 +79,8 @@ namespace eosio::chain {
       }
    };
 
+   using hs_commitment = std::pair<hs_proposal_message, quorum_certificate_message>;
+
 } //eosio::chain
 
 // // @ignore quorum_met

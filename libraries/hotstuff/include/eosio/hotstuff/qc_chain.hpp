@@ -165,9 +165,11 @@ namespace eosio::hotstuff {
       void send_hs_new_block_msg(const hs_new_block_message& msg); //send new block msg
 
       void update(const hs_proposal_message& proposal); //update internal state
-      void commit(const hs_proposal_message& proposal); //commit proposal (finality)
+      void commit(const hs_proposal_message& proposal, const quorum_certificate_message& qc); //commit proposal (finality)
 
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
+
+      const hs_commitment& get_last_commitment() const { return _last_commitment; }
 
 #warning remove. bls12-381 key used for testing purposes
       //todo : remove. bls12-381 key used for testing purposes
@@ -200,6 +202,7 @@ namespace eosio::hotstuff {
       std::set<name> _my_producers;
       chain::bls_key_map_t _my_finalizer_keys;
       name _id;
+      hs_commitment _last_commitment;
 
       mutable std::atomic<uint64_t> _state_version = 1;
 

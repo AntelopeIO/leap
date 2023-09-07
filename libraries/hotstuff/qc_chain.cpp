@@ -948,7 +948,7 @@ namespace eosio::hotstuff {
             }
          }
 
-         commit(b);
+         commit(b, b_2.justify);
 
          fc_tlog(_logger, " === last executed proposal : #${block_num} ${block_id}", ("block_num", b.block_num())("block_id", b.block_id));
 
@@ -1006,7 +1006,7 @@ namespace eosio::hotstuff {
 #endif
    }
 
-void qc_chain::commit(const hs_proposal_message& initial_proposal) {
+void qc_chain::commit(const hs_proposal_message& initial_proposal, const quorum_certificate_message& qc) {
    std::vector<const hs_proposal_message*> proposal_chain;
    proposal_chain.reserve(10);
    
@@ -1046,6 +1046,8 @@ void qc_chain::commit(const hs_proposal_message& initial_proposal) {
    }
 
    if (!proposal_chain.empty()) {
+      _last_commitment = { initial_proposal, qc };
+      
       // commit all ancestor blocks sequentially first (hence the reverse)
       for (auto p : boost::adaptors::reverse(proposal_chain)) {
          // Execute commands [...]

@@ -74,8 +74,6 @@ namespace eosio::hotstuff {
       mutable finalizer_state        _state_cache;
       mutable std::atomic<uint64_t>  _state_cache_version = 0;
 
-      chain::controller*                 _chain = nullptr; // TODO will not be needed once this is merged with PR#1559
-
       mutable std::mutex                 _chain_state_mutex;
       block_state_ptr                    _head_block_state;
       finalizer_set                      _active_finalizer_set;

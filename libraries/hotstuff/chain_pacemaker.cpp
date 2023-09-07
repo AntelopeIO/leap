@@ -105,8 +105,7 @@ namespace eosio { namespace hotstuff {
                                     std::set<account_name> my_producers,
                                     bls_key_map_t finalizer_keys,
                                     fc::logger& logger)
-      : _chain(chain),
-        _qc_chain("default"_n, this, std::move(my_producers), std::move(finalizer_keys), logger),
+      : _qc_chain("default"_n, this, std::move(my_producers), std::move(finalizer_keys), logger),
         _logger(logger)
    {
       _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
