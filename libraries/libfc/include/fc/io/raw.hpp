@@ -40,6 +40,8 @@ namespace fc {
     template<typename Stream> void unpack( Stream& s,  Int<256>& n );
     template<typename Stream, typename T> void pack( Stream& s, const boost::multiprecision::number<T>& n );
     template<typename Stream, typename T> void unpack( Stream& s,  boost::multiprecision::number<T>& n );
+    template<typename Stream, typename T> void pack( Stream& s, const std::atomic<T>& a );
+    template<typename Stream, typename T> void unpack( Stream& s, std::atomic<T>& a );
 
     template<typename Stream, typename Arg0, typename... Args>
     inline void pack( Stream& s, const Arg0& a0, Args... args ) {
@@ -804,6 +806,15 @@ namespace fc {
        n = tmp[1];
        n <<= 128;
        n |= tmp[0];
+    }
+
+    template<typename Stream, typename T> void pack( Stream& s, const std::atomic<T>& a ) {
+       pack( s, a.load() );
+    }
+    template<typename Stream, typename T> void unpack( Stream& s, std::atomic<T>& a ) {
+       T t;
+       unpack( s, t );
+       a.store( t );
     }
 
 } } // namespace fc::raw

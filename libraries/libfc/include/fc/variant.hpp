@@ -147,6 +147,11 @@ namespace fc
    template<typename T, std::size_t S>
    void from_variant( const fc::variant& var,  std::array<T,S>& vo );
 
+   template<typename T>
+   void to_variant( const std::atomic<T>& var,  fc::variant& vo );
+   template<typename T>
+   void from_variant( const fc::variant& var,  std::atomic<T>& vo );
+
    void to_variant( const time_point& var,  fc::variant& vo );
    void from_variant( const fc::variant& var,  time_point& vo );
 
@@ -500,6 +505,17 @@ namespace fc
       //vo.reserve( vars.size() );
       for( auto itr = vars.begin(); itr != vars.end(); ++itr )
          vo.insert( itr->as<T>() );
+   }
+
+   template<typename T>
+   void to_variant( const std::atomic<T>& v,  fc::variant& var )
+   {
+      var = v.load();
+   }
+   template<typename T>
+   void from_variant( const fc::variant& var,  std::atomic<T>& v )
+   {
+      v.store( var.as<T>() );
    }
 
    /** @ingroup Serializable */
