@@ -96,3 +96,4 @@ FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)
 FC_REFLECT(eosio::chain::hs_new_block_message, (block_id)(justify));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
 FC_REFLECT(eosio::chain::finalizer_state, (chained_mode)(b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));
+FC_REFLECT(eosio::chain::hs_commitment,(b)(b1)(b2)(bstar));

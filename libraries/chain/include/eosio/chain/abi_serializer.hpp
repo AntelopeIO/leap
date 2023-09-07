@@ -690,6 +690,11 @@ namespace impl {
                   std::get<additional_block_signatures_extension>(block_exts.lower_bound(additional_block_signatures_extension::extension_id())->second);
             mvo("additional_signatures", additional_signatures);
          }
+         if ( block_exts.count(hs_commitment_extension::extension_id()) > 0) {
+            const auto& hs_commitment =
+               std::get<hs_commitment_extension>(block_exts.lower_bound(hs_commitment_extension::extension_id())->second);
+            mvo("hotstuff_commitment", hs_commitment);
+         }
 
          out(name, std::move(mvo));
       }
