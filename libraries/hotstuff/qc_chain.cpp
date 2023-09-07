@@ -948,7 +948,7 @@ namespace eosio::hotstuff {
             }
          }
 
-         commit({ .b = b, .b1 = b_1, .b2 = b_2 });
+         commit({ .b = b, .b1 = b_1, .b2 = b_2, .bstar = proposal });
 
          fc_tlog(_logger, " === last executed proposal : #${block_num} ${block_id}", ("block_num", b.block_num())("block_id", b.block_id));
 

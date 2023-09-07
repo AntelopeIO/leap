@@ -83,6 +83,7 @@ namespace eosio::chain {
       hs_proposal_message b;
       hs_proposal_message b1;
       hs_proposal_message b2;
+      hs_proposal_message bstar;
    };
 
 } //eosio::chain
