@@ -4,6 +4,7 @@
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/finalizer_set.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
+#include <fc/copyable_atomic.hpp>
 #include <future>
 
 namespace eosio { namespace chain {
@@ -55,6 +56,7 @@ namespace detail {
       uint32_t                          dpos_irreversible_blocknum = 0;
       producer_authority_schedule       active_schedule;
       uint32_t                          last_proposed_finalizer_set_generation = 0; // TODO: Add to snapshot_block_header_state_v3
+      fc::copyable_atomic<uint32_t>     hs_irreversible_blocknum; // TODO: Add to snapshot_block_header_state_v3
       incremental_merkle                blockroot_merkle;
       flat_map<account_name,uint32_t>   producer_to_last_produced;
       flat_map<account_name,uint32_t>   producer_to_last_implied_irb;
@@ -147,6 +149,7 @@ struct block_header_state : public detail::block_header_state_common {
                               bool skip_validate_signee = false )const;
 
    uint32_t             calc_dpos_last_irreversible( account_name producer_of_next_block )const;
+   uint32_t             get_last_irreversible_blocknum()const;
 
    producer_authority     get_scheduled_producer( block_timestamp_type t )const;
    const block_id_type&   prev()const { return header.previous; }
@@ -167,6 +170,7 @@ FC_REFLECT( eosio::chain::detail::block_header_state_common,
             (dpos_irreversible_blocknum)
             (active_schedule)
             (last_proposed_finalizer_set_generation)
+            (hs_irreversible_blocknum)
             (blockroot_merkle)
             (producer_to_last_produced)
             (producer_to_last_implied_irb)

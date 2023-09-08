@@ -433,10 +433,11 @@ struct controller_impl {
 
       const auto fork_head = fork_db_head();
 
-      if( fork_head->dpos_irreversible_blocknum <= lib_num )
+      const uint32_t fork_lib = fork_head->get_last_irreversible_blocknum();
+      if( fork_lib <= lib_num )
          return;
 
-      auto branch = fork_db.fetch_branch( fork_head->id, fork_head->dpos_irreversible_blocknum );
+      auto branch = fork_db.fetch_branch( fork_head->id, fork_lib );
       try {
 
          std::vector<std::future<std::vector<char>>> v;
@@ -469,7 +470,7 @@ struct controller_impl {
          throw;
       }
 
-      //db.commit( fork_head->dpos_irreversible_blocknum ); // redundant
+      //db.commit( fork_head->get_last_irreversible_blocknum ); // redundant
 
       if( root_id != fork_db.root()->id ) {
          branch.emplace_back(fork_db.root());

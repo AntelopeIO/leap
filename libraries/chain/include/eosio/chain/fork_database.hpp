@@ -88,6 +88,9 @@ namespace eosio { namespace chain {
 
          void mark_valid( const block_state_ptr& h );
 
+         // Called by hotstuff to mark a fork branch irreversible
+         void mark_irreversible( const block_id_type& id );
+
          static const uint32_t magic_number;
 
          static const uint32_t min_supported_version;

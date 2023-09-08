@@ -13,6 +13,7 @@
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/subjective_billing.hpp>
 #include <eosio/chain/deep_mind.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
 #include <eosio/chain/global_property_object.hpp>

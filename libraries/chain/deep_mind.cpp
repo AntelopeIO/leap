@@ -7,6 +7,7 @@
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/account_object.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 #include <fc/crypto/hex.hpp>
 
 namespace {

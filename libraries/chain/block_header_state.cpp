@@ -37,6 +37,12 @@ namespace eosio { namespace chain {
       return blocknums[ index ];
    }
 
+   uint32_t block_header_state::get_last_irreversible_blocknum()const {
+      if (dpos_irreversible_blocknum > 0)
+         return dpos_irreversible_blocknum;
+      return hs_irreversible_blocknum.load();
+   }
+
    pending_block_header_state  block_header_state::next( block_timestamp_type when,
                                                          uint16_t num_prev_blocks_to_confirm )const
    {

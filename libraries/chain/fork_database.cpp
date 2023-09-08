@@ -1,5 +1,6 @@
 #include <eosio/chain/fork_database.hpp>
 #include <eosio/chain/exceptions.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 #include <boost/multi_index_container.hpp>
 #include <boost/multi_index/member.hpp>
 #include <boost/multi_index/ordered_index.hpp>
@@ -42,7 +43,7 @@ namespace eosio { namespace chain {
          ordered_unique< tag<by_lib_block_num>,
             composite_key< block_state,
                global_fun<const block_state&,            bool,          &block_state_is_valid>,
-               member<detail::block_header_state_common, uint32_t,      &detail::block_header_state_common::dpos_irreversible_blocknum>,
+               const_mem_fun<block_header_state,         uint32_t,      &block_header_state::get_last_irreversible_blocknum>,
                member<detail::block_header_state_common, uint32_t,      &detail::block_header_state_common::block_num>,
                member<block_header_state,                block_id_type, &block_header_state::id>
             >,
@@ -57,8 +58,8 @@ namespace eosio { namespace chain {
    > fork_multi_index_type;
 
    bool first_preferred( const block_header_state& lhs, const block_header_state& rhs ) {
-      return std::tie( lhs.dpos_irreversible_blocknum, lhs.block_num )
-               > std::tie( rhs.dpos_irreversible_blocknum, rhs.block_num );
+      return std::make_tuple( lhs.get_last_irreversible_blocknum(), lhs.block_num )
+               > std::make_tuple( rhs.get_last_irreversible_blocknum(), rhs.block_num );
    }
 
    struct fork_database_impl {
@@ -89,6 +90,7 @@ namespace eosio { namespace chain {
       pair<branch_type, branch_type> fetch_branch_from_impl( const block_id_type& first,
                                                              const block_id_type& second )const;
       void mark_valid_impl( const block_state_ptr& h );
+      void mark_irreversible_impl( block_id_type id );
 
       void add_impl( const block_state_ptr& n,
                      bool ignore_duplicate, bool validate,
@@ -329,6 +331,26 @@ namespace eosio { namespace chain {
       root = new_root;
    }
 
+   void fork_database_impl::mark_irreversible_impl( block_id_type id ) {
+      EOS_ASSERT( root, fork_database_exception, "root not yet set" );
+
+      const uint32_t lib = block_header::num_from_id(id);
+      auto& by_id_idx = index.get<by_block_id>();
+
+      for (auto itr = by_id_idx.find( id ); itr != by_id_idx.end();) {
+         EOS_ASSERT(itr != by_id_idx.end(), fork_database_exception, "block state not in fork database; cannot mark as irreversible", ("id", id));
+
+         const bool at_root = id == root->id;
+         by_id_idx.modify(itr, [&id, lib](block_state_ptr& bsp) {
+            bsp->hs_irreversible_blocknum.store(lib);
+            id = bsp->header.previous;
+         });
+
+         itr = by_id_idx.find( id );
+         EOS_ASSERT( at_root || itr != by_id_idx.end(), fork_database_exception, "invariant violation: orphaned branch was present in forked database" );
+      }
+   }
+
    block_header_state_ptr fork_database::get_block_header( const block_id_type& id )const {
       std::shared_lock g( my->mtx );
       return my->get_block_header_impl( id );
@@ -539,6 +561,11 @@ namespace eosio { namespace chain {
       for( const auto& block_id : remove_queue ) {
          index.erase( block_id );
       }
+   }
+
+   void fork_database::mark_irreversible( const block_id_type& id ) {
+      std::lock_guard g( my->mtx );
+      my->mark_irreversible_impl( id );
    }
 
    void fork_database::mark_valid( const block_state_ptr& h ) {
