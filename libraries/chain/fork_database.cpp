@@ -89,6 +89,7 @@ namespace eosio { namespace chain {
       pair<branch_type, branch_type> fetch_branch_from_impl( const block_id_type& first,
                                                              const block_id_type& second )const;
       void mark_valid_impl( const block_state_ptr& h );
+      void mark_irreversible_impl( const block_id_type& id );
 
       void add_impl( const block_state_ptr& n,
                      bool ignore_duplicate, bool validate,
@@ -564,6 +565,14 @@ namespace eosio { namespace chain {
       if( first_preferred( **candidate, *head ) ) {
          head = *candidate;
       }
+   }
+
+   void fork_database::mark_irreversible( const block_id_type& b ) {
+      std::lock_guard g( my->mtx );
+      my->mark_irreversible_impl( b );
+   }
+
+   void fork_database_impl::mark_irreversible_impl( const block_id_type& b ) {
    }
 
    block_state_ptr fork_database::get_block(const block_id_type& id)const {

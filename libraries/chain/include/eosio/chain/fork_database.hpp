@@ -85,8 +85,9 @@ namespace eosio { namespace chain {
          pair< branch_type, branch_type >  fetch_branch_from( const block_id_type& first,
                                                               const block_id_type& second )const;
 
-
          void mark_valid( const block_state_ptr& h );
+
+         void mark_irreversible( const block_id_type& id ); // called from HotStuff's qc_chain
 
          static const uint32_t magic_number;
 

@@ -169,8 +169,6 @@ namespace eosio::hotstuff {
 
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
 
-      const hs_commitment& get_last_commitment() const { return _last_commitment; }
-
 #warning remove. bls12-381 key used for testing purposes
       //todo : remove. bls12-381 key used for testing purposes
       std::vector<uint8_t> _seed =
@@ -202,7 +200,6 @@ namespace eosio::hotstuff {
       std::set<name> _my_producers;
       chain::bls_key_map_t _my_finalizer_keys;
       name _id;
-      hs_commitment _last_commitment;
 
       mutable std::atomic<uint64_t> _state_version = 1;
 

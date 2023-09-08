@@ -1046,11 +1046,15 @@ void qc_chain::commit(const hs_commitment& commitment) {
    }
 
    if (!proposal_chain.empty()) {
-      _last_commitment = commitment;
+
+      // update latest known commitment in controller
+      // controller->update_hs_commitment(commitment);
       
       // commit all ancestor blocks sequentially first (hence the reverse)
       for (auto p : boost::adaptors::reverse(proposal_chain)) {
          // Execute commands [...]
+         // issue #1522:  HotStuff finality should drive LIB in controller
+         // ??? controller->commit_block(controller::block_status::irreversible, p.block_id);
          ;
       }
 
