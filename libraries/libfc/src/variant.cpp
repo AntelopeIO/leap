@@ -1,6 +1,7 @@
 #include <fc/variant.hpp>
 #include <fc/variant_object.hpp>
 #include <fc/exception/exception.hpp>
+#include <fc/atomic_shared_ptr.hpp>
 #include <string.h>
 #include <fc/crypto/base64.hpp>
 #include <fc/crypto/hex.hpp>

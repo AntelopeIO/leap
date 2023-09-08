@@ -40,6 +40,7 @@ namespace fc
    class time_point_sec;
    class microseconds;
    template<typename T> struct safe;
+   template<typename T> class atomic_shared_ptr;
 
    struct blob { std::vector<char> data; };
 
@@ -171,9 +172,13 @@ namespace fc
 
    template<typename T>
    void to_variant( const std::shared_ptr<T>& var,  fc::variant& vo );
-
    template<typename T>
    void from_variant( const fc::variant& var,  std::shared_ptr<T>& vo );
+
+   template<typename T>
+   void to_variant( const fc::atomic_shared_ptr<T>& var,  fc::variant& vo );
+   template<typename T>
+   void from_variant( const fc::variant& var,  fc::atomic_shared_ptr<T>& vo );
 
    typedef std::vector<fc::variant>   variants;
    template<typename A, typename B>
@@ -662,6 +667,26 @@ namespace fc
           from_variant( var, *vo );
       }
    }
+
+   template<typename T>
+   void to_variant( const fc::atomic_shared_ptr<T>& var,  fc::variant& vo )
+   {
+      std::shared_ptr<T> v = var.load();
+      to_variant( v, vo );
+   }
+
+   template<typename T>
+   void from_variant( const fc::variant& var,  fc::atomic_shared_ptr<T>& vo )
+   {
+      if( var.is_null() ) {
+         vo.store({});
+      } else {
+         std::shared_ptr<T> v = vo.load();
+         from_variant( var, v );
+         vo.store( v );
+      }
+   }
+
    template<typename T>
    void to_variant( const std::unique_ptr<T>& var,  fc::variant& vo )
    {

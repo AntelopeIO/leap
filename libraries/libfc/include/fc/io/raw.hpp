@@ -10,6 +10,7 @@
 #include <fc/exception/exception.hpp>
 #include <fc/safe.hpp>
 #include <fc/static_variant.hpp>
+#include <fc/atomic_shared_ptr.hpp>
 #include <fc/io/raw_fwd.hpp>
 #include <array>
 #include <map>
@@ -20,6 +21,7 @@
 #include <boost/interprocess/containers/string.hpp>
 #include <boost/interprocess/allocators/allocator.hpp>
 #include <boost/interprocess/managed_mapped_file.hpp>
+
 #include <fc/crypto/hex.hpp>
 
 namespace fc {
@@ -203,6 +205,21 @@ namespace fc {
       bool b; fc::raw::unpack( s, b );
       if( b ) { v = std::make_shared<T>(); fc::raw::unpack( s, *v ); }
     } FC_RETHROW_EXCEPTIONS( warn, "std::shared_ptr<T>", ("type",fc::get_typename<T>::name()) ) }
+
+    template<typename Stream, typename T>
+    inline void pack( Stream& s, const fc::atomic_shared_ptr<T>& v)
+    {
+      std::shared_ptr<T> sv = v.load();
+      fc::raw::pack( s, sv );
+    }
+
+    template<typename Stream, typename T>
+    inline void unpack( Stream& s, fc::atomic_shared_ptr<T>& v)
+    { try {
+      std::shared_ptr<T> sv;
+      fc::raw::unpack( s, sv );
+      v.store( sv );
+    } FC_RETHROW_EXCEPTIONS( warn, "atomic_shared_ptr<T>", ("type",fc::get_typename<T>::name()) ) }
 
     template<typename Stream> inline void pack( Stream& s, const signed_int& v ) {
       uint32_t val = (v.value<<1) ^ (v.value>>31);              //apply zigzag encoding
