@@ -617,9 +617,7 @@ public:
    };
 
    uint32_t _ro_thread_pool_size{0};
-   // Due to uncertainty to get total virtual memory size on a 5-level paging system for eos-vm-oc and
-   // possible memory exhuastion for large number of contract usage for non-eos-vm-oc, set a hard limit
-   static constexpr uint32_t         _ro_max_threads_allowed{8};
+   static constexpr uint32_t         _ro_max_threads_allowed{128};
    named_thread_pool<struct read>    _ro_thread_pool;
    fc::microseconds                  _ro_write_window_time_us{200000};
    fc::microseconds                  _ro_read_window_time_us{60000};
