@@ -118,6 +118,7 @@ namespace eosio::hotstuff {
 
    std::vector<hs_proposal_message> qc_chain::get_qc_chain(const fc::sha256& proposal_id) {
       std::vector<hs_proposal_message> ret_arr;
+      ret_arr.reserve(3);
       if ( const hs_proposal_message* b2 = get_proposal( proposal_id ) ) {
          ret_arr.push_back( *b2 );
          if (const hs_proposal_message* b1 = get_proposal( b2->justify.proposal_id ) ) {
@@ -290,7 +291,7 @@ namespace eosio::hotstuff {
       return v_msg;
    }
 
-   void qc_chain::process_proposal(const hs_proposal_message & proposal){
+   std::optional<block_id_type> qc_chain::process_proposal(const hs_proposal_message & proposal){
 
       //auto start = fc::time_point::now();
 
@@ -299,7 +300,7 @@ namespace eosio::hotstuff {
          const hs_proposal_message *jp = get_proposal( proposal.justify.proposal_id );
          if (jp == nullptr) {
             fc_elog(_logger, " *** ${id} proposal justification unknown : ${proposal_id}", ("id",_id)("proposal_id", proposal.justify.proposal_id));
-            return; //can't recognize a proposal with an unknown justification
+            return {}; //can't recognize a proposal with an unknown justification
          }
       }
 
@@ -318,7 +319,7 @@ namespace eosio::hotstuff {
 
          }
 
-         return; //already aware of proposal, nothing to do
+         return {}; //already aware of proposal, nothing to do
       }
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
@@ -417,7 +418,7 @@ namespace eosio::hotstuff {
       update(proposal);
 
       for (auto &msg : msgs) {
-         send_hs_vote_msg(msg);
+         send_hs_msg(msg);
       }
 
       //check for leader change
@@ -498,7 +499,7 @@ namespace eosio::hotstuff {
                _pending_proposal_block = {};
                _b_leaf = proposal_candidate.proposal_id;
 
-               send_hs_proposal_msg(proposal_candidate);
+               send_hs_msg(proposal_candidate);
                fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
             }
          }
@@ -566,32 +567,21 @@ namespace eosio::hotstuff {
          _pending_proposal_block = {};
          _b_leaf = proposal_candidate.proposal_id;
 
-         send_hs_proposal_msg(proposal_candidate);
+         send_hs_msg(proposal_candidate);
 
          fc_tlog(_logger, " === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
       }
    }
 
-   void qc_chain::send_hs_proposal_msg(const hs_proposal_message & msg){
-      fc_tlog(_logger, " === broadcast_hs_proposal ===");
-      _pacemaker->send_hs_proposal_msg(msg, _id);
-      process_proposal(msg);
-   }
-
-   void qc_chain::send_hs_vote_msg(const hs_vote_message & msg){
-      fc_tlog(_logger, " === broadcast_hs_vote ===");
-      _pacemaker->send_hs_vote_msg(msg, _id);
-      process_vote(msg);
-   }
-
-   void qc_chain::send_hs_new_view_msg(const hs_new_view_message & msg){
-      fc_tlog(_logger, " === broadcast_hs_new_view ===");
-      _pacemaker->send_hs_new_view_msg(msg, _id);
-   }
-
-   void qc_chain::send_hs_new_block_msg(const hs_new_block_message & msg){
-      fc_tlog(_logger, " === broadcast_hs_new_block ===");
-      _pacemaker->send_hs_new_block_msg(msg, _id);
+   std::optional<block_id_type> qc_chain::send_hs_msg(const hs_message& msg) {
+      std::visit(overloaded{
+              [this](const hs_vote_message& m) { fc_tlog(_logger, " === broadcast_hs_vote ==="); },
+              [this](const hs_proposal_message& m) { fc_tlog(_logger, " === broadcast_hs_proposal ==="); },
+              [this](const hs_new_block_message& m) { fc_tlog(_logger, " === broadcast_hs_new_block ==="); },
+              [this](const hs_new_view_message& m) { fc_tlog(_logger, " === broadcast_hs_new_view ==="); },
+      }, msg);
+      _pacemaker->send_hs_msg(msg, _id);
+      return process_hs_msg(msg);
    }
 
    //extends predicate
@@ -662,7 +652,7 @@ namespace eosio::hotstuff {
          //   the network, until it reaches the leader.
 
          fc_tlog(_logger, " === broadcasting new block = #${block_num} ${proposal_id}", ("proposal_id", block_candidate.block_id)("block_num",(block_header::num_from_id(block_candidate.block_id))));
-         send_hs_new_block_msg( block_candidate );
+         send_hs_msg( block_candidate );
       }
    }
 
@@ -730,7 +720,7 @@ namespace eosio::hotstuff {
 
          new_view.high_qc = _high_qc.to_msg();
 
-         send_hs_new_view_msg(new_view);
+         send_hs_msg(new_view);
       }
    }
 
@@ -834,8 +824,9 @@ namespace eosio::hotstuff {
    }
 
    //on proposal received, called from network thread
-   void qc_chain::on_hs_proposal_msg(const hs_proposal_message& msg) {
-      process_proposal(msg);
+   //returns highest block_id that was made irreversible (if any)
+   std::optional<block_id_type> qc_chain::on_hs_proposal_msg(const hs_proposal_message& msg) {
+      return process_proposal(msg);
    }
 
    //on vote received, called from network thread
@@ -853,12 +844,12 @@ namespace eosio::hotstuff {
       process_new_block(msg);
    }
 
-   void qc_chain::update(const hs_proposal_message& proposal) {
+   std::optional<block_id_type> qc_chain::update(const hs_proposal_message& proposal) {
       //fc_tlog(_logger, " === update internal state ===");
       //if proposal has no justification, means we either just activated the feature or launched the chain, or the proposal is invalid
       if (proposal.justify.proposal_id.empty()) {
          fc_dlog(_logger, " === ${id} proposal has no justification ${proposal_id}", ("proposal_id", proposal.proposal_id)("id", _id));
-         return;
+         return {};
       }
 
       std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(proposal.justify.proposal_id);
@@ -873,7 +864,7 @@ namespace eosio::hotstuff {
 
       if (chain_length<1){
          fc_dlog(_logger, " === ${id} qc chain length is 0", ("id", _id));
-         return;
+         return {};
       }
 
       auto itr = current_qc_chain.begin();
@@ -881,7 +872,7 @@ namespace eosio::hotstuff {
 
       if (chain_length<2){
          fc_dlog(_logger, " === ${id} qc chain length is 1", ("id", _id));
-         return;
+         return {};
       }
 
       itr++;
@@ -911,7 +902,7 @@ namespace eosio::hotstuff {
 
       if (chain_length < 3) {
          fc_dlog(_logger, " === ${id} qc chain length is 2",("id", _id));
-         return;
+         return {};
       }
 
       ++itr;
@@ -944,7 +935,7 @@ namespace eosio::hotstuff {
                _b_finality_violation = b.proposal_id;
 
                //protocol failure
-               return;
+               return {};
             }
          }
 
@@ -956,13 +947,14 @@ namespace eosio::hotstuff {
          _block_exec = b.block_id;
 
          gc_proposals( b.get_height()-1);
-      }
-      else {
+         return _block_exec;
+      } else {
          fc_elog(_logger, " *** ${id} could not verify direct parent relationship", ("id",_id));
          fc_elog(_logger, "   *** b_2 ${b_2}", ("b_2", b_2));
          fc_elog(_logger, "   *** b_1 ${b_1}", ("b_1", b_1));
          fc_elog(_logger, "   *** b   ${b}", ("b", b));
       }
+      return {};
    }
 
    void qc_chain::gc_proposals(uint64_t cutoff){

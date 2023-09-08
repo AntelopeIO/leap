@@ -296,19 +296,7 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, name id) {
-      bcast_hs_message(msg);
-   }
-
-   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, name id) {
-      bcast_hs_message(msg);
-   }
-
-   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, name id) {
-      bcast_hs_message(msg);
-   }
-
-   void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, name id) {
+   void chain_pacemaker::send_hs_msg(const hs_message& msg, name id) {
       bcast_hs_message(msg);
    }
 

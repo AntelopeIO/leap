@@ -111,11 +111,23 @@ namespace eosio::hotstuff {
       void on_beat(); //handler for pacemaker beat()
 
       void on_hs_vote_msg(const hs_vote_message& msg); //vote msg event handler
-      void on_hs_proposal_msg(const hs_proposal_message& msg); //proposal msg event handler
+      std::optional<block_id_type> on_hs_proposal_msg(const hs_proposal_message& msg); //proposal msg event handler
       void on_hs_new_view_msg(const hs_new_view_message& msg); //new view msg event handler
       void on_hs_new_block_msg(const hs_new_block_message& msg); //new block msg event handler
 
    private:
+       std::optional<block_id_type> process_hs_msg(const hs_message& msg)
+       {
+          std::optional<block_id_type> res;
+          std::visit(overloaded{
+                        [this](const hs_vote_message& m) { process_vote(m); },
+                        [this, &res](const hs_proposal_message& m) { res = process_proposal(m); },
+                        [this](const hs_new_block_message& m) {},
+                        [this](const hs_new_view_message& m) {},
+                    },
+                    msg);
+          return res;
+       }
 
       const hs_proposal_message* get_proposal(const fc::sha256& proposal_id); // returns nullptr if not found
 
@@ -142,7 +154,7 @@ namespace eosio::hotstuff {
       bool am_i_leader(); //check if I am the current leader
       bool am_i_finalizer(); //check if I am one of the current finalizers
 
-      void process_proposal(const hs_proposal_message& msg); //handles proposal
+      std::optional<block_id_type> process_proposal(const hs_proposal_message& msg); //handles proposal, returns lib is any
       void process_vote(const hs_vote_message& msg); //handles vote
       void process_new_view(const hs_new_view_message& msg); //handles new view
       void process_new_block(const hs_new_block_message& msg); //handles new block
@@ -159,12 +171,9 @@ namespace eosio::hotstuff {
 
       std::vector<hs_proposal_message> get_qc_chain(const fc::sha256& proposal_id); //get 3-phase proposal justification
 
-      void send_hs_proposal_msg(const hs_proposal_message& msg); //send vote msg
-      void send_hs_vote_msg(const hs_vote_message& msg); //send proposal msg
-      void send_hs_new_view_msg(const hs_new_view_message& msg); //send new view msg
-      void send_hs_new_block_msg(const hs_new_block_message& msg); //send new block msg
+      std::optional<block_id_type> send_hs_msg(const hs_message& msg); 
 
-      void update(const hs_proposal_message& proposal); //update internal state
+      std::optional<block_id_type> update(const hs_proposal_message& proposal); //update internal state
       void commit(const hs_commitment& commitment); //commit proposal (finality)
 
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals

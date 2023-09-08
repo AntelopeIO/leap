@@ -11,7 +11,7 @@ namespace eosio { namespace hotstuff {
 
       bool is_qc_chain_active(const name & qcc_name) { return _qcc_deactivated.find(qcc_name) == _qcc_deactivated.end(); }
 
-      using hotstuff_message = std::pair<name, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
+      using hotstuff_message = std::pair<name, hs_message>;
 
       void set_proposer(name proposer);
 
@@ -57,10 +57,7 @@ namespace eosio { namespace hotstuff {
 
       uint32_t get_quorum_threshold();
 
-      void send_hs_proposal_msg(const hs_proposal_message & msg, name id);
-      void send_hs_vote_msg(const hs_vote_message & msg, name id);
-      void send_hs_new_block_msg(const hs_new_block_message & msg, name id);
-      void send_hs_new_view_msg(const hs_new_view_message & msg, name id);
+      void send_hs_msg(const hs_message & msg, name id);
 
       std::vector<hotstuff_message> _pending_message_queue;
 

@@ -87,7 +87,7 @@ namespace eosio { namespace chain {
 
          void mark_valid( const block_state_ptr& h );
 
-         void mark_irreversible( const block_id_type& id ); // called from HotStuff's qc_chain
+         void mark_irreversible( const block_id_type& id ); // called from HotStuff's chain_pacemaker
 
          static const uint32_t magic_number;
 

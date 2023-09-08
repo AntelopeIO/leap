@@ -43,10 +43,7 @@ namespace eosio::hotstuff {
 
       uint32_t get_quorum_threshold();
 
-      void send_hs_proposal_msg(const hs_proposal_message& msg, name id);
-      void send_hs_vote_msg(const hs_vote_message& msg, name id);
-      void send_hs_new_view_msg(const hs_new_view_message& msg, name id);
-      void send_hs_new_block_msg(const hs_new_block_message& msg, name id);
+      void send_hs_msg(const hs_message& msg, name id);
 
    private:
       void on_accepted_block( const block_state_ptr& blk );
