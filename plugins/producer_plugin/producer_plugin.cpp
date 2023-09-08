@@ -617,6 +617,12 @@ public:
    };
 
    uint32_t _ro_thread_pool_size{0};
+   // In EOS VM OC tierup, 10 pages (11 slices) virtual memory is reserved for
+   // each read-only thread and 528 pages (529 slices) for the main-thread memory.
+   // With maximum 128 read-only threads, virtual memory required by OC is
+   // 15TB (OC's main thread uses 4TB VM (by 529 slices) and the read-only
+   // threads use 11TB (128 * 11 * 8GB)). It is about 11.7% of total VM space
+   // in a 64-bit Linux machine (about 128TB).
    static constexpr uint32_t         _ro_max_threads_allowed{128};
    named_thread_pool<struct read>    _ro_thread_pool;
    fc::microseconds                  _ro_write_window_time_us{200000};
