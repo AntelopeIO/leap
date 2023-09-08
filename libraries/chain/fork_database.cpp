@@ -337,17 +337,16 @@ namespace eosio { namespace chain {
       const uint32_t lib = block_header::num_from_id(id);
       auto& by_id_idx = index.get<by_block_id>();
 
-      for (auto itr = by_id_idx.find( id ); itr != by_id_idx.end();) {
-         EOS_ASSERT(itr != by_id_idx.end(), fork_database_exception, "block state not in fork database; cannot mark as irreversible", ("id", id));
-
-         const bool at_root = id == root->id;
+      for (auto itr = by_id_idx.find( id ); ; itr = by_id_idx.find( id )) {
+         EOS_ASSERT(itr != by_id_idx.end(), fork_database_exception,
+                    "block state ${id} not in fork database; cannot mark as irreversible", ("id", id));
+         const bool at_root = (id == root->id);
          by_id_idx.modify(itr, [&id, lib](block_state_ptr& bsp) {
             bsp->hs_irreversible_blocknum.store(lib);
             id = bsp->header.previous;
          });
-
-         itr = by_id_idx.find( id );
-         EOS_ASSERT( at_root || itr != by_id_idx.end(), fork_database_exception, "invariant violation: orphaned branch was present in forked database" );
+         if (at_root)
+            break;
       }
    }
 
