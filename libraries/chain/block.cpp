@@ -60,12 +60,25 @@ namespace eosio { namespace chain {
             );
          }
 
-
          id_type_lower_bound = id;
       }
-
       return results;
+   }
 
+   std::optional<block_extension> signed_block::extract_extension(uint16_t id) const {
+      using decompose_t = block_extension_types::decompose_t;
+
+      for( size_t i = 0; i < block_extensions.size(); ++i ) {
+         const auto& e = block_extensions[i];
+         if (e.first == id) {
+            block_extension ext;
+            auto match = decompose_t::extract<block_extension>(id, e.second, ext);
+            EOS_ASSERT(match, invalid_block_extension,
+                       "Block extension with id type ${id} is not supported", ("id", id));
+            return ext;
+         }
+      }
+      return {};
    }
 
 } } /// namespace eosio::chain

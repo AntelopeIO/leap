@@ -112,6 +112,7 @@ namespace eosio { namespace chain {
       extensions_type               block_extensions;
 
       flat_multimap<uint16_t, block_extension> validate_and_extract_extensions()const;
+      std::optional<block_extension> extract_extension(uint16_t extension_id) const;
    };
    using signed_block_ptr = std::shared_ptr<signed_block>;
 
