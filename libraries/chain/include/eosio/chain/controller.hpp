@@ -168,6 +168,8 @@ namespace eosio { namespace chain {
          block_state_ptr finalize_block( block_report& br, const signer_callback_type& signer_callback );
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
+
+         void mark_irreversible(block_id_type b); // called from HotStuff consensus
          
          // thread-safe
          std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );

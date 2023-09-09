@@ -48,11 +48,8 @@ namespace eosio::hotstuff {
    private:
       void on_accepted_block( const block_state_ptr& blk );
       void on_irreversible_block( const block_state_ptr& blk );
-
-      void on_hs_proposal_msg(const hs_proposal_message& msg); //consensus msg event handler
-      void on_hs_vote_msg(const hs_vote_message& msg); //confirmation msg event handler
-      void on_hs_new_view_msg(const hs_new_view_message& msg); //new view msg event handler
-      void on_hs_new_block_msg(const hs_new_block_message& msg); //new block msg event handler
+      void on_pre_accepted_block( const signed_block_ptr& blk );
+      
    private:
 
       //FIXME/REMOVE: for testing/debugging only
@@ -78,6 +75,7 @@ namespace eosio::hotstuff {
       boost::signals2::scoped_connection _accepted_block_connection;
       boost::signals2::scoped_connection _irreversible_block_connection;
 
+      controller*             _chain;
       qc_chain                _qc_chain;
       std::function<void(const chain::hs_message&)> bcast_hs_message;
 

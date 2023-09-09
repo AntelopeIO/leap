@@ -110,10 +110,7 @@ namespace eosio::hotstuff {
 
       void on_beat(); //handler for pacemaker beat()
 
-      void on_hs_vote_msg(const hs_vote_message& msg); //vote msg event handler
-      std::optional<block_id_type> on_hs_proposal_msg(const hs_proposal_message& msg); //proposal msg event handler
-      void on_hs_new_view_msg(const hs_new_view_message& msg); //new view msg event handler
-      void on_hs_new_block_msg(const hs_new_block_message& msg); //new block msg event handler
+      std::optional<block_id_type> on_hs_msg(const hs_message& msg);
 
    private:
        std::optional<block_id_type> process_hs_msg(const hs_message& msg)
@@ -122,8 +119,8 @@ namespace eosio::hotstuff {
           std::visit(overloaded{
                         [this](const hs_vote_message& m) { process_vote(m); },
                         [this, &res](const hs_proposal_message& m) { res = process_proposal(m); },
-                        [this](const hs_new_block_message& m) {},
-                        [this](const hs_new_view_message& m) {},
+                        [](const hs_new_block_message& m) {},
+                        [](const hs_new_view_message& m) {},
                     },
                     msg);
           return res;
@@ -178,6 +175,8 @@ namespace eosio::hotstuff {
 
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
 
+      const std::optional<hs_commitment>& get_last_commitment() const { return _last_commitment; }
+
 #warning remove. bls12-381 key used for testing purposes
       //todo : remove. bls12-381 key used for testing purposes
       std::vector<uint8_t> _seed =
@@ -209,6 +208,7 @@ namespace eosio::hotstuff {
       std::set<name> _my_producers;
       chain::bls_key_map_t _my_finalizer_keys;
       name _id;
+      std::optional<hs_commitment> _last_commitment; // thread safety??
 
       mutable std::atomic<uint64_t> _state_version = 1;
 

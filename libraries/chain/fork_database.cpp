@@ -573,6 +573,8 @@ namespace eosio { namespace chain {
    }
 
    void fork_database_impl::mark_irreversible_impl( const block_id_type& b ) {
+      // called by HotStuff consensus to notify `chain` that block b is now irreversible
+
    }
 
    block_state_ptr fork_database::get_block(const block_id_type& id)const {

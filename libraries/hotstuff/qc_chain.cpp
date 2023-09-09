@@ -823,25 +823,18 @@ namespace eosio::hotstuff {
       return final_on_qc_check && monotony_check && (liveness_check || safety_check);
    }
 
-   //on proposal received, called from network thread
+   //hs_message received, called from network thread
    //returns highest block_id that was made irreversible (if any)
-   std::optional<block_id_type> qc_chain::on_hs_proposal_msg(const hs_proposal_message& msg) {
-      return process_proposal(msg);
-   }
-
-   //on vote received, called from network thread
-   void qc_chain::on_hs_vote_msg(const hs_vote_message& msg) {
-      process_vote(msg);
-   }
-
-   //on new view received, called from network thread
-   void qc_chain::on_hs_new_view_msg(const hs_new_view_message& msg) {
-      process_new_view(msg);
-   }
-
-   //on new block received, called from network thread
-   void qc_chain::on_hs_new_block_msg(const hs_new_block_message& msg) {
-      process_new_block(msg);
+   std::optional<block_id_type> qc_chain::on_hs_msg(const hs_message& msg) {
+      std::optional<block_id_type> res;
+      std::visit(overloaded{
+                     [this](const hs_vote_message& m) { process_vote(m); },
+                     [this, &res](const hs_proposal_message& m) { res = process_proposal(m); },
+                     [this](const hs_new_block_message& m) { process_new_block(m); },
+                     [this](const hs_new_view_message& m) { process_new_view(m); },
+                 },
+                 msg);
+      return res;
    }
 
    std::optional<block_id_type> qc_chain::update(const hs_proposal_message& proposal) {
@@ -1038,15 +1031,15 @@ void qc_chain::commit(const hs_commitment& commitment) {
    }
 
    if (!proposal_chain.empty()) {
-
-      // update latest known commitment in controller
-      // controller->update_hs_commitment(commitment);
+      _last_commitment = commitment; // will be provided to controller by pacemaker in `on_irreversible_block`
       
       // commit all ancestor blocks sequentially first (hence the reverse)
       for (auto p : boost::adaptors::reverse(proposal_chain)) {
-         // Execute commands [...]
          // issue #1522:  HotStuff finality should drive LIB in controller
-         // ??? controller->commit_block(controller::block_status::irreversible, p.block_id);
+         // no need to do anything here. `qc_chain::update()` will return the `block_id_type` made final
+         // (which is b.block_id) to `chain_pacemaker`, which will notify the controller. The controller
+         // will notify `fork_database` so that this block and its ancestors are marked irreversible and
+         // moved out of `fork_database`.
          ;
       }
 

@@ -2990,6 +2990,10 @@ void controller::commit_block() {
    my->commit_block(block_status::incomplete);
 }
 
+void controller::mark_irreversible(block_id_type b) { // called from HotStuff consensus
+}
+
+
 deque<transaction_metadata_ptr> controller::abort_block() {
    return my->abort_block();
 }

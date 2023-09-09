@@ -168,7 +168,7 @@ namespace eosio::hotstuff {
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
          if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
-            qcc_ptr->on_hs_proposal_msg(msg);
+            qcc_ptr->on_hs_msg(msg);
          qc_itr++;
       }
    }
@@ -179,7 +179,7 @@ namespace eosio::hotstuff {
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
          if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
-            qcc_ptr->on_hs_vote_msg(msg);
+            qcc_ptr->on_hs_msg(msg);
          qc_itr++;
       }
    }
@@ -190,7 +190,7 @@ namespace eosio::hotstuff {
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
          if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
-            qcc_ptr->on_hs_new_block_msg(msg);
+            qcc_ptr->on_hs_msg(msg);
          qc_itr++;
       }
    }
@@ -201,7 +201,7 @@ namespace eosio::hotstuff {
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
          if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
-            qcc_ptr->on_hs_new_view_msg(msg);
+            qcc_ptr->on_hs_msg(msg);
          qc_itr++;
       }
    }
