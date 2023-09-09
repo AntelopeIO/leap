@@ -581,7 +581,16 @@ namespace eosio::hotstuff {
               [this](const hs_new_view_message& m) { fc_tlog(_logger, " === broadcast_hs_new_view ==="); },
       }, msg);
       _pacemaker->send_hs_msg(msg, _id);
-      return process_hs_msg(msg);
+
+      std::optional<block_id_type> res;
+      std::visit(overloaded{
+                        [this](const hs_vote_message& m) { process_vote(m); },
+                        [this, &res](const hs_proposal_message& m) { res = process_proposal(m); },
+                        [](const hs_new_block_message& m) {},
+                        [](const hs_new_view_message& m) {},
+                    },
+                    msg);
+      return res;
    }
 
    //extends predicate

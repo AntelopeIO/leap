@@ -113,19 +113,6 @@ namespace eosio::hotstuff {
       std::optional<block_id_type> on_hs_msg(const hs_message& msg);
 
    private:
-       std::optional<block_id_type> process_hs_msg(const hs_message& msg)
-       {
-          std::optional<block_id_type> res;
-          std::visit(overloaded{
-                        [this](const hs_vote_message& m) { process_vote(m); },
-                        [this, &res](const hs_proposal_message& m) { res = process_proposal(m); },
-                        [](const hs_new_block_message& m) {},
-                        [](const hs_new_view_message& m) {},
-                    },
-                    msg);
-          return res;
-       }
-
       const hs_proposal_message* get_proposal(const fc::sha256& proposal_id); // returns nullptr if not found
 
       // returns false if proposal with that same ID already exists at the store of its height
@@ -151,12 +138,12 @@ namespace eosio::hotstuff {
       bool am_i_leader(); //check if I am the current leader
       bool am_i_finalizer(); //check if I am one of the current finalizers
 
-      std::optional<block_id_type> process_proposal(const hs_proposal_message& msg); //handles proposal, returns lib is any
-      void process_vote(const hs_vote_message& msg); //handles vote
-      void process_new_view(const hs_new_view_message& msg); //handles new view
-      void process_new_block(const hs_new_block_message& msg); //handles new block
+      std::optional<block_id_type> process_proposal(const hs_proposal_message& msg); // returns lib is any
+      void                         process_vote(const hs_vote_message& msg);
+      void                         process_new_view(const hs_new_view_message& msg);
+      void                         process_new_block(const hs_new_block_message& msg);
 
-      hs_vote_message sign_proposal(const hs_proposal_message& proposal, name finalizer); //sign proposal
+      hs_vote_message sign_proposal(const hs_proposal_message& proposal, name finalizer);
 
       bool extends(const fc::sha256& descendant, const fc::sha256& ancestor); //verify that a proposal descends from another
 
