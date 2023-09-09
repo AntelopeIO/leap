@@ -110,10 +110,10 @@ namespace eosio::hotstuff {
 
       void on_beat(); //handler for pacemaker beat()
 
-      void on_hs_vote_msg(const hs_vote_message& msg); //vote msg event handler
-      void on_hs_proposal_msg(const hs_proposal_message& msg); //proposal msg event handler
-      void on_hs_new_view_msg(const hs_new_view_message& msg); //new view msg event handler
-      void on_hs_new_block_msg(const hs_new_block_message& msg); //new block msg event handler
+      void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg); //vote msg event handler
+      void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg); //proposal msg event handler
+      void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg); //new view msg event handler
+      void on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg); //new block msg event handler
 
    private:
 
@@ -142,10 +142,11 @@ namespace eosio::hotstuff {
       bool am_i_leader(); //check if I am the current leader
       bool am_i_finalizer(); //check if I am one of the current finalizers
 
-      void process_proposal(const hs_proposal_message& msg); //handles proposal
-      void process_vote(const hs_vote_message& msg); //handles vote
-      void process_new_view(const hs_new_view_message& msg); //handles new view
-      void process_new_block(const hs_new_block_message& msg); //handles new block
+      // is_loopback is used to check if the call is processing a self-receipt message (if so, never propagate it)
+      void process_proposal(const hs_proposal_message& msg, bool is_loopback = false); //handles proposal
+      void process_vote(const hs_vote_message& msg, bool is_loopback = false); //handles vote
+      void process_new_view(const hs_new_view_message& msg, bool is_loopback = false); //handles new view
+      void process_new_block(const hs_new_block_message& msg, bool is_loopback = false); //handles new block
 
       hs_vote_message sign_proposal(const hs_proposal_message& proposal, name finalizer); //sign proposal
 
@@ -159,10 +160,12 @@ namespace eosio::hotstuff {
 
       std::vector<hs_proposal_message> get_qc_chain(const fc::sha256& proposal_id); //get 3-phase proposal justification
 
-      void send_hs_proposal_msg(const hs_proposal_message& msg); //send vote msg
-      void send_hs_vote_msg(const hs_vote_message& msg); //send proposal msg
-      void send_hs_new_view_msg(const hs_new_view_message& msg); //send new view msg
-      void send_hs_new_block_msg(const hs_new_block_message& msg); //send new block msg
+      void send_hs_proposal_msg(const hs_proposal_message& msg, bool propagation = false); //send vote msg
+      void send_hs_vote_msg(const hs_vote_message& msg, bool propagation = false); //send proposal msg
+      void send_hs_new_view_msg(const hs_new_view_message& msg, bool propagation = false); //send new view msg
+      void send_hs_new_block_msg(const hs_new_block_message& msg, bool propagation = false); //send new block msg
+
+      void send_hs_message_warning(const chain::hs_message_warning code = hs_message_warning::discarded); //use generic discard reason if none given
 
       void update(const hs_proposal_message& proposal); //update internal state
       void commit(const hs_proposal_message& proposal); //commit proposal (finality)
@@ -236,6 +239,12 @@ namespace eosio::hotstuff {
       proposal_store_type _proposal_store;  //internal proposals store
 #endif
 
+      // connection_id of the network peer that originally sent the message
+      //   being processed by the qc_chain. This is used to fill in the
+      //   exclude_peer parameter to the pacemaker when qc_chain is calling
+      //   the pacemaker to propagate that message, which the original sender
+      //   peer won't need to receive back.
+      std::optional<uint32_t> _sender_connection_id;
    };
 
 } /// eosio::hotstuff

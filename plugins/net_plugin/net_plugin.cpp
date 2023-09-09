@@ -301,7 +301,7 @@ namespace eosio {
       bool have_txn( const transaction_id_type& tid ) const;
       void expire_txns();
 
-      void bcast_msg( send_buffer_type msg );
+      void bcast_msg( const std::optional<uint32_t>& exclude_peer, send_buffer_type msg );
 
       void add_unlinkable_block( signed_block_ptr b, const block_id_type& id ) {
          std::optional<block_id_type> rm_blk_id = unlinkable_block_cache.add_unlinkable_block(std::move(b), id);
@@ -495,7 +495,8 @@ namespace eosio {
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_ptr& block );
 
-      void bcast_hs_message( const hs_message& msg );
+      void bcast_hs_message( const std::optional<uint32_t>& exclude_peer, const hs_message& msg );
+      void warn_hs_message( const uint32_t sender_peer, const hs_message_warning& code );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
       void start_expire_timer();
@@ -2531,9 +2532,10 @@ namespace eosio {
       } );
    }
 
-   void dispatch_manager::bcast_msg( send_buffer_type msg ) {
-      my_impl->connections.for_each_block_connection( [msg{std::move(msg)}]( auto& cp ) {
+   void dispatch_manager::bcast_msg( const std::optional<uint32_t>& exclude_peer, send_buffer_type msg ) {
+      my_impl->connections.for_each_block_connection( [exclude_peer, msg{std::move(msg)}]( auto& cp ) {
          if( !cp->current() ) return true;
+         if( exclude_peer.has_value() && cp->connection_id == exclude_peer.value() ) return true;
          cp->strand.post( [cp, msg]() {
             if (cp->protocol_version >= proto_instant_finality)
                cp->enqueue_buffer( msg, no_reason );
@@ -3563,7 +3565,7 @@ namespace eosio {
 
    void connection::handle_message( const hs_message& msg ) {
       peer_dlog(this, "received hs: ${msg}", ("msg", msg));
-      my_impl->chain_plug->notify_hs_message(msg);
+      my_impl->chain_plug->notify_hs_message(connection_id, msg);
    }
 
    size_t calc_trx_size( const packed_transaction_ptr& trx ) {
@@ -3817,15 +3819,19 @@ namespace eosio {
       on_active_schedule(chain_plug->chain().active_producers());
    }
 
-   void net_plugin_impl::bcast_hs_message( const hs_message& msg ) {
+   void net_plugin_impl::bcast_hs_message( const std::optional<uint32_t>& exclude_peer, const hs_message& msg ) {
       fc_dlog(logger, "sending hs msg: ${msg}", ("msg", msg));
 
       buffer_factory buff_factory;
       auto send_buffer = buff_factory.get_send_buffer( msg );
 
-      dispatcher->strand.post( [this, msg{std::move(send_buffer)}]() mutable {
-         dispatcher->bcast_msg( std::move(msg) );
+      dispatcher->strand.post( [this, exclude_peer, msg{std::move(send_buffer)}]() mutable {
+         dispatcher->bcast_msg( exclude_peer, std::move(msg) );
       });
+   }
+
+   void net_plugin_impl::warn_hs_message( const uint32_t sender_peer, const hs_message_warning& code ) {
+      // potentially react to (repeated) receipt of invalid, irrelevant, duplicate, etc. hotstuff messages from sender_peer (connection ID) here
    }
 
    // called from application thread
@@ -4159,8 +4165,12 @@ namespace eosio {
       fc_ilog( logger, "my node_id is ${id}", ("id", node_id ));
 
       chain_plug->register_pacemaker_bcast_function(
-              [my = shared_from_this()](const hs_message& s) {
-                 my->bcast_hs_message(s);
+              [my = shared_from_this()](const std::optional<uint32_t>& c, const hs_message& s) {
+                 my->bcast_hs_message(c, s);
+              } );
+      chain_plug->register_pacemaker_warn_function(
+              [my = shared_from_this()](const uint32_t c, const hs_message_warning& s) {
+                 my->warn_hs_message(c, s);
               } );
 
       producer_plug = app().find_plugin<producer_plugin>();

@@ -1122,11 +1122,15 @@ void chain_plugin::create_pacemaker(std::set<chain::account_name> my_producers, 
    my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), std::move(finalizer_keys), hotstuff_logger);
 }
 
-void chain_plugin::register_pacemaker_bcast_function(std::function<void(const chain::hs_message&)> bcast_hs_message) {
+void chain_plugin::register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> bcast_hs_message) {
    EOS_ASSERT( my->_chain_pacemaker, plugin_config_exception, "chain_pacemaker not created" );
    my->_chain_pacemaker->register_bcast_function(std::move(bcast_hs_message));
 }
 
+void chain_plugin::register_pacemaker_warn_function(std::function<void(const uint32_t, const chain::hs_message_warning&)> warn_hs_message) {
+   EOS_ASSERT( my->_chain_pacemaker, plugin_config_exception, "chain_pacemaker not created" );
+   my->_chain_pacemaker->register_warn_function(std::move(warn_hs_message));
+}
 
 void chain_plugin::plugin_initialize(const variables_map& options) {
    handle_sighup(); // Sets loggers
@@ -2685,8 +2689,8 @@ read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time
 } // namespace chain_apis
 
 // called from net threads
-void chain_plugin::notify_hs_message( const hs_message& msg ) {
-   my->_chain_pacemaker->on_hs_msg(msg);
+void chain_plugin::notify_hs_message( const uint32_t connection_id, const hs_message& msg ) {
+   my->_chain_pacemaker->on_hs_msg(connection_id, msg);
 };
 
 void chain_plugin::notify_hs_block_produced() {

@@ -10,6 +10,7 @@ namespace eosio::chain {
    struct hs_vote_message;
    struct hs_new_view_message;
    struct hs_new_block_message;
+   enum hs_message_warning : uint32_t;
 }
 
 namespace eosio::hotstuff {
@@ -36,10 +37,12 @@ namespace eosio::hotstuff {
       virtual std::vector<chain::name> get_finalizers() = 0;
 
       //outbound communications; 'id' is the producer name (can be ignored if/when irrelevant to the implementer)
-      virtual void send_hs_proposal_msg(const chain::hs_proposal_message& msg, chain::name id) = 0;
-      virtual void send_hs_vote_msg(const chain::hs_vote_message& msg, chain::name id) = 0;
-      virtual void send_hs_new_view_msg(const chain::hs_new_view_message& msg, chain::name id) = 0;
-      virtual void send_hs_new_block_msg(const chain::hs_new_block_message& msg, chain::name id) = 0;
+      virtual void send_hs_proposal_msg(const chain::hs_proposal_message& msg, chain::name id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
+      virtual void send_hs_vote_msg(const chain::hs_vote_message& msg, chain::name id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
+      virtual void send_hs_new_view_msg(const chain::hs_new_view_message& msg, chain::name id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
+      virtual void send_hs_new_block_msg(const chain::hs_new_block_message& msg, chain::name id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
+
+      virtual void send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code) = 0;
    };
 
 } // namespace eosio::hotstuff
