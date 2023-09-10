@@ -9,9 +9,9 @@ namespace eosio { namespace hotstuff {
 
       //class-specific functions
 
-      bool is_qc_chain_active(const name & qcc_name) { return _qcc_deactivated.find(qcc_name) == _qcc_deactivated.end(); }
+      bool is_qc_chain_active(const name& qcc_name) { return _qcc_deactivated.find(qcc_name) == _qcc_deactivated.end(); }
 
-      using hotstuff_message = std::pair<name, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
+      using hotstuff_message = std::pair<std::string, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
 
       void set_proposer(name proposer);
 
@@ -19,7 +19,7 @@ namespace eosio { namespace hotstuff {
 
       void set_next_leader(name next_leader);
 
-      void set_finalizers(std::vector<name> finalizers);
+      void set_finalizer_keys(std::vector<fc::crypto::blslib::bls_public_key> finalizers);
 
       void set_current_block_id(block_id_type id);
 
@@ -41,26 +41,26 @@ namespace eosio { namespace hotstuff {
 
       void beat();
 
-      void on_hs_vote_msg(const hs_vote_message & msg, name id); //confirmation msg event handler
-      void on_hs_proposal_msg(const hs_proposal_message & msg, name id); //consensus msg event handler
-      void on_hs_new_view_msg(const hs_new_view_message & msg, name id); //new view msg event handler
-      void on_hs_new_block_msg(const hs_new_block_message & msg, name id); //new block msg event handler
+      void on_hs_vote_msg(const hs_vote_message & msg, const std::string&  id); //confirmation msg event handler
+      void on_hs_proposal_msg(const hs_proposal_message & msg, const std::string&  id); //consensus msg event handler
+      void on_hs_new_view_msg(const hs_new_view_message & msg, const std::string&  id); //new view msg event handler
+      void on_hs_new_block_msg(const hs_new_block_message & msg, const std::string&  id); //new block msg event handler
 
       //base_pacemaker interface functions
 
       name get_proposer();
       name get_leader();
       name get_next_leader();
-      std::vector<name> get_finalizers();
+      std::vector<fc::crypto::blslib::bls_public_key> get_finalizer_keys();
 
       block_id_type get_current_block_id();
 
       uint32_t get_quorum_threshold();
 
-      void send_hs_proposal_msg(const hs_proposal_message & msg, name id);
-      void send_hs_vote_msg(const hs_vote_message & msg, name id);
-      void send_hs_new_block_msg(const hs_new_block_message & msg, name id);
-      void send_hs_new_view_msg(const hs_new_view_message & msg, name id);
+      void send_hs_proposal_msg(const hs_proposal_message & msg, const std::string&  id);
+      void send_hs_vote_msg(const hs_vote_message & msg, const std::string&  id);
+      void send_hs_new_block_msg(const hs_new_block_message & msg, const std::string&  id);
+      void send_hs_new_view_msg(const hs_new_view_message & msg, const std::string&  id);
 
       std::vector<hotstuff_message> _pending_message_queue;
 
@@ -78,11 +78,10 @@ namespace eosio { namespace hotstuff {
       name _leader;
       name _next_leader;
 
-      std::vector<name> _finalizers;
+      std::vector<fc::crypto::blslib::bls_public_key> _finalizer_keys;
 
       block_id_type _current_block_id;
 
-      std::vector<name> _unique_replicas;
 #warning calculate from schedule
       uint32_t _quorum_threshold = 15; //todo : calculate from schedule
    };

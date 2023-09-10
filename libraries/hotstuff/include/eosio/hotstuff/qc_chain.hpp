@@ -95,14 +95,14 @@ namespace eosio::hotstuff {
 
       qc_chain() = delete;
 
-      qc_chain(name id, base_pacemaker* pacemaker,
+      qc_chain(std::string id, base_pacemaker* pacemaker,
                std::set<name> my_producers,
                chain::bls_key_map_t finalizer_keys,
                fc::logger& logger);
 
       uint64_t get_state_version() const { return _state_version; } // calling this w/ thread sync is optional
 
-      name get_id_i() const { return _id; } // so far, only ever relevant in a test environment (no sync)
+      std::string get_id_i() const { return _id; } // so far, only ever relevant in a test environment (no sync)
 
       // Calls to the following methods should be thread-synchronized externally:
 
@@ -124,16 +124,16 @@ namespace eosio::hotstuff {
 
       uint32_t positive_bits_count(const hs_bitset& finalizers);
 
-      hs_bitset update_bitset(const hs_bitset& finalizer_set, name finalizer);
+      hs_bitset update_bitset(const hs_bitset& finalizer_set, fc::crypto::blslib::bls_public_key finalizer_key);
 
       digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc); //get digest to sign from proposal data
 
       void reset_qc(const fc::sha256& proposal_id); //reset current internal qc
 
-      bool evaluate_quorum(const extended_schedule& es, const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
+      bool evaluate_quorum(const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
 
       // qc.quorum_met has to be updated by the caller (if it wants to) based on the return value of this method
-      bool is_quorum_met(const quorum_certificate& qc, const extended_schedule& schedule, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
+      bool is_quorum_met(const quorum_certificate& qc, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
 
       hs_proposal_message new_proposal_candidate(const block_id_type& block_id, uint8_t phase_counter); //create new proposal message
       hs_new_block_message new_block_candidate(const block_id_type& block_id); //create new block message
@@ -147,7 +147,7 @@ namespace eosio::hotstuff {
       void process_new_view(const hs_new_view_message& msg); //handles new view
       void process_new_block(const hs_new_block_message& msg); //handles new block
 
-      hs_vote_message sign_proposal(const hs_proposal_message& proposal, name finalizer); //sign proposal
+      hs_vote_message sign_proposal(const hs_proposal_message& proposal, const fc::crypto::blslib::bls_private_key& finalizer_priv_key, const fc::crypto::blslib::bls_public_key& finalizer_pub_key);
 
       bool extends(const fc::sha256& descendant, const fc::sha256& ancestor); //verify that a proposal descends from another
 
@@ -169,15 +169,6 @@ namespace eosio::hotstuff {
 
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
 
-#warning remove. bls12-381 key used for testing purposes
-      //todo : remove. bls12-381 key used for testing purposes
-      std::vector<uint8_t> _seed =
-         {  0,  50, 6,  244, 24,  199, 1,  25,  52,  88,  192,
-            19, 18, 12, 89,  6,   220, 18, 102, 58,  209, 82,
-            12, 62, 89, 110, 182, 9,   44, 20,  254, 22 };
-
-      fc::crypto::blslib::bls_private_key _private_key = fc::crypto::blslib::bls_private_key(_seed);
-
       enum msg_type {
          new_view = 1,
          new_block = 2,
@@ -195,11 +186,11 @@ namespace eosio::hotstuff {
       quorum_certificate _high_qc;
       quorum_certificate _current_qc;
       uint32_t _v_height = 0;
-      eosio::chain::extended_schedule _schedule;
+      //eosio::chain::extended_schedule _schedule;
       base_pacemaker* _pacemaker = nullptr;
       std::set<name> _my_producers;
       chain::bls_key_map_t _my_finalizer_keys;
-      name _id;
+      std::string _id;
 
       mutable std::atomic<uint64_t> _state_version = 1;
 

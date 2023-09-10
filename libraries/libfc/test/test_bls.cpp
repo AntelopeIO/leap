@@ -157,6 +157,31 @@ BOOST_AUTO_TEST_CASE(bls_agg_tree_verif) try {
 } FC_LOG_AND_RETHROW();
 
 
+// temp
+BOOST_AUTO_TEST_CASE(bls_multi_key_gen) try {
+
+  cout << "multi key" << "\n";
+
+  for (int i = 0; i < 21 ;i ++){
+
+    bls_private_key sk = bls_private_key::generate();
+    bls_public_key pk = sk.get_public_key();
+
+    cout << sk.to_string() << "\n";
+
+    bls_signature signature = sk.sign(message_1);
+
+    // Verify the signature
+    bool ok = verify(pk, message_1, signature);
+
+    BOOST_CHECK_EQUAL(ok, true);
+
+  }
+
+  cout << "/multi key" << "\n";
+  
+} FC_LOG_AND_RETHROW();
+
 //test random key generation, signature + verification
 BOOST_AUTO_TEST_CASE(bls_key_gen) try {
 

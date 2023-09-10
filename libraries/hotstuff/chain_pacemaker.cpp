@@ -106,7 +106,7 @@ namespace eosio { namespace hotstuff {
                                     bls_key_map_t finalizer_keys,
                                     fc::logger& logger)
       : _chain(chain),
-        _qc_chain("default"_n, this, std::move(my_producers), std::move(finalizer_keys), logger),
+        _qc_chain(std::string("default"), this, std::move(my_producers), std::move(finalizer_keys), logger),
         _logger(logger)
    {
       _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
@@ -260,23 +260,38 @@ namespace eosio { namespace hotstuff {
       return n;
    }
 
-   std::vector<name> chain_pacemaker::get_finalizers() {
+   std::vector<fc::crypto::blslib::bls_public_key> chain_pacemaker::get_finalizer_keys() {
 
-#warning FIXME: Use _active_finalizer_set in pacemaker/qc_chain.
+//#warning FIXME: Use _active_finalizer_set in pacemaker/qc_chain.
       // _active_finalizer_set should be used
 
       std::unique_lock g( _chain_state_mutex );
       block_state_ptr hbs = _head_block_state;
       g.unlock();
 
-      // Old code: get eosio::name from the producer schedule
+      std::vector<fc::crypto::blslib::bls_public_key> active_pub_keys;
+      active_pub_keys.reserve(_active_finalizer_set.finalizers.size());
+
+      std::transform(_active_finalizer_set.finalizers.begin(), _active_finalizer_set.finalizers.end(), active_pub_keys.begin(), [](finalizer_authority f_auth) {
+          return f_auth.public_key;
+      });
+
+      return active_pub_keys;
+
+/*      // Old code: get eosio::name from the producer schedule
       const std::vector<producer_authority>& pa_list = hbs->active_schedule.producers;
       std::vector<name> pn_list;
       pn_list.reserve(pa_list.size());
       std::transform(pa_list.begin(), pa_list.end(),
                      std::back_inserter(pn_list),
                      [](const producer_authority& p) { return p.producer_name; });
-      return pn_list;
+      return pn_list;*/
+
+      //_active_finalizer_set.finalizers
+
+
+
+
    }
 
    block_id_type chain_pacemaker::get_current_block_id() {
@@ -297,19 +312,19 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, name id) {
+   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
       bcast_hs_message(msg);
    }
 
-   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, name id) {
+   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id) {
       bcast_hs_message(msg);
    }
 
-   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, name id) {
+   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id) {
       bcast_hs_message(msg);
    }
 
-   void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, name id) {
+   void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id) {
       bcast_hs_message(msg);
    }
 

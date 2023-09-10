@@ -3,6 +3,8 @@
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/name.hpp>
 
+#include <fc/crypto/bls_utils.hpp>
+
 #include <vector>
 
 namespace eosio::chain {
@@ -33,13 +35,15 @@ namespace eosio::hotstuff {
       virtual chain::name get_proposer() = 0;
       virtual chain::name get_leader() = 0;
       virtual chain::name get_next_leader() = 0;
-      virtual std::vector<chain::name> get_finalizers() = 0;
+     // virtual std::vector<chain::name> get_finalizers() = 0;
+      virtual std::vector<fc::crypto::blslib::bls_public_key> get_finalizer_keys() = 0;
+
 
       //outbound communications; 'id' is the producer name (can be ignored if/when irrelevant to the implementer)
-      virtual void send_hs_proposal_msg(const chain::hs_proposal_message& msg, chain::name id) = 0;
-      virtual void send_hs_vote_msg(const chain::hs_vote_message& msg, chain::name id) = 0;
-      virtual void send_hs_new_view_msg(const chain::hs_new_view_message& msg, chain::name id) = 0;
-      virtual void send_hs_new_block_msg(const chain::hs_new_block_message& msg, chain::name id) = 0;
+      virtual void send_hs_proposal_msg(const chain::hs_proposal_message& msg, const std::string&  id) = 0;
+      virtual void send_hs_vote_msg(const chain::hs_vote_message& msg, const std::string&  id) = 0;
+      virtual void send_hs_new_view_msg(const chain::hs_new_view_message& msg, const std::string&  id) = 0;
+      virtual void send_hs_new_block_msg(const chain::hs_new_block_message& msg, const std::string&  id) = 0;
    };
 
 } // namespace eosio::hotstuff

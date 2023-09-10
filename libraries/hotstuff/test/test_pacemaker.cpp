@@ -15,8 +15,8 @@ namespace eosio::hotstuff {
       _next_leader = next_leader;
    };
 
-   void test_pacemaker::set_finalizers(std::vector<name> finalizers) {
-      _finalizers = finalizers;
+   void test_pacemaker::set_finalizer_keys(std::vector<fc::crypto::blslib::bls_public_key> finalizer_keys) {
+      _finalizer_keys = finalizer_keys;
    };
 
    void test_pacemaker::set_current_block_id(block_id_type id) {
@@ -130,10 +130,10 @@ namespace eosio::hotstuff {
       return _next_leader;
    };
 
-   std::vector<name> test_pacemaker::get_finalizers() {
-      return _finalizers;
+   std::vector<fc::crypto::blslib::bls_public_key> test_pacemaker::get_finalizer_keys() {
+      return _finalizer_keys;
    };
-
+   
    block_id_type test_pacemaker::get_current_block_id() {
       return _current_block_id;
    };
@@ -158,62 +158,66 @@ namespace eosio::hotstuff {
          _qcc_store.emplace( name, qcc_ptr );
    };
 
-   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, name id) {
+   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, name id) {
+   void test_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, name id) {
+   void test_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, name id) {
+   void test_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg, name id) {
+   void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
       auto qc_itr = _qcc_store.begin();
       while (qc_itr != _qcc_store.end()){
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) ){
             qcc_ptr->on_hs_proposal_msg(msg);
+         }
          qc_itr++;
       }
    }
 
-   void test_pacemaker::on_hs_vote_msg(const hs_vote_message& msg, name id) {
+   void test_pacemaker::on_hs_vote_msg(const hs_vote_message& msg, const std::string& id) {
       auto qc_itr = _qcc_store.begin();
       while (qc_itr != _qcc_store.end()) {
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) ){
             qcc_ptr->on_hs_vote_msg(msg);
+         }
          qc_itr++;
       }
    }
 
-   void test_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg, name id) {
+   void test_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id) {
       auto qc_itr = _qcc_store.begin();
       while (qc_itr != _qcc_store.end()) {
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) ){
             qcc_ptr->on_hs_new_block_msg(msg);
+         }
          qc_itr++;
       }
    }
 
-   void test_pacemaker::on_hs_new_view_msg(const hs_new_view_message& msg, name id) {
+   void test_pacemaker::on_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id) {
       auto qc_itr = _qcc_store.begin();
       while (qc_itr != _qcc_store.end()){
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) ){
             qcc_ptr->on_hs_new_view_msg(msg);
+         }
          qc_itr++;
       }
    }

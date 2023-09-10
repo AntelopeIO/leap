@@ -11,6 +11,7 @@
 #include <eosio/hotstuff/test_pacemaker.hpp>
 #include <eosio/hotstuff/qc_chain.hpp>
 
+#include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
 using namespace eosio::hotstuff;
@@ -35,6 +36,29 @@ std::vector<name> unique_replicas {
    "bpp"_n, "bpq"_n, "bpr"_n,
    "bps"_n, "bpt"_n, "bpu"_n };
 
+std::vector<std::string> unique_replica_keys {
+   "PVT_BLS_r4ZpChd87ooyzl6MIkw23k7PRX8xptp7TczLJHCIIW88h/hS",
+   "PVT_BLS_/l7xzXANaB+GrlTsbZEuTiSOiWTtpBoog+TZnirxUUSaAfCo",
+   "PVT_BLS_3FoY73Q/gED3ejyg8cvnGqHrMmx4cLKwh/e0sbcsCxpCeqn3",
+   "PVT_BLS_warwI76e+pPX9wLFZKPFagngeFM8bm6J8D5w0iiHpxW7PiId",
+   "PVT_BLS_iZFwiqdogOl9RNr1Hv1z+Rd6AwD9BIoxZcU1EPX+XFSFmm5p",
+   "PVT_BLS_Hmye7lyiCrdF54/nF/HRU0sY/Hrse1ls/yqojIUOVQsxXUIK",
+   "PVT_BLS_jglKDzpvyI+LFJ4xJG2MRylH9KiAEj//M9sgI+AM5mhLASBs",
+   "PVT_BLS_OWemmo0YkDNEYcMnbvAHI7qS6YIJTVBc+3LCAi9u8QmMe3V/",
+   "PVT_BLS_xYhEMbBy6Z4TYGha/qYaUwiwv4UVX9qNWf4ivRjAyCLCG7/G",
+   "PVT_BLS_ETZDiw3qd1Kpu3L5hH9fPKR4tg0meCkRUsRE2KpW8WP5SU2l",
+   "PVT_BLS_KuL3oMYpBrqmIMqoBIsA4UX1jYyXzn7et93J+m+ctk8FAY0I",
+   "PVT_BLS_bNz9W9QkxeREp966ntnUV4mN4dLOB4DNSghf2Y85o1YI+p7t",
+   "PVT_BLS_uP48z/V66g7wU7BwNN1xhNnZOyf3mv8yxGFT2eoIK3HLL5aw",
+   "PVT_BLS_/HIa+nJWSCgVNs6rZ3LUhqp1chRkxyaUxumvN3HSTAE4VIql",
+   "PVT_BLS_Aq4tqxG/sDEwGMZUa/Vhznc2i3B4wHNopGV3bJpTNW6FauCN",
+   "PVT_BLS_U3QCa0uwzeeK4w1hI2IvUzgF9+hk496LyODdvgYpUBmgZiwu",
+   "PVT_BLS_WyyJ26tRpjpzmwke/sGJr0YUIyB/zSNsbo/99PwDHh4pvo5V",
+   "PVT_BLS_t2xBqsJKO0RHQMvsIYHFpvuy+IkBrCVeZl1NxThKEwwvUbiP",
+   "PVT_BLS_94/Vo26YNQV1P7zWmkDnh02P0ZcPM5xQlLG3LiUCOUUgMpEi",
+   "PVT_BLS_uQ9ONJ/oJlj+yRIjE3tiLcoIXTMEuCwMuAFL1WUDY28N97gF",
+   "PVT_BLS_2qtUuz8cYjbu/shyUPxIwKrBMSSbvolv4iJJvykUMRFl4hGt"};
+
 fc::logger hotstuff_logger;
 
 class hotstuff_test_handler {
@@ -42,7 +66,7 @@ public:
 
    std::vector<std::pair<name, std::shared_ptr<qc_chain>>> _qc_chains;
 
-   void initialize_qc_chains(test_pacemaker& tpm, std::vector<name> replicas){
+   void initialize_qc_chains(test_pacemaker& tpm, std::vector<name> replicas, std::vector<fc::crypto::blslib::bls_private_key> replica_keys){
 
       _qc_chains.clear();
 
@@ -52,14 +76,21 @@ public:
       //_qc_chains.reserve( 15 );
       //_qc_chains.reserve( replicas.size() );
 
-      for (name r : replicas) {
-         qc_chain *qcc_ptr = new qc_chain(r, &tpm, {r}, {}, hotstuff_logger);
+      //for (fc::crypto::blslib::bls_private_key r : replicas) {
+      for (size_t i = 0 ; i < replicas.size() ; i++){
+         
+         fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(replica_keys[i]);
+
+         bls_key_map_t keys{{sk.get_public_key(), sk}};
+
+         qc_chain *qcc_ptr = new qc_chain(replica_keys[i].to_string(), &tpm, {replicas[i]}, keys, hotstuff_logger);
          std::shared_ptr<qc_chain> qcc_shared_ptr(qcc_ptr);
 
-         _qc_chains.push_back( std::make_pair(r, qcc_shared_ptr) );
+         _qc_chains.push_back( std::make_pair(replicas[i], qcc_shared_ptr) );
 
-         tpm.register_qc_chain( r, qcc_shared_ptr );
+         tpm.register_qc_chain(replicas[i], qcc_shared_ptr );
       }
+
   }
 
    void print_msgs(std::vector<test_pacemaker::hotstuff_message> msgs ){
@@ -124,16 +155,16 @@ public:
       const hs_proposal_message *lock = fs.get_proposal( fs.b_lock );
       const hs_proposal_message *exec = fs.get_proposal( fs.b_exec );
 
-      if (leaf != nullptr) std::cout << "  - " << bp.to_string() << " current _b_leaf is : " << fs.b_leaf.str() << " block_num : " << leaf->block_num() << ", phase : " << unsigned(leaf->phase_counter) << "\n";
+      if (leaf != nullptr) std::cout << "  - " << bp << " current _b_leaf is : " << fs.b_leaf.str() << " block_num : " << leaf->block_num() << ", phase : " << unsigned(leaf->phase_counter) << "\n";
       else std::cout << "  - No b_leaf value " << "\n";
 
-      if (qc != nullptr) std::cout << "  - " << bp.to_string() << " current high_qc is : " << fs.high_qc.proposal_id.str() << " block_num : " << qc->block_num() << ", phase : " << unsigned(qc->phase_counter) <<  "\n";
+      if (qc != nullptr) std::cout << "  - " << bp << " current high_qc is : " << fs.high_qc.proposal_id.str() << " block_num : " << qc->block_num() << ", phase : " << unsigned(qc->phase_counter) <<  "\n";
       else std::cout << "  - No high_qc value " << "\n";
 
-      if (lock != nullptr) std::cout << "  - " << bp.to_string() << " current _b_lock is : " << fs.b_lock.str() << " block_num : " << lock->block_num() << ", phase : " << unsigned(lock->phase_counter) <<  "\n";
+      if (lock != nullptr) std::cout << "  - " << bp << " current _b_lock is : " << fs.b_lock.str() << " block_num : " << lock->block_num() << ", phase : " << unsigned(lock->phase_counter) <<  "\n";
       else std::cout << "  - No b_lock value " << "\n";
 
-      if (exec != nullptr) std::cout << "  - " << bp.to_string() << " current _b_exec is : " << fs.b_exec.str() << " block_num : " << exec->block_num() << ", phase : " << unsigned(exec->phase_counter) <<  "\n";
+      if (exec != nullptr) std::cout << "  - " << bp << " current _b_exec is : " << fs.b_exec.str() << " block_num : " << exec->block_num() << ", phase : " << unsigned(exec->phase_counter) <<  "\n";
       else std::cout << "  - No b_exec value " << "\n";
 
       std::cout << "\n";
@@ -181,12 +212,26 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    hotstuff_test_handler ht;
 
-   ht.initialize_qc_chains(tpm, unique_replicas);
+   std::vector<fc::crypto::blslib::bls_private_key> sks;
+   std::vector<fc::crypto::blslib::bls_public_key> pks;
+
+
+   for (auto urk : unique_replica_keys){
+
+      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
+      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
+
+      sks.push_back(sk);
+      pks.push_back(pk);
+   }
+  
+  
+   ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizers(unique_replicas);
+   tpm.set_finalizer_keys(pks);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -195,7 +240,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
    finalizer_state fs_bpb;
    qcc_bpb->second->get_state(fs_bpb);
 
-   ht.print_bp_state("bpa"_n, "");
+   //ht.print_bp_state("bpa"_n, "");
 
    tpm.set_current_block_id(ids[0]); //first block
 
@@ -203,7 +248,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    tpm.dispatch(""); //send proposal to replicas (prepare on first block)
 
-   ht.print_bp_state("bpa"_n, "");
+   //ht.print_bp_state("bpa"_n, "");
 
    qcc_bpa->second->get_state(fs_bpa);
    BOOST_CHECK_EQUAL(fs_bpa.b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
@@ -215,11 +260,15 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    tpm.dispatch(""); //send proposal to replicas (precommit on first block)
 
+   //ht.print_bp_state("bpa"_n, "");
+
    qcc_bpa->second->get_state(fs_bpa);
    BOOST_CHECK_EQUAL(fs_bpa.b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
    BOOST_CHECK_EQUAL(fs_bpa.high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
    BOOST_CHECK_EQUAL(fs_bpa.b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
    BOOST_CHECK_EQUAL(fs_bpa.b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+
+
 
    tpm.dispatch(""); //propagating votes on new proposal (precommitQC on first block)
 
@@ -311,12 +360,26 @@ BOOST_AUTO_TEST_CASE(hotstuff_2) try {
 
    hotstuff_test_handler ht;
 
-   ht.initialize_qc_chains(tpm, unique_replicas);
+   std::vector<fc::crypto::blslib::bls_private_key> sks;
+   std::vector<fc::crypto::blslib::bls_public_key> pks;
+
+
+   for (auto urk : unique_replica_keys){
+
+      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
+      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
+
+      sks.push_back(sk);
+      pks.push_back(pk);
+   }
+  
+  
+   ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizers(unique_replicas);
+   tpm.set_finalizer_keys(pks);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -409,12 +472,25 @@ BOOST_AUTO_TEST_CASE(hotstuff_3) try {
 
    hotstuff_test_handler ht;
 
-   ht.initialize_qc_chains(tpm, unique_replicas);
+   std::vector<fc::crypto::blslib::bls_private_key> sks;
+   std::vector<fc::crypto::blslib::bls_public_key> pks;
+
+
+   for (auto urk : unique_replica_keys){
+
+      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
+      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
+
+      sks.push_back(sk);
+      pks.push_back(pk);
+   }
+  
+   ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizers(unique_replicas);
+   tpm.set_finalizer_keys(pks);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -541,12 +617,26 @@ BOOST_AUTO_TEST_CASE(hotstuff_4) try {
 
    hotstuff_test_handler ht;
 
-   ht.initialize_qc_chains(tpm, unique_replicas);
+   std::vector<fc::crypto::blslib::bls_private_key> sks;
+   std::vector<fc::crypto::blslib::bls_public_key> pks;
+
+
+   for (auto urk : unique_replica_keys){
+
+      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
+      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
+
+      sks.push_back(sk);
+      pks.push_back(pk);
+   }
+  
+  
+   ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizers(unique_replicas);
+   tpm.set_finalizer_keys(pks);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -720,6 +810,69 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
       "bps"_n,
       "bpt"_n };
 
+   std::vector<std::string> honest_replica_set_keys_1 {
+   "PVT_BLS_/l7xzXANaB+GrlTsbZEuTiSOiWTtpBoog+TZnirxUUSaAfCo",
+   "PVT_BLS_iZFwiqdogOl9RNr1Hv1z+Rd6AwD9BIoxZcU1EPX+XFSFmm5p",
+   "PVT_BLS_OWemmo0YkDNEYcMnbvAHI7qS6YIJTVBc+3LCAi9u8QmMe3V/",
+   "PVT_BLS_KuL3oMYpBrqmIMqoBIsA4UX1jYyXzn7et93J+m+ctk8FAY0I",
+   "PVT_BLS_/HIa+nJWSCgVNs6rZ3LUhqp1chRkxyaUxumvN3HSTAE4VIql",
+   "PVT_BLS_WyyJ26tRpjpzmwke/sGJr0YUIyB/zSNsbo/99PwDHh4pvo5V"};
+
+   std::vector<std::string> honest_replica_set_keys_2 {
+   "PVT_BLS_r4ZpChd87ooyzl6MIkw23k7PRX8xptp7TczLJHCIIW88h/hS",
+   "PVT_BLS_warwI76e+pPX9wLFZKPFagngeFM8bm6J8D5w0iiHpxW7PiId",
+   "PVT_BLS_jglKDzpvyI+LFJ4xJG2MRylH9KiAEj//M9sgI+AM5mhLASBs",
+   "PVT_BLS_ETZDiw3qd1Kpu3L5hH9fPKR4tg0meCkRUsRE2KpW8WP5SU2l",
+   "PVT_BLS_uP48z/V66g7wU7BwNN1xhNnZOyf3mv8yxGFT2eoIK3HLL5aw",
+   "PVT_BLS_U3QCa0uwzeeK4w1hI2IvUzgF9+hk496LyODdvgYpUBmgZiwu"};
+
+   std::vector<std::string> byzantine_keys_set        {
+   "PVT_BLS_3FoY73Q/gED3ejyg8cvnGqHrMmx4cLKwh/e0sbcsCxpCeqn3",
+   "PVT_BLS_Hmye7lyiCrdF54/nF/HRU0sY/Hrse1ls/yqojIUOVQsxXUIK",
+   "PVT_BLS_xYhEMbBy6Z4TYGha/qYaUwiwv4UVX9qNWf4ivRjAyCLCG7/G",
+   "PVT_BLS_bNz9W9QkxeREp966ntnUV4mN4dLOB4DNSghf2Y85o1YI+p7t",
+   "PVT_BLS_Aq4tqxG/sDEwGMZUa/Vhznc2i3B4wHNopGV3bJpTNW6FauCN",
+   "PVT_BLS_t2xBqsJKO0RHQMvsIYHFpvuy+IkBrCVeZl1NxThKEwwvUbiP",
+   "PVT_BLS_94/Vo26YNQV1P7zWmkDnh02P0ZcPM5xQlLG3LiUCOUUgMpEi",
+   "PVT_BLS_uQ9ONJ/oJlj+yRIjE3tiLcoIXTMEuCwMuAFL1WUDY28N97gF",
+   "PVT_BLS_2qtUuz8cYjbu/shyUPxIwKrBMSSbvolv4iJJvykUMRFl4hGt"};
+
+   std::vector<fc::crypto::blslib::bls_private_key> sks1;
+   std::vector<fc::crypto::blslib::bls_public_key> pks1;
+   
+   std::vector<fc::crypto::blslib::bls_private_key> sks2;
+   std::vector<fc::crypto::blslib::bls_public_key> pks2;
+   
+   std::vector<fc::crypto::blslib::bls_private_key> sks3;
+   std::vector<fc::crypto::blslib::bls_public_key> pks3;
+
+   for (auto urk : honest_replica_set_keys_1){
+
+      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
+      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
+
+      sks1.push_back(sk);
+      pks1.push_back(pk);
+   }
+
+   for (auto urk : honest_replica_set_keys_2){
+
+      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
+      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
+
+      sks2.push_back(sk);
+      pks2.push_back(pk);
+   }
+
+   for (auto urk : byzantine_keys_set){
+
+      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
+      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
+
+      sks3.push_back(sk);
+      pks3.push_back(pk);
+   }
+  
    std::vector<name> replica_set_1;
    std::vector<name> replica_set_2;
 
@@ -732,6 +885,30 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
    replica_set_2.insert( replica_set_2.end(), honest_replica_set_2.begin(), honest_replica_set_2.end() );
    replica_set_2.insert( replica_set_2.end(), byzantine_set.begin(), byzantine_set.end() );
 
+   std::vector<fc::crypto::blslib::bls_public_key> replica_pkeys_set_1;
+   std::vector<fc::crypto::blslib::bls_public_key> replica_pkeys_set_2;
+
+   std::vector<fc::crypto::blslib::bls_private_key> replica_skeys_set_1;
+   std::vector<fc::crypto::blslib::bls_private_key> replica_skeys_set_2;
+
+   replica_pkeys_set_1.reserve( pks1.size() + pks3.size() );
+   replica_pkeys_set_2.reserve( pks2.size() + pks3.size() );
+
+   replica_pkeys_set_1.insert( replica_pkeys_set_1.end(), pks1.begin(), pks1.end() );
+   replica_pkeys_set_1.insert( replica_pkeys_set_1.end(), pks3.begin(), pks3.end() );
+
+   replica_pkeys_set_2.insert( replica_pkeys_set_2.end(), pks2.begin(), pks2.end() );
+   replica_pkeys_set_2.insert( replica_pkeys_set_2.end(), pks3.begin(), pks3.end() );
+
+   replica_skeys_set_1.reserve( sks1.size() + sks3.size() );
+   replica_skeys_set_2.reserve( sks2.size() + sks3.size() );
+
+   replica_skeys_set_1.insert( replica_skeys_set_1.end(), sks1.begin(), sks1.end() );
+   replica_skeys_set_1.insert( replica_skeys_set_1.end(), sks3.begin(), sks3.end() );
+
+   replica_skeys_set_2.insert( replica_skeys_set_2.end(), sks2.begin(), sks2.end() );
+   replica_skeys_set_2.insert( replica_skeys_set_2.end(), sks3.begin(), sks3.end() );
+
    //simulating a fork, where
    test_pacemaker tpm1;
    test_pacemaker tpm2;
@@ -739,19 +916,19 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
    hotstuff_test_handler ht1;
    hotstuff_test_handler ht2;
 
-   ht1.initialize_qc_chains(tpm1, replica_set_1);
+   ht1.initialize_qc_chains(tpm1, replica_set_1, replica_skeys_set_1);
 
-   ht2.initialize_qc_chains(tpm2, replica_set_2);
+   ht2.initialize_qc_chains(tpm2, replica_set_2, replica_skeys_set_2);
 
    tpm1.set_proposer("bpe"_n); //honest leader
    tpm1.set_leader("bpe"_n);
    tpm1.set_next_leader("bpe"_n);
-   tpm1.set_finalizers(replica_set_1);
+   tpm1.set_finalizer_keys(replica_pkeys_set_1);
 
    tpm2.set_proposer("bpf"_n); //byzantine leader
    tpm2.set_leader("bpf"_n);
    tpm2.set_next_leader("bpf"_n);
-   tpm2.set_finalizers(replica_set_2);
+   tpm2.set_finalizer_keys(replica_pkeys_set_2);
 
    auto qcc_bpe = std::find_if(ht1._qc_chains.begin(), ht1._qc_chains.end(), [&](const auto& q){ return q.first == "bpe"_n; });
    finalizer_state fs_bpe;
@@ -888,7 +1065,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
 } FC_LOG_AND_RETHROW();
 
-BOOST_AUTO_TEST_CASE(hotstuff_6) try {
+ BOOST_AUTO_TEST_CASE(hotstuff_6) try {
 
    //test simple separation between the (single) proposer and the leader; includes one leader rotation
 
@@ -896,12 +1073,24 @@ BOOST_AUTO_TEST_CASE(hotstuff_6) try {
 
    hotstuff_test_handler ht;
 
-   ht.initialize_qc_chains(tpm, unique_replicas);
+   std::vector<fc::crypto::blslib::bls_private_key> sks;
+   std::vector<fc::crypto::blslib::bls_public_key> pks;
 
-   tpm.set_proposer("bpg"_n); // can be any proposer that's not the leader for this test
+   for (auto urk : unique_replica_keys){
+
+      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
+      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
+
+      sks.push_back(sk);
+      pks.push_back(pk);
+   }
+  
+   ht.initialize_qc_chains(tpm, unique_replicas, sks);
+
+   tpm.set_proposer("bpg"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizers(unique_replicas);
+   tpm.set_finalizer_keys(pks);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
