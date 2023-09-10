@@ -271,7 +271,7 @@ namespace eosio::hotstuff {
       return false;
    }
 
-   hs_vote_message qc_chain::sign_proposal(const hs_proposal_message& proposal, const fc::crypto::blslib::bls_private_key& finalizer_priv_key, const fc::crypto::blslib::bls_public_key& finalizer_pub_key){
+   hs_vote_message qc_chain::sign_proposal(const hs_proposal_message& proposal, const fc::crypto::blslib::bls_private_key& finalizer_priv_key){
       _v_height = proposal.get_height();
 
       digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
@@ -280,7 +280,7 @@ namespace eosio::hotstuff {
 
       fc::crypto::blslib::bls_signature sig = finalizer_priv_key.sign(h);
 
-      hs_vote_message v_msg = {proposal.proposal_id, finalizer_pub_key, sig};
+      hs_vote_message v_msg = {proposal.proposal_id, finalizer_priv_key.get_public_key(), sig};
       return v_msg;
    }
 
@@ -379,7 +379,7 @@ namespace eosio::hotstuff {
 
             if (fin_itr!=finalizers.end()) {
 
-               hs_vote_message v_msg = sign_proposal(proposal, mfk_itr->second, mfk_itr->first);
+               hs_vote_message v_msg = sign_proposal(proposal, mfk_itr->second);
 
                fc_tlog(_logger, " === ${id} signed proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id}",
                               ("id", _id)

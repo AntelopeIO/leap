@@ -147,7 +147,7 @@ namespace eosio::hotstuff {
       void process_new_view(const hs_new_view_message& msg); //handles new view
       void process_new_block(const hs_new_block_message& msg); //handles new block
 
-      hs_vote_message sign_proposal(const hs_proposal_message& proposal, const fc::crypto::blslib::bls_private_key& finalizer_priv_key, const fc::crypto::blslib::bls_public_key& finalizer_pub_key);
+      hs_vote_message sign_proposal(const hs_proposal_message& proposal, const fc::crypto::blslib::bls_private_key& finalizer_priv_key);
 
       bool extends(const fc::sha256& descendant, const fc::sha256& ancestor); //verify that a proposal descends from another
 
@@ -186,7 +186,6 @@ namespace eosio::hotstuff {
       quorum_certificate _high_qc;
       quorum_certificate _current_qc;
       uint32_t _v_height = 0;
-      //eosio::chain::extended_schedule _schedule;
       base_pacemaker* _pacemaker = nullptr;
       std::set<name> _my_producers;
       chain::bls_key_map_t _my_finalizer_keys;
