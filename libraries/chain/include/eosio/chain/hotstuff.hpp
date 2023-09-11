@@ -57,7 +57,7 @@ namespace eosio::chain {
 
    using hs_message = std::variant<hs_vote_message, hs_proposal_message, hs_new_block_message, hs_new_view_message>;
 
-   enum hs_message_warning : uint32_t {
+   enum class hs_message_warning {
       discarded,               // default code for dropped messages (irrelevant, redundant, ...)
       duplicate_signature,     // same message signature already seen
       invalid_signature,       // invalid message signature

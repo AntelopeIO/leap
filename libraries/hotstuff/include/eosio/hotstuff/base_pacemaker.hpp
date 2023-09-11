@@ -2,16 +2,9 @@
 
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/name.hpp>
+#include <eosio/chain/hotstuff.hpp>
 
 #include <vector>
-
-namespace eosio::chain {
-   struct hs_proposal_message;
-   struct hs_vote_message;
-   struct hs_new_view_message;
-   struct hs_new_block_message;
-   enum hs_message_warning : uint32_t;
-}
 
 namespace eosio::hotstuff {
 

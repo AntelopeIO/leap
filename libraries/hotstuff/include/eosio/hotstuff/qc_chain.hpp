@@ -100,20 +100,20 @@ namespace eosio::hotstuff {
                chain::bls_key_map_t finalizer_keys,
                fc::logger& logger);
 
-      uint64_t get_state_version() const { return _state_version; } // calling this w/ thread sync is optional
+      uint64_t get_state_version() const { return _state_version; } // no lock required
 
-      name get_id_i() const { return _id; } // so far, only ever relevant in a test environment (no sync)
+      name get_id_i() const { return _id; } // only for testing
 
       // Calls to the following methods should be thread-synchronized externally:
 
       void get_state(finalizer_state& fs) const;
 
-      void on_beat(); //handler for pacemaker beat()
+      void on_beat();
 
-      void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg); //vote msg event handler
-      void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg); //proposal msg event handler
-      void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg); //new view msg event handler
-      void on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg); //new block msg event handler
+      void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg);
+      void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg);
+      void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg);
+      void on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg);
 
    private:
 
@@ -126,51 +126,59 @@ namespace eosio::hotstuff {
 
       hs_bitset update_bitset(const hs_bitset& finalizer_set, name finalizer);
 
-      digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc); //get digest to sign from proposal data
+      //get digest to sign from proposal data
+      digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc);
 
-      void reset_qc(const fc::sha256& proposal_id); //reset current internal qc
+      void reset_qc(const fc::sha256& proposal_id);
 
-      bool evaluate_quorum(const extended_schedule& es, const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
+      //evaluate quorum for a proposal
+      bool evaluate_quorum(const extended_schedule& es, const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal);
 
-      // qc.quorum_met has to be updated by the caller (if it wants to) based on the return value of this method
-      bool is_quorum_met(const quorum_certificate& qc, const extended_schedule& schedule, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
+      //check if quorum has been met over a proposal
+      bool is_quorum_met(const quorum_certificate& qc, const extended_schedule& schedule, const hs_proposal_message& proposal);
 
-      hs_proposal_message new_proposal_candidate(const block_id_type& block_id, uint8_t phase_counter); //create new proposal message
-      hs_new_block_message new_block_candidate(const block_id_type& block_id); //create new block message
+      hs_proposal_message new_proposal_candidate(const block_id_type& block_id, uint8_t phase_counter);
+      hs_new_block_message new_block_candidate(const block_id_type& block_id);
 
-      bool am_i_proposer(); //check if I am the current proposer
-      bool am_i_leader(); //check if I am the current leader
-      bool am_i_finalizer(); //check if I am one of the current finalizers
+      bool am_i_proposer();
+      bool am_i_leader();
+      bool am_i_finalizer();
 
-      // is_loopback is used to check if the call is processing a self-receipt message (if so, never propagate it)
-      void process_proposal(const hs_proposal_message& msg, bool is_loopback = false); //handles proposal
-      void process_vote(const hs_vote_message& msg, bool is_loopback = false); //handles vote
-      void process_new_view(const hs_new_view_message& msg, bool is_loopback = false); //handles new view
-      void process_new_block(const hs_new_block_message& msg, bool is_loopback = false); //handles new block
+      // connection_id.has_value() when processing a non-loopback message
+      void process_proposal(const std::optional<uint32_t>& connection_id, const hs_proposal_message& msg);
+      void process_vote(const std::optional<uint32_t>& connection_id, const hs_vote_message& msg);
+      void process_new_view(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
+      void process_new_block(const std::optional<uint32_t>& connection_id, const hs_new_block_message& msg);
 
-      hs_vote_message sign_proposal(const hs_proposal_message& proposal, name finalizer); //sign proposal
+      hs_vote_message sign_proposal(const hs_proposal_message& proposal, name finalizer);
 
-      bool extends(const fc::sha256& descendant, const fc::sha256& ancestor); //verify that a proposal descends from another
+      //verify that a proposal descends from another
+      bool extends(const fc::sha256& descendant, const fc::sha256& ancestor);
 
-      bool update_high_qc(const quorum_certificate& high_qc); //check if update to our high qc is required
+      //update high qc if required
+      bool update_high_qc(const quorum_certificate& high_qc);
 
-      void leader_rotation_check(); //check if leader rotation is required
+      //rotate leader if required
+      void leader_rotation_check();
 
-      bool is_node_safe(const hs_proposal_message& proposal); //verify if a proposal should be signed
+      //verify if a proposal should be signed
+      bool is_node_safe(const hs_proposal_message& proposal);
 
-      std::vector<hs_proposal_message> get_qc_chain(const fc::sha256& proposal_id); //get 3-phase proposal justification
+      //get 3-phase proposal justification
+      std::vector<hs_proposal_message> get_qc_chain(const fc::sha256& proposal_id);
 
-      void send_hs_proposal_msg(const hs_proposal_message& msg, bool propagation = false); //send vote msg
-      void send_hs_vote_msg(const hs_vote_message& msg, bool propagation = false); //send proposal msg
-      void send_hs_new_view_msg(const hs_new_view_message& msg, bool propagation = false); //send new view msg
-      void send_hs_new_block_msg(const hs_new_block_message& msg, bool propagation = false); //send new block msg
+      // connection_id.has_value() when just propagating a received message
+      void send_hs_proposal_msg(const std::optional<uint32_t>& connection_id, const hs_proposal_message& msg);
+      void send_hs_vote_msg(const std::optional<uint32_t>& connection_id, const hs_vote_message& msg);
+      void send_hs_new_view_msg(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
+      void send_hs_new_block_msg(const std::optional<uint32_t>& connection_id, const hs_new_block_message& msg);
 
-      void send_hs_message_warning(const chain::hs_message_warning code = hs_message_warning::discarded); //use generic discard reason if none given
+      void send_hs_message_warning(const std::optional<uint32_t>& connection_id, const chain::hs_message_warning code);
 
-      void update(const hs_proposal_message& proposal); //update internal state
-      void commit(const hs_proposal_message& proposal); //commit proposal (finality)
+      void update(const hs_proposal_message& proposal);
+      void commit(const hs_proposal_message& proposal);
 
-      void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
+      void gc_proposals(uint64_t cutoff);
 
 #warning remove. bls12-381 key used for testing purposes
       //todo : remove. bls12-381 key used for testing purposes
@@ -238,13 +246,6 @@ namespace eosio::hotstuff {
 
       proposal_store_type _proposal_store;  //internal proposals store
 #endif
-
-      // connection_id of the network peer that originally sent the message
-      //   being processed by the qc_chain. This is used to fill in the
-      //   exclude_peer parameter to the pacemaker when qc_chain is calling
-      //   the pacemaker to propagate that message, which the original sender
-      //   peer won't need to receive back.
-      std::optional<uint32_t> _sender_connection_id;
    };
 
 } /// eosio::hotstuff

@@ -120,13 +120,13 @@ namespace eosio { namespace hotstuff {
 
    void chain_pacemaker::register_bcast_function(std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> broadcast_hs_message) {
       FC_ASSERT(broadcast_hs_message, "on_hs_message must be provided");
-      std::lock_guard g( _hotstuff_global_mutex ); // not actually needed but doesn't hurt
+      // no need to std::lock_guard g( _hotstuff_global_mutex ); here since pre-comm init
       bcast_hs_message = std::move(broadcast_hs_message);
    }
 
    void chain_pacemaker::register_warn_function(std::function<void(const uint32_t, const chain::hs_message_warning&)> warning_hs_message) {
       FC_ASSERT(warning_hs_message, "must provide callback");
-      std::lock_guard g( _hotstuff_global_mutex ); // not actually needed but doesn't hurt
+      // no need to std::lock_guard g( _hotstuff_global_mutex ); here since pre-comm init
       warn_hs_message = std::move(warning_hs_message);
    }
 
