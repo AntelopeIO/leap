@@ -57,6 +57,13 @@ namespace eosio::chain {
 
    using hs_message = std::variant<hs_vote_message, hs_proposal_message, hs_new_block_message, hs_new_view_message>;
 
+   enum class hs_message_warning {
+      discarded,               // default code for dropped messages (irrelevant, redundant, ...)
+      duplicate_signature,     // same message signature already seen
+      invalid_signature,       // invalid message signature
+      invalid                  // invalid message (other reason)
+   };
+
    struct finalizer_state {
       bool chained_mode = false;
       fc::sha256 b_leaf;
