@@ -4054,7 +4054,9 @@ namespace eosio {
          std::smatch units_match;
          std::regex_match(units, units_match, units_regex);
          try {
-            EOS_ASSERT(units_match.size() == 2, plugin_config_exception, "invalid block sync rate limit specification: ${limit}", ("limit", units));
+            if( units.length() > 0 ) {
+               EOS_ASSERT(units_match.size() == 2, plugin_config_exception, "invalid block sync rate limit specification: ${limit}", ("limit", units));
+            }
             block_sync_rate_limit = boost::numeric_cast<size_t>(limit * prefix_multipliers.at(units_match[1].str()));
             fc_dlog( logger, "setting block_sync_rate_limit to ${limit} bytes per second", ("limit", block_sync_rate_limit));
          } catch (boost::numeric::bad_numeric_cast&) {
