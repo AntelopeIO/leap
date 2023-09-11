@@ -16,9 +16,9 @@ using namespace std::literals::string_literals;
 
 struct mock_connections_manager {
    uint32_t                     max_client_count = 0;
-   std::vector<mock_connection> connections;
+   std::vector<std::shared_ptr<mock_connection>> connections;
 
-   std::function<void(std::string, std::string)> connect;
+   std::function<void(std::string, std::string)> resolve_and_connect;
    std::function<void(std::string)> disconnect;
 
    uint32_t get_max_client_count() const { return max_client_count; }
@@ -26,7 +26,7 @@ struct mock_connections_manager {
    template <typename Function>
    void for_each_connection(Function&& func) const {
       for (auto c : connections) {
-         if (!func(&c))
+         if (!func(c))
             return;
       }
    }
@@ -166,7 +166,7 @@ BOOST_AUTO_TEST_CASE(test_on_pending_schedule) {
 
    std::vector<std::string> connected_hosts;
 
-   plugin.connections.connect = [&connected_hosts](std::string host, std::string p2p_address) { connected_hosts.push_back(host); };
+   plugin.connections.resolve_and_connect = [&connected_hosts](std::string host, std::string p2p_address) { connected_hosts.push_back(host); };
 
    // make sure nothing happens when it is not in_sync
    plugin.is_in_sync = false;
@@ -210,7 +210,7 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule1) {
    plugin.config.my_bp_accounts = { "prodd"_n, "produ"_n };
 
    plugin.active_neighbors = { "proda"_n, "prodh"_n, "prodn"_n };
-   plugin.connections.connect = [](std::string host, std::string p2p_address) {};
+   plugin.connections.resolve_and_connect = [](std::string host, std::string p2p_address) {};
 
    std::vector<std::string> disconnected_hosts;
    plugin.connections.disconnect = [&disconnected_hosts](std::string host) { disconnected_hosts.push_back(host); };
@@ -246,7 +246,7 @@ BOOST_AUTO_TEST_CASE(test_on_active_schedule2) {
    plugin.config.my_bp_accounts = { "prodd"_n, "produ"_n };
 
    plugin.active_neighbors = { "proda"_n, "prodh"_n, "prodn"_n };
-   plugin.connections.connect = [](std::string host, std::string p2p_address) {};
+   plugin.connections.resolve_and_connect = [](std::string host, std::string p2p_address) {};
    std::vector<std::string> disconnected_hosts;
    plugin.connections.disconnect = [&disconnected_hosts](std::string host) { disconnected_hosts.push_back(host); };
 
@@ -272,24 +272,24 @@ BOOST_AUTO_TEST_CASE(test_exceeding_connection_limit) {
    plugin.config.my_bp_accounts = { "prodd"_n, "produ"_n };
    plugin.connections.max_client_count = 1;
    plugin.connections.connections = {
-      { .is_bp_connection = true, .is_open = true, .handshake_received = true },   // 0
-      { .is_bp_connection = true, .is_open = true, .handshake_received = false },  // 1
-      { .is_bp_connection = true, .is_open = false, .handshake_received = true },  // 2
-      { .is_bp_connection = true, .is_open = false, .handshake_received = false }, // 3
-      { .is_bp_connection = false, .is_open = true, .handshake_received = true },  // 4
-      { .is_bp_connection = false, .is_open = true, .handshake_received = false }, // 5
-      { .is_bp_connection = false, .is_open = true, .handshake_received = true },  // 6
-      { .is_bp_connection = false, .is_open = false, .handshake_received = false } // 7
+      std::make_shared<mock_connection>( true, true, true ),   // 0
+      std::make_shared<mock_connection>( true, true, false ),  // 1
+      std::make_shared<mock_connection>( true, false, true ),  // 2
+      std::make_shared<mock_connection>( true, false, false ), // 3
+      std::make_shared<mock_connection>( false, true, true ),  // 4
+      std::make_shared<mock_connection>( false, true, false ), // 5
+      std::make_shared<mock_connection>( false, true, true ),  // 6
+      std::make_shared<mock_connection>( false, false, false ) // 7
    };
 
    BOOST_CHECK_EQUAL(plugin.num_established_clients(), 2u);
 
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[0]));
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[1]));
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[2]));
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[3]));
-   BOOST_CHECK(plugin.exceeding_connection_limit(&plugin.connections.connections[4]));
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[5]));
-   BOOST_CHECK(plugin.exceeding_connection_limit(&plugin.connections.connections[6]));
-   BOOST_CHECK(!plugin.exceeding_connection_limit(&plugin.connections.connections[7]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(plugin.connections.connections[0]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(plugin.connections.connections[1]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(plugin.connections.connections[2]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(plugin.connections.connections[3]));
+   BOOST_CHECK(plugin.exceeding_connection_limit(plugin.connections.connections[4]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(plugin.connections.connections[5]));
+   BOOST_CHECK(plugin.exceeding_connection_limit(plugin.connections.connections[6]));
+   BOOST_CHECK(!plugin.exceeding_connection_limit(plugin.connections.connections[7]));
 }
