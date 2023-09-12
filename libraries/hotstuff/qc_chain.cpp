@@ -1045,10 +1045,9 @@ void qc_chain::commit(const hs_proposal_message& initial_proposal) {
       // commit all ancestor blocks sequentially first (hence the reverse)
       for (auto p : boost::adaptors::reverse(proposal_chain)) {
          // issue #1522:  HotStuff finality should drive LIB in controller
-         // no need to do anything here. `qc_chain::update()` will return the `block_id_type` made final
-         // (which is b.block_id) to `chain_pacemaker`, which will notify the controller. The controller
-         // will notify `fork_database` so that this block and its ancestors are marked irreversible and
-         // moved out of `fork_database`.
+         // no need to do anything here. `qc_chain::update()` will return the `hs_commitment` where b.block_id is final
+         // and chain_pacemaker will notify the controller. The controller will notify `fork_database` so that
+         // this block and its ancestors are marked irreversible and moved out of `fork_database`.
          ;
       }
 
