@@ -13,12 +13,10 @@ namespace fc::crypto::blslib {
       return bls_public_key(pk);
    }
 
-   std::string bls_private_key::get_pop_str() const
+   bls_signature bls_private_key::pop_proof() const
    {
       bls12_381::g2 proof = bls12_381::pop_prove(_sk);
-      constexpr bool raw = true;
-      std::array<uint8_t, 192> bytes = proof.toAffineBytesLE(raw);
-      return fc::crypto::blslib::serialize_base64<std::array<uint8_t, 192>>(bytes);
+      return bls_signature(proof);
    }
 
    bls_signature bls_private_key::sign( const std::vector<uint8_t>& message ) const

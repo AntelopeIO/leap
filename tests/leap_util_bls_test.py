@@ -100,12 +100,13 @@ def check_create_key_results(rslts):
     # check each output has valid value
     assert "PVT_BLS_" in results["Private key"]
     assert "PUB_BLS_" in results["Public key"]
+    assert "SIG_BLS_" in results["Proof of Possession"]
 
 def get_results(rslts):
     # sample output looks like
     # Private key: PVT_BLS_kRhJJ2MsM+/CddO...
     # Public key: PUB_BLS_lbUE8922wUfX0Iy5...
-    # Proof of Possession: 3jwkVUUYahHgsnmnEA...
+    # Proof of Possession: SIG_BLS_3jwkVUUYahHgsnmnEA...
     pattern = r'(\w+[^:]*): ([^\n]+)'
     matched= re.findall(pattern, rslts)
     
