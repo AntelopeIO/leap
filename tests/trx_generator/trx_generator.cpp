@@ -1,5 +1,4 @@
 #include <trx_generator.hpp>
-#include <eosio/chain_plugin/chain_plugin.hpp>
 #include <iostream>
 #include <fc/log/logger.hpp>
 #include <boost/algorithm/string.hpp>
@@ -235,7 +234,7 @@ namespace eosio::testing {
       stop_generation();
 
       ilog("Create Initial Transaction with action data.");
-      _abi = abi_serializer(fc::json::from_file(_usr_trx_config._abi_data_file_path).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ));
+      _abi = chain::abi_serializer(fc::json::from_file(_usr_trx_config._abi_data_file_path).as<chain::abi_def>(), chain::abi_serializer::create_yield_function( abi_serializer_max_time ));
       fc::variant unpacked_actions_data_json = json_from_file_or_string(_usr_trx_config._actions_data_json_file_or_str);
       fc::variant unpacked_actions_auths_data_json = json_from_file_or_string(_usr_trx_config._actions_auths_json_file_or_str);
       ilog("Loaded actions data: ${data}", ("data", fc::json::to_pretty_string(unpacked_actions_data_json)));
