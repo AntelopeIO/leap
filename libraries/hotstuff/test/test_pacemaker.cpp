@@ -16,7 +16,7 @@ namespace eosio::hotstuff {
    };
 
    void test_pacemaker::set_finalizer_keys(std::vector<fc::crypto::blslib::bls_public_key> finalizer_keys) {
-      _finalizer_keys = finalizer_keys;
+      _finalizer_keys = std::move(finalizer_keys);
    };
 
    void test_pacemaker::set_current_block_id(block_id_type id) {
