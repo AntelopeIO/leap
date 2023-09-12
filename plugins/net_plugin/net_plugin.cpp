@@ -2162,7 +2162,7 @@ namespace eosio {
          c->peer_syncing_from_us = false;
          return;
       }
-      if (chain_info.head_num + min_blocks_distance < msg.last_irreversible_block_num) {
+      if (chain_info.head_num < msg.last_irreversible_block_num) {
          peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 1, head ${h}, lib ${l}",
                     ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))
                     ("h", chain_info.head_num)("l", chain_info.lib_num) );
