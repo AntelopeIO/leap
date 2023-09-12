@@ -3,6 +3,7 @@
 #include <fc/log/logger.hpp>
 #include <boost/algorithm/string.hpp>
 #include <eosio/chain/chain_id_type.hpp>
+#include <boost/program_options.hpp>
 #include <eosio/chain/name.hpp>
 #include <fc/bitutil.hpp>
 #include <fc/io/raw.hpp>
