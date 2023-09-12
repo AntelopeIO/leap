@@ -407,6 +407,7 @@ namespace eosio {
       void stop_conn_timer();
 
       void add(connection_ptr c);
+      string connect(const string& host, const string& p2p_address);
       string resolve_and_connect(const string& host, const string& p2p_address);
       string disconnect(const string& host);
       void close_all();
@@ -4346,7 +4347,7 @@ namespace eosio {
 
    /// RPC API
    string net_plugin::connect( const string& host ) {
-      return my->connections.resolve_and_connect( host, *my->p2p_addresses.begin() );
+      return my->connections.connect( host, *my->p2p_addresses.begin() );
    }
 
    /// RPC API
@@ -4437,6 +4438,11 @@ namespace eosio {
    }
 
    // called by API
+   string connections_manager::connect( const string& host, const string& p2p_address ) {
+      supplied_peers.insert(host);
+      return resolve_and_connect( host, p2p_address );
+   }
+
    string connections_manager::resolve_and_connect( const string& peer_address, const string& listen_address ) {
       string::size_type colon = peer_address.find(':');
       if (colon == std::string::npos || colon == 0) {
@@ -4448,7 +4454,6 @@ namespace eosio {
       if( find_connection_i( peer_address ) )
          return "already connected";
 
-      supplied_peers.insert(peer_address);
       auto [host, port, type] = split_host_port_type(peer_address);
 
       auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
