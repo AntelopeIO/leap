@@ -37,8 +37,9 @@ class TpsTrxGensConfig:
 
 class TransactionGeneratorsLauncher:
 
-    def __init__(self, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str, trxGenDurationSec: int, logDir: str,
+    def __init__(self, trxGenerator: Path, chainId: int, lastIrreversibleBlockId: int, contractOwnerAccount: str, accts: str, privateKeys: str, trxGenDurationSec: int, logDir: str,
                  abiFile: Path, actionsData, actionsAuths, tpsTrxGensConfig: TpsTrxGensConfig, endpointMode: str, apiEndpoint: str=None):
+        self.trxGenerator = trxGenerator
         self.chainId = chainId
         self.lastIrreversibleBlockId = lastIrreversibleBlockId
         self.contractOwnerAccount  = contractOwnerAccount
@@ -59,7 +60,8 @@ class TransactionGeneratorsLauncher:
         for id, targetTps in enumerate(self.tpsTrxGensConfig.targetTpsPerGenList):
             connectionPair = self.tpsTrxGensConfig.connectionPairList[connectionPairIter].rsplit(":")
             popenStringList = [
-                                './tests/trx_generator/trx_generator',
+                                # './tests/trx_generator/trx_generator',
+                                f'{self.trxGenerator}',
                                 '--generator-id', f'{id}',
                                 '--chain-id', f'{self.chainId}',
                                 '--last-irreversible-block-id', f'{self.lastIrreversibleBlockId}',
@@ -80,7 +82,7 @@ class TransactionGeneratorsLauncher:
                 popenStringList.extend(['--api-endpoint', f'{self.apiEndpoint}'])
 
             if Utils.Debug:
-                Print(f"Running trx_generator: {' '.join(popenStringList)}")
+                Print(f"Running transaction generator {self.trxGenerator} : {' '.join(popenStringList)}")
             self.subprocess_ret_codes.append(subprocess.Popen(popenStringList))
             connectionPairIter = (connectionPairIter + 1) % len(self.tpsTrxGensConfig.connectionPairList)
         exitCodes=None
@@ -97,6 +99,7 @@ class TransactionGeneratorsLauncher:
 def parseArgs():
     parser = argparse.ArgumentParser(add_help=False)
     parser.add_argument('-?', '--help', action='help', default=argparse.SUPPRESS, help=argparse._('show this help message and exit'))
+    parser.add_argument("trx_generator", type=str, help="The path to the transaction generator binary to excecute")
     parser.add_argument("chain_id", type=str, help="Chain ID")
     parser.add_argument("last_irreversible_block_id", type=str, help="Last irreversible block ID")
     parser.add_argument("contract_owner_account", type=str, help="Cluster contract owner account name")
@@ -119,23 +122,3 @@ def parseArgs():
 
     args = parser.parse_args()
     return args
-
-def main():
-    args = parseArgs()
-    connectionPairList = sub('[\s+]', '', args.connection_pair_list)
-    connectionPairList = connectionPairList.rsplit(',')
-
-    trxGenLauncher = TransactionGeneratorsLauncher(chainId=args.chain_id, lastIrreversibleBlockId=args.last_irreversible_block_id,
-                                                   contractOwnerAccount=args.contract_owner_account, accts=args.accounts,
-                                                   privateKeys=args.priv_keys, trxGenDurationSec=args.trx_gen_duration, logDir=args.log_dir,
-                                                   abiFile=args.abi_file, actionsData=args.actions_data, actionsAuths=args.actions_auths,
-                                                   tpsTrxGensConfig=TpsTrxGensConfig(targetTps=args.target_tps, tpsLimitPerGenerator=args.tps_limit_per_generator,
-                                                                                     connectionPairList=connectionPairList),
-                                                   endpointMode=args.endpoint_mode, apiEndpoint=args.api_endpoint)
-
-
-    exit_codes = trxGenLauncher.launch()
-    exit(exit_codes)
-
-if __name__ == '__main__':
-    main()
