@@ -310,9 +310,6 @@ struct controller_impl {
       return commitments;
    }
 
-   void mark_irreversible(block_id_type b) { 
-   }
-   
    controller_impl( const controller::config& cfg, controller& s, protocol_feature_set&& pfs, const chain_id_type& chain_id )
    :rnh(),
     self(s),
@@ -3005,10 +3002,9 @@ void controller::commit_block() {
    my->commit_block(block_status::incomplete);
 }
 
-void controller::mark_irreversible(block_id_type b) { // called from HotStuff consensus
-   my->mark_irreversible(b);
+void controller::set_hs_irreversible_block_num(uint32_t block_num) { // called from HotStuff consensus
+   (void)block_num;
 }
-
 
 hs_commitments& controller::get_hs_commitments() {
    return my->get_hs_commitments();

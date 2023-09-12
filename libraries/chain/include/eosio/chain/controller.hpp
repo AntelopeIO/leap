@@ -169,7 +169,7 @@ namespace eosio { namespace chain {
          void sign_block( const signer_callback_type& signer_callback );
          void commit_block();
 
-         void mark_irreversible(block_id_type b); // called from HotStuff consensus
+         void set_hs_irreversible_block_num(uint32_t block_num); // called from HotStuff consensus
          hs_commitments& get_hs_commitments();    // called from HotStuff consensus
          
          // thread-safe

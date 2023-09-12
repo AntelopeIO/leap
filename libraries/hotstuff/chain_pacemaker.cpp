@@ -326,16 +326,11 @@ namespace eosio { namespace hotstuff {
    void chain_pacemaker::on_hs_msg(const eosio::chain::hs_message &msg) {
       auto res = _qc_chain.on_hs_msg(msg); // returns block_id made irrersible (if any)
       if (res) {
-
+         // we may need any commitment later to prove the validity of `finalizer_set` changes 
          _commitment_mgr.store_commitment(*res);
                                           
-         // todo: problem calling into the main thread from a net_plugin thread
-         // one solution would be for:
-         //   - `_chain->mark_irreversible` to update an `atomic_shared_ptr`
-         //   - or: Instead of calling into _chain here, we could store the lib block_id into a member variable of chain_pacemaker,
-         //         and call `_chain->mark_irreversible` from on_accepted_block.
-         //   - or: controller::log_irreversible to query `chain_pacemaker` for the lib instead of `fork_head->dpos_irreversible_blocknum`
-         _chain->mark_irreversible(res->b.block_id);
+         // `set_hs_irreversible_block_num` is safe to call from net_plugin thread as it internally uses an `atomic_shared_ptr`
+         _chain->set_hs_irreversible_block_num(block_header::num_from_id(res->b.block_id));
       }
    }
 }}
