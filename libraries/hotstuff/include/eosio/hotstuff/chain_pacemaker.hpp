@@ -51,17 +51,41 @@ namespace eosio::hotstuff {
       void seen_commitment(const hs_commitment& commitment) {
          const hs_proposal_message& p = commitment.b;
          uint32_t block_num = block_header::num_from_id(p.block_id);
-         
-         fc::lock_guard g(_m);
-         _commitments.erase(_commitments.begin(), _commitments.lower_bound(block_num+1));
+
+         // this commitment was included in an irreversible block
+         // first, we can cleanup our store of commitments of this commitment and any older one
+         {
+            fc::lock_guard g(_m);
+            _commitments.erase(_commitments.begin(), _commitments.upper_bound(block_num));
+         }
+
+         // second, we need to update the vector of pending commitments stored in the controller, which the 
+         // controller will append to every new block, as this commitment and any older one don't need to
+         // be included anymore.
+         auto& pending = _chain->get_hs_commitments();
+         if (!pending.empty()) {
+            assert(std::is_sorted(pending.begin(), pending.end(),
+                                  [](const hs_commitment& a, const hs_commitment& b) {
+                                     return block_header::num_from_id(a.b.block_id) < block_header::num_from_id(b.b.block_id);
+                                  }));
+            auto keep_from = std::upper_bound(pending.begin(), pending.end(), block_num,
+                                              [](uint32_t a, const hs_commitment& b) {
+                                                 return a < block_header::num_from_id(b.b.block_id);
+                                              });
+            pending.erase(pending.begin(), keep_from);
+         }
       }
       
    private:
-      // should be under mutex prorection when this is called
       bool push_commitment(uint32_t block_num) {
          if (auto it = _commitments.find(block_num); it != _commitments.end()) {
             _last_pushed_commitment = block_num;
-            _chain->get_hs_commitments().push_back(it->second);
+            auto& pending = _chain->get_hs_commitments();
+            auto upper = std::upper_bound(pending.begin(), pending.end(), block_num,
+                                          [](uint32_t a, const hs_commitment& b) {
+                                             return a < block_header::num_from_id(b.b.block_id);
+                                          });
+            pending.insert(upper, it->second); // most times `upper == pending.end()`
             return true;
          } 
          return false;
@@ -69,6 +93,8 @@ namespace eosio::hotstuff {
          
       controller* _chain;
       fc::mutex   _m;
+
+      // next two members need to be persisted when nodeos exits
       uint32_t    _last_pushed_commitment GUARDED_BY(_m);
       std::map<uint32_t, hs_commitment> _commitments GUARDED_BY(_m);
    };

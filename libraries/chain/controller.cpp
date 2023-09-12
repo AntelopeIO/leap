@@ -1926,6 +1926,12 @@ struct controller_impl {
          );
       }
 
+      // add HotStuff commitments as a block extension
+      const hs_commitments& commitments = get_hs_commitments();
+      if (!commitments.empty()) {
+         emplace_extension(block_ptr->block_extensions, hs_commitment_extension::extension_id(), fc::raw::pack(commitments));
+      }
+
       auto id = block_ptr->calculate_id();
 
       // Update TaPoS table:

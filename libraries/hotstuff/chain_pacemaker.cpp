@@ -239,8 +239,8 @@ namespace eosio { namespace hotstuff {
       // syncing
       _commitment_mgr.push_optional_commitment(blk);
 
-      // now check if the irreversible block contains a hs_commitment extension. If it does, we can clean up older
-      // commitments from our _commitment_mgr
+      // now check if the irreversible block contains a hs_commitment extension. If it does, we can 
+      // clean up older commitments from our _commitment_mgr
       signed_block_ptr sb = blk->block;
       std::optional<block_extension> ext = sb->extract_extension(hs_commitment_extension::extension_id());
       if (ext) {
