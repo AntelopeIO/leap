@@ -23,18 +23,23 @@ namespace eosio::hotstuff {
 
       // called from net_plugin thread - must be synchronized
       void store_commitment(const hs_commitment& commitment) {
-         const hs_proposal_message& p = commitment.b;
-         uint32_t block_num = block_header::num_from_id(p.block_id);
-         
          fc::lock_guard g(_m);
-         _commitments[block_num] = commitment;
+         _new_commitments.push_back(commitment);
       }
-      
+
+      void get_new_commitments() {
+         fc::lock_guard g(_m);
+         for (auto& c : _new_commitments) {
+            const hs_proposal_message& p = c.b;
+            uint32_t block_num = block_header::num_from_id(p.block_id);
+            _commitments[block_num] = std::move(c);
+         }
+         _new_commitments.clear();
+      }
+            
       // called from main thread
       void push_required_commitment(const block_state_ptr& blk) {
          uint32_t block_num = block_header::num_from_id(blk->id);
-         
-         fc::lock_guard g(_m);
          bool success = push_commitment(block_num);
          assert(success);
       }
@@ -42,22 +47,18 @@ namespace eosio::hotstuff {
       // called from main thread
       void push_optional_commitment(const block_state_ptr& blk) {
          uint32_t block_num = block_header::num_from_id(blk->id);
-         
-         fc::lock_guard g(_m);
          if (block_num - _last_pushed_commitment > 64)
             push_commitment(block_num);
       }
 
+      // called from main thread
       void seen_commitment(const hs_commitment& commitment) {
          const hs_proposal_message& p = commitment.b;
          uint32_t block_num = block_header::num_from_id(p.block_id);
 
          // this commitment was included in an irreversible block
          // first, we can cleanup our store of commitments of this commitment and any older one
-         {
-            fc::lock_guard g(_m);
-            _commitments.erase(_commitments.begin(), _commitments.upper_bound(block_num));
-         }
+         _commitments.erase(_commitments.begin(), _commitments.upper_bound(block_num));
 
          // second, we need to update the vector of pending commitments stored in the controller, which the 
          // controller will append to every new block, as this commitment and any older one don't need to
@@ -92,11 +93,12 @@ namespace eosio::hotstuff {
       }
          
       controller* _chain;
+      
       fc::mutex   _m;
+      std::vector<hs_commitment> _new_commitments GUARDED_BY(_m);
 
-      // next two members need to be persisted when nodeos exits
-      uint32_t    _last_pushed_commitment GUARDED_BY(_m);
-      std::map<uint32_t, hs_commitment> _commitments GUARDED_BY(_m);
+      uint32_t                          _last_pushed_commitment;
+      std::map<uint32_t, hs_commitment> _commitments;
    };
 
    class chain_pacemaker : public base_pacemaker {

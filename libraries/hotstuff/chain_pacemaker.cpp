@@ -224,6 +224,9 @@ namespace eosio { namespace hotstuff {
 
    // called from main thread
    void chain_pacemaker::on_irreversible_block( const block_state_ptr& blk ) {
+      
+      _commitment_mgr.get_new_commitments();
+      
       if (!blk->block->header_extensions.empty()) {
          std::optional<block_header_extension> ext = blk->block->extract_header_extension(hs_finalizer_set_extension::extension_id());
          if (ext) {
