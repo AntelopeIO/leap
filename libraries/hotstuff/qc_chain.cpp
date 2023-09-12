@@ -291,7 +291,7 @@ namespace eosio::hotstuff {
       return v_msg;
    }
 
-   std::optional<block_id_type> qc_chain::process_proposal(const hs_proposal_message & proposal){
+   std::optional<hs_commitment> qc_chain::process_proposal(const hs_proposal_message & proposal){
 
       //auto start = fc::time_point::now();
 
@@ -415,7 +415,7 @@ namespace eosio::hotstuff {
                           ("proposal_id", proposal.proposal_id));
 
       //update internal state
-      update(proposal);
+      auto optional_commitment = update(proposal);
 
       for (auto &msg : msgs) {
          send_hs_msg(msg);
@@ -426,6 +426,8 @@ namespace eosio::hotstuff {
 
       //auto total_time = fc::time_point::now() - start;
       //fc_dlog(_logger, " ... process_proposal() total time : ${total_time}", ("total_time", total_time));
+
+      return optional_commitment;
    }
 
    void qc_chain::process_vote(const hs_vote_message & vote){
@@ -573,7 +575,7 @@ namespace eosio::hotstuff {
       }
    }
 
-   std::optional<block_id_type> qc_chain::send_hs_msg(const hs_message& msg) {
+   std::optional<hs_commitment> qc_chain::send_hs_msg(const hs_message& msg) {
       std::visit(overloaded{
               [this](const hs_vote_message& m) { fc_tlog(_logger, " === broadcast_hs_vote ==="); },
               [this](const hs_proposal_message& m) { fc_tlog(_logger, " === broadcast_hs_proposal ==="); },
@@ -582,7 +584,7 @@ namespace eosio::hotstuff {
       }, msg);
       _pacemaker->send_hs_msg(msg, _id);
 
-      std::optional<block_id_type> res;
+      std::optional<hs_commitment> res;
       std::visit(overloaded{
                         [this](const hs_vote_message& m) { process_vote(m); },
                         [this, &res](const hs_proposal_message& m) { res = process_proposal(m); },
@@ -834,8 +836,8 @@ namespace eosio::hotstuff {
 
    //hs_message received, called from network thread
    //returns highest block_id that was made irreversible (if any)
-   std::optional<block_id_type> qc_chain::on_hs_msg(const hs_message& msg) {
-      std::optional<block_id_type> res;
+   std::optional<hs_commitment> qc_chain::on_hs_msg(const hs_message& msg) {
+      std::optional<hs_commitment> res;
       std::visit(overloaded{
                      [this](const hs_vote_message& m) { process_vote(m); },
                      [this, &res](const hs_proposal_message& m) { res = process_proposal(m); },
@@ -846,7 +848,7 @@ namespace eosio::hotstuff {
       return res;
    }
 
-   std::optional<block_id_type> qc_chain::update(const hs_proposal_message& proposal) {
+   std::optional<hs_commitment> qc_chain::update(const hs_proposal_message& proposal) {
       //fc_tlog(_logger, " === update internal state ===");
       //if proposal has no justification, means we either just activated the feature or launched the chain, or the proposal is invalid
       if (proposal.justify.proposal_id.empty()) {
@@ -941,7 +943,7 @@ namespace eosio::hotstuff {
             }
          }
 
-         commit({ .b = b, .b1 = b_1, .b2 = b_2, .bstar = proposal });
+         commit(b);
 
          fc_tlog(_logger, " === last executed proposal : #${block_num} ${block_id}", ("block_num", b.block_num())("block_id", b.block_id));
 
@@ -949,7 +951,7 @@ namespace eosio::hotstuff {
          _block_exec = b.block_id;
 
          gc_proposals( b.get_height()-1);
-         return _block_exec;
+         return hs_commitment{ .b = b, .b1 = b_1, .b2 = b_2, .bstar = proposal };
       } else {
          fc_elog(_logger, " *** ${id} could not verify direct parent relationship", ("id",_id));
          fc_elog(_logger, "   *** b_2 ${b_2}", ("b_2", b_2));
@@ -1000,11 +1002,11 @@ namespace eosio::hotstuff {
 #endif
    }
 
-void qc_chain::commit(const hs_commitment& commitment) {
+void qc_chain::commit(const hs_proposal_message& initial_proposal) {
    std::vector<const hs_proposal_message*> proposal_chain;
    proposal_chain.reserve(10);
    
-   const hs_proposal_message* p = &commitment.b;
+   const hs_proposal_message* p = &initial_proposal;
    while (p) {
       fc_tlog(_logger, " === attempting to commit proposal #${block_num}:${phase} ${prop_id} block_id: ${block_id} parent_id: ${parent_id}",
               ("block_num", p->block_num())("prop_id", p->proposal_id)("block_id", p->block_id)
@@ -1040,8 +1042,6 @@ void qc_chain::commit(const hs_commitment& commitment) {
    }
 
    if (!proposal_chain.empty()) {
-      _last_commitment = commitment; // will be provided to controller by pacemaker in `on_irreversible_block`
-      
       // commit all ancestor blocks sequentially first (hence the reverse)
       for (auto p : boost::adaptors::reverse(proposal_chain)) {
          // issue #1522:  HotStuff finality should drive LIB in controller

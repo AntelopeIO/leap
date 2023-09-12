@@ -110,7 +110,7 @@ namespace eosio::hotstuff {
 
       void on_beat(); //handler for pacemaker beat()
 
-      std::optional<block_id_type> on_hs_msg(const hs_message& msg);
+      std::optional<hs_commitment> on_hs_msg(const hs_message& msg);
 
    private:
       const hs_proposal_message* get_proposal(const fc::sha256& proposal_id); // returns nullptr if not found
@@ -138,7 +138,7 @@ namespace eosio::hotstuff {
       bool am_i_leader(); //check if I am the current leader
       bool am_i_finalizer(); //check if I am one of the current finalizers
 
-      std::optional<block_id_type> process_proposal(const hs_proposal_message& msg); // returns lib is any
+      std::optional<hs_commitment> process_proposal(const hs_proposal_message& msg); // returns lib is any
       void                         process_vote(const hs_vote_message& msg);
       void                         process_new_view(const hs_new_view_message& msg);
       void                         process_new_block(const hs_new_block_message& msg);
@@ -155,14 +155,12 @@ namespace eosio::hotstuff {
 
       std::vector<hs_proposal_message> get_qc_chain(const fc::sha256& proposal_id); //get 3-phase proposal justification
 
-      std::optional<block_id_type> send_hs_msg(const hs_message& msg); 
+      std::optional<hs_commitment> send_hs_msg(const hs_message& msg); 
 
-      std::optional<block_id_type> update(const hs_proposal_message& proposal); //update internal state
-      void commit(const hs_commitment& commitment); //commit proposal (finality)
+      std::optional<hs_commitment> update(const hs_proposal_message& proposal); //update internal state
+      void commit(const hs_proposal_message& initial_proposal); //commit proposal (finality)
 
       void gc_proposals(uint64_t cutoff); //garbage collection of old proposals
-
-      const std::optional<hs_commitment>& get_last_commitment() const { return _last_commitment; }
 
 #warning remove. bls12-381 key used for testing purposes
       //todo : remove. bls12-381 key used for testing purposes
@@ -195,7 +193,6 @@ namespace eosio::hotstuff {
       std::set<name> _my_producers;
       chain::bls_key_map_t _my_finalizer_keys;
       name _id;
-      std::optional<hs_commitment> _last_commitment; // thread safety??
 
       mutable std::atomic<uint64_t> _state_version = 1;
 

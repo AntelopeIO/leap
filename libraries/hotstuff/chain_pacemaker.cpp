@@ -1,5 +1,6 @@
 #include <eosio/hotstuff/chain_pacemaker.hpp>
 #include <eosio/chain/finalizer_authority.hpp>
+#include <eosio/chain/block.hpp>
 #include <iostream>
 
 // comment this out to remove the core profiler
@@ -107,7 +108,8 @@ namespace eosio { namespace hotstuff {
                                     fc::logger& logger)
       : _chain(chain),
         _qc_chain("default"_n, this, std::move(my_producers), std::move(finalizer_keys), logger),
-        _logger(logger)
+         _logger(logger),
+         _commitment_mgr(chain)
    {
       _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
          on_accepted_block( blk );
@@ -215,13 +217,6 @@ namespace eosio { namespace hotstuff {
    }
 
    // called from main thread
-   void chain_pacemaker::on_pre_accepted_block( const signed_block_ptr& blk ) {
-      std::scoped_lock g( _chain_state_mutex );
-      // store _qc_chain.get_last_commitment() into block extension
-      // is it the right location? What happens if this block does not become final?
-   }
-
-   // called from main thread
    void chain_pacemaker::on_accepted_block( const block_state_ptr& blk ) {
       std::scoped_lock g( _chain_state_mutex );
       _head_block_state = blk;
@@ -234,6 +229,25 @@ namespace eosio { namespace hotstuff {
          if (ext) {
             std::scoped_lock g( _chain_state_mutex );
             _active_finalizer_set = std::move(std::get<hs_finalizer_set_extension>(*ext));
+            
+            _commitment_mgr.push_required_commitment(blk);
+         }
+      }
+
+      // even if the block did not containg a finalizer_set change, we still want to include
+      // commitments at regular intervals so that the fork database doesn't grow too big when
+      // syncing
+      _commitment_mgr.push_optional_commitment(blk);
+
+      // now check if the irreversible block contains a hs_commitment extension. If it does, we can clean up older
+      // commitments from our _commitment_mgr
+      signed_block_ptr sb = blk->block;
+      std::optional<block_extension> ext = sb->extract_extension(hs_commitment_extension::extension_id());
+      if (ext) {
+         const auto& hs_commitments = std::get<hs_commitment_extension>(*ext).commitments;
+         if (!hs_commitments.empty()) {
+            const hs_commitment& c = hs_commitments.back();
+            _commitment_mgr.seen_commitment(c);
          }
       }
    }
@@ -312,13 +326,16 @@ namespace eosio { namespace hotstuff {
    void chain_pacemaker::on_hs_msg(const eosio::chain::hs_message &msg) {
       auto res = _qc_chain.on_hs_msg(msg); // returns block_id made irrersible (if any)
       if (res) {
+
+         _commitment_mgr.store_commitment(*res);
+                                          
          // todo: problem calling into the main thread from a net_plugin thread
          // one solution would be for:
          //   - `_chain->mark_irreversible` to update an `atomic_shared_ptr`
          //   - or: Instead of calling into _chain here, we could store the lib block_id into a member variable of chain_pacemaker,
          //         and call `_chain->mark_irreversible` from on_accepted_block.
          //   - or: controller::log_irreversible to query `chain_pacemaker` for the lib instead of `fork_head->dpos_irreversible_blocknum`
-         _chain->mark_irreversible(*res);
+         _chain->mark_irreversible(res->b.block_id);
       }
    }
 }}

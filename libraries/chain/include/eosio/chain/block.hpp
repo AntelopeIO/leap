@@ -77,7 +77,7 @@ namespace eosio { namespace chain {
 
       void reflector_init();
 
-      hs_commitment commitment;
+      hs_commitments commitments;
    };
 
    namespace detail {
@@ -132,4 +132,4 @@ FC_REFLECT(eosio::chain::transaction_receipt_header, (status)(cpu_usage_us)(net_
 FC_REFLECT_DERIVED(eosio::chain::transaction_receipt, (eosio::chain::transaction_receipt_header), (trx) )
 FC_REFLECT(eosio::chain::additional_block_signatures_extension, (signatures));
 FC_REFLECT_DERIVED(eosio::chain::signed_block, (eosio::chain::signed_block_header), (transactions)(block_extensions) )
-FC_REFLECT(eosio::chain::hs_commitment_extension, (commitment));
+FC_REFLECT(eosio::chain::hs_commitment_extension, (commitments));

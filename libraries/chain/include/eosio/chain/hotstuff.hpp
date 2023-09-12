@@ -86,6 +86,8 @@ namespace eosio::chain {
       hs_proposal_message bstar;
    };
 
+   using hs_commitments = std::vector<hs_commitment>;
+
 } //eosio::chain
 
 // // @ignore quorum_met

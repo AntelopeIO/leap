@@ -170,6 +170,7 @@ namespace eosio { namespace chain {
          void commit_block();
 
          void mark_irreversible(block_id_type b); // called from HotStuff consensus
+         hs_commitments& get_hs_commitments();    // called from HotStuff consensus
          
          // thread-safe
          std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );

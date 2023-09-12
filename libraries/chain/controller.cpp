@@ -253,6 +253,7 @@ struct controller_impl {
    named_thread_pool<chain>        thread_pool;
    deep_mind_handler*              deep_mind_logger = nullptr;
    bool                            okay_to_print_integrity_hash_on_stop = false;
+   hs_commitments                  commitments; // should be included in next proposed blocks as hs_commitment_extension
 
    thread_local static platform_timer timer; // a copy for main thread and each read-only thread
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
@@ -304,6 +305,14 @@ struct controller_impl {
       apply_handlers[receiver][make_pair(contract,action)] = v;
    }
 
+   // hotstuff consensus updates these commitments to be included in next produced blocks. returned vector may be empty
+   hs_commitments& get_hs_commitments() {
+      return commitments;
+   }
+
+   void mark_irreversible(block_id_type b) { 
+   }
+   
    controller_impl( const controller::config& cfg, controller& s, protocol_feature_set&& pfs, const chain_id_type& chain_id )
    :rnh(),
     self(s),
@@ -2991,8 +3000,13 @@ void controller::commit_block() {
 }
 
 void controller::mark_irreversible(block_id_type b) { // called from HotStuff consensus
+   my->mark_irreversible(b);
 }
 
+
+hs_commitments& controller::get_hs_commitments() {
+   return my->get_hs_commitments();
+}
 
 deque<transaction_metadata_ptr> controller::abort_block() {
    return my->abort_block();
