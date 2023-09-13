@@ -54,13 +54,13 @@ int bls_actions::create_key() {
    const bls_private_key private_key = bls_private_key::generate();
    const bls_public_key public_key = private_key.get_public_key();
 
-   // generate pop
-   const std::string pop_str = generate_pop_str(private_key);
+   // generate proof of possession
+   const bls_signature pop = private_key.proof_of_possession();
 
    // prepare output
    std::string out_str = "Private key: " + private_key.to_string({}) + "\n";
    out_str += "Public key: " + public_key.to_string({}) + "\n";
-   out_str += "Proof of Possession: " + pop_str + "\n";
+   out_str += "Proof of Possession: " + pop.to_string({}) + "\n";
    if (opt->print_console) {
       std::cout << out_str;
    } else {
@@ -106,20 +106,10 @@ int bls_actions::create_pop() {
    // create private key object using input private key string
    const bls_private_key private_key = bls_private_key(private_key_str);
    const bls_public_key public_key = private_key.get_public_key();
-   std::string pop_str = generate_pop_str(private_key); 
+   const bls_signature pop = private_key.proof_of_possession();
 
-   std::cout << "Proof of Possession: " << pop_str << "\n";
+   std::cout << "Proof of Possession: " << pop.to_string({})<< "\n";
    std::cout << "Public key: " <<  public_key.to_string({}) << "\n";
 
    return 0;
-}
-
-std::string bls_actions::generate_pop_str(const bls_private_key& private_key) {
-   const bls_public_key public_key = private_key.get_public_key();
-
-   const std::array<uint8_t, 96> msg = public_key._pkey.toAffineBytesLE(true); // true means raw
-   const std::vector<uint8_t> msg_vector = std::vector<uint8_t>(msg.begin(), msg.end());
-   const bls_signature pop = private_key.sign(msg_vector);
-
-   return pop.to_string({});
 }
