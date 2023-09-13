@@ -171,6 +171,10 @@ if( ENABLE_TCMALLOC )
     set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CXX_STANDARD_LIBRARIES} ${GPERFTOOLS_TCMALLOC}")
 endif()
 
+# leap includes a bundled BoringSSL which conflicts with OpenSSL. Make sure any other bundled libraries (such as boost)
+# do not attempt to use an external OpenSSL in any manner
+set(CMAKE_DISABLE_FIND_PACKAGE_OpenSSL On)
+
 add_subdirectory( libraries )
 add_subdirectory( plugins )
 add_subdirectory( programs )
