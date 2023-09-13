@@ -1,4 +1,5 @@
 #include <fc/crypto/modular_arithmetic.hpp>
+#include <fc/exception/exception.hpp>
 
 #include <random>
 
@@ -24,15 +25,14 @@ void modexp_benchmarking() {
       return result;
    };
 
-   static constexpr unsigned int start_num_bytes = 128; // 64
-   static constexpr unsigned int end_num_bytes   = 256; // 512
-   static constexpr unsigned int delta_num_bytes = 128; // 64
+   static constexpr unsigned int start_num_bytes = 8;
+   static constexpr unsigned int end_num_bytes   = 256;
 
    static_assert(start_num_bytes <= end_num_bytes);
-   static_assert(delta_num_bytes > 0);
-   static_assert((end_num_bytes - start_num_bytes) % delta_num_bytes == 0);
+   static_assert((start_num_bytes & (start_num_bytes - 1)) == 0);
+   static_assert((end_num_bytes & (end_num_bytes - 1)) == 0);
 
-   for (unsigned int n = start_num_bytes, slot = 0; n <= end_num_bytes; n += delta_num_bytes, ++slot) {
+   for (unsigned int n = start_num_bytes; n <= end_num_bytes; n *= 2) {
       auto base     = generate_random_bytes(r, n);
       auto exponent = generate_random_bytes(r, n);
       auto modulus  = generate_random_bytes(r, n);
@@ -41,7 +41,21 @@ void modexp_benchmarking() {
          fc::modexp(base, exponent, modulus);
       };
 
-      benchmarking(std::to_string(n*8) + " bit width", f);
+      auto even_and_odd = [&](const std::string& bm) {
+         //some modexp implementations have drastically different performance characteristics depending on whether the modulus is
+         // even or odd (this can determine whether Montgomery multiplication is used). So test both cases.
+         modulus.back() &= ~1;
+         benchmarking(std::to_string(n*8) + " bit even M, " + bm, f);
+         modulus.back() |= 1;
+         benchmarking(std::to_string(n*8) + " bit odd M, " + bm, f);
+      };
+
+      //some modexp implementations need to take a minor different path if base is greater than modulus, try both
+      FC_ASSERT(modulus[0] != '\xff');
+      base.front() = 0;
+      even_and_odd("B<M");
+      base.front() = '\xff';
+      even_and_odd("B>M");
    }
 
    // Running the above benchmark (using commented values for num_trials and *_num_bytes) with a release build on an AMD 3.4 GHz CPU
