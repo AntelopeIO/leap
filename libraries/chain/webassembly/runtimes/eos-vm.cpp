@@ -287,7 +287,7 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::inst
 #endif
 
 template<typename Impl>
-thread_local eos_vm_runtime<Impl>::context_t eos_vm_runtime<Impl>::_exec_ctx;
+thread_local typename eos_vm_runtime<Impl>::context_t eos_vm_runtime<Impl>::_exec_ctx;
 template<typename Impl>
 thread_local eos_vm_backend_t<Impl> eos_vm_runtime<Impl>::_bkend;
 }
