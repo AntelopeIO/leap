@@ -12,7 +12,6 @@
 #include <eosio/chain/transaction.hpp>
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/trace.hpp>
-#include <eosio/chain/wasm_interface_collection.hpp>
 #include <eosio/chain/name.hpp>
 #include <eosio/chain/application.hpp>
 
@@ -90,9 +89,9 @@ BOOST_AUTO_TEST_CASE(not_check_configs_if_no_read_only_threads) {
 void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable_tierup = false) {
    try {
       fc::scoped_exit<std::function<void()>> on_exit = []() {
-         chain::wasm_interface_collection::test_disable_tierup = false;
+         chain::wasm_interface::test_disable_tierup = false;
       };
-      chain::wasm_interface_collection::test_disable_tierup = test_disable_tierup;
+      chain::wasm_interface::test_disable_tierup = test_disable_tierup;
 
       using namespace std::chrono_literals;
       fc::temp_directory temp;

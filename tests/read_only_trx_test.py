@@ -148,12 +148,14 @@ def verifyOcVirtualMemory():
             pageSize = os.sysconf("SC_PAGESIZE")
             actualVmSize = vmPages * pageSize
 
-            # When OC tierup is enabled, virtual memory used by IC is around
+            # In OC tierup a memory slice is 8GB;
+            # The main thread uses 529 slices; each read-only thread uses 11 slices.
+            # Total virtual memory is around:
             # 529 slices * 8GB (for main thread) + numReadOnlyThreads * 11 slices * 8GB
-            # This test verifies virtual memory taken by one read-only thread
-            # is not in the order of 1TB.
-            otherGB = 1000 # add 1TB for virtual memory used by others
-            expectedVmSize = ((529 * 8) + (args.read_only_threads * 88) + otherGB) * 1024 * 1024 * 1024
+            # This test verifies virtual memory does not grow by the number
+            # of read-only thread in the order of TB.
+            memoryByOthersGB = 1000 # add 1TB for virtual memory used by others
+            expectedVmSize = ((529 * 8) + (args.read_only_threads * 88) + memoryByOthersGB) * 1024 * 1024 * 1024
             Utils.Print(f"pid: {apiNode.pid}, actualVmSize: {actualVmSize}, expectedVmSize: {expectedVmSize}")
             assert(actualVmSize < expectedVmSize)
     except FileNotFoundError:

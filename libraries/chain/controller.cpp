@@ -26,7 +26,6 @@
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
-#include <eosio/chain/wasm_interface_collection.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -256,7 +255,7 @@ struct controller_impl {
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
 #endif
-   wasm_interface_collection wasm_if_collect;
+   wasm_interface wasmif;
    app_window_type app_window = app_window_type::write;
 
    typedef pair<scope_name,action_name>                   handler_key;
@@ -315,7 +314,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    wasm_if_collect( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
+    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -342,7 +341,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
-         wasm_if_collect.current_lib(bsp->block_num);
+         wasmif.current_lib(bsp->block_num);
       });
 
 
@@ -2686,20 +2685,26 @@ struct controller_impl {
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
    bool is_eos_vm_oc_enabled() const {
-      return wasm_if_collect.is_eos_vm_oc_enabled();
+      return wasmif.is_eos_vm_oc_enabled();
    }
 #endif
 
+   // Only called from read-only trx execution threads when producer_plugin
+   // starts them. Only OC requires initialize thread specific data.
    void init_thread_local_data() {
-      wasm_if_collect.init_thread_local_data(db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+      if ( is_eos_vm_oc_enabled() ) {
+         wasmif.init_thread_local_data();
+      }
+#endif
    }
 
-   wasm_interface_collection& get_wasm_interface() {
-      return wasm_if_collect;
+   wasm_interface& get_wasm_interface() {
+      return wasmif;
    }
 
    void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
-      wasm_if_collect.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+      wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
    }
 
    block_state_ptr fork_db_head() const;
@@ -3400,7 +3405,7 @@ const apply_handler* controller::find_apply_handler( account_name receiver, acco
    }
    return nullptr;
 }
-wasm_interface_collection& controller::get_wasm_interface() {
+wasm_interface& controller::get_wasm_interface() {
    return my->get_wasm_interface();
 }
 
