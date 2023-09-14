@@ -67,7 +67,10 @@ namespace detail {
    };
 
    struct schedule_info {
-      uint32_t                          schedule_lib_num = 0; /// last irr block num
+      // schedule_lib_num is compared with dpos lib, but the value is actually current block at time of pending
+      // After hotstuff is activated, schedule_lib_num is compared to next().next() round for determination of
+      // changing from pending to active.
+      uint32_t                          schedule_lib_num = 0; /// block_num of pending
       digest_type                       schedule_hash;
       producer_authority_schedule       schedule;
    };
@@ -133,7 +136,7 @@ protected:
  *        block_header.new_producers                      = producers
  *
  *     create_block_state ->
- *        block_state.schedule_lib_num          = current_block_num
+ *        block_state.schedule_lib_num          = current_block_num (note this should be named schedule_block_num)
  *        block_state.pending_schedule.schedule = producers
  *
  *     start_block ->
