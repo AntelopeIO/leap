@@ -89,6 +89,8 @@ macro(add_eosio_test_executable test_name)
        Boost::chrono
        Boost::multi_index
        Boost::multiprecision
+       Boost::program_options
+       Boost::beast
        Boost::interprocess
        Boost::asio
        Boost::signals2
