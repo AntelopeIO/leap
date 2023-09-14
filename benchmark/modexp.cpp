@@ -51,7 +51,7 @@ void modexp_benchmarking() {
       };
 
       //some modexp implementations need to take a minor different path if base is greater than modulus, try both
-      FC_ASSERT(modulus[0] != '\xff');
+      FC_ASSERT(modulus[0] != '\xff' && modulus[0] != 0);
       base.front() = 0;
       even_and_odd("B<M");
       base.front() = '\xff';
