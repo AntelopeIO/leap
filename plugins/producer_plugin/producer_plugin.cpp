@@ -2855,8 +2855,6 @@ void producer_plugin_impl::switch_to_read_window() {
 
    _time_tracker.pause();
 
-   fc_dlog(_log, "switch to read");
-
    // we are in write window, so no read-only trx threads are processing transactions.
    if (app().executor().read_only_queue().empty()) { // no read-only tasks to process. stay in write window
       start_write_window();                          // restart write window timer for next round
@@ -2881,7 +2879,6 @@ void producer_plugin_impl::switch_to_read_window() {
       _ro_exec_tasks_fut.emplace_back(post_async_task(
          _ro_thread_pool.get_executor(), [self = this, pending_block_num]() { return self->read_only_execution_task(pending_block_num); }));
    }
-   fc_dlog(_log, "read window");
 
    auto expire_time = boost::posix_time::microseconds(_ro_read_window_time_us.count());
    _ro_timer.expires_from_now(expire_time);
