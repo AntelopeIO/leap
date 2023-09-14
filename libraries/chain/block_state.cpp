@@ -77,12 +77,13 @@ namespace eosio { namespace chain {
    block_state::block_state( const block_header_state& prev,
                              signed_block_ptr b,
                              const protocol_feature_set& pfs,
+                             bool hotstuff_activated,
                              const std::function<void( block_timestamp_type,
                                                        const flat_set<digest_type>&,
                                                        const vector<digest_type>& )>& validator,
                              bool skip_validate_signee
                            )
-   :block_header_state( prev.next( *b, extract_additional_signatures(b, pfs, prev.activated_protocol_features), pfs, validator, skip_validate_signee ) )
+   :block_header_state( prev.next( *b, extract_additional_signatures(b, pfs, prev.activated_protocol_features), pfs, hotstuff_activated, validator, skip_validate_signee ) )
    ,block( std::move(b) )
    {}
 

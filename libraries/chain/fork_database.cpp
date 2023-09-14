@@ -42,6 +42,7 @@ namespace eosio { namespace chain {
          ordered_unique< tag<by_lib_block_num>,
             composite_key< block_state,
                global_fun<const block_state&,            bool,          &block_state_is_valid>,
+               // see first_preferred comment
                member<detail::block_header_state_common, uint32_t,      &detail::block_header_state_common::dpos_irreversible_blocknum>,
                member<detail::block_header_state_common, uint32_t,      &detail::block_header_state_common::block_num>,
                member<block_header_state,                block_id_type, &block_header_state::id>
@@ -57,6 +58,10 @@ namespace eosio { namespace chain {
    > fork_multi_index_type;
 
    bool first_preferred( const block_header_state& lhs, const block_header_state& rhs ) {
+      // dpos_irreversible_blocknum == std::numeric_limits<uint32_t>::max() after hotstuff activation
+      //   hotstuff block considered preferred over dpos
+      //   hotstuff blocks compared by block_num as both lhs & rhs dpos_irreversible_blocknum is max uint32_t
+      // This can be simplified in a future release that assumes hotstuff already activated
       return std::tie( lhs.dpos_irreversible_blocknum, lhs.block_num )
                > std::tie( rhs.dpos_irreversible_blocknum, rhs.block_num );
    }
