@@ -5,6 +5,9 @@
 #include <eosio/chain/block_state.hpp>
 #include <eosio/hotstuff/base_pacemaker.hpp>
 
+#include <eosio/chain/finalizer_set.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
+
 #include <fc/crypto/bls_utils.hpp>
 #include <fc/crypto/sha256.hpp>
 
@@ -17,6 +20,7 @@
 #include <boost/multi_index/composite_key.hpp>
 
 #include <boost/dynamic_bitset.hpp>
+
 
 #include <exception>
 #include <stdexcept>
@@ -36,10 +40,11 @@ namespace eosio::hotstuff {
          active_finalizers.resize(finalizer_size);
       }
 
-      explicit quorum_certificate(const quorum_certificate_message& msg)
+      explicit quorum_certificate(const quorum_certificate_message& msg, size_t finalizer_count)
               : proposal_id(msg.proposal_id)
               , active_finalizers(msg.active_finalizers.cbegin(), msg.active_finalizers.cend())
               , active_agg_sig(msg.active_agg_sig) {
+               active_finalizers.resize(finalizer_count);
       }
 
       quorum_certificate_message to_msg() const {
@@ -102,7 +107,7 @@ namespace eosio::hotstuff {
 
       uint64_t get_state_version() const { return _state_version; } // calling this w/ thread sync is optional
 
-      std::string get_id_i() const { return _id; } // so far, only ever relevant in a test environment (no sync)
+      std::string get_id_i() const { return _id; } // so far, only ever relevant in a test environment and for logging (no sync)
 
       // Calls to the following methods should be thread-synchronized externally:
 
@@ -124,7 +129,7 @@ namespace eosio::hotstuff {
 
       uint32_t positive_bits_count(const hs_bitset& finalizers);
 
-      hs_bitset update_bitset(const hs_bitset& finalizer_set, fc::crypto::blslib::bls_public_key finalizer_key);
+      hs_bitset update_bitset(const hs_bitset& finalizer_set, const fc::crypto::blslib::bls_public_key& finalizer_key);
 
       digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc); //get digest to sign from proposal data
 

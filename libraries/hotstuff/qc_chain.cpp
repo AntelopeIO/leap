@@ -90,18 +90,18 @@ namespace eosio::hotstuff {
       return finalizers.count(); // the number of bits in this bitset that are set.
    }
 
-   hs_bitset qc_chain::update_bitset(const hs_bitset& finalizer_set, fc::crypto::blslib::bls_public_key finalizer_key ) {
+   hs_bitset qc_chain::update_bitset(const hs_bitset& finalizer_set, const fc::crypto::blslib::bls_public_key& finalizer_key ) {
 
       hs_bitset b(finalizer_set );
 
-      vector<fc::crypto::blslib::bls_public_key> finalizer_keys = _pacemaker->get_finalizer_keys();
+      std::vector<eosio::chain::finalizer_authority> finalizers = _pacemaker->get_finalizer_set().finalizers;
 
-      for (size_t i = 0; i < finalizer_keys.size();i++) {
-         if (finalizer_keys[i] == finalizer_key) {
+      for (size_t i = 0; i < finalizers.size();i++) {
+         if (finalizers[i].public_key == finalizer_key) {
             b.set(i);
 
             fc_tlog(_logger, " === finalizer found ${finalizer} new value : ${value}",
-                    ("finalizer_keys", finalizer_keys)("value", [&](){ std::string r; boost::to_string(b, r); return r; }()));
+                    ("value", [&](){ std::string r; boost::to_string(b, r); return r; }()));
 
             return b;
          }
@@ -191,7 +191,11 @@ namespace eosio::hotstuff {
 
       fc::crypto::blslib::bls_public_key agg_key;
 
-      std::vector<fc::crypto::blslib::bls_public_key> pks =_pacemaker->get_finalizer_keys();
+      std::vector<eosio::chain::finalizer_authority> c_finalizers = _pacemaker->get_finalizer_set().finalizers;
+
+      std::cout << "c_finalizers.size() : " << c_finalizers.size() << " , finalizers.size() : " << finalizers.size() << "\n";
+
+      //EOS_ASSERT(c_finalizers.size() == finalizers.size(), chain_exception, "error : public keys size != finalizers size" );
 
       bool first = true;
       for (hs_bitset::size_type i = 0; i < finalizers.size(); ++i) {
@@ -199,9 +203,9 @@ namespace eosio::hotstuff {
             //adding finalizer's key to the aggregate pub key
             if (first) {
                first = false;
-               agg_key = pks[i];
+               agg_key = c_finalizers[i].public_key;
             } else {
-               agg_key = fc::crypto::blslib::aggregate({agg_key, pks[i]});
+               agg_key = fc::crypto::blslib::aggregate({agg_key, c_finalizers[i].public_key});
             }
          }
       }
@@ -237,7 +241,7 @@ namespace eosio::hotstuff {
       : _pacemaker(pacemaker),
         _my_producers(std::move(my_producers)),
         _my_finalizer_keys(std::move(finalizer_keys)),
-        _id(id),
+        _id(std::move(id)),
         _logger(logger)
    {
       _high_qc.reset({}, 21); // TODO: use active schedule size
@@ -261,14 +265,16 @@ namespace eosio::hotstuff {
    }
 
    bool qc_chain::am_i_finalizer(){
-      std::vector<fc::crypto::blslib::bls_public_key> finalizers = _pacemaker->get_finalizer_keys();
-      auto mfk_itr = _my_finalizer_keys.begin();
-      while(mfk_itr!=_my_finalizer_keys.end()){
-         auto fin_itr = std::find(finalizers.begin(), finalizers.end(), mfk_itr->first);
-         if (fin_itr!=finalizers.end()) return true;
-         mfk_itr++;
+
+      if (_my_finalizer_keys.empty())
+         return false;
+      std::vector<eosio::chain::finalizer_authority> finalizers = _pacemaker->get_finalizer_set().finalizers;
+      for (const auto& i : finalizers) {
+         if (_my_finalizer_keys.contains(i.public_key))
+            return true;
       }
       return false;
+
    }
 
    hs_vote_message qc_chain::sign_proposal(const hs_proposal_message& proposal, const fc::crypto::blslib::bls_private_key& finalizer_priv_key){
@@ -367,17 +373,14 @@ namespace eosio::hotstuff {
 
       std::vector<hs_vote_message> msgs;
 
-      if (signature_required){
+      if (signature_required && !_my_finalizer_keys.empty()){
          //iterate over all my finalizer keys and sign / broadcast for each that is in the schedule
-         std::vector<fc::crypto::blslib::bls_public_key> finalizers = _pacemaker->get_finalizer_keys();
+         std::vector<eosio::chain::finalizer_authority> finalizers = _pacemaker->get_finalizer_set().finalizers;
+         
+         for (const auto& i : finalizers) {
+            auto mfk_itr = _my_finalizer_keys.find(i.public_key);
 
-         auto mfk_itr = _my_finalizer_keys.begin();
-
-         while(mfk_itr!=_my_finalizer_keys.end()){
-
-            auto fin_itr = std::find(finalizers.begin(), finalizers.end(), mfk_itr->first);
-
-            if (fin_itr!=finalizers.end()) {
+            if (mfk_itr!=_my_finalizer_keys.end()) {
 
                hs_vote_message v_msg = sign_proposal(proposal, mfk_itr->second);
 
@@ -388,13 +391,10 @@ namespace eosio::hotstuff {
                               ("proposal_id", proposal.proposal_id));
 
                msgs.push_back(v_msg);
-
-            };
-
-            mfk_itr++;
+            }
          }
-      }
 
+      }
       else fc_tlog(_logger, " === ${id} skipping signature on proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id}",
                           ("id", _id)
                           ("block_num", proposal.block_num())
@@ -498,7 +498,7 @@ namespace eosio::hotstuff {
    void qc_chain::process_new_view(const hs_new_view_message & msg){
       fc_tlog(_logger, " === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
-      if (!update_high_qc(quorum_certificate{msg.high_qc})) {
+      if (!update_high_qc(quorum_certificate{msg.high_qc, 21})) { // TODO: use active schedule size
          increment_version.cancel();
       }
    }
@@ -856,7 +856,7 @@ namespace eosio::hotstuff {
       EOS_ASSERT( b_lock != nullptr || _b_lock.empty(), chain_exception, "expected hs_proposal ${id} not found", ("id", _b_lock) );
 
       //fc_tlog(_logger, " === update_high_qc : proposal.justify ===");
-      update_high_qc(quorum_certificate{proposal.justify});
+      update_high_qc(quorum_certificate{proposal.justify, 21}); // TODO: use active schedule size
 
       if (chain_length<1){
          fc_dlog(_logger, " === ${id} qc chain length is 0", ("id", _id));

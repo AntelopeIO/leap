@@ -3,7 +3,7 @@
 #include <eosio/hotstuff/base_pacemaker.hpp>
 #include <eosio/hotstuff/qc_chain.hpp>
 
-#include <eosio/chain/finalizer_set.hpp>
+//#include <eosio/chain/finalizer_set.hpp>
 
 #include <boost/signals2/connection.hpp>
 
@@ -37,8 +37,7 @@ namespace eosio::hotstuff {
       name get_proposer();
       name get_leader() ;
       name get_next_leader() ;
-      //std::vector<name> get_finalizers();
-      std::vector<fc::crypto::blslib::bls_public_key> get_finalizer_keys();
+      const finalizer_set&  get_finalizer_set();
 
       block_id_type get_current_block_id();
 

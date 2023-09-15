@@ -260,38 +260,8 @@ namespace eosio { namespace hotstuff {
       return n;
    }
 
-   std::vector<fc::crypto::blslib::bls_public_key> chain_pacemaker::get_finalizer_keys() {
-
-//#warning FIXME: Use _active_finalizer_set in pacemaker/qc_chain.
-      // _active_finalizer_set should be used
-
-      std::unique_lock g( _chain_state_mutex );
-      block_state_ptr hbs = _head_block_state;
-      g.unlock();
-
-      std::vector<fc::crypto::blslib::bls_public_key> active_pub_keys;
-      active_pub_keys.reserve(_active_finalizer_set.finalizers.size());
-
-      std::transform(_active_finalizer_set.finalizers.begin(), _active_finalizer_set.finalizers.end(), active_pub_keys.begin(), [](finalizer_authority f_auth) {
-          return f_auth.public_key;
-      });
-
-      return active_pub_keys;
-
-/*      // Old code: get eosio::name from the producer schedule
-      const std::vector<producer_authority>& pa_list = hbs->active_schedule.producers;
-      std::vector<name> pn_list;
-      pn_list.reserve(pa_list.size());
-      std::transform(pa_list.begin(), pa_list.end(),
-                     std::back_inserter(pn_list),
-                     [](const producer_authority& p) { return p.producer_name; });
-      return pn_list;*/
-
-      //_active_finalizer_set.finalizers
-
-
-
-
+   const finalizer_set& chain_pacemaker::get_finalizer_set(){
+      return _active_finalizer_set;
    }
 
    block_id_type chain_pacemaker::get_current_block_id() {

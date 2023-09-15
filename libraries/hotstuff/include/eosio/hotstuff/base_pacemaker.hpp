@@ -5,6 +5,8 @@
 
 #include <fc/crypto/bls_utils.hpp>
 
+#include <eosio/chain/finalizer_set.hpp>
+
 #include <vector>
 
 namespace eosio::chain {
@@ -35,8 +37,7 @@ namespace eosio::hotstuff {
       virtual chain::name get_proposer() = 0;
       virtual chain::name get_leader() = 0;
       virtual chain::name get_next_leader() = 0;
-     // virtual std::vector<chain::name> get_finalizers() = 0;
-      virtual std::vector<fc::crypto::blslib::bls_public_key> get_finalizer_keys() = 0;
+      virtual const eosio::chain::finalizer_set& get_finalizer_set() = 0;
 
 
       //outbound communications; 'id' is the producer name (can be ignored if/when irrelevant to the implementer)

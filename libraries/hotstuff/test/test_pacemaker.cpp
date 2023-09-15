@@ -15,8 +15,12 @@ namespace eosio::hotstuff {
       _next_leader = next_leader;
    };
 
-   void test_pacemaker::set_finalizer_keys(std::vector<fc::crypto::blslib::bls_public_key> finalizer_keys) {
-      _finalizer_keys = finalizer_keys;
+/*   void test_pacemaker::set_finalizer_keys(std::vector<fc::crypto::blslib::bls_public_key> finalizer_keys) {
+      _finalizer_keys = std::move(finalizer_keys);
+   };
+*/
+   void test_pacemaker::set_finalizer_set(const eosio::chain::finalizer_set& finalizer_set) {
+      _finalizer_set = finalizer_set;
    };
 
    void test_pacemaker::set_current_block_id(block_id_type id) {
@@ -129,9 +133,9 @@ namespace eosio::hotstuff {
    name test_pacemaker::get_next_leader() {
       return _next_leader;
    };
-
-   std::vector<fc::crypto::blslib::bls_public_key> test_pacemaker::get_finalizer_keys() {
-      return _finalizer_keys;
+   
+   const finalizer_set& test_pacemaker::get_finalizer_set() {
+      return _finalizer_set;
    };
    
    block_id_type test_pacemaker::get_current_block_id() {

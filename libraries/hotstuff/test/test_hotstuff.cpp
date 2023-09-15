@@ -10,7 +10,10 @@
 
 #include <eosio/hotstuff/test_pacemaker.hpp>
 #include <eosio/hotstuff/qc_chain.hpp>
+#include <eosio/chain/finalizer_set.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 
+#include <eosio/chain/finalizer_set.hpp>
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
@@ -60,6 +63,7 @@ std::vector<std::string> unique_replica_keys {
    "PVT_BLS_2qtUuz8cYjbu/shyUPxIwKrBMSSbvolv4iJJvykUMRFl4hGt"};
 
 fc::logger hotstuff_logger;
+
 
 class hotstuff_test_handler {
 public:
@@ -204,6 +208,46 @@ BOOST_AUTO_TEST_CASE(hotstuff_bitset) try {
 } FC_LOG_AND_RETHROW();
 
 
+static std::vector<fc::crypto::blslib::bls_private_key> map_to_sks(std::vector<std::string> keys){ 
+
+   std::vector<fc::crypto::blslib::bls_private_key> sks;
+
+   std::transform(keys.cbegin(), keys.cend(), std::back_inserter(sks),
+                   [](std::string k) { return fc::crypto::blslib::bls_private_key(k); });
+   
+   return sks;
+  
+}
+
+static finalizer_set create_fs(std::vector<std::string> keys){
+   
+   std::vector<fc::crypto::blslib::bls_private_key> sks;
+   //std::vector<fc::crypto::blslib::bls_public_key> pks;
+
+   std::vector<finalizer_authority> f_auths;
+
+   f_auths.reserve(keys.size());
+
+   for (const auto& urk : keys){
+
+      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
+      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
+
+      sks.push_back(sk);
+
+      f_auths.push_back(eosio::chain::finalizer_authority{"" , 1 , pk});
+
+   }
+  
+   eosio::chain::finalizer_set fset;
+
+   fset.fthreshold = 15;
+   fset.finalizers = f_auths;
+
+   return fset;
+
+}
+
 BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    //test optimistic responsiveness (3 confirmations per block)
@@ -212,26 +256,16 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    hotstuff_test_handler ht;
 
-   std::vector<fc::crypto::blslib::bls_private_key> sks;
-   std::vector<fc::crypto::blslib::bls_public_key> pks;
+   std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
 
+   finalizer_set fset = create_fs(unique_replica_keys);
 
-   for (auto urk : unique_replica_keys){
-
-      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
-      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
-
-      sks.push_back(sk);
-      pks.push_back(pk);
-   }
-  
-  
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_keys(pks);
+   tpm.set_finalizer_set(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -240,15 +274,11 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
    finalizer_state fs_bpb;
    qcc_bpb->second->get_state(fs_bpb);
 
-   //ht.print_bp_state("bpa"_n, "");
-
    tpm.set_current_block_id(ids[0]); //first block
 
    tpm.beat(); //produce first block and associated proposal
 
    tpm.dispatch(""); //send proposal to replicas (prepare on first block)
-
-   //ht.print_bp_state("bpa"_n, "");
 
    qcc_bpa->second->get_state(fs_bpa);
    BOOST_CHECK_EQUAL(fs_bpa.b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
@@ -260,15 +290,11 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    tpm.dispatch(""); //send proposal to replicas (precommit on first block)
 
-   //ht.print_bp_state("bpa"_n, "");
-
    qcc_bpa->second->get_state(fs_bpa);
    BOOST_CHECK_EQUAL(fs_bpa.b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
    BOOST_CHECK_EQUAL(fs_bpa.high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
    BOOST_CHECK_EQUAL(fs_bpa.b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
    BOOST_CHECK_EQUAL(fs_bpa.b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
-
-
 
    tpm.dispatch(""); //propagating votes on new proposal (precommitQC on first block)
 
@@ -348,9 +374,10 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
    BOOST_CHECK_EQUAL(fs_bpb.b_lock.str(), std::string("4af7c22e5220a61ac96c35533539e65d398e9f44de4c6e11b5b0279e7a79912f"));
    BOOST_CHECK_EQUAL(fs_bpb.b_exec.str(), std::string("a8c84b7f9613aebf2ae34f457189d58de95a6b0a50d103a4c9e6405180d6fffb"));
 
-   BOOST_CHECK_EQUAL(fs_bpa.b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));/**/
 
 } FC_LOG_AND_RETHROW();
+
 
 BOOST_AUTO_TEST_CASE(hotstuff_2) try {
 
@@ -360,26 +387,16 @@ BOOST_AUTO_TEST_CASE(hotstuff_2) try {
 
    hotstuff_test_handler ht;
 
-   std::vector<fc::crypto::blslib::bls_private_key> sks;
-   std::vector<fc::crypto::blslib::bls_public_key> pks;
+   std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
 
+   finalizer_set fset = create_fs(unique_replica_keys);
 
-   for (auto urk : unique_replica_keys){
-
-      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
-      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
-
-      sks.push_back(sk);
-      pks.push_back(pk);
-   }
-  
-  
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_keys(pks);
+   tpm.set_finalizer_set(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -464,7 +481,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_2) try {
 
 } FC_LOG_AND_RETHROW();
 
-BOOST_AUTO_TEST_CASE(hotstuff_3) try {
+ BOOST_AUTO_TEST_CASE(hotstuff_3) try {
 
    //test leader rotation
 
@@ -472,25 +489,16 @@ BOOST_AUTO_TEST_CASE(hotstuff_3) try {
 
    hotstuff_test_handler ht;
 
-   std::vector<fc::crypto::blslib::bls_private_key> sks;
-   std::vector<fc::crypto::blslib::bls_public_key> pks;
+   std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
 
+   finalizer_set fset = create_fs(unique_replica_keys);
 
-   for (auto urk : unique_replica_keys){
-
-      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
-      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
-
-      sks.push_back(sk);
-      pks.push_back(pk);
-   }
-  
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_keys(pks);
+   tpm.set_finalizer_set(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -617,26 +625,16 @@ BOOST_AUTO_TEST_CASE(hotstuff_4) try {
 
    hotstuff_test_handler ht;
 
-   std::vector<fc::crypto::blslib::bls_private_key> sks;
-   std::vector<fc::crypto::blslib::bls_public_key> pks;
+   std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
 
-
-   for (auto urk : unique_replica_keys){
-
-      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
-      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
-
-      sks.push_back(sk);
-      pks.push_back(pk);
-   }
-  
+   finalizer_set fset = create_fs(unique_replica_keys);
   
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_keys(pks);
+   tpm.set_finalizer_set(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -837,78 +835,36 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
    "PVT_BLS_uQ9ONJ/oJlj+yRIjE3tiLcoIXTMEuCwMuAFL1WUDY28N97gF",
    "PVT_BLS_2qtUuz8cYjbu/shyUPxIwKrBMSSbvolv4iJJvykUMRFl4hGt"};
 
-   std::vector<fc::crypto::blslib::bls_private_key> sks1;
-   std::vector<fc::crypto::blslib::bls_public_key> pks1;
-   
-   std::vector<fc::crypto::blslib::bls_private_key> sks2;
-   std::vector<fc::crypto::blslib::bls_public_key> pks2;
-   
-   std::vector<fc::crypto::blslib::bls_private_key> sks3;
-   std::vector<fc::crypto::blslib::bls_public_key> pks3;
+   std::vector<std::string> replica_set_1;
+   std::vector<std::string> replica_set_2;
 
-   for (auto urk : honest_replica_set_keys_1){
-
-      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
-      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
-
-      sks1.push_back(sk);
-      pks1.push_back(pk);
-   }
-
-   for (auto urk : honest_replica_set_keys_2){
-
-      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
-      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
-
-      sks2.push_back(sk);
-      pks2.push_back(pk);
-   }
-
-   for (auto urk : byzantine_keys_set){
-
-      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
-      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
-
-      sks3.push_back(sk);
-      pks3.push_back(pk);
-   }
-  
-   std::vector<name> replica_set_1;
-   std::vector<name> replica_set_2;
+   std::vector<name> n_replica_set_1;
+   std::vector<name> n_replica_set_2;
 
    replica_set_1.reserve( honest_replica_set_1.size() + byzantine_set.size() );
    replica_set_2.reserve( honest_replica_set_2.size() + byzantine_set.size() );
 
-   replica_set_1.insert( replica_set_1.end(), honest_replica_set_1.begin(), honest_replica_set_1.end() );
-   replica_set_1.insert( replica_set_1.end(), byzantine_set.begin(), byzantine_set.end() );
+   replica_set_1.insert( replica_set_1.end(), honest_replica_set_keys_1.begin(), honest_replica_set_keys_1.end() );
+   replica_set_1.insert( replica_set_1.end(), byzantine_keys_set.begin(), byzantine_keys_set.end() );
 
-   replica_set_2.insert( replica_set_2.end(), honest_replica_set_2.begin(), honest_replica_set_2.end() );
-   replica_set_2.insert( replica_set_2.end(), byzantine_set.begin(), byzantine_set.end() );
+   replica_set_2.insert( replica_set_2.end(), honest_replica_set_keys_2.begin(), honest_replica_set_keys_2.end() );
+   replica_set_2.insert( replica_set_2.end(), byzantine_keys_set.begin(), byzantine_keys_set.end() );
 
-   std::vector<fc::crypto::blslib::bls_public_key> replica_pkeys_set_1;
-   std::vector<fc::crypto::blslib::bls_public_key> replica_pkeys_set_2;
+   n_replica_set_1.reserve( honest_replica_set_1.size() + byzantine_set.size() );
+   n_replica_set_2.reserve( honest_replica_set_2.size() + byzantine_set.size() );
 
-   std::vector<fc::crypto::blslib::bls_private_key> replica_skeys_set_1;
-   std::vector<fc::crypto::blslib::bls_private_key> replica_skeys_set_2;
+   n_replica_set_1.insert( n_replica_set_1.end(), honest_replica_set_1.begin(), honest_replica_set_1.end() );
+   n_replica_set_1.insert( n_replica_set_1.end(), byzantine_set.begin(), byzantine_set.end() );
 
-   replica_pkeys_set_1.reserve( pks1.size() + pks3.size() );
-   replica_pkeys_set_2.reserve( pks2.size() + pks3.size() );
+   n_replica_set_2.insert( n_replica_set_2.end(), honest_replica_set_2.begin(), honest_replica_set_2.end() );
+   n_replica_set_2.insert( n_replica_set_2.end(), byzantine_set.begin(), byzantine_set.end() );
 
-   replica_pkeys_set_1.insert( replica_pkeys_set_1.end(), pks1.begin(), pks1.end() );
-   replica_pkeys_set_1.insert( replica_pkeys_set_1.end(), pks3.begin(), pks3.end() );
+   std::vector<fc::crypto::blslib::bls_private_key> sks_1 = map_to_sks(replica_set_1);
+   std::vector<fc::crypto::blslib::bls_private_key> sks_2 = map_to_sks(replica_set_2);
 
-   replica_pkeys_set_2.insert( replica_pkeys_set_2.end(), pks2.begin(), pks2.end() );
-   replica_pkeys_set_2.insert( replica_pkeys_set_2.end(), pks3.begin(), pks3.end() );
-
-   replica_skeys_set_1.reserve( sks1.size() + sks3.size() );
-   replica_skeys_set_2.reserve( sks2.size() + sks3.size() );
-
-   replica_skeys_set_1.insert( replica_skeys_set_1.end(), sks1.begin(), sks1.end() );
-   replica_skeys_set_1.insert( replica_skeys_set_1.end(), sks3.begin(), sks3.end() );
-
-   replica_skeys_set_2.insert( replica_skeys_set_2.end(), sks2.begin(), sks2.end() );
-   replica_skeys_set_2.insert( replica_skeys_set_2.end(), sks3.begin(), sks3.end() );
-
+   finalizer_set fset_1 = create_fs(replica_set_1);
+   finalizer_set fset_2 = create_fs(replica_set_2);
+  
    //simulating a fork, where
    test_pacemaker tpm1;
    test_pacemaker tpm2;
@@ -916,24 +872,24 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
    hotstuff_test_handler ht1;
    hotstuff_test_handler ht2;
 
-   ht1.initialize_qc_chains(tpm1, replica_set_1, replica_skeys_set_1);
-
-   ht2.initialize_qc_chains(tpm2, replica_set_2, replica_skeys_set_2);
+   ht1.initialize_qc_chains(tpm1, n_replica_set_1, sks_1);
+   ht2.initialize_qc_chains(tpm2, n_replica_set_2, sks_2);
 
    tpm1.set_proposer("bpe"_n); //honest leader
    tpm1.set_leader("bpe"_n);
    tpm1.set_next_leader("bpe"_n);
-   tpm1.set_finalizer_keys(replica_pkeys_set_1);
+
+   tpm1.set_finalizer_set(fset_1);
 
    tpm2.set_proposer("bpf"_n); //byzantine leader
    tpm2.set_leader("bpf"_n);
    tpm2.set_next_leader("bpf"_n);
-   tpm2.set_finalizer_keys(replica_pkeys_set_2);
+
+   tpm2.set_finalizer_set(fset_2);
 
    auto qcc_bpe = std::find_if(ht1._qc_chains.begin(), ht1._qc_chains.end(), [&](const auto& q){ return q.first == "bpe"_n; });
    finalizer_state fs_bpe;
    qcc_bpe->second->get_state(fs_bpe);
-   //auto qcc_bpf = std::find_if(ht2._qc_chains.begin(), ht2._qc_chains.end(), [&](const auto& q){ return q.first == "bpf"_n; });
 
    std::vector<test_pacemaker::hotstuff_message> msgs;
 
@@ -1073,24 +1029,16 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
    hotstuff_test_handler ht;
 
-   std::vector<fc::crypto::blslib::bls_private_key> sks;
-   std::vector<fc::crypto::blslib::bls_public_key> pks;
+   std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
 
-   for (auto urk : unique_replica_keys){
+   finalizer_set fset = create_fs(unique_replica_keys);
 
-      fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(urk);
-      fc::crypto::blslib::bls_public_key pk = sk.get_public_key();
-
-      sks.push_back(sk);
-      pks.push_back(pk);
-   }
-  
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpg"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_keys(pks);
+   tpm.set_finalizer_set(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
