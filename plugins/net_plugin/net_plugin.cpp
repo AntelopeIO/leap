@@ -25,6 +25,8 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/multi_index/key.hpp>
+#include <boost/stacktrace/stacktrace.hpp>
+#include <boost/exception/all.hpp>
 
 #include <atomic>
 #include <cmath>
@@ -365,7 +367,7 @@ namespace eosio {
    private:
       alignas(hardware_destructive_interference_size)
       mutable std::shared_mutex        connections_mtx;
-      connection_details_index         connections GUARDED_BY(connections_mtx);
+      connection_details_index         connections;
       chain::flat_set<string>          supplied_peers;
 
       alignas(hardware_destructive_interference_size)
@@ -409,6 +411,7 @@ namespace eosio {
       void add(connection_ptr c);
       string connect(const string& host, const string& p2p_address);
       string resolve_and_connect(const string& host, const string& p2p_address);
+      void update_connection_endpoint(connection_details_index::const_iterator it, const tcp::endpoint& endpoint);
       string disconnect(const string& host);
       void close_all();
 
@@ -974,7 +977,6 @@ namespace eosio {
       bool populate_handshake( handshake_message& hello ) const;
 
       void connect( const tcp::resolver::results_type& endpoints,
-                    connections_manager::connection_details_index& connections,
                     connections_manager::connection_details_index::const_iterator conn_details );
       void start_read_message();
 
@@ -2708,8 +2710,7 @@ namespace eosio {
    //------------------------------------------------------------------------
 
    // called from connection strand
-   void connection::connect( const tcp::resolver::results_type& endpoints, 
-                             connections_manager::connection_details_index& connections,
+   void connection::connect( const tcp::resolver::results_type& endpoints,
                              connections_manager::connection_details_index::const_iterator conn_details ) {
       switch ( no_retry ) {
          case no_reason:
@@ -2733,12 +2734,9 @@ namespace eosio {
       buffer_queue.clear_out_queue();
       boost::asio::async_connect( *socket, endpoints,
          boost::asio::bind_executor( strand,
-               [c = shared_from_this(), socket=socket, &connections, conn_details]( const boost::system::error_code& err, const tcp::endpoint& endpoint ) {
+               [c = shared_from_this(), socket=socket, conn_details]( const boost::system::error_code& err, const tcp::endpoint& endpoint ) {
             if( !err && socket->is_open() && socket == c->socket ) {
-               auto& index = connections.get<by_active_ip>();
-               index.modify_key(connections.project<by_active_ip>(conn_details), [endpoint](tcp::endpoint& e) {
-                  e = endpoint;
-               });
+               my_impl->connections.update_connection_endpoint(conn_details, endpoint);
                c->update_endpoints(endpoint);
                if( c->start_session() ) {
                   c->send_handshake();
@@ -4059,7 +4057,7 @@ namespace eosio {
                EOS_ASSERT(units_match.size() == 2, plugin_config_exception, "invalid block sync rate limit specification: ${limit}", ("limit", units));
             }
             block_sync_rate_limit = boost::numeric_cast<size_t>(limit * prefix_multipliers.at(units_match[1].str()));
-            fc_dlog( logger, "setting block_sync_rate_limit to ${limit} bytes per second", ("limit", block_sync_rate_limit));
+            fc_ilog( logger, "setting block_sync_rate_limit to ${limit} megabytes per second", ("limit", double(block_sync_rate_limit)/1000000));
          } catch (boost::numeric::bad_numeric_cast&) {
             EOS_THROW(plugin_config_exception, "block sync rate limit specification overflowed: ${limit}", ("limit", limit_str));
          }
@@ -4208,7 +4206,18 @@ namespace eosio {
       set_producer_accounts(producer_plug->producer_accounts());
 
       thread_pool.start( thread_pool_size, []( const fc::exception& e ) {
-         fc_elog( logger, "Exception in net plugin thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+         using traced = boost::error_info<struct tag_stacktrace, boost::stacktrace::stacktrace>;
+         const boost::stacktrace::stacktrace* st = boost::get_error_info<traced>(e);
+         std::stringstream st_str;
+         if( st != nullptr ) {
+            st_str << *st;
+            fc_elog( logger, "stacktrace wasn't empty");
+         fc_elog( logger, "Exception in net plugin thread pool, exiting:\n${e}${trace}", ("e", e.to_detail_string())("trace", st_str.str()) );
+         }
+         else {
+            fc_elog( logger, "stacktrace was empty");
+         fc_elog( logger, "Exception in net plugin thread pool, exiting:\n${e}", ("e", e.to_detail_string()) );
+         }
          app().quit();
       } );
 
@@ -4439,7 +4448,9 @@ namespace eosio {
 
    // called by API
    string connections_manager::connect( const string& host, const string& p2p_address ) {
+      std::unique_lock g( connections_mtx );
       supplied_peers.insert(host);
+      g.unlock();
       return resolve_and_connect( host, p2p_address );
    }
 
@@ -4470,7 +4481,7 @@ namespace eosio {
                .ips = std::move(eps)
             });
             if( !err ) {
-               it->c->connect( results, connections, it );
+               it->c->connect( results, it );
             } else {
                fc_elog( logger, "Unable to resolve ${host}:${port} ${error}",
                         ("host", host)("port", port)( "error", err.message() ) );
@@ -4480,6 +4491,16 @@ namespace eosio {
       } );
 
       return "added connection";
+   }
+
+   void connections_manager::update_connection_endpoint(connection_details_index::const_iterator it,
+                                                        const tcp::endpoint& endpoint) {
+      fc_dlog(logger, "updating connection endpoint");
+      std::unique_lock g( connections_mtx );
+      auto& index = connections.get<by_active_ip>();
+      index.modify_key(connections.project<by_active_ip>(it), [endpoint](tcp::endpoint& e) {
+         e = endpoint;
+      });
    }
 
    // called by API
@@ -4617,12 +4638,15 @@ namespace eosio {
 
          if (!c->socket_is_open() && c->state() != connection::connection_state::connecting) {
             if (!c->incoming()) {
+               g.unlock();
+               fc_dlog(logger, "attempting to connect in connection_monitor");
                if (!resolve_and_connect(c->peer_address(), c->listen_address)) {
                   it = index.erase(it);
                   --num_peers;
                   ++num_rm;
                   continue;
                }
+               g.lock();
             } else {
                --num_clients;
                ++num_rm;
