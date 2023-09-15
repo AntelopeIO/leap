@@ -193,7 +193,7 @@ namespace eosio::hotstuff {
 
       std::vector<eosio::chain::finalizer_authority> c_finalizers = _pacemaker->get_finalizer_set().finalizers;
 
-      //EOS_ASSERT(c_finalizers.size() == finalizers.size(), chain_exception, "error : public keys size != finalizers size" );
+      EOS_ASSERT(c_finalizers.size() == finalizers.size(), chain_exception, "error : public keys size != finalizers size" );
 
       bool first = true;
       for (hs_bitset::size_type i = 0; i < finalizers.size(); ++i) {
