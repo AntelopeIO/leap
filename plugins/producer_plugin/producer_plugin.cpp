@@ -1047,8 +1047,8 @@ void producer_plugin::set_program_options(
    producer_options.add_options()
          ("enable-stale-production,e", boost::program_options::bool_switch()->notifier([this](bool e){my->_production_enabled = e;}), "Enable block production, even if the chain is stale.")
          ("pause-on-startup,x", boost::program_options::bool_switch()->notifier([this](bool p){my->_pause_production = p;}), "Start this node in a state where production is paused")
-         ("max-transaction-time", bpo::value<int32_t>()->default_value(30),
-          "Limits the maximum time (in milliseconds) that is allowed a pushed transaction's code to execute before being considered invalid")
+         ("max-transaction-time", bpo::value<int32_t>()->default_value(config::block_interval_ms-1),
+          "Locally lowers the max_transaction_cpu_usage limit (in milliseconds) that an input transaction is allowed to execute before being considered invalid")
          ("max-irreversible-block-age", bpo::value<int32_t>()->default_value( -1 ),
           "Limits the maximum age (in seconds) of the DPOS Irreversible Block for a chain this node will produce blocks on (use negative value to indicate unlimited)")
          ("producer-name,p", boost::program_options::value<vector<string>>()->composing()->multitoken(),
@@ -1270,28 +1270,25 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
                  ("read", _ro_read_window_time_us)("min", _ro_read_window_minimum_time_us));
       _ro_read_window_effective_time_us = _ro_read_window_time_us - _ro_read_window_minimum_time_us;
 
-      // Make sure a read-only transaction can finish within the read
-      // window if scheduled at the very beginning of the window.
-      // Add _ro_read_window_minimum_time_us for safety margin.
-      if (_max_transaction_time_ms.load() > 0) {
-         EOS_ASSERT(
-            _ro_read_window_time_us > (fc::milliseconds(_max_transaction_time_ms.load()) + _ro_read_window_minimum_time_us),
-            plugin_config_exception,
-            "read-only-read-window-time-us (${read} us) must be greater than max-transaction-time (${trx_time} us) "
-            "plus ${min} us, required: ${read} us > (${trx_time} us + ${min} us).",
-            ("read", _ro_read_window_time_us)("trx_time", _max_transaction_time_ms.load() * 1000)("min", _ro_read_window_minimum_time_us));
-      }
       ilog("read-only-write-window-time-us: ${ww} us, read-only-read-window-time-us: ${rw} us, effective read window time to be used: ${w} us",
            ("ww", _ro_write_window_time_us)("rw", _ro_read_window_time_us)("w", _ro_read_window_effective_time_us));
    }
 
-   // Make sure _ro_max_trx_time_us is alwasys set.
+   // Make sure _ro_max_trx_time_us is always set.
+   // Make sure a read-only transaction can finish within the read
+   // window if scheduled at the very beginning of the window.
+   // Add _ro_read_window_minimum_time_us for safety margin.
    if (_max_transaction_time_ms.load() > 0) {
       _ro_max_trx_time_us = fc::milliseconds(_max_transaction_time_ms.load());
    } else {
       // max-transaction-time can be set to negative for unlimited time
       _ro_max_trx_time_us = fc::microseconds::maximum();
    }
+   if (_ro_max_trx_time_us > _ro_read_window_effective_time_us) {
+      _ro_max_trx_time_us = _ro_read_window_effective_time_us;
+   }
+   ilog("Read-only max transaction time ${rot}us set to fit in the effective read-only window ${row}us.",
+        ("rot", _ro_max_trx_time_us)("row", _ro_read_window_effective_time_us));
    ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us", ("s", _ro_thread_pool_size)("t", _ro_max_trx_time_us));
 
    _incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
