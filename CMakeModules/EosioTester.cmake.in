@@ -117,13 +117,18 @@ if(UNIX AND NOT APPLE)
    target_link_libraries(EosioChain INTERFACE ${LIBRT})
 endif()
 
+add_library(EosioTester INTERFACE)
+
+target_link_libraries(EosioTester INTERFACE
+   EosioChain
+   ${libtester}
+   Boost::unit_test_framework
+)
+
 macro(add_eosio_test_executable test_name)
    add_executable( ${test_name} ${ARGN} )
    target_link_libraries( ${test_name}
-       EosioChain
-       ${libtester}
-
-       Boost::unit_test_framework
+       EosioTester
       )
 
 endmacro()
