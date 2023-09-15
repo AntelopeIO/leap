@@ -449,7 +449,7 @@ namespace eosio { namespace testing {
 
    class tester : public base_tester {
    public:
-      tester(setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::HEAD, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}, std::optional<uint32_t> config_max_nonprivileged_inline_action_size = std::optional<uint32_t>{}) {
+      tester(setup_policy policy = setup_policy::full, db_read_mode read_mode = db_read_mode::HEAD, std::optional<uint32_t> genesis_max_inline_action_size = std::optional<uint32_t>{}) {
          init(policy, read_mode, genesis_max_inline_action_size);
       }
 
