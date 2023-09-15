@@ -1258,8 +1258,7 @@ struct controller_impl {
              || (code == contract_blacklist_exception::code_value)
              || (code == action_blacklist_exception::code_value)
              || (code == key_blacklist_exception::code_value)
-             || (code == sig_variable_size_limit_exception::code_value)
-             || (code == inline_action_too_big_nonprivileged::code_value);
+             || (code == sig_variable_size_limit_exception::code_value);
    }
 
    bool scheduled_failure_is_subjective( const fc::exception& e ) const {
@@ -2746,11 +2745,6 @@ subjective_billing& controller::get_mutable_subjective_billing() {
    return my->subjective_bill;
 }
 
-
-uint32_t controller::get_max_nonprivileged_inline_action_size()const
-{
-   return my->conf.max_nonprivileged_inline_action_size;
-}
 
 controller::controller( const controller::config& cfg, const chain_id_type& chain_id )
 :my( new controller_impl( cfg, *this, protocol_feature_set{}, chain_id ) )
