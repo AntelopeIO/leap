@@ -120,9 +120,9 @@ endif()
 add_library(EosioTester INTERFACE)
 
 target_link_libraries(EosioTester INTERFACE
-   EosioChain
    ${libtester}
    Boost::unit_test_framework
+   EosioChain
 )
 
 macro(add_eosio_test_executable test_name)
