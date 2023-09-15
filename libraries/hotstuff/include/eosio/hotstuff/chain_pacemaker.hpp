@@ -27,6 +27,7 @@ namespace eosio::hotstuff {
          _new_commitments.push_back(commitment);
       }
 
+      // called from main thread
       void get_new_commitments() {
          fc::lock_guard g(_m);
          for (auto& c : _new_commitments) {
@@ -52,7 +53,8 @@ namespace eosio::hotstuff {
       }
 
       // called from main thread
-      void seen_commitment(const hs_commitment& commitment) {
+      // `commitment` was seen included in an irreversible block
+      void seen_irreversible_commitment(const hs_commitment& commitment) {
          const hs_proposal_message& p = commitment.b;
          uint32_t block_num = block_header::num_from_id(p.block_id);
 
@@ -74,6 +76,52 @@ namespace eosio::hotstuff {
                                                  return a < block_header::num_from_id(b.b.block_id);
                                               });
             pending.erase(pending.begin(), keep_from);
+         }
+      }
+
+      // called from main thread
+      void store_finset_proposal(const block_state_ptr& blk, finalizer_set&& finset) {
+         uint32_t block_num = block_header::num_from_id(blk->id);
+         _finsets[block_num] = std::move(finset);
+      }
+
+      // called from main thread
+      void process_commitments(const hs_commitments& hs_commitments) {
+         // assert(fc::get_thread_name() == "main"); // figure out main thread's name
+
+         // todo: check that `_active_finset` is valid. it should be persisted in snapshots, and updated
+         // in this class when a snapshot is loaded
+         
+         // These are commitments we see on `accepted_block` signal from controller (stored as block extensions),
+         // giving us a chance to move the lib while syncing. The trick is that to correcly verify these proofs,
+         // we need to know what was the active finalizer set at the time the commitment was produced. We track
+         // it with `_active_finset`.
+         // - commitments need to be validated against the `_active_finset` member
+         // - if a commitment makes a block `lib`, and said block contains a `finalizer_set` extension
+         //   then `_active_finset` needs to be updated with the `finset` from the block extension,
+         //   and we need to remove that finset from our `_finsets` vector
+         // - if we validate a commitment on a block number greater than the current `lib`, we need
+         //   to move the `lib` by calling `_chain->set_hs_irreversible_block_num()`.
+         uint32_t current_lib = _chain->get_hs_irreversible_block_num();
+         for (const auto c : hs_commitments) {
+            const hs_proposal_message& p = c.b;
+            uint32_t block_num = block_header::num_from_id(p.block_id); // block that this commitment proves is final
+         
+            const finalizer_set* new_finset {nullptr};
+            if (auto it = _finsets.find(block_num); it != _finsets.end())
+               new_finset = &it->second;
+
+            if (new_finset || block_num > current_lib) {
+               // we need to verify that the commitment is correct
+               if (c.verify(_active_finset)) {
+                  if (block_num > current_lib)
+                     _chain->set_hs_irreversible_block_num(block_num);
+                  if (new_finset) {
+                     _active_finset = *new_finset;
+                     _finsets.erase(block_num);
+                  }
+               }
+            }
          }
       }
       
@@ -99,6 +147,13 @@ namespace eosio::hotstuff {
 
       uint32_t                          _last_pushed_commitment;
       std::map<uint32_t, hs_commitment> _commitments;
+
+      // these members are used only when syncing to advance LIB, according to commitment proofs
+      // found in block extensions. These commitment proofs are verified using the current
+      // finalizer_set (finset), which can also change while syncing
+      // ---------------------------------------------------------------------------------------
+      std::map<uint32_t, finalizer_set>  _finsets;       // keep track of finset proposals
+      finalizer_set                      _active_finset; // finset used to validate commitments proofs
    };
 
    class chain_pacemaker : public base_pacemaker {

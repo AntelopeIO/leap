@@ -218,8 +218,24 @@ namespace eosio { namespace hotstuff {
 
    // called from main thread
    void chain_pacemaker::on_accepted_block( const block_state_ptr& blk ) {
-      std::scoped_lock g( _chain_state_mutex );
-      _head_block_state = blk;
+      {
+         std::scoped_lock g( _chain_state_mutex );
+         _head_block_state = blk;
+      }
+      if (!blk->block->header_extensions.empty()) {
+         std::optional<block_header_extension> ext = blk->block->extract_header_extension(hs_finalizer_set_extension::extension_id());
+         if (ext) {
+            _commitment_mgr.store_finset_proposal(blk, std::move(std::get<hs_finalizer_set_extension>(*ext)));
+         }
+      }
+      signed_block_ptr sb = blk->block;
+      std::optional<block_extension> ext = sb->extract_extension(hs_commitment_extension::extension_id());
+      if (ext) {
+         const auto& hs_commitments = std::get<hs_commitment_extension>(*ext).commitments;
+         if (!hs_commitments.empty()) {
+            _commitment_mgr.process_commitments(hs_commitments);
+         }
+      }
    }
 
    // called from main thread
@@ -230,9 +246,10 @@ namespace eosio { namespace hotstuff {
       if (!blk->block->header_extensions.empty()) {
          std::optional<block_header_extension> ext = blk->block->extract_header_extension(hs_finalizer_set_extension::extension_id());
          if (ext) {
-            std::scoped_lock g( _chain_state_mutex );
-            _active_finalizer_set = std::move(std::get<hs_finalizer_set_extension>(*ext));
-            
+            {
+               std::scoped_lock g( _chain_state_mutex );
+               _active_finalizer_set = std::move(std::get<hs_finalizer_set_extension>(*ext));
+            }
             _commitment_mgr.push_required_commitment(blk);
          }
       }
@@ -250,7 +267,7 @@ namespace eosio { namespace hotstuff {
          const auto& hs_commitments = std::get<hs_commitment_extension>(*ext).commitments;
          if (!hs_commitments.empty()) {
             const hs_commitment& c = hs_commitments.back();
-            _commitment_mgr.seen_commitment(c);
+            _commitment_mgr.seen_irreversible_commitment(c);
          }
       }
    }

@@ -123,6 +123,7 @@ add_library( eosio_chain
 
              authority.cpp
              finalizer_set.cpp
+             hotstuff.cpp
              trace.cpp
              transaction_metadata.cpp
              protocol_state_object.cpp

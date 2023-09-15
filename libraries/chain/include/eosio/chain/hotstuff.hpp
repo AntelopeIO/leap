@@ -10,6 +10,9 @@
 
 namespace eosio::chain {
 
+   struct finalizer_set;
+   struct hs_proposal_message;
+   
    using hs_bitset = boost::dynamic_bitset<uint32_t>;
    using bls_key_map_t = std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key>;
 
@@ -26,6 +29,8 @@ namespace eosio::chain {
       fc::sha256                          proposal_id;
       std::vector<unsigned_int>           active_finalizers; //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
+
+      bool verify(const hs_proposal_message& m, const finalizer_set& finset) const;
    };
 
    struct hs_vote_message {
@@ -44,6 +49,7 @@ namespace eosio::chain {
 
       uint32_t block_num() const { return block_header::num_from_id(block_id); }
       uint64_t get_height() const { return compute_height(block_header::num_from_id(block_id), phase_counter); };
+      bool verify(const hs_proposal_message& parent, const finalizer_set& finset) const;
    };
 
    struct hs_new_block_message {
@@ -84,6 +90,8 @@ namespace eosio::chain {
       hs_proposal_message b1;
       hs_proposal_message b2;
       hs_proposal_message bstar;
+
+      bool verify(const finalizer_set& finset) const;
    };
 
    using hs_commitments = std::vector<hs_commitment>;

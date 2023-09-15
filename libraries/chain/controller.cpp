@@ -3002,10 +3002,6 @@ void controller::commit_block() {
    my->commit_block(block_status::incomplete);
 }
 
-void controller::set_hs_irreversible_block_num(uint32_t block_num) { // called from HotStuff consensus
-   (void)block_num;
-}
-
 hs_commitments& controller::get_hs_commitments() {
    return my->get_hs_commitments();
 }
