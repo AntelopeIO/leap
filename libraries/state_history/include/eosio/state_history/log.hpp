@@ -512,13 +512,7 @@ class state_history_log {
          EOS_ASSERT( block_num > 2, chain::plugin_exception, "Existing ship log with ${eb} blocks when starting from genesis block ${b}",
                      ("eb", _end_block)("b", block_num) );
          // block_num < _begin_block = pruned log, need to call truncate() to reset
-         if ( block_num < _begin_block ) {
-            truncate(block_num); //truncate is expected to always leave file pointer at the end
-         } else {
-            if (start_block_num == block_num || block_num % 1000 == 0 )
-               ilog("log ${name}.log already contains block ${b}, end block ${eb}", ("name", name)("b", block_num)("eb", _end_block));
-            return;
-         }
+         truncate(block_num); //truncate is expected to always leave file pointer at the end
       } else if (!prune_config) {
          log.seek_end(0);
       } else if (prune_config && _begin_block != _end_block) {
