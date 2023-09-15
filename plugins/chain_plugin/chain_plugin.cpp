@@ -368,7 +368,6 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "'none' - EOS VM OC tier-up is completely disabled.\n")
 #endif
          ("enable-account-queries", bpo::value<bool>()->default_value(false), "enable queries to find accounts by various metadata.")
-         ("max-nonprivileged-inline-action-size", bpo::value<uint32_t>()->default_value(config::default_max_nonprivileged_inline_action_size), "maximum allowed size (in bytes) of an inline action for a nonprivileged account")
          ("transaction-retry-max-storage-size-gb", bpo::value<uint64_t>(),
           "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 enables this feature.")
          ("transaction-retry-interval-sec", bpo::value<uint32_t>()->default_value(20),
@@ -632,9 +631,6 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
 
       if( options.count( "chain-state-db-guard-size-mb" ))
          chain_config->state_guard_size = options.at( "chain-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
-
-      if( options.count( "max-nonprivileged-inline-action-size" ))
-         chain_config->max_nonprivileged_inline_action_size = options.at( "max-nonprivileged-inline-action-size" ).as<uint32_t>();
 
       if( options.count( "transaction-finality-status-max-storage-size-gb" )) {
          const uint64_t max_storage_size = options.at( "transaction-finality-status-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;

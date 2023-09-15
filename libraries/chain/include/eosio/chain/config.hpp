@@ -79,7 +79,6 @@ const static uint32_t   default_sig_cpu_bill_pct                     = 50 * perc
 const static uint32_t   default_block_cpu_effort_pct                 = 90 * percent_1; // percentage of block time used for producing block
 const static uint16_t   default_controller_thread_pool_size          = 2;
 const static uint32_t   default_max_variable_signature_length        = 16384u;
-const static uint32_t   default_max_nonprivileged_inline_action_size = 4 * 1024; // 4 KB
 const static uint32_t   default_max_action_return_value_size         = 256;
 
 const static uint32_t   default_max_transaction_finality_status_success_duration_sec = 180;
