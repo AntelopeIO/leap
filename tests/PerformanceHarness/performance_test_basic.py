@@ -173,7 +173,7 @@ class PerformanceTestBasic:
         userTrxDataFile: Path=None
         endpointMode: str="p2p"
         apiEndpoint: str=None
-
+        trxGenerator: Path=Path(".")
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
@@ -454,7 +454,7 @@ class PerformanceTestBasic:
         self.data.startBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         tpsTrxGensConfig = TpsTrxGensConfig(targetTps=self.ptbConfig.targetTps, tpsLimitPerGenerator=self.ptbConfig.tpsLimitPerGenerator, connectionPairList=self.connectionPairList)
 
-        self.cluster.trxGenLauncher = TransactionGeneratorsLauncher(chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.account.name,
+        self.cluster.trxGenLauncher = TransactionGeneratorsLauncher(trxGenerator=self.ptbConfig.trxGenerator, chainId=chainId, lastIrreversibleBlockId=lib_id, contractOwnerAccount=self.clusterConfig.specifiedContract.account.name,
                                                        accts=','.join(map(str, self.accountNames)), privateKeys=','.join(map(str, self.accountPrivKeys)),
                                                        trxGenDurationSec=self.ptbConfig.testTrxGenDurationSec, logDir=self.trxGenLogDirPath,
                                                        abiFile=abiFile, actionsData=actionsDataJson, actionsAuths=actionsAuthsJson,
@@ -722,6 +722,7 @@ class PtbArgumentsHandler(object):
                                          block log file is removed after startup.", default=None)
         ptbBaseParserGroup.add_argument("--http-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in http thread pool", default=2)
         ptbBaseParserGroup.add_argument("--chain-state-db-size-mb", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum size (in MiB) of the chain state database", default=25600)
+        ptbBaseParserGroup.add_argument("--trx-generator", type=str, help=argparse.SUPPRESS if suppressHelp else "Transaction Generator executable", default="./tests/trx_generator/trx_generator")
 
         return ptbBaseParser
 

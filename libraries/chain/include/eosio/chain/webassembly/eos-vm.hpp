@@ -49,8 +49,11 @@ class eos_vm_runtime : public eosio::chain::wasm_runtime_interface {
 
    private:
       // todo: managing this will get more complicated with sync calls;
-      eos_vm_backend_t<Backend>* _bkend = nullptr;  // non owning pointer to allow for immediate exit
-      context_t _exec_ctx;
+      // Each thread uses its own backend and exec context.
+      // Their constructors do not take any arguments; therefore their life time
+      // do not rely on others. Safe to be thread_local.
+      thread_local static eos_vm_backend_t<Backend> _bkend;
+      thread_local static context_t                 _exec_ctx;
 
    template<typename Impl>
    friend class eos_vm_instantiated_module;

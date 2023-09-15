@@ -106,7 +106,7 @@ find_package(ZLIB REQUIRED)
 target_include_directories(fc PUBLIC include)
 
 # try and make this very clear that this json parser is intended only for webauthn parsing..
-set_source_files_properties(src/crypto/elliptic_webauthn.cpp PROPERTIES COMPILE_FLAGS "-I${CMAKE_CURRENT_SOURCE_DIR}/include/fc/crypto/webauthn_json/include")
+set_source_files_properties(src/crypto/elliptic_webauthn.cpp PROPERTIES INCLUDE_DIRECTORIES "${CMAKE_CURRENT_SOURCE_DIR}/include/fc/crypto/webauthn_json/include")
 
 if(WIN32)
   target_link_libraries( fc PUBLIC ws2_32 mswsock userenv )

@@ -288,13 +288,14 @@ namespace eosio::hotstuff {
       return v_msg;
    }
 
-   void qc_chain::process_proposal(const hs_proposal_message & proposal){
+   void qc_chain::process_proposal(const std::optional<uint32_t>& connection_id, const hs_proposal_message& proposal){
 
       if (!proposal.justify.proposal_id.empty()) {
 
          const hs_proposal_message *jp = get_proposal( proposal.justify.proposal_id );
          if (jp == nullptr) {
             fc_elog(_logger, " *** ${id} proposal justification unknown : ${proposal_id}", ("id",_id)("proposal_id", proposal.justify.proposal_id));
+            send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
             return; //can't recognize a proposal with an unknown justification
          }
       }
@@ -313,6 +314,7 @@ namespace eosio::hotstuff {
 
          }
 
+         send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
          return; //already aware of proposal, nothing to do
       }
 
@@ -403,7 +405,7 @@ namespace eosio::hotstuff {
       update(proposal);
 
       for (auto &msg : msgs) {
-         send_hs_vote_msg(msg);
+         send_hs_vote_msg( std::nullopt, msg );
       }
 
       //check for leader change
@@ -413,7 +415,7 @@ namespace eosio::hotstuff {
       //fc_dlog(_logger, " ... process_proposal() total time : ${total_time}", ("total_time", total_time));
    }
 
-   void qc_chain::process_vote(const hs_vote_message & vote){
+   void qc_chain::process_vote(const std::optional<uint32_t>& connection_id, const hs_vote_message& vote){
 
       //auto start = fc::time_point::now();
 #warning check for duplicate or invalid vote. We will return in either case, but keep proposals for evidence of double signing
@@ -426,12 +428,15 @@ namespace eosio::hotstuff {
       fc_tlog(_logger, " === Process vote from ${finalizer_key} : current bitset ${value}" ,
               ("finalizer_key", vote.finalizer_key)("value", _current_qc.get_active_finalizers_string()));
       // only leader need to take action on votes
-      if (vote.proposal_id != _current_qc.get_proposal_id())
+      if (vote.proposal_id != _current_qc.get_proposal_id()) {
+         send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
          return;
+      }
 
       const hs_proposal_message *p = get_proposal( vote.proposal_id );
       if (p == nullptr) {
          fc_elog(_logger, " *** ${id} couldn't find proposal, vote : ${vote}", ("id",_id)("vote", vote));
+         send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
          return;
       }
 
@@ -483,7 +488,7 @@ namespace eosio::hotstuff {
                _pending_proposal_block = {};
                _b_leaf = proposal_candidate.proposal_id;
 
-               send_hs_proposal_msg(proposal_candidate);
+               send_hs_proposal_msg( std::nullopt, proposal_candidate );
                fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
             }
          }
@@ -493,7 +498,7 @@ namespace eosio::hotstuff {
       //fc_tlog(_logger, " ... process_vote() total time : ${total_time}", ("total_time", total_time));
    }
 
-   void qc_chain::process_new_view(const hs_new_view_message & msg){
+   void qc_chain::process_new_view(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg){
       fc_tlog(_logger, " === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
       if (!update_high_qc(quorum_certificate{msg.high_qc, 21})) { // TODO: use active schedule size
@@ -501,7 +506,7 @@ namespace eosio::hotstuff {
       }
    }
 
-   void qc_chain::process_new_block(const hs_new_block_message & msg){
+   void qc_chain::process_new_block(const std::optional<uint32_t>& connection_id, const hs_new_block_message& msg){
 
       // If I'm not a leader, I probably don't care about hs-new-block messages.
 #warning check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
@@ -551,32 +556,39 @@ namespace eosio::hotstuff {
          _pending_proposal_block = {};
          _b_leaf = proposal_candidate.proposal_id;
 
-         send_hs_proposal_msg(proposal_candidate);
+         send_hs_proposal_msg( std::nullopt, proposal_candidate );
 
          fc_tlog(_logger, " === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
       }
    }
 
-   void qc_chain::send_hs_proposal_msg(const hs_proposal_message & msg){
+   void qc_chain::send_hs_proposal_msg(const std::optional<uint32_t>& connection_id, const hs_proposal_message & msg){
       fc_tlog(_logger, " === broadcast_hs_proposal ===");
-      _pacemaker->send_hs_proposal_msg(msg, _id);
-      process_proposal(msg);
+      _pacemaker->send_hs_proposal_msg(msg, _id, connection_id);
+      if (!connection_id.has_value())
+         process_proposal( std::nullopt, msg );
    }
 
-   void qc_chain::send_hs_vote_msg(const hs_vote_message & msg){
+   void qc_chain::send_hs_vote_msg(const std::optional<uint32_t>& connection_id, const hs_vote_message & msg){
       fc_tlog(_logger, " === broadcast_hs_vote ===");
-      _pacemaker->send_hs_vote_msg(msg, _id);
-      process_vote(msg);
+      _pacemaker->send_hs_vote_msg(msg, _id, connection_id);
+      if (!connection_id.has_value())
+         process_vote( std::nullopt, msg );
    }
 
-   void qc_chain::send_hs_new_view_msg(const hs_new_view_message & msg){
+   void qc_chain::send_hs_new_view_msg(const std::optional<uint32_t>& connection_id, const hs_new_view_message & msg){
       fc_tlog(_logger, " === broadcast_hs_new_view ===");
-      _pacemaker->send_hs_new_view_msg(msg, _id);
+      _pacemaker->send_hs_new_view_msg(msg, _id, connection_id);
    }
 
-   void qc_chain::send_hs_new_block_msg(const hs_new_block_message & msg){
+   void qc_chain::send_hs_new_block_msg(const std::optional<uint32_t>& connection_id, const hs_new_block_message & msg){
       fc_tlog(_logger, " === broadcast_hs_new_block ===");
-      _pacemaker->send_hs_new_block_msg(msg, _id);
+      _pacemaker->send_hs_new_block_msg(msg, _id, connection_id);
+   }
+
+   void qc_chain::send_hs_message_warning(const std::optional<uint32_t>& connection_id, const chain::hs_message_warning code) {
+      if (connection_id.has_value())
+         _pacemaker->send_hs_message_warning(connection_id.value(), code);
    }
 
    //extends predicate
@@ -639,7 +651,7 @@ namespace eosio::hotstuff {
 
          fc_tlog(_logger, " === I am a leader-proposer that is proposing a block for itself to lead");
          // Hardwired consumption by self; no networking.
-         process_new_block( block_candidate );
+         process_new_block( std::nullopt, block_candidate );
 
       } else {
 
@@ -647,7 +659,7 @@ namespace eosio::hotstuff {
          //   the network, until it reaches the leader.
 
          fc_tlog(_logger, " === broadcasting new block = #${block_num} ${proposal_id}", ("proposal_id", block_candidate.block_id)("block_num",(block_header::num_from_id(block_candidate.block_id))));
-         send_hs_new_block_msg( block_candidate );
+         send_hs_new_block_msg( std::nullopt, block_candidate );
       }
    }
 
@@ -715,7 +727,7 @@ namespace eosio::hotstuff {
 
          new_view.high_qc = _high_qc.to_msg();
 
-         send_hs_new_view_msg(new_view);
+         send_hs_new_view_msg( std::nullopt, new_view );
       }
    }
 
@@ -819,23 +831,23 @@ namespace eosio::hotstuff {
    }
 
    //on proposal received, called from network thread
-   void qc_chain::on_hs_proposal_msg(const hs_proposal_message& msg) {
-      process_proposal(msg);
+   void qc_chain::on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg) {
+      process_proposal( std::optional<uint32_t>(connection_id), msg );
    }
 
    //on vote received, called from network thread
-   void qc_chain::on_hs_vote_msg(const hs_vote_message& msg) {
-      process_vote(msg);
+   void qc_chain::on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg) {
+      process_vote( std::optional<uint32_t>(connection_id), msg );
    }
 
    //on new view received, called from network thread
-   void qc_chain::on_hs_new_view_msg(const hs_new_view_message& msg) {
-      process_new_view(msg);
+   void qc_chain::on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg) {
+      process_new_view( std::optional<uint32_t>(connection_id), msg );
    }
 
    //on new block received, called from network thread
-   void qc_chain::on_hs_new_block_msg(const hs_new_block_message& msg) {
-      process_new_block(msg);
+   void qc_chain::on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg) {
+      process_new_block( std::optional<uint32_t>(connection_id), msg );
    }
 
    void qc_chain::update(const hs_proposal_message& proposal) {

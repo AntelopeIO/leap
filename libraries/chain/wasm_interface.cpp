@@ -32,15 +32,19 @@
 
 namespace eosio { namespace chain {
 
-   wasm_interface::wasm_interface(vm_type vm, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
-     : my( new wasm_interface_impl(vm, d, data_dir, eosvmoc_config, profile) ) {}
+   wasm_interface::wasm_interface(vm_type vm, vm_oc_enable eosvmoc_tierup, const chainbase::database& d, const std::filesystem::path data_dir, const eosvmoc::config& eosvmoc_config, bool profile)
+     : eosvmoc_tierup(eosvmoc_tierup), my( new wasm_interface_impl(vm, eosvmoc_tierup, d, data_dir, eosvmoc_config, profile) ) {}
 
    wasm_interface::~wasm_interface() {}
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
    void wasm_interface::init_thread_local_data() {
-      if (my->wasm_runtime_time == wasm_interface::vm_type::eos_vm_oc && my->runtime_interface)
+      // OC tierup and OC runtime are mutually exclusive
+      if (my->eosvmoc) {
+         my->eosvmoc->init_thread_local_data();
+      } else if (my->wasm_runtime_time == wasm_interface::vm_type::eos_vm_oc && my->runtime_interface) {
          my->runtime_interface->init_thread_local_data();
+      }
    }
 #endif
 
@@ -76,11 +80,39 @@ namespace eosio { namespace chain {
       my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
    }
 
-   void wasm_interface::current_lib(const uint32_t lib, const std::function<void(const digest_type&, uint8_t)>& callback) {
-      my->current_lib(lib, callback);
+   void wasm_interface::current_lib(const uint32_t lib) {
+      my->current_lib(lib);
    }
 
    void wasm_interface::apply( const digest_type& code_hash, const uint8_t& vm_type, const uint8_t& vm_version, apply_context& context ) {
+      if (substitute_apply && substitute_apply(code_hash, vm_type, vm_version, context))
+         return;
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+      if (my->eosvmoc && (eosvmoc_tierup == wasm_interface::vm_oc_enable::oc_all || context.should_use_eos_vm_oc())) {
+         const chain::eosvmoc::code_descriptor* cd = nullptr;
+         chain::eosvmoc::code_cache_base::get_cd_failure failure = chain::eosvmoc::code_cache_base::get_cd_failure::temporary;
+         try {
+            const bool high_priority = context.get_receiver().prefix() == chain::config::system_account_name;
+            cd = my->eosvmoc->cc.get_descriptor_for_code(high_priority, code_hash, vm_version, context.control.is_write_window(), failure);
+            if (test_disable_tierup)
+               cd = nullptr;
+         } catch (...) {
+            // swallow errors here, if EOS VM OC has gone in to the weeds we shouldn't bail: continue to try and run baseline
+            // In the future, consider moving bits of EOS VM that can fire exceptions and such out of this call path
+            static bool once_is_enough;
+            if (!once_is_enough)
+               elog("EOS VM OC has encountered an unexpected failure");
+            once_is_enough = true;
+         }
+         if (cd) {
+            if (!context.is_applying_block()) // read_only_trx_test.py looks for this log statement
+               tlog("${a} speculatively executing ${h} with eos vm oc", ("a", context.get_receiver())("h", code_hash));
+            my->eosvmoc->exec->execute(*cd, *my->eosvmoc->mem, context);
+            return;
+         }
+      }
+#endif
+
       my->get_instantiated_module(code_hash, vm_type, vm_version, context.trx_context)->apply(context);
    }
 
@@ -88,8 +120,19 @@ namespace eosio { namespace chain {
       return my->is_code_cached(code_hash, vm_type, vm_version);
    }
 
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+   bool wasm_interface::is_eos_vm_oc_enabled() const {
+      return my->is_eos_vm_oc_enabled();
+   }
+#endif
+
    wasm_instantiated_module_interface::~wasm_instantiated_module_interface() = default;
    wasm_runtime_interface::~wasm_runtime_interface() = default;
+
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+   thread_local std::unique_ptr<eosvmoc::executor> wasm_interface_impl::eosvmoc_tier::exec{};
+   thread_local std::unique_ptr<eosvmoc::memory>   wasm_interface_impl::eosvmoc_tier::mem{};
+#endif
 
 std::istream& operator>>(std::istream& in, wasm_interface::vm_type& runtime) {
    std::string s;

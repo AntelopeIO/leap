@@ -106,7 +106,6 @@ add_library( eosio_chain
 
               wast_to_wasm.cpp
               wasm_interface.cpp
-              wasm_interface_collection.cpp
               wasm_eosio_validation.cpp
               wasm_eosio_injection.cpp
               wasm_config.cpp

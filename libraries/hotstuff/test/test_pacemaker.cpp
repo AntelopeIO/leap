@@ -158,28 +158,33 @@ namespace eosio::hotstuff {
          _qcc_store.emplace( name, qcc_ptr );
    };
 
-   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
+
+   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id) {
+   void test_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id) {
+   void test_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id) {
+   void test_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
+
+   void test_pacemaker::send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code) { }
 
    void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
+
       auto qc_itr = _qcc_store.begin();
       while (qc_itr != _qcc_store.end()){
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) ) qcc_ptr->on_hs_proposal_msg(msg);
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+            qcc_ptr->on_hs_proposal_msg(0, msg);
          qc_itr++;
       }
    }
@@ -189,7 +194,8 @@ namespace eosio::hotstuff {
       while (qc_itr != _qcc_store.end()) {
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) ) qcc_ptr->on_hs_vote_msg(msg);
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+            qcc_ptr->on_hs_vote_msg(0, msg);
          qc_itr++;
       }
    }
@@ -199,7 +205,8 @@ namespace eosio::hotstuff {
       while (qc_itr != _qcc_store.end()) {
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) ) qcc_ptr->on_hs_new_block_msg(msg);
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+            qcc_ptr->on_hs_new_block_msg(0, msg);
          qc_itr++;
       }
    }
@@ -209,7 +216,8 @@ namespace eosio::hotstuff {
       while (qc_itr != _qcc_store.end()){
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) ) qcc_ptr->on_hs_new_view_msg(msg);
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+            qcc_ptr->on_hs_new_view_msg(0, msg);
          qc_itr++;
       }
    }

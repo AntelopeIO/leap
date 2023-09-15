@@ -49,6 +49,8 @@ class PerformanceTest:
         userTrxDataFile: Path=None
         endpointMode: str="p2p"
         opModeCmd: str=""
+        trxGenerator: Path=Path(".")
+
 
         def __post_init__(self):
             self.opModeDesc = "Block Producer Operational Mode" if self.opModeCmd == "testBpOpMode" else "API Node Operational Mode" if self.opModeCmd == "testApiOpMode" else "Undefined Operational Mode"
@@ -112,7 +114,8 @@ class PerformanceTest:
             scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=binSearchTarget, searchFloor=floor, searchCeiling=ceiling)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=binSearchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                        numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=logDirRoot, delReport=delReport,
-                                                       quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointMode=self.ptConfig.endpointMode)
+                                                       quiet=quiet, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointMode=self.ptConfig.endpointMode,
+                                                       trxGenerator=self.ptConfig.trxGenerator)
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig, testNamePath=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0])
             myTest.runTest()
@@ -154,7 +157,8 @@ class PerformanceTest:
             scenarioResult = PerformanceTest.PerfTestSearchIndivResult(success=False, searchTarget=searchTarget, searchFloor=absFloor, searchCeiling=absCeiling)
             ptbConfig = PerformanceTestBasic.PtbConfig(targetTps=searchTarget, testTrxGenDurationSec=self.ptConfig.testDurationSec, tpsLimitPerGenerator=self.ptConfig.tpsLimitPerGenerator,
                                                     numAddlBlocksToPrune=self.ptConfig.numAddlBlocksToPrune, logDirRoot=self.loggingConfig.ptbLogsDirPath, delReport=self.ptConfig.delReport,
-                                                    quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointMode=self.ptConfig.endpointMode)
+                                                    quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointMode=self.ptConfig.endpointMode,
+                                                    trxGenerator=self.ptConfig.trxGenerator)
 
             myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig, testNamePath=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0])
             myTest.runTest()
