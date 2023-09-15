@@ -15,10 +15,6 @@ namespace eosio::hotstuff {
       _next_leader = next_leader;
    };
 
-/*   void test_pacemaker::set_finalizer_keys(std::vector<fc::crypto::blslib::bls_public_key> finalizer_keys) {
-      _finalizer_keys = std::move(finalizer_keys);
-   };
-*/
    void test_pacemaker::set_finalizer_set(const eosio::chain::finalizer_set& finalizer_set) {
       _finalizer_set = finalizer_set;
    };

@@ -21,7 +21,6 @@ namespace eosio { namespace hotstuff {
 
       void set_next_leader(name next_leader);
 
-      //void set_finalizer_keys(std::vector<fc::crypto::blslib::bls_public_key> finalizers);
       void set_finalizer_set(const eosio::chain::finalizer_set& finalizer_set);
 
       void set_current_block_id(block_id_type id);
@@ -81,7 +80,6 @@ namespace eosio { namespace hotstuff {
       name _leader;
       name _next_leader;
 
-      //std::vector<fc::crypto::blslib::bls_public_key> _finalizer_keys;
       finalizer_set _finalizer_set;
 
       block_id_type _current_block_id;
