@@ -1435,10 +1435,16 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, validating_tester) { try {
    // test send_action_empty
    CALL_TEST_FUNCTION(*this, "test_transaction", "send_action_empty", {});
 
-   // test send_action_large
-   BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_transaction", "send_action_large", {}), inline_action_too_big_nonprivileged,
+   // test send_action_large (512k)
+   CALL_TEST_FUNCTION( *this, "test_transaction", "send_action_512k", {});
+
+   // test send_many_actions_512k (512k)
+   CALL_TEST_FUNCTION( *this, "test_transaction", "send_many_actions_512k", {});
+
+   // test send_action_large (512k + 1)
+   BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_transaction", "send_action_large", {}), inline_action_too_big,
          [](const fc::exception& e) {
-            return expect_assert_message(e, "inline action too big for nonprivileged account");
+            return expect_assert_message(e, "inline action too big");
          }
       );
 
@@ -1611,38 +1617,6 @@ BOOST_AUTO_TEST_CASE(inline_action_objective_limit) { try {
 
 } FC_LOG_AND_RETHROW() }
 
-BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit_failure) { try {
-   const uint32_t _4k = 4 * 1024;
-   tester chain(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k});
-   chain.produce_blocks(2);
-   chain.create_accounts( {"testapi"_n, "testapi2"_n, "alice"_n} );
-   chain.set_code( "testapi"_n, test_contracts::test_api_wasm() );
-   chain.set_code( "testapi2"_n, test_contracts::test_api_wasm() );
-   chain.produce_block();
-
-   transaction_trace_ptr trace;
-   auto c = chain.control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
-      auto& t = std::get<0>(x);
-      if (t->scheduled) { trace = t; }
-   } );
-   CALL_TEST_FUNCTION(chain, "test_transaction", "send_deferred_transaction_4k_action", {} );
-   BOOST_CHECK(!trace);
-   BOOST_CHECK_EXCEPTION(chain.produce_block( fc::seconds(2) ), fc::exception,
-                         [](const fc::exception& e) {
-                            return expect_assert_message(e, "inline action too big for nonprivileged account");
-                         }
-   );
-
-   //check that it populates exception fields
-   BOOST_REQUIRE(trace);
-   BOOST_REQUIRE(trace->except);
-   BOOST_REQUIRE(trace->error_code);
-
-   BOOST_REQUIRE_EQUAL(1, trace->action_traces.size());
-   c.disconnect();
-
-} FC_LOG_AND_RETHROW() }
-
 BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit) { try {
    const uint32_t _4k = 4 * 1024;
    tester chain(setup_policy::full, db_read_mode::HEAD, {_4k + 100}, {_4k + 1});
@@ -1674,7 +1648,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_subjective_limit) { try {
 
    //confirm printed message
    BOOST_TEST(!trace->action_traces.empty());
-   BOOST_TEST(trace->action_traces.back().console == "exec 8");
+   BOOST_TEST(trace->action_traces.back().console == "action size: 4096");
    c.disconnect();
 
    for (int n=0; n < 10; ++n) {
