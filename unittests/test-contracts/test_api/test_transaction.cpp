@@ -84,17 +84,15 @@ void test_transaction::send_action_empty() {
 }
 
 /**
- * cause failure due to a large action payload
+ * cause failure due to a large action payload, larger than max_inline_action_size of 512K
  */
 void test_transaction::send_action_large() {
    using namespace eosio;
-   static char large_message[8 * 1024];
-   test_action_action<"testapi"_n.value, WASM_TEST_ACTION( "test_action", "read_action_normal" )> test_action;
-   copy_data( large_message, 8*1024, test_action.data );
+   test_action_action<"testapi"_n.value, WASM_TEST_ACTION( "test_action", "read_action" )> test_action;
+   test_action.data.resize(512*1024+1);
 
    std::vector<permission_level> permissions = { {"testapi"_n, "active"_n} };
-   action act( permissions, name{"testapi"}, name{WASM_TEST_ACTION("test_action", "read_action_normal")}, test_action );
-
+   action act( permissions, name{"testapi"}, name{WASM_TEST_ACTION("test_action", "read_action")}, test_action );
    act.send();
    eosio_assert( false, "send_message_large() should've thrown an error" );
 }
@@ -104,14 +102,57 @@ void test_transaction::send_action_large() {
  */
 void test_transaction::send_action_4k() {
    using namespace eosio;
-   static char large_message[4 * 1024];
-   test_action_action<"testapi"_n.value, WASM_TEST_ACTION( "test_action", "test_action_ordinal4" )> test_action;
-   copy_data( large_message, 4*1024, test_action.data );
+   test_action_action<"testapi"_n.value, WASM_TEST_ACTION( "test_action", "read_action" )> test_action;
+   test_action.data.resize(4*1024);
 
    std::vector<permission_level> permissions = { {"testapi"_n, "active"_n} };
-   action act( permissions, name{"testapi"}, name{WASM_TEST_ACTION("test_action", "test_action_ordinal4")}, test_action );
+   action act( permissions, name{"testapi"}, name{WASM_TEST_ACTION("test_action", "read_action")}, test_action );
 
    act.send();
+}
+
+/**
+ * send an inline action that is 512K (limit is < 512K)
+ * the limit includes the size of the action
+ */
+void test_transaction::send_action_512k() {
+   using namespace eosio;
+   test_action_action<"testapi"_n.value, WASM_TEST_ACTION( "test_action", "read_action" )> test_action;
+
+   test_action.data.resize(1);
+   std::vector<permission_level> permissions = { {"testapi"_n, "active"_n} };
+   action temp_act( permissions, name{"testapi"}, name{WASM_TEST_ACTION("test_action", "read_action")}, test_action );
+
+   size_t action_size = pack_size(temp_act);
+   test_action.data.resize(512*1024-action_size-2); // check is < 512K
+
+   // send at limit (512K - 1)
+   action act( permissions, name{"testapi"}, name{WASM_TEST_ACTION("test_action", "read_action")}, test_action );
+
+   if (pack_size(act) != 512*1024-1) {
+      std::string err = "send_action_512k action size is: " + std::to_string(action_size) + " not 512K-1";
+      eosio_assert(false, err.c_str());
+   }
+
+   act.send();
+}
+
+/**
+ * send many inline actions that are 512K (limit is < 512K)
+ * the limit includes the size of the action
+ */
+void test_transaction::send_many_actions_512k() {
+   using namespace eosio;
+   test_action_action<"testapi"_n.value, WASM_TEST_ACTION( "test_transaction", "send_action_512k" )> test_action;
+
+   test_action.data.resize(1);
+   std::vector<permission_level> permissions = { {"testapi"_n, "active"_n} };
+   action act( permissions, name{"testapi"}, name{WASM_TEST_ACTION("test_transaction", "send_action_512k")}, test_action );
+
+   // 65 * 512K > wasm memory limit, which is ok because each gets their own wasm instantiation
+   for (size_t i = 0; i < 65; ++i) {
+      act.send();
+   }
 }
 
 /**
