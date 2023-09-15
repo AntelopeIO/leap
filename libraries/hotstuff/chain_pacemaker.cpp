@@ -246,11 +246,15 @@ namespace eosio { namespace hotstuff {
       if (!blk->block->header_extensions.empty()) {
          std::optional<block_header_extension> ext = blk->block->extract_header_extension(hs_finalizer_set_extension::extension_id());
          if (ext) {
-            {
-               std::scoped_lock g( _chain_state_mutex );
-               _active_finalizer_set = std::move(std::get<hs_finalizer_set_extension>(*ext));
-            }
+            // because it has a finset change, the commitment for this block should be added to next block
             _commitment_mgr.push_required_commitment(blk);
+            
+            std::scoped_lock g( _chain_state_mutex );
+            if (_active_finalizer_set.generation == 0) {
+               // switching from dpos to hotstuff, all nodes will switch at same block height
+               _chain->set_hs_irreversible_block_num(blk->block_num); // can be any value <= dpos lib
+            }
+            _active_finalizer_set = std::move(std::get<hs_finalizer_set_extension>(*ext));
          }
       }
 
