@@ -74,13 +74,13 @@ namespace eosio::hotstuff {
             throw std::runtime_error("unknown message variant");
 
          if (msg_itr->second.index() == 0)
-            on_hs_proposal_msg(std::get<hs_proposal_message>(msg_itr->second), msg_itr->first);
+            on_hs_msg(std::get<hs_proposal_message>(msg_itr->second), msg_itr->first);
          else if (msg_itr->second.index() == 1)
-            on_hs_vote_msg(std::get<hs_vote_message>(msg_itr->second), msg_itr->first);
+            on_hs_msg(std::get<hs_vote_message>(msg_itr->second), msg_itr->first);
          else if (msg_itr->second.index() == 2)
-            on_hs_new_block_msg(std::get<hs_new_block_message>(msg_itr->second), msg_itr->first);
+            on_hs_msg(std::get<hs_new_block_message>(msg_itr->second), msg_itr->first);
          else if (msg_itr->second.index() == 3)
-            on_hs_new_view_msg(std::get<hs_new_view_message>(msg_itr->second), msg_itr->first);
+            on_hs_msg(std::get<hs_new_view_message>(msg_itr->second), msg_itr->first);
          else
             throw std::runtime_error("unknown message variant");
 
@@ -162,40 +162,7 @@ namespace eosio::hotstuff {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg, name id) {
-      auto qc_itr = _qcc_store.begin();
-      while (qc_itr != _qcc_store.end()){
-         const name                & qcc_name = qc_itr->first;
-         std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
-            qcc_ptr->on_hs_msg(msg);
-         qc_itr++;
-      }
-   }
-
-   void test_pacemaker::on_hs_vote_msg(const hs_vote_message& msg, name id) {
-      auto qc_itr = _qcc_store.begin();
-      while (qc_itr != _qcc_store.end()) {
-         const name                & qcc_name = qc_itr->first;
-         std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
-            qcc_ptr->on_hs_msg(msg);
-         qc_itr++;
-      }
-   }
-
-   void test_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg, name id) {
-      auto qc_itr = _qcc_store.begin();
-      while (qc_itr != _qcc_store.end()) {
-         const name                & qcc_name = qc_itr->first;
-         std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
-            qcc_ptr->on_hs_msg(msg);
-         qc_itr++;
-      }
-   }
-
-   void test_pacemaker::on_hs_new_view_msg(const hs_new_view_message& msg, name id) {
+   void test_pacemaker::on_hs_msg(const hs_message& msg, name id) {
       auto qc_itr = _qcc_store.begin();
       while (qc_itr != _qcc_store.end()){
          const name                & qcc_name = qc_itr->first;

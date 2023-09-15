@@ -41,10 +41,7 @@ namespace eosio { namespace hotstuff {
 
       void beat();
 
-      void on_hs_vote_msg(const hs_vote_message & msg, name id); //confirmation msg event handler
-      void on_hs_proposal_msg(const hs_proposal_message & msg, name id); //consensus msg event handler
-      void on_hs_new_view_msg(const hs_new_view_message & msg, name id); //new view msg event handler
-      void on_hs_new_block_msg(const hs_new_block_message & msg, name id); //new block msg event handler
+      void on_hs_msg(const hs_message & msg, name id); //confirmation msg event handler
 
       //base_pacemaker interface functions
 
