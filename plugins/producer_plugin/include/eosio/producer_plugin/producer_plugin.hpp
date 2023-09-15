@@ -18,9 +18,7 @@ public:
       std::optional<int32_t>   max_transaction_time;
       std::optional<int32_t>   max_irreversible_block_age;
       std::optional<int32_t>   cpu_effort_us;
-      std::optional<int32_t>   max_scheduled_transaction_time_per_block_ms;
       std::optional<int32_t>   subjective_cpu_leeway_us;
-      std::optional<double>    incoming_defer_ratio;
       std::optional<uint32_t>  greylist_limit;
    };
 
@@ -199,7 +197,7 @@ public:
 
 } //eosio
 
-FC_REFLECT(eosio::producer_plugin::runtime_options, (max_transaction_time)(max_irreversible_block_age)(cpu_effort_us)(max_scheduled_transaction_time_per_block_ms)(subjective_cpu_leeway_us)(incoming_defer_ratio)(greylist_limit));
+FC_REFLECT(eosio::producer_plugin::runtime_options, (max_transaction_time)(max_irreversible_block_age)(cpu_effort_us)(subjective_cpu_leeway_us)(greylist_limit));
 FC_REFLECT(eosio::producer_plugin::greylist_params, (accounts));
 FC_REFLECT(eosio::producer_plugin::whitelist_blacklist, (actor_whitelist)(actor_blacklist)(contract_whitelist)(contract_blacklist)(action_blacklist)(key_blacklist) )
 FC_REFLECT(eosio::producer_plugin::integrity_hash_information, (head_block_id)(integrity_hash))
