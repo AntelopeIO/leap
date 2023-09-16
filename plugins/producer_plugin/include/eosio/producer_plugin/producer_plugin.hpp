@@ -160,7 +160,6 @@ public:
 
    struct produced_block_metrics : public speculative_block_metrics {
       std::size_t unapplied_transactions_total       = 0;
-      std::size_t blacklisted_transactions_total     = 0;
       std::size_t subjective_bill_account_size_total = 0;
       std::size_t scheduled_trxs_total               = 0;
       std::size_t trxs_produced_total                = 0;

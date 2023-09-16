@@ -108,19 +108,6 @@ bool exception_is_exhausted(const fc::exception& e) {
 }
 } // namespace
 
-struct transaction_id_with_expiry {
-   transaction_id_type trx_id;
-   fc::time_point      expiry;
-};
-
-struct by_id;
-struct by_expiry;
-
-using transaction_id_with_expiry_index = multi_index_container<
-   transaction_id_with_expiry,
-   indexed_by<hashed_unique<tag<by_id>, BOOST_MULTI_INDEX_MEMBER(transaction_id_with_expiry, transaction_id_type, trx_id)>,
-              ordered_non_unique<tag<by_expiry>, BOOST_MULTI_INDEX_MEMBER(transaction_id_with_expiry, fc::time_point, expiry)>>>;
-
 namespace {
 
 // track multiple failures on unapplied transactions
@@ -545,7 +532,6 @@ public:
    incoming::methods::block_sync::method_type::handle        _incoming_block_sync_provider;
    incoming::methods::transaction_async::method_type::handle _incoming_transaction_async_provider;
 
-   transaction_id_with_expiry_index _blacklisted_transactions;
    account_failures                 _account_fails;
    block_time_tracker               _time_tracker;
 
@@ -1957,8 +1943,6 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
          if (!remove_expired_trxs(preprocess_deadline))
             return start_block_result::exhausted;
-         if (!remove_expired_blacklisted_trxs(preprocess_deadline))
-            return start_block_result::exhausted;
          if (!subjective_bill.remove_expired(_log, chain.pending_block_time(), fc::time_point::now(), [&]() {
                 return should_interrupt_start_block(preprocess_deadline, pending_block_num);
              })) {
@@ -2022,31 +2006,6 @@ bool producer_plugin_impl::remove_expired_trxs(const fc::time_point& deadline) {
       fc_dlog(_log, "Processed ${ex} expired transactions of the ${n} transactions in the unapplied queue.", ("n", orig_count)("ex", num_expired));
    }
 
-   return !exhausted;
-}
-
-bool producer_plugin_impl::remove_expired_blacklisted_trxs(const fc::time_point& deadline) {
-   bool  exhausted           = false;
-   auto& blacklist_by_expiry = _blacklisted_transactions.get<by_expiry>();
-   if (!blacklist_by_expiry.empty()) {
-      const chain::controller& chain             = chain_plug->chain();
-      const auto               lib_time          = chain.last_irreversible_block_time();
-      const auto               pending_block_num = chain.pending_block_num();
-
-      int num_expired = 0;
-      int orig_count  = _blacklisted_transactions.size();
-
-      while (!blacklist_by_expiry.empty() && blacklist_by_expiry.begin()->expiry <= lib_time) {
-         if (should_interrupt_start_block(deadline, pending_block_num)) {
-            exhausted = true;
-            break;
-         }
-         blacklist_by_expiry.erase(blacklist_by_expiry.begin());
-         num_expired++;
-      }
-
-      fc_dlog(_log, "Processed ${n} blacklisted transactions, Expired ${expired}", ("n", orig_count)("expired", num_expired));
-   }
    return !exhausted;
 }
 
@@ -2589,7 +2548,6 @@ void producer_plugin_impl::produce_block() {
 
    if (_update_produced_block_metrics) {
       metrics.unapplied_transactions_total = _unapplied_transactions.size();
-      metrics.blacklisted_transactions_total = _blacklisted_transactions.size();
       metrics.subjective_bill_account_size_total = chain.get_subjective_billing().get_account_cache_size();
       metrics.scheduled_trxs_total = chain.db().get_index<generated_transaction_multi_index, by_delay>().size();
       metrics.trxs_produced_total = new_bs->block->transactions.size();
