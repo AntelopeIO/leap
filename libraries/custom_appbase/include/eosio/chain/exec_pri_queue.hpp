@@ -13,6 +13,12 @@ class exec_pri_queue : public boost::asio::execution_context
 {
 public:
 
+   void stop() {
+      std::lock_guard g( mtx_ );
+      exiting_blocking_ = true;
+      cond_.notify_all();
+   }
+
    void enable_locking(uint32_t num_threads, std::function<bool()> should_exit) {
       assert(num_threads > 0 && num_waiting_ == 0);
       lock_enabled_ = true;

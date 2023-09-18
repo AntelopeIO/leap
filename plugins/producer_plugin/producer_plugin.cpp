@@ -1389,20 +1389,13 @@ void producer_plugin::plugin_startup()
 } FC_CAPTURE_AND_RETHROW() }
 
 void producer_plugin::plugin_shutdown() {
-   try {
-      my->_timer.cancel();
-   } catch ( const std::bad_alloc& ) {
-     chain_plugin::handle_bad_alloc();
-   } catch ( const boost::interprocess::bad_alloc& ) {
-     chain_plugin::handle_bad_alloc();
-   } catch(const fc::exception& e) {
-      edump((e.to_detail_string()));
-   } catch(const std::exception& e) {
-      edump((fc::std_exception_wrapper::from_current_exception(e).to_detail_string()));
-   }
-
+   boost::system::error_code ec;
+   my->_timer.cancel(ec);
+   boost::system::error_code ro_ec;
+   my->_ro_timer.cancel(ro_ec);
+   app().executor().stop();
+   my->_ro_thread_pool.stop();
    my->_thread_pool.stop();
-
    my->_unapplied_transactions.clear();
 
    app().executor().post( 0, [me = my](){} ); // keep my pointer alive until queue is drained
