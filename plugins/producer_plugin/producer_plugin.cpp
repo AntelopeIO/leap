@@ -2324,6 +2324,14 @@ void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& de
          break;
       }
 
+      const transaction_id_type trx_id             = expired_itr->trx_id; // make copy since reference could be invalidated
+      auto                      expired_itr_next   = expired_itr; // save off next since expired_itr may be invalidated by loop
+      ++expired_itr_next;
+      const auto next_expired = expired_itr_next != expired_idx.end() ? expired_itr_next->expiration : expired_itr->expiration;
+      const auto next_id      = expired_itr_next != expired_idx.end() ? expired_itr_next->id : expired_itr->id;
+
+      num_processed++;
+
       auto get_first_authorizer = [&](const transaction_trace_ptr& trace) {
          for (const auto& a : trace->action_traces) {
             for (const auto& u : a.act.authorization)
@@ -2331,12 +2339,6 @@ void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& de
          }
          return account_name();
       };
-
-      const transaction_id_type trx_id             = expired_itr->trx_id; // make copy since reference could be invalidated
-      auto                      expired_itr_next   = expired_itr; // save off next since expired_itr may be invalidated by loop
-      ++expired_itr_next;
-      const auto next_expired = expired_itr_next != expired_idx.end() ? expired_itr_next->expiration : expired_itr->expiration;
-      const auto next_id      = expired_itr_next != expired_idx.end() ? expired_itr_next->id : expired_itr->id;
 
       try {
          auto             start        = fc::time_point::now();
