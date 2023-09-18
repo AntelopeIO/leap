@@ -343,7 +343,7 @@ namespace eosio {
          std::string host;
          connection_ptr c;
          tcp::endpoint active_ip;
-         std::vector<tcp::endpoint> ips;
+         tcp::resolver::results_type ips;
          operator const connection_ptr&() const { return c; }
       };
 
@@ -412,6 +412,7 @@ namespace eosio {
       string connect(const string& host, const string& p2p_address);
       string resolve_and_connect(const string& host, const string& p2p_address);
       void update_connection_endpoint(connection_details_index::const_iterator it, const tcp::endpoint& endpoint);
+      const connection_details_index::index_const_iterator<by_connection>& get_connection_iterator(const connection_ptr& c);
       string disconnect(const string& host);
       void close_all();
 
@@ -976,6 +977,7 @@ namespace eosio {
 
       bool populate_handshake( handshake_message& hello ) const;
 
+      bool reconnect();
       void connect( const tcp::resolver::results_type& endpoints,
                     connections_manager::connection_details_index::const_iterator conn_details );
       void start_read_message();
@@ -2709,9 +2711,7 @@ namespace eosio {
 
    //------------------------------------------------------------------------
 
-   // called from connection strand
-   void connection::connect( const tcp::resolver::results_type& endpoints,
-                             connections_manager::connection_details_index::const_iterator conn_details ) {
+   bool connection::reconnect() {
       switch ( no_retry ) {
          case no_reason:
          case wrong_version:
@@ -2720,15 +2720,26 @@ namespace eosio {
             break;
          default:
             fc_dlog( logger, "Skipping connect due to go_away reason ${r}",("r", reason_str( no_retry )));
-            return;
+            return false;
       }
       if( consecutive_immediate_connection_close > def_max_consecutive_immediate_connection_close || no_retry == benign_other ) {
          fc::microseconds connector_period = my_impl->connections.get_connector_period();
          fc::lock_guard g( conn_mtx );
          if( last_close == fc::time_point() || last_close > fc::time_point::now() - connector_period ) {
-            return;
+            return true;
          }
       }
+      connection_ptr c = shared_from_this();
+      strand.post([c]() {
+         auto it = my_impl->connections.get_connection_iterator(c);
+         c->connect(it->ips, it);
+      });
+      return true;
+   }
+
+   // called from connection strand
+   void connection::connect( const tcp::resolver::results_type& endpoints,
+                             connections_manager::connection_details_index::const_iterator conn_details ) {
       set_state(connection_state::connecting);
       pending_message_buffer.reset();
       buffer_queue.clear_out_queue();
@@ -4473,12 +4484,11 @@ namespace eosio {
          [resolver, host = host, port = port, peer_address = peer_address, listen_address = listen_address, this]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
             connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
             c->set_heartbeat_timeout( heartbeat_timeout );
-            vector<tcp::endpoint> eps{results.begin(), results.end()};
             std::lock_guard g( connections_mtx );
-            auto [it, inserted] = connections.insert( connection_details{
+            auto [it, inserted] = connections.emplace( connection_details{
                .host = peer_address,
                .c = std::move(c),
-               .ips = std::move(eps)
+               .ips = results
             });
             if( !err ) {
                it->c->connect( results, it );
@@ -4501,6 +4511,12 @@ namespace eosio {
       index.modify_key(connections.project<by_active_ip>(it), [endpoint](tcp::endpoint& e) {
          e = endpoint;
       });
+   }
+
+   const connections_manager::connection_details_index::index_const_iterator<by_connection>& connections_manager::get_connection_iterator(const connection_ptr& c) {
+      std::lock_guard g( connections_mtx );
+      const auto& index = connections.get<by_connection>();
+      return index.find(c);
    }
 
    // called by API
