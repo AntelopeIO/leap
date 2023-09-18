@@ -25,8 +25,6 @@
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/steady_timer.hpp>
 #include <boost/multi_index/key.hpp>
-#include <boost/stacktrace/stacktrace.hpp>
-#include <boost/exception/all.hpp>
 
 #include <atomic>
 #include <cmath>
@@ -4206,18 +4204,6 @@ namespace eosio {
       set_producer_accounts(producer_plug->producer_accounts());
 
       thread_pool.start( thread_pool_size, []( const fc::exception& e ) {
-         using traced = boost::error_info<struct tag_stacktrace, boost::stacktrace::stacktrace>;
-         const boost::stacktrace::stacktrace* st = boost::get_error_info<traced>(e);
-         std::stringstream st_str;
-         if( st != nullptr ) {
-            st_str << *st;
-            fc_elog( logger, "stacktrace wasn't empty");
-         fc_elog( logger, "Exception in net plugin thread pool, exiting:\n${e}${trace}", ("e", e.to_detail_string())("trace", st_str.str()) );
-         }
-         else {
-            fc_elog( logger, "stacktrace was empty");
-         fc_elog( logger, "Exception in net plugin thread pool, exiting:\n${e}", ("e", e.to_detail_string()) );
-         }
          app().quit();
       } );
 

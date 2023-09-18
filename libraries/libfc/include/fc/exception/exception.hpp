@@ -9,9 +9,6 @@
 #include <unordered_map>
 #include <boost/core/typeinfo.hpp>
 #include <boost/interprocess/exceptions.hpp>
-#include <boost/exception/error_info.hpp>
-#include <boost/stacktrace/stacktrace.hpp>
-#include <boost/exception/all.hpp>
 
 namespace fc
 {
@@ -397,8 +394,7 @@ namespace fc
  */
 #define FC_THROW_EXCEPTION( EXCEPTION, FORMAT, ... ) \
   FC_MULTILINE_MACRO_BEGIN \
-    using traced = boost::error_info<struct tag_stacktrace, boost::stacktrace::stacktrace>; \
-    throw boost::enable_error_info( EXCEPTION( FC_LOG_MESSAGE( error, FORMAT, __VA_ARGS__ ) ) ) << traced(boost::stacktrace::stacktrace()); \
+    throw EXCEPTION( FC_LOG_MESSAGE( error, FORMAT, __VA_ARGS__ ) ); \
   FC_MULTILINE_MACRO_END
 
 
