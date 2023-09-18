@@ -3,6 +3,7 @@
 
 #include <condition_variable>
 #include <mutex>
+#include <optional>
 #include <queue>
 
 namespace appbase {
