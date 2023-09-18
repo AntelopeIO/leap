@@ -2315,7 +2315,7 @@ void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& de
    auto               expired_itr         = expired_idx.begin();
 
    while (expired_itr != expired_idx.end()) {
-      if (expired_itr->expiration > pending_block_time) {
+      if (expired_itr->expiration >= pending_block_time) {
          break; // not expired yet
       }
 
@@ -2385,7 +2385,7 @@ void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& de
    }
 
    if (expired_size > 0) {
-      fc_dlog(_log, "Processed ${m} of ${n} scheduled transactions, Applied ${applied}, Failed/Dropped ${failed}",
+      fc_dlog(_log, "Processed ${m} of ${n} expired scheduled transactions, Applied ${applied}, Failed/Dropped ${failed}",
               ("m", num_processed)("n", expired_size)("applied", num_applied)("failed", num_failed));
    }
 }
