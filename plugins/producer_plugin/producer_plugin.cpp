@@ -386,6 +386,7 @@ public:
    bool     remove_expired_trxs(const fc::time_point& deadline);
    bool     remove_expired_blacklisted_trxs(const fc::time_point& deadline);
    bool     process_unapplied_trxs(const fc::time_point& deadline);
+   void     retire_expired_deferred_trxs(const fc::time_point& deadline);
    bool     process_incoming_trxs(const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr);
 
    struct push_result {
@@ -1955,6 +1956,10 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          if (in_producing_mode()) {
             if (!process_unapplied_trxs(preprocess_deadline))
                return start_block_result::exhausted;
+
+            // Hard-code the deadline to retire expired deferred trxs to 50ms
+            auto deferred_trxs_deadline = std::min<fc::time_point>(preprocess_deadline, fc::time_point::now() + fc::milliseconds(50));
+            retire_expired_deferred_trxs(deferred_trxs_deadline);
          }
 
          repost_exhausted_transactions(preprocess_deadline);
@@ -2295,6 +2300,94 @@ bool producer_plugin_impl::process_unapplied_trxs(const fc::time_point& deadline
               ("m", num_processed)("n", unapplied_trxs_size)("applied", num_applied)("failed", num_failed));
    }
    return !exhausted;
+}
+
+void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& deadline) {
+   int   num_applied    = 0;
+   int   num_failed     = 0;
+   int   num_processed  = 0;
+   bool  exhausted      = false;
+
+   chain::controller& chain               = chain_plug->chain();
+   time_point         pending_block_time  = chain.pending_block_time();
+   const auto&        expired_idx         = chain.db().get_index<generated_transaction_multi_index, by_expiration>();
+   const auto expired_size                = expired_idx.size();
+   auto               expired_itr         = expired_idx.begin();
+
+   while (expired_itr != expired_idx.end()) {
+      if (expired_itr->expiration > pending_block_time) {
+         break; // not expired yet
+      }
+
+      if (exhausted || deadline <= fc::time_point::now()) {
+         exhausted = true;
+         break;
+      }
+
+      auto get_first_authorizer = [&](const transaction_trace_ptr& trace) {
+         for (const auto& a : trace->action_traces) {
+            for (const auto& u : a.act.authorization)
+               return u.actor;
+         }
+         return account_name();
+      };
+
+      const transaction_id_type trx_id             = expired_itr->trx_id; // make copy since reference could be invalidated
+      auto                      expired_itr_next   = expired_itr; // save off next since expired_itr may be invalidated by loop
+      ++expired_itr_next;
+      const auto next_expired = expired_itr_next != expired_idx.end() ? expired_itr_next->expiration : expired_itr->expiration;
+      const auto next_id      = expired_itr_next != expired_idx.end() ? expired_itr_next->id : expired_itr->id;
+
+      try {
+         auto             start        = fc::time_point::now();
+         auto             trx_tracker  = _time_tracker.start_trx(false, start); // delayed transaction cannot be transient
+         fc::microseconds max_trx_time = fc::milliseconds(_max_transaction_time_ms.load());
+         if (max_trx_time.count() < 0)
+            max_trx_time = fc::microseconds::maximum();
+
+         auto trace = chain.push_scheduled_transaction(trx_id, deadline, max_trx_time, 0, false);
+         auto end   = fc::time_point::now();
+         if (trace->except) {
+            if (exception_is_exhausted(*trace->except)) {
+               if (block_is_exhausted()) {
+                  exhausted = true;
+                  break;
+               }
+            } else {
+               fc_dlog(_trx_failed_trace_log,
+                       "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${txid}, time: ${r}, auth: ${a} : ${details}",
+                       ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx_id)("r", end - start)
+                       ("a", get_first_authorizer(trace))("details", get_detailed_contract_except_info(nullptr, trace, nullptr)));
+               fc_dlog(_trx_trace_failure_log,
+                       "[TRX_TRACE] Block ${block_num} for producer ${prod} is REJECTING scheduled tx: ${entire_trace}",
+                       ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+                       ("entire_trace", chain_plug->get_log_trx_trace(trace)));
+               num_failed++;
+            }
+         } else {
+            trx_tracker.trx_success();
+            fc_dlog(_trx_successful_trace_log,
+                    "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${txid}, time: ${r}, auth: ${a}, cpu: ${cpu}",
+                    ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())("txid", trx_id)("r", end - start)
+                    ("a", get_first_authorizer(trace))("cpu", trace->receipt ? trace->receipt->cpu_usage_us : 0));
+            fc_dlog(_trx_trace_success_log,
+                    "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${entire_trace}",
+                    ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
+                    ("entire_trace", chain_plug->get_log_trx_trace(trace)));
+            num_applied++;
+         }
+      }
+      LOG_AND_DROP();
+
+      if (expired_itr_next == expired_idx.end())
+         break;
+      expired_itr = expired_idx.lower_bound(boost::make_tuple(next_expired, next_id));
+   }
+
+   if (expired_size > 0) {
+      fc_dlog(_log, "Processed ${m} of ${n} scheduled transactions, Applied ${applied}, Failed/Dropped ${failed}",
+              ("m", num_processed)("n", expired_size)("applied", num_applied)("failed", num_failed));
+   }
 }
 
 bool producer_plugin_impl::process_incoming_trxs(const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr) {
