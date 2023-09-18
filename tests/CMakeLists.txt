@@ -131,7 +131,7 @@ add_test(NAME nodeos_protocol_feature_test COMMAND tests/nodeos_protocol_feature
 set_property(TEST nodeos_protocol_feature_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME compute_transaction_test COMMAND tests/compute_transaction_test.py -v -p 2 -n 3 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST compute_transaction_test PROPERTY LABELS nonparallelizable_tests)
-add_test(NAME read-only-trx-basic-test COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --read-only-threads 0 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME read-only-trx-basic-test COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --read-only-threads 1 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST read-only-trx-basic-test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME read-only-trx-parallel-test COMMAND tests/read_only_trx_test.py -v -p 2 -n 3 --read-only-threads 128 --num-test-runs 3 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST read-only-trx-parallel-test PROPERTY LABELS nonparallelizable_tests)
