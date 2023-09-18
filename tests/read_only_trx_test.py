@@ -110,6 +110,7 @@ def startCluster():
     specificExtraNodeosArgs[pnodes]+=" 1 " # set small so there is churn
     specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
     specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
+    specificExtraNodeosArgs[pnodes]+=" --contracts-console "
     if args.eos_vm_oc_enable:
         if platform.system() != "Linux":
             Print("OC not run on Linux. Skip the test")

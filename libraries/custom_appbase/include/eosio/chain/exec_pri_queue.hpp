@@ -13,6 +13,11 @@ class exec_pri_queue : public boost::asio::execution_context
 {
 public:
 
+   ~exec_pri_queue() {
+      exiting_blocking_ = true;
+      cond_.notify_all();
+   }
+
    void enable_locking(uint32_t num_threads, std::function<bool()> should_exit) {
       assert(num_threads > 0 && num_waiting_ == 0);
       lock_enabled_ = true;
@@ -104,6 +109,14 @@ public:
 
    // Only call when locking disabled
    const auto& top() const { return handlers_.top(); }
+
+   // return empty optional if both queues empty.
+   //        true if this queue has the highest priority task to execute
+   std::optional<bool> compare_queues_locked( const exec_pri_queue& rhs ) {
+      std::scoped_lock g(mtx_, rhs.mtx_);
+      if (empty() && rhs.empty()) return {};
+      return !empty() && (rhs.empty() || *rhs.top() < *top());
+   }
 
    class executor
    {
@@ -220,7 +233,7 @@ private:
    };
 
    bool lock_enabled_ = false;
-   std::mutex mtx_;
+   mutable std::mutex mtx_;
    std::condition_variable cond_;
    uint32_t num_waiting_{0};
    uint32_t max_waiting_{0};
