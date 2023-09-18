@@ -33,16 +33,20 @@ namespace eosio { namespace chain {
                                                                      chainbase::database& db )
       {
          value.activated_protocol_features.clear();
-         value.activated_protocol_features.reserve( row.activated_protocol_features.size() );
-         for( const auto& v : row.activated_protocol_features ) {
-            value.activated_protocol_features.emplace_back( v );
-         }
+         value.activated_protocol_features.resize_and_fill( row.activated_protocol_features.size(), [&](auto *data, std::size_t){
+            int i = 0;
+            for( const auto& v : row.activated_protocol_features ) {
+               data[i++] = protocol_state_object::activated_protocol_feature( v );
+            }
+         });
 
          value.preactivated_protocol_features.clear();
-         value.preactivated_protocol_features.reserve( row.preactivated_protocol_features.size() );
-         for( const auto& v : row.preactivated_protocol_features ) {
-            value.preactivated_protocol_features.emplace_back( v );
-         }
+         value.preactivated_protocol_features.resize_and_fill( row.preactivated_protocol_features.size(), [&](auto *data, std::size_t){
+            int i = 0;
+            for( const auto& v : row.preactivated_protocol_features ) {
+               data[i++] = ( v );
+            }
+         });
 
          reset_intrinsic_whitelist( value.whitelisted_intrinsics, row.whitelisted_intrinsics );
 

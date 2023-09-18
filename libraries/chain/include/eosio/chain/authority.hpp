@@ -227,10 +227,13 @@ struct shared_authority {
    shared_authority& operator=(const authority& a) {
       threshold = a.threshold;
       keys.clear();
-      keys.reserve(a.keys.size());
-      for(const key_weight& k : a.keys) {
-         keys.emplace_back(shared_key_weight::convert(keys.get_allocator(), k));
-      }
+      keys.resize_and_fill(a.keys.size(), [&](shared_key_weight* data, std::size_t) {
+         int i = 0;
+         for(const key_weight& k : a.keys) {
+            data[i++] = shared_key_weight::convert(keys.get_allocator(), k);
+         }
+      });
+
       accounts = decltype(accounts)(a.accounts.begin(), a.accounts.end(), accounts.get_allocator());
       waits = decltype(waits)(a.waits.begin(), a.waits.end(), waits.get_allocator());
       return *this;
