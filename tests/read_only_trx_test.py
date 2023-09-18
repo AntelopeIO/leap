@@ -110,7 +110,6 @@ def startCluster():
     specificExtraNodeosArgs[pnodes]+=" 1 " # set small so there is churn
     specificExtraNodeosArgs[pnodes]+=" --read-only-threads "
     specificExtraNodeosArgs[pnodes]+=str(args.read_only_threads)
-    specificExtraNodeosArgs[pnodes]+=" --contracts-console "
     if args.eos_vm_oc_enable:
         if platform.system() != "Linux":
             Print("OC not run on Linux. Skip the test")
@@ -120,7 +119,7 @@ def startCluster():
     if args.wasm_runtime:
         specificExtraNodeosArgs[pnodes]+=" --wasm-runtime "
         specificExtraNodeosArgs[pnodes]+=args.wasm_runtime
-    extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false "
+    extraNodeosArgs=" --http-max-response-time-ms 990000 --disable-subjective-api-billing false --contracts-console "
     if cluster.launch(pnodes=pnodes, totalNodes=total_nodes, topo=topo, delay=delay, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=extraNodeosArgs ) is False:
         errorExit("Failed to stand up eos cluster.")
 
