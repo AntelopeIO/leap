@@ -3,6 +3,7 @@
 #include <appbase/application_base.hpp>
 #include <eosio/chain/exec_pri_queue.hpp>
 #include <chrono>
+#include <optional>
 #include <mutex>
 
 /*
