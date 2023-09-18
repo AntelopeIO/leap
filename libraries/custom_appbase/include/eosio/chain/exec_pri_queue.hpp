@@ -14,7 +14,8 @@ class exec_pri_queue : public boost::asio::execution_context
 {
 public:
 
-   ~exec_pri_queue() {
+   void stop() {
+      std::lock_guard g( mtx_ );
       exiting_blocking_ = true;
       cond_.notify_all();
    }
