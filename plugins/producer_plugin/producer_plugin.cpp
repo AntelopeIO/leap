@@ -1427,8 +1427,7 @@ void producer_plugin::plugin_startup() {
 void producer_plugin_impl::plugin_shutdown() {
    boost::system::error_code ec;
    _timer.cancel(ec);
-   boost::system::error_code ro_ec;
-   _ro_timer.cancel(ro_ec);
+   _ro_timer.cancel(ec);
    app().executor().stop();
    _ro_thread_pool.stop();
    _thread_pool.stop();
