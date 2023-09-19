@@ -193,9 +193,19 @@ private:
       virtual void execute() = 0;
 
       int priority() const { return priority_; }
-
-      // comparison eval: (priority_, order_)
-      auto operator<=>(const queued_handler_base& rhs) const noexcept = default;
+      // C++20
+      // friend std::weak_ordering operator<=>(const queued_handler_base&,
+      //                                       const queued_handler_base&) noexcept = default;
+      friend bool operator<(const queued_handler_base& a,
+                            const queued_handler_base& b) noexcept
+      {
+         return std::tie( a.priority_, a.order_ ) < std::tie( b.priority_, b.order_ );
+      }
+      friend bool operator<=(const queued_handler_base& a,
+                             const queued_handler_base& b) noexcept
+      {
+         return std::tie( a.priority_, a.order_ ) <= std::tie( b.priority_, b.order_ );
+      }
 
    private:
       int priority_;
