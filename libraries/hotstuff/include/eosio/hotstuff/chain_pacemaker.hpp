@@ -3,8 +3,6 @@
 #include <eosio/hotstuff/base_pacemaker.hpp>
 #include <eosio/hotstuff/qc_chain.hpp>
 
-//#include <eosio/chain/finalizer_set.hpp>
-
 #include <boost/signals2/connection.hpp>
 
 #include <shared_mutex>

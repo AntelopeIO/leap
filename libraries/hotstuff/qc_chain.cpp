@@ -94,7 +94,7 @@ namespace eosio::hotstuff {
 
       hs_bitset b(finalizer_set );
 
-      std::vector<eosio::chain::finalizer_authority> finalizers = _pacemaker->get_finalizer_set().finalizers;
+      const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
 
       for (size_t i = 0; i < finalizers.size();i++) {
          if (finalizers[i].public_key == finalizer_key) {
@@ -190,8 +190,8 @@ namespace eosio::hotstuff {
       }
 
       fc::crypto::blslib::bls_public_key agg_key;
-
-      std::vector<eosio::chain::finalizer_authority> c_finalizers = _pacemaker->get_finalizer_set().finalizers;
+      
+      const auto& c_finalizers = _pacemaker->get_finalizer_set().finalizers;
 
       EOS_ASSERT(c_finalizers.size() == finalizers.size(), chain_exception, "error : public keys size != finalizers size" );
 
@@ -264,14 +264,9 @@ namespace eosio::hotstuff {
 
    bool qc_chain::am_i_finalizer(){
 
-      if (_my_finalizer_keys.empty())
-         return false;
-      std::vector<eosio::chain::finalizer_authority> finalizers = _pacemaker->get_finalizer_set().finalizers;
-      for (const auto& i : finalizers) {
-         if (_my_finalizer_keys.contains(i.public_key))
-            return true;
-      }
-      return false;
+      const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+         return !_my_finalizer_keys.empty() &&
+            std::any_of(finalizers.begin(), finalizers.end(), [&](const auto& fa) { return _my_finalizer_keys.contains(fa.public_key); });
 
    }
 
@@ -375,8 +370,8 @@ namespace eosio::hotstuff {
 
       if (signature_required && !_my_finalizer_keys.empty()){
          //iterate over all my finalizer keys and sign / broadcast for each that is in the schedule
-         std::vector<eosio::chain::finalizer_authority> finalizers = _pacemaker->get_finalizer_set().finalizers;
-         
+         const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+
          for (const auto& i : finalizers) {
             auto mfk_itr = _my_finalizer_keys.find(i.public_key);
 

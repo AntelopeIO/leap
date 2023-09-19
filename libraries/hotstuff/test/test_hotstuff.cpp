@@ -222,7 +222,6 @@ static std::vector<fc::crypto::blslib::bls_private_key> map_to_sks(std::vector<s
 static finalizer_set create_fs(std::vector<std::string> keys){
    
    std::vector<fc::crypto::blslib::bls_private_key> sks;
-   //std::vector<fc::crypto::blslib::bls_public_key> pks;
 
    std::vector<finalizer_authority> f_auths;
 
