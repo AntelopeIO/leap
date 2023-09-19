@@ -185,7 +185,16 @@ namespace fc {
         BN_CTX_free(ctx);
         return tmp;
       }
-
+      bigint bigint::modexp( const bigint& a, const bigint& m )const
+      {
+        FC_ASSERT(!m.is_negative());
+        BN_CTX* ctx = BN_CTX_new();
+        bigint tmp;
+        int ret = BN_mod_exp(tmp.n, n, a.n, m.n, ctx);
+        BN_CTX_free(ctx);
+        FC_ASSERT(ret);
+        return tmp;
+      }
 
       bigint& bigint::operator = ( bigint&& a ) {
         fc_swap( a.n, n );
@@ -204,6 +213,12 @@ namespace fc {
       bigint::operator std::vector<char>()const {
         std::vector<char> to(BN_num_bytes(n)); 
         BN_bn2bin(n,(unsigned char*)to.data());
+        return to;
+      }
+
+      std::vector<char> bigint::padded_be_bytes(const size_t total_bytes) const {
+        std::vector<char> to(total_bytes);
+        FC_ASSERT(BN_bn2bin_padded((uint8_t*)to.data(), to.size(), n));
         return to;
       }
 

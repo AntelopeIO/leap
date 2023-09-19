@@ -82,7 +82,6 @@ target_link_libraries(EosioChain INTERFACE
    ${libsecp256k1}
    ${libbn256}
    ${libbls12-381}
-   @GMP_LIBRARY@
 
    Boost::date_time
    Boost::filesystem

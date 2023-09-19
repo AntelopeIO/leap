@@ -8,7 +8,6 @@ RUN apt-get update && apt-get upgrade -y && \
                        git                  \
                        jq                   \
                        libcurl4-openssl-dev \
-                       libgmp-dev           \
                        llvm-11-dev          \
                        ninja-build          \
                        python3-numpy        \

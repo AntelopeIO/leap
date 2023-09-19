@@ -49,7 +49,6 @@ Requirements to build:
   - newer versions do not work
 - libcurl 7.40.0+
 - git
-- GMP
 - Python 3
 - python3-numpy
 - zlib
@@ -131,7 +130,6 @@ sudo apt-get install -y \
         cmake \
         git \
         libcurl4-openssl-dev \
-        libgmp-dev \
         llvm-11-dev \
         python3-numpy \
         file \

@@ -65,7 +65,7 @@ set(CPACK_DEBIAN_BASE_FILE_NAME "${CPACK_DEBIAN_FILE_NAME}.deb")
 string(REGEX REPLACE "^(${CMAKE_PROJECT_NAME})" "\\1-dev" CPACK_DEBIAN_DEV_FILE_NAME "${CPACK_DEBIAN_BASE_FILE_NAME}")
 
 #deb package tooling will be unable to detect deps for the dev package. llvm is tricky since we don't know what package could have been used; try to figure it out
-set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS "libgmp-dev, python3-distutils, python3-numpy, zlib1g-dev")
+set(CPACK_DEBIAN_DEV_PACKAGE_DEPENDS "python3-distutils, python3-numpy, zlib1g-dev")
 find_program(DPKG_QUERY "dpkg-query")
 if(DPKG_QUERY AND OS_RELEASE MATCHES "\n?ID=\"?ubuntu" AND LLVM_CMAKE_DIR)
    execute_process(COMMAND "${DPKG_QUERY}" -S "${LLVM_CMAKE_DIR}" COMMAND cut -d: -f1 RESULT_VARIABLE LLVM_PKG_FIND_RESULT OUTPUT_VARIABLE LLVM_PKG_FIND_OUTPUT)

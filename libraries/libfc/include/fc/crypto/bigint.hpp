@@ -28,6 +28,7 @@ namespace fc {
 
       int64_t log2()const;
       bigint  exp( const bigint& c )const;
+      bigint  modexp( const bigint& c, const bigint& m )const;
 
       static bigint random( uint32_t bits, int t, int  );
 
@@ -59,6 +60,9 @@ namespace fc {
 
       // returns bignum as bigendian bytes
       operator std::vector<char>()const;
+
+      // returns bignum as bigendian bytes padded to total_bytes number of bytes. throws if total_bytes too small
+      std::vector<char> padded_be_bytes(const size_t total_bytes) const;
 
       BIGNUM* dup()const;
 

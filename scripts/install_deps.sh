@@ -12,7 +12,6 @@ apt-get install -y \
     git \
     libbz2-dev \
     libcurl4-openssl-dev \
-    libgmp-dev \
     libncurses5 \
     libtinfo-dev \
     libzstd-dev \
