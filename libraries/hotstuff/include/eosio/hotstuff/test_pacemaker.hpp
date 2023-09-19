@@ -7,11 +7,18 @@ namespace eosio { namespace hotstuff {
    class test_pacemaker : public base_pacemaker {
    public:
 
+      using hotstuff_message = std::pair<name, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
+      enum hotstuff_message_index {
+         hs_proposal  = 0,
+         hs_vote      = 1,
+         hs_new_block = 2,
+         hs_new_view  = 3,
+         hs_all_messages
+      };
+
       //class-specific functions
 
       bool is_qc_chain_active(const name & qcc_name) { return _qcc_deactivated.find(qcc_name) == _qcc_deactivated.end(); }
-
-      using hotstuff_message = std::pair<name, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
 
       void set_proposer(name proposer);
 
@@ -27,11 +34,17 @@ namespace eosio { namespace hotstuff {
 
       void add_message_to_queue(hotstuff_message msg);
 
+      void connect(const std::vector<name>& nodes);
+
+      void disconnect(const std::vector<name>& nodes);
+
+      bool is_connected(name node1, name node2);
+
       void pipe(std::vector<test_pacemaker::hotstuff_message> messages);
 
-      void dispatch(std::string memo, int count);
+      void dispatch(std::string memo, int count, hotstuff_message_index msg_type = hs_all_messages);
 
-      std::vector<hotstuff_message> dispatch(std::string memo);
+      std::vector<hotstuff_message> dispatch(std::string memo, hotstuff_message_index msg_type = hs_all_messages);
 
       void activate(name replica);
       void deactivate(name replica);
@@ -72,9 +85,12 @@ namespace eosio { namespace hotstuff {
       // qc_chain ids in this set are currently deactivated
       set<name>                            _qcc_deactivated;
 
-   private:
+      // network topology: key (node name) is connected to all nodes in the mapped set.
+      // double mapping, so if _net[a] yields b, then _net[b] yields a.
+      // this is a filter; messages to self won't happen even if _net[x] yields x.
+      map<name, std::set<name>>            _net;
 
-      std::vector<hotstuff_message> _message_queue;
+   private:
 
       name _proposer;
       name _leader;

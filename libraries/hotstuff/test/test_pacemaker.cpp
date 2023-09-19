@@ -31,6 +31,31 @@ namespace eosio::hotstuff {
       _pending_message_queue.push_back(msg);
    }
 
+   void test_pacemaker::connect(const std::vector<name>& nodes) {
+      for (auto it1 = nodes.begin(); it1 != nodes.end(); ++it1) {
+         for (auto it2 = std::next(it1); it2 != nodes.end(); ++it2) {
+            _net[*it1].insert(*it2);
+            _net[*it2].insert(*it1);
+         }
+      }
+   }
+
+   void test_pacemaker::disconnect(const std::vector<name>& nodes) {
+      for (auto it1 = nodes.begin(); it1 != nodes.end(); ++it1) {
+         for (auto it2 = std::next(it1); it2 != nodes.end(); ++it2) {
+            _net[*it1].erase(*it2);
+            _net[*it2].erase(*it1);
+         }
+      }
+   }
+
+   bool test_pacemaker::is_connected(name node1, name node2) {
+      auto it = _net.find(node1);
+      if (it == _net.end())
+         return false;
+      return it->second.count(node2) > 0;
+   }
+
    void test_pacemaker::pipe(std::vector<test_pacemaker::hotstuff_message> messages) {
       auto itr = messages.begin();
       while (itr != messages.end()) {
@@ -39,17 +64,22 @@ namespace eosio::hotstuff {
       }
    }
 
-   void test_pacemaker::dispatch(std::string memo, int count) {
+   void test_pacemaker::dispatch(std::string memo, int count, hotstuff_message_index msg_type) {
       for (int i = 0 ; i < count ; i++) {
-         this->dispatch(memo);
+         this->dispatch(memo, msg_type);
       }
    }
 
-   std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo) {
+   std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo, hotstuff_message_index msg_type) {
 
-      std::vector<test_pacemaker::hotstuff_message> dispatched_messages = _pending_message_queue;
-      _message_queue = _pending_message_queue;
+      std::vector<test_pacemaker::hotstuff_message> dispatched_messages;
+      std::vector<test_pacemaker::hotstuff_message> kept_messages;
 
+      std::vector<test_pacemaker::hotstuff_message> message_queue = _pending_message_queue;
+
+      // Need to clear the persisted message queue here because new ones are inserted in
+      //   the loop below as a side-effect of the on_hs...() calls. Messages that are not
+      //   propagated in the loop go into kept_messages and are reinserted after the loop.
       _pending_message_queue.clear();
 
       size_t proposals_count = 0;
@@ -57,37 +87,39 @@ namespace eosio::hotstuff {
       size_t new_blocks_count = 0;
       size_t new_views_count = 0;
 
-      auto msg_itr = _message_queue.begin();
-      while (msg_itr!=_message_queue.end()) {
+      auto msg_itr = message_queue.begin();
+      while (msg_itr != message_queue.end()) {
 
+         name sender_id = msg_itr->first;
          size_t v_index = msg_itr->second.index();
 
-         if (v_index==0)
-            ++proposals_count;
-         else if (v_index==1)
-            ++votes_count;
-         else if (v_index==2)
-            ++new_blocks_count;
-         else if (v_index==3)
-            ++new_views_count;
-         else
-            throw std::runtime_error("unknown message variant");
+         if (msg_type == hs_all_messages || msg_type == v_index) {
 
-         if (msg_itr->second.index() == 0)
-            on_hs_proposal_msg(std::get<hs_proposal_message>(msg_itr->second), msg_itr->first);
-         else if (msg_itr->second.index() == 1)
-            on_hs_vote_msg(std::get<hs_vote_message>(msg_itr->second), msg_itr->first);
-         else if (msg_itr->second.index() == 2)
-            on_hs_new_block_msg(std::get<hs_new_block_message>(msg_itr->second), msg_itr->first);
-         else if (msg_itr->second.index() == 3)
-            on_hs_new_view_msg(std::get<hs_new_view_message>(msg_itr->second), msg_itr->first);
-         else
-            throw std::runtime_error("unknown message variant");
+            if (v_index == hs_proposal) {
+               ++proposals_count;
+               on_hs_proposal_msg(std::get<hs_proposal_message>(msg_itr->second), sender_id);
+            } else if (v_index == hs_vote) {
+               ++votes_count;
+               on_hs_vote_msg(std::get<hs_vote_message>(msg_itr->second), sender_id);
+            } else if (v_index == hs_new_block) {
+               ++new_blocks_count;
+               on_hs_new_block_msg(std::get<hs_new_block_message>(msg_itr->second), sender_id);
+            } else if (v_index == hs_new_view) {
+               ++new_views_count;
+               on_hs_new_view_msg(std::get<hs_new_view_message>(msg_itr->second), sender_id);
+            } else {
+               throw std::runtime_error("unknown message variant");
+            }
+
+            dispatched_messages.push_back(*msg_itr);
+         } else {
+            kept_messages.push_back(*msg_itr);
+         }
 
          ++msg_itr;
       }
 
-      _message_queue.clear();
+      _pending_message_queue.insert(_pending_message_queue.end(), kept_messages.begin(), kept_messages.end());
 
       if (memo != "") {
          ilog(" === ${memo} : ", ("memo", memo));
@@ -181,7 +213,7 @@ namespace eosio::hotstuff {
       while (qc_itr != _qcc_store.end()){
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
             qcc_ptr->on_hs_proposal_msg(0, msg);
          qc_itr++;
       }
@@ -192,7 +224,7 @@ namespace eosio::hotstuff {
       while (qc_itr != _qcc_store.end()) {
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
             qcc_ptr->on_hs_vote_msg(0, msg);
          qc_itr++;
       }
@@ -203,7 +235,7 @@ namespace eosio::hotstuff {
       while (qc_itr != _qcc_store.end()) {
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
             qcc_ptr->on_hs_new_block_msg(0, msg);
          qc_itr++;
       }
@@ -214,7 +246,7 @@ namespace eosio::hotstuff {
       while (qc_itr != _qcc_store.end()){
          const name                & qcc_name = qc_itr->first;
          std::shared_ptr<qc_chain> & qcc_ptr  = qc_itr->second;
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) )
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
             qcc_ptr->on_hs_new_view_msg(0, msg);
          qc_itr++;
       }
