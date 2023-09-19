@@ -172,8 +172,10 @@ namespace eosio { namespace chain {
          // replace with Kevin's implementation
          void set_hs_irreversible_block_num(uint32_t block_num) { (void)block_num; } // called from HotStuff consensus
          uint32_t get_hs_irreversible_block_num() const { return 1000; } // called from HotStuff consensus
-      
-         hs_commitments& get_hs_commitments();    // called from HotStuff consensus
+
+         // The returned vector is updated by HotStuff, in order to always contain the list of commitments
+         // to be added to the next produced block.
+         hs_commitments& get_hs_commitments();
          
          // thread-safe
          std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b );

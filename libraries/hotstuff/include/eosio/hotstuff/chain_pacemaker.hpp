@@ -23,13 +23,13 @@ namespace eosio::hotstuff {
 
       // called from net_plugin thread - must be synchronized
       void store_commitment(const hs_commitment& commitment) {
-         fc::lock_guard g(_m);
+         fc::lock_guard g(_new_commitments_mtx);
          _new_commitments.push_back(commitment);
       }
 
       // called from main thread
       void get_new_commitments() {
-         fc::lock_guard g(_m);
+         fc::lock_guard g(_new_commitments_mtx);
          for (auto& c : _new_commitments) {
             const hs_proposal_message& p = c.b;
             uint32_t block_num = block_header::num_from_id(p.block_id);
@@ -47,8 +47,10 @@ namespace eosio::hotstuff {
       
       // called from main thread
       void push_optional_commitment(const block_state_ptr& blk) {
+         constexpr uint32_t max_commitment_gap = 64; // we want at least one commitment every 64 blocks
+
          uint32_t block_num = block_header::num_from_id(blk->id);
-         if (block_num - _last_pushed_commitment > 64)
+         if (block_num - _last_pushed_commitment > max_commitment_gap)
             push_commitment(block_num);
       }
 
@@ -103,7 +105,7 @@ namespace eosio::hotstuff {
          // - if we validate a commitment on a block number greater than the current `lib`, we need
          //   to move the `lib` by calling `_chain->set_hs_irreversible_block_num()`.
          uint32_t current_lib = _chain->get_hs_irreversible_block_num();
-         for (const auto c : hs_commitments) {
+         for (const auto& c : hs_commitments) {
             const hs_proposal_message& p = c.b;
             uint32_t block_num = block_header::num_from_id(p.block_id); // block that this commitment proves is final
          
@@ -142,8 +144,8 @@ namespace eosio::hotstuff {
          
       controller* _chain;
       
-      fc::mutex   _m;
-      std::vector<hs_commitment> _new_commitments GUARDED_BY(_m);
+      fc::mutex   _new_commitments_mtx;
+      std::vector<hs_commitment> _new_commitments GUARDED_BY(_new_commitments_mtx);
 
       uint32_t                          _last_pushed_commitment;
       std::map<uint32_t, hs_commitment> _commitments;

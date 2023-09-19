@@ -3002,6 +3002,8 @@ void controller::commit_block() {
    my->commit_block(block_status::incomplete);
 }
 
+// The returned vector is updated by HotStuff, in order to always contain the list of commitments
+// to be added to the next produced block.
 hs_commitments& controller::get_hs_commitments() {
    return my->get_hs_commitments();
 }

@@ -353,7 +353,7 @@ namespace eosio { namespace hotstuff {
          // we may need any commitment later to prove the validity of `finalizer_set` changes 
          _commitment_mgr.store_commitment(*res);
                                           
-         // `set_hs_irreversible_block_num` is safe to call from net_plugin thread as it internally uses an `atomic_shared_ptr`
+         // `set_hs_irreversible_block_num` is safe to call from net_plugin thread as it internally uses `atomic<uint32_t>`
          _chain->set_hs_irreversible_block_num(block_header::num_from_id(res->b.block_id));
       }
    }
