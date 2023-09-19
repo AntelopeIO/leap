@@ -112,7 +112,6 @@ namespace eosio { namespace chain {
 
          void execute_action( uint32_t action_ordinal, uint32_t recurse_depth );
 
-         void schedule_transaction();
          void record_transaction( const transaction_id_type& id, fc::time_point_sec expire );
 
          void validate_cpu_usage_to_bill( int64_t billed_us, int64_t account_cpu_limit, bool check_minimum, int64_t subjective_billed_us )const;
