@@ -1957,8 +1957,8 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             if (!process_unapplied_trxs(preprocess_deadline))
                return start_block_result::exhausted;
 
-            // Hard-code the deadline to retire expired deferred trxs to 50ms
-            auto deferred_trxs_deadline = std::min<fc::time_point>(preprocess_deadline, fc::time_point::now() + fc::milliseconds(50));
+            // Hard-code the deadline to retire expired deferred trxs to 10ms
+            auto deferred_trxs_deadline = std::min<fc::time_point>(preprocess_deadline, fc::time_point::now() + fc::milliseconds(10));
             retire_expired_deferred_trxs(deferred_trxs_deadline);
          }
 
