@@ -116,8 +116,9 @@ public:
    //        true if this queue has the highest priority task to execute
    std::optional<bool> compare_queues_locked( const exec_pri_queue& rhs ) {
       std::scoped_lock g(mtx_, rhs.mtx_);
-      if (empty() && rhs.empty()) return {};
-      return !empty() && (rhs.empty() || *rhs.top() < *top());
+      if (empty() && rhs.empty())
+         return {};
+      return !empty() && (rhs.empty() || *rhs.top() <= *top());
    }
 
    class executor
@@ -192,14 +193,10 @@ private:
       virtual void execute() = 0;
 
       int priority() const { return priority_; }
-      // C++20
-      // friend std::weak_ordering operator<=>(const queued_handler_base&,
-      //                                       const queued_handler_base&) noexcept = default;
-      friend bool operator<(const queued_handler_base& a,
-                            const queued_handler_base& b) noexcept
-      {
-         return std::tie( a.priority_, a.order_ ) < std::tie( b.priority_, b.order_ );
-      }
+
+      // comparison eval: (priority_, order_)
+      friend auto operator<=>(const queued_handler_base& a,
+                              const queued_handler_base& b) noexcept = default;
 
    private:
       int priority_;
