@@ -190,10 +190,6 @@ Config Options for eosio::chain_plugin:
 
   --enable-account-queries arg (=0)     enable queries to find accounts by
                                         various metadata.
-  --max-nonprivileged-inline-action-size arg (=4096)
-                                        maximum allowed size (in bytes) of an
-                                        inline action for a nonprivileged
-                                        account
   --transaction-retry-max-storage-size-gb arg
                                         Maximum size (in GiB) allowed to be
                                         allocated for the Transaction Retry

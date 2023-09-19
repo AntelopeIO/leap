@@ -65,62 +65,79 @@ if("eos-vm-oc" IN_LIST EOSIO_WASM_RUNTIMES)
    set(WRAP_MAIN "-Wl,-wrap=main")
 endif()
 
+add_library(EosioChain INTERFACE)
+
+target_link_libraries(EosioChain INTERFACE
+   ${libchain}
+   ${libfc}
+   ${libwast}
+   ${libwasm}
+   ${libir}
+   ${libsoftfloat}
+   ${libbscrypto}
+   ${libdecrepit}
+   ${liblogging}
+   ${libchainbase}
+   ${libbuiltins}
+   ${libsecp256k1}
+   ${libbn256}
+   ${libbls12-381}
+   @GMP_LIBRARY@
+
+   Boost::date_time
+   Boost::filesystem
+   Boost::system
+   Boost::chrono
+   Boost::multi_index
+   Boost::multiprecision
+   Boost::interprocess
+   Boost::asio
+   Boost::signals2
+   Boost::iostreams
+   "-lz" # Needed by Boost iostreams
+
+   ${LLVM_LIBS}
+
+   ${PLATFORM_SPECIFIC_LIBS}
+
+   ${WRAP_MAIN}
+   Threads::Threads
+)
+
+target_include_directories(EosioChain INTERFACE
+                              @OPENSSL_INCLUDE_DIR@
+                              @CMAKE_SOURCE_DIR@/libraries/chain/include
+                              @CMAKE_BINARY_DIR@/libraries/chain/include
+                              @CMAKE_SOURCE_DIR@/libraries/libfc/include
+                              @CMAKE_SOURCE_DIR@/libraries/libfc/libraries/boringssl/boringssl/src/include
+                              @CMAKE_SOURCE_DIR@/libraries/softfloat/source/include
+                              @CMAKE_SOURCE_DIR@/libraries/appbase/include
+                              @CMAKE_SOURCE_DIR@/libraries/chainbase/include
+                              @CMAKE_SOURCE_DIR@/libraries/wasm-jit/include )
+
+
+#adds -ltr. Ubuntu eosio.contracts build breaks without this
+if(UNIX AND NOT APPLE)
+   target_link_libraries(EosioChain INTERFACE ${LIBRT})
+endif()
+
+add_library(EosioTester INTERFACE)
+
+target_link_libraries(EosioTester INTERFACE
+   ${libtester}
+   Boost::unit_test_framework
+   EosioChain
+)
+
+target_include_directories(EosioTester INTERFACE
+                        @CMAKE_SOURCE_DIR@/libraries/testing/include )
+
 macro(add_eosio_test_executable test_name)
    add_executable( ${test_name} ${ARGN} )
    target_link_libraries( ${test_name}
-       ${libtester}
-       ${libchain}
-       ${libfc}
-       ${libwast}
-       ${libwasm}
-       ${libir}
-       ${libsoftfloat}
-       ${libbscrypto}
-       ${libdecrepit}
-       ${liblogging}
-       ${libchainbase}
-       ${libbuiltins}
-       ${libsecp256k1}
-       ${libbn256}
-       ${libbls12-381}
-       @GMP_LIBRARY@
-
-       Boost::date_time
-       Boost::filesystem
-       Boost::system
-       Boost::chrono
-       Boost::multi_index
-       Boost::multiprecision
-       Boost::interprocess
-       Boost::asio
-       Boost::signals2
-       Boost::iostreams
-       "-lz" # Needed by Boost iostreams
-       Boost::unit_test_framework
-
-       ${LLVM_LIBS}
-
-       ${PLATFORM_SPECIFIC_LIBS}
-
-       ${WRAP_MAIN}
-       Threads::Threads
+       EosioTester
       )
 
-   #adds -ltr. Ubuntu eosio.contracts build breaks without this
-   if(UNIX AND NOT APPLE)
-      target_link_libraries(${test_name} ${LIBRT})
-   endif()
-
-   target_include_directories( ${test_name} PUBLIC
-                               @CMAKE_SOURCE_DIR@/libraries/chain/include
-                               @CMAKE_BINARY_DIR@/libraries/chain/include
-                               @CMAKE_SOURCE_DIR@/libraries/libfc/include
-                               @CMAKE_SOURCE_DIR@/libraries/libfc/libraries/boringssl/boringssl/src/include
-                               @CMAKE_SOURCE_DIR@/libraries/softfloat/source/include
-                               @CMAKE_SOURCE_DIR@/libraries/appbase/include
-                               @CMAKE_SOURCE_DIR@/libraries/chainbase/include
-                               @CMAKE_SOURCE_DIR@/libraries/testing/include
-                               @CMAKE_SOURCE_DIR@/libraries/wasm-jit/Include )
 endmacro()
 
 macro(add_eosio_test test_name)
