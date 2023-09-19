@@ -307,7 +307,7 @@ struct controller_impl {
         cfg.state_size, false, cfg.db_map_mode ),
     blog( cfg.blocks_dir, cfg.blog ),
     fork_db( cfg.blocks_dir / config::reversible_blocks_dir_name ),
-    resource_limits( db, [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); }),
+    resource_limits( s, db ),
     authorization( s, db ),
     protocol_features( std::move(pfs), [&s](bool is_trx_transient) { return s.get_deep_mind_logger(is_trx_transient); } ),
     conf( cfg ),
@@ -339,6 +339,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
+      set_activation_handler<builtin_protocol_feature_t::transaction_fee>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
          wasmif.current_lib(bsp->block_num);
@@ -3839,6 +3840,16 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
    } );
 }
 
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::transaction_fee>() {
+   db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "set_fee_parameters" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "config_fee_limits" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "set_fee_limits" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "get_fee_consumption" );
+   } );
+   resource_limits.add_fee_params_db();
+}
 /// End of protocol feature activation handlers
 
 } } /// eosio::chain

@@ -135,8 +135,10 @@ namespace eosio { namespace chain {
       int64_t account_cpu_limit = 0;
 
       if ( !is_read_only() ) {
-         if( explicit_billed_cpu_time )
+         if( explicit_billed_cpu_time ) {
             validate_cpu_usage_to_bill( billed_cpu_time_us, std::numeric_limits<int64_t>::max(), false, subjective_cpu_bill_us); // Fail early if the amount to be billed is too high
+            validate_and_update_cpu_usage_fee(billed_cpu_time_us, std::numeric_limits<int64_t>::max(), subjective_cpu_bill_us);
+         }
 
          // Record accounts to be billed for network and CPU usage
          if( control.is_builtin_activated(builtin_protocol_feature_t::only_bill_first_authorizer) ) {
@@ -388,6 +390,7 @@ namespace eosio { namespace chain {
 
       eager_net_limit = net_limit;
       check_net_usage();
+      validate_and_update_net_usage_fee();
 
       auto now = fc::time_point::now();
       trace->elapsed = now - start;
@@ -395,9 +398,20 @@ namespace eosio { namespace chain {
       update_billed_cpu_time( now );
 
       validate_cpu_usage_to_bill( billed_cpu_time_us, account_cpu_limit, true, subjective_cpu_bill_us );
+      validate_and_update_cpu_usage_fee(billed_cpu_time_us, account_cpu_limit, subjective_cpu_bill_us);
 
-      rl.add_transaction_usage( bill_to_accounts, static_cast<uint64_t>(billed_cpu_time_us), net_usage,
-                                block_timestamp_type(control.pending_block_time()).slot, is_transient() ); // Should never fail
+      if(net_usage_fee >= 0 || cpu_usage_fee >= 0) {
+         validate_usage_fee_limit();
+         rl.add_transaction_usage_and_fees( bill_to_accounts, 
+                                    billed_cpu_time_us, 
+                                    net_usage,
+                                    cpu_usage_fee,
+                                    net_usage_fee,
+                                    block_timestamp_type(control.pending_block_time()).slot ); // Should never fail
+      }else{
+         rl.add_transaction_usage( bill_to_accounts, static_cast<uint64_t>(billed_cpu_time_us), net_usage,
+                                 block_timestamp_type(control.pending_block_time()).slot, is_transient() ); // Should never fail
+      }
    }
 
    void transaction_context::squash() {
@@ -408,7 +422,7 @@ namespace eosio { namespace chain {
       if (undo_session) undo_session->undo();
    }
 
-   void transaction_context::check_net_usage()const {
+   void transaction_context::check_net_usage() {
       if (!control.skip_trx_checks()) {
          if( BOOST_UNLIKELY(net_usage > eager_net_limit) ) {
             if ( net_limit_due_to_block ) {
@@ -420,9 +434,13 @@ namespace eosio { namespace chain {
                           "greylisted transaction net usage is too high: ${net_usage} > ${net_limit}",
                           ("net_usage", net_usage)("net_limit", eager_net_limit) );
             } else {
-               EOS_THROW( tx_net_usage_exceeded,
-                          "transaction net usage is too high: ${net_usage} > ${net_limit}",
-                          ("net_usage", net_usage)("net_limit", eager_net_limit) );
+               if( control.is_builtin_activated( builtin_protocol_feature_t::transaction_fee ) ){
+                  is_tx_net_usage_exceeded = true;
+               } else {
+                  EOS_THROW( tx_net_usage_exceeded,
+                           "transaction net usage is too high: ${net_usage} > ${net_limit}",
+                           ("net_usage", net_usage)("net_limit", eager_net_limit) );
+               }
             }
          }
       }
@@ -512,7 +530,7 @@ namespace eosio { namespace chain {
       transaction_timer.start(_deadline);
    }
 
-   void transaction_context::validate_cpu_usage_to_bill( int64_t billed_us, int64_t account_cpu_limit, bool check_minimum, int64_t subjective_billed_us )const {
+   void transaction_context::validate_cpu_usage_to_bill( int64_t billed_us, int64_t account_cpu_limit, bool check_minimum, int64_t subjective_billed_us ) {
       if (!control.skip_trx_checks()) {
          if( check_minimum ) {
             const auto& cfg = control.get_global_properties().configuration;
@@ -526,7 +544,7 @@ namespace eosio { namespace chain {
       }
    }
 
-   void transaction_context::validate_account_cpu_usage( int64_t billed_us, int64_t account_cpu_limit, int64_t subjective_billed_us )const {
+   void transaction_context::validate_account_cpu_usage( int64_t billed_us, int64_t account_cpu_limit, int64_t subjective_billed_us ) {
       if( (billed_us > 0) && !control.skip_trx_checks() ) {
          const bool cpu_limited_by_account = (account_cpu_limit <= objective_duration_limit.count());
 
@@ -542,21 +560,25 @@ namespace eosio { namespace chain {
             auto account_limit = graylisted ? account_cpu_limit : (cpu_limited_by_account ? account_cpu_limit : objective_duration_limit.count());
 
             if( billed_us > account_limit ) {
-               fc::microseconds tx_limit;
-               std::string assert_msg;
-               assert_msg.reserve(1024);
-               assert_msg += "billed CPU time (${billed} us) is greater than the maximum";
-               assert_msg += graylisted ? " greylisted" : "";
-               assert_msg += " billable CPU time for the transaction (${billable} us)";
-               assert_msg += subjective_billed_us > 0 ? " with a subjective cpu of (${subjective} us)" : "";
-               assert_msg += get_tx_cpu_usage_exceeded_reason_msg( tx_limit );
+               if(!cpu_limit_due_to_greylist && cpu_limited_by_account && control.is_builtin_activated( builtin_protocol_feature_t::transaction_fee ) ){
+                  is_tx_cpu_usage_exceeded = true;
+               }else{
+                  fc::microseconds tx_limit;
+                  std::string assert_msg;
+                  assert_msg.reserve(1024);
+                  assert_msg += "billed CPU time (${billed} us) is greater than the maximum";
+                  assert_msg += graylisted ? " greylisted" : "";
+                  assert_msg += " billable CPU time for the transaction (${billable} us)";
+                  assert_msg += subjective_billed_us > 0 ? " with a subjective cpu of (${subjective} us)" : "";
+                  assert_msg += get_tx_cpu_usage_exceeded_reason_msg( tx_limit );
 
-               if( graylisted ) {
-                  FC_THROW_EXCEPTION( greylist_cpu_usage_exceeded, std::move(assert_msg),
-                                      ("billed", billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", tx_limit) );
-               } else {
-                  FC_THROW_EXCEPTION( tx_cpu_usage_exceeded, std::move(assert_msg),
-                                      ("billed", billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", tx_limit) );
+                  if( graylisted ) {
+                     FC_THROW_EXCEPTION( greylist_cpu_usage_exceeded, std::move(assert_msg),
+                                          ("billed", billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", tx_limit) );
+                  } else {
+                     FC_THROW_EXCEPTION( tx_cpu_usage_exceeded, std::move(assert_msg),
+                                          ("billed", billed_us)("billable", account_limit)("subjective", subjective_billed_us)("limit", tx_limit) );
+                  }
                }
             }
          }
@@ -580,6 +602,21 @@ namespace eosio { namespace chain {
             auto account_limit = graylisted ? account_cpu_limit : (cpu_limited_by_account ? account_cpu_limit : objective_duration_limit.count());
 
             if( prev_billed_us >= account_limit ) {
+               auto& rl = control.get_mutable_resource_limits_manager();
+               if(cpu_limited_by_account && control.is_builtin_activated( builtin_protocol_feature_t::transaction_fee )
+               && rl.is_account_enable_charging_fee( bill_to_accounts )) {
+                  auto estimated_cpu_usage_fee = rl.get_cpu_usage_fee_to_bill(prev_billed_us);
+                  int64_t x, cpu_fee_available;
+                  for( const auto& a : bill_to_accounts ) {
+                     std::tie(x, cpu_fee_available) = rl.get_account_available_fees(a);
+                     EOS_ASSERT( estimated_cpu_usage_fee < cpu_fee_available,
+                                 tx_cpu_fee_exceeded,
+                                 "estimated CPU fee amount (${billed}) is not less than the maximum billable CPU fee amount for the transaction (${billable})",
+                                 ("billed", estimated_cpu_usage_fee)( "billable", cpu_fee_available )
+                              );
+                  }
+                  return;
+               }
                std::string assert_msg;
                assert_msg.reserve(1024);
                assert_msg += "estimated CPU time (${billed} us) is not less than the maximum";
@@ -598,6 +635,88 @@ namespace eosio { namespace chain {
             }
          }
       }
+   }
+
+   void transaction_context::validate_and_update_net_usage_fee() {
+      if ( is_tx_net_usage_exceeded ) {
+         auto& rl = control.get_mutable_resource_limits_manager();
+         if (rl.is_account_enable_charging_fee( bill_to_accounts )) {
+            net_usage_fee = rl.get_net_usage_fee_to_bill(net_usage);
+            int64_t net_fee_available, y;
+            for( const auto& a : bill_to_accounts ) {         
+               std::tie(net_fee_available, y) = rl.get_account_available_fees(a);
+               EOS_ASSERT( net_fee_available >= net_usage_fee,
+                           tx_net_fee_exceeded,
+                           "billed NET fee amount (${billed}) is greater than the maximum billable NET fee amount for the transaction (${billable})",
+                           ("billed", net_usage_fee)( "billable", net_fee_available )
+                        );
+            }
+         } else {
+            EOS_THROW( tx_net_usage_exceeded,
+                        "transaction net usage is too high: ${net_usage} > ${net_limit}",
+                        ("net_usage", net_usage)("net_limit", eager_net_limit) );         
+         }
+      }
+   }
+
+   void transaction_context::validate_and_update_cpu_usage_fee(int64_t billed_us, int64_t account_cpu_limit, int64_t subjective_cpu_bill_us) {
+      if( is_tx_cpu_usage_exceeded ) {
+         auto& rl = control.get_mutable_resource_limits_manager();
+         if ( rl.is_account_enable_charging_fee( bill_to_accounts ) ) {
+            cpu_usage_fee = rl.get_cpu_usage_fee_to_bill(billed_us);
+            int64_t x, cpu_fee_available;
+            for( const auto& a : bill_to_accounts ) {         
+               std::tie(x, cpu_fee_available) = rl.get_account_available_fees(a);
+               EOS_ASSERT( cpu_fee_available >= cpu_usage_fee,
+                           tx_cpu_fee_exceeded,
+                           "billed CPU fee amount (${billed}) is greater than the maximum billable CPU fee amount for the transaction (${billable})",
+                           ("billed", cpu_usage_fee)( "billable", cpu_fee_available )
+                        );
+            }
+         } else {
+            const bool cpu_limited_by_account = (account_cpu_limit <= objective_duration_limit.count());
+            const int64_t cpu_limit = (cpu_limited_by_account ? account_cpu_limit : objective_duration_limit.count());
+            fc::microseconds tx_limit;
+            std::string assert_msg;
+            assert_msg.reserve(1024);
+            assert_msg += "billed CPU time (${billed} us) is greater than the maximum";
+            assert_msg += " billable CPU time for the transaction (${billable} us)";
+            assert_msg += billed_us > 0 ? " with a subjective cpu of (${subjective} us)" : "";
+            assert_msg += get_tx_cpu_usage_exceeded_reason_msg( tx_limit );
+
+            FC_THROW_EXCEPTION( tx_cpu_usage_exceeded, std::move(assert_msg),
+                                 ("billed", billed_us)("billable", cpu_limit)("subjective", subjective_cpu_bill_us)("limit", tx_limit) );
+         }                     
+      }
+   }
+
+   void transaction_context::validate_usage_fee_limit() {
+     if( net_usage_fee >= 0 || cpu_usage_fee >= 0) {
+         auto tx_fee = std::max(net_usage_fee, static_cast<int64_t>(0)) + std::max(cpu_usage_fee, static_cast<int64_t>(0));
+         auto& rl = control.get_mutable_resource_limits_manager();
+         int64_t max_fee_per_tx_limit, max_fee_account_limit;
+         for( const auto& a : bill_to_accounts ) { 
+            std::tie(max_fee_per_tx_limit, max_fee_account_limit) = rl.get_config_fee_limits(a);
+            if ( max_fee_per_tx_limit > 0 ) {
+               EOS_ASSERT( tx_fee <= max_fee_per_tx_limit,
+                  max_tx_fee_exceeded,
+                  "billed fee amount (${billed}) is greater than the maximum limit fee for the transaction (${limit})",
+                  ("billed", tx_fee)( "limit", max_fee_per_tx_limit )
+               );               
+            }
+
+            if ( max_fee_account_limit > 0 ) {
+               int64_t net_weight_consumption, cpu_weight_consumption;
+               rl.get_account_fee_consumption(a, net_weight_consumption, cpu_weight_consumption);
+               auto total_fee_consumed = tx_fee + net_weight_consumption + cpu_weight_consumption;
+               EOS_ASSERT( total_fee_consumed <= max_fee_account_limit,
+                  max_account_fee_exceeded,
+                  "billed fee amount (${billed}) is greater than the maximum limit fee for the account (${limit})",
+                  ("billed", total_fee_consumed)( "limit", max_fee_account_limit )
+               );  
+            }
+         }
+     }
    }
 
    void transaction_context::add_ram_usage( account_name account, int64_t ram_delta ) {

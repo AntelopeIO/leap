@@ -41,6 +41,26 @@ namespace eosio { namespace chain { namespace webassembly {
       (void)legacy_ptr<int64_t>(std::move(cpu_weight));
    }
 
+   void interface::set_fee_parameters(uint64_t cpu_fee_scaler, uint64_t free_block_cpu_threshold, uint64_t net_fee_scaler, uint64_t free_block_net_threshold) {
+      context.control.get_mutable_resource_limits_manager().set_fee_parameters(cpu_fee_scaler, free_block_cpu_threshold, net_fee_scaler, free_block_net_threshold);
+   }
+
+   void interface::config_fee_limits(account_name account, int64_t tx_fee_limit, int64_t account_fee_limit){
+      context.control.get_mutable_resource_limits_manager().config_account_fee_limits(account, tx_fee_limit, account_fee_limit, context.trx_context.is_transient());
+   }
+
+   void interface::set_fee_limits( account_name account, int64_t net_weight_limit, int64_t cpu_weight_limit ) {
+      EOS_ASSERT(net_weight_limit >= 0, wasm_execution_error, "invalid value for net resource weight expected [0,INT64_MAX]");
+      EOS_ASSERT(cpu_weight_limit >= 0, wasm_execution_error, "invalid value for cpu resource weight expected [0,INT64_MAX]");
+      context.control.get_mutable_resource_limits_manager().set_account_fee_limits(account, net_weight_limit, cpu_weight_limit, context.trx_context.is_transient());
+   }
+
+   void interface::get_fee_consumption( account_name account, legacy_ptr<int64_t> net_weight_consumption, legacy_ptr<int64_t> cpu_weight_consumption) const {
+      context.control.get_resource_limits_manager().get_account_fee_consumption( account, *net_weight_consumption, *cpu_weight_consumption);
+      (void)legacy_ptr<int64_t>(std::move(net_weight_consumption));
+      (void)legacy_ptr<int64_t>(std::move(cpu_weight_consumption));
+   }
+
    int64_t set_proposed_producers_common( apply_context& context, vector<producer_authority> && producers, bool validate_keys ) {
       EOS_ASSERT(producers.size() <= config::max_producers, wasm_execution_error, "Producer schedule exceeds the maximum producer count for this chain");
       EOS_ASSERT( producers.size() > 0

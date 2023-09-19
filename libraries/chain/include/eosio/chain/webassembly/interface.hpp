@@ -249,6 +249,53 @@ namespace webassembly {
          */
          void set_privileged(account_name account, bool is_priv);
 
+          /**
+          * Set the global transaction fees parameters.
+          *
+          * @ingroup privileged
+          *
+          * @param cpu_fee_scaler - cpu fee scaler.
+          * @param free_block_cpu_threshold - the cpu threshold to start charge fee.
+          * @param net_fee_scaler - net fee scaler.
+          * @param free_block_net_threshold - the net threshold to start charge fee.
+         */
+         void set_fee_parameters(uint64_t cpu_fee_scaler, uint64_t free_block_cpu_threshold, uint64_t net_fee_scaler, uint64_t free_block_net_threshold);
+
+         /**
+          * Configure the maximum fees for an account.
+          *
+          * @ingroup privileged
+          *
+          * @param account - name of the account whose resource limit to be set.
+          * @param tx_fee_limit - the maximum fee limit per transaction for the account.
+          * - set to -1 is unlimited
+          * @param account_fee_limit - the maximum accumulated fees for the account. Must be reset once the accumulated amount is reached.
+          * - set to -1 is unlimited
+         */
+         void config_fee_limits(account_name account, int64_t tx_fee_limit, int64_t account_fee_limit);
+
+         /**
+          * Set the fee limits for an account.
+          *
+          * @ingroup privileged
+          *
+          * @param account - name of the account whose resource limit to be set.
+          * @param net_weight_limit - The limit on NET weight for the account.
+          * @param cpu_weight_limit - The limit on CPU weight for the account.
+         */
+         void set_fee_limits( account_name account, int64_t net_weight_limit, int64_t cpu_weight_limit);
+
+         /**
+          * Get fee balance consumed by an account.
+          *
+          * @ingroup privileged
+          *
+          * @param account - name of the account whose resource limit to get.
+          * @param[out] net_weight_consumption - output to hold net weight consumption.
+          * @param[out] cpu_weight_consumption - output to hold cpu weight consumption.
+         */
+         void get_fee_consumption( account_name account, legacy_ptr<int64_t, 8> net_weight_consumption, legacy_ptr<int64_t, 8> cpu_weight_consumption) const;
+
          // softfloat api
          float _eosio_f32_add(float, float) const;
          float _eosio_f32_sub(float, float) const;

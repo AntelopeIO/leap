@@ -4,6 +4,7 @@
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/config.hpp>
 #include <eosio/testing/chainbase_fixture.hpp>
+#include <eosio/testing/tester.hpp>
 
 #include <boost/test/unit_test.hpp>
 
@@ -11,15 +12,16 @@ using namespace eosio::chain::resource_limits;
 using namespace eosio::testing;
 using namespace eosio::chain;
 
-class resource_limits_fixture: private chainbase_fixture<1024*1024>, public resource_limits_manager
+class resource_limits_fixture: private chainbase_fixture<1024*1024>, public tester, public resource_limits_manager
 {
    public:
       resource_limits_fixture()
-      :chainbase_fixture()
-      ,resource_limits_manager(*chainbase_fixture::_db, [](bool) { return nullptr; })
+      :chainbase_fixture(), tester( setup_policy::full )
+      ,resource_limits_manager(*tester::control, *chainbase_fixture::_db)
       {
          add_indices();
          initialize_database();
+         add_fee_params_db();
       }
 
       ~resource_limits_fixture() {}

@@ -384,7 +384,15 @@ namespace eosio { namespace chain {
                                     3080009, "Read-only transaction eos-vm-oc compile temporary failure" )
       FC_DECLARE_DERIVED_EXCEPTION( ro_trx_vm_oc_compile_permanent_failure, resource_exhausted_exception,
                                     3080010, "Read-only transaction eos-vm-oc compile permanent failure" )
-
+      FC_DECLARE_DERIVED_EXCEPTION( max_tx_fee_exceeded, resource_exhausted_exception,
+                                    3080011, "Transaction fee exceeded the maximum fee per transaction set for the account" )
+      FC_DECLARE_DERIVED_EXCEPTION( max_account_fee_exceeded, resource_exhausted_exception,
+                                    3080012, "Transaction fee exceeded the maximum fee configured for the account" )
+      FC_DECLARE_DERIVED_EXCEPTION( tx_net_fee_exceeded, resource_exhausted_exception,
+                                    3080013, "Transaction exceeded the current NET account fee limit" )
+      FC_DECLARE_DERIVED_EXCEPTION( tx_cpu_fee_exceeded, resource_exhausted_exception,
+                                    3080014, "Transaction exceeded the current CPU account fee limit" )
+                                    
       FC_DECLARE_DERIVED_EXCEPTION( leeway_deadline_exception, deadline_exception,
                                     3081001, "Transaction reached the deadline set due to leeway on account CPU limits" )
 

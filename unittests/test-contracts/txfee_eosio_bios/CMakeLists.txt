@@ -1,0 +1,6 @@
+if( EOSIO_COMPILE_TEST_CONTRACTS )
+   add_contract( txfee_eosio_bios txfee_eosio_bios txfee_eosio_bios.cpp )
+else()
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/txfee_eosio_bios.wasm ${CMAKE_CURRENT_BINARY_DIR}/txfee_eosio_bios.wasm COPYONLY )
+   configure_file( ${CMAKE_CURRENT_SOURCE_DIR}/txfee_eosio_bios.abi  ${CMAKE_CURRENT_BINARY_DIR}/txfee_eosio_bios.abi  COPYONLY )
+endif()

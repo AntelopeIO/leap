@@ -259,7 +259,8 @@ namespace eosio { namespace testing {
                builtin_protocol_feature_t::get_sender,
                builtin_protocol_feature_t::ram_restrictions,
                builtin_protocol_feature_t::webauthn_key,
-               builtin_protocol_feature_t::wtmsig_block_signatures
+               builtin_protocol_feature_t::wtmsig_block_signatures,
+               builtin_protocol_feature_t::transaction_fee
             });
             produce_block();
             set_bios_contract();

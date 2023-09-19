@@ -324,12 +324,61 @@ namespace eosio { namespace chain { namespace resource_limits {
       >
    >;
 
+   /**
+   * This object tracks the fee parametters.
+   */
+   class fee_params_object : public chainbase::object<fee_params_object_type, fee_params_object> {
+      OBJECT_CTOR(fee_params_object);
+      id_type id;
+
+      uint64_t cpu_fee_scaler = config::default_cpu_fee_scaler;
+      uint64_t free_block_cpu_threshold = config::default_free_block_cpu_threshold;
+      uint64_t net_fee_scaler = config::default_net_fee_scaler;
+      uint64_t free_block_net_threshold = config::default_free_block_net_threshold;
+   };
+   using fee_params_index = chainbase::shared_multi_index_container<
+      fee_params_object,
+      indexed_by<
+         ordered_unique<tag<by_id>, member<fee_params_object, fee_params_object::id_type, &fee_params_object::id>>
+      >
+   >;
+
+   /**
+    * This object tracks the fee limits of an account. 
+    * Note: 
+    * - Setting tx_fee_limit to -1 indicates there is no fee limit by transaction.
+    * - Setting account_fee_limit to -1 indicates there is no accumulated fees limit by account.
+    */
+   struct fee_limits_object : public chainbase::object<fee_limits_object_type, fee_limits_object> {
+
+      OBJECT_CTOR(fee_limits_object)
+
+      id_type id;
+      account_name owner; //< owner should not be changed within a chainbase modifier lambda
+      int64_t tx_fee_limit = -1;
+      int64_t account_fee_limit = 0;
+      int64_t net_weight_limit = 0;
+      int64_t cpu_weight_limit = 0;
+      int64_t net_weight_consumption = 0;
+      int64_t cpu_weight_consumption = 0;
+
+   };
+
+   using fee_limits_index = chainbase::shared_multi_index_container<
+      fee_limits_object,
+      indexed_by<
+         ordered_unique<tag<by_id>, member<fee_limits_object, fee_limits_object::id_type, &fee_limits_object::id>>,
+         ordered_unique<tag<by_owner>, member<fee_limits_object, account_name, &fee_limits_object::owner> >
+      >
+   >;
 } } } /// eosio::chain::resource_limits
 
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_limits_object,        eosio::chain::resource_limits::resource_limits_index)
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_usage_object,         eosio::chain::resource_limits::resource_usage_index)
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_limits_config_object, eosio::chain::resource_limits::resource_limits_config_index)
 CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::resource_limits_state_object,  eosio::chain::resource_limits::resource_limits_state_index)
+CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::fee_limits_object,             eosio::chain::resource_limits::fee_limits_index)
+CHAINBASE_SET_INDEX_TYPE(eosio::chain::resource_limits::fee_params_object,   eosio::chain::resource_limits::fee_params_index)
 
 FC_REFLECT(eosio::chain::resource_limits::usage_accumulator, (last_ordinal)(value_ex)(consumed))
 
@@ -338,3 +387,5 @@ FC_REFLECT(eosio::chain::resource_limits::resource_limits_object, (owner)(net_we
 FC_REFLECT(eosio::chain::resource_limits::resource_usage_object,  (owner)(net_usage)(cpu_usage)(ram_usage))
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_config_object, (cpu_limit_parameters)(net_limit_parameters)(account_cpu_usage_average_window)(account_net_usage_average_window))
 FC_REFLECT(eosio::chain::resource_limits::resource_limits_state_object, (average_block_net_usage)(average_block_cpu_usage)(pending_net_usage)(pending_cpu_usage)(total_net_weight)(total_cpu_weight)(total_ram_bytes)(virtual_net_limit)(virtual_cpu_limit))
+FC_REFLECT(eosio::chain::resource_limits::fee_limits_object, (owner)(tx_fee_limit)(account_fee_limit)(net_weight_limit)(cpu_weight_limit)(net_weight_consumption)(cpu_weight_consumption))
+FC_REFLECT(eosio::chain::resource_limits::fee_params_object, (cpu_fee_scaler)(free_block_cpu_threshold)(net_fee_scaler)(free_block_net_threshold))

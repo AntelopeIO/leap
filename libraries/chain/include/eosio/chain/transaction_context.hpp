@@ -57,7 +57,7 @@ namespace eosio { namespace chain {
 
          inline void add_net_usage( uint64_t u ) { net_usage += u; check_net_usage(); }
 
-         void check_net_usage()const;
+         void check_net_usage();
 
          void checktime()const;
 
@@ -115,9 +115,13 @@ namespace eosio { namespace chain {
          void schedule_transaction();
          void record_transaction( const transaction_id_type& id, fc::time_point_sec expire );
 
-         void validate_cpu_usage_to_bill( int64_t billed_us, int64_t account_cpu_limit, bool check_minimum, int64_t subjective_billed_us )const;
-         void validate_account_cpu_usage( int64_t billed_us, int64_t account_cpu_limit,  int64_t subjective_billed_us )const;
+         void validate_cpu_usage_to_bill( int64_t billed_us, int64_t account_cpu_limit, bool check_minimum, int64_t subjective_billed_us );
+         void validate_account_cpu_usage( int64_t billed_us, int64_t account_cpu_limit,  int64_t subjective_billed_us );
          void validate_account_cpu_usage_estimate( int64_t billed_us, int64_t account_cpu_limit, int64_t subjective_billed_us )const;
+
+         void validate_and_update_net_usage_fee();
+         void validate_and_update_cpu_usage_fee(int64_t billed_us, int64_t account_cpu_limit, int64_t subjective_billed_us);
+         void validate_usage_fee_limit();
 
          void disallow_transaction_extensions( const char* error_msg )const;
 
@@ -156,6 +160,8 @@ namespace eosio { namespace chain {
 
          transaction_checktime_timer   transaction_timer;
 
+         int64_t                       net_usage_fee = -1;
+         int64_t                       cpu_usage_fee = -1;
    private:
          bool                          is_initialized = false;
          transaction_metadata::trx_type trx_type;
@@ -186,6 +192,8 @@ namespace eosio { namespace chain {
             speculative_executed_adjusted_max_transaction_time // prev_billed_cpu_time_us > 0
          };
          tx_cpu_usage_exceeded_reason  tx_cpu_usage_reason = tx_cpu_usage_exceeded_reason::account_cpu_limit;
+         bool                          is_tx_net_usage_exceeded = false;
+         bool                          is_tx_cpu_usage_exceeded = false;
    };
 
 } }

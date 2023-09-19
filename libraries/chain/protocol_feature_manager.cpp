@@ -272,6 +272,18 @@ Adds new cryptographic host functions
 */
             {}
          } )
+         (  builtin_protocol_feature_t::transaction_fee, builtin_protocol_feature_spec{
+            "TRANSACTION_FEE",
+            fc::variant("620246f752a996f573454039eab88ff326c58321cfc3d45a13a44bb2e468d7ac").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
+/*
+Builtin protocol feature: TRANSACTION_FEE
+Allows privileged contracts to set the fee-charging constraints on resource limit
+Allows privileged contracts to charge fees from the account which exceeds the resource staking limit
+Users are able to set the maximum limit that they willing to pay for their transactions
+*/
+            {}
+         } )
    ;
 
 

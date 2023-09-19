@@ -53,7 +53,8 @@ static const uint32_t maximum_elastic_resource_multiplier  = 1000;
 
 const static uint32_t   rate_limiting_precision        = 1000*1000;
 
-
+const static uint64_t   default_net_fee_scaler                       = 50000000000;
+const static uint64_t   default_free_block_net_threshold             = 0;
 const static uint32_t   default_max_block_net_usage                  = 1024 * 1024; /// at 500ms blocks and 200byte trx, this enables ~10,000 TPS burst
 const static uint32_t   default_target_block_net_usage_pct           = 10 * percent_1; /// we target 1000 TPS
 const static uint32_t   default_max_transaction_net_usage            = default_max_block_net_usage / 2;
@@ -63,6 +64,8 @@ const static uint32_t   default_context_free_discount_net_usage_num  = 20; // TO
 const static uint32_t   default_context_free_discount_net_usage_den  = 100;
 const static uint32_t   transaction_id_net_usage                     = 32; // 32 bytes for the size of a transaction id
 
+const static uint64_t   default_cpu_fee_scaler                       = 50000000000;
+const static uint64_t   default_free_block_cpu_threshold             = 0;
 const static uint32_t   default_max_block_cpu_usage                  = 200'000; /// max block cpu usage in microseconds
 const static uint32_t   default_target_block_cpu_usage_pct           = 10 * percent_1;
 const static uint32_t   default_max_transaction_cpu_usage            = 3*default_max_block_cpu_usage/4; /// max trx cpu usage in microseconds
