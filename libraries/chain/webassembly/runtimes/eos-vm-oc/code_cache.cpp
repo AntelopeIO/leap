@@ -355,15 +355,14 @@ code_cache_base::~code_cache_base() {
       }
    }
 
+   uintptr_t ptr_offset = 0;
    if(p) {
       fc::datastream<char*> ds(p, sz);
       serialize_cache_index(ds);
 
-      uintptr_t ptr_offset = p-code_mapping;
-      *((uintptr_t*)(code_mapping+descriptor_ptr_from_file_start)) = ptr_offset;
+      ptr_offset = p-code_mapping;
    }
-   else
-      *((uintptr_t*)(code_mapping+descriptor_ptr_from_file_start)) = 0;
+   memcpy(code_mapping+descriptor_ptr_from_file_start, &ptr_offset, sizeof(ptr_offset));
 
    msync(code_mapping, allocator->get_size(), MS_SYNC);
    munmap(code_mapping, allocator->get_size());
