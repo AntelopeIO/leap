@@ -195,8 +195,7 @@ private:
       int priority() const { return priority_; }
 
       // comparison eval: (priority_, order_)
-      friend auto operator<=>(const queued_handler_base& a,
-                              const queued_handler_base& b) noexcept = default;
+      auto operator<=>(const queued_handler_base& rhs) const noexcept = default;
 
    private:
       int priority_;
