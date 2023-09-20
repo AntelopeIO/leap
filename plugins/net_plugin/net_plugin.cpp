@@ -243,6 +243,12 @@ namespace eosio {
       std::atomic<stages> sync_state{in_sync};
       std::atomic<uint32_t> sync_ordinal{0};
 
+      // Instant finality makes it likely peers think their lib and head are
+      // not in sync but in reality they are only within small difference.
+      // To avoid unnecessary catchups, a margin of min_blocks_distance
+      // between lib and head must be reached before catchup starts.
+      const uint32_t min_blocks_distance{0};
+
    private:
       constexpr static auto stage_str( stages s );
       bool set_state( stages newstate );
@@ -253,7 +259,7 @@ namespace eosio {
       bool verify_catchup( const connection_ptr& c, uint32_t num, const block_id_type& id ); // locks mutex
 
    public:
-      explicit sync_manager( uint32_t span, uint32_t sync_peer_limit );
+      explicit sync_manager( uint32_t span, uint32_t sync_peer_limit, uint32_t min_blocks_distance );
       static void send_handshakes();
       bool syncing_from_peer() const { return sync_state == lib_catchup; }
       bool is_in_sync() const { return sync_state == in_sync; }
@@ -1959,7 +1965,7 @@ namespace eosio {
    }
    //-----------------------------------------------------------
 
-    sync_manager::sync_manager( uint32_t span, uint32_t sync_peer_limit )
+    sync_manager::sync_manager( uint32_t span, uint32_t sync_peer_limit, uint32_t min_blocks_distance )
       :sync_known_lib_num( 0 )
       ,sync_last_requested_num( 0 )
       ,sync_next_expected_num( 1 )
@@ -1967,6 +1973,7 @@ namespace eosio {
       ,sync_req_span( span )
       ,sync_peer_limit( sync_peer_limit )
       ,sync_state(in_sync)
+      ,min_blocks_distance(min_blocks_distance)
    {
    }
 
@@ -2232,7 +2239,7 @@ namespace eosio {
          }
          return;
       }
-      if (chain_info.lib_num > msg.head_num + nblk_combined_latency) {
+      if (chain_info.lib_num > msg.head_num + nblk_combined_latency + min_blocks_distance) {
          peer_ilog( c, "handshake lib ${lib}, head ${head}, head id ${id}.. sync 2, head ${h}, lib ${l}",
                     ("lib", msg.last_irreversible_block_num)("head", msg.head_num)("id", msg.head_id.str().substr(8,16))
                     ("h", chain_info.head_num)("l", chain_info.lib_num) );
@@ -4080,10 +4087,6 @@ namespace eosio {
 
          peer_log_format = options.at( "peer-log-format" ).as<string>();
 
-         sync_master = std::make_unique<sync_manager>(
-             options.at( "sync-fetch-span" ).as<uint32_t>(),
-             options.at( "sync-peer-limit" ).as<uint32_t>() );
-
          txn_exp_period = def_txn_expire_wait;
          p2p_dedup_cache_expire_time_us = fc::seconds( options.at( "p2p-dedup-cache-expire-time-sec" ).as<uint32_t>() );
          resp_expected_period = def_resp_expected_wait;
@@ -4094,6 +4097,16 @@ namespace eosio {
          keepalive_interval = std::chrono::milliseconds( options.at( "p2p-keepalive-interval-ms" ).as<int>() );
          EOS_ASSERT( keepalive_interval.count() > 0, chain::plugin_config_exception,
                      "p2p-keepalive_interval-ms must be greater than 0" );
+
+         // To avoid unnecessary transitions between LIB <-> head catchups,
+         // min_blocks_distance between LIB and head must be reached.
+         // Set it to the number of blocks produced during half of keep alive
+         // interval.
+         const uint32_t min_blocks_distance = (keepalive_interval.count() / config::block_interval_ms) / 2;
+         sync_master = std::make_unique<sync_manager>(
+             options.at( "sync-fetch-span" ).as<uint32_t>(),
+             options.at( "sync-peer-limit" ).as<uint32_t>(),
+             min_blocks_distance);
 
          connections.init( std::chrono::milliseconds( options.at("p2p-keepalive-interval-ms").as<int>() * 2 ),
                                fc::milliseconds( options.at("max-cleanup-time-msec").as<uint32_t>() ),

@@ -107,6 +107,10 @@ namespace eosio::testing {
    }
 
    bool http_connection::needs_response_trace_info() {
+      return is_read_only_transaction();
+   }
+
+   bool http_connection::is_read_only_transaction() {
       return _config._api_endpoint == "/v1/chain/send_read_only_transaction";
    }
 
@@ -139,6 +143,7 @@ namespace eosio::testing {
                       const auto& processed      = resp_json["processed"];
                       const auto& block_num      = processed["block_num"].as_uint64();
                       const auto& block_time     = processed["block_time"].as_string();
+                      const auto& elapsed_time     = processed["elapsed"].as_uint64();
                       std::string status         = "failed";
                       uint32_t    net            = 0;
                       uint32_t    cpu            = 0;
@@ -150,7 +155,7 @@ namespace eosio::testing {
                             cpu    = receipt["cpu_usage_us"].as_uint64();
                          }
                          if (status == "executed") {
-                            record_trx_info(trx_id, block_num, cpu, net, block_time);
+                            record_trx_info(trx_id, block_num, this->is_read_only_transaction() ? elapsed_time : cpu, net, block_time);
                          } else {
                             elog("async_http_request Transaction receipt status not executed: ${string}",
                                  ("string", response.body()));

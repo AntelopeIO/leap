@@ -99,6 +99,7 @@ namespace eosio::testing {
       void connect() override final;
       void disconnect() override final;
       bool needs_response_trace_info();
+      bool is_read_only_transaction();
    };
 
    struct p2p_connection : public provider_connection {
