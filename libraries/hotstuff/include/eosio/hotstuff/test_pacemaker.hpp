@@ -32,7 +32,7 @@ namespace eosio { namespace hotstuff {
 
       void set_quorum_threshold(uint32_t threshold);
 
-      void add_message_to_queue(hotstuff_message msg);
+      void add_message_to_queue(const hotstuff_message& msg);
 
       void connect(const std::vector<name>& nodes);
 
