@@ -266,6 +266,8 @@ private:
          case exec_queue::read_exclusive:
             return read_exclusive_handlers_;
       }
+      assert(false);
+      return read_only_handlers_;
    }
 
    const prio_queue& priority_que(exec_queue q) const {
@@ -277,6 +279,8 @@ private:
          case exec_queue::read_exclusive:
             return read_exclusive_handlers_;
       }
+      assert(false);
+      return read_only_handlers_;
    }
 
    static std::unique_ptr<exec_pri_queue::queued_handler_base> pop(prio_queue& que) {
