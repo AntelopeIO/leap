@@ -9,6 +9,22 @@
 namespace appbase {
 // adapted from: https://www.boost.org/doc/libs/1_69_0/doc/html/boost_asio/example/cpp11/invocation/prioritised_handlers.cpp
 
+enum class exec_queue {
+   read_only,          // the queue storing tasks which are safe to execute
+                       // in parallel with other read-only & read_exclusive tasks in the read-only
+                       // thread pool as well as on the main app thread.
+                       // Multi-thread safe as long as nothing is executed from the read_write queue.
+   read_write,         // the queue storing tasks which can be only executed
+                       // on the app thread while read-only tasks are
+                       // not being executed in read-only threads. Single threaded.
+   read_exclusive      // the queue storing tasks which should only be executed
+                       // in parallel with other read_exclusive or read_only tasks in the
+                       // read-only thread pool. Should never be executed on the main thread.
+                       // If no read-only thread pool is available this queue grows unbounded
+                       // as tasks will never execute. User is responsible for not queueing
+                       // read_exclusive tasks if no read-only thread pool is available.
+};
+
 // Locking has to be coordinated by caller, use with care.
 class exec_pri_queue : public boost::asio::execution_context
 {
@@ -35,53 +51,74 @@ public:
 
    // called from appbase::application_base::exec poll_one() or run_one()
    template <typename Function>
-   void add(int priority, size_t order, Function function)
-   {
+   void add(int priority, exec_queue q, size_t order, Function function) {
+      prio_queue& que = priority_que(q);
       std::unique_ptr<queued_handler_base> handler(new queued_handler<Function>(priority, order, std::move(function)));
       if (lock_enabled_) {
          std::lock_guard g( mtx_ );
-         handlers_.push( std::move( handler ) );
+         que.push( std::move( handler ) );
          if (num_waiting_)
             cond_.notify_one();
       } else {
-         handlers_.push( std::move( handler ) );
+         que.push( std::move( handler ) );
       }
    }
 
    // only call when no lock required
-   void clear()
-   {
-      handlers_ = prio_queue();
+   void clear() {
+      read_only_handlers_ = prio_queue();
+      read_write_handlers_ = prio_queue();
+      read_exclusive_handlers_ = prio_queue();
    }
 
    // only call when no lock required
-   bool execute_highest()
-   {
-      if( !handlers_.empty() ) {
-         handlers_.top()->execute();
-         handlers_.pop();
+   bool execute_highest(exec_queue q) {
+      prio_queue& que = priority_que(q);
+      if( !que.empty() ) {
+         que.top()->execute();
+         que.pop();
       }
 
-      return !handlers_.empty();
+      return !que.empty();
    }
 
-private:
-   // has to be defined before use, auto return type
-   auto pop() {
-      auto t = std::move(const_cast<std::unique_ptr<queued_handler_base>&>(handlers_.top()));
-      handlers_.pop();
-      return t;
+   // only call when no lock required
+   bool execute_highest(exec_queue lhs, exec_queue rhs) {
+      prio_queue& lhs_que = priority_que(lhs);
+      prio_queue& rhs_que = priority_que(rhs);
+      size_t size = lhs_que.size() + rhs_que.size();
+      if (size == 0)
+         return false;
+      exec_queue q = rhs;
+      if (!lhs_que.empty() && (rhs_que.empty() || *rhs_que.top() < *lhs_que.top()))
+         q = lhs;
+      prio_queue& que = priority_que(q);
+      que.top()->execute();
+      que.pop();
+      --size;
+      return size > 0;
    }
 
-public:
+   bool execute_highest_locked(exec_queue q) {
+      prio_queue& que = priority_que(q);
+      std::unique_lock g(mtx_);
+      if (que.empty())
+         return false;
+      auto t = pop(que);
+      g.unlock();
+      t->execute();
+      return true;
+   }
 
-   bool execute_highest_locked(bool should_block) {
+   bool execute_highest_locked(exec_queue lhs, exec_queue rhs, bool should_block) {
+      prio_queue& lhs_que = priority_que(lhs);
+      prio_queue& rhs_que = priority_que(rhs);
       std::unique_lock g(mtx_);
       if (should_block) {
          ++num_waiting_;
-         cond_.wait(g, [this](){
+         cond_.wait(g, [&](){
             bool exit = exiting_blocking_ || should_exit_();
-            bool empty = handlers_.empty();
+            bool empty = lhs_que.empty() && rhs_que.empty();
             if (empty || exit) {
                if (((empty && num_waiting_ == max_waiting_) || exit) && !exiting_blocking_) {
                   cond_.notify_all();
@@ -95,37 +132,32 @@ public:
          if (exiting_blocking_ || should_exit_())
             return false;
       }
-      if( handlers_.empty() )
+      if (lhs_que.empty() && rhs_que.empty())
          return false;
-      auto t = pop();
+      exec_queue q = rhs;
+      if (!lhs_que.empty() && (rhs_que.empty() || *rhs_que.top() < *lhs_que.top()))
+         q = lhs;
+      auto t = pop(priority_que(q));
       g.unlock();
       t->execute();
       return true;
    }
 
    // Only call when locking disabled
-   size_t size() const { return handlers_.size(); }
+   size_t size(exec_queue q) const { return priority_que(q).size(); }
+   size_t size() const { return read_only_handlers_.size() + read_write_handlers_.size() + read_exclusive_handlers_.size(); }
 
    // Only call when locking disabled
-   bool empty() const { return handlers_.empty(); }
+   bool empty(exec_queue q) const { return priority_que(q).empty(); }
 
    // Only call when locking disabled
-   const auto& top() const { return handlers_.top(); }
-
-   // return empty optional if both queues empty.
-   //        true if this queue has the highest priority task to execute
-   std::optional<bool> compare_queues_locked( const exec_pri_queue& rhs ) {
-      std::scoped_lock g(mtx_, rhs.mtx_);
-      if (empty() && rhs.empty())
-         return {};
-      return !empty() && (rhs.empty() || *rhs.top() <= *top());
-   }
+   const auto& top(exec_queue q) const { return priority_que(q).top(); }
 
    class executor
    {
    public:
-      executor(exec_pri_queue& q, int p, size_t o)
-            : context_(q), priority_(p), order_(o)
+      executor(exec_pri_queue& q, int p, size_t o, exec_queue que)
+            : context_(q), que_(que), priority_(p), order_(o)
       {
       }
 
@@ -137,19 +169,19 @@ public:
       template <typename Function, typename Allocator>
       void dispatch(Function f, const Allocator&) const
       {
-         context_.add(priority_, order_, std::move(f));
+         context_.add(priority_, que_, order_, std::move(f));
       }
 
       template <typename Function, typename Allocator>
       void post(Function f, const Allocator&) const
       {
-         context_.add(priority_, order_, std::move(f));
+         context_.add(priority_, que_, order_, std::move(f));
       }
 
       template <typename Function, typename Allocator>
       void defer(Function f, const Allocator&) const
       {
-         context_.add(priority_, order_, std::move(f));
+         context_.add(priority_, que_, order_, std::move(f));
       }
 
       void on_work_started() const noexcept {}
@@ -157,7 +189,7 @@ public:
 
       bool operator==(const executor& other) const noexcept
       {
-         return order_ == other.order_ && &context_ == &other.context_ && priority_ == other.priority_;
+         return order_ == other.order_ && priority_ == other.priority_ && que_ == other.que_ && &context_ == &other.context_;
       }
 
       bool operator!=(const executor& other) const noexcept
@@ -167,15 +199,16 @@ public:
 
    private:
       exec_pri_queue& context_;
+      exec_queue que_;
       int priority_;
       size_t order_;
    };
 
    template <typename Function>
    boost::asio::executor_binder<Function, executor>
-   wrap(int priority, size_t order, Function&& func)
+   wrap(int priority, exec_queue q, size_t order, Function&& func)
    {
-      return boost::asio::bind_executor( executor(*this, priority, order), std::forward<Function>(func) );
+      return boost::asio::bind_executor( executor(*this, priority, order, q), std::forward<Function>(func) );
    }
 
 private:
@@ -200,11 +233,6 @@ private:
                             const queued_handler_base& b) noexcept
       {
          return std::tie( a.priority_, a.order_ ) < std::tie( b.priority_, b.order_ );
-      }
-      friend bool operator<=(const queued_handler_base& a,
-                             const queued_handler_base& b) noexcept
-      {
-         return std::tie( a.priority_, a.order_ ) <= std::tie( b.priority_, b.order_ );
       }
 
    private:
@@ -240,6 +268,37 @@ private:
       }
    };
 
+   using prio_queue = std::priority_queue<std::unique_ptr<queued_handler_base>, std::deque<std::unique_ptr<queued_handler_base>>, deref_less>;
+
+   prio_queue& priority_que(exec_queue q) {
+      switch (q) {
+         case exec_queue::read_only:
+            return read_only_handlers_;
+         case exec_queue::read_write:
+            return read_write_handlers_;
+         case exec_queue::read_exclusive:
+            return read_exclusive_handlers_;
+      }
+   }
+
+   const prio_queue& priority_que(exec_queue q) const {
+      switch (q) {
+         case exec_queue::read_only:
+            return read_only_handlers_;
+         case exec_queue::read_write:
+            return read_write_handlers_;
+         case exec_queue::read_exclusive:
+            return read_exclusive_handlers_;
+      }
+   }
+
+   static std::unique_ptr<exec_pri_queue::queued_handler_base> pop(prio_queue& que) {
+      // work around std::priority_queue not having a pop() that returns value
+      auto t = std::move(const_cast<std::unique_ptr<queued_handler_base>&>(que.top()));
+      que.pop();
+      return t;
+   }
+
    bool lock_enabled_ = false;
    mutable std::mutex mtx_;
    std::condition_variable cond_;
@@ -247,8 +306,9 @@ private:
    uint32_t max_waiting_{0};
    bool exiting_blocking_{false};
    std::function<bool()> should_exit_; // called holding mtx_
-   using prio_queue = std::priority_queue<std::unique_ptr<queued_handler_base>, std::deque<std::unique_ptr<queued_handler_base>>, deref_less>;
-   prio_queue handlers_;
+   prio_queue read_only_handlers_;
+   prio_queue read_write_handlers_;
+   prio_queue read_exclusive_handlers_;
 };
 
 } // appbase

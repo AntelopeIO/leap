@@ -2844,7 +2844,8 @@ void producer_plugin_impl::switch_to_read_window() {
    _time_tracker.pause();
 
    // we are in write window, so no read-only trx threads are processing transactions.
-   if (app().executor().read_only_queue().empty() && app().executor().read_exclusive_queue().empty()) { // no read-only tasks to process. stay in write window
+   app().get_io_service().poll(); // make sure we schedule any ready
+   if (app().executor().read_only_queue_empty() && app().executor().read_exclusive_queue_empty()) { // no read-only tasks to process. stay in write window
       start_write_window();                          // restart write window timer for next round
       return;
    }
