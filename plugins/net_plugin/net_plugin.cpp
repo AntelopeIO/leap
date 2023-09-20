@@ -416,7 +416,7 @@ namespace eosio {
       string connect(const string& host, const string& p2p_address);
       string resolve_and_connect(const string& host, const string& p2p_address);
       void update_connection_endpoint(connection_details_index::const_iterator it, const tcp::endpoint& endpoint);
-      const connection_details_index::index_const_iterator<by_connection>& get_connection_iterator(const connection_ptr& c);
+      connection_details_index::iterator get_connection_iterator(const connection_ptr& c);
       string disconnect(const string& host);
       void close_all();
 
@@ -4512,10 +4512,11 @@ namespace eosio {
       });
    }
 
-   const connections_manager::connection_details_index::index_const_iterator<by_connection>& connections_manager::get_connection_iterator(const connection_ptr& c) {
+   connections_manager::connection_details_index::iterator connections_manager::get_connection_iterator(const connection_ptr& c) {
       std::lock_guard g( connections_mtx );
       const auto& index = connections.get<by_connection>();
-      return index.find(c);
+      auto i = index.find(c);
+      return connections.project<by_host>(i);
    }
 
    // called by API
