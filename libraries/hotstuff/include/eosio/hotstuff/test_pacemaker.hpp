@@ -40,7 +40,7 @@ namespace eosio { namespace hotstuff {
 
       bool is_connected(name node1, name node2);
 
-      void pipe(std::vector<test_pacemaker::hotstuff_message> messages);
+      void pipe(const std::vector<test_pacemaker::hotstuff_message>& messages);
 
       void dispatch(std::string memo, int count, hotstuff_message_index msg_type = hs_all_messages);
 
