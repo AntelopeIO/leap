@@ -4656,8 +4656,10 @@ namespace eosio {
             if (!c->incoming()) {
                g.unlock();
                fc_dlog(logger, "attempting to connect in connection_monitor");
-               if (!resolve_and_connect(c->peer_address(), c->listen_address)) {
+               if (!c->reconnect()) {
+                  g.lock();
                   it = index.erase(it);
+                  g.unlock();
                   --num_peers;
                   ++num_rm;
                   continue;
