@@ -424,7 +424,7 @@ namespace eosio {
       vector<connection_status> connection_statuses() const;
 
       template <typename Function>
-      void for_each_supplied_peer(Function&& f) const;
+      bool for_any_supplied_peer(Function&& f) const;
 
       template <typename Function>
       void for_each_connection(Function&& f) const;
@@ -1184,9 +1184,9 @@ namespace eosio {
 
 
    template<typename Function>
-   void connections_manager::for_each_supplied_peer( Function&& f ) const {
+   bool connections_manager::for_any_supplied_peer( Function&& f ) const {
       std::shared_lock g( connections_mtx );
-      std::for_each(supplied_peers.begin(), supplied_peers.end(), std::forward<Function>(f));
+      return std::any_of(supplied_peers.begin(), supplied_peers.end(), std::forward<Function>(f));
    }
 
    template<typename Function>
@@ -2795,14 +2795,16 @@ namespace eosio {
                visitors < connections.get_max_client_count())) {
             fc_ilog(logger, "Accepted new connection: " + paddr_str);
 
-            connections.for_each_supplied_peer([&listen_address, &paddr_str, &limit](const string& peer_addr) {
+            connections.for_any_supplied_peer([&listen_address, &paddr_str, &limit](const string& peer_addr) {
                auto [host, port, type] = split_host_port_type(peer_addr);
                if (host == paddr_str) {
                   if (limit > 0) {
                      fc_dlog(logger, "Connection inbound to ${la} from ${a} is a configured p2p-peer-address and will not be throttled", ("la", listen_address)("a", paddr_str));
                   }
                   limit = 0;
+                  return true;
                }
+               return false;
             });
 
             connection_ptr new_connection = std::make_shared<connection>(std::move(socket), listen_address, limit);
