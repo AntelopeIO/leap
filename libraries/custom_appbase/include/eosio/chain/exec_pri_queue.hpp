@@ -71,15 +71,15 @@ public:
       read_exclusive_handlers_ = prio_queue();
    }
 
-   // only call when no lock required
-   bool execute_highest(exec_queue q) {
+   bool execute_highest_locked(exec_queue q) {
       prio_queue& que = priority_que(q);
-      if( !que.empty() ) {
-         que.top()->execute();
-         que.pop();
-      }
-
-      return !que.empty();
+      std::unique_lock g(mtx_);
+      if (que.empty())
+         return false;
+      auto t = pop(que);
+      g.unlock();
+      t->execute();
+      return true;
    }
 
    // only call when no lock required
@@ -99,39 +99,26 @@ public:
       return size > 0;
    }
 
-   bool execute_highest_locked(exec_queue q) {
-      prio_queue& que = priority_que(q);
-      std::unique_lock g(mtx_);
-      if (que.empty())
-         return false;
-      auto t = pop(que);
-      g.unlock();
-      t->execute();
-      return true;
-   }
-
-   bool execute_highest_locked(exec_queue lhs, exec_queue rhs, bool should_block) {
+   bool execute_highest_blocking_locked(exec_queue lhs, exec_queue rhs) {
       prio_queue& lhs_que = priority_que(lhs);
       prio_queue& rhs_que = priority_que(rhs);
       std::unique_lock g(mtx_);
-      if (should_block) {
-         ++num_waiting_;
-         cond_.wait(g, [&](){
-            bool exit = exiting_blocking_ || should_exit_();
-            bool empty = lhs_que.empty() && rhs_que.empty();
-            if (empty || exit) {
-               if (((empty && num_waiting_ == max_waiting_) || exit) && !exiting_blocking_) {
-                  cond_.notify_all();
-                  exiting_blocking_ = true;
-               }
-               return exit || exiting_blocking_; // same as calling should_exit(), but faster
+      ++num_waiting_;
+      cond_.wait(g, [&](){
+         bool exit = exiting_blocking_ || should_exit_();
+         bool empty = lhs_que.empty() && rhs_que.empty();
+         if (empty || exit) {
+            if (((empty && num_waiting_ == max_waiting_) || exit) && !exiting_blocking_) {
+               exiting_blocking_ = true;
+               cond_.notify_all();
             }
-            return true;
-         });
-         --num_waiting_;
-         if (exiting_blocking_ || should_exit_())
-            return false;
-      }
+            return exit || exiting_blocking_; // same as calling should_exit(), but faster
+         }
+         return true;
+      });
+      --num_waiting_;
+      if (exiting_blocking_ || should_exit_())
+         return false;
       if (lhs_que.empty() && rhs_que.empty())
          return false;
       exec_queue q = rhs;
@@ -140,7 +127,7 @@ public:
       auto t = pop(priority_que(q));
       g.unlock();
       t->execute();
-      return true;
+      return true; // this should never return false unless all read threads should exit
    }
 
    // Only call when locking disabled

@@ -71,7 +71,7 @@ public:
       bool more = false;
       while (true) {
          get_io_service().poll(); // schedule any queued
-         more = pri_queue_.execute_highest_locked(exec_queue::read_only, exec_queue::read_exclusive, true);
+         more = pri_queue_.execute_highest_blocking_locked(exec_queue::read_only, exec_queue::read_exclusive);
          if (!more || std::chrono::high_resolution_clock::now() > end)
             break;
       }
