@@ -26,7 +26,7 @@ namespace eosio { namespace hotstuff {
 
       void set_next_leader(name next_leader);
 
-      void set_finalizers(std::vector<name> finalizers);
+      void set_finalizers(const std::vector<name>& finalizers);
 
       void set_current_block_id(block_id_type id);
 
@@ -77,6 +77,8 @@ namespace eosio { namespace hotstuff {
 
       void send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code);
 
+   private:
+
       std::vector<hotstuff_message> _pending_message_queue;
 
       // qc_chain id to qc_chain object
@@ -89,8 +91,6 @@ namespace eosio { namespace hotstuff {
       // double mapping, so if _net[a] yields b, then _net[b] yields a.
       // this is a filter; messages to self won't happen even if _net[x] yields x.
       map<name, std::set<name>>            _net;
-
-   private:
 
       name _proposer;
       name _leader;

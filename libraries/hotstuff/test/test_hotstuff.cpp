@@ -88,10 +88,6 @@ public:
       std::cout << "\n";
    }
 
-   void print_msg_queue(test_pacemaker &tpm){
-      print_msgs(tpm._pending_message_queue);
-   }
-
    void print_pm_state(test_pacemaker &tpm){
       std::cout << "\n";
       std::cout << "  leader : " << tpm.get_leader() << "\n";
