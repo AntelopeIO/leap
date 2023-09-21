@@ -46,12 +46,6 @@ public:
 
       _qc_chains.clear();
 
-      // These used to be able to break the tests. Might be useful at some point.
-      _qc_chains.reserve( 100 );
-      //_qc_chains.reserve( 10000 );
-      //_qc_chains.reserve( 15 );
-      //_qc_chains.reserve( replicas.size() );
-
       for (name r : replicas) {
          qc_chain *qcc_ptr = new qc_chain(r, &tpm, {r}, {}, hotstuff_logger);
          std::shared_ptr<qc_chain> qcc_shared_ptr(qcc_ptr);
@@ -94,10 +88,6 @@ public:
       std::cout << "\n";
    }
 
-   void print_msg_queue(test_pacemaker &tpm){
-      print_msgs(tpm._pending_message_queue);
-   }
-
    void print_pm_state(test_pacemaker &tpm){
       std::cout << "\n";
       std::cout << "  leader : " << tpm.get_leader() << "\n";
@@ -137,6 +127,11 @@ public:
       else std::cout << "  - No b_exec value " << "\n";
 
       std::cout << "\n";
+   }
+
+   void dispatch(test_pacemaker& tpm, int hops, test_pacemaker::hotstuff_message_index msg_type, const std::string& memo = "") {
+      for (int i=0;i<hops;++i)
+         tpm.dispatch(memo, msg_type);
    }
 };
 
@@ -178,6 +173,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
    //test optimistic responsiveness (3 confirmations per block)
 
    test_pacemaker tpm;
+   tpm.connect(unique_replicas); // complete connection graph
 
    hotstuff_test_handler ht;
 
@@ -308,6 +304,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_2) try {
    //test slower network (1 confirmation per block)
 
    test_pacemaker tpm;
+   tpm.connect(unique_replicas); // complete connection graph
 
    hotstuff_test_handler ht;
 
@@ -406,6 +403,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_3) try {
    //test leader rotation
 
    test_pacemaker tpm;
+   tpm.connect(unique_replicas); // complete connection graph
 
    hotstuff_test_handler ht;
 
@@ -538,6 +536,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_4) try {
    //test loss and recovery of liveness on new block
 
    test_pacemaker tpm;
+   tpm.connect(unique_replicas); // complete connection graph
 
    hotstuff_test_handler ht;
 
@@ -734,7 +733,9 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
 
    //simulating a fork, where
    test_pacemaker tpm1;
+   tpm1.connect(replica_set_1); // complete connection graph
    test_pacemaker tpm2;
+   tpm2.connect(replica_set_2); // complete connection graph
 
    hotstuff_test_handler ht1;
    hotstuff_test_handler ht2;
@@ -893,6 +894,7 @@ BOOST_AUTO_TEST_CASE(hotstuff_6) try {
    //test simple separation between the (single) proposer and the leader; includes one leader rotation
 
    test_pacemaker tpm;
+   tpm.connect(unique_replicas); // complete connection graph
 
    hotstuff_test_handler ht;
 
@@ -1001,6 +1003,142 @@ BOOST_AUTO_TEST_CASE(hotstuff_6) try {
    tpm.dispatch(""); //propagating votes on new proposal (commitQC on second block)
 
    tpm.dispatch(""); //send proposal to replicas (decide on second block)
+
+   qcc_bpb->second->get_state(fs_bpb);
+   BOOST_CHECK_EQUAL(fs_bpb.b_leaf.str(), std::string("89f468a127dbadd81b59076067238e3e9c313782d7d83141b16d9da4f2c2b078"));
+   BOOST_CHECK_EQUAL(fs_bpb.high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(fs_bpb.b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(fs_bpb.b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+
+   //check bpa as well
+   qcc_bpa->second->get_state(fs_bpa);
+   BOOST_CHECK_EQUAL(fs_bpa.high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+
+   //check bpc as well
+   qcc_bpc->second->get_state(fs_bpc);
+   BOOST_CHECK_EQUAL(fs_bpc.high_qc.proposal_id.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(fs_bpc.b_lock.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(fs_bpc.b_exec.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+
+   BOOST_CHECK_EQUAL(fs_bpa.b_finality_violation.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+
+} FC_LOG_AND_RETHROW();
+
+BOOST_AUTO_TEST_CASE(hotstuff_7) try {
+
+   //test leader rotation with a non-complete connection graph (simple message propagation test)
+
+   test_pacemaker tpm;
+   tpm.connect(unique_replicas); // start with a complete connection graph, then subtract
+
+   // TODO: when propagation is implemented in qc_chain, uncomment this to force an additional hop of communication between A and B
+   //tpm.disconnect( { "bpa"_n, "bpb"_n } ); // if propagation is implemented and works, the inclusion of this line is OK and doesn't fail the test
+
+   hotstuff_test_handler ht;
+
+   ht.initialize_qc_chains(tpm, unique_replicas);
+
+   tpm.set_proposer("bpa"_n);
+   tpm.set_leader("bpa"_n);
+   tpm.set_next_leader("bpa"_n);
+   tpm.set_finalizers(unique_replicas);
+
+   auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
+   finalizer_state fs_bpa;
+   qcc_bpa->second->get_state(fs_bpa);
+   auto qcc_bpb = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpb"_n; });
+   finalizer_state fs_bpb;
+   qcc_bpb->second->get_state(fs_bpb);
+   auto qcc_bpc = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpc"_n; });
+   finalizer_state fs_bpc;
+   qcc_bpc->second->get_state(fs_bpc);
+
+   tpm.set_current_block_id(ids[0]); //first block
+
+   tpm.beat(); //produce first block and associated proposal
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_proposal); //send proposal to replicas (prepare on first block)
+
+   qcc_bpa->second->get_state(fs_bpa);
+   BOOST_CHECK_EQUAL(fs_bpa.b_leaf.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(fs_bpa.high_qc.proposal_id.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_vote); //send votes on proposal (prepareQC on first block)
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_proposal); //send proposal to replicas (precommit on first block)
+
+   qcc_bpa->second->get_state(fs_bpa);
+   BOOST_CHECK_EQUAL(fs_bpa.b_leaf.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(fs_bpa.high_qc.proposal_id.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_lock.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_vote); //propagating votes on new proposal (precommitQC on first block)
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_proposal); //send proposal to replicas (commit on first block)
+
+   qcc_bpa->second->get_state(fs_bpa);
+   BOOST_CHECK_EQUAL(fs_bpa.b_leaf.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(fs_bpa.high_qc.proposal_id.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_lock.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_exec.str(), std::string("0000000000000000000000000000000000000000000000000000000000000000"));
+
+   tpm.set_next_leader("bpb"_n); //leader is set to rotate on next block
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_vote); //propagating votes on new proposal (commitQC on first block)
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_proposal); //send proposal to replicas (decide on first block)
+
+   qcc_bpa->second->get_state(fs_bpa);
+   BOOST_CHECK_EQUAL(fs_bpa.b_leaf.str(), std::string("487e5fcbf2c515618941291ae3b6dcebb68942983d8ac3f61c4bdd9901dadbe7"));
+   BOOST_CHECK_EQUAL(fs_bpa.high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(fs_bpa.b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_vote); //propagating votes on new proposal (decide on first block)
+
+   tpm.set_proposer("bpb"_n); //leader has rotated
+   tpm.set_leader("bpb"_n);
+
+   tpm.set_current_block_id(ids[1]); //second block
+
+   tpm.beat(); //produce second block and associated proposal
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_proposal); //send proposal to replicas (prepare on second block)
+
+   qcc_bpb->second->get_state(fs_bpb);
+   BOOST_CHECK_EQUAL(fs_bpb.b_leaf.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(fs_bpb.high_qc.proposal_id.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(fs_bpb.b_lock.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+   BOOST_CHECK_EQUAL(fs_bpb.b_exec.str(), std::string("a252070cd26d3b231ab2443b9ba97f57fc72e50cca04a020952e45bc7e2d27a8"));
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_vote); //send votes on proposal (prepareQC on second block)
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_proposal); //send proposal to replicas (precommit on second block)
+
+   qcc_bpb->second->get_state(fs_bpb);
+   BOOST_CHECK_EQUAL(fs_bpb.b_leaf.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(fs_bpb.high_qc.proposal_id.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(fs_bpb.b_lock.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+   BOOST_CHECK_EQUAL(fs_bpb.b_exec.str(), std::string("4b43fb144a8b5e874777f61f3b37d7a8b06c33fbc48db464ce0e8788ff4edb4f"));
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_vote); //propagating votes on new proposal (precommitQC on second block)
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_proposal); //send proposal to replicas (commit on second block)
+
+   qcc_bpb->second->get_state(fs_bpb);
+   BOOST_CHECK_EQUAL(fs_bpb.b_leaf.str(), std::string("fd77164bf3898a6a8f27ccff440d17ef6870e75c368fcc93b969066cec70939c"));
+   BOOST_CHECK_EQUAL(fs_bpb.high_qc.proposal_id.str(), std::string("6462add7d157da87931c859cb689f722003a20f30c0f1408d11b872020903b85"));
+   BOOST_CHECK_EQUAL(fs_bpb.b_lock.str(), std::string("1511035fdcbabdc5e272a3ac19356536252884ed77077cf871ae5029a7502279"));
+   BOOST_CHECK_EQUAL(fs_bpb.b_exec.str(), std::string("aedf8bb1ee70bd6e743268f7fe0f8171418aa43a68bb9c6e7329ffa856896c09"));
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_vote); //propagating votes on new proposal (commitQC on second block)
+
+   ht.dispatch(tpm, 2, test_pacemaker::hs_proposal); //send proposal to replicas (decide on second block)
 
    qcc_bpb->second->get_state(fs_bpb);
    BOOST_CHECK_EQUAL(fs_bpb.b_leaf.str(), std::string("89f468a127dbadd81b59076067238e3e9c313782d7d83141b16d9da4f2c2b078"));
