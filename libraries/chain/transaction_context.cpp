@@ -266,14 +266,6 @@ namespace eosio { namespace chain {
       uint64_t initial_net_usage = static_cast<uint64_t>(cfg.base_per_transaction_net_usage)
                                     + packed_trx_unprunable_size + discounted_size_for_pruned_data;
 
-
-      if( trx.delay_sec.value > 0 ) {
-          // If delayed, also charge ahead of time for the additional net usage needed to retire the delayed transaction
-          // whether that be by successfully executing, soft failure, hard failure, or expiration.
-         initial_net_usage += static_cast<uint64_t>(cfg.base_per_transaction_net_usage)
-                               + static_cast<uint64_t>(config::transaction_id_net_usage);
-      }
-
       published = control.pending_block_time();
       is_input = true;
       if (!control.skip_trx_checks()) {
