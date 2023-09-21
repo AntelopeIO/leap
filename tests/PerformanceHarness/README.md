@@ -506,6 +506,8 @@ usage: PerformanceHarnessScenarioRunner.py findMax testBpOpMode overrideBasicTes
        [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
        [--cpu-effort-percent CPU_EFFORT_PERCENT]
        [--producer-threads PRODUCER_THREADS]
+       [--read-only-write-window-time-us READ_ONLY_WRITE_WINDOW_TIME_US]
+       [--read-only-read-window-time-us READ_ONLY_READ_WINDOW_TIME_US]
        [--http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS]
        [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
        [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
@@ -581,6 +583,10 @@ Performance Test Basic Base:
                         Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%
   --producer-threads PRODUCER_THREADS
                         Number of worker threads in producer thread pool
+  --read-only-write-window-time-us READ_ONLY_WRITE_WINDOW_TIME_US
+                        Time in microseconds the write window lasts.
+  --read-only-read-window-time-us READ_ONLY_READ_WINDOW_TIME_US
+                        Time in microseconds the read window lasts.
   --http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS
                         Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited
   --http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS
