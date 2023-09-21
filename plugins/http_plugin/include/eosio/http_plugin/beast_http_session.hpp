@@ -319,7 +319,8 @@ public:
 
    void on_read_header(beast::error_code ec, std::size_t /* bytes_transferred */) {
       if(ec) {
-         if(ec == http::error::end_of_stream) // other side closed the connection
+         // See on_read comment below
+         if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
             return derived().do_eof();
          
          return fail(ec, "read_header", plugin_state_->logger, "closing connection");
