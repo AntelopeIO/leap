@@ -317,10 +317,8 @@ namespace eosio { namespace chain {
          }
       }
 
-      if( delay == fc::microseconds() ) {
-         for( const auto& act : trx.actions ) {
-            schedule_action( act, act.account, false, 0, 0 );
-         }
+      for( const auto& act : trx.actions ) {
+         schedule_action( act, act.account, false, 0, 0 );
       }
 
       auto& action_traces = trace->action_traces;

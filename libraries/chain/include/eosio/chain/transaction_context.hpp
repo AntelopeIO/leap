@@ -142,7 +142,6 @@ namespace eosio { namespace chain {
          /// the maximum number of virtual CPU instructions of the transaction that can be safely billed to the billable accounts
          uint64_t                      initial_max_billable_cpu = 0;
 
-         fc::microseconds              delay;
          bool                          is_input           = false;
          bool                          apply_context_free = true;
          bool                          enforce_whiteblacklist = true;
