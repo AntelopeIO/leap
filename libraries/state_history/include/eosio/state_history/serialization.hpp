@@ -498,9 +498,7 @@ datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper<eosi
 }
 
 template <typename ST>
-datastream<ST>&
-operator<<(datastream<ST>&                                                                            ds,
-           const history_serial_wrapper<eosio::chain::resource_limits::fee_limits_object>& obj) {
+datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper<eosio::chain::resource_limits::fee_limits_object>& obj) {
    fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.owner.to_uint64_t()));
    fc::raw::pack(ds, as_type<int64_t>(obj.obj.tx_fee_limit));
@@ -513,9 +511,7 @@ operator<<(datastream<ST>&                                                      
 }
 
 template <typename ST>
-datastream<ST>&
-operator<<(datastream<ST>&                                                                            ds,
-           const history_serial_wrapper<eosio::chain::resource_limits::fee_params_object>& obj) {
+datastream<ST>& operator<<(datastream<ST>& ds, const history_serial_wrapper<eosio::chain::resource_limits::fee_params_object>& obj) {
    fc::raw::pack(ds, fc::unsigned_int(0));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.cpu_fee_scaler));
    fc::raw::pack(ds, as_type<uint64_t>(obj.obj.free_block_cpu_threshold));

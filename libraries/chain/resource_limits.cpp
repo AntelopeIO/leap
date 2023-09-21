@@ -119,7 +119,7 @@ void resource_limits_manager::initialize_account(const account_name& account, bo
 
    if(_control.is_builtin_activated( builtin_protocol_feature_t::transaction_fee )){
       const auto& fee_limits = _db.create<fee_limits_object>([&]( fee_limits_object& fl ) {
-      fl.owner = account;
+         fl.owner = account;
       });
       if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
          dm_logger->on_init_account_fee_limits(fee_limits);

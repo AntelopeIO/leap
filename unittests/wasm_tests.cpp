@@ -2074,6 +2074,132 @@ BOOST_AUTO_TEST_CASE( billed_cpu_test ) try {
 
 } FC_LOG_AND_RETHROW()
 
+BOOST_FIXTURE_TEST_CASE( billed_cpu_fee_test, validating_tester ) try {
+   set_code(config::system_account_name, test_contracts::txfee_api_test_wasm() );
+   set_code( config::system_account_name, test_contracts::txfee_eosio_bios_wasm());
+   set_abi( config::system_account_name, test_contracts::txfee_eosio_bios_abi().data());
+
+   account_name acc = "asserter"_n;
+   account_name user = "user"_n;
+   create_accounts( {acc, user} );
+   produce_block();
+
+   auto create_trx = [&](auto trx_max_ms) {
+      signed_transaction trx;
+      trx.actions.emplace_back( vector<permission_level>{{acc, config::active_name}},
+                                assertdef {1, "Should Not Assert!"} );
+      static int num_secs = 1;
+      set_transaction_headers( trx, ++num_secs ); // num_secs provides nonce
+      trx.max_cpu_usage_ms = trx_max_ms;
+      trx.sign( get_private_key( acc, "active" ), control->get_chain_id() );
+      auto ptrx = std::make_shared<packed_transaction>(trx);
+      auto fut = transaction_metadata::start_recover_keys( ptrx, control->get_thread_pool(), control->get_chain_id(), fc::microseconds::maximum(), transaction_metadata::trx_type::input );
+      return fut.get();
+   };
+
+   auto create_delay_trx = [&](auto trx_max_ms, auto delay_sec) {
+      signed_transaction trx;
+      trx.actions.emplace_back( vector<permission_level>{{acc, config::active_name}},
+                                assertdef {1, "Should Not Assert!"} );
+      static int num_secs = 1;
+      set_transaction_headers( trx, ++num_secs ); // num_secs provides nonce
+      trx.max_cpu_usage_ms = trx_max_ms;
+      trx.delay_sec = delay_sec;
+      trx.sign( get_private_key( acc, "active" ), control->get_chain_id() );
+      auto ptrx = std::make_shared<packed_transaction>(trx);
+      auto fut = transaction_metadata::start_recover_keys( ptrx, control->get_thread_pool(), control->get_chain_id(), fc::microseconds::maximum(), transaction_metadata::trx_type::input );
+      return fut.get();
+   };
+   auto push_trx = [&]( const transaction_metadata_ptr& trx, fc::time_point deadline,
+                     uint32_t billed_cpu_time_us, bool explicit_billed_cpu_time, uint32_t subjective_cpu_bill_us ) {
+      auto r = control->push_transaction( trx, deadline, fc::microseconds::maximum(), billed_cpu_time_us, explicit_billed_cpu_time, subjective_cpu_bill_us );
+      if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
+      if( r->except ) throw *r->except;
+      return r;
+   };
+
+   auto ptrx = create_trx(0);
+   // no limits, just verifying trx works
+   push_trx( ptrx, fc::time_point::maximum(), 0, false, 0 ); // non-explicit billing
+
+   // setup account acc with large limits
+   push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
+         ("account", user)
+         ("ram_bytes", -1)
+         ("net_weight", 19'999'999)
+         ("cpu_weight", 19'999'999)
+   );
+   push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
+         ("account", acc)
+         ("ram_bytes", -1)
+         ("net_weight", 9'999)
+         ("cpu_weight", 9'999)
+   );
+
+   produce_block();
+
+   auto max_cpu_time_us = control->get_global_properties().configuration.max_transaction_cpu_usage;
+
+   push_action( config::system_account_name, "cfgfeelimits"_n, config::system_account_name, fc::mutable_variant_object()
+           ("account", acc)
+           ("tx_fee_limit", -1)
+           ("account_fee_limit", -1)
+   );
+
+   // Test when cpu limit is 0
+   push_action( config::system_account_name, "setalimits"_n, config::system_account_name, fc::mutable_variant_object()
+           ("account", acc)
+           ("ram_bytes", -1)
+           ("net_weight", 0)
+           ("cpu_weight", 0)
+   );
+
+   produce_block();
+   produce_block( fc::days(1) ); // produce for one day to reset account cpu
+
+   ptrx = create_trx(0);
+   auto subjective_cpu_bill_us = 0;
+   BOOST_CHECK_EXCEPTION(push_trx( ptrx, fc::time_point::maximum(), max_cpu_time_us, true, subjective_cpu_bill_us ), tx_net_fee_exceeded,
+                         fc_exception_message_starts_with("billed") );
+
+   // set account resource fee
+   push_action( config::system_account_name, "setfeelimits"_n, config::system_account_name, fc::mutable_variant_object()
+           ("account", acc)
+           ("net_weight_limit", 9999)
+           ("cpu_weight_limit", 9'99999999)
+   );
+
+   // Should charge the transaction fee
+   auto r = push_trx( ptrx, fc::time_point::maximum(), max_cpu_time_us, true, subjective_cpu_bill_us );
+   BOOST_CHECK_GT( *r->cpu_fee, 0 );
+   BOOST_CHECK_GT( *r->net_fee, 0 );
+
+   produce_blocks();
+
+   ptrx = create_trx(0);
+   // Should charge the transaction fee
+   auto r1 = push_trx( ptrx, fc::time_point::maximum(), max_cpu_time_us, false, subjective_cpu_bill_us );
+   BOOST_CHECK_GT( *r1->cpu_fee, 0 );
+   BOOST_CHECK_GT( *r1->net_fee, 0 );
+
+   produce_blocks();
+   ptrx = create_delay_trx(0, 3);
+
+   // charge fee for delay transaction
+   auto dtrace1 = push_trx( ptrx, fc::time_point::maximum(), max_cpu_time_us, true, subjective_cpu_bill_us );
+   BOOST_CHECK_GT( *dtrace1->cpu_fee, 0 );
+   BOOST_CHECK_GT( *dtrace1->net_fee, 0 );
+   BOOST_CHECK_EQUAL(dtrace1->receipt->status, transaction_receipt::delayed);
+   produce_blocks(6);
+   // charge fee for delay transaction again once it is executed
+   auto billed_cpu_time_us = control->get_global_properties().configuration.min_transaction_cpu_usage;
+   auto scheduled_trxs = get_scheduled_transactions(); 
+   auto dtrace2 = control->push_scheduled_transaction(scheduled_trxs.front(), fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
+   BOOST_CHECK_GT( *dtrace2->cpu_fee, 0 );
+   BOOST_CHECK_EQUAL( *dtrace2->net_fee, 0 );
+   BOOST_CHECK_EQUAL(dtrace2->receipt->status, transaction_receipt::executed);
+
+} FC_LOG_AND_RETHROW()
 /**
  * various tests with wasm & 0 pages worth of memory
  */
