@@ -2413,6 +2413,11 @@ read_only::get_account_return_t read_only::get_account( const get_account_params
    }
    result.ram_usage = rm.get_account_ram_usage( result.account_name );
 
+   if(result.net_limit.max != -1 ){
+      std::tie(result.tx_fee_limit, result.account_fee_limit) = rm.get_config_fee_limits(result.account_name);
+      rm.get_account_fee_consumption(result.account_name, result.pending_net_weight, result.pending_cpu_weight);
+   }
+   
    eosio::chain::resource_limits::account_resource_limit subjective_cpu_bill_limit;
    subjective_cpu_bill_limit.used = db.get_subjective_billing().get_subjective_bill( result.account_name, fc::time_point::now() );
    result.subjective_cpu_bill_limit = subjective_cpu_bill_limit;

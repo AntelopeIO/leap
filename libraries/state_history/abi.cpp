@@ -151,6 +151,9 @@ extern const char* const state_history_plugin_abi = R"({
                 { "name": "error_code", "type": "uint64?" },
                 { "name": "failed_dtrx_trace", "type": "transaction_trace?" },
                 { "name": "partial", "type": "partial_transaction?" }
+                { "name": "partial", "type": "partial_transaction?" },
+                { "name": "net_fee", "type": "int64?" },
+                { "name": "cpu_fee", "type": "int64?" }
             ]
         },
         {

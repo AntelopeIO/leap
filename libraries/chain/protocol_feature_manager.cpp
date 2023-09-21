@@ -278,6 +278,7 @@ Adds new cryptographic host functions
             // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
 /*
 Builtin protocol feature: TRANSACTION_FEE
+
 Allows privileged contracts to set the fee-charging constraints on resource limit
 Allows privileged contracts to charge fees from the account which exceeds the resource staking limit
 Users are able to set the maximum limit that they willing to pay for their transactions

@@ -101,13 +101,23 @@ namespace {
                      ("actions", process_actions<action_trace_v1>(std::get<std::vector<action_trace_v1>>(t.actions), data_handler))
                      (std::move(common_mvo)));
             }
-            else if constexpr(std::is_same_v<TransactionTrace, transaction_trace_v3>){
+            else if constexpr(std::is_same_v<TransactionTrace, transaction_trace_v3>){ 
                result.emplace_back(
                   fc::mutable_variant_object()
                      ("id", t.id.str())
                      ("block_num", t.block_num)
                      ("block_time", t.block_time)
                      ("producer_block_id", t.producer_block_id)
+                     ("actions", process_actions<action_trace_v1>(std::get<std::vector<action_trace_v1>>(t.actions), data_handler))
+                     (std::move(common_mvo))
+               );
+            }
+            else if constexpr(std::is_same_v<TransactionTrace, transaction_trace_v4>){
+               result.emplace_back(
+                  fc::mutable_variant_object()
+                     ("id", t.id.str())
+                     ("net_fee", t.net_fee)
+                     ("cpu_fee", t.cpu_fee)
                      ("actions", process_actions<action_trace_v1>(std::get<std::vector<action_trace_v1>>(t.actions), data_handler))
                      (std::move(common_mvo))
                );

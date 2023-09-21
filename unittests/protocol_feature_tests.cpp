@@ -1929,4 +1929,93 @@ BOOST_AUTO_TEST_CASE( set_parameters_packed_test ) { try {
                        c.error("alice does not have permission to call this API"));
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE( allow_transaction_fee_test ) { try {
+   tester c( setup_policy::preactivate_feature_and_new_bios );
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::transaction_fee);
+   BOOST_REQUIRE(d);
+
+   BOOST_CHECK_EXCEPTION(  c.set_code( config::system_account_name, test_contracts::txfee_api_test_wasm() ),
+                           wasm_exception,
+                           fc_exception_message_is( "env.set_fee_parameters unresolveable" ) );
+
+   c.preactivate_protocol_features( {*d} );
+   const auto bob_account = account_name("bob");
+   c.create_accounts( {bob_account} );
+   c.produce_block();
+
+   // ensure it now resolves
+   c.set_code( config::system_account_name, test_contracts::txfee_api_test_wasm() );
+   c.set_abi( config::system_account_name, test_contracts::txfee_api_test_abi().data());
+
+   // ensure it can be called
+   BOOST_CHECK_NO_THROW( c.push_action( config::system_account_name, "setparams"_n, config::system_account_name, mutable_variant_object()
+   ("cpu_fee_scaler", 1)
+   ("free_block_cpu_threshold", 2)
+   ("net_fee_scaler", 3)
+   ("free_block_net_threshold", 4))
+   );
+   BOOST_CHECK_NO_THROW( c.push_action( config::system_account_name, "configfees"_n, config::system_account_name, mutable_variant_object()
+   ("account", "bob")
+   ("tx_fee_limit", 0)
+   ("account_fee_limit", 0))
+   );
+   BOOST_CHECK_NO_THROW( c.push_action( config::system_account_name, "setfees"_n, config::system_account_name, mutable_variant_object()
+   ("account", "bob")
+   ("net_weight_limit", 1)
+   ("cpu_weight_limit", 2))
+   );
+   BOOST_CHECK_NO_THROW( c.push_action( config::system_account_name, "getfees"_n, config::system_account_name, mutable_variant_object()
+   ("account", "bob")
+   ("expected_net_pending_weight", 0)
+   ("expected_cpu_consumed_weight", 0))
+   );
+
+   c.produce_block();
+
+   const auto alice_account = account_name("alice");
+   c.create_accounts( {alice_account} );
+   c.produce_block();
+
+   c.set_code( alice_account, test_contracts::txfee_api_test_wasm() );
+   c.set_abi( alice_account, test_contracts::txfee_api_test_abi().data());
+
+   // ensure priviledged intrinsic cannot be called by regular account
+   BOOST_CHECK_EXCEPTION(  c.push_action( alice_account, "setparams"_n, alice_account, fc::mutable_variant_object()
+                                 ("cpu_fee_scaler", 1)
+                                 ("free_block_cpu_threshold", 2)
+                                 ("net_fee_scaler", 3)
+                                 ("free_block_net_threshold", 4)
+                           ), unaccessible_api,
+                           fc_exception_message_is( "alice does not have permission to call this API" )
+   );
+
+   // ensure priviledged intrinsic cannot be called by regular account
+   BOOST_CHECK_EXCEPTION(  c.push_action( alice_account, "configfees"_n, alice_account, fc::mutable_variant_object()
+                              ("account", "alice")
+                              ("tx_fee_limit", 0)
+                              ("account_fee_limit", 0)
+                           ), unaccessible_api,
+                           fc_exception_message_is( "alice does not have permission to call this API" )
+   );
+
+   // ensure priviledged intrinsic cannot be called by regular account
+   BOOST_CHECK_EXCEPTION(  c.push_action( alice_account, "setfees"_n, alice_account, fc::mutable_variant_object()
+                              ("account", "alice")
+                              ("net_weight_limit", 1)
+                              ("cpu_weight_limit", 2)
+                           ), unaccessible_api,
+                           fc_exception_message_is( "alice does not have permission to call this API" )
+   );
+   // ensure priviledged intrinsic cannot be called by regular account
+   BOOST_CHECK_EXCEPTION(  c.push_action( alice_account, "getfees"_n, alice_account, fc::mutable_variant_object()
+                              ("account", "alice")
+                              ("expected_net_pending_weight", 0)
+                              ("expected_cpu_consumed_weight", 0)
+                           ), unaccessible_api,
+                           fc_exception_message_is( "alice does not have permission to call this API" )
+   );
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_SUITE_END()

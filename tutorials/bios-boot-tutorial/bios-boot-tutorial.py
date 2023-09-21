@@ -27,6 +27,7 @@ systemAccounts = [
     'eosio.token',
     'eosio.vpay',
     'eosio.rex',
+    'eosio.txfee,
 ]
 
 def jsonArg(a):
@@ -349,6 +350,8 @@ def stepSetSystemContract():
     retry(args.cleos + 'push action eosio activate \'["35c2186cc36f7bb4aeaf4487b36e57039ccf45a9136aa856a5d569ecca55ef2b"]\' -p eosio@active')
     # CRYPTO_PRIMITIVES
     retry(args.cleos + 'push action eosio activate \'["6bcb40a24e49c26d0a60513b6aeb8551d264e4717f306b81a37a5afb3b47cedc"]\' -p eosio@active')
+    # TRANSACTION_FEE
+    retry(args.cleos + 'push action eosio activate \'["f966d080920d1ece2e03b0818558e56917d2a2462e203498bddd92e0618996c7"]\' -p eosio@active')
     sleep(1)
 
     # install eosio.system latest version

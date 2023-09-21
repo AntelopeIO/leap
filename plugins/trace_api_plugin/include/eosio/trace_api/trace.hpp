@@ -57,6 +57,10 @@ namespace eosio { namespace trace_api {
      std::optional<chain::block_id_type>        producer_block_id = {};
   };
 
+  struct transaction_trace_v4: transaction_trace_v3 {
+      std::optional<int64_t>                    net_fee = {};
+      std::optional<int64_t>                    cpu_fee = {};
+  };
   struct block_trace_v0 {
      chain::block_id_type               id = {};
      uint32_t                           number = {};
@@ -82,7 +86,7 @@ namespace eosio { namespace trace_api {
      chain::checksum256_type            transaction_mroot = {};
      chain::checksum256_type            action_mroot = {};
      uint32_t                           schedule_version = {};
-     std::variant<std::vector<transaction_trace_v2>, std::vector<transaction_trace_v3>>  transactions = {};
+     std::variant<std::vector<transaction_trace_v2>, std::vector<transaction_trace_v3>, std::vector<transaction_trace_v4>>  transactions = {};
   };
 
   struct cache_trace {
@@ -104,6 +108,7 @@ FC_REFLECT(eosio::trace_api::transaction_trace_v0, (id)(actions))
 FC_REFLECT_DERIVED(eosio::trace_api::transaction_trace_v1, (eosio::trace_api::transaction_trace_v0), (status)(cpu_usage_us)(net_usage_words)(signatures)(trx_header))
 FC_REFLECT(eosio::trace_api::transaction_trace_v2, (id)(actions)(status)(cpu_usage_us)(net_usage_words)(signatures)(trx_header))
 FC_REFLECT_DERIVED(eosio::trace_api::transaction_trace_v3, (eosio::trace_api::transaction_trace_v2), (block_num)(block_time)(producer_block_id))
+FC_REFLECT_DERIVED(eosio::trace_api::transaction_trace_v4, (eosio::trace_api::transaction_trace_v3), (net_fee)(cpu_fee))
 FC_REFLECT(eosio::trace_api::block_trace_v0, (id)(number)(previous_id)(timestamp)(producer)(transactions))
 FC_REFLECT_DERIVED(eosio::trace_api::block_trace_v1, (eosio::trace_api::block_trace_v0), (transaction_mroot)(action_mroot)(schedule_version)(transactions_v1))
 FC_REFLECT(eosio::trace_api::block_trace_v2, (id)(number)(previous_id)(timestamp)(producer)(transaction_mroot)(action_mroot)(schedule_version)(transactions))

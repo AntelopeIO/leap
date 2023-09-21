@@ -180,7 +180,7 @@ namespace eosio::trace_api {
          lhs.trx_header.max_cpu_usage_ms == rhs.trx_header.max_cpu_usage_ms &&
          lhs.trx_header.delay_sec == rhs.trx_header.delay_sec ;
    }
-
+   
    inline bool operator==(const block_trace_v0 &lhs, const block_trace_v0 &rhs) {
       return
          lhs.id == rhs.id &&

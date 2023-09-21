@@ -36,7 +36,8 @@ inline TransactionTrace to_transaction_trace( const cache_trace& t ) {
    }
    if constexpr(std::is_same_v<TransactionTrace, transaction_trace_v1>  ||
                 std::is_same_v<TransactionTrace, transaction_trace_v2>  ||
-                std::is_same_v<TransactionTrace, transaction_trace_v3>) {
+                std::is_same_v<TransactionTrace, transaction_trace_v3>  ||
+                std::is_same_v<TransactionTrace, transaction_trace_v4>) {
       if (t.trace->receipt) {
          r.status = t.trace->receipt->status;
          r.cpu_usage_us = t.trace->receipt->cpu_usage_us;
@@ -48,10 +49,13 @@ inline TransactionTrace to_transaction_trace( const cache_trace& t ) {
       r.block_num = t.trace->block_num;
       r.block_time = t.trace->block_time;
       r.producer_block_id = t.trace->producer_block_id;
+      r.net_fee = t.trace->net_fee;
+      r.cpu_fee = t.trace->cpu_fee;
    }
 
    using action_trace_t = std::conditional_t<std::is_same_v<TransactionTrace, transaction_trace_v2> ||
-                                             std::is_same_v<TransactionTrace, transaction_trace_v3>
+                                             std::is_same_v<TransactionTrace, transaction_trace_v3> ||
+                                             std::is_same_v<TransactionTrace, transaction_trace_v4>
                                              , action_trace_v1, action_trace_v0>;
    r.actions = std::vector<action_trace_t>();
    std::get<std::vector<action_trace_t>>(r.actions).reserve( t.trace->action_traces.size());

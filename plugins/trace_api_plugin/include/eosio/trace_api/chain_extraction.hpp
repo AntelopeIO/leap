@@ -82,7 +82,7 @@ private:
 
    void store_block_trace( const chain::block_state_ptr& block_state ) {
       try {
-         using transaction_trace_t = transaction_trace_v3;
+         using transaction_trace_t = transaction_trace_v4;
          auto bt = create_block_trace( block_state );
 
          std::vector<transaction_trace_t> traces;

@@ -1388,6 +1388,15 @@ struct controller_impl {
                                         trx_context.billed_cpu_time_us,
                                         trace->net_usage );
 
+         if( self.is_builtin_activated( builtin_protocol_feature_t::transaction_fee ) ) {
+            if(trx_context.net_usage_fee >= 0){
+               trace->net_fee = trx_context.net_usage_fee;
+            }
+            if(trx_context.cpu_usage_fee >= 0){
+               trace->cpu_fee = trx_context.cpu_usage_fee;
+            }
+         }
+
          fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
                           std::move(trx_context.executed_action_receipt_digests) );
 
@@ -1617,6 +1626,16 @@ struct controller_impl {
                trace->receipt = r;
             }
 
+            if( self.is_builtin_activated( builtin_protocol_feature_t::transaction_fee ) ) {
+               if(trx_context.net_usage_fee >= 0){
+                  trace->net_fee = trx_context.net_usage_fee;
+               }
+
+               if(trx_context.cpu_usage_fee >= 0){
+                  trace->cpu_fee = trx_context.cpu_usage_fee;
+               }
+            }
+            
             if ( !trx->is_read_only() ) {
                fc::move_append( std::get<building_block>(pending->_block_stage)._action_receipt_digests,
                                 std::move(trx_context.executed_action_receipt_digests) );
