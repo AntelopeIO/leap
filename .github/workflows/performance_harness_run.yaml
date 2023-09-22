@@ -46,7 +46,7 @@ jobs:
         run: |
           echo test-params=findMax testBpOpMode >> $GITHUB_OUTPUT
           echo leap-target="DEFAULT" >> $GITHUB_OUTPUT
-          echo leap-prerelease="DEFAULT" >> $GITHUB_OUTPUT
+          echo leap-prerelease="false" >> $GITHUB_OUTPUT
 
           if [[ "${{inputs.override-test-params}}" != "" ]]; then
             echo test-params=${{inputs.override-test-params}} >> $GITHUB_OUTPUT
