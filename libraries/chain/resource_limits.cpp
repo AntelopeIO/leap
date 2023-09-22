@@ -6,6 +6,7 @@
 #include <eosio/chain/deep_mind.hpp>
 #include <boost/tuple/tuple_io.hpp>
 #include <eosio/chain/database_utils.hpp>
+#include <eosio/chain/chain_snapshot.hpp>
 #include <algorithm>
 
 namespace eosio { namespace chain { namespace resource_limits {
@@ -93,8 +94,30 @@ void resource_limits_manager::add_to_snapshot( const snapshot_writer_ptr& snapsh
 }
 
 void resource_limits_manager::read_from_snapshot( const snapshot_reader_ptr& snapshot ) {
-   resource_index_set::walk_indices([this, &snapshot]( auto utils ){
-      snapshot->read_section<typename decltype(utils)::index_t::value_type>([this]( auto& section ) {
+
+   chain_snapshot_header header;
+   snapshot->read_section<chain_snapshot_header>([this, &header]( auto &section ){
+      section.read_row(header, _db);
+      header.validate();
+   });
+
+   resource_index_set::walk_indices([this, &snapshot, &header]( auto utils ){
+      using value_t = typename decltype(utils)::index_t::value_type;
+      if (std::is_same<value_t, fee_params_object>::value || std::is_same<value_t, fee_limits_object>::value) {
+         if (header.version >= 8) {
+            snapshot->read_section<value_t>([this]( auto& section ) {
+               bool more = !section.empty();
+               while(more) {
+                  decltype(utils)::create(_db, [this, &section, &more]( auto &row ) {
+                     more = section.read_row(row, _db);
+                  });
+               }
+            });
+         }
+         return;
+      }
+
+      snapshot->read_section<value_t>([this]( auto& section ) {
          bool more = !section.empty();
          while(more) {
             decltype(utils)::create(_db, [this, &section, &more]( auto &row ) {
