@@ -661,7 +661,7 @@ class PerformanceTestBasic:
 
 class PtbArgumentsHandler(object):
     @staticmethod
-    def _createBaseArgumentParser(defEndpointApiDef: str, defProdNodeCnt: int, defValidationNodeCnt: int, defApiNodeCnt: int, defRoWriteWindowTimeUs: int, defRoReadWindowTimeUs: int, suppressHelp: bool=False):
+    def _createBaseArgumentParser(defEndpointApiDef: str, defProdNodeCnt: int, defValidationNodeCnt: int, defApiNodeCnt: int, suppressHelp: bool=False):
         testHelperArgParser=TestHelper.createArgumentParser(includeArgs={"-d","--dump-error-details","-v","--leave-running"
                                                             ,"--unshared"}, suppressHelp=suppressHelp)
         ptbBaseParser = argparse.ArgumentParser(parents=[testHelperArgParser], add_help=False, formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -697,8 +697,8 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help=argparse.SUPPRESS if suppressHelp else "Disable subjective CPU billing for API/P2P transactions", default=True)
         ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
         ptbBaseParserGroup.add_argument("--producer-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in producer thread pool", default=2)
-        ptbBaseParserGroup.add_argument("--read-only-write-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the write window lasts.", default=defRoWriteWindowTimeUs)
-        ptbBaseParserGroup.add_argument("--read-only-read-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the read window lasts.", default=defRoReadWindowTimeUs)
+        ptbBaseParserGroup.add_argument("--read-only-write-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the write window lasts.", default=200000)
+        ptbBaseParserGroup.add_argument("--read-only-read-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the read window lasts.", default=60000)
         ptbBaseParserGroup.add_argument("--http-max-in-flight-requests", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum time for processing a request, -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-bytes-in-flight-mb", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429\
@@ -732,11 +732,11 @@ class PtbArgumentsHandler(object):
 
     @staticmethod
     def createBaseBpP2pArgumentParser(suppressHelp: bool=False):
-        return PtbArgumentsHandler._createBaseArgumentParser(defEndpointApiDef="p2p", defProdNodeCnt=1, defValidationNodeCnt=1, defApiNodeCnt=0, defRoWriteWindowTimeUs=200000, defRoReadWindowTimeUs=60000, suppressHelp=suppressHelp)
+        return PtbArgumentsHandler._createBaseArgumentParser(defEndpointApiDef="p2p", defProdNodeCnt=1, defValidationNodeCnt=1, defApiNodeCnt=0, suppressHelp=suppressHelp)
 
     @staticmethod
     def createBaseApiHttpArgumentParser(suppressHelp: bool=False):
-        return PtbArgumentsHandler._createBaseArgumentParser(defEndpointApiDef="http", defProdNodeCnt=1, defValidationNodeCnt=1, defApiNodeCnt=1, defRoWriteWindowTimeUs=1000, defRoReadWindowTimeUs=165000, suppressHelp=suppressHelp)
+        return PtbArgumentsHandler._createBaseArgumentParser(defEndpointApiDef="http", defProdNodeCnt=1, defValidationNodeCnt=1, defApiNodeCnt=1, suppressHelp=suppressHelp)
 
     @staticmethod
     def createArgumentParser():
