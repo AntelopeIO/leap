@@ -111,7 +111,7 @@ jobs:
     name: Tests
     needs: [v, platforms, reuse-build, build-base]
     if: always() && needs.platforms.result == 'success' && (needs.build-base.result == 'success' || needs.reuse-build.result == 'success')
-    runs-on: ubuntu-latest
+    runs-on: ["self-hosted", "enf-x86-beefy-long"]
     container:
       image: ${{fromJSON(needs.platforms.outputs.p)[github.event.inputs.platform-choice].image}}
     steps:
