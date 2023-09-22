@@ -1,12 +1,3 @@
-find_package(Python COMPONENTS Interpreter)
-add_custom_target(regenerate_boringssl COMMAND "${Python_EXECUTABLE}" src/util/generate_build_files.py cmake WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}/boringssl")
-
-#avoid erroring out the cmake project generation when boringssl's generated files do not exist. The overall build would still fail, of
-# course, but the 'regenerate_boringssl' target still will be alive to use
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/boringssl/CMakeLists.txt")
-   return()
-endif()
-
 add_subdirectory(boringssl EXCLUDE_FROM_ALL)
 target_compile_options(fipsmodule PRIVATE -Wno-error)
 target_compile_options(crypto PRIVATE -Wno-error)
