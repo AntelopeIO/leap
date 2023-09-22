@@ -141,7 +141,7 @@ jobs:
           cp /usr/bin/nodeos build/bin
           cp /usr/bin/cleos build/bin
           ./build/bin/nodeos --full-version
-          ./build/bin/cleos --full-version
+          ./build/bin/cleos version full
       - name: Run Performance Test
         run: |
           cd build
