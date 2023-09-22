@@ -90,7 +90,8 @@ BOOST_AUTO_TEST_CASE( execute_from_read_only_queue ) {
    auto app_thread = start_app_thread(app);
    
    // set to run functions from read_only queue only
-   app->executor().set_to_read_window(1, [](){return false;});
+   app->executor().init_read_threads(1);
+   app->executor().set_to_read_window([](){return false;});
 
    // post functions
    std::map<int, int> rslts {};
@@ -137,7 +138,8 @@ BOOST_AUTO_TEST_CASE( execute_from_empty_read_only_queue ) {
    auto app_thread = start_app_thread(app);
    
    // set to run functions from read_only & read_exclusive queues only
-   app->executor().set_to_read_window(1, [](){return false;});
+   app->executor().init_read_threads(1);
+   app->executor().set_to_read_window([](){return false;});
 
    // post functions
    std::map<int, int> rslts {};
@@ -245,8 +247,9 @@ BOOST_AUTO_TEST_CASE( execute_from_read_only_and_read_write_queues ) {
 BOOST_AUTO_TEST_CASE( execute_from_read_only_and_read_exclusive_queues ) {
    appbase::scoped_app app;
 
+   app->executor().init_read_threads(3);
    // set to run functions from read_only & read_exclusive queues only
-   app->executor().set_to_read_window(3, [](){return false;});
+   app->executor().set_to_read_window([](){return false;});
 
    // post functions
    std::vector<std::atomic<int>> rslts(16);
@@ -343,7 +346,8 @@ BOOST_AUTO_TEST_CASE( execute_many_from_read_only_and_read_exclusive_queues ) {
    std::thread::id app_thread_id = app_thread.get_id();
 
    // set to run functions from read_only & read_exclusive queues only
-   app->executor().set_to_read_window(3, [](){return false;});
+   app->executor().init_read_threads(3);
+   app->executor().set_to_read_window([](){return false;});
 
    // post functions
    constexpr size_t num_expected = 600u;

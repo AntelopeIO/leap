@@ -29,6 +29,12 @@ public:
    // This adds to the total time that the main thread can be busy when a high priority task is waiting.
    static constexpr uint16_t minimum_runtime_ms = 3;
 
+   // inform how many read_threads will be calling read_only/read_exclusive queues
+   // Currently only used to assert if exec_queue::read_exclusive is used without any read threads
+   void init_read_threads(size_t num_read_threads) {
+      pri_queue_.init_read_threads(num_read_threads);
+   }
+
    template <typename Func>
    auto post( int priority, exec_queue q, Func&& func ) {
       return boost::asio::post( io_serv_, pri_queue_.wrap( priority, q, --order_, std::forward<Func>(func)));
@@ -92,9 +98,9 @@ public:
       pri_queue_.clear();
    }
 
-   void set_to_read_window(uint32_t num_threads, std::function<bool()> should_exit) {
+   void set_to_read_window(std::function<bool()> should_exit) {
       exec_window_ = exec_window::read;
-      pri_queue_.enable_locking(num_threads, std::move(should_exit));
+      pri_queue_.enable_locking(std::move(should_exit));
    }
 
    void set_to_write_window() {

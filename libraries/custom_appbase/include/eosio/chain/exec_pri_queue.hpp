@@ -19,10 +19,10 @@ enum class exec_queue {
                        // not being executed in read-only threads. Single threaded.
    read_exclusive      // the queue storing tasks which should only be executed
                        // in parallel with other read_exclusive or read_only tasks in the
-                       // read-only thread pool. Should never be executed on the main thread.
-                       // If no read-only thread pool is available this queue grows unbounded
-                       // as tasks will never execute. User is responsible for not queueing
-                       // read_exclusive tasks if no read-only thread pool is available.
+                       // read-only thread pool. Will never be executed on the main thread.
+                       // If no read-only thread pool is available that calls one of the execute_* with
+                       // read_exclusive then this queue grows unbounded. exec_pri_queue asserts
+                       // if asked to queue a read_exclusive task when init'ed with 0 read-only threads.
 };
 
 // Locking has to be coordinated by caller, use with care.
@@ -30,16 +30,21 @@ class exec_pri_queue : public boost::asio::execution_context
 {
 public:
 
+   // inform how many read_threads will be calling read_only/read_exclusive queues
+   void init_read_threads(size_t num_read_threads) {
+      num_read_threads_ = num_read_threads;
+   }
+
    void stop() {
       std::lock_guard g( mtx_ );
       exiting_blocking_ = true;
       cond_.notify_all();
    }
 
-   void enable_locking(uint32_t num_threads, std::function<bool()> should_exit) {
-      assert(num_threads > 0 && num_waiting_ == 0);
+   void enable_locking(std::function<bool()> should_exit) {
+      assert(num_read_threads_ > 0 && num_waiting_ == 0);
       lock_enabled_ = true;
-      max_waiting_ = num_threads;
+      max_waiting_ = num_read_threads_;
       should_exit_ = std::move(should_exit);
       exiting_blocking_ = false;
    }
@@ -52,6 +57,7 @@ public:
    // called from appbase::application_base::exec poll_one() or run_one()
    template <typename Function>
    void add(int priority, exec_queue q, size_t order, Function function) {
+      assert( num_read_threads_ > 0 || q != exec_queue::read_exclusive);
       prio_queue& que = priority_que(q);
       std::unique_ptr<queued_handler_base> handler(new queued_handler<Function>(priority, order, std::move(function)));
       if (lock_enabled_) {
@@ -290,6 +296,7 @@ private:
       return t;
    }
 
+   size_t num_read_threads_ = 0;
    bool lock_enabled_ = false;
    mutable std::mutex mtx_;
    std::condition_variable cond_;

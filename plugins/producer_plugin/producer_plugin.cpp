@@ -1051,7 +1051,7 @@ void producer_plugin::set_program_options(
          ("enable-stale-production,e", boost::program_options::bool_switch()->notifier([this](bool e){my->_production_enabled = e;}), "Enable block production, even if the chain is stale.")
          ("pause-on-startup,x", boost::program_options::bool_switch()->notifier([this](bool p){my->_pause_production = p;}), "Start this node in a state where production is paused")
          ("max-transaction-time", bpo::value<int32_t>()->default_value(config::block_interval_ms-1),
-          "Locally lowers the max_transaction_cpu_usage limit (in milliseconds) that an input transaction is allowed to execute before being considered invalid")
+          "Setting this value (in milliseconds) will restrict the allowed transaction execution time to a value potentially lower than the on-chain consensus max_transaction_cpu_usage value.")
          ("max-irreversible-block-age", bpo::value<int32_t>()->default_value( -1 ),
           "Limits the maximum age (in seconds) of the DPOS Irreversible Block for a chain this node will produce blocks on (use negative value to indicate unlimited)")
          ("producer-name,p", boost::program_options::value<vector<string>>()->composing()->multitoken(),
