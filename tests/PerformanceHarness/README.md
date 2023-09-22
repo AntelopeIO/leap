@@ -32,19 +32,19 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
 3. Collect Results - By default the Performance Harness will capture and save logs.  To delete logs, use `--del-perf-logs`.  Additionally, final reports will be collected by default.  To omit final reports, use `--del-report` and/or `--del-test-report`.
     1. Navigate to performance test logs directory
         ```bash
-        cd ./build/PerformanceHarnessScenarioRunnerLogs/
+        cd ./build/PHSRLogs/
         ```
     2. Log Directory Structure is hierarchical with each run of the `PerformanceHarnessScenarioRunner` reporting into a timestamped directory where it includes the full performance report as well as a directory containing output from each test type run (here, `PerformanceTestBasic`) and each individual test run outputs into a timestamped directory within `testRunLogs` that may contain block data logs and transaction generator logs as well as the test's basic report.  An example directory structure follows:
         <details>
             <summary>Expand Example Directory Structure</summary>
 
         ``` bash
-        PerformanceHarnessScenarioRunnerLogs/
+        PHSRLogs/
         └── 2023-04-05_14-35-59
             ├── pluginThreadOptRunLogs
             │   ├── chainThreadResults.txt
             │   ├── netThreadResults.txt
-            │   ├── PerformanceHarnessScenarioRunnerLogs
+            │   ├── PHSRLogs
             │   │   ├── 2023-04-05_14-35-59-50000
             │   │   │   ├── blockDataLogs
             │   │   │   │   ├── blockData.txt
@@ -163,7 +163,7 @@ Please refer to [Leap: Build and Install from Source](https://github.com/Antelop
             │   └── producerThreadResults.txt
             ├── report.json
             └── testRunLogs
-                └── PerformanceHarnessScenarioRunnerLogs
+                └── PHSRLogs
                     ├── 2023-04-05_16-14-31-50000
                     │   ├── blockDataLogs
                     │   │   ├── blockData.txt
@@ -929,7 +929,7 @@ Next, a summary of the search scenario conducted and respective results is inclu
         "expectedTxns": 140010,
         "resultTxns": 140010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-49-42-14001"
+        "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-49-42-14001"
       }
     }
 ```
@@ -1007,7 +1007,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "expectedTxns": 500000,
         "resultTxns": 295339,
         "testAnalysisBlockCnt": 41,
-        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-39-08-50000"
+        "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-39-08-50000"
       }
     },
     "1": {
@@ -1029,7 +1029,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "expectedTxns": 250010,
         "resultTxns": 249933,
         "testAnalysisBlockCnt": 34,
-        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-40-45-25001"
+        "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-40-45-25001"
       }
     },
     "2": {
@@ -1051,7 +1051,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "expectedTxns": 125010,
         "resultTxns": 125010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-42-10-12501"
+        "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-42-10-12501"
       }
     },
     "3": {
@@ -1073,7 +1073,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "expectedTxns": 190010,
         "resultTxns": 190010,
         "testAnalysisBlockCnt": 23,
-        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-43-23-19001"
+        "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-43-23-19001"
       }
     },
     "4": {
@@ -1095,7 +1095,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "expectedTxns": 160010,
         "resultTxns": 160010,
         "testAnalysisBlockCnt": 19,
-        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-44-44-16001"
+        "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-44-44-16001"
       }
     },
     "5": {
@@ -1117,7 +1117,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "expectedTxns": 145010,
         "resultTxns": 144898,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-46-01-14501"
+        "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-46-01-14501"
       }
     },
     "6": {
@@ -1139,7 +1139,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "expectedTxns": 135010,
         "resultTxns": 135010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-47-15-13501"
+        "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-47-15-13501"
       }
     },
     "7": {
@@ -1161,7 +1161,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "expectedTxns": 140010,
         "resultTxns": 140010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-48-29-14001"
+        "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-48-29-14001"
       }
     }
   },
@@ -1201,7 +1201,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "expectedTxns": 140010,
         "resultTxns": 140010,
         "testAnalysisBlockCnt": 17,
-        "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-49-42-14001"
+        "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-49-42-14001"
       }
     }
   },
@@ -1779,11 +1779,11 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "userTrxDataFile": null,
     "endpointMode": "p2p",
     "opModeCmd": "testBpOpMode",
-    "logDirBase": "PerformanceHarnessScenarioRunnerLogs",
+    "logDirBase": "PHSRLogs",
     "logDirTimestamp": "2023-08-18_16-16-57",
-    "logDirPath": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57",
-    "ptbLogsDirPath": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs",
-    "pluginThreadOptLogsDirPath": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/pluginThreadOptRunLogs"
+    "logDirPath": "PHSRLogs/2023-08-18_16-16-57",
+    "ptbLogsDirPath": "PHSRLogs/2023-08-18_16-16-57/testRunLogs",
+    "pluginThreadOptLogsDirPath": "PHSRLogs/2023-08-18_16-16-57/pluginThreadOptRunLogs"
   },
   "env": {
     "system": "Linux",
@@ -1799,7 +1799,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
 
 ## Performance Test Basic Report
 
-The Performance Test Basic generates, by default, a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `PerformanceHarnessScenarioRunner.py findMax` is run with `--del-test-report`, or `PerformanceHarnessScenarioRunner.py singleTest` is run with `--del-report`, the report described below will not be written.  Otherwise the report will be written to the timestamped directory within the `PerformanceHarnessScenarioRunnerLogs` log directory for the test run with the file name `data.json`.
+The Performance Test Basic generates, by default, a report that details results of the test, statistics around metrics of interest, as well as diagnostic information about the test run.  If `PerformanceHarnessScenarioRunner.py findMax` is run with `--del-test-report`, or `PerformanceHarnessScenarioRunner.py singleTest` is run with `--del-report`, the report described below will not be written.  Otherwise the report will be written to the timestamped directory within the `PHSRLogs` log directory for the test run with the file name `data.json`.
 
 <details>
     <summary>Expand for full sample report</summary>
@@ -1822,7 +1822,7 @@ The Performance Test Basic generates, by default, a report that details results 
     "expectedTxns": 140010,
     "resultTxns": 140010,
     "testAnalysisBlockCnt": 17,
-    "logsDir": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-49-42-14001"
+    "logsDir": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-49-42-14001"
   },
   "Analysis": {
     "BlockSize": {
@@ -2430,7 +2430,7 @@ The Performance Test Basic generates, by default, a report that details results 
     "testTrxGenDurationSec": 10,
     "tpsLimitPerGenerator": 4000,
     "numAddlBlocksToPrune": 2,
-    "logDirRoot": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs",
+    "logDirRoot": "PHSRLogs/2023-08-18_16-16-57/testRunLogs",
     "delReport": false,
     "quiet": false,
     "delPerfLogs": false,
@@ -2439,10 +2439,10 @@ The Performance Test Basic generates, by default, a report that details results 
     "userTrxDataFile": null,
     "endpointMode": "p2p",
     "apiEndpoint": null,
-    "logDirBase": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs",
+    "logDirBase": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs",
     "logDirTimestamp": "2023-08-18_17-49-42",
     "logDirTimestampedOptSuffix": "-14001",
-    "logDirPath": "PerformanceHarnessScenarioRunnerLogs/2023-08-18_16-16-57/testRunLogs/PerformanceHarnessScenarioRunnerLogs/2023-08-18_17-49-42-14001",
+    "logDirPath": "PHSRLogs/2023-08-18_16-16-57/testRunLogs/PHSRunLogs/2023-08-18_17-49-42-14001",
     "userTrxData": "NOT CONFIGURED"
   },
   "env": {
