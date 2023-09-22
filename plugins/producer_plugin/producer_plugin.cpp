@@ -807,9 +807,12 @@ public:
                                       bool                                 return_failure_traces,
                                       next_function<transaction_trace_ptr> next) {
       if (trx_type == transaction_metadata::trx_type::read_only) {
-         // Post all read only trxs to read_only queue for execution.
+         EOS_ASSERT( _ro_thread_pool_size > 0, unsupported_feature,
+                     "read-only transactions execution not enabled on API node. Set read-only-threads > 0" );
+
+         // Post all read only trxs to read_exclusive queue for execution.
          auto trx_metadata = transaction_metadata::create_no_recover_keys(trx, transaction_metadata::trx_type::read_only);
-         app().executor().post(priority::low, exec_queue::read_only, [this, trx{std::move(trx_metadata)}, next{std::move(next)}]() mutable {
+         app().executor().post(priority::low, exec_queue::read_exclusive, [this, trx{std::move(trx_metadata)}, next{std::move(next)}]() mutable {
             push_read_only_transaction(std::move(trx), std::move(next));
          });
          return;
@@ -1047,8 +1050,8 @@ void producer_plugin::set_program_options(
    producer_options.add_options()
          ("enable-stale-production,e", boost::program_options::bool_switch()->notifier([this](bool e){my->_production_enabled = e;}), "Enable block production, even if the chain is stale.")
          ("pause-on-startup,x", boost::program_options::bool_switch()->notifier([this](bool p){my->_pause_production = p;}), "Start this node in a state where production is paused")
-         ("max-transaction-time", bpo::value<int32_t>()->default_value(30),
-          "Limits the maximum time (in milliseconds) that is allowed a pushed transaction's code to execute before being considered invalid")
+         ("max-transaction-time", bpo::value<int32_t>()->default_value(config::block_interval_ms-1),
+          "Setting this value (in milliseconds) will restrict the allowed transaction execution time to a value potentially lower than the on-chain consensus max_transaction_cpu_usage value.")
          ("max-irreversible-block-age", bpo::value<int32_t>()->default_value( -1 ),
           "Limits the maximum age (in seconds) of the DPOS Irreversible Block for a chain this node will produce blocks on (use negative value to indicate unlimited)")
          ("producer-name,p", boost::program_options::value<vector<string>>()->composing()->multitoken(),
@@ -1270,28 +1273,26 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
                  ("read", _ro_read_window_time_us)("min", _ro_read_window_minimum_time_us));
       _ro_read_window_effective_time_us = _ro_read_window_time_us - _ro_read_window_minimum_time_us;
 
-      // Make sure a read-only transaction can finish within the read
-      // window if scheduled at the very beginning of the window.
-      // Add _ro_read_window_minimum_time_us for safety margin.
-      if (_max_transaction_time_ms.load() > 0) {
-         EOS_ASSERT(
-            _ro_read_window_time_us > (fc::milliseconds(_max_transaction_time_ms.load()) + _ro_read_window_minimum_time_us),
-            plugin_config_exception,
-            "read-only-read-window-time-us (${read} us) must be greater than max-transaction-time (${trx_time} us) "
-            "plus ${min} us, required: ${read} us > (${trx_time} us + ${min} us).",
-            ("read", _ro_read_window_time_us)("trx_time", _max_transaction_time_ms.load() * 1000)("min", _ro_read_window_minimum_time_us));
-      }
       ilog("read-only-write-window-time-us: ${ww} us, read-only-read-window-time-us: ${rw} us, effective read window time to be used: ${w} us",
            ("ww", _ro_write_window_time_us)("rw", _ro_read_window_time_us)("w", _ro_read_window_effective_time_us));
    }
+   app().executor().init_read_threads(_ro_thread_pool_size);
 
-   // Make sure _ro_max_trx_time_us is alwasys set.
+   // Make sure _ro_max_trx_time_us is always set.
+   // Make sure a read-only transaction can finish within the read
+   // window if scheduled at the very beginning of the window.
+   // Add _ro_read_window_minimum_time_us for safety margin.
    if (_max_transaction_time_ms.load() > 0) {
       _ro_max_trx_time_us = fc::milliseconds(_max_transaction_time_ms.load());
    } else {
       // max-transaction-time can be set to negative for unlimited time
       _ro_max_trx_time_us = fc::microseconds::maximum();
    }
+   if (_ro_max_trx_time_us > _ro_read_window_effective_time_us) {
+      _ro_max_trx_time_us = _ro_read_window_effective_time_us;
+   }
+   ilog("Read-only max transaction time ${rot}us set to fit in the effective read-only window ${row}us.",
+        ("rot", _ro_max_trx_time_us)("row", _ro_read_window_effective_time_us));
    ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us", ("s", _ro_thread_pool_size)("t", _ro_max_trx_time_us));
 
    _incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
@@ -1427,6 +1428,9 @@ void producer_plugin::plugin_startup() {
 void producer_plugin_impl::plugin_shutdown() {
    boost::system::error_code ec;
    _timer.cancel(ec);
+   _ro_timer.cancel(ec);
+   app().executor().stop();
+   _ro_thread_pool.stop();
    _thread_pool.stop();
    _unapplied_transactions.clear();
 
@@ -2841,7 +2845,8 @@ void producer_plugin_impl::switch_to_read_window() {
    _time_tracker.pause();
 
    // we are in write window, so no read-only trx threads are processing transactions.
-   if (app().executor().read_only_queue().empty()) { // no read-only tasks to process. stay in write window
+   app().get_io_service().poll(); // make sure we schedule any ready
+   if (app().executor().read_only_queue_empty() && app().executor().read_exclusive_queue_empty()) { // no read-only tasks to process. stay in write window
       start_write_window();                          // restart write window timer for next round
       return;
    }
@@ -2849,8 +2854,7 @@ void producer_plugin_impl::switch_to_read_window() {
    uint32_t pending_block_num = chain.head_block_num() + 1;
    _ro_read_window_start_time = fc::time_point::now();
    _ro_window_deadline        = _ro_read_window_start_time + _ro_read_window_effective_time_us;
-   app().executor().set_to_read_window(
-      _ro_thread_pool_size, [received_block = &_received_block, pending_block_num, ro_window_deadline = _ro_window_deadline]() {
+   app().executor().set_to_read_window([received_block = &_received_block, pending_block_num, ro_window_deadline = _ro_window_deadline]() {
          return fc::time_point::now() >= ro_window_deadline || (received_block->load() >= pending_block_num); // should_exit()
       });
    chain.set_to_read_window();
@@ -2892,7 +2896,7 @@ bool producer_plugin_impl::read_only_execution_task(uint32_t pending_block_num) 
    // 2. net_plugin receives a block
    // 3. no read-only tasks to execute
    while (fc::time_point::now() < _ro_window_deadline && _received_block < pending_block_num) {
-      bool more = app().executor().execute_highest_read_only(); // blocks until all read only threads are idle
+      bool more = app().executor().execute_highest_read(); // blocks until all read only threads are idle
       if (!more) {
          break;
       }
@@ -2906,10 +2910,10 @@ bool producer_plugin_impl::read_only_execution_task(uint32_t pending_block_num) 
          // will be executed from the main app thread because all read-only threads are idle now
          self->switch_to_write_window();
       });
-      // last thread post any exhausted back into read_only queue with slightly higher priority (low+1) so they are executed first
+      // last thread post any exhausted back into read_exclusive queue with slightly higher priority (low+1) so they are executed first
       ro_trx_t t;
       while (_ro_exhausted_trx_queue.pop_front(t)) {
-         app().executor().post(priority::low + 1, exec_queue::read_only, [this, trx{std::move(t.trx)}, next{std::move(t.next)}]() mutable {
+         app().executor().post(priority::low + 1, exec_queue::read_exclusive, [this, trx{std::move(t.trx)}, next{std::move(t.next)}]() mutable {
             push_read_only_transaction(std::move(trx), std::move(next));
          });
       }
@@ -2924,10 +2928,10 @@ void producer_plugin_impl::repost_exhausted_transactions(const fc::time_point& d
    if (!_ro_exhausted_trx_queue.empty()) {
       chain::controller& chain             = chain_plug->chain();
       uint32_t           pending_block_num = chain.pending_block_num();
-      // post any exhausted back into read_only queue with slightly higher priority (low+1) so they are executed first
+      // post any exhausted back into read_exclusive queue with slightly higher priority (low+1) so they are executed first
       ro_trx_t t;
       while (!should_interrupt_start_block(deadline, pending_block_num) && _ro_exhausted_trx_queue.pop_front(t)) {
-         app().executor().post(priority::low + 1, exec_queue::read_only, [this, trx{std::move(t.trx)}, next{std::move(t.next)}]() mutable {
+         app().executor().post(priority::low + 1, exec_queue::read_exclusive, [this, trx{std::move(t.trx)}, next{std::move(t.next)}]() mutable {
             push_read_only_transaction(std::move(trx), std::move(next));
          });
       }
@@ -2947,21 +2951,10 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
          return true;
       }
 
-      // When executing a read-only trx on the main thread while in the write window,
-      // need to switch db mode to read only.
-      auto db_read_only_mode_guard = fc::make_scoped_exit([&] {
-         if (chain.is_write_window())
-            chain.unset_db_read_only_mode();
-      });
+      assert(!chain.is_write_window());
 
-      std::optional<block_time_tracker::trx_time_tracker> trx_tracker;
-      if ( chain.is_write_window() ) {
-         chain.set_db_read_only_mode();
-         trx_tracker.emplace(_time_tracker.start_trx(true, start));
-      }
-
-      // use read-window/write-window deadline if there are read/write windows, otherwise use block_deadline if only the app thead
-      auto window_deadline = (_ro_thread_pool_size != 0) ? _ro_window_deadline : _pending_block_deadline;
+      // use read-window/write-window deadline
+      auto window_deadline = _ro_window_deadline;
 
       // Ensure the trx to finish by the end of read-window or write-window or block_deadline depending on
       auto trace = chain.push_transaction(trx, window_deadline, _ro_max_trx_time_us, 0, false, 0);
@@ -2979,9 +2972,6 @@ bool producer_plugin_impl::push_read_only_transaction(transaction_metadata_ptr t
          _ro_exhausted_trx_queue.push_front({std::move(trx), std::move(next)});
       }
 
-      if ( chain.is_write_window() && !pr.failed ) {
-         trx_tracker->trx_success();
-      }
    } catch (const guard_exception& e) {
       chain_plugin::handle_guard_exception(e);
    } catch (boost::interprocess::bad_alloc&) {

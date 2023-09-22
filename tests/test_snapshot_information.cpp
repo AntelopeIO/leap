@@ -2,8 +2,8 @@
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/testing/tester.hpp>
 #include "snapshot_suites.hpp"
-#include <eosio/producer_plugin/producer_plugin.hpp>
 #include <eosio/chain/snapshot_scheduler.hpp>
+#include <eosio/chain/pending_snapshot.hpp>
 #include <test_contracts.hpp>
 #include <snapshots.hpp>
 
@@ -18,7 +18,7 @@ namespace {
 
 BOOST_AUTO_TEST_SUITE(producer_snapshot_tests)
 
-using next_t = eosio::producer_plugin::next_function<snapshot_scheduler::snapshot_information>;
+using next_t = pending_snapshot<snapshot_scheduler::snapshot_information>::next_t;
 
 BOOST_AUTO_TEST_CASE_TEMPLATE(test_snapshot_information, SNAPSHOT_SUITE, snapshot_suites) {
    tester chain;

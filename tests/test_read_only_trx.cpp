@@ -73,12 +73,6 @@ BOOST_AUTO_TEST_CASE(read_only_on_producer) {
    test_configs_common(specific_args, app_init_status::failed);
 }
 
-// read_window_time must be greater than max_transaction_time + 10ms
-BOOST_AUTO_TEST_CASE(invalid_read_window_time) {
-   std::vector<const char*> specific_args = { "--read-only-threads", "2", "--max-transaction-time", "10", "--read-only-write-window-time-us", "50000", "--read-only-read-window-time-us", "20000" }; // 20000 not greater than --max-transaction-time (10ms) + 10000us (minimum margin)
-   test_configs_common(specific_args, app_init_status::failed);
-}
-
 // if --read-only-threads is not configured, read-only trx related configs should
 // not be checked
 BOOST_AUTO_TEST_CASE(not_check_configs_if_no_read_only_threads) {
@@ -182,12 +176,6 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
       BOOST_CHECK_EQUAL( num_pushes, num_get_account_calls.load() );
       BOOST_CHECK( trx_match.load() );  // trace should match the transaction
    } FC_LOG_AND_RETHROW()
-}
-
-// test read-only trxs on main thread (no --read-only-threads)
-BOOST_AUTO_TEST_CASE(no_read_only_threads) {
-   std::vector<const char*> specific_args = { "-p", "eosio", "-e", "--abi-serializer-max-time-ms=999" };
-   test_trxs_common(specific_args);
 }
 
 // test read-only trxs on 1 threads (with --read-only-threads)

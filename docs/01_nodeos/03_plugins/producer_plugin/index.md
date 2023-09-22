@@ -27,10 +27,11 @@ Config Options for eosio::producer_plugin:
                                         chain is stale.
   -x [ --pause-on-startup ]             Start this node in a state where
                                         production is paused
-  --max-transaction-time arg (=30)      Limits the maximum time (in
-                                        milliseconds) that is allowed a pushed
-                                        transaction's code to execute before
-                                        being considered invalid
+  --max-transaction-time arg (=499)     Setting this value (in milliseconds)
+                                        will restrict the allowed transaction
+                                        execution time to a value potentially
+                                        lower than the on-chain consensus
+                                        max_transaction_cpu_usage value.
   --max-irreversible-block-age arg (=-1)
                                         Limits the maximum age (in seconds) of
                                         the DPOS Irreversible Block for a chain
