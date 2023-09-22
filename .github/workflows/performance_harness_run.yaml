@@ -149,14 +149,14 @@ jobs:
       - name: Prepare results
         id: prep-results
         run: |
-          tar -pc build/PerformanceHarnessScenarioRunnerLogs | zstd --long -T0 -9 > PerformanceHarnessScenarioRunnerLogs.tar.zst
+          tar -pc build/PHSRLogs | zstd --long -T0 -9 > PHSRLogs.tar.zst
       - name: Upload results
         uses: AntelopeIO/upload-artifact-large-chunks-action@v1
         with:
           name: performance-test-results
-          path: PerformanceHarnessScenarioRunnerLogs.tar.zst
+          path: PHSRLogs.tar.zst
       - name: Upload report
         uses: actions/upload-artifact@v3
         with:
           name: performance-test-report
-          path: ./build/PerformanceHarnessScenarioRunnerLogs/**/report.json
+          path: ./build/PHSRLogs/**/report.json
