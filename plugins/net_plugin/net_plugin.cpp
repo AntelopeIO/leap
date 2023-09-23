@@ -354,7 +354,7 @@ namespace eosio {
       using connection_details_index = multi_index_container<
          connection_details,
          indexed_by<
-            ordered_unique<
+            ordered_non_unique<
                tag<struct by_host>,
                key<&connection_details::host>
             >,
@@ -4558,10 +4558,10 @@ namespace eosio {
    vector<connection_status> connections_manager::connection_statuses()const {
       vector<connection_status> result;
       std::shared_lock g( connections_mtx );
-      auto& index = connections.get<by_host>();
+      auto& index = connections.get<by_connection>();
       result.reserve( index.size() );
       for( const connection_ptr& c : index ) {
-         result.push_back( c->get_status() );
+         result.emplace_back( c->get_status() );
       }
       return result;
    }
