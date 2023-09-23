@@ -526,6 +526,173 @@ BOOST_AUTO_TEST_CASE( replace_deferred_test ) try {
 
 } FC_LOG_AND_RETHROW()
 
+BOOST_AUTO_TEST_CASE( no_duplicate_deferred_id_test ) try {
+   tester c( setup_policy::preactivate_feature_and_new_bios );
+   tester c2( setup_policy::none );
+
+   c.preactivate_builtin_protocol_features( {builtin_protocol_feature_t::crypto_primitives} );
+   c.produce_block();
+   c.create_accounts( {"alice"_n, "test"_n} );
+   c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.produce_block();
+
+   push_blocks( c, c2 );
+
+   c2.push_action( "test"_n, "defercall"_n, "alice"_n, fc::mutable_variant_object()
+      ("payer", "alice")
+      ("sender_id", 1)
+      ("contract", "test")
+      ("payload", 50)
+   );
+
+   c2.finish_block();
+
+   BOOST_CHECK_EXCEPTION(
+      c2.produce_block(),
+      fc::exception,
+      fc_exception_message_is( "no transaction extensions supported yet for deferred transactions" )
+   );
+
+   c2.produce_empty_block( fc::minutes(10) );
+
+   transaction_trace_ptr trace0;
+   auto h2 = c2.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto& t = std::get<0>(x);
+      if( t && t->receipt && t->receipt->status == transaction_receipt::expired) {
+         trace0 = t;
+      }
+   } );
+
+   c2.produce_block();
+
+   h2.disconnect();
+
+   BOOST_REQUIRE( trace0 );
+
+   c.produce_block();
+
+   const auto& index = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+
+   transaction_trace_ptr trace1;
+   auto h = c.control->applied_transaction.connect( [&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+      auto& t = std::get<0>(x);
+      if( t && t->receipt && t->receipt->status == transaction_receipt::executed) {
+         trace1 = t;
+      }
+   } );
+
+   BOOST_REQUIRE_EQUAL(0u, index.size());
+
+   BOOST_REQUIRE_EQUAL(0u, index.size());
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+
+   auto d1 = pfm.get_builtin_digest( builtin_protocol_feature_t::replace_deferred );
+   BOOST_REQUIRE( d1 );
+   auto d2 = pfm.get_builtin_digest( builtin_protocol_feature_t::no_duplicate_deferred_id );
+   BOOST_REQUIRE( d2 );
+
+   c.push_action( "test"_n, "defercall"_n, "alice"_n, fc::mutable_variant_object()
+      ("payer", "alice")
+      ("sender_id", 1)
+      ("contract", "test")
+      ("payload", 42)
+   );
+   BOOST_REQUIRE_EQUAL(1u, index.size());
+
+   c.preactivate_protocol_features( {*d1, *d2} );
+   c.produce_block();
+   // The deferred transaction with payload 42 that was scheduled prior to the activation of the protocol features should now be retired.
+
+   BOOST_REQUIRE( trace1 );
+   BOOST_REQUIRE_EQUAL(0u, index.size());
+
+   trace1 = nullptr;
+
+   // Retire the delayed eosio::reqauth transaction.
+   c.produce_blocks(5);
+   BOOST_REQUIRE( trace1 );
+   BOOST_REQUIRE_EQUAL(0u, index.size());
+
+   h.disconnect();
+
+   auto check_generation_context = []( auto&& data,
+                                       const transaction_id_type& sender_trx_id,
+                                       unsigned __int128 sender_id,
+                                       account_name sender )
+   {
+      transaction trx;
+      fc::datastream<const char*> ds1( data.data(), data.size() );
+      fc::raw::unpack( ds1, trx );
+      BOOST_REQUIRE_EQUAL( trx.transaction_extensions.size(), 1u );
+      BOOST_REQUIRE_EQUAL( trx.transaction_extensions.back().first, 0u );
+
+      fc::datastream<const char*> ds2( trx.transaction_extensions.back().second.data(),
+                                       trx.transaction_extensions.back().second.size() );
+
+      transaction_id_type actual_sender_trx_id;
+      fc::raw::unpack( ds2, actual_sender_trx_id );
+      BOOST_CHECK_EQUAL( actual_sender_trx_id, sender_trx_id );
+
+      unsigned __int128 actual_sender_id;
+      fc::raw::unpack( ds2, actual_sender_id );
+      BOOST_CHECK( actual_sender_id == sender_id );
+
+      uint64_t actual_sender;
+      fc::raw::unpack( ds2, actual_sender );
+      BOOST_CHECK_EQUAL( account_name(actual_sender), sender );
+   };
+
+   BOOST_CHECK_EXCEPTION(
+      c.push_action( "test"_n, "defercall"_n, "alice"_n, fc::mutable_variant_object()
+                        ("payer", "alice")
+                        ("sender_id", 1)
+                        ("contract", "test")
+                        ("payload", 77 )
+                   ),
+      ill_formed_deferred_transaction_generation_context,
+      fc_exception_message_is( "deferred transaction generaction context contains mismatching sender" )
+   );
+
+   BOOST_REQUIRE_EQUAL(0u, index.size());
+
+   auto trace2 = c.push_action( "test"_n, "defercall"_n, "alice"_n, fc::mutable_variant_object()
+      ("payer", "alice")
+      ("sender_id", 1)
+      ("contract", "test")
+      ("payload", 40)
+   );
+
+   BOOST_REQUIRE_EQUAL(1u, index.size());
+
+   check_generation_context( index.begin()->packed_trx,
+                             trace2->id,
+                             ((static_cast<unsigned __int128>("alice"_n.to_uint64_t()) << 64) | 1),
+                             "test"_n );
+
+   c.produce_block();
+
+   BOOST_REQUIRE_EQUAL(0u, index.size());
+
+   auto trace3 = c.push_action( "test"_n, "defercall"_n, "alice"_n, fc::mutable_variant_object()
+      ("payer", "alice")
+      ("sender_id", 1)
+      ("contract", "test")
+      ("payload", 50)
+   );
+
+   BOOST_REQUIRE_EQUAL(1u, index.size());
+
+   check_generation_context( index.begin()->packed_trx,
+                             trace3->id,
+                             ((static_cast<unsigned __int128>("alice"_n.to_uint64_t()) << 64) | 1),
+                             "test"_n );
+
+   c.produce_block();
+
+} FC_LOG_AND_RETHROW()
+
 BOOST_AUTO_TEST_CASE( fix_linkauth_restriction ) { try {
    tester chain( setup_policy::preactivate_feature_and_new_bios );
 
