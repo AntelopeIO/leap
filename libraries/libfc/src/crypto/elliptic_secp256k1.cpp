@@ -26,7 +26,7 @@ namespace fc { namespace ecc {
     namespace detail
     {
         const secp256k1_context* _get_context() {
-            static secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
+            static secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
             return ctx;
         }
 
