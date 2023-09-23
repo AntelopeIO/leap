@@ -464,7 +464,7 @@ namespace eosio::hotstuff {
          const hs_bitset& finalizer_set = _current_qc.get_active_finalizers();
 
          // if a finalizer has already aggregated a vote signature for the current QC, just discard this vote
-         vector<name> finalizers = _pacemaker->get_finalizers();
+         const vector<name>& finalizers = _pacemaker->get_finalizers();
          for (size_t i=0; i<finalizers.size(); ++i)
             if (finalizers[i] == vote.finalizer)
                if (finalizer_set.test(i))
