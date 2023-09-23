@@ -10,14 +10,10 @@
 namespace fc { namespace ecc {
     namespace detail {
 
-        private_key_impl::private_key_impl() BOOST_NOEXCEPT
-        {
-            _init_lib();
-        }
+        private_key_impl::private_key_impl() BOOST_NOEXCEPT {}
 
         private_key_impl::private_key_impl( const private_key_impl& cpy ) BOOST_NOEXCEPT
         {
-            _init_lib();
             this->_key = cpy._key;
         }
 
