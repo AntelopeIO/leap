@@ -79,7 +79,7 @@ namespace eosio::hotstuff {
          if (v_index == msg_type)
             dup.push_back(msg_pair);
       }
-      _pending_message_queue = dup;
+      _pending_message_queue = std::move(dup);
    }
 
    std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo, hotstuff_message_index msg_type) {
