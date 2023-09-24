@@ -290,7 +290,7 @@ BOOST_AUTO_TEST_CASE( execute_from_read_only_and_read_exclusive_queues ) {
    }
 
    auto app_thread = start_app_thread(app);
-   constexpr size_t num_expected = 13u; // 16 - 3 read_write
+   constexpr int num_expected = 13; // 16 - 3 read_write
 
    auto read_thread1 = start_read_thread(app);
    auto read_thread2 = start_read_thread(app);
@@ -350,7 +350,7 @@ BOOST_AUTO_TEST_CASE( execute_many_from_read_only_and_read_exclusive_queues ) {
    app->executor().set_to_read_window([](){return false;});
 
    // post functions
-   constexpr size_t num_expected = 600u;
+   constexpr int num_expected = 600;
    std::vector<std::atomic<std::thread::id>> rslts(num_expected);
    std::atomic<int> seq_num = 0;
    for (size_t i = 0; i < 200; i+=5) {
@@ -405,10 +405,10 @@ BOOST_AUTO_TEST_CASE( execute_many_from_read_only_and_read_exclusive_queues ) {
    // exactly number of posts processed
    BOOST_REQUIRE_EQUAL( std::count_if(rslts.cbegin(), rslts.cend(), [](const auto& v){ return v != std::thread::id(); }), num_expected );
 
-   size_t run_on_1 = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == read_thread1_id; });
-   size_t run_on_2 = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == read_thread2_id; });
-   size_t run_on_3 = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == read_thread3_id; });
-   size_t run_on_main = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == app_thread_id; });
+   const auto run_on_1 = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == read_thread1_id; });
+   const auto run_on_2 = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == read_thread2_id; });
+   const auto run_on_3 = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == read_thread3_id; });
+   const auto run_on_main = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == app_thread_id; });
 
    BOOST_REQUIRE_EQUAL(run_on_1+run_on_2+run_on_3+run_on_main, num_expected);
    BOOST_CHECK(run_on_1 > 0);
