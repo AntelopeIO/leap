@@ -419,10 +419,10 @@ BOOST_AUTO_TEST_CASE_TEMPLATE(test_compatible_versions, SNAPSHOT_SUITE, snapshot
    std::filesystem::copy(source_log_dir / "blocks.index", config.blocks_dir / "blocks.index");
    tester base_chain(config, *genesis);
 
-   std::string current_version = "v6";
+   std::string current_version = "v8";
 
    int ordinal = 0;
-   for(std::string version : {"v2", "v3", "v4" , "v5", "v6"})
+   for(std::string version : {"v2", "v3", "v4" , "v5", "v6", "v8"})
    {
       if(save_snapshot && version == current_version) continue;
       static_assert(chain_snapshot_header::minimum_compatible_version <= 2, "version 2 unit test is no longer needed.  Please clean up data files");
