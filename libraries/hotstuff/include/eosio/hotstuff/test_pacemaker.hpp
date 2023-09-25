@@ -9,11 +9,19 @@ namespace eosio { namespace hotstuff {
    class test_pacemaker : public base_pacemaker {
    public:
 
+      using hotstuff_message = std::pair<std::string, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
+
+      enum hotstuff_message_index {
+         hs_proposal  = 0,
+         hs_vote      = 1,
+         hs_new_block = 2,
+         hs_new_view  = 3,
+         hs_all_messages
+      };
+
       //class-specific functions
 
       bool is_qc_chain_active(const name& qcc_name) { return _qcc_deactivated.find(qcc_name) == _qcc_deactivated.end(); }
-
-      using hotstuff_message = std::pair<std::string, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
 
       void set_proposer(name proposer);
 
@@ -27,13 +35,21 @@ namespace eosio { namespace hotstuff {
 
       void set_quorum_threshold(uint32_t threshold);
 
-      void add_message_to_queue(hotstuff_message msg);
+      void add_message_to_queue(const hotstuff_message& msg);
 
-      void pipe(std::vector<test_pacemaker::hotstuff_message> messages);
+      void connect(const std::vector<std::string>& nodes);
 
-      void dispatch(std::string memo, int count);
+      void disconnect(const std::vector<std::string>& nodes);
 
-      std::vector<hotstuff_message> dispatch(std::string memo);
+      bool is_connected(std::string node1, std::string node2);
+
+      void pipe(const std::vector<test_pacemaker::hotstuff_message>& messages);
+
+      void duplicate(hotstuff_message_index msg_type);
+
+      void dispatch(std::string memo, int count, hotstuff_message_index msg_type = hs_all_messages);
+
+      std::vector<hotstuff_message> dispatch(std::string memo, hotstuff_message_index msg_type = hs_all_messages);
 
       void activate(name replica);
       void deactivate(name replica);
@@ -66,6 +82,8 @@ namespace eosio { namespace hotstuff {
 
       void send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code);
 
+   private:
+
       std::vector<hotstuff_message> _pending_message_queue;
 
       // qc_chain id to qc_chain object
@@ -74,9 +92,10 @@ namespace eosio { namespace hotstuff {
       // qc_chain ids in this set are currently deactivated
       set<name>                            _qcc_deactivated;
 
-   private:
-
-      std::vector<hotstuff_message> _message_queue;
+      // network topology: key (node name) is connected to all nodes in the mapped set.
+      // double mapping, so if _net[a] yields b, then _net[b] yields a.
+      // this is a filter; messages to self won't happen even if _net[x] yields x.
+      map<std::string, std::set<std::string>>            _net;
 
       name _proposer;
       name _leader;
