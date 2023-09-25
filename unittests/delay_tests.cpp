@@ -126,6 +126,9 @@ BOOST_FIXTURE_TEST_CASE( delayed_trx_blocked, validating_tester ) { try {
          return expect_assert_message(e, "transaction cannot be delayed");
       });
 
+   // no deferred trx was generated
+   auto gen_size = control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
 } FC_LOG_AND_RETHROW() }/// delayed_trx_blocked
 
 // Delayed actions are blocked.
@@ -136,6 +139,7 @@ BOOST_AUTO_TEST_CASE( delayed_action_blocked ) { try {
    chain.create_account("tester"_n);
    chain.produce_blocks();
 
+   // delayed action is blocked
    BOOST_CHECK_EXCEPTION(
       chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
            ("account", "tester")
@@ -148,6 +152,10 @@ BOOST_AUTO_TEST_CASE( delayed_action_blocked ) { try {
          // any delayed incoming trx is blocked
          return expect_assert_message(e, "transaction cannot be delayed");
       });
+
+   // no deferred trx was generated
+   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
 } FC_LOG_AND_RETHROW() }/// delayed_action_blocked
 
 // test link to permission with delay directly on it
@@ -187,8 +195,6 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
        ("memo", "hi" )
    );
    BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
-   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
 
    chain.produce_blocks();
 
@@ -205,8 +211,6 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
    );
 
    BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
-   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
 
    chain.produce_blocks();
 
@@ -224,8 +228,6 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
            ("auth",  authority(chain.get_public_key(tester_account, "first"), 10))
    );
    BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
-   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
 
    chain.produce_blocks();
 
@@ -311,8 +313,6 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_parent_permission_test ) { try {
        ("memo", "hi" )
    );
    BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
-   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
 
    chain.produce_blocks();
 
@@ -329,8 +329,6 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_parent_permission_test ) { try {
    );
 
    BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
-   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
 
    chain.produce_blocks();
 
