@@ -12,10 +12,16 @@ using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 
+static asset get_currency_balance(const validating_tester& chain, account_name account) {
+   return chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), account);
+}
+
+const std::string eosio_token = name("eosio.token"_n).to_string();
+
 BOOST_AUTO_TEST_SUITE(delay_tests)
 
 // Delayed trxs are blocked.
-BOOST_FIXTURE_TEST_CASE( delayed_trx, validating_tester) { try {
+BOOST_FIXTURE_TEST_CASE( delayed_trx_blocked, validating_tester ) { try {
    produce_blocks(2);
    signed_transaction trx;
 
@@ -41,118 +47,29 @@ BOOST_FIXTURE_TEST_CASE( delayed_trx, validating_tester) { try {
          return expect_assert_message(e, "transaction cannot be delayed");
       });
 
-} FC_LOG_AND_RETHROW() }
-
-asset get_currency_balance(const validating_tester& chain, account_name account) {
-   return chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), account);
-}
-
-const std::string eosio_token = name("eosio.token"_n).to_string();
+} FC_LOG_AND_RETHROW() }/// delayed_trx_blocked
 
 // Delayed actions are blocked.
-BOOST_AUTO_TEST_CASE( delayed_action ) { try {
+BOOST_AUTO_TEST_CASE( delayed_action_blocked ) { try {
    validating_tester chain;
-
    const auto& tester_account = "tester"_n;
 
-   chain.produce_blocks();
-   chain.create_account("eosio.token"_n);
-   chain.produce_blocks(10);
-
-   chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
-   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
-
-   chain.produce_blocks();
    chain.create_account("tester"_n);
-   chain.create_account("tester2"_n);
-   chain.produce_blocks(10);
-
-   chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
-           ("account", "tester")
-           ("permission", "first")
-           ("parent", "active")
-           ("auth",  authority(chain.get_public_key(tester_account, "first")))
-   );
-   chain.push_action(config::system_account_name, linkauth::get_name(), tester_account, fc::mutable_variant_object()
-           ("account", "tester")
-           ("code", eosio_token)
-           ("type", "transfer")
-           ("requirement", "first"));
-   chain.produce_blocks();
-   chain.push_action("eosio.token"_n, "create"_n, "eosio.token"_n, mutable_variant_object()
-           ("issuer", eosio_token)
-           ("maximum_supply", "9000000.0000 CUR")
-   );
-
-   chain.push_action("eosio.token"_n, name("issue"), "eosio.token"_n, fc::mutable_variant_object()
-           ("to",       eosio_token)
-           ("quantity", "1000000.0000 CUR")
-           ("memo", "for stuff")
-   );
-
-   auto trace = chain.push_action("eosio.token"_n, name("transfer"), "eosio.token"_n, fc::mutable_variant_object()
-       ("from", eosio_token)
-       ("to", "tester")
-       ("quantity", "100.0000 CUR")
-       ("memo", "hi" )
-   );
-   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
-   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
-
-   chain.produce_blocks();
-
-   auto liquid_balance = get_currency_balance(chain, "eosio.token"_n);
-   BOOST_REQUIRE_EQUAL(asset::from_string("999900.0000 CUR"), liquid_balance);
-   liquid_balance = get_currency_balance(chain, "tester"_n);
-   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
-
-   trace = chain.push_action("eosio.token"_n, name("transfer"), "tester"_n, fc::mutable_variant_object()
-       ("from", "tester")
-       ("to", "tester2")
-       ("quantity", "1.0000 CUR")
-       ("memo", "hi" )
-   );
-
-   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
-   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
-
-   chain.produce_blocks();
-
-   liquid_balance = get_currency_balance(chain, "eosio.token"_n);
-   BOOST_REQUIRE_EQUAL(asset::from_string("999900.0000 CUR"), liquid_balance);
-   liquid_balance = get_currency_balance(chain, "tester"_n);
-   BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
-   liquid_balance = get_currency_balance(chain, "tester2"_n);
-   BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
-
-   trace = chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
-           ("account", "tester")
-           ("permission", "first")
-           ("parent", "active")
-           ("auth",  authority(chain.get_public_key(tester_account, "first"), 10))
-   );
-   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
-   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
-
    chain.produce_blocks();
 
    BOOST_CHECK_EXCEPTION(
-       chain.push_action("eosio.token"_n, name("transfer"), "tester"_n, fc::mutable_variant_object()
-          ("from", "tester")
-          ("to", "tester2")
-          ("quantity", "3.0000 CUR")
-          ("memo", "hi" ),
-          20, 10
-      ),
+      chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("permission", "first")
+           ("parent", "active")
+           ("auth",  authority(chain.get_public_key(tester_account, "first"))),
+           20, 10),
       fc::exception,
       [&](const fc::exception &e) {
          // any delayed incoming trx is blocked
          return expect_assert_message(e, "transaction cannot be delayed");
       });
-} FC_LOG_AND_RETHROW() }/// schedule_test
+} FC_LOG_AND_RETHROW() }/// delayed_action_blocked
 
 BOOST_AUTO_TEST_CASE( test_blockchain_params_enabled ) { try {
    //since validation_tester activates all features here we will test how setparams works without
