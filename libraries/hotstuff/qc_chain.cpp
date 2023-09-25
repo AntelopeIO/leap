@@ -462,6 +462,14 @@ namespace eosio::hotstuff {
          auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
          const hs_bitset& finalizer_set = _current_qc.get_active_finalizers();
+
+         // if a finalizer has already aggregated a vote signature for the current QC, just discard this vote
+         const vector<name>& finalizers = _pacemaker->get_finalizers();
+         for (size_t i=0; i<finalizers.size(); ++i)
+            if (finalizers[i] == vote.finalizer)
+               if (finalizer_set.test(i))
+                  return;
+
          if (finalizer_set.any())
             _current_qc.set_active_agg_sig(fc::crypto::blslib::aggregate({_current_qc.get_active_agg_sig(), vote.sig }));
          else

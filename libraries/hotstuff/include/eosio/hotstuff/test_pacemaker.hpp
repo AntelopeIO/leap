@@ -42,6 +42,8 @@ namespace eosio { namespace hotstuff {
 
       void pipe(const std::vector<test_pacemaker::hotstuff_message>& messages);
 
+      void duplicate(hotstuff_message_index msg_type);
+
       void dispatch(std::string memo, int count, hotstuff_message_index msg_type = hs_all_messages);
 
       std::vector<hotstuff_message> dispatch(std::string memo, hotstuff_message_index msg_type = hs_all_messages);

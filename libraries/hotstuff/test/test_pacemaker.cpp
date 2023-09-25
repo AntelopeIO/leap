@@ -70,6 +70,18 @@ namespace eosio::hotstuff {
       }
    }
 
+   void test_pacemaker::duplicate(hotstuff_message_index msg_type) {
+      std::vector<test_pacemaker::hotstuff_message> dup;
+      for (const auto& msg_pair : _pending_message_queue) {
+         const auto& [sender_id, msg] = msg_pair;
+         size_t v_index = msg.index();
+         dup.push_back(msg_pair);
+         if (v_index == msg_type)
+            dup.push_back(msg_pair);
+      }
+      _pending_message_queue = std::move(dup);
+   }
+
    std::vector<test_pacemaker::hotstuff_message> test_pacemaker::dispatch(std::string memo, hotstuff_message_index msg_type) {
 
       std::vector<test_pacemaker::hotstuff_message> dispatched_messages;
