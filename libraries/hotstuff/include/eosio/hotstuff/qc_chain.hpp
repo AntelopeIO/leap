@@ -107,7 +107,7 @@ namespace eosio::hotstuff {
 
       uint64_t get_state_version() const { return _state_version; } // no lock required
 
-      std::string get_id_i() const { return _id; } // so far, only ever relevant in a test environment and for logging (no sync)
+      const std::string& get_id_i() const { return _id; } // so far, only ever relevant in a test environment and for logging (no sync)
 
       // Calls to the following methods should be thread-synchronized externally:
 
