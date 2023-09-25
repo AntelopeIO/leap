@@ -184,36 +184,20 @@ namespace eosio::hotstuff {
    }
 
    bool qc_chain::evaluate_quorum(const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
-
       if (positive_bits_count(finalizers) < _pacemaker->get_quorum_threshold()){
          return false;
       }
-
-      fc::crypto::blslib::bls_public_key agg_key;
-      
       const auto& c_finalizers = _pacemaker->get_finalizer_set().finalizers;
-
-      EOS_ASSERT(c_finalizers.size() == finalizers.size(), chain_exception, "error : public keys size != finalizers size" );
-
-      bool first = true;
-      for (hs_bitset::size_type i = 0; i < finalizers.size(); ++i) {
-         if (finalizers[i]){
-            //adding finalizer's key to the aggregate pub key
-            if (first) {
-               first = false;
-               agg_key = c_finalizers[i].public_key;
-            } else {
-               agg_key = fc::crypto::blslib::aggregate({agg_key, c_finalizers[i].public_key});
-            }
-         }
-      }
+      std::vector<fc::crypto::blslib::bls_public_key> keys;
+      keys.reserve(finalizers.size());
+      for (hs_bitset::size_type i = 0; i < finalizers.size(); ++i)
+         if (finalizers[i])
+            keys.push_back(c_finalizers[i].public_key);
+      fc::crypto::blslib::bls_public_key agg_key = fc::crypto::blslib::aggregate(keys);
 
       digest_type digest = get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
-
       std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
-
       bool ok = fc::crypto::blslib::verify(agg_key, h, agg_sig);
-
       return ok;
    }
 
@@ -229,7 +213,6 @@ namespace eosio::hotstuff {
          return evaluate_quorum(qc.get_active_finalizers(), qc.get_active_agg_sig(), proposal);
       }
    }
-
 
    qc_chain::qc_chain(std::string id, 
                       base_pacemaker* pacemaker,
