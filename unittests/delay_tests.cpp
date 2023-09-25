@@ -12,6 +12,85 @@ using namespace eosio;
 using namespace eosio::chain;
 using namespace eosio::testing;
 
+using mvo = fc::mutable_variant_object;
+
+static void create_accounts(validating_tester& chain) {
+   chain.produce_blocks();
+   chain.create_accounts({"eosio.msig"_n, "eosio.token"_n});
+   chain.produce_blocks(10);
+
+   chain.push_action(config::system_account_name,
+      "setpriv"_n,
+      config::system_account_name,
+      mvo()
+         ("account", "eosio.msig")
+         ("is_priv", 1) );
+
+   chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
+   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+   chain.set_code("eosio.msig"_n, test_contracts::eosio_msig_wasm());
+   chain.set_abi("eosio.msig"_n, test_contracts::eosio_msig_abi());
+
+   chain.produce_blocks();
+   chain.create_account("tester"_n);
+   chain.create_account("tester2"_n);
+   chain.produce_blocks(10);
+}
+
+static void propose_msig_trx(validating_tester& chain, name proposal_name, const vector<permission_level>& perm, uint32_t delay_sec, const std::string& quantity) {
+   vector<permission_level> transfer_perm = {{ "tester"_n, config::active_name }};
+   fc::variant pretty_trx = fc::mutable_variant_object()
+      ("expiration", "2020-01-01T00:30")
+      ("ref_block_num", 2)
+      ("ref_block_prefix", 3)
+      ("max_net_usage_words", 0)
+      ("max_cpu_usage_ms", 0)
+      ("delay_sec", delay_sec)
+      ("actions", fc::variants({
+         mvo()
+            ("account", name("eosio.token"_n))
+            ("name", "transfer")
+            ("authorization", transfer_perm)
+            ("data", fc::mutable_variant_object()
+               ("from", name("tester"_n))
+               ("to", name("tester2"_n))
+               ("quantity", quantity)
+               ("memo", "hi" )
+            )
+      })
+   );
+
+   transaction trx;
+   abi_serializer::from_variant(pretty_trx, trx, chain.get_resolver(), abi_serializer::create_yield_function(chain.abi_serializer_max_time));
+
+   vector<permission_level> requested_perm = {{ "tester"_n, config::active_name }};
+   chain.push_action("eosio.msig"_n, "propose"_n, perm,
+      mvo()
+         ("proposer",      "tester")
+         ("proposal_name", proposal_name)
+         ("trx",           trx)
+         ("requested",     requested_perm)
+   );
+}
+
+static void approve_msig_trx(validating_tester& chain, name proposal_name) {
+   chain.push_action("eosio.msig"_n, "approve"_n, "tester"_n,
+      mvo()
+         ("proposer",      "tester")
+         ("proposal_name", proposal_name)
+         ("level",         permission_level{ "tester"_n, config::active_name })
+   );
+}
+
+static void exec_msig_trx(validating_tester& chain, name proposal_name) {
+   chain.push_action("eosio.msig"_n, "exec"_n, "tester"_n,
+      mvo()
+         ("proposer",      "tester")
+         ("proposal_name", proposal_name)
+         ("executer",      "tester")
+   );
+}
+
 static asset get_currency_balance(const validating_tester& chain, account_name account) {
    return chain.get_currency_balance("eosio.token"_n, symbol(SY(4,CUR)), account);
 }
@@ -70,6 +149,238 @@ BOOST_AUTO_TEST_CASE( delayed_action_blocked ) { try {
          return expect_assert_message(e, "transaction cannot be delayed");
       });
 } FC_LOG_AND_RETHROW() }/// delayed_action_blocked
+
+// test link to permission with delay directly on it
+BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
+   validating_tester chain;
+   const auto& tester_account = "tester"_n;
+
+   create_accounts(chain);
+
+   chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("permission", "first")
+           ("parent", "active")
+           ("auth",  authority(chain.get_public_key(tester_account, "first")))
+   );
+   chain.push_action(config::system_account_name, linkauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("code", eosio_token)
+           ("type", "transfer")
+           ("requirement", "first"));
+   chain.produce_blocks();
+   chain.push_action("eosio.token"_n, "create"_n, "eosio.token"_n, mutable_variant_object()
+           ("issuer", eosio_token)
+           ("maximum_supply", "9000000.0000 CUR")
+   );
+
+   chain.push_action("eosio.token"_n, name("issue"), "eosio.token"_n, fc::mutable_variant_object()
+           ("to",       eosio_token)
+           ("quantity", "1000000.0000 CUR")
+           ("memo", "for stuff")
+   );
+
+   auto trace = chain.push_action("eosio.token"_n, name("transfer"), "eosio.token"_n, fc::mutable_variant_object()
+       ("from", eosio_token)
+       ("to", "tester")
+       ("quantity", "100.0000 CUR")
+       ("memo", "hi" )
+   );
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+   chain.produce_blocks();
+
+   auto liquid_balance = get_currency_balance(chain, "eosio.token"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("999900.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+
+   trace = chain.push_action("eosio.token"_n, name("transfer"), "tester"_n, fc::mutable_variant_object()
+       ("from", "tester")
+       ("to", "tester2")
+       ("quantity", "1.0000 CUR")
+       ("memo", "hi" )
+   );
+
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+   chain.produce_blocks();
+
+   liquid_balance = get_currency_balance(chain, "eosio.token"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("999900.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
+
+   trace = chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("permission", "first")
+           ("parent", "active")
+           ("auth",  authority(chain.get_public_key(tester_account, "first"), 10))
+   );
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+   chain.produce_blocks();
+
+   // propose an msig trx that transfers "quantity" tokens
+   // from tester to tester2 with a delay of "delay_seconds"
+   constexpr name proposal_name     = "prop1"_n;
+   constexpr uint32_t delay_seconds = 10;
+   constexpr auto quantity          = "3.0000 CUR";
+   propose_msig_trx(chain, proposal_name, {{ "tester"_n, config::active_name }}, delay_seconds, quantity);
+
+   // approve the msig trx
+   approve_msig_trx(chain, proposal_name);
+
+   chain.produce_blocks();
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
+
+   chain.produce_blocks(18);
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
+
+   chain.produce_blocks();
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
+
+   // executue after delay of 10 seconds
+   exec_msig_trx(chain, proposal_name);
+
+   chain.produce_blocks();
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("96.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("4.0000 CUR"), liquid_balance);
+
+} FC_LOG_AND_RETHROW() }/// link_delay_direct_test
+
+// test link to permission with delay on permission which is parent of min permission (special logic in permission_object::satisfies)
+BOOST_AUTO_TEST_CASE( link_delay_direct_parent_permission_test ) { try {
+   validating_tester chain;
+
+   const auto& tester_account = "tester"_n;
+
+   create_accounts(chain);
+
+   chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("permission", "first")
+           ("parent", "active")
+           ("auth",  authority(chain.get_public_key(tester_account, "first")))
+   );
+   chain.push_action(config::system_account_name, linkauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("code", eosio_token)
+           ("type", "transfer")
+           ("requirement", "first"));
+
+   chain.produce_blocks();
+   chain.push_action("eosio.token"_n, "create"_n, "eosio.token"_n, mutable_variant_object()
+           ("issuer", eosio_token)
+           ("maximum_supply", "9000000.0000 CUR")
+   );
+
+   chain.push_action("eosio.token"_n, name("issue"), "eosio.token"_n, fc::mutable_variant_object()
+           ("to",       eosio_token)
+           ("quantity", "1000000.0000 CUR")
+           ("memo", "for stuff")
+   );
+
+   auto trace = chain.push_action("eosio.token"_n, name("transfer"), "eosio.token"_n, fc::mutable_variant_object()
+       ("from", eosio_token)
+       ("to", "tester")
+       ("quantity", "100.0000 CUR")
+       ("memo", "hi" )
+   );
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+   chain.produce_blocks();
+
+   auto liquid_balance = get_currency_balance(chain, "eosio.token"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("999900.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+
+   trace = chain.push_action("eosio.token"_n, name("transfer"), "tester"_n, fc::mutable_variant_object()
+       ("from", "tester")
+       ("to", "tester2")
+       ("quantity", "1.0000 CUR")
+       ("memo", "hi" )
+   );
+
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+   chain.produce_blocks();
+
+   // Propose and approve an msig trx that transfers "quantity" tokens
+   // from tester to tester2 with a delay of "delay_seconds"
+   constexpr name proposal_name     = "prop1"_n;
+   constexpr uint32_t delay_seconds = 15;
+   constexpr auto quantity          = "3.0000 CUR";
+   propose_msig_trx(chain, proposal_name, {{ "tester"_n, config::owner_name }}, delay_seconds, quantity);
+
+   // approve the msig trx
+   approve_msig_trx(chain, proposal_name);
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
+
+   chain.produce_blocks();
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
+
+   chain.produce_blocks(28);
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
+
+   chain.produce_blocks();
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("1.0000 CUR"), liquid_balance);
+
+   chain.produce_blocks();
+
+   // executue the msig trx
+   exec_msig_trx(chain, proposal_name);
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("96.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("4.0000 CUR"), liquid_balance);
+
+} FC_LOG_AND_RETHROW() }/// link_delay_direct_parent_permission_test
 
 BOOST_AUTO_TEST_CASE( test_blockchain_params_enabled ) { try {
    //since validation_tester activates all features here we will test how setparams works without
