@@ -729,7 +729,12 @@ namespace eosio::hotstuff {
          _b_leaf = _high_qc.get_proposal_id();
 
          fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.get_proposal_id())("id", _id));
-         return true;
+
+         // avoid looping message propagation when receiving a new-view message with a high_qc.get_proposal_id().empty().
+         // not sure if high_qc.get_proposal_id().empty() + _high_qc.get_proposal_id().empty() is something that actually ever happens in the real world.
+         // not sure if high_qc.get_proposal_id().empty() should be tested and always rejected (return false + no _high_qc / _b_leaf update).
+         // if this returns false, we won't update the get_finality_status information, but I don't think we care about that at all.
+         return !high_qc.get_proposal_id().empty();
       } else {
          const hs_proposal_message *old_high_qc_prop = get_proposal( _high_qc.get_proposal_id() );
          const hs_proposal_message *new_high_qc_prop = get_proposal( high_qc.get_proposal_id() );
