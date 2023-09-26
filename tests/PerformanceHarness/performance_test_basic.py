@@ -266,11 +266,13 @@ class PerformanceTestBasic:
                 if Path(path).is_dir():
                     print(f"Cleaning up test artifacts dir and all contents of: {path}")
                     shutil.rmtree(f"{path}")
-
-            stateDirs = list(Path(self.varLogsDirPath).rglob("state"))
-            print(f"stateDirs: {stateDirs}")
-            for stateDirPath in stateDirs:
-                removeArtifacts(stateDirPath)
+            nodeDirPaths = list(Path(self.varLogsDirPath).rglob("node_*"))
+            print(f"nodeDirPaths: {nodeDirPaths}")
+            for nodeDirPath in nodeDirPaths:
+                stateDirs = list(Path(nodeDirPath).rglob("state"))
+                print(f"stateDirs: {stateDirs}")
+                for stateDirPath in stateDirs:
+                    removeArtifacts(stateDirPath)
 
         except OSError as error:
             print(error)
