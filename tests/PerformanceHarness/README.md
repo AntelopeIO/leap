@@ -589,7 +589,7 @@ Performance Test Basic Base:
                         Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429 error response when exceeded.
   --del-perf-logs       Whether to delete performance test specific logs.
   --del-report          Whether to delete overarching performance run report.
-  --save-state          Whether to save node state. (Warning: large log files)
+  --save-state          Whether to save node state. (Warning: large disk usage)
   --quiet               Whether to quiet printing intermediate results and reports to stdout
   --prods-enable-trace-api
                         Determines whether producer nodes should have eosio::trace_api_plugin enabled
@@ -748,7 +748,7 @@ Performance Test Basic Base:
                         Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429 error response when exceeded. (default: -1)
   --del-perf-logs       Whether to delete performance test specific logs. (default: False)
   --del-report          Whether to delete overarching performance run report. (default: False)
-  --save-state          Whether to save node state. (Warning: large log files)
+  --save-state          Whether to save node state. (Warning: large disk usage)
   --quiet               Whether to quiet printing intermediate results and reports to stdout (default: False)
   --prods-enable-trace-api
                         Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
