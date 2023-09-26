@@ -20,6 +20,7 @@
 #include <fc/time.hpp>
 #include <fc/mutex.hpp>
 #include <fc/network/listener.hpp>
+#include <fc/stopwatch.hpp>
 
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/host_name.hpp>
@@ -1575,12 +1576,19 @@ namespace eosio {
          return;
       connection_ptr c(shared_from_this());
 
+      static std::atomic<uint32_t> ordinal = 0;
+      uint32_t ord = ++ordinal;
+      size_t wqs = buffer_queue.write_queue_size();
+      if (wqs > 100*1024) {
+         peer_ilog(c, "start    sending ${w}Kb, ${o}", ("w", wqs/1024)("o", ord));
+      }
+
       std::vector<boost::asio::const_buffer> bufs;
       buffer_queue.fill_out_buffer( bufs );
 
-      strand.post( [c{std::move(c)}, bufs{std::move(bufs)}]() {
+      strand.post( [c{std::move(c)}, bufs{std::move(bufs)}, ord]() {
          boost::asio::async_write( *c->socket, bufs,
-            boost::asio::bind_executor( c->strand, [c, socket=c->socket]( boost::system::error_code ec, std::size_t w ) {
+            boost::asio::bind_executor( c->strand, [c, socket=c->socket, ord]( boost::system::error_code ec, std::size_t w ) {
             try {
                c->buffer_queue.clear_out_queue();
                // May have closed connection and cleared buffer_queue
@@ -1608,6 +1616,10 @@ namespace eosio {
                }
                c->bytes_sent += w;
                c->last_bytes_sent = c->get_time();
+
+               if (w > 100*1024) {
+                  peer_ilog(c, "finished sending ${w}Kb, ${o}", ("w", w/1024)("o", ord));
+               }
 
                c->buffer_queue.out_callback( ec, w );
 
@@ -2497,7 +2509,7 @@ namespace eosio {
 
    // thread safe
    void dispatch_manager::bcast_block(const signed_block_ptr& b, const block_id_type& id) {
-      fc_dlog( logger, "bcast block ${b}", ("b", b->block_num()) );
+      fc_ilog( logger, "bcast block ${b}", ("b", b->block_num()) );
 
       if(my_impl->sync_master->syncing_from_peer() ) return;
 
@@ -2519,7 +2531,7 @@ namespace eosio {
             cp->latest_blk_time = std::chrono::system_clock::now();
             bool has_block = cp->peer_lib_num >= bnum;
             if( !has_block ) {
-               peer_dlog( cp, "bcast block ${b}", ("b", bnum) );
+               peer_ilog( cp, "bcast block ${b}", ("b", bnum) );
                cp->enqueue_buffer( sb, no_reason );
             }
          });
@@ -2966,7 +2978,7 @@ namespace eosio {
          pending_message_buffer.advance_read_ptr( message_length );
          return true;
       }
-      peer_dlog( this, "received block ${num}, id ${id}..., latency: ${latency}ms, head ${h}",
+      peer_ilog( this, "received block ${num}, id ${id}..., latency: ${latency}ms, head ${h}",
                  ("num", bh.block_num())("id", blk_id.str().substr(8,16))
                  ("latency", (fc::time_point::now() - bh.timestamp).count()/1000)
                  ("h", my_impl->get_chain_head_num()));

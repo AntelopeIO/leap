@@ -2551,11 +2551,15 @@ bool producer_plugin_impl::block_is_exhausted() const {
    const auto&              rl    = chain.get_resource_limits_manager();
 
    const uint64_t cpu_limit = rl.get_block_cpu_limit();
-   if (cpu_limit < _max_block_cpu_usage_threshold_us)
+   if (cpu_limit < _max_block_cpu_usage_threshold_us) {
+      ilog("block exhausted cpu");
       return true;
+   }
    const uint64_t net_limit = rl.get_block_net_limit();
-   if (net_limit < _max_block_net_usage_threshold_bytes)
+   if (net_limit < _max_block_net_usage_threshold_bytes) {
+      ilog("block exhausted net");
       return true;
+   }
    return false;
 }
 
@@ -2791,9 +2795,9 @@ void producer_plugin::log_failed_transaction(const transaction_id_type&    trx_i
 
 // Called from only one read_only thread
 void producer_plugin_impl::switch_to_write_window() {
-   if (_log.is_enabled(fc::log_level::debug)) {
+   if (_log.is_enabled(fc::log_level::info)) {
       auto now = fc::time_point::now();
-      fc_dlog(_log, "Read-only threads ${n}, read window ${r}us, total all threads ${t}us",
+      fc_ilog(_log, "Read-only threads ${n}, read window ${r}us, total all threads ${t}us",
               ("n", _ro_thread_pool_size)("r", now - _ro_read_window_start_time)("t", _ro_all_threads_exec_time_us.load()));
    }
 
@@ -2848,6 +2852,7 @@ void producer_plugin_impl::switch_to_read_window() {
    app().get_io_service().poll(); // make sure we schedule any ready
    if (app().executor().read_only_queue_empty() && app().executor().read_exclusive_queue_empty()) { // no read-only tasks to process. stay in write window
       start_write_window();                          // restart write window timer for next round
+      ilog("Nothing in read only queues");
       return;
    }
 
@@ -2862,6 +2867,7 @@ void producer_plugin_impl::switch_to_read_window() {
    _ro_all_threads_exec_time_us = 0;
 
    // start a read-only execution task in each thread in the thread pool
+   ilog("Starting read tasks");
    _ro_num_active_exec_tasks = _ro_thread_pool_size;
    _ro_exec_tasks_fut.resize(0);
    for (uint32_t i = 0; i < _ro_thread_pool_size; ++i) {
@@ -2898,6 +2904,7 @@ bool producer_plugin_impl::read_only_execution_task(uint32_t pending_block_num) 
    while (fc::time_point::now() < _ro_window_deadline && _received_block < pending_block_num) {
       bool more = app().executor().execute_highest_read(); // blocks until all read only threads are idle
       if (!more) {
+         ilog("exiting read thread, no more");
          break;
       }
    }
