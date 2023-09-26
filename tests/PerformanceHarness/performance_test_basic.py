@@ -227,7 +227,7 @@ class PerformanceTestBasic:
         self.producerNodeId = self.clusterConfig._producerNodeIds[0]
         self.validationNodeId = self.clusterConfig._validationNodeIds[0]
         pid = os.getpid()
-        self.nodeosLogDir =  Path(self.loggingConfig.logDirPath)/"var"/f"{self.testNamePath}{pid}"
+        self.nodeosLogDir =  Path(self.loggingConfig.logDirPath)/"var"/f"{Utils.DataRoot}{Utils.PID}"
         self.nodeosLogPath = self.nodeosLogDir/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
 
         # Setup cluster and its wallet manager
@@ -660,7 +660,9 @@ class PerformanceTestBasic:
         producerPluginArgs = ProducerPluginArgs(disableSubjectiveApiBilling=args.disable_subjective_billing,
                                                 disableSubjectiveP2pBilling=args.disable_subjective_billing,
                                                 cpuEffortPercent=args.cpu_effort_percent,
-                                                producerThreads=args.producer_threads, maxTransactionTime=-1)
+                                                producerThreads=args.producer_threads, maxTransactionTime=-1,
+                                                readOnlyWriteWindowTimeUs=args.read_only_write_window_time_us,
+                                                readOnlyReadWindowTimeUs=args.read_only_read_window_time_us)
         httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb, httpMaxInFlightRequests=args.http_max_in_flight_requests,
                                         httpMaxResponseTimeMs=args.http_max_response_time_ms, httpThreads=args.http_threads)
         netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
@@ -716,6 +718,8 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help=argparse.SUPPRESS if suppressHelp else "Disable subjective CPU billing for API/P2P transactions", default=True)
         ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
         ptbBaseParserGroup.add_argument("--producer-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in producer thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--read-only-write-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the write window lasts.", default=200000)
+        ptbBaseParserGroup.add_argument("--read-only-read-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the read window lasts.", default=60000)
         ptbBaseParserGroup.add_argument("--http-max-in-flight-requests", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum time for processing a request, -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-bytes-in-flight-mb", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429\

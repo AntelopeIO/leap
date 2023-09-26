@@ -97,7 +97,7 @@ class PerformanceTest:
 
         self.testsStart = datetime.utcnow()
 
-        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/f"{os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0]}Logs",
+        self.loggingConfig = PerformanceTest.LoggingConfig(logDirBase=Path(self.ptConfig.logDirRoot)/f"PHSRLogs",
                                                            logDirTimestamp=f"{self.testsStart.strftime('%Y-%m-%d_%H-%M-%S')}")
 
     def performPtbBinarySearch(self, clusterConfig: PerformanceTestBasic.ClusterConfig, logDirRoot: Path, delReport: bool, quiet: bool, delPerfLogs: bool, saveState: bool) -> TpsTestResult.PerfTestSearchResults:
@@ -118,7 +118,7 @@ class PerformanceTest:
                                                        quiet=quiet, delPerfLogs=delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointMode=self.ptConfig.endpointMode,
                                                        trxGenerator=self.ptConfig.trxGenerator, saveState=saveState)
 
-            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig, testNamePath=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0])
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=clusterConfig, ptbConfig=ptbConfig, testNamePath="PHSRun")
             myTest.runTest()
             if myTest.testResult.testPassed:
                 maxTpsAchieved = binSearchTarget
@@ -161,7 +161,7 @@ class PerformanceTest:
                                                     quiet=self.ptConfig.quiet, delPerfLogs=self.ptConfig.delPerfLogs, userTrxDataFile=self.ptConfig.userTrxDataFile, endpointMode=self.ptConfig.endpointMode,
                                                     trxGenerator=self.ptConfig.trxGenerator, saveState=self.ptConfig.saveState)
 
-            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig, testNamePath=os.path.basename(sys.argv[0]).rsplit('.',maxsplit=1)[0])
+            myTest = PerformanceTestBasic(testHelperConfig=self.testHelperConfig, clusterConfig=self.clusterConfig, ptbConfig=ptbConfig, testNamePath="PHSRun")
             myTest.runTest()
             if myTest.testResult.testPassed:
                 maxTpsAchieved = searchTarget
