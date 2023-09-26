@@ -1433,4 +1433,55 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_heirarchy_test ) { try {
 
 } FC_LOG_AND_RETHROW() } /// link_delay_link_change_heirarchy_test
 
+// test canceldelay action cancelling a delayed transaction
+BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
+   validating_tester chain;
+   chain.produce_block();
+
+   const auto& contract_account = account_name("defcontract");
+   const auto& test_account = account_name("tester");
+
+   chain.produce_blocks();
+   chain.create_accounts({contract_account, test_account});
+   chain.produce_blocks();
+   chain.set_code(contract_account, test_contracts::deferred_test_wasm());
+   chain.set_abi(contract_account, test_contracts::deferred_test_abi());
+   chain.produce_blocks();
+
+   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(0u, gen_size);
+
+   chain.push_action( contract_account, "delayedcall"_n, test_account, fc::mutable_variant_object()
+      ("payer",     test_account)
+      ("sender_id", 1)
+      ("contract",  contract_account)
+      ("payload",   42)
+      ("delay_sec", 1000)
+      ("replace_existing", false)
+   );
+
+   const auto& idx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+   gen_size = idx.size();
+   BOOST_CHECK_EQUAL(1u, gen_size);
+   auto deferred_id = idx.begin()->trx_id;
+
+   // canceldelay assumes sender and sender_id to be a specific
+   // format. hardcode them for testing purpose only
+   chain.control->modify_gto_for_canceldelay_test(deferred_id);
+
+   // send canceldelay for the delayed transaction
+   signed_transaction trx;
+   trx.actions.emplace_back(
+      vector<permission_level>{{contract_account, config::active_name}},
+      chain::canceldelay{{contract_account, config::active_name}, deferred_id}
+   );
+   chain.set_transaction_headers(trx);
+   trx.sign(chain.get_private_key(contract_account, "active"), chain.control->get_chain_id());
+
+   chain.push_transaction(trx);
+
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(0u, gen_size);
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_SUITE_END()

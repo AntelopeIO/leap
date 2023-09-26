@@ -366,6 +366,10 @@ namespace eosio { namespace chain {
       bool is_write_window() const;
       void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num);
 
+      // Warning: this method is only used by canceldelay_test
+      // in delay_tests.cpp. Do not use it for any other purpose.
+      void modify_gto_for_canceldelay_test(const transaction_id_type& trx_id);
+
       private:
          friend class apply_context;
          friend class transaction_context;
