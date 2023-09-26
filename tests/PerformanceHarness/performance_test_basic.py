@@ -174,6 +174,7 @@ class PerformanceTestBasic:
         endpointMode: str="p2p"
         apiEndpoint: str=None
         trxGenerator: Path=Path(".")
+        saveState: bool=False
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
@@ -255,6 +256,24 @@ class PerformanceTestBasic:
                 removeAllArtifactsExceptFinalReport()
             else:
                 removeArtifacts(self.loggingConfig.logDirPath)
+        except OSError as error:
+            print(error)
+
+    def testDirsCleanupState(self):
+        try:
+            def removeArtifacts(path):
+                print(f"Checking if test artifacts dir exists: {path}")
+                if Path(path).is_dir():
+                    print(f"Cleaning up test artifacts dir and all contents of: {path}")
+                    shutil.rmtree(f"{path}")
+            nodeDirPaths = list(Path(self.varLogsDirPath).rglob("node_*"))
+            print(f"nodeDirPaths: {nodeDirPaths}")
+            for nodeDirPath in nodeDirPaths:
+                stateDirs = list(Path(nodeDirPath).rglob("state"))
+                print(f"stateDirs: {stateDirs}")
+                for stateDirPath in stateDirs:
+                    removeArtifacts(stateDirPath)
+
         except OSError as error:
             print(error)
 
@@ -622,6 +641,10 @@ class PerformanceTestBasic:
                 print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
                 self.testDirsCleanup(self.ptbConfig.delReport)
 
+            if not self.ptbConfig.saveState:
+                print(f"Cleaning up state directories: {self.varLogsDirPath}")
+                self.testDirsCleanupState()
+
             return self.testResult.testRunSuccessful
 
     def setupTestHelperConfig(args) -> TestHelperConfig:
@@ -705,6 +728,7 @@ class PtbArgumentsHandler(object):
                                          error response when exceeded.", default=-1)
         ptbBaseParserGroup.add_argument("--del-perf-logs", help=argparse.SUPPRESS if suppressHelp else "Whether to delete performance test specific logs.", action='store_true')
         ptbBaseParserGroup.add_argument("--del-report", help=argparse.SUPPRESS if suppressHelp else "Whether to delete overarching performance run report.", action='store_true')
+        ptbBaseParserGroup.add_argument("--save-state", help=argparse.SUPPRESS if suppressHelp else "Whether to save node state. (Warning: large disk usage)", action='store_true')
         ptbBaseParserGroup.add_argument("--quiet", help=argparse.SUPPRESS if suppressHelp else "Whether to quiet printing intermediate results and reports to stdout", action='store_true')
         ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help=argparse.SUPPRESS if suppressHelp else "Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
         ptbBaseParserGroup.add_argument("--print-missing-transactions", help=argparse.SUPPRESS if suppressHelp else "Toggles if missing transactions are be printed upon test completion.", action='store_true')

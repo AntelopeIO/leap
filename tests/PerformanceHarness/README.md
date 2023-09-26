@@ -511,7 +511,7 @@ usage: PerformanceHarnessScenarioRunner.py findMax testBpOpMode overrideBasicTes
        [--http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS]
        [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
        [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
-       [--del-perf-logs] [--del-report] [--quiet] [--prods-enable-trace-api]
+       [--del-perf-logs] [--del-report] [--save-state] [--quiet] [--prods-enable-trace-api]
        [--print-missing-transactions] [--account-name ACCOUNT_NAME]
        [--contract-dir CONTRACT_DIR] [--wasm-file WASM_FILE]
        [--abi-file ABI_FILE] [--user-trx-data-file USER_TRX_DATA_FILE]
@@ -595,6 +595,7 @@ Performance Test Basic Base:
                         Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429 error response when exceeded.
   --del-perf-logs       Whether to delete performance test specific logs.
   --del-report          Whether to delete overarching performance run report.
+  --save-state          Whether to save node state. (Warning: large disk usage)
   --quiet               Whether to quiet printing intermediate results and reports to stdout
   --prods-enable-trace-api
                         Determines whether producer nodes should have eosio::trace_api_plugin enabled
@@ -667,7 +668,7 @@ The following classes and scripts are typically used by the Performance Harness 
                                   [--http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS]
                                   [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
                                   [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
-                                  [--del-perf-logs] [--del-report] [--quiet]
+                                  [--del-perf-logs] [--del-report] [--save-state] [--quiet]
                                   [--prods-enable-trace-api]
                                   [--print-missing-transactions]
                                   [--account-name ACCOUNT_NAME]
@@ -753,6 +754,7 @@ Performance Test Basic Base:
                         Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429 error response when exceeded. (default: -1)
   --del-perf-logs       Whether to delete performance test specific logs. (default: False)
   --del-report          Whether to delete overarching performance run report. (default: False)
+  --save-state          Whether to save node state. (Warning: large disk usage)
   --quiet               Whether to quiet printing intermediate results and reports to stdout (default: False)
   --prods-enable-trace-api
                         Determines whether producer nodes should have eosio::trace_api_plugin enabled (default: False)
