@@ -1296,6 +1296,8 @@ namespace eosio {
       boost::asio::ip::tcp::no_delay nodelay( true );
       boost::system::error_code ec;
       socket->set_option( nodelay, ec );
+      socket->set_option( boost::asio::socket_base::send_buffer_size( 65536 ) );
+      socket->set_option( boost::asio::socket_base::receive_buffer_size( 65536 ) );
       if( ec ) {
          peer_elog( this, "connection failed (set_option): ${e1}", ( "e1", ec.message() ) );
          close();
@@ -1590,6 +1592,9 @@ namespace eosio {
          boost::asio::async_write( *c->socket, bufs,
             boost::asio::bind_executor( c->strand, [c, socket=c->socket, ord]( boost::system::error_code ec, std::size_t w ) {
             try {
+               if (w > 100*1024) {
+                  peer_ilog(c, "finishin sending ${w}Kb, ${o}", ("w", w/1024)("o", ord));
+               }
                c->buffer_queue.clear_out_queue();
                // May have closed connection and cleared buffer_queue
                if (!c->socket->is_open() && c->socket_is_open()) { // if socket_open then close not called

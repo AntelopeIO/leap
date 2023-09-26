@@ -309,9 +309,9 @@ struct block_time_tracker {
       using namespace std::string_literals;
       assert(!paused);
       auto now = fc::time_point::now();
-      if( _log.is_enabled( fc::log_level::debug ) ) {
+      if( _log.is_enabled( fc::log_level::info ) ) {
          auto diff = now - clear_time_point - block_idle_time - trx_success_time - trx_fail_time - transient_trx_time - other_time;
-         fc_dlog( _log, "Block #${n} ${p} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, "
+         fc_ilog( _log, "Block #${n} ${p} trx idle: ${i}us out of ${t}us, success: ${sn}, ${s}us, fail: ${fn}, ${f}us, "
                   "transient: ${ttn}, ${tt}us, other: ${o}us${rest}",
                   ("n", block_num)("p", producer)
                   ("i", block_idle_time)("t", now - clear_time_point)("sn", trx_success_num)("s", trx_success_time)
@@ -1897,7 +1897,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
    const auto& preprocess_deadline = _pending_block_deadline;
 
-   fc_dlog(_log, "Starting block #${n} at ${time} producer ${p}", ("n", pending_block_num)("time", now)("p", scheduled_producer.producer_name));
+   fc_ilog(_log, "Starting block #${n} at ${time} producer ${p}", ("n", pending_block_num)("time", now)("p", scheduled_producer.producer_name));
 
    try {
       uint16_t blocks_to_confirm = 0;
