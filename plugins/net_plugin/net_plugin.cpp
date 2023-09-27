@@ -361,10 +361,6 @@ namespace eosio {
             ordered_unique<
                tag<struct by_connection>,
                key<&connection_details::c>
-            >,
-            ordered_non_unique<
-               tag<struct by_active_ip>,
-               key<&connection_details::active_ip>
             >
          >
       >;
@@ -415,7 +411,7 @@ namespace eosio {
       void add(connection_ptr c);
       string connect(const string& host, const string& p2p_address);
       string resolve_and_connect(const string& host, const string& p2p_address);
-      void update_connection_endpoint(connection_details_index::const_iterator it, const tcp::endpoint& endpoint);
+      void update_connection_endpoint(connection_ptr c, const tcp::endpoint& endpoint);
       connection_details_index::iterator get_connection_iterator(const connection_ptr& c);
       string disconnect(const string& host);
       void close_all();
@@ -810,7 +806,8 @@ namespace eosio {
       /// assignment not allowed
       block_status_monitor& operator=( const block_status_monitor& ) = delete;
       block_status_monitor& operator=( block_status_monitor&& ) = delete;
-   };
+   }; // block_status_monitor
+
 
    class connection : public std::enable_shared_from_this<connection> {
    public:
@@ -986,8 +983,7 @@ namespace eosio {
       bool populate_handshake( handshake_message& hello ) const;
 
       bool reconnect();
-      void connect( const tcp::resolver::results_type& endpoints,
-                    connections_manager::connection_details_index::const_iterator conn_details );
+      void connect( const tcp::resolver::results_type& endpoints );
       void start_read_message();
 
       /** \brief Process the next message from the pending message buffer
@@ -2741,22 +2737,21 @@ namespace eosio {
       connection_ptr c = shared_from_this();
       strand.post([c]() {
          auto it = my_impl->connections.get_connection_iterator(c);
-         c->connect(it->ips, it);
+         c->connect(it->ips);
       });
       return true;
    }
 
    // called from connection strand
-   void connection::connect( const tcp::resolver::results_type& endpoints,
-                             connections_manager::connection_details_index::const_iterator conn_details ) {
+   void connection::connect( const tcp::resolver::results_type& endpoints ) {
       set_state(connection_state::connecting);
       pending_message_buffer.reset();
       buffer_queue.clear_out_queue();
       boost::asio::async_connect( *socket, endpoints,
          boost::asio::bind_executor( strand,
-               [c = shared_from_this(), socket=socket, conn_details]( const boost::system::error_code& err, const tcp::endpoint& endpoint ) {
+               [c = shared_from_this(), socket=socket]( const boost::system::error_code& err, const tcp::endpoint& endpoint ) {
             if( !err && socket->is_open() && socket == c->socket ) {
-               my_impl->connections.update_connection_endpoint(conn_details, endpoint);
+               my_impl->connections.update_connection_endpoint(c, endpoint);
                c->update_endpoints(endpoint);
                if( c->start_session() ) {
                   c->send_handshake();
@@ -4506,7 +4501,7 @@ namespace eosio {
                .ips = results
             });
             if( !err ) {
-               it->c->connect( results, it );
+               it->c->connect( results );
             } else {
                fc_elog( logger, "Unable to resolve ${host}:${port} ${error}",
                         ("host", host)("port", port)( "error", err.message() ) );
@@ -4518,14 +4513,16 @@ namespace eosio {
       return "added connection";
    }
 
-   void connections_manager::update_connection_endpoint(connection_details_index::const_iterator it,
+   void connections_manager::update_connection_endpoint(connection_ptr c,
                                                         const tcp::endpoint& endpoint) {
-      fc_dlog(logger, "updating connection endpoint");
       std::unique_lock g( connections_mtx );
-      auto& index = connections.get<by_active_ip>();
-      index.modify_key(connections.project<by_active_ip>(it), [endpoint](tcp::endpoint& e) {
-         e = endpoint;
-      });
+      auto& index = connections.get<by_connection>();
+      const auto& it = index.find(c);
+      if( it != index.end() ) {
+         index.modify(it, [endpoint](connection_details& d) {
+            d.active_ip = endpoint;
+         });
+      }
    }
 
    connections_manager::connection_details_index::iterator connections_manager::get_connection_iterator(const connection_ptr& c) {
