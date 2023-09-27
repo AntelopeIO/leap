@@ -3716,22 +3716,6 @@ void controller::code_block_num_last_used(const digest_type& code_hash, uint8_t 
    return my->code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
 }
 
-// Native action hardcodes sender empty and builds sender_id from trx id.
-// This method modifies those two fields for contract generated deferred
-// trxs so canceldelay can be tested by canceldelay_test in delay_tests.cpp.
-// It cannot be used for any other purpose.
-void controller::modify_gto_for_canceldelay_test(const transaction_id_type& trx_id) {
-   auto gto = my->db.find<generated_transaction_object, by_trx_id>(trx_id);
-   if (gto) {
-      my->db.modify<generated_transaction_object>(*gto, [&]( auto& gtx ) {
-         gtx.sender = account_name();
-
-         fc::uint128 _id(trx_id._hash[3], trx_id._hash[2]);
-         gtx.sender_id = (unsigned __int128)_id;
-      });
-   }
-}
-
 /// Protocol feature activation handlers:
 
 template<>

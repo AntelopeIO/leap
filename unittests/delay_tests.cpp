@@ -16,6 +16,22 @@ using mvo = fc::mutable_variant_object;
 
 const std::string eosio_token = name("eosio.token"_n).to_string();
 
+// Native action hardcodes sender empty and builds sender_id from trx id.
+// This method modifies those two fields for contract generated deferred
+// trxs so canceldelay can be tested by canceldelay_test.
+namespace eosio::chain {
+inline void modify_gto_for_canceldelay_test(controller& control, const transaction_id_type& trx_id) {
+   auto gto = control.mutable_db().find<generated_transaction_object, by_trx_id>(trx_id);
+   if (gto) {
+      control.mutable_db().modify<generated_transaction_object>(*gto, [&]( auto& gtx ) {
+         gtx.sender = account_name();
+
+         fc::uint128 _id(trx_id._hash[3], trx_id._hash[2]);
+         gtx.sender_id = (unsigned __int128)_id;
+      });
+   }
+}} /// namespace eosio::chain
+
 static void create_accounts(validating_tester& chain) {
    chain.produce_blocks();
    chain.create_accounts({"eosio.msig"_n, "eosio.token"_n});
@@ -1392,7 +1408,7 @@ BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
 
    // canceldelay assumes sender and sender_id to be a specific
    // format. hardcode them for testing purpose only
-   chain.control->modify_gto_for_canceldelay_test(deferred_id);
+   modify_gto_for_canceldelay_test(*(chain.control.get()), deferred_id);
 
    // send canceldelay for the delayed transaction
    signed_transaction trx;
@@ -1451,7 +1467,7 @@ BOOST_AUTO_TEST_CASE( canceldelay_test2 ) { try {
 
    // canceldelay assumes sender and sender_id to be a specific
    // format. hardcode them for testing purpose only
-   chain.control->modify_gto_for_canceldelay_test(deferred_id);
+   modify_gto_for_canceldelay_test(*(chain.control.get()), deferred_id);
 
    // attempt canceldelay with wrong canceling_auth for delayed trx
    {
