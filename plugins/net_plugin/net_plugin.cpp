@@ -1725,16 +1725,12 @@ namespace eosio {
          if( block_sync_rate_limit > 0 ) {
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(get_time() - connection_start_time);
             auto current_rate = double(block_sync_bytes_sent) / elapsed.count();
-            if( current_rate < block_sync_rate_limit ) {
-               block_sync_bytes_sent += enqueue_block( sb, true );
-               ++peer_requested->last;
-            } else {
+            if( current_rate >= block_sync_rate_limit ) {
                return false;
             }
-         } else {
-            block_sync_bytes_sent += enqueue_block( sb, true );
-            ++peer_requested->last;
          }
+         block_sync_bytes_sent += enqueue_block( sb, true );
+         ++peer_requested->last;
       } else {
          peer_ilog( this, "enqueue sync, unable to fetch block ${num}, sending benign_other go away", ("num", num) );
          peer_requested.reset(); // unable to provide requested blocks
