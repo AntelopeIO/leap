@@ -1484,4 +1484,83 @@ BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
    BOOST_CHECK_EQUAL(0u, gen_size);
 } FC_LOG_AND_RETHROW() }
 
+// test canceldelay action under different permission levels
+BOOST_AUTO_TEST_CASE( canceldelay_test2 ) { try {
+   validating_tester chain;
+   chain.produce_block();
+
+   const auto& contract_account = account_name("defcontract");
+   const auto& tester_account = account_name("tester");
+
+   chain.produce_blocks();
+   chain.create_accounts({contract_account, tester_account});
+   chain.produce_blocks();
+   chain.set_code(contract_account, test_contracts::deferred_test_wasm());
+   chain.set_abi(contract_account, test_contracts::deferred_test_abi());
+   chain.produce_blocks();
+
+   chain.push_action(config::system_account_name, updateauth::get_name(), contract_account, fc::mutable_variant_object()
+           ("account", "defcontract")
+           ("permission", "first")
+           ("parent", "active")
+           ("auth",  authority(chain.get_public_key(contract_account, "first"), 5))
+   );
+   chain.produce_blocks();
+
+   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(0u, gen_size);
+
+   chain.push_action( contract_account, "delayedcall"_n, tester_account, fc::mutable_variant_object()
+      ("payer",     tester_account)
+      ("sender_id", 1)
+      ("contract",  contract_account)
+      ("payload",   42)
+      ("delay_sec", 1000)
+      ("replace_existing", false)
+   );
+
+   const auto& idx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+   gen_size = idx.size();
+   BOOST_CHECK_EQUAL(1u, gen_size);
+   auto deferred_id = idx.begin()->trx_id;
+
+   // canceldelay assumes sender and sender_id to be a specific
+   // format. hardcode them for testing purpose only
+   chain.control->modify_gto_for_canceldelay_test(deferred_id);
+
+   // attempt canceldelay with wrong canceling_auth for delayed trx
+   {
+      signed_transaction trx;
+      trx.actions.emplace_back(vector<permission_level>{{"tester"_n, config::active_name}},
+                               chain::canceldelay{{"tester"_n, config::active_name}, deferred_id});
+      chain.set_transaction_headers(trx);
+      trx.sign(chain.get_private_key("tester"_n, "active"), chain.control->get_chain_id());
+      BOOST_REQUIRE_EXCEPTION( chain.push_transaction(trx), action_validate_exception,
+                               fc_exception_message_is("canceling_auth in canceldelay action was not found as authorization in the original delayed transaction") );
+   }
+
+   // attempt canceldelay with wrong permission for delayed trx
+   {
+      signed_transaction trx;
+      trx.actions.emplace_back(vector<permission_level>{{contract_account, "first"_n}},
+                               chain::canceldelay{{contract_account, "first"_n}, deferred_id});
+      chain.set_transaction_headers(trx);
+      trx.sign(chain.get_private_key(contract_account, "first"), chain.control->get_chain_id());
+      BOOST_REQUIRE_EXCEPTION( chain.push_transaction(trx), action_validate_exception,
+                               fc_exception_message_is("canceling_auth in canceldelay action was not found as authorization in the original delayed transaction") );
+   }
+
+   // attempt canceldelay with wrong signature for delayed trx
+   {
+      signed_transaction trx;
+      trx.actions.emplace_back(vector<permission_level>{{contract_account, config::active_name}},
+                               chain::canceldelay{{contract_account, config::active_name}, deferred_id});
+      chain.set_transaction_headers(trx);
+      trx.sign(chain.get_private_key(contract_account, "first"), chain.control->get_chain_id());
+      BOOST_REQUIRE_THROW( chain.push_transaction(trx), unsatisfied_authorization );
+      BOOST_REQUIRE_EXCEPTION( chain.push_transaction(trx), unsatisfied_authorization,
+                               fc_exception_message_starts_with("transaction declares authority") );
+   }
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_SUITE_END()
