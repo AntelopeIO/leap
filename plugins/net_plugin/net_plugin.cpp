@@ -454,6 +454,7 @@ namespace eosio {
        */
       vector<string>                        p2p_addresses;
       vector<string>                        p2p_server_addresses;
+      const string&                         get_first_p2p_address() const;
 
       vector<chain::public_key_type>        allowed_peers; ///< peer keys allowed to connect
       std::map<chain::public_key_type,
@@ -582,6 +583,8 @@ namespace eosio {
       fc::logger& get_logger() { return logger; }
 
       void create_session(tcp::socket&& socket, const string listen_address, size_t limit);
+
+      std::string empty{};
    }; //net_plugin_impl
 
    // peer_[x]log must be called from thread in connection strand
@@ -2770,6 +2773,10 @@ namespace eosio {
    }
 
 
+   const string& net_plugin_impl::get_first_p2p_address() const {
+      return p2p_addresses.size() > 0 ? *p2p_addresses.begin() : empty;
+   }
+
    void net_plugin_impl::create_session(tcp::socket&& socket, const string listen_address, size_t limit) {
       uint32_t                  visitors  = 0;
       uint32_t                  from_addr = 0;
@@ -4337,7 +4344,7 @@ namespace eosio {
          my->ticker();
          my->start_monitors();
          my->update_chain_info();
-         my->connections.connect_supplied_peers(*my->p2p_addresses.begin()); // attribute every outbound connection to the first listen port
+         my->connections.connect_supplied_peers(my->get_first_p2p_address()); // attribute every outbound connection to the first listen port when one exists
       });
    }
 
@@ -4374,7 +4381,7 @@ namespace eosio {
 
    /// RPC API
    string net_plugin::connect( const string& host ) {
-      return my->connections.connect( host, *my->p2p_addresses.begin() );
+      return my->connections.connect( host, my->get_first_p2p_address() );
    }
 
    /// RPC API

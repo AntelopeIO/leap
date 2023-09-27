@@ -6,6 +6,11 @@ struct mock_connection {
    bool is_bp_connection   = false;
    bool is_open            = false;
    bool handshake_received = false;
+   mock_connection(bool bp_connection, bool open, bool received)
+     : is_bp_connection(bp_connection)
+     , is_open(open)
+     , handshake_received(received)
+   {}
 
    bool socket_is_open() const { return is_open; }
    bool incoming_and_handshake_received() const { return handshake_received; }
@@ -37,6 +42,7 @@ struct mock_net_plugin : eosio::auto_bp_peering::bp_connection_manager<mock_net_
    bool                         is_in_sync = false;
    mock_connections_manager     connections;
    std::vector<std::string>     p2p_addresses{"0.0.0.0:9876"};
+   const std::string&           get_first_p2p_address() const { return *p2p_addresses.begin(); }
 
    bool in_sync() { return is_in_sync; }
 
