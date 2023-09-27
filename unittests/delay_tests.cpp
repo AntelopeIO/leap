@@ -1584,4 +1584,61 @@ BOOST_AUTO_TEST_CASE( max_transaction_delay_create ) { try {
    );
 } FC_LOG_AND_RETHROW() } /// max_transaction_delay_create
 
+
+BOOST_AUTO_TEST_CASE( max_transaction_delay_execute ) { try {
+   //assuming max transaction delay is 45 days (default in config.hpp)
+   validating_tester chain;
+   const auto& tester_account = "tester"_n;
+
+   create_accounts(chain);
+
+   chain.push_action("eosio.token"_n, "create"_n, "eosio.token"_n, mutable_variant_object()
+           ("issuer", "eosio.token" )
+           ("maximum_supply", "9000000.0000 CUR" )
+   );
+   chain.push_action("eosio.token"_n, name("issue"), "eosio.token"_n, fc::mutable_variant_object()
+           ("to",       "tester")
+           ("quantity", "100.0000 CUR")
+           ("memo", "for stuff")
+   );
+
+   //create a permission level with delay 30 days and associate it with token transfer
+   auto trace = chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
+                     ("account", "tester")
+                     ("permission", "first")
+                     ("parent", "active")
+                     ("auth",  authority(chain.get_public_key(tester_account, "first"), 30*86400)) // 30 days delay
+   );
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+   trace = chain.push_action(config::system_account_name, linkauth::get_name(), tester_account, fc::mutable_variant_object()
+                     ("account", "tester")
+                     ("code", "eosio.token")
+                     ("type", "transfer")
+                     ("requirement", "first"));
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+   chain.produce_blocks();
+
+   //change max_transaction_delay to 60 sec
+   auto params = chain.control->get_global_properties().configuration;
+   params.max_transaction_delay = 60;
+   chain.push_action( config::system_account_name, "setparams"_n, config::system_account_name, mutable_variant_object()
+                        ("params", params) );
+
+   chain.produce_blocks();
+   //should be able to create a msig transaction with delay 60 sec, despite permission delay being 30 days, because max_transaction_delay is 60 sec
+   constexpr name proposal_name = "prop1"_n;
+   propose_approve_msig_token_transfer_trx(chain, proposal_name, {{ "tester"_n, config::active_name }}, 60, "9.0000 CUR");
+
+   //check that the delayed msig transaction can be executed after after 60 sec
+   chain.produce_blocks(120);
+   exec_msig_trx(chain, proposal_name);
+
+   //check that the transfer really happened
+   auto liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("91.0000 CUR"), liquid_balance);
+
+} FC_LOG_AND_RETHROW() } /// max_transaction_delay_execute
+
 BOOST_AUTO_TEST_SUITE_END()
