@@ -420,7 +420,7 @@ namespace eosio {
       vector<connection_status> connection_statuses() const;
 
       template <typename Function>
-      bool for_any_supplied_peer(Function&& f) const;
+      bool any_of_supplied_peers(Function&& f) const;
 
       template <typename Function>
       void for_each_connection(Function&& f) const;
@@ -1184,7 +1184,7 @@ namespace eosio {
 
 
    template<typename Function>
-   bool connections_manager::for_any_supplied_peer( Function&& f ) const {
+   bool connections_manager::any_of_supplied_peers( Function&& f ) const {
       std::shared_lock g( connections_mtx );
       return std::any_of(supplied_peers.begin(), supplied_peers.end(), std::forward<Function>(f));
    }
@@ -2798,7 +2798,7 @@ namespace eosio {
                visitors < connections.get_max_client_count())) {
             fc_ilog(logger, "Accepted new connection: " + paddr_str);
 
-            connections.for_any_supplied_peer([&listen_address, &paddr_str, &limit](const string& peer_addr) {
+            connections.any_of_supplied_peers([&listen_address, &paddr_str, &limit](const string& peer_addr) {
                auto [host, port, type] = split_host_port_type(peer_addr);
                if (host == paddr_str) {
                   if (limit > 0) {
