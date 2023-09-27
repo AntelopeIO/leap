@@ -412,7 +412,7 @@ namespace eosio {
       string connect(const string& host, const string& p2p_address);
       string resolve_and_connect(const string& host, const string& p2p_address);
       void update_connection_endpoint(connection_ptr c, const tcp::endpoint& endpoint);
-      connection_details_index::iterator get_connection_iterator(const connection_ptr& c);
+      void connect(const connection_ptr& c);
       string disconnect(const string& host);
       void close_all();
 
@@ -2731,13 +2731,12 @@ namespace eosio {
          fc::microseconds connector_period = my_impl->connections.get_connector_period();
          fc::lock_guard g( conn_mtx );
          if( last_close == fc::time_point() || last_close > fc::time_point::now() - connector_period ) {
-            return true;
+            return true; // true so doesn't remove from valid connections
          }
       }
       connection_ptr c = shared_from_this();
       strand.post([c]() {
-         auto it = my_impl->connections.get_connection_iterator(c);
-         c->connect(it->ips);
+         my_impl->connections.connect(c);
       });
       return true;
    }
@@ -4525,11 +4524,13 @@ namespace eosio {
       }
    }
 
-   connections_manager::connection_details_index::iterator connections_manager::get_connection_iterator(const connection_ptr& c) {
+   void connections_manager::connect(const connection_ptr& c) {
       std::lock_guard g( connections_mtx );
       const auto& index = connections.get<by_connection>();
-      auto i = index.find(c);
-      return connections.project<by_host>(i);
+      const auto& it = index.find(c);
+      if( it != index.end() ) {
+         it->c->connect( it->ips );
+      }
    }
 
    // called by API
