@@ -17,25 +17,12 @@
 
 #include <boost/asio.hpp>
 #include <boost/date_time/posix_time/posix_time.hpp>
-#include <boost/multi_index_container.hpp>
-#include <boost/multi_index/member.hpp>
-#include <boost/multi_index/hashed_index.hpp>
-#include <boost/multi_index/ordered_index.hpp>
 #include <boost/signals2/connection.hpp>
 
 #include <cstdint>
 #include <iostream>
 #include <algorithm>
 #include <mutex>
-
-namespace bmi = boost::multi_index;
-using bmi::hashed_unique;
-using bmi::indexed_by;
-using bmi::member;
-using bmi::ordered_non_unique;
-using bmi::tag;
-
-using boost::multi_index_container;
 
 using boost::signals2::scoped_connection;
 using std::string;
@@ -2331,8 +2318,6 @@ void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& de
       const transaction_id_type trx_id             = expired_itr->trx_id; // make copy since reference could be invalidated
       auto                      expired_itr_next   = expired_itr; // save off next since expired_itr may be invalidated by loop
       ++expired_itr_next;
-      const auto next_expired = expired_itr_next != expired_idx.end() ? expired_itr_next->expiration : expired_itr->expiration;
-      const auto next_id      = expired_itr_next != expired_idx.end() ? expired_itr_next->id : expired_itr->id;
 
       num_processed++;
 
@@ -2347,9 +2332,7 @@ void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& de
       try {
          auto             start        = fc::time_point::now();
          auto             trx_tracker  = _time_tracker.start_trx(false, start); // delayed transaction cannot be transient
-         fc::microseconds max_trx_time = fc::milliseconds(_max_transaction_time_ms.load());
-         if (max_trx_time.count() < 0)
-            max_trx_time = fc::microseconds::maximum();
+         fc::microseconds max_trx_time = fc::microseconds::maximum(); // hard-coded as it is not used in push_scheduled_transaction when trx expired.
 
          auto trace = chain.push_scheduled_transaction(trx_id, deadline, max_trx_time, 0, false);
          auto end   = fc::time_point::now();
@@ -2387,7 +2370,7 @@ void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& de
 
       if (expired_itr_next == expired_idx.end())
          break;
-      expired_itr = expired_idx.lower_bound(boost::make_tuple(next_expired, next_id));
+      expired_itr = expired_itr_next;
    }
 
    if (expired_size > 0) {
