@@ -15,8 +15,8 @@ namespace eosio::hotstuff {
       _next_leader = next_leader;
    };
 
-   void test_pacemaker::set_finalizers(const std::vector<name>& finalizers) {
-      _finalizers = finalizers;
+   void test_pacemaker::set_finalizer_set(const eosio::chain::finalizer_set& finalizer_set) {
+      _finalizer_set = finalizer_set;
    };
 
    void test_pacemaker::set_current_block_id(block_id_type id) {
@@ -31,7 +31,7 @@ namespace eosio::hotstuff {
       _pending_message_queue.push_back(msg);
    }
 
-   void test_pacemaker::connect(const std::vector<name>& nodes) {
+   void test_pacemaker::connect(const std::vector<std::string>& nodes) {
       for (auto it1 = nodes.begin(); it1 != nodes.end(); ++it1) {
          for (auto it2 = std::next(it1); it2 != nodes.end(); ++it2) {
             _net[*it1].insert(*it2);
@@ -40,7 +40,7 @@ namespace eosio::hotstuff {
       }
    }
 
-   void test_pacemaker::disconnect(const std::vector<name>& nodes) {
+   void test_pacemaker::disconnect(const std::vector<std::string>& nodes) {
       for (auto it1 = nodes.begin(); it1 != nodes.end(); ++it1) {
          for (auto it2 = std::next(it1); it2 != nodes.end(); ++it2) {
             _net[*it1].erase(*it2);
@@ -49,7 +49,7 @@ namespace eosio::hotstuff {
       }
    }
 
-   bool test_pacemaker::is_connected(name node1, name node2) {
+   bool test_pacemaker::is_connected(std::string node1, std::string node2) {
       auto it = _net.find(node1);
       if (it == _net.end())
          return false;
@@ -169,11 +169,11 @@ namespace eosio::hotstuff {
    name test_pacemaker::get_next_leader() {
       return _next_leader;
    };
-
-   std::vector<name> test_pacemaker::get_finalizers() {
-      return _finalizers;
+   
+   const finalizer_set& test_pacemaker::get_finalizer_set() {
+      return _finalizer_set;
    };
-
+   
    block_id_type test_pacemaker::get_current_block_id() {
       return _current_block_id;
    };
@@ -198,46 +198,47 @@ namespace eosio::hotstuff {
          _qcc_store.emplace( name, qcc_ptr );
    };
 
-   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, name id, const std::optional<uint32_t>& exclude_peer) {
+
+   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, name id, const std::optional<uint32_t>& exclude_peer) {
+   void test_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, name id, const std::optional<uint32_t>& exclude_peer) {
+   void test_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, name id, const std::optional<uint32_t>& exclude_peer) {
+   void test_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
    void test_pacemaker::send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code) { }
 
-   void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg, name id) {
+   void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
       for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
          if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
             qcc_ptr->on_hs_proposal_msg(0, msg);
       }
    }
 
-   void test_pacemaker::on_hs_vote_msg(const hs_vote_message& msg, name id) {
+   void test_pacemaker::on_hs_vote_msg(const hs_vote_message& msg, const std::string& id) {
       for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
          if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
             qcc_ptr->on_hs_vote_msg(0, msg);
       }
    }
 
-   void test_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg, name id) {
+   void test_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id) {
       for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
          if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
             qcc_ptr->on_hs_new_block_msg(0, msg);
       }
    }
 
-   void test_pacemaker::on_hs_new_view_msg(const hs_new_view_message& msg, name id) {
+   void test_pacemaker::on_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id) {
       for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
          if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
             qcc_ptr->on_hs_new_view_msg(0, msg);

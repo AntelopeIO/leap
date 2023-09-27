@@ -3,8 +3,6 @@
 #include <eosio/hotstuff/base_pacemaker.hpp>
 #include <eosio/hotstuff/qc_chain.hpp>
 
-#include <eosio/chain/finalizer_set.hpp>
-
 #include <boost/signals2/connection.hpp>
 
 #include <shared_mutex>
@@ -38,16 +36,16 @@ namespace eosio::hotstuff {
       name get_proposer();
       name get_leader() ;
       name get_next_leader() ;
-      std::vector<name> get_finalizers();
+      const finalizer_set&  get_finalizer_set();
 
       block_id_type get_current_block_id();
 
       uint32_t get_quorum_threshold();
 
-      void send_hs_proposal_msg(const hs_proposal_message& msg, name id, const std::optional<uint32_t>& exclude_peer);
-      void send_hs_vote_msg(const hs_vote_message& msg, name id, const std::optional<uint32_t>& exclude_peer);
-      void send_hs_new_view_msg(const hs_new_view_message& msg, name id, const std::optional<uint32_t>& exclude_peer);
-      void send_hs_new_block_msg(const hs_new_block_message& msg, name id, const std::optional<uint32_t>& exclude_peer);
+      void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+      void send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+      void send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+      void send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
 
       void send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code);
 
