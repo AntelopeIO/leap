@@ -17,9 +17,11 @@ bool is_prime(int p) {
 
    bool prime = true;
    const int to = sqrt(p);
-   int i;
-   for (i = 3; i <= to; i += 2) {
-      if (!((prime = bool(p)) % i)) break;
+   for (int i = 3; i <= to; i += 2) {
+      if (p % i == 0) {
+         prime = false;
+         break;
+      }
    }
    return prime;
 }

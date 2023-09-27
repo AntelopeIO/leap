@@ -226,6 +226,7 @@ def sendReadOnlyTrxOnThread(startId, numTrxs):
            results = sendReadOnlySlowPayloadless()
            assert(results[0])
            assert(results[1]['processed']['action_traces'][0]['console'] == "Im a payloadless slow action")
+           assert(int(results[1]['processed']['elapsed']) > 100)
     except Exception as e:
         Print("Exception in sendReadOnlyTrxOnThread: ", e)
         errorInThread = True
