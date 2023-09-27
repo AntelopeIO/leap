@@ -4548,9 +4548,9 @@ namespace eosio {
    }
 
    void connections_manager::close_all() {
+      std::lock_guard g( connections_mtx );
       auto& index = connections.get<by_host>();
       fc_ilog( logger, "close all ${s} connections", ("s", index.size()) );
-      std::lock_guard g( connections_mtx );
       for( const connection_ptr& c : index ) {
          fc_dlog( logger, "close: ${cid}", ("cid", c->connection_id) );
          c->close( false, true );
