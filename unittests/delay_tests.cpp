@@ -1563,4 +1563,25 @@ BOOST_AUTO_TEST_CASE( canceldelay_test2 ) { try {
    }
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE( max_transaction_delay_create ) { try {
+   //assuming max transaction delay is 45 days (default in config.hpp)
+   validating_tester chain;
+
+   const auto& tester_account = "tester"_n;
+
+   chain.produce_blocks();
+   chain.create_account("tester"_n);
+   chain.produce_blocks(10);
+
+   BOOST_REQUIRE_EXCEPTION(
+      chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
+                        ("account", "tester")
+                        ("permission", "first")
+                        ("parent", "active")
+                        ("auth",  authority(chain.get_public_key(tester_account, "first"), 50*86400)) ), // 50 days delay
+      action_validate_exception,
+      fc_exception_message_starts_with("Cannot set delay longer than max_transacton_delay")
+   );
+} FC_LOG_AND_RETHROW() } /// max_transaction_delay_create
+
 BOOST_AUTO_TEST_SUITE_END()
