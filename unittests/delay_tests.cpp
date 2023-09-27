@@ -39,9 +39,29 @@ static void create_accounts(validating_tester& chain) {
    chain.produce_blocks(10);
 }
 
-static void propose_approve_msig_token_transfer_trx(validating_tester& chain, name proposal_name, const vector<permission_level>& perm, uint32_t delay_sec, const std::string& quantity) {
+static void propose_approve_msig_trx(validating_tester& chain, const name& proposal_name, const vector<permission_level>& perm, const fc::variant& pretty_trx) {
+   vector<permission_level> requested_perm = {{ "tester"_n, config::active_name }};
+   transaction trx;
+   abi_serializer::from_variant(pretty_trx, trx, chain.get_resolver(), abi_serializer::create_yield_function(chain.abi_serializer_max_time));
+
+   chain.push_action("eosio.msig"_n, "propose"_n, perm,
+      mvo()
+         ("proposer",      "tester")
+         ("proposal_name", proposal_name)
+         ("trx",           trx)
+         ("requested",     requested_perm)
+   );
+   chain.push_action("eosio.msig"_n, "approve"_n, "tester"_n,
+      mvo()
+         ("proposer",      "tester")
+         ("proposal_name", proposal_name)
+         ("level",         permission_level{ "tester"_n, config::active_name })
+   );
+}
+
+static void propose_approve_msig_token_transfer_trx(validating_tester& chain, const name& proposal_name, const vector<permission_level>& perm, uint32_t delay_sec, const std::string& quantity) {
    vector<permission_level> transfer_perm = {{ "tester"_n, config::active_name }};
-   fc::variant pretty_trx = fc::mutable_variant_object()
+   fc::variant pretty_trx = mvo()
       ("expiration", "2020-01-01T00:30")
       ("ref_block_num", 2)
       ("ref_block_prefix", 3)
@@ -62,27 +82,10 @@ static void propose_approve_msig_token_transfer_trx(validating_tester& chain, na
       })
    );
 
-   transaction trx;
-   abi_serializer::from_variant(pretty_trx, trx, chain.get_resolver(), abi_serializer::create_yield_function(chain.abi_serializer_max_time));
-
-   vector<permission_level> requested_perm = {{ "tester"_n, config::active_name }};
-   chain.push_action("eosio.msig"_n, "propose"_n, perm,
-      mvo()
-         ("proposer",      "tester")
-         ("proposal_name", proposal_name)
-         ("trx",           trx)
-         ("requested",     requested_perm)
-   );
-
-   chain.push_action("eosio.msig"_n, "approve"_n, "tester"_n,
-      mvo()
-         ("proposer",      "tester")
-         ("proposal_name", proposal_name)
-         ("level",         permission_level{ "tester"_n, config::active_name })
-   );
+   propose_approve_msig_trx(chain, proposal_name, perm, pretty_trx);
 }
 
-static void propose_approve_msig_updateauth_trx(validating_tester& chain, name proposal_name, const vector<permission_level>& perm, uint32_t delay_sec) {
+static void propose_approve_msig_updateauth_trx(validating_tester& chain, const name& proposal_name, const vector<permission_level>& perm, uint32_t delay_sec) {
    vector<permission_level> transfer_perm = {{ "tester"_n, config::active_name }};
    fc::variant pretty_trx = fc::mutable_variant_object()
       ("expiration", "2020-01-01T00:30")
@@ -105,27 +108,10 @@ static void propose_approve_msig_updateauth_trx(validating_tester& chain, name p
       })
    );
 
-   transaction trx;
-   abi_serializer::from_variant(pretty_trx, trx, chain.get_resolver(), abi_serializer::create_yield_function(chain.abi_serializer_max_time));
-
-   vector<permission_level> requested_perm = {{ "tester"_n, config::active_name }};
-   chain.push_action("eosio.msig"_n, "propose"_n, perm,
-      mvo()
-         ("proposer",      "tester")
-         ("proposal_name", proposal_name)
-         ("trx",           trx)
-         ("requested",     requested_perm)
-   );
-
-   chain.push_action("eosio.msig"_n, "approve"_n, "tester"_n,
-      mvo()
-         ("proposer",      "tester")
-         ("proposal_name", proposal_name)
-         ("level",         permission_level{ "tester"_n, config::active_name })
-   );
+   propose_approve_msig_trx(chain, proposal_name, perm, pretty_trx);
 }
 
-static void propose_approve_msig_linkauth_trx(validating_tester& chain, const name proposal_name, const name requirement, const vector<permission_level>& perm, uint32_t delay_sec) {
+static void propose_approve_msig_linkauth_trx(validating_tester& chain, const name& proposal_name, const name& requirement, const vector<permission_level>& perm, uint32_t delay_sec) {
    vector<permission_level> transfer_perm = {{ "tester"_n, config::active_name }};
    fc::variant pretty_trx = fc::mutable_variant_object()
       ("expiration", "2020-01-01T00:30")
@@ -148,29 +134,12 @@ static void propose_approve_msig_linkauth_trx(validating_tester& chain, const na
       })
    );
 
-   transaction trx;
-   abi_serializer::from_variant(pretty_trx, trx, chain.get_resolver(), abi_serializer::create_yield_function(chain.abi_serializer_max_time));
-
-   vector<permission_level> requested_perm = {{ "tester"_n, config::active_name }};
-   chain.push_action("eosio.msig"_n, "propose"_n, perm,
-      mvo()
-         ("proposer",      "tester")
-         ("proposal_name", proposal_name)
-         ("trx",           trx)
-         ("requested",     requested_perm)
-   );
-
-   chain.push_action("eosio.msig"_n, "approve"_n, "tester"_n,
-      mvo()
-         ("proposer",      "tester")
-         ("proposal_name", proposal_name)
-         ("level",         permission_level{ "tester"_n, config::active_name })
-   );
+   propose_approve_msig_trx(chain, proposal_name, perm, pretty_trx);
 }
 
-static void propose_approve_msig_unlinkauth_trx(validating_tester& chain, name proposal_name, const vector<permission_level>& perm, uint32_t delay_sec) {
+static void propose_approve_msig_unlinkauth_trx(validating_tester& chain, const name& proposal_name, const vector<permission_level>& perm, uint32_t delay_sec) {
    vector<permission_level> transfer_perm = {{ "tester"_n, config::active_name }};
-   fc::variant pretty_trx = fc::mutable_variant_object()
+   fc::variant pretty_trx = mvo()
       ("expiration", "2020-01-01T00:30")
       ("ref_block_num", 2)
       ("ref_block_prefix", 3)
@@ -190,24 +159,7 @@ static void propose_approve_msig_unlinkauth_trx(validating_tester& chain, name p
       })
    );
 
-   transaction trx;
-   abi_serializer::from_variant(pretty_trx, trx, chain.get_resolver(), abi_serializer::create_yield_function(chain.abi_serializer_max_time));
-
-   vector<permission_level> requested_perm = {{ "tester"_n, config::active_name }};
-   chain.push_action("eosio.msig"_n, "propose"_n, perm,
-      mvo()
-         ("proposer",      "tester")
-         ("proposal_name", proposal_name)
-         ("trx",           trx)
-         ("requested",     requested_perm)
-   );
-
-   chain.push_action("eosio.msig"_n, "approve"_n, "tester"_n,
-      mvo()
-         ("proposer",      "tester")
-         ("proposal_name", proposal_name)
-         ("level",         permission_level{ "tester"_n, config::active_name })
-   );
+   propose_approve_msig_trx(chain, proposal_name, perm, pretty_trx);
 }
 
 static void exec_msig_trx(validating_tester& chain, name proposal_name) {
@@ -234,7 +186,7 @@ BOOST_FIXTURE_TEST_CASE( delayed_trx_blocked, validating_tester ) { try {
    account_name a = "newco"_n;
    account_name creator = config::system_account_name;
 
-   auto owner_auth =  authority( get_public_key( a, "owner" ) );
+   auto owner_auth = authority( get_public_key( a, "owner" ) );
    trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
                              newaccount{
                                 .creator  = creator,
@@ -249,7 +201,6 @@ BOOST_FIXTURE_TEST_CASE( delayed_trx_blocked, validating_tester ) { try {
    // delayed trx is blocked
    BOOST_CHECK_EXCEPTION(push_transaction( trx ), fc::exception,
       [&](const fc::exception &e) {
-         // any incoming trx is blocked
          return expect_assert_message(e, "transaction cannot be delayed");
       });
 
@@ -276,7 +227,6 @@ BOOST_AUTO_TEST_CASE( delayed_action_blocked ) { try {
            20, 10),
       fc::exception,
       [&](const fc::exception &e) {
-         // any delayed incoming trx is blocked
          return expect_assert_message(e, "transaction cannot be delayed");
       });
 
@@ -293,20 +243,21 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
    create_accounts(chain);
 
    chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
-           ("account", "tester")
-           ("permission", "first")
-           ("parent", "active")
-           ("auth",  authority(chain.get_public_key(tester_account, "first")))
+      ("account", "tester")
+      ("permission", "first")
+      ("parent", "active")
+      ("auth",  authority(chain.get_public_key(tester_account, "first")))
    );
    chain.push_action(config::system_account_name, linkauth::get_name(), tester_account, fc::mutable_variant_object()
-           ("account", "tester")
-           ("code", eosio_token)
-           ("type", "transfer")
-           ("requirement", "first"));
+      ("account", "tester")
+      ("code", eosio_token)
+      ("type", "transfer")
+      ("requirement", "first")
+   );
    chain.produce_blocks();
    chain.push_action("eosio.token"_n, "create"_n, "eosio.token"_n, mutable_variant_object()
-           ("issuer", eosio_token)
-           ("maximum_supply", "9000000.0000 CUR")
+      ("issuer", eosio_token)
+      ("maximum_supply", "9000000.0000 CUR")
    );
 
    chain.push_action("eosio.token"_n, name("issue"), "eosio.token"_n, fc::mutable_variant_object()
@@ -360,10 +311,8 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
 
    // propose and approve an msig trx that transfers "quantity" tokens
    // from tester to tester2 with a delay of "delay_seconds"
-   constexpr name proposal_name     = "prop1"_n;
-   constexpr uint32_t delay_seconds = 10;
-   constexpr auto quantity          = "3.0000 CUR";
-   propose_approve_msig_token_transfer_trx(chain, proposal_name, {{ "tester"_n, config::active_name }}, delay_seconds, quantity);
+   constexpr name proposal_name = "prop1"_n;
+   propose_approve_msig_token_transfer_trx(chain, proposal_name, {{ "tester"_n, config::active_name }}, 10, "3.0000 CUR");
 
    chain.produce_blocks();
 
@@ -458,10 +407,8 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_parent_permission_test ) { try {
 
    // Propose and approve an msig trx that transfers "quantity" tokens
    // from tester to tester2 with a delay of "delay_seconds"
-   constexpr name proposal_name     = "prop1"_n;
-   constexpr uint32_t delay_seconds = 15;
-   constexpr auto quantity          = "3.0000 CUR";
-   propose_approve_msig_token_transfer_trx(chain, proposal_name, {{ "tester"_n, config::owner_name }}, delay_seconds, quantity);
+   constexpr name proposal_name = "prop1"_n;
+   propose_approve_msig_token_transfer_trx(chain, proposal_name, {{ "tester"_n, config::owner_name }}, 15, "3.0000 CUR");
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
@@ -500,25 +447,6 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_parent_permission_test ) { try {
    BOOST_REQUIRE_EQUAL(asset::from_string("4.0000 CUR"), liquid_balance);
 
 } FC_LOG_AND_RETHROW() }/// link_delay_direct_parent_permission_test
-
-BOOST_AUTO_TEST_CASE( test_blockchain_params_enabled ) { try {
-   //since validation_tester activates all features here we will test how setparams works without
-   //blockchain_parameters enabled
-   tester chain( setup_policy::preactivate_feature_and_new_bios );
-
-   //change max_transaction_delay to 60 sec
-   auto params = chain.control->get_global_properties().configuration;
-   params.max_transaction_delay = 60;
-   chain.push_action(config::system_account_name, 
-                     "setparams"_n,
-                     config::system_account_name, 
-                     mutable_variant_object()("params", params) );
-   
-   BOOST_CHECK_EQUAL(chain.control->get_global_properties().configuration.max_transaction_delay, 60u);
-
-   chain.produce_blocks();
-
-} FC_LOG_AND_RETHROW() }
 
 // test link to permission with delay on permission between min permission and authorizing permission it
 BOOST_AUTO_TEST_CASE( link_delay_direct_walk_parent_permissions_test ) { try {
@@ -603,10 +531,8 @@ BOOST_AUTO_TEST_CASE( link_delay_direct_walk_parent_permissions_test ) { try {
 
    // propose and approve an msig trx that transfers "quantity" tokens
    // from tester to tester2 with a delay of "delay_seconds"
-   constexpr name proposal_name     = "prop1"_n;
-   constexpr uint32_t delay_seconds = 20;
-   constexpr auto quantity          = "3.0000 CUR";
-   propose_approve_msig_token_transfer_trx(chain, proposal_name, {{ "tester"_n, config::active_name }}, delay_seconds, quantity);
+   constexpr name proposal_name = "prop1"_n;
+   propose_approve_msig_token_transfer_trx(chain, proposal_name, {{ "tester"_n, config::active_name }}, 20, "3.0000 CUR");
 
    liquid_balance = get_currency_balance(chain, "tester"_n);
    BOOST_REQUIRE_EQUAL(asset::from_string("99.0000 CUR"), liquid_balance);
@@ -1196,9 +1122,8 @@ BOOST_AUTO_TEST_CASE( link_delay_unlink_test ) { try {
    );
 
    // this transaction will be delayed 20 blocks
-   constexpr name unlinkauth_proposal_name     = "prop2"_n;
-   constexpr uint32_t unlinkauth_delay_seconds = 10;
-   propose_approve_msig_unlinkauth_trx(chain, unlinkauth_proposal_name, {{ "tester"_n, config::active_name }}, unlinkauth_delay_seconds);
+   constexpr name unlinkauth_proposal_name = "prop2"_n;
+   propose_approve_msig_unlinkauth_trx(chain, unlinkauth_proposal_name, {{ "tester"_n, config::active_name }}, 10);
 
    chain.produce_blocks();
 
@@ -1353,7 +1278,7 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_heirarchy_test ) { try {
    BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
 
    // this transaction will be delayed 20 blocks
-   constexpr name linkauth_proposal_name     = "prop2"_n;
+   constexpr name linkauth_proposal_name  = "prop2"_n;
    propose_approve_msig_linkauth_trx(chain, linkauth_proposal_name, "third"_n, {{ "tester"_n, config::active_name }}, 10);
 
    chain.produce_blocks();
@@ -1482,7 +1407,7 @@ BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
 
    gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
    BOOST_CHECK_EQUAL(0u, gen_size);
-} FC_LOG_AND_RETHROW() }
+} FC_LOG_AND_RETHROW() } /// canceldelay_test
 
 // test canceldelay action under different permission levels
 BOOST_AUTO_TEST_CASE( canceldelay_test2 ) { try {
@@ -1561,7 +1486,7 @@ BOOST_AUTO_TEST_CASE( canceldelay_test2 ) { try {
       BOOST_REQUIRE_EXCEPTION( chain.push_transaction(trx), unsatisfied_authorization,
                                fc_exception_message_starts_with("transaction declares authority") );
    }
-} FC_LOG_AND_RETHROW() }
+} FC_LOG_AND_RETHROW() } /// canceldelay_test2
 
 BOOST_AUTO_TEST_CASE( max_transaction_delay_create ) { try {
    //assuming max transaction delay is 45 days (default in config.hpp)
@@ -1640,5 +1565,24 @@ BOOST_AUTO_TEST_CASE( max_transaction_delay_execute ) { try {
    BOOST_REQUIRE_EQUAL(asset::from_string("91.0000 CUR"), liquid_balance);
 
 } FC_LOG_AND_RETHROW() } /// max_transaction_delay_execute
+
+BOOST_AUTO_TEST_CASE( test_blockchain_params_enabled ) { try {
+   //since validation_tester activates all features here we will test how setparams works without
+   //blockchain_parameters enabled
+   tester chain( setup_policy::preactivate_feature_and_new_bios );
+
+   //change max_transaction_delay to 60 sec
+   auto params = chain.control->get_global_properties().configuration;
+   params.max_transaction_delay = 60;
+   chain.push_action(config::system_account_name,
+                     "setparams"_n,
+                     config::system_account_name,
+                     mutable_variant_object()("params", params) );
+
+   BOOST_CHECK_EQUAL(chain.control->get_global_properties().configuration.max_transaction_delay, 60u);
+
+   chain.produce_blocks();
+
+} FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()
