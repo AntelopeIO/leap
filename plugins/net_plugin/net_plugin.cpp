@@ -4450,7 +4450,10 @@ namespace eosio {
    }
 
    void connections_manager::connect_supplied_peers(const string& p2p_address) {
-      for (const auto& peer : supplied_peers) {
+      std::unique_lock g(connections_mtx);
+      chain::flat_set<string> peers = supplied_peers;
+      g.unlock();
+      for (const auto& peer : peers) {
          resolve_and_connect(peer, p2p_address);
       }
    }
