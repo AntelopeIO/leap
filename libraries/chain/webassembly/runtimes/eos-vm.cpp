@@ -129,14 +129,19 @@ class eos_vm_instantiated_module : public wasm_instantiated_module_interface {
          _instantiated_module(std::move(mod)) {}
 
       void apply(apply_context& context) override {
-         // Reset execution context (reused per thread)
+         // set up backend to share the compiled mod in the instantiated
+         // module of the contract
+         _runtime->_bkend.share(*_instantiated_module);
+         // set exec ctx's mod to instantiated module's mod
          _runtime->_exec_ctx.set_module(&(_instantiated_module->get_module()));
-         _instantiated_module->set_context(&_runtime->_exec_ctx);
-         _instantiated_module->reset_max_call_depth();
-         _instantiated_module->reset_max_pages();
+         // link exe ctx to backend
+         _runtime->_bkend.set_context(&_runtime->_exec_ctx);
+         // set max_call_depth and max_pages to original values
+         _runtime->_bkend.reset_max_call_depth();
+         _runtime->_bkend.reset_max_pages();
+         // set wasm allocator per apply data
+         _runtime->_bkend.set_wasm_allocator(&context.control.get_wasm_allocator());
 
-         _instantiated_module->set_wasm_allocator(&context.control.get_wasm_allocator());
-         _runtime->_bkend = _instantiated_module.get();
          apply_options opts;
          if(context.control.is_builtin_activated(builtin_protocol_feature_t::configurable_wasm_limits)) {
             const wasm_config& config = context.control.get_global_properties().wasm_configuration;
@@ -144,8 +149,8 @@ class eos_vm_instantiated_module : public wasm_instantiated_module_interface {
          }
          auto fn = [&]() {
             eosio::chain::webassembly::interface iface(context);
-            _runtime->_bkend->initialize(&iface, opts);
-            _runtime->_bkend->call(
+            _runtime->_bkend.initialize(&iface, opts);
+            _runtime->_bkend.call(
                 iface, "env", "apply",
                 context.get_receiver().to_uint64_t(),
                 context.get_action().account.to_uint64_t(),
@@ -153,7 +158,7 @@ class eos_vm_instantiated_module : public wasm_instantiated_module_interface {
          };
          try {
             checktime_watchdog wd(context.trx_context.transaction_timer);
-            _runtime->_bkend->timed_run(wd, fn);
+            _runtime->_bkend.timed_run(wd, fn);
          } catch(eosio::vm::timeout_exception&) {
             context.trx_context.checktime();
          } catch(eosio::vm::wasm_memory_exception& e) {
@@ -161,7 +166,6 @@ class eos_vm_instantiated_module : public wasm_instantiated_module_interface {
          } catch(eosio::vm::exception& e) {
             FC_THROW_EXCEPTION(wasm_execution_error, "eos-vm system failure");
          }
-         _runtime->_bkend = nullptr;
       }
 
    private:
@@ -282,6 +286,10 @@ std::unique_ptr<wasm_instantiated_module_interface> eos_vm_profile_runtime::inst
 }
 #endif
 
+template<typename Impl>
+thread_local eos_vm_runtime<Impl>::context_t eos_vm_runtime<Impl>::_exec_ctx;
+template<typename Impl>
+thread_local eos_vm_backend_t<Impl> eos_vm_runtime<Impl>::_bkend;
 }
 
 template <auto HostFunction, typename... Preconditions>
@@ -357,6 +365,7 @@ REGISTER_LEGACY_HOST_FUNCTION(get_blockchain_parameters_packed, privileged_check
 REGISTER_LEGACY_HOST_FUNCTION(set_blockchain_parameters_packed, privileged_check);
 REGISTER_HOST_FUNCTION(is_privileged, privileged_check);
 REGISTER_HOST_FUNCTION(set_privileged, privileged_check);
+REGISTER_HOST_FUNCTION(set_finalizers, privileged_check);
 
 // softfloat api
 REGISTER_INJECTED_HOST_FUNCTION(_eosio_f32_add);

@@ -40,7 +40,6 @@ namespace eosio { namespace chain {
    class account_object;
    class deep_mind_handler;
    class subjective_billing;
-   class wasm_interface_collection;
    using resource_limits::resource_limits_manager;
    using apply_handler = std::function<void(apply_context&)>;
    using forked_branch_callback = std::function<void(const branch_type&)>;
@@ -293,8 +292,8 @@ namespace eosio { namespace chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
-         void set_finalizers( const finalizer_set& fin_set );
-         const finalizer_set& get_finalizers() const;
+         // called by host function set_finalizers
+         void set_proposed_finalizers( const finalizer_set& fin_set );
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;
@@ -344,7 +343,7 @@ namespace eosio { namespace chain {
          signal<void(const int&)>                      bad_alloc;
 
          const apply_handler* find_apply_handler( account_name contract, scope_name scope, action_name act )const;
-         wasm_interface_collection& get_wasm_interface();
+         wasm_interface& get_wasm_interface();
 
       static chain_id_type extract_chain_id(snapshot_reader& snapshot);
 

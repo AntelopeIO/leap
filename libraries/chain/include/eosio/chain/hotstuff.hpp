@@ -10,7 +10,8 @@
 
 namespace eosio::chain {
 
-   using hs_bitset = boost::dynamic_bitset<uint32_t>;
+   using hs_bitset = boost::dynamic_bitset<uint8_t>;
+   using bls_key_map_t = std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key>;
 
    static digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc){
       digest_type h1 = digest_type::hash( std::make_pair( block_id, phase_counter ) );
@@ -65,7 +66,7 @@ namespace eosio::chain {
 
    struct hs_vote_message {
       fc::sha256                          proposal_id; //vote on proposal
-      name                                finalizer;
+      fc::crypto::blslib::bls_public_key  finalizer_key;
       fc::crypto::blslib::bls_signature   sig;
    };
 
@@ -96,6 +97,13 @@ namespace eosio::chain {
    };
 
    using hs_message = std::variant<hs_vote_message, hs_proposal_message, hs_new_block_message, hs_new_view_message>;
+
+   enum class hs_message_warning {
+      discarded,               // default code for dropped messages (irrelevant, redundant, ...)
+      duplicate_signature,     // same message signature already seen
+      invalid_signature,       // invalid message signature
+      invalid                  // invalid message (other reason)
+   };
 
    struct finalizer_state {
       bool chained_mode = false;
@@ -131,7 +139,7 @@ namespace eosio::chain {
 FC_REFLECT(eosio::chain::view_number, (_block_height)(_phase_counter));
 FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
-FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer)(sig));
+FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer_key)(sig));
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::chain::hs_new_block_message, (block_id)(justify));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));

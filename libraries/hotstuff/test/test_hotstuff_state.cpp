@@ -36,8 +36,8 @@ BOOST_AUTO_TEST_CASE(write_safety_state_to_file) try {
 
   eosio::hotstuff::safety_state ss;
 
-  ss.set_v_height(eosio::chain::name{""}, v_height);
-  ss.set_b_lock(eosio::chain::name{""}, b_lock);
+  ss.set_v_height(fc::crypto::blslib::bls_public_key{}, v_height);
+  ss.set_b_lock(fc::crypto::blslib::bls_public_key{}, b_lock);
   
   eosio::hotstuff::write_state(file_path_1, ss);
 
@@ -73,8 +73,8 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
 
   //std::pair<eosio::chain::view_number, fc::sha256> ss = get_safety_state(eosio::chain::name{""});
 
-  bool ok1 = ss.get_v_height(eosio::chain::name{""}) == v_height;
-  bool ok2 = ss.get_b_lock(eosio::chain::name{""}) == b_lock;
+  bool ok1 = ss.get_v_height(fc::crypto::blslib::bls_public_key{}) == v_height;
+  bool ok2 = ss.get_b_lock(fc::crypto::blslib::bls_public_key{}) == b_lock;
 
   BOOST_CHECK_EQUAL(ok1, true);
   BOOST_CHECK_EQUAL(ok2, true);

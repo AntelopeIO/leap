@@ -26,8 +26,8 @@
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
-#include <eosio/chain/wasm_interface_collection.hpp>
 #include <eosio/chain/finalizer_set.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 
 #include <chainbase/chainbase.hpp>
 #include <eosio/vm/allocator.hpp>
@@ -257,7 +257,7 @@ struct controller_impl {
 #if defined(EOSIO_EOS_VM_RUNTIME_ENABLED) || defined(EOSIO_EOS_VM_JIT_RUNTIME_ENABLED)
    thread_local static vm::wasm_allocator wasm_alloc; // a copy for main thread and each read-only thread
 #endif
-   wasm_interface_collection wasm_if_collect;
+   wasm_interface wasmif;
    app_window_type app_window = app_window_type::write;
 
    typedef pair<scope_name,action_name>                   handler_key;
@@ -318,7 +318,7 @@ struct controller_impl {
     chain_id( chain_id ),
     read_mode( cfg.read_mode ),
     thread_pool(),
-    wasm_if_collect( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
+    wasmif( conf.wasm_runtime, conf.eosvmoc_tierup, db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty() )
    {
       fork_db.open( [this]( block_timestamp_type timestamp,
                             const flat_set<digest_type>& cur_features,
@@ -346,7 +346,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::instant_finality>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
-         wasm_if_collect.current_lib(bsp->block_num);
+         wasmif.current_lib(bsp->block_num);
       });
 
 
@@ -1904,6 +1904,18 @@ struct controller_impl {
 
       block_ptr->transactions = std::move( bb._pending_trx_receipts );
 
+      if (bb._pending_block_header_state.proposed_finalizer_set) {
+         // proposed_finalizer_set can't be set until builtin_protocol_feature_t::instant_finality activated
+         finalizer_set& fin_set = *bb._pending_block_header_state.proposed_finalizer_set;
+         ++bb._pending_block_header_state.last_proposed_finalizer_set_generation;
+         fin_set.generation = bb._pending_block_header_state.last_proposed_finalizer_set_generation;
+         emplace_extension(
+                 block_ptr->header_extensions,
+                 hs_finalizer_set_extension::extension_id(),
+                 fc::raw::pack( hs_finalizer_set_extension{ std::move(fin_set) } )
+         );
+      }
+
       auto id = block_ptr->calculate_id();
 
       // Update TaPoS table:
@@ -1977,9 +1989,11 @@ struct controller_impl {
       pending->push();
    }
 
-   void set_finalizers_impl(const finalizer_set& fin_set) {
-      // TODO store in chainbase
-      current_finalizer_set = fin_set;
+   void set_proposed_finalizers(const finalizer_set& fin_set) {
+      assert(pending); // has to exist and be building_block since called from host function
+      auto& bb = std::get<building_block>(pending->_block_stage);
+
+      bb._pending_block_header_state.proposed_finalizer_set.emplace(fin_set);
    }
 
    /**
@@ -2695,20 +2709,26 @@ struct controller_impl {
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
    bool is_eos_vm_oc_enabled() const {
-      return wasm_if_collect.is_eos_vm_oc_enabled();
+      return wasmif.is_eos_vm_oc_enabled();
    }
 #endif
 
+   // Only called from read-only trx execution threads when producer_plugin
+   // starts them. Only OC requires initialize thread specific data.
    void init_thread_local_data() {
-      wasm_if_collect.init_thread_local_data(db, conf.state_dir, conf.eosvmoc_config, !conf.profile_accounts.empty());
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+      if ( is_eos_vm_oc_enabled() ) {
+         wasmif.init_thread_local_data();
+      }
+#endif
    }
 
-   wasm_interface_collection& get_wasm_interface() {
-      return wasm_if_collect;
+   wasm_interface& get_wasm_interface() {
+      return wasmif;
    }
 
    void code_block_num_last_used(const digest_type& code_hash, uint8_t vm_type, uint8_t vm_version, uint32_t block_num) {
-      wasm_if_collect.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
+      wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
    }
 
    block_state_ptr fork_db_head() const;
@@ -3289,12 +3309,8 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
    return version;
 }
 
-void controller::set_finalizers( const finalizer_set& fin_set ) {
-   my->set_finalizers_impl(fin_set);
-}
-
-const finalizer_set& controller::get_finalizers() const {
-   return my->current_finalizer_set;
+void controller::set_proposed_finalizers( const finalizer_set& fin_set ) {
+   my->set_proposed_finalizers(fin_set);
 }
 
 const producer_authority_schedule&    controller::active_producers()const {
@@ -3417,7 +3433,7 @@ const apply_handler* controller::find_apply_handler( account_name receiver, acco
    }
    return nullptr;
 }
-wasm_interface_collection& controller::get_wasm_interface() {
+wasm_interface& controller::get_wasm_interface() {
    return my->get_wasm_interface();
 }
 

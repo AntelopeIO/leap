@@ -1,4 +1,5 @@
 #include <eosio/hotstuff/chain_pacemaker.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 #include <iostream>
 
 // comment this out to remove the core profiler
@@ -100,21 +101,33 @@ namespace eosio { namespace hotstuff {
 #endif
 //===============================================================================================
 
-   chain_pacemaker::chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger)
+   chain_pacemaker::chain_pacemaker(controller* chain,
+                                    std::set<account_name> my_producers,
+                                    bls_key_map_t finalizer_keys,
+                                    fc::logger& logger)
       : _chain(chain),
-        _qc_chain("default"_n, this, std::move(my_producers), logger, DEFAULT_SAFETY_STATE_FILE),
+        _qc_chain("default", this, std::move(my_producers), std::move(finalizer_keys), logger, DEFAULT_SAFETY_STATE_FILE),
         _logger(logger)
    {
       _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
          on_accepted_block( blk );
       } );
+      _irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_state_ptr& blk ) {
+         on_irreversible_block( blk );
+      } );
       _head_block_state = chain->head_block_state();
    }
 
-   void chain_pacemaker::register_bcast_function(std::function<void(const chain::hs_message&)> broadcast_hs_message) {
+   void chain_pacemaker::register_bcast_function(std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> broadcast_hs_message) {
       FC_ASSERT(broadcast_hs_message, "on_hs_message must be provided");
-      std::lock_guard g( _hotstuff_global_mutex ); // not actually needed but doesn't hurt
+      // no need to std::lock_guard g( _hotstuff_global_mutex ); here since pre-comm init
       bcast_hs_message = std::move(broadcast_hs_message);
+   }
+
+   void chain_pacemaker::register_warn_function(std::function<void(const uint32_t, const chain::hs_message_warning&)> warning_hs_message) {
+      FC_ASSERT(warning_hs_message, "must provide callback");
+      // no need to std::lock_guard g( _hotstuff_global_mutex ); here since pre-comm init
+      warn_hs_message = std::move(warning_hs_message);
    }
 
    void chain_pacemaker::get_state(finalizer_state& fs) const {
@@ -211,8 +224,17 @@ namespace eosio { namespace hotstuff {
    void chain_pacemaker::on_accepted_block( const block_state_ptr& blk ) {
       std::scoped_lock g( _chain_state_mutex );
       _head_block_state = blk;
-      // TODO only update local cache if changed, check version or use !=
-      _finalizer_set = _chain->get_finalizers(); // TODO get from chainbase or from block_state
+   }
+
+   // called from main thread
+   void chain_pacemaker::on_irreversible_block( const block_state_ptr& blk ) {
+      if (!blk->block->header_extensions.empty()) {
+         std::optional<block_header_extension> ext = blk->block->extract_header_extension(hs_finalizer_set_extension::extension_id());
+         if (ext) {
+            std::scoped_lock g( _chain_state_mutex );
+            _active_finalizer_set = std::move(std::get<hs_finalizer_set_extension>(*ext));
+         }
+      }
    }
 
    name chain_pacemaker::get_proposer() {
@@ -244,34 +266,8 @@ namespace eosio { namespace hotstuff {
       return n;
    }
 
-   std::vector<name> chain_pacemaker::get_finalizers() {
-
-#warning FIXME: Use new finalizer list in pacemaker/qc_chain.
-      // Every time qc_chain wants to know what the finalizers are, we get it from the controller, which
-      //   is where it's currently stored.
-      //
-      // TODO:
-      // - solve threading. for this particular case, I don't think using _chain-> is a big deal really;
-      //   set_finalizers is called once in a blue moon, and this could be solved by a simple mutex even
-      //   if it is the main thread that is waiting for a lock. But maybe there's a better way to do this
-      //   overall.
-      // - use this information in qc_chain and delete the old code below
-      // - list of string finalizer descriptions instead of eosio name now
-      // - also return the keys for each finalizer, not just name/description so qc_chain can use them
-      //
-      std::unique_lock g( _chain_state_mutex );
-      const auto& fin_set = _chain->get_finalizers(); // TODO use
-      block_state_ptr hbs = _head_block_state;
-      g.unlock();
-
-      // Old code: get eosio::name from the producer schedule
-      const std::vector<producer_authority>& pa_list = hbs->active_schedule.producers;
-      std::vector<name> pn_list;
-      pn_list.reserve(pa_list.size());
-      std::transform(pa_list.begin(), pa_list.end(),
-                     std::back_inserter(pn_list),
-                     [](const producer_authority& p) { return p.producer_name; });
-      return pn_list;
+   const finalizer_set& chain_pacemaker::get_finalizer_set(){
+      return _active_finalizer_set;
    }
 
    block_id_type chain_pacemaker::get_current_block_id() {
@@ -292,65 +288,70 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, name id) {
-      bcast_hs_message(msg);
+   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
+      bcast_hs_message(exclude_peer, msg);
    }
 
-   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, name id) {
-      bcast_hs_message(msg);
+   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
+      bcast_hs_message(exclude_peer, msg);
    }
 
-   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, name id) {
-      bcast_hs_message(msg);
+   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
+      bcast_hs_message(exclude_peer, msg);
    }
 
-   void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, name id) {
-      bcast_hs_message(msg);
+   void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
+      bcast_hs_message(exclude_peer, msg);
+   }
+
+   void chain_pacemaker::send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code) {
+      warn_hs_message(sender_peer, code);
+
    }
 
    // called from net threads
-   void chain_pacemaker::on_hs_msg(const eosio::chain::hs_message &msg) {
+   void chain_pacemaker::on_hs_msg(const uint32_t connection_id, const eosio::chain::hs_message &msg) {
       std::visit(overloaded{
-              [this](const hs_vote_message& m) { on_hs_vote_msg(m); },
-              [this](const hs_proposal_message& m) { on_hs_proposal_msg(m); },
-              [this](const hs_new_block_message& m) { on_hs_new_block_msg(m); },
-              [this](const hs_new_view_message& m) { on_hs_new_view_msg(m); },
+            [this, connection_id](const hs_vote_message& m) { on_hs_vote_msg(connection_id, m); },
+            [this, connection_id](const hs_proposal_message& m) { on_hs_proposal_msg(connection_id, m); },
+            [this, connection_id](const hs_new_block_message& m) { on_hs_new_block_msg(connection_id, m); },
+            [this, connection_id](const hs_new_view_message& m) { on_hs_new_view_msg(connection_id, m); },
       }, msg);
    }
 
    // called from net threads
-   void chain_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg) {
+   void chain_pacemaker::on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg) {
       csc prof("prop");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
-      _qc_chain.on_hs_proposal_msg(msg);
+      _qc_chain.on_hs_proposal_msg(connection_id, msg);
       prof.core_out();
    }
 
    // called from net threads
-   void chain_pacemaker::on_hs_vote_msg(const hs_vote_message& msg) {
+   void chain_pacemaker::on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg) {
       csc prof("vote");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
-      _qc_chain.on_hs_vote_msg(msg);
+      _qc_chain.on_hs_vote_msg(connection_id, msg);
       prof.core_out();
    }
 
    // called from net threads
-   void chain_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg) {
+   void chain_pacemaker::on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg) {
       csc prof("nblk");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
-      _qc_chain.on_hs_new_block_msg(msg);
+      _qc_chain.on_hs_new_block_msg(connection_id, msg);
       prof.core_out();
    }
 
    // called from net threads
-   void chain_pacemaker::on_hs_new_view_msg(const hs_new_view_message& msg) {
+   void chain_pacemaker::on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg) {
       csc prof("view");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
-      _qc_chain.on_hs_new_view_msg(msg);
+      _qc_chain.on_hs_new_view_msg(connection_id, msg);
       prof.core_out();
    }
 

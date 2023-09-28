@@ -519,6 +519,7 @@ public:
 
    using signature_provider_type = signature_provider_plugin::signature_provider_type;
    std::map<chain::public_key_type, signature_provider_type> _signature_providers;
+   bls_key_map_t                                             _finalizer_keys;
    std::set<chain::account_name>                             _producers;
    boost::asio::deadline_timer                               _timer;
    block_timing_util::producer_watermarks            _producer_watermarks;
@@ -617,9 +618,13 @@ public:
    };
 
    uint32_t _ro_thread_pool_size{0};
-   // Due to uncertainty to get total virtual memory size on a 5-level paging system for eos-vm-oc and
-   // possible memory exhuastion for large number of contract usage for non-eos-vm-oc, set a hard limit
-   static constexpr uint32_t         _ro_max_threads_allowed{8};
+   // In EOS VM OC tierup, 10 pages (11 slices) virtual memory is reserved for
+   // each read-only thread and 528 pages (529 slices) for the main-thread memory.
+   // With maximum 128 read-only threads, virtual memory required by OC is
+   // 15TB (OC's main thread uses 4TB VM (by 529 slices) and the read-only
+   // threads use 11TB (128 * 11 * 8GB)). It is about 11.7% of total VM space
+   // in a 64-bit Linux machine (about 128TB).
+   static constexpr uint32_t         _ro_max_threads_allowed{128};
    named_thread_pool<struct read>    _ro_thread_pool;
    fc::microseconds                  _ro_write_window_time_us{200000};
    fc::microseconds                  _ro_read_window_time_us{60000};
@@ -1136,8 +1141,16 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
       const std::vector<std::string> key_spec_pairs = options["signature-provider"].as<std::vector<std::string>>();
       for (const auto& key_spec_pair : key_spec_pairs) {
          try {
-            const auto& [pubkey, provider] = app().get_plugin<signature_provider_plugin>().signature_provider_for_specification(key_spec_pair);
-            _signature_providers[pubkey] = provider;
+            const auto v = app().get_plugin<signature_provider_plugin>().signature_provider_for_specification(key_spec_pair);
+            if (v) {
+               const auto& [pubkey, provider] = *v;
+               _signature_providers[pubkey] = provider;
+            }
+            const auto bls = app().get_plugin<signature_provider_plugin>().bls_public_key_for_specification(key_spec_pair);
+            if (bls) {
+               const auto& [pubkey, privkey] = *bls;
+               _finalizer_keys[pubkey] = privkey;
+            }
          } catch(secure_enclave_exception& e) {
             elog("Error with Secure Enclave signature provider: ${e}; ignoring ${val}", ("e", e.top_message())("val", key_spec_pair));
          } catch (fc::exception& e) {
@@ -1358,7 +1371,8 @@ void producer_plugin_impl::plugin_startup() {
          EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
                     "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
 
-         chain_plug->create_pacemaker(_producers);
+         chain_plug->create_pacemaker(_producers, std::move(_finalizer_keys));
+         _finalizer_keys.clear();
 
          _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
          _accepted_block_header_connection.emplace(chain.accepted_block_header.connect([this](const auto& bsp) { on_block_header(bsp); }));

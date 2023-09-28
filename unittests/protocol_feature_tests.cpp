@@ -1929,4 +1929,68 @@ BOOST_AUTO_TEST_CASE( set_parameters_packed_test ) { try {
                        c.error("alice does not have permission to call this API"));
 } FC_LOG_AND_RETHROW() }
 
+static const char import_set_finalizers_wast[] = R"=====(
+(module
+ (import "env" "set_finalizers" (func $set_finalizers (param i32 i32)))
+ (memory $0 1)
+ (export "apply" (func $apply))
+ (func $apply (param $0 i64) (param $1 i64) (param $2 i64)
+   (call $set_finalizers
+         (i32.const 0)
+         (i32.const 4)
+   )
+ )
+ (data (i32.const 0) "\00\00\00\00")
+)
+)=====";
+
+BOOST_AUTO_TEST_CASE( set_finalizers_test ) { try {
+   tester c( setup_policy::preactivate_feature_and_new_bios );
+
+   const auto alice_account = account_name("alice");
+   c.create_accounts( {alice_account} );
+   c.produce_block();
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d = pfm.get_builtin_digest(builtin_protocol_feature_t::instant_finality);
+   BOOST_REQUIRE(d);
+
+   BOOST_CHECK_EXCEPTION(  c.set_code( config::system_account_name, import_set_finalizers_wast ),
+                           wasm_exception,
+                           fc_exception_message_is( "env.set_finalizers unresolveable" ) );
+
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+
+   // ensure it now resolves
+   c.set_code( config::system_account_name, import_set_finalizers_wast );
+
+   // ensure it can be called
+   auto action_priv = action( {//vector of permission_level
+                                 { config::system_account_name,
+                                    permission_name("active") }
+                              },
+                              config::system_account_name,
+                              action_name(),
+                              {} );
+   // if able to call then will get error on unpacking field `fthreshold`, top message of: 'read datastream of length 4 over by -3'
+   base_tester::action_result r = c.push_action(std::move(action_priv), config::system_account_name.to_uint64_t());
+   BOOST_CHECK(r.find("read datastream of length 4 over by -3") != std::string::npos);
+
+   c.produce_block();
+
+
+   c.set_code( alice_account, import_set_finalizers_wast );
+   auto action_non_priv = action( {//vector of permission_level
+                                    { alice_account,
+                                      permission_name("active") }
+                                  },
+                                  alice_account,
+                                  action_name(),
+                                  {} );
+   //ensure privileged host function cannot be called by regular account
+   BOOST_REQUIRE_EQUAL(c.push_action(std::move(action_non_priv), alice_account.to_uint64_t()),
+                       c.error("alice does not have permission to call this API"));
+} FC_LOG_AND_RETHROW() }
+
 BOOST_AUTO_TEST_SUITE_END()

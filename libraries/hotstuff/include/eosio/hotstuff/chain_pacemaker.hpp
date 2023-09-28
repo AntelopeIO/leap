@@ -3,8 +3,6 @@
 #include <eosio/hotstuff/base_pacemaker.hpp>
 #include <eosio/hotstuff/qc_chain.hpp>
 
-#include <eosio/chain/finalizer_set.hpp>
-
 #include <boost/signals2/connection.hpp>
 
 #include <shared_mutex>
@@ -21,13 +19,17 @@ namespace eosio::hotstuff {
    public:
 
       //class-specific functions
-   
-      chain_pacemaker(controller* chain, std::set<account_name> my_producers, fc::logger& logger);
-      void register_bcast_function(std::function<void(const chain::hs_message&)> broadcast_hs_message);
+
+      chain_pacemaker(controller* chain,
+                      std::set<account_name> my_producers,
+                      chain::bls_key_map_t finalizer_keys,
+                      fc::logger& logger);
+      void register_bcast_function(std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> broadcast_hs_message);
+      void register_warn_function(std::function<void(const uint32_t, const chain::hs_message_warning&)> warning_hs_message);
 
       void beat();
 
-      void on_hs_msg(const hs_message& msg);
+      void on_hs_msg(const uint32_t connection_id, const hs_message& msg);
 
       void get_state(finalizer_state& fs) const;
 
@@ -36,24 +38,27 @@ namespace eosio::hotstuff {
       name get_proposer();
       name get_leader() ;
       name get_next_leader() ;
-      std::vector<name> get_finalizers();
+      const finalizer_set&  get_finalizer_set();
 
       block_id_type get_current_block_id();
 
       uint32_t get_quorum_threshold();
 
-      void send_hs_proposal_msg(const hs_proposal_message& msg, name id);
-      void send_hs_vote_msg(const hs_vote_message& msg, name id);
-      void send_hs_new_view_msg(const hs_new_view_message& msg, name id);
-      void send_hs_new_block_msg(const hs_new_block_message& msg, name id);
+      void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+      void send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+      void send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+      void send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+
+      void send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code);
 
    private:
       void on_accepted_block( const block_state_ptr& blk );
+      void on_irreversible_block( const block_state_ptr& blk );
 
-      void on_hs_proposal_msg(const hs_proposal_message& msg); //consensus msg event handler
-      void on_hs_vote_msg(const hs_vote_message& msg); //confirmation msg event handler
-      void on_hs_new_view_msg(const hs_new_view_message& msg); //new view msg event handler
-      void on_hs_new_block_msg(const hs_new_block_message& msg); //new block msg event handler
+      void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg); //consensus msg event handler
+      void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg); //confirmation msg event handler
+      void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg); //new view msg event handler
+      void on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg); //new block msg event handler
    private:
 
       //FIXME/REMOVE: for testing/debugging only
@@ -76,12 +81,14 @@ namespace eosio::hotstuff {
 
       mutable std::mutex                 _chain_state_mutex;
       block_state_ptr                    _head_block_state;
-      finalizer_set                      _finalizer_set;
+      finalizer_set                      _active_finalizer_set;
 
       boost::signals2::scoped_connection _accepted_block_connection;
+      boost::signals2::scoped_connection _irreversible_block_connection;
 
       qc_chain                _qc_chain;
-      std::function<void(const chain::hs_message&)> bcast_hs_message;
+      std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> bcast_hs_message;
+      std::function<void(const uint32_t, const chain::hs_message_warning&)> warn_hs_message;
 
       uint32_t                _quorum_threshold = 15; //FIXME/TODO: calculate from schedule
       fc::logger&             _logger;
