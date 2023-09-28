@@ -4,6 +4,7 @@
 #include <fc/crypto/hmac.hpp>
 #include <fc/crypto/openssl.hpp>
 #include <fc/crypto/sha512.hpp>
+#include <fc/crypto/rand.hpp>
 
 #include <fc/fwd_impl.hpp>
 #include <fc/exception/exception.hpp>
@@ -85,7 +86,7 @@ namespace fc { namespace ecc {
     {
        private_key ret;
        do {
-         RAND_bytes((uint8_t*)ret.my->_key.data(), ret.my->_key.data_size());
+         rand_bytes(ret.my->_key.data(), ret.my->_key.data_size());
        } while(!secp256k1_ec_seckey_verify(detail::_get_context(), (const uint8_t*)ret.my->_key.data()));
        return ret;
     }
