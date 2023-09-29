@@ -339,6 +339,8 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
+      set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_1>();
+      set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
          wasmif.current_lib(bsp->block_num);
@@ -3833,6 +3835,20 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_map" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_mod" );
    } );
+}
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred_trxs_stage_1>() {
+   ; // nothing to do at activation
+}
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>() {
+   const auto& idx = db.get_index<generated_transaction_multi_index, by_trx_id>();
+   // remove all deferred trxs and refund their payers
+   for( auto itr = idx.begin(); itr != idx.end(); itr = idx.begin() ) {
+      remove_scheduled_transaction(*itr);
+   }
 }
 
 /// End of protocol feature activation handlers
