@@ -1227,6 +1227,17 @@ namespace eosio { namespace testing {
 
       std::vector<builtin_protocol_feature_t> ordered_builtins;
       for( const auto& f : builtin_protocol_feature_codenames ) {
+         // Before deferred trxs feature is fully disabled, existing tests involving
+         // deferred trxs need to be exercised to make sure existing behaviors are
+         // maintained. Excluding DISABLE_DEFERRED_TRXS_STAGE_1 and DISABLE_DEFERRED_TRXS_STAGE_2
+         // from full protocol feature list such that existing tests can run.
+         // Remove the following exclusion once eferred trxs feature is fully disabled
+         // and tests are adapted.
+         std::string codename = f.second.codename;
+         if( codename.compare( "DISABLE_DEFERRED_TRXS_STAGE_1" ) == 0 || codename.compare( "DISABLE_DEFERRED_TRXS_STAGE_2" ) == 0 ) {
+            continue;
+         }
+
          ordered_builtins.push_back( f.first );
       }
       std::sort( ordered_builtins.begin(), ordered_builtins.end() );
