@@ -73,7 +73,9 @@ class session : public std::enable_shared_from_this<session> {
       req_.set(http::field::host, host);
       req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
       req_.set(http::field::content_type, content_type);
+      req_.set(http::field::connection, "close");
       req_.body() = std::move(request_body);
+      req_.keep_alive(false);
       req_.prepare_payload();
 
       // Look up the domain name
@@ -129,16 +131,12 @@ class session : public std::enable_shared_from_this<session> {
    void on_read(beast::error_code ec, std::size_t bytes_transferred) {
       boost::ignore_unused(bytes_transferred);
 
-      if (ec) {
-         response_callback_(ec, {});
-         return fail(ec, "read");
-      }
-
       // Write the response message to the callback
       response_callback_(ec, res_);
 
       // Gracefully close the socket
       stream_.socket().shutdown(tcp::socket::shutdown_both, ec);
+      stream_.close();
 
       // not_connected happens sometimes so don't bother reporting it.
       if (ec && ec != beast::errc::not_connected)
