@@ -13,9 +13,9 @@ namespace eosio::chain {
    using hs_bitset = boost::dynamic_bitset<uint8_t>;
    using bls_key_map_t = std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key>;
 
-   static digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc){
-      digest_type h1 = digest_type::hash( std::make_pair( block_id, phase_counter ) );
-      digest_type h2 = digest_type::hash( std::make_pair( h1, final_on_qc ) );
+   inline digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc) {
+      digest_type h1 = digest_type::hash( std::make_pair( std::cref(block_id), phase_counter ) );
+      digest_type h2 = digest_type::hash( std::make_pair( std::cref(h1), std::cref(final_on_qc) ) );
       return h2;
    }
 
@@ -24,33 +24,18 @@ namespace eosio::chain {
    }
 
    struct view_number {
-      view_number() : _block_height(0), _phase_counter(0) {}
-      explicit view_number(std::pair<uint32_t, uint8_t> data) :
-         _block_height(data.first),
-         _phase_counter(data.second)
-      {
-      }
-      
-      explicit view_number(uint32_t block_height, uint8_t phase_counter) :
-         _block_height(block_height),
-         _phase_counter(phase_counter)
-      {
-      }
-
+      view_number() : bheight(0), pcounter(0) {}
+      explicit view_number(uint32_t block_height, uint8_t phase_counter) : bheight(block_height), pcounter(phase_counter) {}
       auto operator<=>(const view_number&) const = default;
 
-      uint32_t block_height() const  { return _block_height; }
-      uint8_t  phase_counter() const { return _phase_counter; }
+      uint32_t block_height() const { return bheight; }
+      uint8_t phase_counter() const { return pcounter; }
+      uint64_t to_uint64_t() const { return compute_height(bheight, pcounter); }
+      std::string to_string() const { return std::to_string(bheight) + "::" + std::to_string(pcounter); }
+      uint64_t get_key() const { return to_uint64_t(); }
 
-      uint64_t    to_uint64_t() const { return compute_height(_block_height, _phase_counter);   }
-      std::string to_string()   const { return std::to_string(_block_height) + "::" + std::to_string(_phase_counter); }
-
-      uint64_t get_key() const { return get_view_number().to_uint64_t(); };
-
-      view_number get_view_number() const { return view_number{ block_height(), phase_counter() }; };
-
-      uint32_t _block_height;
-      uint8_t  _phase_counter;
+      uint32_t bheight;
+      uint8_t pcounter;
    };
 
    struct extended_schedule {
@@ -83,8 +68,7 @@ namespace eosio::chain {
       uint32_t block_num() const { return block_header::num_from_id(block_id); }
       uint64_t get_key() const { return compute_height(block_header::num_from_id(block_id), phase_counter); };
 
-      view_number get_view_number() const { return view_number(std::make_pair(block_header::num_from_id(block_id), phase_counter)); };
-
+      view_number get_view_number() const { return view_number(block_header::num_from_id(block_id), phase_counter); };
    };
 
    struct hs_new_block_message {
@@ -127,16 +111,10 @@ namespace eosio::chain {
       }
    };
 
-   
-   using hs_proposal_message_ptr = std::shared_ptr<hs_proposal_message>;
-   using hs_vote_message_ptr = std::shared_ptr<hs_vote_message>;
-   using hs_new_view_message_ptr = std::shared_ptr<hs_new_view_message>;
-   using hs_new_block_message_ptr = std::shared_ptr<hs_new_block_message>;
-
 } //eosio::chain
 
 
-FC_REFLECT(eosio::chain::view_number, (_block_height)(_phase_counter));
+FC_REFLECT(eosio::chain::view_number, (bheight)(pcounter));
 FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer_key)(sig));

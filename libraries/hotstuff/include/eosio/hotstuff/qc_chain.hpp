@@ -32,38 +32,59 @@
 
 namespace eosio::hotstuff {
 
+   template<typename StateObjectType> class state_db_manager {
+   public:
+      static bool read(fc::cfile& pfile, StateObjectType& sobj) {
+         if (!pfile.is_open())
+            return false;
+         pfile.seek_end(0);
+         if (pfile.tellp() <= 0)
+            return false;
+         pfile.seek(0);
+         auto datastream = pfile.create_datastream();
+         StateObjectType read_sobj;
+         try {
+            fc::raw::unpack(datastream, read_sobj);
+            sobj = std::move(read_sobj);
+            return true;
+         } catch (...) {
+            return false;
+         }
+      }
+      static bool write(fc::cfile& pfile, const StateObjectType& sobj) {
+         if (!pfile.is_open())
+            return false;
+         pfile.seek(0);
+         pfile.truncate();
+         auto data = fc::raw::pack(sobj);
+         pfile.write(data.data(), data.size());
+         pfile.flush();
+         return true;
+      }
+      static bool read(const std::string& file_path, StateObjectType& sobj) {
+         if (!std::filesystem::exists(file_path))
+            return false;
+         fc::cfile pfile;
+         pfile.set_file_path(file_path);
+         pfile.open("rb");
+         bool result = read(pfile, sobj);
+         pfile.close();
+         return result;
+      }
+      static bool write(const std::string& file_path, const StateObjectType& sobj) {
+         fc::cfile pfile;
+         pfile.set_file_path(file_path);
+         pfile.open(fc::cfile::truncate_rw_mode);
+         bool result = write(pfile, sobj);
+         pfile.close();
+         return result;
+      }
+   };
+
    using boost::multi_index_container;
    using namespace boost::multi_index;
    using namespace eosio::chain;
 
-   template <typename StateObj>
-   static void read_state(const std::string file_path, StateObj& s){
-
-      if (file_path != std::string()){
-         fc::cfile pfile;
-         pfile.set_file_path(file_path);
-         pfile.open("rb");
-         auto ds = pfile.create_datastream();
-         fc::raw::unpack(ds, s);
-         pfile.close();
-      }
-      
-   }
-
-   template <typename StateObj>
-   static void write_state(const std::string file_path, const StateObj s){
-
-      if (file_path != std::string()){
-        fc::cfile pfile;
-        pfile.set_file_path(file_path);
-        pfile.open(fc::cfile::truncate_rw_mode);
-        auto data = fc::raw::pack(s);
-        pfile.write(data.data(), data.size());
-        pfile.close();
-      }
-
-   }
-   
    class quorum_certificate {
    public:
       explicit quorum_certificate(size_t finalizer_size = 0) {
@@ -154,6 +175,8 @@ namespace eosio::hotstuff {
 
    private:
 
+      void write_safety_state_file();
+
       const hs_proposal_message* get_proposal(const fc::sha256& proposal_id); // returns nullptr if not found
 
       // returns false if proposal with that same ID already exists at the store of its height
@@ -162,8 +185,6 @@ namespace eosio::hotstuff {
       uint32_t positive_bits_count(const hs_bitset& finalizers);
 
       hs_bitset update_bitset(const hs_bitset& finalizer_set, const fc::crypto::blslib::bls_public_key& finalizer_key);
-
-      //digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc); //get digest to sign from proposal data
 
       void reset_qc(const fc::sha256& proposal_id);
 
@@ -229,7 +250,6 @@ namespace eosio::hotstuff {
       safety_state _safety_state;
       fc::sha256 _b_leaf;
       fc::sha256 _b_exec;
-      std::string _safety_state_file;
       fc::sha256 _b_finality_violation;
       quorum_certificate _high_qc;
       quorum_certificate _current_qc;
@@ -237,6 +257,9 @@ namespace eosio::hotstuff {
       std::set<name> _my_producers;
       chain::bls_key_map_t _my_finalizer_keys;
       std::string _id;
+
+      std::string _safety_state_file; // if empty, safety state persistence is turned off
+      fc::cfile _safety_state_file_handle;
 
       mutable std::atomic<uint64_t> _state_version = 1;
 

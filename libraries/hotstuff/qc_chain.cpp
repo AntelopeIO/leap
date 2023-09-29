@@ -4,6 +4,14 @@
 
 namespace eosio::hotstuff {
 
+   void qc_chain::write_safety_state_file() {
+      if (_safety_state_file.empty())
+         return;
+      if (!_safety_state_file_handle.is_open())
+         _safety_state_file_handle.open(fc::cfile::create_or_update_rw_mode);
+      state_db_manager<safety_state>::write(_safety_state_file_handle, _safety_state);
+   }
+
    const hs_proposal_message* qc_chain::get_proposal(const fc::sha256& proposal_id) {
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       if (proposal_id == NULL_PROPOSAL_ID)
@@ -219,14 +227,14 @@ namespace eosio::hotstuff {
         _my_producers(std::move(my_producers)),
         _my_finalizer_keys(std::move(finalizer_keys)),
         _id(std::move(id)),
+        _safety_state_file(safety_state_file),
         _logger(logger)
    {
-
       //todo : read liveness state / select initialization heuristics ?
 
-      if (safety_state_file!=std::string() && std::filesystem::exists(safety_state_file)){
-         eosio::hotstuff::read_state(safety_state_file, _safety_state);
-         _safety_state_file = safety_state_file;
+      if (!_safety_state_file.empty()) {
+         _safety_state_file_handle.set_file_path(safety_state_file);
+         state_db_manager<safety_state>::read(_safety_state_file, _safety_state);
       }
 
       _high_qc.reset({}, 21); // TODO: use active schedule size
@@ -389,7 +397,7 @@ namespace eosio::hotstuff {
       //update internal state
       update(proposal);
 
-      write_state(_safety_state_file , _safety_state);
+      write_safety_state_file();
 
       for (auto &msg : msgs) {
          send_hs_vote_msg( std::nullopt, msg );

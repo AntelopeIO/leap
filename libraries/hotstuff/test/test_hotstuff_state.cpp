@@ -38,12 +38,14 @@ BOOST_AUTO_TEST_CASE(write_safety_state_to_file) try {
 
   ss.set_v_height(fc::crypto::blslib::bls_public_key{}, v_height);
   ss.set_b_lock(fc::crypto::blslib::bls_public_key{}, b_lock);
-  
-  eosio::hotstuff::write_state(file_path_1, ss);
 
-  bool ok = true;
+  BOOST_CHECK_EQUAL( eosio::hotstuff::state_db_manager<eosio::hotstuff::safety_state>::write(file_path_1, ss), true );
 
-  BOOST_CHECK_EQUAL(ok, true);
+  //fc::cfile pfile;
+  //pfile.set_file_path(file_path_1);
+  //pfile.open(fc::cfile::truncate_rw_mode);
+  //pfile.write("force garbage to fail read_safety_state_from_file", 20);
+  //pfile.close();
 
 } FC_LOG_AND_RETHROW();
 
@@ -51,7 +53,7 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
 
   eosio::hotstuff::safety_state ss;
 
-  eosio::hotstuff::read_state(file_path_1, ss);
+  BOOST_CHECK_EQUAL( eosio::hotstuff::state_db_manager<eosio::hotstuff::safety_state>::read(file_path_1, ss), true );
 
   std::remove(file_path_1.c_str());
 
@@ -81,6 +83,7 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
 
 } FC_LOG_AND_RETHROW();
 
+#warning TODO decide on liveness state file then implement it in qc_chain and then test it here
 /*BOOST_AUTO_TEST_CASE(write_liveness_state_to_file) try {
 
   eosio::hotstuff::hs_proposal_message hspm_1;
