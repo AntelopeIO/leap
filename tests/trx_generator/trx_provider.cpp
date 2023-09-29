@@ -35,8 +35,7 @@ namespace eosio::testing {
    }
 
    void provider_connection::init_and_connect() {
-      _connection_thread_pool.start(
-          1, [](const fc::exception& e) { elog("provider_connection exception ${e}", ("e", e)); });
+      _connection_thread_pool.start(1, {});
       connect();
    };
 

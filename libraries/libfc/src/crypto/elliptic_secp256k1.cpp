@@ -13,6 +13,8 @@
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
 
+#include <openssl/rand.h>
+
 #if _WIN32
 # include <malloc.h>
 #elif defined(__FreeBSD__)
@@ -78,6 +80,14 @@ namespace fc { namespace ecc {
       return fc::sha512::hash( serialized_result.begin() + 1, serialized_result.size() - 1 );
     }
 
+    private_key private_key::generate()
+    {
+       private_key ret;
+       do {
+         rand_bytes(ret.my->_key.data(), ret.my->_key.data_size());
+       } while(!secp256k1_ec_seckey_verify(detail::_get_context(), (const uint8_t*)ret.my->_key.data()));
+       return ret;
+    }
 
     public_key::public_key() {}
 
