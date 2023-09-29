@@ -96,13 +96,6 @@ Config Options for eosio::producer_plugin:
                                         consider block full; when within
                                         threshold of max-block-net-usage block
                                         can be produced immediately
-  --max-scheduled-transaction-time-per-block-ms arg (=100)
-                                        Maximum wall-clock time, in
-                                        milliseconds, spent retiring scheduled
-                                        transactions (and incoming transactions
-                                        according to incoming-defer-ratio) in
-                                        any block before returning to normal
-                                        transaction processing.
   --subjective-cpu-leeway-us arg (=31000)
                                         Time in microseconds allowed for a
                                         transaction that starts with
@@ -115,9 +108,6 @@ Config Options for eosio::producer_plugin:
   --subjective-account-decay-time-minutes arg (=1440)
                                         Sets the time to return full subjective
                                         cpu for accounts
-  --incoming-defer-ratio arg (=1)       ratio between incoming transactions and
-                                        deferred transactions when both are
-                                        queued for execution
   --incoming-transaction-queue-size-mb arg (=1024)
                                         Maximum size (in MiB) of the incoming
                                         transaction queue. Exceeding this value
@@ -142,21 +132,6 @@ Config Options for eosio::producer_plugin:
 ## Dependencies
 
 * [`chain_plugin`](../chain_plugin/index.md)
-
-## The priority of transaction
-
-You can give one of the transaction types priority over another when the producer plugin has a queue of transactions pending.
-
-The option below sets the ratio between the incoming transaction and the deferred transaction:
-
-```console
-  --incoming-defer-ratio arg (=1)       
-```
-
-By default value of `1`, the `producer` plugin processes one incoming transaction per deferred transaction. When `arg` sets to `10`, the `producer` plugin processes 10 incoming transactions per deferred transaction.
-
-If the `arg` is set to a sufficiently large number, the plugin always processes the incoming transaction first until the queue of the incoming transactions is empty. Respectively, if the `arg` is 0, the `producer` plugin processes the deferred transactions queue first.
-
 
 ### Load Dependency Examples
 
