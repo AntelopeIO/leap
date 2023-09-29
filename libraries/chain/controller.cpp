@@ -1304,8 +1304,13 @@ struct controller_impl {
 
       fc::datastream<const char*> ds( gtrx.packed_trx.data(), gtrx.packed_trx.size() );
 
-      EOS_ASSERT( gtrx.delay_until <= self.pending_block_time(), transaction_exception, "this transaction isn't ready",
-                 ("gtrx.delay_until",gtrx.delay_until)("pbt",self.pending_block_time())          );
+      // after disable_deferred_trxs_stage_1 is activated, a deferred
+      // transaction can be retired as expired at any time regardless of
+      // whether its delay_until or expiration times have been reached.
+      if( !self.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) ) {
+         EOS_ASSERT( gtrx.delay_until <= self.pending_block_time(), transaction_exception, "this transaction isn't ready",
+                    ("gtrx.delay_until",gtrx.delay_until)("pbt",self.pending_block_time()) );
+      }
 
       signed_transaction dtrx;
       fc::raw::unpack(ds,static_cast<transaction&>(dtrx) );
