@@ -3,9 +3,7 @@
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/http_plugin/macros.hpp>
-#include <eosio/net_plugin/net_plugin.hpp>
 #include <eosio/http_plugin/http_plugin.hpp>
-#include <eosio/producer_plugin/producer_plugin.hpp>
 
 #include <fc/log/logger.hpp>
 
@@ -36,9 +34,6 @@ namespace eosio {
    prometheus_plugin::~prometheus_plugin() = default;
 
    void prometheus_plugin::set_program_options(options_description&, options_description& cfg) {
-      cfg.add_options()
-         ("prometheus-exporter-address", bpo::value<string>()->default_value("127.0.0.1:9101"),
-            "The local IP and port to listen for incoming prometheus metrics http request.");
    }
 
    struct prometheus_api_handle {
