@@ -367,7 +367,7 @@ namespace eosio {
       enum class timer_type { check, stats };
    private:
       alignas(hardware_destructive_interference_size)
-      mutable std::recursive_mutex     connections_mtx;
+      mutable std::shared_mutex        connections_mtx;
       connection_details_index         connections;
       chain::flat_set<string>          supplied_peers;
 
@@ -1191,20 +1191,20 @@ namespace eosio {
 
    template<typename Function>
    bool connections_manager::any_of_supplied_peers( Function&& f ) const {
-      const std::lock_guard g( connections_mtx );
+      std::shared_lock g( connections_mtx );
       return std::any_of(supplied_peers.begin(), supplied_peers.end(), std::forward<Function>(f));
    }
 
    template<typename Function>
    void connections_manager::for_each_connection( Function&& f ) const {
-      const std::lock_guard g( connections_mtx );
+      std::shared_lock g( connections_mtx );
       auto& index = connections.get<by_host>();
       std::for_each(index.begin(), index.end(), std::forward<Function>(f));
    }
 
    template<typename Function>
    void connections_manager::for_each_block_connection( Function&& f ) const {
-      const std::lock_guard g( connections_mtx );
+      std::shared_lock g( connections_mtx );
       auto& index = connections.get<by_host>();
       for( const connection_ptr& c : index ) {
          if (c->is_blocks_connection()) {
@@ -1215,14 +1215,14 @@ namespace eosio {
 
    template <typename UnaryPredicate>
    bool connections_manager::any_of_connections(UnaryPredicate&& p) const {
-      const std::lock_guard g(connections_mtx);
+      std::shared_lock g(connections_mtx);
       auto& index = connections.get<by_host>();
       return std::any_of(index.cbegin(), index.cend(), std::forward<UnaryPredicate>(p));
    }
 
    template <typename UnaryPredicate>
    bool connections_manager::any_of_block_connections(UnaryPredicate&& p) const {
-      const std::lock_guard g( connections_mtx );
+      std::shared_lock g( connections_mtx );
       auto& index = connections.get<by_host>();
       for( const connection_ptr& c : index ) {
          if( c->is_blocks_connection() ) {
@@ -4424,12 +4424,12 @@ namespace eosio {
    //----------------------------------------------------------------------------
 
    size_t connections_manager::number_connections() const {
-      const std::lock_guard g(connections_mtx);
+      std::lock_guard g(connections_mtx);
       return connections.size();
    }
 
    void connections_manager::add_supplied_peers(const vector<string>& peers ) {
-      const std::lock_guard g(connections_mtx);
+      std::lock_guard g(connections_mtx);
       supplied_peers.insert( peers.begin(), peers.end() );
    }
 
@@ -4454,15 +4454,16 @@ namespace eosio {
    }
 
    void connections_manager::connect_supplied_peers(const string& p2p_address) {
-      const std::lock_guard g(connections_mtx);
+      std::unique_lock g(connections_mtx);
       chain::flat_set<string> peers = supplied_peers;
+      g.unlock();
       for (const auto& peer : peers) {
          resolve_and_connect(peer, p2p_address);
       }
    }
 
    void connections_manager::add( connection_ptr c ) {
-      const std::lock_guard g( connections_mtx );
+      std::lock_guard g( connections_mtx );
       boost::system::error_code ec;
       auto endpoint = c->socket->remote_endpoint(ec);
       connections.insert( connection_details{
@@ -4473,8 +4474,9 @@ namespace eosio {
 
    // called by API
    string connections_manager::connect( const string& host, const string& p2p_address ) {
-      const std::lock_guard g( connections_mtx );
+      std::unique_lock g( connections_mtx );
       supplied_peers.insert(host);
+      g.unlock();
       return resolve_and_connect( host, p2p_address );
    }
 
@@ -4485,7 +4487,7 @@ namespace eosio {
          return "invalid peer address";
       }
 
-      const std::lock_guard g( connections_mtx );
+      std::lock_guard g( connections_mtx );
       if( find_connection_i( peer_address ) )
          return "already connected";
 
@@ -4497,7 +4499,7 @@ namespace eosio {
          [resolver, host = host, port = port, peer_address = peer_address, listen_address = listen_address, this]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
             connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
             c->set_heartbeat_timeout( heartbeat_timeout );
-            const std::lock_guard g( connections_mtx );
+            std::lock_guard g( connections_mtx );
             auto [it, inserted] = connections.emplace( connection_details{
                .host = peer_address,
                .c = std::move(c),
@@ -4518,7 +4520,7 @@ namespace eosio {
 
    void connections_manager::update_connection_endpoint(connection_ptr c,
                                                         const tcp::endpoint& endpoint) {
-      const std::lock_guard g( connections_mtx );
+      std::unique_lock g( connections_mtx );
       auto& index = connections.get<by_connection>();
       const auto& it = index.find(c);
       if( it != index.end() ) {
@@ -4529,7 +4531,7 @@ namespace eosio {
    }
 
    void connections_manager::connect(const connection_ptr& c) {
-      const std::lock_guard g( connections_mtx );
+      std::lock_guard g( connections_mtx );
       const auto& index = connections.get<by_connection>();
       const auto& it = index.find(c);
       if( it != index.end() ) {
@@ -4539,7 +4541,7 @@ namespace eosio {
 
    // called by API
    string connections_manager::disconnect( const string& host ) {
-      const std::lock_guard g( connections_mtx );
+      std::lock_guard g( connections_mtx );
       auto& index = connections.get<by_host>();
       if( auto i = index.find( host ); i != index.end() ) {
          fc_ilog( logger, "disconnecting: ${cid}", ("cid", i->c->connection_id) );
@@ -4552,7 +4554,7 @@ namespace eosio {
    }
 
    void connections_manager::close_all() {
-      const std::lock_guard g( connections_mtx );
+      std::lock_guard g( connections_mtx );
       auto& index = connections.get<by_host>();
       fc_ilog( logger, "close all ${s} connections", ("s", index.size()) );
       for( const connection_ptr& c : index ) {
@@ -4563,7 +4565,7 @@ namespace eosio {
    }
 
    std::optional<connection_status> connections_manager::status( const string& host )const {
-      const std::lock_guard g( connections_mtx );
+      std::shared_lock g( connections_mtx );
       auto con = find_connection_i( host );
       if( con ) {
          return con->get_status();
@@ -4573,7 +4575,7 @@ namespace eosio {
 
    vector<connection_status> connections_manager::connection_statuses()const {
       vector<connection_status> result;
-      const std::lock_guard g( connections_mtx );
+      std::shared_lock g( connections_mtx );
       auto& index = connections.get<by_connection>();
       result.reserve( index.size() );
       for( const connection_ptr& c : index ) {
@@ -4635,7 +4637,7 @@ namespace eosio {
    void connections_manager::connection_monitor(const std::weak_ptr<connection>& from_connection) {
       auto max_time = fc::time_point::now().safe_add(max_cleanup_time);
       auto from = from_connection.lock();
-      const std::lock_guard g( connections_mtx );
+      std::unique_lock g( connections_mtx );
       auto& index = connections.get<by_connection>();
       auto it = (from ? index.find(from) : index.begin());
       if (it == index.end()) it = index.begin();
@@ -4643,6 +4645,7 @@ namespace eosio {
       while (it != index.end()) {
          if (fc::time_point::now() >= max_time) {
             connection_wptr wit = (*it).c;
+            g.unlock();
             fc_dlog( logger, "Exiting connection monitor early, ran out of time: ${t}", ("t", max_time - fc::time_point::now()) );
             fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}",
                     ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", supplied_peers.size()) );
@@ -4660,13 +4663,17 @@ namespace eosio {
 
          if (!c->socket_is_open() && c->state() != connection::connection_state::connecting) {
             if (!c->incoming()) {
+               g.unlock();
                fc_dlog(logger, "attempting to connect in connection_monitor");
                if (!c->reconnect()) {
+                  g.lock();
                   it = index.erase(it);
+                  g.unlock();
                   --num_peers;
                   ++num_rm;
                   continue;
                }
+               g.lock();
             } else {
                --num_clients;
                ++num_rm;
@@ -4676,6 +4683,7 @@ namespace eosio {
          }
          ++it;
       }
+      g.unlock();
 
       if( num_clients > 0 || num_peers > 0 ) {
          fc_ilog(logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}, block producer peers: ${num_bp_peers}",
