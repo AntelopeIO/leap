@@ -80,6 +80,10 @@ int snapshot_actions::run_subcommand() {
    cfg.state_size = opt->db_size * 1024 * 1024;
    cfg.state_guard_size = opt->guard_size * 1024 * 1024;
    cfg.eosvmoc_tierup = wasm_interface::vm_oc_enable::oc_none; // wasm not used, no use to fire up oc
+   
+   // when loading a snapshot, all the state will be modified, so use the `shared` mode instead
+   // of `copy_on_write` to lower memory requirements
+   cfg.db_map_mode = pinnable_mapped_file::map_mode::mapped_shared;
    protocol_feature_set pfs = initialize_protocol_features( std::filesystem::path("protocol_features"), false );
 
    try {

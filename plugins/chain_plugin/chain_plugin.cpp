@@ -936,8 +936,8 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
 
       // when loading a snapshot, all the state will be modified, so use the `shared` mode instead
       // of `copy_on_write` to lower memory requirements
-      if (snapshot_path && chain_config->db_map_mode == pinnable_mapped_file::mapped_private)
-         chain_config->db_map_mode = pinnable_mapped_file::mapped;
+     if (snapshot_path && chain_config->db_map_mode == pinnable_mapped_file::mapped)
+        chain_config->db_map_mode = pinnable_mapped_file::mapped_shared;
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if( options.count("eos-vm-oc-cache-size-mb") )
