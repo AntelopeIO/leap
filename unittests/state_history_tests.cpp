@@ -571,7 +571,7 @@ BOOST_AUTO_TEST_CASE(test_deltas_resources_history) {
    }
 
    BOOST_AUTO_TEST_CASE(test_trace_log_with_transaction_extensions) {
-      tester c(setup_policy::full);
+      tester c(setup_policy::full_but_disable_deferrd_trx);
 
       fc::temp_directory state_history_dir;
       eosio::state_history::trace_converter log;

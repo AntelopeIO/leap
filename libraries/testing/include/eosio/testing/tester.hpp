@@ -64,7 +64,8 @@ namespace eosio { namespace testing {
       preactivate_feature_only,
       preactivate_feature_and_new_bios,
       old_wasm_parser,
-      full
+      full,
+      full_but_disable_deferrd_trx
    };
 
    std::ostream& operator<<(std::ostream& os, setup_policy p);
@@ -386,6 +387,8 @@ namespace eosio { namespace testing {
          void preactivate_protocol_features(const vector<digest_type> feature_digests);
          void preactivate_builtin_protocol_features(const std::vector<builtin_protocol_feature_t>& features);
          void preactivate_all_builtin_protocol_features();
+         void preactivate_all_but_disable_deferrd_trx();
+         void preactivate_all_builtin_protocol_features_common(const std::vector<builtin_protocol_feature_t>& ordered_builtins);
 
          static genesis_state default_genesis() {
             genesis_state genesis;

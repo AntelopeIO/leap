@@ -64,7 +64,7 @@ class currency_tester : public validating_tester {
       }
 
       currency_tester()
-         :validating_tester(),abi_ser(json::from_string(test_contracts::eosio_token_abi()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
+         :validating_tester({}, nullptr, setup_policy::full_but_disable_deferrd_trx),abi_ser(json::from_string(test_contracts::eosio_token_abi()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
       {
          create_account( "eosio.token"_n);
          set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );

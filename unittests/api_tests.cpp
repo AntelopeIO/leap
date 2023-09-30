@@ -272,6 +272,12 @@ bool is_tx_cpu_usage_exceeded(const tx_cpu_usage_exceeded& e) { return true; }
 bool is_block_cpu_usage_exceeded(const block_cpu_usage_exceeded& e) { return true; }
 bool is_deadline_exception(const deadline_exception& e) { return true; }
 
+class validating_tester_without_disable_deferred_trx_prot_features : public validating_tester {
+public:
+   validating_tester_without_disable_deferred_trx_prot_features(): validating_tester({}, nullptr, setup_policy::full_but_disable_deferrd_trx) {
+   }
+};
+
 /*
  * register test suite `api_tests`
  */
@@ -1287,7 +1293,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, validating_tester) { try {
                                deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, validating_tester) { try {
+BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, validating_tester_without_disable_deferred_trx_prot_features) { try {
 	produce_blocks(2);
 	create_account( "testapi"_n );
 	produce_blocks(10);
@@ -1362,7 +1368,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_start, validating_tester) try {
 /*************************************************************************************
  * transaction_tests test case
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(transaction_tests, validating_tester) { try {
+BOOST_FIXTURE_TEST_CASE(transaction_tests, validating_tester_without_disable_deferred_trx_prot_features) { try {
    produce_blocks(2);
    create_account( "testapi"_n );
    produce_blocks(100);
@@ -1574,8 +1580,8 @@ BOOST_AUTO_TEST_CASE(inline_action_objective_limit) { try {
 
 BOOST_AUTO_TEST_CASE(deferred_inline_action_limit) { try {
    const uint32_t _4k = 4 * 1024;
-   tester chain(setup_policy::full, db_read_mode::HEAD, {_4k + 100});
-   tester chain2(setup_policy::full, db_read_mode::HEAD, {_4k + 100});
+   tester chain(setup_policy::full_but_disable_deferrd_trx, db_read_mode::HEAD, {_4k + 100});
+   tester chain2(setup_policy::full_but_disable_deferrd_trx, db_read_mode::HEAD, {_4k + 100});
    signed_block_ptr block;
    for (int n=0; n < 2; ++n) {
       block = chain.produce_block();
@@ -1613,7 +1619,7 @@ BOOST_AUTO_TEST_CASE(deferred_inline_action_limit) { try {
 
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester) { try {
+BOOST_FIXTURE_TEST_CASE(deferred_transaction_tests, validating_tester_without_disable_deferred_trx_prot_features) { try {
    produce_blocks(2);
    create_accounts( {"testapi"_n, "testapi2"_n, "alice"_n} );
    set_code( "testapi"_n, test_contracts::test_api_wasm() );

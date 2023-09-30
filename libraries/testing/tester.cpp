@@ -265,11 +265,16 @@ namespace eosio { namespace testing {
             set_bios_contract();
             break;
          }
-         case setup_policy::full: {
+         case setup_policy::full:
+         case setup_policy::full_but_disable_deferrd_trx: {
             schedule_preactivate_protocol_feature();
             produce_block();
             set_before_producer_authority_bios_contract();
-            preactivate_all_builtin_protocol_features();
+            if( policy == setup_policy::full ) {
+               preactivate_all_builtin_protocol_features();
+            } else {
+               preactivate_all_but_disable_deferrd_trx();
+            }
             produce_block();
             set_bios_contract();
             break;
@@ -1197,7 +1202,8 @@ namespace eosio { namespace testing {
       preactivate_protocol_features(features);
    }
 
-   void base_tester::preactivate_all_builtin_protocol_features() {
+
+   void base_tester::preactivate_all_builtin_protocol_features_common(const std::vector<builtin_protocol_feature_t>& ordered_builtins) {
       const auto& pfm = control->get_protocol_feature_manager();
       const auto& pfs = pfm.get_protocol_feature_set();
       const auto current_block_num  =  control->head_block_num() + (control->is_building_block() ? 1 : 0);
@@ -1225,22 +1231,6 @@ namespace eosio { namespace testing {
          preactivations.emplace_back( feature_digest );
       };
 
-      std::vector<builtin_protocol_feature_t> ordered_builtins;
-      for( const auto& f : builtin_protocol_feature_codenames ) {
-         // Before deferred trxs feature is fully disabled, existing tests involving
-         // deferred trxs need to be exercised to make sure existing behaviors are
-         // maintained. Excluding DISABLE_DEFERRED_TRXS_STAGE_1 and DISABLE_DEFERRED_TRXS_STAGE_2
-         // from full protocol feature list such that existing tests can run.
-         // Remove the following exclusion once eferred trxs feature is fully disabled
-         // and tests are adapted.
-         std::string codename = f.second.codename;
-         if( codename.compare( "DISABLE_DEFERRED_TRXS_STAGE_1" ) == 0 || codename.compare( "DISABLE_DEFERRED_TRXS_STAGE_2" ) == 0 ) {
-            continue;
-         }
-
-         ordered_builtins.push_back( f.first );
-      }
-      std::sort( ordered_builtins.begin(), ordered_builtins.end() );
       for( const auto& f : ordered_builtins ) {
          auto digest = pfs.get_builtin_digest( f);
          if( !digest ) continue;
@@ -1248,6 +1238,35 @@ namespace eosio { namespace testing {
       }
 
       preactivate_protocol_features( preactivations );
+   }
+
+   void base_tester::preactivate_all_builtin_protocol_features() {
+      std::vector<builtin_protocol_feature_t> ordered_builtins;
+      for( const auto& f : builtin_protocol_feature_codenames ) {
+         ordered_builtins.push_back( f.first );
+      }
+      std::sort( ordered_builtins.begin(), ordered_builtins.end() );
+
+      preactivate_all_builtin_protocol_features_common( ordered_builtins );
+   }
+
+   void base_tester::preactivate_all_but_disable_deferrd_trx() {
+      std::vector<builtin_protocol_feature_t> ordered_builtins;
+      for( const auto& f : builtin_protocol_feature_codenames ) {
+         // Before deferred trxs feature is fully disabled, existing tests involving
+         // deferred trxs need to be exercised to make sure existing behaviors are
+         // maintained. Excluding DISABLE_DEFERRED_TRXS_STAGE_1 and DISABLE_DEFERRED_TRXS_STAGE_2
+         // from full protocol feature list such that existing tests can run.
+         std::string codename = f.second.codename;
+         if( codename == "DISABLE_DEFERRED_TRXS_STAGE_1" || codename == "DISABLE_DEFERRED_TRXS_STAGE_2" ) {
+            continue;
+         }
+
+         ordered_builtins.push_back( f.first );
+      }
+      std::sort( ordered_builtins.begin(), ordered_builtins.end() );
+
+      preactivate_all_builtin_protocol_features_common( ordered_builtins );
    }
 
    tester::tester(const std::function<void(controller&)>& control_setup, setup_policy policy, db_read_mode read_mode) {
