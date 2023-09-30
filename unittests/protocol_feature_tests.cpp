@@ -1,4 +1,5 @@
 #include <eosio/chain/abi_serializer.hpp>
+#include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/testing/tester.hpp>
@@ -1919,5 +1920,86 @@ BOOST_AUTO_TEST_CASE( set_parameters_packed_test ) { try {
    BOOST_REQUIRE_EQUAL(c.push_action(std::move(action_non_priv), alice_account.to_uint64_t()),
                        c.error("alice does not have permission to call this API"));
 } FC_LOG_AND_RETHROW() }
+
+// native action hardcodes sender empty and builds sender_id from trx id.
+// modify_gto_for_canceldelay_test modifies those two fields for contract
+// generated deferred trxs so canceldelay can be used. defined in delay_tests.cpp
+namespace eosio::chain { extern void modify_gto_for_canceldelay_test(controller& control, const transaction_id_type& trx_id) ; }
+
+BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_test ) { try {
+   tester_no_disable_deferrd_trx c;
+
+   c.produce_block();
+   c.create_accounts( {"alice"_n, "bob"_n, "test"_n} );
+   c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.produce_block();
+
+   // verify number of deferred trxs starts at 0
+   auto gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+   c.push_action( "test"_n, "delayedcall"_n, "alice"_n, fc::mutable_variant_object()
+      ("payer", "alice")
+      ("sender_id", 1)
+      ("contract", "test")
+      ("payload", 100)
+      ("delay_sec", 120)
+      ("replace_existing", false)
+   );
+   c.produce_block();
+
+   // verify alice's deferred trxs is schdedueld in generated_transaction_multi_index
+   const auto& idx = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+   gen_size = idx.size();
+   BOOST_REQUIRE_EQUAL(1u, gen_size);
+   BOOST_REQUIRE_EQUAL(idx.begin()->payer, "alice"_n);
+   auto alice_trx_id = idx.begin()->trx_id;
+
+   // activate disable_deferred_trxs_stage_1. after that, schedule and cancel deferred trxs
+   // become no-op.
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   auto d = pfm.get_builtin_digest( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 );
+   BOOST_REQUIRE( d );
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+
+   c.push_action( "test"_n, "delayedcall"_n, "bob"_n, fc::mutable_variant_object()
+      ("payer", "bob")
+      ("sender_id", 2)
+      ("contract", "test")
+      ("payload", 100)
+      ("delay_sec", 120)
+      ("replace_existing", false)
+   );
+   c.produce_block();
+
+   // verify bob's deferred trx is not made to generated_transaction_multi_index
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(1u, gen_size);
+   // verify alice's deferred trx is still in generated_transaction_multi_index
+   auto gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
+   BOOST_REQUIRE(gto != nullptr);
+
+   // canceldelay assumes sender and sender_id to be a specific format
+   modify_gto_for_canceldelay_test(*(c.control.get()), alice_trx_id);
+   // call canceldelay native action
+   signed_transaction trx;
+   trx.actions.emplace_back(
+      vector<permission_level>{{"test"_n, config::active_name}},
+      canceldelay{{"test"_n, config::active_name}, alice_trx_id}
+   );
+   c.set_transaction_headers(trx);
+   trx.sign(c.get_private_key("test"_n, "active"), c.control->get_chain_id());
+   c.push_transaction(trx);
+   c.produce_block();
+
+   // verify canceldelay is no-op
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(1u, gen_size);
+   // verify alice's deferred trx is still in generated_transaction_multi_index
+   gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
+   BOOST_REQUIRE(gto != nullptr);
+} FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_1_test
 
 BOOST_AUTO_TEST_SUITE_END()
