@@ -515,6 +515,12 @@ namespace eosio { namespace testing {
       bool validate() { return true; }
    };
 
+   class tester_no_disable_deferrd_trx : public tester {
+   public:
+      tester_no_disable_deferrd_trx(): tester(setup_policy::full_but_disable_deferrd_trx) {
+      }
+   };
+
    class validating_tester : public base_tester {
    public:
       virtual ~validating_tester() {
@@ -658,6 +664,12 @@ namespace eosio { namespace testing {
       unique_ptr<controller>   validating_node;
       uint32_t                 num_blocks_to_producer_before_shutdown = 0;
       bool                     skip_validate = false;
+   };
+
+   class validating_tester_no_disable_deferrd_trx : public validating_tester {
+   public:
+      validating_tester_no_disable_deferrd_trx(): validating_tester({}, nullptr, setup_policy::full_but_disable_deferrd_trx) {
+      }
    };
 
    /**
