@@ -30,14 +30,38 @@ public:
    static constexpr uint16_t minimum_runtime_ms = 3;
 
    // inform how many read_threads will be calling read_only/read_exclusive queues
-   // Currently only used to assert if exec_queue::read_exclusive is used without any read threads
+   // expected to only be called at program startup, not thread safe, not safe to call after startup
    void init_read_threads(size_t num_read_threads) {
       pri_queue_.init_read_threads(num_read_threads);
    }
 
+   // not thread safe, see init_read_threads comment
+   size_t get_read_threads() const {
+      return pri_queue_.get_read_threads();
+   }
+
+   // not thread safe, only call at program startup from the main thread (thread that calls app().exec()
+   void init_main_thread_id() {
+      main_thread_id_ = std::this_thread::get_id();
+   }
+
+   // not thread safe, but as long as set_main_thread_id() only called at program startup from main thread before
+   // other threads are created then this will be safe to access.
+   std::thread::id get_main_thread_id() const {
+      assert(main_thread_id_ != std::thread::id());
+      return main_thread_id_;
+   }
+
    template <typename Func>
-   auto post( int priority, exec_queue q, Func&& func ) {
-      return boost::asio::post( io_serv_, pri_queue_.wrap( priority, q, --order_, std::forward<Func>(func)));
+   void post( int priority, exec_queue q, Func&& func ) {
+      if (q == exec_queue::read_exclusive) {
+         // no reason to post to io_service which then places this in the read_exclusive_handlers queue.
+         // read_exclusive tasks are run exclusively by read threads by pulling off the read_exclusive handlers queue.
+         pri_queue_.add(priority, q, --order_, std::forward<Func>(func));
+      } else {
+         // post to io_service as the main thread may be blocked on io_service.run_one() in application::exec()
+         boost::asio::post(io_serv_, pri_queue_.wrap(priority, q, --order_, std::forward<Func>(func)));
+      }
    }
 
    // Legacy and deprecated. To be removed after cleaning up its uses in base appbase
@@ -125,6 +149,7 @@ public:
 
    // members are ordered taking into account that the last one is destructed first
 private:
+   std::thread::id                    main_thread_id_;
    boost::asio::io_service            io_serv_;
    appbase::exec_pri_queue            pri_queue_;
    std::atomic<std::size_t>           order_{ std::numeric_limits<size_t>::max() }; // to maintain FIFO ordering in all queues within priority

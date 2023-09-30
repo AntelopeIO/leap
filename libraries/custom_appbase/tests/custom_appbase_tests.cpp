@@ -17,6 +17,7 @@ std::thread start_app_thread(appbase::scoped_app& app) {
    BOOST_CHECK(app->initialize(sizeof(argv) / sizeof(char*), const_cast<char**>(argv)));
    app->startup();
    std::thread app_thread( [&]() {
+      app->executor().init_main_thread_id();
       app->exec();
    } );
    return app_thread;
@@ -343,7 +344,6 @@ BOOST_AUTO_TEST_CASE( execute_many_from_read_only_and_read_exclusive_queues ) {
    appbase::scoped_app app;
 
    auto app_thread = start_app_thread(app);
-   std::thread::id app_thread_id = app_thread.get_id();
 
    // set to run functions from read_only & read_exclusive queues only
    app->executor().init_read_threads(3);
@@ -408,7 +408,7 @@ BOOST_AUTO_TEST_CASE( execute_many_from_read_only_and_read_exclusive_queues ) {
    const auto run_on_1 = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == read_thread1_id; });
    const auto run_on_2 = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == read_thread2_id; });
    const auto run_on_3 = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == read_thread3_id; });
-   const auto run_on_main = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == app_thread_id; });
+   const auto run_on_main = std::count_if(rslts.cbegin(), rslts.cend(), [&](const auto& v){ return v == app->executor().get_main_thread_id(); });
 
    BOOST_REQUIRE_EQUAL(run_on_1+run_on_2+run_on_3+run_on_main, num_expected);
    BOOST_CHECK(run_on_1 > 0);
