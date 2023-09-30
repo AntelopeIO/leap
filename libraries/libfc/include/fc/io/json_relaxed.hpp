@@ -27,7 +27,7 @@ namespace fc { namespace json_relaxed
       std::stringstream token;
       try
       {
-         char c = in.peek();
+         signed char c = in.peek();
 
          while( true )
          {
@@ -152,7 +152,7 @@ namespace fc { namespace json_relaxed
 
            while( true )
            {
-               char c = in.peek();
+               signed char c = in.peek();
 
                if (c == EOF) {
                   FC_THROW_EXCEPTION( eof_exception, "unexpected end of file" );
@@ -187,7 +187,7 @@ namespace fc { namespace json_relaxed
    {
       try
       {
-         char c = in.peek(), c2;
+         signed char c = in.peek(), c2;
 
          switch( c )
          {
