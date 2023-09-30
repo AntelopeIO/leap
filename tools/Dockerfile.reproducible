@@ -66,21 +66,31 @@ RUN tar xf llvm-project-${_LEAP_CLANG_VERSION}.src.tar.xz && \
     cmake --build build-toolchain -t install
 
 COPY <<-"EOF" /pinnedtoolchain/pinnedtoolchain.cmake
-   set(CMAKE_C_COMPILER ${CMAKE_CURRENT_LIST_DIR}/bin/clang)
-   set(CMAKE_CXX_COMPILER ${CMAKE_CURRENT_LIST_DIR}/bin/clang++)
+set(CMAKE_C_COMPILER ${CMAKE_CURRENT_LIST_DIR}/bin/clang)
+	set(CMAKE_CXX_COMPILER ${CMAKE_CURRENT_LIST_DIR}/bin/clang++)
 
-   set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_LIST_DIR}/include/c++/v1 ${CMAKE_CURRENT_LIST_DIR}/include/x86_64-unknown-linux-gnu/c++/v1 /usr/local/include /usr/include)
+	set(CMAKE_CXX_STANDARD_INCLUDE_DIRECTORIES ${CMAKE_CURRENT_LIST_DIR}/include/c++/v1 ${CMAKE_CURRENT_LIST_DIR}/include/x86_64-unknown-linux-gnu/c++/v1 /usr/local/include /usr/include)
 
-   set(CMAKE_C_FLAGS_INIT "-D_FORTIFY_SOURCE=2 -fstack-protector-strong -fpie -pthread")
-   set(CMAKE_CXX_FLAGS_INIT "-nostdinc++ -D_FORTIFY_SOURCE=2 -fstack-protector-strong -fpie -pthread")
+	set(CMAKE_C_FLAGS_INIT "-fstack-protector-strong -fpie -pthread")
+	set(CMAKE_CXX_FLAGS_INIT "-nostdinc++ -fstack-protector-strong -fpie -pthread")
 
-   set(CMAKE_EXE_LINKER_FLAGS_INIT "-stdlib=libc++ -nostdlib++ -pie -pthread -Wl,-z,relro,-z,now")
-   set(CMAKE_SHARED_LINKER_FLAGS_INIT "-stdlib=libc++ -nostdlib++")
-   set(CMAKE_MODULE_LINKER_FLAGS_INIT "-stdlib=libc++ -nostdlib++")
+	set(CMAKE_C_FLAGS_RELEASE_INIT "-D_FORTIFY_SOURCE=2")
+	set(CMAKE_CXX_FLAGS_RELEASE_INIT "-D_FORTIFY_SOURCE=2")
+	set(CMAKE_C_FLAGS_RELWITHDEBINFO_INIT "-D_FORTIFY_SOURCE=2")
+	set(CMAKE_CXX_FLAGS_RELWITHDEBINFO_INIT "-D_FORTIFY_SOURCE=2")
 
-   set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CURRENT_LIST_DIR}/lib/x86_64-unknown-linux-gnu/libc++.a ${CMAKE_CURRENT_LIST_DIR}/lib/x86_64-unknown-linux-gnu/libc++abi.a")
+	set(CMAKE_EXE_LINKER_FLAGS_INIT "-stdlib=libc++ -nostdlib++ -pie -pthread -Wl,-z,relro,-z,now")
+	set(CMAKE_SHARED_LINKER_FLAGS_INIT "-stdlib=libc++ -nostdlib++")
+	set(CMAKE_MODULE_LINKER_FLAGS_INIT "-stdlib=libc++ -nostdlib++")
 
-   set(CMAKE_SYSTEM_PREFIX_PATH "${CMAKE_CURRENT_LIST_DIR}/pinllvm")
+	set(CMAKE_CXX_STANDARD_LIBRARIES "${CMAKE_CURRENT_LIST_DIR}/lib/x86_64-unknown-linux-gnu/libc++.a ${CMAKE_CURRENT_LIST_DIR}/lib/x86_64-unknown-linux-gnu/libc++abi.a")
+
+	set(CMAKE_SYSTEM_PREFIX_PATH "${CMAKE_CURRENT_LIST_DIR}/pinllvm")
+	#ignore some common system LLVM paths (useful when toolchain is extracted)
+	set(CMAKE_SYSTEM_IGNORE_PATH "/usr/lib/cmake/llvm;/usr/lib/llvm/cmake")
+	foreach(LLVMVER RANGE 7 30)
+	   list(APPEND CMAKE_SYSTEM_IGNORE_PATH "/usr/lib/llvm-${LLVMVER}/cmake")
+	endforeach()
 EOF
 ENV CMAKE_TOOLCHAIN_FILE=/pinnedtoolchain/pinnedtoolchain.cmake
 
@@ -91,6 +101,15 @@ RUN tar xf llvm-project-${_LEAP_LLVM_VERSION}.src.tar.xz && \
     cmake --build build-pinllvm -t install
 
 RUN rm -rf llvm* build* cmake*
+
+# It's possible to extract the toolchain to the host using this target by something like,
+#  mkdir $HOME/leaptoolchain
+#  docker buildx build --target export-toolchain -o $HOME/leaptoolchain/ -f tools/Dockerfile.reproducible .
+# and then use it for building leap by something like,
+#  cmake -DCMAKE_TOOLCHAIN_FILE=$HOME/leaptoolchain/pinnedtoolchain.cmake -D....
+# The build won't be reproducible, but it may help it troubleshooting errors, warnings, or bugs with the pinned compiler
+FROM scratch as export-toolchain
+COPY --from=builder /pinnedtoolchain/ /
 
 FROM builder AS build
 
