@@ -304,7 +304,7 @@ to refund the RAM paid for the sender of that deferred transaction and to delete
 the deferred transaction from the state. All deferred transactions are cleared
 out within the activation handler.
 */
-            {}
+            {builtin_protocol_feature_t::disable_deferred_trxs_stage_1}
          } )
    ;
 

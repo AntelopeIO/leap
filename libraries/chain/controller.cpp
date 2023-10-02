@@ -3849,8 +3849,6 @@ void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred
 
 template<>
 void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>() {
-   EOS_ASSERT(self.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1), protocol_feature_validation_exception, "disable_deferred_trxs_stage_1 must be activated before disable_deferred_trxs_stage_2 is activated");
-
    const auto& idx = db.get_index<generated_transaction_multi_index, by_trx_id>();
    // remove all deferred trxs and refund their payers
    for( auto itr = idx.begin(); itr != idx.end(); itr = idx.begin() ) {
