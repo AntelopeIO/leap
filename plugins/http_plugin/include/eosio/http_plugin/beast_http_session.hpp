@@ -297,7 +297,7 @@ public:
       if(ec) {
          // See on_read comment below
          if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
-            return do_eof();
+            return; // socket destructor will be called
 
          return fail(ec, "read_header", plugin_state_.get_logger(), "closing connection");
       }
@@ -337,7 +337,7 @@ public:
          // on another read. If the client disconnects, we may get
          // http::error::end_of_stream or asio::error::connection_reset.
          if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
-            return do_eof();
+            return; // socket destructor will be called
 
          return fail(ec, "read", plugin_state_.get_logger(), "closing connection");
       }
@@ -367,7 +367,7 @@ public:
       if(close) {
          // This means we should close the connection, usually because
          // the response indicated the "Connection: close" semantic.
-         return do_eof();
+         return; // socket destructor will be called
       }
 
       // create a new response object
@@ -383,7 +383,7 @@ public:
       case continue_state_t::reject:
          // request body too large. After issuing 401 response, close connection
          continue_state_ = continue_state_t::none;
-         do_eof();
+         // socket destructor will be called
          break;
          
       default:
@@ -450,7 +450,7 @@ public:
          res_->set(http::field::server, BOOST_BEAST_VERSION_STRING);
 
          send_response(std::move(err_str), static_cast<unsigned int>(http::status::internal_server_error));
-         do_eof();
+         // socket destructor will be called
       }
    }
 
@@ -492,25 +492,11 @@ public:
    void run_session() {
       if(auto error_str = verify_max_requests_in_flight(); !error_str.empty()) {
          send_busy_response(std::move(error_str));
-         return do_eof();
+         return; // socket destructor will be called
       }
 
       do_read_header();
    }
-
-   void do_eof() {
-      is_send_exception_response_ = false;
-      try {
-         // Send a shutdown signal
-         beast::error_code ec;
-         socket_.shutdown(Socket::shutdown_both, ec);
-         socket_.close(ec);
-         // At this point the connection is closed gracefully
-      } catch(...) {
-         handle_exception();
-      }
-   }
-
 
    bool allow_host(const http::request<http::string_body>& req) {
       if constexpr(std::is_same_v<Socket, tcp::socket>) {
