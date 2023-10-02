@@ -2197,6 +2197,7 @@ void read_write::push_transactions(const read_write::push_transactions_params& p
    } CATCH_AND_CALL(next);
 }
 
+// called from read-exclusive thread for read-only
 template<class API, class Result>
 void api_base::send_transaction_gen(API &api, send_transaction_params_t params, next_function<Result> next) {
    try {
