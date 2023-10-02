@@ -37,6 +37,7 @@
 
 #include <new>
 #include <shared_mutex>
+#include <utility>
 
 namespace eosio { namespace chain {
 
@@ -605,7 +606,9 @@ struct controller_impl {
          }
          ilog( "Snapshot loaded, lib: ${lib}", ("lib", head->block_num) );
 
-         init(check_shutdown);
+         init(std::move(check_shutdown));
+         if (conf.revert_to_mapped_mode)
+            db.revert_to_mapped_mode();
          ilog( "Finished initialization from snapshot" );
       } catch (boost::interprocess::bad_alloc& e) {
          elog( "Failed initialization from snapshot - db storage not configured to have enough storage for the provided snapshot, please increase and retry snapshot" );
@@ -621,7 +624,7 @@ struct controller_impl {
                   ("genesis_chain_id", genesis_chain_id)("controller_chain_id", chain_id)
       );
 
-      this->shutdown = shutdown;
+      this->shutdown = std::move(shutdown);
       if( fork_db.head() ) {
          if( read_mode == db_read_mode::IRREVERSIBLE && fork_db.head()->id != fork_db.root()->id ) {
             fork_db.rollback_head_to_root();
@@ -643,14 +646,14 @@ struct controller_impl {
       } else {
          blog.reset( genesis, head->block );
       }
-      init(check_shutdown);
+      init(std::move(check_shutdown));
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
       EOS_ASSERT( db.revision() >= 1, database_exception, "This version of controller::startup does not work with a fresh state database." );
       EOS_ASSERT( fork_db.head(), fork_database_exception, "No existing fork database despite existing chain state. Replay required." );
 
-      this->shutdown = shutdown;
+      this->shutdown = std::move(shutdown);
       uint32_t lib_num = fork_db.root()->block_num;
       auto first_block_num = blog.first_block_num();
       if( auto blog_head = blog.head() ) {
@@ -673,7 +676,7 @@ struct controller_impl {
       }
       head = fork_db.head();
 
-      init(check_shutdown);
+      init(std::move(check_shutdown));
    }
 
 
