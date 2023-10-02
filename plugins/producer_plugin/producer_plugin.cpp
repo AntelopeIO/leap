@@ -2304,7 +2304,6 @@ bool producer_plugin_impl::retire_deferred_trxs(const fc::time_point& deadline) 
    int   num_failed     = 0;
    int   num_processed  = 0;
    bool  exhausted      = false;
-   bool  block_is_invalid = false; // set to true when one or more trxs retired in a status making the block invalid
 
    chain::controller& chain               = chain_plug->chain();
    time_point         pending_block_time  = chain.pending_block_time();
@@ -2372,11 +2371,6 @@ bool producer_plugin_impl::retire_deferred_trxs(const fc::time_point& deadline) 
                     "[TRX_TRACE] Block ${block_num} for producer ${prod} is ACCEPTING scheduled tx: ${entire_trace}",
                     ("block_num", chain.head_block_num() + 1)("prod", get_pending_block_producer())
                     ("entire_trace", chain_plug->get_log_trx_trace(trace)));
-            // after disable_deferred_trxs_stage_1 is activated, any status
-            // other than expired makes the block invalid
-            if (chain.is_builtin_activated(builtin_protocol_feature_t::disable_deferred_trxs_stage_1) && trace->receipt->status != transaction_receipt::expired) {
-               block_is_invalid = true;
-            }
             num_applied++;
          }
       }
@@ -2392,8 +2386,7 @@ bool producer_plugin_impl::retire_deferred_trxs(const fc::time_point& deadline) 
               ("m", num_processed)("n", expired_size)("applied", num_applied)("failed", num_failed));
    }
 
-   if (chain.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1) && 
-       (num_failed > 0 || block_is_invalid)) {
+   if (chain.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1) && num_failed > 0) {
       return false;
    }
    return true;

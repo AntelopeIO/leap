@@ -1304,9 +1304,7 @@ struct controller_impl {
 
       fc::datastream<const char*> ds( gtrx.packed_trx.data(), gtrx.packed_trx.size() );
 
-      // after disable_deferred_trxs_stage_1 is activated, a deferred
-      // transaction can be retired as expired at any time regardless of
-      // whether its delay_until or expiration times have been reached.
+      // check delay_until only before disable_deferred_trxs_stage_1 is activated.
       if( !self.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) ) {
          EOS_ASSERT( gtrx.delay_until <= self.pending_block_time(), transaction_exception, "this transaction isn't ready",
                     ("gtrx.delay_until",gtrx.delay_until)("pbt",self.pending_block_time()) );
@@ -1319,8 +1317,11 @@ struct controller_impl {
                                                           transaction_metadata::trx_type::scheduled );
       trx->accepted = true;
 
+      // after disable_deferred_trxs_stage_1 is activated, a deferred
+      // transaction can be retired as expired at any time regardless of
+      // whether its delay_until or expiration times have been reached.
       transaction_trace_ptr trace;
-      if( gtrx.expiration < self.pending_block_time() ) {
+      if( self.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) || gtrx.expiration < self.pending_block_time() ) {
          trace = std::make_shared<transaction_trace>();
          trace->id = gtrx.trx_id;
          trace->block_num = self.head_block_num() + 1;
