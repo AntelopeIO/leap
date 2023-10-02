@@ -326,7 +326,7 @@ namespace eosio { namespace chain {
          block_log_data  log_data;
          block_log_index log_index;
 
-         block_log_bundle(std::filesystem::path block_file, std::filesystem::path index_file)
+         block_log_bundle(std::filesystem::path block_file, std::filesystem::path index_file, bool validate_indx)
              : block_file_name(std::move(block_file)), index_file_name(std::move(index_file)) {
 
             log_data.open(block_file_name);
@@ -335,6 +335,15 @@ namespace eosio { namespace chain {
             EOS_ASSERT(!log_data.get_preamble().is_currently_pruned(), block_log_unsupported_version,
                        "Block log is currently in pruned format, it must be vacuumed before doing this operation");
 
+            if (validate_indx)
+               validate_index();
+         }
+
+         explicit block_log_bundle(const std::filesystem::path& block_dir, bool validate_index=true)
+             : block_log_bundle(block_dir / "blocks.log", block_dir / "blocks.index", validate_index) {}
+
+         // throws if not valid
+         void validate_index() {
             uint32_t log_num_blocks   = log_data.num_blocks();
             uint32_t index_num_blocks = log_index.num_blocks();
 
@@ -345,9 +354,6 @@ namespace eosio { namespace chain {
                   ("block_file_name", block_file_name)("log_num_blocks", log_num_blocks)(
                         "index_num_blocks", index_num_blocks)("index_file_name", index_file_name));
          }
-
-         explicit block_log_bundle(const std::filesystem::path& block_dir)
-             : block_log_bundle(block_dir / "blocks.log", block_dir / "blocks.index") {}
       };
 
       /// Used to traverse the block position (i.e. the last 8 bytes in each block log entry) of the blocks.log file
@@ -1572,11 +1578,13 @@ namespace eosio { namespace chain {
    // static
    void block_log::smoke_test(const std::filesystem::path& block_dir, uint32_t interval) {
 
-      block_log_bundle log_bundle(block_dir);
+      block_log_bundle log_bundle(block_dir, false);
 
       ilog("block log version= ${version}",("version", log_bundle.log_data.version()));
       ilog("first block= ${first}",("first", log_bundle.log_data.first_block_num()));
       ilog("last block= ${last}",("last", log_bundle.log_data.last_block_num()));
+
+      log_bundle.validate_index();
 
       ilog("blocks.log and blocks.index agree on number of blocks");
 
