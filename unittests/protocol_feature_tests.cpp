@@ -2069,4 +2069,19 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_2_test ) { try {
    BOOST_CHECK_EQUAL( c.control->get_resource_limits_manager().get_account_ram_usage( "bob"_n ), bob_ram_usage_before );
 } FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_2_test
 
+BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_2_dependency_test ) { try {
+   tester_no_disable_deferrd_trx c;
+
+   c.produce_block();
+
+   // disable_deferred_trxs_stage_2 cannot be activated before disable_deferred_trxs_stage_1
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   auto d = pfm.get_builtin_digest( builtin_protocol_feature_t::disable_deferred_trxs_stage_2 );
+   BOOST_REQUIRE( d );
+   c.preactivate_protocol_features( {*d} );
+   BOOST_REQUIRE_EXCEPTION( c.produce_block(),
+      protocol_feature_validation_exception,
+      fc_exception_message_starts_with("disable_deferred_trxs_stage_1 must be activated before disable_deferred_trxs_stage_2 is activated"));
+} FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_2_dependency_test
+
 BOOST_AUTO_TEST_SUITE_END()
