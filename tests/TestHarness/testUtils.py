@@ -615,4 +615,4 @@ class Utils:
 
     @staticmethod
     def getNodeosVersion():
-        return os.popen(f"{Utils.EosServerPath} --version").read().replace("\n", "")
+        return os.popen(f"{Utils.EosServerPath} --full-version").read().replace("\n", "")

@@ -7,12 +7,22 @@
             "name": "doit",
             "base": "",
             "fields": []
+        },
+        {
+            "name": "doitslow",
+            "base": "",
+            "fields": []
         }
     ],
     "actions": [
         {
             "name": "doit",
             "type": "doit",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "doitslow",
+            "type": "doitslow",
             "ricardian_contract": ""
         }
     ],

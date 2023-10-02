@@ -584,16 +584,7 @@ BOOST_AUTO_TEST_CASE( no_duplicate_deferred_id_test ) try {
 
    BOOST_REQUIRE_EQUAL(0u, index.size());
 
-   c.push_action( config::system_account_name, "reqauth"_n, "alice"_n, fc::mutable_variant_object()
-      ("from", "alice"),
-      5, 2
-   );
-
-   BOOST_REQUIRE_EQUAL(1u, index.size());
-
-   c.produce_block();
-
-   BOOST_REQUIRE_EQUAL(1u, index.size());
+   BOOST_REQUIRE_EQUAL(0u, index.size());
 
    const auto& pfm = c.control->get_protocol_feature_manager();
 
@@ -608,14 +599,14 @@ BOOST_AUTO_TEST_CASE( no_duplicate_deferred_id_test ) try {
       ("contract", "test")
       ("payload", 42)
    );
-   BOOST_REQUIRE_EQUAL(2u, index.size());
+   BOOST_REQUIRE_EQUAL(1u, index.size());
 
    c.preactivate_protocol_features( {*d1, *d2} );
    c.produce_block();
    // The deferred transaction with payload 42 that was scheduled prior to the activation of the protocol features should now be retired.
 
    BOOST_REQUIRE( trace1 );
-   BOOST_REQUIRE_EQUAL(1u, index.size());
+   BOOST_REQUIRE_EQUAL(0u, index.size());
 
    trace1 = nullptr;
 

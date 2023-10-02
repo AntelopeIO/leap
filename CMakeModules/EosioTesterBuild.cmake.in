@@ -34,6 +34,7 @@ endif ( APPLE )
 
 set( Boost_USE_MULTITHREADED      ON )
 set( Boost_USE_STATIC_LIBS ON CACHE STRING "ON or OFF" )
+set( BOOST_EXCLUDE_LIBRARIES "mysql" )
 
 add_subdirectory( @CMAKE_SOURCE_DIR@/libraries/boost ${PROJECT_BINARY_DIR}/libraries/boost EXCLUDE_FROM_ALL)
 
@@ -49,8 +50,8 @@ find_library(libwast WAST @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/WAST NO_D
 find_library(libir IR     @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/IR NO_DEFAULT_PATH)
 find_library(liblogging Logging @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/Logging NO_DEFAULT_PATH)
 find_library(libsoftfloat softfloat @CMAKE_BINARY_DIR@/libraries/softfloat NO_DEFAULT_PATH)
-get_filename_component(cryptodir @OPENSSL_CRYPTO_LIBRARY@ DIRECTORY)
-find_library(liboscrypto crypto "${cryptodir}" NO_DEFAULT_PATH)
+find_library(libbscrypto bscrypto @CMAKE_BINARY_DIR@/libraries/libfc/libraries/boringssl/boringssl NO_DEFAULT_PATH)
+find_library(libdecrepit decrepit @CMAKE_BINARY_DIR@/libraries/libfc/libraries/boringssl/boringssl NO_DEFAULT_PATH)
 find_library(libchainbase chainbase @CMAKE_BINARY_DIR@/libraries/chainbase NO_DEFAULT_PATH)
 find_library(libbuiltins builtins @CMAKE_BINARY_DIR@/libraries/builtins NO_DEFAULT_PATH)
 
@@ -73,7 +74,8 @@ target_link_libraries(EosioChain INTERFACE
    ${libwasm}
    ${libir}
    ${libsoftfloat}
-   ${liboscrypto}
+   ${libbscrypto}
+   ${libdecrepit}
    ${liblogging}
    ${libchainbase}
    ${libbuiltins}
@@ -107,6 +109,7 @@ target_include_directories(EosioChain INTERFACE
                               @CMAKE_SOURCE_DIR@/libraries/chain/include
                               @CMAKE_BINARY_DIR@/libraries/chain/include
                               @CMAKE_SOURCE_DIR@/libraries/libfc/include
+                              @CMAKE_SOURCE_DIR@/libraries/libfc/libraries/boringssl/boringssl/src/include
                               @CMAKE_SOURCE_DIR@/libraries/softfloat/source/include
                               @CMAKE_SOURCE_DIR@/libraries/appbase/include
                               @CMAKE_SOURCE_DIR@/libraries/chainbase/include

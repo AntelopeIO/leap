@@ -35,8 +35,7 @@ namespace eosio::testing {
    }
 
    void provider_connection::init_and_connect() {
-      _connection_thread_pool.start(
-          1, [](const fc::exception& e) { elog("provider_connection exception ${e}", ("e", e)); });
+      _connection_thread_pool.start(1, {});
       connect();
    };
 
@@ -133,7 +132,6 @@ namespace eosio::testing {
           params, std::move(msg_body),
           [this, trx_id = trx.id()](boost::beast::error_code                                      ec,
                                     boost::beast::http::response<boost::beast::http::string_body> response) {
-             ++this->_acknowledged;
              trx_acknowledged(trx_id, fc::time_point::now());
 
              if (this->needs_response_trace_info() && response.result() == boost::beast::http::status::ok) {
@@ -178,6 +176,7 @@ namespace eosio::testing {
                 elog("async_http_request Failed with response http status code: ${status}",
                      ("status", response.result_int()));
              }
+             ++this->_acknowledged;
           });
       ++_sent;
    }

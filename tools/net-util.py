@@ -103,7 +103,6 @@ class netUtil:
             'nodeos_blocks_produced_total': 'Blocks Produced:',
             'nodeos_trxs_produced_total': 'Trxs Produced:',
             'nodeos_scheduled_trxs_total': 'Scheduled Trxs:',
-            'nodeos_blacklisted_transactions_total': 'Blacklisted Trxs:',
             'nodeos_unapplied_transactions_total': 'Unapplied Trxs:',
             'nodeos_dropped_trxs_total': 'Dropped Trxs:',
             'nodeos_failed_p2p_connections_total': 'Failed P2P Connections:',
