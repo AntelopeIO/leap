@@ -4635,17 +4635,39 @@ namespace eosio {
 
    // called from any thread
    void connections_manager::connection_monitor(const std::weak_ptr<connection>& from_connection) {
+      size_t num_rm = 0, num_clients = 0, num_peers = 0, num_bp_peers = 0;
+      auto cleanup = [&num_peers, &num_rm, this](vector<connection_ptr>&& reconnecting, 
+                                                 vector<connection_ptr>&& removing) {
+         for( auto c : reconnecting ) {
+            if (!c->reconnect()) {
+               --num_peers;
+               ++num_rm;
+               removing.push_back(c);
+            }
+         }
+         std::unique_lock g( connections_mtx );
+         auto& index = connections.get<by_connection>();
+         for( auto c : removing ) {
+            auto rit = index.find(c);
+            if (rit != index.end()) {
+               index.erase(rit);
+            }
+         }
+         g.unlock();
+
+      };
       auto max_time = fc::time_point::now().safe_add(max_cleanup_time);
+      std::vector<connection_ptr> reconnecting, removing;
       auto from = from_connection.lock();
       std::unique_lock g( connections_mtx );
       auto& index = connections.get<by_connection>();
       auto it = (from ? index.find(from) : index.begin());
       if (it == index.end()) it = index.begin();
-      size_t num_rm = 0, num_clients = 0, num_peers = 0, num_bp_peers = 0;
       while (it != index.end()) {
          if (fc::time_point::now() >= max_time) {
             connection_wptr wit = (*it).c;
             g.unlock();
+            cleanup(std::move(reconnecting), std::move(removing));
             fc_dlog( logger, "Exiting connection monitor early, ran out of time: ${t}", ("t", max_time - fc::time_point::now()) );
             fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}",
                     ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", supplied_peers.size()) );
@@ -4663,27 +4685,17 @@ namespace eosio {
 
          if (!c->socket_is_open() && c->state() != connection::connection_state::connecting) {
             if (!c->incoming()) {
-               g.unlock();
-               fc_dlog(logger, "attempting to connect in connection_monitor");
-               if (!c->reconnect()) {
-                  g.lock();
-                  it = index.erase(it);
-                  g.unlock();
-                  --num_peers;
-                  ++num_rm;
-                  continue;
-               }
-               g.lock();
+               reconnecting.push_back(c);
             } else {
                --num_clients;
                ++num_rm;
-               it = index.erase(it);
-               continue;
+               removing.push_back(c);
             }
          }
          ++it;
       }
       g.unlock();
+      cleanup(std::move(reconnecting), std::move(removing));
 
       if( num_clients > 0 || num_peers > 0 ) {
          fc_ilog(logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}, block producer peers: ${num_bp_peers}",
