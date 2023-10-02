@@ -106,7 +106,7 @@ namespace eosio { namespace hotstuff {
                                     bls_key_map_t finalizer_keys,
                                     fc::logger& logger)
       : _chain(chain),
-        _qc_chain("default"_n, this, std::move(my_producers), std::move(finalizer_keys), logger),
+        _qc_chain("default", this, std::move(my_producers), std::move(finalizer_keys), logger),
         _logger(logger)
    {
       _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
@@ -266,23 +266,8 @@ namespace eosio { namespace hotstuff {
       return n;
    }
 
-   std::vector<name> chain_pacemaker::get_finalizers() {
-
-#warning FIXME: Use _active_finalizer_set in pacemaker/qc_chain.
-      // _active_finalizer_set should be used
-
-      std::unique_lock g( _chain_state_mutex );
-      block_state_ptr hbs = _head_block_state;
-      g.unlock();
-
-      // Old code: get eosio::name from the producer schedule
-      const std::vector<producer_authority>& pa_list = hbs->active_schedule.producers;
-      std::vector<name> pn_list;
-      pn_list.reserve(pa_list.size());
-      std::transform(pa_list.begin(), pa_list.end(),
-                     std::back_inserter(pn_list),
-                     [](const producer_authority& p) { return p.producer_name; });
-      return pn_list;
+   const finalizer_set& chain_pacemaker::get_finalizer_set(){
+      return _active_finalizer_set;
    }
 
    block_id_type chain_pacemaker::get_current_block_id() {
@@ -303,24 +288,25 @@ namespace eosio { namespace hotstuff {
       prof.core_out();
    }
 
-   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, name id, const std::optional<uint32_t>& exclude_peer) {
+   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       bcast_hs_message(exclude_peer, msg);
    }
 
-   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, name id, const std::optional<uint32_t>& exclude_peer) {
+   void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       bcast_hs_message(exclude_peer, msg);
    }
 
-   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, name id, const std::optional<uint32_t>& exclude_peer) {
+   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       bcast_hs_message(exclude_peer, msg);
    }
 
-   void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, name id, const std::optional<uint32_t>& exclude_peer) {
+   void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       bcast_hs_message(exclude_peer, msg);
    }
 
    void chain_pacemaker::send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code) {
       warn_hs_message(sender_peer, code);
+
    }
 
    // called from net threads
