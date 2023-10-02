@@ -73,8 +73,9 @@ class session : public std::enable_shared_from_this<session> {
       req_.set(http::field::host, host);
       req_.set(http::field::user_agent, BOOST_BEAST_VERSION_STRING);
       req_.set(http::field::content_type, content_type);
-      req_.set(http::field::connection, "close");
       req_.body() = std::move(request_body);
+      // current implementation does not reuse socket, disable keep_alive
+      req_.set(http::field::connection, "close");
       req_.keep_alive(false);
       req_.prepare_payload();
 
