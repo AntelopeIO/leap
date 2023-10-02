@@ -2657,7 +2657,7 @@ void producer_plugin::log_failed_transaction(const transaction_id_type&    trx_i
 
 // Called from only one read_only thread
 void producer_plugin_impl::switch_to_write_window() {
-   fc_ilog(_log, "Read-only threads ${n}, read window ${r}us, total all threads ${t}us",
+   fc_dlog(_log, "Read-only threads ${n}, read window ${r}us, total all threads ${t}us",
            ("n", _ro_thread_pool_size)("r", fc::time_point::now() - _ro_read_window_start_time)("t", _ro_all_threads_exec_time_us.load()));
 
    chain::controller& chain = chain_plug->chain();
