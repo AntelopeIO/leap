@@ -2310,11 +2310,12 @@ bool producer_plugin_impl::retire_deferred_trxs(const fc::time_point& deadline) 
    const auto&        expired_idx         = chain.db().get_index<generated_transaction_multi_index, by_expiration>();
    const auto expired_size                = expired_idx.size();
    auto               expired_itr         = expired_idx.begin();
+   bool               stage_1_activated   = chain.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1);
 
    while (expired_itr != expired_idx.end()) {
       // * Before disable_deferred_trxs_stage_1 is activated, retire only expired deferred trxs.
       // * After disable_deferred_trxs_stage_1, retire any deferred trxs in any order
-      if (!chain.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1) && expired_itr->expiration >= pending_block_time) { // before stage_1 and not expired yet
+      if (!stage_1_activated && expired_itr->expiration >= pending_block_time) { // before stage_1 and not expired yet
          break;
       }
 
@@ -2386,7 +2387,7 @@ bool producer_plugin_impl::retire_deferred_trxs(const fc::time_point& deadline) 
               ("m", num_processed)("n", expired_size)("applied", num_applied)("failed", num_failed));
    }
 
-   if (chain.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1) && num_failed > 0) {
+   if (stage_1_activated && num_failed > 0) {
       return false;
    }
    return true;
