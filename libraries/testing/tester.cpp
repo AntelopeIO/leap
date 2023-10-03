@@ -266,14 +266,14 @@ namespace eosio { namespace testing {
             break;
          }
          case setup_policy::full:
-         case setup_policy::full_but_disable_deferrd_trx: {
+         case setup_policy::full_except_do_not_disable_deferred_trx: {
             schedule_preactivate_protocol_feature();
             produce_block();
             set_before_producer_authority_bios_contract();
             if( policy == setup_policy::full ) {
                preactivate_all_builtin_protocol_features();
             } else {
-               preactivate_all_but_disable_deferrd_trx();
+               preactivate_all_but_disable_deferred_trx();
             }
             produce_block();
             set_bios_contract();
@@ -1250,7 +1250,7 @@ namespace eosio { namespace testing {
       preactivate_all_builtin_protocol_features_common( ordered_builtins );
    }
 
-   void base_tester::preactivate_all_but_disable_deferrd_trx() {
+   void base_tester::preactivate_all_but_disable_deferred_trx() {
       std::vector<builtin_protocol_feature_t> ordered_builtins;
       for( const auto& f : builtin_protocol_feature_codenames ) {
          // Before deferred trxs feature is fully disabled, existing tests involving

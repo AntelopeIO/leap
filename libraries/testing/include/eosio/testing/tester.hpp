@@ -64,8 +64,8 @@ namespace eosio { namespace testing {
       preactivate_feature_only,
       preactivate_feature_and_new_bios,
       old_wasm_parser,
-      full,
-      full_but_disable_deferrd_trx
+      full_except_do_not_disable_deferred_trx,
+      full
    };
 
    std::ostream& operator<<(std::ostream& os, setup_policy p);
@@ -387,7 +387,7 @@ namespace eosio { namespace testing {
          void preactivate_protocol_features(const vector<digest_type> feature_digests);
          void preactivate_builtin_protocol_features(const std::vector<builtin_protocol_feature_t>& features);
          void preactivate_all_builtin_protocol_features();
-         void preactivate_all_but_disable_deferrd_trx();
+         void preactivate_all_but_disable_deferred_trx();
          void preactivate_all_builtin_protocol_features_common(const std::vector<builtin_protocol_feature_t>& ordered_builtins);
 
          static genesis_state default_genesis() {
@@ -515,9 +515,9 @@ namespace eosio { namespace testing {
       bool validate() { return true; }
    };
 
-   class tester_no_disable_deferrd_trx : public tester {
+   class tester_no_disable_deferred_trx : public tester {
    public:
-      tester_no_disable_deferrd_trx(): tester(setup_policy::full_but_disable_deferrd_trx) {
+      tester_no_disable_deferred_trx(): tester(setup_policy::full_except_do_not_disable_deferred_trx) {
       }
    };
 
@@ -666,9 +666,9 @@ namespace eosio { namespace testing {
       bool                     skip_validate = false;
    };
 
-   class validating_tester_no_disable_deferrd_trx : public validating_tester {
+   class validating_tester_no_disable_deferred_trx : public validating_tester {
    public:
-      validating_tester_no_disable_deferrd_trx(): validating_tester({}, nullptr, setup_policy::full_but_disable_deferrd_trx) {
+      validating_tester_no_disable_deferred_trx(): validating_tester({}, nullptr, setup_policy::full_except_do_not_disable_deferred_trx) {
       }
    };
 

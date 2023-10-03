@@ -18,7 +18,7 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
-class currency_tester : public validating_tester_no_disable_deferrd_trx {
+class currency_tester : public validating_tester_no_disable_deferred_trx {
    public:
 
       auto push_action(const account_name& signer, const action_name &name, const variant_object &data ) {
@@ -64,7 +64,7 @@ class currency_tester : public validating_tester_no_disable_deferrd_trx {
       }
 
       currency_tester()
-         :validating_tester_no_disable_deferrd_trx(), abi_ser(json::from_string(test_contracts::eosio_token_abi()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
+         :validating_tester_no_disable_deferred_trx(), abi_ser(json::from_string(test_contracts::eosio_token_abi()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
       {
          create_account( "eosio.token"_n);
          set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );

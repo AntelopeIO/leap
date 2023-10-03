@@ -1927,7 +1927,7 @@ BOOST_AUTO_TEST_CASE( set_parameters_packed_test ) { try {
 namespace eosio::chain { extern void modify_gto_for_canceldelay_test(controller& control, const transaction_id_type& trx_id) ; }
 
 BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
-   tester_no_disable_deferrd_trx c;
+   tester_no_disable_deferred_trx c;
 
    c.produce_block();
    c.create_accounts( {"alice"_n, "bob"_n, "test"_n} );
@@ -2038,7 +2038,7 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
 // verify a deferred transaction can be retired as expired at any time regardless of
 // whether its delay_until or expiration have been reached
 BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_retire_test ) { try {
-   tester_no_disable_deferrd_trx c;
+   tester_no_disable_deferred_trx c;
 
    c.produce_block();
    c.create_accounts( {"alice"_n, "test"_n} );
@@ -2103,7 +2103,7 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_retire_test ) { try {
 } FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_1_retire_test
 
 BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_2_test ) { try {
-   tester_no_disable_deferrd_trx c;
+   tester_no_disable_deferred_trx c;
 
    c.produce_block();
    c.create_accounts( {"alice"_n, "bob"_n, "test"_n} );
@@ -2170,7 +2170,7 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_2_test ) { try {
 } FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_2_test
 
 BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_2_dependency_test ) { try {
-   tester_no_disable_deferrd_trx c;
+   tester_no_disable_deferred_trx c;
 
    c.produce_block();
 
