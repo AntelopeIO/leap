@@ -503,7 +503,8 @@ public:
       try {
          // Send a shutdown signal
          beast::error_code ec;
-         socket_.shutdown(Socket::shutdown_send, ec);
+         socket_.shutdown(Socket::shutdown_both, ec);
+         socket_.close(ec);
          // At this point the connection is closed gracefully
       } catch(...) {
          handle_exception();

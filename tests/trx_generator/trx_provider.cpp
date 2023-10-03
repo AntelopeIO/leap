@@ -133,6 +133,10 @@ namespace eosio::testing {
           [this, trx_id = trx.id()](boost::beast::error_code                                      ec,
                                     boost::beast::http::response<boost::beast::http::string_body> response) {
              trx_acknowledged(trx_id, fc::time_point::now());
+             if (ec) {
+                elog("http error: ${c}: ${m}", ("c", ec.value())("m", ec.message()));
+                throw std::runtime_error(ec.message());
+             }
 
              if (this->needs_response_trace_info() && response.result() == boost::beast::http::status::ok) {
                 try {
