@@ -28,7 +28,7 @@ RUN apt-get update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-g
                                                                                               zstd \
                                                                                               ;
 
-ARG _LEAP_CLANG_VERSION=17.0.1
+ARG _LEAP_CLANG_VERSION=17.0.2
 ARG _LEAP_LLVM_VERSION=11.1.0
 ARG _LEAP_CMAKE_VERSION=3.27.6
 
