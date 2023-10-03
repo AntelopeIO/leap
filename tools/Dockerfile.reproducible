@@ -25,6 +25,7 @@ RUN apt-get update && apt-get -y upgrade && DEBIAN_FRONTEND=noninteractive apt-g
                                                                                               ninja-build \
                                                                                               python3 \
                                                                                               zlib1g-dev \
+                                                                                              zstd \
                                                                                               ;
 
 ARG _LEAP_CLANG_VERSION=17.0.1
