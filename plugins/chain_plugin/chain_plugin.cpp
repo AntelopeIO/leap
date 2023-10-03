@@ -934,11 +934,11 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
 
       chain_config->db_map_mode = options.at("database-map-mode").as<pinnable_mapped_file::map_mode>();
 
-      // when loading a snapshot, all the state will be modified, so use the `shared` mode instead
-      // of `copy_on_write` to lower memory requirements
-      if (snapshot_path && chain_config->db_map_mode == pinnable_mapped_file::mapped) {
-        chain_config->db_map_mode = pinnable_mapped_file::mapped_shared;
-        chain_config->revert_to_mapped_mode = true; // revert to `mapped` mode after loading snapshot.
+      // when loading a snapshot, all the state will be modified, so temporarily use the `mapped` mode instead
+      // of `mapped_private` to lower memory requirements.
+      if (snapshot_path && chain_config->db_map_mode == pinnable_mapped_file::mapped_private) {
+        chain_config->db_map_mode = pinnable_mapped_file::mapped;
+        chain_config->revert_to_private_mode = true; // revert to `mapped_private` mode after loading snapshot.
       }
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED

@@ -79,7 +79,7 @@ namespace eosio { namespace chain {
             bool                     disable_replay_opts    =  false;
             bool                     contracts_console      =  false;
             bool                     allow_ram_billing_in_notify = false;
-            bool                     revert_to_mapped_mode   =  false;
+            bool                     revert_to_private_mode =  false;
             uint32_t                 maximum_variable_signature_length = chain::config::default_max_variable_signature_length;
             bool                     disable_all_subjective_mitigations = false; //< for developer & testing purposes, can be configured using `disable-all-subjective-mitigations` when `EOSIO_DEVELOPER` build option is provided
             uint32_t                 terminate_at_block     = 0;

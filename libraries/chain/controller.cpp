@@ -607,8 +607,8 @@ struct controller_impl {
          ilog( "Snapshot loaded, lib: ${lib}", ("lib", head->block_num) );
 
          init(std::move(check_shutdown));
-         if (conf.revert_to_mapped_mode)
-            db.revert_to_mapped_mode();
+         if (conf.revert_to_private_mode)
+            db.revert_to_private_mode();
          ilog( "Finished initialization from snapshot" );
       } catch (boost::interprocess::bad_alloc& e) {
          elog( "Failed initialization from snapshot - db storage not configured to have enough storage for the provided snapshot, please increase and retry snapshot" );
