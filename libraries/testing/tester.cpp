@@ -1232,6 +1232,11 @@ namespace eosio { namespace testing {
          builtins.push_back( f.first );
       }
 
+      // std::sort is required to make sure protocol features are always activated in
+      // the same order, such that producer_block_id is always the same for the
+      // deep_mind test.
+      std::sort( builtins.begin(), builtins.end() );
+
       preactivate_builtin_protocol_features( builtins );
    }
 
