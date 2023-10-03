@@ -405,7 +405,6 @@ namespace eosio::hotstuff {
 
       bool am_leader = am_i_leader();
 
-//<<<<<<< HEAD
       if (am_leader) {
          if (vote.proposal_id != _current_qc.get_proposal_id()) {
             send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
@@ -417,14 +416,6 @@ namespace eosio::hotstuff {
       if (p == nullptr) {
          if (am_leader)
             fc_elog(_logger, " *** ${id} couldn't find proposal, vote : ${vote}", ("id",_id)("vote", vote));
-//=======
-//      if (!am_leader)
-//         return;
-//      fc_tlog(_logger, " === Process vote from ${finalizer_key} : current bitset ${value}" ,
-//              ("finalizer_key", vote.finalizer_key)("value", _current_qc.get_active_finalizers_string()));
-//             // only leader need to take action on votes
-//      if (vote.proposal_id != _current_qc.get_proposal_id()) {
-//>>>>>>> origin/hotstuff_integration
          send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
          return;
       }
