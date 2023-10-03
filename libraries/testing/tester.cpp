@@ -1226,33 +1226,37 @@ namespace eosio { namespace testing {
       preactivate_protocol_features( preactivations );
    }
 
-   void base_tester::preactivate_all_builtin_protocol_features() {
+   std::vector<builtin_protocol_feature_t> base_tester::get_all_builtin_protocol_features() {
       std::vector<builtin_protocol_feature_t> builtins;
       for( const auto& f : builtin_protocol_feature_codenames ) {
          builtins.push_back( f.first );
       }
 
-      // std::sort is required to make sure protocol features are always activated in
-      // the same order, such that producer_block_id is always the same for the
-      // deep_mind test.
+      // Sorting is here to ensure a consistent order across platforms given that it is
+      // pulling the items from an std::unordered_map. This order is important because
+      // it impacts the block IDs generated and written out to logs for some tests such
+      // as the deep-mind tests.
       std::sort( builtins.begin(), builtins.end() );
 
-      preactivate_builtin_protocol_features( builtins );
+      return builtins;
+   }
+
+   void base_tester::preactivate_all_builtin_protocol_features() {
+      preactivate_builtin_protocol_features( get_all_builtin_protocol_features() );
    }
 
    void base_tester::preactivate_all_but_disable_deferred_trx() {
       std::vector<builtin_protocol_feature_t> builtins;
-      for( const auto& f : builtin_protocol_feature_codenames ) {
+      for( const auto& f : get_all_builtin_protocol_features() ) {
          // Before deferred trxs feature is fully disabled, existing tests involving
          // deferred trxs need to be exercised to make sure existing behaviors are
          // maintained. Excluding DISABLE_DEFERRED_TRXS_STAGE_1 and DISABLE_DEFERRED_TRXS_STAGE_2
          // from full protocol feature list such that existing tests can run.
-         std::string codename = f.second.codename;
-         if( codename == "DISABLE_DEFERRED_TRXS_STAGE_1" || codename == "DISABLE_DEFERRED_TRXS_STAGE_2" ) {
+         if( f ==  builtin_protocol_feature_t::disable_deferred_trxs_stage_1 || f  == builtin_protocol_feature_t::disable_deferred_trxs_stage_2 ) {
             continue;
          }
 
-         builtins.push_back( f.first );
+         builtins.push_back( f );
       }
 
       preactivate_builtin_protocol_features( builtins );

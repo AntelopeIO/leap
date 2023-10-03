@@ -447,6 +447,9 @@ namespace eosio { namespace testing {
 
       public:
          vector<digest_type>                           protocol_features_to_be_activated_wo_preactivation;
+
+      private:
+         std::vector<builtin_protocol_feature_t> get_all_builtin_protocol_features();
    };
 
    class tester : public base_tester {
