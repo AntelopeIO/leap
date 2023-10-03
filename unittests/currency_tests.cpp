@@ -18,7 +18,7 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace fc;
 
-class currency_tester : public validating_tester_no_disable_deferred_trx {
+class currency_tester : public validating_tester {
    public:
 
       auto push_action(const account_name& signer, const action_name &name, const variant_object &data ) {
@@ -63,8 +63,8 @@ class currency_tester : public validating_tester_no_disable_deferred_trx {
          return trace;
       }
 
-      currency_tester()
-         :validating_tester_no_disable_deferred_trx(), abi_ser(json::from_string(test_contracts::eosio_token_abi()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
+      currency_tester(setup_policy p = setup_policy::full)
+         :validating_tester({}, nullptr, p), abi_ser(json::from_string(test_contracts::eosio_token_abi()).as<abi_def>(), abi_serializer::create_yield_function( abi_serializer_max_time ))
       {
          create_account( "eosio.token"_n);
          set_code( "eosio.token"_n, test_contracts::eosio_token_wasm() );
@@ -89,6 +89,11 @@ class currency_tester : public validating_tester_no_disable_deferred_trx {
 
       abi_serializer abi_ser;
       static const name eosio_token;
+};
+
+class pre_disable_deferred_trx_currency_tester : public currency_tester {
+   public:
+      pre_disable_deferred_trx_currency_tester() : currency_tester(setup_policy::full_except_do_not_disable_deferred_trx) {}
 };
 
 const name currency_tester::eosio_token = "eosio.token"_n;
@@ -389,7 +394,7 @@ BOOST_FIXTURE_TEST_CASE(test_symbol, validating_tester) try {
 
 } FC_LOG_AND_RETHROW() /// test_symbol
 
-BOOST_FIXTURE_TEST_CASE( test_proxy, currency_tester ) try {
+BOOST_FIXTURE_TEST_CASE( test_proxy_deferred, pre_disable_deferred_trx_currency_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"alice"_n, "proxy"_n} );
@@ -442,9 +447,9 @@ BOOST_FIXTURE_TEST_CASE( test_proxy, currency_tester ) try {
    BOOST_REQUIRE_EQUAL(get_balance( "proxy"_n), asset::from_string("0.0000 CUR"));
    BOOST_REQUIRE_EQUAL(get_balance( "alice"_n),   asset::from_string("5.0000 CUR"));
 
-} FC_LOG_AND_RETHROW() /// test_currency
+} FC_LOG_AND_RETHROW() /// test_proxy_deferred
 
-BOOST_FIXTURE_TEST_CASE( test_deferred_failure, currency_tester ) try {
+BOOST_FIXTURE_TEST_CASE( test_deferred_failure, pre_disable_deferred_trx_currency_tester ) try {
    produce_blocks(2);
 
    create_accounts( {"alice"_n, "bob"_n, "proxy"_n} );
