@@ -3476,8 +3476,10 @@ void controller::validate_db_available_size() const {
    EOS_ASSERT(free >= guard, database_guard_exception, "database free: ${f}, guard size: ${g}", ("f", free)("g",guard));
 
    // give a change to chainbase to write some pages to disk if memory becomes scarce.
-   if (auto flushed_pages = mutable_db().check_memory_and_flush_if_needed()) {
-      ilog("CHAINBASE: flushed ${p} pages to disk to decrease memory pressure", ("p", flushed_pages));
+   if (is_write_window()) {
+      if (auto flushed_pages = mutable_db().check_memory_and_flush_if_needed()) {
+         ilog("CHAINBASE: flushed ${p} pages to disk to decrease memory pressure", ("p", flushed_pages));
+      }
    }
 }
 
