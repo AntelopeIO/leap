@@ -3471,9 +3471,12 @@ void controller::validate_tapos( const transaction& trx )const { try {
 } FC_CAPTURE_AND_RETHROW() }
 
 void controller::validate_db_available_size() const {
-   const auto free = db().get_segment_manager()->get_free_memory();
+   const auto free = db().get_free_memory();
    const auto guard = my->conf.state_guard_size;
    EOS_ASSERT(free >= guard, database_guard_exception, "database free: ${f}, guard size: ${g}", ("f", free)("g",guard));
+
+   // give a change to chainbase to write some pages to disk if memory becomes scarce.
+   mutable_db().check_memory_usage();
 }
 
 bool controller::is_protocol_feature_activated( const digest_type& feature_digest )const {
