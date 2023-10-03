@@ -28,7 +28,7 @@ jobs:
     needs: [platform-cache]
     with:
       platforms: ${{needs.platform-cache.outputs.platforms}}
-      platform-list: ${{needs.platform-cache.outputs.platforms}}
+      platform-list: ${{needs.platform-cache.outputs.platform-list}}
     permissions:
       packages: write
       contents: read
