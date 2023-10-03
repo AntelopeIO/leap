@@ -1935,10 +1935,10 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
    c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
    c.produce_block();
 
-   // verify number of deferred trxs starts at 0
    auto gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
    BOOST_REQUIRE_EQUAL(0u, gen_size);
 
+   // verify send_deferred host function works before disable_deferred_trxs_stage_1 is activated
    c.push_action( "test"_n, "delayedcall"_n, "alice"_n, fc::mutable_variant_object()
       ("payer", "alice")
       ("sender_id", 1)
@@ -1948,22 +1948,41 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
       ("replace_existing", false)
    );
    c.produce_block();
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(1u, gen_size);
 
-   // verify alice's deferred trxs is schdedueld in generated_transaction_multi_index
+   // verify cancel_deferred host function works before disable_deferred_trxs_stage_1 is activated
+   c.push_action( "test"_n, "cancelcall"_n, "alice"_n, fc::mutable_variant_object()
+      ("sender_id", 1)
+   );
+   c.produce_block();
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+   // generate a new deferred trx for the rest of the test
+   c.push_action( "test"_n, "delayedcall"_n, "alice"_n, fc::mutable_variant_object()
+      ("payer", "alice")
+      ("sender_id", 1)
+      ("contract", "test")
+      ("payload", 100)
+      ("delay_sec", 120)
+      ("replace_existing", false)
+   );
+   c.produce_block();
    const auto& idx = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
    gen_size = idx.size();
    BOOST_REQUIRE_EQUAL(1u, gen_size);
    BOOST_REQUIRE_EQUAL(idx.begin()->payer, "alice"_n);
    auto alice_trx_id = idx.begin()->trx_id;
 
-   // activate disable_deferred_trxs_stage_1. after that, schedule and cancel deferred trxs
-   // become no-op.
+   // activate disable_deferred_trxs_stage_1
    const auto& pfm = c.control->get_protocol_feature_manager();
    auto d = pfm.get_builtin_digest( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 );
    BOOST_REQUIRE( d );
    c.preactivate_protocol_features( {*d} );
    c.produce_block();
 
+   // verify send_deferred host function is no-op
    c.push_action( "test"_n, "delayedcall"_n, "bob"_n, fc::mutable_variant_object()
       ("payer", "bob")
       ("sender_id", 2)
@@ -1981,6 +2000,20 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
    auto gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
    BOOST_REQUIRE(gto != nullptr);
 
+   // verify cancel_deferred host function is no-op
+   BOOST_REQUIRE_EXCEPTION(
+      c.push_action( "test"_n, "cancelcall"_n, "alice"_n, fc::mutable_variant_object()
+         ("sender_id", 1)),
+      eosio_assert_message_exception,
+      eosio_assert_message_is( "cancel_deferred failed" ) );
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(1u, gen_size);
+   // verify alice's deferred trx is not removed
+   gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
+   BOOST_REQUIRE( gto );
+
+   // verify canceldelay native action is no-op
+
    // canceldelay assumes sender and sender_id to be a specific format
    modify_gto_for_canceldelay_test(*(c.control.get()), alice_trx_id);
    // call canceldelay native action
@@ -1997,7 +2030,7 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
    // verify canceldelay is no-op
    gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
    BOOST_REQUIRE_EQUAL(1u, gen_size);
-   // verify alice's deferred trx is still in generated_transaction_multi_index
+   // verify alice's deferred trx is not removed
    gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
    BOOST_REQUIRE( gto );
 } FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_1_no_op_test
