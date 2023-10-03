@@ -49,7 +49,7 @@ struct deep_mind_log_fixture
 
 struct deep_mind_tester : deep_mind_log_fixture, validating_tester
 {
-   deep_mind_tester() : validating_tester({}, &deep_mind_logger, setup_policy::full_except_do_not_disable_deferred_trx) {}
+   deep_mind_tester() : validating_tester({}, &deep_mind_logger, setup_policy::full) {}
 };
 
 namespace {

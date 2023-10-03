@@ -1189,21 +1189,7 @@ namespace eosio { namespace testing {
       }
    }
 
-   void base_tester::preactivate_builtin_protocol_features(const std::vector<builtin_protocol_feature_t>& builtin_features) {
-      const auto& pfs = control->get_protocol_feature_manager().get_protocol_feature_set();
-
-      // This behavior is disabled by configurable_wasm_limits
-      std::vector<digest_type> features;
-      for(builtin_protocol_feature_t feature : builtin_features ) {
-         if( auto digest = pfs.get_builtin_digest( feature ) ) {
-            features.push_back( *digest );
-         }
-      }
-      preactivate_protocol_features(features);
-   }
-
-
-   void base_tester::preactivate_all_builtin_protocol_features_common(const std::vector<builtin_protocol_feature_t>& ordered_builtins) {
+   void base_tester::preactivate_builtin_protocol_features(const std::vector<builtin_protocol_feature_t>& builtins) {
       const auto& pfm = control->get_protocol_feature_manager();
       const auto& pfs = pfm.get_protocol_feature_set();
       const auto current_block_num  =  control->head_block_num() + (control->is_building_block() ? 1 : 0);
@@ -1231,7 +1217,7 @@ namespace eosio { namespace testing {
          preactivations.emplace_back( feature_digest );
       };
 
-      for( const auto& f : ordered_builtins ) {
+      for( const auto& f : builtins ) {
          auto digest = pfs.get_builtin_digest( f);
          if( !digest ) continue;
          add_digests( *digest );
@@ -1241,17 +1227,16 @@ namespace eosio { namespace testing {
    }
 
    void base_tester::preactivate_all_builtin_protocol_features() {
-      std::vector<builtin_protocol_feature_t> ordered_builtins;
+      std::vector<builtin_protocol_feature_t> builtins;
       for( const auto& f : builtin_protocol_feature_codenames ) {
-         ordered_builtins.push_back( f.first );
+         builtins.push_back( f.first );
       }
-      std::sort( ordered_builtins.begin(), ordered_builtins.end() );
 
-      preactivate_all_builtin_protocol_features_common( ordered_builtins );
+      preactivate_builtin_protocol_features( builtins );
    }
 
    void base_tester::preactivate_all_but_disable_deferred_trx() {
-      std::vector<builtin_protocol_feature_t> ordered_builtins;
+      std::vector<builtin_protocol_feature_t> builtins;
       for( const auto& f : builtin_protocol_feature_codenames ) {
          // Before deferred trxs feature is fully disabled, existing tests involving
          // deferred trxs need to be exercised to make sure existing behaviors are
@@ -1262,11 +1247,10 @@ namespace eosio { namespace testing {
             continue;
          }
 
-         ordered_builtins.push_back( f.first );
+         builtins.push_back( f.first );
       }
-      std::sort( ordered_builtins.begin(), ordered_builtins.end() );
 
-      preactivate_all_builtin_protocol_features_common( ordered_builtins );
+      preactivate_builtin_protocol_features( builtins );
    }
 
    tester::tester(const std::function<void(controller&)>& control_setup, setup_policy policy, db_read_mode read_mode) {
