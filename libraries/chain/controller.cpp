@@ -339,7 +339,6 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
-      set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_1>();
       set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
@@ -1317,9 +1316,9 @@ struct controller_impl {
                                                           transaction_metadata::trx_type::scheduled );
       trx->accepted = true;
 
-      // after disable_deferred_trxs_stage_1 is activated, a deferred
-      // transaction can be retired as expired at any time regardless of
-      // whether its delay_until or expiration times have been reached.
+      // After disable_deferred_trxs_stage_1 is activated, a deferred transaction
+      // can only be retired as expired, and it can be retired as expired
+      // regardless of whether its delay_util or expiration times have been reached.
       transaction_trace_ptr trace;
       if( self.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) || gtrx.expiration < self.pending_block_time() ) {
          trace = std::make_shared<transaction_trace>();
@@ -3841,11 +3840,6 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_map" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_mod" );
    } );
-}
-
-template<>
-void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred_trxs_stage_1>() {
-   ; // nothing to do at activation
 }
 
 template<>
