@@ -9,6 +9,7 @@ on:
         options:
         - ubuntu20
         - ubuntu22
+        - reproducible
       override-test-params:
         description: 'Override perf harness params'
         type: string
@@ -66,7 +67,9 @@ jobs:
       contents: read
     with:
       runs-on: '["self-hosted", "enf-x86-beefy"]'
-      platform-files: .cicd/platforms
+      platform-files: |
+        .cicd/platforms
+        tools/reproducible.Dockerfile:builder
 
   reuse-build:
     name: Reuse leap build
