@@ -68,7 +68,6 @@ struct catalog_type {
 
    // produced blocks
    Counter& unapplied_transactions_total;
-   Counter& blacklisted_transactions_total;
    Counter& subjective_bill_account_size_total;
    Counter& scheduled_trxs_total;
    Counter& trxs_produced_total;
@@ -110,8 +109,6 @@ struct catalog_type {
        , head_block_num(build<Gauge>("nodeos_head_block_num", "head block number"))
        , unapplied_transactions_total(build<Counter>("nodeos_unapplied_transactions_total",
                                                      "total number of unapplied transactions from produced blocks"))
-       , blacklisted_transactions_total(build<Counter>("nodeos_blacklisted_transactions_total",
-                                                       "total number of blacklisted transactions from produced blocks"))
        , subjective_bill_account_size_total(build<Counter>(
              "nodeos_subjective_bill_account_size_total", "total number of subjective bill account size from produced blocks"))
        , scheduled_trxs_total(
@@ -211,7 +208,6 @@ struct catalog_type {
 
    void update(const producer_plugin::produced_block_metrics& metrics) {
       unapplied_transactions_total.Increment(metrics.unapplied_transactions_total);
-      blacklisted_transactions_total.Increment(metrics.blacklisted_transactions_total);
       subjective_bill_account_size_total.Increment(metrics.subjective_bill_account_size_total);
       scheduled_trxs_total.Increment(metrics.scheduled_trxs_total);
       trxs_produced_total.Increment(metrics.trxs_produced_total);

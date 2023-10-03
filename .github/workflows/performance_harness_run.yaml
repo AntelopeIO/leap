@@ -12,6 +12,16 @@ on:
       override-test-params:
         description: 'Override perf harness params'
         type: string
+      override-leap:
+        description: Override leap target
+        type: string
+      override-leap-prerelease:
+        type: choice
+        description: Override leap prelease
+        options:
+        - default
+        - true
+        - false
 
 permissions:
   packages: read
@@ -28,31 +38,39 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       test-params: ${{steps.overrides.outputs.test-params}}
+      leap-target: ${{steps.overrides.outputs.leap-target}}
+      leap-prerelease: ${{steps.overrides.outputs.leap-prerelease}}
     steps:
       - name: Setup Input Params
         id: overrides
         run: |
           echo test-params=findMax testBpOpMode >> $GITHUB_OUTPUT
+          echo leap-target="DEFAULT" >> $GITHUB_OUTPUT
+          echo leap-prerelease="false" >> $GITHUB_OUTPUT
 
           if [[ "${{inputs.override-test-params}}" != "" ]]; then
             echo test-params=${{inputs.override-test-params}} >> $GITHUB_OUTPUT
           fi
+          if [[ "${{inputs.override-leap}}" != "" ]]; then
+            echo leap-target=${{inputs.override-leap}} >> $GITHUB_OUTPUT
+          fi
+          if [[ "${{inputs.override-leap-prerelease}}" == +(true|false) ]]; then
+            echo leap-prerelease=${{inputs.override-leap-prerelease}} >> $GITHUB_OUTPUT
+          fi
 
-  platforms:
-    name: Run Platforms Workflow
-    uses: ./.github/workflows/platforms.yaml
-    with:
-      override-build-matrix: ${{github.event.inputs.platform-choice}}
+  platform-cache:
+    name: Platform Cache
+    uses: AntelopeIO/platform-cache-workflow/.github/workflows/platformcache.yaml@v1
     permissions:
       packages: write
       contents: read
+    with:
+      runs-on: '["self-hosted", "enf-x86-beefy"]'
+      platform-files: .cicd/platforms
 
   reuse-build:
     name: Reuse leap build
     needs: [v]
-    if: |
-      always() &&
-      needs.v.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       build-artifact: ${{steps.downloadBuild.outputs.downloaded-file}}
@@ -77,44 +95,63 @@ jobs:
 
   build-base:
     name: Run Build Workflow
-    needs: [platforms, reuse-build]
-    if: always() && needs.platforms.result == 'success' && needs.reuse-build.outputs.build-artifact == ''
+    needs: [platform-cache, reuse-build]
+    if: needs.reuse-build.outputs.build-artifact == ''
     uses: ./.github/workflows/build_base.yaml
     with:
-      p: ${{needs.platforms.outputs.p}}
-      platform-matrix: ${{needs.platforms.outputs.platform-matrix}}
-    permissions:
-      packages: write
-      contents: read
+      platforms: ${{needs.platform-cache.outputs.platforms}}
+      platform-list: '["${{github.event.inputs.platform-choice}}"]'
 
   tests:
     name: Tests
-    needs: [v, platforms, reuse-build, build-base]
-    if: always() && needs.platforms.result == 'success' && (needs.build-base.result == 'success' || needs.reuse-build.result == 'success')
-    runs-on: ubuntu-latest
+    needs: [v, platform-cache, reuse-build, build-base]
+    if: always() && (needs.build-base.result == 'success' || needs.reuse-build.result == 'success')
+    runs-on: ["Leap-Perf-Ubuntu-22-16x64x600"]
     container:
-      image: ${{fromJSON(needs.platforms.outputs.p)[github.event.inputs.platform-choice].image}}
+      image: ${{fromJSON(needs.platform-cache.outputs.platforms)[github.event.inputs.platform-choice].image}}
     steps:
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
           name: ${{github.event.inputs.platform-choice}}-build
-      - name: Run Performance Test
+      - name: Extract Build Directory
         run: |
           zstdcat build.tar.zst | tar x
+      - if: ${{ needs.v.outputs.leap-target != 'DEFAULT' }}
+        name: Download Prev Leap Version
+        uses: AntelopeIO/asset-artifact-download-action@v3
+        with:
+          owner: AntelopeIO
+          repo: leap
+          target: '${{needs.v.outputs.leap-target}}'
+          prereleases: ${{fromJSON(needs.v.outputs.leap-prerelease)}}
+          file: 'leap.*${{github.event.inputs.platform-choice}}.*(x86_64|amd64).deb'
+      - if: ${{ needs.v.outputs.leap-target != 'DEFAULT' }}
+        name: Install leap & replace binaries for PH use
+        run: |
+          apt-get update
+          apt-get install -y ./leap*.deb
+          rm build/bin/nodeos
+          rm build/bin/cleos
+          cp /usr/bin/nodeos build/bin
+          cp /usr/bin/cleos build/bin
+          ./build/bin/nodeos --full-version
+          ./build/bin/cleos version full
+      - name: Run Performance Test
+        run: |
           cd build
           ./tests/PerformanceHarnessScenarioRunner.py ${{needs.v.outputs.test-params}}
       - name: Prepare results
         id: prep-results
         run: |
-          tar -pc build/PerformanceHarnessScenarioRunnerLogs | zstd --long -T0 -9 > PerformanceHarnessScenarioRunnerLogs.tar.zst
+          tar -pc build/PHSRLogs | zstd --long -T0 -9 > PHSRLogs.tar.zst
       - name: Upload results
         uses: AntelopeIO/upload-artifact-large-chunks-action@v1
         with:
           name: performance-test-results
-          path: PerformanceHarnessScenarioRunnerLogs.tar.zst
+          path: PHSRLogs.tar.zst
       - name: Upload report
         uses: actions/upload-artifact@v3
         with:
           name: performance-test-report
-          path: ./build/PerformanceHarnessScenarioRunnerLogs/**/report.json
+          path: ./build/PHSRLogs/**/report.json

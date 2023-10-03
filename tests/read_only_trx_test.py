@@ -204,6 +204,9 @@ def sendTransaction(account, action, data, auth=[], opts=None):
 def sendReadOnlyPayloadless():
     return sendTransaction('payloadless', action='doit', data={}, auth=[], opts='--read')
 
+def sendReadOnlySlowPayloadless():
+    return sendTransaction('payloadless', action='doitslow', data={}, auth=[], opts='--read')
+
 # Send read-only trxs from mutltiple threads to bump load
 def sendReadOnlyTrxOnThread(startId, numTrxs):
     Print("start sendReadOnlyTrxOnThread")
@@ -219,6 +222,11 @@ def sendReadOnlyTrxOnThread(startId, numTrxs):
            results = sendReadOnlyPayloadless()
            assert(results[0])
            assert(results[1]['processed']['action_traces'][0]['console'] == "Im a payloadless action")
+
+           results = sendReadOnlySlowPayloadless()
+           assert(results[0])
+           assert(results[1]['processed']['action_traces'][0]['console'] == "Im a payloadless slow action")
+           assert(int(results[1]['processed']['elapsed']) > 100)
     except Exception as e:
         Print("Exception in sendReadOnlyTrxOnThread: ", e)
         errorInThread = True
