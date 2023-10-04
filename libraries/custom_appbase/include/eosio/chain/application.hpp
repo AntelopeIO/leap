@@ -40,15 +40,8 @@ public:
       return pri_queue_.get_read_threads();
    }
 
-   // not thread safe, only call at program startup from the main thread (thread that calls app().exec()
-   void init_main_thread_id() {
-      main_thread_id_ = std::this_thread::get_id();
-   }
-
-   // not thread safe, but as long as set_main_thread_id() only called at program startup from main thread before
-   // other threads are created then this will be safe to access.
+   // assume application is started on the main thread
    std::thread::id get_main_thread_id() const {
-      assert(main_thread_id_ != std::thread::id());
       return main_thread_id_;
    }
 
@@ -149,7 +142,7 @@ public:
 
    // members are ordered taking into account that the last one is destructed first
 private:
-   std::thread::id                    main_thread_id_;
+   std::thread::id                    main_thread_id_{ std::this_thread::get_id() };
    boost::asio::io_service            io_serv_;
    appbase::exec_pri_queue            pri_queue_;
    std::atomic<std::size_t>           order_{ std::numeric_limits<size_t>::max() }; // to maintain FIFO ordering in all queues within priority

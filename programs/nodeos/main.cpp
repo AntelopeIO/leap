@@ -190,7 +190,6 @@ int main(int argc, char** argv)
       ilog("${name} using configuration file ${c}", ("name", nodeos::config::node_executable_name)("c", app->full_config_file_path().string()));
       ilog("${name} data directory is ${d}", ("name", nodeos::config::node_executable_name)("d", app->data_dir().string()));
       ::detail::log_non_default_options(app->get_parsed_options());
-      app->executor().init_main_thread_id();
       app->startup();
       app->set_thread_priority_max();
       app->exec();
