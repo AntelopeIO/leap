@@ -591,6 +591,7 @@ struct controller_impl {
       EOS_ASSERT( snapshot, snapshot_exception, "No snapshot reader provided" );
       this->shutdown = shutdown;
       try {
+         auto snapshot_load_start_time = fc::time_point::now();
          snapshot->validate();
          if( auto blog_head = blog.head() ) {
             ilog( "Starting initialization from snapshot and block log ${b}-${e}, this may take a significant amount of time",
@@ -609,7 +610,8 @@ struct controller_impl {
          init(std::move(check_shutdown));
          if (conf.revert_to_private_mode)
             db.revert_to_private_mode();
-         ilog( "Finished initialization from snapshot" );
+         auto snapshot_load_time = (fc::time_point::now() - snapshot_load_start_time).to_seconds();
+         ilog( "Finished initialization from snapshot (snapshot load time was ${t}s)", ("t", snapshot_load_time) );
       } catch (boost::interprocess::bad_alloc& e) {
          elog( "Failed initialization from snapshot - db storage not configured to have enough storage for the provided snapshot, please increase and retry snapshot" );
          shutdown();
