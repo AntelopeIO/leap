@@ -1287,7 +1287,7 @@ BOOST_FIXTURE_TEST_CASE(checktime_grow_memory, validating_tester) { try {
                                deadline_exception, is_deadline_exception );
 } FC_LOG_AND_RETHROW() }
 
-BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, validating_tester_no_disable_deferred_trx) { try {
+BOOST_FIXTURE_TEST_CASE(checktime_hashing_fail, validating_tester) { try {
 	produce_blocks(2);
 	create_account( "testapi"_n );
 	produce_blocks(10);
@@ -1360,14 +1360,15 @@ BOOST_FIXTURE_TEST_CASE(checktime_start, validating_tester) try {
 } FC_LOG_AND_RETHROW()
 
 /*************************************************************************************
- * transaction_tests test case
+ * transaction_tests common function
  *************************************************************************************/
-BOOST_FIXTURE_TEST_CASE(transaction_tests, validating_tester_no_disable_deferred_trx) { try {
-   produce_blocks(2);
-   create_account( "testapi"_n );
-   produce_blocks(100);
-   set_code( "testapi"_n, test_contracts::test_api_wasm() );
-   produce_blocks(1);
+template<typename T>
+void transaction_tests(T& chain) {
+   chain.produce_blocks(2);
+   chain.create_account( "testapi"_n );
+   chain.produce_blocks(100);
+   chain.set_code( "testapi"_n, test_contracts::test_api_wasm() );
+   chain.produce_blocks(1);
 
    // test for zero auth
    {
@@ -1376,8 +1377,8 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, validating_tester_no_disable_deferred
       action act({}, tm);
       trx.actions.push_back(act);
 
-      set_transaction_headers(trx);
-      BOOST_CHECK_EXCEPTION(push_transaction(trx), transaction_exception,
+      chain.set_transaction_headers(trx);
+      BOOST_CHECK_EXCEPTION(chain.push_transaction(trx), transaction_exception,
          [](const fc::exception& e) {
             return expect_assert_message(e, "transaction must have at least one authorization");
          }
@@ -1385,102 +1386,104 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, validating_tester_no_disable_deferred
    }
 
    // test send_action
-   CALL_TEST_FUNCTION(*this, "test_transaction", "send_action", {});
+   CALL_TEST_FUNCTION(chain, "test_transaction", "send_action", {});
 
    // test send_action_empty
-   CALL_TEST_FUNCTION(*this, "test_transaction", "send_action_empty", {});
+   CALL_TEST_FUNCTION(chain, "test_transaction", "send_action_empty", {});
 
    // test send_action_large (512k)
-   CALL_TEST_FUNCTION( *this, "test_transaction", "send_action_512k", {});
+   CALL_TEST_FUNCTION( chain, "test_transaction", "send_action_512k", {});
 
    // test send_many_actions_512k (512k)
-   CALL_TEST_FUNCTION( *this, "test_transaction", "send_many_actions_512k", {});
+   CALL_TEST_FUNCTION( chain, "test_transaction", "send_many_actions_512k", {});
 
    // test send_action_large (512k + 1)
-   BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_transaction", "send_action_large", {}), inline_action_too_big,
+   BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(chain, "test_transaction", "send_action_large", {}), inline_action_too_big,
          [](const fc::exception& e) {
             return expect_assert_message(e, "inline action too big");
          }
       );
 
    // test send_action_inline_fail
-   BOOST_CHECK_EXCEPTION( CALL_TEST_FUNCTION(*this, "test_transaction", "send_action_inline_fail", {}),
+   BOOST_CHECK_EXCEPTION( CALL_TEST_FUNCTION(chain, "test_transaction", "send_action_inline_fail", {}),
                           eosio_assert_message_exception,
                           eosio_assert_message_is("test_action::assert_false")                          );
 
    //   test send_transaction
-      CALL_TEST_FUNCTION(*this, "test_transaction", "send_transaction", {});
+      CALL_TEST_FUNCTION(chain, "test_transaction", "send_transaction", {});
 
-   // test send_transaction_empty
-   BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_transaction", "send_transaction_empty", {}), tx_no_auths,
-         [](const fc::exception& e) {
-            return expect_assert_message(e, "transaction must have at least one authorization");
+   if (std::is_same<T, validating_tester_no_disable_deferred_trx>::value) {
+      // test send_transaction_empty
+      BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(chain, "test_transaction", "send_transaction_empty", {}), tx_no_auths,
+            [](const fc::exception& e) {
+               return expect_assert_message(e, "transaction must have at least one authorization");
+            }
+         );
+
+      {
+         chain.produce_blocks(10);
+         transaction_trace_ptr trace;
+         auto c = chain.control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
+            auto& t = std::get<0>(x);
+            if (t && t->receipt && t->receipt->status != transaction_receipt::executed) { trace = t; }
+         } );
+         block_state_ptr bsp;
+         auto c2 = chain.control->accepted_block.connect([&](const block_state_ptr& b) { bsp = b; });
+
+         // test error handling on deferred transaction failure
+         auto test_trace = CALL_TEST_FUNCTION(chain, "test_transaction", "send_transaction_trigger_error_handler", {});
+
+         BOOST_REQUIRE(trace);
+         BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::soft_fail);
+
+         std::set<transaction_id_type> block_ids;
+         for( const auto& receipt : bsp->block->transactions ) {
+            transaction_id_type id;
+            if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
+               const auto& pt = std::get<packed_transaction>(receipt.trx);
+               id = pt.id();
+            } else {
+               id = std::get<transaction_id_type>(receipt.trx);
+            }
+            block_ids.insert( id );
          }
-      );
 
-   {
-      produce_blocks(10);
-      transaction_trace_ptr trace;
-      auto c = control->applied_transaction.connect([&](std::tuple<const transaction_trace_ptr&, const packed_transaction_ptr&> x) {
-         auto& t = std::get<0>(x);
-         if (t && t->receipt && t->receipt->status != transaction_receipt::executed) { trace = t; }
-      } );
-      block_state_ptr bsp;
-      auto c2 = control->accepted_block.connect([&](const block_state_ptr& b) { bsp = b; });
+         BOOST_CHECK_EQUAL(2, block_ids.size() ); // originating trx and deferred
+         BOOST_CHECK_EQUAL(1, block_ids.count( test_trace->id ) ); // originating
+         BOOST_CHECK( !test_trace->failed_dtrx_trace );
+         BOOST_CHECK_EQUAL(0, block_ids.count( trace->id ) ); // onerror id, not in block
+         BOOST_CHECK_EQUAL(1, block_ids.count( trace->failed_dtrx_trace->id ) ); // deferred id since trace moved to failed_dtrx_trace
+         BOOST_CHECK( trace->action_traces.at(0).act.name == "onerror"_n );
 
-      // test error handling on deferred transaction failure
-      auto test_trace = CALL_TEST_FUNCTION(*this, "test_transaction", "send_transaction_trigger_error_handler", {});
-
-      BOOST_REQUIRE(trace);
-      BOOST_CHECK_EQUAL(trace->receipt->status, transaction_receipt::soft_fail);
-
-      std::set<transaction_id_type> block_ids;
-      for( const auto& receipt : bsp->block->transactions ) {
-         transaction_id_type id;
-         if( std::holds_alternative<packed_transaction>(receipt.trx) ) {
-            const auto& pt = std::get<packed_transaction>(receipt.trx);
-            id = pt.id();
-         } else {
-            id = std::get<transaction_id_type>(receipt.trx);
-         }
-         block_ids.insert( id );
+         c.disconnect();
+         c2.disconnect();
       }
-
-      BOOST_CHECK_EQUAL(2, block_ids.size() ); // originating trx and deferred
-      BOOST_CHECK_EQUAL(1, block_ids.count( test_trace->id ) ); // originating
-      BOOST_CHECK( !test_trace->failed_dtrx_trace );
-      BOOST_CHECK_EQUAL(0, block_ids.count( trace->id ) ); // onerror id, not in block
-      BOOST_CHECK_EQUAL(1, block_ids.count( trace->failed_dtrx_trace->id ) ); // deferred id since trace moved to failed_dtrx_trace
-      BOOST_CHECK( trace->action_traces.at(0).act.name == "onerror"_n );
-
-      c.disconnect();
-      c2.disconnect();
    }
 
    // test test_transaction_size
-   CALL_TEST_FUNCTION(*this, "test_transaction", "test_transaction_size", fc::raw::pack(54) ); // TODO: Need a better way to test this.
+   CALL_TEST_FUNCTION(chain, "test_transaction", "test_transaction_size", fc::raw::pack(54) ); // TODO: Need a better way to test this.
 
    // test test_read_transaction
    // this is a bit rough, but I couldn't figure out a better way to compare the hashes
-   auto tx_trace = CALL_TEST_FUNCTION( *this, "test_transaction", "test_read_transaction", {} );
+   auto tx_trace = CALL_TEST_FUNCTION( chain, "test_transaction", "test_read_transaction", {} );
    string sha_expect = tx_trace->id;
    BOOST_TEST_MESSAGE( "tx_trace->action_traces.front().console: = " << tx_trace->action_traces.front().console );
    BOOST_TEST_MESSAGE( "sha_expect = " << sha_expect );
    BOOST_CHECK_EQUAL(tx_trace->action_traces.front().console == sha_expect, true);
    // test test_tapos_block_num
-   CALL_TEST_FUNCTION(*this, "test_transaction", "test_tapos_block_num", fc::raw::pack(control->head_block_num()) );
+   CALL_TEST_FUNCTION(chain, "test_transaction", "test_tapos_block_num", fc::raw::pack(chain.control->head_block_num()) );
 
    // test test_tapos_block_prefix
-   CALL_TEST_FUNCTION(*this, "test_transaction", "test_tapos_block_prefix", fc::raw::pack(control->head_block_id()._hash[1]) );
+   CALL_TEST_FUNCTION(chain, "test_transaction", "test_tapos_block_prefix", fc::raw::pack(chain.control->head_block_id()._hash[1]) );
 
    // test send_action_recurse
-   BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(*this, "test_transaction", "send_action_recurse", {}), eosio::chain::transaction_exception,
+   BOOST_CHECK_EXCEPTION(CALL_TEST_FUNCTION(chain, "test_transaction", "send_action_recurse", {}), eosio::chain::transaction_exception,
          [](const eosio::chain::transaction_exception& e) {
             return expect_assert_message(e, "max inline action depth per transaction reached");
          }
       );
 
-   BOOST_REQUIRE_EQUAL( validate(), true );
+   BOOST_REQUIRE_EQUAL( chain.validate(), true );
 
    // test read_transaction only returns packed transaction
    {
@@ -1492,8 +1495,8 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, validating_tester_no_disable_deferred
       act.authorization = {{"testapi"_n, config::active_name}};
       trx.actions.push_back( act );
 
-      set_transaction_headers( trx, DEFAULT_EXPIRATION_DELTA );
-      auto sigs = trx.sign( get_private_key( "testapi"_n, "active" ), control->get_chain_id() );
+      chain.set_transaction_headers( trx, chain.DEFAULT_EXPIRATION_DELTA );
+      auto sigs = trx.sign( chain.get_private_key( "testapi"_n, "active" ), chain.control->get_chain_id() );
 
       auto time_limit = fc::microseconds::maximum();
       auto ptrx = std::make_shared<packed_transaction>( signed_transaction(trx), packed_transaction::compression_type::none );
@@ -1508,16 +1511,31 @@ BOOST_FIXTURE_TEST_CASE(transaction_tests, validating_tester_no_disable_deferred
       BOOST_CHECK(pkt.get_packed_transaction() == packed_copy);
       ptrx = std::make_shared<packed_transaction>( pkt );
 
-      auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), control->get_thread_pool(), control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
-      auto r = control->push_transaction( fut.get(), fc::time_point::maximum(), fc::microseconds::maximum(), DEFAULT_BILLED_CPU_TIME_US, true, 0 );
+      auto fut = transaction_metadata::start_recover_keys( std::move( ptrx ), chain.control->get_thread_pool(), chain.control->get_chain_id(), time_limit, transaction_metadata::trx_type::input );
+      auto r = chain.control->push_transaction( fut.get(), fc::time_point::maximum(), fc::microseconds::maximum(), T::DEFAULT_BILLED_CPU_TIME_US, true, 0 );
       if( r->except_ptr ) std::rethrow_exception( r->except_ptr );
       if( r->except) throw *r->except;
       tx_trace = r;
-      produce_block();
+      chain.produce_block();
       BOOST_CHECK(tx_trace->action_traces.front().console == sha_expect);
    }
+}
 
-   } FC_LOG_AND_RETHROW() }
+/*************************************************************************************
+ * transaction tests for before disable_trxs_protocol_features are activated
+ *************************************************************************************/
+BOOST_AUTO_TEST_CASE(transaction_tests_before_disable_trxs_protocol_features) { try {
+   validating_tester_no_disable_deferred_trx chain;
+   transaction_tests<validating_tester>(chain);
+} FC_LOG_AND_RETHROW() }
+
+/*************************************************************************************
+ * transaction tests after before disable_trxs_protocol_features are activated
+ *************************************************************************************/
+BOOST_AUTO_TEST_CASE(transaction_tests_after_disable_trxs_protocol_features) { try {
+   validating_tester chain;
+   transaction_tests<validating_tester>(chain);
+} FC_LOG_AND_RETHROW() }
 
 /*************************************************************************************
  * verify objective limit test case
