@@ -345,8 +345,9 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Subjectively limit the maximum length of variable components in a variable legnth signature to this size in bytes")
          ("trusted-producer", bpo::value<vector<string>>()->composing(), "Indicate a producer whose blocks headers signed by it will be fully validated, but transactions in those validated blocks will be trusted.")
          ("database-map-mode", bpo::value<chainbase::pinnable_mapped_file::map_mode>()->default_value(chainbase::pinnable_mapped_file::map_mode::mapped),
-          "Database map mode (\"mapped\", \"heap\", or \"locked\").\n"
+          "Database map mode (\"mapped\", \"mapped_private\", \"heap\", or \"locked\").\n"
           "In \"mapped\" mode database is memory mapped as a file.\n"
+          "In \"mapped_private\" mode database is memory mapped as a file using a private mapping (no disk writeback until program exit).\n"
 #ifndef _WIN32
           "In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available.\n"
           "In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.\n"
