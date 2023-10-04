@@ -1388,7 +1388,7 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_heirarchy_test ) { try {
 
 // test canceldelay action cancelling a delayed transaction
 BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
-   validating_tester chain;
+   validating_tester_no_disable_deferred_trx chain;
    chain.produce_block();
 
    const auto& contract_account = account_name("defcontract");
@@ -1439,7 +1439,7 @@ BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
 
 // test canceldelay action under different permission levels
 BOOST_AUTO_TEST_CASE( canceldelay_test2 ) { try {
-   validating_tester chain;
+   validating_tester_no_disable_deferred_trx chain;
    chain.produce_block();
 
    const auto& contract_account = account_name("defcontract");
