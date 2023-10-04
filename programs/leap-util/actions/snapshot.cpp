@@ -80,8 +80,6 @@ int snapshot_actions::run_subcommand() {
    cfg.state_size = opt->db_size * 1024 * 1024;
    cfg.state_guard_size = opt->guard_size * 1024 * 1024;
    cfg.eosvmoc_tierup = wasm_interface::vm_oc_enable::oc_none; // wasm not used, no use to fire up oc
-   
-   cfg.db_map_mode = pinnable_mapped_file::map_mode::mapped;
    protocol_feature_set pfs = initialize_protocol_features( std::filesystem::path("protocol_features"), false );
 
    try {
@@ -105,7 +103,7 @@ int snapshot_actions::run_subcommand() {
       snap_out.flush();
       snap_out.close();
    } catch(const database_guard_exception& e) {
-      std::cerr << "Database is not configured to have enough storage to handle provided snapshot, please increase storage and try aagain" << std::endl;
+      std::cerr << "Database is not configured to have enough storage to handle provided snapshot, please increase storage and try again" << std::endl;
       control.reset();
       throw;
    }
