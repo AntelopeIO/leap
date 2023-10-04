@@ -1,4 +1,5 @@
 #include <eosio/chain/abi_serializer.hpp>
+#include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/testing/tester.hpp>
@@ -1919,5 +1920,267 @@ BOOST_AUTO_TEST_CASE( set_parameters_packed_test ) { try {
    BOOST_REQUIRE_EQUAL(c.push_action(std::move(action_non_priv), alice_account.to_uint64_t()),
                        c.error("alice does not have permission to call this API"));
 } FC_LOG_AND_RETHROW() }
+
+// native action hardcodes sender empty and builds sender_id from trx id.
+// modify_gto_for_canceldelay_test modifies those two fields for contract
+// generated deferred trxs so canceldelay can be used. defined in delay_tests.cpp
+namespace eosio::chain { extern void modify_gto_for_canceldelay_test(controller& control, const transaction_id_type& trx_id) ; }
+
+BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
+   tester_no_disable_deferred_trx c;
+
+   c.produce_block();
+   c.create_accounts( {"alice"_n, "bob"_n, "test"_n} );
+   c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.produce_block();
+
+   auto gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+   // verify send_deferred host function works before disable_deferred_trxs_stage_1 is activated
+   c.push_action( "test"_n, "delayedcall"_n, "alice"_n, fc::mutable_variant_object()
+      ("payer", "alice")
+      ("sender_id", 1)
+      ("contract", "test")
+      ("payload", 100)
+      ("delay_sec", 120)
+      ("replace_existing", false)
+   );
+   c.produce_block();
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(1u, gen_size);
+
+   // verify cancel_deferred host function works before disable_deferred_trxs_stage_1 is activated
+   c.push_action( "test"_n, "cancelcall"_n, "alice"_n, fc::mutable_variant_object()
+      ("sender_id", 1)
+   );
+   c.produce_block();
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+   // generate a new deferred trx for the rest of the test
+   c.push_action( "test"_n, "delayedcall"_n, "alice"_n, fc::mutable_variant_object()
+      ("payer", "alice")
+      ("sender_id", 1)
+      ("contract", "test")
+      ("payload", 100)
+      ("delay_sec", 120)
+      ("replace_existing", false)
+   );
+   c.produce_block();
+   const auto& idx = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+   gen_size = idx.size();
+   BOOST_REQUIRE_EQUAL(1u, gen_size);
+   BOOST_REQUIRE_EQUAL(idx.begin()->payer, "alice"_n);
+   auto alice_trx_id = idx.begin()->trx_id;
+
+   // activate disable_deferred_trxs_stage_1
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   auto d = pfm.get_builtin_digest( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 );
+   BOOST_REQUIRE( d );
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+
+   // verify send_deferred host function is no-op
+   c.push_action( "test"_n, "delayedcall"_n, "bob"_n, fc::mutable_variant_object()
+      ("payer", "bob")
+      ("sender_id", 2)
+      ("contract", "test")
+      ("payload", 100)
+      ("delay_sec", 120)
+      ("replace_existing", false)
+   );
+   c.produce_block();
+
+   // verify bob's deferred trx is not made to generated_transaction_multi_index
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(1u, gen_size);
+   // verify alice's deferred trx is still in generated_transaction_multi_index
+   auto gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
+   BOOST_REQUIRE(gto != nullptr);
+
+   // verify cancel_deferred host function is no-op
+   BOOST_REQUIRE_EXCEPTION(
+      c.push_action( "test"_n, "cancelcall"_n, "alice"_n, fc::mutable_variant_object()
+         ("sender_id", 1)),
+      eosio_assert_message_exception,
+      eosio_assert_message_is( "cancel_deferred failed" ) );
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(1u, gen_size);
+   // verify alice's deferred trx is not removed
+   gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
+   BOOST_REQUIRE( gto );
+
+   // verify canceldelay native action is no-op
+
+   // canceldelay assumes sender and sender_id to be a specific format
+   modify_gto_for_canceldelay_test(*(c.control.get()), alice_trx_id);
+   // call canceldelay native action
+   signed_transaction trx;
+   trx.actions.emplace_back(
+      vector<permission_level>{{"test"_n, config::active_name}},
+      canceldelay{{"test"_n, config::active_name}, alice_trx_id}
+   );
+   c.set_transaction_headers(trx);
+   trx.sign(c.get_private_key("test"_n, "active"), c.control->get_chain_id());
+   c.push_transaction(trx);
+   c.produce_block();
+
+   // verify canceldelay is no-op
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(1u, gen_size);
+   // verify alice's deferred trx is not removed
+   gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
+   BOOST_REQUIRE( gto );
+} FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_1_no_op_test
+
+// verify a deferred transaction can be retired as expired at any time regardless of
+// whether its delay_until or expiration have been reached
+BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_retire_test ) { try {
+   tester_no_disable_deferred_trx c;
+
+   c.produce_block();
+   c.create_accounts( {"alice"_n, "test"_n} );
+   c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.produce_block();
+
+   // verify number of deferred trxs is 0
+   auto gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL( 0u, gen_size );
+   auto alice_ram_usage_before = c.control->get_resource_limits_manager().get_account_ram_usage( "alice"_n );
+
+   // alice schedules a deferred trx
+   c.push_action( "test"_n, "delayedcall"_n, "alice"_n, fc::mutable_variant_object()
+      ("payer", "alice")
+      ("sender_id", 1)
+      ("contract", "test")
+      ("payload", 100)
+      ("delay_sec", 120)
+      ("replace_existing", false)
+   );
+   c.produce_block();
+
+   // the deferred trx was added into generated_transaction_multi_index
+   const auto& idx = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+   gen_size = idx.size();
+   BOOST_REQUIRE_EQUAL( 1u, gen_size );
+   auto trx_id = idx.begin()->trx_id;
+   auto delay_until = idx.begin()->delay_until;
+   // alice's RAM were charged
+   BOOST_CHECK_GT(c.control->get_resource_limits_manager().get_account_ram_usage( "alice"_n ), alice_ram_usage_before);
+
+   // activate disable_deferred_trxs_stage_1
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   auto d = pfm.get_builtin_digest( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 );
+   BOOST_REQUIRE( d );
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+
+   // verify generated_transaction_multi_index still has 1 entry
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL( 1u, gen_size );
+
+   // at this time, delay_sec has not reached,
+   // neither does expiration which is "deferred_trx_expiration_window + delay_sec".
+   // BOOST_CHECK_LT does not work on time_point. Need to compare explicitly
+   if ( delay_until <= c.control->pending_block_time() ) { // not reached
+      BOOST_REQUIRE(false);
+   }
+
+   // attemp to retire the trx
+   auto deadline = fc::time_point::now() + fc::milliseconds(10); // 10ms more than enough
+   auto trace = c.control->push_scheduled_transaction(trx_id, deadline, fc::microseconds::maximum(), 0, false);
+
+   // the trx was retired as "expired" and RAM was refunded even though delay_until not reached
+   BOOST_REQUIRE_EQUAL( trace->receipt->status, transaction_receipt::expired );
+   // all scheduled deferred trxs are removed upon activation of disable_deferred_trxs_stage_2
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL( 0u, gen_size );
+   // payers' RAM are refunded
+   BOOST_CHECK_EQUAL( c.control->get_resource_limits_manager().get_account_ram_usage( "alice"_n ), alice_ram_usage_before );
+} FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_1_retire_test
+
+BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_2_test ) { try {
+   tester_no_disable_deferred_trx c;
+
+   c.produce_block();
+   c.create_accounts( {"alice"_n, "bob"_n, "test"_n} );
+   c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
+   c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.produce_block();
+
+   // verify number of deferred trxs starts at 0
+   auto gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL( 0u, gen_size );
+   auto alice_ram_usage_before = c.control->get_resource_limits_manager().get_account_ram_usage( "alice"_n );
+   auto bob_ram_usage_before = c.control->get_resource_limits_manager().get_account_ram_usage( "bob"_n );
+
+   // schedule 2 deferred trxs
+   c.push_action( "test"_n, "delayedcall"_n, "alice"_n, fc::mutable_variant_object()
+      ("payer", "alice")
+      ("sender_id", 1)
+      ("contract", "test")
+      ("payload", 100)
+      ("delay_sec", 120)
+      ("replace_existing", false)
+   );
+   c.push_action( "test"_n, "delayedcall"_n, "bob"_n, fc::mutable_variant_object()
+      ("payer", "bob")
+      ("sender_id", 2)
+      ("contract", "test")
+      ("payload", 100)
+      ("delay_sec", 120)
+      ("replace_existing", false)
+   );
+   c.produce_block();
+
+   // trxs were added into generated_transaction_multi_index
+   const auto& idx = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+   gen_size = idx.size();
+   BOOST_REQUIRE_EQUAL( 2u, gen_size );
+
+   // payers' RAM were charged
+   BOOST_CHECK_GT(c.control->get_resource_limits_manager().get_account_ram_usage( "alice"_n ), alice_ram_usage_before);
+   BOOST_CHECK_GT(c.control->get_resource_limits_manager().get_account_ram_usage( "bob"_n ), bob_ram_usage_before);
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   auto d = pfm.get_builtin_digest( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 );
+   BOOST_REQUIRE( d );
+   c.preactivate_protocol_features( {*d} );
+
+   // before disable_deferred_trxs_stage_2 is activated, generated_transaction_multi_index
+   // should still have 2 entries
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL( 2u, gen_size );
+
+   d = pfm.get_builtin_digest( builtin_protocol_feature_t::disable_deferred_trxs_stage_2 );
+   BOOST_REQUIRE( d );
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+
+   // all scheduled deferred trxs are removed upon activation of disable_deferred_trxs_stage_2
+   gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL( 0u, gen_size );
+
+   // payers' RAM are refunded
+   BOOST_CHECK_EQUAL( c.control->get_resource_limits_manager().get_account_ram_usage( "alice"_n ), alice_ram_usage_before );
+   BOOST_CHECK_EQUAL( c.control->get_resource_limits_manager().get_account_ram_usage( "bob"_n ), bob_ram_usage_before );
+} FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_2_test
+
+BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_2_dependency_test ) { try {
+   tester_no_disable_deferred_trx c;
+
+   c.produce_block();
+
+   // disable_deferred_trxs_stage_2 cannot be activated before disable_deferred_trxs_stage_1
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   auto d = pfm.get_builtin_digest( builtin_protocol_feature_t::disable_deferred_trxs_stage_2 );
+   BOOST_REQUIRE( d );
+   BOOST_REQUIRE_EXCEPTION( c.preactivate_protocol_features( {*d} ),
+      protocol_feature_exception,
+      fc_exception_message_starts_with("not all dependencies of protocol feature with digest"));
+} FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_2_dependency_test
 
 BOOST_AUTO_TEST_SUITE_END()

@@ -373,7 +373,7 @@ public:
    bool     remove_expired_trxs(const fc::time_point& deadline);
    bool     remove_expired_blacklisted_trxs(const fc::time_point& deadline);
    bool     process_unapplied_trxs(const fc::time_point& deadline);
-   void     retire_expired_deferred_trxs(const fc::time_point& deadline);
+   bool     retire_deferred_trxs(const fc::time_point& deadline);
    bool     process_incoming_trxs(const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr);
 
    struct push_result {
@@ -1948,9 +1948,15 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             if (!process_unapplied_trxs(preprocess_deadline))
                return start_block_result::exhausted;
 
-            // Hard-code the deadline to retire expired deferred trxs to 10ms
-            auto deferred_trxs_deadline = std::min<fc::time_point>(preprocess_deadline, fc::time_point::now() + fc::milliseconds(10));
-            retire_expired_deferred_trxs(deferred_trxs_deadline);
+            // after DISABLE_DEFERRED_TRXS_STAGE_2 is activated,
+            // no deferred trxs are allowed to be retired
+            if (!chain.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_2) ) {
+               // Hard-code the deadline to retire expired deferred trxs to 10ms
+               auto deferred_trxs_deadline = std::min<fc::time_point>(preprocess_deadline, fc::time_point::now() + fc::milliseconds(10));
+               if (!retire_deferred_trxs(deferred_trxs_deadline)) {
+                  return start_block_result::failed;
+               }
+            }
          }
 
          repost_exhausted_transactions(preprocess_deadline);
@@ -2293,7 +2299,7 @@ bool producer_plugin_impl::process_unapplied_trxs(const fc::time_point& deadline
    return !exhausted;
 }
 
-void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& deadline) {
+bool producer_plugin_impl::retire_deferred_trxs(const fc::time_point& deadline) {
    int   num_applied    = 0;
    int   num_failed     = 0;
    int   num_processed  = 0;
@@ -2304,10 +2310,13 @@ void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& de
    const auto&        expired_idx         = chain.db().get_index<generated_transaction_multi_index, by_expiration>();
    const auto expired_size                = expired_idx.size();
    auto               expired_itr         = expired_idx.begin();
+   bool               stage_1_activated   = chain.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1);
 
    while (expired_itr != expired_idx.end()) {
-      if (expired_itr->expiration >= pending_block_time) {
-         break; // not expired yet
+      // * Before disable_deferred_trxs_stage_1 is activated, retire only expired deferred trxs.
+      // * After disable_deferred_trxs_stage_1, retire any deferred trxs in any order
+      if (!stage_1_activated && expired_itr->expiration >= pending_block_time) { // before stage_1 and not expired yet
+         break;
       }
 
       if (exhausted || deadline <= fc::time_point::now()) {
@@ -2374,9 +2383,14 @@ void producer_plugin_impl::retire_expired_deferred_trxs(const fc::time_point& de
    }
 
    if (expired_size > 0) {
-      fc_dlog(_log, "Processed ${m} of ${n} expired scheduled transactions, Applied ${applied}, Failed/Dropped ${failed}",
+      fc_dlog(_log, "Processed ${m} of ${n} scheduled transactions, Applied ${applied}, Failed/Dropped ${failed}",
               ("m", num_processed)("n", expired_size)("applied", num_applied)("failed", num_failed));
    }
+
+   if (stage_1_activated && num_failed > 0) {
+      return false;
+   }
+   return true;
 }
 
 bool producer_plugin_impl::process_incoming_trxs(const fc::time_point& deadline, unapplied_transaction_queue::iterator& itr) {

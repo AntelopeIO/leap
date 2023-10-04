@@ -4,6 +4,6 @@
        "prerelease":false
     },
     "eossystemcontracts":{
-       "ref":"release/3.1"
+       "ref":"release/3.2"
     }
  }
