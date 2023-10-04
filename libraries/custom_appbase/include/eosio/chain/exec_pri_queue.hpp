@@ -53,17 +53,6 @@ public:
       handlers_ = prio_queue();
    }
 
-   // only call when no lock required
-   bool execute_highest()
-   {
-      if( !handlers_.empty() ) {
-         handlers_.top()->execute();
-         handlers_.pop();
-      }
-
-      return !handlers_.empty();
-   }
-
 private:
    // has to be defined before use, auto return type
    auto pop() {
@@ -73,6 +62,19 @@ private:
    }
 
 public:
+
+   // only call when no lock required
+   bool execute_highest()
+   {
+      if( !handlers_.empty() ) {
+         auto t = pop();
+         bool empty = handlers_.empty();
+         t->execute();
+         return !empty;
+      }
+
+      return false;
+   }
 
    bool execute_highest_locked(bool should_block) {
       std::unique_lock g(mtx_);
