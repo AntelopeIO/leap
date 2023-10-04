@@ -3,12 +3,12 @@ name: "Build leap"
 on:
   workflow_call:
     inputs:
-      p:
-        description: "Discovered Build Platforms"
+      platforms:
+        description: "Platforms definitions"
         type: string
         required: true
-      platform-matrix:
-        description: "Platform Matrix"
+      platform-list:
+        description: "Array of platforms"
         type: string
         required: true
 
@@ -26,9 +26,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: ${{fromJSON(inputs.platform-matrix)}}
+        platform: ${{fromJSON(inputs.platform-list)}}
     runs-on: ["self-hosted", "enf-x86-beefy"]
-    container: ${{fromJSON(inputs.p)[matrix.platform].image}}
+    container: ${{fromJSON(inputs.platforms)[matrix.platform].image}}
     steps:
         - uses: actions/checkout@v3
           with:

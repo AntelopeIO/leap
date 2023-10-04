@@ -3025,7 +3025,8 @@ namespace eosio {
          return true;
       }
       if (my_impl->sync_master->syncing_from_peer()) {
-         peer_wlog(this, "syncing, dropping trx");
+         peer_dlog(this, "syncing, dropping trx");
+         pending_message_buffer.advance_read_ptr( message_length );
          return true;
       }
 

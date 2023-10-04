@@ -1,8 +1,0 @@
-{
-   "ubuntu20": {
-      "dockerfile": ".cicd/platforms/ubuntu20.Dockerfile"
-   },
-   "ubuntu22": {
-      "dockerfile": ".cicd/platforms/ubuntu22.Dockerfile"
-   }
-}
