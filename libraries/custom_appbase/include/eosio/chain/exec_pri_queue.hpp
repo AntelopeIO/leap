@@ -106,8 +106,10 @@ public:
       if (!lhs_que.empty() && (rhs_que.empty() || *rhs_que.top() < *lhs_que.top()))
          q = lhs;
       prio_queue& que = priority_que(q);
-      que.top()->execute();
-      que.pop();
+      assert(que.top());
+      // pop, then execute since read_write queue is used to switch to read window and the pop needs to happen before that lambda starts
+      auto t = pop(que);
+      t->execute();
       --size;
       return size > 0;
    }
