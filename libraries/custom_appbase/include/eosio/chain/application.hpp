@@ -83,7 +83,6 @@ public:
    void stop() {
       read_only_queue_.stop();
       read_write_queue_.stop();
-      read_exclusive_queue_.stop();
    }
      
    void clear() {
