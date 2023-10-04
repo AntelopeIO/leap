@@ -58,21 +58,19 @@ jobs:
             echo leap-prerelease=${{inputs.override-leap-prerelease}} >> $GITHUB_OUTPUT
           fi
 
-  platforms:
-    name: Run Platforms Workflow
-    uses: ./.github/workflows/platforms.yaml
-    with:
-      override-build-matrix: ${{github.event.inputs.platform-choice}}
+  platform-cache:
+    name: Platform Cache
+    uses: AntelopeIO/platform-cache-workflow/.github/workflows/platformcache.yaml@v1
     permissions:
       packages: write
       contents: read
+    with:
+      runs-on: '["self-hosted", "enf-x86-beefy"]'
+      platform-files: .cicd/platforms
 
   reuse-build:
     name: Reuse leap build
     needs: [v]
-    if: |
-      always() &&
-      needs.v.result == 'success'
     runs-on: ubuntu-latest
     outputs:
       build-artifact: ${{steps.downloadBuild.outputs.downloaded-file}}
@@ -97,23 +95,20 @@ jobs:
 
   build-base:
     name: Run Build Workflow
-    needs: [platforms, reuse-build]
-    if: always() && needs.platforms.result == 'success' && needs.reuse-build.outputs.build-artifact == ''
+    needs: [platform-cache, reuse-build]
+    if: needs.reuse-build.outputs.build-artifact == ''
     uses: ./.github/workflows/build_base.yaml
     with:
-      p: ${{needs.platforms.outputs.p}}
-      platform-matrix: ${{needs.platforms.outputs.platform-matrix}}
-    permissions:
-      packages: write
-      contents: read
+      platforms: ${{needs.platform-cache.outputs.platforms}}
+      platform-list: '["${{github.event.inputs.platform-choice}}"]'
 
   tests:
     name: Tests
-    needs: [v, platforms, reuse-build, build-base]
-    if: always() && needs.platforms.result == 'success' && (needs.build-base.result == 'success' || needs.reuse-build.result == 'success')
+    needs: [v, platform-cache, reuse-build, build-base]
+    if: always() && (needs.build-base.result == 'success' || needs.reuse-build.result == 'success')
     runs-on: ["Leap-Perf-Ubuntu-22-16x64x600"]
     container:
-      image: ${{fromJSON(needs.platforms.outputs.p)[github.event.inputs.platform-choice].image}}
+      image: ${{fromJSON(needs.platform-cache.outputs.platforms)[github.event.inputs.platform-choice].image}}
     steps:
       - name: Download builddir
         uses: actions/download-artifact@v3

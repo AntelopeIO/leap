@@ -36,6 +36,8 @@ enum class builtin_protocol_feature_t : uint32_t {
    crypto_primitives = 19,
    get_block_num = 20,
    bls_primitives = 21,
+   disable_deferred_trxs_stage_1 = 22,
+   disable_deferred_trxs_stage_2 = 23,
    reserved_private_fork_protocol_features = 500000,
 };
 

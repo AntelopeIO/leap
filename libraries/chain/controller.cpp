@@ -340,6 +340,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
+      set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
          wasmif.current_lib(bsp->block_num);
@@ -1307,8 +1308,11 @@ struct controller_impl {
 
       fc::datastream<const char*> ds( gtrx.packed_trx.data(), gtrx.packed_trx.size() );
 
-      EOS_ASSERT( gtrx.delay_until <= self.pending_block_time(), transaction_exception, "this transaction isn't ready",
-                 ("gtrx.delay_until",gtrx.delay_until)("pbt",self.pending_block_time())          );
+      // check delay_until only before disable_deferred_trxs_stage_1 is activated.
+      if( !self.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) ) {
+         EOS_ASSERT( gtrx.delay_until <= self.pending_block_time(), transaction_exception, "this transaction isn't ready",
+                    ("gtrx.delay_until",gtrx.delay_until)("pbt",self.pending_block_time()) );
+      }
 
       signed_transaction dtrx;
       fc::raw::unpack(ds,static_cast<transaction&>(dtrx) );
@@ -1317,8 +1321,11 @@ struct controller_impl {
                                                           transaction_metadata::trx_type::scheduled );
       trx->accepted = true;
 
+      // After disable_deferred_trxs_stage_1 is activated, a deferred transaction
+      // can only be retired as expired, and it can be retired as expired
+      // regardless of whether its delay_util or expiration times have been reached.
       transaction_trace_ptr trace;
-      if( gtrx.expiration < self.pending_block_time() ) {
+      if( self.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) || gtrx.expiration < self.pending_block_time() ) {
          trace = std::make_shared<transaction_trace>();
          trace->id = gtrx.trx_id;
          trace->block_num = self.head_block_num() + 1;
@@ -3845,6 +3852,15 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_map" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_mod" );
    } );
+}
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>() {
+   const auto& idx = db.get_index<generated_transaction_multi_index, by_trx_id>();
+   // remove all deferred trxs and refund their payers
+   for( auto itr = idx.begin(); itr != idx.end(); itr = idx.begin() ) {
+      remove_scheduled_transaction(*itr);
+   }
 }
 
 /// End of protocol feature activation handlers
