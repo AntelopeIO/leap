@@ -124,6 +124,7 @@ class PerformanceTestBasic:
 
             def configureValidationNodes():
                 validationNodeSpecificNodeosStr = ""
+                validationNodeSpecificNodeosStr += '--p2p-accept-transactions false '
                 if "v2" in self.nodeosVers:
                     validationNodeSpecificNodeosStr += '--plugin eosio::history_api_plugin --filter-on "*" '
                 else:
@@ -137,6 +138,7 @@ class PerformanceTestBasic:
 
             def configureApiNodes():
                 apiNodeSpecificNodeosStr = ""
+                apiNodeSpecificNodeosStr += "--p2p-accept-transactions false "
                 apiNodeSpecificNodeosStr += "--plugin eosio::chain_api_plugin "
                 apiNodeSpecificNodeosStr += "--plugin eosio::net_api_plugin "
                 if "v4" in self.nodeosVers:

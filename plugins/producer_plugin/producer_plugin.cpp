@@ -774,14 +774,12 @@ public:
                                       bool                                 return_failure_traces,
                                       next_function<transaction_trace_ptr> next) {
       if (trx_type == transaction_metadata::trx_type::read_only) {
-         EOS_ASSERT( _ro_thread_pool_size > 0, unsupported_feature,
-                     "read-only transactions execution not enabled on API node. Set read-only-threads > 0" );
+         assert(_ro_thread_pool_size > 0); // enforced by chain_plugin
+         assert(app().executor().get_main_thread_id() != std::this_thread::get_id()); // should only be called from read only threads
 
          // Post all read only trxs to read_exclusive queue for execution.
          auto trx_metadata = transaction_metadata::create_no_recover_keys(trx, transaction_metadata::trx_type::read_only);
-         app().executor().post(priority::low, exec_queue::read_exclusive, [this, trx{std::move(trx_metadata)}, next{std::move(next)}]() mutable {
-            push_read_only_transaction(std::move(trx), std::move(next));
-         });
+         push_read_only_transaction(std::move(trx_metadata), std::move(next));
          return;
       }
 
@@ -2673,11 +2671,8 @@ void producer_plugin::log_failed_transaction(const transaction_id_type&    trx_i
 
 // Called from only one read_only thread
 void producer_plugin_impl::switch_to_write_window() {
-   if (_log.is_enabled(fc::log_level::debug)) {
-      auto now = fc::time_point::now();
-      fc_dlog(_log, "Read-only threads ${n}, read window ${r}us, total all threads ${t}us",
-              ("n", _ro_thread_pool_size)("r", now - _ro_read_window_start_time)("t", _ro_all_threads_exec_time_us.load()));
-   }
+   fc_dlog(_log, "Read-only threads ${n}, read window ${r}us, total all threads ${t}us",
+           ("n", _ro_thread_pool_size)("r", fc::time_point::now() - _ro_read_window_start_time)("t", _ro_all_threads_exec_time_us.load()));
 
    chain::controller& chain = chain_plug->chain();
 
@@ -2732,6 +2727,8 @@ void producer_plugin_impl::switch_to_read_window() {
       start_write_window();                          // restart write window timer for next round
       return;
    }
+   fc_dlog(_log, "Read only queue size ${s1}, read exclusive size ${s2}",
+           ("s1", app().executor().read_only_queue_size())("s2", app().executor().read_exclusive_queue_size()));
 
    uint32_t pending_block_num = chain.head_block_num() + 1;
    _ro_read_window_start_time = fc::time_point::now();
