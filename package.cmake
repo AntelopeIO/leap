@@ -1,4 +1,4 @@
-set(CPACK_GENERATOR "TGZ")
+set(CPACK_GENERATOR "TZST")
 find_program(DPKG_FOUND "dpkg")
 find_program(RPMBUILD_FOUND "rpmbuild")
 if(DPKG_FOUND)
