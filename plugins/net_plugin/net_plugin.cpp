@@ -851,6 +851,7 @@ namespace eosio {
       std::chrono::nanoseconds get_last_bytes_received() const { return last_bytes_received.load(); }
       size_t get_bytes_sent() const { return bytes_sent.load(); }
       std::chrono::nanoseconds get_last_bytes_sent() const { return last_bytes_sent.load(); }
+      size_t get_block_sync_bytes_received() const { return block_sync_bytes_received.load(); }
       size_t get_block_sync_bytes_sent() const { return block_sync_bytes_sent.load(); }
       boost::asio::ip::port_type get_remote_endpoint_port() const { return remote_endpoint_port.load(); }
       void set_heartbeat_timeout(std::chrono::milliseconds msec) {
@@ -888,6 +889,7 @@ namespace eosio {
       std::atomic<size_t>             bytes_received{0};
       std::atomic<std::chrono::nanoseconds>   last_bytes_received{0ns};
       std::atomic<size_t>             bytes_sent{0};
+      std::atomic<size_t>             block_sync_bytes_received{0};
       std::atomic<size_t>             block_sync_bytes_sent{0};
       std::atomic<std::chrono::nanoseconds>   last_bytes_sent{0ns};
       std::atomic<boost::asio::ip::port_type> remote_endpoint_port{0};
@@ -1739,6 +1741,7 @@ namespace eosio {
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(get_time() - connection_start_time);
             auto current_rate = double(block_sync_bytes_sent) / elapsed.count();
             if( current_rate >= block_sync_rate_limit ) {
+               peer_dlog( this, "throttling block sync to peer ${host}:${port}", ("host", log_remote_endpoint_ip)("port", log_remote_endpoint_port));
                return false;
             }
          }
@@ -3019,7 +3022,6 @@ namespace eosio {
       fc::raw::unpack( peek_ds, which ); // throw away
       block_header bh;
       fc::raw::unpack( peek_ds, bh );
-
       const block_id_type blk_id = bh.calculate_id();
       const uint32_t blk_num = last_received_block_num = block_header::num_from_id(blk_id);
       // don't add_peer_block because we have not validated this block header yet
@@ -3053,6 +3055,7 @@ namespace eosio {
             return true;
          }
       } else {
+         block_sync_bytes_received += message_length;
          my_impl->sync_master->sync_recv_block(shared_from_this(), blk_id, blk_num, false);
       }
 
@@ -4728,7 +4731,8 @@ namespace eosio {
          fc::unique_lock g_conn(c->conn_mtx);
          boost::asio::ip::address_v6::bytes_type addr = c->remote_endpoint_ip_array;
          g_conn.unlock();
-         net_plugin::p2p_per_connection_metrics::connection_metric metrics{
+         per_connection.peers.emplace_back(
+            net_plugin::p2p_per_connection_metrics::connection_metric{
               .connection_id = c->connection_id
             , .address = addr
             , .port = c->get_remote_endpoint_port()
@@ -4742,11 +4746,11 @@ namespace eosio {
             , .last_bytes_received = c->get_last_bytes_received()
             , .bytes_sent = c->get_bytes_sent()
             , .last_bytes_sent = c->get_last_bytes_sent()
+            , .block_sync_bytes_received = c->get_block_sync_bytes_received()
             , .block_sync_bytes_sent = c->get_block_sync_bytes_sent()
             , .connection_start_time = c->connection_start_time
             , .log_p2p_address = c->log_p2p_address
-         };
-         per_connection.peers.push_back(metrics);
+         });
       }
       g.unlock();
       update_p2p_connection_metrics({num_peers+num_bp_peers, num_clients, std::move(per_connection)});

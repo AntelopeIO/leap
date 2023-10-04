@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
 
+import math
+import re
+import requests
 import signal
 import time
 
@@ -13,6 +16,7 @@ from TestHarness.TestHelper import AppArgs
 #
 ###############################################################
 
+PROMETHEUS_URL = '/v1/prometheus/metrics'
 
 Print=Utils.Print
 errorExit=Utils.errorExit
@@ -38,6 +42,19 @@ testSuccessful=False
 cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 walletMgr=WalletMgr(True)
 
+def readMetrics(host: str, port: str):
+    response = requests.get(f'http://{host}:{port}{PROMETHEUS_URL}', timeout=10)
+    if response.status_code != 200:
+        errorExit(f'Prometheus metrics URL returned {response.status_code}: {response.url}')
+    return response
+
+def extractPrometheusMetric(connID: str, metric: str, text: str):
+    searchStr = f'nodeos_p2p_connections{{connid_{connID}="{metric}"}} '
+    begin = text.find(searchStr) + len(searchStr)
+    return int(text[begin:response.text.find('\n', begin)])
+
+prometheusHostPortPattern = re.compile(r'^nodeos_p2p_connections.connid_([0-9])="localhost:([0-9]*)', re.MULTILINE)
+
 try:
     TestHelper.printSystemInfo("BEGIN")
 
@@ -46,10 +63,7 @@ try:
     Print(f'producing nodes: {pnodes}, delay between nodes launch: {delay} second{"s" if delay != 1 else ""}')
 
     Print("Stand up cluster")
-    if args.plugin:
-        extraNodeosArgs = ''.join([i+j for i,j in zip([' --plugin '] * len(args.plugin), args.plugin)])
-    else:
-        extraNodeosArgs = ''
+    extraNodeosArgs = '--plugin eosio::prometheus_plugin --connection-cleanup-period 3'
     # Custom topology is a line of singlely connected nodes from highest node number in sequence to lowest,
     # the reverse of the usual TestHarness line topology.
     if cluster.launch(pnodes=pnodes, unstartedNodes=2, totalNodes=total_nodes, prodCount=prod_count, 
@@ -112,19 +126,86 @@ try:
     cluster.launchUnstarted(2)
 
     throttledNode = cluster.getNode(3)
-    time.sleep(15)
+    while True:
+        try:
+            response = readMetrics(throttlingNode.host, throttlingNode.port)
+        except (requests.ConnectionError, requests.ReadTimeout) as e:
+            # waiting for node to finish startup and respond
+            time.sleep(0.5)
+        else:
+            connPorts = prometheusHostPortPattern.findall(response.text)
+            if len(connPorts) < 3:
+                # wait for node to be connected
+                time.sleep(0.5)
+                continue
+            Print('Throttling Node Start State')
+            #Print(response.text)
+            throttlingNodePortMap = {port: id for id, port in connPorts}
+            startSyncThrottlingBytesSent = extractPrometheusMetric(throttlingNodePortMap['9879'],
+                                                                   'block_sync_bytes_sent',
+                                                                   response.text)
+            Print(f'Start sync throttling bytes sent: {startSyncThrottlingBytesSent}')
+            break
+    while True:
+        try:
+            response = readMetrics(throttledNode.host, throttledNode.port)
+        except (requests.ConnectionError, requests.ReadTimeout) as e:
+            # waiting for node to finish startup and respond
+            time.sleep(0.5)
+        else:
+            if 'nodeos_p2p_connections{connid_2' not in response.text:
+                # wait for sending node to be connected
+                continue
+            Print('Throttled Node Start State')
+            #Print(response.text)
+            connPorts = prometheusHostPortPattern.findall(response.text)
+            throttledNodePortMap = {port: id for id, port in connPorts}
+            startSyncThrottledBytesReceived = extractPrometheusMetric(throttledNodePortMap['9878'],
+                                                                      'block_sync_bytes_received',
+                                                                      response.text)
+            Print(f'Start sync throttled bytes received: {startSyncThrottledBytesReceived}')
+            break
+
     # Throttling node was offline during block generation and once online receives blocks as fast as possible while
     # transmitting blocks to the next node in line at the above throttle setting.
     assert throttlingNode.waitForBlock(endLargeBlocksHeadBlock), f'wait for block {endLargeBlocksHeadBlock}  on throttled node timed out'
     endThrottlingSync = time.time()
+    try:
+        response = readMetrics(throttlingNode.host, throttlingNode.port)
+    except (requests.ConnectionError, requests.ReadTimeout) as e:
+        errorExit(str(e))
+    else:
+        Print('Throttling Node End State')
+        #Print(response.text)
+        endSyncThrottlingBytesSent = extractPrometheusMetric(throttlingNodePortMap['9879'],
+                                                             'block_sync_bytes_sent',
+                                                             response.text)
+        Print(f'End sync throttling bytes sent: {endSyncThrottlingBytesSent}')
     # Throttled node is connecting to a listen port with a block sync throttle applied so it will receive
     # blocks more slowly during syncing than an unthrottled node.
     assert throttledNode.waitForBlock(endLargeBlocksHeadBlock, timeout=90), f'Wait for block {endLargeBlocksHeadBlock} on sync node timed out'
     endThrottledSync = time.time()
-    Print(f'Unthrottled sync time: {endThrottlingSync - clusterStart} seconds')
-    Print(f'Throttled sync time: {endThrottledSync - clusterStart} seconds')
-    # 15 seconds chosen as the minimum reasonable sync time differential given the throttle and the average block size.
-    assert endThrottledSync - clusterStart > endThrottlingSync - clusterStart + 15, 'Throttled sync time must be at least 15 seconds greater than unthrottled'
+    try:
+        response = readMetrics(throttledNode.host, throttledNode.port)
+    except (requests.ConnectionError, requests.ReadTimeout) as e:
+        errorExit(str(e))
+    else:
+        Print('Throttled Node End State')
+        #Print(response.text)
+        endSyncThrottledBytesReceived = extractPrometheusMetric(throttledNodePortMap['9878'],
+                                                                'block_sync_bytes_received',
+                                                                response.text)
+        Print(f'End sync throttled bytes received: {endSyncThrottledBytesReceived}')
+    throttlingElapsed = endThrottlingSync - clusterStart
+    throttledElapsed = endThrottledSync - clusterStart
+    Print(f'Unthrottled sync time: {throttlingElapsed} seconds')
+    Print(f'Throttled sync time: {throttledElapsed} seconds')
+    # Sanity check
+    assert throttledElapsed > throttlingElapsed + 15, 'Throttled sync time must be at least 15 seconds greater than unthrottled'
+    # Calculate block receive rate
+    calculatedRate = (endSyncThrottledBytesReceived - startSyncThrottledBytesReceived)/throttledElapsed
+    #assert math.isclose(calculatedRate, 40000, rel_tol=0.01), f'Throttled bytes receive rate must be near 40,000, was {calculatedRate}'
+    assert calculatedRate < 40000, f'Throttled bytes receive rate must be less than 40,000, was {calculatedRate}'
 
     testSuccessful=True
 finally:
