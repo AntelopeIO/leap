@@ -154,18 +154,18 @@ struct http_plugin_state {
 */
 inline auto make_http_response_handler(http_plugin_state& plugin_state, detail::abstract_conn_ptr session_ptr, http_content_type content_type) {
    return [&plugin_state,
-           session_ptr{std::move(session_ptr)}, content_type](int code, std::optional<fc::variant> response) {
+           session_ptr{std::move(session_ptr)}, content_type](int code, std::optional<fc::variant> response) mutable {
       auto payload_size = detail::in_flight_sizeof(response);
-      if(auto error_str = session_ptr->verify_max_bytes_in_flight(payload_size); !error_str.empty()) {
-         session_ptr->send_busy_response(std::move(error_str));
-         return;
-      }
-
       plugin_state.bytes_in_flight += payload_size;
 
       // post back to an HTTP thread to allow the response handler to be called from any thread
-      boost::asio::post(plugin_state.thread_pool.get_executor(),
-                        [&plugin_state, session_ptr, code, payload_size, response = std::move(response), content_type]() {
+      boost::asio::dispatch(plugin_state.thread_pool.get_executor(),
+                        [&plugin_state, session_ptr{std::move(session_ptr)}, code, payload_size, response = std::move(response), content_type]() {
+                           if(auto error_str = session_ptr->verify_max_bytes_in_flight(0); !error_str.empty()) {
+                              session_ptr->send_busy_response(std::move(error_str));
+                              return;
+                           }
+
                            try {
                               plugin_state.bytes_in_flight -= payload_size;
                               if (response.has_value()) {

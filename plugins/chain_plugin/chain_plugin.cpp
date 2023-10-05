@@ -345,8 +345,9 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Subjectively limit the maximum length of variable components in a variable legnth signature to this size in bytes")
          ("trusted-producer", bpo::value<vector<string>>()->composing(), "Indicate a producer whose blocks headers signed by it will be fully validated, but transactions in those validated blocks will be trusted.")
          ("database-map-mode", bpo::value<chainbase::pinnable_mapped_file::map_mode>()->default_value(chainbase::pinnable_mapped_file::map_mode::mapped),
-          "Database map mode (\"mapped\", \"heap\", or \"locked\").\n"
+          "Database map mode (\"mapped\", \"mapped_private\", \"heap\", or \"locked\").\n"
           "In \"mapped\" mode database is memory mapped as a file.\n"
+          "In \"mapped_private\" mode database is memory mapped as a file using a private mapping (no disk writeback until program exit).\n"
 #ifndef _WIN32
           "In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available.\n"
           "In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.\n"
@@ -933,6 +934,13 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
       }
 
       chain_config->db_map_mode = options.at("database-map-mode").as<pinnable_mapped_file::map_mode>();
+
+      // when loading a snapshot, all the state will be modified, so temporarily use the `mapped` mode instead
+      // of `mapped_private` to lower memory requirements.
+      if (snapshot_path && chain_config->db_map_mode == pinnable_mapped_file::mapped_private) {
+        chain_config->db_map_mode = pinnable_mapped_file::mapped;
+        chain_config->revert_to_private_mode = true; // revert to `mapped_private` mode after loading snapshot.
+      }
 
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
       if( options.count("eos-vm-oc-cache-size-mb") )
@@ -2197,6 +2205,7 @@ void read_write::push_transactions(const read_write::push_transactions_params& p
    } CATCH_AND_CALL(next);
 }
 
+// called from read-exclusive thread for read-only
 template<class API, class Result>
 void api_base::send_transaction_gen(API &api, send_transaction_params_t params, next_function<Result> next) {
    try {
@@ -2567,12 +2576,19 @@ void read_only::compute_transaction(compute_transaction_params params, next_func
 }
 
 void read_only::send_read_only_transaction(send_read_only_transaction_params params, next_function<send_read_only_transaction_results> next) {
+   static bool read_only_enabled = app().executor().get_read_threads() > 0;
+   EOS_ASSERT( read_only_enabled, unsupported_feature,
+               "read-only transactions execution not enabled on API node. Set read-only-threads > 0" );
+
    send_transaction_params_t gen_params { .return_failure_trace = false,
                                           .retry_trx            = false,
                                           .retry_trx_num_blocks = std::nullopt,
                                           .trx_type             = transaction_metadata::trx_type::read_only,
                                           .transaction          = std::move(params.transaction) };
-   return send_transaction_gen(*this, std::move(gen_params), std::move(next));
+   // run read-only trx exclusively on read-only threads
+   app().executor().post(priority::low, exec_queue::read_exclusive, [this, gen_params{std::move(gen_params)}, next{std::move(next)}]() mutable {
+      send_transaction_gen(*this, std::move(gen_params), std::move(next));
+   });
 }
 
 read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params, const fc::time_point& ) const {
