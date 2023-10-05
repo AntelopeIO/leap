@@ -351,10 +351,10 @@ def stepSetSystemContract():
     retry(args.cleos + 'push action eosio activate \'["6bcb40a24e49c26d0a60513b6aeb8551d264e4717f306b81a37a5afb3b47cedc"]\' -p eosio@active')
     # BLS_PRIMITIVES
     retry(args.cleos + 'push action eosio activate \'["98c4175db53ed27e7911a1b5adf0e7db0fc96c2cae172cf594dfa9a742ca9e88"]\' -p eosio@active')
-    # DISALLOW NEW DEFERRED TRANSACTIONS
+    # DISABLE_DEFERRED_TRXS_STAGE_1 - DISALLOW NEW DEFERRED TRANSACTIONS
     retry(args.cleos + 'push action eosio activate \'["440c3efaaab212c387ce967c574dc813851cf8332d041beb418dfaf55facd5a9"]\' -p eosio@active')
-    # PREVENT PREVIOUSLY SCHEDULED DEFERRED TRANSACTIONS FROM REACHING OTHER NODE
-    # THIS DEPENDS ON PREVIOUS DISALLOWED NEW DEFFERED TRANSACTIONS
+    # DISABLE_DEFERRED_TRXS_STAGE_2 - PREVENT PREVIOUSLY SCHEDULED DEFERRED TRANSACTIONS FROM REACHING OTHER NODE
+    # THIS DEPENDS ON DISABLE_DEFERRED_TRXS_STAGE_1 
     retry(args.cleos + 'push action eosio activate \'["a857eeb932774c511a40efb30346ec01bfb7796916b54c3c69fe7e5fb70d5cba"]\' -p eosio@active')
     sleep(1)
 
