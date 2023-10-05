@@ -3486,8 +3486,14 @@ void controller::validate_db_available_size() const {
 
    // give a change to chainbase to write some pages to disk if memory becomes scarce.
    if (is_write_window()) {
-      if (auto flushed_pages = mutable_db().check_memory_and_flush_if_needed()) {
-         ilog("CHAINBASE: flushed ${p} pages to disk to decrease memory pressure", ("p", flushed_pages));
+      auto check_time = fc::time_point::now();
+      if (auto res = mutable_db().check_memory_and_flush_if_needed()) {
+         auto [oom, flushed_pages] = *res;
+         if (flushed_pages > 0) {
+            auto duration = (fc::time_point::now() - check_time).count()/1000; // in milliseconds
+            ilog("chainbase: oom = ${oom}, flushed ${p} state pages to disk (in ${dur} ms) to decrease memory pressure",
+                 ("oom", oom)("p", flushed_pages)("dur", duration));
+         }
       }
    }
 }
