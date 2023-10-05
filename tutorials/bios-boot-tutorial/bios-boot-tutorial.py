@@ -352,10 +352,10 @@ def stepSetSystemContract():
     # BLS_PRIMITIVES
     retry(args.cleos + 'push action eosio activate \'["98c4175db53ed27e7911a1b5adf0e7db0fc96c2cae172cf594dfa9a742ca9e88"]\' -p eosio@active')
     # DISABLE_DEFERRED_TRXS_STAGE_1 - DISALLOW NEW DEFERRED TRANSACTIONS
-    retry(args.cleos + 'push action eosio activate \'["440c3efaaab212c387ce967c574dc813851cf8332d041beb418dfaf55facd5a9"]\' -p eosio@active')
+    retry(args.cleos + 'push action eosio activate \'["fce57d2331667353a0eac6b4209b67b843a7262a848af0a49a6e2fa9f6584eb4"]\' -p eosio@active')
     # DISABLE_DEFERRED_TRXS_STAGE_2 - PREVENT PREVIOUSLY SCHEDULED DEFERRED TRANSACTIONS FROM REACHING OTHER NODE
     # THIS DEPENDS ON DISABLE_DEFERRED_TRXS_STAGE_1 
-    retry(args.cleos + 'push action eosio activate \'["a857eeb932774c511a40efb30346ec01bfb7796916b54c3c69fe7e5fb70d5cba"]\' -p eosio@active')
+    retry(args.cleos + 'push action eosio activate \'["09e86cb0accf8d81c9e85d34bea4b925ae936626d00c984e4691186891f5bc16"]\' -p eosio@active')
     sleep(1)
 
     # install eosio.system latest version
