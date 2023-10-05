@@ -103,7 +103,7 @@ int snapshot_actions::run_subcommand() {
       snap_out.flush();
       snap_out.close();
    } catch(const database_guard_exception& e) {
-      std::cerr << "Database is not configured to have enough storage to handle provided snapshot, please increase storage and try aagain" << std::endl;
+      std::cerr << "Database is not configured to have enough storage to handle provided snapshot, please increase storage and try again" << std::endl;
       control.reset();
       throw;
    }
