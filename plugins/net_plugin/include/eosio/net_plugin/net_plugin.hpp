@@ -56,6 +56,7 @@ namespace eosio {
                std::chrono::nanoseconds last_bytes_sent{0};
                size_t block_sync_bytes_received{0};
                size_t block_sync_bytes_sent{0};
+               bool block_sync_throttling{false};
                std::chrono::nanoseconds connection_start_time{0};
                std::string log_p2p_address;
             };

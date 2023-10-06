@@ -853,6 +853,7 @@ namespace eosio {
       std::chrono::nanoseconds get_last_bytes_sent() const { return last_bytes_sent.load(); }
       size_t get_block_sync_bytes_received() const { return block_sync_bytes_received.load(); }
       size_t get_block_sync_bytes_sent() const { return block_sync_bytes_sent.load(); }
+      bool get_block_sync_throttling() const { return block_sync_throttling.load(); }
       boost::asio::ip::port_type get_remote_endpoint_port() const { return remote_endpoint_port.load(); }
       void set_heartbeat_timeout(std::chrono::milliseconds msec) {
          hb_timeout = msec;
@@ -891,6 +892,7 @@ namespace eosio {
       std::atomic<size_t>             bytes_sent{0};
       std::atomic<size_t>             block_sync_bytes_received{0};
       std::atomic<size_t>             block_sync_bytes_sent{0};
+      std::atomic<bool>               block_sync_throttling{false};
       std::atomic<std::chrono::nanoseconds>   last_bytes_sent{0ns};
       std::atomic<boost::asio::ip::port_type> remote_endpoint_port{0};
 
@@ -1737,14 +1739,16 @@ namespace eosio {
          sb = cc.fetch_block_by_number( num ); // thread-safe
       } FC_LOG_AND_DROP();
       if( sb ) {
-         if( block_sync_rate_limit > 0 ) {
+         if( block_sync_rate_limit > 0 && peer_syncing_from_us ) {
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(get_time() - connection_start_time);
             auto current_rate = double(block_sync_bytes_sent) / elapsed.count();
             if( current_rate >= block_sync_rate_limit ) {
+               block_sync_throttling = true;
                peer_dlog( this, "throttling block sync to peer ${host}:${port}", ("host", log_remote_endpoint_ip)("port", log_remote_endpoint_port));
                return false;
             }
          }
+         block_sync_throttling = false;
          block_sync_bytes_sent += enqueue_block( sb, true );
          ++peer_requested->last;
       } else {
@@ -4007,13 +4011,12 @@ namespace eosio {
          ( "p2p-listen-endpoint", bpo::value< vector<string> >()->default_value( vector<string>(1, string("0.0.0.0:9876:0")) ), "The actual host:port[:<rate-cap>] used to listen for incoming p2p connections. May be used multiple times. "
            "  The optional rate cap will limit per connection block sync bandwidth to the specified rate.  Total "
            "  allowed bandwidth is the rate-cap multiplied by the connection count limit.  A number alone will be "
-           "  interpreted as bytes per second.  The number is parsed locale-aware and may include thousands and "
-           "  decimal separators.  It may also be suffixed with units.  Supported units are: "
+           "  interpreted as bytes per second.  The number may be suffixed with units.  Supported units are: "
            "  'B/s', 'KB/s', 'MB/s, 'GB/s', 'TB/s', 'KiB/s', 'MiB/s', 'GiB/s', 'TiB/s'."
            "  Transactions and blocks outside of sync mode are not throttled."
            "  Examples:\n"
            "    192.168.0.100:9876:1MiB/s\n"
-           "    node.eos.io:9876:1,512KB/s\n"
+           "    node.eos.io:9876:1512KB/s\n"
            "    node.eos.io:9876:0.5GB/s\n"
            "    [2001:db8:85a3:8d3:1319:8a2e:370:7348]:9876:250KB/s")
          ( "p2p-server-address", bpo::value< vector<string> >(), "An externally accessible host:port for identifying this node. Defaults to p2p-listen-endpoint. May be used as many times as p2p-listen-endpoint. If provided, the first address will be used in handshakes with other nodes. Otherwise the default is used.")
@@ -4094,8 +4097,6 @@ namespace eosio {
 
    size_t net_plugin_impl::parse_connection_rate_limit( const std::string& limit_str) const {
       std::istringstream in(limit_str);
-      fc_dlog( logger, "parsing connection endpoint limit ${limit} with locale ${l}", ("limit", limit_str)("l", std::locale("").name()));
-      in.imbue(std::locale(""));
       double limit{0};
       in >> limit;
       EOS_ASSERT(limit >= 0.0, plugin_config_exception, "block sync rate limit must not be negative: ${limit}", ("limit", limit_str));
@@ -4749,6 +4750,7 @@ namespace eosio {
             , .last_bytes_sent = c->get_last_bytes_sent()
             , .block_sync_bytes_received = c->get_block_sync_bytes_received()
             , .block_sync_bytes_sent = c->get_block_sync_bytes_sent()
+            , .block_sync_throttling = c->get_block_sync_throttling()
             , .connection_start_time = c->connection_start_time
             , .log_p2p_address = c->log_p2p_address
          });

@@ -11,7 +11,6 @@ RUN apt-get update && apt-get upgrade -y && \
                        llvm-11-dev          \
                        ninja-build          \
                        python3-numpy        \
-                       python3-requests     \
                        file                 \
                        zlib1g-dev           \
                        zstd
