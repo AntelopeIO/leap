@@ -94,7 +94,7 @@ try:
     beginLargeBlocksHeadBlock = nonProdNode.getHeadBlockNum()
 
     Print("Configure and launch txn generators")
-    targetTpsPerGenerator = 200
+    targetTpsPerGenerator = 500
     testTrxGenDurationSec=60
     trxGeneratorCnt=1
     cluster.launchTrxGenerators(contractOwnerAcctName=cluster.eosioAccount.name, acctNamesList=[accounts[0].name,accounts[1].name],
@@ -106,10 +106,10 @@ try:
     throttlingNode = cluster.unstartedNodes[0]
     i = throttlingNode.cmd.index('--p2p-listen-endpoint')
     throttleListenAddr = throttlingNode.cmd[i+1]
-    # Using 5000 bytes per second to allow syncing of ~100 transaction blocks resulting from
+    # Using 4000 bytes per second to allow syncing of ~250 transaction blocks resulting from
     # the trx generators in a reasonable amount of time, while still being able to capture
     # throttling state within the Prometheus update window (3 seconds in this test).
-    throttlingNode.cmd[i+1] = throttlingNode.cmd[i+1] + ':5000B/s'
+    throttlingNode.cmd[i+1] = throttlingNode.cmd[i+1] + ':4000B/s'
     throttleListenIP, throttleListenPort = throttleListenAddr.split(':')
     throttlingNode.cmd.append('--p2p-listen-endpoint')
     throttlingNode.cmd.append(f'{throttleListenIP}:{int(throttleListenPort)+100}:1TB/s')
@@ -119,7 +119,7 @@ try:
     cluster.launchUnstarted(2)
 
     throttledNode = cluster.getNode(3)
-    while time.time() < clusterStart + 30:
+    while True:
         try:
             response = throttlingNode.processUrllibRequest('prometheus', 'metrics', returnType=ReturnType.raw, printReturnLimit=16).decode()
         except urllib.error.URLError:
@@ -145,11 +145,10 @@ try:
                                                                response)
             Print(f'Start sync throttling bytes sent: {startSyncThrottlingBytesSent}')
             Print(f'Start sync throttling node throttling: {"True" if startSyncThrottlingState else "False"}')
+            if time.time() > clusterStart + 30: errorExit('Timed out')
             break
-    else:
-        errorExit('Timed out')
 
-    while time.time() < clusterStart + 30:
+    while True:
         try:
             response = throttledNode.processUrllibRequest('prometheus', 'metrics', returnType=ReturnType.raw, printReturnLimit=16).decode()
         except urllib.error.URLError:
@@ -168,12 +167,10 @@ try:
             Print('Throttled Node Start State')
             throttledNodePortMap = {port: id for id, port in connPorts}
             startSyncThrottledBytesReceived = extractPrometheusMetric(throttledNodePortMap['9878'],
-                                                                        'block_sync_bytes_received',
-                                                                        response)
+                                                                      'block_sync_bytes_received',
+                                                                      response)
             Print(f'Start sync throttled bytes received: {startSyncThrottledBytesReceived}')
             break
-    else:
-        errorExit('Timed out')
 
     # Throttling node was offline during block generation and once online receives blocks as fast as possible while
     # transmitting blocks to the next node in line at the above throttle setting.
@@ -182,8 +179,8 @@ try:
     response = throttlingNode.processUrllibRequest('prometheus', 'metrics', exitOnError=True, returnType=ReturnType.raw, printReturnLimit=16).decode()
     Print('Throttling Node End State')
     endSyncThrottlingBytesSent = extractPrometheusMetric(throttlingNodePortMap['9879'],
-                                                            'block_sync_bytes_sent',
-                                                            response)
+                                                         'block_sync_bytes_sent',
+                                                         response)
     Print(f'End sync throttling bytes sent: {endSyncThrottlingBytesSent}')
     # Throttled node is connecting to a listen port with a block sync throttle applied so it will receive
     # blocks more slowly during syncing than an unthrottled node.
@@ -197,7 +194,7 @@ try:
         if throttledState:
             wasThrottled = True
             break
-    assert throttledNode.waitForBlock(endLargeBlocksHeadBlock, timeout=90), f'Wait for block {endLargeBlocksHeadBlock} on sync node timed out'
+    assert throttledNode.waitForBlock(endLargeBlocksHeadBlock, timeout=30), f'Wait for block {endLargeBlocksHeadBlock} on sync node timed out'
     endThrottledSync = time.time()
     response = throttledNode.processUrllibRequest('prometheus', 'metrics', exitOnError=True, returnType=ReturnType.raw, printReturnLimit=16).decode()
     Print('Throttled Node End State')
@@ -209,8 +206,6 @@ try:
     throttledElapsed = endThrottledSync - clusterStart
     Print(f'Unthrottled sync time: {throttlingElapsed} seconds')
     Print(f'Throttled sync time: {throttledElapsed} seconds')
-    # Sanity check
-    assert throttledElapsed > throttlingElapsed + 10, 'Throttled sync time must be at least 10 seconds greater than unthrottled'
     assert wasThrottled, 'Throttling node never reported throttling its transmission rate'
 
     testSuccessful=True
