@@ -190,18 +190,18 @@ static asset get_currency_balance(const validating_tester& chain, account_name a
 
 BOOST_AUTO_TEST_SUITE(delay_tests)
 
-// Delayed trxs are blocked.
-BOOST_FIXTURE_TEST_CASE( delayed_trx_blocked, validating_tester ) { try {
+BOOST_FIXTURE_TEST_CASE( delay_error_create_account, validating_tester_no_disable_deferred_trx) { try {
+
    produce_blocks(2);
    signed_transaction trx;
 
    account_name a = "newco"_n;
    account_name creator = config::system_account_name;
 
-   auto owner_auth = authority( get_public_key( a, "owner" ) );
+   auto owner_auth =  authority( get_public_key( a, "owner" ) );
    trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
                              newaccount{
-                                .creator  = creator,
+                                .creator  = "bad"_n, /// a does not exist, this should error when execute
                                 .name     = a,
                                 .owner    = owner_auth,
                                 .active   = authority( get_public_key( a, "active" ) )
@@ -210,42 +210,21 @@ BOOST_FIXTURE_TEST_CASE( delayed_trx_blocked, validating_tester ) { try {
    trx.delay_sec = 3;
    trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
 
-   // delayed trx is blocked
-   BOOST_CHECK_EXCEPTION(push_transaction( trx ), fc::exception,
-      [&](const fc::exception &e) {
-         return expect_assert_message(e, "transaction cannot be delayed");
-      });
+   ilog( fc::json::to_pretty_string(trx) );
+   auto trace = push_transaction( trx );
+   edump((*trace));
 
-   // no deferred trx was generated
-   auto gen_size = control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
-} FC_LOG_AND_RETHROW() }/// delayed_trx_blocked
+   produce_blocks(6);
 
-// Delayed actions are blocked.
-BOOST_AUTO_TEST_CASE( delayed_action_blocked ) { try {
-   validating_tester chain;
-   const auto& tester_account = "tester"_n;
+   auto scheduled_trxs = get_scheduled_transactions();
+   BOOST_REQUIRE_EQUAL(scheduled_trxs.size(), 1u);
 
-   chain.create_account("tester"_n);
-   chain.produce_blocks();
+   auto billed_cpu_time_us = control->get_global_properties().configuration.min_transaction_cpu_usage;
+   auto dtrace = control->push_scheduled_transaction(scheduled_trxs.front(), fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
+   BOOST_REQUIRE_EQUAL(dtrace->except.has_value(), true);
+   BOOST_REQUIRE_EQUAL(dtrace->except->code(), missing_auth_exception::code_value);
 
-   // delayed action is blocked
-   BOOST_CHECK_EXCEPTION(
-      chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
-           ("account", "tester")
-           ("permission", "first")
-           ("parent", "active")
-           ("auth",  authority(chain.get_public_key(tester_account, "first"))),
-           20, 10),
-      fc::exception,
-      [&](const fc::exception &e) {
-         return expect_assert_message(e, "transaction cannot be delayed");
-      });
-
-   // no deferred trx was generated
-   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
-} FC_LOG_AND_RETHROW() }/// delayed_action_blocked
+} FC_LOG_AND_RETHROW() }
 
 // test link to permission with delay directly on it
 BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
