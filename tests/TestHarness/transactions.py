@@ -199,6 +199,8 @@ class Transactions(NodeosQueries):
                     return None
 
             NodeosQueries.validateTransaction(trans)
+            if not waitForTransBlock:
+                return trans
             transId=NodeosQueries.getTransId(trans)
             if self.waitForTransactionInBlock(transId, timeout=5):
                 break
