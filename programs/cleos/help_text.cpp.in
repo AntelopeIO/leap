@@ -208,11 +208,10 @@ const char* error_advice_missing_auth_exception =  R"=====(Ensure that you have 
 If you are currently using '@CLI_CLIENT_EXECUTABLE_NAME@ push action' command, try to add the relevant authority using -p option.)=====";
 const char* error_advice_irrelevant_auth_exception =  "Please remove the unnecessary authority from your action!";
 
-const char* error_advice_missing_chain_api_plugin_exception =  "Ensure that you have \033[2meosio::chain_api_plugin\033[0m\033[32m added to your node's configuration!";
-const char* error_advice_missing_wallet_api_plugin_exception =  "Ensure that you have \033[2meosio::wallet_api_plugin\033[0m\033[32m added to your node's configuration!\n"\
-                                    "Otherwise specify your wallet location with \033[2m--wallet-url\033[0m\033[32m argument!";
-const char* error_advice_missing_history_api_plugin_exception =  "Ensure that you have \033[2meosio::history_api_plugin\033[0m\033[32m added to your node's configuration!";
-const char* error_advice_missing_net_api_plugin_exception =  "Ensure that you have \033[2meosio::net_api_plugin\033[0m\033[32m added to your node's configuration!";
+const char* error_advice_missing_chain_api_plugin_exception =  "Ensure that you have \033[2meosio::chain_api_plugin\033[0m\033[32m added to your node's configuration and enabled on the specified endpoint.";
+const char* error_advice_missing_wallet_api_plugin_exception =  "Ensure that you have keosd enabled on the \033[2m--wallet-url\033[0m\033[32m specified endpoint.";
+const char* error_advice_missing_history_api_plugin_exception =  "Ensure that you have \033[2meosio::history_api_plugin\033[0m\033[32m added to your node's configuration and enabled on the specified endpoint.";
+const char* error_advice_missing_net_api_plugin_exception =  "Ensure that you have \033[2meosio::net_api_plugin\033[0m\033[32m added to your node's configuration and enabled on the specified endpoint.";
 
 const char* error_advice_wallet_exist_exception =  "Try to use different wallet name.";
 const char* error_advice_wallet_nonexistent_exception =  "Are you sure you typed the wallet name correctly?";

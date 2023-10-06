@@ -63,13 +63,13 @@ fc::variant do_http_call(const config_t& config, const std::string& base_uri, co
       } else if( status_code == 404 ) {
          // Unknown endpoint
          if (path.compare(0, chain_func_base.size(), chain_func_base) == 0) {
-            throw chain::missing_chain_api_plugin_exception(FC_LOG_MESSAGE(error, "Chain API plugin is not enabled"));
+            throw chain::missing_chain_api_plugin_exception(FC_LOG_MESSAGE(error, "Chain API plugin is not enabled on specified endpoint"));
          } else if (path.compare(0, wallet_func_base.size(), wallet_func_base) == 0) {
-            throw chain::missing_wallet_api_plugin_exception(FC_LOG_MESSAGE(error, "Wallet is not available"));
+            throw chain::missing_wallet_api_plugin_exception(FC_LOG_MESSAGE(error, "Wallet is not available on specified endpoint"));
          } else if (path.compare(0, history_func_base.size(), history_func_base) == 0) {
-            throw chain::missing_history_api_plugin_exception(FC_LOG_MESSAGE(error, "History API plugin is not enabled"));
+            throw chain::missing_history_api_plugin_exception(FC_LOG_MESSAGE(error, "History API plugin is not enabled on specified endpoint"));
          } else if (path.compare(0, net_func_base.size(), net_func_base) == 0) {
-            throw chain::missing_net_api_plugin_exception(FC_LOG_MESSAGE(error, "Net API plugin is not enabled"));
+            throw chain::missing_net_api_plugin_exception(FC_LOG_MESSAGE(error, "Net API plugin is not enabled on specified endpoint"));
          }
       } else {
          auto &&error_info = response_result.as<eosio::error_results>().error;
