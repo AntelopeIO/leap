@@ -1296,7 +1296,7 @@ namespace eosio {
       boost::system::error_code ec;
       socket->set_option( nodelay, ec );
       if( ec ) {
-         peer_elog( this, "connection failed (set_option): ${e1}", ( "e1", ec.message() ) );
+         peer_wlog( this, "connection failed (set_option): ${e1}", ( "e1", ec.message() ) );
          close();
          return false;
       } else {
@@ -1472,6 +1472,7 @@ namespace eosio {
             peer_ilog( this, "fetch block by id returned null, id ${id}", ("id", blkid) );
          }
       } catch( const assert_exception& ex ) {
+         // possible corrupted block log
          peer_elog( this, "caught assert on fetch_block_by_id, ${ex}, id ${id}", ("ex", ex.to_string())("id", blkid) );
       } catch( ... ) {
          peer_elog( this, "caught other exception fetching block id ${id}", ("id", blkid) );
@@ -1599,7 +1600,7 @@ namespace eosio {
 
                if( ec ) {
                   if( ec.value() != boost::asio::error::eof ) {
-                     peer_elog( c, "Error sending to peer: ${i}", ( "i", ec.message() ) );
+                     peer_wlog( c, "Error sending to peer: ${i}", ( "i", ec.message() ) );
                   } else {
                      peer_wlog( c, "connection closure detected on write" );
                   }
@@ -2042,7 +2043,7 @@ namespace eosio {
 
       // verify there is an available source
       if( !new_sync_source ) {
-         fc_elog( logger, "Unable to continue syncing at this time");
+         fc_wlog( logger, "Unable to continue syncing at this time");
          sync_source.reset();
          sync_known_lib_num = chain_info.lib_num;
          sync_last_requested_num = 0;
@@ -2289,7 +2290,7 @@ namespace eosio {
                   "sync_recv_notice only called on catch_up" );
       if (msg.known_blocks.mode == catch_up) {
          if (msg.known_blocks.ids.empty()) {
-            peer_elog( c, "got a catch up with ids size = 0" );
+            peer_wlog( c, "got a catch up with ids size = 0" );
          } else {
             const block_id_type& id = msg.known_blocks.ids.back();
             peer_ilog( c, "notice_message, pending ${p}, blk_num ${n}, id ${id}...",
@@ -2577,7 +2578,7 @@ namespace eosio {
    void dispatch_manager::recv_notice(const connection_ptr& c, const notice_message& msg, bool generated) {
       if (msg.known_trx.mode == normal) {
       } else if (msg.known_trx.mode != none) {
-         peer_elog( c, "passed a notice_message with something other than a normal on none known_trx" );
+         peer_wlog( c, "passed a notice_message with something other than a normal on none known_trx" );
          return;
       }
       if (msg.known_blocks.mode == normal) {
@@ -2588,7 +2589,7 @@ namespace eosio {
             }
          }
       } else if (msg.known_blocks.mode != none) {
-         peer_elog( c, "passed a notice_message with something other than a normal on none known_blocks" );
+         peer_wlog( c, "passed a notice_message with something other than a normal on none known_blocks" );
          return;
       }
    }
@@ -2691,7 +2692,7 @@ namespace eosio {
                if( !err ) {
                   c->connect( resolver, endpoints );
                } else {
-                  fc_elog( logger, "Unable to resolve ${host}:${port} ${error}",
+                  fc_wlog( logger, "Unable to resolve ${host}:${port} ${error}",
                            ("host", host)("port", port)( "error", err.message() ) );
                   c->set_state(connection_state::closed);
                   ++c->consecutive_immediate_connection_close;
@@ -2716,7 +2717,7 @@ namespace eosio {
                   c->send_time();
                }
             } else {
-               fc_elog( logger, "connection failed to ${a}, ${error}", ("a", c->peer_address())( "error", err.message()));
+               fc_ilog( logger, "connection failed to ${a}, ${error}", ("a", c->peer_address())( "error", err.message()));
                c->close( false );
                if (my_impl->increment_failed_p2p_connections) {
                   my_impl->increment_failed_p2p_connections();
@@ -2733,7 +2734,7 @@ namespace eosio {
       const auto&               paddr_add = socket.remote_endpoint(rec).address();
       string                    paddr_str;
       if (rec) {
-         fc_elog(logger, "Error getting remote endpoint: ${m}", ("m", rec.message()));
+         fc_ilog(logger, "Unable to get remote endpoint: ${m}", ("m", rec.message()));
       } else {
          paddr_str        = paddr_add.to_string();
          connections.for_each_connection([&visitors, &from_addr, &paddr_str](auto& conn) {
@@ -2939,7 +2940,7 @@ namespace eosio {
          }
 
       } catch( const fc::exception& e ) {
-         peer_elog( this, "Exception in handling message: ${s}", ("s", e.to_detail_string()) );
+         peer_wlog( this, "Exception in handling message: ${s}", ("s", e.to_detail_string()) );
          close();
          return false;
       }
@@ -3156,7 +3157,7 @@ namespace eosio {
    // called from connection strand
    void connection::handle_message( const handshake_message& msg ) {
       if( !is_valid( msg ) ) {
-         peer_elog( this, "bad handshake message");
+         peer_wlog( this, "bad handshake message");
          no_retry = go_away_reason::fatal_other;
          enqueue( go_away_message( fatal_other ) );
          return;
@@ -3174,7 +3175,7 @@ namespace eosio {
       set_state(connection_state::connected);
       if (msg.generation == 1) {
          if( msg.node_id == my_impl->node_id) {
-            peer_elog( this, "Self connection detected node_id ${id}. Closing connection", ("id", msg.node_id) );
+            peer_ilog( this, "Self connection detected node_id ${id}. Closing connection", ("id", msg.node_id) );
             no_retry = go_away_reason::self;
             enqueue( go_away_message( go_away_reason::self ) );
             return;
@@ -3249,7 +3250,7 @@ namespace eosio {
          }
 
          if( msg.chain_id != my_impl->chain_id ) {
-            peer_elog( this, "Peer on a different chain. Closing connection" );
+            peer_ilog( this, "Peer on a different chain. Closing connection" );
             no_retry = go_away_reason::wrong_chain;
             enqueue( go_away_message(go_away_reason::wrong_chain) );
             return;
@@ -3266,7 +3267,7 @@ namespace eosio {
          short_conn_node_id = conn_node_id.str().substr( 0, 7 );
 
          if( !my_impl->authenticate_peer( msg ) ) {
-            peer_elog( this, "Peer not authenticated.  Closing connection." );
+            peer_wlog( this, "Peer not authenticated.  Closing connection." );
             no_retry = go_away_reason::authentication;
             enqueue( go_away_message( go_away_reason::authentication ) );
             return;
@@ -3291,9 +3292,9 @@ namespace eosio {
                on_fork = true;
             }
             if( on_fork ) {
-                  peer_elog( this, "Peer chain is forked, sending: forked go away" );
-                  no_retry = go_away_reason::forked;
-                  enqueue( go_away_message( go_away_reason::forked ) );
+               peer_wlog( this, "Peer chain is forked, sending: forked go away" );
+               no_retry = go_away_reason::forked;
+               enqueue( go_away_message( go_away_reason::forked ) );
             }
          }
 
@@ -3428,7 +3429,7 @@ namespace eosio {
       //
       set_state(connection_state::connected);
       if( msg.known_blocks.ids.size() > 2 ) {
-         peer_elog( this, "Invalid notice_message, known_blocks.ids.size ${s}, closing connection",
+         peer_wlog( this, "Invalid notice_message, known_blocks.ids.size ${s}, closing connection",
                     ("s", msg.known_blocks.ids.size()) );
          close( false );
          return;
@@ -3480,7 +3481,7 @@ namespace eosio {
          break;
       }
       default: {
-         peer_elog( this, "bad notice_message : invalid known_blocks.mode ${m}",
+         peer_wlog( this, "bad notice_message : invalid known_blocks.mode ${m}",
                     ("m", static_cast<uint32_t>(msg.known_blocks.mode)) );
       }
       }
@@ -3488,7 +3489,7 @@ namespace eosio {
 
    void connection::handle_message( const request_message& msg ) {
       if( msg.req_blocks.ids.size() > 1 ) {
-         peer_elog( this, "Invalid request_message, req_blocks.ids.size ${s}, closing",
+         peer_wlog( this, "Invalid request_message, req_blocks.ids.size ${s}, closing",
                     ("s", msg.req_blocks.ids.size()) );
          close();
          return;
@@ -3519,7 +3520,7 @@ namespace eosio {
          // no break
       case normal :
          if( !msg.req_trx.ids.empty() ) {
-            peer_elog( this, "Invalid request_message, req_trx.ids.size ${s}", ("s", msg.req_trx.ids.size()) );
+            peer_wlog( this, "Invalid request_message, req_trx.ids.size ${s}", ("s", msg.req_trx.ids.size()) );
             close();
             return;
          }
@@ -3569,7 +3570,7 @@ namespace eosio {
             if( !trace->except ) {
                fc_dlog( logger, "chain accepted transaction, bcast ${id}", ("id", trace->id) );
             } else {
-               fc_elog( logger, "bad packed_transaction : ${m}", ("m", trace->except->what()));
+               fc_ilog( logger, "bad packed_transaction : ${m}", ("m", trace->except->what()));
             }
          }
          connection_ptr conn = weak.lock();
@@ -3601,11 +3602,11 @@ namespace eosio {
             bsp = cc.create_block_state( id, ptr );
          } catch( const fc::exception& ex ) {
             exception = true;
-            fc_elog( logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
+            fc_ilog( logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
                      ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16))("m",ex.to_string()));
          } catch( ... ) {
             exception = true;
-            fc_elog( logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
+            fc_wlog( logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
                      ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16)));
          }
          if( exception ) {
@@ -3653,8 +3654,11 @@ namespace eosio {
             });
             return;
          }
-      } catch(...) {
-         fc_elog( logger, "Caught an unknown exception trying to fetch block ${id}", ("id", blk_id) );
+      } catch( const assert_exception& ex ) {
+         // possible corrupted block log
+         fc_elog( logger, "caught assert on fetch_block_by_id, ${ex}, id ${id}, conn ${c}", ("ex", ex.to_string())("id", blk_id)("c", connection_id) );
+      } catch( ... ) {
+         fc_elog( logger, "caught an unknown exception trying to fetch block ${id}, conn ${c}", ("id", blk_id)("c", connection_id) );
       }
 
       fc::microseconds age( fc::time_point::now() - block->timestamp);
@@ -3667,23 +3671,23 @@ namespace eosio {
          accepted = my_impl->chain_plug->accept_block(block, blk_id, bsp);
          my_impl->update_chain_info();
       } catch( const unlinkable_block_exception &ex) {
-         fc_elog(logger, "unlinkable_block_exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_ilog(logger, "unlinkable_block_exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = unlinkable;
       } catch( const block_validate_exception &ex ) {
-         fc_elog(logger, "block_validate_exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_ilog(logger, "block_validate_exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = validation;
       } catch( const assert_exception &ex ) {
-         fc_elog(logger, "block assert_exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_wlog(logger, "block assert_exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = fatal_other;
       } catch( const fc::exception &ex ) {
-         fc_elog(logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_ilog(logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = fatal_other;
       } catch( ... ) {
-         fc_elog(logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
+         fc_wlog(logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16)));
          reason = fatal_other;
       }
@@ -3832,7 +3836,7 @@ namespace eosio {
          if(producer_plug != nullptr)
             found_producer_key = producer_plug->is_producer_key(msg.key);
          if( allowed_it == allowed_peers.end() && private_it == private_keys.end() && !found_producer_key) {
-            fc_elog( logger, "Peer ${peer} sent a handshake with an unauthorized key: ${key}.",
+            fc_wlog( logger, "Peer ${peer} sent a handshake with an unauthorized key: ${key}.",
                      ("peer", msg.p2p_address)("key", msg.key) );
             return false;
          }
@@ -3841,7 +3845,7 @@ namespace eosio {
       if(msg.sig != chain::signature_type() && msg.token != sha256()) {
          sha256 hash = fc::sha256::hash(msg.time);
          if(hash != msg.token) {
-            fc_elog( logger, "Peer ${peer} sent a handshake with an invalid token.", ("peer", msg.p2p_address) );
+            fc_wlog( logger, "Peer ${peer} sent a handshake with an invalid token.", ("peer", msg.p2p_address) );
             return false;
          }
          chain::public_key_type peer_key;
@@ -3849,11 +3853,11 @@ namespace eosio {
             peer_key = crypto::public_key(msg.sig, msg.token, true);
          }
          catch (const std::exception& /*e*/) {
-            fc_elog( logger, "Peer ${peer} sent a handshake with an unrecoverable key.", ("peer", msg.p2p_address) );
+            fc_wlog( logger, "Peer ${peer} sent a handshake with an unrecoverable key.", ("peer", msg.p2p_address) );
             return false;
          }
          if((allowed_connections & (Producers | Specified)) && peer_key != msg.key) {
-            fc_elog( logger, "Peer ${peer} sent a handshake with an unauthenticated key.", ("peer", msg.p2p_address) );
+            fc_wlog( logger, "Peer ${peer} sent a handshake with an unauthenticated key.", ("peer", msg.p2p_address) );
             return false;
          }
       }
