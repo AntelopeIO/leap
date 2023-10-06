@@ -13,6 +13,12 @@ class exec_pri_queue : public boost::asio::execution_context
 {
 public:
 
+   void stop() {
+      std::lock_guard g( mtx_ );
+      exiting_blocking_ = true;
+      cond_.notify_all();
+   }
+
    void enable_locking(uint32_t num_threads, std::function<bool()> should_exit) {
       assert(num_threads > 0 && num_waiting_ == 0);
       lock_enabled_ = true;
@@ -47,17 +53,6 @@ public:
       handlers_ = prio_queue();
    }
 
-   // only call when no lock required
-   bool execute_highest()
-   {
-      if( !handlers_.empty() ) {
-         handlers_.top()->execute();
-         handlers_.pop();
-      }
-
-      return !handlers_.empty();
-   }
-
 private:
    // has to be defined before use, auto return type
    auto pop() {
@@ -67,6 +62,19 @@ private:
    }
 
 public:
+
+   // only call when no lock required
+   bool execute_highest()
+   {
+      if( !handlers_.empty() ) {
+         auto t = pop();
+         bool empty = handlers_.empty();
+         t->execute();
+         return !empty;
+      }
+
+      return false;
+   }
 
    bool execute_highest_locked(bool should_block) {
       std::unique_lock g(mtx_);

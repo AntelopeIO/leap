@@ -40,7 +40,7 @@ BOOST_AUTO_TEST_CASE( default_exec_window ) {
    app->executor().post( priority::lowest, exec_queue::read_only, [&]() {
       // read_only_queue should only contain the current lambda function,
       // and read_write_queue should have executed all its functions
-      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 1); // pop()s after execute
+      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 0); // pop()s before execute
       BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().size(), 0 );
       app->quit();
       } );
@@ -175,7 +175,7 @@ BOOST_AUTO_TEST_CASE( execute_from_both_queues ) {
    // stop application. Use lowest at the end to make sure this executes the last
    app->executor().post( priority::lowest, exec_queue::read_only, [&]() {
       // read_queue should have current function and write_queue's functions are all executed 
-      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 1); // pop()s after execute
+      BOOST_REQUIRE_EQUAL( app->executor().read_only_queue().size(), 0); // pop()s before execute
       BOOST_REQUIRE_EQUAL( app->executor().read_write_queue().size(), 0 );
       app->quit();
       } );
