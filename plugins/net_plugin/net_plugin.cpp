@@ -4340,6 +4340,10 @@ namespace eosio {
                fc::create_listener<tcp>(
                      my->thread_pool.get_executor(), logger, accept_timeout, listen_addr, extra_listening_log_info,
                      [my = my, addr = p2p_addr, block_sync_rate_limit = block_sync_rate_limit](tcp::socket&& socket) { fc_dlog( logger, "start listening on ${addr} with peer sync throttle ${limit}", ("addr", addr)("limit", block_sync_rate_limit)); my->create_session(std::move(socket), addr, block_sync_rate_limit); });
+            } catch (const plugin_config_exception& e) {
+               fc_elog( logger, "${msg}", ("msg", e.top_message()));
+               app().quit();
+               return;
             } catch (const std::exception& e) {
                fc_elog( logger, "net_plugin::plugin_startup failed to listen on ${addr}, ${what}",
                      ("addr", address)("what", e.what()) );
