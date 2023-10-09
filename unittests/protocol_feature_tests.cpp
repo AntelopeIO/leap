@@ -2183,4 +2183,67 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_2_dependency_test ) { try {
       fc_exception_message_starts_with("not all dependencies of protocol feature with digest"));
 } FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_2_dependency_test
 
+// Verify a block containing delayed transactions is not validated
+// after DISABLE_DEFERRED_TRXS_STAGE_1 is activated
+BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_block_validate_test ) { try {
+   tester_no_disable_deferred_trx tester1;
+
+   // Activate DISABLE_DEFERRED_TRXS_STAGE_1 such that tester1
+   // matches tester2 below
+   const auto& pfm1 = tester1.control->get_protocol_feature_manager();
+   auto d1 = pfm1.get_builtin_digest( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 );
+   BOOST_REQUIRE( d1 );
+   tester1.preactivate_protocol_features( {*d1} );
+   tester1.produce_block();
+
+   // Create a block with valid transaction
+   tester1.create_account("newacc"_n);
+   auto b = tester1.produce_block();
+
+   // Make a copy of the block
+   auto copy_b = std::make_shared<signed_block>(std::move(*b));
+   // Retrieve the last transaction
+   auto signed_tx = std::get<packed_transaction>(copy_b->transactions.back().trx).get_signed_transaction();
+   // Make a delayed transaction by forcing delay_sec greater than 0
+   signed_tx.delay_sec = 120;
+   // Re-sign the transaction
+   signed_tx.signatures.clear();
+   signed_tx.sign(tester1.get_private_key(config::system_account_name, "active"), tester1.control->get_chain_id());
+   // Replace the original transaction with the delayed  transaction
+   auto delayed_tx = packed_transaction(signed_tx);
+   copy_b->transactions.back().trx = std::move(delayed_tx);
+
+   // Re-calculate the transaction merkle
+   deque<digest_type> trx_digests;
+   const auto& trxs = copy_b->transactions;
+   for( const auto& a : trxs )
+      trx_digests.emplace_back( a.digest() );
+   copy_b->transaction_mroot = merkle( std::move(trx_digests) );
+
+   // Re-sign the block
+   auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), tester1.control->head_block_state()->blockroot_merkle.get_root() ) );
+   auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, tester1.control->head_block_state()->pending_schedule.schedule_hash) );
+   copy_b->producer_signature = tester1.get_private_key(config::system_account_name, "active").sign(sig_digest);
+
+   // Create the second chain
+   tester_no_disable_deferred_trx tester2;
+   // Activate DISABLE_DEFERRED_TRXS_STAGE_1 on the second chain
+   const auto& pfm2 = tester2.control->get_protocol_feature_manager();
+   auto d2 = pfm2.get_builtin_digest( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 );
+   BOOST_REQUIRE( d2 );
+   tester2.preactivate_protocol_features( {*d2} );
+   tester2.produce_block();
+
+   // Push the block with delayed transaction to the second chain
+   auto bsf = tester2.control->create_block_state_future( copy_b->calculate_id(), copy_b );
+   tester2.control->abort_block();
+   controller::block_report br;
+
+   // The block is invalidated
+   BOOST_REQUIRE_EXCEPTION(tester2.control->push_block( br, bsf.get(), forked_branch_callback{}, trx_meta_cache_lookup{} ),
+      fc::exception,
+      fc_exception_message_starts_with("transaction cannot be delayed")
+   );
+} FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_1_block_validate_test
+
 BOOST_AUTO_TEST_SUITE_END()
