@@ -319,11 +319,11 @@ class NodeosQueries:
 
         return None
 
-    def isTransInAnyBlock(self, transId: str):
+    def isTransInAnyBlock(self, transId: str, exitOnError=True):
         """Check if transaction (transId) is in a block."""
         assert(transId)
         assert(isinstance(transId, str))
-        blockId=self.getBlockNumByTransId(transId)
+        blockId=self.getBlockNumByTransId(transId, exitOnError=exitOnError)
         return True if blockId else False
 
     def isTransFinalized(self, transId):
