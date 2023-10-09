@@ -160,6 +160,7 @@ class Transactions(NodeosQueries):
         cmd += "" if abiFile is None else (" " + abiFile)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
         retries = 0
+        trans=None
         while retries < retryNum:
             trans=None
             if Utils.Debug and retries > 0:
