@@ -767,7 +767,7 @@ BOOST_FIXTURE_TEST_CASE(cfa_stateful_api, validating_tester)  try {
    BOOST_REQUIRE_EQUAL( validate(), true );
 } FC_LOG_AND_RETHROW()
 
-BOOST_FIXTURE_TEST_CASE(deferred_cfa_failed, validating_tester)  try {
+BOOST_FIXTURE_TEST_CASE(deferred_cfa_failed, validating_tester_no_disable_deferred_trx)  try {
 
    create_account( "testapi"_n );
 	produce_blocks(1);
