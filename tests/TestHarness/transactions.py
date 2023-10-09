@@ -159,12 +159,12 @@ class Transactions(NodeosQueries):
         cmd += "" if wasmFile is None else (" "+ wasmFile)
         cmd += "" if abiFile is None else (" " + abiFile)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
-        trans=None
-        retrys = 0
-        while retrys < retryNum:
-            if Utils.Debug and retrys > 0:
+        retries = 0
+        while retries < retryNum:
+            trans=None
+            if Utils.Debug and retries > 0:
                 Utils.Print(f"Retrying: {cmd}")
-            retrys = retrys + 1
+            retries = retries + 1
             start=time.perf_counter()
             try:
                 trans=Utils.runCmdReturnJson(cmd, trace=False)
