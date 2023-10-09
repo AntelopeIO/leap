@@ -226,7 +226,7 @@ set_property(TEST nodeos_startup_catchup_lr_test PROPERTY LABELS long_running_te
 add_test(NAME nodeos_short_fork_take_over_test COMMAND tests/nodeos_short_fork_take_over_test.py -v --wallet-port 9905 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_short_fork_take_over_test PROPERTY LABELS nonparallelizable_tests)
 
-add_test(NAME nodeos_extra_packed_data_test COMMAND tests/nodeos_extra_packed_data_test.py -v -p 8 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
+add_test(NAME nodeos_extra_packed_data_test COMMAND tests/nodeos_extra_packed_data_test.py -v -p 2 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_extra_packed_data_test PROPERTY LABELS nonparallelizable_tests)
 
 add_test(NAME nodeos_producer_watermark_lr_test COMMAND tests/nodeos_producer_watermark_test.py -v ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
