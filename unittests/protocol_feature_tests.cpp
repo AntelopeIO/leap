@@ -1921,18 +1921,15 @@ BOOST_AUTO_TEST_CASE( set_parameters_packed_test ) { try {
                        c.error("alice does not have permission to call this API"));
 } FC_LOG_AND_RETHROW() }
 
-// native action hardcodes sender empty and builds sender_id from trx id.
-// modify_gto_for_canceldelay_test modifies those two fields for contract
-// generated deferred trxs so canceldelay can be used. defined in delay_tests.cpp
-namespace eosio::chain { extern void modify_gto_for_canceldelay_test(controller& control, const transaction_id_type& trx_id) ; }
-
 BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
    tester_no_disable_deferred_trx c;
 
    c.produce_block();
-   c.create_accounts( {"alice"_n, "bob"_n, "test"_n} );
+   c.create_accounts( {"alice"_n, "bob"_n, "test"_n, "payloadless"_n} );
    c.set_code( "test"_n, test_contracts::deferred_test_wasm() );
    c.set_abi( "test"_n, test_contracts::deferred_test_abi() );
+   c.set_code( "payloadless"_n, test_contracts::payloadless_wasm() );
+   c.set_abi( "payloadless"_n, test_contracts::payloadless_abi().data() );
    c.produce_block();
 
    auto gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
@@ -1959,7 +1956,7 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
    gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
    BOOST_REQUIRE_EQUAL(0u, gen_size);
 
-   // generate a new deferred trx for the rest of the test
+   // generate a deferred trx from contract for cancel_deferred test
    c.push_action( "test"_n, "delayedcall"_n, "alice"_n, fc::mutable_variant_object()
       ("payer", "alice")
       ("sender_id", 1)
@@ -1968,12 +1965,25 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
       ("delay_sec", 120)
       ("replace_existing", false)
    );
+
+   // generate a delayed trx for canceldelay test
+   constexpr uint32_t delay_sec = 10;
+   c.push_action("payloadless"_n, "doit"_n, "payloadless"_n, mutable_variant_object(), c.DEFAULT_EXPIRATION_DELTA, delay_sec);
+
+   // make sure two trxs were generated
    c.produce_block();
    const auto& idx = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
    gen_size = idx.size();
-   BOOST_REQUIRE_EQUAL(1u, gen_size);
-   BOOST_REQUIRE_EQUAL(idx.begin()->payer, "alice"_n);
-   auto alice_trx_id = idx.begin()->trx_id;
+   BOOST_REQUIRE_EQUAL(2u, gen_size);
+   transaction_id_type alice_trx_id;
+   transaction_id_type payloadless_trx_id;
+   for( auto itr = idx.begin(); itr != idx.end(); ++itr ) {
+      if( itr->payer == "alice"_n) {
+         alice_trx_id = itr->trx_id;
+      } else {
+         payloadless_trx_id = itr->trx_id;
+      }
+   }
 
    // activate disable_deferred_trxs_stage_1
    const auto& pfm = c.control->get_protocol_feature_manager();
@@ -1995,7 +2005,7 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
 
    // verify bob's deferred trx is not made to generated_transaction_multi_index
    gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1u, gen_size);
+   BOOST_REQUIRE_EQUAL(2u, gen_size);
    // verify alice's deferred trx is still in generated_transaction_multi_index
    auto gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
    BOOST_REQUIRE(gto != nullptr);
@@ -2007,31 +2017,27 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_no_op_test ) { try {
       eosio_assert_message_exception,
       eosio_assert_message_is( "cancel_deferred failed" ) );
    gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1u, gen_size);
+   BOOST_REQUIRE_EQUAL(2u, gen_size);
    // verify alice's deferred trx is not removed
    gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
    BOOST_REQUIRE( gto );
 
-   // verify canceldelay native action is no-op
-
-   // canceldelay assumes sender and sender_id to be a specific format
-   modify_gto_for_canceldelay_test(*(c.control.get()), alice_trx_id);
    // call canceldelay native action
    signed_transaction trx;
    trx.actions.emplace_back(
-      vector<permission_level>{{"test"_n, config::active_name}},
-      canceldelay{{"test"_n, config::active_name}, alice_trx_id}
+      vector<permission_level>{{"payloadless"_n, config::active_name}},
+      canceldelay{{"payloadless"_n, config::active_name}, payloadless_trx_id}
    );
    c.set_transaction_headers(trx);
-   trx.sign(c.get_private_key("test"_n, "active"), c.control->get_chain_id());
+   trx.sign(c.get_private_key("payloadless"_n, "active"), c.control->get_chain_id());
    c.push_transaction(trx);
    c.produce_block();
 
    // verify canceldelay is no-op
    gen_size = c.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(1u, gen_size);
-   // verify alice's deferred trx is not removed
-   gto = c.control->db().find<generated_transaction_object, by_trx_id>(alice_trx_id);
+   BOOST_REQUIRE_EQUAL(2u, gen_size);
+   // verify payloadless' delayed trx is not removed
+   gto = c.control->db().find<generated_transaction_object, by_trx_id>(payloadless_trx_id);
    BOOST_REQUIRE( gto );
 } FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_1_no_op_test
 
