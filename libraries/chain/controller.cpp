@@ -3484,7 +3484,7 @@ void controller::validate_db_available_size() const {
    const auto guard = my->conf.state_guard_size;
    EOS_ASSERT(free >= guard, database_guard_exception, "database free: ${f}, guard size: ${g}", ("f", free)("g",guard));
 
-   // give chainbase a chance to write some pages to disk if memory becomes scarce.
+   // give chainbase a chance to flush its private pages to disk if memory becomes scarce.
    if (is_write_window()) {
       auto check_time = fc::time_point::now();
       if (auto res = mutable_db().check_memory_and_flush_if_needed()) {
