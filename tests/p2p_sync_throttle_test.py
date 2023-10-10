@@ -136,6 +136,7 @@ try:
             connPorts = prometheusHostPortPattern.findall(response)
             if len(connPorts) < 3:
                 # wait for node to be connected
+                errorLimit -= 1
                 time.sleep(0.5)
                 continue
             Print('Throttling Node Start State')
@@ -171,6 +172,7 @@ try:
             connPorts = prometheusHostPortPattern.findall(response)
             if len(connPorts) < 2:
                 # wait for sending node to be connected
+                errorLimit -= 1
                 continue
             Print('Throttled Node Start State')
             throttledNodePortMap = {port: id for id, port in connPorts}
