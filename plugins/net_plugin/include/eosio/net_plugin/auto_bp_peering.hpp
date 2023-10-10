@@ -145,7 +145,7 @@ class bp_connection_manager {
    // Only called from connection strand
    std::size_t num_established_clients() const {
       uint32_t num_clients = 0;
-      self()->connections.for_each_connection([&num_clients](auto&& conn) {
+      self()->connections.for_each_connection([&num_clients](const std::shared_ptr<Connection>& conn) {
          if (established_client_connection(conn)) {
             ++num_clients;
          }
@@ -157,7 +157,7 @@ class bp_connection_manager {
    // Only called from connection strand
    // This should only be called after the first handshake message is received to check if an incoming connection
    // has exceeded the pre-configured max_client_count limit.
-   bool exceeding_connection_limit(Connection* new_connection) const {
+   bool exceeding_connection_limit(std::shared_ptr<Connection> new_connection) const {
       return auto_bp_peering_enabled() && self()->connections.get_max_client_count() != 0 &&
              established_client_connection(new_connection) && num_established_clients() > self()->connections.get_max_client_count();
    }
@@ -182,7 +182,7 @@ class bp_connection_manager {
 
                fc_dlog(self()->get_logger(), "pending_downstream_neighbors: ${pending_downstream_neighbors}",
                        ("pending_downstream_neighbors", to_string(pending_downstream_neighbors)));
-               for (auto neighbor : pending_downstream_neighbors) { self()->connections.connect(config.bp_peer_addresses[neighbor], *self()->p2p_addresses.begin() ); }
+               for (auto neighbor : pending_downstream_neighbors) { self()->connections.resolve_and_connect(config.bp_peer_addresses[neighbor], self()->get_first_p2p_address() ); }
 
                pending_neighbors = std::move(pending_downstream_neighbors);
                finder.add_upstream_neighbors(pending_neighbors);
