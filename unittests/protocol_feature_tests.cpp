@@ -2183,9 +2183,28 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_2_dependency_test ) { try {
       fc_exception_message_starts_with("not all dependencies of protocol feature with digest"));
 } FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_2_dependency_test
 
+// Verify a block containing delayed transactions is validated
+// before DISABLE_DEFERRED_TRXS_STAGE_1 is activated
+BOOST_AUTO_TEST_CASE( block_validation_before_stage_1_test ) { try {
+   tester_no_disable_deferred_trx tester1;
+   tester_no_disable_deferred_trx tester2;
+
+   tester1.create_accounts( {"payloadless"_n} );
+   tester1.set_code( "payloadless"_n, test_contracts::payloadless_wasm() );
+   tester1.set_abi( "payloadless"_n, test_contracts::payloadless_abi().data() );
+
+   // Produce a block containing a delayed trx
+   constexpr uint32_t delay_sec = 10;
+   tester1.push_action("payloadless"_n, "doit"_n, "payloadless"_n, mutable_variant_object(), tester1.DEFAULT_EXPIRATION_DELTA, delay_sec);
+   auto b = tester1.produce_block();
+
+   // Push the block to another chain. The block should be validated
+   BOOST_REQUIRE_NO_THROW(tester2.push_block(b));
+} FC_LOG_AND_RETHROW() } /// block_validation_before_stage_1_test
+
 // Verify a block containing delayed transactions is not validated
 // after DISABLE_DEFERRED_TRXS_STAGE_1 is activated
-BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_block_validate_test ) { try {
+BOOST_AUTO_TEST_CASE( block_validation_after_stage_1_test ) { try {
    tester_no_disable_deferred_trx tester1;
 
    // Activate DISABLE_DEFERRED_TRXS_STAGE_1 such that tester1
@@ -2244,6 +2263,6 @@ BOOST_AUTO_TEST_CASE( disable_deferred_trxs_stage_1_block_validate_test ) { try 
       fc::exception,
       fc_exception_message_starts_with("transaction cannot be delayed")
    );
-} FC_LOG_AND_RETHROW() } /// disable_deferred_trxs_stage_1_block_validate_test
+} FC_LOG_AND_RETHROW() } /// block_validation_after_stage_1_test
 
 BOOST_AUTO_TEST_SUITE_END()
