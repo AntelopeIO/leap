@@ -3484,15 +3484,17 @@ void controller::validate_db_available_size() const {
    const auto guard = my->conf.state_guard_size;
    EOS_ASSERT(free >= guard, database_guard_exception, "database free: ${f}, guard size: ${g}", ("f", free)("g",guard));
 
-   // give a change to chainbase to write some pages to disk if memory becomes scarce.
+   // give chainbase a chance to write some pages to disk if memory becomes scarce.
    if (is_write_window()) {
       auto check_time = fc::time_point::now();
       if (auto res = mutable_db().check_memory_and_flush_if_needed()) {
-         auto [oom, flushed_pages] = *res;
-         if (flushed_pages > 0) {
+         if (res->num_pages_written > 0) {
             auto duration = (fc::time_point::now() - check_time).count()/1000; // in milliseconds
-            ilog("chainbase: oom = ${oom}, flushed ${p} state pages to disk (in ${dur} ms) to decrease memory pressure",
-                 ("oom", oom)("p", flushed_pages)("dur", duration));
+            wlog("chainbase: oom = ${oom_prev}, flushed ${p} state pages to disk (in ${dur} ms) to decrease memory pressure",
+                 ("oom_prev", res->oom_score_before)("p", res->num_pages_written)("dur", duration));
+            wlog("chainbase: oom score after flush: ${oom_post}", ("oom_post", res->oom_score_after));
+            wlog("chainbase: The system is running low in memory for running nodeos. "
+                 "If this is not a temporary condition, consider increasing the available RAM");
          }
       }
    }
