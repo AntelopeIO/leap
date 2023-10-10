@@ -118,17 +118,20 @@ try:
     clusterStart = time.time()
     cluster.launchUnstarted(2)
 
+    errorLimit = 40  # Approximately 20 retries required
     throttledNode = cluster.getNode(3)
-    while True:
+    while errorLimit > 0:
         try:
             response = throttlingNode.processUrllibRequest('prometheus', 'metrics', returnType=ReturnType.raw, printReturnLimit=16).decode()
         except urllib.error.URLError:
             # catch ConnectionRefusedEror waiting for node to finish startup and respond
+            errorLimit -= 1
             time.sleep(0.5)
             continue
         else:
             if len(response) < 100:
                 # tolerate HTTPError as well (method returns only the exception code)
+                errorLimit -= 1
                 continue
             connPorts = prometheusHostPortPattern.findall(response)
             if len(connPorts) < 3:
@@ -147,17 +150,22 @@ try:
             Print(f'Start sync throttling node throttling: {"True" if startSyncThrottlingState else "False"}')
             if time.time() > clusterStart + 30: errorExit('Timed out')
             break
+    else:
+        errorExit('Exceeded error retry limit waiting for throttling node')
 
-    while True:
+    errorLimit = 40  # Few if any retries required but for consistency...
+    while errorLimit > 0:
         try:
             response = throttledNode.processUrllibRequest('prometheus', 'metrics', returnType=ReturnType.raw, printReturnLimit=16).decode()
         except urllib.error.URLError:
             # catch ConnectionRefusedError waiting for node to finish startup and respond
+            errorLimit -= 1
             time.sleep(0.5)
             continue
         else:
             if len(response) < 100:
                 # tolerate HTTPError as well (method returns only the exception code)
+                errorLimit -= 1
                 time.sleep(0.5)
                 continue
             connPorts = prometheusHostPortPattern.findall(response)
@@ -171,6 +179,8 @@ try:
                                                                       response)
             Print(f'Start sync throttled bytes received: {startSyncThrottledBytesReceived}')
             break
+    else:
+        errorExit('Exceeded error retry limit waiting for throttled node')
 
     # Throttling node was offline during block generation and once online receives blocks as fast as possible while
     # transmitting blocks to the next node in line at the above throttle setting.
