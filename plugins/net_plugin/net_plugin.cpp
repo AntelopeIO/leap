@@ -1739,7 +1739,7 @@ namespace eosio {
          sb = cc.fetch_block_by_number( num ); // thread-safe
       } FC_LOG_AND_DROP();
       if( sb ) {
-         if( block_sync_rate_limit > 0 && peer_syncing_from_us ) { // only throttle peers in sync mode even if a limit is set
+         if( block_sync_rate_limit > 0 && peer_syncing_from_us ) {
             auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(get_time() - connection_start_time);
             auto current_rate = double(block_sync_bytes_sent) / elapsed.count();
             if( current_rate >= block_sync_rate_limit ) {
