@@ -146,10 +146,10 @@ class Node(Transactions):
                 Utils.Print("account validation failed. account: %s" % (account.name))
                 raise
 
-    def waitForTransactionInBlock(self, transId, timeout=None):
+    def waitForTransactionInBlock(self, transId, timeout=None, exitOnError=True):
         """Wait for trans id to appear in a block."""
         assert(isinstance(transId, str))
-        lam = lambda: self.isTransInAnyBlock(transId)
+        lam = lambda: self.isTransInAnyBlock(transId, exitOnError=exitOnError)
         ret=Utils.waitForBool(lam, timeout)
         return ret
 
@@ -226,7 +226,7 @@ class Node(Transactions):
         if not waitForTransBlock:
             return trans
         transId=NodeosQueries.getTransId(trans)
-        if not self.waitForTransactionInBlock(transId):
+        if not self.waitForTransactionInBlock(transId, exitOnError=exitOnError):
             if exitOnError:
                 Utils.cmdError("transaction with id %s never made it into a block" % (transId))
                 Utils.errorExit("Failed to find transaction with id %s in a block before timeout" % (transId))
