@@ -3495,6 +3495,8 @@ void controller::validate_db_available_size() const {
             wlog("chainbase: oom score after flush: ${oom_post}", ("oom_post", res->oom_score_after));
             wlog("chainbase: The system is running low in memory for running nodeos. "
                  "If this is not a temporary condition, consider increasing the available RAM");
+         } else {
+            ilog("chainbase: oom_score = ${oom_prev} within acceptable range, no action taken", ("oom_prev", res->oom_score_before));
          }
       }
    }
