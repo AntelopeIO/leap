@@ -898,7 +898,9 @@ namespace eosio {
       block_id_type                    fork_head           GUARDED_BY(conn_mtx);
       uint32_t                         fork_head_num       GUARDED_BY(conn_mtx) {0};
       fc::time_point                   last_close          GUARDED_BY(conn_mtx);
-      string                           remote_endpoint_ip  GUARDED_BY(conn_mtx);
+      std::string                      p2p_address         GUARDED_BY(conn_mtx);
+      std::string                      unique_conn_node_id GUARDED_BY(conn_mtx);
+      std::string                      remote_endpoint_ip  GUARDED_BY(conn_mtx);
       boost::asio::ip::address_v6::bytes_type remote_endpoint_ip_array GUARDED_BY(conn_mtx);
 
       std::chrono::nanoseconds         connection_start_time{0};
@@ -1184,7 +1186,8 @@ namespace eosio {
         connection_id( ++my_impl->current_connection_id ),
         response_expected_timer( my_impl->thread_pool.get_executor() ),
         last_handshake_recv(),
-        last_handshake_sent()
+        last_handshake_sent(),
+        p2p_address( endpoint )
    {
       my_impl->mark_bp_connection(this);
       update_endpoints();
@@ -3181,6 +3184,10 @@ namespace eosio {
          }
 
          log_p2p_address = msg.p2p_address;
+         fc::unique_lock g_conn( conn_mtx );
+         p2p_address = msg.p2p_address;
+         unique_conn_node_id = msg.node_id.str().substr( 0, 7 );
+         g_conn.unlock();
 
          my_impl->mark_bp_connection(this);
          if (my_impl->exceeding_connection_limit(this)) {
@@ -4478,25 +4485,31 @@ namespace eosio {
          if (update_p2p_connection_metrics) {
             fc::unique_lock g_conn((*it)->conn_mtx);
             boost::asio::ip::address_v6::bytes_type addr = (*it)->remote_endpoint_ip_array;
+            std::string p2p_addr = (*it)->p2p_address;
+            std::string conn_node_id = (*it)->unique_conn_node_id;
             g_conn.unlock();
-            net_plugin::p2p_per_connection_metrics::connection_metric metrics{
-                 .connection_id = (*it)->connection_id
-               , .address = addr
-               , .port = (*it)->get_remote_endpoint_port()
-               , .accepting_blocks = (*it)->is_blocks_connection()
-               , .last_received_block = (*it)->get_last_received_block_num()
-               , .first_available_block = (*it)->get_peer_start_block_num()
-               , .last_available_block = (*it)->get_peer_head_block_num()
-               , .unique_first_block_count = (*it)->get_unique_blocks_rcvd_count()
-               , .latency = (*it)->get_peer_ping_time_ns()
-               , .bytes_received = (*it)->get_bytes_received()
-               , .last_bytes_received = (*it)->get_last_bytes_received()
-               , .bytes_sent = (*it)->get_bytes_sent()
-               , .last_bytes_sent = (*it)->get_last_bytes_sent()
-               , .connection_start_time = (*it)->connection_start_time
-               , .log_p2p_address = (*it)->log_p2p_address
-            };
-            per_connection.peers.push_back(metrics);
+            if (!conn_node_id.empty()) {
+               net_plugin::p2p_per_connection_metrics::connection_metric metrics{
+                    .connection_id = (*it)->connection_id
+                  , .address = addr
+                  , .port = (*it)->get_remote_endpoint_port()
+                  , .accepting_blocks = (*it)->is_blocks_connection()
+                  , .last_received_block = (*it)->get_last_received_block_num()
+                  , .first_available_block = (*it)->get_peer_start_block_num()
+                  , .last_available_block = (*it)->get_peer_head_block_num()
+                  , .unique_first_block_count = (*it)->get_unique_blocks_rcvd_count()
+                  , .latency = (*it)->get_peer_ping_time_ns()
+                  , .bytes_received = (*it)->get_bytes_received()
+                  , .last_bytes_received = (*it)->get_last_bytes_received()
+                  , .bytes_sent = (*it)->get_bytes_sent()
+                  , .last_bytes_sent = (*it)->get_last_bytes_sent()
+                  , .connection_start_time = (*it)->connection_start_time
+                  , .p2p_address = p2p_addr
+                  , .unique_conn_node_id = conn_node_id
+               };
+               per_connection.peers.push_back(metrics);
+            }
+
          }
 
          if (!(*it)->socket_is_open() && (*it)->state() != connection::connection_state::connecting) {
