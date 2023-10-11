@@ -33,17 +33,33 @@ struct catalog_type {
    // http plugin
    prometheus::Family<Counter>& http_request_counts;
 
-   // net plugin p2p-connections
-   prometheus::Family<Gauge>& p2p_connections;
-
-   Gauge& num_peers;
-   Gauge& num_clients;
-
    // net plugin failed p2p connection
    Counter& failed_p2p_connections;
 
    // net plugin dropped_trxs
    Counter& dropped_trxs_total;
+
+   struct p2p_connection_metrics {
+      Gauge& num_peers;
+      Gauge& num_clients;
+
+      prometheus::Family<Gauge>& addr; // Empty gauge; ipv6 address can't be transmitted as a double
+      prometheus::Family<Gauge>& port;
+      prometheus::Family<Gauge>& connection_number;
+      prometheus::Family<Gauge>& accepting_blocks;
+      prometheus::Family<Gauge>& last_received_block;
+      prometheus::Family<Gauge>& first_available_block;
+      prometheus::Family<Gauge>& last_available_block;
+      prometheus::Family<Gauge>& unique_first_block_count;
+      prometheus::Family<Gauge>& latency;
+      prometheus::Family<Gauge>& bytes_received;
+      prometheus::Family<Gauge>& last_bytes_received;
+      prometheus::Family<Gauge>& bytes_sent;
+      prometheus::Family<Gauge>& last_bytes_sent;
+      prometheus::Family<Gauge>& connection_start_time;
+      prometheus::Family<Gauge>& peer_addr; // Empty gauge; we only want the label
+   };
+   p2p_connection_metrics p2p_metrics;
 
    // producer plugin
    prometheus::Family<Counter>& cpu_usage_us;
@@ -97,12 +113,27 @@ struct catalog_type {
    catalog_type()
        : info(family<prometheus::Info>("nodeos", "static information about the server"))
        , http_request_counts(family<Counter>("nodeos_http_requests_total", "number of HTTP requests"))
-       , p2p_connections(family<Gauge>("nodeos_p2p_connections", "current number of connected p2p connections"))
-       , num_peers(p2p_connections.Add({{"direction", "out"}}))
-       , num_clients(p2p_connections.Add({{"direction", "in"}}))
-       , failed_p2p_connections(
-             build<Counter>("nodeos_failed_p2p_connections", "total number of failed out-going p2p connections"))
-       , dropped_trxs_total(build<Counter>("nodeos_dropped_trxs_total", "total number of dropped transactions by net plugin"))
+       , failed_p2p_connections(build<Counter>("nodeos_p2p_failed_connections", "total number of failed out-going p2p connections"))
+       , dropped_trxs_total(build<Counter>("nodeos_p2p_dropped_trxs_total", "total number of dropped transactions by net plugin"))
+       , p2p_metrics{
+              .num_peers{build<Gauge>("nodeos_p2p_peers", "current number of connected outgoing peers")}
+            , .num_clients{build<Gauge>("nodeos_p2p_clients", "current number of connected incoming clients")}
+            , .addr{family<Gauge>("nodeos_p2p_addr", "ipv6 address")}
+            , .port{family<Gauge>("nodeos_p2p_port", "port")}
+            , .connection_number{family<Gauge>("nodeos_p2p_connection_number", "monatomic increasing connection number")}
+            , .accepting_blocks{family<Gauge>("nodeos_p2p_accepting_blocks", "accepting blocks on connection")}
+            , .last_received_block{family<Gauge>("nodeos_p2p_last_received_block", "last received block on connection")}
+            , .first_available_block{family<Gauge>("nodeos_p2p_first_available_block", "first block available from connection")}
+            , .last_available_block{family<Gauge>("nodeos_p2p_last_available_block", "last block available from connection")}
+            , .unique_first_block_count{family<Gauge>("nodeos_p2p_unique_first_block_count", "number of blocks first received from any connection on this connection")}
+            , .latency{family<Gauge>("nodeos_p2p_latency", "last calculated latency with connection")}
+            , .bytes_received{family<Gauge>("nodeos_p2p_bytes_received", "total bytes received on connection")}
+            , .last_bytes_received{family<Gauge>("nodeos_p2p_last_bytes_received", "last time anything received from peer")}
+            , .bytes_sent{family<Gauge>("nodeos_p2p_bytes_sent", "total bytes sent to peer")}
+            , .last_bytes_sent{family<Gauge>("nodeos_p2p_last_bytes_sent", "last time anything sent to peer")}
+            , .connection_start_time{family<Gauge>("nodeos_p2p_connection_start_time", "time of last connection to peer")}
+            , .peer_addr{family<Gauge>("nodeos_p2p_peer_addr", "peer address")}
+         }
        , cpu_usage_us(family<Counter>("nodeos_cpu_usage_us_total", "total cpu usage in microseconds for blocks"))
        , net_usage_us(family<Counter>("nodeos_net_usage_us_total", "total net usage in microseconds for blocks"))
        , last_irreversible(build<Gauge>("nodeos_last_irreversible", "last irreversible block number"))
@@ -164,31 +195,33 @@ struct catalog_type {
    }
 
    void update(const net_plugin::p2p_connections_metrics& metrics) {
-      num_peers.Set(metrics.num_peers);
-      num_clients.Set(metrics.num_clients);
+      p2p_metrics.num_peers.Set(metrics.num_peers);
+      p2p_metrics.num_clients.Set(metrics.num_clients);
       for(size_t i = 0; i < metrics.stats.peers.size(); ++i) {
-         std::string label{"connid_" + to_string(metrics.stats.peers[i].connection_id)};
-         auto add_and_set_gauge = [&](const std::string& label_value, 
-                                      const auto& value) {
-            auto& gauge = p2p_connections.Add({{label, label_value}});
+         auto& peer = metrics.stats.peers[i];
+         auto& conn_id = peer.unique_conn_node_id;
+
+         auto addr = boost::asio::ip::make_address_v6(peer.address).to_string();
+         p2p_metrics.addr.Add({{"connid", conn_id},{"ipv6", addr},{"address", peer.p2p_address}});
+
+         auto add_and_set_gauge = [&](auto& fam, const auto& value) {
+            auto& gauge = fam.Add({{"connid", conn_id}});
             gauge.Set(value);
          };
-         auto& peer = metrics.stats.peers[i];
-         auto addr = std::string("addr_") + boost::asio::ip::make_address_v6(peer.address).to_string();
-         add_and_set_gauge(addr, 0); // Empty gauge; ipv6 address can't be transmitted as a double
-         add_and_set_gauge("port", peer.port);
-         add_and_set_gauge("accepting_blocks", peer.accepting_blocks);
-         add_and_set_gauge("last_received_block", peer.last_received_block);
-         add_and_set_gauge("first_available_block", peer.first_available_block);
-         add_and_set_gauge("last_available_block", peer.last_available_block);
-         add_and_set_gauge("unique_first_block_count", peer.unique_first_block_count);
-         add_and_set_gauge("latency", peer.latency);
-         add_and_set_gauge("bytes_received", peer.bytes_received);
-         add_and_set_gauge("last_bytes_received", peer.last_bytes_received.count());
-         add_and_set_gauge("bytes_sent", peer.bytes_sent);
-         add_and_set_gauge("last_bytes_sent", peer.last_bytes_sent.count());
-         add_and_set_gauge("connection_start_time", peer.connection_start_time.count());
-         add_and_set_gauge(peer.log_p2p_address, 0); // Empty gauge; we only want the label
+
+         add_and_set_gauge(p2p_metrics.connection_number, peer.connection_id);
+         add_and_set_gauge(p2p_metrics.port, peer.port);
+         add_and_set_gauge(p2p_metrics.accepting_blocks, peer.accepting_blocks);
+         add_and_set_gauge(p2p_metrics.last_received_block, peer.last_received_block);
+         add_and_set_gauge(p2p_metrics.first_available_block, peer.first_available_block);
+         add_and_set_gauge(p2p_metrics.last_available_block, peer.last_available_block);
+         add_and_set_gauge(p2p_metrics.unique_first_block_count, peer.unique_first_block_count);
+         add_and_set_gauge(p2p_metrics.latency, peer.latency);
+         add_and_set_gauge(p2p_metrics.bytes_received, peer.bytes_received);
+         add_and_set_gauge(p2p_metrics.last_bytes_received, peer.last_bytes_received.count());
+         add_and_set_gauge(p2p_metrics.bytes_sent, peer.bytes_sent);
+         add_and_set_gauge(p2p_metrics.last_bytes_sent, peer.last_bytes_sent.count());
+         add_and_set_gauge(p2p_metrics.connection_start_time, peer.connection_start_time.count());
       }
    }
 
