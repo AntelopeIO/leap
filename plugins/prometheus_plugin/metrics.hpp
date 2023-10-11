@@ -56,6 +56,9 @@ struct catalog_type {
       prometheus::Family<Gauge>& last_bytes_received;
       prometheus::Family<Gauge>& bytes_sent;
       prometheus::Family<Gauge>& last_bytes_sent;
+      prometheus::Family<Gauge>& block_sync_bytes_received;
+      prometheus::Family<Gauge>& block_sync_bytes_sent;
+      prometheus::Family<Gauge>& block_sync_throttling;
       prometheus::Family<Gauge>& connection_start_time;
       prometheus::Family<Gauge>& peer_addr; // Empty gauge; we only want the label
    };
@@ -131,6 +134,9 @@ struct catalog_type {
             , .last_bytes_received{family<Gauge>("nodeos_p2p_last_bytes_received", "last time anything received from peer")}
             , .bytes_sent{family<Gauge>("nodeos_p2p_bytes_sent", "total bytes sent to peer")}
             , .last_bytes_sent{family<Gauge>("nodeos_p2p_last_bytes_sent", "last time anything sent to peer")}
+            , .block_sync_bytes_received{family<Gauge>("nodeos_p2p_block_sync_bytes_received", "bytes of blocks received during syncing")}
+            , .block_sync_bytes_sent{family<Gauge>("nodeos_p2p_block_sync_bytes_sent", "bytes of blocks sent during syncing")}
+            , .block_sync_throttling{family<Gauge>("nodeos_p2p_block_sync_throttling", "is block sync throttling currently active")}
             , .connection_start_time{family<Gauge>("nodeos_p2p_connection_start_time", "time of last connection to peer")}
             , .peer_addr{family<Gauge>("nodeos_p2p_peer_addr", "peer address")}
          }
@@ -221,6 +227,9 @@ struct catalog_type {
          add_and_set_gauge(p2p_metrics.last_bytes_received, peer.last_bytes_received.count());
          add_and_set_gauge(p2p_metrics.bytes_sent, peer.bytes_sent);
          add_and_set_gauge(p2p_metrics.last_bytes_sent, peer.last_bytes_sent.count());
+         add_and_set_gauge(p2p_metrics.block_sync_bytes_received, peer.block_sync_bytes_received);
+         add_and_set_gauge(p2p_metrics.block_sync_bytes_sent, peer.block_sync_bytes_sent);
+         add_and_set_gauge(p2p_metrics.block_sync_throttling, peer.block_sync_throttling);
          add_and_set_gauge(p2p_metrics.connection_start_time, peer.connection_start_time.count());
       }
    }

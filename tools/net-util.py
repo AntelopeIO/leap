@@ -35,7 +35,7 @@ def humanReadableBytesPerSecond(bytes: int, telco:bool = False):
     while bytes > power:
         bytes /= power
         n += 1
-    return f'{"~0" if bytes < 0.01 else format(bytes, ".2f")} {labels[n]}B/s'
+    return f'{"-" if bytes == 0.0 else "~0" if bytes < 0.01 else format(bytes, ".2f")} {labels[n]}B/s'
 
 
 class TextSimpleFocusListWalker(urwid.SimpleFocusListWalker):
@@ -164,6 +164,7 @@ class netUtil:
             ('\nRcv\nRate', 'receiveBandwidthLW'),
             ('Last\nRcv\nTime', 'lastBytesReceivedLW'),
             ('Last\nRcvd\nBlock', 'lastReceivedBlockLW'),
+            ('Blk\nSync\nRate', 'blockSyncBandwidthLW'),
             ('Unique\nFirst\nBlks', 'uniqueFirstBlockCountLW'),
             ('First\nAvail\nBlk', 'firstAvailableBlockLW'),
             ('Last\nAvail\nBlk', 'lastAvailableBlockLW'),
@@ -297,6 +298,7 @@ class netUtil:
                 def __init__(self, bytesReceived=0, bytesSent=0, connectionStarted=0):
                     self.bytesReceived = 0
                     self.bytesSent = 0
+                    self.blockSyncBytesSent = 0
                     self.connectionStarted = 0
             for family in text_string_to_metric_families(response.text):
                 bandwidths = {}
@@ -323,19 +325,20 @@ class netUtil:
                         addr = sample.labels["address"]
                         listwalker[startOffset:endOffset] = [AttrMap(Text(addr), None, 'reversed')]
                     elif sample.name == 'nodeos_p2p_bytes_sent':
-                        bytesSent = int(sample.value)
                         stats = bandwidths.get(connID, bandwidthStats())
-                        stats.bytesSent = bytesSent
+                        stats.bytesSent = int(sample.value)
+                        bandwidths[connID] = stats
+                    elif fieldName == 'nodeos_p2p_block_sync_bytes_sent':
+                        stats = bandwidths.get(connID, bandwidthStats())
+                        stats.blockSyncBytesSent = int(sample.value)
                         bandwidths[connID] = stats
                     elif sample.name == 'nodeos_p2p_bytes_received':
-                        bytesReceived = int(sample.value)
                         stats = bandwidths.get(connID, bandwidthStats())
-                        stats.bytesReceived = bytesReceived
+                        stats.bytesReceived = int(sample.value)
                         bandwidths[connID] = stats
                     elif sample.name == 'nodeos_p2p_connection_start_time':
-                        connectionStarted = int(sample.value)
                         stats = bandwidths.get(connID, bandwidthStats())
-                        stats.connectionStarted = connectionStarted
+                        stats.connectionStarted = int(sample.value)
                         bandwidths[connID] = stats
                     elif sample.name == 'nodeos_p2p_connection_number':
                         pass
@@ -362,19 +365,21 @@ class netUtil:
                         if sample.name not in self.ignoredPrometheusMetrics:
                             logger.warning(f'Received unhandled Prometheus metric {sample.name}')
                 else:
-                    if sample.name == 'nodeos_p2p_bytes_sent' or sample.name == 'nodeos_p2p_bytes_received':
+                    if sample.name == 'nodeos_p2p_bytes_sent' or sample.name == 'nodeos_p2p_bytes_received' or sample.name == 'nodeos_p2p_block_sync_bytes_sent':
                         now = time.time_ns()
+                        def updateBandwidth(connectedSeconds, listwalker, byteCount, startOffset, endOffset):
+                            bps = byteCount/connectedSeconds
+                            listwalker[startOffset:endOffset] = [AttrMap(Text(humanReadableBytesPerSecond(bps)), None, 'reversed')]
                         connIDListwalker = getattr(self, 'connectionIDLW')
                         for connID, stats in bandwidths.items():
                             startOffset = connIDListwalker.index(connID)
                             endOffset = startOffset + 1
-                            connected_seconds = (now - stats.connectionStarted)/1000000000
-                            listwalker = getattr(self, 'receiveBandwidthLW')
-                            bps = stats.bytesReceived/connected_seconds
-                            listwalker[startOffset:endOffset] = [AttrMap(Text(humanReadableBytesPerSecond(bps)), None, 'reversed')]
-                            listwalker = getattr(self, 'sendBandwidthLW')
-                            bps = stats.bytesSent/connected_seconds
-                            listwalker[startOffset:endOffset] = [AttrMap(Text(humanReadableBytesPerSecond(bps)), None, 'reversed')]
+                            connectedSeconds = (now - stats.connectionStarted)/1000000000
+                            for listwalkerName, attrName in [('receiveBandwidthLW', 'bytesReceived'),
+                                                              ('sendBandwidthLW', 'bytesSent'),
+                                                              ('blockSyncBandwidthLW', 'blockSyncBytesSent')]:
+                                listwalker = getattr(self, listwalkerName)
+                                updateBandwidth(connectedSeconds, listwalker, getattr(stats, attrName), startOffset, endOffset)
         mainLoop.set_alarm_in(float(self.args.refresh_interval), self.update)
 
 def exitOnQ(key):

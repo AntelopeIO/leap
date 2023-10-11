@@ -370,7 +370,6 @@ namespace eosio { namespace chain {
       private:
          friend class apply_context;
          friend class transaction_context;
-         friend void modify_gto_for_canceldelay_test(controller& control, const transaction_id_type& trx_id); // canceldelay_test in delay_tests.cpp need access to mutable_db
 
          chainbase::database& mutable_db()const;
 
