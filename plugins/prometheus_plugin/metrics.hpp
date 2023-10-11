@@ -204,10 +204,10 @@ struct catalog_type {
       p2p_metrics.num_peers.Set(metrics.num_peers);
       p2p_metrics.num_clients.Set(metrics.num_clients);
       for(size_t i = 0; i < metrics.stats.peers.size(); ++i) {
-         auto& peer = metrics.stats.peers[i];
-         auto& conn_id = peer.unique_conn_node_id;
+         const auto& peer = metrics.stats.peers[i];
+         const auto& conn_id = peer.unique_conn_node_id;
 
-         auto addr = boost::asio::ip::make_address_v6(peer.address).to_string();
+         const auto addr = boost::asio::ip::make_address_v6(peer.address).to_string();
          p2p_metrics.addr.Add({{"connid", conn_id},{"ipv6", addr},{"address", peer.p2p_address}});
 
          auto add_and_set_gauge = [&](auto& fam, const auto& value) {
