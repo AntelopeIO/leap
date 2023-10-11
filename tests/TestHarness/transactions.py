@@ -203,7 +203,7 @@ class Transactions(NodeosQueries):
             if not waitForTransBlock:
                 return trans
             transId=NodeosQueries.getTransId(trans)
-            if self.waitForTransactionInBlock(transId, timeout=5, exitOnError=False):
+            if self.waitForTransactionInBlock(transId, timeout=30, exitOnError=False):
                 break
 
         return trans
