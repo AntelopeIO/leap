@@ -187,6 +187,9 @@ struct catalog_type {
          add_and_set_gauge("last_bytes_received", peer.last_bytes_received.count());
          add_and_set_gauge("bytes_sent", peer.bytes_sent);
          add_and_set_gauge("last_bytes_sent", peer.last_bytes_sent.count());
+         add_and_set_gauge("block_sync_bytes_received", peer.block_sync_bytes_received);
+         add_and_set_gauge("block_sync_bytes_sent", peer.block_sync_bytes_sent);
+         add_and_set_gauge("block_sync_throttling", peer.block_sync_throttling);
          add_and_set_gauge("connection_start_time", peer.connection_start_time.count());
          add_and_set_gauge(peer.log_p2p_address, 0); // Empty gauge; we only want the label
       }
