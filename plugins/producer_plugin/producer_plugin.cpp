@@ -773,6 +773,10 @@ public:
                                       transaction_metadata::trx_type       trx_type,
                                       bool                                 return_failure_traces,
                                       next_function<transaction_trace_ptr> next) {
+
+      const transaction& t = trx->get_transaction();
+      EOS_ASSERT( t.delay_sec.value == 0, transaction_exception, "transaction cannot be delayed" );
+
       if (trx_type == transaction_metadata::trx_type::read_only) {
          assert(_ro_thread_pool_size > 0); // enforced by chain_plugin
          assert(app().executor().get_main_thread_id() != std::this_thread::get_id()); // should only be called from read only threads
