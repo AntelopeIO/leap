@@ -291,6 +291,8 @@ jobs:
   all-passing:
     name: All Required Tests Passed
     needs: [dev-package, tests, np-tests, libtester-tests]
+    if: always()
     runs-on: ubuntu-latest
     steps:
-      - run: true
+      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success' || needs.libtester-tests.result != 'success'
+        run: false
