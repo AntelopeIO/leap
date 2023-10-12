@@ -296,8 +296,13 @@ try:
     Print("verify no contract in place")
     Print("Get code hash for account %s" % (currencyAccount.name))
     node=cluster.getNode(0)
+
     connections = node.processUrllibRequest('net', 'connections')
-    assert connections['payload'][0]['label'] == 'bios_node', "Failed to find expected peer label"
+    for record in connections['payload']:
+        if record['peer'] == 'localhost:9776':
+            assert record['label'] == 'bios_node', "Failed to find expected peer label"
+            break
+
     codeHash=node.getAccountCodeHash(currencyAccount.name)
     if codeHash is None:
         cmdError("%s get code currency1111" % (ClientName))
