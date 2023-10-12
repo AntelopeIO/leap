@@ -42,11 +42,11 @@ cluster=Cluster(unshared=args.unshared, keepRunning=args.leave_running, keepLogs
 walletMgr=WalletMgr(True)
 
 def extractPrometheusMetric(connID: str, metric: str, text: str):
-    searchStr = f'nodeos_p2p_connections{{connid_{connID}="{metric}"}} '
+    searchStr = f'nodeos_p2p_{metric}{{connid="{connID}"}} '
     begin = text.find(searchStr) + len(searchStr)
     return int(text[begin:text.find('\n', begin)])
 
-prometheusHostPortPattern = re.compile(r'^nodeos_p2p_connections.connid_([0-9])="localhost:([0-9]*)', re.MULTILINE)
+prometheusHostPortPattern = re.compile(r'^nodeos_p2p_port.connid="([a-f0-9]*)". ([0-9]*)', re.MULTILINE)
 
 try:
     TestHelper.printSystemInfo("BEGIN")
@@ -120,6 +120,8 @@ try:
 
     errorLimit = 40  # Approximately 20 retries required
     throttledNode = cluster.getNode(3)
+    throttledNodeConnId = None
+    throttlingNodeConnId = None
     while errorLimit > 0:
         try:
             response = throttlingNode.processUrllibRequest('prometheus', 'metrics', returnType=ReturnType.raw, printReturnLimit=16).decode()
@@ -134,17 +136,19 @@ try:
                 errorLimit -= 1
                 continue
             connPorts = prometheusHostPortPattern.findall(response)
+            Print(connPorts)
             if len(connPorts) < 3:
                 # wait for node to be connected
                 errorLimit -= 1
                 time.sleep(0.5)
                 continue
             Print('Throttling Node Start State')
-            throttlingNodePortMap = {port: id for id, port in connPorts}
-            startSyncThrottlingBytesSent = extractPrometheusMetric(throttlingNodePortMap['9879'],
+            throttlingNodePortMap = {port: id for id, port in connPorts if id != '' and port != '9877'}
+            throttlingNodeConnId = next(iter(throttlingNodePortMap.values())) # 9879
+            startSyncThrottlingBytesSent = extractPrometheusMetric(throttlingNodeConnId,
                                                                     'block_sync_bytes_sent',
                                                                     response)
-            startSyncThrottlingState = extractPrometheusMetric(throttlingNodePortMap['9879'],
+            startSyncThrottlingState = extractPrometheusMetric(throttlingNodeConnId,
                                                                'block_sync_throttling',
                                                                response)
             Print(f'Start sync throttling bytes sent: {startSyncThrottlingBytesSent}')
@@ -170,13 +174,16 @@ try:
                 time.sleep(0.5)
                 continue
             connPorts = prometheusHostPortPattern.findall(response)
+            Print(connPorts)
             if len(connPorts) < 2:
                 # wait for sending node to be connected
                 errorLimit -= 1
                 continue
             Print('Throttled Node Start State')
-            throttledNodePortMap = {port: id for id, port in connPorts}
-            startSyncThrottledBytesReceived = extractPrometheusMetric(throttledNodePortMap['9878'],
+            throttledNodePortMap = {port: id for id, port in connPorts if id != ''}
+            throttledNodeConnId = next(iter(throttledNodePortMap.values())) # 9878
+            Print(throttledNodeConnId)
+            startSyncThrottledBytesReceived = extractPrometheusMetric(throttledNodeConnId,
                                                                       'block_sync_bytes_received',
                                                                       response)
             Print(f'Start sync throttled bytes received: {startSyncThrottledBytesReceived}')
@@ -190,7 +197,7 @@ try:
     endThrottlingSync = time.time()
     response = throttlingNode.processUrllibRequest('prometheus', 'metrics', exitOnError=True, returnType=ReturnType.raw, printReturnLimit=16).decode()
     Print('Throttling Node End State')
-    endSyncThrottlingBytesSent = extractPrometheusMetric(throttlingNodePortMap['9879'],
+    endSyncThrottlingBytesSent = extractPrometheusMetric(throttlingNodeConnId,
                                                          'block_sync_bytes_sent',
                                                          response)
     Print(f'End sync throttling bytes sent: {endSyncThrottlingBytesSent}')
@@ -200,7 +207,7 @@ try:
     while time.time() < endThrottlingSync + 30:
         response = throttlingNode.processUrllibRequest('prometheus', 'metrics', exitOnError=True,
                                                        returnType=ReturnType.raw, printReturnLimit=16).decode()
-        throttledState = extractPrometheusMetric(throttlingNodePortMap['9879'],
+        throttledState = extractPrometheusMetric(throttlingNodeConnId,
                                                  'block_sync_throttling',
                                                  response)
         if throttledState:
@@ -210,7 +217,7 @@ try:
     endThrottledSync = time.time()
     response = throttledNode.processUrllibRequest('prometheus', 'metrics', exitOnError=True, returnType=ReturnType.raw, printReturnLimit=16).decode()
     Print('Throttled Node End State')
-    endSyncThrottledBytesReceived = extractPrometheusMetric(throttledNodePortMap['9878'],
+    endSyncThrottledBytesReceived = extractPrometheusMetric(throttledNodeConnId,
                                                             'block_sync_bytes_received',
                                                             response)
     Print(f'End sync throttled bytes received: {endSyncThrottledBytesReceived}')
