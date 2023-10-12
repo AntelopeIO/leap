@@ -369,6 +369,7 @@ namespace eosio {
       mutable std::shared_mutex        connections_mtx;
       connection_details_index         connections;
       chain::flat_set<string>          supplied_peers;
+      std::unordered_map<string, string> supplied_labels;
 
       alignas(hardware_destructive_interference_size)
       fc::mutex                             connector_check_timer_mtx;
@@ -391,7 +392,7 @@ namespace eosio {
 
    public:
       size_t number_connections() const;
-      void add_supplied_peers(const vector<string>& peers );
+      void add_supplied_peers(const vector<string>& peers, const vector<string>& labels);
 
       // not thread safe, only call on startup
       void init(std::chrono::milliseconds heartbeat_timeout_ms,
@@ -418,6 +419,7 @@ namespace eosio {
       string resolve_and_connect(const string& host, const string& p2p_address);
       void update_connection_endpoint(connection_ptr c, const tcp::endpoint& endpoint);
       void connect(const connection_ptr& c);
+      string label(const string& host_with_label);
       string disconnect(const string& host);
       void close_all();
 
@@ -954,6 +956,7 @@ namespace eosio {
       std::string                      p2p_address         GUARDED_BY(conn_mtx);
       std::string                      unique_conn_node_id GUARDED_BY(conn_mtx);
       std::string                      remote_endpoint_ip  GUARDED_BY(conn_mtx);
+      std::string                      label               GUARDED_BY(conn_mtx);
       boost::asio::ip::address_v6::bytes_type remote_endpoint_ip_array GUARDED_BY(conn_mtx);
 
       std::chrono::nanoseconds         connection_start_time{0};
@@ -1355,6 +1358,7 @@ namespace eosio {
       stat.is_socket_open = socket_is_open();
       fc::lock_guard g( conn_mtx );
       stat.peer = peer_addr;
+      stat.label = label;
       stat.remote_ip = log_remote_endpoint_ip;
       stat.remote_port = log_remote_endpoint_port;
       stat.last_handshake = last_handshake_recv;
@@ -4035,11 +4039,19 @@ namespace eosio {
          ( "p2p-peer-address", bpo::value< vector<string> >()->composing(),
            "The public endpoint of a peer node to connect to. Use multiple p2p-peer-address options as needed to compose a network.\n"
            "  Syntax: host:port[:<trx>|<blk>]\n"
-           "  The optional 'trx' and 'blk' indicates to node that only transactions 'trx' or blocks 'blk' should be sent."
+           "  The optional 'trx' and 'blk' indicates to node that only transactions 'trx' or blocks 'blk' should be sent.\n"
            "  Examples:\n"
            "    p2p.eos.io:9876\n"
            "    p2p.trx.eos.io:9876:trx\n"
            "    p2p.blk.eos.io:9876:blk\n")
+         ( "p2p-peer-label", bpo::value< vector<string> >()->composing(),
+           "Labels for p2p-peer-address entries.\n"
+           "  Syntax: host:port:label\n"
+           "  The label is any text and will appear in the connections API and Prometheus metrics.  All p2p-peer-label host:port entries must appear as p2p-peer-address entries but p2p-peer-address entries are not required to have labels.\n"
+           "  Examples:\n"
+           "    p2p.eos.io:9876:Primary peer\n"
+           "    p2p.trx.eos.io:9876:trx:transactions_only\n"
+           "    p2p.blk.eos.io:9876:blk:Internal history solution: db_type\n")
          ( "p2p-max-nodes-per-host", bpo::value<int>()->default_value(def_max_nodes_per_host), "Maximum number of client nodes from any single IP address")
          ( "p2p-accept-transactions", bpo::value<bool>()->default_value(true), "Allow transactions received over p2p network to be evaluated and relayed if valid.")
          ( "p2p-auto-bp-peer", bpo::value< vector<string> >()->composing(),
@@ -4198,10 +4210,13 @@ namespace eosio {
          EOS_ASSERT( thread_pool_size > 0, chain::plugin_config_exception,
                      "net-threads ${num} must be greater than 0", ("num", thread_pool_size) );
 
-         std::vector<std::string> peers;
+         std::vector<std::string> peers, labels;
          if( options.count( "p2p-peer-address" )) {
             peers = options.at( "p2p-peer-address" ).as<vector<string>>();
-            connections.add_supplied_peers(peers);
+            if( options.count( "p2p-peer-label")) {
+               labels = options.at( "p2p-peer-label" ).as<vector<string>>();
+            }
+            connections.add_supplied_peers(peers, labels);
          }
          if( options.count( "agent-name" )) {
             user_agent_name = options.at( "agent-name" ).as<string>();
@@ -4409,6 +4424,11 @@ namespace eosio {
    }
 
    /// RPC API
+   string net_plugin::label( const string& host_with_label ) {
+      return my->connections.label( host_with_label );
+   }
+
+   /// RPC API
    string net_plugin::disconnect( const string& host ) {
       return my->connections.disconnect(host);
    }
@@ -4454,9 +4474,25 @@ namespace eosio {
       return connections.size();
    }
 
-   void connections_manager::add_supplied_peers(const vector<string>& peers ) {
+   void connections_manager::add_supplied_peers(const vector<string>& peers,
+                                                const vector<string>& labels) {
       std::lock_guard g(connections_mtx);
       supplied_peers.insert( peers.begin(), peers.end() );
+      for( auto& host_with_label : labels ) {
+         string::size_type colon = host_with_label.find(':');
+         string::size_type second_colon = host_with_label.find(':', colon+1);
+         if (colon == std::string::npos || colon == 0 || second_colon == std::string::npos) {
+            EOS_THROW(plugin_config_exception, "invalid label specifier. must be \"host:port:label\": ${l}", ("l", host_with_label));
+         }
+         string peer = host_with_label.substr(0, second_colon);
+         string label = host_with_label.substr(second_colon+1);
+         const auto& it = supplied_peers.find(peer);
+         if( it != supplied_peers.end() ) {
+            supplied_labels.insert({peer, label});
+         } else {
+            EOS_THROW(plugin_config_exception, "invalid label specifier. must have corresponding p2p-peer-address: ${l}", ("l", label));
+         }
+      }
    }
 
    // not thread safe, only call on startup
@@ -4519,11 +4555,17 @@ namespace eosio {
 
       auto [host, port, type] = split_host_port_type(peer_address);
 
+      auto labelItr = supplied_labels.find(peer_address);
+      string label = labelItr != supplied_labels.end() ? labelItr->second : string();
+
       auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
 
       resolver->async_resolve(host, port, 
-         [resolver, host = host, port = port, peer_address = peer_address, listen_address = listen_address, this]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
+         [resolver, host = host, port = port, peer_address = peer_address, listen_address = listen_address, label = label, this]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
             connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
+            fc::unique_lock g_conn( c->conn_mtx ); // not strictly necessary here but to quell compiler warnings
+            c->label = label;
+            g_conn.unlock();
             c->set_heartbeat_timeout( heartbeat_timeout );
             std::lock_guard g( connections_mtx );
             auto [it, inserted] = connections.emplace( connection_detail{
@@ -4566,6 +4608,35 @@ namespace eosio {
    }
 
    // called by API
+   string connections_manager::label( const string& host_with_label ) {
+      string::size_type colon = host_with_label.find(':');
+      string::size_type second_colon = host_with_label.find(':', colon+1);
+      if (colon == std::string::npos || colon == 0 || second_colon == std::string::npos) {
+         fc_elog( logger, "Invalid label specifier. must be \"host:port:label\": ${p}", ("p", host_with_label) );
+         return "invalid label specifier. must be \"host:port:label\"";
+      }
+      string peer = host_with_label.substr(0, second_colon);
+      string label = host_with_label.substr(second_colon + 1);
+      std::scoped_lock g( connections_mtx );
+      auto& index = connections.get<by_host>();
+      const auto& it = index.find(peer);
+      if( it != index.end() ) {
+         fc::unique_lock g_conn(it->c->conn_mtx);
+         it->c->label = label;
+         g_conn.unlock();
+         if( auto l = supplied_labels.find(peer); l != supplied_labels.end() ) {
+            l->second = label;
+         } else {
+            supplied_labels.insert({peer, label});
+         }
+         return "applied label";
+      }
+      else {
+         return "peer not found";
+      }
+   }
+
+   // called by API
    string connections_manager::disconnect( const string& host ) {
       std::lock_guard g( connections_mtx );
       auto& index = connections.get<by_host>();
@@ -4574,6 +4645,7 @@ namespace eosio {
          i->c->close();
          connections.erase(i);
          supplied_peers.erase(host);
+         supplied_labels.erase(host);
          return "connection removed";
       }
       return "no known connection for host";
@@ -4750,6 +4822,7 @@ namespace eosio {
          boost::asio::ip::address_v6::bytes_type addr = c->remote_endpoint_ip_array;
          std::string p2p_addr = c->p2p_address;
          std::string conn_node_id = c->unique_conn_node_id;
+         std::string label = c->label;
          g_conn.unlock();
          per_connection.peers.emplace_back(
             net_plugin::p2p_per_connection_metrics::connection_metric{
@@ -4772,6 +4845,7 @@ namespace eosio {
             , .connection_start_time = c->connection_start_time
             , .p2p_address = p2p_addr
             , .unique_conn_node_id = conn_node_id
+            , .label = label
          });
       }
       g.unlock();

@@ -9,6 +9,7 @@ namespace eosio {
 
    struct connection_status {
       string            peer;
+      string            label;
       string            remote_ip;
       string            remote_port;
       bool              connecting           = false;
@@ -35,9 +36,10 @@ namespace eosio {
         void plugin_shutdown();
 
         string                            connect( const string& endpoint );
+        string                            label( const string& endpoint );
         string                            disconnect( const string& endpoint );
-        std::optional<connection_status>  status( const string& endpoint )const;
-        vector<connection_status>         connections()const;
+        std::optional<connection_status>  status( const string& endpoint ) const;
+        vector<connection_status>         connections() const;
 
         struct p2p_per_connection_metrics {
             struct connection_metric {
@@ -60,6 +62,7 @@ namespace eosio {
                std::chrono::nanoseconds connection_start_time{0};
                std::string p2p_address;
                std::string unique_conn_node_id;
+               std::string label;
             };
             explicit p2p_per_connection_metrics(size_t count) {
                peers.reserve(count);
@@ -98,4 +101,4 @@ namespace eosio {
 
 }
 
-FC_REFLECT( eosio::connection_status, (peer)(remote_ip)(remote_port)(connecting)(syncing)(is_bp_peer)(is_socket_open)(is_blocks_only)(is_transactions_only)(last_handshake) )
+FC_REFLECT( eosio::connection_status, (peer)(label)(remote_ip)(remote_port)(connecting)(syncing)(is_bp_peer)(is_socket_open)(is_blocks_only)(is_transactions_only)(last_handshake) )

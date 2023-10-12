@@ -208,7 +208,7 @@ struct catalog_type {
          const auto& conn_id = peer.unique_conn_node_id;
 
          const auto addr = boost::asio::ip::make_address_v6(peer.address).to_string();
-         p2p_metrics.addr.Add({{"connid", conn_id},{"ipv6", addr},{"address", peer.p2p_address}});
+         p2p_metrics.addr.Add({{"connid", conn_id},{"ipv6", addr},{"address", peer.p2p_address},{"label", peer.label}});
 
          auto add_and_set_gauge = [&](auto& fam, const auto& value) {
             auto& gauge = fam.Add({{"connid", conn_id}});

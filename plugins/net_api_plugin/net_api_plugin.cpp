@@ -57,6 +57,8 @@ void net_api_plugin::plugin_startup() {
    app().get_plugin<http_plugin>().add_async_api({
        CALL_WITH_400(net, net_rw, net_mgr, connect,
             INVOKE_R_R(net_mgr, connect, std::string), 201),
+       CALL_WITH_400(net, net_rw, net_mgr, label,
+            INVOKE_R_R(net_mgr, label, std::string), 201),
        CALL_WITH_400(net, net_rw, net_mgr, disconnect,
             INVOKE_R_R(net_mgr, disconnect, std::string), 201),
        CALL_WITH_400(net, net_ro, net_mgr, status,

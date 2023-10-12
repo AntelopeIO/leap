@@ -61,9 +61,10 @@ try:
 
         abs_path = os.path.abspath(os.getcwd() + '/unittests/contracts/eosio.token/eosio.token.abi')
         traceNodeosArgs=" --http-max-response-time-ms 990000 --trace-rpc-abi eosio.token=" + abs_path
-        extraNodeosArgs=traceNodeosArgs + " --plugin eosio::prometheus_plugin --database-map-mode mapped_private "
+        extraNodeosArgs=traceNodeosArgs + " --plugin eosio::prometheus_plugin --database-map-mode mapped_private --plugin eosio::net_api_plugin "
         specificNodeosInstances={0: "bin/nodeos"}
-        if cluster.launch(totalNodes=2, prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=extraNodeosArgs, specificNodeosInstances=specificNodeosInstances) is False:
+        specificExtraNodeosArgs={0: " --p2p-peer-label localhost:9776:bios_node "}
+        if cluster.launch(totalNodes=2, prodCount=prodCount, onlyBios=onlyBios, dontBootstrap=dontBootstrap, extraNodeosArgs=extraNodeosArgs, specificNodeosInstances=specificNodeosInstances, specificExtraNodeosArgs=specificExtraNodeosArgs) is False:
             cmdError("launcher")
             errorExit("Failed to stand up eos cluster.")
     else:
@@ -295,6 +296,8 @@ try:
     Print("verify no contract in place")
     Print("Get code hash for account %s" % (currencyAccount.name))
     node=cluster.getNode(0)
+    connections = node.processUrllibRequest('net', 'connections')
+    assert connections['payload'][0]['label'] == 'bios_node', "Failed to find expected peer label"
     codeHash=node.getAccountCodeHash(currencyAccount.name)
     if codeHash is None:
         cmdError("%s get code currency1111" % (ClientName))
