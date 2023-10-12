@@ -430,6 +430,9 @@ namespace eosio {
       bool any_of_supplied_peers(Function&& f) const;
 
       template <typename Function>
+      bool any_of_supplied_labels(Function&& f) const;
+
+      template <typename Function>
       void for_each_connection(Function&& f) const;
 
       template <typename Function>
@@ -824,7 +827,7 @@ namespace eosio {
       /// @brief ctor
       /// @param socket created by boost::asio in fc::listener
       /// @param address identifier of listen socket which accepted this new connection
-      explicit connection( tcp::socket&& socket, const string& listen_address, size_t block_sync_rate_limit );
+      explicit connection( tcp::socket&& socket, const string& listen_address, size_t block_sync_rate_limit, const string& label );
       ~connection() = default;
 
       connection( const connection& ) = delete;
@@ -1204,6 +1207,12 @@ namespace eosio {
    }
 
    template<typename Function>
+   bool connections_manager::any_of_supplied_labels( Function&& f ) const {
+      std::scoped_lock g( connections_mtx );
+      return std::any_of(supplied_labels.begin(), supplied_labels.end(), std::forward<Function>(f));
+   }
+
+   template<typename Function>
    void connections_manager::for_each_connection( Function&& f ) const {
       std::shared_lock g( connections_mtx );
       auto& index = connections.get<by_host>();
@@ -1267,7 +1276,7 @@ namespace eosio {
       fc_ilog( logger, "created connection ${c} to ${n}", ("c", connection_id)("n", endpoint) );
    }
 
-   connection::connection(tcp::socket&& s, const string& listen_address, size_t block_sync_rate_limit)
+   connection::connection(tcp::socket&& s, const string& listen_address, size_t block_sync_rate_limit, const string& label)
       : peer_addr(),
         block_sync_rate_limit(block_sync_rate_limit),
         strand( my_impl->thread_pool.get_executor() ),
@@ -1276,7 +1285,8 @@ namespace eosio {
         connection_id( ++my_impl->current_connection_id ),
         response_expected_timer( my_impl->thread_pool.get_executor() ),
         last_handshake_recv(),
-        last_handshake_sent()
+        last_handshake_sent(),
+        label(label)
    {
       update_endpoints();
       fc_dlog( logger, "new connection object created for peer ${address}:${port} from listener ${addr}", ("address", log_remote_endpoint_ip)("port", log_remote_endpoint_port)("addr", listen_address) );
@@ -2834,7 +2844,18 @@ namespace eosio {
                return false;
             });
 
-            connection_ptr new_connection = std::make_shared<connection>(std::move(socket), listen_address, limit);
+            string label;
+            connections.any_of_supplied_labels([&listen_address, &paddr_str, &label](const pair<string, string>& peer_entry) {
+               auto [host, port, _unused] = split_host_port_type(peer_entry.first);
+               if (host == paddr_str) {
+                  fc_dlog(logger, "Applying configured p2p-peer-label to connection inbound to ${la} from ${a}", ("la", listen_address)("a", paddr_str));
+                  label = peer_entry.second;
+                  return true;
+               }
+               return false;
+            });
+
+            connection_ptr new_connection = std::make_shared<connection>(std::move(socket), listen_address, limit, label);
             new_connection->strand.post([new_connection, this]() {
                if (new_connection->start_session()) {
                   connections.add(new_connection);
@@ -4479,16 +4500,14 @@ namespace eosio {
       std::lock_guard g(connections_mtx);
       supplied_peers.insert( peers.begin(), peers.end() );
       for( auto& host_with_label : labels ) {
-         string::size_type colon = host_with_label.find(':');
-         string::size_type second_colon = host_with_label.find(':', colon+1);
-         if (colon == std::string::npos || colon == 0 || second_colon == std::string::npos) {
-            EOS_THROW(plugin_config_exception, "invalid label specifier. must be \"host:port:label\": ${l}", ("l", host_with_label));
+         auto [host, port, label] = split_host_port_type(host_with_label);
+         string suffix;
+         if( auto trx_pos = label.rfind("trx:", 0); trx_pos == 0 || label.rfind("blk:", 0) == 0 ) {
+            suffix = trx_pos == 0 ? ":trx" : ":blk";
          }
-         string peer = host_with_label.substr(0, second_colon);
-         string label = host_with_label.substr(second_colon+1);
-         const auto& it = supplied_peers.find(peer);
+         const auto& it = supplied_peers.find(string(host + ":" + port + suffix));
          if( it != supplied_peers.end() ) {
-            supplied_labels.insert({peer, label});
+            supplied_labels.insert({string(host + ":" + port), label});
          } else {
             EOS_THROW(plugin_config_exception, "invalid label specifier. must have corresponding p2p-peer-address: ${l}", ("l", label));
          }
@@ -4609,25 +4628,22 @@ namespace eosio {
 
    // called by API
    string connections_manager::label( const string& host_with_label ) {
-      string::size_type colon = host_with_label.find(':');
-      string::size_type second_colon = host_with_label.find(':', colon+1);
-      if (colon == std::string::npos || colon == 0 || second_colon == std::string::npos) {
-         fc_elog( logger, "Invalid label specifier. must be \"host:port:label\": ${p}", ("p", host_with_label) );
-         return "invalid label specifier. must be \"host:port:label\"";
+      auto [host, port, label] = split_host_port_type(host_with_label);
+      string suffix;
+      if( auto trx_pos = label.rfind("trx:", 0); trx_pos == 0 || label.rfind("blk:", 0) == 0 ) {
+         suffix = trx_pos == 0 ? ":trx" : ":blk";
       }
-      string peer = host_with_label.substr(0, second_colon);
-      string label = host_with_label.substr(second_colon + 1);
       std::scoped_lock g( connections_mtx );
       auto& index = connections.get<by_host>();
-      const auto& it = index.find(peer);
+      const auto& it = index.find(string(host + ":" + port + suffix));
       if( it != index.end() ) {
          fc::unique_lock g_conn(it->c->conn_mtx);
          it->c->label = label;
          g_conn.unlock();
-         if( auto l = supplied_labels.find(peer); l != supplied_labels.end() ) {
+         if( auto l = supplied_labels.find(string(host + ":" + port)); l != supplied_labels.end() ) {
             l->second = label;
          } else {
-            supplied_labels.insert({peer, label});
+            supplied_labels.insert({string(host + ":" + port), label});
          }
          return "applied label";
       }
