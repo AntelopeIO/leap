@@ -132,7 +132,7 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
                chain_plug->get_read_only_api(fc::seconds(90)).get_account(chain_apis::read_only::get_account_params{.account_name=config::system_account_name}, fc::time_point::now()+fc::seconds(90));
                ++num_get_account_calls;
             });
-            app->executor().post( priority::low, exec_queue::read_only, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
+            app->executor().post( priority::low, exec_queue::read_exclusive, [ptrx, &next_calls, &num_posts, &trace_with_except, &trx_match, &app]() {
                ++num_posts;
                bool return_failure_traces = true;
                app->get_method<plugin_interface::incoming::methods::transaction_async>()(ptrx,
