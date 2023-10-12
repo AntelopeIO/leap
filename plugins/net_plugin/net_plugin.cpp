@@ -951,7 +951,9 @@ namespace eosio {
       block_id_type                    fork_head           GUARDED_BY(conn_mtx);
       uint32_t                         fork_head_num       GUARDED_BY(conn_mtx) {0};
       fc::time_point                   last_close          GUARDED_BY(conn_mtx);
-      string                           remote_endpoint_ip  GUARDED_BY(conn_mtx);
+      std::string                      p2p_address         GUARDED_BY(conn_mtx);
+      std::string                      unique_conn_node_id GUARDED_BY(conn_mtx);
+      std::string                      remote_endpoint_ip  GUARDED_BY(conn_mtx);
       boost::asio::ip::address_v6::bytes_type remote_endpoint_ip_array GUARDED_BY(conn_mtx);
 
       std::chrono::nanoseconds         connection_start_time{0};
@@ -1254,7 +1256,8 @@ namespace eosio {
         connection_id( ++my_impl->current_connection_id ),
         response_expected_timer( my_impl->thread_pool.get_executor() ),
         last_handshake_recv(),
-        last_handshake_sent()
+        last_handshake_sent(),
+        p2p_address( endpoint )
    {
       my_impl->mark_bp_connection(this);
       update_endpoints();
@@ -3256,6 +3259,10 @@ namespace eosio {
          }
 
          log_p2p_address = msg.p2p_address;
+         fc::unique_lock g_conn( conn_mtx );
+         p2p_address = msg.p2p_address;
+         unique_conn_node_id = msg.node_id.str().substr( 0, 7 );
+         g_conn.unlock();
 
          my_impl->mark_bp_connection(this);
          if (my_impl->exceeding_connection_limit(shared_from_this())) {
@@ -4741,6 +4748,8 @@ namespace eosio {
          }
          fc::unique_lock g_conn(c->conn_mtx);
          boost::asio::ip::address_v6::bytes_type addr = c->remote_endpoint_ip_array;
+         std::string p2p_addr = c->p2p_address;
+         std::string conn_node_id = c->unique_conn_node_id;
          g_conn.unlock();
          per_connection.peers.emplace_back(
             net_plugin::p2p_per_connection_metrics::connection_metric{
@@ -4761,7 +4770,8 @@ namespace eosio {
             , .block_sync_bytes_sent = c->get_block_sync_bytes_sent()
             , .block_sync_throttling = c->get_block_sync_throttling()
             , .connection_start_time = c->connection_start_time
-            , .log_p2p_address = c->log_p2p_address
+            , .p2p_address = p2p_addr
+            , .unique_conn_node_id = conn_node_id
          });
       }
       g.unlock();
