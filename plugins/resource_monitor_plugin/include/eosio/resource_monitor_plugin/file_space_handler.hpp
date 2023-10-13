@@ -6,6 +6,8 @@
 #include <eosio/chain/application.hpp>
 #include <eosio/chain/exceptions.hpp>
 
+#include <thread>
+
 namespace bfs = boost::filesystem;
 
 namespace eosio::resource_monitor {
@@ -131,26 +133,60 @@ namespace eosio::resource_monitor {
       }
 
    void space_monitor_loop() {
+      space_monitor_task_running = true;
+
+      if (stopping) {
+         space_monitor_task_running = false;
+         return;
+      }
       if ( is_threshold_exceeded() && shutdown_on_exceeded ) {
          elog("Gracefully shutting down, exceeded file system configured threshold.");
          appbase::app().quit(); // This will gracefully stop Nodeos
+         space_monitor_task_running = false;
          return;
       }
       update_warning_interval_counter();
 
       timer.expires_from_now( boost::posix_time::seconds( sleep_time_in_secs ));
-
+      if (stopping) {
+         space_monitor_task_running = false;
+         return;
+      }
       timer.async_wait([this](auto& ec) {
          if ( ec ) {
             wlog("Exit due to error: ${ec}, message: ${message}",
                  ("ec", ec.value())
                  ("message", ec.message()));
+            space_monitor_task_running = false;
             return;
          } else {
             // Loop over
             space_monitor_loop();
          }
       });
+      space_monitor_task_running = false;
+   }
+
+   // called on main thread from plugin shutdown()
+   void stop() {
+      // signalling space_monitor_loop that plugin is being stopped
+      stopping = true;
+
+      // cancel outstanding scheduled space_monitor_loop task
+      timer.cancel();
+
+      // make sure space_monitor_loop has exited.
+      // in vast majority time, it is not running; just waiting to be executed
+      using namespace std::chrono_literals; // for ms
+      auto num_sleeps = 0u;
+      constexpr auto max_num_sleeps = 10u;
+      while (space_monitor_task_running && num_sleeps < max_num_sleeps) {
+         std::this_thread::sleep_for( 1ms );
+         ++num_sleeps;
+      }
+      if (space_monitor_task_running) {
+         wlog("space_monitor_loop not stopped after ${n} ms", ("n", num_sleeps));
+      }
    }
 
    private:
@@ -164,6 +200,8 @@ namespace eosio::resource_monitor {
       uint64_t shutdown_absolute {0};
       uint64_t warning_absolute {0};
       bool     shutdown_on_exceeded {true};
+      std::atomic<bool> stopping {false}; // set on main thread, checked on resmon thread
+      std::atomic<bool> space_monitor_task_running {false}; // set on resmon thread, checked on main thread. after space_monitor_loop is not running, it is safe to stop
 
       struct   filesystem_info {
          dev_t      st_dev; // device id of file system containing "file_path"

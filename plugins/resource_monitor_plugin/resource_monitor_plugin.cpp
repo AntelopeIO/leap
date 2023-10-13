@@ -142,6 +142,7 @@ public:
    void plugin_shutdown() {
       ilog("shutdown...");
    
+      space_handler.stop();
       ctx.stop();
    
       // Wait for the thread to end
