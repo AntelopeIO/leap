@@ -74,9 +74,10 @@ struct state_history_log_header {
    chain::block_id_type block_id     = {};
    uint64_t             payload_size = 0;
 };
-static const int state_history_log_header_serial_size = sizeof(state_history_log_header::magic) +
-                                                        sizeof(state_history_log_header::block_id) +
-                                                        sizeof(state_history_log_header::payload_size);
+static constexpr int state_history_log_header_serial_size = sizeof(state_history_log_header::magic) +
+                                                            sizeof(state_history_log_header::block_id) +
+                                                            sizeof(state_history_log_header::payload_size);
+static_assert(sizeof(state_history_log_header) == state_history_log_header_serial_size);
 
 namespace state_history {
    struct prune_config {
@@ -324,7 +325,7 @@ class state_history_log {
             catalog.open(log_dir, conf.retained_dir, conf.archive_dir, name);
             catalog.max_retained_files = conf.max_retained_files;
             if (_end_block == 0) {
-               _begin_block = _end_block = catalog.last_block_num() +1;
+               _index_begin_block = _begin_block = _end_block = catalog.last_block_num() +1;
             }
          }
       }, _config);
@@ -925,7 +926,7 @@ class state_history_log {
 
       catalog.add(_begin_block, _end_block - 1, log.get_file_path().parent_path(), name);
 
-      _begin_block = _end_block;
+      _index_begin_block = _begin_block = _end_block;
 
       using std::swap;
       swap(new_log_file, log);
