@@ -100,7 +100,7 @@ struct mock_state_history_plugin {
    fc::temp_directory                      log_dir;
    std::optional<eosio::state_history_log> log;
    std::atomic<bool>                       stopping = false;
-   eosio::session_manager                  session_mgr;
+   eosio::session_manager                  session_mgr{ship_ioc};
 
    constexpr static uint32_t default_frame_size = 1024;
 
