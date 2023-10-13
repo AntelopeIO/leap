@@ -158,17 +158,17 @@ BOOST_FIXTURE_TEST_CASE( get_consensus_parameters, TESTER ) try {
    BOOST_TEST(parms.chain_config.max_action_return_value_size == control->get_global_properties().configuration.max_action_return_value_size);
 
    // verifying wasm_config
-   BOOST_TEST(parms.wasm_config.max_mutable_global_bytes == control->get_global_properties().wasm_configuration.max_mutable_global_bytes);
-   BOOST_TEST(parms.wasm_config.max_table_elements == control->get_global_properties().wasm_configuration.max_table_elements);
-   BOOST_TEST(parms.wasm_config.max_section_elements == control->get_global_properties().wasm_configuration.max_section_elements);
-   BOOST_TEST(parms.wasm_config.max_linear_memory_init == control->get_global_properties().wasm_configuration.max_linear_memory_init);
-   BOOST_TEST(parms.wasm_config.max_func_local_bytes == control->get_global_properties().wasm_configuration.max_func_local_bytes);
-   BOOST_TEST(parms.wasm_config.max_nested_structures == control->get_global_properties().wasm_configuration.max_nested_structures);
-   BOOST_TEST(parms.wasm_config.max_symbol_bytes == control->get_global_properties().wasm_configuration.max_symbol_bytes);
-   BOOST_TEST(parms.wasm_config.max_module_bytes == control->get_global_properties().wasm_configuration.max_module_bytes);
-   BOOST_TEST(parms.wasm_config.max_code_bytes == control->get_global_properties().wasm_configuration.max_code_bytes);
-   BOOST_TEST(parms.wasm_config.max_pages == control->get_global_properties().wasm_configuration.max_pages);
-   BOOST_TEST(parms.wasm_config.max_call_depth == control->get_global_properties().wasm_configuration.max_call_depth);
+   BOOST_TEST(parms.wasm_config->max_mutable_global_bytes == control->get_global_properties().wasm_configuration.max_mutable_global_bytes);
+   BOOST_TEST(parms.wasm_config->max_table_elements == control->get_global_properties().wasm_configuration.max_table_elements);
+   BOOST_TEST(parms.wasm_config->max_section_elements == control->get_global_properties().wasm_configuration.max_section_elements);
+   BOOST_TEST(parms.wasm_config->max_linear_memory_init == control->get_global_properties().wasm_configuration.max_linear_memory_init);
+   BOOST_TEST(parms.wasm_config->max_func_local_bytes == control->get_global_properties().wasm_configuration.max_func_local_bytes);
+   BOOST_TEST(parms.wasm_config->max_nested_structures == control->get_global_properties().wasm_configuration.max_nested_structures);
+   BOOST_TEST(parms.wasm_config->max_symbol_bytes == control->get_global_properties().wasm_configuration.max_symbol_bytes);
+   BOOST_TEST(parms.wasm_config->max_module_bytes == control->get_global_properties().wasm_configuration.max_module_bytes);
+   BOOST_TEST(parms.wasm_config->max_code_bytes == control->get_global_properties().wasm_configuration.max_code_bytes);
+   BOOST_TEST(parms.wasm_config->max_pages == control->get_global_properties().wasm_configuration.max_pages);
+   BOOST_TEST(parms.wasm_config->max_call_depth == control->get_global_properties().wasm_configuration.max_call_depth);
 
 } FC_LOG_AND_RETHROW() //get_consensus_parameters
 
