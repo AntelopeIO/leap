@@ -2647,7 +2647,9 @@ read_only::get_consensus_parameters(const get_consensus_parameters_params&, cons
    get_consensus_parameters_results results;
 
    results.chain_config = db.get_global_properties().configuration;
-   results.wasm_config = db.get_global_properties().wasm_configuration;
+   if (db.is_builtin_activated(builtin_protocol_feature_t::configurable_wasm_limits)) {
+      results.wasm_config = db.get_global_properties().wasm_configuration;
+   }
 
    return results;
 }
