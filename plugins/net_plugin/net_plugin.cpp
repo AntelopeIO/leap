@@ -24,11 +24,13 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/ip/host_name.hpp>
 #include <boost/asio/steady_timer.hpp>
+#include <boost/multi_index/key.hpp>
 
 #include <atomic>
 #include <cmath>
 #include <memory>
 #include <new>
+#include <regex>
 
 // should be defined for c++17, but clang++16 still has not implemented it
 #ifdef __cpp_lib_hardware_interference_size
@@ -68,6 +70,7 @@ namespace eosio {
    using boost::asio::ip::address_v4;
    using boost::asio::ip::host_name;
    using boost::multi_index_container;
+   using namespace boost::multi_index;
 
    using fc::time_point;
    using fc::time_point_sec;
@@ -339,14 +342,39 @@ namespace eosio {
    constexpr uint32_t packed_transaction_which = fc::get_index<net_message, packed_transaction>(); // see protocol net_message
 
    class connections_manager {
+   public:
+      struct connection_detail {
+         std::string host;
+         connection_ptr c;
+         tcp::endpoint active_ip;
+         tcp::resolver::results_type ips;
+      };
+
+      using connection_details_index = multi_index_container<
+         connection_detail,
+         indexed_by<
+            ordered_non_unique<
+               tag<struct by_host>,
+               key<&connection_detail::host>
+            >,
+            ordered_unique<
+               tag<struct by_connection>,
+               key<&connection_detail::c>
+            >
+         >
+      >;
+      enum class timer_type { check, stats };
+   private:
       alignas(hardware_destructive_interference_size)
       mutable std::shared_mutex        connections_mtx;
-      chain::flat_set<connection_ptr>  connections;
+      connection_details_index         connections;
       chain::flat_set<string>          supplied_peers;
 
       alignas(hardware_destructive_interference_size)
       fc::mutex                             connector_check_timer_mtx;
       unique_ptr<boost::asio::steady_timer> connector_check_timer GUARDED_BY(connector_check_timer_mtx);
+      fc::mutex                             connection_stats_timer_mtx;
+      unique_ptr<boost::asio::steady_timer> connection_stats_timer GUARDED_BY(connection_stats_timer_mtx);
 
       /// thread safe, only modified on startup
       std::chrono::milliseconds                                heartbeat_timeout{def_keepalive_interval*2};
@@ -357,10 +385,9 @@ namespace eosio {
 
    private: // must call with held mutex
       connection_ptr find_connection_i(const string& host) const;
-      void add_i(connection_ptr&& c);
-      void connect_i(const string& peer, const string& p2p_address);
 
       void connection_monitor(const std::weak_ptr<connection>& from_connection);
+      void connection_statistics_monitor(const std::weak_ptr<connection>& from_connection);
 
    public:
       size_t number_connections() const;
@@ -380,17 +407,25 @@ namespace eosio {
 
       void connect_supplied_peers(const string& p2p_address);
 
-      void start_conn_timer();
-      void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
-      void stop_conn_timer();
+      void start_conn_timers();
+      void start_conn_timer(boost::asio::steady_timer::duration du,
+                            std::weak_ptr<connection> from_connection,
+                            timer_type which);
+      void stop_conn_timers();
 
       void add(connection_ptr c);
       string connect(const string& host, const string& p2p_address);
+      string resolve_and_connect(const string& host, const string& p2p_address);
+      void update_connection_endpoint(connection_ptr c, const tcp::endpoint& endpoint);
+      void connect(const connection_ptr& c);
       string disconnect(const string& host);
       void close_all();
 
       std::optional<connection_status> status(const string& host) const;
       vector<connection_status> connection_statuses() const;
+
+      template <typename Function>
+      bool any_of_supplied_peers(Function&& f) const;
 
       template <typename Function>
       void for_each_connection(Function&& f) const;
@@ -403,7 +438,7 @@ namespace eosio {
 
       template <typename UnaryPredicate>
       bool any_of_block_connections(UnaryPredicate&& p) const;
-   };
+   }; // connections_manager
 
    class net_plugin_impl : public std::enable_shared_from_this<net_plugin_impl>,
                            public auto_bp_peering::bp_connection_manager<net_plugin_impl, connection> {
@@ -420,6 +455,7 @@ namespace eosio {
        */
       vector<string>                        p2p_addresses;
       vector<string>                        p2p_server_addresses;
+      const string&                         get_first_p2p_address() const;
 
       vector<chain::public_key_type>        allowed_peers; ///< peer keys allowed to connect
       std::map<chain::public_key_type,
@@ -481,6 +517,10 @@ namespace eosio {
       std::function<void()> increment_dropped_trxs;
       
    private:
+      inline static const std::map<std::string, size_t> prefix_multipliers{
+         {"",1},{"K",pow(10,3)},{"M",pow(10,6)},{"G",pow(10, 9)},{"T",pow(10, 12)},
+                {"Ki",pow(2,10)},{"Mi",pow(2,20)},{"Gi",pow(2,30)},{"Ti",pow(2,40)}
+      };
       alignas(hardware_destructive_interference_size)
       mutable fc::mutex             chain_info_mtx; // protects chain_info_t
       chain_info_t                  chain_info GUARDED_BY(chain_info_mtx);
@@ -535,14 +575,18 @@ namespace eosio {
 
       constexpr static uint16_t to_protocol_version(uint16_t v);
 
+      std::tuple<std::string, size_t> parse_listen_address(const std::string& peer) const;
+      size_t parse_connection_rate_limit(const string& limit_str) const;
       void plugin_initialize(const variables_map& options);
       void plugin_startup();
       void plugin_shutdown();
       bool in_sync() const;
       fc::logger& get_logger() { return logger; }
 
-      void create_session(tcp::socket&& socket, const string listen_address);
-   };
+      void create_session(tcp::socket&& socket, const string listen_address, size_t limit);
+
+      std::string empty{};
+   }; //net_plugin_impl
 
    // peer_[x]log must be called from thread in connection strand
 #define peer_dlog( PEER, FORMAT, ... ) \
@@ -767,7 +811,8 @@ namespace eosio {
       /// assignment not allowed
       block_status_monitor& operator=( const block_status_monitor& ) = delete;
       block_status_monitor& operator=( block_status_monitor&& ) = delete;
-   };
+   }; // block_status_monitor
+
 
    class connection : public std::enable_shared_from_this<connection> {
    public:
@@ -777,7 +822,7 @@ namespace eosio {
       /// @brief ctor
       /// @param socket created by boost::asio in fc::listener
       /// @param address identifier of listen socket which accepted this new connection
-      explicit connection( tcp::socket&& socket, const string& listen_address );
+      explicit connection( tcp::socket&& socket, const string& listen_address, size_t block_sync_rate_limit );
       ~connection() = default;
 
       connection( const connection& ) = delete;
@@ -806,6 +851,9 @@ namespace eosio {
       std::chrono::nanoseconds get_last_bytes_received() const { return last_bytes_received.load(); }
       size_t get_bytes_sent() const { return bytes_sent.load(); }
       std::chrono::nanoseconds get_last_bytes_sent() const { return last_bytes_sent.load(); }
+      size_t get_block_sync_bytes_received() const { return block_sync_bytes_received.load(); }
+      size_t get_block_sync_bytes_sent() const { return block_sync_bytes_sent.load(); }
+      bool get_block_sync_throttling() const { return block_sync_throttling.load(); }
       boost::asio::ip::port_type get_remote_endpoint_port() const { return remote_endpoint_port.load(); }
       void set_heartbeat_timeout(std::chrono::milliseconds msec) {
          hb_timeout = msec;
@@ -825,13 +873,14 @@ namespace eosio {
 
       std::atomic<connection_state> conn_state{connection_state::connecting};
 
-      string                  listen_address; // address sent to peer in handshake
       const string            peer_addr;
       enum connection_types : char {
          both,
          transactions_only,
          blocks_only
       };
+
+      size_t                          block_sync_rate_limit{0};  // bytes/second, default unlimited
 
       std::atomic<connection_types>   connection_type{both};
       std::atomic<uint32_t>           peer_start_block_num{0};
@@ -841,6 +890,9 @@ namespace eosio {
       std::atomic<size_t>             bytes_received{0};
       std::atomic<std::chrono::nanoseconds>   last_bytes_received{0ns};
       std::atomic<size_t>             bytes_sent{0};
+      std::atomic<size_t>             block_sync_bytes_received{0};
+      std::atomic<size_t>             block_sync_bytes_sent{0};
+      std::atomic<bool>               block_sync_throttling{false};
       std::atomic<std::chrono::nanoseconds>   last_bytes_sent{0ns};
       std::atomic<boost::asio::ip::port_type> remote_endpoint_port{0};
 
@@ -855,6 +907,7 @@ namespace eosio {
 
       fc::sha256              conn_node_id;
       string                  short_conn_node_id;
+      string                  listen_address; // address sent to peer in handshake
       string                  log_p2p_address;
       string                  log_remote_endpoint_ip;
       string                  log_remote_endpoint_port;
@@ -898,7 +951,9 @@ namespace eosio {
       block_id_type                    fork_head           GUARDED_BY(conn_mtx);
       uint32_t                         fork_head_num       GUARDED_BY(conn_mtx) {0};
       fc::time_point                   last_close          GUARDED_BY(conn_mtx);
-      string                           remote_endpoint_ip  GUARDED_BY(conn_mtx);
+      std::string                      p2p_address         GUARDED_BY(conn_mtx);
+      std::string                      unique_conn_node_id GUARDED_BY(conn_mtx);
+      std::string                      remote_endpoint_ip  GUARDED_BY(conn_mtx);
       boost::asio::ip::address_v6::bytes_type remote_endpoint_ip_array GUARDED_BY(conn_mtx);
 
       std::chrono::nanoseconds         connection_start_time{0};
@@ -933,13 +988,13 @@ namespace eosio {
 
       bool process_next_block_message(uint32_t message_length);
       bool process_next_trx_message(uint32_t message_length);
-      void update_endpoints();
+      void update_endpoints(const tcp::endpoint& endpoint = tcp::endpoint());
    public:
 
       bool populate_handshake( handshake_message& hello ) const;
 
-      bool resolve_and_connect();
-      void connect( const std::shared_ptr<tcp::resolver>& resolver, const tcp::resolver::results_type& endpoints );
+      bool reconnect();
+      void connect( const tcp::resolver::results_type& endpoints );
       void start_read_message();
 
       /** \brief Process the next message from the pending message buffer
@@ -968,10 +1023,11 @@ namespace eosio {
       void send_time(const time_message& msg);
       /** \brief Read system time and convert to a 64 bit integer.
        *
-       * There are five calls to this routine in the program.  One
+       * There are six calls to this routine in the program.  One
        * when a packet arrives from the network, one when a packet
-       * is placed on the send queue, one during start session, and
-       * one each when data is counted as received or sent.
+       * is placed on the send queue, one during start session, one
+       * when a sync block is queued and one each when data is
+       * counted as received or sent.
        * Calls the kernel time of day routine and converts to 
        * a (at least) 64 bit integer.
        */
@@ -986,7 +1042,7 @@ namespace eosio {
       void stop_send();
 
       void enqueue( const net_message &msg );
-      void enqueue_block( const signed_block_ptr& sb, bool to_sync_queue = false);
+      size_t enqueue_block( const signed_block_ptr& sb, bool to_sync_queue = false);
       void enqueue_buffer( const std::shared_ptr<std::vector<char>>& send_buffer,
                            go_away_reason close_after_send,
                            bool to_sync_queue = false);
@@ -1139,17 +1195,27 @@ namespace eosio {
 
 
    template<typename Function>
+   bool connections_manager::any_of_supplied_peers( Function&& f ) const {
+      std::shared_lock g( connections_mtx );
+      return std::any_of(supplied_peers.begin(), supplied_peers.end(), std::forward<Function>(f));
+   }
+
+   template<typename Function>
    void connections_manager::for_each_connection( Function&& f ) const {
       std::shared_lock g( connections_mtx );
-      std::for_each(connections.begin(), connections.end(), std::forward<Function>(f));
+      auto& index = connections.get<by_host>();
+      for( const connection_detail& cd : index ) {
+         f(cd.c);
+      }
    }
 
    template<typename Function>
    void connections_manager::for_each_block_connection( Function&& f ) const {
       std::shared_lock g( connections_mtx );
-      for( auto& c : connections ) {
-         if (c->is_blocks_connection()) {
-            f(c);
+      auto& index = connections.get<by_host>();
+      for( const connection_detail& cd : index ) {
+         if (cd.c->is_blocks_connection()) {
+            f(cd.c);
          }
       }
    }
@@ -1157,15 +1223,21 @@ namespace eosio {
    template <typename UnaryPredicate>
    bool connections_manager::any_of_connections(UnaryPredicate&& p) const {
       std::shared_lock g(connections_mtx);
-      return std::any_of(connections.cbegin(), connections.cend(), std::forward<UnaryPredicate>(p));
+      auto& index = connections.get<by_host>();
+      for( const connection_detail& cd : index ) {
+         if (p(cd.c))
+            return true;
+      }
+      return false;
    }
 
    template <typename UnaryPredicate>
    bool connections_manager::any_of_block_connections(UnaryPredicate&& p) const {
       std::shared_lock g( connections_mtx );
-      for( auto& c : connections ) {
-         if( c->is_blocks_connection() ) {
-            if (p(c))
+      auto& index = connections.get<by_host>();
+      for( const connection_detail& cd : index ) {
+         if( cd.c->is_blocks_connection() ) {
+            if (p(cd.c))
               return true;
          }
       }
@@ -1176,26 +1248,28 @@ namespace eosio {
    //---------------------------------------------------------------------------
 
    connection::connection( const string& endpoint, const string& listen_address )
-      : listen_address( listen_address ),
-        peer_addr( endpoint ),
+      : peer_addr( endpoint ),
         strand( my_impl->thread_pool.get_executor() ),
         socket( new tcp::socket( my_impl->thread_pool.get_executor() ) ),
+        listen_address( listen_address ),
         log_p2p_address( endpoint ),
         connection_id( ++my_impl->current_connection_id ),
         response_expected_timer( my_impl->thread_pool.get_executor() ),
         last_handshake_recv(),
-        last_handshake_sent()
+        last_handshake_sent(),
+        p2p_address( endpoint )
    {
       my_impl->mark_bp_connection(this);
       update_endpoints();
       fc_ilog( logger, "created connection ${c} to ${n}", ("c", connection_id)("n", endpoint) );
    }
 
-   connection::connection(tcp::socket&& s, const string& listen_address)
-      : listen_address( listen_address ),
-        peer_addr(),
+   connection::connection(tcp::socket&& s, const string& listen_address, size_t block_sync_rate_limit)
+      : peer_addr(),
+        block_sync_rate_limit(block_sync_rate_limit),
         strand( my_impl->thread_pool.get_executor() ),
         socket( new tcp::socket( std::move(s) ) ),
+        listen_address( listen_address ),
         connection_id( ++my_impl->current_connection_id ),
         response_expected_timer( my_impl->thread_pool.get_executor() ),
         last_handshake_recv(),
@@ -1205,11 +1279,10 @@ namespace eosio {
       fc_dlog( logger, "new connection object created for peer ${address}:${port} from listener ${addr}", ("address", log_remote_endpoint_ip)("port", log_remote_endpoint_port)("addr", listen_address) );
    }
 
-   // called from connection strand
-   void connection::update_endpoints() {
+   void connection::update_endpoints(const tcp::endpoint& endpoint) {
       boost::system::error_code ec;
       boost::system::error_code ec2;
-      auto rep = socket->remote_endpoint(ec);
+      auto rep = endpoint == tcp::endpoint() ? socket->remote_endpoint(ec) : endpoint;
       auto lep = socket->local_endpoint(ec2);
       remote_endpoint_port = ec ? 0 : rep.port();
       log_remote_endpoint_ip = ec ? unknown : rep.address().to_string();
@@ -1296,7 +1369,7 @@ namespace eosio {
       boost::system::error_code ec;
       socket->set_option( nodelay, ec );
       if( ec ) {
-         peer_elog( this, "connection failed (set_option): ${e1}", ( "e1", ec.message() ) );
+         peer_wlog( this, "connection failed (set_option): ${e1}", ( "e1", ec.message() ) );
          close();
          return false;
       } else {
@@ -1389,7 +1462,9 @@ namespace eosio {
       set_state(connection_state::closed);
 
       if( reconnect && !shutdown ) {
-         my_impl->connections.start_conn_timer( std::chrono::milliseconds( 100 ), connection_wptr() );
+         my_impl->connections.start_conn_timer( std::chrono::milliseconds( 100 ),
+                                                connection_wptr(),
+                                                connections_manager::timer_type::check );
       }
    }
 
@@ -1472,6 +1547,7 @@ namespace eosio {
             peer_ilog( this, "fetch block by id returned null, id ${id}", ("id", blkid) );
          }
       } catch( const assert_exception& ex ) {
+         // possible corrupted block log
          peer_elog( this, "caught assert on fetch_block_by_id, ${ex}, id ${id}", ("ex", ex.to_string())("id", blkid) );
       } catch( ... ) {
          peer_elog( this, "caught other exception fetching block id ${id}", ("id", blkid) );
@@ -1599,7 +1675,7 @@ namespace eosio {
 
                if( ec ) {
                   if( ec.value() != boost::asio::error::eof ) {
-                     peer_elog( c, "Error sending to peer: ${i}", ( "i", ec.message() ) );
+                     peer_wlog( c, "Error sending to peer: ${i}", ( "i", ec.message() ) );
                   } else {
                      peer_wlog( c, "connection closure detected on write" );
                   }
@@ -1655,7 +1731,7 @@ namespace eosio {
       } else {
          peer_dlog( this, "enqueue sync block ${num}", ("num", peer_requested->last + 1) );
       }
-      uint32_t num = ++peer_requested->last;
+      uint32_t num = peer_requested->last + 1;
       if(num == peer_requested->end_block) {
          peer_requested.reset();
          peer_dlog( this, "completing enqueue_sync_block ${num}", ("num", num) );
@@ -1667,14 +1743,25 @@ namespace eosio {
          sb = cc.fetch_block_by_number( num ); // thread-safe
       } FC_LOG_AND_DROP();
       if( sb ) {
-         enqueue_block( sb, true );
+         // Skip transmitting block this loop if threshold exceeded
+         if( block_sync_rate_limit > 0 && peer_syncing_from_us ) {
+            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(get_time() - connection_start_time);
+            auto current_rate = double(block_sync_bytes_sent) / elapsed.count();
+            if( current_rate >= block_sync_rate_limit ) {
+               block_sync_throttling = true;
+               peer_dlog( this, "throttling block sync to peer ${host}:${port}", ("host", log_remote_endpoint_ip)("port", log_remote_endpoint_port));
+               return false;
+            }
+         }
+         block_sync_throttling = false;
+         block_sync_bytes_sent += enqueue_block( sb, true );
+         ++peer_requested->last;
       } else {
          peer_ilog( this, "enqueue sync, unable to fetch block ${num}, sending benign_other go away", ("num", num) );
          peer_requested.reset(); // unable to provide requested blocks
          no_retry = benign_other;
          enqueue( go_away_message( benign_other ) );
       }
-
       return true;
    }
 
@@ -1787,7 +1874,7 @@ namespace eosio {
    }
 
    // called from connection strand
-   void connection::enqueue_block( const signed_block_ptr& b, bool to_sync_queue) {
+   size_t connection::enqueue_block( const signed_block_ptr& b, bool to_sync_queue) {
       peer_dlog( this, "enqueue block ${num}", ("num", b->block_num()) );
       verify_strand_in_this_thread( strand, __func__, __LINE__ );
 
@@ -1795,6 +1882,7 @@ namespace eosio {
       auto sb = buff_factory.get_send_buffer( b );
       latest_blk_time = std::chrono::system_clock::now();
       enqueue_buffer( sb, no_reason, to_sync_queue);
+      return sb->size();
    }
 
    // called from connection strand
@@ -2042,7 +2130,7 @@ namespace eosio {
 
       // verify there is an available source
       if( !new_sync_source ) {
-         fc_elog( logger, "Unable to continue syncing at this time");
+         fc_wlog( logger, "Unable to continue syncing at this time");
          sync_source.reset();
          sync_known_lib_num = chain_info.lib_num;
          sync_last_requested_num = 0;
@@ -2075,7 +2163,7 @@ namespace eosio {
 
    // static, thread safe
    void sync_manager::send_handshakes() {
-      my_impl->connections.for_each_connection( []( auto& ci ) {
+      my_impl->connections.for_each_connection( []( const connection_ptr& ci ) {
          if( ci->current() ) {
             ci->send_handshake();
          }
@@ -2289,7 +2377,7 @@ namespace eosio {
                   "sync_recv_notice only called on catch_up" );
       if (msg.known_blocks.mode == catch_up) {
          if (msg.known_blocks.ids.empty()) {
-            peer_elog( c, "got a catch up with ids size = 0" );
+            peer_wlog( c, "got a catch up with ids size = 0" );
          } else {
             const block_id_type& id = msg.known_blocks.ids.back();
             peer_ilog( c, "notice_message, pending ${p}, blk_num ${n}, id ${id}...",
@@ -2551,7 +2639,7 @@ namespace eosio {
    void dispatch_manager::bcast_transaction(const packed_transaction_ptr& trx) {
       trx_buffer_factory buff_factory;
       const fc::time_point_sec now{fc::time_point::now()};
-      my_impl->connections.for_each_connection( [this, &trx, &now, &buff_factory]( auto& cp ) {
+      my_impl->connections.for_each_connection( [this, &trx, &now, &buff_factory]( const connection_ptr& cp ) {
          if( !cp->is_transactions_connection() || !cp->current() ) {
             return;
          }
@@ -2577,7 +2665,7 @@ namespace eosio {
    void dispatch_manager::recv_notice(const connection_ptr& c, const notice_message& msg, bool generated) {
       if (msg.known_trx.mode == normal) {
       } else if (msg.known_trx.mode != none) {
-         peer_elog( c, "passed a notice_message with something other than a normal on none known_trx" );
+         peer_wlog( c, "passed a notice_message with something other than a normal on none known_trx" );
          return;
       }
       if (msg.known_blocks.mode == normal) {
@@ -2588,7 +2676,7 @@ namespace eosio {
             }
          }
       } else if (msg.known_blocks.mode != none) {
-         peer_elog( c, "passed a notice_message with something other than a normal on none known_blocks" );
+         peer_wlog( c, "passed a notice_message with something other than a normal on none known_blocks" );
          return;
       }
    }
@@ -2649,8 +2737,7 @@ namespace eosio {
 
    //------------------------------------------------------------------------
 
-   // called from any thread
-   bool connection::resolve_and_connect() {
+   bool connection::reconnect() {
       switch ( no_retry ) {
          case no_reason:
          case wrong_version:
@@ -2661,15 +2748,6 @@ namespace eosio {
             fc_dlog( logger, "Skipping connect due to go_away reason ${r}",("r", reason_str( no_retry )));
             return false;
       }
-
-      string::size_type colon = peer_address().find(':');
-      if (colon == std::string::npos || colon == 0) {
-         fc_elog( logger, "Invalid peer address. must be \"host:port[:<blk>|<trx>]\": ${p}", ("p", peer_address()) );
-         return false;
-      }
-
-      connection_ptr c = shared_from_this();
-
       if( consecutive_immediate_connection_close > def_max_consecutive_immediate_connection_close || no_retry == benign_other ) {
          fc::microseconds connector_period = my_impl->connections.get_connector_period();
          fc::lock_guard g( conn_mtx );
@@ -2677,46 +2755,30 @@ namespace eosio {
             return true; // true so doesn't remove from valid connections
          }
       }
-
+      connection_ptr c = shared_from_this();
       strand.post([c]() {
-         auto [host, port, type] = split_host_port_type(c->peer_address());
-         c->set_connection_type( c->peer_address() );
-
-         auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
-         connection_wptr weak_conn = c;
-         resolver->async_resolve(host, port, boost::asio::bind_executor( c->strand,
-            [resolver, weak_conn, host = host, port = port]( const boost::system::error_code& err, const tcp::resolver::results_type& endpoints ) {
-               auto c = weak_conn.lock();
-               if( !c ) return;
-               if( !err ) {
-                  c->connect( resolver, endpoints );
-               } else {
-                  fc_elog( logger, "Unable to resolve ${host}:${port} ${error}",
-                           ("host", host)("port", port)( "error", err.message() ) );
-                  c->set_state(connection_state::closed);
-                  ++c->consecutive_immediate_connection_close;
-               }
-         } ) );
-      } );
+         my_impl->connections.connect(c);
+      });
       return true;
    }
 
    // called from connection strand
-   void connection::connect( const std::shared_ptr<tcp::resolver>& resolver, const tcp::resolver::results_type& endpoints ) {
+   void connection::connect( const tcp::resolver::results_type& endpoints ) {
       set_state(connection_state::connecting);
       pending_message_buffer.reset();
       buffer_queue.clear_out_queue();
       boost::asio::async_connect( *socket, endpoints,
          boost::asio::bind_executor( strand,
-               [resolver, c = shared_from_this(), socket=socket]( const boost::system::error_code& err, const tcp::endpoint& endpoint ) {
+               [c = shared_from_this(), socket=socket]( const boost::system::error_code& err, const tcp::endpoint& endpoint ) {
             if( !err && socket->is_open() && socket == c->socket ) {
-               c->update_endpoints();
+               my_impl->connections.update_connection_endpoint(c, endpoint);
+               c->update_endpoints(endpoint);
                if( c->start_session() ) {
                   c->send_handshake();
                   c->send_time();
                }
             } else {
-               fc_elog( logger, "connection failed to ${a}, ${error}", ("a", c->peer_address())( "error", err.message()));
+               fc_ilog( logger, "connection failed to ${a}, ${error}", ("a", c->peer_address())( "error", err.message()));
                c->close( false );
                if (my_impl->increment_failed_p2p_connections) {
                   my_impl->increment_failed_p2p_connections();
@@ -2726,17 +2788,21 @@ namespace eosio {
    }
 
 
-   void net_plugin_impl::create_session(tcp::socket&& socket, const string listen_address) {
+   const string& net_plugin_impl::get_first_p2p_address() const {
+      return p2p_addresses.size() > 0 ? *p2p_addresses.begin() : empty;
+   }
+
+   void net_plugin_impl::create_session(tcp::socket&& socket, const string listen_address, size_t limit) {
       uint32_t                  visitors  = 0;
       uint32_t                  from_addr = 0;
       boost::system::error_code rec;
       const auto&               paddr_add = socket.remote_endpoint(rec).address();
       string                    paddr_str;
       if (rec) {
-         fc_elog(logger, "Error getting remote endpoint: ${m}", ("m", rec.message()));
+         fc_ilog(logger, "Unable to get remote endpoint: ${m}", ("m", rec.message()));
       } else {
          paddr_str        = paddr_add.to_string();
-         connections.for_each_connection([&visitors, &from_addr, &paddr_str](auto& conn) {
+         connections.for_each_connection([&visitors, &from_addr, &paddr_str](const connection_ptr& conn) {
             if (conn->socket_is_open()) {
                if (conn->peer_address().empty()) {
                   ++visitors;
@@ -2752,7 +2818,19 @@ namespace eosio {
                visitors < connections.get_max_client_count())) {
             fc_ilog(logger, "Accepted new connection: " + paddr_str);
 
-            connection_ptr new_connection = std::make_shared<connection>(std::move(socket), listen_address);
+            connections.any_of_supplied_peers([&listen_address, &paddr_str, &limit](const string& peer_addr) {
+               auto [host, port, type] = split_host_port_type(peer_addr);
+               if (host == paddr_str) {
+                  if (limit > 0) {
+                     fc_dlog(logger, "Connection inbound to ${la} from ${a} is a configured p2p-peer-address and will not be throttled", ("la", listen_address)("a", paddr_str));
+                  }
+                  limit = 0;
+                  return true;
+               }
+               return false;
+            });
+
+            connection_ptr new_connection = std::make_shared<connection>(std::move(socket), listen_address, limit);
             new_connection->strand.post([new_connection, this]() {
                if (new_connection->start_session()) {
                   connections.add(new_connection);
@@ -2939,7 +3017,7 @@ namespace eosio {
          }
 
       } catch( const fc::exception& e ) {
-         peer_elog( this, "Exception in handling message: ${s}", ("s", e.to_detail_string()) );
+         peer_wlog( this, "Exception in handling message: ${s}", ("s", e.to_detail_string()) );
          close();
          return false;
       }
@@ -2953,7 +3031,6 @@ namespace eosio {
       fc::raw::unpack( peek_ds, which ); // throw away
       block_header bh;
       fc::raw::unpack( peek_ds, bh );
-
       const block_id_type blk_id = bh.calculate_id();
       const uint32_t blk_num = last_received_block_num = block_header::num_from_id(blk_id);
       // don't add_peer_block because we have not validated this block header yet
@@ -2987,6 +3064,7 @@ namespace eosio {
             return true;
          }
       } else {
+         block_sync_bytes_received += message_length;
          my_impl->sync_master->sync_recv_block(shared_from_this(), blk_id, blk_num, false);
       }
 
@@ -3065,7 +3143,7 @@ namespace eosio {
    void net_plugin_impl::plugin_shutdown() {
          in_shutdown = true;
 
-         connections.stop_conn_timer();
+         connections.stop_conn_timers();
          {
             fc::lock_guard g( expire_timer_mtx );
             if( expire_timer )
@@ -3156,7 +3234,7 @@ namespace eosio {
    // called from connection strand
    void connection::handle_message( const handshake_message& msg ) {
       if( !is_valid( msg ) ) {
-         peer_elog( this, "bad handshake message");
+         peer_wlog( this, "bad handshake message");
          no_retry = go_away_reason::fatal_other;
          enqueue( go_away_message( fatal_other ) );
          return;
@@ -3174,16 +3252,20 @@ namespace eosio {
       set_state(connection_state::connected);
       if (msg.generation == 1) {
          if( msg.node_id == my_impl->node_id) {
-            peer_elog( this, "Self connection detected node_id ${id}. Closing connection", ("id", msg.node_id) );
+            peer_ilog( this, "Self connection detected node_id ${id}. Closing connection", ("id", msg.node_id) );
             no_retry = go_away_reason::self;
             enqueue( go_away_message( go_away_reason::self ) );
             return;
          }
 
          log_p2p_address = msg.p2p_address;
+         fc::unique_lock g_conn( conn_mtx );
+         p2p_address = msg.p2p_address;
+         unique_conn_node_id = msg.node_id.str().substr( 0, 7 );
+         g_conn.unlock();
 
          my_impl->mark_bp_connection(this);
-         if (my_impl->exceeding_connection_limit(this)) {
+         if (my_impl->exceeding_connection_limit(shared_from_this())) {
             // When auto bp peering is enabled, create_session() check doesn't have enough information to determine
             // if a client is a BP peer. In create_session(), it only has the peer address which a node is connecting
             // from, but it would be different from the address it is listening. The only way to make sure is when the
@@ -3200,7 +3282,7 @@ namespace eosio {
                set_connection_type( msg.p2p_address );
 
             peer_dlog( this, "checking for duplicate" );
-            auto is_duplicate = [&](const auto& check) {
+            auto is_duplicate = [&](const connection_ptr& check) {
                if(check.get() == this)
                   return false;
                fc::unique_lock g_check_conn( check->conn_mtx );
@@ -3249,7 +3331,7 @@ namespace eosio {
          }
 
          if( msg.chain_id != my_impl->chain_id ) {
-            peer_elog( this, "Peer on a different chain. Closing connection" );
+            peer_ilog( this, "Peer on a different chain. Closing connection" );
             no_retry = go_away_reason::wrong_chain;
             enqueue( go_away_message(go_away_reason::wrong_chain) );
             return;
@@ -3266,7 +3348,7 @@ namespace eosio {
          short_conn_node_id = conn_node_id.str().substr( 0, 7 );
 
          if( !my_impl->authenticate_peer( msg ) ) {
-            peer_elog( this, "Peer not authenticated.  Closing connection." );
+            peer_wlog( this, "Peer not authenticated.  Closing connection." );
             no_retry = go_away_reason::authentication;
             enqueue( go_away_message( go_away_reason::authentication ) );
             return;
@@ -3291,9 +3373,9 @@ namespace eosio {
                on_fork = true;
             }
             if( on_fork ) {
-                  peer_elog( this, "Peer chain is forked, sending: forked go away" );
-                  no_retry = go_away_reason::forked;
-                  enqueue( go_away_message( go_away_reason::forked ) );
+               peer_wlog( this, "Peer chain is forked, sending: forked go away" );
+               no_retry = go_away_reason::forked;
+               enqueue( go_away_message( go_away_reason::forked ) );
             }
          }
 
@@ -3428,7 +3510,7 @@ namespace eosio {
       //
       set_state(connection_state::connected);
       if( msg.known_blocks.ids.size() > 2 ) {
-         peer_elog( this, "Invalid notice_message, known_blocks.ids.size ${s}, closing connection",
+         peer_wlog( this, "Invalid notice_message, known_blocks.ids.size ${s}, closing connection",
                     ("s", msg.known_blocks.ids.size()) );
          close( false );
          return;
@@ -3480,7 +3562,7 @@ namespace eosio {
          break;
       }
       default: {
-         peer_elog( this, "bad notice_message : invalid known_blocks.mode ${m}",
+         peer_wlog( this, "bad notice_message : invalid known_blocks.mode ${m}",
                     ("m", static_cast<uint32_t>(msg.known_blocks.mode)) );
       }
       }
@@ -3488,7 +3570,7 @@ namespace eosio {
 
    void connection::handle_message( const request_message& msg ) {
       if( msg.req_blocks.ids.size() > 1 ) {
-         peer_elog( this, "Invalid request_message, req_blocks.ids.size ${s}, closing",
+         peer_wlog( this, "Invalid request_message, req_blocks.ids.size ${s}, closing",
                     ("s", msg.req_blocks.ids.size()) );
          close();
          return;
@@ -3519,7 +3601,7 @@ namespace eosio {
          // no break
       case normal :
          if( !msg.req_trx.ids.empty() ) {
-            peer_elog( this, "Invalid request_message, req_trx.ids.size ${s}", ("s", msg.req_trx.ids.size()) );
+            peer_wlog( this, "Invalid request_message, req_trx.ids.size ${s}", ("s", msg.req_trx.ids.size()) );
             close();
             return;
          }
@@ -3569,7 +3651,7 @@ namespace eosio {
             if( !trace->except ) {
                fc_dlog( logger, "chain accepted transaction, bcast ${id}", ("id", trace->id) );
             } else {
-               fc_elog( logger, "bad packed_transaction : ${m}", ("m", trace->except->what()));
+               fc_ilog( logger, "bad packed_transaction : ${m}", ("m", trace->except->what()));
             }
          }
          connection_ptr conn = weak.lock();
@@ -3601,11 +3683,11 @@ namespace eosio {
             bsp = cc.create_block_state( id, ptr );
          } catch( const fc::exception& ex ) {
             exception = true;
-            fc_elog( logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
+            fc_ilog( logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
                      ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16))("m",ex.to_string()));
          } catch( ... ) {
             exception = true;
-            fc_elog( logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
+            fc_wlog( logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
                      ("cid", cid)("n", ptr->block_num())("id", id.str().substr(8,16)));
          }
          if( exception ) {
@@ -3653,8 +3735,11 @@ namespace eosio {
             });
             return;
          }
-      } catch(...) {
-         fc_elog( logger, "Caught an unknown exception trying to fetch block ${id}", ("id", blk_id) );
+      } catch( const assert_exception& ex ) {
+         // possible corrupted block log
+         fc_elog( logger, "caught assert on fetch_block_by_id, ${ex}, id ${id}, conn ${c}", ("ex", ex.to_string())("id", blk_id)("c", connection_id) );
+      } catch( ... ) {
+         fc_elog( logger, "caught an unknown exception trying to fetch block ${id}, conn ${c}", ("id", blk_id)("c", connection_id) );
       }
 
       fc::microseconds age( fc::time_point::now() - block->timestamp);
@@ -3667,23 +3752,23 @@ namespace eosio {
          accepted = my_impl->chain_plug->accept_block(block, blk_id, bsp);
          my_impl->update_chain_info();
       } catch( const unlinkable_block_exception &ex) {
-         fc_elog(logger, "unlinkable_block_exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_ilog(logger, "unlinkable_block_exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = unlinkable;
       } catch( const block_validate_exception &ex ) {
-         fc_elog(logger, "block_validate_exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_ilog(logger, "block_validate_exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = validation;
       } catch( const assert_exception &ex ) {
-         fc_elog(logger, "block assert_exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_wlog(logger, "block assert_exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = fatal_other;
       } catch( const fc::exception &ex ) {
-         fc_elog(logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
+         fc_ilog(logger, "bad block exception connection ${cid}: #${n} ${id}...: ${m}",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16))("m",ex.to_string()));
          reason = fatal_other;
       } catch( ... ) {
-         fc_elog(logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
+         fc_wlog(logger, "bad block connection ${cid}: #${n} ${id}...: unknown exception",
                  ("cid", c->connection_id)("n", blk_num)("id", blk_id.str().substr(8,16)));
          reason = fatal_other;
       }
@@ -3754,7 +3839,7 @@ namespace eosio {
             }
 
             auto current_time = std::chrono::system_clock::now();
-            my->connections.for_each_connection( [current_time]( auto& c ) {
+            my->connections.for_each_connection( [current_time]( const connection_ptr& c ) {
                if( c->socket_is_open() ) {
                   c->strand.post([c, current_time]() {
                      c->check_heartbeat(current_time);
@@ -3769,7 +3854,7 @@ namespace eosio {
          fc::lock_guard g( expire_timer_mtx );
          expire_timer = std::make_unique<boost::asio::steady_timer>( my_impl->thread_pool.get_executor() );
       }
-      connections.start_conn_timer();
+      connections.start_conn_timers();
       start_expire_timer();
    }
 
@@ -3832,7 +3917,7 @@ namespace eosio {
          if(producer_plug != nullptr)
             found_producer_key = producer_plug->is_producer_key(msg.key);
          if( allowed_it == allowed_peers.end() && private_it == private_keys.end() && !found_producer_key) {
-            fc_elog( logger, "Peer ${peer} sent a handshake with an unauthorized key: ${key}.",
+            fc_wlog( logger, "Peer ${peer} sent a handshake with an unauthorized key: ${key}.",
                      ("peer", msg.p2p_address)("key", msg.key) );
             return false;
          }
@@ -3841,7 +3926,7 @@ namespace eosio {
       if(msg.sig != chain::signature_type() && msg.token != sha256()) {
          sha256 hash = fc::sha256::hash(msg.time);
          if(hash != msg.token) {
-            fc_elog( logger, "Peer ${peer} sent a handshake with an invalid token.", ("peer", msg.p2p_address) );
+            fc_wlog( logger, "Peer ${peer} sent a handshake with an invalid token.", ("peer", msg.p2p_address) );
             return false;
          }
          chain::public_key_type peer_key;
@@ -3849,11 +3934,11 @@ namespace eosio {
             peer_key = crypto::public_key(msg.sig, msg.token, true);
          }
          catch (const std::exception& /*e*/) {
-            fc_elog( logger, "Peer ${peer} sent a handshake with an unrecoverable key.", ("peer", msg.p2p_address) );
+            fc_wlog( logger, "Peer ${peer} sent a handshake with an unrecoverable key.", ("peer", msg.p2p_address) );
             return false;
          }
          if((allowed_connections & (Producers | Specified)) && peer_key != msg.key) {
-            fc_elog( logger, "Peer ${peer} sent a handshake with an unauthenticated key.", ("peer", msg.p2p_address) );
+            fc_wlog( logger, "Peer ${peer} sent a handshake with an unauthenticated key.", ("peer", msg.p2p_address) );
             return false;
          }
       }
@@ -3935,7 +4020,17 @@ namespace eosio {
    void net_plugin::set_program_options( options_description& /*cli*/, options_description& cfg )
    {
       cfg.add_options()
-         ( "p2p-listen-endpoint", bpo::value< vector<string> >()->default_value( vector<string>(1, string("0.0.0.0:9876")) ), "The actual host:port used to listen for incoming p2p connections. May be used multiple times.")
+         ( "p2p-listen-endpoint", bpo::value< vector<string> >()->default_value( vector<string>(1, string("0.0.0.0:9876:0")) ), "The actual host:port[:<rate-cap>] used to listen for incoming p2p connections. May be used multiple times. "
+           "  The optional rate cap will limit per connection block sync bandwidth to the specified rate.  Total "
+           "  allowed bandwidth is the rate-cap multiplied by the connection count limit.  A number alone will be "
+           "  interpreted as bytes per second.  The number may be suffixed with units.  Supported units are: "
+           "  'B/s', 'KB/s', 'MB/s, 'GB/s', 'TB/s', 'KiB/s', 'MiB/s', 'GiB/s', 'TiB/s'."
+           "  Transactions and blocks outside of sync mode are not throttled."
+           "  Examples:\n"
+           "    192.168.0.100:9876:1MiB/s\n"
+           "    node.eos.io:9876:1512KB/s\n"
+           "    node.eos.io:9876:0.5GB/s\n"
+           "    [2001:db8:85a3:8d3:1319:8a2e:370:7348]:9876:250KB/s")
          ( "p2p-server-address", bpo::value< vector<string> >(), "An externally accessible host:port for identifying this node. Defaults to p2p-listen-endpoint. May be used as many times as p2p-listen-endpoint. If provided, the first address will be used in handshakes with other nodes. Otherwise the default is used.")
          ( "p2p-peer-address", bpo::value< vector<string> >()->composing(),
            "The public endpoint of a peer node to connect to. Use multiple p2p-peer-address options as needed to compose a network.\n"
@@ -3989,6 +4084,52 @@ namespace eosio {
    template<typename T>
    T dejsonify(const string& s) {
       return fc::json::from_string(s).as<T>();
+   }
+
+   std::tuple<std::string, size_t> net_plugin_impl::parse_listen_address( const std::string& address ) const {
+      auto listen_addr = address;
+      auto limit = string("0");
+      auto last_colon_location = address.rfind(':');
+      if( auto right_bracket_location = address.find(']'); right_bracket_location != address.npos ) {
+         if( std::count(address.begin()+right_bracket_location, address.end(), ':') > 1 ) {
+            listen_addr = std::string(address, 0, last_colon_location);
+            limit = std::string(address, last_colon_location+1);
+         }
+      } else {
+         if( auto colon_count = std::count(address.begin(), address.end(), ':'); colon_count > 1 ) {
+            EOS_ASSERT( colon_count <= 2, plugin_config_exception, "Invalid address specification ${addr}; IPv6 addresses must be enclosed in square brackets.", ("addr", address));
+            listen_addr = std::string(address, 0, last_colon_location);
+            limit = std::string(address, last_colon_location+1);
+         }
+      }
+      auto block_sync_rate_limit = parse_connection_rate_limit(limit);
+
+      return {listen_addr, block_sync_rate_limit};
+   }
+
+   size_t net_plugin_impl::parse_connection_rate_limit( const std::string& limit_str) const {
+      std::istringstream in(limit_str);
+      double limit{0};
+      in >> limit;
+      EOS_ASSERT(limit >= 0.0, plugin_config_exception, "block sync rate limit must not be negative: ${limit}", ("limit", limit_str));
+      size_t block_sync_rate_limit = 0;
+      if( limit > 0.0 ) {
+         std::string units;
+         in >> units;
+         std::regex units_regex{"([KMGT]?[i]?)B/s"};
+         std::smatch units_match;
+         std::regex_match(units, units_match, units_regex);
+         if( units.length() > 0 ) {
+            EOS_ASSERT(units_match.size() == 2, plugin_config_exception, "invalid block sync rate limit specification: ${limit}", ("limit", units));
+            try {
+               block_sync_rate_limit = boost::numeric_cast<size_t>(limit * prefix_multipliers.at(units_match[1].str()));
+               fc_ilog( logger, "setting block_sync_rate_limit to ${limit} megabytes per second", ("limit", double(block_sync_rate_limit)/1000000));
+            } catch (boost::numeric::bad_numeric_cast&) {
+               EOS_THROW(plugin_config_exception, "block sync rate limit specification overflowed: ${limit}", ("limit", limit_str));
+            }
+         }
+      }
+      return block_sync_rate_limit;
    }
 
    void net_plugin_impl::plugin_initialize( const variables_map& options ) {
@@ -4138,7 +4279,6 @@ namespace eosio {
       set_producer_accounts(producer_plug->producer_accounts());
 
       thread_pool.start( thread_pool_size, []( const fc::exception& e ) {
-         fc_elog( logger, "Exception in net plugin thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
          app().quit();
       } );
 
@@ -4206,10 +4346,16 @@ namespace eosio {
 
                std::string extra_listening_log_info =
                      ", max clients is " + std::to_string(my->connections.get_max_client_count());
-                     
+
+               auto [listen_addr, block_sync_rate_limit] = my->parse_listen_address(address);
+
                fc::create_listener<tcp>(
-                     my->thread_pool.get_executor(), logger, accept_timeout, address, extra_listening_log_info,
-                     [my = my, addr = p2p_addr](tcp::socket&& socket) { my->create_session(std::move(socket), addr); });
+                     my->thread_pool.get_executor(), logger, accept_timeout, listen_addr, extra_listening_log_info,
+                     [my = my, addr = p2p_addr, block_sync_rate_limit = block_sync_rate_limit](tcp::socket&& socket) { fc_dlog( logger, "start listening on ${addr} with peer sync throttle ${limit}", ("addr", addr)("limit", block_sync_rate_limit)); my->create_session(std::move(socket), addr, block_sync_rate_limit); });
+            } catch (const plugin_config_exception& e) {
+               fc_elog( logger, "${msg}", ("msg", e.top_message()));
+               app().quit();
+               return;
             } catch (const std::exception& e) {
                fc_elog( logger, "net_plugin::plugin_startup failed to listen on ${addr}, ${what}",
                      ("addr", address)("what", e.what()) );
@@ -4222,7 +4368,7 @@ namespace eosio {
          my->ticker();
          my->start_monitors();
          my->update_chain_info();
-         my->connections.connect_supplied_peers(*my->p2p_addresses.begin()); // attribute every outbound connection to the first listen port
+         my->connections.connect_supplied_peers(my->get_first_p2p_address()); // attribute every outbound connection to the first listen port when one exists
       });
    }
 
@@ -4259,7 +4405,7 @@ namespace eosio {
 
    /// RPC API
    string net_plugin::connect( const string& host ) {
-      return my->connections.connect( host, *my->p2p_addresses.begin() );
+      return my->connections.connect( host, my->get_first_p2p_address() );
    }
 
    /// RPC API
@@ -4334,35 +4480,99 @@ namespace eosio {
    }
 
    void connections_manager::connect_supplied_peers(const string& p2p_address) {
-      std::lock_guard g(connections_mtx);
-      for (const auto& peer : supplied_peers) {
-         connect_i(peer, p2p_address);
+      std::unique_lock g(connections_mtx);
+      chain::flat_set<string> peers = supplied_peers;
+      g.unlock();
+      for (const auto& peer : peers) {
+         resolve_and_connect(peer, p2p_address);
       }
    }
 
    void connections_manager::add( connection_ptr c ) {
       std::lock_guard g( connections_mtx );
-      add_i( std::move(c) );
+      boost::system::error_code ec;
+      auto endpoint = c->socket->remote_endpoint(ec);
+      connections.insert( connection_detail{
+         .host = c->peer_address(), 
+         .c = std::move(c),
+         .active_ip = endpoint} );
    }
 
    // called by API
    string connections_manager::connect( const string& host, const string& p2p_address ) {
+      std::unique_lock g( connections_mtx );
+      supplied_peers.insert(host);
+      g.unlock();
+      return resolve_and_connect( host, p2p_address );
+   }
+
+   string connections_manager::resolve_and_connect( const string& peer_address, const string& listen_address ) {
+      string::size_type colon = peer_address.find(':');
+      if (colon == std::string::npos || colon == 0) {
+         fc_elog( logger, "Invalid peer address. must be \"host:port[:<blk>|<trx>]\": ${p}", ("p", peer_address) );
+         return "invalid peer address";
+      }
+
       std::lock_guard g( connections_mtx );
-      if( find_connection_i( host ) )
+      if( find_connection_i( peer_address ) )
          return "already connected";
 
-      connect_i( host, p2p_address );
-      supplied_peers.insert(host);
+      auto [host, port, type] = split_host_port_type(peer_address);
+
+      auto resolver = std::make_shared<tcp::resolver>( my_impl->thread_pool.get_executor() );
+
+      resolver->async_resolve(host, port, 
+         [resolver, host = host, port = port, peer_address = peer_address, listen_address = listen_address, this]( const boost::system::error_code& err, const tcp::resolver::results_type& results ) {
+            connection_ptr c = std::make_shared<connection>( peer_address, listen_address );
+            c->set_heartbeat_timeout( heartbeat_timeout );
+            std::lock_guard g( connections_mtx );
+            auto [it, inserted] = connections.emplace( connection_detail{
+               .host = peer_address,
+               .c = std::move(c),
+               .ips = results
+            });
+            if( !err ) {
+               it->c->connect( results );
+            } else {
+               fc_wlog( logger, "Unable to resolve ${host}:${port} ${error}",
+                        ("host", host)("port", port)( "error", err.message() ) );
+               it->c->set_state(connection::connection_state::closed);
+               ++(it->c->consecutive_immediate_connection_close);
+            }
+      } );
+
       return "added connection";
+   }
+
+   void connections_manager::update_connection_endpoint(connection_ptr c,
+                                                        const tcp::endpoint& endpoint) {
+      std::unique_lock g( connections_mtx );
+      auto& index = connections.get<by_connection>();
+      const auto& it = index.find(c);
+      if( it != index.end() ) {
+         index.modify(it, [endpoint](connection_detail& cd) {
+            cd.active_ip = endpoint;
+         });
+      }
+   }
+
+   void connections_manager::connect(const connection_ptr& c) {
+      std::lock_guard g( connections_mtx );
+      const auto& index = connections.get<by_connection>();
+      const auto& it = index.find(c);
+      if( it != index.end() ) {
+         it->c->connect( it->ips );
+      }
    }
 
    // called by API
    string connections_manager::disconnect( const string& host ) {
       std::lock_guard g( connections_mtx );
-      if( auto c = find_connection_i( host ) ) {
-         fc_ilog( logger, "disconnecting: ${cid}", ("cid", c->connection_id) );
-         c->close();
-         connections.erase(c);
+      auto& index = connections.get<by_host>();
+      if( auto i = index.find( host ); i != index.end() ) {
+         fc_ilog( logger, "disconnecting: ${cid}", ("cid", i->c->connection_id) );
+         i->c->close();
+         connections.erase(i);
          supplied_peers.erase(host);
          return "connection removed";
       }
@@ -4370,11 +4580,12 @@ namespace eosio {
    }
 
    void connections_manager::close_all() {
-      fc_ilog( logger, "close all ${s} connections", ("s", connections.size()) );
       std::lock_guard g( connections_mtx );
-      for( auto& con : connections ) {
-         fc_dlog( logger, "close: ${cid}", ("cid", con->connection_id) );
-         con->close( false, true );
+      auto& index = connections.get<by_host>();
+      fc_ilog( logger, "close all ${s} connections", ("s", index.size()) );
+      for( const connection_detail& cd : index ) {
+         fc_dlog( logger, "close: ${cid}", ("cid", cd.c->connection_id) );
+         cd.c->close( false, true );
       }
       connections.clear();
    }
@@ -4391,143 +4602,180 @@ namespace eosio {
    vector<connection_status> connections_manager::connection_statuses()const {
       vector<connection_status> result;
       std::shared_lock g( connections_mtx );
-      result.reserve( connections.size() );
-      for( const auto& c : connections ) {
-         result.push_back( c->get_status() );
+      auto& index = connections.get<by_connection>();
+      result.reserve( index.size() );
+      for( const connection_detail& cd : index ) {
+         result.emplace_back( cd.c->get_status() );
       }
       return result;
    }
 
    // call with connections_mtx
    connection_ptr connections_manager::find_connection_i( const string& host )const {
-      for( const auto& c : connections ) {
-         if (c->peer_address() == host)
-            return c;
-      }
+      auto& index = connections.get<by_host>();
+      auto iter = index.find(host);
+      if(iter != index.end())
+         return iter->c;
       return {};
    }
 
-   // call with connections_mtx
-   void connections_manager::connect_i( const string& host, const string& p2p_address ) {
-      connection_ptr c = std::make_shared<connection>( host, p2p_address );
-      fc_dlog( logger, "calling active connector: ${h}", ("h", host) );
-      if( c->resolve_and_connect() ) {
-         fc_dlog( logger, "adding new connection to the list: ${host} ${cid}", ("host", host)("cid", c->connection_id) );
-         add_i( std::move(c) );
+   // called from any thread
+   void connections_manager::start_conn_timers() {
+      start_conn_timer(connector_period, {}, timer_type::check); // this locks mutex
+      start_conn_timer(connector_period, {}, timer_type::stats); // this locks mutex
+      if (update_p2p_connection_metrics) {
+         start_conn_timer(connector_period + connector_period / 2, {}, timer_type::stats); // this locks mutex
       }
    }
 
-   // call with connections_mtx
-   void connections_manager::add_i(connection_ptr&& c) {
-      c->set_heartbeat_timeout( heartbeat_timeout );
-      connections.insert( std::move(c) );
-   }
-
    // called from any thread
-   void connections_manager::start_conn_timer() {
-      start_conn_timer(connector_period, {}); // this locks mutex
-   }
-
-   // called from any thread
-   void connections_manager::start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection) {
-      fc::lock_guard g( connector_check_timer_mtx );
-      if (!connector_check_timer) {
-         connector_check_timer = std::make_unique<boost::asio::steady_timer>( my_impl->thread_pool.get_executor() );
+   void connections_manager::start_conn_timer(boost::asio::steady_timer::duration du, 
+                                              std::weak_ptr<connection> from_connection,
+                                              timer_type which) {
+      auto& mtx = which == timer_type::check ? connector_check_timer_mtx : connection_stats_timer_mtx;
+      auto& timer = which == timer_type::check ? connector_check_timer : connection_stats_timer;
+      const auto& func = which == timer_type::check ? &connections_manager::connection_monitor : &connections_manager::connection_statistics_monitor;
+      fc::lock_guard g( mtx );
+      if (!timer) {
+         timer = std::make_unique<boost::asio::steady_timer>( my_impl->thread_pool.get_executor() );
       }
-      connector_check_timer->expires_from_now( du );
-      connector_check_timer->async_wait( [this, from_connection{std::move(from_connection)}](boost::system::error_code ec) mutable {
+      timer->expires_from_now( du );
+      timer->async_wait( [this, from_connection{std::move(from_connection)}, f = func](boost::system::error_code ec) mutable {
          if( !ec ) {
-            connection_monitor(from_connection);
+            (this->*f)(from_connection);
          }
       });
    }
 
-   void connections_manager::stop_conn_timer() {
-      fc::lock_guard g( connector_check_timer_mtx );
-      if (connector_check_timer) {
-         connector_check_timer->cancel();
+   void connections_manager::stop_conn_timers() {
+      {
+         fc::lock_guard g( connector_check_timer_mtx );
+         if (connector_check_timer) {
+            connector_check_timer->cancel();
+         }
+      }
+      {
+         fc::lock_guard g( connection_stats_timer_mtx );
+         if (connection_stats_timer) {
+            connection_stats_timer->cancel();
+         }
       }
    }
 
    // called from any thread
    void connections_manager::connection_monitor(const std::weak_ptr<connection>& from_connection) {
+      size_t num_rm = 0, num_clients = 0, num_peers = 0, num_bp_peers = 0;
+      auto cleanup = [&num_peers, &num_rm, this](vector<connection_ptr>&& reconnecting, 
+                                                 vector<connection_ptr>&& removing) {
+         for( auto& c : reconnecting ) {
+            if (!c->reconnect()) {
+               --num_peers;
+               ++num_rm;
+               removing.push_back(c);
+            }
+         }
+         std::scoped_lock g( connections_mtx );
+         auto& index = connections.get<by_connection>();
+         for( auto& c : removing ) {
+            index.erase(c);
+         }
+      };
       auto max_time = fc::time_point::now().safe_add(max_cleanup_time);
+      std::vector<connection_ptr> reconnecting, removing;
       auto from = from_connection.lock();
       std::unique_lock g( connections_mtx );
-      auto it = (from ? connections.find(from) : connections.begin());
-      if (it == connections.end()) it = connections.begin();
-      size_t num_rm = 0, num_clients = 0, num_peers = 0, num_bp_peers = 0;
-      net_plugin::p2p_per_connection_metrics per_connection(connections.size());
-      while (it != connections.end()) {
+      auto& index = connections.get<by_connection>();
+      auto it = (from ? index.find(from) : index.begin());
+      if (it == index.end()) it = index.begin();
+      while (it != index.end()) {
          if (fc::time_point::now() >= max_time) {
-            connection_wptr wit = *it;
+            connection_wptr wit = (*it).c;
             g.unlock();
+            cleanup(std::move(reconnecting), std::move(removing));
             fc_dlog( logger, "Exiting connection monitor early, ran out of time: ${t}", ("t", max_time - fc::time_point::now()) );
             fc_ilog( logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}",
                     ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", supplied_peers.size()) );
-            start_conn_timer( std::chrono::milliseconds( 1 ), wit ); // avoid exhausting
+            start_conn_timer( std::chrono::milliseconds( 1 ), wit, timer_type::check ); // avoid exhausting
             return;
          }
-         if ((*it)->is_bp_connection) {
+         const connection_ptr& c = it->c;
+         if (c->is_bp_connection) {
             ++num_bp_peers;
-         } else if ((*it)->incoming()) {
+         } else if (c->incoming()) {
             ++num_clients;
          } else {
             ++num_peers;
          }
-         if (update_p2p_connection_metrics) {
-            fc::unique_lock g_conn((*it)->conn_mtx);
-            boost::asio::ip::address_v6::bytes_type addr = (*it)->remote_endpoint_ip_array;
-            g_conn.unlock();
-            net_plugin::p2p_per_connection_metrics::connection_metric metrics{
-                 .connection_id = (*it)->connection_id
-               , .address = addr
-               , .port = (*it)->get_remote_endpoint_port()
-               , .accepting_blocks = (*it)->is_blocks_connection()
-               , .last_received_block = (*it)->get_last_received_block_num()
-               , .first_available_block = (*it)->get_peer_start_block_num()
-               , .last_available_block = (*it)->get_peer_head_block_num()
-               , .unique_first_block_count = (*it)->get_unique_blocks_rcvd_count()
-               , .latency = (*it)->get_peer_ping_time_ns()
-               , .bytes_received = (*it)->get_bytes_received()
-               , .last_bytes_received = (*it)->get_last_bytes_received()
-               , .bytes_sent = (*it)->get_bytes_sent()
-               , .last_bytes_sent = (*it)->get_last_bytes_sent()
-               , .connection_start_time = (*it)->connection_start_time
-               , .log_p2p_address = (*it)->log_p2p_address
-            };
-            per_connection.peers.push_back(metrics);
-         }
 
-         if (!(*it)->socket_is_open() && (*it)->state() != connection::connection_state::connecting) {
-            if (!(*it)->incoming()) {
-               if (!(*it)->resolve_and_connect()) {
-                  it = connections.erase(it);
-                  --num_peers;
-                  ++num_rm;
-                  continue;
-               }
+         if (!c->socket_is_open() && c->state() != connection::connection_state::connecting) {
+            if (!c->incoming()) {
+               reconnecting.push_back(c);
             } else {
                --num_clients;
                ++num_rm;
-               it = connections.erase(it);
-               continue;
+               removing.push_back(c);
             }
          }
          ++it;
       }
       g.unlock();
-
-      if (update_p2p_connection_metrics) {
-         update_p2p_connection_metrics({num_peers, num_clients, std::move(per_connection)});
-      }
+      cleanup(std::move(reconnecting), std::move(removing));
 
       if( num_clients > 0 || num_peers > 0 ) {
          fc_ilog(logger, "p2p client connections: ${num}/${max}, peer connections: ${pnum}/${pmax}, block producer peers: ${num_bp_peers}",
                  ("num", num_clients)("max", max_client_count)("pnum", num_peers)("pmax", supplied_peers.size())("num_bp_peers", num_bp_peers));
       }
       fc_dlog( logger, "connection monitor, removed ${n} connections", ("n", num_rm) );
-      start_conn_timer( connector_period, {});
+      start_conn_timer( connector_period, {}, timer_type::check );
    }
 
+   // called from any thread
+   void connections_manager::connection_statistics_monitor(const std::weak_ptr<connection>& from_connection) {
+      assert(update_p2p_connection_metrics);
+      auto from = from_connection.lock();
+      std::shared_lock g(connections_mtx);
+      auto& index = connections.get<by_connection>();
+      size_t num_clients = 0, num_peers = 0, num_bp_peers = 0;
+      net_plugin::p2p_per_connection_metrics per_connection(index.size());
+      for (auto it = index.begin(); it != index.end(); ++it) {
+         const connection_ptr& c = it->c;
+         if(c->is_bp_connection) {
+            ++num_bp_peers;
+         } else if(c->incoming()) {
+            ++num_clients;
+         } else {
+            ++num_peers;
+         }
+         fc::unique_lock g_conn(c->conn_mtx);
+         boost::asio::ip::address_v6::bytes_type addr = c->remote_endpoint_ip_array;
+         std::string p2p_addr = c->p2p_address;
+         std::string conn_node_id = c->unique_conn_node_id;
+         g_conn.unlock();
+         per_connection.peers.emplace_back(
+            net_plugin::p2p_per_connection_metrics::connection_metric{
+              .connection_id = c->connection_id
+            , .address = addr
+            , .port = c->get_remote_endpoint_port()
+            , .accepting_blocks = c->is_blocks_connection()
+            , .last_received_block = c->get_last_received_block_num()
+            , .first_available_block = c->get_peer_start_block_num()
+            , .last_available_block = c->get_peer_head_block_num()
+            , .unique_first_block_count = c->get_unique_blocks_rcvd_count()
+            , .latency = c->get_peer_ping_time_ns()
+            , .bytes_received = c->get_bytes_received()
+            , .last_bytes_received = c->get_last_bytes_received()
+            , .bytes_sent = c->get_bytes_sent()
+            , .last_bytes_sent = c->get_last_bytes_sent()
+            , .block_sync_bytes_received = c->get_block_sync_bytes_received()
+            , .block_sync_bytes_sent = c->get_block_sync_bytes_sent()
+            , .block_sync_throttling = c->get_block_sync_throttling()
+            , .connection_start_time = c->connection_start_time
+            , .p2p_address = p2p_addr
+            , .unique_conn_node_id = conn_node_id
+         });
+      }
+      g.unlock();
+      update_p2p_connection_metrics({num_peers+num_bp_peers, num_clients, std::move(per_connection)});
+      start_conn_timer( connector_period, {}, timer_type::stats );
+   }
 } // namespace eosio

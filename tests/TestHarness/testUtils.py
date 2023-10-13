@@ -256,6 +256,9 @@ class Utils:
                 if reporter is not None:
                     reporter()
                 time.sleep(sleepTime)
+            else:
+                if timeout == 60:
+                    raise RuntimeError('waitForObj reached 60 second timeout')
         finally:
             if needsNewLine:
                 Utils.Print()

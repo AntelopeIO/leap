@@ -1595,12 +1595,14 @@ struct controller_impl {
                                                trx->packed_trx()->get_prunable_size() );
             }
 
+            trx_context.delay = fc::seconds(trn.delay_sec);
+
             if( check_auth ) {
                authorization.check_authorization(
                        trn.actions,
                        trx->recovered_keys(),
                        {},
-                       fc::seconds(trn.delay_sec),
+                       trx_context.delay,
                        [&trx_context](){ trx_context.checktime(); },
                        false,
                        trx->is_dry_run()
@@ -1613,7 +1615,9 @@ struct controller_impl {
 
             trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
             if (!trx->implicit() && !trx->is_read_only()) {
-               transaction_receipt::status_enum s = transaction_receipt::executed;
+               transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
+                                                    ? transaction_receipt::executed
+                                                    : transaction_receipt::delayed;
                trace->receipt = push_receipt(*trx->packed_trx(), s, trx_context.billed_cpu_time_us, trace->net_usage);
                std::get<building_block>(pending->_block_stage)._pending_trx_metas.emplace_back(trx);
             } else {
