@@ -5,8 +5,7 @@
 
 #include <eosio/chain/application.hpp>
 #include <eosio/chain/exceptions.hpp>
-
-#include <thread>
+#include <eosio/chain/thread_utils.hpp>
 
 namespace bfs = boost::filesystem;
 
@@ -14,10 +13,41 @@ namespace eosio::resource_monitor {
    template<typename SpaceProvider>
    class file_space_handler {
    public:
-      file_space_handler(SpaceProvider&& space_provider, boost::asio::io_context& ctx)
-      :space_provider(std::move(space_provider)),
-      timer{ctx}
+      file_space_handler(SpaceProvider&& space_provider)
+      :space_provider(std::move(space_provider))
       {
+      }
+
+      void start(const std::vector<bfs::path>& directories) {
+         for ( auto& dir: directories ) {
+            add_file_system( dir );
+
+            // A directory like "data" contains subdirectories like
+            // "block". Those subdirectories can mount on different
+            // file systems. Make sure they are taken care of.
+            for (bfs::directory_iterator itr(dir); itr != bfs::directory_iterator(); ++itr) {
+               if (bfs::is_directory(itr->path())) {
+                  add_file_system( itr->path() );
+               }
+            }
+         }
+
+         thread_pool.start(thread_pool_size,
+            []( const fc::exception& e ) {
+              elog("Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+              appbase::app().quit(); },
+            [&]() { space_monitor_loop(); }
+         );
+      }
+
+      // called on main thread from plugin shutdown()
+      void stop() {
+         {
+            std::lock_guard<std::mutex> g( timer_mtx );
+            boost::system::error_code ec;
+            timer.cancel(ec);
+         }
+         thread_pool.stop();
       }
 
       void set_sleep_time(uint32_t sleep_time) {
@@ -133,66 +163,40 @@ namespace eosio::resource_monitor {
       }
 
    void space_monitor_loop() {
-      space_monitor_task_running = true;
-
-      if (stopping) {
-         space_monitor_task_running = false;
-         return;
-      }
       if ( is_threshold_exceeded() && shutdown_on_exceeded ) {
          elog("Gracefully shutting down, exceeded file system configured threshold.");
          appbase::app().quit(); // This will gracefully stop Nodeos
-         space_monitor_task_running = false;
          return;
       }
       update_warning_interval_counter();
 
-      timer.expires_from_now( boost::posix_time::seconds( sleep_time_in_secs ));
-      if (stopping) {
-         space_monitor_task_running = false;
-         return;
-      }
-      timer.async_wait([this](auto& ec) {
-         if ( ec ) {
-            wlog("Exit due to error: ${ec}, message: ${message}",
-                 ("ec", ec.value())
-                 ("message", ec.message()));
-            space_monitor_task_running = false;
-            return;
-         } else {
-            // Loop over
-            space_monitor_loop();
-         }
-      });
-      space_monitor_task_running = false;
-   }
-
-   // called on main thread from plugin shutdown()
-   void stop() {
-      // signalling space_monitor_loop that plugin is being stopped
-      stopping = true;
-
-      // cancel outstanding scheduled space_monitor_loop task
-      timer.cancel();
-
-      // make sure space_monitor_loop has exited.
-      // in vast majority time, it is not running; just waiting to be executed
-      using namespace std::chrono_literals; // for ms
-      auto num_sleeps = 0u;
-      constexpr auto max_num_sleeps = 10u;
-      while (space_monitor_task_running && num_sleeps < max_num_sleeps) {
-         std::this_thread::sleep_for( 1ms );
-         ++num_sleeps;
-      }
-      if (space_monitor_task_running) {
-         wlog("space_monitor_loop not stopped after ${n} ms", ("n", num_sleeps));
+      {
+         std::lock_guard<std::mutex> g( timer_mtx );
+         timer.expires_from_now( boost::posix_time::seconds( sleep_time_in_secs ));
+         timer.async_wait([this](auto& ec) {
+            if ( ec ) {
+               if ( ec != boost::asio::error::operation_aborted ) { // not cancelled
+                  wlog("Exit due to error: ${ec}, message: ${message}",
+                      ("ec", ec.value())
+                      ("message", ec.message()));
+               }
+               return;
+            } else {
+               // Loop over
+               space_monitor_loop();
+            }
+         });
       }
    }
 
    private:
       SpaceProvider space_provider;
 
-      boost::asio::deadline_timer timer;
+      static constexpr size_t thread_pool_size = 1;
+      eosio::chain::named_thread_pool<struct resmon> thread_pool;
+
+      std::mutex                  timer_mtx;
+      boost::asio::deadline_timer timer {thread_pool.get_executor()};
 
       uint32_t sleep_time_in_secs {2};
       uint32_t shutdown_threshold {90};
@@ -200,8 +204,6 @@ namespace eosio::resource_monitor {
       uint64_t shutdown_absolute {0};
       uint64_t warning_absolute {0};
       bool     shutdown_on_exceeded {true};
-      std::atomic<bool> stopping {false}; // set on main thread, checked on resmon thread
-      std::atomic<bool> space_monitor_task_running {false}; // set on resmon thread, checked on main thread. after space_monitor_loop is not running, it is safe to stop
 
       struct   filesystem_info {
          dev_t      st_dev; // device id of file system containing "file_path"

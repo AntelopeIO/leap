@@ -23,11 +23,9 @@ struct threshold_fixture {
       threshold_fixture& fixture;
    };
 
-   boost::asio::io_context ctx;
-
    using file_space_handler_t = file_space_handler<mock_space_provider>;
    threshold_fixture()
-   : space_handler(std::make_unique<file_space_handler_t>(mock_space_provider(*this), ctx))
+   : space_handler(std::make_unique<file_space_handler_t>(mock_space_provider(*this)))
    {
    }
 
@@ -49,7 +47,7 @@ struct threshold_fixture {
 
    bool test_threshold_common(std::map<bfs::path, uintmax_t>& available, std::map<bfs::path, int>& dev, uint32_t warning_threshold=75) {
       bool first = test_threshold_common_(available, dev, warning_threshold);
-      space_handler = std::make_unique<file_space_handler_t>(mock_space_provider(*this), ctx);
+      space_handler = std::make_unique<file_space_handler_t>(mock_space_provider(*this));
 
       test_absolute = true;
       bool second = test_threshold_common_(available, dev, warning_threshold);
