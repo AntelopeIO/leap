@@ -40,7 +40,7 @@ namespace eosio {
 class resource_monitor_plugin_impl {
 public:
    resource_monitor_plugin_impl()
-      :space_handler(system_file_space_provider(), ctx)
+      :space_handler(system_file_space_provider())
       {
       }
 
@@ -112,42 +112,14 @@ public:
    
    // Start main thread
    void plugin_startup() {
-      ilog("Creating and starting monitor thread");
-   
-      // By now all plugins are initialized.
-      // Find out filesystems containing the directories requested
-      // so far.
-      for ( auto& dir: directories_registered ) {
-         space_handler.add_file_system( dir );
-   
-         // A directory like "data" contains subdirectories like
-         // "block". Those subdirectories can mount on different
-         // file systems. Make sure they are taken care of.
-         for (bfs::directory_iterator itr(dir); itr != bfs::directory_iterator(); ++itr) {
-            if (fc::is_directory(itr->path())) {
-               space_handler.add_file_system( itr->path() );
-            }
-         }
-      }
-   
-      monitor_thread = std::thread( [this] {
-         fc::set_os_thread_name( "resmon" ); // console_appender uses 9 chars for thread name reporting. 
-         space_handler.space_monitor_loop();
-   
-         ctx.run();
-      } );
+      space_handler.start(directories_registered);
    }
    
    // System is shutting down.
    void plugin_shutdown() {
-      ilog("shutdown...");
-   
-      ctx.stop();
-   
-      // Wait for the thread to end
-      monitor_thread.join();
-   
-      ilog("exit shutdown");
+      ilog("entered shutdown...");
+      space_handler.stop();
+      ilog("exiting shutdown");
    }
 
    void monitor_directory(const bfs::path& path) {
@@ -171,8 +143,6 @@ private:
    static constexpr uint32_t def_monitor_warning_interval = 30; // After this number of monitor intervals, warning is output if the threshold is hit
    static constexpr uint32_t warning_interval_min = 1;
    static constexpr uint32_t warning_interval_max = 450; // e.g. if the monitor interval is 2 sec, the warning interval is at most 15 minutes
-
-   boost::asio::io_context   ctx;
 
    using file_space_handler_t = file_space_handler<system_file_space_provider>;
    file_space_handler_t space_handler;
