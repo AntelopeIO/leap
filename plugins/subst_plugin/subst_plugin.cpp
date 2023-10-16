@@ -261,6 +261,15 @@ namespace eosio {
 
             my->db = &control.mutable_db();
 
+            control.post_db_initialize = [this]() {
+                // increase max_pages to 64Mb
+                // 1024 x 64Kb pages
+                auto db = this->my->db;
+                db->modify(db->get<chain::global_property_object>(), [&](auto& gp) {
+                    gp.wasm_configuration.max_pages = 1024;
+                });
+            };
+
             my->app_options = options;
 
             ilog("installed substitution hook");

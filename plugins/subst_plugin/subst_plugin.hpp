@@ -16,7 +16,7 @@
 #include <eosio/chain/contract_types.hpp>
 #include <eosio/chain/transaction_context.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
-
+#include <eosio/chain/global_property_object.hpp>
 
 namespace http = boost::beast::http;
 

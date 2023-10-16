@@ -1123,6 +1123,8 @@ struct controller_impl {
                                                                              false,
                                                                              genesis.initial_timestamp );
 
+      if (self.post_db_initialize)
+          self.post_db_initialize();
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
