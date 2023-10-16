@@ -900,8 +900,8 @@ class state_history_log {
       fc::path log_file_path = log.get_file_path();
       fc::path index_file_path = index.get_file_path();
 
-      fc::datastream<fc::cfile>  new_log_file;
-      fc::datastream<fc::cfile> new_index_file;
+      fc::cfile new_log_file;
+      fc::cfile new_index_file;
 
       fc::path tmp_log_file_path = log_file_path;
       tmp_log_file_path.replace_extension("log.tmp");
@@ -914,13 +914,14 @@ class state_history_log {
       try {
          new_log_file.open(fc::cfile::truncate_rw_mode);
          new_index_file.open(fc::cfile::truncate_rw_mode);
-
       } catch (...) {
          wlog("Unable to open new state history log or index file for writing during log spliting, "
               "continue writing to existing block log file\n");
          return;
       }
 
+      new_log_file.close();
+      new_index_file.close();
       index.close();
       log.close();
 
@@ -937,6 +938,10 @@ class state_history_log {
 
       log.set_file_path(log_file_path);
       index.set_file_path(index_file_path);
+
+      log.open(fc::cfile::update_rw_mode);
+      log.seek_end(0);
+      index.open(fc::cfile::create_or_update_rw_mode);
    }
 }; // state_history_log
 
