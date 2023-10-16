@@ -34,7 +34,7 @@ namespace eosio::resource_monitor {
 
          thread_pool.start(thread_pool_size,
             []( const fc::exception& e ) {
-              elog("Exception in read-only thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+              elog("Exception in resource monitor plugin thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
               appbase::app().quit(); },
             [&]() { space_monitor_loop(); }
          );
@@ -42,11 +42,9 @@ namespace eosio::resource_monitor {
 
       // called on main thread from plugin shutdown()
       void stop() {
-         {
-            std::lock_guard<std::mutex> g( timer_mtx );
-            boost::system::error_code ec;
-            timer.cancel(ec);
-         }
+         // After thread pool stops, timer is not accessible within it.
+         // In addition, timer's destructor will call cancel.
+         // Therefore, no need to call cancel explicitly.
          thread_pool.stop();
       }
 
@@ -162,6 +160,7 @@ namespace eosio::resource_monitor {
               ("path_name", path_name.string())("shutdown_available", to_gib(shutdown_available)) ("capacity", to_gib(info.capacity))("threshold_desc", threshold_desc()) );
       }
 
+   // on resmon thread
    void space_monitor_loop() {
       if ( is_threshold_exceeded() && shutdown_on_exceeded ) {
          elog("Gracefully shutting down, exceeded file system configured threshold.");
@@ -171,15 +170,16 @@ namespace eosio::resource_monitor {
       update_warning_interval_counter();
 
       {
-         std::lock_guard<std::mutex> g( timer_mtx );
          timer.expires_from_now( boost::posix_time::seconds( sleep_time_in_secs ));
          timer.async_wait([this](auto& ec) {
             if ( ec ) {
-               if ( ec != boost::asio::error::operation_aborted ) { // not cancelled
-                  wlog("Exit due to error: ${ec}, message: ${message}",
-                      ("ec", ec.value())
-                      ("message", ec.message()));
-               }
+               // No need to check if ec is operation_aborted (cancelled),
+               // as cancel callback will never be make it here after thread_pool
+               // is stopped, even though cancel is called in the timer's
+               // destructor.
+               wlog("Exit due to error: ${ec}, message: ${message}",
+                    ("ec", ec.value())
+                    ("message", ec.message()));
                return;
             } else {
                // Loop over
@@ -195,7 +195,6 @@ namespace eosio::resource_monitor {
       static constexpr size_t thread_pool_size = 1;
       eosio::chain::named_thread_pool<struct resmon> thread_pool;
 
-      std::mutex                  timer_mtx;
       boost::asio::deadline_timer timer {thread_pool.get_executor()};
 
       uint32_t sleep_time_in_secs {2};
