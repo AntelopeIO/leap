@@ -179,9 +179,11 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
    chain.produce_blocks(1);
    validator.push_block(accepted_bsp->block);
 
-   auto trace_ptr = chain.create_account("hello"_n);
-   chain.produce_block();
+   chain.create_account("hello"_n);
+   auto produced_block = chain.produce_block();
    validator.push_block(accepted_bsp->block);
+   BOOST_CHECK(produced_block->calculate_id() == accepted_bsp->id);
+   BOOST_CHECK(accepted_bsp->id == validated_bsp->id);
 
 } FC_LOG_AND_RETHROW()
 
