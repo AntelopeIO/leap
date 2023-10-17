@@ -243,31 +243,31 @@ code_cache_base::code_cache_base(const boost::filesystem::path data_dir, const e
       created_file = true;
    };
 
+   code_cache_header cache_header;
+   auto check_code_cache = [&] {
+      char header_buff[total_header_size];
+      std::ifstream hs(_cache_file_path.generic_string(), std::ifstream::binary);
+      hs.read(header_buff, sizeof(header_buff));
+      EOS_ASSERT(!hs.fail(), bad_database_version_exception, "failed to read code cache header");
+      memcpy((char*)&cache_header, header_buff + header_offset, sizeof(cache_header));
+
+      EOS_ASSERT(cache_header.id == header_id, bad_database_version_exception, "existing EOS VM OC code cache not compatible with this version");
+      EOS_ASSERT(!cache_header.dirty, database_exception, "code cache is dirty");
+   };
+
    if (!bfs::exists(_cache_file_path)) {
       create_code_cache_file();
    }
 
-   code_cache_header cache_header;
-   while (true) {
-      try {
-         {
-            char header_buff[total_header_size];
-            std::ifstream hs(_cache_file_path.generic_string(), std::ifstream::binary);
-            hs.read(header_buff, sizeof(header_buff));
-            EOS_ASSERT(!hs.fail(), bad_database_version_exception, "failed to read code cache header");
-            memcpy((char*)&cache_header, header_buff + header_offset, sizeof(cache_header));
-         }
+   try {
+      check_code_cache();
+   } catch (const fc::exception&) {
+      if (created_file)
+         throw;
 
-         EOS_ASSERT(cache_header.id == header_id, bad_database_version_exception, "existing EOS VM OC code cache not compatible with this version");
-         EOS_ASSERT(!cache_header.dirty, database_exception, "code cache is dirty");
-         break;
-      } catch (const fc::exception&) {
-         if (created_file)
-            throw;
-
-         ilog("EOS VM optimized Compiler code cache corrupt, recreating");
-         create_code_cache_file();
-      }
+      ilog("EOS VM optimized Compiler code cache corrupt, recreating");
+      create_code_cache_file();
+      check_code_cache();
    }
 
    set_on_disk_region_dirty(true);
