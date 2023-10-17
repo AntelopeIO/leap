@@ -739,6 +739,9 @@ struct controller_impl {
 
       replay( check_shutdown ); // replay any irreversible and reversible blocks ahead of current head
 
+      if (self.post_db_initialize)
+          self.post_db_initialize();
+
       if( check_shutdown() ) return;
 
       // At this point head != nullptr && fork_db.head() != nullptr && fork_db.root() != nullptr.
@@ -1122,9 +1125,6 @@ struct controller_impl {
                                                                              active_producers_authority,
                                                                              false,
                                                                              genesis.initial_timestamp );
-
-      if (self.post_db_initialize)
-          self.post_db_initialize();
    }
 
    // The returned scoped_exit should not exceed the lifetime of the pending which existed when make_block_restore_point was called.
