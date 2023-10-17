@@ -1,12 +1,12 @@
 add_subdirectory( secp256k1 )
 add_subdirectory( libraries/bn256/src )
 add_subdirectory( libraries/bls12-381 )
+add_subdirectory( libraries/boringssl )
 
 set(CMAKE_THREAD_PREFER_PTHREAD TRUE)
 set(THREADS_PREFER_PTHREAD_FLAG TRUE)
 find_package(Threads)
 
-find_package(OpenSSL REQUIRED)
 
 set( fc_sources
      src/uint128.cpp
@@ -70,19 +70,6 @@ file( GLOB_RECURSE fc_headers ${CMAKE_CURRENT_SOURCE_DIR} *.hpp *.h )
 
 add_library(fc ${fc_sources} ${fc_headers})
 
-# Yuck: newer CMake files from boost iostreams will effectively target_link_libraries(Boost::iostreams z;bz2;lzma;zstd)
-#  without first "finding" those libraries. This resolves to simple -lz -lbz2 etc: it'll look for those libraries in the linker's
-#  library search path. This is most problematic on macOS where something like libzstd isn't in the standard search path. Historically
-#  fc would just "-L/usr/local/lib" as a heavy handed way to make sure something like -lzstd can be found in brew's library path. But
-#  that isn't sufficient for something like ARM homebrew. Let's just "null" these libraries out since we're already linking to zlib
-#  explicitly anyways via a proper find_package(ZLIB) below.
-if(APPLE)
-  add_library(z INTERFACE)
-  add_library(bz2 INTERFACE)
-  add_library(lzma INTERFACE)
-  add_library(zstd INTERFACE)
-endif()
-
 find_path(GMP_INCLUDE_DIR NAMES gmp.h)
 find_library(GMP_LIBRARY gmp)
 if(NOT GMP_LIBRARY MATCHES ${CMAKE_SHARED_LIBRARY_SUFFIX})
@@ -118,11 +105,7 @@ if(APPLE)
 endif()
 target_link_libraries( fc PUBLIC Boost::date_time Boost::chrono Boost::iostreams Boost::interprocess Boost::multi_index Boost::dll
                                  Boost::multiprecision Boost::beast Boost::asio Boost::thread Boost::unit_test_framework Threads::Threads
-                                 OpenSSL::Crypto ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 bls12-381 ${security_framework} ${corefoundation_framework})
-
-# Critically, this ensures that OpenSSL 1.1 & 3.0 both have a variant of BN_zero() with void return value. But it also allows access
-#  to some obsoleted AES functions in 3.0 too, since 3.0's API_COMPAT is effectively 3.0 by default
-target_compile_definitions(fc PUBLIC "OPENSSL_API_COMPAT=0x10100000L" "OPENSSL_NO_DEPRECATED")
+                                 boringssl ZLIB::ZLIB ${PLATFORM_SPECIFIC_LIBS} ${CMAKE_DL_LIBS} secp256k1 bls12-381 ${security_framework} ${corefoundation_framework})
 
 add_subdirectory( test )
 

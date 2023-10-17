@@ -256,6 +256,9 @@ class Utils:
                 if reporter is not None:
                     reporter()
                 time.sleep(sleepTime)
+            else:
+                if timeout == 60:
+                    raise RuntimeError('waitForObj reached 60 second timeout')
         finally:
             if needsNewLine:
                 Utils.Print()
@@ -612,4 +615,4 @@ class Utils:
 
     @staticmethod
     def getNodeosVersion():
-        return os.popen(f"{Utils.EosServerPath} --version").read().replace("\n", "")
+        return os.popen(f"{Utils.EosServerPath} --full-version").read().replace("\n", "")

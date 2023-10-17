@@ -135,7 +135,7 @@ inline void pack( instruction_stream* stream, branchtabletype field ) {
 template <typename Field>
 struct field_specific_params {
    static constexpr int skip_ahead = sizeof(uint16_t) + sizeof(Field);
-   static auto unpack( char* opcode, Field& f ) { f = *reinterpret_cast<Field*>(opcode); }
+   static auto unpack( char* opcode, Field& f ) { memcpy(&f, opcode, sizeof(f)); }
    static void pack(instruction_stream* stream, Field& f) { return eosio::chain::wasm_ops::pack(stream, f); }
    static auto to_string(Field& f) { return std::string(" ")+
                                        eosio::chain::wasm_ops::to_string(f); }
@@ -664,7 +664,8 @@ struct EOSIO_OperatorDecoderStream
 
    instr* decodeOp() {
       EOS_ASSERT(nextByte + sizeof(IR::Opcode) <= end, wasm_exception, "");
-      IR::Opcode opcode = *(IR::Opcode*)nextByte;  
+      IR::Opcode opcode;
+      memcpy(&opcode, nextByte, sizeof(opcode));
       switch(opcode)
       {
       #define VISIT_OPCODE(opcode,name,nameString,Imm,...) \

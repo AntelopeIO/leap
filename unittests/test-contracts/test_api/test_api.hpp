@@ -93,6 +93,7 @@ struct test_print {
 
 struct test_action {
    static void read_action_normal();
+   static void read_action();
    static void read_action_to_0();
    static void read_action_to_64k();
    static void test_dummy_action();
@@ -202,6 +203,8 @@ struct test_transaction {
    static void send_action_max();
    static void send_action_large();
    static void send_action_4k();
+   static void send_action_512k();
+   static void send_many_actions_512k();
    static void send_action_recurse();
    static void send_action_inline_fail();
    static void test_read_transaction();

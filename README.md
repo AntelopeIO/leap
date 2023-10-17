@@ -47,7 +47,6 @@ Requirements to build:
 - CMake 3.16+
 - LLVM 7 - 11 - for Linux only
   - newer versions do not work
-- openssl 1.1+
 - libcurl 7.40.0+
 - git
 - GMP
@@ -94,7 +93,7 @@ git submodule update --init --recursive
 Select build instructions below for a [pinned build](#pinned-build) (preferred) or an [unpinned build](#unpinned-build).
 
 > ℹ️ **Pinned vs. Unpinned Build** ℹ️  
-We have two types of builds for Leap: "pinned" and "unpinned." The only difference is that pinned builds use specific versions for some dependencies hand-picked by the Leap engineers - they are "pinned" to those versions. In contrast, unpinned builds use the default dependency versions available on the build system at the time. We recommend performing a "pinned" build to ensure the compiler remains the same between builds of different Leap versions. Leap requires these versions to remain the same, otherwise its state might need to be recovered from a portable snapshot or the chain needs to be replayed.
+We have two types of builds for Leap: "pinned" and "unpinned." A pinned build is a reproducible build with the build environment and dependency versions fixed by the development team. In contrast, unpinned builds use the dependency versions provided by the build platform. Unpinned builds tend to be quicker because the pinned build environment must be built from scratch. Pinned builds, in addition to being reproducible, ensure the compiler remains the same between builds of different Leap major versions. Leap requires the compiler version to remain the same, otherwise its state might need to be recovered from a portable snapshot or the chain needs to be replayed.
 
 > ⚠️ **A Warning On Parallel Compilation Jobs (`-j` flag)** ⚠️  
 When building C/C++ software, often the build is performed in parallel via a command such as `make -j "$(nproc)"` which uses all available CPU threads. However, be aware that some compilation units (`*.cpp` files) in Leap will consume nearly 4GB of memory. Failures due to memory exhaustion will typically, but not always, manifest as compiler crashes. Using all available CPU threads may also prevent you from doing other things on your computer during compilation. For these reasons, consider reducing this value.
@@ -102,24 +101,15 @@ When building C/C++ software, often the build is performed in parallel via a com
 > 🐋 **Docker and `sudo`** 🐋  
 If you are in an Ubuntu docker container, omit `sudo` from all commands because you run as `root` by default. Most other docker containers also exclude `sudo`, especially Debian-family containers. If your shell prompt is a hash tag (`#`), omit `sudo`.
 
-#### Pinned Build
-Make sure you are in the root of the `leap` repo, then run the `install_depts.sh` script to install dependencies:
+#### Pinned Reproducible Build
+The pinned reproducible build requires Docker. Make sure you are in the root of the `leap` repo and then run
 ```bash
-sudo scripts/install_deps.sh
+DOCKER_BUILDKIT=1 docker build -f tools/reproducible.Dockerfile -o . .
 ```
-
-Next, run the pinned build script. You have to give it three arguments in the following order:
-1. A temporary folder, for all dependencies that need to be built from source.
-1. A build folder, where the binaries you need to install will be built to.
-1. The number of jobs or CPU cores/threads to use (note the [jobs flag](#step-3---build) warning above).
-
-> 🔒 You do not need to run this script with `sudo` or as root.
-
-For example, the following command runs the `pinned_build.sh` script, specifies a `deps` and `build` folder in the root of the Leap repo for the first two arguments, then builds the packages using all of your computer's CPU threads:
+This command will take a substantial amount of time because a toolchain is built from scratch. Upon completion, the current directory will contain a built `.deb` and `.tar.gz` (you can change the `-o .` argument to place the output in a different directory). If needing to reduce the number of parallel jobs as warned above, run the command as,
 ```bash
-scripts/pinned_build.sh deps build "$(nproc)"
+DOCKER_BUILDKIT=1 docker build --build-arg LEAP_BUILD_JOBS=4 -f tools/reproducible.Dockerfile -o . .
 ```
-Now you can optionally [test](#step-4---test) your build, or [install](#step-5---install) the `*.deb` binary packages, which will be in the root of your build directory.
 
 #### Unpinned Build
 The following instructions are valid for this branch. Other release branches may have different requirements, so ensure you follow the directions in the branch or release you intend to build. If you are in an Ubuntu docker container, omit `sudo` because you run as `root` by default.
@@ -133,7 +123,6 @@ sudo apt-get install -y \
         git \
         libcurl4-openssl-dev \
         libgmp-dev \
-        libssl-dev \
         llvm-11-dev \
         python3-numpy \
         file \

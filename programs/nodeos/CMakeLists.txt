@@ -5,7 +5,6 @@ if( UNIX AND NOT APPLE )
 endif()
 
 configure_file(config.hpp.in config.hpp ESCAPE_QUOTES)
-configure_file(logging.json ${CMAKE_BINARY_DIR}/tests/TestHarness/logging-template.json)
 
 target_include_directories(${NODE_EXECUTABLE_NAME} PUBLIC ${CMAKE_CURRENT_BINARY_DIR})
 
