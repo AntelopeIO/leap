@@ -75,8 +75,8 @@ namespace fc { namespace ecc {
             ssl_bignum order;
             FC_ASSERT( EC_GROUP_get_order( group, order, ctx ) );
             private_key_secret bin;
-            FC_ASSERT( BN_num_bytes( order ) == static_cast<int>(bin.data_size()) );
-            FC_ASSERT( BN_bn2bin( order, (unsigned char*) bin.data() ) == static_cast<int>(bin.data_size()) );
+            FC_ASSERT( BN_num_bytes( order ) == bin.data_size() );
+            FC_ASSERT( BN_bn2bin( order, (unsigned char*) bin.data() ) == bin.data_size() );
             return bin;
         }
 
@@ -94,8 +94,8 @@ namespace fc { namespace ecc {
             FC_ASSERT( EC_GROUP_get_order( group, order, ctx ) );
             BN_rshift1( order, order );
             private_key_secret bin;
-            FC_ASSERT( BN_num_bytes( order ) == static_cast<int>(bin.data_size()) );
-            FC_ASSERT( BN_bn2bin( order, (unsigned char*) bin.data() ) == static_cast<int>(bin.data_size()) );
+            FC_ASSERT( BN_num_bytes( order ) == bin.data_size() );
+            FC_ASSERT( BN_bn2bin( order, (unsigned char*) bin.data() ) == bin.data_size() );
             return bin;
         }
 
@@ -196,21 +196,6 @@ namespace fc { namespace ecc {
        BN_bn2bin(bn, &((unsigned char*)&sec)[32-nbytes] );
        return sec;
     }
-
-    private_key private_key::generate()
-    {
-       EC_KEY* k = EC_KEY_new_by_curve_name( NID_secp256k1 );
-       if( !k ) FC_THROW_EXCEPTION( exception, "Unable to generate EC key" );
-       if( !EC_KEY_generate_key( k ) )
-       {
-          FC_THROW_EXCEPTION( exception, "ecc key generation error" );
-
-       }
-
-       return private_key( k );
-    }
-
-
 }
 
 void to_variant( const ecc::private_key& var,  variant& vo )

@@ -269,11 +269,13 @@ def scrapeTrxGenTrxSentDataLogs(trxSent: dict, trxGenLogDirPath, quiet):
     if not quiet:
         print(f"Transaction Log Files Scraped: {filesScraped}")
 
-def populateTrxSentAndAcked(trxSent: dict, trxDict: dict, notFound):
+def populateTrxSentAndAcked(trxSent: dict, data: chainData, notFound):
+    trxDict = data.trxDict
     for sentTrxId in trxSent.keys():
         if (isinstance(trxSent[sentTrxId], sentTrxExtTrace)):
             trxDict[sentTrxId] = trxData(blockNum=trxSent[sentTrxId].blockNum, cpuUsageUs=trxSent[sentTrxId].cpuUsageUs, netUsageUs=trxSent[sentTrxId].netUsageWords, blockTime=trxSent[sentTrxId].blockTime, acknowledged=trxSent[sentTrxId].acked, ackRespTimeUs=trxSent[sentTrxId].ackResponseTimeUs)
             trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId].sentTime
+            data.blockDict[str(trxSent[sentTrxId].blockNum)].transactions +=1
         elif sentTrxId in trxDict.keys():
             trxDict[sentTrxId].sentTimestamp = trxSent[sentTrxId].sentTime
             trxDict[sentTrxId].acknowledged = trxSent[sentTrxId].acked
@@ -493,7 +495,7 @@ def analyzeLogResults(data: chainData, tpsTestConfig: TpsTestConfig, artifacts: 
     trxAckStatsApplicable="NOT APPLICABLE" if list(trxSent.values())[0].acked == "NA" else "APPLICABLE"
 
     notFound = []
-    populateTrxSentAndAcked(trxSent, data.trxDict, notFound)
+    populateTrxSentAndAcked(trxSent, data, notFound)
 
     prodDict = {}
     getProductionWindows(prodDict, data)

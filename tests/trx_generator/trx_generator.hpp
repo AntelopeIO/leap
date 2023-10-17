@@ -2,7 +2,6 @@
 #include <trx_provider.hpp>
 #include <string>
 #include <vector>
-#include <boost/program_options.hpp>
 #include <eosio/chain/transaction.hpp>
 #include <eosio/chain/asset.hpp>
 #include <eosio/chain/abi_serializer.hpp>

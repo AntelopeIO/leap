@@ -179,8 +179,8 @@ namespace eosio { namespace testing {
      return control->head_block_id() == other.control->head_block_id();
    }
 
-   void base_tester::init(const setup_policy policy, db_read_mode read_mode, std::optional<uint32_t> genesis_max_inline_action_size, std::optional<uint32_t> config_max_nonprivileged_inline_action_size) {
-      auto def_conf = default_config(tempdir, genesis_max_inline_action_size, config_max_nonprivileged_inline_action_size);
+   void base_tester::init(const setup_policy policy, db_read_mode read_mode, std::optional<uint32_t> genesis_max_inline_action_size) {
+      auto def_conf = default_config(tempdir, genesis_max_inline_action_size);
       def_conf.first.read_mode = read_mode;
       cfg = def_conf.first;
 
@@ -265,11 +265,16 @@ namespace eosio { namespace testing {
             set_bios_contract();
             break;
          }
-         case setup_policy::full: {
+         case setup_policy::full:
+         case setup_policy::full_except_do_not_disable_deferred_trx: {
             schedule_preactivate_protocol_feature();
             produce_block();
             set_before_producer_authority_bios_contract();
-            preactivate_all_builtin_protocol_features();
+            if( policy == setup_policy::full ) {
+               preactivate_all_builtin_protocol_features();
+            } else {
+               preactivate_all_but_disable_deferred_trx();
+            }
             produce_block();
             set_bios_contract();
             break;
@@ -1184,20 +1189,7 @@ namespace eosio { namespace testing {
       }
    }
 
-   void base_tester::preactivate_builtin_protocol_features(const std::vector<builtin_protocol_feature_t>& builtin_features) {
-      const auto& pfs = control->get_protocol_feature_manager().get_protocol_feature_set();
-
-      // This behavior is disabled by configurable_wasm_limits
-      std::vector<digest_type> features;
-      for(builtin_protocol_feature_t feature : builtin_features ) {
-         if( auto digest = pfs.get_builtin_digest( feature ) ) {
-            features.push_back( *digest );
-         }
-      }
-      preactivate_protocol_features(features);
-   }
-
-   void base_tester::preactivate_all_builtin_protocol_features() {
+   void base_tester::preactivate_builtin_protocol_features(const std::vector<builtin_protocol_feature_t>& builtins) {
       const auto& pfm = control->get_protocol_feature_manager();
       const auto& pfs = pfm.get_protocol_feature_set();
       const auto current_block_num  =  control->head_block_num() + (control->is_building_block() ? 1 : 0);
@@ -1225,18 +1217,49 @@ namespace eosio { namespace testing {
          preactivations.emplace_back( feature_digest );
       };
 
-      std::vector<builtin_protocol_feature_t> ordered_builtins;
-      for( const auto& f : builtin_protocol_feature_codenames ) {
-         ordered_builtins.push_back( f.first );
-      }
-      std::sort( ordered_builtins.begin(), ordered_builtins.end() );
-      for( const auto& f : ordered_builtins ) {
+      for( const auto& f : builtins ) {
          auto digest = pfs.get_builtin_digest( f);
          if( !digest ) continue;
          add_digests( *digest );
       }
 
       preactivate_protocol_features( preactivations );
+   }
+
+   std::vector<builtin_protocol_feature_t> base_tester::get_all_builtin_protocol_features() {
+      std::vector<builtin_protocol_feature_t> builtins;
+      for( const auto& f : builtin_protocol_feature_codenames ) {
+         builtins.push_back( f.first );
+      }
+
+      // Sorting is here to ensure a consistent order across platforms given that it is
+      // pulling the items from an std::unordered_map. This order is important because
+      // it impacts the block IDs generated and written out to logs for some tests such
+      // as the deep-mind tests.
+      std::sort( builtins.begin(), builtins.end() );
+
+      return builtins;
+   }
+
+   void base_tester::preactivate_all_builtin_protocol_features() {
+      preactivate_builtin_protocol_features( get_all_builtin_protocol_features() );
+   }
+
+   void base_tester::preactivate_all_but_disable_deferred_trx() {
+      std::vector<builtin_protocol_feature_t> builtins;
+      for( const auto& f : get_all_builtin_protocol_features() ) {
+         // Before deferred trxs feature is fully disabled, existing tests involving
+         // deferred trxs need to be exercised to make sure existing behaviors are
+         // maintained. Excluding DISABLE_DEFERRED_TRXS_STAGE_1 and DISABLE_DEFERRED_TRXS_STAGE_2
+         // from full protocol feature list such that existing tests can run.
+         if( f ==  builtin_protocol_feature_t::disable_deferred_trxs_stage_1 || f  == builtin_protocol_feature_t::disable_deferred_trxs_stage_2 ) {
+            continue;
+         }
+
+         builtins.push_back( f );
+      }
+
+      preactivate_builtin_protocol_features( builtins );
    }
 
    tester::tester(const std::function<void(controller&)>& control_setup, setup_policy policy, db_read_mode read_mode) {
