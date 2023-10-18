@@ -578,19 +578,14 @@ class state_history_log {
          if (block_num >= _begin_block && block_num < _end_block) {
             state_history_log_header header;
             get_entry(block_num, header);
-            if (chain::block_header::num_from_id(header.block_id) != block_num) { // entry does not match requested block num
-               elog("id does not match requested ${a} != ${b}", ("a", chain::block_header::num_from_id(header.block_id))("b", block_num));
-               assert(false);
-            }
+            EOS_ASSERT(chain::block_header::num_from_id(header.block_id) == block_num, chain::plugin_exception,
+                       "header id does not match requested ${a} != ${b}", ("a", chain::block_header::num_from_id(header.block_id))("b", block_num));
             return header.block_id;
          }
          return {};
       }
-      if (chain::block_header::num_from_id(*result) != block_num) { // catalog failed to fetch correct block id
-         elog("id does not match requested ${a} != ${b}", ("a", chain::block_header::num_from_id(*result))("b", block_num));
-         assert(false);
-      }
-
+      EOS_ASSERT(chain::block_header::num_from_id(*result) == block_num, chain::plugin_exception,
+                 "catalog id does not match requested ${a} != ${b}", ("a", chain::block_header::num_from_id(*result))("b", block_num));
       return result;
    }
 
