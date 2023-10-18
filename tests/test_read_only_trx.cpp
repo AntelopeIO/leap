@@ -204,6 +204,9 @@ BOOST_AUTO_TEST_CASE(with_3_read_only_threads) {
 BOOST_AUTO_TEST_CASE(with_3_read_only_threads_no_tierup) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
                                              "--read-only-threads=3",
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
+                                             "--eos-vm-oc-enable=none",
+#endif
                                              "--max-transaction-time=10",
                                              "--abi-serializer-max-time-ms=999",
                                              "--read-only-write-window-time-us=100000",
@@ -215,7 +218,6 @@ BOOST_AUTO_TEST_CASE(with_3_read_only_threads_no_tierup) {
 BOOST_AUTO_TEST_CASE(with_8_read_only_threads) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
                                               "--read-only-threads=8",
-                                              "--eos-vm-oc-enable=none",
                                               "--max-transaction-time=10",
                                               "--abi-serializer-max-time-ms=999",
                                               "--read-only-write-window-time-us=10000",
@@ -227,7 +229,9 @@ BOOST_AUTO_TEST_CASE(with_8_read_only_threads) {
 BOOST_AUTO_TEST_CASE(with_8_read_only_threads_no_tierup) {
    std::vector<const char*> specific_args = { "-p", "eosio", "-e",
                                              "--read-only-threads=8",
+#ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
                                              "--eos-vm-oc-enable=none",
+#endif
                                              "--max-transaction-time=10",
                                              "--abi-serializer-max-time-ms=999",
                                              "--read-only-write-window-time-us=10000",
