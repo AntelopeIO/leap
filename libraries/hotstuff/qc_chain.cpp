@@ -988,11 +988,8 @@ namespace eosio::hotstuff {
    void qc_chain::gc_proposals(uint64_t cutoff){
       //fc_tlog(_logger, " === garbage collection on old data");
 
-      auto sv_end_itr = _seen_votes_store.get<by_seen_votes_proposal_height>().upper_bound(cutoff);
-      while (_seen_votes_store.get<by_seen_votes_proposal_height>().begin() != sv_end_itr){
-         auto itr = _seen_votes_store.get<by_seen_votes_proposal_height>().begin();
-         _seen_votes_store.get<by_seen_votes_proposal_height>().erase(itr);
-      }
+      auto& seen_votes_index = _seen_votes_store.get<by_seen_votes_proposal_height>();
+      seen_votes_index.erase(seen_votes_index.begin(), seen_votes_index.upper_bound(cutoff));
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       ps_height_iterator psh_it = _proposal_stores_by_height.begin();
