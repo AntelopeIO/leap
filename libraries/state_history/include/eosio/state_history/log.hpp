@@ -905,32 +905,6 @@ class state_history_log {
    }
 
    void split_log() {
-
-      fc::path log_file_path = log.get_file_path();
-      fc::path index_file_path = index.get_file_path();
-
-      fc::cfile new_log_file;
-      fc::cfile new_index_file;
-
-      fc::path tmp_log_file_path = log_file_path;
-      tmp_log_file_path.replace_extension("log.tmp");
-      fc::path tmp_index_file_path = index_file_path;
-      tmp_index_file_path.replace_extension("index.tmp");
-
-      new_log_file.set_file_path(tmp_log_file_path);
-      new_index_file.set_file_path(tmp_index_file_path);
-
-      try {
-         new_log_file.open(fc::cfile::truncate_rw_mode);
-         new_index_file.open(fc::cfile::truncate_rw_mode);
-      } catch (...) {
-         wlog("Unable to open new state history log or index file for writing during log spliting, "
-              "continue writing to existing block log file\n");
-         return;
-      }
-
-      new_log_file.close();
-      new_index_file.close();
       index.close();
       log.close();
 
@@ -938,19 +912,9 @@ class state_history_log {
 
       _index_begin_block = _begin_block = _end_block;
 
-      using std::swap;
-      swap(new_log_file, log);
-      swap(new_index_file, index);
-
-      fc::rename(tmp_log_file_path, log_file_path);
-      fc::rename(tmp_index_file_path, index_file_path);
-
-      log.set_file_path(log_file_path);
-      index.set_file_path(index_file_path);
-
-      log.open(fc::cfile::update_rw_mode);
+      log.open(fc::cfile::truncate_rw_mode);
       log.seek_end(0);
-      index.open(fc::cfile::create_or_update_rw_mode);
+      index.open(fc::cfile::truncate_rw_mode);
    }
 }; // state_history_log
 
