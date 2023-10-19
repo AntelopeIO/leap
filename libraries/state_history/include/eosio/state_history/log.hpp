@@ -74,9 +74,10 @@ struct state_history_log_header {
    chain::block_id_type block_id     = {};
    uint64_t             payload_size = 0;
 };
-static const int state_history_log_header_serial_size = sizeof(state_history_log_header::magic) +
-                                                        sizeof(state_history_log_header::block_id) +
-                                                        sizeof(state_history_log_header::payload_size);
+static constexpr int state_history_log_header_serial_size = sizeof(state_history_log_header::magic) +
+                                                            sizeof(state_history_log_header::block_id) +
+                                                            sizeof(state_history_log_header::payload_size);
+static_assert(sizeof(state_history_log_header) == state_history_log_header_serial_size);
 
 namespace state_history {
    struct prune_config {
@@ -324,7 +325,7 @@ class state_history_log {
             catalog.open(log_dir, conf.retained_dir, conf.archive_dir, name);
             catalog.max_retained_files = conf.max_retained_files;
             if (_end_block == 0) {
-               _begin_block = _end_block = catalog.last_block_num() +1;
+               _index_begin_block = _begin_block = _end_block = catalog.last_block_num() +1;
             }
          }
       }, _config);
@@ -577,10 +578,14 @@ class state_history_log {
          if (block_num >= _begin_block && block_num < _end_block) {
             state_history_log_header header;
             get_entry(block_num, header);
+            EOS_ASSERT(chain::block_header::num_from_id(header.block_id) == block_num, chain::plugin_exception,
+                       "header id does not match requested ${a} != ${b}", ("a", chain::block_header::num_from_id(header.block_id))("b", block_num));
             return header.block_id;
          }
          return {};
       }
+      EOS_ASSERT(chain::block_header::num_from_id(*result) == block_num, chain::plugin_exception,
+                 "catalog id does not match requested ${a} != ${b}", ("a", chain::block_header::num_from_id(*result))("b", block_num));
       return result;
    }
 
@@ -895,47 +900,16 @@ class state_history_log {
    }
 
    void split_log() {
-
-      fc::path log_file_path = log.get_file_path();
-      fc::path index_file_path = index.get_file_path();
-
-      fc::datastream<fc::cfile>  new_log_file;
-      fc::datastream<fc::cfile> new_index_file;
-
-      fc::path tmp_log_file_path = log_file_path;
-      tmp_log_file_path.replace_extension("log.tmp");
-      fc::path tmp_index_file_path = index_file_path;
-      tmp_index_file_path.replace_extension("index.tmp");
-
-      new_log_file.set_file_path(tmp_log_file_path);
-      new_index_file.set_file_path(tmp_index_file_path);
-
-      try {
-         new_log_file.open(fc::cfile::truncate_rw_mode);
-         new_index_file.open(fc::cfile::truncate_rw_mode);
-
-      } catch (...) {
-         wlog("Unable to open new state history log or index file for writing during log spliting, "
-              "continue writing to existing block log file\n");
-         return;
-      }
-
       index.close();
       log.close();
 
       catalog.add(_begin_block, _end_block - 1, log.get_file_path().parent_path(), name);
 
-      _begin_block = _end_block;
+      _index_begin_block = _begin_block = _end_block;
 
-      using std::swap;
-      swap(new_log_file, log);
-      swap(new_index_file, index);
-
-      fc::rename(tmp_log_file_path, log_file_path);
-      fc::rename(tmp_index_file_path, index_file_path);
-
-      log.set_file_path(log_file_path);
-      index.set_file_path(index_file_path);
+      log.open(fc::cfile::truncate_rw_mode);
+      log.seek_end(0);
+      index.open(fc::cfile::truncate_rw_mode);
    }
 }; // state_history_log
 

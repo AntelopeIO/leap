@@ -75,7 +75,6 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    uint16_t                         endpoint_port = 8080;
    string                           unix_path;
    state_history::trace_converter   trace_converter;
-   session_manager                  session_mgr;
 
    mutable std::mutex mtx;
    block_id_type head_id;
@@ -100,6 +99,8 @@ struct state_history_plugin_impl : std::enable_shared_from_this<state_history_pl
    std::set<acceptor_type>          acceptors;
 
    named_thread_pool<struct ship> thread_pool;
+
+   session_manager                  session_mgr{thread_pool.get_executor()};
 
    bool  plugin_started = false;
 
