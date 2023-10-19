@@ -25,7 +25,7 @@ jobs:
         with:
           owner: ${{github.repository_owner}}
           repo: ${{github.event.repository.name}}
-          file: leap-dev.deb
+          file: 'leap-dev.*(x86_64|amd64).deb'
           target: ${{github.sha}}
           artifact-name: leap-dev-ubuntu20-amd64
           wait-for-exact-target-workflow: true
@@ -34,7 +34,7 @@ jobs:
         with:
           owner: ${{github.repository_owner}}
           repo: ${{github.event.repository.name}}
-          file: leap-dev.deb
+          file: 'leap-dev.*(x86_64|amd64).deb'
           target: ${{github.sha}}
           artifact-name: leap-dev-ubuntu22-amd64
           wait-for-exact-target-workflow: true
