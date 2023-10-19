@@ -541,6 +541,7 @@ class state_history_log {
                     "wrote payload with incorrect size to ${name}.log", ("name", name));
       fc::raw::pack(log, pos);
 
+      index.seek_end(0);
       fc::raw::pack(index, pos);
       if (_begin_block == _end_block)
          _index_begin_block = _begin_block = block_num;
