@@ -57,11 +57,15 @@ class session_manager {
 private:
    using entry_ptr = std::unique_ptr<send_queue_entry_base>;
 
+   boost::asio::io_context& ship_io_context;
    std::set<std::shared_ptr<session_base>> session_set;
    bool sending  = false;
    std::deque<std::pair<std::shared_ptr<session_base>, entry_ptr>> send_queue;
 
 public:
+   explicit session_manager(boost::asio::io_context& ship_io_context)
+   : ship_io_context(ship_io_context) {}
+
    void insert(std::shared_ptr<session_base> s) {
       session_set.insert(std::move(s));
    }
@@ -103,8 +107,12 @@ public:
    void pop_entry(bool call_send = true) {
       send_queue.erase(send_queue.begin());
       sending = false;
-      if (call_send || !send_queue.empty())
-         send();
+      if (call_send || !send_queue.empty()) {
+         // avoid blowing the stack
+         boost::asio::post(ship_io_context, [this]() {
+            send();
+         });
+      }
    }
 
    void send_updates() {

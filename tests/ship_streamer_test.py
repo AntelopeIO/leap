@@ -70,7 +70,7 @@ try:
 
     shipNodeNum = 1
     specificExtraNodeosArgs={}
-    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --trace-history --chain-state-history --plugin eosio::net_api_plugin --plugin eosio::producer_api_plugin "
+    specificExtraNodeosArgs[shipNodeNum]="--plugin eosio::state_history_plugin --trace-history --chain-state-history --state-history-stride 200 --plugin eosio::net_api_plugin --plugin eosio::producer_api_plugin "
     # producer nodes will be mapped to 0 through totalProducerNodes-1, so the number totalProducerNodes will be the non-producing node
     specificExtraNodeosArgs[totalProducerNodes]="--plugin eosio::test_control_api_plugin  "
 
@@ -206,7 +206,7 @@ try:
         prodNode0.waitForProducer(forkAtProducer)
         prodNode1.waitForProducer(prodNode1Prod)
     if nonProdNode.verifyAlive():
-        Utils.errorExit("Bridge did not shutdown");
+        Utils.errorExit("Bridge did not shutdown")
     Print("Fork started")
 
     forkProgress="defproducer" + chr(ord(forkAtProducer[-1])+3)
@@ -215,7 +215,7 @@ try:
     Print("Restore fork")
     Print("Relaunching the non-producing bridge node to connect the producing nodes again")
     if nonProdNode.verifyAlive():
-        Utils.errorExit("Bridge is already running");
+        Utils.errorExit("Bridge is already running")
     if not nonProdNode.relaunch():
         Utils.errorExit(f"Failure - (non-production) node {nonProdNode.nodeNum} should have restarted")
 
