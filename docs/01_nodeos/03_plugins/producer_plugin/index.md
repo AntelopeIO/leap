@@ -72,20 +72,9 @@ Config Options for eosio::producer_plugin:
                                         can extend during low usage (only
                                         enforced subjectively; use 1000 to not
                                         enforce any limit)
-  --produce-time-offset-us arg (=0)     Offset of non last block producing time
-                                        in microseconds. Valid range 0 ..
-                                        -block_time_interval.
-  --last-block-time-offset-us arg (=-200000)
-                                        Offset of last block producing time in
-                                        microseconds. Valid range 0 ..
-                                        -block_time_interval.
-  --cpu-effort-percent arg (=80)        Percentage of cpu block production time
-                                        used to produce block. Whole number
-                                        percentages, e.g. 80 for 80%
-  --last-block-cpu-effort-percent arg (=80)
-                                        Percentage of cpu block production time
-                                        used to produce last block. Whole
-                                        number percentages, e.g. 80 for 80%
+  --produce-block-offset-ms arg (=450)  The number of milliseconds early the
+                                        last block of a production round should
+                                        be produced.
   --max-block-cpu-usage-threshold-us arg (=5000)
                                         Threshold of CPU block production to
                                         consider block full; when within

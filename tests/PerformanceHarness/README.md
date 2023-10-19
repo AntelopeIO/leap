@@ -504,7 +504,7 @@ usage: PerformanceHarnessScenarioRunner.py findMax testBpOpMode overrideBasicTes
        [--cluster-log-lvl {all,debug,info,warn,error,off}]
        [--net-threads NET_THREADS]
        [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
-       [--cpu-effort-percent CPU_EFFORT_PERCENT]
+       [--produce-block-offset-ms PRODUCE_BLOCK_OFFSET_MS]
        [--producer-threads PRODUCER_THREADS]
        [--read-only-write-window-time-us READ_ONLY_WRITE_WINDOW_TIME_US]
        [--read-only-read-window-time-us READ_ONLY_READ_WINDOW_TIME_US]
@@ -579,8 +579,9 @@ Performance Test Basic Base:
                         Number of worker threads in net_plugin thread pool
   --disable-subjective-billing DISABLE_SUBJECTIVE_BILLING
                         Disable subjective CPU billing for API/P2P transactions
-  --cpu-effort-percent CPU_EFFORT_PERCENT
-                        Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%
+  --produce-block-offset-ms PRODUCE_BLOCK_OFFSET_MS
+                        The number of milliseconds early the last block of a production round should
+                        be produced.
   --producer-threads PRODUCER_THREADS
                         Number of worker threads in producer thread pool
   --read-only-write-window-time-us READ_ONLY_WRITE_WINDOW_TIME_US
@@ -663,7 +664,7 @@ The following classes and scripts are typically used by the Performance Harness 
                                   [--cluster-log-lvl {all,debug,info,warn,error,off}]
                                   [--net-threads NET_THREADS]
                                   [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
-                                  [--cpu-effort-percent CPU_EFFORT_PERCENT]
+                                  [--produce-block-offset-ms PRODUCE_BLOCK_OFFSET_MS]
                                   [--producer-threads PRODUCER_THREADS]
                                   [--http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS]
                                   [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
@@ -742,8 +743,9 @@ Performance Test Basic Base:
                         Number of worker threads in net_plugin thread pool (default: 4)
   --disable-subjective-billing DISABLE_SUBJECTIVE_BILLING
                         Disable subjective CPU billing for API/P2P transactions (default: True)
-  --cpu-effort-percent CPU_EFFORT_PERCENT
-                        Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80% (default: 100)
+  --produce-block-offset-ms PRODUCE_BLOCK_OFFSET_MS
+                        The number of milliseconds early the last block of a production round should
+                        be produced.
   --producer-threads PRODUCER_THREADS
                         Number of worker threads in producer thread pool (default: 2)
   --http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS
@@ -1586,9 +1588,9 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "greylistLimit": null,
         "_greylistLimitNodeosDefault": 1000,
         "_greylistLimitNodeosArg": "--greylist-limit",
-        "cpuEffortPercent": 100,
-        "_cpuEffortPercentNodeosDefault": 90,
-        "_cpuEffortPercentNodeosArg": "--cpu-effort-percent",
+        "produceBlockOffsetMs": 0,
+        "_produceBlockOffsetMsDefault": 450,
+        "_produceBlockOffsetMsArg": "--produce-block-offset-ms",
         "maxBlockCpuUsageThresholdUs": null,
         "_maxBlockCpuUsageThresholdUsNodeosDefault": 5000,
         "_maxBlockCpuUsageThresholdUsNodeosArg": "--max-block-cpu-usage-threshold-us",
@@ -2246,9 +2248,9 @@ The Performance Test Basic generates, by default, a report that details results 
         "greylistLimit": null,
         "_greylistLimitNodeosDefault": 1000,
         "_greylistLimitNodeosArg": "--greylist-limit",
-        "cpuEffortPercent": 100,
-        "_cpuEffortPercentNodeosDefault": 90,
-        "_cpuEffortPercentNodeosArg": "--cpu-effort-percent",
+        "produceBlockOffsetMs": 0,
+        "_produceBlockOffsetMsDefault": 450,
+        "_produceBlockOffsetMsArg": "--produce-block-offset-ms",
         "maxBlockCpuUsageThresholdUs": null,
         "_maxBlockCpuUsageThresholdUsNodeosDefault": 5000,
         "_maxBlockCpuUsageThresholdUsNodeosArg": "--max-block-cpu-usage-threshold-us",
