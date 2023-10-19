@@ -20,9 +20,7 @@ jobs:
       packages: write
     with:
       runs-on: '["self-hosted", "enf-x86-beefy"]'
-      platform-files: |
-        .cicd/platforms
-        tools/reproducible.Dockerfile:builder
+      platform-files: .cicd/platforms
 
   build-base:
     name: Run Build Workflow
