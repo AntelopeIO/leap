@@ -615,7 +615,8 @@ public:
    void set_produce_block_offset(uint32_t produce_block_offset_ms) {
       EOS_ASSERT(produce_block_offset_ms < (config::producer_repetitions * config::block_interval_ms), plugin_config_exception,
                  "produce-block-offset-ms ${p} must be [0 - ${max})", ("p", produce_block_offset_ms)("max", config::producer_repetitions * config::block_interval_ms));
-      _produce_block_cpu_effort = fc::milliseconds(config::block_interval_ms - produce_block_offset_ms / config::producer_repetitions );
+      _produce_block_cpu_effort = fc::milliseconds(
+              config::block_interval_ms - static_cast<int64_t>(std::ceil(produce_block_offset_ms / static_cast<double>(config::producer_repetitions))) );
    }
 
    fc::microseconds get_produce_block_offset() const {
