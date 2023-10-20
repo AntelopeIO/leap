@@ -62,7 +62,6 @@ private:
    string                           endpoint_address;
    string                           unix_path;
    state_history::trace_converter   trace_converter;
-   session_manager                  session_mgr;
 
    mutable std::mutex mtx;
    block_id_type      head_id;
@@ -70,6 +69,8 @@ private:
    time_point         head_timestamp;
 
    named_thread_pool<struct ship> thread_pool;
+
+   session_manager                  session_mgr{thread_pool.get_executor()};
 
    bool  plugin_started = false;
 
