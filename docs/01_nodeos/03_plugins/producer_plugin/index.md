@@ -72,9 +72,9 @@ Config Options for eosio::producer_plugin:
                                         can extend during low usage (only
                                         enforced subjectively; use 1000 to not
                                         enforce any limit)
-  --produce-block-offset-ms arg (=450)  The number of milliseconds early the
-                                        last block of a production round should
-                                        be produced.
+  --produce-block-offset-ms arg (=450)  The minimum time to reserve at the end
+                                        of a production round for blocks to 
+                                        propagate to the next block producer.
   --max-block-cpu-usage-threshold-us arg (=5000)
                                         Threshold of CPU block production to
                                         consider block full; when within
