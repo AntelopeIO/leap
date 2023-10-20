@@ -6,7 +6,7 @@ For simplicity of the explanation let's consider the following notations:
 
 * `r` = `producer_repetitions = 12` (hard-coded value)
 * `m` = `max_block_cpu_usage` (on-chain consensus value)
-* `n` = `max_block_net_usage` (on-chain consensus value)
+* `u` = `max_block_net_usage` (on-chain consensus value)
 * `t` = `block-time`
 * `e` = `produce-block-offset-ms` (nodeos configuration)
 * `w` = `block-time-interval = 500ms` (hard-coded value)
@@ -34,7 +34,7 @@ If `BP-A`is producing 12 blocks as follows `b(lock) at t(ime) 1`, `bt 1.5`, `bt 
 
 Please notice that the time of `bt 7` minus `.5` equals the time of `bt 6.5` therefore time `t` is the last block time of `BP-A` and when `BP-B` needs to start its first block.
 
-A block is produced and sent when either it reaches `m` or `n` or `p`. 
+A block is produced and sent when either it reaches `m` or `u` or `p`. 
 
 Starting in Leap 4.0, blocks are propagated after block header validation. This means instead of `BP-A Peer` & `BP-B Peer` taking `m` time to validate and forward a block it only takes a small number of milliseconds to verify the block header and then forward the block.
 
@@ -74,7 +74,7 @@ Starting in Leap 5.0, blocks in a round are started immediately after the comple
 * Assuming zero network latency between BP and immediate BP peer.
 * Assume all blocks are full as there are enough queued up unapplied transactions ready to fill all blocks.
 * Assume a block can be produced with 200ms worth of transactions in 225ms worth of time. There is overhead for producing the block.
-* `BP-A` has e = 120, n = 200ms, h = 10ms, a = 10ms
+* `BP-A` has e = 120, m = 200ms, n = 200ms, h = 10ms, a = 10ms
 * `BP-A` sends b1 at `t1-275s` => `BP-A-Peer` processes `h=10ms`, sends at `t-265ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t-55ms` => arrives at `BP-B` at `t-55ms`.
 * `BP-A` starts b2 at `t1-275ms`, sends b2 at `t2-550ms (t1-50ms)` => `BP-A-Peer` processes `h=10ms`, sends at `t2-540ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t2-330ms` => arrives at `BP-B` at `t2-330ms`.
 * `BP-A` starts b3 at `t2-550ms`, ...
