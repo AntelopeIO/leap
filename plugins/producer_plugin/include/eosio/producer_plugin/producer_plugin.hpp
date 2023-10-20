@@ -17,6 +17,7 @@ public:
    struct runtime_options {
       std::optional<int32_t>   max_transaction_time;
       std::optional<int32_t>   max_irreversible_block_age;
+      // minimum time to reserve at the end of a production round for blocks to propagate to the next block producer.
       std::optional<int32_t>   produce_block_offset_ms;
       std::optional<int32_t>   subjective_cpu_leeway_us;
       std::optional<uint32_t>  greylist_limit;
