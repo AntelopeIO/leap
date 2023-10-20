@@ -501,7 +501,7 @@ public:
    std::atomic<uint32_t>                             _received_block{0};       // modified by net_plugin thread pool
    fc::microseconds                                  _max_irreversible_block_age_us;
    // produce-block-offset is in terms of the complete round, internally use calculated value for each block of round
-   fc::microseconds                                  _produce_block_cpu_effort_us;
+   fc::microseconds                                  _produce_block_cpu_effort;
    fc::time_point                                    _pending_block_deadline;
    uint32_t                                          _max_block_cpu_usage_threshold_us            = 0;
    uint32_t                                          _max_block_net_usage_threshold_bytes         = 0;
@@ -615,12 +615,12 @@ public:
    void set_produce_block_offset(uint32_t produce_block_offset_ms) {
       EOS_ASSERT(produce_block_offset_ms < (config::producer_repetitions * config::block_interval_ms), plugin_config_exception,
                  "produce-block-offset-ms ${p} must be [0 - ${max})", ("p", produce_block_offset_ms)("max", config::producer_repetitions * config::block_interval_ms));
-      _produce_block_cpu_effort_us = fc::milliseconds( config::block_interval_ms - produce_block_offset_ms / config::producer_repetitions );
+      _produce_block_cpu_effort = fc::milliseconds(config::block_interval_ms - produce_block_offset_ms / config::producer_repetitions );
    }
 
    fc::microseconds get_produce_block_offset() const {
       return fc::milliseconds( (config::block_interval_ms * config::producer_repetitions) -
-                               ((_produce_block_cpu_effort_us.count()/1000) * config::producer_repetitions) );
+                               ((_produce_block_cpu_effort.count() / 1000) * config::producer_repetitions) );
    }
 
    void on_block(const block_state_ptr& bsp) {
@@ -1843,7 +1843,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
          }
       }
 
-      _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort_us, block_time);
+      _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
    } else if (!_producers.empty()) {
       // cpu effort percent doesn't matter for the first block of the round, use max (block_interval_us) for cpu effort
       auto wake_time = block_timing_util::calculate_producer_wake_up_time(fc::microseconds(config::block_interval_us), chain.head_block_num(), chain.head_block_time(),
@@ -2478,7 +2478,7 @@ void producer_plugin_impl::schedule_production_loop() {
       if (!_producers.empty() && !production_disabled_by_policy()) {
          chain::controller& chain = chain_plug->chain();
          fc_dlog(_log, "Waiting till another block is received and scheduling Speculative/Production Change");
-         auto wake_time = block_timing_util::calculate_producer_wake_up_time(_produce_block_cpu_effort_us, chain.head_block_num(), calculate_pending_block_time(),
+         auto wake_time = block_timing_util::calculate_producer_wake_up_time(_produce_block_cpu_effort, chain.head_block_num(), calculate_pending_block_time(),
                                                                              _producers, chain.head_block_state()->active_schedule.producers,
                                                                              _producer_watermarks);
          schedule_delayed_production_loop(weak_from_this(), wake_time);
@@ -2497,7 +2497,7 @@ void producer_plugin_impl::schedule_production_loop() {
       chain::controller& chain = chain_plug->chain();
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state");
-      auto wake_time = block_timing_util::calculate_producer_wake_up_time(_produce_block_cpu_effort_us, chain.pending_block_num(), chain.pending_block_timestamp(),
+      auto wake_time = block_timing_util::calculate_producer_wake_up_time(_produce_block_cpu_effort, chain.pending_block_num(), chain.pending_block_timestamp(),
                                                                           _producers, chain.head_block_state()->active_schedule.producers,
                                                                           _producer_watermarks);
       schedule_delayed_production_loop(weak_from_this(), wake_time);
@@ -2514,7 +2514,7 @@ void producer_plugin_impl::schedule_maybe_produce_block(bool exhausted) {
    assert(in_producing_mode());
    // we succeeded but block may be exhausted
    static const boost::posix_time::ptime epoch(boost::gregorian::date(1970, 1, 1));
-   auto deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort_us, chain.pending_block_time());
+   auto deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, chain.pending_block_time());
 
    if (!exhausted && deadline > fc::time_point::now()) {
       // ship this block off no later than its deadline
