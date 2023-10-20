@@ -41,7 +41,7 @@ Starting in Leap 4.0, blocks are propagated after block header validation. This 
 Starting in Leap 5.0, blocks in a round are started immediately after the completion of the previous block. Before 5.0, blocks were always started on `w` intervals and a node would "sleep" between blocks if needed. In 5.0, the "sleeps" are all moved to the end of the block production round. 
 
 ## Example 1: block arrives 110ms early
-* Assuming zero network latency between BP and immediate BP peer.
+* Assuming zero network latency between all nodes.
 * Assuming blocks do not reach `m` and therefore take `w - a` time to produce.
 * Assume block completion including signing takes zero time.
 * `BP-A` has e = 120, n = 0ms, h = 5ms, a = 10ms
@@ -51,30 +51,33 @@ Starting in Leap 5.0, blocks in a round are started immediately after the comple
 * `BP-A` starts b12 at `t11-110ms`, sends b12 at `t12-120ms` => `BP-A-Peer` processes `h=5ms`, sends at `t12-115ms` => `BP-B-Peer` processes `h=5ms`, sends at `t12-110ms` => arrives at `BP-B` at `t12-110ms`
 
 ## Example 2: block arrives 80ms early
-* Assuming zero network latency between BP and immediate BP peer.
+* Assuming zero network latency between `BP-A` & `BP-A Peer` and between `BP-B Peer` & `BP-B`.
+* Assuming 150ms network latency between `BP-A Peer` & `BP-B Peer`.
 * Assuming blocks do not reach `m` and therefore take `w - a` time to produce.
 * Assume block completion including signing takes zero time.
-* `BP-A` has e = 240, n = 150ms, h = 5ms, a = 20ms
+* `BP-A` has e = 240, n = 0ms/150ms, h = 5ms, a = 20ms
 * `BP-A` sends b1 at `t1-20ms` => `BP-A-Peer` processes `h=5ms`, sends at `t-15ms` =(150ms)> `BP-B-Peer` processes `h=5ms`, sends at `t+140ms` => arrives at `BP-B` at `t+140ms`.
 * `BP-A` starts b2 at `t1-20ms`, sends b2 at `t2-40ms` => `BP-A-Peer` processes `h=5ms`, sends at `t2-35ms` =(150ms)> `BP-B-Peer` processes `h=5ms`, sends at `t2+120ms` => arrives at `BP-B` at `t2+120ms`.
 * `BP-A` starts b3 at `t2-40ms`, ...
 * `BP-A` starts b12 at `t11-220ms`, sends b12 at `t12-240ms` => `BP-A-Peer` processes `h=5ms`, sends at `t12-235ms` =(150ms)> `BP-B-Peer` processes `h=5ms`, sends at `t12-80ms` => arrives at `BP-B` at `t12-80ms`
 
 ## Example 3: block arrives 16ms late and is dropped
-* Assuming zero network latency between BP and immediate BP peer.
+* Assuming zero network latency between `BP-A` & `BP-A Peer` and between `BP-B Peer` & `BP-B`.
+* Assuming 200ms network latency between `BP-A Peer` & `BP-B Peer`.
 * Assuming blocks do not reach `m` and therefore take `w - a` time to produce.
 * Assume block completion including signing takes zero time.
-* `BP-A` has e = 204, n = 200ms, h = 10ms, a = 17ms
+* `BP-A` has e = 204, n = 0ms/200ms, h = 10ms, a = 17ms
 * `BP-A` sends b1 at `t1-17ms` => `BP-A-Peer` processes `h=10ms`, sends at `t-7ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t+203ms` => arrives at `BP-B` at `t+203ms`.
 * `BP-A` starts b2 at `t1-17ms`, sends b2 at `t2-34ms` => `BP-A-Peer` processes `h=10ms`, sends at `t2-24ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t2+186ms` => arrives at `BP-B` at `t2+186ms`.
 * `BP-A` starts b3 at `t2-34ms`, ...
-* `BP-A` starts b12 at `t11-187ms`, sends b12 at `t12-204ms` => `BP-A-Peer` processes `h=10ms`, sends at `t12-194ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t12+16ms` => arrives at `BP-B` at `t12-16ms`
+* `BP-A` starts b12 at `t11-187ms`, sends b12 at `t12-204ms` => `BP-A-Peer` processes `h=10ms`, sends at `t12-194ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t12+16ms` => arrives at `BP-B` at `t12+16ms`
 
 ## Example 4: full blocks are produced early
-* Assuming zero network latency between BP and immediate BP peer.
+* Assuming zero network latency between `BP-A` & `BP-A Peer` and between `BP-B Peer` & `BP-B`.
+* Assuming 200ms network latency between `BP-A Peer` & `BP-B Peer`.
 * Assume all blocks are full as there are enough queued up unapplied transactions ready to fill all blocks.
 * Assume a block can be produced with 200ms worth of transactions in 225ms worth of time. There is overhead for producing the block.
-* `BP-A` has e = 120, m = 200ms, n = 200ms, h = 10ms, a = 10ms
+* `BP-A` has e = 120, m = 200ms, n = 0ms/200ms, h = 10ms, a = 10ms
 * `BP-A` sends b1 at `t1-275s` => `BP-A-Peer` processes `h=10ms`, sends at `t-265ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t-55ms` => arrives at `BP-B` at `t-55ms`.
 * `BP-A` starts b2 at `t1-275ms`, sends b2 at `t2-550ms (t1-50ms)` => `BP-A-Peer` processes `h=10ms`, sends at `t2-540ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t2-330ms` => arrives at `BP-B` at `t2-330ms`.
 * `BP-A` starts b3 at `t2-550ms`, ...
