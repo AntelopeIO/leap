@@ -76,9 +76,9 @@ Starting in Leap 5.0, blocks in a round are started immediately after the comple
 * Assume a block can be produced with 200ms worth of transactions in 225ms worth of time. There is overhead for producing the block.
 * `BP-A` has e = 120, n = 200ms, h = 10ms, a = 10ms
 * `BP-A` sends b1 at `t1-275s` => `BP-A-Peer` processes `h=10ms`, sends at `t-265ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t-55ms` => arrives at `BP-B` at `t-55ms`.
-* `BP-A` starts b2 at `t1-275ms`, sends b2 at `t2-550ms (t1-50ms)` => `BP-A-Peer` processes `h=10ms`, sends at `t2-540ms` => `BP-B-Peer` processes `h=10ms`, sends at `t2-530ms` => arrives at `BP-B` at `t2-530ms`.
+* `BP-A` starts b2 at `t1-275ms`, sends b2 at `t2-550ms (t1-50ms)` => `BP-A-Peer` processes `h=10ms`, sends at `t2-540ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t2-330ms` => arrives at `BP-B` at `t2-330ms`.
 * `BP-A` starts b3 at `t2-550ms`, ...
-* `BP-A` starts b12 at `t11-3025ms`, sends b12 at `t12-3300ms` => `BP-A-Peer` processes `h=10ms`, sends at `t12-3290ms` => `BP-B-Peer` processes `h=10ms`, sends at `t12-3280ms` => arrives at `BP-B` at `t12-3280ms`
+* `BP-A` starts b12 at `t11-3025ms`, sends b12 at `t12-3300ms` => `BP-A-Peer` processes `h=10ms`, sends at `t12-3290ms` =(200ms)> `BP-B-Peer` processes `h=10ms`, sends at `t12-3080ms` => arrives at `BP-B` at `t12-3080ms`
 
 
 Running wasm-runtime=eos-vm-jit eos-vm-oc-enable on relay node will reduce the validation time.
