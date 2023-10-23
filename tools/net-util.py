@@ -35,7 +35,7 @@ def humanReadableBytesPerSecond(bytes: int, telco:bool = False):
     while bytes > power:
         bytes /= power
         n += 1
-    return f'{"~0" if bytes < 0.01 else format(bytes, ".2f")} {labels[n]}B/s'
+    return f'{"-" if bytes == 0.0 else "~0" if bytes < 0.01 else format(bytes, ".2f")} {labels[n]}B/s'
 
 
 class TextSimpleFocusListWalker(urwid.SimpleFocusListWalker):
@@ -96,16 +96,16 @@ class netUtil:
             ('nodeos_info', 'earliest_available_block_num'): 'Earliest Available Block:',
             'nodeos_head_block_num': 'Head Block Num:',
             'nodeos_last_irreversible': 'LIB:',
-            ('nodeos_p2p_connections','in'): 'Inbound P2P Connections:',
-            ('nodeos_p2p_connections','out'): 'Outbound P2P Connections:',
+            'nodeos_p2p_clients': 'Inbound P2P Connections:',
+            'nodeos_p2p_peers': 'Outbound P2P Connections:',
             'nodeos_blocks_incoming_total': 'Total Incoming Blocks:',
             'nodeos_trxs_incoming_total': 'Total Incoming Trxs:',
             'nodeos_blocks_produced_total': 'Blocks Produced:',
             'nodeos_trxs_produced_total': 'Trxs Produced:',
             'nodeos_scheduled_trxs_total': 'Scheduled Trxs:',
             'nodeos_unapplied_transactions_total': 'Unapplied Trxs:',
-            'nodeos_dropped_trxs_total': 'Dropped Trxs:',
-            'nodeos_failed_p2p_connections_total': 'Failed P2P Connections:',
+            'nodeos_p2p_dropped_trxs_total': 'Dropped Trxs:',
+            'nodeos_p2p_failed_connections_total': 'Failed P2P Connections:',
             'nodeos_http_requests_total': 'HTTP Requests:',
         }
         self.ignoredPrometheusMetrics = [
@@ -164,6 +164,7 @@ class netUtil:
             ('\nRcv\nRate', 'receiveBandwidthLW'),
             ('Last\nRcv\nTime', 'lastBytesReceivedLW'),
             ('Last\nRcvd\nBlock', 'lastReceivedBlockLW'),
+            ('Blk\nSync\nRate', 'blockSyncBandwidthLW'),
             ('Unique\nFirst\nBlks', 'uniqueFirstBlockCountLW'),
             ('First\nAvail\nBlk', 'firstAvailableBlockLW'),
             ('Last\nAvail\nBlk', 'lastAvailableBlockLW'),
@@ -297,57 +298,61 @@ class netUtil:
                 def __init__(self, bytesReceived=0, bytesSent=0, connectionStarted=0):
                     self.bytesReceived = 0
                     self.bytesSent = 0
+                    self.blockSyncBytesSent = 0
                     self.connectionStarted = 0
             for family in text_string_to_metric_families(response.text):
                 bandwidths = {}
                 for sample in family.samples:
+                    listwalker = getattr(self, 'connectionIDLW')
+                    if "connid" in sample.labels:
+                        connID = sample.labels["connid"]
+                        if connID not in listwalker:
+                            startOffset = endOffset = len(listwalker)
+                            listwalker.append(AttrMap(Text(connID), None, 'reversed'))
+                        else:
+                            startOffset = listwalker.index(connID)
+                            endOffset = startOffset + 1
                     if sample.name in self.prometheusMetrics:
                         fieldName = self.fields.get(self.prometheusMetrics[sample.name])
                         field = getattr(self, fieldName)
                         field.set_text(str(int(sample.value)))
+                    elif sample.name == 'nodeos_p2p_addr':
+                        listwalker = getattr(self, 'ipAddressLW')
+                        addr = ipaddress.ip_address(sample.labels["ipv6"])
+                        host = f'{str(addr.ipv4_mapped) if addr.ipv4_mapped else str(addr)}'
+                        listwalker[startOffset:endOffset] = [AttrMap(Text(host), None, 'reversed')]
+                        listwalker = getattr(self, 'hostnameLW')
+                        addr = sample.labels["address"]
+                        listwalker[startOffset:endOffset] = [AttrMap(Text(addr), None, 'reversed')]
+                    elif sample.name == 'nodeos_p2p_bytes_sent':
+                        stats = bandwidths.get(connID, bandwidthStats())
+                        stats.bytesSent = int(sample.value)
+                        bandwidths[connID] = stats
+                    elif fieldName == 'nodeos_p2p_block_sync_bytes_sent':
+                        stats = bandwidths.get(connID, bandwidthStats())
+                        stats.blockSyncBytesSent = int(sample.value)
+                        bandwidths[connID] = stats
+                    elif sample.name == 'nodeos_p2p_bytes_received':
+                        stats = bandwidths.get(connID, bandwidthStats())
+                        stats.bytesReceived = int(sample.value)
+                        bandwidths[connID] = stats
+                    elif sample.name == 'nodeos_p2p_connection_start_time':
+                        stats = bandwidths.get(connID, bandwidthStats())
+                        stats.connectionStarted = int(sample.value)
+                        bandwidths[connID] = stats
+                    elif sample.name == 'nodeos_p2p_connection_number':
+                        pass
+                    elif sample.name.startswith('nodeos_p2p_'):
+                        fieldName = sample.name[len('nodeos_p2p_'):]
+                        attrname = fieldName[:1] + fieldName.replace('_', ' ').title().replace(' ', '')[1:] + 'LW'
+                        if hasattr(self, attrname):
+                            listwalker = getattr(self, attrname)
+                            listwalker[startOffset:endOffset] = [AttrMap(Text(self.peerMetricConversions[fieldName](sample.value)), None, 'reversed')]
                     elif sample.name == 'nodeos_p2p_connections':
                         if 'direction' in sample.labels:
                             fieldName = self.fields.get(self.prometheusMetrics[(sample.name, sample.labels['direction'])])
                             field = getattr(self, fieldName)
                             field.set_text(str(int(sample.value)))
-                        else:
-                            connID = next(iter(sample.labels))
-                            fieldName = sample.labels[connID]
-                            listwalker = getattr(self, 'connectionIDLW')
-                            if connID not in listwalker:
-                                startOffset = endOffset = len(listwalker)
-                                listwalker.append(AttrMap(Text(connID), None, 'reversed'))
-                            else:
-                                startOffset = listwalker.index(connID)
-                                endOffset = startOffset + 1
-                            if fieldName.startswith('addr_'):
-                                listwalker = getattr(self, 'ipAddressLW')
-                                addr = ipaddress.ip_address(fieldName[len('addr_'):])
-                                host = f'{str(addr.ipv4_mapped) if addr.ipv4_mapped else str(addr)}'
-                                listwalker[startOffset:endOffset] = [AttrMap(Text(host), None, 'reversed')]
-                            elif fieldName == 'bytes_received':
-                                bytesReceived = int(sample.value)
-                                stats = bandwidths.get(connID, bandwidthStats())
-                                stats.bytesReceived = bytesReceived
-                                bandwidths[connID] = stats
-                            elif fieldName == 'bytes_sent':
-                                bytesSent = int(sample.value)
-                                stats = bandwidths.get(connID, bandwidthStats())
-                                stats.bytesSent = bytesSent
-                                bandwidths[connID] = stats
-                            elif fieldName == 'connection_start_time':
-                                connectionStarted = int(sample.value)
-                                stats = bandwidths.get(connID, bandwidthStats())
-                                stats.connectionStarted = connectionStarted
-                                bandwidths[connID] = stats
-                            else:
-                                attrname = fieldName[:1] + fieldName.replace('_', ' ').title().replace(' ', '')[1:] + 'LW'
-                                if hasattr(self, attrname):
-                                    listwalker = getattr(self, attrname)
-                                    listwalker[startOffset:endOffset] = [AttrMap(Text(self.peerMetricConversions[fieldName](sample.value)), None, 'reversed')]
-                                else:
-                                    listwalker = getattr(self, 'hostnameLW')
-                                    listwalker[startOffset:endOffset] = [AttrMap(Text(fieldName.replace('_', '.')), None, 'reversed')]
                     elif sample.name == 'nodeos_info':
                         for infoLabel, infoValue in sample.labels.items():
                             fieldName = self.fields.get(self.prometheusMetrics[(sample.name, infoLabel)])
@@ -360,19 +365,21 @@ class netUtil:
                         if sample.name not in self.ignoredPrometheusMetrics:
                             logger.warning(f'Received unhandled Prometheus metric {sample.name}')
                 else:
-                    if sample.name == 'nodeos_p2p_connections':
+                    if sample.name == 'nodeos_p2p_bytes_sent' or sample.name == 'nodeos_p2p_bytes_received' or sample.name == 'nodeos_p2p_block_sync_bytes_sent':
                         now = time.time_ns()
+                        def updateBandwidth(connectedSeconds, listwalker, byteCount, startOffset, endOffset):
+                            bps = byteCount/connectedSeconds
+                            listwalker[startOffset:endOffset] = [AttrMap(Text(humanReadableBytesPerSecond(bps)), None, 'reversed')]
                         connIDListwalker = getattr(self, 'connectionIDLW')
                         for connID, stats in bandwidths.items():
                             startOffset = connIDListwalker.index(connID)
                             endOffset = startOffset + 1
-                            connected_seconds = (now - stats.connectionStarted)/1000000000
-                            listwalker = getattr(self, 'receiveBandwidthLW')
-                            bps = stats.bytesReceived/connected_seconds
-                            listwalker[startOffset:endOffset] = [AttrMap(Text(humanReadableBytesPerSecond(bps)), None, 'reversed')]
-                            listwalker = getattr(self, 'sendBandwidthLW')
-                            bps = stats.bytesSent/connected_seconds
-                            listwalker[startOffset:endOffset] = [AttrMap(Text(humanReadableBytesPerSecond(bps)), None, 'reversed')]
+                            connectedSeconds = (now - stats.connectionStarted)/1000000000
+                            for listwalkerName, attrName in [('receiveBandwidthLW', 'bytesReceived'),
+                                                              ('sendBandwidthLW', 'bytesSent'),
+                                                              ('blockSyncBandwidthLW', 'blockSyncBytesSent')]:
+                                listwalker = getattr(self, listwalkerName)
+                                updateBandwidth(connectedSeconds, listwalker, getattr(stats, attrName), startOffset, endOffset)
         mainLoop.set_alarm_in(float(self.args.refresh_interval), self.update)
 
 def exitOnQ(key):

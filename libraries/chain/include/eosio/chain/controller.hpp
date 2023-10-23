@@ -79,6 +79,7 @@ namespace eosio { namespace chain {
             bool                     disable_replay_opts    =  false;
             bool                     contracts_console      =  false;
             bool                     allow_ram_billing_in_notify = false;
+            bool                     revert_to_private_mode =  false;
             uint32_t                 maximum_variable_signature_length = chain::config::default_max_variable_signature_length;
             bool                     disable_all_subjective_mitigations = false; //< for developer & testing purposes, can be configured using `disable-all-subjective-mitigations` when `EOSIO_DEVELOPER` build option is provided
             uint32_t                 terminate_at_block     = 0;
@@ -369,7 +370,6 @@ namespace eosio { namespace chain {
       private:
          friend class apply_context;
          friend class transaction_context;
-         friend void modify_gto_for_canceldelay_test(controller& control, const transaction_id_type& trx_id); // canceldelay_test in delay_tests.cpp need access to mutable_db
 
          chainbase::database& mutable_db()const;
 

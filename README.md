@@ -104,11 +104,11 @@ If you are in an Ubuntu docker container, omit `sudo` from all commands because 
 #### Pinned Reproducible Build
 The pinned reproducible build requires Docker. Make sure you are in the root of the `leap` repo and then run
 ```bash
-DOCKER_BUILDKIT=1 docker build -f tools/Dockerfile.reproducible -o . .
+DOCKER_BUILDKIT=1 docker build -f tools/reproducible.Dockerfile -o . .
 ```
 This command will take a substantial amount of time because a toolchain is built from scratch. Upon completion, the current directory will contain a built `.deb` and `.tar.gz` (you can change the `-o .` argument to place the output in a different directory). If needing to reduce the number of parallel jobs as warned above, run the command as,
 ```bash
-DOCKER_BUILDKIT=1 docker build --build-arg LEAP_BUILD_JOBS=4 -f tools/Dockerfile.reproducible -o . .
+DOCKER_BUILDKIT=1 docker build --build-arg LEAP_BUILD_JOBS=4 -f tools/reproducible.Dockerfile -o . .
 ```
 
 #### Unpinned Build

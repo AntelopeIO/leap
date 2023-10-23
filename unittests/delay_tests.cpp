@@ -16,22 +16,6 @@ using mvo = fc::mutable_variant_object;
 
 const std::string eosio_token = name("eosio.token"_n).to_string();
 
-// Native action hardcodes sender empty and builds sender_id from trx id.
-// This method modifies those two fields for contract generated deferred
-// trxs so canceldelay can be tested by canceldelay_test.
-namespace eosio::chain {
-inline void modify_gto_for_canceldelay_test(controller& control, const transaction_id_type& trx_id) {
-   auto gto = control.mutable_db().find<generated_transaction_object, by_trx_id>(trx_id);
-   if (gto) {
-      control.mutable_db().modify<generated_transaction_object>(*gto, [&]( auto& gtx ) {
-         gtx.sender = account_name();
-
-         fc::uint128 _id(trx_id._hash[3], trx_id._hash[2]);
-         gtx.sender_id = (unsigned __int128)_id;
-      });
-   }
-}} /// namespace eosio::chain
-
 static void create_accounts(validating_tester& chain) {
    chain.produce_blocks();
    chain.create_accounts({"eosio.msig"_n, "eosio.token"_n});
@@ -190,18 +174,18 @@ static asset get_currency_balance(const validating_tester& chain, account_name a
 
 BOOST_AUTO_TEST_SUITE(delay_tests)
 
-// Delayed trxs are blocked.
-BOOST_FIXTURE_TEST_CASE( delayed_trx_blocked, validating_tester ) { try {
+BOOST_FIXTURE_TEST_CASE( delay_error_create_account, validating_tester_no_disable_deferred_trx) { try {
+
    produce_blocks(2);
    signed_transaction trx;
 
    account_name a = "newco"_n;
    account_name creator = config::system_account_name;
 
-   auto owner_auth = authority( get_public_key( a, "owner" ) );
+   auto owner_auth =  authority( get_public_key( a, "owner" ) );
    trx.actions.emplace_back( vector<permission_level>{{creator,config::active_name}},
                              newaccount{
-                                .creator  = creator,
+                                .creator  = "bad"_n, /// a does not exist, this should error when execute
                                 .name     = a,
                                 .owner    = owner_auth,
                                 .active   = authority( get_public_key( a, "active" ) )
@@ -210,42 +194,21 @@ BOOST_FIXTURE_TEST_CASE( delayed_trx_blocked, validating_tester ) { try {
    trx.delay_sec = 3;
    trx.sign( get_private_key( creator, "active" ), control->get_chain_id()  );
 
-   // delayed trx is blocked
-   BOOST_CHECK_EXCEPTION(push_transaction( trx ), fc::exception,
-      [&](const fc::exception &e) {
-         return expect_assert_message(e, "transaction cannot be delayed");
-      });
+   ilog( fc::json::to_pretty_string(trx) );
+   auto trace = push_transaction( trx );
+   edump((*trace));
 
-   // no deferred trx was generated
-   auto gen_size = control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
-} FC_LOG_AND_RETHROW() }/// delayed_trx_blocked
+   produce_blocks(6);
 
-// Delayed actions are blocked.
-BOOST_AUTO_TEST_CASE( delayed_action_blocked ) { try {
-   validating_tester chain;
-   const auto& tester_account = "tester"_n;
+   auto scheduled_trxs = get_scheduled_transactions();
+   BOOST_REQUIRE_EQUAL(scheduled_trxs.size(), 1u);
 
-   chain.create_account("tester"_n);
-   chain.produce_blocks();
+   auto billed_cpu_time_us = control->get_global_properties().configuration.min_transaction_cpu_usage;
+   auto dtrace = control->push_scheduled_transaction(scheduled_trxs.front(), fc::time_point::maximum(), fc::microseconds::maximum(), billed_cpu_time_us, true);
+   BOOST_REQUIRE_EQUAL(dtrace->except.has_value(), true);
+   BOOST_REQUIRE_EQUAL(dtrace->except->code(), missing_auth_exception::code_value);
 
-   // delayed action is blocked
-   BOOST_CHECK_EXCEPTION(
-      chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
-           ("account", "tester")
-           ("permission", "first")
-           ("parent", "active")
-           ("auth",  authority(chain.get_public_key(tester_account, "first"))),
-           20, 10),
-      fc::exception,
-      [&](const fc::exception &e) {
-         return expect_assert_message(e, "transaction cannot be delayed");
-      });
-
-   // no deferred trx was generated
-   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_REQUIRE_EQUAL(0u, gen_size);
-} FC_LOG_AND_RETHROW() }/// delayed_action_blocked
+} FC_LOG_AND_RETHROW() }
 
 // test link to permission with delay directly on it
 BOOST_AUTO_TEST_CASE( link_delay_direct_test ) { try {
@@ -1388,131 +1351,510 @@ BOOST_AUTO_TEST_CASE( link_delay_link_change_heirarchy_test ) { try {
 
 // test canceldelay action cancelling a delayed transaction
 BOOST_AUTO_TEST_CASE( canceldelay_test ) { try {
-   validating_tester chain;
+   validating_tester_no_disable_deferred_trx chain;
    chain.produce_block();
 
-   const auto& contract_account = account_name("defcontract");
-   const auto& test_account = account_name("tester");
+   const auto& tester_account = "tester"_n;
+   std::vector<transaction_id_type> ids;
 
    chain.produce_blocks();
-   chain.create_accounts({contract_account, test_account});
-   chain.produce_blocks();
-   chain.set_code(contract_account, test_contracts::deferred_test_wasm());
-   chain.set_abi(contract_account, test_contracts::deferred_test_abi());
-   chain.produce_blocks();
+   chain.create_account("eosio.token"_n);
+   chain.produce_blocks(10);
 
-   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_CHECK_EQUAL(0u, gen_size);
+   chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
+   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
 
-   chain.push_action( contract_account, "delayedcall"_n, test_account, fc::mutable_variant_object()
-      ("payer",     test_account)
-      ("sender_id", 1)
-      ("contract",  contract_account)
-      ("payload",   42)
-      ("delay_sec", 1000)
-      ("replace_existing", false)
+   chain.produce_blocks();
+   chain.create_account("tester"_n);
+   chain.create_account("tester2"_n);
+   chain.produce_blocks(10);
+
+   chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("permission", "first")
+           ("parent", "active")
+           ("auth",  authority(chain.get_public_key(tester_account, "first"), 10))
    );
+   chain.push_action(config::system_account_name, linkauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("code", eosio_token)
+           ("type", "transfer")
+           ("requirement", "first"));
+
+   chain.produce_blocks();
+   chain.push_action("eosio.token"_n, "create"_n, "eosio.token"_n, mutable_variant_object()
+           ("issuer", eosio_token)
+           ("maximum_supply", "9000000.0000 CUR")
+   );
+
+   chain.push_action("eosio.token"_n, name("issue"), "eosio.token"_n, fc::mutable_variant_object()
+           ("to",       eosio_token)
+           ("quantity", "1000000.0000 CUR")
+           ("memo", "for stuff")
+   );
+
+   auto trace = chain.push_action("eosio.token"_n, name("transfer"), "eosio.token"_n, fc::mutable_variant_object()
+       ("from", eosio_token)
+       ("to", "tester")
+       ("quantity", "100.0000 CUR")
+       ("memo", "hi" )
+   );
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+   chain.produce_blocks();
+   auto liquid_balance = get_currency_balance(chain, "eosio.token"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("999900.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+
+   // this transaction will be delayed 20 blocks
+   trace = chain.push_action("eosio.token"_n, name("transfer"), "tester"_n, fc::mutable_variant_object()
+       ("from", "tester")
+       ("to", "tester2")
+       ("quantity", "1.0000 CUR")
+       ("memo", "hi" ),
+       30, 10
+   );
+   //wdump((fc::json::to_pretty_string(trace)));
+   ids.push_back(trace->id);
+   BOOST_REQUIRE_EQUAL(transaction_receipt::delayed, trace->receipt->status);
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(1u, gen_size);
+   BOOST_CHECK_EQUAL(0u, trace->action_traces.size());
 
    const auto& idx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
-   gen_size = idx.size();
-   BOOST_CHECK_EQUAL(1u, gen_size);
-   auto deferred_id = idx.begin()->trx_id;
+   auto itr = idx.find( trace->id );
+   BOOST_CHECK_EQUAL( (itr != idx.end()), true );
 
-   // canceldelay assumes sender and sender_id to be a specific
-   // format. hardcode them for testing purpose only
-   modify_gto_for_canceldelay_test(*(chain.control.get()), deferred_id);
+   chain.produce_blocks();
 
-   // send canceldelay for the delayed transaction
-   signed_transaction trx;
-   trx.actions.emplace_back(
-      vector<permission_level>{{contract_account, config::active_name}},
-      chain::canceldelay{{contract_account, config::active_name}, deferred_id}
+   liquid_balance = get_currency_balance(chain, "eosio.token"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("999900.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
+
+   BOOST_REQUIRE_EXCEPTION(
+      chain.push_action( config::system_account_name,
+                         updateauth::get_name(),
+                         vector<permission_level>{{tester_account, "first"_n}},
+                         fc::mutable_variant_object()
+            ("account", "tester")
+            ("permission", "first")
+            ("parent", "active")
+            ("auth",  authority(chain.get_public_key(tester_account, "first"))),
+            30, 7
+      ),
+      unsatisfied_authorization,
+      fc_exception_message_starts_with("transaction declares authority")
    );
-   chain.set_transaction_headers(trx);
-   trx.sign(chain.get_private_key(contract_account, "active"), chain.control->get_chain_id());
 
-   chain.push_transaction(trx);
+   // this transaction will be delayed 20 blocks
+   trace = chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("permission", "first")
+           ("parent", "active")
+           ("auth",  authority(chain.get_public_key(tester_account, "first"))),
+           30, 10
+   );
+   //wdump((fc::json::to_pretty_string(trace)));
+   ids.push_back(trace->id);
+   BOOST_REQUIRE_EQUAL(transaction_receipt::delayed, trace->receipt->status);
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(2u, gen_size);
+   BOOST_CHECK_EQUAL(0u, trace->action_traces.size());
+
+   chain.produce_blocks();
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
+
+   chain.produce_blocks(16);
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
+
+   // this transaction will be delayed 20 blocks
+   trace = chain.push_action("eosio.token"_n, name("transfer"), "tester"_n, fc::mutable_variant_object()
+       ("from", "tester")
+       ("to", "tester2")
+       ("quantity", "5.0000 CUR")
+       ("memo", "hi" ),
+       30, 10
+   );
+   //wdump((fc::json::to_pretty_string(trace)));
+   ids.push_back(trace->id);
+   BOOST_REQUIRE_EQUAL(transaction_receipt::delayed, trace->receipt->status);
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(3u, gen_size);
+   BOOST_CHECK_EQUAL(0u, trace->action_traces.size());
+
+   chain.produce_blocks();
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
+
+   // send canceldelay for first delayed transaction
+   signed_transaction trx;
+   trx.actions.emplace_back(vector<permission_level>{{"tester"_n, config::active_name}},
+                            chain::canceldelay{{"tester"_n, config::active_name}, ids[0]});
+
+   chain.set_transaction_headers(trx);
+   trx.sign(chain.get_private_key("tester"_n, "active"), chain.control->get_chain_id());
+   // first push as a dry_run trx
+   trace = chain.push_transaction(trx, fc::time_point::maximum(), base_tester::DEFAULT_BILLED_CPU_TIME_US, false, transaction_metadata::trx_type::dry_run);
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+   // now push for real
+   trace = chain.push_transaction(trx);
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(2u, gen_size);
+
+   const auto& cidx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+   auto citr = cidx.find( ids[0] );
+   BOOST_CHECK_EQUAL( (citr == cidx.end()), true );
+
+   chain.produce_blocks();
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
+
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(2u, gen_size);
+
+   chain.produce_blocks();
+
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(2u, gen_size);
+
+   chain.produce_blocks();
+   // update auth will finally be performed
+
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(1u, gen_size);
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
+
+   // this transfer is performed right away since delay is removed
+   trace = chain.push_action("eosio.token"_n, name("transfer"), "tester"_n, fc::mutable_variant_object()
+       ("from", "tester")
+       ("to", "tester2")
+       ("quantity", "10.0000 CUR")
+       ("memo", "hi" )
+   );
+   //wdump((fc::json::to_pretty_string(trace)));
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(1u, gen_size);
+
+   chain.produce_blocks();
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("90.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("10.0000 CUR"), liquid_balance);
+
+   chain.produce_blocks(15);
+
+   gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_CHECK_EQUAL(1u, gen_size);
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("90.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("10.0000 CUR"), liquid_balance);
+
+   // second transfer finally is performed
+   chain.produce_blocks();
 
    gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
    BOOST_CHECK_EQUAL(0u, gen_size);
+
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("85.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester2"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("15.0000 CUR"), liquid_balance);
 } FC_LOG_AND_RETHROW() } /// canceldelay_test
 
 // test canceldelay action under different permission levels
 BOOST_AUTO_TEST_CASE( canceldelay_test2 ) { try {
-   validating_tester chain;
+   validating_tester_no_disable_deferred_trx chain;
    chain.produce_block();
 
-   const auto& contract_account = account_name("defcontract");
-   const auto& tester_account = account_name("tester");
+   const auto& tester_account = "tester"_n;
 
    chain.produce_blocks();
-   chain.create_accounts({contract_account, tester_account});
-   chain.produce_blocks();
-   chain.set_code(contract_account, test_contracts::deferred_test_wasm());
-   chain.set_abi(contract_account, test_contracts::deferred_test_abi());
+   chain.create_account("eosio.token"_n);
    chain.produce_blocks();
 
-   chain.push_action(config::system_account_name, updateauth::get_name(), contract_account, fc::mutable_variant_object()
-           ("account", "defcontract")
+   chain.set_code("eosio.token"_n, test_contracts::eosio_token_wasm());
+   chain.set_abi("eosio.token"_n, test_contracts::eosio_token_abi());
+
+   chain.produce_blocks();
+   chain.create_account("tester"_n);
+   chain.create_account("tester2"_n);
+   chain.produce_blocks();
+
+   chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
            ("permission", "first")
            ("parent", "active")
-           ("auth",  authority(chain.get_public_key(contract_account, "first"), 5))
+           ("auth",  authority(chain.get_public_key(tester_account, "first"), 5))
    );
+   chain.push_action(config::system_account_name, updateauth::get_name(), tester_account, fc::mutable_variant_object()
+          ("account", "tester")
+          ("permission", "second")
+          ("parent", "first")
+          ("auth",  authority(chain.get_public_key(tester_account, "second")))
+   );
+   chain.push_action(config::system_account_name, linkauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("code", eosio_token)
+           ("type", "transfer")
+           ("requirement", "first"));
+
    chain.produce_blocks();
-
-   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
-   BOOST_CHECK_EQUAL(0u, gen_size);
-
-   chain.push_action( contract_account, "delayedcall"_n, tester_account, fc::mutable_variant_object()
-      ("payer",     tester_account)
-      ("sender_id", 1)
-      ("contract",  contract_account)
-      ("payload",   42)
-      ("delay_sec", 1000)
-      ("replace_existing", false)
+   chain.push_action("eosio.token"_n, "create"_n, "eosio.token"_n, mutable_variant_object()
+           ("issuer", eosio_token)
+           ("maximum_supply", "9000000.0000 CUR")
    );
 
-   const auto& idx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
-   gen_size = idx.size();
-   BOOST_CHECK_EQUAL(1u, gen_size);
-   auto deferred_id = idx.begin()->trx_id;
+   chain.push_action("eosio.token"_n, name("issue"), "eosio.token"_n, fc::mutable_variant_object()
+           ("to",       eosio_token)
+           ("quantity", "1000000.0000 CUR")
+           ("memo", "for stuff")
+   );
 
-   // canceldelay assumes sender and sender_id to be a specific
-   // format. hardcode them for testing purpose only
-   modify_gto_for_canceldelay_test(*(chain.control.get()), deferred_id);
+   auto trace = chain.push_action("eosio.token"_n, name("transfer"), "eosio.token"_n, fc::mutable_variant_object()
+       ("from", eosio_token)
+       ("to", "tester")
+       ("quantity", "100.0000 CUR")
+       ("memo", "hi" )
+   );
+   BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+   auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+   BOOST_REQUIRE_EQUAL(0u, gen_size);
 
-   // attempt canceldelay with wrong canceling_auth for delayed trx
+   chain.produce_blocks();
+   auto liquid_balance = get_currency_balance(chain, "eosio.token"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("999900.0000 CUR"), liquid_balance);
+   liquid_balance = get_currency_balance(chain, "tester"_n);
+   BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+
+   ilog("attempting first delayed transfer");
+
    {
+      // this transaction will be delayed 10 blocks
+      trace = chain.push_action("eosio.token"_n, name("transfer"), vector<permission_level>{{"tester"_n, "first"_n}}, fc::mutable_variant_object()
+          ("from", "tester")
+          ("to", "tester2")
+          ("quantity", "1.0000 CUR")
+          ("memo", "hi" ),
+          30, 5
+      );
+      auto trx_id = trace->id;
+      BOOST_REQUIRE_EQUAL(transaction_receipt::delayed, trace->receipt->status);
+      gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+      BOOST_REQUIRE_EQUAL(1u, gen_size);
+      BOOST_REQUIRE_EQUAL(0u, trace->action_traces.size());
+
+      const auto& idx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+      auto itr = idx.find( trx_id );
+      BOOST_CHECK_EQUAL( (itr != idx.end()), true );
+
+      chain.produce_blocks();
+
+      liquid_balance = get_currency_balance(chain, "tester"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+      liquid_balance = get_currency_balance(chain, "tester2"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
+
+      // attempt canceldelay with wrong canceling_auth for delayed transfer of 1.0000 CUR
+      {
+         signed_transaction trx;
+         trx.actions.emplace_back(vector<permission_level>{{"tester"_n, config::active_name}},
+                                  chain::canceldelay{{"tester"_n, config::active_name}, trx_id});
+         chain.set_transaction_headers(trx);
+         trx.sign(chain.get_private_key("tester"_n, "active"), chain.control->get_chain_id());
+         BOOST_REQUIRE_EXCEPTION( chain.push_transaction(trx), action_validate_exception,
+                                  fc_exception_message_is("canceling_auth in canceldelay action was not found as authorization in the original delayed transaction") );
+      }
+
+      // attempt canceldelay with "second" permission for delayed transfer of 1.0000 CUR
+      {
+         signed_transaction trx;
+         trx.actions.emplace_back(vector<permission_level>{{"tester"_n, "second"_n}},
+                                  chain::canceldelay{{"tester"_n, "first"_n}, trx_id});
+         chain.set_transaction_headers(trx);
+         trx.sign(chain.get_private_key("tester"_n, "second"), chain.control->get_chain_id());
+         BOOST_REQUIRE_THROW( chain.push_transaction(trx), irrelevant_auth_exception );
+         BOOST_REQUIRE_EXCEPTION( chain.push_transaction(trx), irrelevant_auth_exception,
+                                  fc_exception_message_starts_with("canceldelay action declares irrelevant authority") );
+      }
+
+      // canceldelay with "active" permission for delayed transfer of 1.0000 CUR
       signed_transaction trx;
       trx.actions.emplace_back(vector<permission_level>{{"tester"_n, config::active_name}},
-                               chain::canceldelay{{"tester"_n, config::active_name}, deferred_id});
+                               chain::canceldelay{{"tester"_n, "first"_n}, trx_id});
       chain.set_transaction_headers(trx);
       trx.sign(chain.get_private_key("tester"_n, "active"), chain.control->get_chain_id());
-      BOOST_REQUIRE_EXCEPTION( chain.push_transaction(trx), action_validate_exception,
-                               fc_exception_message_is("canceling_auth in canceldelay action was not found as authorization in the original delayed transaction") );
+      trace = chain.push_transaction(trx);
+
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+      gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+      BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+      const auto& cidx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+      auto citr = cidx.find( trx_id );
+      BOOST_REQUIRE_EQUAL( (citr == cidx.end()), true );
+
+      chain.produce_blocks(10);
+
+      liquid_balance = get_currency_balance(chain, "tester"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+      liquid_balance = get_currency_balance(chain, "tester2"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
    }
 
-   // attempt canceldelay with wrong permission for delayed trx
+   ilog("reset minimum permission of transfer to second permission");
+
+   chain.push_action(config::system_account_name, linkauth::get_name(), tester_account, fc::mutable_variant_object()
+           ("account", "tester")
+           ("code", eosio_token)
+           ("type", "transfer")
+           ("requirement", "second"),
+           30, 5
+   );
+
+   chain.produce_blocks(11);
+
+
+   ilog("attempting second delayed transfer");
    {
+      // this transaction will be delayed 10 blocks
+      trace = chain.push_action("eosio.token"_n, name("transfer"), vector<permission_level>{{"tester"_n, "second"_n}}, fc::mutable_variant_object()
+          ("from", "tester")
+          ("to", "tester2")
+          ("quantity", "5.0000 CUR")
+          ("memo", "hi" ),
+          30, 5
+      );
+      auto trx_id = trace->id;
+      BOOST_REQUIRE_EQUAL(transaction_receipt::delayed, trace->receipt->status);
+      auto gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+      BOOST_CHECK_EQUAL(1u, gen_size);
+      BOOST_CHECK_EQUAL(0u, trace->action_traces.size());
+
+      const auto& idx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+      auto itr = idx.find( trx_id );
+      BOOST_CHECK_EQUAL( (itr != idx.end()), true );
+
+      chain.produce_blocks();
+
+      liquid_balance = get_currency_balance(chain, "tester"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+      liquid_balance = get_currency_balance(chain, "tester2"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
+
+      // canceldelay with "first" permission for delayed transfer of 5.0000 CUR
       signed_transaction trx;
-      trx.actions.emplace_back(vector<permission_level>{{contract_account, "first"_n}},
-                               chain::canceldelay{{contract_account, "first"_n}, deferred_id});
+      trx.actions.emplace_back(vector<permission_level>{{"tester"_n, "first"_n}},
+                               chain::canceldelay{{"tester"_n, "second"_n}, trx_id});
       chain.set_transaction_headers(trx);
-      trx.sign(chain.get_private_key(contract_account, "first"), chain.control->get_chain_id());
-      BOOST_REQUIRE_EXCEPTION( chain.push_transaction(trx), action_validate_exception,
-                               fc_exception_message_is("canceling_auth in canceldelay action was not found as authorization in the original delayed transaction") );
+      trx.sign(chain.get_private_key("tester"_n, "first"), chain.control->get_chain_id());
+      trace = chain.push_transaction(trx);
+
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+      gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+      BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+      const auto& cidx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+      auto citr = cidx.find( trx_id );
+      BOOST_REQUIRE_EQUAL( (citr == cidx.end()), true );
+
+      chain.produce_blocks(10);
+
+      liquid_balance = get_currency_balance(chain, "tester"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+      liquid_balance = get_currency_balance(chain, "tester2"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
    }
 
-   // attempt canceldelay with wrong signature for delayed trx
+   ilog("attempting third delayed transfer");
+
    {
+      // this transaction will be delayed 10 blocks
+      trace = chain.push_action("eosio.token"_n, name("transfer"), vector<permission_level>{{"tester"_n, config::owner_name}}, fc::mutable_variant_object()
+          ("from", "tester")
+          ("to", "tester2")
+          ("quantity", "10.0000 CUR")
+          ("memo", "hi" ),
+          30, 5
+      );
+      auto trx_id = trace->id;
+      BOOST_REQUIRE_EQUAL(transaction_receipt::delayed, trace->receipt->status);
+      gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+      BOOST_REQUIRE_EQUAL(1u, gen_size);
+      BOOST_REQUIRE_EQUAL(0u, trace->action_traces.size());
+
+      const auto& idx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+      auto itr = idx.find( trx_id );
+      BOOST_CHECK_EQUAL( (itr != idx.end()), true );
+
+      chain.produce_blocks();
+
+      liquid_balance = get_currency_balance(chain, "tester"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+      liquid_balance = get_currency_balance(chain, "tester2"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
+
+      // attempt canceldelay with "active" permission for delayed transfer of 10.0000 CUR
+      {
+         signed_transaction trx;
+         trx.actions.emplace_back(vector<permission_level>{{"tester"_n, "active"_n}},
+                                  chain::canceldelay{{"tester"_n, config::owner_name}, trx_id});
+         chain.set_transaction_headers(trx);
+         trx.sign(chain.get_private_key("tester"_n, "active"), chain.control->get_chain_id());
+         BOOST_REQUIRE_THROW( chain.push_transaction(trx), irrelevant_auth_exception );
+      }
+
+      // canceldelay with "owner" permission for delayed transfer of 10.0000 CUR
       signed_transaction trx;
-      trx.actions.emplace_back(vector<permission_level>{{contract_account, config::active_name}},
-                               chain::canceldelay{{contract_account, config::active_name}, deferred_id});
+      trx.actions.emplace_back(vector<permission_level>{{"tester"_n, config::owner_name}},
+                               chain::canceldelay{{"tester"_n, config::owner_name}, trx_id});
       chain.set_transaction_headers(trx);
-      trx.sign(chain.get_private_key(contract_account, "first"), chain.control->get_chain_id());
-      BOOST_REQUIRE_THROW( chain.push_transaction(trx), unsatisfied_authorization );
-      BOOST_REQUIRE_EXCEPTION( chain.push_transaction(trx), unsatisfied_authorization,
-                               fc_exception_message_starts_with("transaction declares authority") );
+      trx.sign(chain.get_private_key("tester"_n, "owner"), chain.control->get_chain_id());
+      trace = chain.push_transaction(trx);
+
+      BOOST_REQUIRE_EQUAL(transaction_receipt::executed, trace->receipt->status);
+      gen_size = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>().size();
+      BOOST_REQUIRE_EQUAL(0u, gen_size);
+
+      const auto& cidx = chain.control->db().get_index<generated_transaction_multi_index,by_trx_id>();
+      auto citr = cidx.find( trx_id );
+      BOOST_REQUIRE_EQUAL( (citr == cidx.end()), true );
+
+      chain.produce_blocks(10);
+
+      liquid_balance = get_currency_balance(chain, "tester"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("100.0000 CUR"), liquid_balance);
+      liquid_balance = get_currency_balance(chain, "tester2"_n);
+      BOOST_REQUIRE_EQUAL(asset::from_string("0.0000 CUR"), liquid_balance);
    }
 } FC_LOG_AND_RETHROW() } /// canceldelay_test2
 

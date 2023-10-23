@@ -272,6 +272,41 @@ Adds new cryptographic host functions
 */
             {}
          } )
+         (  builtin_protocol_feature_t::disable_deferred_trxs_stage_1, builtin_protocol_feature_spec{
+            "DISABLE_DEFERRED_TRXS_STAGE_1",
+            fc::variant("440c3efaaab212c387ce967c574dc813851cf8332d041beb418dfaf55facd5a9").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
+/*
+Builtin protocol feature: DISABLE_DEFERRED_TRXS_STAGE_1
+
+Once this first disabling deferred transactions protocol feature is activated,
+the behavior of the send_deferred and cancel_deferred host functions and
+canceldelay native action changes so that they become no-ops.
+
+In addition, any block that retires a deferred transaction with a status other
+than expired is invalid.
+
+Also, a deferred transaction can only be retired as expired, and it can be
+retired as expired regardless of whether its delay_util or expiration times
+have been reached.
+*/
+            {}
+         } )
+         (  builtin_protocol_feature_t::disable_deferred_trxs_stage_2, builtin_protocol_feature_spec{
+            "DISABLE_DEFERRED_TRXS_STAGE_2",
+            fc::variant("a857eeb932774c511a40efb30346ec01bfb7796916b54c3c69fe7e5fb70d5cba").as<digest_type>(),
+            // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
+/*
+Builtin protocol feature: DISABLE_DEFERRED_TRXS_STAGE_2
+Depends on: DISABLE_DEFERRED_TRXS_STAGE_1
+
+On activation of this second disabling deferred transactions protocol feature,
+all pending deferred transactions are removed from state and the RAM paid by
+the sender of each deferred transaction is refunded. Also, any block that
+retires a deferred transaction is invalid.
+*/
+            {builtin_protocol_feature_t::disable_deferred_trxs_stage_1}
+         } )
    ;
 
 

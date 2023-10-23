@@ -23,11 +23,9 @@ struct add_file_system_fixture {
       add_file_system_fixture& fixture;
    };
 
-   boost::asio::io_context ctx;
-
    using file_space_handler_t = file_space_handler<mock_space_provider>;
    add_file_system_fixture()
-   : space_handler(mock_space_provider(*this), ctx)
+   : space_handler(mock_space_provider(*this))
    {
    }
 

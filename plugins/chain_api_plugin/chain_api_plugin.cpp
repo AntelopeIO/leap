@@ -150,7 +150,6 @@ void chain_api_plugin::plugin_startup() {
       CHAIN_RO_CALL(get_required_keys, 200, http_params_types::params_required),
       CHAIN_RO_CALL(get_transaction_id, 200, http_params_types::params_required),
       // transaction related APIs will be posted to read_write queue after keys are recovered, they are safe to run in parallel until they post to the read_write queue
-      CHAIN_RO_CALL_ASYNC(send_read_only_transaction, chain_apis::read_only::send_read_only_transaction_results, 200, http_params_types::params_required),
       CHAIN_RO_CALL_ASYNC(compute_transaction, chain_apis::read_only::compute_transaction_results, 200, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(push_transaction, chain_apis::read_write::push_transaction_results, 202, http_params_types::params_required),
       CHAIN_RW_CALL_ASYNC(push_transactions, chain_apis::read_write::push_transactions_results, 202, http_params_types::params_required),
@@ -170,6 +169,8 @@ void chain_api_plugin::plugin_startup() {
    }
 
    _http_plugin.add_async_api({
+      // chain_plugin send_read_only_transaction will post to read_exclusive queue
+      CHAIN_RO_CALL_ASYNC(send_read_only_transaction, chain_apis::read_only::send_read_only_transaction_results, 200, http_params_types::params_required),
       CHAIN_RO_CALL_WITH_400(get_raw_block, 200, http_params_types::params_required),
       CHAIN_RO_CALL_WITH_400(get_block_header, 200, http_params_types::params_required)
    });

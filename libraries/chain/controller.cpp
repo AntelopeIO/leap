@@ -37,6 +37,7 @@
 
 #include <new>
 #include <shared_mutex>
+#include <utility>
 
 namespace eosio { namespace chain {
 
@@ -339,6 +340,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::get_block_num>();
       set_activation_handler<builtin_protocol_feature_t::crypto_primitives>();
       set_activation_handler<builtin_protocol_feature_t::bls_primitives>();
+      set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
 
       self.irreversible_block.connect([this](const block_state_ptr& bsp) {
          wasmif.current_lib(bsp->block_num);
@@ -590,6 +592,7 @@ struct controller_impl {
       EOS_ASSERT( snapshot, snapshot_exception, "No snapshot reader provided" );
       this->shutdown = shutdown;
       try {
+         auto snapshot_load_start_time = fc::time_point::now();
          snapshot->validate();
          if( auto blog_head = blog.head() ) {
             ilog( "Starting initialization from snapshot and block log ${b}-${e}, this may take a significant amount of time",
@@ -605,8 +608,11 @@ struct controller_impl {
          }
          ilog( "Snapshot loaded, lib: ${lib}", ("lib", head->block_num) );
 
-         init(check_shutdown);
-         ilog( "Finished initialization from snapshot" );
+         init(std::move(check_shutdown));
+         if (conf.revert_to_private_mode)
+            db.revert_to_private_mode();
+         auto snapshot_load_time = (fc::time_point::now() - snapshot_load_start_time).to_seconds();
+         ilog( "Finished initialization from snapshot (snapshot load time was ${t}s)", ("t", snapshot_load_time) );
       } catch (boost::interprocess::bad_alloc& e) {
          elog( "Failed initialization from snapshot - db storage not configured to have enough storage for the provided snapshot, please increase and retry snapshot" );
          shutdown();
@@ -621,7 +627,7 @@ struct controller_impl {
                   ("genesis_chain_id", genesis_chain_id)("controller_chain_id", chain_id)
       );
 
-      this->shutdown = shutdown;
+      this->shutdown = std::move(shutdown);
       if( fork_db.head() ) {
          if( read_mode == db_read_mode::IRREVERSIBLE && fork_db.head()->id != fork_db.root()->id ) {
             fork_db.rollback_head_to_root();
@@ -643,14 +649,14 @@ struct controller_impl {
       } else {
          blog.reset( genesis, head->block );
       }
-      init(check_shutdown);
+      init(std::move(check_shutdown));
    }
 
    void startup(std::function<void()> shutdown, std::function<bool()> check_shutdown) {
       EOS_ASSERT( db.revision() >= 1, database_exception, "This version of controller::startup does not work with a fresh state database." );
       EOS_ASSERT( fork_db.head(), fork_database_exception, "No existing fork database despite existing chain state. Replay required." );
 
-      this->shutdown = shutdown;
+      this->shutdown = std::move(shutdown);
       uint32_t lib_num = fork_db.root()->block_num;
       auto first_block_num = blog.first_block_num();
       if( auto blog_head = blog.head() ) {
@@ -673,7 +679,7 @@ struct controller_impl {
       }
       head = fork_db.head();
 
-      init(check_shutdown);
+      init(std::move(check_shutdown));
    }
 
 
@@ -1302,8 +1308,11 @@ struct controller_impl {
 
       fc::datastream<const char*> ds( gtrx.packed_trx.data(), gtrx.packed_trx.size() );
 
-      EOS_ASSERT( gtrx.delay_until <= self.pending_block_time(), transaction_exception, "this transaction isn't ready",
-                 ("gtrx.delay_until",gtrx.delay_until)("pbt",self.pending_block_time())          );
+      // check delay_until only before disable_deferred_trxs_stage_1 is activated.
+      if( !self.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) ) {
+         EOS_ASSERT( gtrx.delay_until <= self.pending_block_time(), transaction_exception, "this transaction isn't ready",
+                    ("gtrx.delay_until",gtrx.delay_until)("pbt",self.pending_block_time()) );
+      }
 
       signed_transaction dtrx;
       fc::raw::unpack(ds,static_cast<transaction&>(dtrx) );
@@ -1312,8 +1321,11 @@ struct controller_impl {
                                                           transaction_metadata::trx_type::scheduled );
       trx->accepted = true;
 
+      // After disable_deferred_trxs_stage_1 is activated, a deferred transaction
+      // can only be retired as expired, and it can be retired as expired
+      // regardless of whether its delay_util or expiration times have been reached.
       transaction_trace_ptr trace;
-      if( gtrx.expiration < self.pending_block_time() ) {
+      if( self.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) || gtrx.expiration < self.pending_block_time() ) {
          trace = std::make_shared<transaction_trace>();
          trace->id = gtrx.trx_id;
          trace->block_num = self.head_block_num() + 1;
@@ -1583,12 +1595,14 @@ struct controller_impl {
                                                trx->packed_trx()->get_prunable_size() );
             }
 
+            trx_context.delay = fc::seconds(trn.delay_sec);
+
             if( check_auth ) {
                authorization.check_authorization(
                        trn.actions,
                        trx->recovered_keys(),
                        {},
-                       fc::seconds(trn.delay_sec),
+                       trx_context.delay,
                        [&trx_context](){ trx_context.checktime(); },
                        false,
                        trx->is_dry_run()
@@ -1601,7 +1615,9 @@ struct controller_impl {
 
             trx->billed_cpu_time_us = trx_context.billed_cpu_time_us;
             if (!trx->implicit() && !trx->is_read_only()) {
-               transaction_receipt::status_enum s = transaction_receipt::executed;
+               transaction_receipt::status_enum s = (trx_context.delay == fc::seconds(0))
+                                                    ? transaction_receipt::executed
+                                                    : transaction_receipt::delayed;
                trace->receipt = push_receipt(*trx->packed_trx(), s, trx_context.billed_cpu_time_us, trace->net_usage);
                std::get<building_block>(pending->_block_stage)._pending_trx_metas.emplace_back(trx);
             } else {
@@ -3468,9 +3484,16 @@ void controller::validate_tapos( const transaction& trx )const { try {
 } FC_CAPTURE_AND_RETHROW() }
 
 void controller::validate_db_available_size() const {
-   const auto free = db().get_segment_manager()->get_free_memory();
+   const auto free = db().get_free_memory();
    const auto guard = my->conf.state_guard_size;
    EOS_ASSERT(free >= guard, database_guard_exception, "database free: ${f}, guard size: ${g}", ("f", free)("g",guard));
+
+   // give a change to chainbase to write some pages to disk if memory becomes scarce.
+   if (is_write_window()) {
+      if (auto flushed_pages = mutable_db().check_memory_and_flush_if_needed()) {
+         ilog("CHAINBASE: flushed ${p} pages to disk to decrease memory pressure", ("p", flushed_pages));
+      }
+   }
 }
 
 bool controller::is_protocol_feature_activated( const digest_type& feature_digest )const {
@@ -3833,6 +3856,15 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_map" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_mod" );
    } );
+}
+
+template<>
+void controller_impl::on_activation<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>() {
+   const auto& idx = db.get_index<generated_transaction_multi_index, by_trx_id>();
+   // remove all deferred trxs and refund their payers
+   for( auto itr = idx.begin(); itr != idx.end(); itr = idx.begin() ) {
+      remove_scheduled_transaction(*itr);
+   }
 }
 
 /// End of protocol feature activation handlers

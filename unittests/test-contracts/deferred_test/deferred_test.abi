@@ -4,6 +4,16 @@
     "types": [],
     "structs": [
         {
+            "name": "cancelcall",
+            "base": "",
+            "fields": [
+                {
+                    "name": "sender_id",
+                    "type": "uint64"
+                }
+            ]
+        },
+        {
             "name": "defercall",
             "base": "",
             "fields": [
@@ -90,6 +100,11 @@
         }
     ],
     "actions": [
+        {
+            "name": "cancelcall",
+            "type": "cancelcall",
+            "ricardian_contract": ""
+        },
         {
             "name": "defercall",
             "type": "defercall",

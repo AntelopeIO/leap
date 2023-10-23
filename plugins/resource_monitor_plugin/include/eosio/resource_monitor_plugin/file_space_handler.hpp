@@ -4,16 +4,45 @@
 
 #include <eosio/chain/application.hpp>
 #include <eosio/chain/exceptions.hpp>
-
+#include <eosio/chain/thread_utils.hpp>
 
 namespace eosio::resource_monitor {
    template<typename SpaceProvider>
    class file_space_handler {
    public:
-      file_space_handler(SpaceProvider&& space_provider, boost::asio::io_context& ctx)
-      :space_provider(std::move(space_provider)),
-      timer{ctx}
+      file_space_handler(SpaceProvider&& space_provider)
+      :space_provider(std::move(space_provider))
       {
+      }
+
+      void start(const std::vector<std::filesystem::path>& directories) {
+         for ( auto& dir: directories ) {
+            add_file_system( dir );
+
+            // A directory like "data" contains subdirectories like
+            // "block". Those subdirectories can mount on different
+            // file systems. Make sure they are taken care of.
+            for (std::filesystem::directory_iterator itr(dir); itr != std::filesystem::directory_iterator(); ++itr) {
+               if (std::filesystem::is_directory(itr->path())) {
+                  add_file_system( itr->path() );
+               }
+            }
+         }
+
+         thread_pool.start(thread_pool_size,
+            []( const fc::exception& e ) {
+              elog("Exception in resource monitor plugin thread pool, exiting: ${e}", ("e", e.to_detail_string()) );
+              appbase::app().quit(); },
+            [&]() { space_monitor_loop(); }
+         );
+      }
+
+      // called on main thread from plugin shutdown()
+      void stop() {
+         // After thread pool stops, timer is not accessible within it.
+         // In addition, timer's destructor will call cancel.
+         // Therefore, no need to call cancel explicitly.
+         thread_pool.stop();
       }
 
       void set_sleep_time(uint32_t sleep_time) {
@@ -128,6 +157,7 @@ namespace eosio::resource_monitor {
               ("path_name", path_name.string())("shutdown_available", to_gib(shutdown_available)) ("capacity", to_gib(info.capacity))("threshold_desc", threshold_desc()) );
       }
 
+   // on resmon thread
    void space_monitor_loop() {
       if ( is_threshold_exceeded() && shutdown_on_exceeded ) {
          elog("Gracefully shutting down, exceeded file system configured threshold.");
@@ -137,9 +167,12 @@ namespace eosio::resource_monitor {
       update_warning_interval_counter();
 
       timer.expires_from_now( boost::posix_time::seconds( sleep_time_in_secs ));
-
       timer.async_wait([this](const auto& ec) {
          if ( ec ) {
+            // No need to check if ec is operation_aborted (cancelled),
+            // as cancel callback will never be make it here after thread_pool
+            // is stopped, even though cancel is called in the timer's
+            // destructor.
             wlog("Exit due to error: ${ec}, message: ${message}",
                  ("ec", ec.value())
                  ("message", ec.message()));
@@ -154,7 +187,10 @@ namespace eosio::resource_monitor {
    private:
       SpaceProvider space_provider;
 
-      boost::asio::deadline_timer timer;
+      static constexpr size_t thread_pool_size = 1;
+      eosio::chain::named_thread_pool<struct resmon> thread_pool;
+
+      boost::asio::deadline_timer timer {thread_pool.get_executor()};
 
       uint32_t sleep_time_in_secs {2};
       uint32_t shutdown_threshold {90};

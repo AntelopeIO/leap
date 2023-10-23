@@ -31,8 +31,15 @@ class exec_pri_queue : public boost::asio::execution_context
 public:
 
    // inform how many read_threads will be calling read_only/read_exclusive queues
+   // expected to only be called at program startup, not thread safe, not safe to call when lock_enabled_
    void init_read_threads(size_t num_read_threads) {
+      assert(!lock_enabled_);
       num_read_threads_ = num_read_threads;
+   }
+
+   // not strictly thread safe, see init_read_threads comment
+   size_t get_read_threads() const {
+      return num_read_threads_;
    }
 
    void stop() {
@@ -60,7 +67,7 @@ public:
       assert( num_read_threads_ > 0 || q != exec_queue::read_exclusive);
       prio_queue& que = priority_que(q);
       std::unique_ptr<queued_handler_base> handler(new queued_handler<Function>(priority, order, std::move(function)));
-      if (lock_enabled_) {
+      if (lock_enabled_ || q == exec_queue::read_exclusive) { // called directly from any thread for read_exclusive
          std::lock_guard g( mtx_ );
          que.push( std::move( handler ) );
          if (num_waiting_)
@@ -99,8 +106,10 @@ public:
       if (!lhs_que.empty() && (rhs_que.empty() || *rhs_que.top() < *lhs_que.top()))
          q = lhs;
       prio_queue& que = priority_que(q);
-      que.top()->execute();
-      que.pop();
+      assert(que.top());
+      // pop, then execute since read_write queue is used to switch to read window and the pop needs to happen before that lambda starts
+      auto t = pop(que);
+      t->execute();
       --size;
       return size > 0;
    }
