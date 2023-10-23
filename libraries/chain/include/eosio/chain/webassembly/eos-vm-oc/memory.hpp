@@ -11,8 +11,6 @@
 
 namespace eosio::chain::eosvmoc {
 
-using control_block = eos_vm_oc_control_block;
-
 class memory {
       static constexpr uint64_t intrinsic_count                   = intrinsic_table_size();
       //warning: changing the following 3 params will invalidate existing PIC
