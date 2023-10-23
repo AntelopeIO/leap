@@ -13,13 +13,6 @@ jobs:
       packages: write
       actions: read
     steps:
-      - name: Create Dockerfile
-        run: |
-          cat <<EOF > Dockerfile
-          FROM scratch
-          LABEL org.opencontainers.image.description="A collection of experimental Leap binary packages"
-          COPY *.deb /
-          EOF
       - name: Get ubuntu20 leap-dev.deb
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
@@ -38,6 +31,13 @@ jobs:
           target: ${{github.sha}}
           artifact-name: leap-dev-ubuntu22-amd64
           wait-for-exact-target-workflow: true
+      - name: Create Dockerfile
+        run: |
+          cat <<EOF > Dockerfile
+          FROM scratch
+          LABEL org.opencontainers.image.description="A collection of experimental Leap binary packages"
+          COPY *.deb /
+          EOF
       - name: Login to ghcr
         uses: docker/login-action@v3
         with:
