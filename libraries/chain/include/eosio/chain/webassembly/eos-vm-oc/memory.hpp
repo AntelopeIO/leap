@@ -1,12 +1,17 @@
 #pragma once
+#include <fc/exception/exception.hpp>
 
 #include <eosio/chain/wasm_eosio_constraints.hpp>
-#include <eosio/chain/webassembly/eos-vm-oc/eos-vm-oc.hpp>
+#include <eosio/chain/webassembly/eos-vm-oc/eos-vm-oc.h>
 #include <eosio/chain/webassembly/eos-vm-oc/intrinsic_mapping.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/gs_seg_helpers.h>
 
 #include <stdint.h>
 #include <stddef.h>
+
+namespace eosio::chain::eosvmoc {
+   using control_block = eos_vm_oc_control_block;
+}
 
 namespace eosio { namespace chain { namespace eosvmoc {
 
