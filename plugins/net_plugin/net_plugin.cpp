@@ -1747,10 +1747,6 @@ namespace eosio {
          peer_dlog( this, "enqueue sync block ${num}", ("num", peer_requested->last + 1) );
       }
       uint32_t num = peer_requested->last + 1;
-      if(num == peer_requested->end_block) {
-         peer_requested.reset();
-         peer_dlog( this, "completing enqueue_sync_block ${num}", ("num", num) );
-      }
 
       controller& cc = my_impl->chain_plug->chain();
       signed_block_ptr sb;
@@ -1771,6 +1767,10 @@ namespace eosio {
          block_sync_throttling = false;
          block_sync_bytes_sent += enqueue_block( sb, true );
          ++peer_requested->last;
+         if(num == peer_requested->end_block) {
+            peer_requested.reset();
+            peer_dlog( this, "completing enqueue_sync_block ${num}", ("num", num) );
+         }
       } else {
          peer_ilog( this, "enqueue sync, unable to fetch block ${num}, sending benign_other go away", ("num", num) );
          peer_requested.reset(); // unable to provide requested blocks

@@ -463,14 +463,6 @@ void clear_directory_contents( const std::filesystem::path& p ) {
    }
 }
 
-void clear_chainbase_files( const std::filesystem::path& p ) {
-   if( !std::filesystem::is_directory( p ) )
-      return;
-
-   std::filesystem::remove( p / "shared_memory.bin" );
-   std::filesystem::remove( p / "shared_memory.meta" );
-}
-
 namespace {
   // This can be removed when versions of eosio that support reversible chainbase state file no longer supported.
   void upgrade_from_reversible_to_fork_db(chain_plugin_impl* my) {
@@ -762,7 +754,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          ilog( "Replay requested: deleting state database" );
          if( options.at( "truncate-at-block" ).as<uint32_t>() > 0 )
             wlog( "The --truncate-at-block option does not work for a regular replay of the blockchain." );
-         clear_chainbase_files( chain_config->state_dir );
+         clear_directory_contents( chain_config->state_dir );
       } else if( options.at( "truncate-at-block" ).as<uint32_t>() > 0 ) {
          wlog( "The --truncate-at-block option can only be used with --hard-replay-blockchain." );
       }
