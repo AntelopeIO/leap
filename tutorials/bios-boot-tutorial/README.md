@@ -17,17 +17,17 @@ The `bios-boot-tutorial.py` script simulates the bios boot sequence.
 
 ## Steps
 
-1. Install Leap 3.1 binaries by following the steps provided in the [Leap README](https://github.com/AntelopeIO/leap/tree/release/3.1#software-installation).
+1. Install Leap 5.0 binaries by following the steps provided in the [Leap README](https://github.com/AntelopeIO/leap/tree/release/5.0#software-installation).
 
-2. Install CDT 3.0 binaries by following the steps provided in the [CDT README](https://github.com/AntelopeIO/cdt/tree/release/3.0#binary-releases).
+2. Install CDT 4.0 binaries by following the steps provided in the [CDT README](https://github.com/AntelopeIO/cdt/tree/release/4.0#binary-releases).
 
-3. Compile EOS System Contracts 3.1:
+3. Compile EOS System Contracts 3.2:
 
 ```bash
 $ cd ~
-$ git clone https://github.com/eosnetworkfoundation/eos-system-contracts system-contracts-3.1
-$ cd ./system-contracts-3.1/
-$ git checkout release/3.1
+$ git clone https://github.com/eosnetworkfoundation/eos-system-contracts system-contracts-3.2
+$ cd ./system-contracts-3.2/
+$ git checkout release/3.2
 $ mkdir build
 $ cd ./build
 $ cmake -DCMAKE_BUILD_TYPE=Release ..
