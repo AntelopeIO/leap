@@ -24,14 +24,14 @@ appArgs = AppArgs()
 appArgs.add(flag='--plugin',action='append',type=str,help='Run nodes with additional plugins')
 appArgs.add(flag='--connection-cleanup-period',type=int,help='Interval in whole seconds to run the connection reaper and metric collection')
 
-args=TestHelper.parse_args({"-p","-d","--keep-logs","--prod-count"
+args=TestHelper.parse_args({"-d","--keep-logs"
                             ,"--dump-error-details","-v","--leave-running"
                             ,"--unshared"},
                             applicationSpecificArgs=appArgs)
-pnodes=args.p
+pnodes=1
 delay=args.d
 debug=args.v
-prod_count = args.prod_count
+prod_count = 2
 total_nodes=4
 dumpErrorDetails=args.dump_error_details
 
@@ -106,10 +106,11 @@ try:
     throttlingNode = cluster.unstartedNodes[0]
     i = throttlingNode.cmd.index('--p2p-listen-endpoint')
     throttleListenAddr = throttlingNode.cmd[i+1]
-    # Using 4000 bytes per second to allow syncing of ~250 transaction blocks resulting from
-    # the trx generators in a reasonable amount of time, while still being able to capture
+    # Using 40 Kilobytes per second to allow syncing of ~250 transaction blocks at ~175 bytes per transaction
+    # (250*175=43750 per block or 87500 per second)
+    # resulting from the trx generators in a reasonable amount of time, while still being able to capture
     # throttling state within the Prometheus update window (3 seconds in this test).
-    throttlingNode.cmd[i+1] = throttlingNode.cmd[i+1] + ':4000B/s'
+    throttlingNode.cmd[i+1] = throttlingNode.cmd[i+1] + ':40KB/s'
     throttleListenIP, throttleListenPort = throttleListenAddr.split(':')
     throttlingNode.cmd.append('--p2p-listen-endpoint')
     throttlingNode.cmd.append(f'{throttleListenIP}:{int(throttleListenPort)+100}:1TB/s')
@@ -213,7 +214,7 @@ try:
         if throttledState:
             wasThrottled = True
             break
-    assert throttledNode.waitForBlock(endLargeBlocksHeadBlock, timeout=30), f'Wait for block {endLargeBlocksHeadBlock} on sync node timed out'
+    assert throttledNode.waitForBlock(endLargeBlocksHeadBlock, timeout=90), f'Wait for block {endLargeBlocksHeadBlock} on sync node timed out'
     endThrottledSync = time.time()
     response = throttledNode.processUrllibRequest('prometheus', 'metrics', exitOnError=True, returnType=ReturnType.raw, printReturnLimit=16).decode()
     Print('Throttled Node End State')

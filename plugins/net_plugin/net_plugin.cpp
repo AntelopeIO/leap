@@ -892,6 +892,8 @@ namespace eosio {
       std::atomic<size_t>             bytes_sent{0};
       std::atomic<size_t>             block_sync_bytes_received{0};
       std::atomic<size_t>             block_sync_bytes_sent{0};
+      std::chrono::nanoseconds        block_sync_send_start{0ns};    // start of enqueue blocks
+      size_t                          block_sync_send_bytes_sent{0}; // bytes sent in this set of enqueue blocks
       std::atomic<bool>               block_sync_throttling{false};
       std::atomic<std::chrono::nanoseconds>   last_bytes_sent{0ns};
       std::atomic<boost::asio::ip::port_type> remote_endpoint_port{0};
@@ -1740,9 +1742,16 @@ namespace eosio {
       } FC_LOG_AND_DROP();
       if( sb ) {
          // Skip transmitting block this loop if threshold exceeded
-         if( block_sync_rate_limit > 0 && peer_syncing_from_us ) {
-            auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(get_time() - connection_start_time);
-            auto current_rate = double(block_sync_bytes_sent) / elapsed.count();
+         if (block_sync_send_start == 0ns) { // start of enqueue blocks
+            block_sync_send_start = get_time();
+            block_sync_send_bytes_sent = 0;
+         }
+         if( block_sync_rate_limit > 0 && block_sync_send_bytes_sent > 0 && peer_syncing_from_us ) {
+            auto now = get_time();
+            auto elapsed_us = std::chrono::duration_cast<std::chrono::microseconds>(now - block_sync_send_start);
+            double current_rate = (double(block_sync_bytes_sent) / elapsed_us.count()) * 100000;
+            peer_dlog(this, "start enqueue block time ${st}, now ${t}, elapsed ${e}, rate ${r}, limit ${l}",
+                      ("st", block_sync_send_start.count())("t", now.count())("e", elapsed_us.count())("r", current_rate)("l", block_sync_rate_limit));
             if( current_rate >= block_sync_rate_limit ) {
                block_sync_throttling = true;
                peer_dlog( this, "throttling block sync to peer ${host}:${port}", ("host", log_remote_endpoint_ip)("port", log_remote_endpoint_port));
@@ -1750,15 +1759,21 @@ namespace eosio {
             }
          }
          block_sync_throttling = false;
-         block_sync_bytes_sent += enqueue_block( sb, true );
+         auto sent = enqueue_block( sb, true );
+         block_sync_bytes_sent += sent;
+         block_sync_send_bytes_sent += sent;
          ++peer_requested->last;
          if(num == peer_requested->end_block) {
             peer_requested.reset();
+            block_sync_send_start = 0ns;
+            block_sync_send_bytes_sent = 0;
             peer_dlog( this, "completing enqueue_sync_block ${num}", ("num", num) );
          }
       } else {
          peer_ilog( this, "enqueue sync, unable to fetch block ${num}, sending benign_other go away", ("num", num) );
          peer_requested.reset(); // unable to provide requested blocks
+         block_sync_send_start = 0ns;
+         block_sync_send_bytes_sent = 0;
          no_retry = benign_other;
          enqueue( go_away_message( benign_other ) );
       }
