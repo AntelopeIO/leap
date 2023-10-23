@@ -1462,6 +1462,9 @@ namespace eosio {
       latest_msg_time = std::chrono::system_clock::time_point::min();
       latest_blk_time = std::chrono::system_clock::time_point::min();
       set_state(connection_state::closed);
+      block_sync_send_start = 0ns;
+      block_sync_send_bytes_sent = 0;
+      block_sync_throttling = false;
 
       if( reconnect && !shutdown ) {
          my_impl->connections.start_conn_timer( std::chrono::milliseconds( 100 ),
