@@ -10,10 +10,8 @@
 #include <stddef.h>
 
 namespace eosio::chain::eosvmoc {
-   using control_block = eos_vm_oc_control_block;
-}
 
-namespace eosio { namespace chain { namespace eosvmoc {
+using control_block = eos_vm_oc_control_block;
 
 class memory {
       static constexpr uint64_t intrinsic_count                   = intrinsic_table_size();
@@ -71,7 +69,7 @@ class memory {
       uint8_t* fullpage_base;
 };
 
-}}}
+}
 
 #define OFFSET_OF_CONTROL_BLOCK_MEMBER(M) (-(int)eosio::chain::eosvmoc::memory::cb_offset + (int)offsetof(eosio::chain::eosvmoc::control_block, M))
 #define OFFSET_OF_FIRST_INTRINSIC ((int)-eosio::chain::eosvmoc::memory::first_intrinsic_offset)
