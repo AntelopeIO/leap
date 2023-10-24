@@ -117,6 +117,11 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
             } FC_LOG_AND_DROP()
             BOOST_CHECK(!"app threw exception see logged error");
          } );
+         fc::scoped_exit<std::function<void()>> on_except = [&](){
+            app->quit();
+            if (app_thread.joinable())
+               app_thread.join();
+         };
 
          auto[prod_plug, chain_plug] = plugin_fut.get();
 
@@ -162,9 +167,6 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
          while ( (next_calls < num_pushes || num_get_account_calls < num_pushes) && fc::time_point::now() < hard_deadline ){
             std::this_thread::sleep_for( 100ms );
          }
-
-         app->quit();
-         app_thread.join();
       }
 
       BOOST_CHECK_EQUAL( trace_with_except, 0u ); // should not have any traces with except in it
