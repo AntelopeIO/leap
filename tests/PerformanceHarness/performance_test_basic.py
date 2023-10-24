@@ -491,12 +491,12 @@ class PerformanceTestBasic:
             completedRun = True
 
         # Get stats after transaction generation stops
+        endBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         trxSent = {}
         scrapeTrxGenTrxSentDataLogs(trxSent, self.trxGenLogDirPath, self.ptbConfig.quiet)
         if len(trxSent) != self.ptbConfig.expectedTransactionsSent:
             print(f"ERROR: Transactions generated: {len(trxSent)} does not match the expected number of transactions: {self.ptbConfig.expectedTransactionsSent}")
-        blocksToWait = self.data.startBlock + (2 * self.ptbConfig.testTrxGenDurationSec) + 10
-        trxNotFound = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, blocksToWait)
+        trxNotFound = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, endBlock)
         self.data.ceaseBlock = self.validationNode.getHeadBlockNum()
 
         return PerformanceTestBasic.PtbTpsTestResult(completedRun=completedRun, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
