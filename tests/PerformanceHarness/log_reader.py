@@ -39,7 +39,7 @@ class TpsTestConfig:
     numTrxGensUsed: int = 0
     targetTpsPerGenList: List[int] = field(default_factory=list)
     quiet: bool = False
-    printMissingTransactions: bool=False
+    printMissingTransactions: bool=True
 
 @dataclass
 class stats():
