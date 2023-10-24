@@ -7,13 +7,8 @@ The `bios-boot-tutorial.py` script simulates the bios boot sequence.
 1. Python 3.x
 2. CMake
 3. git
-4. g++
-5. build-essentials
-6. pip3
-7. openssl
-8. curl
-9. jq
-10. psmisc
+4. curl
+5. libcurl4-gnutls-dev
 
 ## Steps
 
@@ -42,8 +37,9 @@ The last command in the previous step printed the contracts directory. Make note
 5. Launch the `bios-boot-tutorial.py` script:
 
 ```bash
+$ pip install numpy
 $ cd ~
-$ git clone https://github.com/AntelopeIO/leap
+$ git clone -b release/*latest* https://github.com/AntelopeIO/leap
 $ cd ./leap/tutorials/bios-boot-tutorial/
 $ python3 bios-boot-tutorial.py --cleos=cleos --nodeos=nodeos --keosd=keosd --contracts-dir="${CONTRACTS_DIRECTORY}" -w -a
 ```
