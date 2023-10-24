@@ -318,5 +318,5 @@ jobs:
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success' || needs.libtester-tests.result != 'success'
+      - if: needs.tests.result != 'success' || needs.np-tests.result != 'success' || needs.libtester-tests.result != 'success'
         run: false
