@@ -113,7 +113,7 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
                   "--config-dir", temp_dir_str.c_str(),
                   "--max-transaction-time=100",
                   "--abi-serializer-max-time-ms=999",
-                  "--read-only-write-window-time-us=10000",
+                  "--read-only-write-window-time-us=100000",
                   "--read-only-read-window-time-us=400000"
                };
                argv.insert(argv.end(), specific_args.begin(), specific_args.end());
