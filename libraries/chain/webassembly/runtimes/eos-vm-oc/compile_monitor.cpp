@@ -192,15 +192,18 @@ struct compile_monitor {
    void wait_for_new_incomming_session(boost::asio::io_context& ctx) {
       _nodeos_socket.async_wait(boost::asio::local::datagram_protocol::socket::wait_read, [this, &ctx](auto ec) {
          if(ec) {
+            std::cerr << "oc-monitor async_wait failed, ec: " << ec << std::endl;
             ctx.stop();
             return;
          }
          auto [success, message, fds] = read_message_with_fds(_nodeos_socket);
          if(!success) {   //failure reading indicates that nodeos has shut down
+            std::cerr << "oc-monitor read_message_with_fds failed\n";
             ctx.stop();
             return;
          }
          if(!std::holds_alternative<initialize_message>(message) || fds.size() != 2) {
+            std::cerr << "oc-monitor received non-initialize-message\n";
             ctx.stop();
             return;
          }
@@ -213,12 +216,16 @@ struct compile_monitor {
                   _compile_sessions.erase(it);
                });
             });
-            write_message_with_fds(_nodeos_socket, initalize_response_message());
+            if (!write_message_with_fds(_nodeos_socket, initalize_response_message())){
+               std::cerr << "oc-monitor write_message_with_fds failed\n";
+            }
          }
          catch(const std::exception& e) {
+            std::cerr << "oc-monitor had std::exception\n";
             write_message_with_fds(_nodeos_socket, initalize_response_message{e.what()});
          }
          catch(...) {
+            std::cerr << "oc-monitor had other exception\n";
             write_message_with_fds(_nodeos_socket, initalize_response_message{"Failed to create compile process"});
          }
 
@@ -272,6 +279,7 @@ void launch_compile_monitor(int nodeos_fd) {
          std::cerr << "ERROR: EOS VM OC compiler monitor exiting with active sessions" << std::endl;
    }
    
+   std::cerr << "exiting oc-monitor process\n";
    _exit(0);
 }
 
@@ -320,7 +328,8 @@ wrapped_fd get_connection_to_compile_monitor(int cache_fd) {
    std::vector<wrapped_fd> fds_to_pass; 
    fds_to_pass.emplace_back(std::move(socket_to_hand_to_monitor_session));
    fds_to_pass.emplace_back(std::move(dup_cache_fd));
-   write_message_with_fds(the_compile_monitor_trampoline.compile_manager_fd, initialize_message(), fds_to_pass);
+   auto rc =  write_message_with_fds(the_compile_monitor_trampoline.compile_manager_fd, initialize_message(), fds_to_pass);
+   EOS_ASSERT(rc, misc_exception, "failed to write initialize message to monitor process");
 
    auto [success, message, fds] = read_message_with_fds(the_compile_monitor_trampoline.compile_manager_fd);
    EOS_ASSERT(success, misc_exception, "failed to read response from monitor process");
