@@ -144,29 +144,31 @@ BOOST_AUTO_TEST_SUITE(resmon_plugin_tests)
 
    BOOST_FIXTURE_TEST_CASE(startupNormal, resmon_fixture)
    {
-      BOOST_REQUIRE_NO_THROW( plugin_startup({"/tmp"}));
+      // do not use native "/tmp", as subdirectories in /tmp on test machine
+      // can be removed during a test run, causing file_space_handler::add_file_system
+      // to assert when doing get_stat on a removed directory
+      fc::temp_directory temp_dir;
+      BOOST_REQUIRE_NO_THROW(plugin_startup({temp_dir.path()}));
    }
 
    BOOST_FIXTURE_TEST_CASE(startupDuplicateDirs, resmon_fixture)
    {
-      BOOST_REQUIRE_NO_THROW( plugin_startup({"/tmp", "/tmp"}));
+      fc::temp_directory temp_dir;
+      BOOST_REQUIRE_NO_THROW(plugin_startup({temp_dir.path(), temp_dir.path()}));
    }
 
    BOOST_FIXTURE_TEST_CASE(startupMultDirs, resmon_fixture)
    {
-      // Under "/" are multiple file systems
-      BOOST_REQUIRE_NO_THROW( plugin_startup({"/", "/tmp"}));
+      fc::temp_directory temp_dir_1;
+      fc::temp_directory temp_dir_2;
+      BOOST_REQUIRE_NO_THROW(plugin_startup({temp_dir_1.path(), temp_dir_2.path()}));
    }
 
    BOOST_FIXTURE_TEST_CASE(startupNoExistingDirs, resmon_fixture)
    {
-      // "hsdfgd983" a random file and not existing
-      BOOST_REQUIRE_THROW( plugin_startup({"/tmp", "hsdfgd983"}), chain::plugin_config_exception);
-   }
-
-   BOOST_FIXTURE_TEST_CASE(startupLongRun, resmon_fixture)
-   {
-      BOOST_REQUIRE_NO_THROW( plugin_startup({"/tmp"}, 5));
+      fc::temp_directory temp_dir;
+      // temp_dir/hsdfgd983 does not exist in a just created temp directory
+      BOOST_REQUIRE_THROW(plugin_startup({temp_dir.path(), temp_dir.path() / "hsdfgd983"}), chain::plugin_config_exception);
    }
 
    BOOST_FIXTURE_TEST_CASE(warningIntervalTooBig, resmon_fixture)
