@@ -138,7 +138,7 @@ jobs:
     runs-on: ["self-hosted", "enf-x86-hightier"]
     container:
       image: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.cfg.base].image}}
-      options: --security-opt seccomp=unconfined
+      options: --security-opt seccomp=unconfined --mount type=bind,source=/var/lib/systemd/coredump,target=/cores
     steps:
       - uses: actions/checkout@v4
       - name: Download builddir
@@ -152,6 +152,13 @@ jobs:
           zstdcat build.tar.zst | tar x
           cd build
           ctest --output-on-failure -j $(nproc) -LE "(nonparallelizable_tests|long_running_tests)" --timeout 420
+      - name: Upload core files from failed tests
+        uses: actions/upload-artifact@v3
+        if: failure()
+        with:
+          name: ${{matrix.cfg.name}}-tests-logs
+          if-no-files-found: ignore
+          path: /cores
       - name: Check CPU Features
         run: awk 'BEGIN {err = 1} /bmi2/ && /adx/ {err = 0} END {exit err}' /proc/cpuinfo
 
@@ -181,12 +188,17 @@ jobs:
           log-tarball-prefix: ${{matrix.cfg.name}}
           tests-label: nonparallelizable_tests
           test-timeout: 420
+      - name: Export core dumps
+        run: docker run --mount type=bind,source=/var/lib/systemd/coredump,target=/cores alpine sh -c 'tar -C /cores/ -c .' | tar x
+        if: failure()
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: ${{matrix.cfg.name}}-np-logs
-          path: '*-logs.tar.gz'
+          path: |
+            *-logs.tar.gz
+            core*.zst
 
   lr-tests:
     name: LR Tests (${{matrix.cfg.name}})
@@ -214,12 +226,17 @@ jobs:
           log-tarball-prefix: ${{matrix.cfg.name}}
           tests-label: long_running_tests
           test-timeout: 1800
+      - name: Export core dumps
+        run: docker run --mount type=bind,source=/var/lib/systemd/coredump,target=/cores alpine sh -c 'tar -C /cores/ -c .' | tar x
+        if: failure()
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
         with:
           name: ${{matrix.cfg.name}}-lr-logs
-          path: '*-logs.tar.gz'
+          path: |
+            *-logs.tar.gz
+            core*.zst
 
   libtester-tests:
     name: libtester tests
