@@ -609,8 +609,6 @@ struct controller_impl {
          ilog( "Snapshot loaded, lib: ${lib}", ("lib", head->block_num) );
 
          init(std::move(check_shutdown));
-         if (conf.revert_to_private_mode)
-            db.revert_to_private_mode();
          auto snapshot_load_time = (fc::time_point::now() - snapshot_load_start_time).to_seconds();
          ilog( "Finished initialization from snapshot (snapshot load time was ${t}s)", ("t", snapshot_load_time) );
       } catch (boost::interprocess::bad_alloc& e) {
