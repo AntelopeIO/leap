@@ -89,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     container: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.platform].image}}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           submodules: recursive
       - name: Download builddir
@@ -140,7 +140,7 @@ jobs:
       image: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.cfg.base].image}}
       options: --security-opt seccomp=unconfined
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
@@ -168,7 +168,7 @@ jobs:
           - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
     runs-on: ["self-hosted", "enf-x86-midtier"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
@@ -201,7 +201,7 @@ jobs:
           - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
     runs-on: ["self-hosted", "enf-x86-lowtier"]
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
@@ -243,7 +243,7 @@ jobs:
       # LEAP
       - if: ${{ matrix.test != 'deb-install' }}
         name: Clone leap
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           submodules: recursive
       - if: ${{ matrix.test != 'deb-install' }}
@@ -296,7 +296,7 @@ jobs:
 
       # Reference Contracts
       - name: checkout eos-system-contracts
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
         with:
           repository: eosnetworkfoundation/eos-system-contracts
           path: eos-system-contracts
