@@ -20,25 +20,25 @@ BOOST_AUTO_TEST_CASE(test_parse_rate_limit) {
    size_t which = 0;
    auto [listen_addr, block_sync_rate_limit] = plugin_impl.parse_listen_address(p2p_addresses[which++]);
    BOOST_CHECK_EQUAL(listen_addr, "0.0.0.0:9876");
-   BOOST_CHECK_EQUAL(block_sync_rate_limit, 0);
+   BOOST_CHECK_EQUAL(block_sync_rate_limit, 0u);
    std::tie(listen_addr, block_sync_rate_limit) = plugin_impl.parse_listen_address(p2p_addresses[which++]);
    BOOST_CHECK_EQUAL(listen_addr, "0.0.0.0:9776");
-   BOOST_CHECK_EQUAL(block_sync_rate_limit, 0);
+   BOOST_CHECK_EQUAL(block_sync_rate_limit, 0u);
    std::tie(listen_addr, block_sync_rate_limit) = plugin_impl.parse_listen_address(p2p_addresses[which++]);
    BOOST_CHECK_EQUAL(listen_addr, "0.0.0.0:9877");
-   BOOST_CHECK_EQUAL(block_sync_rate_limit, 640000);
+   BOOST_CHECK_EQUAL(block_sync_rate_limit, 640000u);
    std::tie(listen_addr, block_sync_rate_limit) = plugin_impl.parse_listen_address(p2p_addresses[which++]);
    BOOST_CHECK_EQUAL(listen_addr, "192.168.0.1:9878");
-   BOOST_CHECK_EQUAL(block_sync_rate_limit, 20971520);
+   BOOST_CHECK_EQUAL(block_sync_rate_limit, 20971520u);
    std::tie(listen_addr, block_sync_rate_limit) = plugin_impl.parse_listen_address(p2p_addresses[which++]);
    BOOST_CHECK_EQUAL(listen_addr, "localhost:9879");
-   BOOST_CHECK_EQUAL(block_sync_rate_limit, 500);
+   BOOST_CHECK_EQUAL(block_sync_rate_limit, 500u);
    std::tie(listen_addr, block_sync_rate_limit) = plugin_impl.parse_listen_address(p2p_addresses[which++]);
    BOOST_CHECK_EQUAL(listen_addr, "[2001:db8:85a3:8d3:1319:8a2e:370:7348]:9876");
-   BOOST_CHECK_EQUAL(block_sync_rate_limit, 250000);
+   BOOST_CHECK_EQUAL(block_sync_rate_limit, 250000u);
    std::tie(listen_addr, block_sync_rate_limit) = plugin_impl.parse_listen_address(p2p_addresses[which++]);
    BOOST_CHECK_EQUAL(listen_addr, "[::1]:9876");
-   BOOST_CHECK_EQUAL(block_sync_rate_limit, 250000);
+   BOOST_CHECK_EQUAL(block_sync_rate_limit, 250000u);
    BOOST_CHECK_EXCEPTION(plugin_impl.parse_listen_address(p2p_addresses[which++]), eosio::chain::plugin_config_exception,
                          [](const eosio::chain::plugin_config_exception& e)
                          {return std::strstr(e.top_message().c_str(), "IPv6 addresses must be enclosed in square brackets");});
