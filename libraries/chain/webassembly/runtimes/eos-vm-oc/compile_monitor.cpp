@@ -114,7 +114,13 @@ struct compile_monitor_session {
    void read_message_from_compile_task(std::list<std::tuple<code_tuple, local::datagram_protocol::socket>>::iterator current_compile_it) {
       auto& [code, socket] = *current_compile_it;
       socket.async_wait(local::datagram_protocol::socket::wait_read, [this, current_compile_it](auto ec) {
-         //at this point we only expect 1 of 2 things to happen: we either get a reply (success), or we get no reply (failure)
+         //at this point we generally expect 1 of 2 things to happen: we either get a reply (success), or we get an error reading from the
+         // socket (failure). But there is also a third possibility that this compile_monitor_session is being destroyed and thus the
+         // socket is being destroyed by way of current_compiles being destroyed. Since this is an async_wait() and not an async_read(),
+         // for now just consider any error as being due to cancellation at dtor time and completely bail out (there aren't many other
+         // potential errors for an asnyc_wait)
+         if(ec)
+            return;
          auto& [code, socket] = *current_compile_it;
          auto [success, message, fds] = read_message_with_fds(socket);
          

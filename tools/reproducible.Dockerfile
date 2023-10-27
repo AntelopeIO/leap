@@ -97,10 +97,12 @@ FROM builder AS build
 
 ARG LEAP_BUILD_JOBS
 
-COPY / /src
-RUN cmake -S src -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -GNinja && \
+# Yuck: This places the source at the same location as leap's CI (build.yaml, build_base.yaml). Unfortunately this location only matches
+#       when build.yaml etc are being run from a repository named leap.
+COPY / /__w/leap/leap
+RUN cmake -S /__w/leap/leap -B build -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Release -GNinja && \
     cmake --build build -t package -- ${LEAP_BUILD_JOBS:+-j$LEAP_BUILD_JOBS} && \
-    src/tools/tweak-deb.sh build/leap_*.deb
+    /__w/leap/leap/tools/tweak-deb.sh build/leap_*.deb
 
 FROM scratch AS exporter
 COPY --from=build /build/*.deb /build/*.tar.* /
