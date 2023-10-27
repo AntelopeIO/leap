@@ -396,7 +396,7 @@ public:
                                   account_name                                first_auth,
                                   int64_t                                     sub_bill,
                                   uint32_t                                    prev_billed_cpu_time_us);
-   
+
    void        log_trx_results(const transaction_metadata_ptr& trx, const transaction_trace_ptr& trace, const fc::time_point& start);
    void        log_trx_results(const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr);
    void        log_trx_results(const packed_transaction_ptr& trx,
@@ -1830,7 +1830,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    }
 
    // create speculative blocks at regular intervals, so we create blocks with "current" block time
-   _pending_block_deadline = now + fc::microseconds(config::block_interval_us);
+   _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
    if (in_producing_mode()) {
       uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
       if (production_round_index == 0) {
@@ -1842,15 +1842,6 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             return start_block_result::waiting_for_production;
          }
       }
-
-      _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
-   } else if (!_producers.empty()) {
-      // cpu effort percent doesn't matter for the first block of the round, use max (block_interval_us) for cpu effort
-      auto wake_time = block_timing_util::calculate_producer_wake_up_time(fc::microseconds(config::block_interval_us), chain.head_block_num(), chain.head_block_time(),
-                                                                          _producers, chain.head_block_state()->active_schedule.producers,
-                                                                          _producer_watermarks);
-      if (wake_time)
-         _pending_block_deadline = std::min(*wake_time, _pending_block_deadline);
    }
 
    const auto& preprocess_deadline = _pending_block_deadline;
