@@ -92,16 +92,9 @@ namespace eosio::testing {
 
       ++_sent;
       _strand.post( [this, msg{std::move(msg)}, id{trx.id()}]() {
-         boost::asio::async_write( _p2p_socket, boost::asio::buffer(*msg),
-                                   boost::asio::bind_executor( _strand, [this, msg, id]( boost::system::error_code ec, std::size_t w ) {
-                                      if (ec) {
-                                         elog("async write failure: ${e}", ("e", ec.message()));
-                                      } else {
-                                         trx_acknowledged(id, fc::time_point::min()); //using min to identify ack time as not applicable for p2p
-                                      }
-                                      ++_sent_callback_num;
-                                   })
-         );
+         boost::asio::write(_p2p_socket, boost::asio::buffer(*msg));
+         trx_acknowledged(id, fc::time_point::min()); //using min to identify ack time as not applicable for p2p
+         ++_sent_callback_num;
       } );
    }
 
