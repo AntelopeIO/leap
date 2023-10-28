@@ -1793,11 +1793,13 @@ struct controller_impl {
             db.modify( pso, [&]( auto& ps ) {
                ps.preactivated_protocol_features.clear();
 
-               ps.activated_protocol_features.reserve( ps.activated_protocol_features.size()
-                                                         + new_protocol_feature_activations.size() );
-               for( const auto& feature_digest : new_protocol_feature_activations ) {
-                  ps.activated_protocol_features.emplace_back( feature_digest, pbhs.block_num );
-               }
+               std::size_t current_size = ps.activated_protocol_features.size();
+               std::size_t new_size     = current_size + new_protocol_feature_activations.size();
+               
+               ps.activated_protocol_features.clear_and_construct(new_size, current_size, [&](void* dest, std::size_t idx) {
+                  new (dest) protocol_state_object::activated_protocol_feature(
+                     new_protocol_feature_activations[idx - current_size], pbhs.block_num);
+               });
             });
          }
 
@@ -2902,7 +2904,11 @@ void controller::preactivate_feature( const digest_type& feature_digest, bool is
    }
 
    my->db.modify( pso, [&]( auto& ps ) {
-      ps.preactivated_protocol_features.push_back( feature_digest );
+      std::size_t old_size = ps.preactivated_protocol_features.size();
+      ps.preactivated_protocol_features.clear_and_construct(old_size + 1, old_size, [&](void* dest, std::size_t idx) {
+         assert(idx == old_size);
+         new (dest) digest_type(feature_digest);
+      });
    } );
 }
 

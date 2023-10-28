@@ -86,8 +86,10 @@ namespace eosio::chain {
 
    using chainbase::allocator;
    using shared_string = chainbase::shared_string;
+   
    template<typename T>
-   using shared_vector = boost::interprocess::vector<T, allocator<T>>;
+   using shared_vector = chainbase::shared_vector<T>;
+   
    template<typename T>
    using shared_set = boost::interprocess::set<T, std::less<T>, allocator<T>>;
    template<typename K, typename V>
@@ -426,6 +428,31 @@ namespace chainbase {
       v.resize_and_fill(size.value, [&s](char* buf, std::size_t sz) { s.read(buf, sz); });
       return s;
    }
+
+   // chainbase::shared_cow_vector
+   template<typename DataStream, typename T> inline DataStream& operator<<( DataStream& s, const chainbase::shared_cow_vector<T>& v )  {
+      FC_ASSERT( v.size() <= MAX_SIZE_OF_BYTE_ARRAYS );
+      fc::raw::pack( s, fc::unsigned_int((uint32_t)v.size()));
+      const auto* data = v.data();
+      auto size = v.size();
+      for (std::size_t i = 0; i < size; ++i) {
+         fc::raw::pack(s, &data[i]);
+      }
+      return s;
+   }
+
+   template<typename DataStream, typename T> inline DataStream& operator>>( DataStream& s, chainbase::shared_cow_vector<T>& v )  {
+      fc::unsigned_int size;
+      fc::raw::unpack( s, size );
+      FC_ASSERT( size.value <= MAX_SIZE_OF_BYTE_ARRAYS );
+      FC_ASSERT( v.size() == 0 );
+      v.resize_and_fill(size.value, [&](auto* data, std::size_t sz) { 
+         for (std::size_t i = 0; i < sz; ++i) {
+            fc::raw::unpack(s, &data[i]);
+         }
+      });
+      return s;
+   } 
 }
 
 FC_REFLECT_EMPTY( eosio::chain::void_t )

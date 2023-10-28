@@ -130,12 +130,9 @@ namespace eosio { namespace chain {
       auto to_shared(chainbase::allocator<char> alloc) const {
          shared_block_signing_authority_v0 result(alloc);
          result.threshold = threshold;
-         result.keys.clear();
-         result.keys.reserve(keys.size());
-         for (const auto& k: keys) {
-            result.keys.emplace_back(shared_key_weight::convert(alloc, k));
-         }
-
+         result.keys.clear_and_construct(keys.size(), 0, [&](void* dest, std::size_t idx) {
+            new (dest) shared_key_weight(shared_key_weight::convert(alloc, keys[idx]));
+         });
          return result;
       }
 
@@ -250,11 +247,9 @@ namespace eosio { namespace chain {
       auto to_shared(chainbase::allocator<char> alloc) const {
          auto result = shared_producer_authority_schedule(alloc);
          result.version = version;
-         result.producers.clear();
-         result.producers.reserve( producers.size() );
-         for( const auto& p : producers ) {
-            result.producers.emplace_back(p.to_shared(alloc));
-         }
+         result.producers.clear_and_construct(producers.size(), 0, [&](void* dest, std::size_t idx) {
+            new (dest) shared_producer_authority(producers[idx].to_shared(alloc));
+         });
          return result;
       }
 
