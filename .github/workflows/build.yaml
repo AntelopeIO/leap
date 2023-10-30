@@ -39,7 +39,9 @@ jobs:
       contents: read
     with:
       runs-on: '["self-hosted", "enf-x86-beefy"]'
-      platform-files: .cicd/platforms
+      platform-files: |
+        .cicd/platforms
+        tools/reproducible.Dockerfile:builder
 
   build-base:
     name: Run Build Workflow
@@ -77,13 +79,13 @@ jobs:
             echo eos-system-contracts-ref=${{inputs.override-eos-system-contracts}} >> $GITHUB_OUTPUT
           fi
 
-  dev-package:
-    name: Build leap-dev package
+  package:
+    name: Build deb packages
     needs: [platform-cache, build-base]
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20, ubuntu22]
+        platform: [ubuntu20, ubuntu22, reproducible]
     runs-on: ubuntu-latest
     container: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.platform].image}}
     steps:
@@ -94,41 +96,55 @@ jobs:
         uses: actions/download-artifact@v3
         with:
           name: ${{matrix.platform}}-build
-      - name: Build dev package
+      - name: Build packages
         run: |
           zstdcat build.tar.zst | tar x
           cd build
           cpack
+          ../tools/tweak-deb.sh leap_*.deb
       - name: Install dev package
+        if: matrix.platform != 'reproducible'
         run: |
           apt-get update && apt-get upgrade -y
           apt-get install -y ./build/leap_*.deb ./build/leap-dev*.deb
       - name: Test using TestHarness
+        if: matrix.platform != 'reproducible'
         run: |
           python3 -c "from TestHarness import Cluster"
       - name: Upload dev package
         uses: actions/upload-artifact@v3
+        if: matrix.platform != 'reproducible'
         with:
           name: leap-dev-${{matrix.platform}}-amd64
           path: build/leap-dev*.deb
+      - name: Upload leap package
+        uses: actions/upload-artifact@v3
+        if: matrix.platform == 'reproducible'
+        with:
+          name: leap-deb-amd64
+          path: build/leap_*.deb
 
   tests:
-    name: Tests
+    name: Tests (${{matrix.cfg.name}})
     needs: [platform-cache, build-base]
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20, ubuntu22]
+        include:
+          - cfg: {name: 'ubuntu20',      base: 'ubuntu20', builddir: 'ubuntu20'}
+          - cfg: {name: 'ubuntu22',      base: 'ubuntu22', builddir: 'ubuntu22'}
+          - cfg: {name: 'ubuntu20repro', base: 'ubuntu20', builddir: 'reproducible'}
+          - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
     runs-on: ["self-hosted", "enf-x86-hightier"]
     container:
-      image: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.platform].image}}
+      image: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.cfg.base].image}}
       options: --security-opt seccomp=unconfined
     steps:
       - uses: actions/checkout@v3
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
-          name: ${{matrix.platform}}-build
+          name: ${{matrix.cfg.builddir}}-build
       - name: Run Parallel Tests
         run: |
           # https://github.com/actions/runner/issues/2033  -- need this because of full version label test looking at git revs
@@ -140,66 +156,74 @@ jobs:
         run: awk 'BEGIN {err = 1} /bmi2/ && /adx/ {err = 0} END {exit err}' /proc/cpuinfo
 
   np-tests:
-    name: NP Tests
+    name: NP Tests (${{matrix.cfg.name}})
     needs: [platform-cache, build-base]
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20, ubuntu22]
+        include:
+          - cfg: {name: 'ubuntu20',      base: 'ubuntu20', builddir: 'ubuntu20'}
+          - cfg: {name: 'ubuntu22',      base: 'ubuntu22', builddir: 'ubuntu22'}
+          - cfg: {name: 'ubuntu20repro', base: 'ubuntu20', builddir: 'reproducible'}
+          - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
     runs-on: ["self-hosted", "enf-x86-midtier"]
     steps:
       - uses: actions/checkout@v3
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
-          name: ${{matrix.platform}}-build
+          name: ${{matrix.cfg.builddir}}-build
       - name: Run tests in parallel containers
         uses: ./.github/actions/parallel-ctest-containers
         with:
-          container: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.platform].image}}
+          container: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.cfg.base].image}}
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
-          log-tarball-prefix: ${{matrix.platform}}
+          log-tarball-prefix: ${{matrix.cfg.name}}
           tests-label: nonparallelizable_tests
           test-timeout: 420
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: ${{matrix.platform}}-np-logs
+          name: ${{matrix.cfg.name}}-np-logs
           path: '*-logs.tar.gz'
 
   lr-tests:
-    name: LR Tests
+    name: LR Tests (${{matrix.cfg.name}})
     needs: [platform-cache, build-base]
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu20, ubuntu22]
+        include:
+          - cfg: {name: 'ubuntu20',      base: 'ubuntu20', builddir: 'ubuntu20'}
+          - cfg: {name: 'ubuntu22',      base: 'ubuntu22', builddir: 'ubuntu22'}
+          - cfg: {name: 'ubuntu20repro', base: 'ubuntu20', builddir: 'reproducible'}
+          - cfg: {name: 'ubuntu22repro', base: 'ubuntu22', builddir: 'reproducible'}
     runs-on: ["self-hosted", "enf-x86-lowtier"]
     steps:
       - uses: actions/checkout@v3
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:
-          name: ${{matrix.platform}}-build
+          name: ${{matrix.cfg.builddir}}-build
       - name: Run tests in parallel containers
         uses: ./.github/actions/parallel-ctest-containers
         with:
-          container: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.platform].image}}
+          container: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.cfg.base].image}}
           error-log-paths: '["build/etc", "build/var", "build/leap-ignition-wd", "build/TestLogs"]'
-          log-tarball-prefix: ${{matrix.platform}}
+          log-tarball-prefix: ${{matrix.cfg.name}}
           tests-label: long_running_tests
           test-timeout: 1800
       - name: Upload logs from failed tests
         uses: actions/upload-artifact@v3
         if: failure()
         with:
-          name: ${{matrix.platform}}-lr-logs
+          name: ${{matrix.cfg.name}}-lr-logs
           path: '*-logs.tar.gz'
 
   libtester-tests:
     name: libtester tests
-    needs: [platform-cache, build-base, v, dev-package]
+    needs: [platform-cache, build-base, v, package]
     strategy:
       fail-fast: false
       matrix:
@@ -290,9 +314,9 @@ jobs:
 
   all-passing:
     name: All Required Tests Passed
-    needs: [dev-package, tests, np-tests, libtester-tests]
+    needs: [tests, np-tests, libtester-tests]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - if: needs.dev-package.result != 'success' || needs.tests.result != 'success' || needs.np-tests.result != 'success' || needs.libtester-tests.result != 'success'
+      - if: needs.tests.result != 'success' || needs.np-tests.result != 'success' || needs.libtester-tests.result != 'success'
         run: false
