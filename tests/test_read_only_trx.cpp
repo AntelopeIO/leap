@@ -106,7 +106,16 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
          std::thread app_thread( [&]() {
             try {
                fc::logger::get(DEFAULT_LOGGER).set_log_level(fc::log_level::debug);
-               std::vector<const char*> argv = {"test", "--data-dir", temp_dir_str.c_str(), "--config-dir", temp_dir_str.c_str()};
+               std::vector<const char*> argv = {
+                  "test",  // dummy executible name
+                  "-p", "eosio", "-e", // actual arguments follow
+                  "--data-dir", temp_dir_str.c_str(),
+                  "--config-dir", temp_dir_str.c_str(),
+                  "--max-transaction-time=100",
+                  "--abi-serializer-max-time-ms=999",
+                  "--read-only-write-window-time-us=100000",
+                  "--read-only-read-window-time-us=400000"
+               };
                argv.insert(argv.end(), specific_args.begin(), specific_args.end());
                app->initialize<chain_plugin, producer_plugin>(argv.size(), (char**)&argv[0]);
                app->find_plugin<chain_plugin>()->chain();
@@ -118,6 +127,7 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
             BOOST_CHECK(!"app threw exception see logged error");
          } );
          fc::scoped_exit<std::function<void()>> on_except = [&](){
+            app->quit();
             if (app_thread.joinable())
                app_thread.join();
          };
@@ -166,8 +176,6 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
          while ( (next_calls < num_pushes || num_get_account_calls < num_pushes) && fc::time_point::now() < hard_deadline ){
             std::this_thread::sleep_for( 100ms );
          }
-
-         app->quit();
       }
 
       BOOST_CHECK_EQUAL( trace_with_except, 0u ); // should not have any traces with except in it
@@ -180,62 +188,39 @@ void test_trxs_common(std::vector<const char*>& specific_args, bool test_disable
 
 // test read-only trxs on 1 threads (with --read-only-threads)
 BOOST_AUTO_TEST_CASE(with_1_read_only_threads) {
-   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
-                                              "--read-only-threads=1",
-                                              "--max-transaction-time=10",
-                                              "--abi-serializer-max-time-ms=999",
-                                              "--read-only-write-window-time-us=100000",
-                                              "--read-only-read-window-time-us=40000" };
+   std::vector<const char*> specific_args = { "--read-only-threads=1" };
    test_trxs_common(specific_args);
 }
 
 // test read-only trxs on 3 threads (with --read-only-threads)
 BOOST_AUTO_TEST_CASE(with_3_read_only_threads) {
-   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
-                                             "--read-only-threads=3",
-                                             "--max-transaction-time=10",
-                                             "--abi-serializer-max-time-ms=999",
-                                             "--read-only-write-window-time-us=100000",
-                                             "--read-only-read-window-time-us=40000" };
+   std::vector<const char*> specific_args = { "--read-only-threads=3" };
    test_trxs_common(specific_args);
 }
 
 // test read-only trxs on 3 threads (with --read-only-threads)
 BOOST_AUTO_TEST_CASE(with_3_read_only_threads_no_tierup) {
-   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
-                                             "--read-only-threads=3",
+   std::vector<const char*> specific_args = { "--read-only-threads=3",
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
                                              "--eos-vm-oc-enable=none",
 #endif
-                                             "--max-transaction-time=10",
-                                             "--abi-serializer-max-time-ms=999",
-                                             "--read-only-write-window-time-us=100000",
-                                             "--read-only-read-window-time-us=40000" };
+                                            };
    test_trxs_common(specific_args, true);
 }
 
 // test read-only trxs on 8 separate threads (with --read-only-threads)
 BOOST_AUTO_TEST_CASE(with_8_read_only_threads) {
-   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
-                                              "--read-only-threads=8",
-                                              "--max-transaction-time=10",
-                                              "--abi-serializer-max-time-ms=999",
-                                              "--read-only-write-window-time-us=10000",
-                                              "--read-only-read-window-time-us=400000" };
+   std::vector<const char*> specific_args = { "--read-only-threads=8" };
    test_trxs_common(specific_args);
 }
 
 // test read-only trxs on 8 separate threads (with --read-only-threads)
 BOOST_AUTO_TEST_CASE(with_8_read_only_threads_no_tierup) {
-   std::vector<const char*> specific_args = { "-p", "eosio", "-e",
-                                             "--read-only-threads=8",
+   std::vector<const char*> specific_args = { "--read-only-threads=8",
 #ifdef EOSIO_EOS_VM_OC_RUNTIME_ENABLED
                                              "--eos-vm-oc-enable=none",
 #endif
-                                             "--max-transaction-time=10",
-                                             "--abi-serializer-max-time-ms=999",
-                                             "--read-only-write-window-time-us=10000",
-                                             "--read-only-read-window-time-us=400000" };
+                                            };
    test_trxs_common(specific_args, true);
 }
 

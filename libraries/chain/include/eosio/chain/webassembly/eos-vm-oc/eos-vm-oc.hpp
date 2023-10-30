@@ -12,13 +12,7 @@
 #include <vector>
 #include <list>
 
-namespace eosio { namespace chain {
-
-class apply_context;
-
-namespace eosvmoc {
-
-using control_block = eos_vm_oc_control_block;
+namespace eosio::chain::eosvmoc {
 
 struct no_offset{};
 struct code_offset {
@@ -52,7 +46,7 @@ enum eosvmoc_exitcode : int {
 
 static constexpr uint8_t current_codegen_version = 1;
 
-}}}
+}
 
 FC_REFLECT(eosio::chain::eosvmoc::no_offset, );
 FC_REFLECT(eosio::chain::eosvmoc::code_offset, (offset));
