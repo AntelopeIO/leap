@@ -51,11 +51,12 @@ BOOST_AUTO_TEST_CASE(test_calculate_block_deadline) {
    {
       // Scenario 2:
       // In producing mode and it is already too late to meet the optimized deadlines,
-      // the returned deadline can never be later than the hard deadlines.
+      // the returned deadline can never be later than the next block deadline.
+      // now is not taken into account, but leaving set_now in to verify it has no affect.
 
       auto second_block_time = eosio::chain::block_timestamp_type(production_round_1st_block_slot + 1);
       fc::mock_time_traits::set_now(second_block_time.to_time_point() - fc::milliseconds(200));
-      auto second_block_hard_deadline = second_block_time.to_time_point() - fc::milliseconds(100);
+      auto second_block_hard_deadline = second_block_time.to_time_point() - fc::milliseconds(200);
       BOOST_CHECK_EQUAL(calculate_producing_block_deadline(cpu_effort, second_block_time),
                         second_block_hard_deadline);
       // use previous deadline as now
@@ -76,21 +77,42 @@ BOOST_AUTO_TEST_CASE(test_calculate_block_deadline) {
       fc::mock_time_traits::set_now(seventh_block_time.to_time_point() - fc::milliseconds(500));
 
       BOOST_CHECK_EQUAL(calculate_producing_block_deadline(cpu_effort, seventh_block_time),
-                        seventh_block_time.to_time_point() - fc::milliseconds(100));
+                        seventh_block_time.to_time_point() - fc::milliseconds(700));
 
       // use previous deadline as now
       fc::mock_time_traits::set_now(seventh_block_time.to_time_point() - fc::milliseconds(100));
       auto eighth_block_time = eosio::chain::block_timestamp_type(production_round_1st_block_slot + 7);
 
       BOOST_CHECK_EQUAL(calculate_producing_block_deadline(cpu_effort, eighth_block_time),
-                        eighth_block_time.to_time_point() - fc::milliseconds(200));
+                        eighth_block_time.to_time_point() - fc::milliseconds(800));
 
       // use previous deadline as now
       fc::mock_time_traits::set_now(eighth_block_time.to_time_point() - fc::milliseconds(200));
       auto ninth_block_time = eosio::chain::block_timestamp_type(production_round_1st_block_slot + 8);
 
       BOOST_CHECK_EQUAL(calculate_producing_block_deadline(cpu_effort, ninth_block_time),
-                        ninth_block_time.to_time_point() - fc::milliseconds(300));
+                        ninth_block_time.to_time_point() - fc::milliseconds(900));
+   }
+   {
+      // Scenario: time has passed for block to be produced
+      // Ask for a deadline for current block but its deadline has already passed
+      auto default_cpu_effort = fc::microseconds(block_interval.count() - (450000/12)); // 462,500
+      // with the default_cpu_effort, the first block deadline would be 29.9625 (29.500 + 0.4625)
+      fc::mock_time_traits::set_now(fc::time_point::from_iso_string("2023-10-29T13:40:29.963")); // past first block interval
+      auto first_block_time = eosio::chain::block_timestamp_type(fc::time_point::from_iso_string("2023-10-29T13:40:30.000"));
+      // pass the first block deadline
+      fc::time_point block_deadline = calculate_producing_block_deadline(default_cpu_effort, first_block_time);
+      // not equal since block_deadline is 29.962500
+      BOOST_CHECK_NE(block_deadline, fc::time_point::from_iso_string("2023-10-29T13:40:29.962"));
+      BOOST_CHECK_EQUAL(block_deadline.to_iso_string(), fc::time_point::from_iso_string("2023-10-29T13:40:29.962").to_iso_string()); // truncates
+
+      // second block has passed
+      fc::mock_time_traits::set_now(fc::time_point::from_iso_string("2023-10-29T13:40:30.426")); // past second block interval
+      auto second_block_time = eosio::chain::block_timestamp_type(fc::time_point::from_iso_string("2023-10-29T13:40:30.500"));
+      // pass the second block deadline
+      block_deadline = calculate_producing_block_deadline(default_cpu_effort, second_block_time);
+      // 29.962500 + (450000/12) = 30.425
+      BOOST_CHECK_EQUAL(block_deadline, fc::time_point::from_iso_string("2023-10-29T13:40:30.425"));
    }
 }
 
