@@ -317,6 +317,17 @@ namespace eosio { namespace testing {
          }
       }
 
+      // libtester does not enforce EOSVMOC limits for all tests except those in
+      // eosvmoc_limits_test.cpp, where one or more of the limits are set to
+      // max to indicate the limits are enforced.
+      if (cfg.eosvmoc_config.cpu_limits.rlim_cur != RLIM_INFINITY && cfg.eosvmoc_config.vm_limits.rlim_cur != RLIM_INFINITY && cfg.eosvmoc_config.stack_size_limit != std::numeric_limits<uint64_t>::max() && cfg.eosvmoc_config.generated_code_size_limit != std::numeric_limits<size_t>::max()) {
+         // set to inifinity or max such that they are not enforced.
+         cfg.eosvmoc_config.cpu_limits.rlim_cur       = RLIM_INFINITY;
+         cfg.eosvmoc_config.vm_limits.rlim_cur        = RLIM_INFINITY;
+         cfg.eosvmoc_config.stack_size_limit          = std::numeric_limits<uint64_t>::max();
+         cfg.eosvmoc_config.generated_code_size_limit = std::numeric_limits<size_t>::max();
+      }
+
       control.reset( new controller(cfg, std::move(pfs), *expected_chain_id) );
       control->add_indices();
       if (lambda) lambda();

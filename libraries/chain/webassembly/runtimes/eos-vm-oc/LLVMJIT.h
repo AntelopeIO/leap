@@ -15,6 +15,6 @@ struct instantiated_code {
 };
 
 namespace LLVMJIT {
-   instantiated_code instantiateModule(const IR::Module& module);
+   instantiated_code instantiateModule(const IR::Module& module, uint64_t stack_size_limit, size_t generated_code_size_limit);
 }
 }}}
