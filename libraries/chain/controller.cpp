@@ -3290,7 +3290,8 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
 
    my->db.modify( gpo, [&]( auto& gp ) {
       gp.proposed_schedule_block_num = cur_block_num;
-      gp.proposed_schedule = sch.to_shared(gp.proposed_schedule.producers.get_allocator());
+      std::destroy_at(std::addressof(gp.proposed_schedule));
+      std::construct_at(std::addressof(gp.proposed_schedule), sch); // make sure we construct `shared` objects in place
    });
    return version;
 }

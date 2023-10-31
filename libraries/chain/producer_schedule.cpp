@@ -1,6 +1,6 @@
 #include <eosio/chain/producer_schedule.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
 fc::variant producer_authority::get_abi_variant() const {
       auto authority_variant = std::visit([](const auto& a){
@@ -20,4 +20,22 @@ fc::variant producer_authority::get_abi_variant() const {
             ("authority", std::move(authority_variant));
 }
 
-} } /// eosio::chain
+shared_producer_authority::shared_producer_authority(const producer_authority& pa) :
+   producer_name(pa.producer_name),
+   authority(std::visit([]<class T>(const T& a) { return T(a);}, pa.authority))
+{
+}
+
+shared_block_signing_authority_v0::shared_block_signing_authority_v0(const block_signing_authority_v0& bsa) :
+   threshold(bsa.threshold),
+   keys(bsa.keys)
+{
+} 
+
+shared_producer_authority_schedule::shared_producer_authority_schedule(const producer_authority_schedule& pas) :
+   version(pas.version),
+   producers(pas.producers)
+{
+}
+   
+} /// eosio::chain

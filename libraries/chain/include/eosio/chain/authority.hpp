@@ -116,20 +116,17 @@ struct shared_key_weight {
       return key_weight{key.to_public_key(), weight};
    }
 
-   static shared_key_weight convert(chainbase::allocator<char> allocator, const key_weight& k) {
-      return std::visit(overloaded {
-         [&](const auto& k1r1) {
-            return shared_key_weight(k1r1, k.weight);
+   shared_key_weight(const key_weight& k) : key(fc::ecc::public_key_shim()), weight(k.weight) {
+      std::visit(overloaded {
+         [&]<class T>(const T& k1r1) {
+            key.pubkey.emplace<T>(k1r1);
          },
          [&](const fc::crypto::webauthn::public_key& wa) {
             size_t psz = fc::raw::pack_size(wa);
-            shared_string wa_ss(std::move(allocator));
-            wa_ss.resize_and_fill( psz, [&wa]( char* data, std::size_t sz ) {
-               fc::datastream<char*> ds(data, sz);
-               fc::raw::pack(ds, wa);
-            });
-
-            return shared_key_weight(std::move(wa_ss), k.weight);
+            std::string wa_ss(psz, 'a');
+            fc::datastream<char*> ds(wa_ss.data(), psz);
+            fc::raw::pack(ds, wa);
+            key.pubkey.emplace<shared_string>(wa_ss);
          }
       }, k.key._storage);
    }
@@ -221,16 +218,27 @@ struct authority {
 
 
 struct shared_authority {
-   explicit shared_authority( chainbase::allocator<char> alloc )
-   :keys(alloc),accounts(alloc),waits(alloc){}
+   shared_authority() = default;
+
+   shared_authority(const authority& auth) :
+      threshold(auth.threshold),
+      keys(auth.keys),
+      accounts(auth.accounts),
+      waits(auth.waits)
+   {
+   }
 
    shared_authority& operator=(const authority& a) {
       threshold = a.threshold;
       keys.clear_and_construct(a.keys.size(), 0, [&](void* dest, std::size_t idx) {
-         new (dest)  shared_key_weight(shared_key_weight::convert(keys.get_allocator(), a.keys[idx]));
+         new (dest) shared_key_weight(a.keys[idx]);
       });
-      accounts = decltype(accounts)(a.accounts.begin(), a.accounts.end(), accounts.get_allocator());
-      waits = decltype(waits)(a.waits.begin(), a.waits.end(), waits.get_allocator());
+      accounts.clear_and_construct(a.accounts.size(), 0, [&](void* dest, std::size_t idx) {
+         new (dest) permission_level_weight(a.accounts[idx]);
+      });
+      waits.clear_and_construct(a.waits.size(), 0, [&](void* dest, std::size_t idx) {
+         new (dest) wait_weight(a.waits[idx]);
+      });
       return *this;
    }
 

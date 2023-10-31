@@ -88,7 +88,7 @@ namespace eosio { namespace chain {
 
    template<typename DataStream>
    DataStream& operator >> ( DataStream& ds, shared_blob& b ) {
-      fc::raw::unpack(ds, static_cast<shared_string &>(b));
+      fc::raw::unpack(ds, static_cast<shared_string &>(b));  // [greg tbd]
       return ds;
    }
 } }
@@ -172,7 +172,8 @@ namespace fc {
    void from_variant( const variant& v, eosio::chain::shared_string& s ) {
       std::string _s;
       from_variant(v, _s);
-      s = eosio::chain::shared_string(_s.begin(), _s.end(), s.get_allocator());
+      std::destroy_at(std::addressof(s));
+      std::construct_at(std::addressof(s), _s.begin(), _s.end());
    }
 
    inline
@@ -183,7 +184,8 @@ namespace fc {
    inline
    void from_variant( const variant& v, eosio::chain::shared_blob& b ) {
       std::string _s = base64_decode(v.as_string());
-      b = eosio::chain::shared_blob(_s.begin(), _s.end(), b.get_allocator());
+      std::destroy_at(std::addressof(b));
+      std::construct_at(std::addressof(b), _s.begin(), _s.end());
    }
 
    template<typename T>
@@ -195,7 +197,8 @@ namespace fc {
    void from_variant( const variant& v, eosio::chain::shared_vector<T>& sv ) {
       std::vector<T> _v;
       from_variant(v, _v);
-      sv = eosio::chain::shared_vector<T>(_v.begin(), _v.end(), sv.get_allocator());
+      std::destroy_at(std::addressof(sv));
+      std::construct_at(std::addressof(sv), _v.begin(), _v.end());
    }
 }
 

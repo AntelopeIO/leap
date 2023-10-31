@@ -17,16 +17,10 @@
 #include <list>
 
 #include <boost/multiprecision/cpp_int.hpp>
-#include <boost/interprocess/containers/string.hpp>
-#include <boost/interprocess/allocators/allocator.hpp>
-#include <boost/interprocess/managed_mapped_file.hpp>
 #include <fc/crypto/hex.hpp>
 
 namespace fc {
     namespace raw {
-
-    namespace bip = boost::interprocess;
-    using shared_string = bip::basic_string< char, std::char_traits< char >, bip::allocator<char, bip::managed_mapped_file::segment_manager> >;
 
     template<size_t Size>
     using UInt = boost::multiprecision::number<
@@ -309,22 +303,6 @@ namespace fc {
          v = std::string(tmp.data(),tmp.data()+tmp.size());
       else v = std::string();
     }
-
-    // bip::basic_string
-    template<typename Stream> inline void pack( Stream& s, const shared_string& v )  {
-      FC_ASSERT( v.size() <= MAX_SIZE_OF_BYTE_ARRAYS );
-      fc::raw::pack( s, unsigned_int((uint32_t)v.size()));
-      if( v.size() ) s.write( v.c_str(), v.size() );
-    }
-
-    template<typename Stream> inline void unpack( Stream& s, shared_string& v )  {
-      std::vector<char> tmp; fc::raw::unpack(s,tmp);
-      FC_ASSERT(v.size() == 0);
-      if( tmp.size() ) {
-         v.append(tmp.begin(), tmp.end());
-      }
-    }
-
     // bool
     template<typename Stream> inline void pack( Stream& s, const bool& v ) { fc::raw::pack( s, uint8_t(v) );             }
     template<typename Stream> inline void unpack( Stream& s, bool& v )
