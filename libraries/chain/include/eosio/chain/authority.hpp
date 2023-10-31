@@ -222,10 +222,12 @@ struct shared_authority {
 
    shared_authority(const authority& auth) :
       threshold(auth.threshold),
-      keys(auth.keys),
       accounts(auth.accounts),
       waits(auth.waits)
    {
+      keys.clear_and_construct(auth.keys.size(), 0, [&](void* dest, std::size_t idx) {
+         new (dest) shared_key_weight(auth.keys[idx]);
+      });
    }
 
    shared_authority& operator=(const authority& a) {

@@ -27,15 +27,19 @@ shared_producer_authority::shared_producer_authority(const producer_authority& p
 }
 
 shared_block_signing_authority_v0::shared_block_signing_authority_v0(const block_signing_authority_v0& bsa) :
-   threshold(bsa.threshold),
-   keys(bsa.keys)
+   threshold(bsa.threshold)
 {
+   keys.clear_and_construct(bsa.keys.size(), 0, [&](void* dest, std::size_t idx) {
+      new (dest) shared_key_weight(bsa.keys[idx]);
+   });
 } 
 
 shared_producer_authority_schedule::shared_producer_authority_schedule(const producer_authority_schedule& pas) :
-   version(pas.version),
-   producers(pas.producers)
+   version(pas.version)
 {
+   producers.clear_and_construct(pas.producers.size(), 0, [&](void* dest, std::size_t idx) {
+      new (dest) shared_producer_authority(pas.producers[idx]);
+   });
 }
    
 } /// eosio::chain

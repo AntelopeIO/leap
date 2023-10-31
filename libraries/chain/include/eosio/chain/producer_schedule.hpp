@@ -56,9 +56,6 @@ namespace eosio { namespace chain {
       shared_block_signing_authority_v0& operator= ( shared_block_signing_authority_v0 && ) = default;
       shared_block_signing_authority_v0& operator= ( const shared_block_signing_authority_v0 & ) = default;
 
-      explicit shared_block_signing_authority_v0( chainbase::allocator<char> alloc )
-      :keys(alloc){}
-
       uint32_t                           threshold = 0;
       shared_vector<shared_key_weight>   keys;
    };
