@@ -1829,8 +1829,6 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       last_start_block_time = now;
    }
 
-   // create speculative blocks at regular intervals, so we create blocks with "current" block time
-   _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
    if (in_producing_mode()) {
       uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
       if (production_round_index == 0) {
@@ -1844,6 +1842,15 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
    }
 
+   // create speculative blocks at regular intervals, so we create blocks with "current" block time
+   _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
+   if (in_speculating_mode()) { // if we are producing, then produce block even if deadline has pasted
+      // speculative block, no reason to start a block that will immediately be re-started, set deadline in the future
+      // a block should come in during this time, if not then just keep creating the block every produce_block_cpu_effort
+      if (now + fc::milliseconds(config::block_interval_ms/10) > _pending_block_deadline) {
+         _pending_block_deadline = now + _produce_block_cpu_effort;
+      }
+   }
    const auto& preprocess_deadline = _pending_block_deadline;
 
    fc_dlog(_log, "Starting block #${n} at ${time} producer ${p}", ("n", pending_block_num)("time", now)("p", scheduled_producer.producer_name));

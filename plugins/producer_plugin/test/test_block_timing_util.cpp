@@ -114,6 +114,13 @@ BOOST_AUTO_TEST_CASE(test_calculate_block_deadline) {
       // 29.962500 + (450000/12) = 30.425
       BOOST_CHECK_EQUAL(block_deadline, fc::time_point::from_iso_string("2023-10-29T13:40:30.425"));
    }
+   {
+      // Real scenario that caused multiple start blocks
+      auto default_cpu_effort = fc::microseconds(block_interval.count() - (450000/12)); // 462,500
+      auto block_time = eosio::chain::block_timestamp_type(fc::time_point::from_iso_string("2023-10-31T13:37:35.000"));
+      fc::time_point block_deadline = calculate_producing_block_deadline(default_cpu_effort, block_time);
+      BOOST_CHECK_EQUAL(block_deadline.to_iso_string(), fc::time_point::from_iso_string("2023-10-31T13:37:34.587").to_iso_string());
+   }
 }
 
 BOOST_AUTO_TEST_CASE(test_calculate_producer_wake_up_time) {
