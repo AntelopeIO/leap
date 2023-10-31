@@ -113,7 +113,7 @@ try:
 
     # verify only one start block per block unless interrupted
     for node in cluster.getAllNodes():
-        if not node.verifyOnlyOneStartingBlock():
+        if not node.verifyStartingBlockMessages():
             errorExit("Found more than one Starting block in logs")
 
     testSuccessful=True

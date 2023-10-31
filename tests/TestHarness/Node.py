@@ -550,12 +550,13 @@ class Node(Transactions):
                         return True
         return False
 
-    # verify only one 'Starting block' per block number unless block is restarted
-    def verifyOnlyOneStartingBlock(self):
+    # verify only one or two 'Starting block' per block number unless block is restarted
+    def verifyStartingBlockMessages(self):
         dataDir=Utils.getNodeDataDir(self.nodeId)
         files=Node.findStderrFiles(dataDir)
         for f in files:
             blockNumbers = set()
+            duplicateBlockNumbers = set()
             duplicatesFound = False
             lastRestartBlockNum = 0
 
@@ -569,9 +570,11 @@ class Node(Transactions):
                     match = re.match(r".*Starting block #(\d+)", line)
                     if match:
                         blockNumber = match.group(1)
-                        if blockNumber != lastRestartBlockNum and blockNumber in blockNumbers:
+                        if blockNumber != lastRestartBlockNum and blockNumber in duplicateBlockNumbers:
                             print(f"Duplicate Staring block found: {blockNumber} in {f}")
                             duplicatesFound = True
+                        if blockNumber != lastRestartBlockNum and blockNumber in blockNumbers:
+                            duplicateBlockNumbers.add(blockNumber)
                         blockNumbers.add(blockNumber)
 
             if duplicatesFound:
