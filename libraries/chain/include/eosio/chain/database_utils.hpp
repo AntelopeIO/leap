@@ -4,7 +4,7 @@
 #include <fc/io/raw.hpp>
 #include <softfloat.hpp>
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
    template<typename ...Indices>
    class index_set;
@@ -79,19 +79,7 @@ namespace eosio { namespace chain {
          index_set<RemainingIndices...>::walk_indices(function);
       }
    };
-
-   template<typename DataStream>
-   DataStream& operator << ( DataStream& ds, const shared_blob& b ) {
-      fc::raw::pack(ds, static_cast<const shared_string&>(b));
-      return ds;
-   }
-
-   template<typename DataStream>
-   DataStream& operator >> ( DataStream& ds, shared_blob& b ) {
-      fc::raw::unpack(ds, static_cast<shared_string &>(b));  // [greg tbd]
-      return ds;
-   }
-} }
+}
 
 namespace fc {
 
