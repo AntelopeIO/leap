@@ -277,6 +277,24 @@ BOOST_AUTO_TEST_CASE(test_calculate_producer_wake_up_time) {
       expected_block_time = block_timestamp_type(prod_round_1st_block_slot + 2*config::producer_repetitions + 2).to_time_point(); // with watermark, wait until next
       BOOST_CHECK_EQUAL(calculate_producer_wake_up_time(full_cpu_effort, 2, block_timestamp, producers, active_schedule, prod_watermarks), expected_block_time);
    }
+   { // actual example that caused multiple start blocks
+      producer_watermarks prod_watermarks;
+      std::set<account_name> producers = {
+              "inita"_n, "initb"_n, "initc"_n, "initd"_n, "inite"_n, "initf"_n, "initg"_n, "p1"_n,
+              "inith"_n, "initi"_n, "initj"_n, "initk"_n, "initl"_n, "initm"_n, "initn"_n,
+              "inito"_n, "initp"_n, "initq"_n, "initr"_n, "inits"_n, "initt"_n, "initu"_n, "p2"_n
+      };
+      std::vector<chain::producer_authority> active_schedule{
+              {"inita"_n}, {"initb"_n}, {"initc"_n}, {"initd"_n}, {"inite"_n}, {"initf"_n}, {"initg"_n},
+              {"inith"_n}, {"initi"_n}, {"initj"_n}, {"initk"_n}, {"initl"_n}, {"initm"_n}, {"initn"_n},
+              {"inito"_n}, {"initp"_n}, {"initq"_n}, {"initr"_n}, {"inits"_n}, {"initt"_n}, {"initu"_n}
+      };
+      auto default_cpu_effort = fc::microseconds(block_interval.count() - (450000/12)); // 462,500
+      auto wake_time = calculate_producer_wake_up_time(default_cpu_effort, 106022362, eosio::chain::block_timestamp_type(fc::time_point::from_iso_string("2023-10-31T16:06:41.000")),
+                                                       producers, active_schedule, prod_watermarks);
+      BOOST_REQUIRE(!!wake_time);
+      BOOST_CHECK_EQUAL(wake_time->to_iso_string(), fc::time_point::from_iso_string("2023-10-31T16:06:40.587").to_iso_string());
+   }
 
 }
 

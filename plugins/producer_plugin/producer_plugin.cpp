@@ -2495,7 +2495,7 @@ void producer_plugin_impl::schedule_production_loop() {
       chain::controller& chain = chain_plug->chain();
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state");
-      auto wake_time = block_timing_util::calculate_producer_wake_up_time(_produce_block_cpu_effort, chain.pending_block_num(), chain.pending_block_timestamp(),
+      auto wake_time = block_timing_util::calculate_producer_wake_up_time(fc::microseconds{config::block_interval_us}, chain.pending_block_num(), chain.pending_block_timestamp(),
                                                                           _producers, chain.head_block_state()->active_schedule.producers,
                                                                           _producer_watermarks);
       schedule_delayed_production_loop(weak_from_this(), wake_time);
