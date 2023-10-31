@@ -2498,6 +2498,10 @@ void producer_plugin_impl::schedule_production_loop() {
       auto wake_time = block_timing_util::calculate_producer_wake_up_time(fc::microseconds{config::block_interval_us}, chain.pending_block_num(), chain.pending_block_timestamp(),
                                                                           _producers, chain.head_block_state()->active_schedule.producers,
                                                                           _producer_watermarks);
+      if (wake_time && fc::time_point::now() > *wake_time) {
+         // if wake time has already passed then use the block deadline instead
+         wake_time = _pending_block_deadline;
+      }
       schedule_delayed_production_loop(weak_from_this(), wake_time);
    } else {
       fc_dlog(_log, "Speculative Block Created");
