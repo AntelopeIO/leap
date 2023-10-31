@@ -550,6 +550,35 @@ class Node(Transactions):
                         return True
         return False
 
+    # verify only one 'Starting block' per block number unless block is restarted
+    def verifyOnlyOneStartingBlock(self):
+        dataDir=Utils.getNodeDataDir(self.nodeId)
+        files=Node.findStderrFiles(dataDir)
+        for f in files:
+            blockNumbers = set()
+            duplicatesFound = False
+            lastRestartBlockNum = 0
+
+            with open(f, 'r') as file:
+                for line in file:
+                    match = re.match(r".*Restarting exhausted speculative block #(\d+)", line)
+                    if match:
+                        lastRestartBlockNum = match.group(1)
+                    if re.match(r".*unlinkable_block_exception", line):
+                        lastRestartBlockNum = blockNumber
+                    match = re.match(r".*Starting block #(\d+)", line)
+                    if match:
+                        blockNumber = match.group(1)
+                        if blockNumber != lastRestartBlockNum and blockNumber in blockNumbers:
+                            print(f"Duplicate Staring block found: {blockNumber} in {f}")
+                            duplicatesFound = True
+                        blockNumbers.add(blockNumber)
+
+            if duplicatesFound:
+                return False
+
+        return True
+
     def analyzeProduction(self, specificBlockNum=None, thresholdMs=500):
         dataDir=Utils.getNodeDataDir(self.nodeId)
         files=Node.findStderrFiles(dataDir)

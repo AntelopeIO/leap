@@ -772,9 +772,9 @@ public:
    }
 
    void restart_speculative_block() {
+      fc_dlog(_log, "Restarting exhausted speculative block #${n}", ("n", chain_plug->chain().head_block_num() + 1));
       // abort the pending block
       abort_block();
-
       schedule_production_loop();
    }
 
