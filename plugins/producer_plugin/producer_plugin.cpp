@@ -772,9 +772,10 @@ public:
    }
 
    void restart_speculative_block() {
+      // log message is used by Node.py verifyStartingBlockMessages in distributed-transactions-test.py test
+      fc_dlog(_log, "Restarting exhausted speculative block #${n}", ("n", chain_plug->chain().head_block_num() + 1));
       // abort the pending block
       abort_block();
-
       schedule_production_loop();
    }
 
@@ -1829,8 +1830,6 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       last_start_block_time = now;
    }
 
-   // create speculative blocks at regular intervals, so we create blocks with "current" block time
-   _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
    if (in_producing_mode()) {
       uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
       if (production_round_index == 0) {
@@ -1844,6 +1843,15 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       }
    }
 
+   // create speculative blocks at regular intervals, so we create blocks with "current" block time
+   _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
+   if (in_speculating_mode()) { // if we are producing, then produce block even if deadline has passed
+      // speculative block, no reason to start a block that will immediately be re-started, set deadline in the future
+      // a block should come in during this time, if not then just keep creating the block every produce_block_cpu_effort
+      if (now + fc::milliseconds(config::block_interval_ms/10) > _pending_block_deadline) {
+         _pending_block_deadline = now + _produce_block_cpu_effort;
+      }
+   }
    const auto& preprocess_deadline = _pending_block_deadline;
 
    fc_dlog(_log, "Starting block #${n} at ${time} producer ${p}", ("n", pending_block_num)("time", now)("p", scheduled_producer.producer_name));
@@ -2488,9 +2496,13 @@ void producer_plugin_impl::schedule_production_loop() {
       chain::controller& chain = chain_plug->chain();
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state");
-      auto wake_time = block_timing_util::calculate_producer_wake_up_time(_produce_block_cpu_effort, chain.pending_block_num(), chain.pending_block_timestamp(),
+      auto wake_time = block_timing_util::calculate_producer_wake_up_time(fc::microseconds{config::block_interval_us}, chain.pending_block_num(), chain.pending_block_timestamp(),
                                                                           _producers, chain.head_block_state()->active_schedule.producers,
                                                                           _producer_watermarks);
+      if (wake_time && fc::time_point::now() > *wake_time) {
+         // if wake time has already passed then use the block deadline instead
+         wake_time = _pending_block_deadline;
+      }
       schedule_delayed_production_loop(weak_from_this(), wake_time);
    } else {
       fc_dlog(_log, "Speculative Block Created");
