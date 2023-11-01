@@ -157,9 +157,7 @@ namespace eosio { namespace chain {
          p.owner        = account;
          p.name         = name;
          p.last_updated = creation_time;
-
-         std::destroy_at(std::addressof(p.auth));
-         std::construct_at(std::addressof(p.auth), auth); // make sure we construct `shared` objects in place
+         p.auth         = auth;
 
          if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_create_permission(p);
@@ -195,9 +193,7 @@ namespace eosio { namespace chain {
          p.owner        = account;
          p.name         = name;
          p.last_updated = creation_time;
-
-         std::destroy_at(std::addressof(p.auth));
-         std::construct_at(std::addressof(p.auth), auth); // make sure we construct `shared` objects in place
+         p.auth         = std::move(auth);
 
          if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {
             dm_logger->on_create_permission(p);
@@ -219,9 +215,7 @@ namespace eosio { namespace chain {
             old_permission = po;
          }
 
-         std::destroy_at(std::addressof(po.auth));
-         std::construct_at(std::addressof(po.auth), auth); // make sure we construct `shared` objects in place
-
+         po.auth = auth;
          po.last_updated = _control.pending_block_time();
 
          if (auto dm_logger = _control.get_deep_mind_logger(is_trx_transient)) {

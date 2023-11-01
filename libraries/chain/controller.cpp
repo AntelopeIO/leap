@@ -3285,8 +3285,7 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
 
    my->db.modify( gpo, [&]( auto& gp ) {
       gp.proposed_schedule_block_num = cur_block_num;
-      std::destroy_at(std::addressof(gp.proposed_schedule));
-      std::construct_at(std::addressof(gp.proposed_schedule), sch); // make sure we construct `shared` objects in place
+      gp.proposed_schedule = sch;
    });
    return version;
 }

@@ -87,7 +87,7 @@ namespace eosio { namespace chain {
    struct shared_producer_authority_schedule {
       shared_producer_authority_schedule() = default;
 
-      explicit shared_producer_authority_schedule( const producer_authority_schedule& );
+      shared_producer_authority_schedule( const producer_authority_schedule& );
 
       shared_producer_authority_schedule( const shared_producer_authority_schedule& ) = default;
       shared_producer_authority_schedule( shared_producer_authority_schedule&& ) = default;
