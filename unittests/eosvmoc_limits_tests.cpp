@@ -13,7 +13,7 @@ BOOST_AUTO_TEST_SUITE(eosvmoc_limits_tests)
 
 // common routine to verify wasm_execution_error is raised when a resource
 // limit specified in eosvmoc_config is reached
-void limit_violated_test(const eosvmoc::config eosvmoc_config) {
+void limit_violated_test(const eosvmoc::config& eosvmoc_config) {
    fc::temp_directory tempdir;
 
    constexpr bool use_genesis = true;
@@ -49,7 +49,7 @@ void limit_violated_test(const eosvmoc::config eosvmoc_config) {
 
 // common routine to verify no wasm_execution_error is raised
 // because limits specified in eosvmoc_config are not reached
-void limit_not_violated_test(const eosvmoc::config eosvmoc_config) {
+void limit_not_violated_test(const eosvmoc::config& eosvmoc_config) {
    fc::temp_directory tempdir;
 
    constexpr bool use_genesis = true;
@@ -104,12 +104,12 @@ BOOST_AUTO_TEST_CASE( stack_limit ) { try {
    eosvmoc_config.vm_limits.rlim_cur        = RLIM_INFINITY;
    eosvmoc_config.generated_code_size_limit = std::numeric_limits<size_t>::max();
 
-   // The larget stack size in the test is 104. 
-   // Set stack_size_limit to highest value to verify wasm_execution_error is raised 
+   // The stack size of the compiled WASM in the test is 104.
+   // Set stack_size_limit one less than the actual needed stack size
    eosvmoc_config.stack_size_limit = 103;
    limit_violated_test(eosvmoc_config);
 
-   // set stack_size_limit to lowest value to verify wasm_execution_error is not raised
+   // set stack_size_limit to the actual needed stack size
    eosvmoc_config.stack_size_limit = 104;
    limit_not_violated_test(eosvmoc_config);
 } FC_LOG_AND_RETHROW() }
@@ -123,13 +123,12 @@ BOOST_AUTO_TEST_CASE( generated_code_size_limit ) { try {
    eosvmoc_config.vm_limits.rlim_cur  = RLIM_INFINITY;
    eosvmoc_config.stack_size_limit    = std::numeric_limits<uint64_t>::max();
 
-   // The sgenerated code size in the test is 36856. 
-   // Set generated_code_size_limit to highest value to verify wasm_execution_error
-   // is raised 
+   // The generated code size of the compiled WASM in the test is 36856.
+   // Set generated_code_size_limit to the actual generated code size
    eosvmoc_config.generated_code_size_limit = 36856;
    limit_violated_test(eosvmoc_config);
 
-   // set generated_code_size_limit to lowest value to verify wasm_execution_error is not raised
+   // Set generated_code_size_limit to one above the actual generated code size
    eosvmoc_config.generated_code_size_limit = 36857;
    limit_not_violated_test(eosvmoc_config);
 } FC_LOG_AND_RETHROW() }

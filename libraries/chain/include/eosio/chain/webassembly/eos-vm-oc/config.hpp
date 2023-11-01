@@ -15,8 +15,10 @@ struct config {
    uint64_t cache_size = 1024u*1024u*1024u;
    uint64_t threads    = 1u;
 
-   // subjective limits.
-   // nodeos uses the default values. libtester sets them as required.
+   // subjective limits for OC compilation.
+   // nodeos enforces the limits by the default values.
+   // libtester disables the limits in all tests, except enforces the limits
+   // in the tests in unittests/eosvmoc_limits_tests.cpp.
    rlimit   cpu_limits                {20u, 20u};
    rlimit   vm_limits                 {512u*1024u*1024u, 512u*1024u*1024u};
    uint64_t stack_size_limit          {16u*1024u};

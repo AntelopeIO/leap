@@ -315,17 +315,13 @@ namespace LLVMJIT
 				WAVM_ASSERT_THROW(!!c);
 
 				++num_functions_stack_size_found;
-            // enforce stack_size_limit only when it is not max (libtester may
-            // disable it by setting it to max).
-				if(stack_size_limit != std::numeric_limits<uint64_t>::max() && stack_size > stack_size_limit)
+				if(stack_size > stack_size_limit)
 					_exit(1);
 			}
 		}
 		if(num_functions_stack_size_found != module.functions.defs.size())
 			_exit(1);
-      // enforce generated_code_size_limit only when it is not max (libtester may
-      // disable it by setting it to max).
-		if(generated_code_size_limit != std::numeric_limits<size_t>::max() && jitModule->final_pic_code.size() >= generated_code_size_limit)
+		if(jitModule->final_pic_code.size() >= generated_code_size_limit)
 			_exit(1);
 
 		instantiated_code ret;
