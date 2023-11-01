@@ -75,9 +75,11 @@ namespace eosio::testing {
    void p2p_connection::disconnect() {
       int max    = 30;
       int waited = 0;
-      while (_sent.load() != _sent_callback_num.load() && waited < max) {
+      for (uint64_t sent = _sent.load(), sent_callback_num = _sent_callback_num.load();
+           sent != sent_callback_num && waited < max;
+           sent = _sent.load(), sent_callback_num = _sent_callback_num.load()) {
          ilog("disconnect waiting on ack - sent ${s} | acked ${a} | waited ${w}",
-              ("s", _sent.load())("a", _sent_callback_num.load())("w", waited));
+              ("s", sent)("a", sent_callback_num)("w", waited));
          sleep(1);
          ++waited;
       }
