@@ -132,8 +132,7 @@ namespace eosio { namespace chain {
 
          static void from_snapshot_row( snapshot_global_property_object&& row, global_property_object& value, chainbase::database& ) {
             value.proposed_schedule_block_num = row.proposed_schedule_block_num;
-            std::destroy_at(std::addressof(value.proposed_schedule));
-            std::construct_at(std::addressof(value.proposed_schedule), row.proposed_schedule); // make sure we construct `shared` objects in place
+            value.proposed_schedule = row.proposed_schedule;
             value.configuration = row.configuration;
             value.chain_id = row.chain_id;
             value.kv_configuration = row.kv_configuration;

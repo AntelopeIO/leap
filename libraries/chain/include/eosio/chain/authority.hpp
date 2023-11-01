@@ -236,14 +236,6 @@ struct shared_authority {
    {
    }
 
-   shared_authority& operator=(const authority& a) {
-      threshold = a.threshold;
-      accounts = a.accounts;
-      waits = a.waits;
-      keys  = a.keys;
-      return *this;
-   }
-
    uint32_t                                   threshold = 0;
    shared_vector<shared_key_weight>           keys;
    shared_vector<permission_level_weight>     accounts;
