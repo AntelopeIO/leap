@@ -24,7 +24,7 @@ foreach(TEST_SUITE ${WASM_TESTS}) # create an independent target for each test s
       foreach(RUNTIME ${EOSIO_WASM_RUNTIMES})
           get_test_property(${SN}_unit_test_${RUNTIME} LABELS TEST_LABEL)
           if ("NOTFOUND" STREQUAL "${TEST_LABEL}") # prevent duplicates
-            add_test(NAME ${SN}_unit_test_${RUNTIME} COMMAND wasm_spec_test --run_test=${SN} --report_level=detailed --color_output --catch_system_errors=no -- --${RUNTIME})
+            add_test(NAME ${SN}_unit_test_${RUNTIME} COMMAND wasm_spec_test --run_test=${SN} --report_level=detailed --color_output -- --${RUNTIME})
             set_property(TEST ${SN}_unit_test_${RUNTIME} PROPERTY LABELS wasm_spec_tests)
             # build list of tests to run during coverage testing
             if(ctest_tests)
