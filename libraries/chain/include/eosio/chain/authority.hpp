@@ -225,21 +225,17 @@ struct shared_authority {
       accounts(auth.accounts),
       waits(auth.waits)
    {
-      keys.clear_and_construct(auth.keys.size(), 0, [&](void* dest, std::size_t idx) {
-         new (dest) shared_key_weight(auth.keys[idx]);
+      keys.clear_and_construct(auth.keys.size(), 0, [&](auto* dest, std::size_t idx) {
+         std::construct_at(dest, auth.keys[idx]);
       });
    }
 
    shared_authority& operator=(const authority& a) {
       threshold = a.threshold;
-      keys.clear_and_construct(a.keys.size(), 0, [&](void* dest, std::size_t idx) {
-         new (dest) shared_key_weight(a.keys[idx]);
-      });
-      accounts.clear_and_construct(a.accounts.size(), 0, [&](void* dest, std::size_t idx) {
-         new (dest) permission_level_weight(a.accounts[idx]);
-      });
-      waits.clear_and_construct(a.waits.size(), 0, [&](void* dest, std::size_t idx) {
-         new (dest) wait_weight(a.waits[idx]);
+      accounts = a.accounts;
+      waits = a.waits;
+      keys.clear_and_construct(a.keys.size(), 0, [&](auto* dest, std::size_t idx) {
+         std::construct_at(dest, a.keys[idx]);
       });
       return *this;
    }

@@ -32,13 +32,9 @@ namespace eosio { namespace chain {
                                                                      protocol_state_object& value,
                                                                      chainbase::database& db )
       {
-         value.activated_protocol_features.clear_and_construct( row.activated_protocol_features.size(), 0, [&](void* dest, std::size_t idx){
-            new (dest) protocol_state_object::activated_protocol_feature(row.activated_protocol_features[idx]);
-         });
-
-         value.preactivated_protocol_features.clear_and_construct(row.preactivated_protocol_features.size(), 0, [&](void* dest, std::size_t idx) {
-            new (dest) digest_type(row.preactivated_protocol_features[idx]);
-         });
+         value.activated_protocol_features = row.activated_protocol_features;
+         
+         value.preactivated_protocol_features = row.preactivated_protocol_features;
 
          reset_intrinsic_whitelist( value.whitelisted_intrinsics, row.whitelisted_intrinsics );
 
