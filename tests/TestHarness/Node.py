@@ -557,30 +557,30 @@ class Node(Transactions):
         for f in files:
             blockNumbers = set()
             duplicateBlockNumbers = set()
-            duplicatesFound = False
+            threeStartsFound = False
             lastRestartBlockNum = 0
+            blockNumber = 0
 
             with open(f, 'r') as file:
                 for line in file:
                     match = re.match(r".*Restarting exhausted speculative block #(\d+)", line)
                     if match:
                         lastRestartBlockNum = match.group(1)
+                        continue
                     if re.match(r".*unlinkable_block_exception", line):
                         lastRestartBlockNum = blockNumber
+                        continue
                     match = re.match(r".*Starting block #(\d+)", line)
                     if match:
                         blockNumber = match.group(1)
                         if blockNumber != lastRestartBlockNum and blockNumber in duplicateBlockNumbers:
                             print(f"Duplicate Staring block found: {blockNumber} in {f}")
-                            duplicatesFound = True
+                            threeStartsFound = True
                         if blockNumber != lastRestartBlockNum and blockNumber in blockNumbers:
                             duplicateBlockNumbers.add(blockNumber)
                         blockNumbers.add(blockNumber)
 
-            if duplicatesFound:
-                return False
-
-        return True
+        return not threeStartsFound
 
     def analyzeProduction(self, specificBlockNum=None, thresholdMs=500):
         dataDir=Utils.getNodeDataDir(self.nodeId)
