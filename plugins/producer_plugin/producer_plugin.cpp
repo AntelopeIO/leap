@@ -772,6 +772,7 @@ public:
    }
 
    void restart_speculative_block() {
+      // log message is used by Node.py verifyStartingBlockMessages in distributed-transactions-test.py test
       fc_dlog(_log, "Restarting exhausted speculative block #${n}", ("n", chain_plug->chain().head_block_num() + 1));
       // abort the pending block
       abort_block();

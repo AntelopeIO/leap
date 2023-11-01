@@ -76,6 +76,7 @@ BOOST_AUTO_TEST_CASE(test_calculate_block_deadline) {
       auto seventh_block_time = eosio::chain::block_timestamp_type(production_round_1st_block_slot + 6);
       fc::mock_time_traits::set_now(seventh_block_time.to_time_point() - fc::milliseconds(500));
 
+      // 7th block where cpu effort is 100ms less per block
       BOOST_CHECK_EQUAL(calculate_producing_block_deadline(cpu_effort, seventh_block_time),
                         seventh_block_time.to_time_point() - fc::milliseconds(700));
 
@@ -83,6 +84,7 @@ BOOST_AUTO_TEST_CASE(test_calculate_block_deadline) {
       fc::mock_time_traits::set_now(seventh_block_time.to_time_point() - fc::milliseconds(100));
       auto eighth_block_time = eosio::chain::block_timestamp_type(production_round_1st_block_slot + 7);
 
+      // 8th block where cpu effort is 100ms less per block
       BOOST_CHECK_EQUAL(calculate_producing_block_deadline(cpu_effort, eighth_block_time),
                         eighth_block_time.to_time_point() - fc::milliseconds(800));
 
@@ -90,6 +92,7 @@ BOOST_AUTO_TEST_CASE(test_calculate_block_deadline) {
       fc::mock_time_traits::set_now(eighth_block_time.to_time_point() - fc::milliseconds(200));
       auto ninth_block_time = eosio::chain::block_timestamp_type(production_round_1st_block_slot + 8);
 
+      // 9th block where cpu effort is 100ms less per block
       BOOST_CHECK_EQUAL(calculate_producing_block_deadline(cpu_effort, ninth_block_time),
                         ninth_block_time.to_time_point() - fc::milliseconds(900));
    }
