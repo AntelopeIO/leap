@@ -1844,7 +1844,7 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
 
    // create speculative blocks at regular intervals, so we create blocks with "current" block time
    _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
-   if (in_speculating_mode()) { // if we are producing, then produce block even if deadline has pasted
+   if (in_speculating_mode()) { // if we are producing, then produce block even if deadline has passed
       // speculative block, no reason to start a block that will immediately be re-started, set deadline in the future
       // a block should come in during this time, if not then just keep creating the block every produce_block_cpu_effort
       if (now + fc::milliseconds(config::block_interval_ms/10) > _pending_block_deadline) {
