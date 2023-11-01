@@ -485,7 +485,7 @@ BOOST_FIXTURE_TEST_CASE(test_split_log, state_history_test_fixture) {
       eosio::state_history::state_result result;
       // we should get 1023 consecutive block result
       eosio::chain::block_id_type prev_id;
-      for (int i = 0; i < head; ++i) {
+      for (uint32_t i = 0; i < head; ++i) {
          receive_result(result);
          BOOST_REQUIRE(std::holds_alternative<eosio::state_history::get_blocks_result_v0>(result));
          auto r = std::get<eosio::state_history::get_blocks_result_v0>(result);
