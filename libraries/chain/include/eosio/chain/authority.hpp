@@ -123,10 +123,12 @@ struct shared_key_weight {
          },
          [&](const fc::crypto::webauthn::public_key& wa) {
             size_t psz = fc::raw::pack_size(wa);
-            std::string wa_ss(psz, 'a');
-            fc::datastream<char*> ds(wa_ss.data(), psz);
+            // create a shared_string in the pubkey that we will write (using pack) directly into.
+            key.pubkey.emplace<shared_string>(psz,  boost::container::default_init_t());
+            auto& s = std::get<shared_string>(key.pubkey);
+            assert(s.data());
+            fc::datastream<char*> ds(s.data(), psz);
             fc::raw::pack(ds, wa);
-            key.pubkey.emplace<shared_string>(wa_ss);
          }
       }, k.key._storage);
    }
