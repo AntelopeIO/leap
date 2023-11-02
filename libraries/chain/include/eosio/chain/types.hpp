@@ -99,23 +99,19 @@ namespace eosio::chain {
     * serialization and to/from variant
     */
    class shared_blob : public shared_string {
-      public:
-         shared_blob(shared_blob&&) = default;
+   public:
+      shared_blob() = default;
 
-         shared_blob(const shared_blob& s) = default;
+      shared_blob(shared_blob&&) = default;
+      shared_blob(const shared_blob& s) = default;
 
-         shared_blob& operator=(const shared_blob& s) = default;
+      shared_blob(std::string_view s) : shared_string(s) {}
 
-         shared_blob& operator=(shared_blob&& ) = default;
+      template <typename InputIterator>
+      shared_blob(InputIterator f, InputIterator l) : shared_string(f, l) {}
 
-         template <typename InputIterator>
-         shared_blob(InputIterator f, InputIterator l)
-         :shared_string(f,l)
-         {}
-
-         shared_blob()
-         :shared_string()
-         {}
+      shared_blob& operator=(const shared_blob& s) = default;
+      shared_blob& operator=(shared_blob&& ) = default;
    };
 
    using action_name      = name;
