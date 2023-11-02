@@ -73,15 +73,31 @@ namespace eosio::testing {
    }
 
    void p2p_connection::disconnect() {
-      ilog("Closing socket.");
-      _p2p_socket.close();
-      ilog("Socket closed.");
+      int max    = 30;
+      int waited = 0;
+      for (uint64_t sent = _sent.load(), sent_callback_num = _sent_callback_num.load();
+           sent != sent_callback_num && waited < max;
+           sent = _sent.load(), sent_callback_num = _sent_callback_num.load()) {
+         ilog("disconnect waiting on ack - sent ${s} | acked ${a} | waited ${w}",
+              ("s", sent)("a", sent_callback_num)("w", waited));
+         sleep(1);
+         ++waited;
+      }
+      if (waited == max) {
+         elog("disconnect failed to receive all acks in time - sent ${s} | acked ${a} | waited ${w}",
+              ("s", _sent.load())("a", _sent_callback_num.load())("w", waited));
+      }
    }
 
    void p2p_connection::send_transaction(const chain::packed_transaction& trx) {
       send_buffer_type msg = create_send_buffer(trx);
-      _p2p_socket.send(boost::asio::buffer(*msg));
-      trx_acknowledged(trx.id(), fc::time_point::min()); //using min to identify ack time as not applicable for p2p
+
+      ++_sent;
+      _strand.post( [this, msg{std::move(msg)}, id{trx.id()}]() {
+         boost::asio::write(_p2p_socket, boost::asio::buffer(*msg));
+         trx_acknowledged(id, fc::time_point::min()); //using min to identify ack time as not applicable for p2p
+         ++_sent_callback_num;
+      } );
    }
 
    acked_trx_trace_info p2p_connection::get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) {
