@@ -850,8 +850,8 @@ public:
                                                      fc_tlog(_log, "Time since last trx: ${t}us", ("t", idle_time));
 
                                                      auto exception_handler =
-                                                             [this, is_transient, &next, &trx{trx_meta->packed_trx()}](fc::exception_ptr ex) {
-                                                                this->log_trx_results(trx, nullptr, ex, 0, is_transient);
+                                                             [this, is_transient, &next, &trx_meta](fc::exception_ptr ex) {
+                                                                this->log_trx_results(trx_meta->packed_trx(), nullptr, ex, 0, is_transient);
                                                                 next(std::move(ex));
                                                              };
                                                      try {
