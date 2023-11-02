@@ -2,9 +2,11 @@
 
 #include<eosio/chain/transaction.hpp>
 #include<eosio/chain/block.hpp>
-#include<boost/asio/ip/tcp.hpp>
-#include<fc/network/message_buffer.hpp>
 #include<eosio/chain/thread_utils.hpp>
+
+#include<boost/asio/ip/tcp.hpp>
+#include<boost/asio/strand.hpp>
+
 #include<chrono>
 #include<thread>
 #include<variant>
@@ -104,10 +106,15 @@ namespace eosio::testing {
 
    struct p2p_connection : public provider_connection {
       boost::asio::ip::tcp::socket _p2p_socket;
+      boost::asio::io_context::strand _strand;
+      std::atomic<uint64_t> _sent_callback_num{0};
+      std::atomic<uint64_t> _sent{0};
+
 
       explicit p2p_connection(const provider_base_config& provider_config)
           : provider_connection(provider_config)
-          , _p2p_socket(_connection_thread_pool.get_executor()) {}
+          , _p2p_socket(_connection_thread_pool.get_executor())
+          , _strand(_connection_thread_pool.get_executor()){}
 
       void send_transaction(const chain::packed_transaction& trx) final;
 
