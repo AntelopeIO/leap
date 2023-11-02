@@ -26,11 +26,23 @@ shared_producer_authority::shared_producer_authority(const producer_authority& p
 {
 }
 
+shared_producer_authority& shared_producer_authority::operator=(const producer_authority& pa) {
+   producer_name = pa.producer_name;
+   authority = std::visit([]<class T>(const T& a) { return T(a);}, pa.authority);
+   return *this;
+}
+
 shared_block_signing_authority_v0::shared_block_signing_authority_v0(const block_signing_authority_v0& bsa) :
    threshold(bsa.threshold),
    keys(bsa.keys)
 {
-} 
+}
+
+shared_block_signing_authority_v0& shared_block_signing_authority_v0::operator= (const block_signing_authority_v0 & bsa) {
+   threshold = bsa.threshold;
+   keys = bsa.keys;
+   return *this;
+}
 
 shared_producer_authority_schedule::shared_producer_authority_schedule(const producer_authority_schedule& pas) :
    version(pas.version),
@@ -38,4 +50,10 @@ shared_producer_authority_schedule::shared_producer_authority_schedule(const pro
 {
 }
    
+shared_producer_authority_schedule& shared_producer_authority_schedule::operator=(const producer_authority_schedule& pas) {
+   version = pas.version;
+   producers = pas.producers;
+   return *this;
+}
+
 } /// eosio::chain

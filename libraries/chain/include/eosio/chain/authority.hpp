@@ -238,6 +238,22 @@ struct shared_authority {
    {
    }
 
+   shared_authority& operator=(const authority& auth) {
+      threshold = auth.threshold;
+      keys = auth.keys;
+      accounts = auth.accounts;
+      waits = auth.waits;
+      return *this;
+   }
+
+   shared_authority& operator=(authority&& auth) {
+      threshold = auth.threshold;
+      keys = std::move(auth.keys);
+      accounts = std::move(auth.accounts);
+      waits = std::move(auth.waits);
+      return *this;
+   }
+
    uint32_t                                   threshold = 0;
    shared_vector<shared_key_weight>           keys;
    shared_vector<permission_level_weight>     accounts;

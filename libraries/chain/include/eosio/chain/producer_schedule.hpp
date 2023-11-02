@@ -55,6 +55,7 @@ namespace eosio { namespace chain {
       shared_block_signing_authority_v0( shared_block_signing_authority_v0&& ) = default;
       shared_block_signing_authority_v0& operator= ( shared_block_signing_authority_v0 && ) = default;
       shared_block_signing_authority_v0& operator= ( const shared_block_signing_authority_v0 & ) = default;
+      shared_block_signing_authority_v0& operator= ( const block_signing_authority_v0 & );
 
       uint32_t                           threshold = 0;
       shared_vector<shared_key_weight>   keys;
@@ -67,6 +68,7 @@ namespace eosio { namespace chain {
    struct shared_producer_authority {
       shared_producer_authority() = default;
       explicit shared_producer_authority(const producer_authority& );
+      shared_producer_authority& operator=(const producer_authority& );
 
       shared_producer_authority( const shared_producer_authority& ) = default;
       shared_producer_authority( shared_producer_authority&& ) = default;
@@ -88,6 +90,7 @@ namespace eosio { namespace chain {
       shared_producer_authority_schedule() = default;
 
       shared_producer_authority_schedule( const producer_authority_schedule& );
+      shared_producer_authority_schedule& operator=(const producer_authority_schedule& );
 
       shared_producer_authority_schedule( const shared_producer_authority_schedule& ) = default;
       shared_producer_authority_schedule( shared_producer_authority_schedule&& ) = default;
