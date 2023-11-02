@@ -112,6 +112,10 @@ namespace eosio::chain {
 
       shared_blob& operator=(const shared_blob& s) = default;
       shared_blob& operator=(shared_blob&& ) = default;
+      shared_blob& operator=(std::string_view sv) {
+         static_cast<shared_string&>(*this) = sv;
+         return *this;
+      }
    };
 
    using action_name      = name;

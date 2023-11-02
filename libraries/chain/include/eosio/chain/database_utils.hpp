@@ -171,8 +171,7 @@ namespace fc {
    inline
    void from_variant( const variant& v, eosio::chain::shared_blob& b ) {
       std::string _s = base64_decode(v.as_string());
-      std::destroy_at(&b);
-      new (&b) eosio::chain::shared_blob(std::string_view(_s)); // construct in place
+      b = std::string_view(_s);
    }
 
    template<typename T>
