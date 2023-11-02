@@ -49,7 +49,7 @@ namespace eosio { namespace chain {
    struct block_signing_authority_v0;
 
    struct shared_block_signing_authority_v0 {
-      shared_block_signing_authority_v0() = default;
+      explicit shared_block_signing_authority_v0() = default;
       shared_block_signing_authority_v0( const block_signing_authority_v0& );
       shared_block_signing_authority_v0( const shared_block_signing_authority_v0& ) = default;
       shared_block_signing_authority_v0( shared_block_signing_authority_v0&& ) = default;

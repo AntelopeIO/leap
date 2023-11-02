@@ -220,7 +220,7 @@ struct authority {
 
 
 struct shared_authority {
-   shared_authority() = default;
+   explicit shared_authority() = default;
 
    shared_authority(const authority& auth) :
       threshold(auth.threshold),
