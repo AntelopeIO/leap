@@ -4,8 +4,6 @@
 #include<eosio/chain/block.hpp>
 #include<eosio/chain/thread_utils.hpp>
 
-#include<fc/network/message_buffer.hpp>
-
 #include<boost/asio/ip/tcp.hpp>
 #include<boost/asio/strand.hpp>
 
