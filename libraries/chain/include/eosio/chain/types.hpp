@@ -404,47 +404,73 @@ namespace eosio::chain {
 
 }  // eosio::chain
 
+
+namespace fc::raw {
+   // pack/unpack chainbase::shared_cow_string
+   // ----------------------------------------
+   template<typename Stream> inline void pack(Stream& s, const chainbase::shared_string& v) {		
+      FC_ASSERT(v.size() <= MAX_SIZE_OF_BYTE_ARRAYS);		
+      fc::raw::pack(s, fc::unsigned_int((uint32_t)v.size()));		
+      if (v.size())
+         s.write(v.data(), v.size());		
+   }		
+
+   template<typename Stream> inline void unpack(Stream& s, chainbase::shared_string& v) {
+      fc::unsigned_int sz;
+      fc::raw::unpack(s, sz);
+      if (sz) {
+         v.resize_and_fill(sz, [&](char* buf, std::size_t sz){
+            s.read(buf, sz);            
+         });
+      }
+   }
+   
+   // pack/unpack chainbase::shared_cow_vector
+   // ----------------------------------------
+   template<typename Stream, typename T> inline void pack(Stream& s, const chainbase::shared_cow_vector<T>& v)  {
+      FC_ASSERT(v.size() <= MAX_SIZE_OF_BYTE_ARRAYS);
+      fc::raw::pack( s, fc::unsigned_int((uint32_t)v.size()));
+      for (const auto& el : v)
+         fc::raw::pack(s, el);
+   }
+
+   template<typename Stream, typename T> inline void unpack(Stream& s, chainbase::shared_cow_vector<T>& v)  {
+      fc::unsigned_int size;
+      fc::raw::unpack( s, size );
+      FC_ASSERT(size.value <= MAX_SIZE_OF_BYTE_ARRAYS);
+      FC_ASSERT(v.size() == 0);
+      v.resize_and_fill(size.value, [&](auto* data, std::size_t sz) { 
+         for (std::size_t i = 0; i < sz; ++i) {
+            fc::raw::unpack(s, data[i]);
+         }
+      });
+   }
+}
+
 namespace chainbase {
    // chainbase::shared_cow_string
-   template<typename DataStream> inline DataStream& operator<<( DataStream& s, const chainbase::shared_cow_string& v )  {
-      FC_ASSERT( v.size() <= MAX_SIZE_OF_BYTE_ARRAYS );
-      fc::raw::pack( s, fc::unsigned_int((uint32_t)v.size()));
-      if( v.size() ) s.write( v.data(), v.size() );
+   // ----------------------------
+   template<typename DataStream> inline DataStream& operator<<(DataStream& s, const chainbase::shared_cow_string& v)  {
+      fc::raw::pack(s, v);
       return s;
    }
 
-   template<typename DataStream> inline DataStream& operator>>( DataStream& s, chainbase::shared_cow_string& v )  {
-      fc::unsigned_int size; fc::raw::unpack( s, size );
-      FC_ASSERT( size.value <= MAX_SIZE_OF_BYTE_ARRAYS );
-      FC_ASSERT( v.size() == 0 );
-      v.resize_and_fill(size.value, [&s](char* buf, std::size_t sz) { s.read(buf, sz); });
+   template<typename DataStream> inline DataStream& operator>>(DataStream& s, chainbase::shared_cow_string& v)  {
+      fc::raw::unpack(s, v);
       return s;
    }
 
    // chainbase::shared_cow_vector
-   template<typename DataStream, typename T> inline DataStream& operator<<( DataStream& s, const chainbase::shared_cow_vector<T>& v )  {
-      FC_ASSERT( v.size() <= MAX_SIZE_OF_BYTE_ARRAYS );
-      fc::raw::pack( s, fc::unsigned_int((uint32_t)v.size()));
-      const auto* data = v.data();
-      auto size = v.size();
-      for (std::size_t i = 0; i < size; ++i) {
-         fc::raw::pack(s, &data[i]);
-      }
+   // ----------------------------
+   template<typename DataStream, typename T> inline DataStream& operator<<(DataStream& s, const chainbase::shared_cow_vector<T>& v)  {
+      fc::raw::pack(s, v);
       return s;
    }
 
-   template<typename DataStream, typename T> inline DataStream& operator>>( DataStream& s, chainbase::shared_cow_vector<T>& v )  {
-      fc::unsigned_int size;
-      fc::raw::unpack( s, size );
-      FC_ASSERT( size.value <= MAX_SIZE_OF_BYTE_ARRAYS );
-      FC_ASSERT( v.size() == 0 );
-      v.resize_and_fill(size.value, [&](auto* data, std::size_t sz) { 
-         for (std::size_t i = 0; i < sz; ++i) {
-            fc::raw::unpack(s, &data[i]);
-         }
-      });
+   template<typename DataStream, typename T> inline DataStream& operator>>(DataStream& s, chainbase::shared_cow_vector<T>& v)  {
+      fc::raw::unpack(s, v);
       return s;
-   } 
+   }
 }
 
 FC_REFLECT_EMPTY( eosio::chain::void_t )
