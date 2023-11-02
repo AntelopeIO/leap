@@ -172,7 +172,7 @@ namespace fc {
    void from_variant( const variant& v, eosio::chain::shared_blob& b ) {
       std::string _s = base64_decode(v.as_string());
       std::destroy_at(std::addressof(b));
-      std::construct_at(std::addressof(b), _s.begin(), _s.end());
+      new (std::addressof(b)) eosio::chain::shared_blob(_s.begin(), _s.end());
    }
 
    template<typename T>
