@@ -664,7 +664,7 @@ class PerformanceTestBasic:
         producerPluginArgs = ProducerPluginArgs(disableSubjectiveApiBilling=args.disable_subjective_billing,
                                                 disableSubjectiveP2pBilling=args.disable_subjective_billing,
                                                 produceBlockOffsetMs=args.produce_block_offset_ms,
-                                                producerThreads=args.producer_threads, maxTransactionTime=-1,
+                                                maxTransactionTime=-1,
                                                 readOnlyWriteWindowTimeUs=args.read_only_write_window_time_us,
                                                 readOnlyReadWindowTimeUs=args.read_only_read_window_time_us)
         httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb, httpMaxInFlightRequests=args.http_max_in_flight_requests,
@@ -721,7 +721,6 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--net-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in net_plugin thread pool", default=4)
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help=argparse.SUPPRESS if suppressHelp else "Disable subjective CPU billing for API/P2P transactions", default=True)
         ptbBaseParserGroup.add_argument("--produce-block-offset-ms", type=int, help=argparse.SUPPRESS if suppressHelp else "The minimum time to reserve at the end of a production round for blocks to propagate to the next block producer.", default=0)
-        ptbBaseParserGroup.add_argument("--producer-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in producer thread pool", default=2)
         ptbBaseParserGroup.add_argument("--read-only-write-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the write window lasts.", default=200000)
         ptbBaseParserGroup.add_argument("--read-only-read-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the read window lasts.", default=60000)
         ptbBaseParserGroup.add_argument("--http-max-in-flight-requests", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited", default=-1)

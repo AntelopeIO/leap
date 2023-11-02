@@ -494,8 +494,6 @@ public:
    block_timing_util::producer_watermarks            _producer_watermarks;
    pending_block_mode                                _pending_block_mode = pending_block_mode::speculating;
    unapplied_transaction_queue                       _unapplied_transactions;
-   size_t                                            _thread_pool_size = config::default_controller_thread_pool_size;
-   named_thread_pool<struct prod>                    _thread_pool;
    std::atomic<int32_t>                              _max_transaction_time_ms; // modified by app thread, read by net_plugin thread pool
    std::atomic<uint32_t>                             _received_block{0};       // modified by net_plugin thread pool
    fc::microseconds                                  _max_irreversible_block_age_us;
@@ -1077,8 +1075,6 @@ void producer_plugin::set_program_options(
           "Disable subjective CPU billing for P2P transactions")
          ("disable-subjective-api-billing", bpo::value<bool>()->default_value(true),
           "Disable subjective CPU billing for API transactions")
-         ("producer-threads", bpo::value<uint16_t>()->default_value(my->_thread_pool_size),
-          "Number of worker threads in producer thread pool")
          ("snapshots-dir", bpo::value<std::filesystem::path>()->default_value("snapshots"),
           "the location of the snapshots directory (absolute path or relative to application data dir)")
          ("read-only-threads", bpo::value<uint32_t>(),
@@ -1195,9 +1191,6 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
       if (_disable_subjective_api_billing)
          ilog("Subjective CPU billing of API trxs disabled ");
    }
-
-   _thread_pool_size = options.at("producer-threads").as<uint16_t>();
-   EOS_ASSERT(_thread_pool_size > 0, plugin_config_exception, "producer-threads ${num} must be greater than 0", ("num", _thread_pool_size));
 
    if (options.count("snapshots-dir")) {
       auto sd = options.at("snapshots-dir").as<std::filesystem::path>();
@@ -1324,12 +1317,6 @@ void producer_plugin_impl::plugin_startup() {
       try {
          ilog("producer plugin:  plugin_startup() begin");
 
-         _thread_pool.start(_thread_pool_size, [](const fc::exception& e) {
-            fc_elog(_log, "Exception in producer thread pool, exiting: ${e}", ("e", e.to_detail_string()));
-            app().quit();
-         });
-
-
          chain::controller& chain = chain_plug->chain();
          EOS_ASSERT(_producers.empty() || chain.get_read_mode() != chain::db_read_mode::IRREVERSIBLE, plugin_config_exception,
                     "node cannot have any producer-name configured because block production is impossible when read_mode is \"irreversible\"");
@@ -1409,7 +1396,6 @@ void producer_plugin_impl::plugin_shutdown() {
    _ro_timer.cancel(ec);
    app().executor().stop();
    _ro_thread_pool.stop();
-   _thread_pool.stop();
    _unapplied_transactions.clear();
 
    app().executor().post(0, [me = shared_from_this()]() {}); // keep my pointer alive until queue is drained
