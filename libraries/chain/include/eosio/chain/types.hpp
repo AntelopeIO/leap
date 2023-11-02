@@ -105,7 +105,7 @@ namespace eosio::chain {
       shared_blob(shared_blob&&) = default;
       shared_blob(const shared_blob& s) = default;
 
-      shared_blob(std::string_view s) : shared_string(s) {}
+      explicit shared_blob(std::string_view s) : shared_string(s) {}
 
       template <typename InputIterator>
       shared_blob(InputIterator f, InputIterator l) : shared_string(f, l) {}
