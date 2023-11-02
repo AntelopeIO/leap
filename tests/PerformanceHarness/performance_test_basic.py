@@ -171,7 +171,7 @@ class PerformanceTestBasic:
         quiet: bool=False
         delPerfLogs: bool=False
         expectedTransactionsSent: int = field(default_factory=int, init=False)
-        printMissingTransactions: bool=False
+        printMissingTransactions: bool=True
         userTrxDataFile: Path=None
         endpointMode: str="p2p"
         apiEndpoint: str=None
@@ -491,12 +491,12 @@ class PerformanceTestBasic:
             completedRun = True
 
         # Get stats after transaction generation stops
+        endBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         trxSent = {}
         scrapeTrxGenTrxSentDataLogs(trxSent, self.trxGenLogDirPath, self.ptbConfig.quiet)
         if len(trxSent) != self.ptbConfig.expectedTransactionsSent:
             print(f"ERROR: Transactions generated: {len(trxSent)} does not match the expected number of transactions: {self.ptbConfig.expectedTransactionsSent}")
-        blocksToWait = 2 * self.ptbConfig.testTrxGenDurationSec + 10
-        trxNotFound = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, blocksToWait)
+        trxNotFound = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, endBlock)
         self.data.ceaseBlock = self.validationNode.getHeadBlockNum()
 
         return PerformanceTestBasic.PtbTpsTestResult(completedRun=completedRun, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
@@ -733,7 +733,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--save-state", help=argparse.SUPPRESS if suppressHelp else "Whether to save node state. (Warning: large disk usage)", action='store_true')
         ptbBaseParserGroup.add_argument("--quiet", help=argparse.SUPPRESS if suppressHelp else "Whether to quiet printing intermediate results and reports to stdout", action='store_true')
         ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help=argparse.SUPPRESS if suppressHelp else "Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
-        ptbBaseParserGroup.add_argument("--print-missing-transactions", help=argparse.SUPPRESS if suppressHelp else "Toggles if missing transactions are be printed upon test completion.", action='store_true')
+        ptbBaseParserGroup.add_argument("--print-missing-transactions", type=bool, help=argparse.SUPPRESS if suppressHelp else "Print missing transactions upon test completion.", default=True)
         ptbBaseParserGroup.add_argument("--account-name", type=str, help=argparse.SUPPRESS if suppressHelp else "Name of the account to create and assign a contract to", default="eosio")
         ptbBaseParserGroup.add_argument("--contract-dir", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to contract dir", default="unittests/contracts/eosio.system")
         ptbBaseParserGroup.add_argument("--wasm-file", type=str, help=argparse.SUPPRESS if suppressHelp else "WASM file name for contract", default="eosio.system.wasm")
