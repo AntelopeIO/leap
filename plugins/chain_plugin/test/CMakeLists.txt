@@ -2,6 +2,7 @@ add_executable( test_chain_plugin
         test_account_query_db.cpp
         test_trx_retry_db.cpp
         test_trx_finality_status_processing.cpp
+        test_chainbase_types.cpp
         plugin_config_test.cpp
         main.cpp
         )
