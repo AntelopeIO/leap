@@ -126,8 +126,8 @@ struct shared_key_weight {
             // create a shared_string in the pubkey that we will write (using pack) directly into.
             key.pubkey.emplace<shared_string>(psz,  boost::container::default_init_t());
             auto& s = std::get<shared_string>(key.pubkey);
-            assert(s.data());
-            fc::datastream<char*> ds(s.data(), psz);
+            assert(s.mutable_data() && s.size() == psz);
+            fc::datastream<char*> ds(s.mutable_data(), psz);
             fc::raw::pack(ds, wa);
          }
       }, k.key._storage);
