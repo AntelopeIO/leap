@@ -46,7 +46,7 @@ using bip_vector = bip::vector<T, A>;
    
 using shared_string_vector = shared_vector<shared_string>;
 
-struct book  {
+struct book {
    shared_string        title;
    shared_string_vector authors;
 
@@ -56,27 +56,18 @@ struct book  {
 FC_REFLECT(book, (title)(authors))
 
 namespace fc::raw {
-   template<typename Stream> inline void pack(Stream& s, const book& b) {
+   template<typename Stream>
+   inline void pack(Stream& s, const book& b) {
       fc::raw::pack(s, b.title);
       fc::raw::pack(s, b.authors);
    }
 
-   template<typename Stream> inline void unpack(Stream& s, book& b) {
+   template<typename Stream>
+   inline void unpack(Stream& s, book& b) {
       fc::raw::unpack(s, b.title);
       fc::raw::unpack(s, b.authors);
    }
 }
-
-template<typename DataStream> inline DataStream& operator<<(DataStream& s, const book& b)  {
-   fc::raw::pack(s, b);
-   return s;
-}
-
-template<typename DataStream> inline DataStream& operator>>(DataStream& s, book& b)  {
-   fc::raw::unpack(s, b);
-   return s;
-}
-      
 
 template <class V>
 void check_pack_unpack(V &v, V &v2) {
