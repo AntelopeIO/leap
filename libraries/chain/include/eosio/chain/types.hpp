@@ -443,9 +443,10 @@ namespace fc::raw {
       fc::raw::unpack( s, size );
       FC_ASSERT(size.value <= MAX_SIZE_OF_BYTE_ARRAYS);
       FC_ASSERT(v.size() == 0);
-      v.resize_and_fill(size.value, [&](auto* data, std::size_t sz) { 
+      v.clear_and_construct(size.value, 0, [&](auto* dest, std::size_t sz) { 
          for (std::size_t i = 0; i < sz; ++i) {
-            fc::raw::unpack(s, data[i]);
+            new (dest+i) T(); // unpack expects a constructed variable
+            fc::raw::unpack(s, dest[i]);
          }
       });
    }
