@@ -90,6 +90,7 @@ namespace eosio::chain {
    
    template<typename T>
    using shared_set = boost::interprocess::set<T, std::less<T>, allocator<T>>;
+
    template<typename K, typename V>
    using shared_flat_multimap = boost::interprocess::flat_multimap< K, V, std::less<K>, allocator< std::pair<K,V> > >;
 
@@ -443,11 +444,9 @@ namespace fc::raw {
       fc::raw::unpack( s, size );
       FC_ASSERT(size.value <= MAX_SIZE_OF_BYTE_ARRAYS);
       FC_ASSERT(v.size() == 0);
-      v.clear_and_construct(size.value, 0, [&](auto* dest, std::size_t sz) { 
-         for (std::size_t i = 0; i < sz; ++i) {
-            new (dest+i) T(); // unpack expects a constructed variable
-            fc::raw::unpack(s, dest[i]);
-         }
+      v.clear_and_construct(size.value, 0, [&](auto* dest, std::size_t i) { 
+         new (dest) T(); // unpack expects a constructed variable
+         fc::raw::unpack(s, *dest);
       });
    }
 }
