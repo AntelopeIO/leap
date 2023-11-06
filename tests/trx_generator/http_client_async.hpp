@@ -80,8 +80,10 @@ class session : public std::enable_shared_from_this<session> {
       req_.prepare_payload();
 
       // Look up the domain name
-      resolver_.async_resolve(
-          host, std::to_string(port), [self = this->shared_from_this()](beast::error_code ec, auto res) { self->on_resolve(ec, res); });
+      boost::asio::post( resolver_.get_executor(), [host, port, self=this->shared_from_this()] {
+         self->resolver_.async_resolve(
+                 host, std::to_string(port), [self](beast::error_code ec, auto res) { self->on_resolve(ec, res); });
+      });
    }
 
    void on_resolve(beast::error_code ec, tcp::resolver::results_type results) {
