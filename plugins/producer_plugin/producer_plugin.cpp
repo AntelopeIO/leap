@@ -827,12 +827,12 @@ public:
                                app().executor().post(priority::low, exec_queue::read_write,
                                                      [ex_ptr = std::current_exception(), this, trx{std::move(trx)}, is_transient, next{std::move(next)}]() {
                                                         auto start       = fc::time_point::now();
-                                                        auto idle_time   = this->_time_tracker.add_idle_time(start);
-                                                        auto trx_tracker = this->_time_tracker.start_trx(is_transient, start);
+                                                        auto idle_time   = _time_tracker.add_idle_time(start);
+                                                        auto trx_tracker = _time_tracker.start_trx(is_transient, start);
                                                         fc_tlog(_log, "Time since last trx: ${t}us", ("t", idle_time));
                                                         auto ex_handler =
                                                                 [this, is_transient, &next, &trx](fc::exception_ptr ex) {
-                                                                   this->log_trx_results(trx, nullptr, ex, 0, is_transient);
+                                                                   log_trx_results(trx, nullptr, ex, 0, is_transient);
                                                                    next(std::move(ex));
                                                                 };
                                                         try {
@@ -845,21 +845,21 @@ public:
                             app().executor().post(priority::low, exec_queue::read_write,
                                                   [this, trx_meta{std::move(trx_meta)}, api_trx, is_transient, next{std::move(next)}, return_failure_traces]() mutable {
                                                      auto start       = fc::time_point::now();
-                                                     auto idle_time   = this->_time_tracker.add_idle_time(start);
-                                                     auto trx_tracker = this->_time_tracker.start_trx(is_transient, start);
+                                                     auto idle_time   = _time_tracker.add_idle_time(start);
+                                                     auto trx_tracker = _time_tracker.start_trx(is_transient, start);
                                                      fc_tlog(_log, "Time since last trx: ${t}us", ("t", idle_time));
 
                                                      auto exception_handler =
                                                              [this, is_transient, &next, &trx_meta](fc::exception_ptr ex) {
-                                                                this->log_trx_results(trx_meta->packed_trx(), nullptr, ex, 0, is_transient);
+                                                                log_trx_results(trx_meta->packed_trx(), nullptr, ex, 0, is_transient);
                                                                 next(std::move(ex));
                                                              };
                                                      try {
-                                                        if (!this->process_incoming_transaction_async(trx_meta, api_trx, return_failure_traces, trx_tracker, next)) {
-                                                           if (this->in_producing_mode()) {
-                                                              this->schedule_maybe_produce_block(true);
+                                                        if (!process_incoming_transaction_async(trx_meta, api_trx, return_failure_traces, trx_tracker, next)) {
+                                                           if (in_producing_mode()) {
+                                                              schedule_maybe_produce_block(true);
                                                            } else {
-                                                              this->restart_speculative_block();
+                                                              restart_speculative_block();
                                                            }
                                                         }
                                                      }
