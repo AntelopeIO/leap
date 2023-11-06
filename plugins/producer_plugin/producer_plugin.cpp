@@ -803,7 +803,7 @@ public:
       fc::microseconds   max_trx_cpu_usage = max_trx_time_ms < 0 ? fc::microseconds::maximum() : fc::milliseconds(max_trx_time_ms);
 
       auto future = transaction_metadata::start_recover_keys(trx,
-                                                             _thread_pool.get_executor(),
+                                                             chain.get_thread_pool(),
                                                              chain.get_chain_id(),
                                                              fc::microseconds(max_trx_cpu_usage),
                                                              trx_type,
