@@ -71,38 +71,40 @@ void limit_not_violated_test(const eosvmoc::config& eosvmoc_config) {
    );
 }
 
-// test libtester does not enforce limits
-BOOST_AUTO_TEST_CASE( default_limits ) { try {
+// test all limits are not set for tests
+BOOST_AUTO_TEST_CASE( limits_not_set ) { try {
+   validating_tester chain;
+   auto& cfg = chain.get_config();
+
+   BOOST_REQUIRE(cfg.eosvmoc_config.cpu_limit == std::nullopt);
+   BOOST_REQUIRE(cfg.eosvmoc_config.vm_limit == std::nullopt);
+   BOOST_REQUIRE(cfg.eosvmoc_config.stack_size_limit == std::nullopt);
+   BOOST_REQUIRE(cfg.eosvmoc_config.generated_code_size_limit == std::nullopt);
+} FC_LOG_AND_RETHROW() }
+
+// test limits are not enforced unless limits in eosvmoc_config
+// are modified
+BOOST_AUTO_TEST_CASE( limits_not_enforced ) { try {
    eosvmoc::config eosvmoc_config;
    limit_not_violated_test(eosvmoc_config);
 } FC_LOG_AND_RETHROW() }
 
-// test VM limits are checked
-BOOST_AUTO_TEST_CASE( vm_limits ) { try {
+// test VM limit are checked
+BOOST_AUTO_TEST_CASE( vm_limit ) { try {
    eosvmoc::config eosvmoc_config;
 
-   // disable non-tested limits
-   eosvmoc_config.cpu_limits.rlim_cur       = RLIM_INFINITY;
-   eosvmoc_config.stack_size_limit          = std::numeric_limits<uint64_t>::max();
-   eosvmoc_config.generated_code_size_limit = std::numeric_limits<size_t>::max();
-
    // set vm_limit to a small value such that it is exceeded
-   eosvmoc_config.vm_limits.rlim_cur = 64u*1024u*1024u;
+   eosvmoc_config.vm_limit = 64u*1024u*1024u;
    limit_violated_test(eosvmoc_config);
 
    // set vm_limit to a large value such that it is not exceeded
-   eosvmoc_config.vm_limits.rlim_cur = 128u*1024u*1024u;
+   eosvmoc_config.vm_limit = 128u*1024u*1024u;
    limit_not_violated_test(eosvmoc_config);
 } FC_LOG_AND_RETHROW() }
 
 // test stack size limit is checked
 BOOST_AUTO_TEST_CASE( stack_limit ) { try {
    eosvmoc::config eosvmoc_config;
-
-   // disable non-tested limits
-   eosvmoc_config.cpu_limits.rlim_cur       = RLIM_INFINITY;
-   eosvmoc_config.vm_limits.rlim_cur        = RLIM_INFINITY;
-   eosvmoc_config.generated_code_size_limit = std::numeric_limits<size_t>::max();
 
    // The stack size of the compiled WASM in the test is 104.
    // Set stack_size_limit one less than the actual needed stack size
@@ -117,11 +119,6 @@ BOOST_AUTO_TEST_CASE( stack_limit ) { try {
 // test generated code size limit is checked
 BOOST_AUTO_TEST_CASE( generated_code_size_limit ) { try {
    eosvmoc::config eosvmoc_config;
-
-   // disable non-tested limits
-   eosvmoc_config.cpu_limits.rlim_cur = RLIM_INFINITY;
-   eosvmoc_config.vm_limits.rlim_cur  = RLIM_INFINITY;
-   eosvmoc_config.stack_size_limit    = std::numeric_limits<uint64_t>::max();
 
    // The generated code size of the compiled WASM in the test is 36856.
    // Set generated_code_size_limit to the actual generated code size

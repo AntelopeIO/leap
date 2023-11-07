@@ -167,22 +167,26 @@ void run_compile_trampoline(int fd) {
 
          const auto& conf = std::get<compile_wasm_message>(message).eosvmoc_config;
 
-         // enforce cpu_limits only when it is not RLIM_INFINITY (libtester may
-         // disable it by setting it to RLIM_INFINITY).
-         if(conf.cpu_limits.rlim_cur != RLIM_INFINITY) {
-            setrlimit(RLIMIT_CPU, &conf.cpu_limits);
+         // enforce cpu limit only when it is set
+         // (libtester may disable it)
+         if(conf.cpu_limit) {
+            struct rlimit cpu_limit = {*conf.cpu_limit, *conf.cpu_limit};
+            setrlimit(RLIMIT_CPU, &cpu_limit);
          }
 
-         // enforce vm_limits only when it is not RLIM_INFINITY (libtester may
-         // disable it by setting it to RLIM_INFINITY).
-         if(conf.vm_limits.rlim_cur != RLIM_INFINITY) {
-            setrlimit(RLIMIT_AS, &conf.vm_limits);
+         // enforce vm limit only when it is set
+         // (libtester may disable it)
+         if(conf.vm_limit) {
+            struct rlimit vm_limit = {*conf.vm_limit, *conf.vm_limit};
+            setrlimit(RLIMIT_AS, &vm_limit);
          }
 
          struct rlimit core_limits = {0u, 0u};
          setrlimit(RLIMIT_CORE, &core_limits);
 
-         run_compile(std::move(fds[0]), std::move(fds[1]), conf.stack_size_limit, conf.generated_code_size_limit);
+         uint64_t stack_size_limit = conf.stack_size_limit ? *conf.stack_size_limit : std::numeric_limits<uint64_t>::max();
+         size_t generated_code_size_limit = conf.generated_code_size_limit ? * conf.generated_code_size_limit : std::numeric_limits<size_t>::max();
+         run_compile(std::move(fds[0]), std::move(fds[1]), stack_size_limit, generated_code_size_limit);
          _exit(0);
       }
       else if(pid == -1)
