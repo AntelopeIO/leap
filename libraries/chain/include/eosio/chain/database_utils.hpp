@@ -214,7 +214,7 @@ namespace fc::raw {
    // ----------------------------------------
    template<typename Stream, typename T>
    inline void pack(Stream& s, const chainbase::shared_cow_vector<T>& v)  {
-      FC_ASSERT(v.size() * sizeof(T) <= MAX_SIZE_OF_BYTE_ARRAYS);
+      FC_ASSERT(v.size() <= MAX_NUM_ARRAY_ELEMENTS);
       fc::raw::pack( s, fc::unsigned_int((uint32_t)v.size()));
       for (const auto& el : v)
          fc::raw::pack(s, el);
@@ -224,11 +224,32 @@ namespace fc::raw {
    inline void unpack(Stream& s, chainbase::shared_cow_vector<T>& v)  {
       fc::unsigned_int size;
       fc::raw::unpack( s, size );
-      FC_ASSERT(size.value * sizeof(T) <= MAX_SIZE_OF_BYTE_ARRAYS);
+      FC_ASSERT(size.value  <= MAX_NUM_ARRAY_ELEMENTS);
       FC_ASSERT(v.size() == 0);
       v.clear_and_construct(size.value, 0, [&](auto* dest, std::size_t i) { 
          new (dest) T(); // unpack expects a constructed variable
          fc::raw::unpack(s, *dest);
+      });
+   }
+
+   // pack/unpack chainbase::shared_cow_vector<char>
+   // ----------------------------------------------
+   template<typename Stream>
+   inline void pack(Stream& s, const chainbase::shared_cow_vector<char>& v)  {
+      FC_ASSERT(v.size() <= MAX_SIZE_OF_BYTE_ARRAYS);
+      fc::raw::pack( s, fc::unsigned_int((uint32_t)v.size()));
+      if( v.size() )
+         s.write((const char*)v.data(), v.size());
+   }
+
+   template<typename Stream>
+   inline void unpack(Stream& s, chainbase::shared_cow_vector<char>& v)  {
+      fc::unsigned_int size;
+      fc::raw::unpack( s, size );
+      FC_ASSERT(size.value  <= MAX_SIZE_OF_BYTE_ARRAYS);
+      FC_ASSERT(v.size() == 0);
+      v.clear_and_construct(size.value, 0, [&](auto* dest, std::size_t i) {
+         s.read(dest, 1);
       });
    }
 }
