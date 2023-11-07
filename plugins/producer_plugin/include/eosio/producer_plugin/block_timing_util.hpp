@@ -42,28 +42,28 @@ namespace block_timing_util {
    // In the past, a producer would always start a block `config::block_interval_us` ahead of its block time. However,
    // it causes the last block in a block production round being released too late for the next producer to have
    // received it and start producing on schedule. To mitigate the problem, we leave no time gap in block producing. For
-   // example, given block_interval=500 ms and cpu effort=400 ms, assuming the our round start at time point 0; in the
+   // example, given block_interval=500 ms and cpu effort=400 ms, assuming our round starts at time point 0; in the
    // past, the block start time points would be at time point -500, 0, 500, 1000, 1500, 2000 ....  With this new
    // approach, the block time points would become -500, -100, 300, 700, 1100 ...
-   inline fc::time_point production_round_block_start_time(uint32_t cpu_effort_us, chain::block_timestamp_type block_time) {
+   inline fc::time_point production_round_block_start_time(fc::microseconds cpu_effort, chain::block_timestamp_type block_time) {
       uint32_t block_slot = block_time.slot;
       uint32_t production_round_start_block_slot =
             (block_slot / chain::config::producer_repetitions) * chain::config::producer_repetitions;
       uint32_t production_round_index = block_slot % chain::config::producer_repetitions;
       return chain::block_timestamp_type(production_round_start_block_slot - 1).to_time_point() +
-             fc::microseconds(cpu_effort_us * production_round_index);
+             fc::microseconds(cpu_effort.count() * production_round_index);
    }
 
-   inline fc::time_point calculate_producing_block_deadline(uint32_t cpu_effort_us, chain::block_timestamp_type block_time) {
-      auto estimated_deadline = production_round_block_start_time(cpu_effort_us, block_time) + fc::microseconds(cpu_effort_us);
+   inline fc::time_point calculate_producing_block_deadline(fc::microseconds cpu_effort, chain::block_timestamp_type block_time) {
+      auto estimated_deadline = production_round_block_start_time(cpu_effort, block_time) + cpu_effort;
       auto now                = fc::time_point::now();
       if (estimated_deadline > now) {
          return estimated_deadline;
       } else {
          // This could only happen when the producer stop producing and then comes back alive in the middle of its own
          // production round. In this case, we just use the hard deadline.
-         const auto hard_deadline = block_time.to_time_point() - fc::microseconds(chain::config::block_interval_us - cpu_effort_us);
-         return std::min(hard_deadline, now + fc::microseconds(cpu_effort_us));
+         const auto hard_deadline = block_time.to_time_point() - fc::microseconds(chain::config::block_interval_us - cpu_effort.count());
+         return std::min(hard_deadline, now + cpu_effort);
       }
    }
 
@@ -118,7 +118,7 @@ namespace block_timing_util {
    // Return the *next* block start time according to its block time slot.
    // Returns empty optional if no producers are in the active_schedule.
    // block_num is only used for watermark minimum offset.
-   inline std::optional<fc::time_point> calculate_producer_wake_up_time(uint32_t cpu_effort_us, uint32_t block_num,
+   inline std::optional<fc::time_point> calculate_producer_wake_up_time(fc::microseconds cpu_effort, uint32_t block_num,
                                                                         const chain::block_timestamp_type& ref_block_time,
                                                                         const std::set<chain::account_name>& producers,
                                                                         const std::vector<chain::producer_authority>& active_schedule,
@@ -141,7 +141,7 @@ namespace block_timing_util {
          return {};
       }
 
-      return production_round_block_start_time(cpu_effort_us, chain::block_timestamp_type(wake_up_slot));
+      return production_round_block_start_time(cpu_effort, chain::block_timestamp_type(wake_up_slot));
    }
 
 } // namespace block_timing_util

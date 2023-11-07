@@ -68,8 +68,7 @@ specificExtraNodeosArgs[syncingNodeId]="--p2p-peer-address 0.0.0.0:{}".format(98
 
 try:
     TestHelper.printSystemInfo("BEGIN")
-    traceNodeosArgs=" --plugin eosio::producer_plugin --produce-time-offset-us 0 --last-block-time-offset-us 0 --cpu-effort-percent 100 \
-        --last-block-cpu-effort-percent 100 --producer-threads 1 --plugin eosio::net_plugin --net-threads 1"
+    traceNodeosArgs=" --plugin eosio::producer_plugin --produce-block-offset-ms 0 --producer-threads 1 --plugin eosio::net_plugin --net-threads 1"
     if cluster.launch(pnodes=1, totalNodes=totalNodes, totalProducers=1, specificExtraNodeosArgs=specificExtraNodeosArgs, extraNodeosArgs=traceNodeosArgs) is False:
         Utils.cmdError("launcher")
         Utils.errorExit("Failed to stand up eos cluster.")

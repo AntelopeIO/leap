@@ -13,6 +13,12 @@ namespace fc::crypto::blslib {
       return bls_public_key(pk);
    }
 
+   bls_signature bls_private_key::proof_of_possession() const
+   {
+      bls12_381::g2 proof = bls12_381::pop_prove(_sk);
+      return bls_signature(proof);
+   }
+
    bls_signature bls_private_key::sign( const std::vector<uint8_t>& message ) const
    {
       bls12_381::g2 sig = bls12_381::sign(_sk, message);

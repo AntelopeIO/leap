@@ -2,13 +2,15 @@
 # for compiling the library (where PRIVATE would have been fine), but also for the unit tests.
 add_library(secp256k1-internal INTERFACE)
 
-target_include_directories(secp256k1-internal
-    INTERFACE
-        secp256k1/src
-        config
-)
+target_include_directories(secp256k1-internal INTERFACE secp256k1/src)
 
-target_compile_definitions(secp256k1-internal INTERFACE HAVE_CONFIG_H)
+target_compile_definitions(secp256k1-internal INTERFACE ENABLE_MODULE_RECOVERY=1
+                                                        ECMULT_GEN_PREC_BITS=4
+                                                        ECMULT_WINDOW_SIZE=15
+                                                        SECP256K1_STATIC=1)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL x86_64 OR CMAKE_SYSTEM_PROCESSOR STREQUAL amd64)
+  target_compile_definitions(secp256k1-internal INTERFACE USE_ASM_X86_64=1)
+endif()
 
 # secp256k1 produces over 190 "unused-function" warnings like
 # warning: ‘secp256k1_fe_normalize_weak’ declared ‘static’ but never defined [-Wunused-f unction]

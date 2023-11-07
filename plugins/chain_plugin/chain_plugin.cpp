@@ -349,8 +349,9 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "Subjectively limit the maximum length of variable components in a variable legnth signature to this size in bytes")
          ("trusted-producer", bpo::value<vector<string>>()->composing(), "Indicate a producer whose blocks headers signed by it will be fully validated, but transactions in those validated blocks will be trusted.")
          ("database-map-mode", bpo::value<chainbase::pinnable_mapped_file::map_mode>()->default_value(chainbase::pinnable_mapped_file::map_mode::mapped),
-          "Database map mode (\"mapped\", \"heap\", or \"locked\").\n"
+          "Database map mode (\"mapped\", \"mapped_private\", \"heap\", or \"locked\").\n"
           "In \"mapped\" mode database is memory mapped as a file.\n"
+          "In \"mapped_private\" mode database is memory mapped as a file using a private mapping (no disk writeback until program exit).\n"
 #ifndef _WIN32
           "In \"heap\" mode database is preloaded in to swappable memory and will use huge pages if available.\n"
           "In \"locked\" mode database is preloaded, locked in to memory, and will use huge pages if available.\n"
@@ -372,7 +373,6 @@ void chain_plugin::set_program_options(options_description& cli, options_descrip
           "'none' - EOS VM OC tier-up is completely disabled.\n")
 #endif
          ("enable-account-queries", bpo::value<bool>()->default_value(false), "enable queries to find accounts by various metadata.")
-         ("max-nonprivileged-inline-action-size", bpo::value<uint32_t>()->default_value(config::default_max_nonprivileged_inline_action_size), "maximum allowed size (in bytes) of an inline action for a nonprivileged account")
          ("transaction-retry-max-storage-size-gb", bpo::value<uint64_t>(),
           "Maximum size (in GiB) allowed to be allocated for the Transaction Retry feature. Setting above 0 enables this feature.")
          ("transaction-retry-interval-sec", bpo::value<uint32_t>()->default_value(20),
@@ -461,14 +461,6 @@ void clear_directory_contents( const std::filesystem::path& p ) {
    for( directory_iterator enditr, itr{p}; itr != enditr; ++itr ) {
       std::filesystem::remove_all( itr->path() );
    }
-}
-
-void clear_chainbase_files( const std::filesystem::path& p ) {
-   if( !std::filesystem::is_directory( p ) )
-      return;
-
-   std::filesystem::remove( p / "shared_memory.bin" );
-   std::filesystem::remove( p / "shared_memory.meta" );
 }
 
 namespace {
@@ -637,9 +629,6 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
       if( options.count( "chain-state-db-guard-size-mb" ))
          chain_config->state_guard_size = options.at( "chain-state-db-guard-size-mb" ).as<uint64_t>() * 1024 * 1024;
 
-      if( options.count( "max-nonprivileged-inline-action-size" ))
-         chain_config->max_nonprivileged_inline_action_size = options.at( "max-nonprivileged-inline-action-size" ).as<uint32_t>();
-
       if( options.count( "transaction-finality-status-max-storage-size-gb" )) {
          const uint64_t max_storage_size = options.at( "transaction-finality-status-max-storage-size-gb" ).as<uint64_t>() * 1024 * 1024 * 1024;
          if (max_storage_size > 0) {
@@ -765,7 +754,7 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
          ilog( "Replay requested: deleting state database" );
          if( options.at( "truncate-at-block" ).as<uint32_t>() > 0 )
             wlog( "The --truncate-at-block option does not work for a regular replay of the blockchain." );
-         clear_chainbase_files( chain_config->state_dir );
+         clear_directory_contents( chain_config->state_dir );
       } else if( options.at( "truncate-at-block" ).as<uint32_t>() > 0 ) {
          wlog( "The --truncate-at-block option can only be used with --hard-replay-blockchain." );
       }
@@ -2220,6 +2209,7 @@ void read_write::push_transactions(const read_write::push_transactions_params& p
    } CATCH_AND_CALL(next);
 }
 
+// called from read-exclusive thread for read-only
 template<class API, class Result>
 void api_base::send_transaction_gen(API &api, send_transaction_params_t params, next_function<Result> next) {
    try {
@@ -2590,12 +2580,19 @@ void read_only::compute_transaction(compute_transaction_params params, next_func
 }
 
 void read_only::send_read_only_transaction(send_read_only_transaction_params params, next_function<send_read_only_transaction_results> next) {
+   static bool read_only_enabled = app().executor().get_read_threads() > 0;
+   EOS_ASSERT( read_only_enabled, unsupported_feature,
+               "read-only transactions execution not enabled on API node. Set read-only-threads > 0" );
+
    send_transaction_params_t gen_params { .return_failure_trace = false,
                                           .retry_trx            = false,
                                           .retry_trx_num_blocks = std::nullopt,
                                           .trx_type             = transaction_metadata::trx_type::read_only,
                                           .transaction          = std::move(params.transaction) };
-   return send_transaction_gen(*this, std::move(gen_params), std::move(next));
+   // run read-only trx exclusively on read-only threads
+   app().executor().post(priority::low, exec_queue::read_exclusive, [this, gen_params{std::move(gen_params)}, next{std::move(next)}]() mutable {
+      send_transaction_gen(*this, std::move(gen_params), std::move(next));
+   });
 }
 
 read_only::get_transaction_id_result read_only::get_transaction_id( const read_only::get_transaction_id_params& params, const fc::time_point& ) const {
@@ -2654,7 +2651,9 @@ read_only::get_consensus_parameters(const get_consensus_parameters_params&, cons
    get_consensus_parameters_results results;
 
    results.chain_config = db.get_global_properties().configuration;
-   results.wasm_config = db.get_global_properties().wasm_configuration;
+   if (db.is_builtin_activated(builtin_protocol_feature_t::configurable_wasm_limits)) {
+      results.wasm_config = db.get_global_properties().wasm_configuration;
+   }
 
    return results;
 }

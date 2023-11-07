@@ -791,7 +791,12 @@ class PluginHttpTest(unittest.TestCase):
         ret_json = self.nodeos.processUrllibRequest(resource, command, self.empty_content_dict, endpoint=endpoint)
         self.assertEqual(ret_json["code"], 400)
         self.assertEqual(ret_json["error"]["code"], 3200006)
+        # connect with incomplete content parameter
         payload = "localhost"
+        ret_json = self.nodeos.processUrllibRequest(resource, command, payload, endpoint=endpoint)
+        self.assertEqual(ret_json["code"], 201)
+        self.assertEqual(ret_json["payload"], 'invalid peer address')
+        payload = "localhost:9877"
         ret_str = self.nodeos.processUrllibRequest(resource, command, payload, returnType=ReturnType.raw, endpoint=endpoint).decode('ascii')
         self.assertEqual("\"added connection\"", ret_str)
 

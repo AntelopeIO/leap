@@ -247,8 +247,11 @@ namespace eosio { namespace chain {
                                                  uint64_t packed_trx_prunable_size )
    {
       const transaction& trx = packed_trx.get_transaction();
-      if ( is_transient() ) {
-         EOS_ASSERT( trx.delay_sec.value == 0, transaction_exception, "dry-run or read-only transaction cannot be delayed" );
+      // delayed transactions are not allowed after protocol feature
+      // DISABLE_DEFERRED_TRXS_STAGE_1 is activated;
+      // read-only and dry-run transactions are not allowed to be delayed at any time
+      if( control.is_builtin_activated(builtin_protocol_feature_t::disable_deferred_trxs_stage_1) || is_transient() ) {
+         EOS_ASSERT( trx.delay_sec.value == 0, transaction_exception, "transaction cannot be delayed" );
       }
       if( trx.transaction_extensions.size() > 0 ) {
          disallow_transaction_extensions( "no transaction extensions supported yet for input transactions" );
@@ -267,7 +270,6 @@ namespace eosio { namespace chain {
 
       uint64_t initial_net_usage = static_cast<uint64_t>(cfg.base_per_transaction_net_usage)
                                     + packed_trx_unprunable_size + discounted_size_for_pruned_data;
-
 
       if( trx.delay_sec.value > 0 ) {
           // If delayed, also charge ahead of time for the additional net usage needed to retire the delayed transaction
@@ -730,7 +732,6 @@ namespace eosio { namespace chain {
 
       acontext.exec();
    }
-
 
    void transaction_context::schedule_transaction() {
       // Charge ahead of time for the additional net usage needed to retire the delayed transaction

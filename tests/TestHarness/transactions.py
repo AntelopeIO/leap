@@ -152,48 +152,61 @@ class Transactions(NodeosQueries):
         return popen, cmdArr
 
     # publish contract and return transaction as json object
-    def publishContract(self, account, contractDir, wasmFile, abiFile, waitForTransBlock=False, shouldFail=False, sign=False):
+    def publishContract(self, account, contractDir, wasmFile, abiFile, waitForTransBlock=True, shouldFail=False, sign=False, retryNum:int=5):
+        assert(isinstance(retryNum, int))
         signStr = NodeosQueries.sign_str(sign, [ account.activePublicKey ])
-        cmd="%s %s -v set contract -j %s %s %s" % (Utils.EosClientPath, self.eosClientArgs(), signStr, account.name, contractDir)
+        cmd=f"{Utils.EosClientPath} {self.eosClientArgs()} -v set contract -j -f {signStr} {account.name} {contractDir}"
         cmd += "" if wasmFile is None else (" "+ wasmFile)
         cmd += "" if abiFile is None else (" " + abiFile)
         if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
+        retries = 0
         trans=None
-        start=time.perf_counter()
-        try:
-            trans=Utils.runCmdReturnJson(cmd, trace=False)
-            self.trackCmdTransaction(trans)
-            if Utils.Debug:
-                end=time.perf_counter()
-                Utils.Print("cmd Duration: %.3f sec" % (end-start))
-        except subprocess.CalledProcessError as ex:
-            if not shouldFail:
-                end=time.perf_counter()
-                out=ex.output.decode("utf-8")
-                msg=ex.stderr.decode("utf-8")
-                Utils.Print("ERROR: Exception during set contract. stderr: %s.  stdout: %s.  cmd Duration: %.3f sec." % (msg, out, end-start))
-                return None
-            else:
-                retMap={}
-                retMap["returncode"]=ex.returncode
-                retMap["cmd"]=ex.cmd
-                retMap["output"]=ex.output
-                retMap["stderr"]=ex.stderr
-                return retMap
+        while retries < retryNum:
+            trans=None
+            if Utils.Debug and retries > 0:
+                Utils.Print(f"Retrying: {cmd}")
+            retries = retries + 1
+            start=time.perf_counter()
+            try:
+                trans=Utils.runCmdReturnJson(cmd, trace=False)
+                self.trackCmdTransaction(trans)
+                if Utils.Debug:
+                    end=time.perf_counter()
+                    Utils.Print("cmd Duration: %.3f sec" % (end-start))
+            except subprocess.CalledProcessError as ex:
+                if not shouldFail:
+                    end=time.perf_counter()
+                    out=ex.output.decode("utf-8")
+                    msg=ex.stderr.decode("utf-8")
+                    Utils.Print("ERROR: Exception during set contract. stderr: %s.  stdout: %s.  cmd Duration: %.3f sec." % (msg, out, end-start))
+                    continue
+                else:
+                    retMap={}
+                    retMap["returncode"]=ex.returncode
+                    retMap["cmd"]=ex.cmd
+                    retMap["output"]=ex.output
+                    retMap["stderr"]=ex.stderr
+                    return retMap
 
-        if shouldFail:
-            if trans["processed"]["except"] != None:
-                retMap={}
-                retMap["returncode"]=0
-                retMap["cmd"]=cmd
-                retMap["output"]=bytes(str(trans),'utf-8')
-                return retMap
-            else:
-                Utils.Print("ERROR: The publish contract did not fail as expected.")
-                return None
+            if shouldFail:
+                if trans["processed"]["except"] != None:
+                    retMap={}
+                    retMap["returncode"]=0
+                    retMap["cmd"]=cmd
+                    retMap["output"]=bytes(str(trans),'utf-8')
+                    return retMap
+                else:
+                    Utils.Print("ERROR: The publish contract did not fail as expected.")
+                    return None
 
-        NodeosQueries.validateTransaction(trans)
-        return self.waitForTransBlockIfNeeded(trans, waitForTransBlock, exitOnError=False)
+            NodeosQueries.validateTransaction(trans)
+            if not waitForTransBlock:
+                return trans
+            transId=NodeosQueries.getTransId(trans)
+            if self.waitForTransactionInBlock(transId, timeout=30, exitOnError=False):
+                break
+
+        return trans
 
     # returns tuple with indication if transaction was successfully sent and either the transaction or else the exception output
     def pushTransaction(self, trans, opts="", silentErrors=False, permissions=None):

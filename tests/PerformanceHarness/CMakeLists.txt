@@ -5,6 +5,7 @@ configure_file(genesis.json . COPYONLY)
 configure_file(cpuTrxData.json . COPYONLY)
 configure_file(ramTrxData.json . COPYONLY)
 configure_file(readOnlyTrxData.json . COPYONLY)
+configure_file(readOnlySlowTrxData.json . COPYONLY)
 configure_file(userTrxDataTransfer.json . COPYONLY)
 configure_file(userTrxDataNewAccount.json . COPYONLY)
 

@@ -124,6 +124,7 @@ class PerformanceTestBasic:
 
             def configureValidationNodes():
                 validationNodeSpecificNodeosStr = ""
+                validationNodeSpecificNodeosStr += '--p2p-accept-transactions false '
                 if "v2" in self.nodeosVers:
                     validationNodeSpecificNodeosStr += '--plugin eosio::history_api_plugin --filter-on "*" '
                 else:
@@ -137,6 +138,7 @@ class PerformanceTestBasic:
 
             def configureApiNodes():
                 apiNodeSpecificNodeosStr = ""
+                apiNodeSpecificNodeosStr += "--p2p-accept-transactions false "
                 apiNodeSpecificNodeosStr += "--plugin eosio::chain_api_plugin "
                 apiNodeSpecificNodeosStr += "--plugin eosio::net_api_plugin "
                 if "v4" in self.nodeosVers:
@@ -174,6 +176,7 @@ class PerformanceTestBasic:
         endpointMode: str="p2p"
         apiEndpoint: str=None
         trxGenerator: Path=Path(".")
+        saveState: bool=False
 
         def __post_init__(self):
             self.expectedTransactionsSent = self.testTrxGenDurationSec * self.targetTps
@@ -226,7 +229,7 @@ class PerformanceTestBasic:
         self.producerNodeId = self.clusterConfig._producerNodeIds[0]
         self.validationNodeId = self.clusterConfig._validationNodeIds[0]
         pid = os.getpid()
-        self.nodeosLogDir =  Path(self.loggingConfig.logDirPath)/"var"/f"{self.testNamePath}{pid}"
+        self.nodeosLogDir =  Path(self.loggingConfig.logDirPath)/"var"/f"{Utils.DataRoot}{Utils.PID}"
         self.nodeosLogPath = self.nodeosLogDir/f"node_{str(self.validationNodeId).zfill(2)}"/"stderr.txt"
 
         # Setup cluster and its wallet manager
@@ -255,6 +258,24 @@ class PerformanceTestBasic:
                 removeAllArtifactsExceptFinalReport()
             else:
                 removeArtifacts(self.loggingConfig.logDirPath)
+        except OSError as error:
+            print(error)
+
+    def testDirsCleanupState(self):
+        try:
+            def removeArtifacts(path):
+                print(f"Checking if test artifacts dir exists: {path}")
+                if Path(path).is_dir():
+                    print(f"Cleaning up test artifacts dir and all contents of: {path}")
+                    shutil.rmtree(f"{path}")
+            nodeDirPaths = list(Path(self.varLogsDirPath).rglob("node_*"))
+            print(f"nodeDirPaths: {nodeDirPaths}")
+            for nodeDirPath in nodeDirPaths:
+                stateDirs = list(Path(nodeDirPath).rglob("state"))
+                print(f"stateDirs: {stateDirs}")
+                for stateDirPath in stateDirs:
+                    removeArtifacts(stateDirPath)
+
         except OSError as error:
             print(error)
 
@@ -622,6 +643,10 @@ class PerformanceTestBasic:
                 print(f"Cleaning up logs directory: {self.loggingConfig.logDirPath}")
                 self.testDirsCleanup(self.ptbConfig.delReport)
 
+            if not self.ptbConfig.saveState:
+                print(f"Cleaning up state directories: {self.varLogsDirPath}")
+                self.testDirsCleanupState()
+
             return self.testResult.testRunSuccessful
 
     def setupTestHelperConfig(args) -> TestHelperConfig:
@@ -638,8 +663,10 @@ class PerformanceTestBasic:
 
         producerPluginArgs = ProducerPluginArgs(disableSubjectiveApiBilling=args.disable_subjective_billing,
                                                 disableSubjectiveP2pBilling=args.disable_subjective_billing,
-                                                cpuEffortPercent=args.cpu_effort_percent,
-                                                producerThreads=args.producer_threads, maxTransactionTime=-1)
+                                                produceBlockOffsetMs=args.produce_block_offset_ms,
+                                                producerThreads=args.producer_threads, maxTransactionTime=-1,
+                                                readOnlyWriteWindowTimeUs=args.read_only_write_window_time_us,
+                                                readOnlyReadWindowTimeUs=args.read_only_read_window_time_us)
         httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb, httpMaxInFlightRequests=args.http_max_in_flight_requests,
                                         httpMaxResponseTimeMs=args.http_max_response_time_ms, httpThreads=args.http_threads)
         netPluginArgs = NetPluginArgs(netThreads=args.net_threads, maxClients=0)
@@ -693,14 +720,17 @@ class PtbArgumentsHandler(object):
                                                                 choices=["all", "debug", "info", "warn", "error", "off"], default="info")
         ptbBaseParserGroup.add_argument("--net-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in net_plugin thread pool", default=4)
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help=argparse.SUPPRESS if suppressHelp else "Disable subjective CPU billing for API/P2P transactions", default=True)
-        ptbBaseParserGroup.add_argument("--cpu-effort-percent", type=int, help=argparse.SUPPRESS if suppressHelp else "Percentage of cpu block production time used to produce block. Whole number percentages, e.g. 80 for 80%%", default=100)
+        ptbBaseParserGroup.add_argument("--produce-block-offset-ms", type=int, help=argparse.SUPPRESS if suppressHelp else "The minimum time to reserve at the end of a production round for blocks to propagate to the next block producer.", default=0)
         ptbBaseParserGroup.add_argument("--producer-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in producer thread pool", default=2)
+        ptbBaseParserGroup.add_argument("--read-only-write-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the write window lasts.", default=200000)
+        ptbBaseParserGroup.add_argument("--read-only-read-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the read window lasts.", default=60000)
         ptbBaseParserGroup.add_argument("--http-max-in-flight-requests", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-response-time-ms", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum time for processing a request, -1 for unlimited", default=-1)
         ptbBaseParserGroup.add_argument("--http-max-bytes-in-flight-mb", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum size in megabytes http_plugin should use for processing http requests. -1 for unlimited. 429\
                                          error response when exceeded.", default=-1)
         ptbBaseParserGroup.add_argument("--del-perf-logs", help=argparse.SUPPRESS if suppressHelp else "Whether to delete performance test specific logs.", action='store_true')
         ptbBaseParserGroup.add_argument("--del-report", help=argparse.SUPPRESS if suppressHelp else "Whether to delete overarching performance run report.", action='store_true')
+        ptbBaseParserGroup.add_argument("--save-state", help=argparse.SUPPRESS if suppressHelp else "Whether to save node state. (Warning: large disk usage)", action='store_true')
         ptbBaseParserGroup.add_argument("--quiet", help=argparse.SUPPRESS if suppressHelp else "Whether to quiet printing intermediate results and reports to stdout", action='store_true')
         ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help=argparse.SUPPRESS if suppressHelp else "Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
         ptbBaseParserGroup.add_argument("--print-missing-transactions", help=argparse.SUPPRESS if suppressHelp else "Toggles if missing transactions are be printed upon test completion.", action='store_true')

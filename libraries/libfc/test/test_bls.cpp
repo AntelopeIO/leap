@@ -156,7 +156,6 @@ BOOST_AUTO_TEST_CASE(bls_agg_tree_verif) try {
 
 } FC_LOG_AND_RETHROW();
 
-
 //test random key generation, signature + verification
 BOOST_AUTO_TEST_CASE(bls_key_gen) try {
 

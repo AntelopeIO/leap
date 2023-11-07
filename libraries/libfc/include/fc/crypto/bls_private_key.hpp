@@ -28,6 +28,7 @@ namespace fc::crypto::blslib {
 
          bls_public_key     get_public_key() const;
          bls_signature      sign( const std::vector<uint8_t>& message ) const;
+         bls_signature      proof_of_possession() const;
 
          static bls_private_key generate();
 
