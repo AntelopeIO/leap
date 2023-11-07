@@ -111,8 +111,6 @@ Config Options for eosio::producer_plugin:
   --disable-subjective-api-billing arg (=1)
                                         Disable subjective CPU billing for API
                                         transactions
-  --producer-threads arg (=2)           Number of worker threads in producer
-                                        thread pool
   --snapshots-dir arg (="snapshots")    the location of the snapshots directory
                                         (absolute path or relative to
                                         application data dir)

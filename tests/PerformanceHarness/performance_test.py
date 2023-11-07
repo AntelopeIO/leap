@@ -43,7 +43,6 @@ class PerformanceTest:
         quiet: bool=False
         logDirRoot: Path=Path(".")
         skipTpsTests: bool=False
-        calcProducerThreads: str="none"
         calcChainThreads: str="none"
         calcNetThreads: str="none"
         userTrxDataFile: Path=None
@@ -368,18 +367,6 @@ class PerformanceTest:
         self.testDirsCleanup()
         self.testDirsSetup()
 
-        prodResults = None
-        if self.ptConfig.calcProducerThreads != "none":
-            print(f"Performing Producer Thread Optimization Tests")
-            if self.ptConfig.calcProducerThreads == "full":
-                optType = PerformanceTest.PluginThreadOptRunType.FULL
-            else:
-                optType = PerformanceTest.PluginThreadOptRunType.LOCAL_MAX
-            prodResults = self.optimizePluginThreadCount(optPlugin=PerformanceTest.PluginThreadOpt.PRODUCER, optType=optType,
-                                                         minThreadCount=self.clusterConfig.extraNodeosArgs.producerPluginArgs._producerThreadsNodeosDefault)
-            print(f"Producer Thread Optimization results: {prodResults}")
-            self.clusterConfig.extraNodeosArgs.producerPluginArgs.threads = prodResults.recommendedThreadCount
-
         chainResults = None
         if self.ptConfig.calcChainThreads != "none":
             print(f"Performing Chain Thread Optimization Tests")
@@ -413,7 +400,7 @@ class PerformanceTest:
 
         self.testsFinish = datetime.utcnow()
 
-        self.report = self.createReport(producerThreadResult=prodResults, chainThreadResult=chainResults, netThreadResult=netResults, tpsTestResult=tpsTestResult, nodeosVers=self.clusterConfig.nodeosVers)
+        self.report = self.createReport(chainThreadResult=chainResults, netThreadResult=netResults, tpsTestResult=tpsTestResult, nodeosVers=self.clusterConfig.nodeosVers)
         jsonReport = JsonReportHandler.reportAsJSON(self.report)
 
         if not self.ptConfig.quiet:
@@ -439,12 +426,6 @@ class PerfTestArgumentsHandler(object):
             ptGrpDescription="Performance Harness testing configuration items."
             ptParserGroup = ptParser.add_argument_group(title=None if suppressHelp else ptGrpTitle, description=None if suppressHelp else ptGrpDescription)
             ptParserGroup.add_argument("--skip-tps-test", help=argparse.SUPPRESS if suppressHelp else "Determines whether to skip the max TPS measurement tests", action='store_true')
-            ptParserGroup.add_argument("--calc-producer-threads", type=str, help=argparse.SUPPRESS if suppressHelp else "Determines whether to calculate number of worker threads to use in producer thread pool (\"none\", \"lmax\", or \"full\"). \
-                                                                        In \"none\" mode, the default, no calculation will be attempted and the configured --producer-threads value will be used. \
-                                                                        In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
-                                                                        In \"full\" mode producer threads will incrementally be tested from plugin default..num logical processors, recording each performance and choosing the local max performance (same value as would be discovered in \"lmax\" mode). \
-                                                                        Useful for graphing the full performance impact of each available thread.",
-                                                                        choices=["none", "lmax", "full"], default="none")
             ptParserGroup.add_argument("--calc-chain-threads", type=str, help=argparse.SUPPRESS if suppressHelp else "Determines whether to calculate number of worker threads to use in chain thread pool (\"none\", \"lmax\", or \"full\"). \
                                                                         In \"none\" mode, the default, no calculation will be attempted and the configured --chain-threads value will be used. \
                                                                         In \"lmax\" mode, producer threads will incrementally be tested, starting at plugin default, until the performance rate ceases to increase with the addition of additional threads. \
