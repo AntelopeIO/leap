@@ -17,7 +17,7 @@ using namespace IR;
 
 namespace eosio { namespace chain { namespace eosvmoc {
 
-void run_compile(wrapped_fd&& response_sock, wrapped_fd&& wasm_code) noexcept {  //noexcept; we'll just blow up if anything tries to cross this boundry
+void run_compile(wrapped_fd&& response_sock, wrapped_fd&& wasm_code, uint64_t stack_size_limit, size_t generated_code_size_limit) noexcept {  //noexcept; we'll just blow up if anything tries to cross this boundry
    std::vector<uint8_t> wasm = vector_for_memfd(wasm_code);
 
    //ideally we catch exceptions and sent them upstream as strings for easier reporting
@@ -30,7 +30,7 @@ void run_compile(wrapped_fd&& response_sock, wrapped_fd&& wasm_code) noexcept { 
    wasm_injections::wasm_binary_injection injector(module);
    injector.inject();
 
-   instantiated_code code = LLVMJIT::instantiateModule(module);
+   instantiated_code code = LLVMJIT::instantiateModule(module, stack_size_limit, generated_code_size_limit);
 
    code_compilation_result_message result_message;
 
@@ -165,16 +165,28 @@ void run_compile_trampoline(int fd) {
          prctl(PR_SET_NAME, "oc-compile");
          prctl(PR_SET_PDEATHSIG, SIGKILL);
 
-         struct rlimit cpu_limits = {20u, 20u};
-         setrlimit(RLIMIT_CPU, &cpu_limits);
+         const auto& conf = std::get<compile_wasm_message>(message).eosvmoc_config;
 
-         struct rlimit vm_limits = {512u*1024u*1024u, 512u*1024u*1024u};
-         setrlimit(RLIMIT_AS, &vm_limits);
+         // enforce cpu limit only when it is set
+         // (libtester may disable it)
+         if(conf.cpu_limit) {
+            struct rlimit cpu_limit = {*conf.cpu_limit, *conf.cpu_limit};
+            setrlimit(RLIMIT_CPU, &cpu_limit);
+         }
+
+         // enforce vm limit only when it is set
+         // (libtester may disable it)
+         if(conf.vm_limit) {
+            struct rlimit vm_limit = {*conf.vm_limit, *conf.vm_limit};
+            setrlimit(RLIMIT_AS, &vm_limit);
+         }
 
          struct rlimit core_limits = {0u, 0u};
          setrlimit(RLIMIT_CORE, &core_limits);
 
-         run_compile(std::move(fds[0]), std::move(fds[1]));
+         uint64_t stack_size_limit = conf.stack_size_limit ? *conf.stack_size_limit : std::numeric_limits<uint64_t>::max();
+         size_t generated_code_size_limit = conf.generated_code_size_limit ? * conf.generated_code_size_limit : std::numeric_limits<size_t>::max();
+         run_compile(std::move(fds[0]), std::move(fds[1]), stack_size_limit, generated_code_size_limit);
          _exit(0);
       }
       else if(pid == -1)

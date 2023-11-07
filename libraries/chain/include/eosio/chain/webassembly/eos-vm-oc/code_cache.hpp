@@ -69,6 +69,7 @@ class code_cache_base {
       code_cache_index _cache_index;
 
       const chainbase::database& _db;
+      eosvmoc::config            _eosvmoc_config;
 
       std::filesystem::path _cache_file_path;
       int                   _cache_fd;

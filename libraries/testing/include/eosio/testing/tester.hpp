@@ -406,6 +406,13 @@ namespace eosio { namespace testing {
             cfg.contracts_console = true;
             cfg.eosvmoc_config.cache_size = 1024*1024*8;
 
+            // don't enforce OC compilation subject limits for tests,
+            // particularly EOS EVM tests may run over those limits
+            cfg.eosvmoc_config.cpu_limit.reset();
+            cfg.eosvmoc_config.vm_limit.reset();
+            cfg.eosvmoc_config.stack_size_limit.reset();
+            cfg.eosvmoc_config.generated_code_size_limit.reset();
+
             // don't use auto tier up for tests, since the point is to test diff vms
             cfg.eosvmoc_tierup = chain::wasm_interface::vm_oc_enable::oc_none;
 
