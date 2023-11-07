@@ -1,5 +1,5 @@
 #include <boost/test/unit_test.hpp>
-#include <eosio/chain/types.hpp>
+#include <eosio/chain/database_utils.hpp>
 
 #include <iostream>
 #include <algorithm>
