@@ -5,37 +5,6 @@
 #include <algorithm>
 #include <filesystem>
 
-class temp_directory {
-   std::filesystem::path tmp_path;
-
- public:
-   temp_directory(const std::filesystem::path& tempFolder = std::filesystem::temp_directory_path()) {
-      std::filesystem::path template_path{ tempFolder / "chain-tests-XXXXXX" };
-      std::string tmp_buf = template_path.string();
-      if (mkdtemp(tmp_buf.data()) == nullptr)
-         throw std::system_error(errno, std::generic_category(), __PRETTY_FUNCTION__);
-      tmp_path = tmp_buf;
-   }
-   
-   temp_directory(const temp_directory&) = delete;
-   
-   temp_directory(temp_directory&& other) noexcept { tmp_path.swap(other.tmp_path); }
-
-   ~temp_directory() {
-      if (!tmp_path.empty()) {
-         std::error_code ec;
-         std::filesystem::remove_all(tmp_path, ec);
-      }
-   }
-
-   temp_directory& operator=(const temp_directory&) = delete;
-   temp_directory& operator=(temp_directory&& other) noexcept {
-      tmp_path.swap(other.tmp_path);
-      return *this;
-   }
-   const std::filesystem::path& path() const { return tmp_path; }
-};
-
 namespace bip = boost::interprocess;
 namespace fs  = std::filesystem;
 
@@ -100,24 +69,19 @@ BOOST_AUTO_TEST_CASE(chainbase_type_heap_alloc) {
 }
 
 BOOST_AUTO_TEST_CASE(chainbase_type_segment_alloc) {
-   fs::path temp = fs::temp_directory_path() / "pinnable_mapped_file_101";
-   try {
-      pinnable_mapped_file pmf(temp, true, 1024 * 1024, false, pinnable_mapped_file::map_mode::mapped);
-      chainbase::allocator<book> alloc(reinterpret_cast<segment_manager *>(pmf.get_segment_manager()));
-      bip_vector<book, chainbase::allocator<book>> v(alloc);
-      bip_vector<book, chainbase::allocator<book>> v2(alloc);
+   fc::temp_directory temp_dir;
+   fs::path temp = temp_dir.path() / "pinnable_mapped_file_101";
 
-      check_pack_unpack(v, v2);
-      auto a  = v[1].title.get_allocator();
-      auto a2 = v2[1].authors[0].get_allocator();
+   pinnable_mapped_file pmf(temp, true, 1024 * 1024, false, pinnable_mapped_file::map_mode::mapped);
+   chainbase::allocator<book> alloc(reinterpret_cast<segment_manager *>(pmf.get_segment_manager()));
+   bip_vector<book, chainbase::allocator<book>> v(alloc);
+   bip_vector<book, chainbase::allocator<book>> v2(alloc);
+
+   check_pack_unpack(v, v2);
+   auto a  = v[1].title.get_allocator();
+   auto a2 = v2[1].authors[0].get_allocator();
       
-      // check that objects inside the vectors are allocated within the pinnable_mapped_file segment
-      BOOST_REQUIRE(a  && (chainbase::allocator<book>)(*a) == alloc);
-      BOOST_REQUIRE(a2 && (chainbase::allocator<book>)(*a2) == alloc);
-      
-   } catch ( ... ) {
-      fs::remove_all( temp );
-      throw;
-   }
-   fs::remove_all( temp );
+   // check that objects inside the vectors are allocated within the pinnable_mapped_file segment
+   BOOST_REQUIRE(a  && (chainbase::allocator<book>)(*a) == alloc);
+   BOOST_REQUIRE(a2 && (chainbase::allocator<book>)(*a2) == alloc);
 }
