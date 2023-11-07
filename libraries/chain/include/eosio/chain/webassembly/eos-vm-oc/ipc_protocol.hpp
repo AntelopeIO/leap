@@ -22,6 +22,7 @@ struct code_tuple {
 
 struct compile_wasm_message {
    code_tuple code;
+   eosvmoc::config eosvmoc_config;
    //Two sent fd: 1) communication socket for result, 2) the wasm to compile
 };
 
@@ -62,7 +63,7 @@ using eosvmoc_message = std::variant<initialize_message,
 FC_REFLECT(eosio::chain::eosvmoc::initialize_message, )
 FC_REFLECT(eosio::chain::eosvmoc::initalize_response_message, (error_message))
 FC_REFLECT(eosio::chain::eosvmoc::code_tuple, (code_id)(vm_version))
-FC_REFLECT(eosio::chain::eosvmoc::compile_wasm_message, (code))
+FC_REFLECT(eosio::chain::eosvmoc::compile_wasm_message, (code)(eosvmoc_config))
 FC_REFLECT(eosio::chain::eosvmoc::evict_wasms_message, (codes))
 FC_REFLECT(eosio::chain::eosvmoc::code_compilation_result_message, (start)(apply_offset)(starting_memory_pages)(initdata_prologue_size))
 FC_REFLECT(eosio::chain::eosvmoc::compilation_result_unknownfailure, )
