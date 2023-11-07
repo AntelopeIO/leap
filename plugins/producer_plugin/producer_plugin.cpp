@@ -396,7 +396,7 @@ public:
                                   account_name                                first_auth,
                                   int64_t                                     sub_bill,
                                   uint32_t                                    prev_billed_cpu_time_us);
-   
+
    void        log_trx_results(const transaction_metadata_ptr& trx, const transaction_trace_ptr& trace, const fc::time_point& start);
    void        log_trx_results(const transaction_metadata_ptr& trx, const fc::exception_ptr& except_ptr);
    void        log_trx_results(const packed_transaction_ptr& trx,
@@ -772,9 +772,10 @@ public:
    }
 
    void restart_speculative_block() {
+      // log message is used by Node.py verifyStartingBlockMessages in distributed-transactions-test.py test
+      fc_dlog(_log, "Restarting exhausted speculative block #${n}", ("n", chain_plug->chain().head_block_num() + 1));
       // abort the pending block
       abort_block();
-
       schedule_production_loop();
    }
 
@@ -802,7 +803,7 @@ public:
       fc::microseconds   max_trx_cpu_usage = max_trx_time_ms < 0 ? fc::microseconds::maximum() : fc::milliseconds(max_trx_time_ms);
 
       auto future = transaction_metadata::start_recover_keys(trx,
-                                                             _thread_pool.get_executor(),
+                                                             chain.get_thread_pool(),
                                                              chain.get_chain_id(),
                                                              fc::microseconds(max_trx_cpu_usage),
                                                              trx_type,
@@ -1829,8 +1830,6 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
       last_start_block_time = now;
    }
 
-   // create speculative blocks at regular intervals, so we create blocks with "current" block time
-   _pending_block_deadline = now + fc::microseconds(config::block_interval_us);
    if (in_producing_mode()) {
       uint32_t production_round_index = block_timestamp_type(block_time).slot % chain::config::producer_repetitions;
       if (production_round_index == 0) {
@@ -1842,17 +1841,17 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
             return start_block_result::waiting_for_production;
          }
       }
-
-      _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
-   } else if (!_producers.empty()) {
-      // cpu effort percent doesn't matter for the first block of the round, use max (block_interval_us) for cpu effort
-      auto wake_time = block_timing_util::calculate_producer_wake_up_time(fc::microseconds(config::block_interval_us), chain.head_block_num(), chain.head_block_time(),
-                                                                          _producers, chain.head_block_state()->active_schedule.producers,
-                                                                          _producer_watermarks);
-      if (wake_time)
-         _pending_block_deadline = std::min(*wake_time, _pending_block_deadline);
    }
 
+   // create speculative blocks at regular intervals, so we create blocks with "current" block time
+   _pending_block_deadline = block_timing_util::calculate_producing_block_deadline(_produce_block_cpu_effort, block_time);
+   if (in_speculating_mode()) { // if we are producing, then produce block even if deadline has passed
+      // speculative block, no reason to start a block that will immediately be re-started, set deadline in the future
+      // a block should come in during this time, if not then just keep creating the block every produce_block_cpu_effort
+      if (now + fc::milliseconds(config::block_interval_ms/10) > _pending_block_deadline) {
+         _pending_block_deadline = now + _produce_block_cpu_effort;
+      }
+   }
    const auto& preprocess_deadline = _pending_block_deadline;
 
    fc_dlog(_log, "Starting block #${n} at ${time} producer ${p}", ("n", pending_block_num)("time", now)("p", scheduled_producer.producer_name));
@@ -2497,9 +2496,13 @@ void producer_plugin_impl::schedule_production_loop() {
       chain::controller& chain = chain_plug->chain();
       fc_dlog(_log, "Speculative Block Created; Scheduling Speculative/Production Change");
       EOS_ASSERT(chain.is_building_block(), missing_pending_block_state, "speculating without pending_block_state");
-      auto wake_time = block_timing_util::calculate_producer_wake_up_time(_produce_block_cpu_effort, chain.pending_block_num(), chain.pending_block_timestamp(),
+      auto wake_time = block_timing_util::calculate_producer_wake_up_time(fc::microseconds{config::block_interval_us}, chain.pending_block_num(), chain.pending_block_timestamp(),
                                                                           _producers, chain.head_block_state()->active_schedule.producers,
                                                                           _producer_watermarks);
+      if (wake_time && fc::time_point::now() > *wake_time) {
+         // if wake time has already passed then use the block deadline instead
+         wake_time = _pending_block_deadline;
+      }
       schedule_delayed_production_loop(weak_from_this(), wake_time);
    } else {
       fc_dlog(_log, "Speculative Block Created");

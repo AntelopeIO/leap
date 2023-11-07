@@ -175,6 +175,10 @@ endif()
 # do not attempt to use an external OpenSSL in any manner
 set(CMAKE_DISABLE_FIND_PACKAGE_OpenSSL On)
 
+# many tests require handling of signals themselves and even when they don't we'd like for them to generate a core dump, this
+# is effectively --catch_system_errors=no broadly across all tests
+add_compile_definitions(BOOST_TEST_DEFAULTS_TO_CORE_DUMP)
+
 add_subdirectory( libraries )
 add_subdirectory( plugins )
 add_subdirectory( programs )
