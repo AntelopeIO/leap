@@ -1793,12 +1793,8 @@ struct controller_impl {
             db.modify( pso, [&]( auto& ps ) {
                ps.preactivated_protocol_features.clear();
 
-               std::size_t current_size = ps.activated_protocol_features.size();
-               std::size_t new_size     = current_size + new_protocol_feature_activations.size();
-               
-               ps.activated_protocol_features.clear_and_construct(new_size, current_size, [&](auto* dest, std::size_t idx) {
-                  std::construct_at(dest, new_protocol_feature_activations[idx - current_size], pbhs.block_num);
-               });
+               for (const auto& digest : new_protocol_feature_activations)
+                  ps.activated_protocol_features.emplace_back(digest, pbhs.block_num);
             });
          }
 
