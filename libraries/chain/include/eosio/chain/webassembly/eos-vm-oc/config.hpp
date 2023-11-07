@@ -27,5 +27,4 @@ struct config {
 
 }}}
 
-FC_REFLECT(rlimit, (rlim_cur)(rlim_max))
 FC_REFLECT(eosio::chain::eosvmoc::config, (cache_size)(threads)(cpu_limit)(vm_limit)(stack_size_limit)(generated_code_size_limit))
