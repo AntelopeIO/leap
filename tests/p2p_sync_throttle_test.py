@@ -144,7 +144,7 @@ try:
                 time.sleep(0.5)
                 continue
             Print('Throttling Node Start State')
-            throttlingNodePortMap = {port: id for id, port in connPorts if id != '' and port != '9877'}
+            throttlingNodePortMap = {port: id for id, port in connPorts if port != '0' and port != '9877'}
             throttlingNodeConnId = next(iter(throttlingNodePortMap.values())) # 9879
             startSyncThrottlingBytesSent = extractPrometheusMetric(throttlingNodeConnId,
                                                                     'block_sync_bytes_sent',
@@ -181,7 +181,7 @@ try:
                 errorLimit -= 1
                 continue
             Print('Throttled Node Start State')
-            throttledNodePortMap = {port: id for id, port in connPorts if id != ''}
+            throttledNodePortMap = {port: id for id, port in connPorts if port != '0'}
             throttledNodeConnId = next(iter(throttledNodePortMap.values())) # 9878
             Print(throttledNodeConnId)
             startSyncThrottledBytesReceived = extractPrometheusMetric(throttledNodeConnId,
