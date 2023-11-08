@@ -109,15 +109,20 @@ namespace eosio::testing {
    void http_connection::disconnect() {
       int max    = 30;
       int waited = 0;
-      while (_sent.load() != _acknowledged.load() && waited < max) {
-         ilog("http_connection::disconnect waiting on ack - sent ${s} | acked ${a} | waited ${w}",
-              ("s", _sent.load())("a", _acknowledged.load())("w", waited));
+      for (uint64_t sent = _sent.load(), acknowledged = _acknowledged.load();
+           sent != acknowledged && waited < max;
+           sent = _sent.load(), acknowledged = _acknowledged.load()) {
+         ilog("disconnect waiting on ack - sent ${s} | acked ${a} | waited ${w}",
+              ("s", sent)("a", acknowledged)("w", waited));
          sleep(1);
          ++waited;
       }
       if (waited == max) {
-         elog("http_connection::disconnect failed to receive all acks in time - sent ${s} | acked ${a} | waited ${w}",
+         elog("disconnect failed to receive all acks in time - sent ${s} | acked ${a} | waited ${w}",
                ("s", _sent.load())("a", _acknowledged.load())("w", waited));
+      }
+      if (_errors.load()) {
+         elog("${n} errors reported during http calls, see logs", ("n", _errors.load()));
       }
    }
 
@@ -151,10 +156,17 @@ namespace eosio::testing {
              trx_acknowledged(trx_id, fc::time_point::now());
              if (ec) {
                 elog("http error: ${c}: ${m}", ("c", ec.value())("m", ec.message()));
-                throw std::runtime_error(ec.message());
+                ++_errors;
+                return;
              }
 
              if (this->needs_response_trace_info() && response.result() == boost::beast::http::status::ok) {
+                bool exception = false;
+                auto exception_handler = [this, &response, &exception](const fc::exception_ptr& ex) {
+                   elog("Fail to parse JSON from string: ${string}", ("string", response.body()));
+                   ++_errors;
+                   exception = true;
+                };
                 try {
                    fc::variant resp_json = fc::json::from_string(response.body());
                    if (resp_json.is_object() && resp_json.get_object().contains("processed")) {
@@ -186,9 +198,9 @@ namespace eosio::testing {
                       elog("async_http_request Transaction failed, transaction not processed: ${string}",
                            ("string", response.body()));
                    }
-                }
-                EOS_RETHROW_EXCEPTIONS(chain::json_parse_exception, "Fail to parse JSON from string: ${string}",
-                                       ("string", response.body()));
+                } CATCH_AND_CALL(exception_handler)
+                if (exception)
+                   return;
              }
 
              if (!(response.result() == boost::beast::http::status::accepted ||

@@ -274,7 +274,7 @@ namespace LLVMJIT
 		final_pic_code = std::move(*unitmemorymanager->code);
 	}
 
-	instantiated_code instantiateModule(const IR::Module& module)
+	instantiated_code instantiateModule(const IR::Module& module, uint64_t stack_size_limit, size_t generated_code_size_limit)
 	{
 		static bool inited;
 		if(!inited) {
@@ -315,13 +315,13 @@ namespace LLVMJIT
 				WAVM_ASSERT_THROW(!!c);
 
 				++num_functions_stack_size_found;
-				if(stack_size > 16u*1024u)
+				if(stack_size > stack_size_limit)
 					_exit(1);
 			}
 		}
 		if(num_functions_stack_size_found != module.functions.defs.size())
 			_exit(1);
-		if(jitModule->final_pic_code.size() >= 16u*1024u*1024u)
+		if(jitModule->final_pic_code.size() >= generated_code_size_limit)
 			_exit(1);
 
 		instantiated_code ret;
