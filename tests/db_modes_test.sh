@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
-# This test is intended to verify that switching between DB modes "just works". Addtionally
-# it tries to make sure the dirty bit behaves as expected even in heap mode.
+# This test is intended to verify that switching between DB modes "just works". Additionally
+# it tries to make sure the dirty bit behaves as expected even in heap and mapped_private mode.
 
 set -euo pipefail
 
@@ -79,6 +79,10 @@ run_expect_failure() {
 run_expect_success --delete-all-blocks
 #use previous DB with heap mode
 run_expect_success --database-map-mode heap
+#use previous DB with mapped_private mode
+run_expect_success --database-map-mode mapped_private
+#use previous DB with heap mode
+run_expect_success --database-map-mode heap
 #test lock mode if enabled
 if (( $TEST_LOCKED_MODE == 1 )); then
    run_expect_success --database-map-mode locked
@@ -94,11 +98,15 @@ run_and_kill
 run_expect_failure
 #should also still be dirty in heap mode
 run_expect_failure --database-map-mode heap
+#should also still be dirty in mapped_private mode
+run_expect_failure --database-map-mode mapped_private
 
 #start over again! but this time start with heap mode
 run_expect_success --delete-all-blocks  --database-map-mode heap
 #Then switch back to mapped
 run_expect_success
+#Then switch back to mapped_private
+run_expect_success --database-map-mode mapped_private
 #try killing it while in heap mode
 run_and_kill --database-map-mode heap
 #should be dirty if we run in either mode node
