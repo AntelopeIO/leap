@@ -640,13 +640,18 @@ REGISTER_CF_HOST_FUNCTION( k1_recover );
 // bls_primitives protocol feature
 REGISTER_CF_HOST_FUNCTION( bls_g1_add );
 REGISTER_CF_HOST_FUNCTION( bls_g2_add );
-REGISTER_CF_HOST_FUNCTION( bls_g1_mul );
-REGISTER_CF_HOST_FUNCTION( bls_g2_mul );
-REGISTER_CF_HOST_FUNCTION( bls_g1_exp );
-REGISTER_CF_HOST_FUNCTION( bls_g2_exp );
+REGISTER_CF_HOST_FUNCTION( bls_g1_weighted_sum );
+REGISTER_CF_HOST_FUNCTION( bls_g2_weighted_sum );
 REGISTER_CF_HOST_FUNCTION( bls_pairing );
 REGISTER_CF_HOST_FUNCTION( bls_g1_map );
 REGISTER_CF_HOST_FUNCTION( bls_g2_map );
+REGISTER_CF_HOST_FUNCTION( bls_g1_add_mont );
+REGISTER_CF_HOST_FUNCTION( bls_g2_add_mont );
+REGISTER_CF_HOST_FUNCTION( bls_g1_weighted_sum_mont );
+REGISTER_CF_HOST_FUNCTION( bls_g2_weighted_sum_mont );
+REGISTER_CF_HOST_FUNCTION( bls_pairing_mont );
+REGISTER_CF_HOST_FUNCTION( bls_g1_map_mont );
+REGISTER_CF_HOST_FUNCTION( bls_g2_map_mont );
 REGISTER_CF_HOST_FUNCTION( bls_fp_mod );
 
 } // namespace webassembly
