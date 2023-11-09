@@ -1,14 +1,8 @@
 #include <benchmark.hpp>
-#include <eosio/testing/tester.hpp>
-#include <eosio/chain/abi_serializer.hpp>
-#include <eosio/chain/platform_timer.hpp>
-#include <eosio/chain/controller.hpp>
 #include <eosio/chain/apply_context.hpp>
 #include <eosio/chain/webassembly/interface.hpp>
-#include <fc/variant_object.hpp>
-#include <fc/io/json.hpp>
+#include <eosio/testing/tester.hpp>
 #include <test_contracts.hpp>
-#include <fc/log/logger.hpp>
 #include <bls12-381/bls12-381.hpp>
 #include <random>
 
@@ -17,14 +11,18 @@ using namespace eosio::chain;
 using namespace eosio::testing;
 using namespace bls12_381;
 
+// benchmark BLS host functions directly without relying on CDT wrappers.
+// to run a benchmarking session, in the build directory, type
+// benchmark/benchmark -f bls
+
 namespace eosio::chain {
 // placed in eosio::chain name space so that interface_in_benchmark
 // can access transaction_context's private member max_transaction_time_subjective.
 // interface_in_benchmark is a friend of transaction_context.
 
-// To benchmark host functions directly without going through CDT
-// wrappers, we need to contruct a eosio::chain::webassembly::interface
-// object, as host functions are implemented in eosio::chain::webassembly::interface
+// To benchmark host functions directly without CDT wrappers,
+// we need to contruct a eosio::chain::webassembly::interface object,
+// as host functions are implemented in eosio::chain::webassembly::interface
 struct interface_in_benchmark {
    interface_in_benchmark() {
       // prevent logging from messing up benchmark results display
@@ -341,6 +339,66 @@ void benchmark_bls_pairing_one_pair() {
 void benchmark_bls_pairing_three_pair() {
    benchmark_bls_pairing("bls_pairing 3 pairs", 3);
 }
+
+void benchmark_bls_g1_map() {
+   // prepare e operand. Must be fp LE.
+   std::vector<uint8_t>  e_buf = {0xc9, 0x3f,0x81,0x7b, 0x15, 0x9b, 0xdf, 0x84, 0x04, 0xdc, 0x37, 0x85, 0x14, 0xf8, 0x45, 0x19, 0x2b, 0xba, 0xe4, 0xfa, 0xac, 0x7f, 0x4a, 0x56, 0x89, 0x24, 0xf2, 0xd9, 0x72, 0x51, 0x25, 0x00, 0x04, 0x89, 0x40, 0x8f, 0xd7, 0x96, 0x46, 0x1c, 0x28, 0x89, 0x00, 0xad, 0xd0, 0x0d, 0x46, 0x18};
+   eosio::chain::span<const char> e((char*)e_buf.data(), e_buf.size());
+
+   // prepare result operand
+   std::vector<char> result_buf(144);
+   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+
+   // set up bls_g1_map to be benchmarked
+   interface_in_benchmark interface;
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_g1_map(e, result);
+   };
+
+   benchmarking("bls_g1_map", benchmarked_func);
+}
+
+void benchmark_bls_g2_map() {
+   // prepare e operand. Must be fp2 LE.
+   std::vector<uint8_t>  e_buf = {0xd4, 0xf2, 0xcf, 0xec, 0x99, 0x38, 0x78, 0x09, 0x57, 0x4f, 0xcc, 0x2d, 0xba, 0x10, 0x56, 0x03, 0xd9, 0x50, 0xd4, 0x90, 0xe2, 0xbe, 0xbe, 0x0c, 0x21, 0x2c, 0x05, 0xe1, 0x6b, 0x78, 0x47, 0x45, 0xef, 0x4f, 0xe8, 0xe7, 0x0b, 0x55, 0x4d, 0x0a, 0x52, 0xfe, 0x0b, 0xed, 0x5e, 0xa6, 0x69, 0x0a, 0xde, 0x23, 0x48, 0xeb, 0x89, 0x72, 0xa9, 0x67, 0x40, 0xa4, 0x30, 0xdf, 0x16, 0x2d, 0x92, 0x0e, 0x17, 0x5f, 0x59, 0x23, 0xa7, 0x6d, 0x18, 0x65, 0x0e, 0xa2, 0x4a, 0x8e, 0xc0, 0x6d, 0x41, 0x4c, 0x6d, 0x1d, 0x21, 0x8d, 0x67, 0x3d, 0xac, 0x36, 0x19, 0xa1, 0xa5, 0xc1, 0x42, 0x78, 0x57, 0x08};
+   eosio::chain::span<const char> e((char*)e_buf.data(), e_buf.size());
+
+   // prepare result operand
+   std::vector<char> result_buf(288);
+   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+
+   // set up bls_g2_map to be benchmarked
+   interface_in_benchmark interface;
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_g2_map(e, result);
+   };
+
+   benchmarking("bls_g2_map", benchmarked_func);
+}
+
+void benchmark_bls_fp_mod() {
+   // prepare scalar operand
+   std::vector<char> scalar_buf(64);
+   // random_scalar returns 32 bytes. need to call it twice
+   for (auto i=0u; i < 2; ++i) {
+      std::array<uint64_t, 4> s = random_scalar();
+      scalar::toBytesLE(s, std::span<uint8_t, 32>((uint8_t*)scalar_buf.data() + i*32, 32));
+   }
+   chain::span<const char> scalar(scalar_buf.data(), scalar_buf.size());
+
+   // prepare result operand
+   std::vector<char> result_buf(48);
+   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+
+   // set up bls_fp_mod to be benchmarked
+   interface_in_benchmark interface;
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_fp_mod(scalar, result);
+   };
+
+   benchmarking("bls_fp_mod", benchmarked_func);
+}
+
 void bls_benchmarking() {
    benchmark_bls_g1_add();
    benchmark_bls_g2_add();
@@ -352,5 +410,8 @@ void bls_benchmarking() {
    benchmark_bls_g1_exp_three_point();
    benchmark_bls_g2_exp_one_point();
    benchmark_bls_g2_exp_three_point();
+   benchmark_bls_g1_map();
+   benchmark_bls_g2_map();
+   benchmark_bls_fp_mod();
 }
 } // namespace benchmark
