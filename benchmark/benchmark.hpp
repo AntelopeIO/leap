@@ -19,6 +19,7 @@ void modexp_benchmarking();
 void key_benchmarking();
 void hash_benchmarking();
 void blake2_benchmarking();
+void bls_benchmarking();
 
 void benchmarking(std::string name, const std::function<void()>& func);
 
