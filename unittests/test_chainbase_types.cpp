@@ -73,7 +73,7 @@ BOOST_AUTO_TEST_CASE(chainbase_type_segment_alloc) {
    fs::path temp = temp_dir.path() / "pinnable_mapped_file_101";
 
    pinnable_mapped_file pmf(temp, true, 1024 * 1024, false, pinnable_mapped_file::map_mode::mapped);
-   chainbase::allocator<book> alloc(reinterpret_cast<segment_manager *>(pmf.get_segment_manager()));
+   chainbase::allocator<book> alloc(pmf.get_segment_manager());
    bip_vector<book, chainbase::allocator<book>> v(alloc);
    bip_vector<book, chainbase::allocator<book>> v2(alloc);
 
