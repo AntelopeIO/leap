@@ -30,9 +30,9 @@ struct interface_in_benchmark {
       auto conf_genesis = tester::default_config( tempdir );
       auto& cfg = conf_genesis.second.initial_configuration;
       // configure large cpu usgaes so expensive BLS functions like pairing
-      // can run a reasonable number of times within a trasaction time
-      cfg.max_block_cpu_usage        = 500'000;
-      cfg.max_transaction_cpu_usage  = 480'000;
+      // can finish within a trasaction time
+      cfg.max_block_cpu_usage        = 999'999'999;
+      cfg.max_transaction_cpu_usage  = 999'999'990;
       cfg.min_transaction_cpu_usage  = 1;
       chain = std::make_unique<tester>(conf_genesis.first, conf_genesis.second);
       chain->execute_setup_policy( setup_policy::full );
@@ -104,10 +104,6 @@ std::array<uint64_t, 4> random_scalar()
       dis(gen) % bls12_381::fp::Q[3]
    };
 }
-
-// some functions like pairing/exp are expensive. set a hard limit to
-// the number of runs such that the transanction does not reach deadline
-constexpr uint32_t num_runs_limit = 200;
 
 // utilility to create a random g1
 bls12_381::g1 random_g1()
@@ -241,7 +237,7 @@ void benchmark_bls_g1_exp(std::string test_name, uint32_t num_points) {
       interface.interface->bls_g1_exp(g1_points, scalars, num_points, result);
    };
 
-   benchmarking(test_name, benchmarked_func, num_runs_limit);
+   benchmarking(test_name, benchmarked_func);
 }
 
 void benchmark_bls_g1_exp_one_point() {
@@ -279,7 +275,7 @@ void benchmark_bls_g2_exp(std::string test_name, uint32_t num_points) {
       interface.interface->bls_g2_exp(g2_points, scalars, num_points, result);
    };
 
-   benchmarking(test_name, benchmarked_func, num_runs_limit);
+   benchmarking(test_name, benchmarked_func);
 }
 
 void benchmark_bls_g2_exp_one_point() {
@@ -318,7 +314,7 @@ void benchmark_bls_pairing(std::string test_name, uint32_t num_pairs) {
       interface.interface->bls_pairing(g1_points, g2_points, num_pairs, result);
    };
 
-   benchmarking(test_name, benchmarked_func, num_runs_limit);
+   benchmarking(test_name, benchmarked_func);
 }
 
 void benchmark_bls_pairing_one_pair() {
