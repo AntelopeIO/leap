@@ -5,7 +5,7 @@
 
 #include <benchmark.hpp>
 
-namespace benchmark {
+namespace eosio::benchmark {
 
 // update this map when a new feature is supported
 // key is the name and value is the function doing benchmarking

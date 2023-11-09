@@ -7,7 +7,7 @@
 
 #include <fc/crypto/hex.hpp>
 
-namespace benchmark {
+namespace eosio::benchmark {
 using bytes = std::vector<char>;
 
 void set_num_runs(uint32_t runs);

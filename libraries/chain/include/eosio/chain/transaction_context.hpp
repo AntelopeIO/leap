@@ -4,6 +4,10 @@
 #include <eosio/chain/platform_timer.hpp>
 #include <signal.h>
 
+namespace eosio::benchmark {
+   struct interface_in_benchmark; // for benchmark testing
+}
+
 namespace eosio { namespace chain {
 
    struct transaction_checktime_timer {
@@ -92,7 +96,7 @@ namespace eosio { namespace chain {
 
          friend struct controller_impl;
          friend class apply_context;
-         friend struct interface_in_benchmark; // defined in benchmark/bls.cpp
+         friend struct benchmark::interface_in_benchmark; // defined in benchmark/bls.cpp
 
          void add_ram_usage( account_name account, int64_t ram_delta );
 

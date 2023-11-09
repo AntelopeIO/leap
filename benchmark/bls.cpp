@@ -15,10 +15,7 @@ using namespace bls12_381;
 // to run a benchmarking session, in the build directory, type
 // benchmark/benchmark -f bls
 
-namespace eosio::chain {
-// placed in eosio::chain name space so that interface_in_benchmark
-// can access transaction_context's private member max_transaction_time_subjective.
-// interface_in_benchmark is a friend of transaction_context.
+namespace eosio::benchmark {
 
 // To benchmark host functions directly without CDT wrappers,
 // we need to contruct a eosio::chain::webassembly::interface object,
@@ -96,10 +93,6 @@ struct interface_in_benchmark {
    std::unique_ptr<apply_context>               apply_ctx;
    std::unique_ptr<webassembly::interface>      interface;
 };
-} // namespace eosio::chain
-
-
-namespace benchmark {
 
 // utilility to create a random scalar
 std::array<uint64_t, 4> random_scalar()
