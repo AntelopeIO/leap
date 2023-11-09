@@ -47,10 +47,10 @@ void print_results(std::string name, uint32_t runs, uint64_t total, uint64_t min
    std::cout.imbue(std::locale(""));
    std::cout
       << std::setw(name_width) << std::left << name
-      << std::setw(runs_width)  << runs
       // std::fixed for not printing 1234 in 1.234e3.
       // setprecision(0) for not printing fractions
       << std::right << std::fixed << std::setprecision(0)
+      << std::setw(runs_width)  << runs
       << std::setw(time_width) << total/runs << std::setw(ns_width) << " ns"
       << std::setw(time_width) << min << std::setw(ns_width) << " ns"
       << std::setw(time_width) << max << std::setw(ns_width) << " ns"
