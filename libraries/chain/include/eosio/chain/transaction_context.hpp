@@ -92,6 +92,7 @@ namespace eosio { namespace chain {
 
          friend struct controller_impl;
          friend class apply_context;
+         friend struct interface_in_benchmark; // defined in benchmark/bls.cpp
 
          void add_ram_usage( account_name account, int64_t ram_delta );
 
