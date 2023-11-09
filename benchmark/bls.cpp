@@ -37,9 +37,6 @@ struct interface_in_benchmark {
       chain = std::make_unique<tester>(conf_genesis.first, conf_genesis.second);
       chain->execute_setup_policy( setup_policy::full );
 
-      // get hold controller
-      control = chain->control.get();
-
       // create account and deploy contract for a temp transaction
       chain->create_accounts( {"payloadless"_n} );
       chain->set_code( "payloadless"_n, test_contracts::payloadless_wasm() );
@@ -63,7 +60,7 @@ struct interface_in_benchmark {
       trx = std::make_unique<signed_transaction>();
       abi_serializer::from_variant(pretty_trx, *trx, chain->get_resolver(), abi_serializer::create_yield_function( chain->abi_serializer_max_time ));
       chain->set_transaction_headers(*trx);
-      trx->sign( chain->get_private_key( "payloadless"_n, "active" ), control->get_chain_id() );
+      trx->sign( chain->get_private_key( "payloadless"_n, "active" ), chain->control.get()->get_chain_id() );
 
       // construct a packed transaction
       ptrx = std::make_unique<packed_transaction>(*trx, eosio::chain::packed_transaction::compression_type::zlib);
@@ -71,20 +68,19 @@ struct interface_in_benchmark {
       // build transaction context from the packed transaction
       timer = std::make_unique<platform_timer>();
       trx_timer = std::make_unique<transaction_checktime_timer>(*timer);
-      trx_ctx = std::make_unique<transaction_context>(*control, *ptrx, ptrx->id(), std::move(*trx_timer));
+      trx_ctx = std::make_unique<transaction_context>(*chain->control.get(), *ptrx, ptrx->id(), std::move(*trx_timer));
       trx_ctx->max_transaction_time_subjective = fc::microseconds::maximum();
       trx_ctx->init_for_input_trx( ptrx->get_unprunable_size(), ptrx->get_prunable_size() );
       trx_ctx->exec();
 
       // build apply context from the control and transaction context
-      apply_ctx = std::make_unique<apply_context>(*control, *trx_ctx, 1);
+      apply_ctx = std::make_unique<apply_context>(*chain->control.get(), *trx_ctx, 1);
 
       // finally build the interface
       interface = std::make_unique<webassembly::interface>(*apply_ctx);
    }
 
    std::unique_ptr<tester>                      chain;
-   controller*                                  control;
    std::unique_ptr<signed_transaction>          trx;
    std::unique_ptr<packed_transaction>          ptrx;
    std::unique_ptr<platform_timer>              timer;
