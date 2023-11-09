@@ -118,6 +118,10 @@ std::array<uint64_t, 4> random_scalar()
    };
 }
 
+// some functions like pairing/exp are expensive. set a hard limit to
+// the number of runs such that the transanction does not reach deadline
+constexpr uint32_t num_runs_limit = 200;
+
 // utilility to create a random g1
 bls12_381::g1 random_g1()
 {
@@ -223,10 +227,130 @@ void benchmark_bls_g2_mul() {
    benchmarking("bls_g2_mul", benchmarked_func);
 }
 
+void benchmark_bls_g1_exp(std::string test_name, uint32_t num_points) {
+   // prepare g1 points operand
+   std::vector<char> g1_buf(144*num_points);
+   for (auto i=0u; i < num_points; ++i) {
+      g1 p = random_g1();
+      p.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)g1_buf.data() + i * 144, 144), true);
+   }
+   chain::span<const char> g1_points(g1_buf.data(), g1_buf.size());
+
+   // prepare scalars operand
+   std::vector<char> scalars_buf(32*num_points);
+   for (auto i=0u; i < num_points; ++i) {
+      std::array<uint64_t, 4> s = random_scalar();
+      scalar::toBytesLE(s, std::span<uint8_t, 32>((uint8_t*)scalars_buf.data() + i*32, 32));
+   }
+   chain::span<const char> scalars(scalars_buf.data(), scalars_buf.size());
+
+   // prepare result operand
+   std::vector<char> result_buf(144);
+   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+
+   // set up bls_g1_exp to be benchmarked
+   interface_in_benchmark interface;
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_g1_exp(g1_points, scalars, num_points, result);
+   };
+
+   benchmarking(test_name, benchmarked_func, num_runs_limit);
+}
+
+void benchmark_bls_g1_exp_one_point() {
+   benchmark_bls_g1_exp("bls_g1_exp 1 point", 1);
+}
+
+void benchmark_bls_g1_exp_three_point() {
+   benchmark_bls_g1_exp("bls_g1_exp 3 points", 3);
+}
+
+void benchmark_bls_g2_exp(std::string test_name, uint32_t num_points) {
+   // prepare g2 points operand
+   std::vector<char> g2_buf(288*num_points);
+   for (auto i=0u; i < num_points; ++i) {
+      g2 p = random_g2();
+      p.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)g2_buf.data() + i * 288, 288), true);
+   }
+   eosio::chain::span<const char> g2_points(g2_buf.data(), g2_buf.size());
+
+   // prepare scalars operand
+   std::vector<char> scalars_buf(32*num_points);
+   for (auto i=0u; i < num_points; ++i) {
+      std::array<uint64_t, 4> s = random_scalar();
+      scalar::toBytesLE(s, std::span<uint8_t, 32>((uint8_t*)scalars_buf.data() + i*32, 32));
+   }
+   eosio::chain::span<const char> scalars(scalars_buf.data(), scalars_buf.size());
+
+   // prepare result operand
+   std::vector<char> result_buf(288);
+   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+
+   // set up bls_g2_exp to be benchmarked
+   interface_in_benchmark interface;
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_g2_exp(g2_points, scalars, num_points, result);
+   };
+
+   benchmarking(test_name, benchmarked_func, num_runs_limit);
+}
+
+void benchmark_bls_g2_exp_one_point() {
+   benchmark_bls_g2_exp("bls_g2_exp 1 point", 1);
+}
+
+void benchmark_bls_g2_exp_three_point() {
+   benchmark_bls_g2_exp("bls_g2_exp 3 points", 3);
+}
+
+void benchmark_bls_pairing(std::string test_name, uint32_t num_pairs) {
+   // prepare g1 operand
+   std::vector<char> g1_buf(144*num_pairs);
+   //g1_buf.reserve(144*num_pairs);
+   for (auto i=0u; i < num_pairs; ++i) {
+      g1 p = random_g1();
+      p.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)g1_buf.data() + i * 144, 144), true);
+   }
+   eosio::chain::span<const char> g1_points(g1_buf.data(), g1_buf.size());
+
+   // prepare g2 operand
+   std::vector<char> g2_buf(288*num_pairs);
+   for (auto i=0u; i < num_pairs; ++i) {
+      g2 p2 = random_g2();
+      p2.toJacobianBytesLE(std::span<uint8_t, (288)>((uint8_t*)g2_buf.data() + i * 288, (288)), true);
+   }
+   eosio::chain::span<const char> g2_points(g2_buf.data(), g2_buf.size());
+
+   // prepare result operand
+   std::vector<char> result_buf(576);
+   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+
+   // set up bls_pairing to be benchmarked
+   interface_in_benchmark interface;
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_pairing(g1_points, g2_points, num_pairs, result);
+   };
+
+   benchmarking(test_name, benchmarked_func, num_runs_limit);
+}
+
+void benchmark_bls_pairing_one_pair() {
+   benchmark_bls_pairing("bls_pairing 1 pair", 1);
+}
+
+void benchmark_bls_pairing_three_pair() {
+   benchmark_bls_pairing("bls_pairing 3 pairs", 3);
+}
 void bls_benchmarking() {
    benchmark_bls_g1_add();
    benchmark_bls_g2_add();
    benchmark_bls_g1_mul();
    benchmark_bls_g2_mul();
+   benchmark_bls_pairing_one_pair();
+   benchmark_bls_pairing_three_pair();
+   benchmark_bls_g1_exp_one_point();
+   benchmark_bls_g1_exp_three_point();
+   benchmark_bls_g2_exp_one_point();
+   benchmark_bls_g2_exp_three_point();
 }
 } // namespace benchmark
