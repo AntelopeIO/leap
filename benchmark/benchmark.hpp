@@ -22,6 +22,6 @@ void hash_benchmarking();
 void blake2_benchmarking();
 void bls_benchmarking();
 
-void benchmarking(const std::string& name, const std::function<void()>& func, uint32_t max_num_runs = std::numeric_limits<uint32_t>::max());
+void benchmarking(const std::string& name, const std::function<void()>& func); 
 
 } // benchmark
