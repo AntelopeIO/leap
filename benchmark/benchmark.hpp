@@ -3,6 +3,7 @@
 #include <functional>
 #include <map>
 #include <vector>
+#include <limits>
 
 #include <fc/crypto/hex.hpp>
 
@@ -21,6 +22,6 @@ void hash_benchmarking();
 void blake2_benchmarking();
 void bls_benchmarking();
 
-void benchmarking(std::string name, const std::function<void()>& func);
+void benchmarking(const std::string& name, const std::function<void()>& func, uint32_t max_num_runs = std::numeric_limits<uint32_t>::max());
 
 } // benchmark

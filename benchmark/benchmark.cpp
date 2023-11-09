@@ -63,10 +63,20 @@ bytes to_bytes(const std::string& source) {
    return output;
 };
 
-void benchmarking(std::string name, const std::function<void()>& func) {
-   uint64_t total {0}, min {std::numeric_limits<uint64_t>::max()}, max {0};
+void benchmarking(const std::string& name,
+      const std::function<void()>& func,
+      uint32_t max_num_runs) {
 
-   for (auto i = 0U; i < num_runs; ++i) {
+   uint64_t total{0};
+   uint64_t min{std::numeric_limits<uint64_t>::max()};
+   uint64_t max{0};
+
+   // some benchmarked functions are expensive and run in a transaction
+   // (like BLS pairing). Limit actual number of runs to the function
+   // specific maximum such that transaction deadline is not exceeded.
+   uint32_t actual_num_runs = (num_runs > max_num_runs) ? max_num_runs : num_runs;
+
+   for (auto i = 0U; i < actual_num_runs; ++i) {
       auto start_time = std::chrono::high_resolution_clock::now();
       func();
       auto end_time = std::chrono::high_resolution_clock::now();
@@ -77,7 +87,7 @@ void benchmarking(std::string name, const std::function<void()>& func) {
       max = std::max(max, duration);
    }
 
-   print_results(name, num_runs, total, min, max);
+   print_results(name, actual_num_runs, total, min, max);
 }
 
 } // benchmark
