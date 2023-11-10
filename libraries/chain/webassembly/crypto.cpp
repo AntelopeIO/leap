@@ -167,6 +167,45 @@ namespace {
       c.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)result.data(), 288), mont);
       return return_code::success;
    }
+
+   int32_t bls_fp_mod_impl(span<const char> s, span<char> result, bool mont)
+   {
+      // s is scalar.
+      if(s.size() != 64 ||  result.size() != 48)
+         return return_code::failure;  
+      std::array<uint64_t, 8> k = bls12_381::scalar::fromBytesLE<8>(std::span<const uint8_t, 64>((const uint8_t*)s.data(), 64));
+      bls12_381::fp e = bls12_381::fp::modPrime<8>(k);
+      e.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), mont);
+      return return_code::success;
+   }
+
+   int32_t bls_fp_mul_impl(span<const char> op1, span<const char> op2, span<char> result, bool mont)
+   {
+      if(op1.size() != 48 || op2.size() != 48 || result.size() != 48)
+         return return_code::failure;
+      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)op1.data(), 48), true, mont);
+      std::optional<bls12_381::fp> b = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)op2.data(), 48), true, mont);
+      if(!a || !b)
+         return return_code::failure;
+      bls12_381::fp c = a->multiply(*b);
+      c.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), mont);
+      return return_code::success;
+   }
+
+   int32_t bls_fp_exp_impl(span<const char> base, span<const char> exp, span<char> result, bool mont)
+   {
+      // exp is scalar.
+      if(base.size() != 48 || exp.size() != 64 || result.size() != 48)
+         return return_code::failure;
+      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)base.data(), 48), true, mont);
+      if(!a)
+         return return_code::failure;
+      std::array<uint64_t, 8> b = bls12_381::scalar::fromBytesLE<8>(std::span<const uint8_t, 64>((const uint8_t*)exp.data(), 64));
+      bls12_381::fp c = a->exp<8>(b);
+      c.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), mont);
+      return return_code::success;
+   }
+
 }
 
 namespace eosio { namespace chain { namespace webassembly {
@@ -472,12 +511,32 @@ namespace eosio { namespace chain { namespace webassembly {
 
    int32_t interface::bls_fp_mod(span<const char> s, span<char> result) const
    {
-      if(s.size() != 64 ||  result.size() != 48)
-         return return_code::failure;
-      std::array<uint64_t, 8> k = bls12_381::scalar::fromBytesLE<8>(std::span<const uint8_t, 64>((const uint8_t*)s.data(), 64));
-      bls12_381::fp e = bls12_381::fp::modPrime<8>(k);
-      e.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), true);
-      return return_code::success;
+      return bls_fp_mod_impl(s, result, false);
    }
+
+   int32_t interface::bls_fp_mod_mont(span<const char> s, span<char> result) const
+   {
+      return bls_fp_mod_impl(s, result, true);
+   }
+
+   int32_t interface::bls_fp_mul(span<const char> op1, span<const char> op2, span<char> result) const
+   {
+      return bls_fp_mul_impl(op1, op2, result, false);
+   }
+
+   int32_t interface::bls_fp_mul_mont(span<const char> op1, span<const char> op2, span<char> result) const
+   {
+      return bls_fp_mul_impl(op1, op2, result, true);
+   }
+
+   int32_t interface::bls_fp_exp(span<const char> base, span<const char> exp, span<char> result) const
+   {
+      return bls_fp_exp_impl(base, exp, result, false);
+   }
+
+   int32_t interface::bls_fp_exp_mont(span<const char> base, span<const char> exp, span<char> result) const
+   {
+      return bls_fp_exp_impl(base, exp, result, true);
+   }   
 
 }}} // ns eosio::chain::webassembly
