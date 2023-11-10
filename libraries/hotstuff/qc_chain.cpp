@@ -383,8 +383,7 @@ namespace eosio::hotstuff {
       update(proposal);
 
       //propagate this proposal since it was new to us
-      if (! am_i_leader())
-         send_hs_proposal_msg(connection_id, proposal);
+      send_hs_proposal_msg(connection_id, proposal);
 
       for (auto &msg : msgs) {
          send_hs_vote_msg( std::nullopt, msg );
