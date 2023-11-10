@@ -923,7 +923,7 @@ namespace eosio::hotstuff {
 
          fc_tlog(_logger, "setting _b_lock to ${proposal_id}", ("proposal_id",b_1.proposal_id ));
 
-         for (auto f_itr : _my_finalizer_keys) {
+         for (const auto& f_itr : _my_finalizer_keys) {
             _safety_state.set_b_lock(f_itr.first, b_1.proposal_id); //commit phase on b1
          }
 
