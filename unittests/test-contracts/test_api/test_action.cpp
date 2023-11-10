@@ -62,6 +62,12 @@ void test_action::test_dummy_action() {
    }
 }
 
+void test_action::read_action() {
+   print("action size: " + std::to_string(action_data_size()));
+   void* p = malloc(action_data_size());
+   read_action_data(p, action_data_size());
+}
+
 void test_action::read_action_to_0() {
    read_action_data( (void *)0, action_data_size() );
 }

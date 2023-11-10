@@ -4,6 +4,7 @@
 #include <fc/crypto/hmac.hpp>
 #include <fc/crypto/openssl.hpp>
 #include <fc/crypto/sha512.hpp>
+#include <fc/crypto/rand.hpp>
 
 #include <fc/fwd_impl.hpp>
 #include <fc/exception/exception.hpp>
@@ -11,6 +12,8 @@
 
 #include <secp256k1.h>
 #include <secp256k1_recovery.h>
+
+#include <openssl/rand.h>
 
 #if _WIN32
 # include <malloc.h>
@@ -25,29 +28,27 @@
 namespace fc { namespace ecc {
     namespace detail
     {
+        struct context_creator {
+           context_creator() {
+              ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
+              char seed[32];
+              rand_bytes(seed, sizeof(seed));
+              FC_ASSERT(secp256k1_context_randomize(ctx, (const unsigned char*)seed));
+           }
+           secp256k1_context* ctx = nullptr;
+        };
         const secp256k1_context* _get_context() {
-            static secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY | SECP256K1_CONTEXT_SIGN);
-            return ctx;
-        }
-
-        void _init_lib() {
-            static const secp256k1_context* ctx = _get_context();
-            (void)ctx;
+            static context_creator cc;
+            return cc.ctx;
         }
 
         class public_key_impl
         {
             public:
-                public_key_impl() BOOST_NOEXCEPT
-                {
-                    _init_lib();
-                }
+                public_key_impl() BOOST_NOEXCEPT {}
 
                 public_key_impl( const public_key_impl& cpy ) BOOST_NOEXCEPT
-                    : _key( cpy._key )
-                {
-                    _init_lib();
-                }
+                    : _key( cpy._key ) {}
 
                 public_key_data _key;
         };
@@ -79,6 +80,14 @@ namespace fc { namespace ecc {
       return fc::sha512::hash( serialized_result.begin() + 1, serialized_result.size() - 1 );
     }
 
+    private_key private_key::generate()
+    {
+       private_key ret;
+       do {
+         rand_bytes(ret.my->_key.data(), ret.my->_key.data_size());
+       } while(!secp256k1_ec_seckey_verify(detail::_get_context(), (const uint8_t*)ret.my->_key.data()));
+       return ret;
+    }
 
     public_key::public_key() {}
 

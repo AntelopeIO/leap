@@ -1,0 +1,14 @@
+{
+    "initAccounts": ["payloadless"],
+    "abiFile": "unittests/test-contracts/payloadless/payloadless.abi",
+    "apiEndpoint": "/v1/chain/send_read_only_transaction",
+    "actions": [
+        {
+            "actionName": "doitslow",
+            "actionData": {
+            },
+            "actionAuthAcct": "payloadless",
+            "authorization": {}
+        }
+    ]
+}

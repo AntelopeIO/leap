@@ -75,7 +75,7 @@ try:
                 assert conn['last_handshake']['p2p_address'].split()[0] == 'localhost:9878', f"Connected node is listening on '{conn['last_handshake']['p2p_address'].split()[0]}' instead of port 9878"
             elif conn['last_handshake']['agent'] == 'node-04':
                 assert conn['last_handshake']['p2p_address'].split()[0] == 'localhost:9880', f"Connected node is listening on '{conn['last_handshake']['p2p_address'].split()[0]}' instead of port 9880"
-    assert open_socket_count == 2, 'Node 0 is expected to have only two open sockets'
+    assert open_socket_count == 2, 'Node 0 is expected to have exactly two open sockets'
 
     connections = cluster.nodes[2].processUrllibRequest('net', 'connections')
     open_socket_count = 0
@@ -84,7 +84,7 @@ try:
             open_socket_count += 1
             assert conn['last_handshake']['agent'] == 'node-00', f"Connected node identifed as '{conn['last_handshake']['agent']}' instead of node-00"
             assert conn['last_handshake']['p2p_address'].split()[0] == 'ext-ip0:20000', f"Connected node is advertising '{conn['last_handshake']['p2p_address'].split()[0]}' instead of ext-ip0:20000"
-    assert open_socket_count == 1, 'Node 2 is expected to have only one open socket'
+    assert open_socket_count == 1, 'Node 2 is expected to have exactly one open socket'
 
     connections = cluster.nodes[4].processUrllibRequest('net', 'connections')
     open_socket_count = 0
@@ -93,7 +93,7 @@ try:
             open_socket_count += 1
             assert conn['last_handshake']['agent'] == 'node-00', f"Connected node identifed as '{conn['last_handshake']['agent']}' instead of node-00"
             assert conn['last_handshake']['p2p_address'].split()[0] == 'ext-ip1:20001', f"Connected node is advertising '{conn['last_handshake']['p2p_address'].split()[0]} 'instead of ext-ip1:20001"
-    assert open_socket_count == 1, 'Node 4 is expected to have only one open socket'
+    assert open_socket_count == 1, 'Node 4 is expected to have exactly one open socket'
 
     testSuccessful=True
 finally:

@@ -64,7 +64,8 @@ def main():
                                                 printMissingTransactions=args.print_missing_transactions,
                                                 userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None,
                                                 endpointMode=args.endpoint_mode,
-                                                trxGenerator=args.trx_generator)
+                                                trxGenerator=args.trx_generator,
+                                                saveState=args.save_state)
         Utils.Print(f"testNamePath: {PurePath(PurePath(__file__).name).stem}")
         myTest = performance_test_basic.PerformanceTestBasic(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptbConfig=ptbConfig, testNamePath=f"{PurePath(PurePath(__file__).name).stem}")
     elif args.scenario_type_sub_cmd == "findMax":
@@ -87,7 +88,8 @@ def main():
                                             userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None,
                                             endpointMode=args.endpoint_mode,
                                             opModeCmd=args.op_mode_sub_cmd,
-                                            trxGenerator=args.trx_generator)
+                                            trxGenerator=args.trx_generator,
+                                            saveState=args.save_state)
 
         myTest = performance_test.PerformanceTest(testHelperConfig=testHelperConfig, clusterConfig=testClusterConfig, ptConfig=ptConfig)
     else:

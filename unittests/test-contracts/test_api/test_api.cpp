@@ -49,6 +49,7 @@ extern "C" {
 
       //test_action
       WASM_TEST_HANDLER   ( test_action, read_action_normal         );
+      WASM_TEST_HANDLER   ( test_action, read_action                );
       WASM_TEST_HANDLER   ( test_action, read_action_to_0           );
       WASM_TEST_HANDLER   ( test_action, read_action_to_64k         );
       WASM_TEST_HANDLER_EX( test_action, require_notice             );
@@ -118,6 +119,8 @@ extern "C" {
       WASM_TEST_HANDLER   ( test_transaction, send_action_empty                      );
       WASM_TEST_HANDLER   ( test_transaction, send_action_large                      );
       WASM_TEST_HANDLER   ( test_transaction, send_action_4k                         );
+      WASM_TEST_HANDLER   ( test_transaction, send_action_512k                       );
+      WASM_TEST_HANDLER   ( test_transaction, send_many_actions_512k                 );
       WASM_TEST_HANDLER   ( test_transaction, send_action_recurse                    );
       WASM_TEST_HANDLER   ( test_transaction, test_read_transaction                  );
       WASM_TEST_HANDLER   ( test_transaction, test_transaction_size                  );

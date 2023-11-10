@@ -163,10 +163,14 @@ Config Options for eosio::chain_plugin:
                                         headers signed by it will be fully
                                         validated, but transactions in those
                                         validated blocks will be trusted.
-  --database-map-mode arg (=mapped)     Database map mode ("mapped", "heap", or
-                                        "locked").
+  --database-map-mode arg (=mapped)     Database map mode ("mapped",
+                                        "mapped_private", "heap", or "locked").
                                         In "mapped" mode database is memory
                                         mapped as a file.
+                                        In "mapped_private" mode database is
+                                        memory mapped as a file using a private
+                                        mapping (no disk writeback until
+                                        program exit).
                                         In "heap" mode database is preloaded in
                                         to swappable memory and will use huge
                                         pages if available.
@@ -190,10 +194,6 @@ Config Options for eosio::chain_plugin:
 
   --enable-account-queries arg (=0)     enable queries to find accounts by
                                         various metadata.
-  --max-nonprivileged-inline-action-size arg (=4096)
-                                        maximum allowed size (in bytes) of an
-                                        inline action for a nonprivileged
-                                        account
   --transaction-retry-max-storage-size-gb arg
                                         Maximum size (in GiB) allowed to be
                                         allocated for the Transaction Retry

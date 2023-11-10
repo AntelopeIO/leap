@@ -1,0 +1,132 @@
+{
+  "name": "testnet_", 
+  "nodes": {
+    "bios": {
+      "index": -100, 
+      "name": "bios", 
+      "keys": [
+        {
+          "pubkey": "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV", 
+          "privkey": "5KQwrPbwdL6PhXujxW37FSSQZ1JiwsST4cqQzDeyXtP79zkvFD3"
+        }
+      ], 
+      "peers": [
+        "testnet_00"
+      ], 
+      "producers": [
+        "eosio"
+      ], 
+      "dont_start": false, 
+      "p2p_port": 9776, 
+      "http_port": 8788, 
+      "host_name": "localhost", 
+      "public_name": "localhost", 
+      "listen_addr": "0.0.0.0", 
+      "_dot_label": "localhost:9776\nbios\nprod=eosio"
+    }, 
+    "testnet_00": {
+      "index": 0, 
+      "name": "testnet_00", 
+      "keys": [
+        {
+          "pubkey": "EOS7D6jfN6bbJD9cYheyhnBT4bmUWc3Qf4Yphf5GBeAAy58okcwHU", 
+          "privkey": "5KkmnyunnpCQzgFoLMEtU3j7BRBa5aWmsBNru49ke7LdnZKFhmt"
+        }
+      ], 
+      "peers": [],
+      "producers": [
+        "defproducera", 
+        "defproducerb", 
+        "defproducerc", 
+        "defproducerd", 
+        "defproducere", 
+        "defproducerf", 
+        "defproducerg", 
+        "defproducerh", 
+        "defproduceri", 
+        "defproducerj", 
+        "defproducerk", 
+        "defproducerl", 
+        "defproducerm", 
+        "defproducern", 
+        "defproducero", 
+        "defproducerp", 
+        "defproducerq", 
+        "defproducerr", 
+        "defproducers", 
+        "defproducert", 
+        "defproduceru"
+      ], 
+      "dont_start": false, 
+      "p2p_port": 9876, 
+      "http_port": 8888, 
+      "host_name": "localhost", 
+      "public_name": "localhost", 
+      "listen_addr": "0.0.0.0", 
+      "_dot_label": "localhost:9876\ntestnet_00\nprod=defproducera\ndefproducerb\ndefproducerc\ndefproducerd\ndefproducere\ndefproducerf\ndefproducerg\ndefproducerh\ndefproduceri\ndefproducerj\ndefproducerk\ndefproducerl\ndefproducerm\ndefproducern\ndefproducero\ndefproducerp\ndefproducerq\ndefproducerr\ndefproducers\ndefproducert\ndefproduceru"
+    }, 
+    "testnet_01": {
+      "index": 1, 
+      "name": "testnet_01", 
+      "keys": [
+        {
+          "pubkey": "EOS5tZqxLB8y9q2yHkgcXU4QFBEV6QKN3NQ54ygaFLWHJbjqYzFhw", 
+          "privkey": "5KBs4qR7T8shJjCJUeFQXd77iKrok5TCtZiQhWJpCpc1VRxpNAs"
+        }
+      ], 
+      "peers": [
+        "testnet_00"
+      ], 
+      "producers": [], 
+      "dont_start": false, 
+      "p2p_port": 9877, 
+      "http_port": 8889, 
+      "host_name": "localhost", 
+      "public_name": "localhost", 
+      "listen_addr": "0.0.0.0", 
+      "_dot_label": "localhost:9877\ntestnet_01\nprod=<none>"
+    }, 
+    "testnet_02": {
+      "index": 2, 
+      "name": "testnet_02", 
+      "keys": [
+        {
+          "pubkey": "EOS5FBPf5EN9bYEqmsKfPx9bxyUZ9grDiE24zqLFXtPa6UpVzMjE7", 
+          "privkey": "5HtVDiAsD24seDm5sdswTcdZpx672XbBW9gBkyrzbsj2j9Y9JeC"
+        }
+      ],
+      "peers": [
+        "testnet_01"
+      ], 
+      "producers": [], 
+      "dont_start": true, 
+      "p2p_port": 9878, 
+      "http_port": 8890, 
+      "host_name": "localhost", 
+      "public_name": "localhost", 
+      "listen_addr": "0.0.0.0", 
+      "_dot_label": "localhost:9878\ntestnet_02\nprod=<none>"
+    }, 
+    "testnet_03": {
+      "index": 3, 
+      "name": "testnet_03", 
+      "keys": [
+        {
+          "pubkey": "EOS8XH2gKxsef9zxmMHm4vaSvxQUhg7W4GC3nK2KSRxyYrNG5gZFS", 
+          "privkey": "5JcoRRhDcgm51dkBrRTmErceTqrYhrq22UnmUjTZToMpH91B9N1"
+        }
+      ], 
+      "peers": [
+        "testnet_02"
+      ],
+      "producers": [],
+      "dont_start": true, 
+      "p2p_port": 9879, 
+      "http_port": 8891, 
+      "host_name": "localhost", 
+      "public_name": "localhost", 
+      "listen_addr": "0.0.0.0", 
+      "_dot_label": "localhost:9879\ntestnet_03\nprod=<none>"
+    }
+  }
+}

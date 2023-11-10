@@ -35,8 +35,7 @@ namespace eosio::testing {
    }
 
    void provider_connection::init_and_connect() {
-      _connection_thread_pool.start(
-          1, [](const fc::exception& e) { elog("provider_connection exception ${e}", ("e", e)); });
+      _connection_thread_pool.start(1, {});
       connect();
    };
 
@@ -107,6 +106,10 @@ namespace eosio::testing {
    }
 
    bool http_connection::needs_response_trace_info() {
+      return is_read_only_transaction();
+   }
+
+   bool http_connection::is_read_only_transaction() {
       return _config._api_endpoint == "/v1/chain/send_read_only_transaction";
    }
 
@@ -129,8 +132,11 @@ namespace eosio::testing {
           params, std::move(msg_body),
           [this, trx_id = trx.id()](boost::beast::error_code                                      ec,
                                     boost::beast::http::response<boost::beast::http::string_body> response) {
-             ++this->_acknowledged;
              trx_acknowledged(trx_id, fc::time_point::now());
+             if (ec) {
+                elog("http error: ${c}: ${m}", ("c", ec.value())("m", ec.message()));
+                throw std::runtime_error(ec.message());
+             }
 
              if (this->needs_response_trace_info() && response.result() == boost::beast::http::status::ok) {
                 try {
@@ -139,6 +145,7 @@ namespace eosio::testing {
                       const auto& processed      = resp_json["processed"];
                       const auto& block_num      = processed["block_num"].as_uint64();
                       const auto& block_time     = processed["block_time"].as_string();
+                      const auto& elapsed_time     = processed["elapsed"].as_uint64();
                       std::string status         = "failed";
                       uint32_t    net            = 0;
                       uint32_t    cpu            = 0;
@@ -150,7 +157,7 @@ namespace eosio::testing {
                             cpu    = receipt["cpu_usage_us"].as_uint64();
                          }
                          if (status == "executed") {
-                            record_trx_info(trx_id, block_num, cpu, net, block_time);
+                            record_trx_info(trx_id, block_num, this->is_read_only_transaction() ? elapsed_time : cpu, net, block_time);
                          } else {
                             elog("async_http_request Transaction receipt status not executed: ${string}",
                                  ("string", response.body()));
@@ -173,6 +180,7 @@ namespace eosio::testing {
                 elog("async_http_request Failed with response http status code: ${status}",
                      ("status", response.result_int()));
              }
+             ++this->_acknowledged;
           });
       ++_sent;
    }
