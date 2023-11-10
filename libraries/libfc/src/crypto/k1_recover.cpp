@@ -6,7 +6,7 @@
 namespace fc {
 
     const secp256k1_context* k1_recover_context() {
-        static secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_VERIFY);
+        static secp256k1_context* ctx = secp256k1_context_create(SECP256K1_CONTEXT_NONE);
         return ctx;
     }
 

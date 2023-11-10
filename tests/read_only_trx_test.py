@@ -6,6 +6,7 @@ import signal
 import threading
 import os
 import platform
+import traceback
 
 from TestHarness import Account, Cluster, ReturnType, TestHelper, Utils, WalletMgr
 from TestHarness.TestHelper import AppArgs
@@ -102,6 +103,7 @@ def startCluster():
     specificExtraNodeosArgs={}
     # producer nodes will be mapped to 0 through pnodes-1, so the number pnodes is the no-producing API node
     specificExtraNodeosArgs[pnodes]=" --plugin eosio::net_api_plugin"
+    specificExtraNodeosArgs[pnodes]+=" --contracts-console "
     specificExtraNodeosArgs[pnodes]+=" --read-only-write-window-time-us "
     specificExtraNodeosArgs[pnodes]+=" 10000 "
     specificExtraNodeosArgs[pnodes]+=" --read-only-read-window-time-us "
@@ -204,6 +206,9 @@ def sendTransaction(account, action, data, auth=[], opts=None):
 def sendReadOnlyPayloadless():
     return sendTransaction('payloadless', action='doit', data={}, auth=[], opts='--read')
 
+def sendReadOnlySlowPayloadless():
+    return sendTransaction('payloadless', action='doitslow', data={}, auth=[], opts='--read')
+
 # Send read-only trxs from mutltiple threads to bump load
 def sendReadOnlyTrxOnThread(startId, numTrxs):
     Print("start sendReadOnlyTrxOnThread")
@@ -219,8 +224,14 @@ def sendReadOnlyTrxOnThread(startId, numTrxs):
            results = sendReadOnlyPayloadless()
            assert(results[0])
            assert(results[1]['processed']['action_traces'][0]['console'] == "Im a payloadless action")
+
+           results = sendReadOnlySlowPayloadless()
+           assert(results[0])
+           assert(results[1]['processed']['action_traces'][0]['console'] == "Im a payloadless slow action")
+           assert(int(results[1]['processed']['elapsed']) > 100)
     except Exception as e:
-        Print("Exception in sendReadOnlyTrxOnThread: ", e)
+        Print("Exception in sendReadOnlyTrxOnThread: ", repr(e))
+        traceback.print_exc()
         errorInThread = True
 
 # Send regular trxs from mutltiple threads to bump load
@@ -234,7 +245,8 @@ def sendTrxsOnThread(startId, numTrxs, opts=None):
             results = sendTransaction(testAccountName, 'age', {"user": userAccountName, "id": startId + i}, auth=[{"actor": userAccountName, "permission":"active"}], opts=opts)
             assert(results[0])
     except Exception as e:
-        Print("Exception in sendTrxsOnThread: ", e)
+        Print("Exception in sendTrxsOnThread: ", repr(e))
+        traceback.print_exc()
         errorInThread = True
 
 def doRpc(resource, command, numRuns, fieldIn, expectedValue, code, payload={}):
@@ -250,7 +262,8 @@ def doRpc(resource, command, numRuns, fieldIn, expectedValue, code, payload={}):
             else:
                 assert(ret_json["code"] == code)
     except Exception as e:
-        Print("Exception in doRpc: ", e)
+        Print("Exception in doRpc: ", repr(e))
+        traceback.print_exc()
         errorInThread = True
 
 def runReadOnlyTrxAndRpcInParallel(resource, command, fieldIn=None, expectedValue=None, code=None, payload={}):

@@ -1,14 +1,15 @@
 #pragma once
+#include <fc/exception/exception.hpp>
 
 #include <eosio/chain/wasm_eosio_constraints.hpp>
-#include <eosio/chain/webassembly/eos-vm-oc/eos-vm-oc.hpp>
+#include <eosio/chain/webassembly/eos-vm-oc/eos-vm-oc.h>
 #include <eosio/chain/webassembly/eos-vm-oc/intrinsic_mapping.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/gs_seg_helpers.h>
 
 #include <stdint.h>
 #include <stddef.h>
 
-namespace eosio { namespace chain { namespace eosvmoc {
+namespace eosio::chain::eosvmoc {
 
 class memory {
       static constexpr uint64_t intrinsic_count                   = intrinsic_table_size();
@@ -66,7 +67,7 @@ class memory {
       uint8_t* fullpage_base;
 };
 
-}}}
+}
 
 #define OFFSET_OF_CONTROL_BLOCK_MEMBER(M) (-(int)eosio::chain::eosvmoc::memory::cb_offset + (int)offsetof(eosio::chain::eosvmoc::control_block, M))
 #define OFFSET_OF_FIRST_INTRINSIC ((int)-eosio::chain::eosvmoc::memory::first_intrinsic_offset)

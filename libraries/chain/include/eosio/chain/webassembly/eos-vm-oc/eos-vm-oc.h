@@ -7,7 +7,9 @@
 #ifdef __cplusplus
 #include <vector>
 #include <list>
-namespace eosio { namespace chain {class apply_context;}}
+namespace eosio::chain {
+   class apply_context;
+}
 #endif
 
 struct eos_vm_oc_control_block {
@@ -38,3 +40,9 @@ struct eos_vm_oc_control_block {
    int64_t max_linear_memory_pages;
    void* globals;
 };
+
+#ifdef __cplusplus
+namespace eosio::chain::eosvmoc {
+   using control_block = eos_vm_oc_control_block;
+}
+#endif

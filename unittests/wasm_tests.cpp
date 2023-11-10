@@ -2184,6 +2184,83 @@ BOOST_FIXTURE_TEST_CASE( negative_memory_grow, validating_tester ) try {
 
 } FC_LOG_AND_RETHROW()
 
+// This test is only applicable to Linux
+#if defined(__linux__)
+// Returns the number of memory mappings of the current process. Only works on Linux
+static uint32_t get_num_memory_mappings() {
+   std::string maps_file = "/proc/" + std::to_string(getpid()) + "/maps";
+   std::ifstream maps_ifs(maps_file);
+   if (!maps_ifs.is_open()) {
+      return 0;
+   }
+
+   uint32_t num_mappings = 0;
+   std::string line;
+   while (std::getline(maps_ifs, line)) {
+      num_mappings++;
+   }
+   return num_mappings;
+}
+
+BOOST_FIXTURE_TEST_CASE( memory_mapping_test, validating_tester ) try {
+   static const std::string mem_map_wast_start = R"=====(
+   (module
+      (export "apply" (func $apply))
+      (global i32 (i32.const
+   )=====";
+   static const std::string mem_map_wast_end = R"=====(
+                               ))
+      (func $apply (param i64) (param i64) (param i64)
+      )
+   )
+   )=====";
+   static const char* mem_map_abi = R"=====(
+   {
+      "version": "eosio::abi/1.2",
+      "types": [],
+      "structs": [{ "name": "dothedew", "base": "", "fields": [] }],
+      "actions": [{ "name": "dothedew", "type": "dothedew", "ricardian_contract": ""}],
+      "tables": [],
+      "ricardian_clauses": []
+   }
+   )=====";
+
+   produce_block();
+
+   auto num_mappings_before = get_num_memory_mappings();
+   BOOST_CHECK_GT(num_mappings_before, 0U); // must be able to get number of memory mappings
+
+   // number of contracts to deploy
+   constexpr uint32_t num_contracts = 5000;
+
+   for (uint32_t i = 1; i < num_contracts; ++i) {
+      std::stringstream ss;
+      ss << "0x" << std::hex << i << "00000000";
+      uint64_t name_value;
+      ss >> name_value;
+      auto acct = name(name_value);
+      create_accounts({acct});
+
+      std::string contract_wast = mem_map_wast_start + " " + std::to_string(i) + mem_map_wast_end;
+      set_code(acct, contract_wast.c_str());
+      set_abi(acct, mem_map_abi);
+
+      push_action(acct, "dothedew"_n, "eosio"_n, {});
+
+      // do not put too many transactions in a single block
+      if (i % 20 == 0 ) {
+         produce_block();
+      }
+   }
+
+   constexpr uint32_t margin_of_changes = 50;
+   auto num_mappings_now = get_num_memory_mappings();
+   if (num_mappings_now > num_mappings_before) {
+      BOOST_CHECK_LT(num_mappings_now - num_mappings_before, margin_of_changes);
+   }
+} FC_LOG_AND_RETHROW()
+#endif // defined(__linux__)
+
 BOOST_FIXTURE_TEST_CASE(net_usage_tests, tester ) try {
    int count = 0;
    auto check = [&](int coderepeat, int max_net_usage)-> bool {

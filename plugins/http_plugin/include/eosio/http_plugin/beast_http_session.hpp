@@ -295,9 +295,10 @@ public:
 
    void on_read_header(beast::error_code ec, std::size_t /* bytes_transferred */) {
       if(ec) {
-         if(ec == http::error::end_of_stream) // other side closed the connection
+         // See on_read comment below
+         if(ec == http::error::end_of_stream || ec == asio::error::connection_reset)
             return do_eof();
-         
+
          return fail(ec, "read_header", plugin_state_.get_logger(), "closing connection");
       }
 
@@ -502,7 +503,8 @@ public:
       try {
          // Send a shutdown signal
          beast::error_code ec;
-         socket_.shutdown(Socket::shutdown_send, ec);
+         socket_.shutdown(Socket::shutdown_both, ec);
+         socket_.close(ec);
          // At this point the connection is closed gracefully
       } catch(...) {
          handle_exception();

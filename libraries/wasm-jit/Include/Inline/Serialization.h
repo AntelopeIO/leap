@@ -35,7 +35,7 @@ namespace Serialization
 		// Advances the stream cursor by numBytes, and returns a pointer to the previous stream cursor.
 		inline U8* advance(Uptr numBytes)
 		{
-			if(next + numBytes > end) { extendBuffer(numBytes); }
+			if(next == nullptr || next + numBytes > end) { extendBuffer(numBytes); }
 			WAVM_ASSERT_THROW(next + numBytes <= end);
 
 			U8* data = next;

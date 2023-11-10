@@ -31,7 +31,6 @@ try:
     # The following is the list of chainbase objects that need to be verified:
     # - account_object (bootstrap)
     # - code_object (bootstrap)
-    # - generated_transaction_object
     # - global_property_object
     # - key_value_object (bootstrap)
     # - protocol_state_object (bootstrap)
@@ -54,12 +53,6 @@ try:
     producerNode = cluster.getNode(producerNodeId)
     irrNode = cluster.getNode(irrNodeId)
     nonProdNode = cluster.getNode(nonProdNodeId)
-
-    # Create delayed transaction to create "generated_transaction_object"
-    cmd = "create account -j eosio sample EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV\
-         EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV --delay-sec 600 -p eosio"
-    trans = producerNode.processCleosCmd(cmd, cmd, silentErrors=False)
-    assert trans
 
     # Schedule a new producer to trigger new producer schedule for "global_property_object"
     newProducerAcc = Account("newprod")

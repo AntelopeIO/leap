@@ -226,13 +226,13 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
 
 code_cache_base::code_cache_base(const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    _db(db),
-   _cache_file_path(data_dir/"code_cache.bin")
-{
+   _cache_file_path(data_dir/"code_cache.bin") {
    static_assert(sizeof(allocator_t) <= header_offset, "header offset intersects with allocator");
 
    std::filesystem::create_directories(data_dir);
 
-   if(!std::filesystem::exists(_cache_file_path)) {
+   bool created_file = false;
+   auto create_code_cache_file = [&] {
       EOS_ASSERT(eosvmoc_config.cache_size >= allocator_t::get_min_size(total_header_size), database_exception, "configured code cache size is too small");
       std::ofstream ofs(_cache_file_path.generic_string(), std::ofstream::trunc);
       EOS_ASSERT(ofs.good(), database_exception, "unable to create EOS VM Optimized Compiler code cache");
@@ -241,19 +241,35 @@ code_cache_base::code_cache_base(const std::filesystem::path& data_dir, const eo
       bip::mapped_region creation_region(creation_mapping, bip::read_write);
       new (creation_region.get_address()) allocator_t(eosvmoc_config.cache_size, total_header_size);
       new ((char*)creation_region.get_address() + header_offset) code_cache_header;
-   }
+      created_file = true;
+   };
 
    code_cache_header cache_header;
-   {
+   auto check_code_cache = [&] {
       char header_buff[total_header_size];
       std::ifstream hs(_cache_file_path.generic_string(), std::ifstream::binary);
       hs.read(header_buff, sizeof(header_buff));
       EOS_ASSERT(!hs.fail(), bad_database_version_exception, "failed to read code cache header");
       memcpy((char*)&cache_header, header_buff + header_offset, sizeof(cache_header));
+
+      EOS_ASSERT(cache_header.id == header_id, bad_database_version_exception, "existing EOS VM OC code cache not compatible with this version");
+      EOS_ASSERT(!cache_header.dirty, database_exception, "code cache is dirty");
+   };
+
+   if (!std::filesystem::exists(_cache_file_path)) {
+      create_code_cache_file();
    }
 
-   EOS_ASSERT(cache_header.id == header_id, bad_database_version_exception, "existing EOS VM OC code cache not compatible with this version");
-   EOS_ASSERT(!cache_header.dirty, database_exception, "code cache is dirty");
+   try {
+      check_code_cache();
+   } catch (const fc::exception&) {
+      if (created_file)
+         throw;
+
+      ilog("EOS VM optimized Compiler code cache corrupt, recreating");
+      create_code_cache_file();
+      check_code_cache();
+   }
 
    set_on_disk_region_dirty(true);
 
@@ -355,15 +371,14 @@ code_cache_base::~code_cache_base() {
       }
    }
 
+   uintptr_t ptr_offset = 0;
    if(p) {
       fc::datastream<char*> ds(p, sz);
       serialize_cache_index(ds);
 
-      uintptr_t ptr_offset = p-code_mapping;
-      *((uintptr_t*)(code_mapping+descriptor_ptr_from_file_start)) = ptr_offset;
+      ptr_offset = p-code_mapping;
    }
-   else
-      *((uintptr_t*)(code_mapping+descriptor_ptr_from_file_start)) = 0;
+   memcpy(code_mapping+descriptor_ptr_from_file_start, &ptr_offset, sizeof(ptr_offset));
 
    msync(code_mapping, allocator->get_size(), MS_SYNC);
    munmap(code_mapping, allocator->get_size());

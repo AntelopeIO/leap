@@ -1,7 +1,7 @@
-#include <eosio/chain_plugin/chain_plugin.hpp>
 #include <trx_provider.hpp>
 #include <trx_generator.hpp>
 #include <boost/algorithm/string.hpp>
+#include <boost/program_options.hpp>
 #include <fc/bitutil.hpp>
 #include <fc/io/raw.hpp>
 #include <iostream>

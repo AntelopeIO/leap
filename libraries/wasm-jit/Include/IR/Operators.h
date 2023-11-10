@@ -297,6 +297,7 @@ namespace IR
 	});
 
 	// Specialize for the empty immediate structs so they don't take an extra byte of space.
+	PACKED_STRUCT(
 	template<>
 	struct OpcodeAndImm<NoImm>
 	{
@@ -305,7 +306,8 @@ namespace IR
 			Opcode opcode;
 			NoImm imm;
 		};
-	};
+	});
+	PACKED_STRUCT(
 	template<>
 	struct OpcodeAndImm<MemoryImm>
 	{
@@ -314,7 +316,7 @@ namespace IR
 			Opcode opcode;
 			MemoryImm imm;
 		};
-	};
+	});
 
 	// Decodes an operator from an input stream and dispatches by opcode.
 	struct OperatorDecoderStream
@@ -328,7 +330,8 @@ namespace IR
 		typename Visitor::Result decodeOp(Visitor& visitor)
 		{
 			WAVM_ASSERT_THROW(nextByte + sizeof(Opcode) <= end);
-			Opcode opcode = *(Opcode*)nextByte;
+			Opcode opcode;
+			memcpy(&opcode, nextByte, sizeof(opcode));
 			switch(opcode)
 			{
 			#define VISIT_OPCODE(opcode,name,nameString,Imm,...) \

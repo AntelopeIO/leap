@@ -23,7 +23,6 @@ pkg update && pkg install   \
     curl                    \
     boost-all               \
     python3                 \
-    openssl                 \
     llvm11                  \
     pkgconf
 ```

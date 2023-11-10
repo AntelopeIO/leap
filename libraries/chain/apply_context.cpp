@@ -131,7 +131,7 @@ void apply_context::exec_one()
                }
             }
          }
-      } FC_RETHROW_EXCEPTIONS( warn, "pending console output: ${console}", ("console", _pending_console_output) )
+      } FC_RETHROW_EXCEPTIONS( warn, "${receiver} <= ${account}::${action} pending console output: ${console}", ("console", _pending_console_output)("account", act->account)("action", act->name)("receiver", receiver) )
 
       if( control.is_builtin_activated( builtin_protocol_feature_t::action_return_value ) ) {
          act_digest =   generate_action_digest(
@@ -357,12 +357,6 @@ void apply_context::execute_inline( action&& a ) {
       control.check_actor_list( actors );
    }
 
-   if( !privileged && control.is_speculative_block() ) {
-      const auto& chain_config = control.get_global_properties().configuration;
-      EOS_ASSERT( a.data.size() < std::min(chain_config.max_inline_action_size, control.get_max_nonprivileged_inline_action_size()),
-                  inline_action_too_big_nonprivileged,
-                  "inline action too big for nonprivileged account ${account}", ("account", a.account));
-   }
    // No need to check authorization if replaying irreversible blocks or contract is privileged
    if( !control.skip_auth_check() && !privileged && !trx_context.is_read_only() ) {
       try {
@@ -417,13 +411,6 @@ void apply_context::execute_context_free_inline( action&& a ) {
    EOS_ASSERT( a.authorization.size() == 0, action_validate_exception,
                "context-free actions cannot have authorizations" );
 
-   if( !privileged && control.is_speculative_block() ) {
-      const auto& chain_config = control.get_global_properties().configuration;
-      EOS_ASSERT( a.data.size() < std::min(chain_config.max_inline_action_size, control.get_max_nonprivileged_inline_action_size()),
-                  inline_action_too_big_nonprivileged,
-                  "inline action too big for nonprivileged account ${account}", ("account", a.account));
-   }
-
    auto inline_receiver = a.account;
    _cfa_inline_actions.emplace_back(
       schedule_action( std::move(a), inline_receiver, true )
@@ -436,6 +423,11 @@ void apply_context::execute_context_free_inline( action&& a ) {
 
 
 void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, account_name payer, transaction&& trx, bool replace_existing ) {
+   // no-op after DISABLE_DEFERRED_TRXS_STAGE_1 is activated
+   if( control.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) ) {
+      return;
+   }
+
    EOS_ASSERT( !trx_context.is_read_only(), transaction_exception, "cannot schedule a deferred transaction from within a readonly transaction" );
    EOS_ASSERT( trx.context_free_actions.size() == 0, cfa_inside_generated_tx, "context free actions are not currently allowed in generated transactions" );
 
@@ -637,6 +629,11 @@ void apply_context::schedule_deferred_transaction( const uint128_t& sender_id, a
 }
 
 bool apply_context::cancel_deferred_transaction( const uint128_t& sender_id, account_name sender ) {
+   // no-op after DISABLE_DEFERRED_TRXS_STAGE_1 is activated
+   if( control.is_builtin_activated( builtin_protocol_feature_t::disable_deferred_trxs_stage_1 ) ) {
+      return false;
+   }
+
    EOS_ASSERT( !trx_context.is_read_only(), transaction_exception, "cannot cancel a deferred transaction from within a readonly transaction" );
    auto& generated_transaction_idx = db.get_mutable_index<generated_transaction_multi_index>();
    const auto* gto = db.find<generated_transaction_object,by_sender_id>(boost::make_tuple(sender, sender_id));
