@@ -270,13 +270,18 @@ inline constexpr auto get_intrinsic_table() {
       "env.get_block_num",
       "env.bls_g1_add",
       "env.bls_g2_add",
-      "env.bls_g1_mul",
-      "env.bls_g2_mul",
-      "env.bls_g1_exp",
-      "env.bls_g2_exp",
+      "env.bls_g1_weighted_sum",
+      "env.bls_g2_weighted_sum",
       "env.bls_pairing",
       "env.bls_g1_map",
       "env.bls_g2_map",
+      "env.bls_g1_add_mont",
+      "env.bls_g2_add_mont",
+      "env.bls_g1_weighted_sum_mont",
+      "env.bls_g2_weighted_sum_mont",
+      "env.bls_pairing_mont",
+      "env.bls_g1_map_mont",
+      "env.bls_g2_map_mont",
       "env.bls_fp_mod"
    );
 }
