@@ -525,10 +525,14 @@ blob variant::as_blob()const
       {
          const string& str = get_string();
          if( str.size() == 0 ) return blob();
-         if( str.back() == '=' )
-         {
-            std::string b64 = base64_decode( get_string() );
+         try {
+            // variant adds `=` to end of base64 encoded string (see as_string() above) which produces invalid base64
+            // variant in 5.0 no longer appends the '=' character to conform to valid base64 encoding
+            // fc version of base64_decode allows for extra `=` at the end of the string
+            std::string b64 = base64_decode( str );
             return blob( { std::vector<char>( b64.begin(), b64.end() ) } );
+         } catch(const std::exception&) {
+            // unable to decode, return raw chars
          }
          return blob( { std::vector<char>( str.begin(), str.end() ) } );
       }
