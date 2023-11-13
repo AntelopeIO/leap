@@ -107,13 +107,14 @@ std::string base64url_encode( const std::string& enc ) {
   return base64url_encode( (unsigned char const*)s, enc.size() );
 }
 
-std::string base64_decode_impl(std::string const& encoded_string, const char* const b64_chars) {
+std::vector<char> base64_decode_impl(std::string_view encoded_string, const char* const b64_chars) {
   int in_len = encoded_string.size();
   int i = 0;
   int j = 0;
   int in_ = 0;
   unsigned char char_array_4[4], char_array_3[3];
-  std::string ret;
+  std::vector<char> ret;
+  ret.reserve(in_len / 4 * 3);
 
   while (in_len-- && encoded_string[in_] != '=') {
     throw_on_nonbase64(encoded_string[in_], b64_chars);
@@ -127,7 +128,7 @@ std::string base64_decode_impl(std::string const& encoded_string, const char* co
       char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
 
       for (i = 0; (i < 3); i++)
-        ret += char_array_3[i];
+        ret.push_back(char_array_3[i]);
       i = 0;
     }
   }
@@ -143,17 +144,17 @@ std::string base64_decode_impl(std::string const& encoded_string, const char* co
     char_array_3[1] = ((char_array_4[1] & 0xf) << 4) + ((char_array_4[2] & 0x3c) >> 2);
     char_array_3[2] = ((char_array_4[2] & 0x3) << 6) + char_array_4[3];
 
-    for (j = 0; (j < i - 1); j++) ret += char_array_3[j];
+    for (j = 0; (j < i - 1); j++) ret.push_back(char_array_3[j]);
   }
 
   return ret;
 }
 
-std::string base64_decode(std::string const& encoded_string) {
+std::vector<char> base64_decode(std::string_view encoded_string) {
    return base64_decode_impl(encoded_string, base64_chars);
 }
 
-std::string base64url_decode(std::string const& encoded_string) {
+std::vector<char> base64url_decode(std::string_view encoded_string) {
    return base64_decode_impl(encoded_string, base64url_chars);
 }
 
