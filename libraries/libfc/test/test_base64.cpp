@@ -27,8 +27,7 @@ BOOST_AUTO_TEST_CASE(base64dec) try {
    auto expected_output = "abc123$&()'?\xb4\xf5\x01\xfa~a"s;
 
    std::vector<char> b64 = base64_decode(input);
-   std::string b64_str(b64.begin(), b64.end());
-   BOOST_CHECK_EQUAL(expected_output, b64_str);
+   BOOST_CHECK_EQUAL(expected_output, std::string_view(b64.begin(), b64.end()));
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_CASE(base64urldec) try {
@@ -36,8 +35,7 @@ BOOST_AUTO_TEST_CASE(base64urldec) try {
    auto expected_output = "abc123$&()'?\xb4\xf5\x01\xfa~a"s;
 
    std::vector<char> b64 = base64url_decode(input);
-   std::string b64_str(b64.begin(), b64.end());
-   BOOST_CHECK_EQUAL(expected_output, b64_str);
+   BOOST_CHECK_EQUAL(expected_output, std::string_view(b64.begin(), b64.end()));
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_CASE(base64dec_extraequals) try {
@@ -45,8 +43,7 @@ BOOST_AUTO_TEST_CASE(base64dec_extraequals) try {
    auto expected_output = "abc123$&()'?\xb4\xf5\x01\xfa~a"s;
 
    std::vector<char> b64 = base64_decode(input);
-   std::string b64_str(b64.begin(), b64.end());
-   BOOST_CHECK_EQUAL(expected_output, b64_str);
+   BOOST_CHECK_EQUAL(expected_output, std::string_view(b64.begin(), b64.end()));
 } FC_LOG_AND_RETHROW();
 
 BOOST_AUTO_TEST_CASE(base64dec_bad_stuff) try {
