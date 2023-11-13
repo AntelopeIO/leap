@@ -287,9 +287,7 @@ inline constexpr auto get_intrinsic_table() {
       "env.bls_g2_map_mont",
       "env.bls_fp_mod_mont",
       "env.bls_fp_mul_mont",
-      "env.bls_fp_exp_mont",
-
-      
+      "env.bls_fp_exp_mont"
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {
