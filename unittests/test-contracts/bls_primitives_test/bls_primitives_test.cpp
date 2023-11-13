@@ -33,40 +33,10 @@ void bls_primitives_test::testg2add(const std::vector<uint8_t>& op1, const std::
     check(0 == std::memcmp(r, res.data(), sizeof(bls_g2)), "bls_g2_add: Result does not match");
 }
 
-void bls_primitives_test::testg1mul(const std::vector<uint8_t>& point, const std::vector<uint8_t>& scalar, const std::vector<uint8_t>& res, int32_t expected_error)
+void bls_primitives_test::testg1wsum(const std::vector<uint8_t>& points, const std::vector<uint8_t>& scalars, const uint32_t num, const std::vector<uint8_t>& res, int32_t expected_error)
 {
     bls_g1 r;
-    int32_t error = internal_use_do_not_use::bls_g1_mul(
-        reinterpret_cast<const char*>(point.data()),
-        sizeof(bls_g1),
-        reinterpret_cast<const char*>(scalar.data()),
-        sizeof(bls_scalar),
-        reinterpret_cast<char*>(r),
-        sizeof(bls_g1)
-    );
-    check(error == expected_error, "bls_g1_mul: Error does not match");
-    check(0 == std::memcmp(r, res.data(), sizeof(bls_g1)), "bls_g1_mul: Result does not match");
-}
-
-void bls_primitives_test::testg2mul(const std::vector<uint8_t>& point, const std::vector<uint8_t>& scalar, const std::vector<uint8_t>& res, int32_t expected_error)
-{
-    bls_g2 r;
-    int32_t error = internal_use_do_not_use::bls_g2_mul(
-        reinterpret_cast<const char*>(point.data()),
-        sizeof(bls_g2),
-        reinterpret_cast<const char*>(scalar.data()),
-        sizeof(bls_scalar),
-        reinterpret_cast<char*>(r),
-        sizeof(bls_g2)
-    );
-    check(error == expected_error, "bls_g2_mul: Error does not match");
-    check(0 == std::memcmp(r, res.data(), sizeof(bls_g2)), "bls_g2_mul: Result does not match");
-}
-
-void bls_primitives_test::testg1exp(const std::vector<uint8_t>& points, const std::vector<uint8_t>& scalars, const uint32_t num, const std::vector<uint8_t>& res, int32_t expected_error)
-{
-    bls_g1 r;
-    int32_t error = internal_use_do_not_use::bls_g1_exp(
+    int32_t error = internal_use_do_not_use::bls_g1_weighted_sum(
         reinterpret_cast<const char*>(points.data()),
         num * sizeof(bls_g1),
         reinterpret_cast<const char*>(scalars.data()),
@@ -79,10 +49,10 @@ void bls_primitives_test::testg1exp(const std::vector<uint8_t>& points, const st
     check(0 == std::memcmp(r, res.data(), sizeof(bls_g1)), "bls_g1_exp: Result does not match");
 }
 
-void bls_primitives_test::testg2exp(const std::vector<uint8_t>& points, const std::vector<uint8_t>& scalars, const uint32_t num, const std::vector<uint8_t>& res, int32_t expected_error)
+void bls_primitives_test::testg2wsum(const std::vector<uint8_t>& points, const std::vector<uint8_t>& scalars, const uint32_t num, const std::vector<uint8_t>& res, int32_t expected_error)
 {
     bls_g2 r;
-    int32_t error = internal_use_do_not_use::bls_g2_exp(
+    int32_t error = internal_use_do_not_use::bls_g2_weighted_sum(
         reinterpret_cast<const char*>(points.data()),
         num * sizeof(bls_g2),
         reinterpret_cast<const char*>(scalars.data()),

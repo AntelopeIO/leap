@@ -26,32 +26,6 @@
             ]
         },
         {
-            "name": "testg1exp",
-            "base": "",
-            "fields": [
-                {
-                    "name": "points",
-                    "type": "bytes"
-                },
-                {
-                    "name": "scalars",
-                    "type": "bytes"
-                },
-                {
-                    "name": "num",
-                    "type": "uint32"
-                },
-                {
-                    "name": "res",
-                    "type": "bytes"
-                },
-                {
-                    "name": "expected_error",
-                    "type": "int32"
-                }
-            ]
-        },
-        {
             "name": "testg1map",
             "base": "",
             "fields": [
@@ -70,16 +44,20 @@
             ]
         },
         {
-            "name": "testg1mul",
+            "name": "testg1wsum",
             "base": "",
             "fields": [
                 {
-                    "name": "point",
+                    "name": "points",
                     "type": "bytes"
                 },
                 {
-                    "name": "scalar",
+                    "name": "scalars",
                     "type": "bytes"
+                },
+                {
+                    "name": "num",
+                    "type": "uint32"
                 },
                 {
                     "name": "res",
@@ -114,32 +92,6 @@
             ]
         },
         {
-            "name": "testg2exp",
-            "base": "",
-            "fields": [
-                {
-                    "name": "points",
-                    "type": "bytes"
-                },
-                {
-                    "name": "scalars",
-                    "type": "bytes"
-                },
-                {
-                    "name": "num",
-                    "type": "uint32"
-                },
-                {
-                    "name": "res",
-                    "type": "bytes"
-                },
-                {
-                    "name": "expected_error",
-                    "type": "int32"
-                }
-            ]
-        },
-        {
             "name": "testg2map",
             "base": "",
             "fields": [
@@ -158,16 +110,20 @@
             ]
         },
         {
-            "name": "testg2mul",
+            "name": "testg2wsum",
             "base": "",
             "fields": [
                 {
-                    "name": "point",
+                    "name": "points",
                     "type": "bytes"
                 },
                 {
-                    "name": "scalar",
+                    "name": "scalars",
                     "type": "bytes"
+                },
+                {
+                    "name": "num",
+                    "type": "uint32"
                 },
                 {
                     "name": "res",
@@ -213,18 +169,13 @@
             "ricardian_contract": ""
         },
         {
-            "name": "testg1exp",
-            "type": "testg1exp",
-            "ricardian_contract": ""
-        },
-        {
             "name": "testg1map",
             "type": "testg1map",
             "ricardian_contract": ""
         },
         {
-            "name": "testg1mul",
-            "type": "testg1mul",
+            "name": "testg1wsum",
+            "type": "testg1wsum",
             "ricardian_contract": ""
         },
         {
@@ -233,18 +184,13 @@
             "ricardian_contract": ""
         },
         {
-            "name": "testg2exp",
-            "type": "testg2exp",
-            "ricardian_contract": ""
-        },
-        {
             "name": "testg2map",
             "type": "testg2map",
             "ricardian_contract": ""
         },
         {
-            "name": "testg2mul",
-            "type": "testg2mul",
+            "name": "testg2wsum",
+            "type": "testg2wsum",
             "ricardian_contract": ""
         },
         {
