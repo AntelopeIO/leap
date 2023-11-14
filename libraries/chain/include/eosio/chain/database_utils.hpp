@@ -170,8 +170,8 @@ namespace fc {
 
    inline
    void from_variant( const variant& v, eosio::chain::shared_blob& b ) {
-      std::string _s = base64_decode(v.as_string());
-      b = std::string_view(_s);
+      std::vector<char> b64 = base64_decode(v.as_string());
+      b = eosio::chain::shared_blob(b64.begin(), b64.end(), b.get_allocator());
    }
 
    template<typename T>

@@ -88,11 +88,87 @@ BOOST_AUTO_TEST_CASE(variant_format_string_limited)
       const string target_result = format_prefix + a_short_list + " " +
                                    "{" + "\"b\":\"" + b_short_list + "\",\"c\":\"" + c_short_list + "\"}" + " " +
                                    "[\"" + d_short_list + "\",\"" + e_short_list + "\"]" + " " +
-                                   base64_encode( a_blob.data.data(), a_blob.data.size() ) + "=" + " " +
+                                   base64_encode( a_blob.data.data(), a_blob.data.size() ) + " " +
                                    g_short_list;
 
       BOOST_CHECK_EQUAL( result, target_result);
       BOOST_CHECK_LT(result.size(), 1024 + 3 * mu.size());
    }
 }
+
+BOOST_AUTO_TEST_CASE(variant_blob)
+{
+   // Some test cases from https://github.com/ReneNyffenegger/cpp-base64
+   {
+      std::string a17_orig = "aaaaaaaaaaaaaaaaa";
+      std::string a17_encoded = "YWFhYWFhYWFhYWFhYWFhYWE=";
+      fc::mutable_variant_object mu;
+      mu("blob", blob{{a17_orig.begin(), a17_orig.end()}});
+      mu("str", a17_encoded);
+
+      BOOST_CHECK_EQUAL(mu["blob"].as_string(), a17_encoded);
+      std::vector<char> b64 = mu["str"].as_blob().data;
+      std::string_view b64_str(b64.data(), b64.size());
+      BOOST_CHECK_EQUAL(b64_str, a17_orig);
+   }
+   {
+      std::string s_6364 = "\x03" "\xef" "\xff" "\xf9";
+      std::string s_6364_encoded = "A+//+Q==";
+      fc::mutable_variant_object mu;
+      mu("blob", blob{{s_6364.begin(), s_6364.end()}});
+      mu("str", s_6364_encoded);
+
+      BOOST_CHECK_EQUAL(mu["blob"].as_string(), s_6364_encoded);
+      std::vector<char> b64 = mu["str"].as_blob().data;
+      std::string_view b64_str(b64.data(), b64.size());
+      BOOST_CHECK_EQUAL(b64_str, s_6364);
+   }
+   {
+      std::string org = "abc";
+      std::string encoded = "YWJj";
+
+      fc::mutable_variant_object mu;
+      mu("blob", blob{{org.begin(), org.end()}});
+      mu("str", encoded);
+
+      BOOST_CHECK_EQUAL(mu["blob"].as_string(), encoded);
+      std::vector<char> b64 = mu["str"].as_blob().data;
+      std::string_view b64_str(b64.data(), b64.size());
+      BOOST_CHECK_EQUAL(b64_str, org);
+   }
+}
+
+BOOST_AUTO_TEST_CASE(variant_blob_backwards_compatibility)
+{
+   // pre-5.0 variant would add an additional `=` as a flag that the blob data was base64 encoded
+   // verify variant can process encoded data with the extra `=`
+   {
+      std::string a17_orig = "aaaaaaaaaaaaaaaaa";
+      std::string a17_encoded = "YWFhYWFhYWFhYWFhYWFhYWE=";
+      std::string a17_encoded_old = a17_encoded + '=';
+      fc::mutable_variant_object mu;
+      mu("blob", blob{{a17_orig.begin(), a17_orig.end()}});
+      mu("str", a17_encoded_old);
+
+      BOOST_CHECK_EQUAL(mu["blob"].as_string(), a17_encoded);
+      std::vector<char> b64 = mu["str"].as_blob().data;
+      std::string_view b64_str(b64.data(), b64.size());
+      BOOST_CHECK_EQUAL(b64_str, a17_orig);
+   }
+   {
+      std::string org = "abc";
+      std::string encoded = "YWJj";
+      std::string encoded_old = encoded + '=';
+
+      fc::mutable_variant_object mu;
+      mu("blob", blob{{org.begin(), org.end()}});
+      mu("str", encoded_old);
+
+      BOOST_CHECK_EQUAL(mu["blob"].as_string(), encoded);
+      std::vector<char> b64 = mu["str"].as_blob().data;
+      std::string_view b64_str(b64.data(), b64.size());
+      BOOST_CHECK_EQUAL(b64_str, org);
+   }
+}
+
 BOOST_AUTO_TEST_SUITE_END()
