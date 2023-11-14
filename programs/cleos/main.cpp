@@ -3447,12 +3447,18 @@ int main( int argc, char** argv ) {
       bytes code_bytes;
       if(!contract_clear){
         std::string wasm;
-        fc::path cpath = fc::canonical(fc::path(contractPath));
 
-        if( wasmPath.empty() ) {
-           wasmPath = (cpath / (cpath.filename().generic_string()+".wasm")).generic_string();
-        } else if ( boost::filesystem::path(wasmPath).is_relative() ) {
-           wasmPath = (cpath / wasmPath).generic_string();
+        // contractPath (set by contract-dir argument) is only applicable
+        // to "set contract" command. It is empty for "set code" and can be
+        // empty for "set contract.
+        if(!contractPath.empty()) {
+           fc::path cpath = fc::canonical(fc::path(contractPath));
+
+           if( wasmPath.empty() ) {
+              wasmPath = (cpath / (cpath.filename().generic_string()+".wasm")).generic_string();
+           } else if ( boost::filesystem::path(wasmPath).is_relative() ) {
+              wasmPath = (cpath / wasmPath).generic_string();
+           }
         }
 
         std::cerr << localized(("Reading WASM from " + wasmPath + "...").c_str()) << std::endl;
@@ -3503,13 +3509,18 @@ int main( int argc, char** argv ) {
 
       bytes abi_bytes;
       if(!contract_clear){
-        fc::path cpath = fc::canonical(fc::path(contractPath));
+         // contractPath (set by contract-dir argument) is only applicable
+         // to "set contract" command. It is empty for "set abi" and can be
+         // empty for "set contract.
+         if(!contractPath.empty()) {
+            fc::path cpath = fc::canonical(fc::path(contractPath));
 
-        if( abiPath.empty() ) {
-           abiPath = (cpath / (cpath.filename().generic_string()+".abi")).generic_string();
-        } else if ( boost::filesystem::path(abiPath).is_relative() ) {
-           abiPath = (cpath / abiPath).generic_string();
-        }
+            if( abiPath.empty() ) {
+               abiPath = (cpath / (cpath.filename().generic_string()+".abi")).generic_string();
+         } else if ( boost::filesystem::path(abiPath).is_relative() ) {
+            abiPath = (cpath / abiPath).generic_string();
+         }
+      }
 
         EOS_ASSERT( fc::exists( abiPath ), abi_file_not_found, "no abi file found ${f}", ("f", abiPath)  );
 
