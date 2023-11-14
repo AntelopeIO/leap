@@ -2,7 +2,7 @@
 
 #include <benchmark.hpp>
 
-namespace benchmark {
+namespace eosio::benchmark {
 
 void blake2_benchmarking() {
    uint32_t _rounds    = 0x0C;

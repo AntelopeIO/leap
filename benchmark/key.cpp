@@ -9,7 +9,7 @@ using namespace fc::crypto;
 using namespace fc;
 using namespace std::literals;
 
-namespace benchmark {
+namespace eosio::benchmark {
 
 void k1_sign_benchmarking() {
    auto payload = "Test Cases";
