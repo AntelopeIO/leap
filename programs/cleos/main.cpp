@@ -3429,7 +3429,7 @@ int main( int argc, char** argv ) {
    contractSubcommand->add_flag( "--suppress-duplicate-check", suppress_duplicate_check, localized("Don't check for duplicate"));
 
    std::vector<chain::action> actions;
-   auto set_code_callback = [&](bool is_set_contract) {
+   auto set_code_callback = [&]() {
 
       std::vector<char> old_wasm;
       bool duplicate = false;
@@ -3449,8 +3449,9 @@ int main( int argc, char** argv ) {
         std::string wasm;
 
         // contractPath (set by contract-dir argument) is only applicable
-        // to "set contract" command
-        if(is_set_contract) {
+        // to "set contract" command. It is empty for "set code" and can be
+        // empty for "set contract.
+        if(!contractPath.empty()) {
            fc::path cpath = fc::canonical(fc::path(contractPath));
 
            if( wasmPath.empty() ) {
@@ -3492,7 +3493,7 @@ int main( int argc, char** argv ) {
       }
    };
 
-   auto set_abi_callback = [&](bool is_set_contract) {
+   auto set_abi_callback = [&]() {
 
       bytes old_abi;
       bool duplicate = false;
@@ -3509,8 +3510,9 @@ int main( int argc, char** argv ) {
       bytes abi_bytes;
       if(!contract_clear){
          // contractPath (set by contract-dir argument) is only applicable
-         // to "set contract" command
-         if(is_set_contract) {
+         // to "set contract" command. It is empty for "set abi" and can be
+         // empty for "set contract.
+         if(!contractPath.empty()) {
             fc::path cpath = fc::canonical(fc::path(contractPath));
 
             if( abiPath.empty() ) {
@@ -3552,9 +3554,8 @@ int main( int argc, char** argv ) {
    contractSubcommand->callback([&] {
       if(!contract_clear) EOS_ASSERT( !contractPath.empty(), contract_exception, " contract-dir is null ", ("f", contractPath) );
       shouldSend = false;
-      constexpr bool is_set_contract = true; // we are "set contract"
-      set_code_callback(is_set_contract);
-      set_abi_callback(is_set_contract);
+      set_code_callback();
+      set_abi_callback();
       if (actions.size()) {
          std::cerr << localized("Publishing contract...") << std::endl;
          if( tx_compression == tx_compression_type::default_compression )
@@ -3564,15 +3565,8 @@ int main( int argc, char** argv ) {
          std::cout << "no transaction is sent" << std::endl;
       }
    });
-
-   codeSubcommand->callback([&] {
-      constexpr bool is_set_contract = false; // we are not "set contract"
-      set_code_callback(is_set_contract);
-   });
-   abiSubcommand->callback([&] {
-      constexpr bool is_set_contract = false; // we are not "set contract"
-      set_abi_callback(is_set_contract);
-   });
+   codeSubcommand->callback(set_code_callback);
+   abiSubcommand->callback(set_abi_callback);
 
    // set account
    auto setAccount = setSubcommand->add_subcommand("account", localized("Set or update blockchain account state"))->require_subcommand();
