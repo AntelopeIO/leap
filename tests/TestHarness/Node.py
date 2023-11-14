@@ -161,19 +161,18 @@ class Node(Transactions):
                     transIds.pop(self.fetchTransactionFromTrace(trx))
         return transIds
 
-    def waitForTransactionsInBlockRange(self, transIds, startBlock=2, maxFutureBlocks=0):
+    def waitForTransactionsInBlockRange(self, transIds, startBlock, endBlock):
         nextBlockToProcess = startBlock
-        overallEndBlock = startBlock + maxFutureBlocks
         while len(transIds) > 0:
             currentLoopEndBlock = self.getHeadBlockNum()
-            if currentLoopEndBlock >  overallEndBlock:
-                currentLoopEndBlock = overallEndBlock
+            if currentLoopEndBlock > endBlock:
+                currentLoopEndBlock = endBlock
             for blockNum in range(nextBlockToProcess, currentLoopEndBlock + 1):
                 transIds = self.checkBlockForTransactions(transIds, blockNum)
                 if len(transIds) == 0:
                     return transIds
             nextBlockToProcess = currentLoopEndBlock + 1
-            if currentLoopEndBlock == overallEndBlock:
+            if currentLoopEndBlock == endBlock:
                 Utils.Print("ERROR: Transactions were missing upon expiration of waitOnblockTransactions")
                 break
             self.waitForHeadToAdvance()
@@ -549,6 +548,38 @@ class Node(Transactions):
                     if searchStr in line:
                         return True
         return False
+
+    # verify only one or two 'Starting block' per block number unless block is restarted
+    def verifyStartingBlockMessages(self):
+        dataDir=Utils.getNodeDataDir(self.nodeId)
+        files=Node.findStderrFiles(dataDir)
+        for f in files:
+            blockNumbers = set()
+            duplicateBlockNumbers = set()
+            threeStartsFound = False
+            lastRestartBlockNum = 0
+            blockNumber = 0
+
+            with open(f, 'r') as file:
+                for line in file:
+                    match = re.match(r".*Restarting exhausted speculative block #(\d+)", line)
+                    if match:
+                        lastRestartBlockNum = match.group(1)
+                        continue
+                    if re.match(r".*unlinkable_block_exception", line):
+                        lastRestartBlockNum = blockNumber
+                        continue
+                    match = re.match(r".*Starting block #(\d+)", line)
+                    if match:
+                        blockNumber = match.group(1)
+                        if blockNumber != lastRestartBlockNum and blockNumber in duplicateBlockNumbers:
+                            print(f"Duplicate Staring block found: {blockNumber} in {f}")
+                            threeStartsFound = True
+                        if blockNumber != lastRestartBlockNum and blockNumber in blockNumbers:
+                            duplicateBlockNumbers.add(blockNumber)
+                        blockNumbers.add(blockNumber)
+
+        return not threeStartsFound
 
     def analyzeProduction(self, specificBlockNum=None, thresholdMs=500):
         dataDir=Utils.getNodeDataDir(self.nodeId)
