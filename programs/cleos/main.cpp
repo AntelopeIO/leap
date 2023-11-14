@@ -3429,7 +3429,7 @@ int main( int argc, char** argv ) {
    contractSubcommand->add_flag( "--suppress-duplicate-check", suppress_duplicate_check, localized("Don't check for duplicate"));
 
    std::vector<chain::action> actions;
-   auto set_code_callback = [&]() {
+   auto set_code_callback = [&](bool is_set_contract) {
 
       std::vector<char> old_wasm;
       bool duplicate = false;
@@ -3447,12 +3447,17 @@ int main( int argc, char** argv ) {
       bytes code_bytes;
       if(!contract_clear){
         std::string wasm;
-        fc::path cpath = fc::canonical(fc::path(contractPath));
 
-        if( wasmPath.empty() ) {
-           wasmPath = (cpath / (cpath.filename().generic_string()+".wasm")).generic_string();
-        } else if ( boost::filesystem::path(wasmPath).is_relative() ) {
-           wasmPath = (cpath / wasmPath).generic_string();
+        // contractPath (set by contract-dir argument) is only applicable
+        // to "set contract" command
+        if(is_set_contract) {
+           fc::path cpath = fc::canonical(fc::path(contractPath));
+
+           if( wasmPath.empty() ) {
+              wasmPath = (cpath / (cpath.filename().generic_string()+".wasm")).generic_string();
+           } else if ( boost::filesystem::path(wasmPath).is_relative() ) {
+              wasmPath = (cpath / wasmPath).generic_string();
+           }
         }
 
         std::cerr << localized(("Reading WASM from " + wasmPath + "...").c_str()) << std::endl;
@@ -3487,7 +3492,7 @@ int main( int argc, char** argv ) {
       }
    };
 
-   auto set_abi_callback = [&]() {
+   auto set_abi_callback = [&](bool is_set_contract) {
 
       bytes old_abi;
       bool duplicate = false;
@@ -3503,13 +3508,17 @@ int main( int argc, char** argv ) {
 
       bytes abi_bytes;
       if(!contract_clear){
-        fc::path cpath = fc::canonical(fc::path(contractPath));
+         // contractPath (set by contract-dir argument) is only applicable
+         // to "set contract" command
+         if(is_set_contract) {
+            fc::path cpath = fc::canonical(fc::path(contractPath));
 
-        if( abiPath.empty() ) {
-           abiPath = (cpath / (cpath.filename().generic_string()+".abi")).generic_string();
-        } else if ( boost::filesystem::path(abiPath).is_relative() ) {
-           abiPath = (cpath / abiPath).generic_string();
-        }
+            if( abiPath.empty() ) {
+               abiPath = (cpath / (cpath.filename().generic_string()+".abi")).generic_string();
+         } else if ( boost::filesystem::path(abiPath).is_relative() ) {
+            abiPath = (cpath / abiPath).generic_string();
+         }
+      }
 
         EOS_ASSERT( fc::exists( abiPath ), abi_file_not_found, "no abi file found ${f}", ("f", abiPath)  );
 
@@ -3543,8 +3552,9 @@ int main( int argc, char** argv ) {
    contractSubcommand->callback([&] {
       if(!contract_clear) EOS_ASSERT( !contractPath.empty(), contract_exception, " contract-dir is null ", ("f", contractPath) );
       shouldSend = false;
-      set_code_callback();
-      set_abi_callback();
+      constexpr bool is_set_contract = true; // we are "set contract"
+      set_code_callback(is_set_contract);
+      set_abi_callback(is_set_contract);
       if (actions.size()) {
          std::cerr << localized("Publishing contract...") << std::endl;
          if( tx_compression == tx_compression_type::default_compression )
@@ -3554,8 +3564,15 @@ int main( int argc, char** argv ) {
          std::cout << "no transaction is sent" << std::endl;
       }
    });
-   codeSubcommand->callback(set_code_callback);
-   abiSubcommand->callback(set_abi_callback);
+
+   codeSubcommand->callback([&] {
+      constexpr bool is_set_contract = false; // we are not "set contract"
+      set_code_callback(is_set_contract);
+   });
+   abiSubcommand->callback([&] {
+      constexpr bool is_set_contract = false; // we are not "set contract"
+      set_abi_callback(is_set_contract);
+   });
 
    // set account
    auto setAccount = setSubcommand->add_subcommand("account", localized("Set or update blockchain account state"))->require_subcommand();
