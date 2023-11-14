@@ -111,26 +111,26 @@ std::array<uint64_t, 4> random_scalar()
 bls12_381::g1 random_g1()
 {
    std::array<uint64_t, 4> k = random_scalar();
-   return bls12_381::g1::one().mulScalar(k);
+   return bls12_381::g1::one().scale(k);
 }
 
 // utilility to create a random g2
 bls12_381::g2 random_g2()
 {
    std::array<uint64_t, 4> k = random_scalar();
-   return bls12_381::g2::one().mulScalar(k);
+   return bls12_381::g2::one().scale(k);
 }
 
 // bls_g1_add benchmarking
 void benchmark_bls_g1_add() {
    // prepare g1 operand in Jacobian LE format
    g1 p = random_g1();
-   std::vector<char> buf(144);
-   p.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)buf.data(), 144), true);
+   std::vector<char> buf(96);
+   p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)buf.data(), 96), true);
    eosio::chain::span<const char> op1(buf.data(), buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(144);
+   std::vector<char> result_buf(96);
    eosio::chain::span<char> result(result_buf.data(), result_buf.size());
 
    // set up bls_g1_add to be benchmarked
@@ -146,12 +146,12 @@ void benchmark_bls_g1_add() {
 void benchmark_bls_g2_add() {
    // prepare g2 operand in Jacobian LE format
    g2 p = random_g2();
-   std::vector<char> buf(288);
-   p.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)buf.data(), 288), true);
+   std::vector<char> buf(192);
+   p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)buf.data(), 192), true);
    eosio::chain::span<const char> op(buf.data(), buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(288);
+   std::vector<char> result_buf(192);
    eosio::chain::span<char> result(result_buf.data(), result_buf.size());
 
    // set up bls_g2_add to be benchmarked
@@ -162,13 +162,13 @@ void benchmark_bls_g2_add() {
 
    benchmarking("bls_g2_add", benchmarked_func);
 }
-
+/*
 // bls_g1_mul benchmarking
 void benchmark_bls_g1_mul() {
    // prepare g1 operand
    g1 p = random_g1();
-   std::vector<char> buf(144);
-   p.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)buf.data(), 144), true);
+   std::vector<char> buf(96);
+   p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)buf.data(), 96), true);
    eosio::chain::span<const char> point(buf.data(), buf.size());
 
    // prepare scalar operand
@@ -178,7 +178,7 @@ void benchmark_bls_g1_mul() {
    eosio::chain::span<const char> scalar(scalar_buf.data(), scalar_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(144);
+   std::vector<char> result_buf(96);
    eosio::chain::span<char> result(result_buf.data(), result_buf.size());
 
    // set up bls_g1_mul to be benchmarked
@@ -193,8 +193,8 @@ void benchmark_bls_g1_mul() {
 // bls_g2_mul benchmarking
 void benchmark_bls_g2_mul() {
    g2 p = random_g2();
-   std::vector<char> buf(288);
-   p.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)buf.data(), 288), true);
+   std::vector<char> buf(192);
+   p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)buf.data(), 192), true);
    eosio::chain::span<const char> point(buf.data(), buf.size());
 
    // prepare scalar operand
@@ -204,7 +204,7 @@ void benchmark_bls_g2_mul() {
    eosio::chain::span<const char> scalar(scalar_buf.data(), scalar_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(288);
+   std::vector<char> result_buf(192);
    eosio::chain::span<char> result(result_buf.data(), result_buf.size());
 
    // set up bls_g2_mul to be benchmarked
@@ -215,14 +215,14 @@ void benchmark_bls_g2_mul() {
 
    benchmarking("bls_g2_mul", benchmarked_func);
 }
-
-// bls_g1_exp benchmarking utility
-void benchmark_bls_g1_exp(std::string test_name, uint32_t num_points) {
+*/
+// bls_g1_weighted_sum benchmarking utility
+void benchmark_bls_g1_weighted_sum(std::string test_name, uint32_t num_points) {
    // prepare g1 points operand
-   std::vector<char> g1_buf(144*num_points);
+   std::vector<char> g1_buf(96*num_points);
    for (auto i=0u; i < num_points; ++i) {
       g1 p = random_g1();
-      p.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)g1_buf.data() + i * 144, 144), true);
+      p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), true);
    }
    chain::span<const char> g1_points(g1_buf.data(), g1_buf.size());
 
@@ -235,35 +235,35 @@ void benchmark_bls_g1_exp(std::string test_name, uint32_t num_points) {
    chain::span<const char> scalars(scalars_buf.data(), scalars_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(144);
+   std::vector<char> result_buf(96);
    eosio::chain::span<char> result(result_buf.data(), result_buf.size());
 
-   // set up bls_g1_exp to be benchmarked
+   // set up bls_g1_weighted_sum to be benchmarked
    interface_in_benchmark interface;
    auto benchmarked_func = [&]() {
-      interface.interface->bls_g1_exp(g1_points, scalars, num_points, result);
+      interface.interface->bls_g1_weighted_sum(g1_points, scalars, num_points, result);
    };
 
    benchmarking(test_name, benchmarked_func);
 }
 
-// bls_g1_exp benchmarking with 1 input point
-void benchmark_bls_g1_exp_one_point() {
-   benchmark_bls_g1_exp("bls_g1_exp 1 point", 1);
+// bls_g1_weighted_sum benchmarking with 1 input point
+void benchmark_bls_g1_weighted_sum_one_point() {
+   benchmark_bls_g1_weighted_sum("bls_g1_weighted_sum 1 point", 1);
 }
 
-// bls_g1_exp benchmarking with 3 input points
-void benchmark_bls_g1_exp_three_point() {
-   benchmark_bls_g1_exp("bls_g1_exp 3 points", 3);
+// bls_g1_weighted_sum benchmarking with 3 input points
+void benchmark_bls_g1_weighted_sum_three_point() {
+   benchmark_bls_g1_weighted_sum("bls_g1_weighted_sum 3 points", 3);
 }
 
-// bls_g2_exp benchmarking utility
-void benchmark_bls_g2_exp(std::string test_name, uint32_t num_points) {
+// bls_g2_weighted_sum benchmarking utility
+void benchmark_bls_g2_weighted_sum(std::string test_name, uint32_t num_points) {
    // prepare g2 points operand
-   std::vector<char> g2_buf(288*num_points);
+   std::vector<char> g2_buf(192*num_points);
    for (auto i=0u; i < num_points; ++i) {
       g2 p = random_g2();
-      p.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)g2_buf.data() + i * 288, 288), true);
+      p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)g2_buf.data() + i * 192, 192), true);
    }
    eosio::chain::span<const char> g2_points(g2_buf.data(), g2_buf.size());
 
@@ -276,44 +276,44 @@ void benchmark_bls_g2_exp(std::string test_name, uint32_t num_points) {
    eosio::chain::span<const char> scalars(scalars_buf.data(), scalars_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(288);
+   std::vector<char> result_buf(192);
    eosio::chain::span<char> result(result_buf.data(), result_buf.size());
 
-   // set up bls_g2_exp to be benchmarked
+   // set up bls_g2_weighted_sum to be benchmarked
    interface_in_benchmark interface;
    auto benchmarked_func = [&]() {
-      interface.interface->bls_g2_exp(g2_points, scalars, num_points, result);
+      interface.interface->bls_g2_weighted_sum(g2_points, scalars, num_points, result);
    };
 
    benchmarking(test_name, benchmarked_func);
 }
 
-// bls_g2_exp benchmarking with 1 input point
-void benchmark_bls_g2_exp_one_point() {
-   benchmark_bls_g2_exp("bls_g2_exp 1 point", 1);
+// bls_g2_weighted_sum benchmarking with 1 input point
+void benchmark_bls_g2_weighted_sum_one_point() {
+   benchmark_bls_g2_weighted_sum("bls_g2_weighted_sum 1 point", 1);
 }
 
-// bls_g2_exp benchmarking with 3 input points
-void benchmark_bls_g2_exp_three_point() {
-   benchmark_bls_g2_exp("bls_g2_exp 3 points", 3);
+// bls_g2_weighted_sum benchmarking with 3 input points
+void benchmark_bls_g2_weighted_sum_three_point() {
+   benchmark_bls_g2_weighted_sum("bls_g2_weighted_sum 3 points", 3);
 }
 
 // bls_pairing benchmarking utility
 void benchmark_bls_pairing(std::string test_name, uint32_t num_pairs) {
    // prepare g1 operand
-   std::vector<char> g1_buf(144*num_pairs);
-   //g1_buf.reserve(144*num_pairs);
+   std::vector<char> g1_buf(96*num_pairs);
+   //g1_buf.reserve(96*num_pairs);
    for (auto i=0u; i < num_pairs; ++i) {
       g1 p = random_g1();
-      p.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)g1_buf.data() + i * 144, 144), true);
+      p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), true);
    }
    eosio::chain::span<const char> g1_points(g1_buf.data(), g1_buf.size());
 
    // prepare g2 operand
-   std::vector<char> g2_buf(288*num_pairs);
+   std::vector<char> g2_buf(192*num_pairs);
    for (auto i=0u; i < num_pairs; ++i) {
       g2 p2 = random_g2();
-      p2.toJacobianBytesLE(std::span<uint8_t, (288)>((uint8_t*)g2_buf.data() + i * 288, (288)), true);
+      p2.toAffineBytesLE(std::span<uint8_t, (192)>((uint8_t*)g2_buf.data() + i * 192, (192)), true);
    }
    eosio::chain::span<const char> g2_points(g2_buf.data(), g2_buf.size());
 
@@ -347,7 +347,7 @@ void benchmark_bls_g1_map() {
    eosio::chain::span<const char> e((char*)e_buf.data(), e_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(144);
+   std::vector<char> result_buf(96);
    eosio::chain::span<char> result(result_buf.data(), result_buf.size());
 
    // set up bls_g1_map to be benchmarked
@@ -366,7 +366,7 @@ void benchmark_bls_g2_map() {
    eosio::chain::span<const char> e((char*)e_buf.data(), e_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(288);
+   std::vector<char> result_buf(192);
    eosio::chain::span<char> result(result_buf.data(), result_buf.size());
 
    // set up bls_g2_map to be benchmarked
@@ -406,14 +406,14 @@ void benchmark_bls_fp_mod() {
 void bls_benchmarking() {
    benchmark_bls_g1_add();
    benchmark_bls_g2_add();
-   benchmark_bls_g1_mul();
-   benchmark_bls_g2_mul();
+   // benchmark_bls_g1_mul();
+   // benchmark_bls_g2_mul();
    benchmark_bls_pairing_one_pair();
    benchmark_bls_pairing_three_pair();
-   benchmark_bls_g1_exp_one_point();
-   benchmark_bls_g1_exp_three_point();
-   benchmark_bls_g2_exp_one_point();
-   benchmark_bls_g2_exp_three_point();
+   benchmark_bls_g1_weighted_sum_one_point();
+   benchmark_bls_g1_weighted_sum_three_point();
+   benchmark_bls_g2_weighted_sum_one_point();
+   benchmark_bls_g2_weighted_sum_three_point();
    benchmark_bls_g1_map();
    benchmark_bls_g2_map();
    benchmark_bls_fp_mod();
