@@ -5,7 +5,7 @@
 
 #include <benchmark.hpp>
 
-namespace benchmark {
+namespace eosio::benchmark {
 
 void modexp_benchmarking() {
    std::mt19937 r(0x11223344);
