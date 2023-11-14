@@ -27,43 +27,43 @@ namespace {
    using eosio::chain::webassembly::return_code;
 
    int32_t bls_g1_add_impl(span<const char> op1, span<const char> op2, span<char> result, bool mont) {
-      if(op1.size() != 144 ||  op2.size() != 144 ||  result.size() != 144)
+      if(op1.size() != 96 ||  op2.size() != 96 ||  result.size() != 96)
          return return_code::failure;
-      std::optional<bls12_381::g1> a = bls12_381::g1::fromJacobianBytesLE(std::span<const uint8_t, 144>((const uint8_t*)op1.data(), 144), true, mont);
-      std::optional<bls12_381::g1> b = bls12_381::g1::fromJacobianBytesLE(std::span<const uint8_t, 144>((const uint8_t*)op2.data(), 144), true, mont);
+      std::optional<bls12_381::g1> a = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)op1.data(), 96), true, mont);
+      std::optional<bls12_381::g1> b = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)op2.data(), 96), true, mont);
       if(!a || !b)
          return return_code::failure;
       bls12_381::g1 c = a->add(*b);
-      c.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)result.data(), 144), mont);
+      c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), mont);
       return return_code::success;
    }
 
    int32_t bls_g2_add_impl(span<const char> op1, span<const char> op2, span<char> result, bool mont)
    {
-      if(op1.size() != 288 ||  op2.size() != 288 ||  result.size() != 288)
+      if(op1.size() != 192 ||  op2.size() != 192 ||  result.size() != 192)
          return return_code::failure;
-      std::optional<bls12_381::g2> a = bls12_381::g2::fromJacobianBytesLE(std::span<const uint8_t, 288>((const uint8_t*)op1.data(), 288), true, mont);
-      std::optional<bls12_381::g2> b = bls12_381::g2::fromJacobianBytesLE(std::span<const uint8_t, 288>((const uint8_t*)op2.data(), 288), true, mont);
+      std::optional<bls12_381::g2> a = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)op1.data(), 192), true, mont);
+      std::optional<bls12_381::g2> b = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)op2.data(), 192), true, mont);
       if(!a || !b)
          return return_code::failure;
       bls12_381::g2 c = a->add(*b);
-      c.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)result.data(), 288), mont);
+      c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), mont);
       return return_code::success;
    }
 
    int32_t bls_g1_weighted_sum_impl(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result, const std::function<void()>& yield, bool mont)
    {
-      if(points.size() != n*144 ||  scalars.size() != n*32 ||  result.size() != 144)
+      if(points.size() != n*96 ||  scalars.size() != n*32 ||  result.size() != 96)
          return return_code::failure;
 
       // Use much efficient scale for the special case of n == 1.
       if (1 == n) {
-         std::optional<bls12_381::g1> a = bls12_381::g1::fromJacobianBytesLE(std::span<const uint8_t, 144>((const uint8_t*)points.data(), 144), true, mont);
+         std::optional<bls12_381::g1> a = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)points.data(), 96), true, mont);
          if(!a)
             return return_code::failure;
          std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>(std::span<uint8_t, 32>((uint8_t*)scalars.data(), 32));
          bls12_381::g1 c = a->scale(b);
-         c.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)result.data(), 144), mont);
+         c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), mont);
          return return_code::success;
       }
 
@@ -73,7 +73,7 @@ namespace {
       sv.reserve(n);
       for(uint32_t i = 0; i < n; i++)
       {
-         std::optional<bls12_381::g1> p = bls12_381::g1::fromJacobianBytesLE(std::span<const uint8_t, 144>((const uint8_t*)points.data() + i*144, 144), true, mont);
+         std::optional<bls12_381::g1> p = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)points.data() + i*96, 96), true, mont);
          if(!p.has_value())
             return return_code::failure;
          std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>(std::span<const uint8_t, 32>((const uint8_t*)scalars.data() + i*32, 32));
@@ -83,23 +83,23 @@ namespace {
             yield();
       }
       bls12_381::g1 r = bls12_381::g1::weightedSum(pv, sv, yield); // accessing value is safe
-      r.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)result.data(), 144), mont);
+      r.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), mont);
       return return_code::success;
    }
 
    int32_t bls_g2_weighted_sum_impl(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result, const std::function<void()>& yield, bool mont)
    {
-      if(points.size() != n*288 ||  scalars.size() != n*32 ||  result.size() != 288)
+      if(points.size() != n*192 ||  scalars.size() != n*32 ||  result.size() != 192)
          return return_code::failure;
 
       // Use much efficient scale for the special case of n == 1.
       if (1 == n) {
-         std::optional<bls12_381::g2> a = bls12_381::g2::fromJacobianBytesLE(std::span<const uint8_t, 288>((const uint8_t*)points.data(), 288), true, mont);
+         std::optional<bls12_381::g2> a = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)points.data(), 192), true, mont);
          if(!a)
             return return_code::failure;
          std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>(std::span<uint8_t, 32>((uint8_t*)scalars.data(), 32));
          bls12_381::g2 c = a->scale(b);
-         c.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)result.data(), 288), mont);
+         c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), mont);
          return return_code::success;
       }
 
@@ -109,7 +109,7 @@ namespace {
       sv.reserve(n);
       for(uint32_t i = 0; i < n; i++)
       {
-         std::optional<bls12_381::g2> p = bls12_381::g2::fromJacobianBytesLE(std::span<const uint8_t, 288>((const uint8_t*)points.data() + i*288, 288), true, mont);
+         std::optional<bls12_381::g2> p = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)points.data() + i*192, 192), true, mont);
          if(!p)
             return return_code::failure;
          std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>(std::span<const uint8_t, 32>((const uint8_t*)scalars.data() + i*32, 32));
@@ -119,20 +119,20 @@ namespace {
             yield();
       }
       bls12_381::g2 r = bls12_381::g2::weightedSum(pv, sv, yield); // accessing value is safe
-      r.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)result.data(), 288), mont);
+      r.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), mont);
       return return_code::success;
    }
 
    int32_t bls_pairing_impl(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result, const std::function<void()>& yield, bool mont)
    {
-      if(g1_points.size() != n*144 ||  g2_points.size() != n*288 ||  result.size() != 576)
+      if(g1_points.size() != n*96 ||  g2_points.size() != n*192 ||  result.size() != 576)
          return return_code::failure;
       std::vector<std::tuple<bls12_381::g1, bls12_381::g2>> v;
       v.reserve(n);
       for(uint32_t i = 0; i < n; i++)
       {
-         std::optional<bls12_381::g1> p_g1 = bls12_381::g1::fromJacobianBytesLE(std::span<const uint8_t, 144>((const uint8_t*)g1_points.data() + i*144, 144), true, mont);
-         std::optional<bls12_381::g2> p_g2 = bls12_381::g2::fromJacobianBytesLE(std::span<const uint8_t, 288>((const uint8_t*)g2_points.data() + i*288, 288), true, mont);
+         std::optional<bls12_381::g1> p_g1 = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)g1_points.data() + i*96, 96), true, mont);
+         std::optional<bls12_381::g2> p_g2 = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)g2_points.data() + i*192, 192), true, mont);
          if(!p_g1 || !p_g2)
             return return_code::failure;
          bls12_381::pairing::add_pair(v, *p_g1, *p_g2);
@@ -146,25 +146,25 @@ namespace {
 
    int32_t bls_g1_map_impl(span<const char> e, span<char> result, bool mont)
    {
-      if(e.size() != 48 ||  result.size() != 144)
+      if(e.size() != 48 ||  result.size() != 96)
          return return_code::failure;
       std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)e.data(), 48), true, mont);
       if(!a)
          return return_code::failure;
       bls12_381::g1 c = bls12_381::g1::mapToCurve(*a);
-      c.toJacobianBytesLE(std::span<uint8_t, 144>((uint8_t*)result.data(), 144), mont);
+      c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), mont);
       return return_code::success;
    }
 
    int32_t bls_g2_map_impl(span<const char> e, span<char> result, bool mont)
    {
-      if(e.size() != 96 ||  result.size() != 288)
+      if(e.size() != 96 ||  result.size() != 192)
          return return_code::failure;
       std::optional<bls12_381::fp2> a = bls12_381::fp2::fromBytesLE(std::span<const uint8_t, 96>((const uint8_t*)e.data(), 96), true, mont);
       if(!a)
          return return_code::failure;
       bls12_381::g2 c = bls12_381::g2::mapToCurve(*a);
-      c.toJacobianBytesLE(std::span<uint8_t, 288>((uint8_t*)result.data(), 288), mont);
+      c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), mont);
       return return_code::success;
    }
 

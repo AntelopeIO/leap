@@ -5,8 +5,8 @@
 using bls_scalar = uint8_t[32];
 using bls_fp = uint8_t[48];
 using bls_fp2 = bls_fp[2];
-using bls_g1 = uint8_t[144];
-using bls_g2 = uint8_t[288];
+using bls_g1 = uint8_t[96];
+using bls_g2 = uint8_t[192];
 using bls_gt = uint8_t[576];
 
 namespace eosio {
