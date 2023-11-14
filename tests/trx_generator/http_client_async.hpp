@@ -4,6 +4,9 @@
 // libs/beast/example/http/client/async/http_client_async.cpp
 // with minimum modification and yet reusable.
 //
+// Updated to use strand like in the boost example
+// libs/beast/example/http/client/crawl/http_crawl.cpp
+//
 //
 // Copyright (c) 2016-2019 Vinnie Falco (vinnie dot falco at gmail dot com)
 //
@@ -48,6 +51,7 @@ inline void fail(beast::error_code ec, char const* what) { std::cerr << what << 
 
 // Performs an HTTP GET and prints the response
 class session : public std::enable_shared_from_this<session> {
+   net::strand<net::io_context::executor_type> ex_;
    tcp::resolver                     resolver_;
    beast::tcp_stream                 stream_;
    beast::flat_buffer                buffer_; // (Must persist between reads)
@@ -59,8 +63,9 @@ class session : public std::enable_shared_from_this<session> {
    // Objects are constructed with a strand to
    // ensure that handlers do not execute concurrently.
    explicit session(net::io_context& ioc, const response_callback_t& response_callback)
-       : resolver_(net::make_strand(ioc))
-       , stream_(net::make_strand(ioc))
+       : ex_(net::make_strand(ioc.get_executor()))
+       , resolver_(ex_)
+       , stream_(ex_)
        , response_callback_(response_callback) {}
 
    // Start the asynchronous operation

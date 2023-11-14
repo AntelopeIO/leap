@@ -534,10 +534,13 @@ blob variant::as_blob()const
          const std::string& str = get_string();
          if( str.size() == 0 ) return blob();
          try {
-            std::string b64 = base64_decode( get_string() );
-            return blob( { std::vector<char>( b64.begin(), b64.end() ) } );
+            // pre-5.0 versions of variant added `=` to end of base64 encoded string in as_string() above.
+            // fc version of base64_decode allows for extra `=` at the end of the string.
+            // Other base64 decoders will not accept the extra `=`.
+            std::vector<char> b64 = base64_decode( str );
+            return { std::move(b64) };
          } catch(const std::exception&) {
-            // unable to decode, just return the raw chars
+            // unable to decode, return the raw chars
          }
          return blob( { std::vector<char>( str.begin(), str.end() ) } );
       }
@@ -759,8 +762,7 @@ void to_variant( const blob& b, variant& v ) {
 }
 
 void from_variant( const variant& v, blob& b ) {
-   std::string _s = base64_decode(v.as_string());
-   b.data = std::vector<char>(_s.begin(), _s.end());
+   b.data = base64_decode(v.as_string());
 }
 
 void to_variant( const UInt<8>& n, variant& v ) { v = uint64_t(n); }

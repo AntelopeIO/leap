@@ -21,7 +21,7 @@ jobs:
           file: 'leap-dev.*amd64.deb'
           target: ${{github.sha}}
           artifact-name: leap-dev-ubuntu20-amd64
-          wait-for-exact-target-workflow: true
+          wait-for-exact-target: true
       - name: Get ubuntu22 leap-dev.deb
         uses: AntelopeIO/asset-artifact-download-action@v3
         with:
@@ -30,7 +30,7 @@ jobs:
           file: 'leap-dev.*amd64.deb'
           target: ${{github.sha}}
           artifact-name: leap-dev-ubuntu22-amd64
-          wait-for-exact-target-workflow: true
+          wait-for-exact-target: true
       - name: Create Dockerfile
         run: |
           cat <<EOF > Dockerfile
