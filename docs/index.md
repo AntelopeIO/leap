@@ -10,7 +10,7 @@ Antelope is the next-generation blockchain platform for creating and deploying s
 
 The basic relationship between these components is illustrated in the diagram below.
 
-![Antelope components](mandel_components.png)
+![Antelope components](leap_components.png)
 
 Additional Antelope Resources:
 * [Antelope Utilities](10_utilities/index.md) - Utilities that complement the Antelope software.  

@@ -4,13 +4,9 @@ content_title: Build Antelope from Source on Other Unix-based OS
 
 **Please keep in mind that instructions for building from source on other  unsupported operating systems provided here should be considered experimental and provided AS-IS on a best-effort basis and may not be fully featured.**
 
-### Using DUNE
+**A Warning On Parallel Compilation Jobs (`-j` flag)**: When building C/C++ software often the build is performed in parallel via a command such as `make -j $(nproc)` which uses the number of CPU cores as the number of compilation jobs to perform simultaneously. However, be aware that some compilation units (.cpp files) in leap are extremely complex and will consume nearly 4GB of memory to compile. You may need to reduce the level of parallelization depending on the amount of memory on your build host. e.g. instead of `make -j $(nproc)` run `make -j2`. Failures due to memory exhaustion will typically but not always manifest as compiler crashes.
 
-For the official multi-platform support try [Docker Utilities for Node Execution](https://github.com/AntelopeIO/DUNE) which runs in an ubuntu image via a docker container.  
-
-**A Warning On Parallel Compilation Jobs (`-j` flag)**: When building C/C++ software often the build is performed in parallel via a command such as `make -j $(nproc)` which uses the number of CPU cores as the number of compilation jobs to perform simultaneously. However, be aware that some compilation units (.cpp files) in mandel are extremely complex and will consume nearly 4GB of memory to compile. You may need to reduce the level of parallelization depending on the amount of memory on your build host. e.g. instead of `make -j $(nproc)` run `make -j2`. Failures due to memory exhaustion will typically but not always manifest as compiler crashes.
-
-Generally we recommend performing what we refer to as a "pinned build" which ensures the compiler and boost version remain the same between builds of different mandel versions (mandel requires these versions remain the same otherwise its state needs to be repopulated from a portable snapshot).
+Generally we recommend performing what we refer to as a "pinned build" which ensures the compiler and boost version remain the same between builds of different leap versions (leap requires these versions remain the same otherwise its state needs to be repopulated from a portable snapshot).
 
 <details>
   <summary>FreeBSD 13.1 Build Instructions</summary>
