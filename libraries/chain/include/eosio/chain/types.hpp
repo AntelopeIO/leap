@@ -25,17 +25,15 @@
 #include <cstdint>
 
 #define OBJECT_CTOR1(NAME) \
-    NAME() = delete; \
     public: \
-    template<typename Constructor, typename Allocator> \
-    NAME(Constructor&& c, chainbase::allocator<Allocator>) \
+    template<typename Constructor> \
+    NAME(Constructor&& c, chainbase::constructor_tag) \
     { c(*this); }
-#define OBJECT_CTOR2_MACRO(x, y, field) ,field(a)
+#define OBJECT_CTOR2_MACRO(x, y, field) ,field()
 #define OBJECT_CTOR2(NAME, FIELDS) \
-    NAME() = delete; \
     public: \
-    template<typename Constructor, typename Allocator> \
-    NAME(Constructor&& c, chainbase::allocator<Allocator> a) \
+    template<typename Constructor> \
+    NAME(Constructor&& c, chainbase::constructor_tag)            \
     : id(0) BOOST_PP_SEQ_FOR_EACH(OBJECT_CTOR2_MACRO, _, FIELDS) \
     { c(*this); }
 #define OBJECT_CTOR(...) BOOST_PP_OVERLOAD(OBJECT_CTOR, __VA_ARGS__)(__VA_ARGS__)
@@ -86,10 +84,10 @@ namespace eosio::chain {
 
    using chainbase::allocator;
    using shared_string = chainbase::shared_string;
+   
    template<typename T>
-   using shared_vector = boost::interprocess::vector<T, allocator<T>>;
-   template<typename T>
-   using shared_set = boost::interprocess::set<T, std::less<T>, allocator<T>>;
+   using shared_vector = chainbase::shared_vector<T>;
+   
    template<typename K, typename V>
    using shared_flat_multimap = boost::interprocess::flat_multimap< K, V, std::less<K>, allocator< std::pair<K,V> > >;
 
@@ -99,25 +97,23 @@ namespace eosio::chain {
     * serialization and to/from variant
     */
    class shared_blob : public shared_string {
-      public:
-         shared_blob() = delete;
-         shared_blob(shared_blob&&) = default;
+   public:
+      shared_blob() = default;
 
-         shared_blob(const shared_blob& s) = default;
+      shared_blob(shared_blob&&) = default;
+      shared_blob(const shared_blob& s) = default;
 
+      explicit shared_blob(std::string_view s) : shared_string(s) {}
 
-         shared_blob& operator=(const shared_blob& s) = default;
+      template <typename InputIterator>
+      shared_blob(InputIterator f, InputIterator l) : shared_string(f, l) {}
 
-         shared_blob& operator=(shared_blob&& ) = default;
-
-         template <typename InputIterator>
-         shared_blob(InputIterator f, InputIterator l, const allocator_type& a)
-         :shared_string(f,l,a)
-         {}
-
-         shared_blob(const allocator_type& a)
-         :shared_string(a)
-         {}
+      shared_blob& operator=(const shared_blob& s) = default;
+      shared_blob& operator=(shared_blob&& ) = default;
+      shared_blob& operator=(std::string_view sv) {
+         static_cast<shared_string&>(*this) = sv;
+         return *this;
+      }
    };
 
    using action_name      = name;
@@ -409,23 +405,5 @@ namespace eosio::chain {
    using next_function = std::function<void(const next_function_variant<T>&)>;
 
 }  // eosio::chain
-
-namespace chainbase {
-   // chainbase::shared_cow_string
-   template<typename DataStream> inline DataStream& operator<<( DataStream& s, const chainbase::shared_cow_string& v )  {
-      FC_ASSERT( v.size() <= MAX_SIZE_OF_BYTE_ARRAYS );
-      fc::raw::pack( s, fc::unsigned_int((uint32_t)v.size()));
-      if( v.size() ) s.write( v.data(), v.size() );
-      return s;
-   }
-
-   template<typename DataStream> inline DataStream& operator>>( DataStream& s, chainbase::shared_cow_string& v )  {
-      fc::unsigned_int size; fc::raw::unpack( s, size );
-      FC_ASSERT( size.value <= MAX_SIZE_OF_BYTE_ARRAYS );
-      FC_ASSERT( v.size() == 0 );
-      v.resize_and_fill(size.value, [&s](char* buf, std::size_t sz) { s.read(buf, sz); });
-      return s;
-   }
-}
 
 FC_REFLECT_EMPTY( eosio::chain::void_t )

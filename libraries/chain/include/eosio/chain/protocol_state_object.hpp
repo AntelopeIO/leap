@@ -16,9 +16,14 @@ namespace eosio { namespace chain {
     */
    class protocol_state_object : public chainbase::object<protocol_state_object_type, protocol_state_object>
    {
-      OBJECT_CTOR(protocol_state_object, (activated_protocol_features)(preactivated_protocol_features)(whitelisted_intrinsics))
-
    public:
+      template<typename Constructor>
+      protocol_state_object(Constructor&& c, chainbase::constructor_tag) :
+         id(0),
+         whitelisted_intrinsics(*activated_protocol_features.get_allocator(this)) {
+         c(*this);
+      }
+
       struct activated_protocol_feature {
          digest_type feature_digest;
          uint32_t    activation_block_num = 0;
