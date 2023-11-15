@@ -15,7 +15,7 @@ namespace eosio::auto_bp_peering {
 
 template <typename Derived, typename Connection>
 class bp_connection_manager {
-#ifdef BOOST_TEST_MODULE
+#ifdef BOOST_TEST
  public:
 #endif
 
