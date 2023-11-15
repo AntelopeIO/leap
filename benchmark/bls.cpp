@@ -148,7 +148,7 @@ bls12_381::g2 random_g2()
 }
 
 // bls_g1_add benchmarking
-void benchmark_bls_g1_add_impl(std::string test_name, bool mont) {
+void benchmark_bls_g1_add_impl(const std::string& test_name, bool mont) {
    // prepare g1 operand in Jacobian LE format
    g1 p = random_g1();
    std::vector<char> buf(96);
@@ -184,7 +184,7 @@ void benchmark_bls_g1_add_mont() {
 }
 
 // bls_g2_add benchmarking
-void benchmark_bls_g2_add_impl(std::string test_name, bool mont) {
+void benchmark_bls_g2_add_impl(const std::string& test_name, bool mont) {
    // prepare g2 operand in Jacobian LE format
    g2 p = random_g2();
    std::vector<char> buf(192);
@@ -220,7 +220,7 @@ void benchmark_bls_g2_add_mont() {
 }
 
 // bls_g1_weighted_sum benchmarking utility
-void benchmark_bls_g1_weighted_sum_impl(std::string test_name, uint32_t num_points, bool mont) {
+void benchmark_bls_g1_weighted_sum_impl(const std::string& test_name, uint32_t num_points, bool mont) {
    // prepare g1 points operand
    std::vector<char> g1_buf(96*num_points);
    for (auto i=0u; i < num_points; ++i) {
@@ -288,7 +288,7 @@ void benchmark_bls_g1_weighted_sum_mont_five_point() {
 }
 
 // bls_g2_weighted_sum benchmarking utility
-void benchmark_bls_g2_weighted_sum_impl(std::string test_name, uint32_t num_points, bool mont) {
+void benchmark_bls_g2_weighted_sum_impl(const std::string& test_name, uint32_t num_points, bool mont) {
    // prepare g2 points operand
    std::vector<char> g2_buf(192*num_points);
    for (auto i=0u; i < num_points; ++i) {
@@ -356,7 +356,7 @@ void benchmark_bls_g2_weighted_sum_mont_five_point() {
 }
 
 // bls_pairing benchmarking utility
-void benchmark_bls_pairing_impl(std::string test_name, uint32_t num_pairs, bool mont) {
+void benchmark_bls_pairing_impl(const std::string& test_name, uint32_t num_pairs, bool mont) {
    // prepare g1 operand
    std::vector<char> g1_buf(96*num_pairs);
    //g1_buf.reserve(96*num_pairs);
@@ -415,7 +415,7 @@ void benchmark_bls_pairing_mont_three_pair() {
 }
 
 // bls_g1_map benchmarking
-void benchmark_bls_g1_map_impl(std::string test_name, bool mont) {
+void benchmark_bls_g1_map_impl(const std::string& test_name, bool mont) {
    // prepare e operand. Must be fp LE.
    std::vector<char> e_buf(48);
    fp a = random_fe();
@@ -451,7 +451,7 @@ void benchmark_bls_g1_map_mont() {
 }
 
 // bls_g2_map benchmarking
-void benchmark_bls_g2_map_impl(std::string test_name, bool mont) {
+void benchmark_bls_g2_map_impl(const std::string& test_name, bool mont) {
    // prepare e operand. Must be fp2 LE.
    std::vector<char> e_buf(96);
    fp2 a = random_fe2();
@@ -487,7 +487,7 @@ void benchmark_bls_g2_map_mont() {
 }
 
 // bls_fp_mod benchmarking
-void benchmark_bls_fp_mod_impl(std::string test_name, bool mont) {
+void benchmark_bls_fp_mod_impl(const std::string& test_name, bool mont) {
    // prepare scalar operand
    std::vector<char> scalar_buf(64);
    // random_scalar returns 32 bytes. need to call it twice
@@ -525,7 +525,7 @@ void benchmark_bls_fp_mod_mont() {
    benchmark_bls_fp_mod_impl("bls_fp_mod_mont", true);
 }
 
-void benchmark_bls_fp_mul_impl(std::string test_name, bool mont) {
+void benchmark_bls_fp_mul_impl(const std::string& test_name, bool mont) {
    // prepare op1
    std::vector<char> op1_buf(48);
    fp a = random_fe();
@@ -566,7 +566,7 @@ void benchmark_bls_fp_mul_mont() {
    benchmark_bls_fp_mul_impl("bls_fp_mul_mont", true);
 }
 
-void benchmark_bls_fp_exp_impl(std::string test_name, bool mont) {
+void benchmark_bls_fp_exp_impl(const std::string& test_name, bool mont) {
    // prepare base
    std::vector<char> base_buf(48);
    fp a = random_fe();
