@@ -30,7 +30,7 @@ jobs:
     runs-on: ["self-hosted", "enf-x86-beefy"]
     container: ${{fromJSON(inputs.platforms)[matrix.platform].image}}
     steps:
-        - uses: actions/checkout@v3
+        - uses: actions/checkout@v4
           with:
             submodules: recursive
         - name: Build

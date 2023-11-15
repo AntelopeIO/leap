@@ -171,7 +171,7 @@ class PerformanceTestBasic:
         quiet: bool=False
         delPerfLogs: bool=False
         expectedTransactionsSent: int = field(default_factory=int, init=False)
-        printMissingTransactions: bool=False
+        printMissingTransactions: bool=True
         userTrxDataFile: Path=None
         endpointMode: str="p2p"
         apiEndpoint: str=None
@@ -491,12 +491,12 @@ class PerformanceTestBasic:
             completedRun = True
 
         # Get stats after transaction generation stops
+        endBlock = self.waitForEmptyBlocks(self.validationNode, self.emptyBlockGoal)
         trxSent = {}
         scrapeTrxGenTrxSentDataLogs(trxSent, self.trxGenLogDirPath, self.ptbConfig.quiet)
         if len(trxSent) != self.ptbConfig.expectedTransactionsSent:
             print(f"ERROR: Transactions generated: {len(trxSent)} does not match the expected number of transactions: {self.ptbConfig.expectedTransactionsSent}")
-        blocksToWait = 2 * self.ptbConfig.testTrxGenDurationSec + 10
-        trxNotFound = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, blocksToWait)
+        trxNotFound = self.validationNode.waitForTransactionsInBlockRange(trxSent, self.data.startBlock, endBlock)
         self.data.ceaseBlock = self.validationNode.getHeadBlockNum()
 
         return PerformanceTestBasic.PtbTpsTestResult(completedRun=completedRun, numGeneratorsUsed=tpsTrxGensConfig.numGenerators,
@@ -664,7 +664,7 @@ class PerformanceTestBasic:
         producerPluginArgs = ProducerPluginArgs(disableSubjectiveApiBilling=args.disable_subjective_billing,
                                                 disableSubjectiveP2pBilling=args.disable_subjective_billing,
                                                 produceBlockOffsetMs=args.produce_block_offset_ms,
-                                                producerThreads=args.producer_threads, maxTransactionTime=-1,
+                                                maxTransactionTime=-1,
                                                 readOnlyWriteWindowTimeUs=args.read_only_write_window_time_us,
                                                 readOnlyReadWindowTimeUs=args.read_only_read_window_time_us)
         httpPluginArgs = HttpPluginArgs(httpMaxBytesInFlightMb=args.http_max_bytes_in_flight_mb, httpMaxInFlightRequests=args.http_max_in_flight_requests,
@@ -721,7 +721,6 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--net-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in net_plugin thread pool", default=4)
         ptbBaseParserGroup.add_argument("--disable-subjective-billing", type=bool, help=argparse.SUPPRESS if suppressHelp else "Disable subjective CPU billing for API/P2P transactions", default=True)
         ptbBaseParserGroup.add_argument("--produce-block-offset-ms", type=int, help=argparse.SUPPRESS if suppressHelp else "The minimum time to reserve at the end of a production round for blocks to propagate to the next block producer.", default=0)
-        ptbBaseParserGroup.add_argument("--producer-threads", type=int, help=argparse.SUPPRESS if suppressHelp else "Number of worker threads in producer thread pool", default=2)
         ptbBaseParserGroup.add_argument("--read-only-write-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the write window lasts.", default=200000)
         ptbBaseParserGroup.add_argument("--read-only-read-window-time-us", type=int, help=argparse.SUPPRESS if suppressHelp else "Time in microseconds the read window lasts.", default=60000)
         ptbBaseParserGroup.add_argument("--http-max-in-flight-requests", type=int, help=argparse.SUPPRESS if suppressHelp else "Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited", default=-1)
@@ -733,7 +732,7 @@ class PtbArgumentsHandler(object):
         ptbBaseParserGroup.add_argument("--save-state", help=argparse.SUPPRESS if suppressHelp else "Whether to save node state. (Warning: large disk usage)", action='store_true')
         ptbBaseParserGroup.add_argument("--quiet", help=argparse.SUPPRESS if suppressHelp else "Whether to quiet printing intermediate results and reports to stdout", action='store_true')
         ptbBaseParserGroup.add_argument("--prods-enable-trace-api", help=argparse.SUPPRESS if suppressHelp else "Determines whether producer nodes should have eosio::trace_api_plugin enabled", action='store_true')
-        ptbBaseParserGroup.add_argument("--print-missing-transactions", help=argparse.SUPPRESS if suppressHelp else "Toggles if missing transactions are be printed upon test completion.", action='store_true')
+        ptbBaseParserGroup.add_argument("--print-missing-transactions", type=bool, help=argparse.SUPPRESS if suppressHelp else "Print missing transactions upon test completion.", default=True)
         ptbBaseParserGroup.add_argument("--account-name", type=str, help=argparse.SUPPRESS if suppressHelp else "Name of the account to create and assign a contract to", default="eosio")
         ptbBaseParserGroup.add_argument("--contract-dir", type=str, help=argparse.SUPPRESS if suppressHelp else "Path to contract dir", default="unittests/contracts/eosio.system")
         ptbBaseParserGroup.add_argument("--wasm-file", type=str, help=argparse.SUPPRESS if suppressHelp else "WASM file name for contract", default="eosio.system.wasm")

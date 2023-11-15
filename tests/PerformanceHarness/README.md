@@ -371,7 +371,6 @@ Operational Modes:
 
 ```
 usage: PerformanceHarnessScenarioRunner.py findMax testBpOpMode [--skip-tps-test]
-                                                                [--calc-producer-threads {none,lmax,full}]
                                                                 [--calc-chain-threads {none,lmax,full}]
                                                                 [--calc-net-threads {none,lmax,full}]
                                                                 [--del-test-report]
@@ -398,22 +397,6 @@ Performance Harness:
 
   --skip-tps-test       Determines whether to skip the max TPS measurement
                         tests
-  --calc-producer-threads {none,lmax,full}
-                        Determines whether to calculate number of worker
-                        threads to use in producer thread pool ("none",
-                        "lmax", or "full"). In "none" mode, the default, no
-                        calculation will be attempted and the configured
-                        --producer-threads value will be used. In "lmax" mode,
-                        producer threads will incrementally be tested,
-                        starting at plugin default, until the performance rate
-                        ceases to increase with the addition of additional
-                        threads. In "full" mode producer threads will
-                        incrementally be tested from plugin default..num
-                        logical processors, recording each performance and
-                        choosing the local max performance (same value as
-                        would be discovered in "lmax" mode). Useful for
-                        graphing the full performance impact of each available
-                        thread.
   --calc-chain-threads {none,lmax,full}
                         Determines whether to calculate number of worker
                         threads to use in chain thread pool ("none", "lmax",
@@ -505,7 +488,6 @@ usage: PerformanceHarnessScenarioRunner.py findMax testBpOpMode overrideBasicTes
        [--net-threads NET_THREADS]
        [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
        [--produce-block-offset-ms PRODUCE_BLOCK_OFFSET_MS]
-       [--producer-threads PRODUCER_THREADS]
        [--read-only-write-window-time-us READ_ONLY_WRITE_WINDOW_TIME_US]
        [--read-only-read-window-time-us READ_ONLY_READ_WINDOW_TIME_US]
        [--http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS]
@@ -582,8 +564,6 @@ Performance Test Basic Base:
   --produce-block-offset-ms PRODUCE_BLOCK_OFFSET_MS
                         The number of milliseconds early the last block of a production round should
                         be produced.
-  --producer-threads PRODUCER_THREADS
-                        Number of worker threads in producer thread pool
   --read-only-write-window-time-us READ_ONLY_WRITE_WINDOW_TIME_US
                         Time in microseconds the write window lasts.
   --read-only-read-window-time-us READ_ONLY_READ_WINDOW_TIME_US
@@ -665,7 +645,6 @@ The following classes and scripts are typically used by the Performance Harness 
                                   [--net-threads NET_THREADS]
                                   [--disable-subjective-billing DISABLE_SUBJECTIVE_BILLING]
                                   [--produce-block-offset-ms PRODUCE_BLOCK_OFFSET_MS]
-                                  [--producer-threads PRODUCER_THREADS]
                                   [--http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS]
                                   [--http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS]
                                   [--http-max-bytes-in-flight-mb HTTP_MAX_BYTES_IN_FLIGHT_MB]
@@ -746,8 +725,6 @@ Performance Test Basic Base:
   --produce-block-offset-ms PRODUCE_BLOCK_OFFSET_MS
                         The number of milliseconds early the last block of a production round should
                         be produced.
-  --producer-threads PRODUCER_THREADS
-                        Number of worker threads in producer thread pool (default: 2)
   --http-max-in-flight-requests HTTP_MAX_IN_FLIGHT_REQUESTS
                         Maximum number of requests http_plugin should use for processing http requests. 429 error response when exceeded. -1 for unlimited (default: -1)
   --http-max-response-time-ms HTTP_MAX_RESPONSE_TIME_MS
@@ -879,7 +856,7 @@ The Performance Harness Scenario Runner, through the `PerformanceTest` and `Perf
 Command used to run test and generate report:
 
 ``` bash
-./tests/PerformanceHarnessScenarioRunner.py findMax testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax
+./tests/PerformanceHarnessScenarioRunner.py findMax testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-chain-threads lmax --calc-net-threads lmax
 ```
 
 ### Report Breakdown
@@ -1255,7 +1232,7 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "analysisFinish": "2023-08-18T17:39:08.002767"
   },
   "args": {
-    "rawCmdLine ": "tests/PerformanceHarnessScenarioRunner.py findMax testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
+    "rawCmdLine ": "tests/PerformanceHarnessScenarioRunner.py findMax testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-chain-threads lmax --calc-net-threads lmax",
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
@@ -1621,9 +1598,6 @@ Finally, the full detail test report for each of the determined max TPS throughp
         "disableSubjectiveApiBilling": true,
         "_disableSubjectiveApiBillingNodeosDefault": 1,
         "_disableSubjectiveApiBillingNodeosArg": "--disable-subjective-api-billing",
-        "producerThreads": 2,
-        "_producerThreadsNodeosDefault": 2,
-        "_producerThreadsNodeosArg": "--producer-threads",
         "snapshotsDir": null,
         "_snapshotsDirNodeosDefault": "\"snapshots\"",
         "_snapshotsDirNodeosArg": "--snapshots-dir",
@@ -1771,7 +1745,6 @@ Finally, the full detail test report for each of the determined max TPS throughp
     "quiet": false,
     "logDirRoot": ".",
     "skipTpsTests": false,
-    "calcProducerThreads": "lmax",
     "calcChainThreads": "lmax",
     "calcNetThreads": "lmax",
     "userTrxDataFile": null,
@@ -1915,7 +1888,7 @@ The Performance Test Basic generates, by default, a report that details results 
     }
   },
   "args": {
-    "rawCmdLine ": "tests/PerformanceHarnessScenarioRunner.py findMax testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-producer-threads lmax --calc-chain-threads lmax --calc-net-threads lmax",
+    "rawCmdLine ": "tests/PerformanceHarnessScenarioRunner.py findMax testBpOpMode --test-iteration-duration-sec 10 --final-iterations-duration-sec 30 --calc-chain-threads lmax --calc-net-threads lmax",
     "dumpErrorDetails": false,
     "delay": 1,
     "nodesFile": null,
@@ -2281,9 +2254,6 @@ The Performance Test Basic generates, by default, a report that details results 
         "disableSubjectiveApiBilling": true,
         "_disableSubjectiveApiBillingNodeosDefault": 1,
         "_disableSubjectiveApiBillingNodeosArg": "--disable-subjective-api-billing",
-        "producerThreads": 2,
-        "_producerThreadsNodeosDefault": 2,
-        "_producerThreadsNodeosArg": "--producer-threads",
         "snapshotsDir": null,
         "_snapshotsDirNodeosDefault": "\"snapshots\"",
         "_snapshotsDirNodeosArg": "--snapshots-dir",

@@ -41,7 +41,7 @@ cluster=Cluster(host=server, port=port, defproduceraPrvtKey=defproduceraPrvtKey,
 errFileName=f"{cluster.nodeosLogPath}/node_00/stderr.txt"
 if args.error_log_path:
     errFileName=args.error_log_path
-walletMgr=WalletMgr(True, port=walletPort)
+walletMgr=WalletMgr(True, port=walletPort, keepRunning=args.leave_running, keepLogs=args.keep_logs)
 testSuccessful=False
 dontBootstrap=sanityTest # intent is to limit the scope of the sanity test to just verifying that nodes can be started
 

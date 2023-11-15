@@ -4819,9 +4819,18 @@ namespace eosio {
             ++num_peers;
          }
          fc::unique_lock g_conn(c->conn_mtx);
+         if (c->unique_conn_node_id.empty()) { // still connecting, use temp id so that non-connected peers are reported
+            if (!c->p2p_address.empty()) {
+               c->unique_conn_node_id = fc::sha256::hash(c->p2p_address).str().substr(0, 7);
+            } else if (!c->remote_endpoint_ip.empty()) {
+               c->unique_conn_node_id = fc::sha256::hash(c->remote_endpoint_ip).str().substr(0, 7);
+            } else {
+               c->unique_conn_node_id = fc::sha256::hash(std::to_string(c->connection_id)).str().substr(0, 7);
+            }
+         }
+         std::string conn_node_id = c->unique_conn_node_id;
          boost::asio::ip::address_v6::bytes_type addr = c->remote_endpoint_ip_array;
          std::string p2p_addr = c->p2p_address;
-         std::string conn_node_id = c->unique_conn_node_id;
          g_conn.unlock();
          per_connection.peers.emplace_back(
             net_plugin::p2p_per_connection_metrics::connection_metric{
