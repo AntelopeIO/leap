@@ -274,17 +274,17 @@ void benchmark_bls_g1_weighted_sum_five_point() {
 
 // bls_g1_weighted_sum benchmarking with 1 input point
 void benchmark_bls_g1_weighted_sum_mont_one_point() {
-   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum_mont 1 point", 1, false);
+   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum_mont 1 point", 1, true);
 }
 
 // bls_g1_weighted_sum_mont benchmarking with 3 input points
 void benchmark_bls_g1_weighted_sum_mont_three_point() {
-   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum_mont 3 points", 3, false);
+   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum_mont 3 points", 3, true);
 }
 
 // bls_g1_weighted_sum_mont benchmarking with 5 input points
 void benchmark_bls_g1_weighted_sum_mont_five_point() {
-   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum_mont 5 points", 5, false);
+   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum_mont 5 points", 5, true);
 }
 
 // bls_g2_weighted_sum benchmarking utility
@@ -342,17 +342,17 @@ void benchmark_bls_g2_weighted_sum_five_point() {
 
 // bls_g2_weighted_sum_mont benchmarking with 1 input point
 void benchmark_bls_g2_weighted_sum_mont_one_point() {
-   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum_mont 1 point", 1, false);
+   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum_mont 1 point", 1, true);
 }
 
 // bls_g2_weighted_sum_mont benchmarking with 3 input points
 void benchmark_bls_g2_weighted_sum_mont_three_point() {
-   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum_mont 3 points", 3, false);
+   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum_mont 3 points", 3, true);
 }
 
 // bls_g2_weighted_sum_mont benchmarking with 5 input points
 void benchmark_bls_g2_weighted_sum_mont_five_point() {
-   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum_mont 5 points", 5, false);
+   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum_mont 5 points", 5, true);
 }
 
 // bls_pairing benchmarking utility
@@ -617,20 +617,20 @@ void bls_benchmarking() {
    benchmark_bls_g2_add();
    benchmark_bls_g2_add_mont();
    benchmark_bls_pairing_one_pair();
-   benchmark_bls_pairing_three_pair();
    benchmark_bls_pairing_mont_one_pair();
+   benchmark_bls_pairing_three_pair();
    benchmark_bls_pairing_mont_three_pair();
    benchmark_bls_g1_weighted_sum_one_point();
-   benchmark_bls_g1_weighted_sum_three_point();
-   benchmark_bls_g1_weighted_sum_five_point();
    benchmark_bls_g1_weighted_sum_mont_one_point();
+   benchmark_bls_g1_weighted_sum_three_point();
    benchmark_bls_g1_weighted_sum_mont_three_point();
+   benchmark_bls_g1_weighted_sum_five_point();
    benchmark_bls_g1_weighted_sum_mont_five_point();
    benchmark_bls_g2_weighted_sum_one_point();
-   benchmark_bls_g2_weighted_sum_three_point();
-   benchmark_bls_g2_weighted_sum_five_point();
    benchmark_bls_g2_weighted_sum_mont_one_point();
+   benchmark_bls_g2_weighted_sum_three_point();
    benchmark_bls_g2_weighted_sum_mont_three_point();
+   benchmark_bls_g2_weighted_sum_five_point();
    benchmark_bls_g2_weighted_sum_mont_five_point();
    benchmark_bls_g1_map();
    benchmark_bls_g1_map_mont();
