@@ -648,4 +648,191 @@ BOOST_AUTO_TEST_CASE( bls_empty ) { try {
 
 } FC_LOG_AND_RETHROW() }
 
+BOOST_AUTO_TEST_CASE( bls_testfpmul ) { try {
+   tester c( setup_policy::preactivate_feature_and_new_bios );
+
+   const auto& tester1_account = account_name("tester1");
+   c.create_accounts( {tester1_account} );
+   c.produce_block();
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::bls_primitives );
+   BOOST_REQUIRE( d );
+
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+
+   c.set_code( tester1_account, test_contracts::bls_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::bls_primitives_test_abi().data() );
+   c.produce_block();
+
+   using test_add = std::tuple<std::string, std::string, std::string, int32_t>;
+   const std::vector<test_add> tests = {
+      {
+         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+         "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::failure
+      },
+      {
+         "ABAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A",
+         "ABAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A",
+         "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::failure
+      },
+      {
+         "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::success
+      },
+      {
+         "AAAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A",
+         "AAAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A",
+         "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::success
+      },
+   };
+
+   for(const auto& test : tests) {
+      auto op1 = hex2bin(std::get<0>(test));
+      auto op2 = hex2bin(std::get<1>(test));
+      auto expected_result = hex2bin(std::get<2>(test));
+      auto expected_error = std::get<3>(test);
+
+      c.push_action( tester1_account, "testfpmul"_n, tester1_account, mutable_variant_object()
+         ("op1", op1)
+         ("op2", op2)
+         ("res", expected_result)
+         ("expected_error", expected_error)
+      );
+   }
+
+} FC_LOG_AND_RETHROW() }
+
+BOOST_AUTO_TEST_CASE( bls_testfpexp ) { try {
+   tester c( setup_policy::preactivate_feature_and_new_bios );
+
+   const auto& tester1_account = account_name("tester1");
+   c.create_accounts( {tester1_account} );
+   c.produce_block();
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::bls_primitives );
+   BOOST_REQUIRE( d );
+
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+
+   c.set_code( tester1_account, test_contracts::bls_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::bls_primitives_test_abi().data() );
+   c.produce_block();
+
+   using test_add = std::tuple<std::string, std::string, std::string, int32_t>;
+   const std::vector<test_add> tests = {
+      {
+         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+         "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff00000000000000000000000000000000",
+         "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::failure
+      },
+      {
+         "ABAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A",
+         "ABAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A00000000000000000000000000000000",
+         "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::failure
+      },
+      {
+         "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::success
+      },
+      {
+         "AAAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A",
+         "AAAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A00000000000000000000000000000000",
+         "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::success
+      },
+   };
+
+   for(const auto& test : tests) {
+      auto base = hex2bin(std::get<0>(test));
+      auto exp = hex2bin(std::get<1>(test));
+      auto expected_result = hex2bin(std::get<2>(test));
+      auto expected_error = std::get<3>(test);
+
+      c.push_action( tester1_account, "testfpexp"_n, tester1_account, mutable_variant_object()
+         ("base", base)
+         ("exp", exp)
+         ("res", expected_result)
+         ("expected_error", expected_error)
+      );
+   }
+
+} FC_LOG_AND_RETHROW() }
+
+
+BOOST_AUTO_TEST_CASE( bls_testfpmod ) { try {
+   tester c( setup_policy::preactivate_feature_and_new_bios );
+
+   const auto& tester1_account = account_name("tester1");
+   c.create_accounts( {tester1_account} );
+   c.produce_block();
+
+   const auto& pfm = c.control->get_protocol_feature_manager();
+   const auto& d = pfm.get_builtin_digest( builtin_protocol_feature_t::bls_primitives );
+   BOOST_REQUIRE( d );
+
+   c.preactivate_protocol_features( {*d} );
+   c.produce_block();
+
+   c.set_code( tester1_account, test_contracts::bls_primitives_test_wasm() );
+   c.set_abi( tester1_account, test_contracts::bls_primitives_test_abi().data() );
+   c.produce_block();
+
+   using test_add = std::tuple<std::string, std::string, int32_t>;
+   const std::vector<test_add> tests = {
+      {
+         "AAAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A00000000000000000000000000000000",
+         "AAAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A",
+         return_code::success
+      },
+      {
+         "ABAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A00000000000000000000000000000000",
+         "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::success
+      },
+      {
+         "01000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::success
+      },
+      {
+         "00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::success
+      },
+      {
+         "ACAAFFFFFFFFFEB9FFFF53B1FEFFAB1E24F6B0F6A0D23067BF1285F3844B7764D7AC4B43B6A71B4B9AE67F39EA11011A00000000000000000000000000000000",
+         "010000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+         return_code::success
+      },
+   };
+
+   for(const auto& test : tests) {
+      auto s = hex2bin(std::get<0>(test));
+      auto expected_result = hex2bin(std::get<1>(test));
+      auto expected_error = std::get<2>(test);
+
+      c.push_action( tester1_account, "testfpmod"_n, tester1_account, mutable_variant_object()
+         ("s", s)
+         ("res", expected_result)
+         ("expected_error", expected_error)
+      );
+   }
+
+} FC_LOG_AND_RETHROW() }
+
+
 BOOST_AUTO_TEST_SUITE_END()

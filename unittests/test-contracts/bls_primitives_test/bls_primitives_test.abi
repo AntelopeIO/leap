@@ -4,6 +4,68 @@
     "types": [],
     "structs": [
         {
+            "name": "testfpexp",
+            "base": "",
+            "fields": [
+                {
+                    "name": "base",
+                    "type": "bytes"
+                },
+                {
+                    "name": "exp",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testfpmod",
+            "base": "",
+            "fields": [
+                {
+                    "name": "s",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testfpmul",
+            "base": "",
+            "fields": [
+                {
+                    "name": "op1",
+                    "type": "bytes"
+                },
+                {
+                    "name": "op2",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
             "name": "testg1add",
             "base": "",
             "fields": [
@@ -163,6 +225,21 @@
         }
     ],
     "actions": [
+        {
+            "name": "testfpexp",
+            "type": "testfpexp",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testfpmod",
+            "type": "testfpmod",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testfpmul",
+            "type": "testfpmul",
+            "ricardian_contract": ""
+        },
         {
             "name": "testg1add",
             "type": "testg1add",
