@@ -1797,17 +1797,6 @@ namespace webassembly {
          int32_t bls_g1_add(span<const char> op1, span<const char> op2, span<char> result) const;
 
          /**
-          * Host function for G1 addition on the elliptic curve bls12-381
-          *
-          * @ingroup crypto
-          * @param op1 - a span containing the first operand G1 point in Montgomery form.
-          * @param op2 - a span containing the second operand G1 point in Montgomery form.
-          * @param[out] result - the result op1 + op2 in Montgomery form.
-          * @return -1 if there was an error 0 otherwise
-         */
-         int32_t bls_g1_add_mont(span<const char> op1, span<const char> op2, span<char> result) const;
-
-         /**
           * Host function for G2 addition on the elliptic curve bls12-381
           *
           * @ingroup crypto
@@ -1817,17 +1806,6 @@ namespace webassembly {
           * @return -1 if there was an error 0 otherwise
          */
          int32_t bls_g2_add(span<const char> op1, span<const char> op2, span<char> result) const;
-
-         /**
-          * Host function for G2 addition on the elliptic curve bls12-381
-          *
-          * @ingroup crypto
-          * @param op1 - a span containing the first operand G2 point in Montgomery form.
-          * @param op2 - a span containing the second operand G2 point in Montgomery form.
-          * @param[out] result - the result op1 + op2 in Montgomery form.
-          * @return -1 if there was an error 0 otherwise
-         */
-         int32_t bls_g2_add_mont(span<const char> op1, span<const char> op2, span<char> result) const;
 
          /**
           * Host function for G1 weighted sum (multi-exponentiation) on the elliptic curve bls12-381
@@ -1842,18 +1820,6 @@ namespace webassembly {
          int32_t bls_g1_weighted_sum(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
 
          /**
-          * Host function for G1 weighted sum (multi-exponentiation) on the elliptic curve bls12-381
-          *
-          * @ingroup crypto
-          * @param points - a span containing a list of G1 points (P0, P1, P2... Pn) in Montgomery form.
-          * @param scalars - a span containing a list of scalars (s0, s1, s2... sn).
-          * @param n - the number of elements in the lists.
-          * @param[out] result - the result s0 * P0 + s1 * P1 + ... + sn * Pn in Montgomery form.
-          * @return -1 if there was an error 0 otherwise
-         */
-         int32_t bls_g1_weighted_sum_mont(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
-
-         /**
           * Host function for G2 weighted sum (multi-exponentiation) on the elliptic curve bls12-381
           *
           * @ingroup crypto
@@ -1864,18 +1830,6 @@ namespace webassembly {
           * @return -1 if there was an error 0 otherwise
          */
          int32_t bls_g2_weighted_sum(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
-
-         /**
-          * Host function for G2 weighted sum (multi-exponentiation) on the elliptic curve bls12-381
-          *
-          * @ingroup crypto
-          * @param points - a span containing a list of G2 points (P0, P1, P2... Pn) in Montgomery form.
-          * @param scalars - a span containing a list of scalars (s0, s1, s2... sn).
-          * @param n - the number of elements in the lists.
-          * @param[out] result - the result s0 * P0 + s1 * P1 + ... + sn * Pn in Montgomery form.
-          * @return -1 if there was an error 0 otherwise
-         */
-         int32_t bls_g2_weighted_sum_mont(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
 
          /**
           * Host function to calculate the pairing of (G1, G2) pairs on the elliptic curve bls12-381
@@ -1890,18 +1844,6 @@ namespace webassembly {
          int32_t bls_pairing(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result) const;
 
          /**
-          * Host function to calculate the pairing of (G1, G2) pairs on the elliptic curve bls12-381
-          *
-          * @ingroup crypto
-          * @param g1_points - a span containing a list of G1 points (P0, P1, P2... Pn) in Montgomery form.
-          * @param g2_points - a span containing a list of G2 points (P0, P1, P2... Pn) in Montgomery form.
-          * @param n - the number of elements in the lists.
-          * @param[out] result - the result e(g1_0, g2_0) * e(g1_1, g2_1) * ... * e(g1_n, g2_n) in Montgomery form.
-          * @return -1 if there was an error 0 otherwise
-         */
-         int32_t bls_pairing_mont(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result) const;
-
-         /**
           * Host function for mapping fp to G1 on the elliptic curve bls12-381
           *
           * @ingroup crypto
@@ -1910,16 +1852,6 @@ namespace webassembly {
           * @return -1 if there was an error 0 otherwise
          */
          int32_t bls_g1_map(span<const char> e, span<char> result) const;
-
-         /**
-          * Host function for mapping fp to G1 on the elliptic curve bls12-381
-          *
-          * @ingroup crypto
-          * @param e - a span containing the field element fp to be mapped in Montgomery form.
-          * @param[out] result - the resulting element in G1 in Montgomery form.
-          * @return -1 if there was an error 0 otherwise
-         */
-         int32_t bls_g1_map_mont(span<const char> e, span<char> result) const;
 
          /**
           * Host function for mapping fp2 to G2 on the elliptic curve bls12-381
@@ -1932,16 +1864,6 @@ namespace webassembly {
          int32_t bls_g2_map(span<const char> e, span<char> result) const;
 
          /**
-          * Host function for mapping fp2 to G2 on the elliptic curve bls12-381
-          *
-          * @ingroup crypto
-          * @param e - a span containing the field element fp2 to be mapped in Montgomery form.
-          * @param[out] result - the resulting element in G2 in Montgomery form.
-          * @return -1 if there was an error 0 otherwise
-         */
-         int32_t bls_g2_map_mont(span<const char> e, span<char> result) const;
-
-         /**
           * Host function for modular reduction of 64 bytes wide scalar to a field element (fp, 48 bytes) of the elliptic curve bls12-381
           *
           * @ingroup crypto
@@ -1950,17 +1872,6 @@ namespace webassembly {
           * @return -1 if there was an error 0 otherwise
          */
          int32_t bls_fp_mod(span<const char> s, span<char> result) const;
-
-         /**
-          * Host function for modular reduction of 64 bytes wide scalar to a field element (fp, 48 bytes) of the elliptic curve bls12-381
-          * Involves Montgomery conversion on the resulting field element.
-          *
-          * @ingroup crypto
-          * @param s - a span containing the 64 bytes wide scalar to be reduced.
-          * @param[out] result - the resulting field element fp in Montogomery form.
-          * @return -1 if there was an error 0 otherwise
-         */
-         int32_t bls_fp_mod_mont(span<const char> s, span<char> result) const;
 
          /**
           * Host function for multiplication of field elements (fp, 48 bytes) of the elliptic curve bls12-381
@@ -1974,18 +1885,6 @@ namespace webassembly {
          int32_t bls_fp_mul(span<const char> op1, span<const char> op2, span<char> result) const;
 
          /**
-          * Host function for multiplication of field elements (fp, 48 bytes) of the elliptic curve bls12-381
-          * Involves Montgomery conversion on the resulting field element.
-          *
-          * @ingroup crypto
-          * @param op1 - a span containing the first operand fp point in Montgomery form.
-          * @param op2 - a span containing the second operand fp point in Montgomery form.
-          * @param[out] result - the result op1 + op2 in Montgomery form.
-          * @return -1 if there was an error 0 otherwise
-         */
-         int32_t bls_fp_mul_mont(span<const char> op1, span<const char> op2, span<char> result) const;
-
-         /**
           * Host function for exponentiation of field elements (fp, 48 bytes) of the elliptic curve bls12-381
           *
           * @ingroup crypto
@@ -1995,17 +1894,6 @@ namespace webassembly {
           * @return -1 if there was an error 0 otherwise
          */
          int32_t bls_fp_exp(span<const char> base, span<const char> exp, span<char> result) const;
-
-         /**
-          * Host function for exponentiation of field elements (fp, 48 bytes) of the elliptic curve bls12-381
-          *
-          * @ingroup crypto
-          * @param base - a span containing the base fp point in Montgomery form.
-          * @param exp - a span containing the 64 bytes wide scalar as exponent.
-          * @param[out] result - the result of base to the power of exp in Montgomery form.
-          * @return -1 if there was an error 0 otherwise
-         */
-         int32_t bls_fp_exp_mont(span<const char> base, span<const char> exp, span<char> result) const;
 
          // compiler builtins api
          void __ashlti3(legacy_ptr<int128_t>, uint64_t, uint64_t, uint32_t) const;

@@ -26,185 +26,7 @@ namespace {
    using eosio::chain::span;
    using eosio::chain::webassembly::return_code;
 
-   int32_t bls_g1_add_impl(span<const char> op1, span<const char> op2, span<char> result, bool mont) {
-      if(op1.size() != 96 ||  op2.size() != 96 ||  result.size() != 96)
-         return return_code::failure;
-      std::optional<bls12_381::g1> a = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)op1.data(), 96), true, mont);
-      std::optional<bls12_381::g1> b = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)op2.data(), 96), true, mont);
-      if(!a || !b)
-         return return_code::failure;
-      bls12_381::g1 c = a->add(*b);
-      c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), mont);
-      return return_code::success;
-   }
-
-   int32_t bls_g2_add_impl(span<const char> op1, span<const char> op2, span<char> result, bool mont)
-   {
-      if(op1.size() != 192 ||  op2.size() != 192 ||  result.size() != 192)
-         return return_code::failure;
-      std::optional<bls12_381::g2> a = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)op1.data(), 192), true, mont);
-      std::optional<bls12_381::g2> b = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)op2.data(), 192), true, mont);
-      if(!a || !b)
-         return return_code::failure;
-      bls12_381::g2 c = a->add(*b);
-      c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), mont);
-      return return_code::success;
-   }
-
-   int32_t bls_g1_weighted_sum_impl(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result, const std::function<void()>& yield, bool mont)
-   {
-      if(points.size() != n*96 ||  scalars.size() != n*32 ||  result.size() != 96)
-         return return_code::failure;
-
-      // Use much efficient scale for the special case of n == 1.
-      if (1 == n) {
-         std::optional<bls12_381::g1> a = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)points.data(), 96), true, mont);
-         if(!a)
-            return return_code::failure;
-         std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>(std::span<uint8_t, 32>((uint8_t*)scalars.data(), 32));
-         bls12_381::g1 c = a->scale(b);
-         c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), mont);
-         return return_code::success;
-      }
-
-      std::vector<bls12_381::g1> pv;
-      std::vector<std::array<uint64_t, 4>> sv;
-      pv.reserve(n);
-      sv.reserve(n);
-      for(uint32_t i = 0; i < n; i++)
-      {
-         std::optional<bls12_381::g1> p = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)points.data() + i*96, 96), true, mont);
-         if(!p.has_value())
-            return return_code::failure;
-         std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>(std::span<const uint8_t, 32>((const uint8_t*)scalars.data() + i*32, 32));
-         pv.push_back(p.value());
-         sv.push_back(s);
-         if(i%10 == 0)
-            yield();
-      }
-      bls12_381::g1 r = bls12_381::g1::weightedSum(pv, sv, yield); // accessing value is safe
-      r.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), mont);
-      return return_code::success;
-   }
-
-   int32_t bls_g2_weighted_sum_impl(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result, const std::function<void()>& yield, bool mont)
-   {
-      if(points.size() != n*192 ||  scalars.size() != n*32 ||  result.size() != 192)
-         return return_code::failure;
-
-      // Use much efficient scale for the special case of n == 1.
-      if (1 == n) {
-         std::optional<bls12_381::g2> a = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)points.data(), 192), true, mont);
-         if(!a)
-            return return_code::failure;
-         std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>(std::span<uint8_t, 32>((uint8_t*)scalars.data(), 32));
-         bls12_381::g2 c = a->scale(b);
-         c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), mont);
-         return return_code::success;
-      }
-
-      std::vector<bls12_381::g2> pv;
-      std::vector<std::array<uint64_t, 4>> sv;
-      pv.reserve(n);
-      sv.reserve(n);
-      for(uint32_t i = 0; i < n; i++)
-      {
-         std::optional<bls12_381::g2> p = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)points.data() + i*192, 192), true, mont);
-         if(!p)
-            return return_code::failure;
-         std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>(std::span<const uint8_t, 32>((const uint8_t*)scalars.data() + i*32, 32));
-         pv.push_back(*p);
-         sv.push_back(s);
-         if(i%6 == 0)
-            yield();
-      }
-      bls12_381::g2 r = bls12_381::g2::weightedSum(pv, sv, yield); // accessing value is safe
-      r.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), mont);
-      return return_code::success;
-   }
-
-   int32_t bls_pairing_impl(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result, const std::function<void()>& yield, bool mont)
-   {
-      if(g1_points.size() != n*96 ||  g2_points.size() != n*192 ||  result.size() != 576)
-         return return_code::failure;
-      std::vector<std::tuple<bls12_381::g1, bls12_381::g2>> v;
-      v.reserve(n);
-      for(uint32_t i = 0; i < n; i++)
-      {
-         std::optional<bls12_381::g1> p_g1 = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)g1_points.data() + i*96, 96), true, mont);
-         std::optional<bls12_381::g2> p_g2 = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)g2_points.data() + i*192, 192), true, mont);
-         if(!p_g1 || !p_g2)
-            return return_code::failure;
-         bls12_381::pairing::add_pair(v, *p_g1, *p_g2);
-         if(i%4 == 0)
-            yield();
-      }
-      bls12_381::fp12 r = bls12_381::pairing::calculate(v, yield);
-      r.toBytesLE(std::span<uint8_t, 576>((uint8_t*)result.data(), 576), mont);
-      return return_code::success;
-   }
-
-   int32_t bls_g1_map_impl(span<const char> e, span<char> result, bool mont)
-   {
-      if(e.size() != 48 ||  result.size() != 96)
-         return return_code::failure;
-      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)e.data(), 48), true, mont);
-      if(!a)
-         return return_code::failure;
-      bls12_381::g1 c = bls12_381::g1::mapToCurve(*a);
-      c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), mont);
-      return return_code::success;
-   }
-
-   int32_t bls_g2_map_impl(span<const char> e, span<char> result, bool mont)
-   {
-      if(e.size() != 96 ||  result.size() != 192)
-         return return_code::failure;
-      std::optional<bls12_381::fp2> a = bls12_381::fp2::fromBytesLE(std::span<const uint8_t, 96>((const uint8_t*)e.data(), 96), true, mont);
-      if(!a)
-         return return_code::failure;
-      bls12_381::g2 c = bls12_381::g2::mapToCurve(*a);
-      c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), mont);
-      return return_code::success;
-   }
-
-   int32_t bls_fp_mod_impl(span<const char> s, span<char> result, bool mont)
-   {
-      // s is scalar.
-      if(s.size() != 64 ||  result.size() != 48)
-         return return_code::failure;  
-      std::array<uint64_t, 8> k = bls12_381::scalar::fromBytesLE<8>(std::span<const uint8_t, 64>((const uint8_t*)s.data(), 64));
-      bls12_381::fp e = bls12_381::fp::modPrime<8>(k);
-      e.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), mont);
-      return return_code::success;
-   }
-
-   int32_t bls_fp_mul_impl(span<const char> op1, span<const char> op2, span<char> result, bool mont)
-   {
-      if(op1.size() != 48 || op2.size() != 48 || result.size() != 48)
-         return return_code::failure;
-      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)op1.data(), 48), true, mont);
-      std::optional<bls12_381::fp> b = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)op2.data(), 48), true, mont);
-      if(!a || !b)
-         return return_code::failure;
-      bls12_381::fp c = a->multiply(*b);
-      c.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), mont);
-      return return_code::success;
-   }
-
-   int32_t bls_fp_exp_impl(span<const char> base, span<const char> exp, span<char> result, bool mont)
-   {
-      // exp is scalar.
-      if(base.size() != 48 || exp.size() != 64 || result.size() != 48)
-         return return_code::failure;
-      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)base.data(), 48), true, mont);
-      if(!a)
-         return return_code::failure;
-      std::array<uint64_t, 8> b = bls12_381::scalar::fromBytesLE<8>(std::span<const uint8_t, 64>((const uint8_t*)exp.data(), 64));
-      bls12_381::fp c = a->exp<8>(b);
-      c.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), mont);
-      return return_code::success;
-   }
+   
 
 }
 
@@ -440,103 +262,175 @@ namespace eosio { namespace chain { namespace webassembly {
       return return_code::success;
    }
 
-   int32_t interface::bls_g1_add(span<const char> op1, span<const char> op2, span<char> result) const
-   {
-      return bls_g1_add_impl(op1, op2, result, false);
+   int32_t interface::bls_g1_add(span<const char> op1, span<const char> op2, span<char> result) const {
+      if(op1.size() != 96 ||  op2.size() != 96 ||  result.size() != 96)
+         return return_code::failure;
+      std::optional<bls12_381::g1> a = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)op1.data(), 96), true, false);
+      std::optional<bls12_381::g1> b = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)op2.data(), 96), true, false);
+      if(!a || !b)
+         return return_code::failure;
+      bls12_381::g1 c = a->add(*b);
+      c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), false);
+      return return_code::success;
    }
 
-   int32_t interface::bls_g1_add_mont(span<const char> op1, span<const char> op2, span<char> result) const
-   {
-      return bls_g1_add_impl(op1, op2, result, true);
+   int32_t interface::bls_g2_add(span<const char> op1, span<const char> op2, span<char> result) const {
+      if(op1.size() != 192 ||  op2.size() != 192 ||  result.size() != 192)
+         return return_code::failure;
+      std::optional<bls12_381::g2> a = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)op1.data(), 192), true, false);
+      std::optional<bls12_381::g2> b = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)op2.data(), 192), true, false);
+      if(!a || !b)
+         return return_code::failure;
+      bls12_381::g2 c = a->add(*b);
+      c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), false);
+      return return_code::success;
    }
 
-   int32_t interface::bls_g2_add(span<const char> op1, span<const char> op2, span<char> result) const
-   {
-      return bls_g2_add_impl(op1, op2, result, false);
+   int32_t interface::bls_g1_weighted_sum(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const {
+      if(points.size() != n*96 ||  scalars.size() != n*32 ||  result.size() != 96)
+         return return_code::failure;
+
+      // Use much efficient scale for the special case of n == 1.
+      if (1 == n) {
+         std::optional<bls12_381::g1> a = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)points.data(), 96), true, false);
+         if(!a)
+            return return_code::failure;
+         std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>(std::span<uint8_t, 32>((uint8_t*)scalars.data(), 32));
+         bls12_381::g1 c = a->scale(b);
+         c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), false);
+         return return_code::success;
+      }
+
+      std::vector<bls12_381::g1> pv;
+      std::vector<std::array<uint64_t, 4>> sv;
+      pv.reserve(n);
+      sv.reserve(n);
+      for(uint32_t i = 0; i < n; i++)
+      {
+         std::optional<bls12_381::g1> p = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)points.data() + i*96, 96), true, false);
+         if(!p.has_value())
+            return return_code::failure;
+         std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>(std::span<const uint8_t, 32>((const uint8_t*)scalars.data() + i*32, 32));
+         pv.push_back(p.value());
+         sv.push_back(s);
+         if(i%10 == 0)
+            context.trx_context.checktime();
+      }
+      bls12_381::g1 r = bls12_381::g1::weightedSum(pv, sv, [this](){ context.trx_context.checktime();}); // accessing value is safe
+      r.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), false);
+      return return_code::success;
    }
 
-   int32_t interface::bls_g2_add_mont(span<const char> op1, span<const char> op2, span<char> result) const
-   {
-      return bls_g2_add_impl(op1, op2, result, true);
+   int32_t interface::bls_g2_weighted_sum(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const {
+      if(points.size() != n*192 ||  scalars.size() != n*32 ||  result.size() != 192)
+         return return_code::failure;
+
+      // Use much efficient scale for the special case of n == 1.
+      if (1 == n) {
+         std::optional<bls12_381::g2> a = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)points.data(), 192), true, false);
+         if(!a)
+            return return_code::failure;
+         std::array<uint64_t, 4> b = bls12_381::scalar::fromBytesLE<4>(std::span<uint8_t, 32>((uint8_t*)scalars.data(), 32));
+         bls12_381::g2 c = a->scale(b);
+         c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), false);
+         return return_code::success;
+      }
+
+      std::vector<bls12_381::g2> pv;
+      std::vector<std::array<uint64_t, 4>> sv;
+      pv.reserve(n);
+      sv.reserve(n);
+      for(uint32_t i = 0; i < n; i++)
+      {
+         std::optional<bls12_381::g2> p = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)points.data() + i*192, 192), true, false);
+         if(!p)
+            return return_code::failure;
+         std::array<uint64_t, 4> s = bls12_381::scalar::fromBytesLE<4>(std::span<const uint8_t, 32>((const uint8_t*)scalars.data() + i*32, 32));
+         pv.push_back(*p);
+         sv.push_back(s);
+         if(i%6 == 0)
+            context.trx_context.checktime();
+      }
+      bls12_381::g2 r = bls12_381::g2::weightedSum(pv, sv, [this](){ context.trx_context.checktime();}); // accessing value is safe
+      r.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), false);
+      return return_code::success;
    }
 
-   int32_t interface::bls_g1_weighted_sum(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const
-   {
-      return bls_g1_weighted_sum_impl(points, scalars, n, result, [this](){ context.trx_context.checktime(); }, false);
-   }
-   int32_t interface::bls_g1_weighted_sum_mont(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const
-   {
-      return bls_g1_weighted_sum_impl(points, scalars, n, result, [this](){ context.trx_context.checktime(); }, true);
-   }
-
-   int32_t interface::bls_g2_weighted_sum(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const
-   {
-      return bls_g2_weighted_sum_impl(points, scalars, n, result, [this](){ context.trx_context.checktime(); }, false);
-   }
-
-   int32_t interface::bls_g2_weighted_sum_mont(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const
-   {
-      return bls_g2_weighted_sum_impl(points, scalars, n, result, [this](){ context.trx_context.checktime(); }, true);
-   }
-
-   int32_t interface::bls_pairing(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result) const
-   {
-      return bls_pairing_impl(g1_points, g2_points, n, result, [this](){ context.trx_context.checktime(); }, false);
+   int32_t interface::bls_pairing(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result) const {
+      if(g1_points.size() != n*96 ||  g2_points.size() != n*192 ||  result.size() != 576)
+         return return_code::failure;
+      std::vector<std::tuple<bls12_381::g1, bls12_381::g2>> v;
+      v.reserve(n);
+      for(uint32_t i = 0; i < n; i++)
+      {
+         std::optional<bls12_381::g1> p_g1 = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t, 96>((const uint8_t*)g1_points.data() + i*96, 96), true, false);
+         std::optional<bls12_381::g2> p_g2 = bls12_381::g2::fromAffineBytesLE(std::span<const uint8_t, 192>((const uint8_t*)g2_points.data() + i*192, 192), true, false);
+         if(!p_g1 || !p_g2)
+            return return_code::failure;
+         bls12_381::pairing::add_pair(v, *p_g1, *p_g2);
+         if(i%4 == 0)
+            context.trx_context.checktime();
+      }
+      bls12_381::fp12 r = bls12_381::pairing::calculate(v, [this](){ context.trx_context.checktime();});
+      r.toBytesLE(std::span<uint8_t, 576>((uint8_t*)result.data(), 576), false);
+      return return_code::success;
    }
 
-   int32_t interface::bls_pairing_mont(span<const char> g1_points, span<const char> g2_points, const uint32_t n, span<char> result) const
-   {
-      return bls_pairing_impl(g1_points, g2_points, n, result, [this](){ context.trx_context.checktime(); }, true);
+   int32_t interface::bls_g1_map(span<const char> e, span<char> result) const {
+      if(e.size() != 48 ||  result.size() != 96)
+         return return_code::failure;
+      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)e.data(), 48), true, false);
+      if(!a)
+         return return_code::failure;
+      bls12_381::g1 c = bls12_381::g1::mapToCurve(*a);
+      c.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)result.data(), 96), false);
+      return return_code::success;
    }
 
-   int32_t interface::bls_g1_map(span<const char> e, span<char> result) const
-   {
-      return bls_g1_map_impl(e, result, false);
+   int32_t interface::bls_g2_map(span<const char> e, span<char> result) const {
+      if(e.size() != 96 ||  result.size() != 192)
+         return return_code::failure;
+      std::optional<bls12_381::fp2> a = bls12_381::fp2::fromBytesLE(std::span<const uint8_t, 96>((const uint8_t*)e.data(), 96), true, false);
+      if(!a)
+         return return_code::failure;
+      bls12_381::g2 c = bls12_381::g2::mapToCurve(*a);
+      c.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)result.data(), 192), false);
+      return return_code::success;
    }
 
-   int32_t interface::bls_g1_map_mont(span<const char> e, span<char> result) const
-   {
-      return bls_g1_map_impl(e, result, true);
+   int32_t interface::bls_fp_mod(span<const char> s, span<char> result) const {
+      // s is scalar.
+      if(s.size() != 64 ||  result.size() != 48)
+         return return_code::failure;  
+      std::array<uint64_t, 8> k = bls12_381::scalar::fromBytesLE<8>(std::span<const uint8_t, 64>((const uint8_t*)s.data(), 64));
+      bls12_381::fp e = bls12_381::fp::modPrime<8>(k);
+      e.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), false);
+      return return_code::success;
    }
 
-   int32_t interface::bls_g2_map(span<const char> e, span<char> result) const
-   {
-      return bls_g2_map_impl(e, result, false);
+   int32_t interface::bls_fp_mul(span<const char> op1, span<const char> op2, span<char> result) const {
+      if(op1.size() != 48 || op2.size() != 48 || result.size() != 48)
+         return return_code::failure;
+      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)op1.data(), 48), true, false);
+      std::optional<bls12_381::fp> b = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)op2.data(), 48), true, false);
+      if(!a || !b)
+         return return_code::failure;
+      bls12_381::fp c = a->multiply(*b);
+      c.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), false);
+      return return_code::success;
    }
 
-   int32_t interface::bls_g2_map_mont(span<const char> e, span<char> result) const
-   {
-      return bls_g2_map_impl(e, result, true);
+   int32_t interface::bls_fp_exp(span<const char> base, span<const char> exp, span<char> result) const {
+      // exp is scalar.
+      if(base.size() != 48 || exp.size() != 64 || result.size() != 48)
+         return return_code::failure;
+      std::optional<bls12_381::fp> a = bls12_381::fp::fromBytesLE(std::span<const uint8_t, 48>((const uint8_t*)base.data(), 48), true, false);
+      if(!a)
+         return return_code::failure;
+      std::array<uint64_t, 8> b = bls12_381::scalar::fromBytesLE<8>(std::span<const uint8_t, 64>((const uint8_t*)exp.data(), 64));
+      bls12_381::fp c = a->exp<8>(b);
+      c.toBytesLE(std::span<uint8_t, 48>((uint8_t*)result.data(), 48), false);
+      return return_code::success;
    }
-
-   int32_t interface::bls_fp_mod(span<const char> s, span<char> result) const
-   {
-      return bls_fp_mod_impl(s, result, false);
-   }
-
-   int32_t interface::bls_fp_mod_mont(span<const char> s, span<char> result) const
-   {
-      return bls_fp_mod_impl(s, result, true);
-   }
-
-   int32_t interface::bls_fp_mul(span<const char> op1, span<const char> op2, span<char> result) const
-   {
-      return bls_fp_mul_impl(op1, op2, result, false);
-   }
-
-   int32_t interface::bls_fp_mul_mont(span<const char> op1, span<const char> op2, span<char> result) const
-   {
-      return bls_fp_mul_impl(op1, op2, result, true);
-   }
-
-   int32_t interface::bls_fp_exp(span<const char> base, span<const char> exp, span<char> result) const
-   {
-      return bls_fp_exp_impl(base, exp, result, false);
-   }
-
-   int32_t interface::bls_fp_exp_mont(span<const char> base, span<const char> exp, span<char> result) const
-   {
-      return bls_fp_exp_impl(base, exp, result, true);
-   }   
 
 }}} // ns eosio::chain::webassembly

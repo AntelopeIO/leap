@@ -277,17 +277,7 @@ inline constexpr auto get_intrinsic_table() {
       "env.bls_g2_map",
       "env.bls_fp_mod",
       "env.bls_fp_mul",
-      "env.bls_fp_exp",
-      "env.bls_g1_add_mont",
-      "env.bls_g2_add_mont",
-      "env.bls_g1_weighted_sum_mont",
-      "env.bls_g2_weighted_sum_mont",
-      "env.bls_pairing_mont",
-      "env.bls_g1_map_mont",
-      "env.bls_g2_map_mont",
-      "env.bls_fp_mod_mont",
-      "env.bls_fp_mul_mont",
-      "env.bls_fp_exp_mont"
+      "env.bls_fp_exp"
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {
