@@ -3476,12 +3476,12 @@ int main( int argc, char** argv ) {
         // to "set contract" command. It is empty for "set code" and can be
         // empty for "set contract.
         if(!contractPath.empty()) {
-           fc::path cpath = fc::canonical(fc::path(contractPath));
+           std::filesystem::path cpath = std::filesystem::canonical(std::filesystem::path(contractPath));
 
            if( wasmPath.empty() ) {
-              wasmPath = (cpath / (cpath.filename().generic_string()+".wasm")).generic_string();
-           } else if ( boost::filesystem::path(wasmPath).is_relative() ) {
-              wasmPath = (cpath / wasmPath).generic_string();
+              wasmPath = (cpath / std::filesystem::path(cpath.filename().generic_string()+".wasm")).generic_string();
+           } else if ( std::filesystem::path(wasmPath).is_relative() ) {
+              wasmPath = (cpath / std::filesystem::path(wasmPath)).generic_string();
            }
         }
 
@@ -3537,12 +3537,12 @@ int main( int argc, char** argv ) {
         // to "set contract" command. It is empty for "set abi" and can be
         // empty for "set contract.
         if(!contractPath.empty()) {
-           fc::path cpath = fc::canonical(fc::path(contractPath));
+           std::filesystem::path cpath = std::filesystem::canonical(std::filesystem::path(contractPath));
 
            if( abiPath.empty() ) {
-              abiPath = (cpath / (cpath.filename().generic_string()+".abi")).generic_string();
-           } else if ( boost::filesystem::path(abiPath).is_relative() ) {
-              abiPath = (cpath / abiPath).generic_string();
+              abiPath = (cpath / std::filesystem::path(cpath.filename().generic_string()+".abi")).generic_string();
+           } else if ( std::filesystem::path(abiPath).is_relative() ) {
+              abiPath = (cpath / std::filesystem::path(abiPath)).generic_string();
            }
         }
 
