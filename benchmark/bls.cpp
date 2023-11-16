@@ -619,10 +619,7 @@ void bls_benchmarking() {
    benchmark_bls_g1_add();
    benchmark_bls_g1_add_mont();
    benchmark_bls_g2_add();
-<<<<<<< HEAD
    benchmark_bls_g2_add_mont();
-=======
->>>>>>> origin/yarkin/update_bls
    benchmark_bls_pairing_one_pair();
    benchmark_bls_pairing_mont_one_pair();
    benchmark_bls_pairing_three_pair();
