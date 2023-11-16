@@ -162,60 +162,7 @@ void benchmark_bls_g2_add() {
 
    benchmarking("bls_g2_add", benchmarked_func);
 }
-/*
-// bls_g1_mul benchmarking
-void benchmark_bls_g1_mul() {
-   // prepare g1 operand
-   g1 p = random_g1();
-   std::vector<char> buf(96);
-   p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)buf.data(), 96), true);
-   eosio::chain::span<const char> point(buf.data(), buf.size());
 
-   // prepare scalar operand
-   std::array<uint64_t, 4> s = random_scalar();
-   std::vector<char> scalar_buf(32);
-   scalar::toBytesLE(s, std::span<uint8_t, 32>((uint8_t*)scalar_buf.data(), 32));
-   eosio::chain::span<const char> scalar(scalar_buf.data(), scalar_buf.size());
-
-   // prepare result operand
-   std::vector<char> result_buf(96);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
-
-   // set up bls_g1_mul to be benchmarked
-   interface_in_benchmark interface;
-   auto benchmarked_func = [&]() {
-      interface.interface->bls_g1_mul(point, scalar, result);
-   };
-
-   benchmarking("bls_g1_mul", benchmarked_func);
-}
-
-// bls_g2_mul benchmarking
-void benchmark_bls_g2_mul() {
-   g2 p = random_g2();
-   std::vector<char> buf(192);
-   p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)buf.data(), 192), true);
-   eosio::chain::span<const char> point(buf.data(), buf.size());
-
-   // prepare scalar operand
-   std::array<uint64_t, 4> s = random_scalar();
-   std::vector<char> scalar_buf(32);
-   scalar::toBytesLE(s, std::span<uint8_t, 32>((uint8_t*)scalar_buf.data(), 32));
-   eosio::chain::span<const char> scalar(scalar_buf.data(), scalar_buf.size());
-
-   // prepare result operand
-   std::vector<char> result_buf(192);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
-
-   // set up bls_g2_mul to be benchmarked
-   interface_in_benchmark interface;
-   auto benchmarked_func = [&]() {
-      interface.interface->bls_g2_mul(point, scalar, result);
-   };
-
-   benchmarking("bls_g2_mul", benchmarked_func);
-}
-*/
 // bls_g1_weighted_sum benchmarking utility
 void benchmark_bls_g1_weighted_sum(std::string test_name, uint32_t num_points) {
    // prepare g1 points operand
@@ -406,8 +353,6 @@ void benchmark_bls_fp_mod() {
 void bls_benchmarking() {
    benchmark_bls_g1_add();
    benchmark_bls_g2_add();
-   // benchmark_bls_g1_mul();
-   // benchmark_bls_g2_mul();
    benchmark_bls_pairing_one_pair();
    benchmark_bls_pairing_three_pair();
    benchmark_bls_g1_weighted_sum_one_point();
