@@ -148,12 +148,12 @@ bls12_381::g2 random_g2()
 }
 
 // bls_g1_add benchmarking
-void benchmark_bls_g1_add_impl(const std::string& test_name, bool mont) {
+void benchmark_bls_g1_add() {
    // prepare g1 operand in Jacobian LE format
    g1 p = random_g1();
    std::vector<char> buf(96);
-   p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)buf.data(), 96), mont);
-   eosio::chain::span<const char> op1(buf.data(), buf.size());
+   p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)buf.data(), 96), false);
+   eosio::chain::span<const char> op(buf.data(), buf.size());
 
    // prepare result operand
    std::vector<char> result_buf(96);
@@ -161,34 +161,19 @@ void benchmark_bls_g1_add_impl(const std::string& test_name, bool mont) {
 
    // set up bls_g1_add to be benchmarked
    interface_in_benchmark interface;
-   std::function<void()> benchmarked_func {};
-   if (mont) {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g1_add_mont(op1, op1, result);
-      };
-   } else {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g1_add(op1, op1, result);
-      };
-   }
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_g1_add(op, op, result);
+   };
 
-   benchmarking(test_name, benchmarked_func);
-}
-
-void benchmark_bls_g1_add() {
-   benchmark_bls_g1_add_impl("bls_g1_add", false);
-}
-
-void benchmark_bls_g1_add_mont() {
-   benchmark_bls_g1_add_impl("bls_g1_add_mont", true);
+   benchmarking("bls_g1_add", benchmarked_func);
 }
 
 // bls_g2_add benchmarking
-void benchmark_bls_g2_add_impl(const std::string& test_name, bool mont) {
+void benchmark_bls_g2_add() {
    // prepare g2 operand in Jacobian LE format
    g2 p = random_g2();
    std::vector<char> buf(192);
-   p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)buf.data(), 192), mont);
+   p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)buf.data(), 192), false);
    eosio::chain::span<const char> op(buf.data(), buf.size());
 
    // prepare result operand
@@ -197,39 +182,20 @@ void benchmark_bls_g2_add_impl(const std::string& test_name, bool mont) {
 
    // set up bls_g2_add to be benchmarked
    interface_in_benchmark interface;
-   std::function<void()> benchmarked_func {};
-   if (mont) {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g2_add_mont(op, op, result);
-      };
-   } else {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g2_add(op, op, result);
-      };
-   }
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_g2_add(op, op, result);
+   };
 
-<<<<<<< HEAD
-   benchmarking(test_name, benchmarked_func);
-}
-
-void benchmark_bls_g2_add() {
-   benchmark_bls_g2_add_impl("bls_g2_add", false);
-}
-
-void benchmark_bls_g2_add_mont() {
-   benchmark_bls_g2_add_impl("bls_g2_add_mont", true);
-=======
    benchmarking("bls_g2_add", benchmarked_func);
->>>>>>> origin/yarkin/update_bls
 }
 
 // bls_g1_weighted_sum benchmarking utility
-void benchmark_bls_g1_weighted_sum_impl(const std::string& test_name, uint32_t num_points, bool mont) {
+void benchmark_bls_g1_weighted_sum_impl(const std::string& test_name, uint32_t num_points) {
    // prepare g1 points operand
    std::vector<char> g1_buf(96*num_points);
    for (auto i=0u; i < num_points; ++i) {
       g1 p = random_g1();
-      p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), mont);
+      p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), false);
    }
    chain::span<const char> g1_points(g1_buf.data(), g1_buf.size());
 
@@ -247,57 +213,35 @@ void benchmark_bls_g1_weighted_sum_impl(const std::string& test_name, uint32_t n
 
    // set up bls_g1_weighted_sum to be benchmarked
    interface_in_benchmark interface;
-   std::function<void()> benchmarked_func {};
-   if (mont) {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g1_weighted_sum_mont(g1_points, scalars, num_points, result);
-      };
-   } else {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g1_weighted_sum(g1_points, scalars, num_points, result);
-      };
-   }
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_g1_weighted_sum(g1_points, scalars, num_points, result);
+   };
 
    benchmarking(test_name, benchmarked_func);
 }
 
 // bls_g1_weighted_sum benchmarking with 1 input point
 void benchmark_bls_g1_weighted_sum_one_point() {
-   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum 1 point", 1, false);
+   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum 1 point", 1);
 }
 
 // bls_g1_weighted_sum benchmarking with 3 input points
 void benchmark_bls_g1_weighted_sum_three_point() {
-   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum 3 points", 3, false);
+   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum 3 points", 3);
 }
 
 // bls_g1_weighted_sum benchmarking with 5 input points
 void benchmark_bls_g1_weighted_sum_five_point() {
-   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum 5 points", 5, false);
-}
-
-// bls_g1_weighted_sum benchmarking with 1 input point
-void benchmark_bls_g1_weighted_sum_mont_one_point() {
-   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum_mont 1 point", 1, true);
-}
-
-// bls_g1_weighted_sum_mont benchmarking with 3 input points
-void benchmark_bls_g1_weighted_sum_mont_three_point() {
-   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum_mont 3 points", 3, true);
-}
-
-// bls_g1_weighted_sum_mont benchmarking with 5 input points
-void benchmark_bls_g1_weighted_sum_mont_five_point() {
-   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum_mont 5 points", 5, true);
+   benchmark_bls_g1_weighted_sum_impl("bls_g1_weighted_sum 5 points", 5);
 }
 
 // bls_g2_weighted_sum benchmarking utility
-void benchmark_bls_g2_weighted_sum_impl(const std::string& test_name, uint32_t num_points, bool mont) {
+void benchmark_bls_g2_weighted_sum_impl(const std::string& test_name, uint32_t num_points) {
    // prepare g2 points operand
    std::vector<char> g2_buf(192*num_points);
    for (auto i=0u; i < num_points; ++i) {
       g2 p = random_g2();
-      p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)g2_buf.data() + i * 192, 192), mont);
+      p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)g2_buf.data() + i * 192, 192), false);
    }
    eosio::chain::span<const char> g2_points(g2_buf.data(), g2_buf.size());
 
@@ -315,58 +259,36 @@ void benchmark_bls_g2_weighted_sum_impl(const std::string& test_name, uint32_t n
 
    // set up bls_g2_weighted_sum to be benchmarked
    interface_in_benchmark interface;
-   std::function<void()> benchmarked_func {};
-   if (mont) {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g2_weighted_sum_mont(g2_points, scalars, num_points, result);
-      };
-   } else {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g2_weighted_sum(g2_points, scalars, num_points, result);
-      };
-   }
+   auto  benchmarked_func = [&]() {
+      interface.interface->bls_g2_weighted_sum(g2_points, scalars, num_points, result);
+   };
 
    benchmarking(test_name, benchmarked_func);
 }
 
 // bls_g2_weighted_sum benchmarking with 1 input point
 void benchmark_bls_g2_weighted_sum_one_point() {
-   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum 1 point", 1, false);
+   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum 1 point", 1);
 }
 
 // bls_g2_weighted_sum benchmarking with 3 input points
 void benchmark_bls_g2_weighted_sum_three_point() {
-   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum 3 points", 3, false);
+   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum 3 points", 3);
 }
 
 // bls_g2_weighted_sum benchmarking with 5 input points
 void benchmark_bls_g2_weighted_sum_five_point() {
-   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum 5 points", 5, false);
-}
-
-// bls_g2_weighted_sum_mont benchmarking with 1 input point
-void benchmark_bls_g2_weighted_sum_mont_one_point() {
-   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum_mont 1 point", 1, true);
-}
-
-// bls_g2_weighted_sum_mont benchmarking with 3 input points
-void benchmark_bls_g2_weighted_sum_mont_three_point() {
-   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum_mont 3 points", 3, true);
-}
-
-// bls_g2_weighted_sum_mont benchmarking with 5 input points
-void benchmark_bls_g2_weighted_sum_mont_five_point() {
-   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum_mont 5 points", 5, true);
+   benchmark_bls_g2_weighted_sum_impl("bls_g2_weighted_sum 5 points", 5);
 }
 
 // bls_pairing benchmarking utility
-void benchmark_bls_pairing_impl(const std::string& test_name, uint32_t num_pairs, bool mont) {
+void benchmark_bls_pairing_impl(const std::string& test_name, uint32_t num_pairs) {
    // prepare g1 operand
    std::vector<char> g1_buf(96*num_pairs);
    //g1_buf.reserve(96*num_pairs);
    for (auto i=0u; i < num_pairs; ++i) {
       g1 p = random_g1();
-      p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), mont);
+      p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), false);
    }
    eosio::chain::span<const char> g1_points(g1_buf.data(), g1_buf.size());
 
@@ -374,7 +296,7 @@ void benchmark_bls_pairing_impl(const std::string& test_name, uint32_t num_pairs
    std::vector<char> g2_buf(192*num_pairs);
    for (auto i=0u; i < num_pairs; ++i) {
       g2 p2 = random_g2();
-      p2.toAffineBytesLE(std::span<uint8_t, (192)>((uint8_t*)g2_buf.data() + i * 192, (192)), mont);
+      p2.toAffineBytesLE(std::span<uint8_t, (192)>((uint8_t*)g2_buf.data() + i * 192, (192)), false);
    }
    eosio::chain::span<const char> g2_points(g2_buf.data(), g2_buf.size());
 
@@ -384,46 +306,29 @@ void benchmark_bls_pairing_impl(const std::string& test_name, uint32_t num_pairs
 
    // set up bls_pairing to be benchmarked
    interface_in_benchmark interface;
-   std::function<void()> benchmarked_func {};
-   if (mont) {
-      benchmarked_func = [&]() {
-         interface.interface->bls_pairing_mont(g1_points, g2_points, num_pairs, result);
-      };
-   } else {
-      benchmarked_func = [&]() {
-         interface.interface->bls_pairing(g1_points, g2_points, num_pairs, result);
-      };
-   }
+   auto  benchmarked_func = [&]() {
+      interface.interface->bls_pairing(g1_points, g2_points, num_pairs, result);
+   };
 
    benchmarking(test_name, benchmarked_func);
 }
 
 // bls_pairing benchmarking with 1 input pair
 void benchmark_bls_pairing_one_pair() {
-   benchmark_bls_pairing_impl("bls_pairing 1 pair", 1, false);
+   benchmark_bls_pairing_impl("bls_pairing 1 pair", 1);
 }
 
 // bls_pairing benchmarking with 3 input pairs
 void benchmark_bls_pairing_three_pair() {
-   benchmark_bls_pairing_impl("bls_pairing 3 pairs", 3, false);
-}
-
-// bls_pairing_mont benchmarking with 1 input pair
-void benchmark_bls_pairing_mont_one_pair() {
-   benchmark_bls_pairing_impl("bls_pairing_mont 1 pair", 1, true);
-}
-
-// bls_pairing_mont benchmarking with 3 input pairs
-void benchmark_bls_pairing_mont_three_pair() {
-   benchmark_bls_pairing_impl("bls_pairing_mont 3 pairs", 3, true);
+   benchmark_bls_pairing_impl("bls_pairing 3 pairs", 3);
 }
 
 // bls_g1_map benchmarking
-void benchmark_bls_g1_map_impl(const std::string& test_name, bool mont) {
+void benchmark_bls_g1_map() {
    // prepare e operand. Must be fp LE.
    std::vector<char> e_buf(48);
    fp a = random_fe();
-   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)e_buf.data(), 48), mont);
+   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)e_buf.data(), 48), false);
    eosio::chain::span<const char> e(e_buf.data(), e_buf.size());
 
    // prepare result operand
@@ -432,34 +337,19 @@ void benchmark_bls_g1_map_impl(const std::string& test_name, bool mont) {
 
    // set up bls_g1_map to be benchmarked
    interface_in_benchmark interface;
-   std::function<void()> benchmarked_func {};
-   if (mont) {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g1_map_mont(e, result);
-      };
-   } else {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g1_map(e, result);
-      };
-   }
+   auto  benchmarked_func = [&]() {
+      interface.interface->bls_g1_map(e, result);
+   };
 
-   benchmarking(test_name, benchmarked_func);
-}
-
-void benchmark_bls_g1_map() {
-   benchmark_bls_g1_map_impl("bls_g1_map", false);
-}
-
-void benchmark_bls_g1_map_mont() {
-   benchmark_bls_g1_map_impl("bls_g1_map_mont", true);
+   benchmarking("bls_g1_map", benchmarked_func);
 }
 
 // bls_g2_map benchmarking
-void benchmark_bls_g2_map_impl(const std::string& test_name, bool mont) {
+void benchmark_bls_g2_map() {
    // prepare e operand. Must be fp2 LE.
    std::vector<char> e_buf(96);
    fp2 a = random_fe2();
-   a.toBytesLE(std::span<uint8_t, 96>((uint8_t*)e_buf.data(), 96), mont);
+   a.toBytesLE(std::span<uint8_t, 96>((uint8_t*)e_buf.data(), 96), false);
    eosio::chain::span<const char> e(e_buf.data(), e_buf.size());
 
    // prepare result operand
@@ -468,30 +358,15 @@ void benchmark_bls_g2_map_impl(const std::string& test_name, bool mont) {
 
    // set up bls_g2_map to be benchmarked
    interface_in_benchmark interface;
-   std::function<void()> benchmarked_func {};
-   if (mont) {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g2_map_mont(e, result);
-      };
-   } else {
-      benchmarked_func = [&]() {
-         interface.interface->bls_g2_map(e, result);
-      };
-   }
+   auto  benchmarked_func = [&]() {
+      interface.interface->bls_g2_map(e, result);
+   };
 
-   benchmarking(test_name, benchmarked_func);
-}
-
-void benchmark_bls_g2_map() {
-   benchmark_bls_g2_map_impl("bls_g2_map", false);
-}
-
-void benchmark_bls_g2_map_mont() {
-   benchmark_bls_g2_map_impl("bls_g2_map_mont", true);
+   benchmarking("bls_g2_map", benchmarked_func);
 }
 
 // bls_fp_mod benchmarking
-void benchmark_bls_fp_mod_impl(const std::string& test_name, bool mont) {
+void benchmark_bls_fp_mod() {
    // prepare scalar operand
    std::vector<char> scalar_buf(64);
    // random_scalar returns 32 bytes. need to call it twice
@@ -507,74 +382,44 @@ void benchmark_bls_fp_mod_impl(const std::string& test_name, bool mont) {
 
    // set up bls_fp_mod to be benchmarked
    interface_in_benchmark interface;
-   std::function<void()> benchmarked_func {};
-   if (mont) {
-      benchmarked_func = [&]() {
-         interface.interface->bls_fp_mod_mont(scalar, result);
-      };
-   } else {
-      benchmarked_func = [&]() {
-         interface.interface->bls_fp_mod(scalar, result);
-      };
-   }
+   auto  benchmarked_func = [&]() {
+      interface.interface->bls_fp_mod(scalar, result);
+   };
 
-   benchmarking(test_name, benchmarked_func);
+   benchmarking("bls_fp_mod", benchmarked_func);
 }
 
-void benchmark_bls_fp_mod() {
-   benchmark_bls_fp_mod_impl("bls_fp_mod", false);
-}
-
-void benchmark_bls_fp_mod_mont() {
-   benchmark_bls_fp_mod_impl("bls_fp_mod_mont", true);
-}
-
-void benchmark_bls_fp_mul_impl(const std::string& test_name, bool mont) {
+void benchmark_bls_fp_mul() {
    // prepare op1
    std::vector<char> op1_buf(48);
    fp a = random_fe();
-   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op1_buf.data(), 48), mont);
+   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op1_buf.data(), 48), false);
    eosio::chain::span<const char> op1(op1_buf.data(), op1_buf.size());
 
    // prepare op2
    std::vector<char> op2_buf(48);
    fp b = random_fe();
-   b.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op2_buf.data(), 48), mont);
+   b.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op2_buf.data(), 48), false);
    eosio::chain::span<const char> op2(op1_buf.data(), op2_buf.size());
 
    // prepare result operand
    std::vector<char> result_buf(48);
    eosio::chain::span<char> result(result_buf.data(), result_buf.size());
 
-   // set up bls_pairing to be benchmarked
+   // set up bls_fp_mul to be benchmarked
    interface_in_benchmark interface;
-   std::function<void()> benchmarked_func {};
-   if (mont) {
-      benchmarked_func = [&]() {
-         interface.interface->bls_fp_mul_mont(op1, op2, result);
-      };
-   } else {
-      benchmarked_func = [&]() {
-         interface.interface->bls_fp_mul(op1, op2, result);
-      };
-   }
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_fp_mul(op1, op2, result);
+   };
 
-   benchmarking(test_name, benchmarked_func);
+   benchmarking("bls_fp_mul", benchmarked_func);
 }
 
-void benchmark_bls_fp_mul() {
-   benchmark_bls_fp_mul_impl("bls_fp_mul", false);
-}
-
-void benchmark_bls_fp_mul_mont() {
-   benchmark_bls_fp_mul_impl("bls_fp_mul_mont", true);
-}
-
-void benchmark_bls_fp_exp_impl(const std::string& test_name, bool mont) {
+void benchmark_bls_fp_exp() {
    // prepare base
    std::vector<char> base_buf(48);
    fp a = random_fe();
-   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)base_buf.data(), 48), mont);
+   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)base_buf.data(), 48), false);
    eosio::chain::span<const char> base(base_buf.data(), base_buf.size());
 
    // prepare exp operand
@@ -592,59 +437,29 @@ void benchmark_bls_fp_exp_impl(const std::string& test_name, bool mont) {
 
    // set up bls_fp_exp to be benchmarked
    interface_in_benchmark interface;
-   std::function<void()> benchmarked_func {};
-   if (mont) {
-      benchmarked_func = [&]() {
-         interface.interface->bls_fp_exp_mont(base, exp, result);
-      };
-   } else {
-      benchmarked_func = [&]() {
-         interface.interface->bls_fp_exp(base, exp, result);
-      };
-   }
+   auto benchmarked_func = [&]() {
+      interface.interface->bls_fp_exp(base, exp, result);
+   };
 
-   benchmarking(test_name, benchmarked_func);
-}
-
-void benchmark_bls_fp_exp() {
-   benchmark_bls_fp_exp_impl("bls_fp_exp", false);
-}
-
-void benchmark_bls_fp_exp_mont() {
-   benchmark_bls_fp_exp_impl("bls_fp_exp_mont", true);
+   benchmarking("bls_fp_exp", benchmarked_func);
 }
 
 // register benchmarking functions
 void bls_benchmarking() {
    benchmark_bls_g1_add();
-   benchmark_bls_g1_add_mont();
    benchmark_bls_g2_add();
-   benchmark_bls_g2_add_mont();
    benchmark_bls_pairing_one_pair();
-   benchmark_bls_pairing_mont_one_pair();
    benchmark_bls_pairing_three_pair();
-   benchmark_bls_pairing_mont_three_pair();
    benchmark_bls_g1_weighted_sum_one_point();
-   benchmark_bls_g1_weighted_sum_mont_one_point();
    benchmark_bls_g1_weighted_sum_three_point();
-   benchmark_bls_g1_weighted_sum_mont_three_point();
    benchmark_bls_g1_weighted_sum_five_point();
-   benchmark_bls_g1_weighted_sum_mont_five_point();
    benchmark_bls_g2_weighted_sum_one_point();
-   benchmark_bls_g2_weighted_sum_mont_one_point();
    benchmark_bls_g2_weighted_sum_three_point();
-   benchmark_bls_g2_weighted_sum_mont_three_point();
    benchmark_bls_g2_weighted_sum_five_point();
-   benchmark_bls_g2_weighted_sum_mont_five_point();
    benchmark_bls_g1_map();
-   benchmark_bls_g1_map_mont();
    benchmark_bls_g2_map();
-   benchmark_bls_g2_map_mont();
    benchmark_bls_fp_mod();
-   benchmark_bls_fp_mod_mont();
    benchmark_bls_fp_mul();
-   benchmark_bls_fp_mul_mont();
    benchmark_bls_fp_exp();
-   benchmark_bls_fp_exp_mont();
 }
 } // namespace benchmark
