@@ -2,6 +2,7 @@
 
 #include <eosio/eosio.hpp>
 
+using bls_scalar_large = uint8_t[64];
 using bls_scalar = uint8_t[32];
 using bls_fp = uint8_t[48];
 using bls_fp2 = bls_fp[2];
@@ -35,6 +36,12 @@ namespace eosio {
 
             __attribute__((eosio_wasm_import))
             int32_t bls_fp_mod(const char* s, uint32_t s_len, char* res, uint32_t res_len);
+
+            __attribute__((eosio_wasm_import))
+            int32_t bls_fp_mul(const char* op1, uint32_t op1_len, const char* op2, uint32_t op2_len, char* res, uint32_t res_len);
+
+            __attribute__((eosio_wasm_import))
+            int32_t bls_fp_exp(const char* base, uint32_t base_len, const char* exp, uint32_t exp_len, char* res, uint32_t res_len);
         }
     }
 }
@@ -63,4 +70,13 @@ public:
          
    [[eosio::action]]
    void testg2map(const std::vector<uint8_t>& e, const std::vector<uint8_t>& res, int32_t expected_error);
+
+   [[eosio::action]]
+   void testfpmul(const std::vector<uint8_t>& op1, const std::vector<uint8_t>& op2, const std::vector<uint8_t>& res, int32_t expected_error);
+
+   [[eosio::action]]
+   void testfpexp(const std::vector<uint8_t>& base, const std::vector<uint8_t>& exp, const std::vector<uint8_t>& res, int32_t expected_error);
+
+   [[eosio::action]]
+   void testfpmod(const std::vector<uint8_t>& s, const std::vector<uint8_t>& res, int32_t expected_error);
 };

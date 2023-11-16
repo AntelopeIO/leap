@@ -106,3 +106,47 @@ void bls_primitives_test::testg2map(const std::vector<uint8_t>& e, const std::ve
     check(error == expected_error, "bls_g2_map: Error does not match");
     check(0 == std::memcmp(r, res.data(), sizeof(bls_g2)), "bls_g2_map: Result does not match");
 }
+
+void bls_primitives_test::testfpmul(const std::vector<uint8_t>& op1, const std::vector<uint8_t>& op2, const std::vector<uint8_t>& res, int32_t expected_error)
+{
+    bls_fp r;
+    int32_t error = internal_use_do_not_use::bls_fp_mul(
+        reinterpret_cast<const char*>(op1.data()),
+        sizeof(bls_fp),
+        reinterpret_cast<const char*>(op2.data()),
+        sizeof(bls_fp),
+        reinterpret_cast<char*>(r),
+        sizeof(bls_fp)
+    );
+    check(error == expected_error, "bls_fp_mul: Error does not match");
+    check(0 == std::memcmp(r, res.data(), sizeof(bls_fp)), "bls_fp_mul: Result does not match");
+}
+
+void bls_primitives_test::testfpexp(const std::vector<uint8_t>& base, const std::vector<uint8_t>& exp, const std::vector<uint8_t>& res, int32_t expected_error)
+{
+    bls_fp r;
+    int32_t error = internal_use_do_not_use::bls_fp_exp(
+        reinterpret_cast<const char*>(base.data()),
+        sizeof(bls_fp),
+        reinterpret_cast<const char*>(exp.data()),
+        sizeof(bls_scalar_large),
+        reinterpret_cast<char*>(r),
+        sizeof(bls_fp)
+    );
+    check(error == expected_error, "bls_fp_exp: Error does not match");
+    check(0 == std::memcmp(r, res.data(), sizeof(bls_fp)), "bls_fp_exp: Result does not match");
+}
+
+
+void bls_primitives_test::testfpmod(const std::vector<uint8_t>& s, const std::vector<uint8_t>& res, int32_t expected_error)
+{
+    bls_fp r;
+    int32_t error = internal_use_do_not_use::bls_fp_mod(
+        reinterpret_cast<const char*>(s.data()),
+        sizeof(bls_scalar_large),
+        reinterpret_cast<char*>(r),
+        sizeof(bls_fp)
+    );
+    check(error == expected_error, "bls_fp_mod: Error does not match");
+    check(0 == std::memcmp(r, res.data(), sizeof(bls_fp)), "bls_fp_mod: Result does not match");
+}

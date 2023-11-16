@@ -208,6 +208,7 @@ void benchmark_bls_g2_add_impl(const std::string& test_name, bool mont) {
       };
    }
 
+<<<<<<< HEAD
    benchmarking(test_name, benchmarked_func);
 }
 
@@ -217,6 +218,9 @@ void benchmark_bls_g2_add() {
 
 void benchmark_bls_g2_add_mont() {
    benchmark_bls_g2_add_impl("bls_g2_add_mont", true);
+=======
+   benchmarking("bls_g2_add", benchmarked_func);
+>>>>>>> origin/yarkin/update_bls
 }
 
 // bls_g1_weighted_sum benchmarking utility
@@ -615,7 +619,10 @@ void bls_benchmarking() {
    benchmark_bls_g1_add();
    benchmark_bls_g1_add_mont();
    benchmark_bls_g2_add();
+<<<<<<< HEAD
    benchmark_bls_g2_add_mont();
+=======
+>>>>>>> origin/yarkin/update_bls
    benchmark_bls_pairing_one_pair();
    benchmark_bls_pairing_mont_one_pair();
    benchmark_bls_pairing_three_pair();
