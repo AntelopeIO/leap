@@ -776,6 +776,18 @@ try:
     currentBlockNum=node.getHeadBlockNum()
     Print("CurrentBlockNum: %d" % (currentBlockNum))
 
+    # Verify "set code" and "set abi" work
+    Print("Verify set code and set abi work")
+    EOSIO_ACCT_PUBLIC_DEFAULT_KEY = "EOS6MRyAjQq8ud7hVNYcfnVPJqcVpscN5So8BhtHuGYqET5GDW5CV"
+    setCodeAbiAccount = Account("setcodeabi")
+    setCodeAbiAccount.ownerPublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    setCodeAbiAccount.activePublicKey = EOSIO_ACCT_PUBLIC_DEFAULT_KEY
+    cluster.createAccountAndVerify(setCodeAbiAccount, cluster.eosioAccount, buyRAM=100000)
+    wasmFile="unittests/test-contracts/payloadless/payloadless.wasm"
+    abiFile="unittests/test-contracts/payloadless/payloadless.abi"
+    assert(node.setCodeOrAbi(setCodeAbiAccount, "code", wasmFile))
+    assert(node.setCodeOrAbi(setCodeAbiAccount, "abi", abiFile))
+
     testSuccessful=True
 finally:
     TestHelper.shutdown(cluster, walletMgr, testSuccessful, dumpErrorDetails)

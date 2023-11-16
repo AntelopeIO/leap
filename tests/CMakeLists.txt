@@ -43,7 +43,6 @@ configure_file(${CMAKE_CURRENT_SOURCE_DIR}/release-build.sh ${CMAKE_CURRENT_BINA
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/version-label.sh ${CMAKE_CURRENT_BINARY_DIR}/version-label.sh COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/full-version-label.sh ${CMAKE_CURRENT_BINARY_DIR}/full-version-label.sh COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/nodeos_producer_watermark_test.py ${CMAKE_CURRENT_BINARY_DIR}/nodeos_producer_watermark_test.py COPYONLY)
-configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cleos_set_code_test.py ${CMAKE_CURRENT_BINARY_DIR}/cleos_set_code_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/cli_test.py ${CMAKE_CURRENT_BINARY_DIR}/cli_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ship_test.py ${CMAKE_CURRENT_BINARY_DIR}/ship_test.py COPYONLY)
 configure_file(${CMAKE_CURRENT_SOURCE_DIR}/ship_streamer_test.py ${CMAKE_CURRENT_BINARY_DIR}/ship_streamer_test.py COPYONLY)
@@ -239,9 +238,6 @@ set_property(TEST nodeos_high_transaction_lr_test PROPERTY LABELS long_running_t
 add_test(NAME nodeos_retry_transaction_lr_test COMMAND tests/nodeos_retry_transaction_test.py -v --num-transactions 100 --max-transactions-per-second 10 --total-accounts 5 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_retry_transaction_lr_test PROPERTY LABELS long_running_tests)
 
-
-add_test(NAME cleos_set_code_test COMMAND tests/cleos_set_code_test.py -v WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
-set_property(TEST cleos_set_code_test PROPERTY LABELS nonparallelizable_tests)
 add_test(NAME cli_test COMMAND tests/cli_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST cli_test PROPERTY LABELS nonparallelizable_tests)
 
