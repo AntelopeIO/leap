@@ -151,13 +151,11 @@ bls12_381::g2 random_g2()
 void benchmark_bls_g1_add() {
    // prepare g1 operand in Jacobian LE format
    g1 p = random_g1();
-   std::vector<char> buf(96);
-   p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)buf.data(), 96), false);
-   eosio::chain::span<const char> op(buf.data(), buf.size());
+   std::array<char, 96> op;
+   p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)op.data(), 96), false);
 
    // prepare result operand
-   std::vector<char> result_buf(96);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+   std::array<char, 96> result;
 
    // set up bls_g1_add to be benchmarked
    interface_in_benchmark interface;
@@ -172,13 +170,11 @@ void benchmark_bls_g1_add() {
 void benchmark_bls_g2_add() {
    // prepare g2 operand in Jacobian LE format
    g2 p = random_g2();
-   std::vector<char> buf(192);
-   p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)buf.data(), 192), false);
-   eosio::chain::span<const char> op(buf.data(), buf.size());
+   std::array<char, 192> op;
+   p.toAffineBytesLE(std::span<uint8_t, 192>((uint8_t*)op.data(), 192), false);
 
    // prepare result operand
-   std::vector<char> result_buf(192);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+   std::array<char, 192> result;
 
    // set up bls_g2_add to be benchmarked
    interface_in_benchmark interface;
@@ -208,8 +204,7 @@ void benchmark_bls_g1_weighted_sum_impl(const std::string& test_name, uint32_t n
    chain::span<const char> scalars(scalars_buf.data(), scalars_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(96);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+   std::array<char, 96> result;
 
    // set up bls_g1_weighted_sum to be benchmarked
    interface_in_benchmark interface;
@@ -254,8 +249,7 @@ void benchmark_bls_g2_weighted_sum_impl(const std::string& test_name, uint32_t n
    eosio::chain::span<const char> scalars(scalars_buf.data(), scalars_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(192);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+   std::array<char, 192> result;
 
    // set up bls_g2_weighted_sum to be benchmarked
    interface_in_benchmark interface;
@@ -285,7 +279,6 @@ void benchmark_bls_g2_weighted_sum_five_point() {
 void benchmark_bls_pairing_impl(const std::string& test_name, uint32_t num_pairs) {
    // prepare g1 operand
    std::vector<char> g1_buf(96*num_pairs);
-   //g1_buf.reserve(96*num_pairs);
    for (auto i=0u; i < num_pairs; ++i) {
       g1 p = random_g1();
       p.toAffineBytesLE(std::span<uint8_t, 96>((uint8_t*)g1_buf.data() + i * 96, 96), false);
@@ -301,8 +294,7 @@ void benchmark_bls_pairing_impl(const std::string& test_name, uint32_t num_pairs
    eosio::chain::span<const char> g2_points(g2_buf.data(), g2_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(576);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+   std::array<char, 576> result;
 
    // set up bls_pairing to be benchmarked
    interface_in_benchmark interface;
@@ -326,14 +318,12 @@ void benchmark_bls_pairing_three_pair() {
 // bls_g1_map benchmarking
 void benchmark_bls_g1_map() {
    // prepare e operand. Must be fp LE.
-   std::vector<char> e_buf(48);
+   std::array<char, 48> e;
    fp a = random_fe();
-   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)e_buf.data(), 48), false);
-   eosio::chain::span<const char> e(e_buf.data(), e_buf.size());
+   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)e.data(), 48), false);
 
    // prepare result operand
-   std::vector<char> result_buf(96);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+   std::array<char, 96> result;
 
    // set up bls_g1_map to be benchmarked
    interface_in_benchmark interface;
@@ -346,15 +336,12 @@ void benchmark_bls_g1_map() {
 
 // bls_g2_map benchmarking
 void benchmark_bls_g2_map() {
-   // prepare e operand. Must be fp2 LE.
-   std::vector<char> e_buf(96);
+   std::array<char, 96> e;
    fp2 a = random_fe2();
-   a.toBytesLE(std::span<uint8_t, 96>((uint8_t*)e_buf.data(), 96), false);
-   eosio::chain::span<const char> e(e_buf.data(), e_buf.size());
+   a.toBytesLE(std::span<uint8_t, 96>((uint8_t*)e.data(), 96), false);
 
    // prepare result operand
-   std::vector<char> result_buf(192);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+   std::array<char, 192> result;
 
    // set up bls_g2_map to be benchmarked
    interface_in_benchmark interface;
@@ -368,17 +355,15 @@ void benchmark_bls_g2_map() {
 // bls_fp_mod benchmarking
 void benchmark_bls_fp_mod() {
    // prepare scalar operand
-   std::vector<char> scalar_buf(64);
+   std::array<char, 64> scalar;
    // random_scalar returns 32 bytes. need to call it twice
    for (auto i=0u; i < 2; ++i) {
       std::array<uint64_t, 4> s = random_scalar();
-      scalar::toBytesLE(s, std::span<uint8_t, 32>((uint8_t*)scalar_buf.data() + i*32, 32));
+      scalar::toBytesLE(s, std::span<uint8_t, 32>((uint8_t*)scalar.data() + i*32, 32));
    }
-   chain::span<const char> scalar(scalar_buf.data(), scalar_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(48);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+   std::array<char, 48> result;
 
    // set up bls_fp_mod to be benchmarked
    interface_in_benchmark interface;
@@ -391,20 +376,17 @@ void benchmark_bls_fp_mod() {
 
 void benchmark_bls_fp_mul() {
    // prepare op1
-   std::vector<char> op1_buf(48);
+   std::array<char, 48> op1;
    fp a = random_fe();
-   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op1_buf.data(), 48), false);
-   eosio::chain::span<const char> op1(op1_buf.data(), op1_buf.size());
+   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op1.data(), 48), false);
 
    // prepare op2
-   std::vector<char> op2_buf(48);
+   std::array<char, 48> op2;
    fp b = random_fe();
-   b.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op2_buf.data(), 48), false);
-   eosio::chain::span<const char> op2(op1_buf.data(), op2_buf.size());
+   b.toBytesLE(std::span<uint8_t, 48>((uint8_t*)op2.data(), 48), false);
 
    // prepare result operand
-   std::vector<char> result_buf(48);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+   std::array<char, 48> result;
 
    // set up bls_fp_mul to be benchmarked
    interface_in_benchmark interface;
@@ -417,23 +399,20 @@ void benchmark_bls_fp_mul() {
 
 void benchmark_bls_fp_exp() {
    // prepare base
-   std::vector<char> base_buf(48);
+   std::array<char, 48> base;
    fp a = random_fe();
-   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)base_buf.data(), 48), false);
-   eosio::chain::span<const char> base(base_buf.data(), base_buf.size());
+   a.toBytesLE(std::span<uint8_t, 48>((uint8_t*)base.data(), 48), false);
 
    // prepare exp operand
-   std::vector<char> exp_buf(64);
+   std::array<char, 64> exp;
    // random_scalar returns 32 bytes. need to call it twice
    for (auto i=0u; i < 2; ++i) {
       std::array<uint64_t, 4> s = random_scalar();
-      scalar::toBytesLE(s, std::span<uint8_t, 32>((uint8_t*)exp_buf.data() + i*32, 32));
+      scalar::toBytesLE(s, std::span<uint8_t, 32>((uint8_t*)exp.data() + i*32, 32));
    }
-   eosio::chain::span<const char> exp(exp_buf.data(), exp_buf.size());
 
    // prepare result operand
-   std::vector<char> result_buf(48);
-   eosio::chain::span<char> result(result_buf.data(), result_buf.size());
+   std::array<char, 48> result;
 
    // set up bls_fp_exp to be benchmarked
    interface_in_benchmark interface;
