@@ -1713,8 +1713,9 @@ struct controller_impl {
    {
       EOS_ASSERT( !pending, block_validate_exception, "pending block already exists" );
 
-      // can change during start_block, so use same value throughout; although the transition from 0 to >0 cannot happen during start_block
+      // can change during start_block, so use same value throughout
       uint32_t hs_lib = hs_irreversible_block_num.load();
+      const bool hs_active = hs_lib > 0; // the transition from 0 to >0 cannot happen during start_block
 
       emit( self.block_start, head->block_num + 1 );
 
@@ -1733,9 +1734,9 @@ struct controller_impl {
          EOS_ASSERT( db.revision() == head->block_num, database_exception, "db revision is not on par with head block",
                      ("db.revision()", db.revision())("controller_head_block", head->block_num)("fork_db_head_block", fork_db.head()->block_num) );
 
-         pending.emplace( maybe_session(db), *head, when, hs_lib > 0, confirm_block_count, new_protocol_feature_activations );
+         pending.emplace( maybe_session(db), *head, when, hs_active, confirm_block_count, new_protocol_feature_activations );
       } else {
-         pending.emplace( maybe_session(), *head, when, hs_lib > 0, confirm_block_count, new_protocol_feature_activations );
+         pending.emplace( maybe_session(), *head, when, hs_active, confirm_block_count, new_protocol_feature_activations );
       }
 
       pending->_block_status = s;
@@ -1817,7 +1818,7 @@ struct controller_impl {
          const auto& gpo = self.get_global_properties();
 
          if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
-             ( hs_lib > 0 || *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible or hotstuff activated...
+             ( hs_active || *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible or hotstuff activated...
              pbhs.prev_pending_schedule.schedule.producers.size() == 0 // ... and there was room for a new pending schedule prior to any possible promotion
          )
          {
@@ -1830,7 +1831,7 @@ struct controller_impl {
             if( !replaying ) {
                ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
                      ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
-                     ("lib", hs_lib > 0 ? hs_lib : pbhs.dpos_irreversible_blocknum)
+                     ("lib", hs_active ? hs_lib : pbhs.dpos_irreversible_blocknum)
                      ("schedule", std::get<building_block>(pending->_block_stage)._new_pending_producer_schedule ) );
             }
 
