@@ -208,6 +208,20 @@ class Transactions(NodeosQueries):
 
         return trans
 
+    # set code or abi and return True for success and False for failure
+    def setCodeOrAbi(self, account, setType, setFile):
+        cmd=f"{Utils.EosClientPath} {self.eosClientArgs()} -v set {setType} -j {account.name} {setFile} "
+        if Utils.Debug: Utils.Print("cmd: %s" % (cmd))
+        try:
+            trans=Utils.runCmdReturnJson(cmd, trace=False)
+            self.trackCmdTransaction(trans)
+        except subprocess.CalledProcessError as ex:
+            msg=ex.stderr.decode("utf-8")
+            Utils.Print("ERROR: Exception during set %s. stderr: %s." % (setType, msg))
+            return False
+
+        return True
+
     # returns tuple with indication if transaction was successfully sent and either the transaction or else the exception output
     def pushTransaction(self, trans, opts="", silentErrors=False, permissions=None):
         assert(isinstance(trans, dict))
