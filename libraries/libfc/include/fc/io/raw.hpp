@@ -36,7 +36,7 @@ namespace fc {
     template<typename Stream, typename T> void unpack( Stream& s,  boost::multiprecision::number<T>& n );
 
     template<typename Stream, typename Arg0, typename... Args>
-    inline void pack( Stream& s, const Arg0& a0, Args... args ) {
+    inline void pack( Stream& s, const Arg0& a0, const Args&... args ) {
        pack( s, a0 );
        pack( s, args... );
     }
@@ -243,7 +243,12 @@ namespace fc {
        FC_ASSERT( vi == tmp );
     }
 
-    template<typename Stream> inline void pack( Stream& s, const char* v ) { fc::raw::pack( s, std::string(v) ); }
+    template<typename Stream> inline void pack( Stream& s, const char* v ) {
+       size_t sz = std::strlen(v);
+       FC_ASSERT( sz <= MAX_SIZE_OF_BYTE_ARRAYS );
+       fc::raw::pack( s, unsigned_int(sz));
+       if( sz ) s.write( v, sz );
+    }
 
     template<typename Stream, typename T>
     void pack( Stream& s, const safe<T>& v ) { fc::raw::pack( s, v.value ); }
@@ -442,6 +447,11 @@ namespace fc {
       }
     }
 
+    template<typename Stream, typename... Ts >
+    inline void pack( Stream& s, const std::tuple<Ts...>& tup ) {
+       auto l = [&s](const auto& v) { fc::raw::pack( s, v ); };
+       std::apply(l, tup);
+    }
 
     template<typename Stream, typename K, typename V>
     inline void pack( Stream& s, const std::pair<K,V>& value ) {
