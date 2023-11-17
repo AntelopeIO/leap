@@ -48,6 +48,10 @@ using signer_callback_type = std::function<std::vector<signature_type>(const dig
 
 struct block_header_state;
 
+// totem for dpos_irreversible_blocknum after hotstuff is activated
+// This value implicitly means that fork_database will prefer hotstuff blocks over dpos blocks
+constexpr uint32_t hs_dpos_irreversible_blocknum = std::numeric_limits<uint32_t>::max();
+
 namespace detail {
    struct block_header_state_common {
       uint32_t                          block_num = 0;
@@ -63,7 +67,10 @@ namespace detail {
    };
 
    struct schedule_info {
-      uint32_t                          schedule_lib_num = 0; /// last irr block num
+      // schedule_lib_num is compared with dpos lib, but the value is actually current block at time of pending
+      // After hotstuff is activated, schedule_lib_num is compared to next().next() round for determination of
+      // changing from pending to active.
+      uint32_t                          schedule_lib_num = 0; /// block_num of pending
       digest_type                       schedule_hash;
       producer_authority_schedule       schedule;
    };
@@ -115,6 +122,33 @@ protected:
 
 /**
  *  @struct block_header_state
+ *
+ *  Algorithm for producer schedule change (pre-hostuff)
+ *     privileged contract -> set_proposed_producers(producers) ->
+ *        global_property_object.proposed_schedule_block_num = current_block_num
+ *        global_property_object.proposed_schedule           = producers
+ *
+ *     start_block -> (global_property_object.proposed_schedule_block_num == dpos_lib)
+ *        building_block._new_pending_producer_schedule = producers
+ *
+ *     finalize_block ->
+ *        block_header.extensions.wtmsig_block_signatures = producers
+ *        block_header.new_producers                      = producers
+ *
+ *     create_block_state ->
+ *        block_state.schedule_lib_num          = current_block_num (note this should be named schedule_block_num)
+ *        block_state.pending_schedule.schedule = producers
+ *
+ *     start_block ->
+ *        block_state.prev_pending_schedule = pending_schedule (producers)
+ *        if (pending_schedule.schedule_lib_num == dpos_lib)
+ *           block_state.active_schedule = pending_schedule
+ *           block_state.was_pending_promoted = true
+ *           block_state.pending_schedule.clear() // doesn't get copied from previous
+ *        else
+ *           block_state.pending_schedule = prev_pending_schedule
+ *
+ *
  *  @brief defines the minimum state necessary to validate transaction headers
  */
 struct block_header_state : public detail::block_header_state_common {
@@ -136,11 +170,12 @@ struct block_header_state : public detail::block_header_state_common {
 
    explicit block_header_state( legacy::snapshot_block_header_state_v2&& snapshot );
 
-   pending_block_header_state  next( block_timestamp_type when, uint16_t num_prev_blocks_to_confirm )const;
+   pending_block_header_state  next( block_timestamp_type when, bool hotstuff_activated, uint16_t num_prev_blocks_to_confirm )const;
 
    block_header_state   next( const signed_block_header& h,
                               vector<signature_type>&& additional_signatures,
                               const protocol_feature_set& pfs,
+                              bool hotstuff_activated,
                               const std::function<void( block_timestamp_type,
                                                         const flat_set<digest_type>&,
                                                         const vector<digest_type>& )>& validator,

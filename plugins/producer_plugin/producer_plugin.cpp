@@ -739,18 +739,16 @@ public:
 
       if (now - block->timestamp < fc::minutes(5) || (blk_num % 1000 == 0)) {
          ilog("Received block ${id}... #${n} @ ${t} signed by ${p} "
-              "[trxs: ${count}, lib: ${lib}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: "
-              "${latency} ms]",
+              "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
               ("p", block->producer)("id", id.str().substr(8, 16))("n", blk_num)("t", block->timestamp)
               ("count", block->transactions.size())("lib", chain.last_irreversible_block_num())
-              ("confs", block->confirmed)("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
+              ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)
               ("elapsed", br.total_elapsed_time)("time", br.total_time)("latency", (now - block->timestamp).count() / 1000));
          if (chain.get_read_mode() != db_read_mode::IRREVERSIBLE && hbs->id != id && hbs->block != nullptr) { // not applied to head
             ilog("Block not applied to head ${id}... #${n} @ ${t} signed by ${p} "
-                 "[trxs: ${count}, dpos: ${dpos}, confirmed: ${confs}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, "
-                 "latency: ${latency} ms]",
+                 "[trxs: ${count}, lib: ${lib}, net: ${net}, cpu: ${cpu}, elapsed: ${elapsed}, time: ${time}, latency: ${latency} ms]",
                  ("p", hbs->block->producer)("id", hbs->id.str().substr(8, 16))("n", hbs->block_num)("t", hbs->block->timestamp)
-                 ("count", hbs->block->transactions.size())("dpos", hbs->dpos_irreversible_blocknum)("confs", hbs->block->confirmed)
+                 ("count", hbs->block->transactions.size())("lib", chain.last_irreversible_block_num())
                  ("net", br.total_net_usage)("cpu", br.total_cpu_usage_us)("elapsed", br.total_elapsed_time)("time", br.total_time)
                  ("latency", (now - hbs->block->timestamp).count() / 1000));
          }
@@ -1871,11 +1869,11 @@ producer_plugin_impl::start_block_result producer_plugin_impl::start_block() {
    try {
       uint16_t blocks_to_confirm = 0;
 
-      if (in_producing_mode()) {
+      if (in_producing_mode() && hbs->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum) { // only if hotstuff not enabled
          // determine how many blocks this producer can confirm
          // 1) if it is not a producer from this node, assume no confirmations (we will discard this block anyway)
          // 2) if it is a producer on this node that has never produced, the conservative approach is to assume no
-         //    confirmations to make sure we don't double sign after a crash TODO: make these watermarks durable?
+         //    confirmations to make sure we don't double sign after a crash
          // 3) if it is a producer on this node where this node knows the last block it produced, safely set it -UNLESS-
          // 4) the producer on this node's last watermark is higher (meaning on a different fork)
          if (current_watermark) {

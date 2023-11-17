@@ -117,9 +117,10 @@ class maybe_session {
 struct building_block {
    building_block( const block_header_state& prev,
                    block_timestamp_type when,
+                   bool hotstuff_activated,
                    uint16_t num_prev_blocks_to_confirm,
                    const vector<digest_type>& new_protocol_feature_activations )
-   :_pending_block_header_state( prev.next( when, num_prev_blocks_to_confirm ) )
+   :_pending_block_header_state( prev.next( when, hotstuff_activated, num_prev_blocks_to_confirm ) )
    ,_new_protocol_feature_activations( new_protocol_feature_activations )
    ,_trx_mroot_or_receipt_digests( digests_t{} )
    {}
@@ -153,10 +154,11 @@ using block_stage_type = std::variant<building_block, assembled_block, completed
 struct pending_state {
    pending_state( maybe_session&& s, const block_header_state& prev,
                   block_timestamp_type when,
+                  bool hotstuff_activated,
                   uint16_t num_prev_blocks_to_confirm,
                   const vector<digest_type>& new_protocol_feature_activations )
    :_db_session( std::move(s) )
-   ,_block_stage( building_block( prev, when, num_prev_blocks_to_confirm, new_protocol_feature_activations ) )
+   ,_block_stage( building_block( prev, when, hotstuff_activated, num_prev_blocks_to_confirm, new_protocol_feature_activations ) )
    {}
 
    maybe_session                      _db_session;
@@ -236,6 +238,7 @@ struct controller_impl {
    std::optional<pending_state>    pending;
    block_state_ptr                 head;
    fork_database                   fork_db;
+   std::atomic<uint32_t>           hs_irreversible_block_num{0};
    resource_limits_manager         resource_limits;
    subjective_billing              subjective_bill;
    authorization_manager           authorization;
@@ -433,11 +436,13 @@ struct controller_impl {
       }
 
       const auto fork_head = fork_db_head();
+      const uint32_t hs_lib = hs_irreversible_block_num;
+      const uint32_t new_lib = hs_lib > 0 ? hs_lib : fork_head->dpos_irreversible_blocknum;
 
-      if( fork_head->dpos_irreversible_blocknum <= lib_num )
+      if( new_lib <= lib_num )
          return;
 
-      auto branch = fork_db.fetch_branch( fork_head->id, fork_head->dpos_irreversible_blocknum );
+      auto branch = fork_db.fetch_branch( fork_head->id, new_lib );
       try {
 
          std::vector<std::future<std::vector<char>>> v;
@@ -470,7 +475,7 @@ struct controller_impl {
          throw;
       }
 
-      //db.commit( fork_head->dpos_irreversible_blocknum ); // redundant
+      //db.commit( new_lib ); // redundant
 
       if( root_id != fork_db.root()->id ) {
          branch.emplace_back(fork_db.root());
@@ -1708,6 +1713,10 @@ struct controller_impl {
    {
       EOS_ASSERT( !pending, block_validate_exception, "pending block already exists" );
 
+      // can change during start_block, so use same value throughout
+      uint32_t hs_lib = hs_irreversible_block_num.load();
+      const bool hs_active = hs_lib > 0; // the transition from 0 to >0 cannot happen during start_block
+
       emit( self.block_start, head->block_num + 1 );
 
       // at block level, no transaction specific logging is possible
@@ -1725,9 +1734,9 @@ struct controller_impl {
          EOS_ASSERT( db.revision() == head->block_num, database_exception, "db revision is not on par with head block",
                      ("db.revision()", db.revision())("controller_head_block", head->block_num)("fork_db_head_block", fork_db.head()->block_num) );
 
-         pending.emplace( maybe_session(db), *head, when, confirm_block_count, new_protocol_feature_activations );
+         pending.emplace( maybe_session(db), *head, when, hs_active, confirm_block_count, new_protocol_feature_activations );
       } else {
-         pending.emplace( maybe_session(), *head, when, confirm_block_count, new_protocol_feature_activations );
+         pending.emplace( maybe_session(), *head, when, hs_active, confirm_block_count, new_protocol_feature_activations );
       }
 
       pending->_block_status = s;
@@ -1809,22 +1818,23 @@ struct controller_impl {
          const auto& gpo = self.get_global_properties();
 
          if( gpo.proposed_schedule_block_num && // if there is a proposed schedule that was proposed in a block ...
-             ( *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible ...
+             ( hs_active || *gpo.proposed_schedule_block_num <= pbhs.dpos_irreversible_blocknum ) && // ... that has now become irreversible or hotstuff activated...
              pbhs.prev_pending_schedule.schedule.producers.size() == 0 // ... and there was room for a new pending schedule prior to any possible promotion
          )
          {
-            // Promote proposed schedule to pending schedule.
-            if( !replaying ) {
-               ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
-                     ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
-                     ("lib", pbhs.dpos_irreversible_blocknum)
-                     ("schedule", producer_authority_schedule::from_shared(gpo.proposed_schedule) ) );
-            }
-
+            // Promote proposed schedule to pending schedule; happens in next block after hotstuff activated
             EOS_ASSERT( gpo.proposed_schedule.version == pbhs.active_schedule_version + 1,
                         producer_schedule_exception, "wrong producer schedule version specified" );
 
             std::get<building_block>(pending->_block_stage)._new_pending_producer_schedule = producer_authority_schedule::from_shared(gpo.proposed_schedule);
+
+            if( !replaying ) {
+               ilog( "promoting proposed schedule (set in block ${proposed_num}) to pending; current block: ${n} lib: ${lib} schedule: ${schedule} ",
+                     ("proposed_num", *gpo.proposed_schedule_block_num)("n", pbhs.block_num)
+                     ("lib", hs_active ? hs_lib : pbhs.dpos_irreversible_blocknum)
+                     ("schedule", std::get<building_block>(pending->_block_stage)._new_pending_producer_schedule ) );
+            }
+
             db.modify( gpo, [&]( auto& gp ) {
                gp.proposed_schedule_block_num = std::optional<block_num_type>();
                gp.proposed_schedule.version=0;
@@ -2221,6 +2231,7 @@ struct controller_impl {
             prev,
             b,
             protocol_features.get_protocol_feature_set(),
+            b->confirmed == hs_block_confirmed, // is hotstuff enabled for block
             [this]( block_timestamp_type timestamp,
                     const flat_set<digest_type>& cur_features,
                     const vector<digest_type>& new_features )
@@ -2327,6 +2338,7 @@ struct controller_impl {
                         *head,
                         b,
                         protocol_features.get_protocol_feature_set(),
+                        b->confirmed == hs_block_confirmed, // is hotstuff enabled for block
                         [this]( block_timestamp_type timestamp,
                                 const flat_set<digest_type>& cur_features,
                                 const vector<digest_type>& new_features )
@@ -3170,6 +3182,12 @@ const block_signing_authority& controller::pending_block_signing_authority()cons
 std::optional<block_id_type> controller::pending_producer_block_id()const {
    EOS_ASSERT( my->pending, block_validate_exception, "no pending block" );
    return my->pending->_producer_block_id;
+}
+
+void controller::set_hs_irreversible_block_num(uint32_t block_num) {
+   // needs to be set by qc_chain at startup and as irreversible changes
+   assert(block_num > 0);
+   my->hs_irreversible_block_num = block_num;
 }
 
 uint32_t controller::last_irreversible_block_num() const {
