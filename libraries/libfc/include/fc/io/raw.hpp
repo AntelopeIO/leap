@@ -449,7 +449,12 @@ namespace fc {
 
     template<typename Stream, typename... Ts >
     inline void pack( Stream& s, const std::tuple<Ts...>& tup ) {
-       auto l = [&s](const auto& v) { fc::raw::pack( s, v ); };
+       auto l = [&s](const auto&... v) { fc::raw::pack( s, v... ); };
+       std::apply(l, tup);
+    }
+    template<typename Stream, typename... Ts >
+    inline void unpack( Stream& s, std::tuple<Ts...>& tup ) {
+       auto l = [&s](auto&... v) { (fc::raw::unpack( s, v ), ...); };
        std::apply(l, tup);
     }
 
