@@ -40,6 +40,11 @@ namespace fc {
        pack( s, a0 );
        pack( s, args... );
     }
+    template<typename Stream, typename Arg0, typename... Args>
+    inline void unpack( Stream& s, Arg0& a0, Args&... args ) {
+       unpack( s, a0 );
+       unpack( s, args... );
+    }
 
     template<typename Stream>
     inline void pack( Stream& s, const fc::exception& e )
@@ -454,7 +459,7 @@ namespace fc {
     }
     template<typename Stream, typename... Ts >
     inline void unpack( Stream& s, std::tuple<Ts...>& tup ) {
-       auto l = [&s](auto&... v) { (fc::raw::unpack( s, v ), ...); };
+       auto l = [&s](auto&... v) { fc::raw::unpack( s, v... ); };
        std::apply(l, tup);
     }
 
