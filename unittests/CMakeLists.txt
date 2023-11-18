@@ -85,7 +85,7 @@ target_include_directories( unit_test PUBLIC
                             ${CMAKE_SOURCE_DIR}/plugins/chain_interface/include)
 
 ### MARK TEST SUITES FOR EXECUTION ###
-add_test(NAME protocol_feature_digest_unit_test COMMAND unit_test --run_test=protocol_feature_digest_tests --report_level=detailed --color_output --catch_system_errors=no)
+add_test(NAME protocol_feature_digest_unit_test COMMAND unit_test --run_test=protocol_feature_digest_tests --report_level=detailed --color_output)
 set(ctest_tests "protocol_feature_digest_tests")
 foreach(TEST_SUITE ${UNIT_TESTS}) # create an independent target for each test suite
   execute_process(COMMAND sh -c "grep -E 'BOOST_AUTO_TEST_SUITE\\s*[(]' '${TEST_SUITE}' | grep -vE '//.*BOOST_AUTO_TEST_SUITE\\s*[(]' | cut -d ')' -f 1 | cut -d '(' -f 2" OUTPUT_VARIABLE SUITE_NAME OUTPUT_STRIP_TRAILING_WHITESPACE) # get the test suite name from the *.cpp file
@@ -93,7 +93,7 @@ foreach(TEST_SUITE ${UNIT_TESTS}) # create an independent target for each test s
     execute_process(COMMAND sh -c "echo ${SUITE_NAME} | sed -e 's/s$//' | sed -e 's/_test$//'" OUTPUT_VARIABLE TRIMMED_SUITE_NAME OUTPUT_STRIP_TRAILING_WHITESPACE) # trim "_test" or "_tests" from the end of ${SUITE_NAME}
     # to run unit_test with all log from blockchain displayed, put "--verbose" after "--", i.e. "unit_test -- --verbose"
     foreach(RUNTIME ${EOSIO_WASM_RUNTIMES})
-      add_test(NAME ${TRIMMED_SUITE_NAME}_unit_test_${RUNTIME} COMMAND unit_test --run_test=${SUITE_NAME} --report_level=detailed --color_output --catch_system_errors=no -- --${RUNTIME})
+      add_test(NAME ${TRIMMED_SUITE_NAME}_unit_test_${RUNTIME} COMMAND unit_test --run_test=${SUITE_NAME} --report_level=detailed --color_output -- --${RUNTIME})
       # build list of tests to run during coverage testing
       if(ctest_tests)
          string(APPEND ctest_tests "|")

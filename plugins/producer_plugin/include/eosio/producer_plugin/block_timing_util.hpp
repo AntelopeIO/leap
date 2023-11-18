@@ -55,16 +55,7 @@ namespace block_timing_util {
    }
 
    inline fc::time_point calculate_producing_block_deadline(fc::microseconds cpu_effort, chain::block_timestamp_type block_time) {
-      auto estimated_deadline = production_round_block_start_time(cpu_effort, block_time) + cpu_effort;
-      auto now                = fc::time_point::now();
-      if (estimated_deadline > now) {
-         return estimated_deadline;
-      } else {
-         // This could only happen when the producer stop producing and then comes back alive in the middle of its own
-         // production round. In this case, we just use the hard deadline.
-         const auto hard_deadline = block_time.to_time_point() - fc::microseconds(chain::config::block_interval_us - cpu_effort.count());
-         return std::min(hard_deadline, now + cpu_effort);
-      }
+      return production_round_block_start_time(cpu_effort, block_time) + cpu_effort;
    }
 
    namespace detail {

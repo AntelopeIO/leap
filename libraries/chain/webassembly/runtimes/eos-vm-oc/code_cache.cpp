@@ -126,7 +126,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(bool high
             _outstanding_compiles_and_poison.emplace(*nextup, false);
             std::vector<wrapped_fd> fds_to_pass;
             fds_to_pass.emplace_back(memfd_for_bytearray(codeobject->code));
-            FC_ASSERT(write_message_with_fds(_compile_monitor_write_socket, compile_wasm_message{ *nextup }, fds_to_pass), "EOS VM failed to communicate to OOP manager");
+            FC_ASSERT(write_message_with_fds(_compile_monitor_write_socket, compile_wasm_message{ *nextup, _eosvmoc_config }, fds_to_pass), "EOS VM failed to communicate to OOP manager");
             --count_processed;
          }
          _queued_compiles.erase(nextup);
@@ -179,7 +179,7 @@ const code_descriptor* const code_cache_async::get_descriptor_for_code(bool high
    _outstanding_compiles_and_poison.emplace(ct, false);
    std::vector<wrapped_fd> fds_to_pass;
    fds_to_pass.emplace_back(memfd_for_bytearray(codeobject->code));
-   write_message_with_fds(_compile_monitor_write_socket, compile_wasm_message{ ct }, fds_to_pass);
+   write_message_with_fds(_compile_monitor_write_socket, compile_wasm_message{ ct, _eosvmoc_config }, fds_to_pass);
    failure = get_cd_failure::temporary; // Compile might not be done yet
    return nullptr;
 }
@@ -211,7 +211,7 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
    std::vector<wrapped_fd> fds_to_pass;
    fds_to_pass.emplace_back(memfd_for_bytearray(codeobject->code));
 
-   write_message_with_fds(_compile_monitor_write_socket, compile_wasm_message{ {code_id, vm_version} }, fds_to_pass);
+   write_message_with_fds(_compile_monitor_write_socket, compile_wasm_message{ {code_id, vm_version}, _eosvmoc_config }, fds_to_pass);
    auto [success, message, fds] = read_message_with_fds(_compile_monitor_read_socket);
    EOS_ASSERT(success, wasm_execution_error, "failed to read response from monitor process");
    EOS_ASSERT(std::holds_alternative<wasm_compilation_result_message>(message), wasm_execution_error, "unexpected response from monitor process");
@@ -226,6 +226,7 @@ const code_descriptor* const code_cache_sync::get_descriptor_for_code_sync(const
 
 code_cache_base::code_cache_base(const std::filesystem::path& data_dir, const eosvmoc::config& eosvmoc_config, const chainbase::database& db) :
    _db(db),
+   _eosvmoc_config(eosvmoc_config),
    _cache_file_path(data_dir/"code_cache.bin") {
    static_assert(sizeof(allocator_t) <= header_offset, "header offset intersects with allocator");
 

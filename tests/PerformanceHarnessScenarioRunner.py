@@ -82,7 +82,6 @@ def main():
                                             quiet=args.quiet,
                                             logDirRoot=Path("."),
                                             skipTpsTests=args.skip_tps_test,
-                                            calcProducerThreads=args.calc_producer_threads,
                                             calcChainThreads=args.calc_chain_threads,
                                             calcNetThreads=args.calc_net_threads,
                                             userTrxDataFile=Path(args.user_trx_data_file) if args.user_trx_data_file is not None else None,

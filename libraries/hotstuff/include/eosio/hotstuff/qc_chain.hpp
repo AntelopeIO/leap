@@ -142,6 +142,12 @@ namespace eosio::hotstuff {
       bool                                quorum_met = false; // not serialized across network
    };
 
+   struct seen_votes {
+      fc::sha256                                     proposal_id; // id of proposal being voted on
+      uint64_t                                       height;      // height of the proposal (for GC)
+      std::set<fc::crypto::blslib::bls_public_key>   finalizers;  // finalizers that have voted on the proposal
+   };
+
    // Concurrency note: qc_chain is a single-threaded and lock-free decision engine.
    //                   All thread synchronization, if any, is external.
    class qc_chain {
@@ -168,6 +174,10 @@ namespace eosio::hotstuff {
       void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg);
       void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg);
       void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg);
+
+      // NOTE: The hotstuff New Block message is not ever propagated (multi-hop) by this method.
+      //       Unit tests do not use network topology emulation for this message.
+      //       The live network does not actually dispatch this message to the wire; this is a local callback.
       void on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg);
 
    private:
@@ -292,6 +302,27 @@ namespace eosio::hotstuff {
 
       proposal_store_type _proposal_store;  //internal proposals store
 #endif
+
+      // Possible optimization: merge _proposal_store and _seen_votes_store.
+      // Store a struct { set<name> seen_votes; hs_proposal_message p; } in the (now single) multi-index.
+      struct by_seen_votes_proposal_id{};
+      struct by_seen_votes_proposal_height{};
+      typedef multi_index_container<
+         seen_votes,
+         indexed_by<
+            hashed_unique<
+               tag<by_seen_votes_proposal_id>,
+               BOOST_MULTI_INDEX_MEMBER(seen_votes,fc::sha256,proposal_id)
+               >,
+            ordered_non_unique<
+               tag<by_seen_votes_proposal_height>,
+               BOOST_MULTI_INDEX_MEMBER(seen_votes,uint64_t,height)
+               >
+            >
+         > seen_votes_store_type;
+
+      // given a height, store a map of proposal IDs at that height and the seen votes for it
+      seen_votes_store_type _seen_votes_store;
    };
 
 } /// eosio::hotstuff

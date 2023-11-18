@@ -73,15 +73,31 @@ namespace eosio::testing {
    }
 
    void p2p_connection::disconnect() {
-      ilog("Closing socket.");
-      _p2p_socket.close();
-      ilog("Socket closed.");
+      int max    = 30;
+      int waited = 0;
+      for (uint64_t sent = _sent.load(), sent_callback_num = _sent_callback_num.load();
+           sent != sent_callback_num && waited < max;
+           sent = _sent.load(), sent_callback_num = _sent_callback_num.load()) {
+         ilog("disconnect waiting on ack - sent ${s} | acked ${a} | waited ${w}",
+              ("s", sent)("a", sent_callback_num)("w", waited));
+         sleep(1);
+         ++waited;
+      }
+      if (waited == max) {
+         elog("disconnect failed to receive all acks in time - sent ${s} | acked ${a} | waited ${w}",
+              ("s", _sent.load())("a", _sent_callback_num.load())("w", waited));
+      }
    }
 
    void p2p_connection::send_transaction(const chain::packed_transaction& trx) {
       send_buffer_type msg = create_send_buffer(trx);
-      _p2p_socket.send(boost::asio::buffer(*msg));
-      trx_acknowledged(trx.id(), fc::time_point::min()); //using min to identify ack time as not applicable for p2p
+
+      ++_sent;
+      _strand.post( [this, msg{std::move(msg)}, id{trx.id()}]() {
+         boost::asio::write(_p2p_socket, boost::asio::buffer(*msg));
+         trx_acknowledged(id, fc::time_point::min()); //using min to identify ack time as not applicable for p2p
+         ++_sent_callback_num;
+      } );
    }
 
    acked_trx_trace_info p2p_connection::get_acked_trx_trace_info(const eosio::chain::transaction_id_type& trx_id) {
@@ -93,15 +109,20 @@ namespace eosio::testing {
    void http_connection::disconnect() {
       int max    = 30;
       int waited = 0;
-      while (_sent.load() != _acknowledged.load() && waited < max) {
-         ilog("http_connection::disconnect waiting on ack - sent ${s} | acked ${a} | waited ${w}",
-              ("s", _sent.load())("a", _acknowledged.load())("w", waited));
+      for (uint64_t sent = _sent.load(), acknowledged = _acknowledged.load();
+           sent != acknowledged && waited < max;
+           sent = _sent.load(), acknowledged = _acknowledged.load()) {
+         ilog("disconnect waiting on ack - sent ${s} | acked ${a} | waited ${w}",
+              ("s", sent)("a", acknowledged)("w", waited));
          sleep(1);
          ++waited;
       }
       if (waited == max) {
-         elog("http_connection::disconnect failed to receive all acks in time - sent ${s} | acked ${a} | waited ${w}",
+         elog("disconnect failed to receive all acks in time - sent ${s} | acked ${a} | waited ${w}",
                ("s", _sent.load())("a", _acknowledged.load())("w", waited));
+      }
+      if (_errors.load()) {
+         elog("${n} errors reported during http calls, see logs", ("n", _errors.load()));
       }
    }
 
@@ -135,10 +156,17 @@ namespace eosio::testing {
              trx_acknowledged(trx_id, fc::time_point::now());
              if (ec) {
                 elog("http error: ${c}: ${m}", ("c", ec.value())("m", ec.message()));
-                throw std::runtime_error(ec.message());
+                ++_errors;
+                return;
              }
 
              if (this->needs_response_trace_info() && response.result() == boost::beast::http::status::ok) {
+                bool exception = false;
+                auto exception_handler = [this, &response, &exception](const fc::exception_ptr& ex) {
+                   elog("Fail to parse JSON from string: ${string}", ("string", response.body()));
+                   ++_errors;
+                   exception = true;
+                };
                 try {
                    fc::variant resp_json = fc::json::from_string(response.body());
                    if (resp_json.is_object() && resp_json.get_object().contains("processed")) {
@@ -170,9 +198,9 @@ namespace eosio::testing {
                       elog("async_http_request Transaction failed, transaction not processed: ${string}",
                            ("string", response.body()));
                    }
-                }
-                EOS_RETHROW_EXCEPTIONS(chain::json_parse_exception, "Fail to parse JSON from string: ${string}",
-                                       ("string", response.body()));
+                } CATCH_AND_CALL(exception_handler)
+                if (exception)
+                   return;
              }
 
              if (!(response.result() == boost::beast::http::status::accepted ||

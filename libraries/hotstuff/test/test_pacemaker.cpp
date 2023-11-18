@@ -233,7 +233,8 @@ namespace eosio::hotstuff {
 
    void test_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id) {
       for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
+         // New Block msg is not propagated by qc_chain, so it has to go to everyone (no is_connected() check)
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name))
             qcc_ptr->on_hs_new_block_msg(0, msg);
       }
    }

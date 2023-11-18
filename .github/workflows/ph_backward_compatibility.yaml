@@ -46,7 +46,7 @@ jobs:
       image: ${{fromJSON(needs.platform-cache.outputs.platforms)[matrix.platform].image}}
       options: --security-opt seccomp=unconfined
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Download builddir
         uses: actions/download-artifact@v3
         with:

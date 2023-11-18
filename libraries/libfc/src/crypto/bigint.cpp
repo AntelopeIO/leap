@@ -221,8 +221,8 @@ namespace fc {
     else
     {
         std::string b64 = v.as_string();
-        std::string bin = base64_decode(b64);
-        bi = bigint(bin.c_str(), bin.size() );
+        std::vector<char> bin = base64_decode(b64);
+        bi = bigint(bin.data(), bin.size() );
     }
   }
   

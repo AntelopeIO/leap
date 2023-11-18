@@ -11,6 +11,7 @@ namespace eosio { namespace chain {
       block_state( const block_header_state& prev,
                    signed_block_ptr b,
                    const protocol_feature_set& pfs,
+                   bool hotstuff_activated,
                    const std::function<void( block_timestamp_type,
                                              const flat_set<digest_type>&,
                                              const vector<digest_type>& )>& validator,

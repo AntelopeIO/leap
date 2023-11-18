@@ -399,6 +399,9 @@ namespace eosio::hotstuff {
 
       write_safety_state_file();
 
+      //propagate this proposal since it was new to us
+      send_hs_proposal_msg(connection_id, proposal);
+
       for (auto &msg : msgs) {
          send_hs_vote_msg( std::nullopt, msg );
       }
@@ -418,22 +421,44 @@ namespace eosio::hotstuff {
 
       bool am_leader = am_i_leader();
 
-      if (!am_leader)
-         return;
-      fc_tlog(_logger, " === Process vote from ${finalizer_key} : current bitset ${value}" ,
-              ("finalizer_key", vote.finalizer_key)("value", _current_qc.get_active_finalizers_string()));
-      // only leader need to take action on votes
-      if (vote.proposal_id != _current_qc.get_proposal_id()) {
+      if (am_leader) {
+         if (vote.proposal_id != _current_qc.get_proposal_id()) {
+            send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
+            return;
+         }
+       }
+
+      const hs_proposal_message *p = get_proposal( vote.proposal_id );
+      if (p == nullptr) {
+         if (am_leader)
+            fc_elog(_logger, " *** ${id} couldn't find proposal, vote : ${vote}", ("id",_id)("vote", vote));
          send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
          return;
       }
 
-      const hs_proposal_message *p = get_proposal( vote.proposal_id );
-      if (p == nullptr) {
-         fc_elog(_logger, " *** ${id} couldn't find proposal, vote : ${vote}", ("id",_id)("vote", vote));
-         send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
+      // if not leader, check message propagation and quit
+      if (! am_leader) {
+         seen_votes_store_type::nth_index<0>::type::iterator itr = _seen_votes_store.get<by_seen_votes_proposal_id>().find( p->proposal_id );
+         bool propagate = false;
+         if (itr == _seen_votes_store.get<by_seen_votes_proposal_id>().end()) {
+            seen_votes sv = { p->proposal_id, p->get_height(), { vote.finalizer_key } };
+            _seen_votes_store.insert(sv);
+            propagate = true;
+         } else {
+            _seen_votes_store.get<by_seen_votes_proposal_id>().modify(itr, [&](seen_votes& sv) {
+               if (sv.finalizers.count(vote.finalizer_key) == 0) {
+                  sv.finalizers.insert(vote.finalizer_key);
+                  propagate = true;
+               }
+            });
+         }
+         if (propagate)
+            send_hs_vote_msg(connection_id, vote);
          return;
       }
+
+      fc_tlog(_logger, " === Process vote from ${finalizer_key} : current bitset ${value}" ,
+              ("finalizer_key", vote.finalizer_key)("value", _current_qc.get_active_finalizers_string()));
 
       bool quorum_met = _current_qc.is_quorum_met(); //check if quorum already met
 
@@ -512,6 +537,11 @@ namespace eosio::hotstuff {
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
       if (!update_high_qc(quorum_certificate{msg.high_qc, 21})) { // TODO: use active schedule size
          increment_version.cancel();
+      } else {
+         // Always propagate a view that's newer than ours.
+         // If it's not newer, then we have already propagated ours.
+         // If the recipient doesn't think ours is newer, it has already propagated its own, and so on.
+         send_hs_new_view_msg(connection_id, msg);
       }
    }
 
@@ -690,7 +720,12 @@ namespace eosio::hotstuff {
          //write_state(_liveness_state_file , _liveness_state);
 
          fc_tlog(_logger, " === ${id} _b_leaf updated (update_high_qc) : ${proposal_id}", ("proposal_id", _high_qc.get_proposal_id())("id", _id));
-         return true;
+
+         // avoid looping message propagation when receiving a new-view message with a high_qc.get_proposal_id().empty().
+         // not sure if high_qc.get_proposal_id().empty() + _high_qc.get_proposal_id().empty() is something that actually ever happens in the real world.
+         // not sure if high_qc.get_proposal_id().empty() should be tested and always rejected (return false + no _high_qc / _b_leaf update).
+         // if this returns false, we won't update the get_finality_status information, but I don't think we care about that at all.
+         return !high_qc.get_proposal_id().empty();
       } else {
          const hs_proposal_message *old_high_qc_prop = get_proposal( _high_qc.get_proposal_id() );
          const hs_proposal_message *new_high_qc_prop = get_proposal( high_qc.get_proposal_id() );
@@ -991,6 +1026,9 @@ namespace eosio::hotstuff {
 
    void qc_chain::gc_proposals(uint64_t cutoff){
       //fc_tlog(_logger, " === garbage collection on old data");
+
+      auto& seen_votes_index = _seen_votes_store.get<by_seen_votes_proposal_height>();
+      seen_votes_index.erase(seen_votes_index.begin(), seen_votes_index.upper_bound(cutoff));
 
 #ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
       ps_height_iterator psh_it = _proposal_stores_by_height.begin();

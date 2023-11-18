@@ -25,6 +25,9 @@ namespace eosio { namespace chain {
 
    using block_header_extension = block_header_extension_types::block_header_extension_t;
 
+   // totem for block_header.confirmed that indicates hotstuff consensus is active
+   constexpr uint16_t hs_block_confirmed = std::numeric_limits<uint16_t>::max();
+
    struct block_header
    {
       block_timestamp_type             timestamp;
@@ -38,6 +41,9 @@ namespace eosio { namespace chain {
        *  No producer should sign a block with overlapping ranges or it is proof of byzantine
        *  behavior. When producing a block a producer is always confirming at least the block he
        *  is building off of.  A producer cannot confirm "this" block, only prior blocks.
+       *
+       *  After hotstuff activation a producer can no longer confirm blocks only propose them;
+       *  confirmed will be std::numeric_limits<uint16_t>::max() after hotstuff activation.
        */
       uint16_t                         confirmed = 1;
 
