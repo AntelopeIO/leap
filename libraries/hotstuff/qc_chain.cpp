@@ -441,7 +441,7 @@ namespace eosio::hotstuff {
          seen_votes_store_type::nth_index<0>::type::iterator itr = _seen_votes_store.get<by_seen_votes_proposal_id>().find( p->proposal_id );
          bool propagate = false;
          if (itr == _seen_votes_store.get<by_seen_votes_proposal_id>().end()) {
-            seen_votes sv = { p->proposal_id, p->get_height(), { vote.finalizer_key } };
+            seen_votes sv = { p->proposal_id, p->get_key(), { vote.finalizer_key } };
             _seen_votes_store.insert(sv);
             propagate = true;
          } else {
