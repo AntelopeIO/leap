@@ -530,6 +530,44 @@ fc::variant verify_type_round_trip_conversion( const abi_serializer& abis, const
 }
 )=====";
 
+BOOST_AUTO_TEST_CASE(std_array_types)
+{ try {
+
+   const char* currency_abi = R"=====(
+   {
+       "version": "eosio::abi/1.0",
+       "types": [],
+       "structs": [{
+           "name": "test",
+           "base": "",
+           "fields": [{
+               "name": "a",
+               "type": "uint8[5]"
+           }]
+       }],
+       "actions": [],
+       "tables": [],
+       "ricardian_clauses": []
+   }
+   )=====";
+
+   auto abi = fc::json::from_string(currency_abi).as<abi_def>();
+
+   abi_serializer abis(eosio_contract_abi(abi), abi_serializer::create_yield_function( max_serialization_time ));
+
+   const char* test_data = R"=====(
+   {
+     "a" : [1, 2, 3, 4, 5]
+   }
+   )=====";
+
+
+   auto var = fc::json::from_string(test_data);
+   verify_byte_round_trip_conversion(abi_serializer{std::move(abi), abi_serializer::create_yield_function( max_serialization_time )}, "test", var);
+
+} FC_LOG_AND_RETHROW() }
+
+
 BOOST_AUTO_TEST_CASE(uint_types)
 { try {
 

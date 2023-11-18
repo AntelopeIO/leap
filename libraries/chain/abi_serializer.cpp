@@ -401,14 +401,15 @@ namespace eosio { namespace chain {
       auto rtype = resolve_type(type);
       auto ftype = fundamental_type(rtype);
       auto btype = built_in_types.find(ftype );
-      if( btype != built_in_types.end() ) {
+      bool is_var_array = is_szarray(rtype);
+      if( !is_var_array && btype != built_in_types.end() ) {
          try {
             return btype->second.first(stream, is_array(rtype), is_optional(rtype), ctx.get_yield_function());
          } EOS_RETHROW_EXCEPTIONS( unpack_exception, "Unable to unpack ${class} type '${type}' while processing '${p}'",
                                    ("class", is_array(rtype) ? "array of built-in" : is_optional(rtype) ? "optional of built-in" : "built-in")
                                    ("type", impl::limit_size(ftype))("p", ctx.get_path_string()) )
       }
-      if ( is_array(rtype) ) {
+      if ( is_array(rtype) || is_var_array ) {
          ctx.hint_array_type_if_in_array();
          fc::unsigned_int size;
          try {
@@ -496,10 +497,11 @@ namespace eosio { namespace chain {
       auto v_itr = variants.end();
       auto s_itr = structs.end();
 
-      auto btype = built_in_types.find(fundamental_type(rtype));
-      if( btype != built_in_types.end() ) {
+      bool var_is_array = var.get_type() == fc::variant::array_type;
+      
+      if( auto btype = built_in_types.find(fundamental_type(rtype)); !var_is_array && btype != built_in_types.end() ) {
          btype->second.second(var, ds, is_array(rtype), is_optional(rtype), ctx.get_yield_function());
-      } else if ( is_array(rtype) ) {
+      } else if ( var_is_array || is_array(rtype) ) {
          ctx.hint_array_type_if_in_array();
          vector<fc::variant> vars = var.get_array();
          fc::raw::pack(ds, (fc::unsigned_int)vars.size());
