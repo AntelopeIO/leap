@@ -33,9 +33,8 @@ namespace eosio::chain {
 
       uint32_t block_height() const { return bheight; }
       uint8_t phase_counter() const { return pcounter; }
-      uint64_t to_uint64_t() const { return compute_height(bheight, pcounter); }
+      uint64_t get_key() const { return compute_height(bheight, pcounter); }
       std::string to_string() const { return std::to_string(bheight) + "::" + std::to_string(pcounter); }
-      uint64_t get_key() const { return to_uint64_t(); }
 
       uint32_t bheight;
       uint8_t pcounter;
