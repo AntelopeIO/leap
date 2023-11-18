@@ -218,17 +218,23 @@ namespace eosio { namespace chain {
       return ends_with(type, "[]");
    }
 
-   bool abi_serializer::is_szarray(const string_view& type)const {
+   std::optional<fc::unsigned_int> abi_serializer::is_szarray(const string_view& type)const {
       auto pos1 = type.find_last_of('[');
       auto pos2 = type.find_last_of(']');
-      if(pos1 == string_view::npos || pos2 == string_view::npos) return false;
+      if(pos1 == string_view::npos || pos2 == string_view::npos)
+         return {};
       auto pos = pos1 + 1;
-      if(pos == pos2) return false;
+      if(pos == pos2)
+         return {};
+         
+      fc::unsigned_int sz = 0;
       while(pos < pos2) {
-         if( ! (type[pos] >= '0' && type[pos] <= '9') ) return false;
+         if( ! (type[pos] >= '0' && type[pos] <= '9') )
+            return {};
+         sz = 10 * sz +  (type[pos] - '0');
          ++pos;
       }
-      return true;
+      return sz;
    }
 
    bool abi_serializer::is_optional(const string_view& type)const {
@@ -400,35 +406,39 @@ namespace eosio { namespace chain {
       auto h = ctx.enter_scope();
       auto rtype = resolve_type(type);
       auto ftype = fundamental_type(rtype);
-      bool var_is_array = is_szarray(rtype);
-      if( auto btype = built_in_types.find(ftype ); !var_is_array && btype != built_in_types.end() ) {
-         try {
-            return btype->second.first(stream, is_array(rtype), is_optional(rtype), ctx.get_yield_function());
-         } EOS_RETHROW_EXCEPTIONS( unpack_exception, "Unable to unpack ${class} type '${type}' while processing '${p}'",
-                                   ("class", is_array(rtype) ? "array of built-in" : is_optional(rtype) ? "optional of built-in" : "built-in")
-                                   ("type", impl::limit_size(ftype))("p", ctx.get_path_string()) )
-      }
-      if ( is_array(rtype) || var_is_array ) {
+      auto fixed_array_sz = is_szarray(rtype);
+      
+      auto read_array = [&](fc::unsigned_int::base_uint sz) {
          ctx.hint_array_type_if_in_array();
-         fc::unsigned_int size;
-         try {
-            fc::raw::unpack(stream, size);
-         } EOS_RETHROW_EXCEPTIONS( unpack_exception, "Unable to unpack size of array '${p}'", ("p", ctx.get_path_string()) )
          vector<fc::variant> vars;
+         vars.reserve(sz);
          auto h1 = ctx.push_to_path( impl::array_index_path_item{} );
-         for( decltype(size.value) i = 0; i < size; ++i ) {
+         for( fc::unsigned_int::base_uint i = 0; i < sz; ++i ) {
             ctx.set_array_index_of_path_back(i);
             auto v = _binary_to_variant(ftype, stream, ctx);
             // The exception below is commented out to allow array of optional as input data
             //EOS_ASSERT( !v.is_null(), unpack_exception, "Invalid packed array '${p}'", ("p", ctx.get_path_string()) );
             vars.emplace_back(std::move(v));
          }
-         // QUESTION: Why would the assert below ever fail?
-         EOS_ASSERT( vars.size() == size.value,
-                     unpack_exception,
-                     "packed size does not match unpacked array size, packed size ${p} actual size ${a}",
-                     ("p", size)("a", vars.size()) );
          return fc::variant( std::move(vars) );
+      };
+      
+      if (fixed_array_sz) {
+         return read_array(*fixed_array_sz);
+      } else if( auto btype = built_in_types.find(ftype ); btype != built_in_types.end() ) {
+         try {
+            return btype->second.first(stream, is_array(rtype), is_optional(rtype), ctx.get_yield_function());
+         } EOS_RETHROW_EXCEPTIONS( unpack_exception, "Unable to unpack ${class} type '${type}' while processing '${p}'",
+                                   ("class", is_array(rtype) ? "array of built-in" : is_optional(rtype) ? "optional of built-in" : "built-in")
+                                   ("type", impl::limit_size(ftype))("p", ctx.get_path_string()) )
+      }
+      if ( is_array(rtype) ) {
+         ctx.hint_array_type_if_in_array();
+         fc::unsigned_int size;
+         try {
+            fc::raw::unpack(stream, size);
+         } EOS_RETHROW_EXCEPTIONS( unpack_exception, "Unable to unpack size of array '${p}'", ("p", ctx.get_path_string()) )
+         return read_array(size.value);
       } else if ( is_optional(rtype) ) {
          char flag;
          try {
@@ -496,15 +506,9 @@ namespace eosio { namespace chain {
       auto v_itr = variants.end();
       auto s_itr = structs.end();
 
-      bool var_is_array = is_szarray(rtype);
-      
-      if( auto btype = built_in_types.find(fundamental_type(rtype)); !var_is_array && btype != built_in_types.end() ) {
-         btype->second.second(var, ds, is_array(rtype), is_optional(rtype), ctx.get_yield_function());
-      } else if ( var_is_array || is_array(rtype) ) {
-         ctx.hint_array_type_if_in_array();
-         vector<fc::variant> vars = var.get_array();
-         fc::raw::pack(ds, (fc::unsigned_int)vars.size());
+      auto fixed_array_sz = is_szarray(rtype);
 
+      auto pack_array = [&](const vector<fc::variant>& vars) {
          auto h1 = ctx.push_to_path( impl::array_index_path_item{} );
          auto h2 = ctx.disallow_extensions_unless(false);
 
@@ -513,7 +517,23 @@ namespace eosio { namespace chain {
             ctx.set_array_index_of_path_back(i);
            _variant_to_binary(fundamental_type(rtype), var, ds, ctx);
            ++i;
-         }
+         }         
+      };
+      
+      if (fixed_array_sz) {
+         size_t sz =  *fixed_array_sz;
+         ctx.hint_array_type_if_in_array();
+         const vector<fc::variant>& vars = var.get_array();
+         EOS_ASSERT( vars.size() == sz, pack_exception,
+                     "Incorrect number of values provided (${a}) for fixed-size (${b}) array type", ("a", sz)("b", vars.size()));
+         pack_array(vars);
+      } else if( auto btype = built_in_types.find(fundamental_type(rtype)); btype != built_in_types.end() ) {
+         btype->second.second(var, ds, is_array(rtype), is_optional(rtype), ctx.get_yield_function());
+      } else if ( is_array(rtype) ) {
+         ctx.hint_array_type_if_in_array();
+         const vector<fc::variant>& vars = var.get_array();
+         fc::raw::pack(ds, (fc::unsigned_int)vars.size());
+         pack_array(vars);
       } else if( is_optional(rtype) ) {
          char flag = !var.is_null();
          fc::raw::pack(ds, flag);

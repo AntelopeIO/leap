@@ -4,7 +4,8 @@
 namespace fc {
 
 struct unsigned_int {
-    unsigned_int( uint32_t v = 0 ):value(v){}
+    using base_uint = uint32_t;
+    unsigned_int( base_uint v = 0 ):value(v){}
 
     template<typename T>
     unsigned_int( T v ):value(v){}
@@ -14,22 +15,22 @@ struct unsigned_int {
 
     unsigned_int& operator=( int32_t v ) { value = v; return *this; }
     
-    uint32_t value;
+    base_uint value;
 
-    friend bool operator==( const unsigned_int& i, const uint32_t& v )     { return i.value == v; }
-    friend bool operator==( const uint32_t& i, const unsigned_int& v )     { return i       == v.value; }
+    friend bool operator==( const unsigned_int& i, const base_uint& v )    { return i.value == v; }
+    friend bool operator==( const base_uint& i, const unsigned_int& v )    { return i       == v.value; }
     friend bool operator==( const unsigned_int& i, const unsigned_int& v ) { return i.value == v.value; }
 
-    friend bool operator!=( const unsigned_int& i, const uint32_t& v )     { return i.value != v; }
-    friend bool operator!=( const uint32_t& i, const unsigned_int& v )     { return i       != v.value; }
+    friend bool operator!=( const unsigned_int& i, const base_uint& v )    { return i.value != v; }
+    friend bool operator!=( const base_uint& i, const unsigned_int& v )    { return i       != v.value; }
     friend bool operator!=( const unsigned_int& i, const unsigned_int& v ) { return i.value != v.value; }
 
-    friend bool operator<( const unsigned_int& i, const uint32_t& v )      { return i.value < v; }
-    friend bool operator<( const uint32_t& i, const unsigned_int& v )      { return i       < v.value; }
+    friend bool operator<( const unsigned_int& i, const base_uint& v )     { return i.value < v; }
+    friend bool operator<( const base_uint& i, const unsigned_int& v )     { return i       < v.value; }
     friend bool operator<( const unsigned_int& i, const unsigned_int& v )  { return i.value < v.value; }
 
-    friend bool operator>=( const unsigned_int& i, const uint32_t& v )     { return i.value >= v; }
-    friend bool operator>=( const uint32_t& i, const unsigned_int& v )     { return i       >= v.value; }
+    friend bool operator>=( const unsigned_int& i, const base_uint& v )    { return i.value >= v; }
+    friend bool operator>=( const base_uint& i, const unsigned_int& v )    { return i       >= v.value; }
     friend bool operator>=( const unsigned_int& i, const unsigned_int& v ) { return i.value >= v.value; }
 };
 
