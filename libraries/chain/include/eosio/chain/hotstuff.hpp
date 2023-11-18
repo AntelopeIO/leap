@@ -27,6 +27,9 @@ namespace eosio::chain {
       view_number() : bheight(0), pcounter(0) {}
       explicit view_number(uint32_t block_height, uint8_t phase_counter) : bheight(block_height), pcounter(phase_counter) {}
       auto operator<=>(const view_number&) const = default;
+      friend std::ostream& operator<<(std::ostream& os, const view_number& vn) {
+         os << "view_number(" << vn.bheight << ", " << vn.pcounter << ")\n";
+      }
 
       uint32_t block_height() const { return bheight; }
       uint8_t phase_counter() const { return pcounter; }

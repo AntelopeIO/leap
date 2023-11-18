@@ -34,28 +34,13 @@ namespace eosio::hotstuff {
 
    template<typename StateObjectType> class state_db_manager {
    public:
-      static bool read(fc::cfile& pfile, StateObjectType& sobj) {
-         if (!pfile.is_open())
-            return false;
-         pfile.seek_end(0);
-         if (pfile.tellp() <= 0)
-            return false;
-         pfile.seek(0);
-         auto datastream = pfile.create_datastream();
-         StateObjectType read_sobj;
-         try {
-            fc::raw::unpack(datastream, read_sobj);
-            sobj = std::move(read_sobj);
-            return true;
-         } catch (...) {
-            return false;
-         }
-      }
+      static constexpr uint64_t magic = 0x0123456789abcdef;
       static bool write(fc::cfile& pfile, const StateObjectType& sobj) {
          if (!pfile.is_open())
             return false;
          pfile.seek(0);
          pfile.truncate();
+         pfile.write((char*)(&magic), sizeof(magic));
          auto data = fc::raw::pack(sobj);
          pfile.write(data.data(), data.size());
          pfile.flush();
@@ -67,17 +52,29 @@ namespace eosio::hotstuff {
          fc::cfile pfile;
          pfile.set_file_path(file_path);
          pfile.open("rb");
-         bool result = read(pfile, sobj);
-         pfile.close();
-         return result;
+         pfile.seek_end(0);
+         if (pfile.tellp() <= 0)
+            return false;
+         pfile.seek(0);
+         try {
+            uint64_t read_magic;
+            pfile.read((char*)(&read_magic), sizeof(read_magic));
+            if (read_magic != magic)
+               return false;
+            auto datastream = pfile.create_datastream();
+            StateObjectType read_sobj;
+            fc::raw::unpack(datastream, read_sobj);
+            sobj = std::move(read_sobj);
+            return true;
+         } catch (...) {
+            return false;
+         }
       }
       static bool write(const std::string& file_path, const StateObjectType& sobj) {
          fc::cfile pfile;
          pfile.set_file_path(file_path);
          pfile.open(fc::cfile::truncate_rw_mode);
-         bool result = write(pfile, sobj);
-         pfile.close();
-         return result;
+         return write(pfile, sobj);
       }
    };
 

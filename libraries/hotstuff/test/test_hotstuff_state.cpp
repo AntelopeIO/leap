@@ -39,7 +39,7 @@ BOOST_AUTO_TEST_CASE(write_safety_state_to_file) try {
   ss.set_v_height(fc::crypto::blslib::bls_public_key{}, v_height);
   ss.set_b_lock(fc::crypto::blslib::bls_public_key{}, b_lock);
 
-  BOOST_CHECK_EQUAL( eosio::hotstuff::state_db_manager<eosio::hotstuff::safety_state>::write(file_path_1, ss), true );
+  BOOST_CHECK( eosio::hotstuff::state_db_manager<eosio::hotstuff::safety_state>::write(file_path_1, ss) );
 
   //fc::cfile pfile;
   //pfile.set_file_path(file_path_1);
@@ -53,7 +53,7 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
 
   eosio::hotstuff::safety_state ss;
 
-  BOOST_CHECK_EQUAL( eosio::hotstuff::state_db_manager<eosio::hotstuff::safety_state>::read(file_path_1, ss), true );
+  BOOST_CHECK( eosio::hotstuff::state_db_manager<eosio::hotstuff::safety_state>::read(file_path_1, ss) );
 
   std::remove(file_path_1.c_str());
 
@@ -75,11 +75,8 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
 
   //std::pair<eosio::chain::view_number, fc::sha256> ss = get_safety_state(eosio::chain::name{""});
 
-  bool ok1 = ss.get_v_height(fc::crypto::blslib::bls_public_key{}) == v_height;
-  bool ok2 = ss.get_b_lock(fc::crypto::blslib::bls_public_key{}) == b_lock;
-
-  BOOST_CHECK_EQUAL(ok1, true);
-  BOOST_CHECK_EQUAL(ok2, true);
+  BOOST_CHECK_EQUAL(ss.get_v_height(fc::crypto::blslib::bls_public_key{}), v_height);
+  BOOST_CHECK_EQUAL(ss.get_b_lock(fc::crypto::blslib::bls_public_key{}), b_lock);
 
 } FC_LOG_AND_RETHROW();
 
@@ -111,10 +108,6 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
   eosio::hotstuff::liveness_state ls(high_qc, b_leaf, b_exec);
 
   eosio::hotstuff::write_state(file_path_2, ls);
-
-  bool ok = true;
-
-  BOOST_CHECK_EQUAL(ok, true);
 
 } FC_LOG_AND_RETHROW();
 
@@ -150,13 +143,9 @@ BOOST_AUTO_TEST_CASE(read_liveness_state_from_file) try {
   high_qc.active_finalizers = 1245;
   high_qc.active_agg_sig = fc::crypto::blslib::bls_signature("SIG_BLS_23PuSu1B72cPe6wxGkKjAaaZqA1Ph79zSoW7omsKKUrnprbA3cJCJVhT48QKUG6ofjYTTg4BA4TrVENWyrxjTomwLX6TGdVg2RYhKH7Kk9X23K5ohuhKQcWQ6AwJJGVSbSp4");
 
-  bool ok1 = ls.high_qc == high_qc;
-  bool ok2 = ls.b_exec == b_exec;
-  bool ok3 = ls.b_leaf == b_leaf;
-
-  BOOST_CHECK_EQUAL(ok1, true);
-  BOOST_CHECK_EQUAL(ok2, true);
-  BOOST_CHECK_EQUAL(ok3, true);
+  BOOST_CHECK(ls.high_qc == high_qc);
+  BOOST_CHECK(ls.b_exec == b_exec);
+  BOOST_CHECK(ls.b_leaf == b_leaf);
 
 } FC_LOG_AND_RETHROW();*/
 

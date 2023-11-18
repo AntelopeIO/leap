@@ -36,28 +36,21 @@ BOOST_AUTO_TEST_CASE(view_number_tests) try {
   eosio::hotstuff::view_number vn_5 = hspm_5.get_view_number();
 
   //test getters
+  BOOST_CHECK_EQUAL(vn_1.block_height(), 194217067);
+  BOOST_CHECK_EQUAL(vn_1.phase_counter(), 0);
 
-  BOOST_CHECK_EQUAL(vn_1.block_height() == 194217067, true);
-  BOOST_CHECK_EQUAL(vn_1.phase_counter() == 0, true);
+  BOOST_CHECK_NE(vn_1, vn_2);
+  BOOST_CHECK_LT(vn_1, vn_2);
+  BOOST_CHECK_LT(vn_2, vn_3);
+  BOOST_CHECK_LT(vn_3, vn_4);
+  BOOST_CHECK_LT(vn_4, vn_5);
+  BOOST_CHECK_LE(vn_4, vn_5);
+  BOOST_CHECK_LE(vn_2, vn_3);
 
-  //test operators == true
-  BOOST_CHECK_EQUAL(vn_1 == vn_1, true);
-  BOOST_CHECK_EQUAL(vn_1 != vn_2, true);
-
-  BOOST_CHECK_EQUAL(vn_1 < vn_2, true);
-  BOOST_CHECK_EQUAL(vn_2 < vn_3, true);
-  BOOST_CHECK_EQUAL(vn_3 < vn_4, true);
-  BOOST_CHECK_EQUAL(vn_4 < vn_5, true);
-  BOOST_CHECK_EQUAL(vn_4 <= vn_5, true);
-
-  //test operators == false
-  BOOST_CHECK_EQUAL(vn_1 >= vn_2, false);
-  BOOST_CHECK_EQUAL(vn_2 > vn_3, false);
-
-  //test constructor
+//test constructor
 
   eosio::hotstuff::view_number vn_6 = eosio::hotstuff::view_number(194217068, 2);
 
-  BOOST_CHECK_EQUAL(vn_5 == vn_6, true);
+  BOOST_CHECK_EQUAL(vn_5, vn_6);
 
 } FC_LOG_AND_RETHROW();
