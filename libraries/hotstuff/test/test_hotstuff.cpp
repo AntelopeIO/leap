@@ -76,12 +76,11 @@ public:
       for (size_t i = 0 ; i < replicas.size() ; i++){
          fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(replica_keys[i]);
          bls_key_map_t keys{{sk.get_public_key(), sk}};
-         qc_chain *qcc_ptr = new qc_chain(replica_keys[i].to_string(), &tpm, {replicas[i]}, keys, hotstuff_logger);
+         qc_chain *qcc_ptr = new qc_chain(replica_keys[i].to_string(), &tpm, {replicas[i]}, keys, hotstuff_logger, std::string());
          std::shared_ptr<qc_chain> qcc_shared_ptr(qcc_ptr);
          _qc_chains.push_back( std::make_pair(replicas[i], qcc_shared_ptr) );
          tpm.register_qc_chain(replicas[i], qcc_shared_ptr );
       }
-
   }
 
    void print_msgs(std::vector<test_pacemaker::hotstuff_message> msgs ){
@@ -178,7 +177,6 @@ BOOST_AUTO_TEST_CASE(hotstuff_bitset) try {
    std::cout << "e : " << e << "\n";
 
 } FC_LOG_AND_RETHROW();
-
 
 static std::vector<fc::crypto::blslib::bls_private_key> map_to_sks(std::vector<std::string> keys){ 
    std::vector<fc::crypto::blslib::bls_private_key> sks;

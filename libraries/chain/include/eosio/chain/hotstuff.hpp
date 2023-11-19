@@ -13,9 +13,32 @@ namespace eosio::chain {
    using hs_bitset = boost::dynamic_bitset<uint8_t>;
    using bls_key_map_t = std::map<fc::crypto::blslib::bls_public_key, fc::crypto::blslib::bls_private_key>;
 
+   inline digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc) {
+      digest_type h1 = digest_type::hash( std::make_pair( std::cref(block_id), phase_counter ) );
+      digest_type h2 = digest_type::hash( std::make_pair( std::cref(h1), std::cref(final_on_qc) ) );
+      return h2;
+   }
+
    inline uint64_t compute_height(uint32_t block_height, uint32_t phase_counter) {
       return (uint64_t{block_height} << 32) | phase_counter;
    }
+
+   struct view_number {
+      view_number() : bheight(0), pcounter(0) {}
+      explicit view_number(uint32_t block_height, uint8_t phase_counter) : bheight(block_height), pcounter(phase_counter) {}
+      auto operator<=>(const view_number&) const = default;
+      friend std::ostream& operator<<(std::ostream& os, const view_number& vn) {
+         os << "view_number(" << vn.bheight << ", " << vn.pcounter << ")\n";
+      }
+
+      uint32_t block_height() const { return bheight; }
+      uint8_t phase_counter() const { return pcounter; }
+      uint64_t get_key() const { return compute_height(bheight, pcounter); }
+      std::string to_string() const { return std::to_string(bheight) + "::" + std::to_string(pcounter); }
+
+      uint32_t bheight;
+      uint8_t pcounter;
+   };
 
    struct extended_schedule {
       producer_authority_schedule                          producer_schedule;
@@ -42,8 +65,12 @@ namespace eosio::chain {
       quorum_certificate_message          justify; //justification
       uint8_t                             phase_counter = 0;
 
+      digest_type get_proposal_id() const { return get_digest_to_sign(block_id, phase_counter, final_on_qc); };
+
       uint32_t block_num() const { return block_header::num_from_id(block_id); }
-      uint64_t get_height() const { return compute_height(block_header::num_from_id(block_id), phase_counter); };
+      uint64_t get_key() const { return compute_height(block_header::num_from_id(block_id), phase_counter); };
+
+      view_number get_view_number() const { return view_number(block_header::num_from_id(block_id), phase_counter); };
    };
 
    struct hs_new_block_message {
@@ -72,7 +99,7 @@ namespace eosio::chain {
       fc::sha256 b_finality_violation;
       block_id_type block_exec;
       block_id_type pending_proposal_block;
-      uint32_t v_height = 0;
+      eosio::chain::view_number v_height;
       eosio::chain::quorum_certificate_message high_qc;
       eosio::chain::quorum_certificate_message current_qc;
       eosio::chain::extended_schedule schedule;
@@ -88,7 +115,8 @@ namespace eosio::chain {
 
 } //eosio::chain
 
-// // @ignore quorum_met
+
+FC_REFLECT(eosio::chain::view_number, (bheight)(pcounter));
 FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer_key)(sig));

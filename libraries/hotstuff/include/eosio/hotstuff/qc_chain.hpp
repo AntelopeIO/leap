@@ -4,6 +4,7 @@
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/block_state.hpp>
 #include <eosio/hotstuff/base_pacemaker.hpp>
+#include <eosio/hotstuff/state.hpp>
 
 #include <eosio/chain/finalizer_set.hpp>
 #include <eosio/chain/finalizer_authority.hpp>
@@ -21,6 +22,7 @@
 
 #include <boost/dynamic_bitset.hpp>
 
+#include <fc/io/cfile.hpp>
 
 #include <exception>
 #include <stdexcept>
@@ -29,6 +31,52 @@
 //#define QC_CHAIN_SIMPLE_PROPOSAL_STORE
 
 namespace eosio::hotstuff {
+
+   template<typename StateObjectType> class state_db_manager {
+   public:
+      static constexpr uint64_t magic = 0x0123456789abcdef;
+      static bool write(fc::cfile& pfile, const StateObjectType& sobj) {
+         if (!pfile.is_open())
+            return false;
+         pfile.seek(0);
+         pfile.truncate();
+         pfile.write((char*)(&magic), sizeof(magic));
+         auto data = fc::raw::pack(sobj);
+         pfile.write(data.data(), data.size());
+         pfile.flush();
+         return true;
+      }
+      static bool read(const std::string& file_path, StateObjectType& sobj) {
+         if (!std::filesystem::exists(file_path))
+            return false;
+         fc::cfile pfile;
+         pfile.set_file_path(file_path);
+         pfile.open("rb");
+         pfile.seek_end(0);
+         if (pfile.tellp() <= 0)
+            return false;
+         pfile.seek(0);
+         try {
+            uint64_t read_magic;
+            pfile.read((char*)(&read_magic), sizeof(read_magic));
+            if (read_magic != magic)
+               return false;
+            auto datastream = pfile.create_datastream();
+            StateObjectType read_sobj;
+            fc::raw::unpack(datastream, read_sobj);
+            sobj = std::move(read_sobj);
+            return true;
+         } catch (...) {
+            return false;
+         }
+      }
+      static bool write(const std::string& file_path, const StateObjectType& sobj) {
+         fc::cfile pfile;
+         pfile.set_file_path(file_path);
+         pfile.open(fc::cfile::truncate_rw_mode);
+         return write(pfile, sobj);
+      }
+   };
 
    using boost::multi_index_container;
    using namespace boost::multi_index;
@@ -85,6 +133,7 @@ namespace eosio::hotstuff {
       bool is_quorum_met() const { return quorum_met; }
       void set_quorum_met() { quorum_met = true; }
 
+
    private:
       friend struct fc::reflector<quorum_certificate>;
       fc::sha256                          proposal_id;
@@ -109,7 +158,8 @@ namespace eosio::hotstuff {
       qc_chain(std::string id, base_pacemaker* pacemaker,
                std::set<name> my_producers,
                chain::bls_key_map_t finalizer_keys,
-               fc::logger& logger);
+               fc::logger& logger,
+               std::string safety_state_file);
 
       uint64_t get_state_version() const { return _state_version; } // no lock required
 
@@ -132,6 +182,8 @@ namespace eosio::hotstuff {
 
    private:
 
+      void write_safety_state_file();
+
       const hs_proposal_message* get_proposal(const fc::sha256& proposal_id); // returns nullptr if not found
 
       // returns false if proposal with that same ID already exists at the store of its height
@@ -140,9 +192,6 @@ namespace eosio::hotstuff {
       uint32_t positive_bits_count(const hs_bitset& finalizers);
 
       hs_bitset update_bitset(const hs_bitset& finalizer_set, const fc::crypto::blslib::bls_public_key& finalizer_key);
-
-      //get digest to sign from proposal data
-      digest_type get_digest_to_sign(const block_id_type& block_id, uint8_t phase_counter, const fc::sha256& final_on_qc);
 
       void reset_qc(const fc::sha256& proposal_id);
 
@@ -164,7 +213,7 @@ namespace eosio::hotstuff {
       void process_new_view(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
       void process_new_block(const std::optional<uint32_t>& connection_id, const hs_new_block_message& msg);
 
-      hs_vote_message sign_proposal(const hs_proposal_message& proposal, const fc::crypto::blslib::bls_private_key& finalizer_priv_key);
+      hs_vote_message sign_proposal(const hs_proposal_message& proposal, const fc::crypto::blslib::bls_public_key& finalizer_pub_key, const fc::crypto::blslib::bls_private_key& finalizer_priv_key);
 
       //verify that a proposal descends from another
       bool extends(const fc::sha256& descendant, const fc::sha256& ancestor);
@@ -202,19 +251,22 @@ namespace eosio::hotstuff {
       };
 
       bool _chained_mode = false;
+
       block_id_type _block_exec;
       block_id_type _pending_proposal_block;
+      safety_state _safety_state;
       fc::sha256 _b_leaf;
-      fc::sha256 _b_lock;
       fc::sha256 _b_exec;
       fc::sha256 _b_finality_violation;
       quorum_certificate _high_qc;
       quorum_certificate _current_qc;
-      uint32_t _v_height = 0;
       base_pacemaker* _pacemaker = nullptr;
       std::set<name> _my_producers;
       chain::bls_key_map_t _my_finalizer_keys;
       std::string _id;
+
+      std::string _safety_state_file; // if empty, safety state persistence is turned off
+      fc::cfile _safety_state_file_handle;
 
       mutable std::atomic<uint64_t> _state_version = 1;
 
@@ -239,11 +291,11 @@ namespace eosio::hotstuff {
          indexed_by<
             hashed_unique<
                tag<by_proposal_id>,
-               BOOST_MULTI_INDEX_MEMBER(hs_proposal_message,fc::sha256,proposal_id)
+               BOOST_MULTI_INDEX_MEMBER(hs_proposal_message, fc::sha256,proposal_id)
                >,
             ordered_non_unique<
                tag<by_proposal_height>,
-               BOOST_MULTI_INDEX_CONST_MEM_FUN(hs_proposal_message,uint64_t,get_height)
+               BOOST_MULTI_INDEX_CONST_MEM_FUN(hs_proposal_message, uint64_t, get_key)
                >
             >
          > proposal_store_type;
