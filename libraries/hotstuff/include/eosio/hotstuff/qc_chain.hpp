@@ -81,7 +81,143 @@ namespace eosio::hotstuff {
    using boost::multi_index_container;
    using namespace boost::multi_index;
    using namespace eosio::chain;
+   
+   using bls_public_key  = fc::crypto::blslib::bls_public_key;
+   using bls_signature   = fc::crypto::blslib::bls_signature;
+   using bls_private_key = fc::crypto::blslib::bls_private_key;
 
+   class pending_quorum_certificate {
+   public:
+      enum class state_t {
+         unrestricted,  // No quorum reached yet, still possible to achieve any state.
+         restricted,    // Enough `weak` votes received to know it is impossible to reach the `strong` state.
+         weak_achieved, // Enough `weak` + `strong` votes for a valid `weak` QC, still possible to reach the `strong` state.
+         weak_final,    // Enough `weak` + `strong` votes for a valid `weak` QC, `strong` not possible anymore.
+         strong         // Enough `strong` votes to have a valid `strong` QC
+      };
+
+      struct votes_t {
+         hs_bitset     bitset;
+         bls_signature sig;
+
+         void resize(size_t num_finalizers) { bitset.resize(num_finalizers); }
+         size_t count() const { return bitset.count(); }
+
+         bool   add_vote(size_t index, const bls_signature& new_sig) {
+            if (bitset[index])
+               return false; // shouldn't be already present
+            bitset.set(index);
+            sig = fc::crypto::blslib::aggregate({ sig, new_sig });
+            return true;
+         }
+      };
+
+      pending_quorum_certificate() = default;
+
+      explicit pending_quorum_certificate(size_t num_finalizers) :
+         num_finalizers(num_finalizers) {
+         weak_votes.resize(num_finalizers);
+         strong_votes.resize(num_finalizers);
+      }
+
+      size_t num_weak()   const { return weak_votes.count(); }
+      size_t num_strong() const { return strong_votes.count(); }
+
+      bool   valid() const { return state >= state_t::weak_achieved; }
+
+      bool add_strong_vote(size_t index, const bls_signature& sig) {
+         assert(index < num_finalizers);
+         if (!strong_votes.add_vote(index, sig))
+            return false;
+         size_t weak = num_weak();
+         size_t strong = num_strong();
+         
+         switch(state) {
+         case state_t::unrestricted:
+         case state_t::restricted:
+            if (strong >= quorum)
+                state = state_t::strong;
+            else if (weak + strong >= quorum)
+               state = state_t::weak_achieved;
+            break;
+            
+         case state_t::weak_achieved:
+            if (strong >= quorum)
+               state = state_t::strong;
+            break;
+            
+         case state_t::weak_final:
+         case state_t::strong:
+            // nothing to do
+            break;
+         }
+         return true;
+      }
+
+      bool add_weak_vote(size_t index, const bls_signature& sig) {
+         assert(index < num_finalizers);
+         if (!weak_votes.add_vote(index, sig))
+            return false;
+         size_t weak = num_weak();
+         size_t strong = num_strong();
+         
+         switch(state) {
+         case state_t::unrestricted:
+         case state_t::restricted:
+            if (weak + strong >= quorum)
+               state = state_t::weak_achieved;
+            
+            if (weak >= (num_finalizers - quorum)) {
+               if (state == state_t::weak_achieved)
+                  state = state_t::weak_final;
+               else if (state == state_t::unrestricted)
+                  state = state_t::restricted;
+            }
+            break;
+            
+         case state_t::weak_achieved:
+            if (weak >= (num_finalizers - quorum))
+               state = state_t::weak_final;
+            break;
+            
+         case state_t::weak_final:
+         case state_t::strong:
+            // nothing to do
+            break;
+         }
+         return true;
+      }
+
+      state_t   state { state_t::unrestricted };
+      size_t    num_finalizers {0};
+      size_t    quorum {0};
+      votes_t   weak_votes;
+      votes_t   strong_votes;
+   };
+
+   class valid_quorum_certificate {
+   public:
+      using weak_votes_t   = hs_bitset;
+      using strong_votes_t = hs_bitset;
+      using votes_t        = std::variant<weak_votes_t, strong_votes_t>;
+      
+      valid_quorum_certificate(const pending_quorum_certificate& qc) {
+         if (qc.state == pending_quorum_certificate::state_t::strong) {
+            votes = votes_t(std::in_place_index<1>, qc.strong_votes.bitset);
+            sig = qc.strong_votes.sig;
+         } if (qc.state > pending_quorum_certificate::state_t::weak_achieved) {
+            // todo: combine strong and weak bitset/signatures
+         } else
+            assert(0); // this should be called only when we have a valid qc.
+      }
+
+      bool is_weak()   const { return votes.index() == 0; }
+      bool is_strong() const { return votes.index() == 1; }
+      
+      votes_t        votes;
+      bls_signature  sig;
+   };
+   
    class quorum_certificate {
    public:
       explicit quorum_certificate(size_t finalizer_size = 0) {
@@ -109,7 +245,7 @@ namespace eosio::hotstuff {
       void reset(const fc::sha256& proposal, size_t finalizer_size) {
          proposal_id = proposal;
          active_finalizers = hs_bitset{finalizer_size};
-         active_agg_sig = fc::crypto::blslib::bls_signature();
+         active_agg_sig = bls_signature();
          quorum_met = false;
       }
 
@@ -128,24 +264,24 @@ namespace eosio::hotstuff {
       }
 
       const fc::sha256& get_proposal_id() const { return proposal_id; }
-      const fc::crypto::blslib::bls_signature& get_active_agg_sig() const { return active_agg_sig; }
-      void set_active_agg_sig( const fc::crypto::blslib::bls_signature& sig) { active_agg_sig = sig; }
+      const bls_signature& get_active_agg_sig() const { return active_agg_sig; }
+      void set_active_agg_sig( const bls_signature& sig) { active_agg_sig = sig; }
       bool is_quorum_met() const { return quorum_met; }
       void set_quorum_met() { quorum_met = true; }
 
 
    private:
       friend struct fc::reflector<quorum_certificate>;
-      fc::sha256                          proposal_id;
-      hs_bitset                           active_finalizers; //bitset encoding, following canonical order
-      fc::crypto::blslib::bls_signature   active_agg_sig;
-      bool                                quorum_met = false; // not serialized across network
+      fc::sha256      proposal_id;
+      hs_bitset       active_finalizers; //bitset encoding, following canonical order
+      bls_signature   active_agg_sig;
+      bool            quorum_met = false; // not serialized across network
    };
 
    struct seen_votes {
-      fc::sha256                                     proposal_id; // id of proposal being voted on
-      uint64_t                                       height;      // height of the proposal (for GC)
-      std::set<fc::crypto::blslib::bls_public_key>   finalizers;  // finalizers that have voted on the proposal
+      fc::sha256                 proposal_id; // id of proposal being voted on
+      uint64_t                   height;      // height of the proposal (for GC)
+      std::set<bls_public_key>   finalizers;  // finalizers that have voted on the proposal
    };
 
    // Concurrency note: qc_chain is a single-threaded and lock-free decision engine.
@@ -191,11 +327,11 @@ namespace eosio::hotstuff {
 
       uint32_t positive_bits_count(const hs_bitset& finalizers);
 
-      hs_bitset update_bitset(const hs_bitset& finalizer_set, const fc::crypto::blslib::bls_public_key& finalizer_key);
+      hs_bitset update_bitset(const hs_bitset& finalizer_set, const bls_public_key& finalizer_key);
 
       void reset_qc(const fc::sha256& proposal_id);
 
-      bool evaluate_quorum(const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
+      bool evaluate_quorum(const hs_bitset& finalizers, const bls_signature& agg_sig, const hs_proposal_message& proposal); //evaluate quorum for a proposal
 
       // qc.quorum_met has to be updated by the caller (if it wants to) based on the return value of this method
       bool is_quorum_met(const quorum_certificate& qc, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
@@ -213,7 +349,7 @@ namespace eosio::hotstuff {
       void process_new_view(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
       void process_new_block(const std::optional<uint32_t>& connection_id, const hs_new_block_message& msg);
 
-      hs_vote_message sign_proposal(const hs_proposal_message& proposal, const fc::crypto::blslib::bls_public_key& finalizer_pub_key, const fc::crypto::blslib::bls_private_key& finalizer_priv_key);
+      hs_vote_message sign_proposal(const hs_proposal_message& proposal, const bls_public_key& finalizer_pub_key, const bls_private_key& finalizer_priv_key);
 
       //verify that a proposal descends from another
       bool extends(const fc::sha256& descendant, const fc::sha256& ancestor);

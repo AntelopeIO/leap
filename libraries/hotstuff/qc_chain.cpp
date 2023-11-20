@@ -98,7 +98,7 @@ namespace eosio::hotstuff {
       return finalizers.count(); // the number of bits in this bitset that are set.
    }
 
-   hs_bitset qc_chain::update_bitset(const hs_bitset& finalizer_set, const fc::crypto::blslib::bls_public_key& finalizer_key ) {
+   hs_bitset qc_chain::update_bitset(const hs_bitset& finalizer_set, const bls_public_key& finalizer_key ) {
 
       hs_bitset b(finalizer_set );
 
@@ -185,17 +185,17 @@ namespace eosio::hotstuff {
       return b;
    }
 
-   bool qc_chain::evaluate_quorum(const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
+   bool qc_chain::evaluate_quorum(const hs_bitset& finalizers, const bls_signature& agg_sig, const hs_proposal_message& proposal) {
       if (positive_bits_count(finalizers) < _pacemaker->get_quorum_threshold()){
          return false;
       }
       const auto& c_finalizers = _pacemaker->get_finalizer_set().finalizers;
-      std::vector<fc::crypto::blslib::bls_public_key> keys;
+      std::vector<bls_public_key> keys;
       keys.reserve(finalizers.size());
       for (hs_bitset::size_type i = 0; i < finalizers.size(); ++i)
          if (finalizers[i])
             keys.push_back(c_finalizers[i].public_key);
-      fc::crypto::blslib::bls_public_key agg_key = fc::crypto::blslib::aggregate(keys);
+      bls_public_key agg_key = fc::crypto::blslib::aggregate(keys);
 
       digest_type digest = proposal.get_proposal_id(); //get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
 
@@ -266,8 +266,8 @@ namespace eosio::hotstuff {
    }
 
    hs_vote_message qc_chain::sign_proposal(const hs_proposal_message& proposal,
-                                           const fc::crypto::blslib::bls_public_key& finalizer_pub_key,
-                                           const fc::crypto::blslib::bls_private_key& finalizer_priv_key)
+                                           const bls_public_key& finalizer_pub_key,
+                                           const bls_private_key& finalizer_priv_key)
    {
       _safety_state.set_v_height(finalizer_pub_key, proposal.get_view_number());
 
@@ -275,7 +275,7 @@ namespace eosio::hotstuff {
 
       std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
 
-      fc::crypto::blslib::bls_signature sig = finalizer_priv_key.sign(h);
+      bls_signature sig = finalizer_priv_key.sign(h);
 
       hs_vote_message v_msg = {proposal.proposal_id, finalizer_priv_key.get_public_key(), sig};
       return v_msg;
