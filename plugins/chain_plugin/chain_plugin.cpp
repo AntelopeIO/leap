@@ -2694,7 +2694,10 @@ void chain_plugin::notify_hs_message( const uint32_t connection_id, const hs_mes
 
 void chain_plugin::notify_hs_block_produced() {
    if (chain().is_builtin_activated( builtin_protocol_feature_t::instant_finality )) {
-      my->_chain_pacemaker->beat();
+
+      //FIXME/TODO: instead, fake a new hs_proposal_message here and call _chain_pacemaker->on_hs_msg() to receive it.
+      //
+      //my->_chain_pacemaker->beat();
    }
 }
 

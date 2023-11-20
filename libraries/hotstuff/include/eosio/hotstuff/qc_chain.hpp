@@ -166,10 +166,13 @@ namespace eosio::hotstuff {
 
       void get_state(finalizer_state& fs) const;
 
+      // TESTING ONLY. chain_pacemaker no longer calls this.
       void on_beat();
 
+      // TESTING ONLY. No connection_id since hs_proposal_message is no longer an actual network message received from a remote connection.
+      void on_hs_proposal_msg(const hs_proposal_message& msg);
+
       void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg);
-      void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg);
       void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg);
 
    private:
@@ -199,9 +202,11 @@ namespace eosio::hotstuff {
       bool am_i_finalizer();
 
       // connection_id.has_value() when processing a non-loopback message
-      void process_proposal(const std::optional<uint32_t>& connection_id, const hs_proposal_message& msg);
       void process_vote(const std::optional<uint32_t>& connection_id, const hs_vote_message& msg);
       void process_new_view(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
+
+      // proposal messages are emulated -- no longer sent/received through a network
+      void process_proposal(const hs_proposal_message& msg);
 
       void create_proposal(const block_id_type& block_id);
 
@@ -222,8 +227,10 @@ namespace eosio::hotstuff {
       //get 3-phase proposal justification
       std::vector<hs_proposal_message> get_qc_chain(const fc::sha256& proposal_id);
 
+      // NOTE: no longer a network message; TESTING ONLY
+      void send_hs_proposal_msg(const hs_proposal_message& msg);
+
       // connection_id.has_value() when just propagating a received message
-      void send_hs_proposal_msg(const std::optional<uint32_t>& connection_id, const hs_proposal_message& msg);
       void send_hs_vote_msg(const std::optional<uint32_t>& connection_id, const hs_vote_message& msg);
       void send_hs_new_view_msg(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
 

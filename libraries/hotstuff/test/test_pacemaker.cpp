@@ -193,8 +193,8 @@ namespace eosio::hotstuff {
          _qcc_store.emplace( name, qcc_ptr );
    };
 
-
-   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
+   // NOTE: no longer a network message; TESTING ONLY
+   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
@@ -210,8 +210,10 @@ namespace eosio::hotstuff {
 
    void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
       for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
-            qcc_ptr->on_hs_proposal_msg(0, msg);
+         // NEW: proposal messages no longer propagate themselves as they are not sent in the actual network,
+         //      so bypass topology emulation ("is_connected()") and just send it to all test nodes.
+         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name))
+            qcc_ptr->on_hs_proposal_msg(msg);
       }
    }
 

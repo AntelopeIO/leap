@@ -34,9 +34,11 @@ namespace eosio::hotstuff {
       virtual const eosio::chain::finalizer_set& get_finalizer_set() = 0;
 
       //outbound communications; 'id' is the producer name (can be ignored if/when irrelevant to the implementer)
-      virtual void send_hs_proposal_msg(const chain::hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
       virtual void send_hs_vote_msg(const chain::hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
       virtual void send_hs_new_view_msg(const chain::hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;
+
+      // hs_proposal_msg is for testing ONLY (test_pacemaker)
+      virtual void send_hs_proposal_msg(const chain::hs_proposal_message& msg, const std::string& id) = 0;
 
       virtual void send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code) = 0;
 

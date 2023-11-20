@@ -73,7 +73,9 @@ namespace eosio { namespace hotstuff {
 
       uint32_t get_quorum_threshold();
 
-      void send_hs_proposal_msg(const hs_proposal_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+      // NOTE: No longer a network message; TESTING ONLY
+      void send_hs_proposal_msg(const hs_proposal_message & msg, const std::string& id);
+
       void send_hs_vote_msg(const hs_vote_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
       void send_hs_new_view_msg(const hs_new_view_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
 

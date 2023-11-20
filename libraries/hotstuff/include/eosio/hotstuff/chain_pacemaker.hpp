@@ -25,7 +25,10 @@ namespace eosio::hotstuff {
       void register_bcast_function(std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> broadcast_hs_message);
       void register_warn_function(std::function<void(const uint32_t, const chain::hs_message_warning&)> warning_hs_message);
 
-      void beat();
+      // chain_pacemaker no longer has beat, as the hs_proposal_message (emulated message) is now created outside of IF, at the point
+      // a signed_block is created or received instead. So the real-network pacemaker (chain_pacemaker) never sends proposals -- it
+      // just "receives" them.
+      //void beat();
 
       void on_hs_msg(const uint32_t connection_id, const hs_message& msg);
 
@@ -42,7 +45,10 @@ namespace eosio::hotstuff {
 
       uint32_t get_quorum_threshold();
 
-      void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+      // NOTE: chain_pacemaker does not implement sending proposal messages, as the qc_chain cannot and should not send explicit proposal messages
+      // instead, proposals are sent by whatever code generates and sends signed_block's, which are the substitute of hs_proposal_message in the live network
+      void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id);
+
       void send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
       void send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
 
@@ -52,7 +58,9 @@ namespace eosio::hotstuff {
       void on_accepted_block( const block_state_ptr& blk );
       void on_irreversible_block( const block_state_ptr& blk );
 
-      void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg); //consensus msg event handler
+      // NOTE: no longer a network message; testing ONLY
+      void on_hs_proposal_msg(const hs_proposal_message& msg); //consensus msg event handler
+
       void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg); //confirmation msg event handler
       void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg); //new view msg event handler
    private:

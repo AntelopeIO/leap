@@ -226,33 +226,28 @@ namespace eosio::hotstuff {
       return v_msg;
    }
 
-   void qc_chain::process_proposal(const std::optional<uint32_t>& connection_id, const hs_proposal_message& proposal){
+   // Proposal messages are no longer sent through the network, so this method does not do propagation.
+   // test_pacemaker bypasses the topology emulation, so proposals are sent to all emulated test nodes.
+   void qc_chain::process_proposal(const hs_proposal_message& proposal){
 
       if (!proposal.justify.proposal_id.empty()) {
-
          const hs_proposal_message *jp = get_proposal( proposal.justify.proposal_id );
          if (jp == nullptr) {
             fc_elog(_logger, " *** ${id} proposal justification unknown : ${proposal_id}", ("id",_id)("proposal_id", proposal.justify.proposal_id));
-            send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
             return; //can't recognize a proposal with an unknown justification
          }
       }
 
       const hs_proposal_message *p = get_proposal( proposal.proposal_id );
       if (p != nullptr) {
-
          fc_elog(_logger, " *** ${id} proposal received twice : ${proposal_id}", ("id",_id)("proposal_id", proposal.proposal_id));
          if (p->justify.proposal_id != proposal.justify.proposal_id) {
-
             fc_elog(_logger, " *** ${id} two identical proposals (${proposal_id}) have different justifications :  ${justify_1} vs  ${justify_2}",
                               ("id",_id)
                               ("proposal_id", proposal.proposal_id)
                               ("justify_1", p->justify.proposal_id)
                               ("justify_2", proposal.justify.proposal_id));
-
          }
-
-         send_hs_message_warning(connection_id, hs_message_warning::discarded); // example; to be tuned to actual need
          return; //already aware of proposal, nothing to do
       }
 
@@ -325,9 +320,6 @@ namespace eosio::hotstuff {
       update(proposal);
 
       write_safety_state_file();
-
-      //propagate this proposal since it was new to us
-      send_hs_proposal_msg(connection_id, proposal);
 
       for (auto &msg : msgs) {
          send_hs_vote_msg( std::nullopt, msg );
@@ -448,7 +440,7 @@ namespace eosio::hotstuff {
                //todo : asynchronous?
                //write_state(_liveness_state_file , _liveness_state);
 
-               send_hs_proposal_msg( std::nullopt, proposal_candidate );
+               send_hs_proposal_msg( proposal_candidate );
 
                fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
             }
@@ -504,17 +496,18 @@ namespace eosio::hotstuff {
          //todo : asynchronous?
          //write_state(_liveness_state_file , _liveness_state);
 
-         send_hs_proposal_msg( std::nullopt, proposal_candidate );
+         send_hs_proposal_msg( proposal_candidate );
 
          fc_tlog(_logger, " === ${id} _b_leaf updated (create_proposal): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
       }
    }
 
-   void qc_chain::send_hs_proposal_msg(const std::optional<uint32_t>& connection_id, const hs_proposal_message & msg){
+   void qc_chain::send_hs_proposal_msg(const hs_proposal_message & msg){
       fc_tlog(_logger, " === broadcast_hs_proposal ===");
-      _pacemaker->send_hs_proposal_msg(msg, _id, connection_id);
-      if (!connection_id.has_value())
-         process_proposal( std::nullopt, msg );
+      _pacemaker->send_hs_proposal_msg(msg, _id);
+
+      // TESTING ONLY. The test_pacemaker skips sending to self, so receive it.
+      process_proposal( msg );
    }
 
    void qc_chain::send_hs_vote_msg(const std::optional<uint32_t>& connection_id, const hs_vote_message & msg){
@@ -566,6 +559,7 @@ namespace eosio::hotstuff {
       return false;
    }
 
+   // TESTING ONLY. chain_pacemaker no longer calls this.
    // Invoked when we could perhaps make a proposal to the network (or to ourselves, if we are the leader).
    void qc_chain::on_beat(){
 
@@ -762,9 +756,10 @@ namespace eosio::hotstuff {
       return final_on_qc_check && monotony_check && (liveness_check || safety_check);
    }
 
+   // TESTING ONLY. No longer needs connection_id, since there is not an actual message to e.g. propagate.
    //on proposal received, called from network thread
-   void qc_chain::on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg) {
-      process_proposal( std::optional<uint32_t>(connection_id), msg );
+   void qc_chain::on_hs_proposal_msg(const hs_proposal_message& msg) {
+      process_proposal( msg );
    }
 
    //on vote received, called from network thread

@@ -141,7 +141,7 @@ namespace eosio { namespace hotstuff {
             std::lock_guard g( _hotstuff_global_mutex ); // lock IF engine to read state
             prof.core_in();
             current_state_version = _qc_chain.get_state_version(); // get potentially fresher version
-            if (_state_cache_version != current_state_version) 
+            if (_state_cache_version != current_state_version)
                _qc_chain.get_state(current_state);
             prof.core_out();
          }
@@ -211,17 +211,25 @@ namespace eosio { namespace hotstuff {
       return _quorum_threshold;
    }
 
-   // called from the main application thread
-   void chain_pacemaker::beat() {
-      csc prof("beat");
-      std::lock_guard g( _hotstuff_global_mutex );
-      prof.core_in();
-      _qc_chain.on_beat();
-      prof.core_out();
-   }
+// chain_pacemaker no longer has beat, as the hs_proposal_message (emulated message) is now created outside of IF, at the point
+// a signed_block is created or received instead. So the real-network pacemaker (chain_pacemaker) never sends proposals -- it
+// just "receives" them.
+//
+// //called from the main application thread
+// void chain_pacemaker::beat() {
+//    csc prof("beat");
+//    std::lock_guard g( _hotstuff_global_mutex );
+//    prof.core_in();
+//    _qc_chain.on_beat();
+//    prof.core_out();
+// }
 
-   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
-      bcast_hs_message(exclude_peer, msg);
+// NOTE: chain_pacemaker does not implement sending proposal messages, as the qc_chain cannot and should not send explicit proposal messages
+// instead, proposals are sent by whatever code generates and sends signed_block's, which are the substitute of hs_proposal_message in the live network
+//
+   void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
+      // Not implemented (could also throw an error here)
+      //bcast_hs_message(exclude_peer, msg);
    }
 
    void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
@@ -241,17 +249,21 @@ namespace eosio { namespace hotstuff {
    void chain_pacemaker::on_hs_msg(const uint32_t connection_id, const eosio::chain::hs_message &msg) {
       std::visit(overloaded{
             [this, connection_id](const hs_vote_message& m) { on_hs_vote_msg(connection_id, m); },
-            [this, connection_id](const hs_proposal_message& m) { on_hs_proposal_msg(connection_id, m); },
+
+            // For testing ONLY.
+            [this](const hs_proposal_message& m) { on_hs_proposal_msg(m); },
+
             [this, connection_id](const hs_new_view_message& m) { on_hs_new_view_msg(connection_id, m); },
       }, msg);
    }
 
+   // TESTING ONLY. No connection_id since proposal "message" is no longer a real network message to e.g. propagate.
    // called from net threads
-   void chain_pacemaker::on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg) {
+   void chain_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg) {
       csc prof("prop");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
-      _qc_chain.on_hs_proposal_msg(connection_id, msg);
+      _qc_chain.on_hs_proposal_msg(msg);
       prof.core_out();
    }
 
