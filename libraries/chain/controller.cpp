@@ -268,9 +268,6 @@ struct controller_impl {
    map< account_name, map<handler_key, apply_handler> >   apply_handlers;
    unordered_map< builtin_protocol_feature_t, std::function<void(controller_impl&)>, enum_hash<builtin_protocol_feature_t> > protocol_feature_activation_handlers;
 
-   // TODO: This probably wants to be something better; store in chainbase and/or block_state
-   finalizer_set                current_finalizer_set;
-
    void pop_block() {
       auto prev = fork_db.get_block( head->header.previous );
 

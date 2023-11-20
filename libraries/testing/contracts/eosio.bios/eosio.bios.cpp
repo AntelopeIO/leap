@@ -1,5 +1,10 @@
 #include "eosio.bios.hpp"
 
+extern "C" {
+   __attribute__((eosio_wasm_import))
+   void set_finalizers( void* params, size_t params_size );
+};
+
 namespace eosiobios {
 
 void bios::setabi( name account, const std::vector<char>& abi ) {
@@ -34,6 +39,14 @@ void bios::setalimits( name account, int64_t ram_bytes, int64_t net_weight, int6
 void bios::setprods( const std::vector<eosio::producer_authority>& schedule ) {
    require_auth( get_self() );
    set_proposed_producers( schedule );
+}
+
+void bios::setfinset( const finalizer_set& fin_set ) {
+   require_auth( get_self() );
+
+   // until CDT provides a set_finalizers
+   auto packed_fin_set = eosio::pack( fin_set );
+   set_finalizers((void*)packed_fin_set.data(), packed_fin_set.size());
 }
 
 void bios::setparams( const eosio::blockchain_parameters& params ) {

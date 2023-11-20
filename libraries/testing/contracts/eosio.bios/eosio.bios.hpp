@@ -126,6 +126,32 @@ namespace eosiobios {
    };
 
    /**
+    * finalizer_authority
+    *
+    * The public bls key of the hotstuff finalizer in Affine little-endian form.
+    */
+   struct finalizer_authority {
+      std::string              description;
+      uint64_t                 fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
+      std::vector<uint8_t>     public_key_g1_affine_le; // size 96, CDT/abi_serializer has issues with std::array
+
+      EOSLIB_SERIALIZE(finalizer_authority, (description)(fweight)(public_key_g1_affine_le))
+   };
+
+   /**
+    * finalizer_set
+    *
+    * List of finalizer authorties along with the threshold
+    */
+   struct finalizer_set {
+      uint64_t                         fthreshold = 0;
+      std::vector<finalizer_authority> finalizers;
+
+       EOSLIB_SERIALIZE(finalizer_set, (fthreshold)(finalizers));
+   };
+
+
+   /**
     * @defgroup eosiobios eosio.bios
     * @ingroup eosiocontracts
     *
@@ -318,6 +344,18 @@ namespace eosiobios {
          void setprods( const std::vector<eosio::producer_authority>& schedule );
 
          /**
+          * Set a new list of finalizers.
+          *
+          * @details Set a new list of active finalizers, by proposing a finalizer set, once the block that
+          * contains the proposal becomes irreversible the new finalizer set will be made active according
+          * to Antelope finalizer active set rules. Replaces existing finalizer set.
+          *
+          * @param fin_et - New list of active finalizers to set
+          */
+         [[eosio::action]]
+         void setfinset( const finalizer_set& fin_set );
+
+         /**
           * Set the blockchain parameters
           *
           * @details Set the blockchain parameters. By tuning these parameters, various degrees of customization can be achieved.
@@ -387,6 +425,7 @@ namespace eosiobios {
          using setpriv_action = action_wrapper<"setpriv"_n, &bios::setpriv>;
          using setalimits_action = action_wrapper<"setalimits"_n, &bios::setalimits>;
          using setprods_action = action_wrapper<"setprods"_n, &bios::setprods>;
+         using setfinset_action = action_wrapper<"setfinset"_n, &bios::setfinset>;
          using setparams_action = action_wrapper<"setparams"_n, &bios::setparams>;
          using reqauth_action = action_wrapper<"reqauth"_n, &bios::reqauth>;
          using activate_action = action_wrapper<"activate"_n, &bios::activate>;
