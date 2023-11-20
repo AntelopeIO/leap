@@ -94,121 +94,155 @@ namespace eosio::hotstuff {
       };
 
       struct votes_t {
-         hs_bitset     bitset;
-         bls_signature sig;
+         hs_bitset     _bitset;
+         bls_signature _sig;
 
-         void resize(size_t num_finalizers) { bitset.resize(num_finalizers); }
-         size_t count() const { return bitset.count(); }
+         void resize(size_t num_finalizers) { _bitset.resize(num_finalizers); }
+         size_t count() const { return _bitset.count(); }
 
          bool   add_vote(size_t index, const bls_signature& new_sig) {
-            if (bitset[index])
+            if (_bitset[index])
                return false; // shouldn't be already present
-            bitset.set(index);
-            sig = fc::crypto::blslib::aggregate({ sig, new_sig });
+            _bitset.set(index);
+            _sig = fc::crypto::blslib::aggregate({ _sig, new_sig });
             return true;
          }
       };
 
       pending_quorum_certificate() = default;
 
-      explicit pending_quorum_certificate(size_t num_finalizers) :
-         num_finalizers(num_finalizers) {
-         weak_votes.resize(num_finalizers);
-         strong_votes.resize(num_finalizers);
+      explicit pending_quorum_certificate(size_t num_finalizers, size_t quorum) :
+         _num_finalizers(num_finalizers),
+         _quorum(quorum) {
+         _weak_votes.resize(num_finalizers);
+         _strong_votes.resize(num_finalizers);
       }
 
-      size_t num_weak()   const { return weak_votes.count(); }
-      size_t num_strong() const { return strong_votes.count(); }
+      size_t num_weak()   const { return _weak_votes.count(); }
+      size_t num_strong() const { return _strong_votes.count(); }
 
-      bool   valid() const { return state >= state_t::weak_achieved; }
+      bool   valid() const { return _state >= state_t::weak_achieved; }
+
+      // this function is present just to make the tests still work
+      // it will be removed, as well as the _proposal_id member of this class
+      quorum_certificate_message to_msg() const {
+         return {.proposal_id = _proposal_id,
+                 .active_finalizers = [this]() {
+                           std::vector<unsigned_int> r;
+                           r.resize(_strong_votes._bitset.num_blocks());
+                           boost::to_block_range(_strong_votes._bitset, r.begin());
+                           return r;
+                        }(),
+                 .active_agg_sig = _strong_votes._sig};
+      }
+
+      void reset(const fc::sha256& proposal_id, size_t num_finalizers, size_t quorum) {
+         _proposal_id = proposal_id;
+         _quorum = quorum;
+         if (_num_finalizers != num_finalizers) {
+            _num_finalizers = num_finalizers;
+            _strong_votes._bitset = hs_bitset(num_finalizers);
+            _weak_votes._bitset = hs_bitset(num_finalizers);
+         } else {
+            _strong_votes._bitset.reset();
+            _weak_votes._bitset.reset();
+         }
+         _strong_votes._sig = bls_signature();
+         _weak_votes._sig   = bls_signature();
+         _state = state_t::unrestricted;
+      }
 
       bool add_strong_vote(size_t index, const bls_signature& sig) {
-         assert(index < num_finalizers);
-         if (!strong_votes.add_vote(index, sig))
+         assert(index < _num_finalizers);
+         if (!_strong_votes.add_vote(index, sig))
             return false;
-         size_t weak = num_weak();
+         size_t weak   = num_weak();
          size_t strong = num_strong();
          
-         switch(state) {
+         switch(_state) {
          case state_t::unrestricted:
          case state_t::restricted:
-            if (strong >= quorum)
-                state = state_t::strong;
-            else if (weak + strong >= quorum)
-               state = state_t::weak_achieved;
+            if (strong >= _quorum)
+                _state = state_t::strong;
+            else if (weak + strong >= _quorum)
+               _state = state_t::weak_achieved;
             break;
             
          case state_t::weak_achieved:
-            if (strong >= quorum)
-               state = state_t::strong;
+            if (strong >= _quorum)
+               _state = state_t::strong;
             break;
             
          case state_t::weak_final:
          case state_t::strong:
-            // nothing to do
+            // getting another strong vote...nothing to do
             break;
          }
          return true;
       }
 
       bool add_weak_vote(size_t index, const bls_signature& sig) {
-         assert(index < num_finalizers);
-         if (!weak_votes.add_vote(index, sig))
+         assert(index < _num_finalizers);
+         if (!_weak_votes.add_vote(index, sig))
             return false;
-         size_t weak = num_weak();
+         size_t weak   = num_weak();
          size_t strong = num_strong();
          
-         switch(state) {
+         switch(_state) {
          case state_t::unrestricted:
          case state_t::restricted:
-            if (weak + strong >= quorum)
-               state = state_t::weak_achieved;
+            if (weak + strong >= _quorum)
+               _state = state_t::weak_achieved;
             
-            if (weak >= (num_finalizers - quorum)) {
-               if (state == state_t::weak_achieved)
-                  state = state_t::weak_final;
-               else if (state == state_t::unrestricted)
-                  state = state_t::restricted;
+            if (weak >= (_num_finalizers - _quorum)) {
+               if (_state == state_t::weak_achieved)
+                  _state = state_t::weak_final;
+               else if (_state == state_t::unrestricted)
+                  _state = state_t::restricted;
             }
             break;
             
          case state_t::weak_achieved:
-            if (weak >= (num_finalizers - quorum))
-               state = state_t::weak_final;
+            if (weak >= (_num_finalizers - _quorum))
+               _state = state_t::weak_final;
             break;
             
          case state_t::weak_final:
          case state_t::strong:
-            // nothing to do
+            // getting another weak vote... nothing to do
             break;
          }
          return true;
       }
-
-      state_t   state { state_t::unrestricted };
-      size_t    num_finalizers {0};
-      size_t    quorum {0};
-      votes_t   weak_votes;
-      votes_t   strong_votes;
+      
+      friend struct fc::reflector<pending_quorum_certificate>;
+      fc::sha256 _proposal_id;                     // [todo] remove
+      state_t    _state { state_t::unrestricted };
+      size_t     _num_finalizers {0};
+      size_t     _quorum {0};
+      votes_t    _weak_votes;
+      votes_t    _strong_votes;
    };
 
    class valid_quorum_certificate {
    public:
       valid_quorum_certificate(const pending_quorum_certificate& qc) {
-         if (qc.state == pending_quorum_certificate::state_t::strong) {
-            strong_votes = qc.strong_votes.bitset;
-            sig = qc.strong_votes.sig;
-         } if (qc.state > pending_quorum_certificate::state_t::weak_achieved) {
-            strong_votes = qc.strong_votes.bitset;
-            weak_votes   = qc.weak_votes.bitset;
-            sig = fc::crypto::blslib::aggregate({ qc.strong_votes.sig, qc.weak_votes.sig });
+         if (qc._state == pending_quorum_certificate::state_t::strong) {
+            strong_votes = qc._strong_votes._bitset;
+            sig = qc._strong_votes._sig;
+         } if (qc._state > pending_quorum_certificate::state_t::weak_achieved) {
+            strong_votes = qc._strong_votes._bitset;
+            weak_votes   = qc._weak_votes._bitset;
+            sig = fc::crypto::blslib::aggregate({ qc._strong_votes._sig, qc._weak_votes._sig });
          } else
             assert(0); // this should be called only when we have a valid qc.
       }
 
       bool is_weak()   const { return !!weak_votes; }
       bool is_strong() const { return !weak_votes; }
-      
+
+      friend struct fc::reflector<valid_quorum_certificate>;
+      fc::sha256               proposal_id;     // [todo] remove
       std::optional<hs_bitset> strong_votes;
       std::optional<hs_bitset> weak_votes;
       bls_signature            sig;
