@@ -5,7 +5,7 @@
 
 #include <benchmark.hpp>
 
-namespace benchmark {
+namespace eosio::benchmark {
 
 // update this map when a new feature is supported
 // key is the name and value is the function doing benchmarking
@@ -15,6 +15,7 @@ std::map<std::string, std::function<void()>> features {
    { "key", key_benchmarking },
    { "hash", hash_benchmarking },
    { "blake2", blake2_benchmarking },
+   { "bls", bls_benchmarking }
 };
 
 // values to control cout format
@@ -46,10 +47,10 @@ void print_results(std::string name, uint32_t runs, uint64_t total, uint64_t min
    std::cout.imbue(std::locale(""));
    std::cout
       << std::setw(name_width) << std::left << name
-      << std::setw(runs_width)  << runs
       // std::fixed for not printing 1234 in 1.234e3.
       // setprecision(0) for not printing fractions
       << std::right << std::fixed << std::setprecision(0)
+      << std::setw(runs_width)  << runs
       << std::setw(time_width) << total/runs << std::setw(ns_width) << " ns"
       << std::setw(time_width) << min << std::setw(ns_width) << " ns"
       << std::setw(time_width) << max << std::setw(ns_width) << " ns"
@@ -62,8 +63,10 @@ bytes to_bytes(const std::string& source) {
    return output;
 };
 
-void benchmarking(std::string name, const std::function<void()>& func) {
-   uint64_t total {0}, min {std::numeric_limits<uint64_t>::max()}, max {0};
+void benchmarking(const std::string& name, const std::function<void()>& func) {
+   uint64_t total{0};
+   uint64_t min{std::numeric_limits<uint64_t>::max()};
+   uint64_t max{0};
 
    for (auto i = 0U; i < num_runs; ++i) {
       auto start_time = std::chrono::high_resolution_clock::now();

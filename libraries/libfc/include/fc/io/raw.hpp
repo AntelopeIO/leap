@@ -17,16 +17,10 @@
 #include <list>
 
 #include <boost/multiprecision/cpp_int.hpp>
-#include <boost/interprocess/containers/string.hpp>
-#include <boost/interprocess/allocators/allocator.hpp>
-#include <boost/interprocess/managed_mapped_file.hpp>
 #include <fc/crypto/hex.hpp>
 
 namespace fc {
     namespace raw {
-
-    namespace bip = boost::interprocess;
-    using shared_string = bip::basic_string< char, std::char_traits< char >, bip::allocator<char, bip::managed_mapped_file::segment_manager> >;
 
     template<size_t Size>
     using UInt = boost::multiprecision::number<
@@ -42,9 +36,14 @@ namespace fc {
     template<typename Stream, typename T> void unpack( Stream& s,  boost::multiprecision::number<T>& n );
 
     template<typename Stream, typename Arg0, typename... Args>
-    inline void pack( Stream& s, const Arg0& a0, Args... args ) {
+    inline void pack( Stream& s, const Arg0& a0, const Args&... args ) {
        pack( s, a0 );
        pack( s, args... );
+    }
+    template<typename Stream, typename Arg0, typename... Args>
+    inline void unpack( Stream& s, Arg0& a0, Args&... args ) {
+       unpack( s, a0 );
+       unpack( s, args... );
     }
 
     template<typename Stream>
@@ -249,7 +248,12 @@ namespace fc {
        FC_ASSERT( vi == tmp );
     }
 
-    template<typename Stream> inline void pack( Stream& s, const char* v ) { fc::raw::pack( s, std::string(v) ); }
+    template<typename Stream> inline void pack( Stream& s, const char* v ) {
+       size_t sz = std::strlen(v);
+       FC_ASSERT( sz <= MAX_SIZE_OF_BYTE_ARRAYS );
+       fc::raw::pack( s, unsigned_int(sz));
+       if( sz ) s.write( v, sz );
+    }
 
     template<typename Stream, typename T>
     void pack( Stream& s, const safe<T>& v ) { fc::raw::pack( s, v.value ); }
@@ -309,22 +313,6 @@ namespace fc {
          v = std::string(tmp.data(),tmp.data()+tmp.size());
       else v = std::string();
     }
-
-    // bip::basic_string
-    template<typename Stream> inline void pack( Stream& s, const shared_string& v )  {
-      FC_ASSERT( v.size() <= MAX_SIZE_OF_BYTE_ARRAYS );
-      fc::raw::pack( s, unsigned_int((uint32_t)v.size()));
-      if( v.size() ) s.write( v.c_str(), v.size() );
-    }
-
-    template<typename Stream> inline void unpack( Stream& s, shared_string& v )  {
-      std::vector<char> tmp; fc::raw::unpack(s,tmp);
-      FC_ASSERT(v.size() == 0);
-      if( tmp.size() ) {
-         v.append(tmp.begin(), tmp.end());
-      }
-    }
-
     // bool
     template<typename Stream> inline void pack( Stream& s, const bool& v ) { fc::raw::pack( s, uint8_t(v) );             }
     template<typename Stream> inline void unpack( Stream& s, bool& v )
@@ -464,6 +452,16 @@ namespace fc {
       }
     }
 
+    template<typename Stream, typename... Ts >
+    inline void pack( Stream& s, const std::tuple<Ts...>& tup ) {
+       auto l = [&s](const auto&... v) { fc::raw::pack( s, v... ); };
+       std::apply(l, tup);
+    }
+    template<typename Stream, typename... Ts >
+    inline void unpack( Stream& s, std::tuple<Ts...>& tup ) {
+       auto l = [&s](auto&... v) { fc::raw::unpack( s, v... ); };
+       std::apply(l, tup);
+    }
 
     template<typename Stream, typename K, typename V>
     inline void pack( Stream& s, const std::pair<K,V>& value ) {
