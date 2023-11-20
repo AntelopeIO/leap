@@ -344,6 +344,57 @@ BOOST_AUTO_TEST_CASE(message_buffer_datastream) {
    }
 }
 
+BOOST_AUTO_TEST_CASE(message_buffer_datastream_tuple) {
+   using my_message_buffer_t = fc::message_buffer<1024>;
+   my_message_buffer_t mbuff;
+
+   char buf[1024];
+   fc::datastream<char*> ds( buf, 1024 );
+
+   using my_tuple = std::tuple<int, int, std::string>;
+   my_tuple t(13, 42, "hello");
+   fc::raw::pack( ds, t );
+
+   memcpy(mbuff.write_ptr(), buf, 1024);
+   mbuff.advance_write_ptr(1024);
+
+   for( int i = 0; i < 3; ++i ) {
+      auto ds2 = mbuff.create_peek_datastream();
+      my_tuple t2;
+      fc::raw::unpack( ds2, t2 );
+      BOOST_CHECK( t == t2 );
+   }
+
+   {
+      auto ds2 = mbuff.create_datastream();
+      my_tuple t2;
+      fc::raw::unpack( ds2, t2 );
+      BOOST_CHECK( t == t2 );
+   }
+}
+
+BOOST_AUTO_TEST_CASE(message_buffer_datastream_variadic_pack_unpack) {
+   using my_message_buffer_t = fc::message_buffer<1024>;
+   my_message_buffer_t mbuff;
+
+   char buf[1024];
+   fc::datastream<char*> ds( buf, 1024 );
+
+   using my_tuple = std::tuple<int, int, std::string>;
+   my_tuple t(13, 42, "hello");
+   fc::raw::pack( ds, std::get<0>(t), std::get<1>(t),  std::get<2>(t) );
+
+   memcpy(mbuff.write_ptr(), buf, 1024);
+   mbuff.advance_write_ptr(1024);
+
+   for( int i = 0; i < 3; ++i ) {
+      auto ds2 = mbuff.create_peek_datastream();
+      my_tuple t2;
+      fc::raw::unpack( ds2, std::get<0>(t2), std::get<1>(t2),  std::get<2>(t2) );
+      BOOST_CHECK( t == t2 );
+   }
+}
+
 // Make sure that the memory allocation is thread-safe.
 // A previous version used boost::object_pool without synchronization.
 BOOST_AUTO_TEST_CASE(test_message_buffer) {

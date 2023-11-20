@@ -45,7 +45,6 @@ namespace eosio::hotstuff {
       void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
       void send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
       void send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
-      void send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
 
       void send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code);
 
@@ -56,11 +55,7 @@ namespace eosio::hotstuff {
       void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg); //consensus msg event handler
       void on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg); //confirmation msg event handler
       void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg); //new view msg event handler
-      void on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg); //new block msg event handler
    private:
-
-      //FIXME/REMOVE: for testing/debugging only
-      name debug_leader_remap(name n);
 
       // This serializes all messages (high-level requests) to the qc_chain core.
       // For maximum safety, the qc_chain core will only process one request at a time.

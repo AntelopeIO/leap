@@ -156,71 +156,6 @@ namespace eosio { namespace hotstuff {
       fs = _state_cache;
    }
 
-   name chain_pacemaker::debug_leader_remap(name n) {
-/*
-      // FIXME/REMOVE: simple device to test proposer/leader
-      //   separation using the net code.
-      // Given the name of who's going to be the proposer
-      //   (which is the head block's producer), we swap the
-      //   leader name here for someone else.
-      // This depends on your configuration files for the
-      //   various nodeos instances you are using to test,
-      //   specifically the producer names associated with
-      //   each nodeos instance.
-      // This works for a setup with 21 producer names
-      //   interleaved between two nodeos test instances.
-      //   i.e. nodeos #1 has bpa, bpc, bpe ...
-      //        nodeos #2 has bpb, bpd, bpf ...
-      if (n == "bpa"_n) {
-         n = "bpb"_n;
-      } else if (n == "bpb"_n) {
-         n = "bpa"_n;
-      } else if (n == "bpc"_n) {
-         n = "bpd"_n;
-      } else if (n == "bpd"_n) {
-         n = "bpc"_n;
-      } else if (n == "bpe"_n) {
-         n = "bpf"_n;
-      } else if (n == "bpf"_n) {
-         n = "bpe"_n;
-      } else if (n == "bpg"_n) {
-         n = "bph"_n;
-      } else if (n == "bph"_n) {
-         n = "bpg"_n;
-      } else if (n == "bpi"_n) {
-         n = "bpj"_n;
-      } else if (n == "bpj"_n) {
-         n = "bpi"_n;
-      } else if (n == "bpk"_n) {
-         n = "bpl"_n;
-      } else if (n == "bpl"_n) {
-         n = "bpk"_n;
-      } else if (n == "bpm"_n) {
-         n = "bpn"_n;
-      } else if (n == "bpn"_n) {
-         n = "bpm"_n;
-      } else if (n == "bpo"_n) {
-         n = "bpp"_n;
-      } else if (n == "bpp"_n) {
-         n = "bpo"_n;
-      } else if (n == "bpq"_n) {
-         n = "bpr"_n;
-      } else if (n == "bpr"_n) {
-         n = "bpq"_n;
-      } else if (n == "bps"_n) {
-         n = "bpt"_n;
-      } else if (n == "bpt"_n) {
-         n = "bps"_n;
-      } else if (n == "bpu"_n) {
-         // odd one out; can be whomever that is not in the same nodeos (it does not
-         //   actually matter; we just want to make sure we are stressing the system by
-         //   never allowing the proposer and leader to fall on the same nodeos instance).
-         n = "bpt"_n;
-      }
-*/
-      return n;
-   }
-
    // called from main thread
    void chain_pacemaker::on_accepted_block( const block_state_ptr& blk ) {
       std::scoped_lock g( _chain_state_mutex );
@@ -250,13 +185,9 @@ namespace eosio { namespace hotstuff {
 
    name chain_pacemaker::get_leader() {
       std::unique_lock g( _chain_state_mutex );
-      name n = _head_block_state->header.producer;
+      name producer_name = _head_block_state->header.producer;
       g.unlock();
-
-      // FIXME/REMOVE: testing leader/proposer separation
-      n = debug_leader_remap(n);
-
-      return n;
+      return producer_name;
    }
 
    name chain_pacemaker::get_next_leader() {
@@ -264,12 +195,7 @@ namespace eosio { namespace hotstuff {
       block_timestamp_type next_block_time = _head_block_state->header.timestamp.next();
       producer_authority p_auth = _head_block_state->get_scheduled_producer(next_block_time);
       g.unlock();
-      name n = p_auth.producer_name;
-
-      // FIXME/REMOVE: testing leader/proposer separation
-      n = debug_leader_remap(n);
-
-      return n;
+      return p_auth.producer_name;
    }
 
    const finalizer_set& chain_pacemaker::get_finalizer_set(){
@@ -302,10 +228,6 @@ namespace eosio { namespace hotstuff {
       bcast_hs_message(exclude_peer, msg);
    }
 
-   void chain_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
-      bcast_hs_message(exclude_peer, msg);
-   }
-
    void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       bcast_hs_message(exclude_peer, msg);
    }
@@ -320,7 +242,6 @@ namespace eosio { namespace hotstuff {
       std::visit(overloaded{
             [this, connection_id](const hs_vote_message& m) { on_hs_vote_msg(connection_id, m); },
             [this, connection_id](const hs_proposal_message& m) { on_hs_proposal_msg(connection_id, m); },
-            [this, connection_id](const hs_new_block_message& m) { on_hs_new_block_msg(connection_id, m); },
             [this, connection_id](const hs_new_view_message& m) { on_hs_new_view_msg(connection_id, m); },
       }, msg);
    }
@@ -340,15 +261,6 @@ namespace eosio { namespace hotstuff {
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
       _qc_chain.on_hs_vote_msg(connection_id, msg);
-      prof.core_out();
-   }
-
-   // called from net threads
-   void chain_pacemaker::on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg) {
-      csc prof("nblk");
-      std::lock_guard g( _hotstuff_global_mutex );
-      prof.core_in();
-      _qc_chain.on_hs_new_block_msg(connection_id, msg);
       prof.core_out();
    }
 
