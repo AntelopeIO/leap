@@ -9,13 +9,12 @@ namespace eosio { namespace hotstuff {
    class test_pacemaker : public base_pacemaker {
    public:
 
-      using hotstuff_message = std::pair<std::string, std::variant<hs_proposal_message, hs_vote_message, hs_new_block_message, hs_new_view_message>>;
+      using hotstuff_message = std::pair<std::string, std::variant<hs_proposal_message, hs_vote_message, hs_new_view_message>>;
 
       enum hotstuff_message_index {
          hs_proposal  = 0,
          hs_vote      = 1,
-         hs_new_block = 2,
-         hs_new_view  = 3,
+         hs_new_view  = 2,
          hs_all_messages
       };
 
@@ -62,7 +61,6 @@ namespace eosio { namespace hotstuff {
       void on_hs_vote_msg(const hs_vote_message & msg, const std::string&  id); //confirmation msg event handler
       void on_hs_proposal_msg(const hs_proposal_message & msg, const std::string&  id); //consensus msg event handler
       void on_hs_new_view_msg(const hs_new_view_message & msg, const std::string&  id); //new view msg event handler
-      void on_hs_new_block_msg(const hs_new_block_message & msg, const std::string&  id); //new block msg event handler
 
       //base_pacemaker interface functions
 
@@ -77,7 +75,6 @@ namespace eosio { namespace hotstuff {
 
       void send_hs_proposal_msg(const hs_proposal_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
       void send_hs_vote_msg(const hs_vote_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
-      void send_hs_new_block_msg(const hs_new_block_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
       void send_hs_new_view_msg(const hs_new_view_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
 
       void send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code);
