@@ -96,7 +96,6 @@ namespace eosio::hotstuff {
 
       size_t proposals_count = 0;
       size_t votes_count = 0;
-      size_t new_blocks_count = 0;
       size_t new_views_count = 0;
 
       for (const auto& msg_pair : message_queue) {
@@ -111,9 +110,6 @@ namespace eosio::hotstuff {
             } else if (v_index == hs_vote) {
                ++votes_count;
                on_hs_vote_msg(std::get<hs_vote_message>(msg), sender_id);
-            } else if (v_index == hs_new_block) {
-               ++new_blocks_count;
-               on_hs_new_block_msg(std::get<hs_new_block_message>(msg), sender_id);
             } else if (v_index == hs_new_view) {
                ++new_views_count;
                on_hs_new_view_msg(std::get<hs_new_view_message>(msg), sender_id);
@@ -133,10 +129,9 @@ namespace eosio::hotstuff {
          ilog(" === ${memo} : ", ("memo", memo));
       }
 
-      ilog(" === pacemaker dispatched ${proposals} proposals, ${votes} votes, ${new_blocks} new_blocks, ${new_views} new_views",
+      ilog(" === pacemaker dispatched ${proposals} proposals, ${votes} votes, ${new_views} new_views",
            ("proposals", proposals_count)
            ("votes", votes_count)
-           ("new_blocks", new_blocks_count)
            ("new_views", new_views_count));
 
       return dispatched_messages;
@@ -207,10 +202,6 @@ namespace eosio::hotstuff {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
-      _pending_message_queue.push_back(std::make_pair(id, msg));
-   };
-
    void test_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
@@ -228,14 +219,6 @@ namespace eosio::hotstuff {
       for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
          if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name) && is_connected(id, qcc_ptr->get_id_i()))
             qcc_ptr->on_hs_vote_msg(0, msg);
-      }
-   }
-
-   void test_pacemaker::on_hs_new_block_msg(const hs_new_block_message& msg, const std::string& id) {
-      for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
-         // New Block msg is not propagated by qc_chain, so it has to go to everyone (no is_connected() check)
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name))
-            qcc_ptr->on_hs_new_block_msg(0, msg);
       }
    }
 

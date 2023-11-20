@@ -73,16 +73,11 @@ namespace eosio::chain {
       view_number get_view_number() const { return view_number(block_header::num_from_id(block_id), phase_counter); };
    };
 
-   struct hs_new_block_message {
-      block_id_type                block_id; //new proposal
-      quorum_certificate_message   justify; //justification
-   };
-
    struct hs_new_view_message {
       quorum_certificate_message   high_qc; //justification
    };
 
-   using hs_message = std::variant<hs_vote_message, hs_proposal_message, hs_new_block_message, hs_new_view_message>;
+   using hs_message = std::variant<hs_vote_message, hs_proposal_message, hs_new_view_message>;
 
    enum class hs_message_warning {
       discarded,               // default code for dropped messages (irrelevant, redundant, ...)
@@ -121,6 +116,5 @@ FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(active_finali
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer_key)(sig));
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
-FC_REFLECT(eosio::chain::hs_new_block_message, (block_id)(justify));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
 FC_REFLECT(eosio::chain::finalizer_state, (chained_mode)(b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));

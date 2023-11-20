@@ -27,9 +27,6 @@
 #include <exception>
 #include <stdexcept>
 
-// Enable this to swap the multi-index proposal store with std::map
-//#define QC_CHAIN_SIMPLE_PROPOSAL_STORE
-
 namespace eosio::hotstuff {
 
    template<typename StateObjectType> class state_db_manager {
@@ -311,11 +308,6 @@ namespace eosio::hotstuff {
       void on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg);
       void on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg);
 
-      // NOTE: The hotstuff New Block message is not ever propagated (multi-hop) by this method.
-      //       Unit tests do not use network topology emulation for this message.
-      //       The live network does not actually dispatch this message to the wire; this is a local callback.
-      void on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg);
-
    private:
 
       void write_safety_state_file();
@@ -337,7 +329,6 @@ namespace eosio::hotstuff {
       bool is_quorum_met(const quorum_certificate& qc, const hs_proposal_message& proposal);  //check if quorum has been met over a proposal
 
       hs_proposal_message new_proposal_candidate(const block_id_type& block_id, uint8_t phase_counter);
-      hs_new_block_message new_block_candidate(const block_id_type& block_id);
 
       bool am_i_proposer();
       bool am_i_leader();
@@ -347,7 +338,8 @@ namespace eosio::hotstuff {
       void process_proposal(const std::optional<uint32_t>& connection_id, const hs_proposal_message& msg);
       void process_vote(const std::optional<uint32_t>& connection_id, const hs_vote_message& msg);
       void process_new_view(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
-      void process_new_block(const std::optional<uint32_t>& connection_id, const hs_new_block_message& msg);
+
+      void create_proposal(const block_id_type& block_id);
 
       hs_vote_message sign_proposal(const hs_proposal_message& proposal, const bls_public_key& finalizer_pub_key, const bls_private_key& finalizer_priv_key);
 
@@ -370,7 +362,6 @@ namespace eosio::hotstuff {
       void send_hs_proposal_msg(const std::optional<uint32_t>& connection_id, const hs_proposal_message& msg);
       void send_hs_vote_msg(const std::optional<uint32_t>& connection_id, const hs_vote_message& msg);
       void send_hs_new_view_msg(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
-      void send_hs_new_block_msg(const std::optional<uint32_t>& connection_id, const hs_new_block_message& msg);
 
       void send_hs_message_warning(const std::optional<uint32_t>& connection_id, const chain::hs_message_warning code);
 
@@ -378,13 +369,6 @@ namespace eosio::hotstuff {
       void commit(const hs_proposal_message& proposal);
 
       void gc_proposals(uint64_t cutoff);
-
-      enum msg_type {
-         new_view = 1,
-         new_block = 2,
-         qc = 3,
-         vote = 4
-      };
 
       bool _chained_mode = false;
 
@@ -408,17 +392,6 @@ namespace eosio::hotstuff {
 
       fc::logger&            _logger;
 
-#ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
-      // keep one proposal store (id -> proposal) by each height (height -> proposal store)
-      typedef map<fc::sha256, hs_proposal_message> proposal_store;
-      typedef map<fc::sha256, hs_proposal_message>::iterator ps_iterator;
-      typedef map<uint64_t, proposal_store>::iterator ps_height_iterator;
-      map<uint64_t, proposal_store> _proposal_stores_by_height;
-
-      // get the height of a given proposal id
-      typedef map<fc::sha256, uint64_t>::iterator ph_iterator;
-      map<fc::sha256, uint64_t> _proposal_height;
-#else
       struct by_proposal_id{};
       struct by_proposal_height{};
 
@@ -437,7 +410,6 @@ namespace eosio::hotstuff {
          > proposal_store_type;
 
       proposal_store_type _proposal_store;  //internal proposals store
-#endif
 
       // Possible optimization: merge _proposal_store and _seen_votes_store.
       // Store a struct { set<name> seen_votes; hs_proposal_message p; } in the (now single) multi-index.

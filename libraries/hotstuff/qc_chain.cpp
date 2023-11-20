@@ -13,52 +13,17 @@ namespace eosio::hotstuff {
    }
 
    const hs_proposal_message* qc_chain::get_proposal(const fc::sha256& proposal_id) {
-#ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
-      if (proposal_id == NULL_PROPOSAL_ID)
-         return nullptr;
-      ph_iterator h_it = _proposal_height.find( proposal_id );
-      if (h_it == _proposal_height.end())
-         return nullptr;
-      uint64_t proposal_height = h_it->second;
-      ps_height_iterator psh_it = _proposal_stores_by_height.find( proposal_height );
-      if (psh_it == _proposal_stores_by_height.end())
-         return nullptr;
-      proposal_store & pstore = psh_it->second;
-      ps_iterator ps_it = pstore.find( proposal_id );
-      if (ps_it == pstore.end())
-         return nullptr;
-      const hs_proposal_message & proposal = ps_it->second;
-      return &proposal;
-#else
       proposal_store_type::nth_index<0>::type::iterator itr = _proposal_store.get<by_proposal_id>().find( proposal_id );
       if (itr == _proposal_store.get<by_proposal_id>().end())
          return nullptr;
       return &(*itr);
-#endif
    }
 
    bool qc_chain::insert_proposal(const hs_proposal_message& proposal) {
-#ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
-      uint64_t proposal_height = proposal.get_key();
-      ps_height_iterator psh_it = _proposal_stores_by_height.find( proposal_height );
-      if (psh_it == _proposal_stores_by_height.end()) {
-         _proposal_stores_by_height.emplace( proposal_height, proposal_store() );
-         psh_it = _proposal_stores_by_height.find( proposal_height );
-      }
-      proposal_store & pstore = psh_it->second;
-      const fc::sha256 & proposal_id = proposal.proposal_id;
-      ps_iterator ps_it = pstore.find( proposal_id );
-      if (ps_it != pstore.end())
-         return false; // duplicate proposal insertion, so don't change anything actually
-      _proposal_height.emplace( proposal_id, proposal_height );
-      pstore.emplace( proposal_id, proposal );
-      return true;
-#else
       if (get_proposal( proposal.proposal_id ) != nullptr)
          return false;
       _proposal_store.insert(proposal); //new proposal
       return true;
-#endif
    }
 
    void qc_chain::get_state(finalizer_state& fs) const {
@@ -72,18 +37,6 @@ namespace eosio::hotstuff {
       fs.v_height               = _safety_state.get_v_height();
       fs.high_qc                = _high_qc.to_msg();
       fs.current_qc             = _current_qc.to_msg();
-#ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
-      ps_height_iterator psh_it = _proposal_stores_by_height.begin();
-      while (psh_it != _proposal_stores_by_height.end()) {
-         proposal_store &pstore = psh_it->second;
-         ps_iterator ps_it = pstore.begin();
-         while (ps_it != pstore.end()) {
-            fs.proposals.insert( *ps_it );
-            ++ps_it;
-         }
-         ++psh_it;
-      }
-#else
       auto hgt_itr = _proposal_store.get<by_proposal_height>().begin();
       auto end_itr = _proposal_store.get<by_proposal_height>().end();
       while (hgt_itr != end_itr) {
@@ -91,7 +44,6 @@ namespace eosio::hotstuff {
          fs.proposals.emplace( p.proposal_id, p );
          ++hgt_itr;
       }
-#endif
    }
 
    uint32_t qc_chain::positive_bits_count(const hs_bitset& finalizers) {
@@ -178,14 +130,7 @@ namespace eosio::hotstuff {
       _current_qc.reset(proposal_id, 21); // TODO: use active schedule size
    }
 
-   hs_new_block_message qc_chain::new_block_candidate(const block_id_type& block_id) {
-      hs_new_block_message b;
-      b.block_id = block_id;
-      b.justify = _high_qc.to_msg(); //or null if no _high_qc upon activation or chain launch
-      return b;
-   }
-
-   bool qc_chain::evaluate_quorum(const hs_bitset& finalizers, const bls_signature& agg_sig, const hs_proposal_message& proposal) {
+   bool qc_chain::evaluate_quorum(const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
       if (positive_bits_count(finalizers) < _pacemaker->get_quorum_threshold()){
          return false;
       }
@@ -217,7 +162,7 @@ namespace eosio::hotstuff {
       }
    }
 
-   qc_chain::qc_chain(std::string id, 
+   qc_chain::qc_chain(std::string id,
                       base_pacemaker* pacemaker,
                       std::set<name> my_producers,
                       bls_key_map_t finalizer_keys,
@@ -311,23 +256,12 @@ namespace eosio::hotstuff {
          return; //already aware of proposal, nothing to do
       }
 
-#ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
-      ps_height_iterator psh_it = _proposal_stores_by_height.find( proposal.get_key() );
-      if (psh_it != _proposal_stores_by_height.end())
-      {
-         proposal_store & pstore = psh_it->second;
-         ps_iterator ps_it = pstore.begin();
-         while (ps_it != pstore.end())
-         {
-            hs_proposal_message & existing_proposal = ps_it->second;
-#else
       //height is not necessarily unique, so we iterate over all prior proposals at this height
       auto hgt_itr = _proposal_store.get<by_proposal_height>().lower_bound( proposal.get_key() );
       auto end_itr = _proposal_store.get<by_proposal_height>().upper_bound( proposal.get_key() );
       while (hgt_itr != end_itr)
       {
          const hs_proposal_message & existing_proposal = *hgt_itr;
-#endif
          fc_elog(_logger, " *** ${id} received a different proposal at the same height (${block_num}, ${phase_counter})",
                            ("id",_id)
                            ("block_num", existing_proposal.block_num())
@@ -336,15 +270,8 @@ namespace eosio::hotstuff {
          fc_elog(_logger, " *** Proposal #1 : ${proposal_id_1} Proposal #2 : ${proposal_id_2}",
                            ("proposal_id_1", existing_proposal.proposal_id)
                            ("proposal_id_2", proposal.proposal_id));
-
-#ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
-            ++ps_it;
-         }
-      }
-#else
          hgt_itr++;
       }
-#endif
 
       fc_dlog(_logger, " === ${id} received new proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id} : parent_id ${parent_id} justify ${justify}",
                      ("id", _id)
@@ -545,28 +472,7 @@ namespace eosio::hotstuff {
       }
    }
 
-   void qc_chain::process_new_block(const std::optional<uint32_t>& connection_id, const hs_new_block_message& msg){
-
-      // If I'm not a leader, I probably don't care about hs-new-block messages.
-#warning check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
-      // TODO: check for a need to gossip/rebroadcast even if it's not for us (maybe here, maybe somewhere else).
-      if (! am_i_leader()) {
-         fc_tlog(_logger, " === ${id} process_new_block === discarding because I'm not the leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
-         return;
-      }
-
-      fc_tlog(_logger, " === ${id} process_new_block === am leader; block_id : ${bid}, justify : ${just}", ("bid", msg.block_id)("just", msg.justify)("id", _id));
-
-#warning What to do with the received msg.justify?
-      // ------------------------------------------------------------------
-      //
-      //   FIXME/REVIEW/TODO: What to do with the received msg.justify?
-      //
-      //   We are the leader, and we got a block_id from a proposer, but
-      //     we should probably do something with the justify QC that
-      //     comes with it (which is the _high_qc of the proposer (?))
-      //
-      // ------------------------------------------------------------------
+   void qc_chain::create_proposal(const block_id_type& block_id) {
 
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
@@ -577,8 +483,8 @@ namespace eosio::hotstuff {
                         ("proposal_id", _current_qc.get_proposal_id())
                         ("quorum_met", _current_qc.is_quorum_met()));
 
-         fc_tlog(_logger, " === ${id} setting _pending_proposal_block to ${block_id} (on_beat)", ("id", _id)("block_id", msg.block_id));
-         _pending_proposal_block = msg.block_id;
+         fc_tlog(_logger, " === ${id} setting _pending_proposal_block to ${block_id} (create_proposal)", ("id", _id)("block_id", block_id));
+         _pending_proposal_block = block_id;
 
       } else {
 
@@ -586,11 +492,11 @@ namespace eosio::hotstuff {
                         ("id", _id)
                         ("proposal_id", _current_qc.get_proposal_id())
                         ("quorum_met", _current_qc.is_quorum_met()));
-         hs_proposal_message proposal_candidate = new_proposal_candidate( msg.block_id, 0 );
+         hs_proposal_message proposal_candidate = new_proposal_candidate( block_id, 0 );
 
          reset_qc(proposal_candidate.proposal_id);
 
-         fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_new_block)", ("id", _id));
+         fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (create_proposal)", ("id", _id));
 
          _pending_proposal_block = {};
          _b_leaf = proposal_candidate.proposal_id;
@@ -600,7 +506,7 @@ namespace eosio::hotstuff {
 
          send_hs_proposal_msg( std::nullopt, proposal_candidate );
 
-         fc_tlog(_logger, " === ${id} _b_leaf updated (on_beat): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
+         fc_tlog(_logger, " === ${id} _b_leaf updated (create_proposal): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
       }
    }
 
@@ -621,11 +527,6 @@ namespace eosio::hotstuff {
    void qc_chain::send_hs_new_view_msg(const std::optional<uint32_t>& connection_id, const hs_new_view_message & msg){
       fc_tlog(_logger, " === broadcast_hs_new_view ===");
       _pacemaker->send_hs_new_view_msg(msg, _id, connection_id);
-   }
-
-   void qc_chain::send_hs_new_block_msg(const std::optional<uint32_t>& connection_id, const hs_new_block_message & msg){
-      fc_tlog(_logger, " === broadcast_hs_new_block ===");
-      _pacemaker->send_hs_new_block_msg(msg, _id, connection_id);
    }
 
    void qc_chain::send_hs_message_warning(const std::optional<uint32_t>& connection_id, const chain::hs_message_warning code) {
@@ -668,40 +569,16 @@ namespace eosio::hotstuff {
    // Invoked when we could perhaps make a proposal to the network (or to ourselves, if we are the leader).
    void qc_chain::on_beat(){
 
-      // Non-proposing leaders do not care about on_beat(), because leaders react to a block proposal
-      //   which comes from processing an incoming new block message from a proposer instead.
-      // on_beat() is called by the pacemaker, which decides when it's time to check whether we are
-      //   proposers that should check whether as proposers we should propose a new hotstuff block to
-      //   the network (or to ourselves, which is faster and doesn't require the bandwidth of an additional
-      //   gossip round for a new proposed block).
-      // The current criteria for a leader selecting a proposal among all proposals it receives is to go
-      //   with the first valid one that it receives. So if a proposer is also a leader, it silently goes
-      //   with its own proposal, which is hopefully valid at the point of generation which is also the
-      //   point of consumption.
-      //
-      if (! am_i_proposer())
+      // only proposer-leaders do on_beat, which is to create a proposal
+      if (!am_i_proposer() || !am_i_leader())
          return;
 
       block_id_type current_block_id = _pacemaker->get_current_block_id();
 
-      hs_new_block_message block_candidate = new_block_candidate( current_block_id );
+      // NOTE: This would be the "justify" of the proposal that is being created
+      // _high_qc.to_msg(); //or null if no _high_qc upon activation or chain launch
 
-      if (am_i_leader()) {
-
-         // I am the proposer; so this assumes that no additional proposal validation is required.
-
-         fc_tlog(_logger, " === I am a leader-proposer that is proposing a block for itself to lead");
-         // Hardwired consumption by self; no networking.
-         process_new_block( std::nullopt, block_candidate );
-
-      } else {
-
-         // I'm only a proposer and not the leader; send a new-block-proposal message out to
-         //   the network, until it reaches the leader.
-
-         fc_tlog(_logger, " === broadcasting new block = #${block_num} ${proposal_id}", ("proposal_id", block_candidate.block_id)("block_num",(block_header::num_from_id(block_candidate.block_id))));
-         send_hs_new_block_msg( std::nullopt, block_candidate );
-      }
+      create_proposal(current_block_id);
    }
 
    // returns true on state change (caller decides update on state version
@@ -900,11 +777,6 @@ namespace eosio::hotstuff {
       process_new_view( std::optional<uint32_t>(connection_id), msg );
    }
 
-   //on new block received, called from network thread
-   void qc_chain::on_hs_new_block_msg(const uint32_t connection_id, const hs_new_block_message& msg) {
-      process_new_block( std::optional<uint32_t>(connection_id), msg );
-   }
-
    void qc_chain::update(const hs_proposal_message& proposal) {
       //fc_tlog(_logger, " === update internal state ===");
       //if proposal has no justification, means we either just activated the feature or launched the chain, or the proposal is invalid
@@ -1030,30 +902,6 @@ namespace eosio::hotstuff {
       auto& seen_votes_index = _seen_votes_store.get<by_seen_votes_proposal_height>();
       seen_votes_index.erase(seen_votes_index.begin(), seen_votes_index.upper_bound(cutoff));
 
-#ifdef QC_CHAIN_SIMPLE_PROPOSAL_STORE
-      ps_height_iterator psh_it = _proposal_stores_by_height.begin();
-      while (psh_it != _proposal_stores_by_height.end()) {
-         uint64_t height = psh_it->first;
-         if (height <= cutoff) {
-            // remove all entries from _proposal_height for this proposal store
-            proposal_store & pstore = psh_it->second;
-            ps_iterator ps_it = pstore.begin();
-            while (ps_it != pstore.end()) {
-               hs_proposal_message & p = ps_it->second;
-               ph_iterator ph_it = _proposal_height.find( p.proposal_id );
-               EOS_ASSERT( ph_it != _proposal_height.end(), chain_exception, "gc_proposals internal error: no proposal height entry");
-               uint64_t proposal_height = ph_it->second;
-               EOS_ASSERT(proposal_height == p.get_key(), chain_exception, "gc_proposals internal error: mismatched proposal height record"); // this check is unnecessary
-               _proposal_height.erase( ph_it );
-               ++ps_it;
-            }
-            // then remove the entire proposal store
-            psh_it = _proposal_stores_by_height.erase( psh_it );
-         } else {
-            ++psh_it;
-         }
-      }
-#else
       auto end_itr = _proposal_store.get<by_proposal_height>().upper_bound(cutoff);
       while (_proposal_store.get<by_proposal_height>().begin() != end_itr){
          auto itr = _proposal_store.get<by_proposal_height>().begin();
@@ -1065,13 +913,12 @@ namespace eosio::hotstuff {
                         ("proposal_id", itr->proposal_id));
          _proposal_store.get<by_proposal_height>().erase(itr);
       }
-#endif
    }
 
 void qc_chain::commit(const hs_proposal_message& initial_proposal) {
    std::vector<const hs_proposal_message*> proposal_chain;
    proposal_chain.reserve(10);
-   
+
    const hs_proposal_message* p = &initial_proposal;
    while (p) {
       fc_tlog(_logger, " === attempting to commit proposal #${block_num}:${phase} ${prop_id} block_id: ${block_id} parent_id: ${parent_id}",
