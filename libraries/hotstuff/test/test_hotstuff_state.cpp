@@ -19,8 +19,8 @@ const std::string file_path_1("temp_hs_safety");
 
 BOOST_AUTO_TEST_CASE(write_safety_state_to_file) try {
 
-  eosio::hotstuff::hs_proposal_message hspm_1;
-  eosio::hotstuff::hs_proposal_message hspm_2;
+  eosio::hotstuff::hs_proposal hspm_1;
+  eosio::hotstuff::hs_proposal hspm_2;
 
   hspm_1.block_id = eosio::chain::block_id_type("0b93846cf55a3ecbcd8f9bd86866b1aecc2e8bd981e40c92609ce3a68dbd0824"); //UX Network block #194217067
   hspm_1.final_on_qc = eosio::chain::block_id_type();
@@ -58,8 +58,8 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
   std::remove(file_path_1.c_str());
 
   //test correct values
-  eosio::hotstuff::hs_proposal_message hspm_1;
-  eosio::hotstuff::hs_proposal_message hspm_2;
+  eosio::hotstuff::hs_proposal hspm_1;
+  eosio::hotstuff::hs_proposal hspm_2;
 
   hspm_1.block_id = eosio::chain::block_id_type("0b93846cf55a3ecbcd8f9bd86866b1aecc2e8bd981e40c92609ce3a68dbd0824"); //UX Network block #194217067
   hspm_1.final_on_qc = eosio::chain::block_id_type();
@@ -83,8 +83,8 @@ BOOST_AUTO_TEST_CASE(read_safety_state_from_file) try {
 #warning TODO decide on liveness state file then implement it in qc_chain and then test it here
 /*BOOST_AUTO_TEST_CASE(write_liveness_state_to_file) try {
 
-  eosio::hotstuff::hs_proposal_message hspm_1;
-  eosio::hotstuff::hs_proposal_message hspm_2;
+  eosio::hotstuff::hs_proposal hspm_1;
+  eosio::hotstuff::hs_proposal hspm_2;
 
   hspm_1.block_id = eosio::chain::block_id_type("0b93846cf55a3ecbcd8f9bd86866b1aecc2e8bd981e40c92609ce3a68dbd0824"); //UX Network block #194217068
   hspm_1.final_on_qc = eosio::chain::block_id_type();
@@ -121,8 +121,8 @@ BOOST_AUTO_TEST_CASE(read_liveness_state_from_file) try {
 
   //test correct values
 
-  eosio::hotstuff::hs_proposal_message hspm_1;
-  eosio::hotstuff::hs_proposal_message hspm_2;
+  eosio::hotstuff::hs_proposal hspm_1;
+  eosio::hotstuff::hs_proposal hspm_2;
 
   hspm_1.block_id = eosio::chain::block_id_type("0b93846cf55a3ecbcd8f9bd86866b1aecc2e8bd981e40c92609ce3a68dbd0824"); //UX Network block #194217067
   hspm_1.final_on_qc = eosio::chain::block_id_type();

@@ -121,10 +121,10 @@ public:
       qc_chain & qcc = *qcc_entry->second.get();
       finalizer_state fs;
       qcc.get_state(fs);
-      const hs_proposal_message *leaf = fs.get_proposal( fs.b_leaf );
-      const hs_proposal_message *qc   = fs.get_proposal( fs.high_qc.proposal_id );
-      const hs_proposal_message *lock = fs.get_proposal( fs.b_lock );
-      const hs_proposal_message *exec = fs.get_proposal( fs.b_exec );
+      const hs_proposal *leaf = fs.get_proposal( fs.b_leaf );
+      const hs_proposal *qc   = fs.get_proposal( fs.high_qc.proposal_id );
+      const hs_proposal *lock = fs.get_proposal( fs.b_lock );
+      const hs_proposal *exec = fs.get_proposal( fs.b_exec );
 
       if (leaf != nullptr) std::cout << "  - " << bp << " current _b_leaf is : " << fs.b_leaf.str() << " block_num : " << leaf->block_num() << ", phase : " << unsigned(leaf->phase_counter) << "\n";
       else std::cout << "  - No b_leaf value " << "\n";

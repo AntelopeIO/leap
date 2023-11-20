@@ -57,8 +57,7 @@ namespace eosio::chain {
       fc::crypto::blslib::bls_signature   sig;
    };
 
-   // TODO: rename to hs_proposal
-   struct hs_proposal_message {
+   struct hs_proposal {
       fc::sha256                          proposal_id; //vote on proposal
       block_id_type                       block_id;
       fc::sha256                          parent_id; //new proposal
@@ -98,9 +97,9 @@ namespace eosio::chain {
       eosio::chain::quorum_certificate_message high_qc;
       eosio::chain::quorum_certificate_message current_qc;
       eosio::chain::extended_schedule schedule;
-      map<fc::sha256, hs_proposal_message> proposals;
+      map<fc::sha256, hs_proposal> proposals;
 
-      const hs_proposal_message* get_proposal(const fc::sha256& id) const {
+      const hs_proposal* get_proposal(const fc::sha256& id) const {
          auto it = proposals.find(id);
          if (it == proposals.end())
             return nullptr;
@@ -115,6 +114,6 @@ FC_REFLECT(eosio::chain::view_number, (bheight)(pcounter));
 FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(active_finalizers)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer_key)(sig));
-FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
+FC_REFLECT(eosio::chain::hs_proposal, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
 FC_REFLECT(eosio::chain::finalizer_state, (b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));

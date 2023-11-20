@@ -8,11 +8,11 @@
 
 BOOST_AUTO_TEST_CASE(view_number_tests) try {
 
-  eosio::hotstuff::hs_proposal_message hspm_1;
-  eosio::hotstuff::hs_proposal_message hspm_2;
-  eosio::hotstuff::hs_proposal_message hspm_3;
-  eosio::hotstuff::hs_proposal_message hspm_4;
-  eosio::hotstuff::hs_proposal_message hspm_5;
+  eosio::hotstuff::hs_proposal hspm_1;
+  eosio::hotstuff::hs_proposal hspm_2;
+  eosio::hotstuff::hs_proposal hspm_3;
+  eosio::hotstuff::hs_proposal hspm_4;
+  eosio::hotstuff::hs_proposal hspm_5;
 
   hspm_1.block_id = eosio::chain::block_id_type("0b93846ba73bdfdc9b2383863b64f8f921c8a2379d6dde4e05bdd2e434e9392a"); //UX Network block #194217067
   hspm_1.phase_counter = 0;

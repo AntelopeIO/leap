@@ -2677,7 +2677,7 @@ read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time
       results.schedule               = fs.schedule;
       results.proposals.reserve( fs.proposals.size() );
       for (const auto& proposal : fs.proposals) {
-         const chain::hs_proposal_message& p = proposal.second;
+         const chain::hs_proposal& p = proposal.second;
          results.proposals.push_back( hs_complete_proposal_message( p ) );
       }
    }
@@ -2694,7 +2694,7 @@ void chain_plugin::notify_hs_message( const uint32_t connection_id, const hs_mes
 void chain_plugin::notify_hs_block_produced() {
    if (chain().is_builtin_activated( builtin_protocol_feature_t::instant_finality )) {
 
-      //FIXME/TODO: instead, fake a new hs_proposal_message here and call _chain_pacemaker->on_hs_msg() to receive it.
+      //FIXME/TODO: instead, fake a new hs_proposal here and call _chain_pacemaker->on_hs_msg() to receive it.
       //
       //my->_chain_pacemaker->beat();
    }

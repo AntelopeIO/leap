@@ -182,7 +182,7 @@ namespace eosio::hotstuff {
 
       // create a proposal using the qc_chain unit testing interface (and receive on self)
       block_id_type current_block_id = get_current_block_id();
-      hs_proposal_message proposal = proposer_qcc_ptr->test_create_proposal(current_block_id);
+      hs_proposal proposal = proposer_qcc_ptr->test_create_proposal(current_block_id);
       proposer_qcc_ptr->test_receive_proposal(proposal);
       std::string proposer_id = proposer_qcc_ptr->get_id_i();
 

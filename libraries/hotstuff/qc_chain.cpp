@@ -12,14 +12,14 @@ namespace eosio::hotstuff {
       state_db_manager<safety_state>::write(_safety_state_file_handle, _safety_state);
    }
 
-   const hs_proposal_message* qc_chain::get_proposal(const fc::sha256& proposal_id) {
+   const hs_proposal* qc_chain::get_proposal(const fc::sha256& proposal_id) {
       proposal_store_type::nth_index<0>::type::iterator itr = _proposal_store.get<by_proposal_id>().find( proposal_id );
       if (itr == _proposal_store.get<by_proposal_id>().end())
          return nullptr;
       return &(*itr);
    }
 
-   bool qc_chain::insert_proposal(const hs_proposal_message& proposal) {
+   bool qc_chain::insert_proposal(const hs_proposal& proposal) {
       if (get_proposal( proposal.proposal_id ) != nullptr)
          return false;
       _proposal_store.insert(proposal); //new proposal
@@ -39,7 +39,7 @@ namespace eosio::hotstuff {
       auto hgt_itr = _proposal_store.get<by_proposal_height>().begin();
       auto end_itr = _proposal_store.get<by_proposal_height>().end();
       while (hgt_itr != end_itr) {
-         const hs_proposal_message & p = *hgt_itr;
+         const hs_proposal & p = *hgt_itr;
          fs.proposals.emplace( p.proposal_id, p );
          ++hgt_itr;
       }
@@ -70,13 +70,13 @@ namespace eosio::hotstuff {
       throw std::runtime_error("qc_chain internal error: finalizer_key not found");
    }
 
-   std::vector<hs_proposal_message> qc_chain::get_qc_chain(const fc::sha256& proposal_id) {
-      std::vector<hs_proposal_message> ret_arr;
-      if ( const hs_proposal_message* b2 = get_proposal( proposal_id ) ) {
+   std::vector<hs_proposal> qc_chain::get_qc_chain(const fc::sha256& proposal_id) {
+      std::vector<hs_proposal> ret_arr;
+      if ( const hs_proposal* b2 = get_proposal( proposal_id ) ) {
          ret_arr.push_back( *b2 );
-         if (const hs_proposal_message* b1 = get_proposal( b2->justify.proposal_id ) ) {
+         if (const hs_proposal* b1 = get_proposal( b2->justify.proposal_id ) ) {
             ret_arr.push_back( *b1 );
-            if (const hs_proposal_message* b = get_proposal( b1->justify.proposal_id ) ) {
+            if (const hs_proposal* b = get_proposal( b1->justify.proposal_id ) ) {
                ret_arr.push_back( *b );
             }
          }
@@ -84,23 +84,23 @@ namespace eosio::hotstuff {
       return ret_arr;
    }
 
-   hs_proposal_message qc_chain::new_proposal_candidate(const block_id_type& block_id, uint8_t phase_counter) {
-      hs_proposal_message b_new;
+   hs_proposal qc_chain::new_proposal_candidate(const block_id_type& block_id, uint8_t phase_counter) {
+      hs_proposal b_new;
       b_new.block_id = block_id;
       b_new.parent_id =  _b_leaf;
       b_new.phase_counter = phase_counter;
       b_new.justify = _high_qc.to_msg(); //or null if no _high_qc upon activation or chain launch
       if (!b_new.justify.proposal_id.empty()){
-         std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(b_new.justify.proposal_id);
+         std::vector<hs_proposal> current_qc_chain = get_qc_chain(b_new.justify.proposal_id);
          size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
          if (chain_length>=2){
             auto itr = current_qc_chain.begin();
-            hs_proposal_message b2 = *itr;
+            hs_proposal b2 = *itr;
             itr++;
-            hs_proposal_message b1 = *itr;
+            hs_proposal b1 = *itr;
             if (b_new.parent_id == b2.proposal_id && b2.parent_id == b1.proposal_id) b_new.final_on_qc = b1.proposal_id;
             else {
-               const hs_proposal_message *p = get_proposal( b1.parent_id );
+               const hs_proposal *p = get_proposal( b1.parent_id );
                //EOS_ASSERT( p != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", b1.parent_id) );
                if (p != nullptr) {
                   b_new.final_on_qc = p->final_on_qc;
@@ -129,7 +129,7 @@ namespace eosio::hotstuff {
       _current_qc.reset(proposal_id, 21); // TODO: use active schedule size
    }
 
-   bool qc_chain::evaluate_quorum(const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
+   bool qc_chain::evaluate_quorum(const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal& proposal) {
       if (positive_bits_count(finalizers) < _pacemaker->get_quorum_threshold()){
          return false;
       }
@@ -148,7 +148,7 @@ namespace eosio::hotstuff {
       return ok;
    }
 
-   bool qc_chain::is_quorum_met(const quorum_certificate& qc, const hs_proposal_message& proposal) {
+   bool qc_chain::is_quorum_met(const quorum_certificate& qc, const hs_proposal& proposal) {
 
       if (qc.is_quorum_met()) {
          return true; //skip evaluation if we've already verified quorum was met
@@ -209,7 +209,7 @@ namespace eosio::hotstuff {
 
    }
 
-   hs_vote_message qc_chain::sign_proposal(const hs_proposal_message& proposal,
+   hs_vote_message qc_chain::sign_proposal(const hs_proposal& proposal,
                                            const fc::crypto::blslib::bls_public_key& finalizer_pub_key,
                                            const fc::crypto::blslib::bls_private_key& finalizer_priv_key)
    {
@@ -227,17 +227,17 @@ namespace eosio::hotstuff {
 
    // Proposal messages are no longer sent through the network, so this method does not do propagation.
    // test_pacemaker bypasses the topology emulation, so proposals are sent to all emulated test nodes.
-   void qc_chain::process_proposal(const hs_proposal_message& proposal){
+   void qc_chain::process_proposal(const hs_proposal& proposal){
 
       if (!proposal.justify.proposal_id.empty()) {
-         const hs_proposal_message *jp = get_proposal( proposal.justify.proposal_id );
+         const hs_proposal *jp = get_proposal( proposal.justify.proposal_id );
          if (jp == nullptr) {
             fc_elog(_logger, " *** ${id} proposal justification unknown : ${proposal_id}", ("id",_id)("proposal_id", proposal.justify.proposal_id));
             return; //can't recognize a proposal with an unknown justification
          }
       }
 
-      const hs_proposal_message *p = get_proposal( proposal.proposal_id );
+      const hs_proposal *p = get_proposal( proposal.proposal_id );
       if (p != nullptr) {
          fc_elog(_logger, " *** ${id} proposal received twice : ${proposal_id}", ("id",_id)("proposal_id", proposal.proposal_id));
          if (p->justify.proposal_id != proposal.justify.proposal_id) {
@@ -255,7 +255,7 @@ namespace eosio::hotstuff {
       auto end_itr = _proposal_store.get<by_proposal_height>().upper_bound( proposal.get_key() );
       while (hgt_itr != end_itr)
       {
-         const hs_proposal_message & existing_proposal = *hgt_itr;
+         const hs_proposal & existing_proposal = *hgt_itr;
          fc_elog(_logger, " *** ${id} received a different proposal at the same height (${block_num}, ${phase_counter})",
                            ("id",_id)
                            ("block_num", existing_proposal.block_num())
@@ -346,7 +346,7 @@ namespace eosio::hotstuff {
          }
        }
 
-      const hs_proposal_message *p = get_proposal( vote.proposal_id );
+      const hs_proposal *p = get_proposal( vote.proposal_id );
       if (p == nullptr) {
          if (am_leader)
             fc_elog(_logger, " *** ${id} couldn't find proposal, vote : ${vote}", ("id",_id)("vote", vote));
@@ -439,15 +439,15 @@ namespace eosio::hotstuff {
       }
    }
 
-   void qc_chain::test_receive_proposal(const hs_proposal_message& proposal) {
+   void qc_chain::test_receive_proposal(const hs_proposal& proposal) {
       process_proposal(proposal);
    }
 
-   hs_proposal_message qc_chain::test_create_proposal(const block_id_type& block_id) {
+   hs_proposal qc_chain::test_create_proposal(const block_id_type& block_id) {
       return create_proposal(block_id);
    }
 
-   hs_proposal_message qc_chain::create_proposal(const block_id_type& block_id) {
+   hs_proposal qc_chain::create_proposal(const block_id_type& block_id) {
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
       if (!_current_qc.get_proposal_id().empty() && !_current_qc.is_quorum_met()) {
@@ -469,7 +469,7 @@ namespace eosio::hotstuff {
                         ("id", _id)
                         ("proposal_id", _current_qc.get_proposal_id())
                         ("quorum_met", _current_qc.is_quorum_met()));
-         hs_proposal_message proposal_candidate = new_proposal_candidate( block_id, 0 );
+         hs_proposal proposal_candidate = new_proposal_candidate( block_id, 0 );
 
          reset_qc(proposal_candidate.proposal_id);
 
@@ -514,7 +514,7 @@ namespace eosio::hotstuff {
       //TODO: confirm the extends predicate never has to verify extension of irreversible blocks, otherwise this function needs to be modified
 
       uint32_t counter = 0;
-      const hs_proposal_message *p = get_proposal( descendant );
+      const hs_proposal *p = get_proposal( descendant );
       while (p != nullptr) {
          fc::sha256 parent_id = p->parent_id;
          p = get_proposal( parent_id );
@@ -562,8 +562,8 @@ namespace eosio::hotstuff {
          // if this returns false, we won't update the get_finality_status information, but I don't think we care about that at all.
          return !high_qc.get_proposal_id().empty();
       } else {
-         const hs_proposal_message *old_high_qc_prop = get_proposal( _high_qc.get_proposal_id() );
-         const hs_proposal_message *new_high_qc_prop = get_proposal( high_qc.get_proposal_id() );
+         const hs_proposal *old_high_qc_prop = get_proposal( _high_qc.get_proposal_id() );
+         const hs_proposal *new_high_qc_prop = get_proposal( high_qc.get_proposal_id() );
 
          if (old_high_qc_prop == nullptr)
             return false;
@@ -619,7 +619,7 @@ namespace eosio::hotstuff {
    }
 
    //safenode predicate
-   bool qc_chain::is_node_safe(const hs_proposal_message& proposal) {
+   bool qc_chain::is_node_safe(const hs_proposal& proposal) {
 
       //fc_tlog(_logger, " === is_node_safe ===");
 
@@ -635,7 +635,7 @@ namespace eosio::hotstuff {
          final_on_qc_check = true; //if chain just launched or feature just activated
       } else {
 
-         std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(proposal.justify.proposal_id);
+         std::vector<hs_proposal> current_qc_chain = get_qc_chain(proposal.justify.proposal_id);
 
          size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
 
@@ -643,14 +643,14 @@ namespace eosio::hotstuff {
 
             auto itr = current_qc_chain.begin();
 
-            hs_proposal_message b2 = *itr;
+            hs_proposal b2 = *itr;
             ++itr;
-            hs_proposal_message b1 = *itr;
+            hs_proposal b1 = *itr;
 
             if (proposal.parent_id == b2.proposal_id && b2.parent_id == b1.proposal_id)
                upcoming_commit = b1.proposal_id;
             else {
-               const hs_proposal_message *p = get_proposal( b1.parent_id );
+               const hs_proposal *p = get_proposal( b1.parent_id );
                //EOS_ASSERT( p != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", b1.parent_id) );
                if (p != nullptr) {
                   upcoming_commit = p->final_on_qc;
@@ -683,9 +683,9 @@ namespace eosio::hotstuff {
 
             liveness_check = true; //if there is no justification on the proposal and I am not locked on anything, means the chain just launched or feature just activated
          } else {
-            const hs_proposal_message *b_lock = get_proposal( _safety_state.get_b_lock() );
+            const hs_proposal *b_lock = get_proposal( _safety_state.get_b_lock() );
             EOS_ASSERT( b_lock != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", _safety_state.get_b_lock()) );
-            const hs_proposal_message *prop_justification = get_proposal( proposal.justify.proposal_id );
+            const hs_proposal *prop_justification = get_proposal( proposal.justify.proposal_id );
             EOS_ASSERT( prop_justification != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", proposal.justify.proposal_id) );
 
             if (prop_justification->get_view_number() > b_lock->get_view_number()) {
@@ -730,7 +730,7 @@ namespace eosio::hotstuff {
       process_new_view( std::optional<uint32_t>(connection_id), msg );
    }
 
-   void qc_chain::update(const hs_proposal_message& proposal) {
+   void qc_chain::update(const hs_proposal& proposal) {
       //fc_tlog(_logger, " === update internal state ===");
       //if proposal has no justification, means we either just activated the feature or launched the chain, or the proposal is invalid
       if (proposal.justify.proposal_id.empty()) {
@@ -738,11 +738,11 @@ namespace eosio::hotstuff {
          return;
       }
 
-      std::vector<hs_proposal_message> current_qc_chain = get_qc_chain(proposal.justify.proposal_id);
+      std::vector<hs_proposal> current_qc_chain = get_qc_chain(proposal.justify.proposal_id);
 
       size_t chain_length = std::distance(current_qc_chain.begin(), current_qc_chain.end());
 
-      const hs_proposal_message *b_lock = get_proposal( _safety_state.get_b_lock() );
+      const hs_proposal *b_lock = get_proposal( _safety_state.get_b_lock() );
       EOS_ASSERT( b_lock != nullptr || _safety_state.get_b_lock().empty() , chain_exception, "expected hs_proposal ${id} not found", ("id", _safety_state.get_b_lock()) );
 
       //fc_tlog(_logger, " === update_high_qc : proposal.justify ===");
@@ -754,7 +754,7 @@ namespace eosio::hotstuff {
       }
 
       auto itr = current_qc_chain.begin();
-      hs_proposal_message b_2 = *itr;
+      hs_proposal b_2 = *itr;
 
       if (chain_length<2){
          fc_dlog(_logger, " === ${id} qc chain length is 1", ("id", _id));
@@ -763,7 +763,7 @@ namespace eosio::hotstuff {
 
       itr++;
 
-      hs_proposal_message b_1 = *itr;
+      hs_proposal b_1 = *itr;
 
       //if we're not locked on anything, means we just activated or chain just launched, else we verify if we've progressed enough to establish a new lock
 
@@ -797,7 +797,7 @@ namespace eosio::hotstuff {
 
       ++itr;
 
-      hs_proposal_message b = *itr;
+      hs_proposal b = *itr;
 
       fc_tlog(_logger, " === direct parent relationship verification : b_2.parent_id ${b_2.parent_id} b_1.proposal_id ${b_1.proposal_id} b_1.parent_id ${b_1.parent_id} b.proposal_id ${b.proposal_id} ",
                 ("b_2.parent_id",b_2.parent_id)
@@ -810,7 +810,7 @@ namespace eosio::hotstuff {
 
          if (!_b_exec.empty()){
 
-            const hs_proposal_message *b_exec = get_proposal( _b_exec );
+            const hs_proposal *b_exec = get_proposal( _b_exec );
             EOS_ASSERT( b_exec != nullptr , chain_exception, "expected hs_proposal ${id} not found", ("id", _b_exec) );
 
             if (b_exec->get_view_number() >= b.get_view_number() && b_exec->proposal_id != b.proposal_id){
@@ -868,17 +868,17 @@ namespace eosio::hotstuff {
       }
    }
 
-void qc_chain::commit(const hs_proposal_message& initial_proposal) {
-   std::vector<const hs_proposal_message*> proposal_chain;
+void qc_chain::commit(const hs_proposal& initial_proposal) {
+   std::vector<const hs_proposal*> proposal_chain;
    proposal_chain.reserve(10);
 
-   const hs_proposal_message* p = &initial_proposal;
+   const hs_proposal* p = &initial_proposal;
    while (p) {
       fc_tlog(_logger, " === attempting to commit proposal #${block_num}:${phase} ${prop_id} block_id: ${block_id} parent_id: ${parent_id}",
               ("block_num", p->block_num())("prop_id", p->proposal_id)("block_id", p->block_id)
               ("phase", p->phase_counter)("parent_id", p->parent_id));
 
-      const hs_proposal_message* last_exec_prop = get_proposal(_b_exec);
+      const hs_proposal* last_exec_prop = get_proposal(_b_exec);
       EOS_ASSERT(last_exec_prop != nullptr || _b_exec.empty(), chain_exception,
                  "expected hs_proposal ${id} not found", ("id", _b_exec));
 
