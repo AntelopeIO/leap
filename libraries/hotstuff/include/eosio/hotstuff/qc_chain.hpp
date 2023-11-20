@@ -194,25 +194,24 @@ namespace eosio::hotstuff {
 
    class valid_quorum_certificate {
    public:
-      using weak_votes_t   = hs_bitset;
-      using strong_votes_t = hs_bitset;
-      using votes_t        = std::variant<weak_votes_t, strong_votes_t>;
-      
       valid_quorum_certificate(const pending_quorum_certificate& qc) {
          if (qc.state == pending_quorum_certificate::state_t::strong) {
-            votes = votes_t(std::in_place_index<1>, qc.strong_votes.bitset);
+            strong_votes = qc.strong_votes.bitset;
             sig = qc.strong_votes.sig;
          } if (qc.state > pending_quorum_certificate::state_t::weak_achieved) {
-            // todo: combine strong and weak bitset/signatures
+            strong_votes = qc.strong_votes.bitset;
+            weak_votes   = qc.weak_votes.bitset;
+            sig = fc::crypto::blslib::aggregate({ qc.strong_votes.sig, qc.weak_votes.sig });
          } else
             assert(0); // this should be called only when we have a valid qc.
       }
 
-      bool is_weak()   const { return votes.index() == 0; }
-      bool is_strong() const { return votes.index() == 1; }
+      bool is_weak()   const { return !!weak_votes; }
+      bool is_strong() const { return !weak_votes; }
       
-      votes_t        votes;
-      bls_signature  sig;
+      std::optional<hs_bitset> strong_votes;
+      std::optional<hs_bitset> weak_votes;
+      bls_signature            sig;
    };
    
    class quorum_certificate {
