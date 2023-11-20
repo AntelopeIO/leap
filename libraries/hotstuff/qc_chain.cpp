@@ -130,7 +130,7 @@ namespace eosio::hotstuff {
       _current_qc.reset(proposal_id, 21); // TODO: use active schedule size
    }
 
-   bool qc_chain::evaluate_quorum(const hs_bitset& finalizers, const fc::crypto::blslib::bls_signature& agg_sig, const hs_proposal_message& proposal) {
+   bool qc_chain::evaluate_quorum(const hs_bitset& finalizers, const bls_signature& agg_sig, const hs_proposal_message& proposal) {
       if (positive_bits_count(finalizers) < _pacemaker->get_quorum_threshold()){
          return false;
       }
