@@ -2665,7 +2665,6 @@ read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time
    if ( chain_pacemaker ) {  // is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
       finalizer_state fs;
       chain_pacemaker->get_state( fs );
-      results.chained_mode           = fs.chained_mode;
       results.b_leaf                 = fs.b_leaf;
       results.b_lock                 = fs.b_lock;
       results.b_exec                 = fs.b_exec;

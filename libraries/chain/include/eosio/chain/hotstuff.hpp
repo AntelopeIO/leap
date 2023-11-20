@@ -57,6 +57,7 @@ namespace eosio::chain {
       fc::crypto::blslib::bls_signature   sig;
    };
 
+   // TODO: rename to hs_proposal
    struct hs_proposal_message {
       fc::sha256                          proposal_id; //vote on proposal
       block_id_type                       block_id;
@@ -77,7 +78,7 @@ namespace eosio::chain {
       quorum_certificate_message   high_qc; //justification
    };
 
-   using hs_message = std::variant<hs_vote_message, hs_proposal_message, hs_new_view_message>;
+   using hs_message = std::variant<hs_vote_message, hs_new_view_message>;
 
    enum class hs_message_warning {
       discarded,               // default code for dropped messages (irrelevant, redundant, ...)
@@ -87,7 +88,6 @@ namespace eosio::chain {
    };
 
    struct finalizer_state {
-      bool chained_mode = false;
       fc::sha256 b_leaf;
       fc::sha256 b_lock;
       fc::sha256 b_exec;
@@ -117,4 +117,4 @@ FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer_key)(sig));
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::chain::hs_new_view_message, (high_qc));
-FC_REFLECT(eosio::chain::finalizer_state, (chained_mode)(b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));
+FC_REFLECT(eosio::chain::finalizer_state, (b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));

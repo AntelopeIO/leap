@@ -94,7 +94,6 @@ namespace eosio::hotstuff {
       //   propagated in the loop go into kept_messages and are reinserted after the loop.
       _pending_message_queue.clear();
 
-      size_t proposals_count = 0;
       size_t votes_count = 0;
       size_t new_views_count = 0;
 
@@ -104,10 +103,7 @@ namespace eosio::hotstuff {
 
          if (msg_type == hs_all_messages || msg_type == v_index) {
 
-            if (v_index == hs_proposal) {
-               ++proposals_count;
-               on_hs_proposal_msg(std::get<hs_proposal_message>(msg), sender_id);
-            } else if (v_index == hs_vote) {
+            if (v_index == hs_vote) {
                ++votes_count;
                on_hs_vote_msg(std::get<hs_vote_message>(msg), sender_id);
             } else if (v_index == hs_new_view) {
@@ -129,8 +125,7 @@ namespace eosio::hotstuff {
          ilog(" === ${memo} : ", ("memo", memo));
       }
 
-      ilog(" === pacemaker dispatched ${proposals} proposals, ${votes} votes, ${new_views} new_views",
-           ("proposals", proposals_count)
+      ilog(" === pacemaker dispatched ${votes} votes, ${new_views} new_views",
            ("votes", votes_count)
            ("new_views", new_views_count));
 
@@ -164,11 +159,11 @@ namespace eosio::hotstuff {
    name test_pacemaker::get_next_leader() {
       return _next_leader;
    };
-   
+
    const finalizer_set& test_pacemaker::get_finalizer_set() {
       return _finalizer_set;
    };
-   
+
    block_id_type test_pacemaker::get_current_block_id() {
       return _current_block_id;
    };
@@ -178,11 +173,24 @@ namespace eosio::hotstuff {
    };
 
    void test_pacemaker::beat() {
+
+      // find the proposer-leader
       auto itr = _qcc_store.find( _proposer );
       if (itr == _qcc_store.end())
          throw std::runtime_error("proposer not found");
-      std::shared_ptr<qc_chain> & qcc_ptr = itr->second;
-      qcc_ptr->on_beat();
+      std::shared_ptr<qc_chain> & proposer_qcc_ptr = itr->second;
+
+      // create a proposal using the qc_chain unit testing interface (and receive on self)
+      block_id_type current_block_id = get_current_block_id();
+      hs_proposal_message proposal = proposer_qcc_ptr->test_create_proposal(current_block_id);
+      proposer_qcc_ptr->test_receive_proposal(proposal);
+      std::string proposer_id = proposer_qcc_ptr->get_id_i();
+
+      // receive the proposal on all other qc_chains using the qc_chain unit testing interface
+      for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
+         if (qcc_ptr->get_id_i() != proposer_id && is_qc_chain_active(qcc_name))
+            qcc_ptr->test_receive_proposal(proposal);
+      }
    };
 
    void test_pacemaker::register_qc_chain(name name, std::shared_ptr<qc_chain> qcc_ptr) {
@@ -191,11 +199,6 @@ namespace eosio::hotstuff {
          throw std::runtime_error("duplicate qc chain");
       else
          _qcc_store.emplace( name, qcc_ptr );
-   };
-
-   // NOTE: no longer a network message; TESTING ONLY
-   void test_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
-      _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
    void test_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
@@ -207,15 +210,6 @@ namespace eosio::hotstuff {
    };
 
    void test_pacemaker::send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code) { }
-
-   void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
-      for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
-         // NEW: proposal messages no longer propagate themselves as they are not sent in the actual network,
-         //      so bypass topology emulation ("is_connected()") and just send it to all test nodes.
-         if (qcc_ptr->get_id_i() != id && is_qc_chain_active(qcc_name))
-            qcc_ptr->on_hs_proposal_msg(msg);
-      }
-   }
 
    void test_pacemaker::on_hs_vote_msg(const hs_vote_message& msg, const std::string& id) {
       for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {

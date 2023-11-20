@@ -9,12 +9,11 @@ namespace eosio { namespace hotstuff {
    class test_pacemaker : public base_pacemaker {
    public:
 
-      using hotstuff_message = std::pair<std::string, std::variant<hs_proposal_message, hs_vote_message, hs_new_view_message>>;
+      using hotstuff_message = std::pair<std::string, std::variant<hs_vote_message, hs_new_view_message>>;
 
       enum hotstuff_message_index {
-         hs_proposal  = 0,
-         hs_vote      = 1,
-         hs_new_view  = 2,
+         hs_vote      = 0,
+         hs_new_view  = 1,
          hs_all_messages
       };
 
@@ -56,10 +55,10 @@ namespace eosio { namespace hotstuff {
       // must be called to register every qc_chain object created by the testcase
       void register_qc_chain(name name, std::shared_ptr<qc_chain> qcc_ptr);
 
+      // this generates a new chained-hotstuff proposal and receives it on the proposer and on all active qc_chains
       void beat();
 
       void on_hs_vote_msg(const hs_vote_message & msg, const std::string&  id); //confirmation msg event handler
-      void on_hs_proposal_msg(const hs_proposal_message & msg, const std::string&  id); //consensus msg event handler
       void on_hs_new_view_msg(const hs_new_view_message & msg, const std::string&  id); //new view msg event handler
 
       //base_pacemaker interface functions
@@ -72,9 +71,6 @@ namespace eosio { namespace hotstuff {
       block_id_type get_current_block_id();
 
       uint32_t get_quorum_threshold();
-
-      // NOTE: No longer a network message; TESTING ONLY
-      void send_hs_proposal_msg(const hs_proposal_message & msg, const std::string& id);
 
       void send_hs_vote_msg(const hs_vote_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
       void send_hs_new_view_msg(const hs_new_view_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);

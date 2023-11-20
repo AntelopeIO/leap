@@ -27,7 +27,6 @@ namespace eosio::hotstuff {
    }
 
    void qc_chain::get_state(finalizer_state& fs) const {
-      fs.chained_mode           = _chained_mode;
       fs.b_leaf                 = _b_leaf;
       fs.b_lock                 = _safety_state.get_b_lock();
       fs.b_exec                 = _b_exec;
@@ -420,30 +419,6 @@ namespace eosio::hotstuff {
 
             //check for leader change
             leader_rotation_check();
-
-            //if we're operating in event-driven mode and the proposal hasn't reached the decide phase yet
-            if (_chained_mode == false && p->phase_counter < 3) {
-               fc_tlog(_logger, " === ${id} phase increment on proposal ${proposal_id}", ("proposal_id", vote.proposal_id)("id", _id));
-               hs_proposal_message proposal_candidate;
-
-               if (_pending_proposal_block.empty())
-                  proposal_candidate = new_proposal_candidate( p->block_id, p->phase_counter + 1 );
-               else
-                  proposal_candidate = new_proposal_candidate( _pending_proposal_block, 0 );
-
-               reset_qc(proposal_candidate.proposal_id);
-               fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
-
-               _pending_proposal_block = {};
-               _b_leaf = proposal_candidate.proposal_id;
-
-               //todo : asynchronous?
-               //write_state(_liveness_state_file , _liveness_state);
-
-               send_hs_proposal_msg( proposal_candidate );
-
-               fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
-            }
          }
       }
 
@@ -464,8 +439,15 @@ namespace eosio::hotstuff {
       }
    }
 
-   void qc_chain::create_proposal(const block_id_type& block_id) {
+   void qc_chain::test_receive_proposal(const hs_proposal_message& proposal) {
+      process_proposal(proposal);
+   }
 
+   hs_proposal_message qc_chain::test_create_proposal(const block_id_type& block_id) {
+      return create_proposal(block_id);
+   }
+
+   hs_proposal_message qc_chain::create_proposal(const block_id_type& block_id) {
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
 
       if (!_current_qc.get_proposal_id().empty() && !_current_qc.is_quorum_met()) {
@@ -478,9 +460,12 @@ namespace eosio::hotstuff {
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to ${block_id} (create_proposal)", ("id", _id)("block_id", block_id));
          _pending_proposal_block = block_id;
 
+#warning TODO/REVIEW: I guess in this case we just keep the proposal we have and return it?
+         return *get_proposal(_current_qc.get_proposal_id());
+
       } else {
 
-         fc_tlog(_logger, " === ${id} preparing new proposal ${proposal_id} : quorum met ${quorum_met}",
+         fc_tlog(_logger, " === ${id} preparing new proposal ${proposal_id} (test_create_proposal): quorum met ${quorum_met}",
                         ("id", _id)
                         ("proposal_id", _current_qc.get_proposal_id())
                         ("quorum_met", _current_qc.is_quorum_met()));
@@ -488,7 +473,7 @@ namespace eosio::hotstuff {
 
          reset_qc(proposal_candidate.proposal_id);
 
-         fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (create_proposal)", ("id", _id));
+         fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (test_create_proposal)", ("id", _id));
 
          _pending_proposal_block = {};
          _b_leaf = proposal_candidate.proposal_id;
@@ -496,18 +481,13 @@ namespace eosio::hotstuff {
          //todo : asynchronous?
          //write_state(_liveness_state_file , _liveness_state);
 
-         send_hs_proposal_msg( proposal_candidate );
+         fc_tlog(_logger, " === ${id} _b_leaf updated (test_create_proposal): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
 
-         fc_tlog(_logger, " === ${id} _b_leaf updated (create_proposal): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
+         // this is for testing, so we will just return it.
+         // the test_pacemaker can loop calling qc_chain::test_receive_proposal() on the returned proposal
+         //send_hs_proposal_msg( proposal_candidate );
+         return proposal_candidate;
       }
-   }
-
-   void qc_chain::send_hs_proposal_msg(const hs_proposal_message & msg){
-      fc_tlog(_logger, " === broadcast_hs_proposal ===");
-      _pacemaker->send_hs_proposal_msg(msg, _id);
-
-      // TESTING ONLY. The test_pacemaker skips sending to self, so receive it.
-      process_proposal( msg );
    }
 
    void qc_chain::send_hs_vote_msg(const std::optional<uint32_t>& connection_id, const hs_vote_message & msg){
@@ -557,22 +537,6 @@ namespace eosio::hotstuff {
                         ("a_proposal_id", ancestor));
 
       return false;
-   }
-
-   // TESTING ONLY. chain_pacemaker no longer calls this.
-   // Invoked when we could perhaps make a proposal to the network (or to ourselves, if we are the leader).
-   void qc_chain::on_beat(){
-
-      // only proposer-leaders do on_beat, which is to create a proposal
-      if (!am_i_proposer() || !am_i_leader())
-         return;
-
-      block_id_type current_block_id = _pacemaker->get_current_block_id();
-
-      // NOTE: This would be the "justify" of the proposal that is being created
-      // _high_qc.to_msg(); //or null if no _high_qc upon activation or chain launch
-
-      create_proposal(current_block_id);
    }
 
    // returns true on state change (caller decides update on state version
@@ -754,12 +718,6 @@ namespace eosio::hotstuff {
 
       //return true if monotony check and at least one of liveness or safety check evaluated successfully
       return final_on_qc_check && monotony_check && (liveness_check || safety_check);
-   }
-
-   // TESTING ONLY. No longer needs connection_id, since there is not an actual message to e.g. propagate.
-   //on proposal received, called from network thread
-   void qc_chain::on_hs_proposal_msg(const hs_proposal_message& msg) {
-      process_proposal( msg );
    }
 
    //on vote received, called from network thread
