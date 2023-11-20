@@ -59,8 +59,7 @@ namespace eosio { namespace chain {
 
       whitelisted_intrinsics.emplace( std::piecewise_construct,
                                       std::forward_as_tuple( h ),
-                                      std::forward_as_tuple( name.data(), name.size(),
-                                                             whitelisted_intrinsics.get_allocator() )
+                                      std::forward_as_tuple( name.data(), name.size() )
       );
    }
 
@@ -85,8 +84,7 @@ namespace eosio { namespace chain {
          uint64_t h = static_cast<uint64_t>( std::hash<std::string_view>{}( name ) );
          whitelisted_intrinsics.emplace( std::piecewise_construct,
                                          std::forward_as_tuple( h ),
-                                         std::forward_as_tuple( name.data(), name.size(),
-                                                                whitelisted_intrinsics.get_allocator() )
+                                         std::forward_as_tuple( name.data(), name.size() )
          );
       }
    }

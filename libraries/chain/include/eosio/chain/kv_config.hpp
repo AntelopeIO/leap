@@ -6,7 +6,7 @@
 namespace eosio { namespace chain {
 
    /**
-    * @brief limits for a kv database: NOT IN USE for mandel
+    * @brief limits for a kv database: NOT IN USE for leap
     *
     * Each database (ram or disk, currently) has its own limits for these parameters.
     * The key and value limits apply when adding or modifying elements.  They may be reduced
