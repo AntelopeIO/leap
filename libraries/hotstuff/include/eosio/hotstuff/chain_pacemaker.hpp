@@ -80,8 +80,8 @@ namespace eosio::hotstuff {
       boost::signals2::scoped_connection _irreversible_block_connection;
 
       qc_chain                _qc_chain;
-      std::function<void(const std::optional<uint32_t>&, const hs_message&)> bcast_hs_message;
-      std::function<void(uint32_t, const hs_message_warning&)> warn_hs_message;
+      std::function<void(const std::optional<uint32_t>&, const hs_message&)> bcast_hs_message = [](const std::optional<uint32_t>&, const hs_message&){};
+      std::function<void(uint32_t, const hs_message_warning&)> warn_hs_message = [](uint32_t, const hs_message_warning&){};
 
       uint32_t                _quorum_threshold = 15; //FIXME/TODO: calculate from schedule
       fc::logger&             _logger;

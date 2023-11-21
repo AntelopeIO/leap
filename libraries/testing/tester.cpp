@@ -350,8 +350,6 @@ namespace eosio { namespace testing {
           }
       });
       control->create_pacemaker({}, {}, test_logger);
-      control->register_pacemaker_bcast_function([](const std::optional<uint32_t>&, const hotstuff::hs_message&){});
-      control->register_pacemaker_warn_function([](uint32_t, const hotstuff::hs_message_warning&){});
    }
 
    void base_tester::open( protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot ) {
