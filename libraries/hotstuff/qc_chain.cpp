@@ -529,7 +529,7 @@ namespace eosio::hotstuff {
       _pacemaker->send_hs_new_view_msg(msg, _id, connection_id);
    }
 
-   void qc_chain::send_hs_message_warning(const std::optional<uint32_t>& connection_id, const chain::hs_message_warning code) {
+   void qc_chain::send_hs_message_warning(const std::optional<uint32_t>& connection_id, const hs_message_warning code) {
       if (connection_id.has_value())
          _pacemaker->send_hs_message_warning(connection_id.value(), code);
    }

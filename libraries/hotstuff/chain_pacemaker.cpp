@@ -119,13 +119,13 @@ namespace eosio { namespace hotstuff {
       _head_block_state = chain->head_block_state();
    }
 
-   void chain_pacemaker::register_bcast_function(std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> broadcast_hs_message) {
+   void chain_pacemaker::register_bcast_function(std::function<void(const std::optional<uint32_t>&, const hs_message&)> broadcast_hs_message) {
       FC_ASSERT(broadcast_hs_message, "on_hs_message must be provided");
       // no need to std::lock_guard g( _hotstuff_global_mutex ); here since pre-comm init
       bcast_hs_message = std::move(broadcast_hs_message);
    }
 
-   void chain_pacemaker::register_warn_function(std::function<void(const uint32_t, const chain::hs_message_warning&)> warning_hs_message) {
+   void chain_pacemaker::register_warn_function(std::function<void(uint32_t, const hs_message_warning&)> warning_hs_message) {
       FC_ASSERT(warning_hs_message, "must provide callback");
       // no need to std::lock_guard g( _hotstuff_global_mutex ); here since pre-comm init
       warn_hs_message = std::move(warning_hs_message);
@@ -198,7 +198,7 @@ namespace eosio { namespace hotstuff {
       return p_auth.producer_name;
    }
 
-   const finalizer_set& chain_pacemaker::get_finalizer_set(){
+   const finalizer_set& chain_pacemaker::get_finalizer_set() {
       return _active_finalizer_set;
    }
 
@@ -232,13 +232,13 @@ namespace eosio { namespace hotstuff {
       bcast_hs_message(exclude_peer, msg);
    }
 
-   void chain_pacemaker::send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code) {
+   void chain_pacemaker::send_hs_message_warning(uint32_t sender_peer, const hs_message_warning code) {
       warn_hs_message(sender_peer, code);
 
    }
 
    // called from net threads
-   void chain_pacemaker::on_hs_msg(const uint32_t connection_id, const eosio::chain::hs_message &msg) {
+   void chain_pacemaker::on_hs_msg(const uint32_t connection_id, const hs_message &msg) {
       std::visit(overloaded{
             [this, connection_id](const hs_vote_message& m) { on_hs_vote_msg(connection_id, m); },
             [this, connection_id](const hs_proposal_message& m) { on_hs_proposal_msg(connection_id, m); },

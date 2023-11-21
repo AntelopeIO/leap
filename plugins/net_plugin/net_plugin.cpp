@@ -538,8 +538,8 @@ namespace eosio {
       void transaction_ack(const std::pair<fc::exception_ptr, packed_transaction_ptr>&);
       void on_irreversible_block( const block_state_ptr& block );
 
-      void bcast_hs_message( const std::optional<uint32_t>& exclude_peer, const hs_message& msg );
-      void warn_hs_message( const uint32_t sender_peer, const hs_message_warning& code );
+      void bcast_hs_message( const std::optional<uint32_t>& exclude_peer, const hotstuff::hs_message& msg );
+      void warn_hs_message( uint32_t sender_peer, const hotstuff::hs_message_warning& code );
 
       void start_conn_timer(boost::asio::steady_timer::duration du, std::weak_ptr<connection> from_connection);
       void start_expire_timer();
@@ -1095,7 +1095,7 @@ namespace eosio {
       void handle_message( const block_id_type& id, signed_block_ptr ptr );
       void handle_message( const packed_transaction& msg ) = delete; // packed_transaction_ptr overload used instead
       void handle_message( packed_transaction_ptr trx );
-      void handle_message( const hs_message& msg );
+      void handle_message( const hotstuff::hs_message& msg );
 
       // returns calculated number of blocks combined latency
       uint32_t calc_block_latency();
@@ -1177,7 +1177,7 @@ namespace eosio {
          c->handle_message( msg );
       }
 
-      void operator()( const hs_message& msg ) const {
+      void operator()( const hotstuff::hs_message& msg ) const {
          // continue call to handle_message on connection strand
          peer_dlog( c, "handle hs_message" );
          c->handle_message( msg );
@@ -3666,9 +3666,10 @@ namespace eosio {
       }
    }
 
-   void connection::handle_message( const hs_message& msg ) {
+   void connection::handle_message( const hotstuff::hs_message& msg ) {
       peer_dlog(this, "received hs: ${msg}", ("msg", msg));
-      my_impl->chain_plug->notify_hs_message(connection_id, msg);
+      controller& cc = my_impl->chain_plug->chain();
+      cc.notify_hs_message(connection_id, msg);
    }
 
    size_t calc_trx_size( const packed_transaction_ptr& trx ) {
@@ -3925,7 +3926,7 @@ namespace eosio {
       on_active_schedule(chain_plug->chain().active_producers());
    }
 
-   void net_plugin_impl::bcast_hs_message( const std::optional<uint32_t>& exclude_peer, const hs_message& msg ) {
+   void net_plugin_impl::bcast_hs_message( const std::optional<uint32_t>& exclude_peer, const hotstuff::hs_message& msg ) {
       fc_dlog(logger, "sending hs msg: ${msg}", ("msg", msg));
 
       buffer_factory buff_factory;
@@ -3936,7 +3937,7 @@ namespace eosio {
       });
    }
 
-   void net_plugin_impl::warn_hs_message( const uint32_t sender_peer, const hs_message_warning& code ) {
+   void net_plugin_impl::warn_hs_message( uint32_t sender_peer, const hotstuff::hs_message_warning& code ) {
       // potentially react to (repeated) receipt of invalid, irrelevant, duplicate, etc. hotstuff messages from sender_peer (connection ID) here
    }
 
@@ -4286,12 +4287,13 @@ namespace eosio {
    void net_plugin_impl::plugin_startup() {
       fc_ilog( logger, "my node_id is ${id}", ("id", node_id ));
 
-      chain_plug->register_pacemaker_bcast_function(
-              [my = shared_from_this()](const std::optional<uint32_t>& c, const hs_message& s) {
+      controller& cc = chain_plug->chain();
+      cc.register_pacemaker_bcast_function(
+              [my = shared_from_this()](const std::optional<uint32_t>& c, const hotstuff::hs_message& s) {
                  my->bcast_hs_message(c, s);
               } );
-      chain_plug->register_pacemaker_warn_function(
-              [my = shared_from_this()](const uint32_t c, const hs_message_warning& s) {
+      cc.register_pacemaker_warn_function(
+              [my = shared_from_this()](uint32_t c, const hotstuff::hs_message_warning& s) {
                  my->warn_hs_message(c, s);
               } );
 

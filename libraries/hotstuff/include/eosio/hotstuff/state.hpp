@@ -1,6 +1,4 @@
-#include <eosio/chain/block_header.hpp>
-
-#include <eosio/hotstuff/qc_chain.hpp>
+#include <eosio/hotstuff/hotstuff.hpp>
 
 namespace eosio::hotstuff {
 
@@ -8,7 +6,7 @@ namespace eosio::hotstuff {
 
     struct safety_state {
 
-      void set_v_height(const fc::crypto::blslib::bls_public_key& finalizer_key, const eosio::chain::view_number v_height) {
+      void set_v_height(const fc::crypto::blslib::bls_public_key& finalizer_key, const view_number v_height) {
          _states[finalizer_key].first = v_height;
       }
 
@@ -16,13 +14,13 @@ namespace eosio::hotstuff {
          _states[finalizer_key].second = b_lock;
       }
 
-      std::pair<eosio::chain::view_number, fc::sha256> get_safety_state(const fc::crypto::blslib::bls_public_key& finalizer_key) const {
+      std::pair<view_number, fc::sha256> get_safety_state(const fc::crypto::blslib::bls_public_key& finalizer_key) const {
          auto s = _states.find(finalizer_key);
          if (s != _states.end()) return s->second;
          else return {};
       }
 
-      eosio::chain::view_number get_v_height(const fc::crypto::blslib::bls_public_key& finalizer_key) const {
+      view_number get_v_height(const fc::crypto::blslib::bls_public_key& finalizer_key) const {
          auto s = _states.find(finalizer_key);
          if (s != _states.end()) return s->second.first;
          else return {};
@@ -36,13 +34,13 @@ namespace eosio::hotstuff {
 
       //todo : implement safety state default / sorting
 
-      std::pair<eosio::chain::view_number, fc::sha256> get_safety_state() const {
+      std::pair<view_number, fc::sha256> get_safety_state() const {
          auto s = _states.begin();
          if (s != _states.end()) return s->second;
          else return {};
       }
 
-      eosio::chain::view_number get_v_height() const {
+      view_number get_v_height() const {
          auto s = _states.begin();
          if (s != _states.end()) return s->second.first;
          else return {};
@@ -54,7 +52,7 @@ namespace eosio::hotstuff {
          else return {};
       };
 
-      std::map<fc::crypto::blslib::bls_public_key, std::pair<eosio::chain::view_number, fc::sha256>> _states;
+      std::map<fc::crypto::blslib::bls_public_key, std::pair<view_number, fc::sha256>> _states;
     };
 }
 
