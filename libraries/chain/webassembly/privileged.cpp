@@ -179,7 +179,7 @@ namespace eosio { namespace chain { namespace webassembly {
 
       finalizer_set finset;
       finset.fthreshold = abi_finset.fthreshold;
-      for (const auto& f: finalizers) {
+      for (auto& f: finalizers) {
          EOS_ASSERT( f.description.size() <= config::max_finalizer_description_size, wasm_execution_error,
                      "Finalizer description greater than ${s}", ("s", config::max_finalizer_description_size) );
          f_weight_sum += f.fweight;

@@ -1188,15 +1188,14 @@ namespace eosio { namespace testing {
       fc::variants finalizer_auths;
       for (const auto& n: finalizer_names) {
          crypto::blslib::bls_public_key pk = get_bls_public_key( n );
-         std::array<uint8_t, 96> a = pk._pkey.toAffineBytesLE();
          std::vector<char> v(96);
-         memcpy(&v[0], a.data(), v.size());
+         pk._pkey.toAffineBytesLE(std::span<uint8_t,96>((uint8_t*)v.data(), 96));
 
          finalizer_auths.emplace_back(
             fc::mutable_variant_object()
                ("description", n.to_string() + " description")
                ("fweight", (uint64_t)1)
-               ("public_key_g1_affine_le", v) );
+               ("public_key_g1_affine_le", std::move(v)) );
       }
 
 
@@ -1205,7 +1204,7 @@ namespace eosio { namespace testing {
       fin_set_variant("finalizers", std::move(finalizer_auths));
 
       return push_action( config::system_account_name, "setfinset"_n, config::system_account_name,
-                          fc::mutable_variant_object()("fin_set", fin_set_variant));
+                          fc::mutable_variant_object()("fin_set", std::move(fin_set_variant)));
    }
 
    const table_id_object* base_tester::find_table( name code, name scope, name table ) {
