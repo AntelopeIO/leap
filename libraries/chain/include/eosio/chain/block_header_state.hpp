@@ -126,8 +126,8 @@ protected:
  *  A data structure holding hotstuff core information
  */
 struct block_header_state_core {
-   uint32_t last_final_block_height; // the block height of the last irreversible
-                                     // (final) block.
+   uint32_t last_final_block_height = 0; // the block height of the last irreversible
+                                         // (final) block.
    std::optional<uint32_t> final_on_strong_qc_block_height; // the block height of
                                                             // the block that would
                                                             // become irreversible
