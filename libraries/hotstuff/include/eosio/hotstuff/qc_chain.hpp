@@ -153,7 +153,7 @@ namespace eosio::hotstuff {
 
       qc_chain(std::string id, base_pacemaker* pacemaker,
                std::set<name> my_producers,
-               bls_key_map_t finalizer_keys,
+               std::map<std::string,std::string> finalizer_keys,
                fc::logger& logger,
                std::string safety_state_file);
 

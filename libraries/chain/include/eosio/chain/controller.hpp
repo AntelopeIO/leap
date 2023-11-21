@@ -6,7 +6,6 @@
 #include <eosio/chain/snapshot.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
 #include <eosio/chain/webassembly/eos-vm-oc/config.hpp>
-#include <eosio/hotstuff/hotstuff.hpp>
 
 #include <chainbase/pinnable_mapped_file.hpp>
 
@@ -21,6 +20,12 @@ namespace boost { namespace asio {
 }}
 
 namespace eosio { namespace vm { class wasm_allocator; }}
+
+namespace eosio::hotstuff {
+   struct hs_message;
+   struct finalizer_state;
+   enum class hs_message_warning;
+}
 
 namespace eosio { namespace chain {
 
@@ -302,9 +307,9 @@ namespace eosio { namespace chain {
          void get_finalizer_state( hotstuff::finalizer_state& fs ) const;
          // called from net threads
          void notify_hs_message( const uint32_t connection_id, const hotstuff::hs_message& msg );
-         void create_pacemaker(std::set<chain::account_name> my_producers, hotstuff::bls_key_map_t finalizer_keys, fc::logger& hotstuff_logger);
+         void create_pacemaker(std::set<chain::account_name> my_producers, std::map<std::string,std::string> finalizer_keys, fc::logger& hotstuff_logger);
          void register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const hotstuff::hs_message&)> bcast_hs_message);
-         void register_pacemaker_warn_function(std::function<void(uint32_t, const hotstuff::hs_message_warning&)> warn_hs_message);
+         void register_pacemaker_warn_function(std::function<void(uint32_t, hotstuff::hs_message_warning)> warn_hs_message);
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;

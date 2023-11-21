@@ -77,7 +77,9 @@ namespace eosio::hotstuff {
       quorum_certificate_message   high_qc; //justification
    };
 
-   using hs_message = std::variant<hs_vote_message, hs_proposal_message, hs_new_view_message>;
+   struct hs_message {
+      std::variant<hs_vote_message, hs_proposal_message, hs_new_view_message> msg;
+   };
 
    enum class hs_message_warning {
       discarded,               // default code for dropped messages (irrelevant, redundant, ...)
@@ -118,3 +120,4 @@ FC_REFLECT(eosio::hotstuff::hs_vote_message, (proposal_id)(finalizer_key)(sig));
 FC_REFLECT(eosio::hotstuff::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::hotstuff::hs_new_view_message, (high_qc));
 FC_REFLECT(eosio::hotstuff::finalizer_state, (chained_mode)(b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));
+FC_REFLECT(eosio::hotstuff::hs_message, (msg));

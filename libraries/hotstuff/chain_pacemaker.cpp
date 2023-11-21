@@ -104,7 +104,7 @@ namespace eosio { namespace hotstuff {
 #warning TODO get a data directory str passed into the chain_pacemaker ctor and use it to compose the absolute filepathname that is passed to qc_chain ctor
    chain_pacemaker::chain_pacemaker(controller* chain,
                                     std::set<account_name> my_producers,
-                                    bls_key_map_t finalizer_keys,
+                                    std::map<std::string,std::string> finalizer_keys,
                                     fc::logger& logger)
       : _chain(chain),
         _qc_chain("default", this, std::move(my_producers), std::move(finalizer_keys), logger, eosio::chain::config::safetydb_filename),
@@ -221,15 +221,15 @@ namespace eosio { namespace hotstuff {
    }
 
    void chain_pacemaker::send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
-      bcast_hs_message(exclude_peer, msg);
+      bcast_hs_message(exclude_peer, {msg});
    }
 
    void chain_pacemaker::send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
-      bcast_hs_message(exclude_peer, msg);
+      bcast_hs_message(exclude_peer, {msg});
    }
 
    void chain_pacemaker::send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) {
-      bcast_hs_message(exclude_peer, msg);
+      bcast_hs_message(exclude_peer, {msg});
    }
 
    void chain_pacemaker::send_hs_message_warning(uint32_t sender_peer, const hs_message_warning code) {
@@ -243,7 +243,7 @@ namespace eosio { namespace hotstuff {
             [this, connection_id](const hs_vote_message& m) { on_hs_vote_msg(connection_id, m); },
             [this, connection_id](const hs_proposal_message& m) { on_hs_proposal_msg(connection_id, m); },
             [this, connection_id](const hs_new_view_message& m) { on_hs_new_view_msg(connection_id, m); },
-      }, msg);
+      }, msg.msg);
    }
 
    // called from net threads

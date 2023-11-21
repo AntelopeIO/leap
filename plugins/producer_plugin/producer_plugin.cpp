@@ -492,7 +492,7 @@ public:
 
    using signature_provider_type = signature_provider_plugin::signature_provider_type;
    std::map<chain::public_key_type, signature_provider_type> _signature_providers;
-   hotstuff::bls_key_map_t                                   _finalizer_keys;
+   std::map<std::string ,std::string>                        _finalizer_keys; // public, private
    std::set<chain::account_name>                             _producers;
    boost::asio::deadline_timer                               _timer;
    block_timing_util::producer_watermarks            _producer_watermarks;
@@ -1138,7 +1138,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
             const auto bls = app().get_plugin<signature_provider_plugin>().bls_public_key_for_specification(key_spec_pair);
             if (bls) {
                const auto& [pubkey, privkey] = *bls;
-               _finalizer_keys[pubkey] = privkey;
+               _finalizer_keys[pubkey.to_string()] = privkey.to_string();
             }
          } catch(secure_enclave_exception& e) {
             elog("Error with Secure Enclave signature provider: ${e}; ignoring ${val}", ("e", e.top_message())("val", key_spec_pair));

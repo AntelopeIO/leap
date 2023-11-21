@@ -4293,7 +4293,7 @@ namespace eosio {
                  my->bcast_hs_message(c, s);
               } );
       cc.register_pacemaker_warn_function(
-              [my = shared_from_this()](uint32_t c, const hotstuff::hs_message_warning& s) {
+              [my = shared_from_this()](uint32_t c, hotstuff::hs_message_warning s) {
                  my->warn_hs_message(c, s);
               } );
 

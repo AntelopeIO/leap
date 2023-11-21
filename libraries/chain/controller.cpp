@@ -28,6 +28,7 @@
 #include <eosio/chain/deep_mind.hpp>
 #include <eosio/chain/finalizer_set.hpp>
 #include <eosio/chain/finalizer_authority.hpp>
+#include <eosio/hotstuff/hotstuff.hpp>
 #include <eosio/hotstuff/chain_pacemaker.hpp>
 
 #include <chainbase/chainbase.hpp>
@@ -3332,7 +3333,7 @@ void controller::get_finalizer_state( hotstuff::finalizer_state& fs ) const {
    my->pacemaker->get_state(fs);
 }
 
-void controller::create_pacemaker(std::set<chain::account_name> my_producers, hotstuff::bls_key_map_t finalizer_keys, fc::logger& hotstuff_logger) {
+void controller::create_pacemaker(std::set<chain::account_name> my_producers, std::map<std::string,std::string> finalizer_keys, fc::logger& hotstuff_logger) {
    EOS_ASSERT( !my->pacemaker, misc_exception, "duplicate chain_pacemaker initialization" );
    my->pacemaker.emplace(this, std::move(my_producers), std::move(finalizer_keys), hotstuff_logger);
 }
@@ -3342,7 +3343,7 @@ void controller::register_pacemaker_bcast_function(std::function<void(const std:
    my->pacemaker->register_bcast_function(std::move(bcast_hs_message));
 }
 
-void controller::register_pacemaker_warn_function(std::function<void(uint32_t, const hotstuff::hs_message_warning&)> warn_hs_message) {
+void controller::register_pacemaker_warn_function(std::function<void(uint32_t, hotstuff::hs_message_warning)> warn_hs_message) {
    EOS_ASSERT( my->pacemaker, misc_exception, "chain_pacemaker not created" );
    my->pacemaker->register_warn_function(std::move(warn_hs_message));
 }

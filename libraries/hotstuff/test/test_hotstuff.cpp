@@ -75,7 +75,7 @@ public:
 
       for (size_t i = 0 ; i < replicas.size() ; i++){
          fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(replica_keys[i]);
-         bls_key_map_t keys{{sk.get_public_key(), sk}};
+         std::map<std::string,std::string> keys{{sk.get_public_key().to_string(), sk.to_string()}};
          qc_chain *qcc_ptr = new qc_chain(replica_keys[i].to_string(), &tpm, {replicas[i]}, keys, hotstuff_logger, std::string());
          std::shared_ptr<qc_chain> qcc_shared_ptr(qcc_ptr);
          _qc_chains.push_back( std::make_pair(replicas[i], qcc_shared_ptr) );
