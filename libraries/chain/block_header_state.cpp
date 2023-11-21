@@ -24,17 +24,19 @@ namespace eosio { namespace chain {
    }
 
    block_header_state_core::block_header_state_core( uint32_t last_final_blk_ht,
-                                       std::optional<uint32_t> final_on_strong_qc_blk_ht,
-                                       std::optional<uint32_t> last_qc_blk_ht ) :
+                                      std::optional<uint32_t> final_on_strong_qc_blk_ht,
+                                      std::optional<uint32_t> last_qc_blk_ht )
+      :
       last_final_block_height(last_final_blk_ht),
       final_on_strong_qc_block_height(final_on_strong_qc_blk_ht),
       last_qc_block_height(last_qc_blk_ht) {}
 
    block_header_state_core block_header_state_core::next( uint32_t last_qc_block_height,
-                                                          bool is_last_qc_strong) {
+                                                          bool     is_last_qc_strong) {
       // no state change if last_qc_block_height is the same
       if( last_qc_block_height == this->last_qc_block_height ) {
-         return std::move(*this);
+         block_header_state_core result{*this};
+         return result;
       }
 
       EOS_ASSERT( last_qc_block_height > this->last_qc_block_height, block_validate_exception, "new last_qc_block_height must be greater than old last_qc_block_height" );
@@ -42,7 +44,7 @@ namespace eosio { namespace chain {
       auto old_last_qc_block_height = this->last_qc_block_height;
       auto old_final_on_strong_qc_block_height = this->final_on_strong_qc_block_height;
 
-      block_header_state_core result(std::move(*this));
+      block_header_state_core result{*this};
 
       if( is_last_qc_strong ) {
          // last QC is strong. We can progress forward.
