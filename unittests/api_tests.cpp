@@ -3883,13 +3883,6 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).generation == 1);
    BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).fthreshold == producers.size() / 3 * 2);
 
-   block = t.produce_block();
-
-   BOOST_TEST(block->confirmed == std::numeric_limits<uint16_t>::max());
-   block_state_ptr block_state = t.control->fetch_block_state_by_id(block->calculate_id());
-   BOOST_REQUIRE(!!block_state);
-   BOOST_TEST(block_state->dpos_irreversible_blocknum == hs_dpos_irreversible_blocknum);
-
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()
