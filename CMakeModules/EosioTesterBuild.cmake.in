@@ -44,7 +44,7 @@ find_library(libfc fc @CMAKE_BINARY_DIR@/libraries/libfc NO_DEFAULT_PATH)
 find_library(libsecp256k1 secp256k1 @CMAKE_BINARY_DIR@/libraries/libfc/secp256k1 NO_DEFAULT_PATH)
 find_library(libbn256 bn256 @CMAKE_BINARY_DIR@/libraries/libfc/libraries/bn256/src NO_DEFAULT_PATH)
 find_library(libbls12-381 bls12-381 @CMAKE_BINARY_DIR@/libraries/libfc/libraries/bls12-381 NO_DEFAULT_PATH)
-find_library(libhotstuff hotstuff @CMAKE_INSTALL_FULL_LIBDIR@ NO_DEFAULT_PATH)
+find_library(libhotstuff hotstuff @CMAKE_BINARY_DIR@/libraries/hotstuff NO_DEFAULT_PATH)
 
 find_library(libwasm WASM @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/WASM NO_DEFAULT_PATH)
 find_library(libwast WAST @CMAKE_BINARY_DIR@/libraries/wasm-jit/Source/WAST NO_DEFAULT_PATH)
