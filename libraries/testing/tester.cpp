@@ -5,6 +5,8 @@
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain/eosio_contract.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
+#include <fc/crypto/bls_private_key.hpp>
+#include <fc/crypto/bls_public_key.hpp>
 #include <boost/iostreams/filtering_stream.hpp>
 #include <boost/iostreams/copy.hpp>
 #include <boost/iostreams/filter/gzip.hpp>
@@ -20,6 +22,17 @@ eosio::chain::asset core_from_string(const std::string& s) {
 }
 
 namespace eosio { namespace testing {
+
+   inline auto get_bls_private_key( name keyname ) {
+      auto secret = fc::sha256::hash(keyname.to_string());
+      std::vector<uint8_t> seed(secret.data_size());
+      memcpy(seed.data(), secret.data(), secret.data_size());
+      return crypto::blslib::bls_private_key(seed);
+   }
+
+   inline auto get_bls_public_key( name keyname ) {
+      return get_bls_private_key(keyname).get_public_key();
+   }
 
    // required by boost::unit_test::data
    std::ostream& operator<<(std::ostream& os, setup_policy p) {
@@ -259,7 +272,8 @@ namespace eosio { namespace testing {
                builtin_protocol_feature_t::get_sender,
                builtin_protocol_feature_t::ram_restrictions,
                builtin_protocol_feature_t::webauthn_key,
-               builtin_protocol_feature_t::wtmsig_block_signatures
+               builtin_protocol_feature_t::wtmsig_block_signatures,
+               builtin_protocol_feature_t::instant_finality
             });
             produce_block();
             set_bios_contract();
@@ -1168,6 +1182,30 @@ namespace eosio { namespace testing {
 
    }
 
+   transaction_trace_ptr base_tester::set_finalizers(const vector<account_name>& finalizer_names) {
+      uint64_t fthreshold = finalizer_names.size() * 2 / 3;
+
+      fc::variants finalizer_auths;
+      for (const auto& n: finalizer_names) {
+         crypto::blslib::bls_public_key pk = get_bls_public_key( n );
+         std::vector<char> v(96);
+         pk._pkey.toAffineBytesLE(std::span<uint8_t,96>((uint8_t*)v.data(), 96));
+
+         finalizer_auths.emplace_back(
+            fc::mutable_variant_object()
+               ("description", n.to_string() + " description")
+               ("fweight", (uint64_t)1)
+               ("public_key_g1_affine_le", std::move(v)) );
+      }
+
+
+      fc::mutable_variant_object fin_set_variant;
+      fin_set_variant("fthreshold", fthreshold);
+      fin_set_variant("finalizers", std::move(finalizer_auths));
+
+      return push_action( config::system_account_name, "setfinset"_n, config::system_account_name,
+                          fc::mutable_variant_object()("fin_set", std::move(fin_set_variant)));
+   }
 
    const table_id_object* base_tester::find_table( name code, name scope, name table ) {
       auto tid = control->db().find<table_id_object, by_code_scope_table>(boost::make_tuple(code, scope, table));

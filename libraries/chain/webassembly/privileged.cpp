@@ -156,7 +156,7 @@ namespace eosio { namespace chain { namespace webassembly {
    struct abi_finalizer_authority {
       std::string              description;
       uint64_t                 fweight = 0; // weight that this finalizer's vote has for meeting fthreshold
-      std::array<uint8_t, 96>  public_key_g1_affine_le;
+      std::vector<uint8_t>     public_key_g1_affine_le; // size 96, cdt/abi_serializer has issues with std::array
    };
    struct abi_finalizer_set {
       uint64_t                             fthreshold = 0;
@@ -179,13 +179,14 @@ namespace eosio { namespace chain { namespace webassembly {
 
       finalizer_set finset;
       finset.fthreshold = abi_finset.fthreshold;
-      for (const auto& f: finalizers) {
+      for (auto& f: finalizers) {
          EOS_ASSERT( f.description.size() <= config::max_finalizer_description_size, wasm_execution_error,
                      "Finalizer description greater than ${s}", ("s", config::max_finalizer_description_size) );
          f_weight_sum += f.fweight;
          constexpr bool check = false; // system contract does proof of possession check which is a stronger check
          constexpr bool raw = true;
-         std::optional<bls12_381::g1> pk = bls12_381::g1::fromAffineBytesLE(f.public_key_g1_affine_le, check, raw);
+         EOS_ASSERT(f.public_key_g1_affine_le.size() == 96, wasm_execution_error, "Invalid bls public key length");
+         std::optional<bls12_381::g1> pk = bls12_381::g1::fromAffineBytesLE(std::span<const uint8_t,96>(f.public_key_g1_affine_le.data(), 96), check, raw);
          EOS_ASSERT( pk, wasm_execution_error, "Invalid public key for: ${d}", ("d", f.description) );
          finset.finalizers.push_back(finalizer_authority{.description = std::move(f.description),
                                                          .fweight = f.fweight,
