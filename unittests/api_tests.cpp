@@ -3886,13 +3886,13 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    BOOST_TEST(block->confirmed == 0);
    block_state_ptr block_state = t.control->fetch_block_state_by_id(block->calculate_id());
    BOOST_REQUIRE(!!block_state);
-   BOOST_TEST(block_state->dpos_irreversible_blocknum > 2);
+   BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
 
    block = t.produce_block(); // only one producer so now this block is irreversible, next block will be hotstuff
    BOOST_TEST(block->confirmed == 0);
    block_state = t.control->fetch_block_state_by_id(block->calculate_id());
    BOOST_REQUIRE(!!block_state);
-   BOOST_TEST(block_state->dpos_irreversible_blocknum > 2);
+   BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
 
    block = t.produce_block(); // hotstuff now active
    BOOST_TEST(block->confirmed == std::numeric_limits<uint16_t>::max());
