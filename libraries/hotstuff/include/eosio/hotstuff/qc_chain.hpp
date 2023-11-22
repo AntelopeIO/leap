@@ -251,6 +251,14 @@ namespace eosio::hotstuff {
          }
          return true;
       }
+
+      bool add_vote(bool weak,
+                    const std::vector<uint8_t>& proposal_digest,
+                    size_t index,
+                    const bls_public_key& pubkey,
+                    const bls_signature& sig) {
+         return weak ? add_weak_vote(proposal_digest, index, pubkey, sig) : add_strong_vote(proposal_digest, index, pubkey, sig);
+      }
       
       friend struct fc::reflector<pending_quorum_certificate>;
       fc::sha256           _proposal_id; // only used in to_msg(). Remove eventually
