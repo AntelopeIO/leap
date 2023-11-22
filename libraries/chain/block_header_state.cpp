@@ -23,13 +23,13 @@ namespace eosio { namespace chain {
       }
    }
 
-   block_header_state_core::block_header_state_core( uint32_t last_final_blk_ht,
-                                      std::optional<uint32_t> final_on_strong_qc_blk_ht,
-                                      std::optional<uint32_t> last_qc_blk_ht )
+   block_header_state_core::block_header_state_core( uint32_t last_final_block_height,
+                                      std::optional<uint32_t> final_on_strong_qc_block_height,
+                                      std::optional<uint32_t> last_qc_block_height )
       :
-      last_final_block_height(last_final_blk_ht),
-      final_on_strong_qc_block_height(final_on_strong_qc_blk_ht),
-      last_qc_block_height(last_qc_blk_ht) {}
+      last_final_block_height(last_final_block_height),
+      final_on_strong_qc_block_height(final_on_strong_qc_block_height),
+      last_qc_block_height(last_qc_block_height) {}
 
    block_header_state_core block_header_state_core::next( uint32_t last_qc_block_height,
                                                           bool     is_last_qc_strong) {
