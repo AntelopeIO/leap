@@ -167,8 +167,6 @@ namespace eosio::hotstuff {
 
       bool                 is_quorum_met() const { return valid(); }
       const fc::sha256&    get_proposal_id() const { return _proposal_id; }
-      const bls_signature& get_active_agg_sig() const { return _strong_votes._sig; }
-      const hs_bitset&     get_active_finalizers() const { return _strong_votes._bitset; }
       std::string          get_active_finalizers_string() const { return bitset_to_string(_strong_votes._bitset); }
       // ================== end compatibility functions =======================
 
@@ -310,9 +308,6 @@ namespace eosio::hotstuff {
       }
 
       const fc::sha256&    get_proposal_id() const { return _proposal_id; }
-      const bls_signature& get_active_agg_sig() const { return _sig; }
-      const hs_bitset&     get_active_finalizers() const { return *_strong_votes; }
-      std::string          get_active_finalizers_string() const { std::string r; boost::to_string(*_strong_votes, r); return r; }
       // ================== end compatibility functions =======================
 
       friend struct fc::reflector<valid_quorum_certificate>;
@@ -322,73 +317,13 @@ namespace eosio::hotstuff {
       std::optional<hs_bitset> _weak_votes;
       bls_signature            _sig;
    };
-   
-   class quorum_certificate {
-   public:
-      explicit quorum_certificate(size_t finalizer_size = 0) {
-         active_finalizers.resize(finalizer_size);
-      }
-
-      explicit quorum_certificate(const quorum_certificate_message& msg, size_t finalizer_count)
-              : proposal_id(msg.proposal_id)
-              , active_finalizers(vector_to_bitset(msg.strong_votes))
-              , active_agg_sig(msg.active_agg_sig) {
-               active_finalizers.resize(finalizer_count);
-      }
-
-      quorum_certificate_message to_msg() const {
-         return {.proposal_id = proposal_id,
-                 .strong_votes = [this]() {
-                           std::vector<unsigned_int> r;
-                           r.resize(active_finalizers.num_blocks());
-                           boost::to_block_range(active_finalizers, r.begin());
-                           return r;
-                        }(),
-                 .active_agg_sig = active_agg_sig};
-      }
-
-      void reset(const fc::sha256& proposal, size_t finalizer_size) {
-         proposal_id = proposal;
-         active_finalizers = hs_bitset{finalizer_size};
-         active_agg_sig = bls_signature();
-         quorum_met = false;
-      }
-
-      const hs_bitset& get_active_finalizers() const {
-         assert(!active_finalizers.empty());
-         return active_finalizers;
-      }
-      void set_active_finalizers(const hs_bitset& bs) {
-         assert(!bs.empty());
-         active_finalizers = bs;
-      }
-      std::string get_active_finalizers_string() const {
-         std::string r;
-         boost::to_string(active_finalizers, r);
-         return r;
-      }
-
-      const fc::sha256& get_proposal_id() const { return proposal_id; }
-      const bls_signature& get_active_agg_sig() const { return active_agg_sig; }
-      void set_active_agg_sig( const bls_signature& sig) { active_agg_sig = sig; }
-      bool is_quorum_met() const { return quorum_met; }
-      void set_quorum_met() { quorum_met = true; }
-
-
-   private:
-      friend struct fc::reflector<quorum_certificate>;
-      fc::sha256      proposal_id;
-      hs_bitset       active_finalizers; //bitset encoding, following canonical order
-      bls_signature   active_agg_sig;
-      bool            quorum_met = false; // not serialized across network
-   };
 
    struct seen_votes {
       fc::sha256                 proposal_id; // id of proposal being voted on
       uint64_t                   height;      // height of the proposal (for GC)
       std::set<bls_public_key>   finalizers;  // finalizers that have voted on the proposal
    };
-
+   
    // Concurrency note: qc_chain is a single-threaded and lock-free decision engine.
    //                   All thread synchronization, if any, is external.
    class qc_chain {
