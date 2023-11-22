@@ -125,41 +125,10 @@ namespace eosio::hotstuff {
       return b_new;
    }
 
-   void qc_chain::reset_qc(const fc::sha256& proposal_id) {
-      fc_tlog(_logger, " === ${id} resetting qc : ${proposal_id}", ("proposal_id" , proposal_id)("id", _id));
-      _current_qc.reset(proposal_id, 21); // TODO: use active schedule size
-   }
-
-   bool qc_chain::evaluate_quorum(const hs_bitset& finalizers, const bls_signature& agg_sig, const hs_proposal_message& proposal) {
-      if (positive_bits_count(finalizers) < _pacemaker->get_quorum_threshold()){
-         return false;
-      }
-      const auto& c_finalizers = _pacemaker->get_finalizer_set().finalizers;
-      std::vector<bls_public_key> keys;
-      keys.reserve(finalizers.size());
-      for (hs_bitset::size_type i = 0; i < finalizers.size(); ++i)
-         if (finalizers[i])
-            keys.push_back(c_finalizers[i].public_key);
-      bls_public_key agg_key = fc::crypto::blslib::aggregate(keys);
-
-      digest_type digest = proposal.get_proposal_id(); //get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
-
-      std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
-      bool ok = fc::crypto::blslib::verify(agg_key, h, agg_sig);
-      return ok;
-   }
-
-   bool qc_chain::is_quorum_met(const quorum_certificate& qc, const hs_proposal_message& proposal) {
-
-      if (qc.is_quorum_met()) {
-         return true; //skip evaluation if we've already verified quorum was met
-      }
-      else {
-         fc_tlog(_logger, " === qc : ${qc}", ("qc", qc.to_msg()));
-         // If the caller wants to update the quorum_met flag on its "qc" object, it will have to do so
-         //   based on the return value of this method, since "qc" here is const.
-         return evaluate_quorum(qc.get_active_finalizers(), qc.get_active_agg_sig(), proposal);
-      }
+   void qc_chain::reset_qc(const hs_proposal_message& proposal) {
+      fc_tlog(_logger, " === ${id} resetting qc : ${proposal_id}", ("proposal_id" , proposal.proposal_id)("id", _id));
+      const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+      _current_qc.reset(proposal.proposal_id, proposal.get_proposal_id(), finalizers.size(),  _pacemaker->get_quorum_threshold());
    }
 
    qc_chain::qc_chain(std::string id,
@@ -181,9 +150,6 @@ namespace eosio::hotstuff {
          _safety_state_file_handle.set_file_path(safety_state_file);
          state_db_manager<safety_state>::read(_safety_state_file, _safety_state);
       }
-
-      _high_qc.reset({}, 21); // TODO: use active schedule size
-      _current_qc.reset({}, 21); // TODO: use active schedule size
 
       fc_dlog(_logger, " === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
    }
@@ -387,72 +353,62 @@ namespace eosio::hotstuff {
       fc_tlog(_logger, " === Process vote from ${finalizer_key} : current bitset ${value}" ,
               ("finalizer_key", vote.finalizer_key)("value", _current_qc.get_active_finalizers_string()));
 
-      bool quorum_met = _current_qc.is_quorum_met(); //check if quorum already met
+      bool quorum_met = _current_qc.valid(); // [todo] better state check - strong/weak check
 
       // If quorum is already met, we don't need to do anything else. Otherwise, we aggregate the signature.
-      if (!quorum_met){
-
-         auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
-
-         const hs_bitset& finalizer_set = _current_qc.get_active_finalizers();
-
-         // if a finalizer has already aggregated a vote signature for the current QC, just discard this vote
-
+      if (!quorum_met) {
          const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
          for (size_t i=0; i<finalizers.size(); ++i)
-            if (finalizers[i].public_key == vote.finalizer_key)
-               if (finalizer_set.test(i))
-                  return;
+            if (finalizers[i].public_key == vote.finalizer_key) {
+               digest_type digest = p->get_proposal_id();
+               if (_current_qc.add_strong_vote(std::vector<uint8_t>(digest.data(), digest.data() + 32), i, vote.finalizer_key, vote.sig)) {
+                  // fc_tlog(_logger, " === update bitset ${value} ${finalizer_key}",
+                  //         ("value", _current_qc.get_active_finalizers_string())("finalizer_key", vote.finalizer_key));
+                  if (_current_qc.valid()) {
+                     auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
+                     fc_dlog(_logger, " === ${id} quorum met on #${block_num} ${phase_counter} ${proposal_id} ",
+                             ("block_num", p->block_num())
+                             ("phase_counter", p->phase_counter)
+                             ("proposal_id", vote.proposal_id)
+                             ("id", _id));
+                     
+                     //fc_tlog(_logger, " === update_high_qc : _current_qc ===");
+                     update_high_qc(_current_qc);
+                     fc_dlog(_logger, " === ${id} quorum met on #${block_num} ${phase_counter} ${proposal_id} ",
+                             ("block_num", p->block_num())
+                             ("phase_counter", p->phase_counter)
+                             ("proposal_id", vote.proposal_id)
+                             ("id", _id));
 
-         if (finalizer_set.any())
-            _current_qc.set_active_agg_sig(fc::crypto::blslib::aggregate({_current_qc.get_active_agg_sig(), vote.sig }));
-         else
-            _current_qc.set_active_agg_sig(vote.sig);
-         fc_tlog(_logger, " === update bitset ${value} ${finalizer_key}", ("value", _current_qc.get_active_finalizers_string())("finalizer_key", vote.finalizer_key));
-         _current_qc.set_active_finalizers(update_bitset(finalizer_set, vote.finalizer_key));
+                     //check for leader change
+                     leader_rotation_check();
 
-         quorum_met = is_quorum_met(_current_qc, *p);
+                     //if we're operating in event-driven mode and the proposal hasn't reached the decide phase yet
+                     if (_chained_mode == false && p->phase_counter < 3) {
+                        fc_tlog(_logger, " === ${id} phase increment on proposal ${proposal_id}", ("proposal_id", vote.proposal_id)("id", _id));
+                        hs_proposal_message proposal_candidate;
+                        
+                        if (_pending_proposal_block.empty())
+                           proposal_candidate = new_proposal_candidate( p->block_id, p->phase_counter + 1 );
+                        else
+                           proposal_candidate = new_proposal_candidate( _pending_proposal_block, 0 );
 
-         if (quorum_met){
+                        reset_qc(proposal_candidate);
+                        fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
 
-            fc_dlog(_logger, " === ${id} quorum met on #${block_num} ${phase_counter} ${proposal_id} ",
-                           ("block_num", p->block_num())
-                           ("phase_counter", p->phase_counter)
-                           ("proposal_id", vote.proposal_id)
-                           ("id", _id));
+                        _pending_proposal_block = {};
+                        _b_leaf = proposal_candidate.proposal_id;
 
-            _current_qc.set_quorum_met();
+                        //todo : asynchronous?
+                        //write_state(_liveness_state_file , _liveness_state);
 
-            //fc_tlog(_logger, " === update_high_qc : _current_qc ===");
-            update_high_qc(_current_qc);
+                        send_hs_proposal_msg( std::nullopt, proposal_candidate );
 
-            //check for leader change
-            leader_rotation_check();
-
-            //if we're operating in event-driven mode and the proposal hasn't reached the decide phase yet
-            if (_chained_mode == false && p->phase_counter < 3) {
-               fc_tlog(_logger, " === ${id} phase increment on proposal ${proposal_id}", ("proposal_id", vote.proposal_id)("id", _id));
-               hs_proposal_message proposal_candidate;
-
-               if (_pending_proposal_block.empty())
-                  proposal_candidate = new_proposal_candidate( p->block_id, p->phase_counter + 1 );
-               else
-                  proposal_candidate = new_proposal_candidate( _pending_proposal_block, 0 );
-
-               reset_qc(proposal_candidate.proposal_id);
-               fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
-
-               _pending_proposal_block = {};
-               _b_leaf = proposal_candidate.proposal_id;
-
-               //todo : asynchronous?
-               //write_state(_liveness_state_file , _liveness_state);
-
-               send_hs_proposal_msg( std::nullopt, proposal_candidate );
-
-               fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
+                        fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
+                     }
+                  }
+               }
             }
-         }
       }
 
       //auto total_time = fc::time_point::now() - start;
@@ -460,6 +416,8 @@ namespace eosio::hotstuff {
    }
 
    void qc_chain::process_new_view(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg){
+#if 0
+      // new_view message deprecated
       fc_tlog(_logger, " === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
       auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
       if (!update_high_qc(quorum_certificate{msg.high_qc, 21})) { // TODO: use active schedule size
@@ -470,6 +428,7 @@ namespace eosio::hotstuff {
          // If the recipient doesn't think ours is newer, it has already propagated its own, and so on.
          send_hs_new_view_msg(connection_id, msg);
       }
+#endif
    }
 
    void qc_chain::create_proposal(const block_id_type& block_id) {
@@ -494,7 +453,7 @@ namespace eosio::hotstuff {
                         ("quorum_met", _current_qc.is_quorum_met()));
          hs_proposal_message proposal_candidate = new_proposal_candidate( block_id, 0 );
 
-         reset_qc(proposal_candidate.proposal_id);
+         reset_qc(proposal_candidate);
 
          fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (create_proposal)", ("id", _id));
 
@@ -582,7 +541,7 @@ namespace eosio::hotstuff {
    }
 
    // returns true on state change (caller decides update on state version
-   bool qc_chain::update_high_qc(const quorum_certificate& high_qc) {
+   bool qc_chain::update_high_qc(const valid_quorum_certificate& high_qc) {
 
       fc_tlog(_logger, " === check to update high qc ${proposal_id}", ("proposal_id", high_qc.get_proposal_id()));
 
@@ -590,7 +549,7 @@ namespace eosio::hotstuff {
 
       if (_high_qc.get_proposal_id().empty()){
 
-         _high_qc = high_qc;
+         _high_qc = valid_quorum_certificate(high_qc);
          _b_leaf = _high_qc.get_proposal_id();
 
          //todo : asynchronous?
@@ -612,12 +571,10 @@ namespace eosio::hotstuff {
          if (new_high_qc_prop == nullptr)
             return false;
 
-         if (new_high_qc_prop->get_view_number() > old_high_qc_prop->get_view_number()
-             && is_quorum_met(high_qc, *new_high_qc_prop))
+         if (new_high_qc_prop->get_view_number() > old_high_qc_prop->get_view_number() /* && high_qc.is_quorum_met() */)
          {
             fc_tlog(_logger, " === updated high qc, now is : #${view_number}  ${proposal_id}", ("view_number", new_high_qc_prop->get_view_number())("proposal_id", new_high_qc_prop->proposal_id));
             _high_qc = high_qc;
-            _high_qc.set_quorum_met();
             _b_leaf = _high_qc.get_proposal_id();
 
             //todo : asynchronous?
@@ -793,7 +750,14 @@ namespace eosio::hotstuff {
       EOS_ASSERT( b_lock != nullptr || _safety_state.get_b_lock().empty() , chain_exception, "expected hs_proposal ${id} not found", ("id", _safety_state.get_b_lock()) );
 
       //fc_tlog(_logger, " === update_high_qc : proposal.justify ===");
-      update_high_qc(quorum_certificate{proposal.justify, 21}); // TODO: use active schedule size
+      const hs_proposal_message *justify = get_proposal(proposal.justify.proposal_id);
+      digest_type digest = justify->get_proposal_id();
+      const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+      update_high_qc(valid_quorum_certificate(justify->proposal_id,
+                                              std::vector<uint8_t>(digest.data(), digest.data() + 32),
+                                              proposal.justify.strong_votes,
+                                              std::vector<unsigned_int>{},
+                                              proposal.justify.active_agg_sig)); 
 
       if (chain_length<1){
          fc_dlog(_logger, " === ${id} qc chain length is 0", ("id", _id));

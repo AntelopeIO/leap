@@ -29,6 +29,7 @@ namespace eosio::chain {
       auto operator<=>(const view_number&) const = default;
       friend std::ostream& operator<<(std::ostream& os, const view_number& vn) {
          os << "view_number(" << vn.bheight << ", " << vn.pcounter << ")\n";
+         return os;
       }
 
       uint32_t block_height() const { return bheight; }
@@ -47,7 +48,8 @@ namespace eosio::chain {
 
    struct quorum_certificate_message {
       fc::sha256                          proposal_id;
-      std::vector<unsigned_int>           active_finalizers; //bitset encoding, following canonical order
+      std::vector<unsigned_int>           strong_votes; //bitset encoding, following canonical order
+      std::vector<unsigned_int>           weak_votes;   //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
    };
 
@@ -112,7 +114,7 @@ namespace eosio::chain {
 
 
 FC_REFLECT(eosio::chain::view_number, (bheight)(pcounter));
-FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(active_finalizers)(active_agg_sig));
+FC_REFLECT(eosio::chain::quorum_certificate_message, (proposal_id)(strong_votes)(active_agg_sig));
 FC_REFLECT(eosio::chain::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::chain::hs_vote_message, (proposal_id)(finalizer_key)(sig));
 FC_REFLECT(eosio::chain::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
