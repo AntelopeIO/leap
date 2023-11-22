@@ -35,8 +35,7 @@ namespace eosio { namespace chain {
                                                           bool     is_last_qc_strong) {
       // no state change if last_qc_block_height is the same
       if( last_qc_block_height == this->last_qc_block_height ) {
-         block_header_state_core result{*this};
-         return result;
+         return {*this};
       }
 
       EOS_ASSERT( last_qc_block_height > this->last_qc_block_height, block_validate_exception, "new last_qc_block_height must be greater than old last_qc_block_height" );
