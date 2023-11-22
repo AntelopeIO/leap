@@ -3324,15 +3324,6 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
    return version;
 }
 
-void controller::set_proposed_finalizers( const finalizer_set& fin_set ) {
-   my->set_proposed_finalizers(fin_set);
-}
-
-void controller::get_finalizer_state( hotstuff::finalizer_state& fs ) const {
-   EOS_ASSERT( my->pacemaker, misc_exception, "chain_pacemaker not created" );
-   my->pacemaker->get_state(fs);
-}
-
 void controller::create_pacemaker(std::set<chain::account_name> my_producers, std::map<std::string,std::string> finalizer_keys, fc::logger& hotstuff_logger) {
    EOS_ASSERT( !my->pacemaker, misc_exception, "duplicate chain_pacemaker initialization" );
    my->pacemaker.emplace(this, std::move(my_producers), std::move(finalizer_keys), hotstuff_logger);
@@ -3346,6 +3337,15 @@ void controller::register_pacemaker_bcast_function(std::function<void(const std:
 void controller::register_pacemaker_warn_function(std::function<void(uint32_t, hotstuff::hs_message_warning)> warn_hs_message) {
    EOS_ASSERT( my->pacemaker, misc_exception, "chain_pacemaker not created" );
    my->pacemaker->register_warn_function(std::move(warn_hs_message));
+}
+
+void controller::set_proposed_finalizers( const finalizer_set& fin_set ) {
+   my->set_proposed_finalizers(fin_set);
+}
+
+void controller::get_finalizer_state( hotstuff::finalizer_state& fs ) const {
+   EOS_ASSERT( my->pacemaker, misc_exception, "chain_pacemaker not created" );
+   my->pacemaker->get_state(fs);
 }
 
 // called from net threads

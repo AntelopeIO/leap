@@ -302,14 +302,14 @@ namespace eosio { namespace chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
+         void create_pacemaker(std::set<chain::account_name> my_producers, std::map<std::string,std::string> finalizer_keys, fc::logger& hotstuff_logger);
+         void register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const hotstuff::hs_message&)> bcast_hs_message);
+         void register_pacemaker_warn_function(std::function<void(uint32_t, hotstuff::hs_message_warning)> warn_hs_message);
          // called by host function set_finalizers
          void set_proposed_finalizers( const finalizer_set& fin_set );
          void get_finalizer_state( hotstuff::finalizer_state& fs ) const;
          // called from net threads
          void notify_hs_message( const uint32_t connection_id, const hotstuff::hs_message& msg );
-         void create_pacemaker(std::set<chain::account_name> my_producers, std::map<std::string,std::string> finalizer_keys, fc::logger& hotstuff_logger);
-         void register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const hotstuff::hs_message&)> bcast_hs_message);
-         void register_pacemaker_warn_function(std::function<void(uint32_t, hotstuff::hs_message_warning)> warn_hs_message);
 
          bool light_validation_allowed() const;
          bool skip_auth_check()const;

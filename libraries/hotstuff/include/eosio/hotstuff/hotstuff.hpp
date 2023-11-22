@@ -59,7 +59,7 @@ namespace eosio::hotstuff {
 
    struct hs_proposal_message {
       fc::sha256                          proposal_id; //vote on proposal
-      chain::block_id_type                       block_id;
+      chain::block_id_type                block_id;
       fc::sha256                          parent_id; //new proposal
       fc::sha256                          final_on_qc;
       quorum_certificate_message          justify; //justification
