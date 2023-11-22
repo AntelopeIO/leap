@@ -252,12 +252,12 @@ namespace eosio::hotstuff {
          return true;
       }
 
-      bool add_vote(bool weak,
+      bool add_vote(bool strong,
                     const std::vector<uint8_t>& proposal_digest,
                     size_t index,
                     const bls_public_key& pubkey,
                     const bls_signature& sig) {
-         return weak ? add_weak_vote(proposal_digest, index, pubkey, sig) : add_strong_vote(proposal_digest, index, pubkey, sig);
+         return strong ? add_strong_vote(proposal_digest, index, pubkey, sig) : add_weak_vote(proposal_digest, index, pubkey, sig);
       }
       
       friend struct fc::reflector<pending_quorum_certificate>;
@@ -390,7 +390,7 @@ namespace eosio::hotstuff {
 
       void create_proposal(const block_id_type& block_id);
 
-      hs_vote_message sign_proposal(const hs_proposal_message& proposal, const bls_public_key& finalizer_pub_key, const bls_private_key& finalizer_priv_key);
+      hs_vote_message sign_proposal(const hs_proposal_message& proposal, bool strong, const bls_public_key& finalizer_pub_key, const bls_private_key& finalizer_priv_key);
 
       //verify that a proposal descends from another
       bool extends(const fc::sha256& descendant, const fc::sha256& ancestor);

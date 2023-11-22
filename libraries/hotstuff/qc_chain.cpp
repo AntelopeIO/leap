@@ -177,6 +177,7 @@ namespace eosio::hotstuff {
    }
 
    hs_vote_message qc_chain::sign_proposal(const hs_proposal_message& proposal,
+                                           bool strong,
                                            const bls_public_key& finalizer_pub_key,
                                            const bls_private_key& finalizer_priv_key)
    {
@@ -188,7 +189,7 @@ namespace eosio::hotstuff {
 
       bls_signature sig = finalizer_priv_key.sign(h);
 
-      hs_vote_message v_msg = {proposal.proposal_id, finalizer_priv_key.get_public_key(), sig};
+      hs_vote_message v_msg = {proposal.proposal_id, strong, finalizer_priv_key.get_public_key(), sig};
       return v_msg;
    }
 
@@ -268,7 +269,7 @@ namespace eosio::hotstuff {
 
             if (mfk_itr!=_my_finalizer_keys.end()) {
 
-               hs_vote_message v_msg = sign_proposal(proposal, mfk_itr->first, mfk_itr->second);
+               hs_vote_message v_msg = sign_proposal(proposal, true, mfk_itr->first, mfk_itr->second);
 
                fc_tlog(_logger, " === ${id} signed proposal : block_num ${block_num} phase ${phase_counter} : proposal_id ${proposal_id}",
                               ("id", _id)
@@ -364,7 +365,7 @@ namespace eosio::hotstuff {
          for (size_t i=0; i<finalizers.size(); ++i)
             if (finalizers[i].public_key == vote.finalizer_key) {
                digest_type digest = p->get_proposal_digest();
-               if (_current_qc.add_vote(vote.weak, std::vector<uint8_t>(digest.data(), digest.data() + 32),
+               if (_current_qc.add_vote(vote.strong, std::vector<uint8_t>(digest.data(), digest.data() + 32),
                                         i, vote.finalizer_key, vote.sig)) {
                   // fc_tlog(_logger, " === update bitset ${value} ${finalizer_key}",
                   //         ("value", _current_qc.get_active_finalizers_string())("finalizer_key", vote.finalizer_key));

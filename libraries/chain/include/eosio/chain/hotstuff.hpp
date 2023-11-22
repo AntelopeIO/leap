@@ -55,7 +55,7 @@ namespace eosio::chain {
 
    struct hs_vote_message {
       fc::sha256                          proposal_id; //vote on proposal
-      bool                                weak;
+      bool                                strong;
       fc::crypto::blslib::bls_public_key  finalizer_key;
       fc::crypto::blslib::bls_signature   sig;
    };
