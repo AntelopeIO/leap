@@ -104,7 +104,7 @@ namespace eosio { namespace hotstuff {
 #warning TODO get a data directory str passed into the chain_pacemaker ctor and use it to compose the absolute filepathname that is passed to qc_chain ctor
    chain_pacemaker::chain_pacemaker(controller* chain,
                                     std::set<account_name> my_producers,
-                                    std::map<std::string,std::string> finalizer_keys,
+                                    bls_pub_priv_key_map_t finalizer_keys,
                                     fc::logger& logger)
       : _chain(chain),
         _qc_chain("default", this, std::move(my_producers), std::move(finalizer_keys), logger, eosio::chain::config::safetydb_filename),

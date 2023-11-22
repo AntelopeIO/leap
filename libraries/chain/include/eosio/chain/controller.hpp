@@ -25,6 +25,7 @@ namespace eosio::hotstuff {
    struct hs_message;
    struct finalizer_state;
    enum class hs_message_warning;
+   using bls_pub_priv_key_map_t = std::map<std::string, std::string>;
 }
 
 namespace eosio { namespace chain {
@@ -302,7 +303,7 @@ namespace eosio { namespace chain {
 
          int64_t set_proposed_producers( vector<producer_authority> producers );
 
-         void create_pacemaker(std::set<chain::account_name> my_producers, std::map<std::string,std::string> finalizer_keys, fc::logger& hotstuff_logger);
+         void create_pacemaker(std::set<chain::account_name> my_producers, hotstuff::bls_pub_priv_key_map_t finalizer_keys, fc::logger& hotstuff_logger);
          void register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const hotstuff::hs_message&)> bcast_hs_message);
          void register_pacemaker_warn_function(std::function<void(uint32_t, hotstuff::hs_message_warning)> warn_hs_message);
          // called by host function set_finalizers

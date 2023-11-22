@@ -144,6 +144,8 @@ namespace eosio::hotstuff {
       std::set<fc::crypto::blslib::bls_public_key>   finalizers;  // finalizers that have voted on the proposal
    };
 
+   using bls_pub_priv_key_map_t = std::map<std::string, std::string>;
+
    // Concurrency note: qc_chain is a single-threaded and lock-free decision engine.
    //                   All thread synchronization, if any, is external.
    class qc_chain {
@@ -153,7 +155,7 @@ namespace eosio::hotstuff {
 
       qc_chain(std::string id, base_pacemaker* pacemaker,
                std::set<name> my_producers,
-               std::map<std::string,std::string> finalizer_keys,
+               bls_pub_priv_key_map_t finalizer_keys,
                fc::logger& logger,
                std::string safety_state_file);
 

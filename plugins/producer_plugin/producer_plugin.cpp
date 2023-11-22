@@ -492,9 +492,9 @@ public:
 
    using signature_provider_type = signature_provider_plugin::signature_provider_type;
    std::map<chain::public_key_type, signature_provider_type> _signature_providers;
-   std::map<std::string ,std::string>                        _finalizer_keys; // public, private
-   std::set<chain::account_name>                             _producers;
-   boost::asio::deadline_timer                               _timer;
+   hotstuff::bls_pub_priv_key_map_t                  _finalizer_keys; // public, private
+   std::set<chain::account_name>                     _producers;
+   boost::asio::deadline_timer                       _timer;
    block_timing_util::producer_watermarks            _producer_watermarks;
    pending_block_mode                                _pending_block_mode = pending_block_mode::speculating;
    unapplied_transaction_queue                       _unapplied_transactions;

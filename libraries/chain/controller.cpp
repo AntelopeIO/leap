@@ -3324,7 +3324,7 @@ int64_t controller::set_proposed_producers( vector<producer_authority> producers
    return version;
 }
 
-void controller::create_pacemaker(std::set<chain::account_name> my_producers, std::map<std::string,std::string> finalizer_keys, fc::logger& hotstuff_logger) {
+void controller::create_pacemaker(std::set<chain::account_name> my_producers, hotstuff::bls_pub_priv_key_map_t finalizer_keys, fc::logger& hotstuff_logger) {
    EOS_ASSERT( !my->pacemaker, misc_exception, "duplicate chain_pacemaker initialization" );
    my->pacemaker.emplace(this, std::move(my_producers), std::move(finalizer_keys), hotstuff_logger);
 }

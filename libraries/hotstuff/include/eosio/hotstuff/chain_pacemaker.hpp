@@ -20,7 +20,7 @@ namespace eosio::hotstuff {
 
       chain_pacemaker(controller* chain,
                       std::set<account_name> my_producers,
-                      std::map<std::string,std::string> finalizer_keys,
+                      bls_pub_priv_key_map_t finalizer_keys,
                       fc::logger& logger);
       void register_bcast_function(std::function<void(const std::optional<uint32_t>&, const hs_message&)> broadcast_hs_message);
       void register_warn_function(std::function<void(uint32_t, const hs_message_warning&)> warning_hs_message);
