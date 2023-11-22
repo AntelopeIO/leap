@@ -1,4 +1,9 @@
 #pragma once
+
+#include <eosio/chain_plugin/account_query_db.hpp>
+#include <eosio/chain_plugin/trx_retry_db.hpp>
+#include <eosio/chain_plugin/trx_finality_status_processing.hpp>
+
 #include <eosio/chain/application.hpp>
 #include <eosio/chain/asset.hpp>
 #include <eosio/chain/authority.hpp>
@@ -12,23 +17,17 @@
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/fixed_bytes.hpp>
-#include <eosio/chain/hotstuff.hpp>
+#include <eosio/hotstuff/hotstuff.hpp>
 
 #include <boost/container/flat_set.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
 
-#include <eosio/chain_plugin/account_query_db.hpp>
-#include <eosio/chain_plugin/trx_retry_db.hpp>
-#include <eosio/chain_plugin/trx_finality_status_processing.hpp>
-
-#include <fc/static_variant.hpp>
 #include <fc/time.hpp>
 
 namespace fc { class variant; }
 
 namespace eosio {
    namespace chain { class abi_resolver; }
-   namespace hotstuff { class chain_pacemaker; }
 
    using chain::controller;
    using std::unique_ptr;
@@ -141,7 +140,6 @@ protected:
 class read_only : public api_base {
    const controller& db;
    const std::optional<account_query_db>& aqdb;
-   const std::optional<hotstuff::chain_pacemaker>& chain_pacemaker;
    const fc::microseconds abi_serializer_max_time;
    const fc::microseconds http_max_response_time;
    bool  shorten_abi_errors = true;
@@ -152,12 +150,10 @@ public:
    static const string KEYi64;
 
    read_only(const controller& db, const std::optional<account_query_db>& aqdb,
-             const std::optional<hotstuff::chain_pacemaker>& chain_pacemaker,
              const fc::microseconds& abi_serializer_max_time, const fc::microseconds& http_max_response_time,
              const trx_finality_status_processing* trx_finality_status_proc)
       : db(db)
       , aqdb(aqdb)
-      , chain_pacemaker(chain_pacemaker)
       , abi_serializer_max_time(abi_serializer_max_time)
       , http_max_response_time(http_max_response_time)
       , trx_finality_status_proc(trx_finality_status_proc) {
@@ -839,11 +835,11 @@ public:
       chain::block_id_type       block_id;
       fc::sha256                 parent_id;
       fc::sha256                 final_on_qc;
-      chain::quorum_certificate_message  justify;
+      hotstuff::quorum_certificate_message  justify;
       uint8_t                    phase_counter   = 0;
       uint32_t                   block_height    = 0;
       uint64_t                   view_number     = 0;
-      explicit hs_complete_proposal_message( const chain::hs_proposal_message& p ) {
+      explicit hs_complete_proposal_message( const hotstuff::hs_proposal_message& p ) {
          proposal_id    = p.proposal_id;
          block_id       = p.block_id;
          parent_id      = p.parent_id;
@@ -865,10 +861,10 @@ public:
       fc::sha256 b_finality_violation;
       chain::block_id_type block_exec;
       chain::block_id_type pending_proposal_block;
-      chain::view_number v_height;
-      chain::quorum_certificate_message high_qc;
-      chain::quorum_certificate_message current_qc;
-      chain::extended_schedule schedule;
+      hotstuff::view_number v_height;
+      hotstuff::quorum_certificate_message high_qc;
+      hotstuff::quorum_certificate_message current_qc;
+      hotstuff::extended_schedule schedule;
       vector<hs_complete_proposal_message> proposals;
    };
 
@@ -1030,12 +1026,6 @@ public:
    controller& chain();
    // Only call this after plugin_initialize()!
    const controller& chain() const;
-
-   void create_pacemaker(std::set<chain::account_name> my_producers, chain::bls_key_map_t finalizer_keys);
-   void register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> bcast_hs_message);
-   void register_pacemaker_warn_function(std::function<void(const uint32_t, const chain::hs_message_warning&)> warn_hs_message);
-   void notify_hs_message( const uint32_t connection_id, const chain::hs_message& msg );
-   void notify_hs_block_produced();
 
    chain::chain_id_type get_chain_id() const;
    fc::microseconds get_abi_serializer_max_time() const;

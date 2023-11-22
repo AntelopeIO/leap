@@ -23,6 +23,8 @@ eosio::chain::asset core_from_string(const std::string& s) {
 
 namespace eosio { namespace testing {
 
+   fc::logger test_logger = fc::logger::get();
+
    inline auto get_bls_private_key( name keyname ) {
       auto secret = fc::sha256::hash(keyname.to_string());
       std::vector<uint8_t> seed(secret.data_size());
@@ -347,6 +349,7 @@ namespace eosio { namespace testing {
               }
           }
       });
+      control->create_pacemaker({}, {}, test_logger);
    }
 
    void base_tester::open( protocol_feature_set&& pfs, const snapshot_reader_ptr& snapshot ) {
@@ -1312,6 +1315,24 @@ namespace eosio { namespace testing {
                         });
 
       execute_setup_policy(policy);
+   }
+
+   unique_ptr<controller> validating_tester::create_validating_node(controller::config vcfg, const genesis_state& genesis, bool use_genesis, deep_mind_handler* dmlog) {
+      unique_ptr<controller> validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), genesis.compute_chain_id());
+      validating_node->add_indices();
+      validating_node->create_pacemaker({}, {}, test_logger);
+
+      if(dmlog)
+      {
+         validating_node->enable_deep_mind(dmlog);
+      }
+      if (use_genesis) {
+         validating_node->startup( [](){}, []() { return false; }, genesis );
+      }
+      else {
+         validating_node->startup( [](){}, []() { return false; } );
+      }
+      return validating_node;
    }
 
    bool fc_exception_message_is::operator()( const fc::exception& ex ) {
