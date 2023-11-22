@@ -154,26 +154,18 @@ namespace eosio::hotstuff {
       fc_dlog(_logger, " === ${id} qc chain initialized ${my_producers}", ("my_producers", my_producers)("id", _id));
    }
 
-   bool qc_chain::am_i_proposer(){
-      name proposer = _pacemaker->get_proposer();
-      auto prod_itr = std::find_if(_my_producers.begin(), _my_producers.end(), [&](const auto& asp){ return asp == proposer; });
-      if (prod_itr==_my_producers.end()) return false;
-      else return true;
+   bool qc_chain::am_i_proposer() {
+      return std::find(_my_producers.begin(), _my_producers.end(), _pacemaker->get_proposer()) != _my_producers.end();
    }
 
-   bool qc_chain::am_i_leader(){
-      name leader = _pacemaker->get_leader();
-      auto prod_itr = std::find_if(_my_producers.begin(), _my_producers.end(), [&](const auto& asp){ return asp == leader; });
-      if (prod_itr==_my_producers.end()) return false;
-      else return true;
+   bool qc_chain::am_i_leader() {
+      return std::find(_my_producers.begin(), _my_producers.end(), _pacemaker->get_leader()) != _my_producers.end();
    }
 
-   bool qc_chain::am_i_finalizer(){
-
+   bool qc_chain::am_i_finalizer() {
       const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
-         return !_my_finalizer_keys.empty() &&
-            std::any_of(finalizers.begin(), finalizers.end(), [&](const auto& fa) { return _my_finalizer_keys.contains(fa.public_key); });
-
+      return !_my_finalizer_keys.empty() &&
+         std::any_of(finalizers.begin(), finalizers.end(), [&](const auto& fa) { return _my_finalizer_keys.contains(fa.public_key); });
    }
 
    hs_vote_message qc_chain::sign_proposal(const hs_proposal_message& proposal,
