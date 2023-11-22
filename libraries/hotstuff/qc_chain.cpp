@@ -128,7 +128,7 @@ namespace eosio::hotstuff {
    void qc_chain::reset_qc(const hs_proposal_message& proposal) {
       fc_tlog(_logger, " === ${id} resetting qc : ${proposal_id}", ("proposal_id" , proposal.proposal_id)("id", _id));
       const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
-      _current_qc.reset(proposal.proposal_id, proposal.get_proposal_id(), finalizers.size(),  _pacemaker->get_quorum_threshold());
+      _current_qc.reset(proposal.proposal_id, proposal.get_proposal_digest(), finalizers.size(),  _pacemaker->get_quorum_threshold());
    }
 
    qc_chain::qc_chain(std::string id,
@@ -182,7 +182,7 @@ namespace eosio::hotstuff {
    {
       _safety_state.set_v_height(finalizer_pub_key, proposal.get_view_number());
 
-      digest_type digest = proposal.get_proposal_id(); //get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
+      digest_type digest = proposal.get_proposal_digest(); //get_digest_to_sign(proposal.block_id, proposal.phase_counter, proposal.final_on_qc);
 
       std::vector<uint8_t> h = std::vector<uint8_t>(digest.data(), digest.data() + 32);
 
@@ -329,6 +329,9 @@ namespace eosio::hotstuff {
          return;
       }
 
+      fc_tlog(_logger, " === Process vote from ${finalizer_key} : current bitset ${value}" ,
+              ("finalizer_key", vote.finalizer_key)("value", _current_qc.get_votes_string()));
+
       // if not leader, check message propagation and quit
       if (! am_leader) {
          seen_votes_store_type::nth_index<0>::type::iterator itr = _seen_votes_store.get<by_seen_votes_proposal_id>().find( p->proposal_id );
@@ -351,7 +354,7 @@ namespace eosio::hotstuff {
       }
 
       fc_tlog(_logger, " === Process vote from ${finalizer_key} : current bitset ${value}" ,
-              ("finalizer_key", vote.finalizer_key)("value", _current_qc.get_active_finalizers_string()));
+              ("finalizer_key", vote.finalizer_key)("value", _current_qc.get_votes_string()));
 
       bool quorum_met = _current_qc.valid(); // [todo] better state check - strong/weak check
 
@@ -360,7 +363,7 @@ namespace eosio::hotstuff {
          const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
          for (size_t i=0; i<finalizers.size(); ++i)
             if (finalizers[i].public_key == vote.finalizer_key) {
-               digest_type digest = p->get_proposal_id();
+               digest_type digest = p->get_proposal_digest();
                if (_current_qc.add_strong_vote(std::vector<uint8_t>(digest.data(), digest.data() + 32), i, vote.finalizer_key, vote.sig)) {
                   // fc_tlog(_logger, " === update bitset ${value} ${finalizer_key}",
                   //         ("value", _current_qc.get_active_finalizers_string())("finalizer_key", vote.finalizer_key));
@@ -751,7 +754,7 @@ namespace eosio::hotstuff {
 
       //fc_tlog(_logger, " === update_high_qc : proposal.justify ===");
       const hs_proposal_message *justify = get_proposal(proposal.justify.proposal_id);
-      digest_type digest = justify->get_proposal_id();
+      digest_type digest = justify->get_proposal_digest();
       const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
       update_high_qc(valid_quorum_certificate(justify->proposal_id,
                                               std::vector<uint8_t>(digest.data(), digest.data() + 32),

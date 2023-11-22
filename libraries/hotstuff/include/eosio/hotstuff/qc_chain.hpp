@@ -167,7 +167,10 @@ namespace eosio::hotstuff {
 
       bool                 is_quorum_met() const { return valid(); }
       const fc::sha256&    get_proposal_id() const { return _proposal_id; }
-      std::string          get_active_finalizers_string() const { return bitset_to_string(_strong_votes._bitset); }
+      std::string          get_votes_string() const {
+         return std::string("strong(\"") + bitset_to_string(_strong_votes._bitset) + "\", weak(\"" +
+            bitset_to_string(_weak_votes._bitset) + "\"";
+      }
       // ================== end compatibility functions =======================
 
       void reset(const fc::sha256& proposal_id, const digest_type& proposal_digest, size_t num_finalizers, size_t quorum) {
