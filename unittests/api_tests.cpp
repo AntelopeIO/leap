@@ -3862,26 +3862,43 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
 
    t.produce_block();
 
-   // Create producer accounts
-   vector<account_name> producers = {
+   // Create finalizer accounts
+   vector<account_name> finalizers = {
       "inita"_n, "initb"_n, "initc"_n, "initd"_n, "inite"_n, "initf"_n, "initg"_n,
       "inith"_n, "initi"_n, "initj"_n, "initk"_n, "initl"_n, "initm"_n, "initn"_n,
       "inito"_n, "initp"_n, "initq"_n, "initr"_n, "inits"_n, "initt"_n, "initu"_n
    };
 
-   t.create_accounts(producers);
+   t.create_accounts(finalizers);
    t.produce_block();
 
    // activate hotstuff
-   t.set_finalizers(producers);
-   auto block = t.produce_block();
+   t.set_finalizers(finalizers);
+   auto block = t.produce_block(); // this block contains the header extension of the finalizer set
 
    std::optional<block_header_extension> ext = block->extract_header_extension(hs_finalizer_set_extension::extension_id());
-
    BOOST_TEST(!!ext);
-   BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).finalizers.size() == producers.size());
+   BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).finalizers.size() == finalizers.size());
    BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).generation == 1);
-   BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).fthreshold == producers.size() / 3 * 2);
+   BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).fthreshold == finalizers.size() / 3 * 2);
+
+   // old dpos still in affect until block is irreversible
+   BOOST_TEST(block->confirmed == 0);
+   block_state_ptr block_state = t.control->fetch_block_state_by_id(block->calculate_id());
+   BOOST_REQUIRE(!!block_state);
+   BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
+
+   block = t.produce_block(); // only one producer so now this block is irreversible, next block will be hotstuff
+   BOOST_TEST(block->confirmed == 0);
+   block_state = t.control->fetch_block_state_by_id(block->calculate_id());
+   BOOST_REQUIRE(!!block_state);
+   BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
+
+   block = t.produce_block(); // hotstuff now active
+   BOOST_TEST(block->confirmed == std::numeric_limits<uint16_t>::max());
+   block_state = t.control->fetch_block_state_by_id(block->calculate_id());
+   BOOST_REQUIRE(!!block_state);
+   BOOST_TEST(block_state->dpos_irreversible_blocknum == hs_dpos_irreversible_blocknum);
 
 } FC_LOG_AND_RETHROW() }
 

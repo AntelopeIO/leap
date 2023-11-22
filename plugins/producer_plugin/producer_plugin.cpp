@@ -78,6 +78,9 @@ fc::logger        _transient_trx_successful_trace_log;
 const std::string transient_trx_failed_trace_logger_name("transient_trx_failure_tracing");
 fc::logger        _transient_trx_failed_trace_log;
 
+const std::string hotstuff_logger_name("hotstuff");
+fc::logger hotstuff_logger;
+
 namespace eosio {
 
 static auto _producer_plugin = application::register_plugin<producer_plugin>();
@@ -489,9 +492,9 @@ public:
 
    using signature_provider_type = signature_provider_plugin::signature_provider_type;
    std::map<chain::public_key_type, signature_provider_type> _signature_providers;
-   bls_key_map_t                                             _finalizer_keys;
-   std::set<chain::account_name>                             _producers;
-   boost::asio::deadline_timer                               _timer;
+   hotstuff::bls_pub_priv_key_map_t                  _finalizer_keys; // public, private
+   std::set<chain::account_name>                     _producers;
+   boost::asio::deadline_timer                       _timer;
    block_timing_util::producer_watermarks            _producer_watermarks;
    pending_block_mode                                _pending_block_mode = pending_block_mode::speculating;
    unapplied_transaction_queue                       _unapplied_transactions;
@@ -1135,7 +1138,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
             const auto bls = app().get_plugin<signature_provider_plugin>().bls_public_key_for_specification(key_spec_pair);
             if (bls) {
                const auto& [pubkey, privkey] = *bls;
-               _finalizer_keys[pubkey] = privkey;
+               _finalizer_keys[pubkey.to_string()] = privkey.to_string();
             }
          } catch(secure_enclave_exception& e) {
             elog("Error with Secure Enclave signature provider: ${e}; ignoring ${val}", ("e", e.top_message())("val", key_spec_pair));
@@ -1337,7 +1340,7 @@ void producer_plugin_impl::plugin_startup() {
          EOS_ASSERT(_producers.empty() || chain_plug->accept_transactions(), plugin_config_exception,
                     "node cannot have any producer-name configured because no block production is possible with no [api|p2p]-accepted-transactions");
 
-         chain_plug->create_pacemaker(_producers, std::move(_finalizer_keys));
+         chain.create_pacemaker(_producers, std::move(_finalizer_keys), hotstuff_logger);
          _finalizer_keys.clear();
 
          _accepted_block_connection.emplace(chain.accepted_block.connect([this](const auto& bsp) { on_block(bsp); }));
@@ -1429,6 +1432,7 @@ void producer_plugin::handle_sighup() {
    fc::logger::update(trx_logger_name, _trx_log);
    fc::logger::update(transient_trx_successful_trace_logger_name, _transient_trx_successful_trace_log);
    fc::logger::update(transient_trx_failed_trace_logger_name, _transient_trx_failed_trace_log);
+   fc::logger::update( hotstuff_logger_name, hotstuff_logger );
 }
 
 void producer_plugin::pause() {
@@ -2650,7 +2654,6 @@ void producer_plugin_impl::produce_block() {
    block_state_ptr new_bs = chain.head_block_state();
 
    producer_plugin::produced_block_metrics metrics;
-   chain_plug->notify_hs_block_produced();
 
    br.total_time += fc::time_point::now() - start;
 

@@ -572,21 +572,7 @@ namespace eosio { namespace testing {
          vcfg.contracts_console = false;
       }
 
-      static unique_ptr<controller> create_validating_node(controller::config vcfg, const genesis_state& genesis, bool use_genesis, deep_mind_handler* dmlog = nullptr) {
-         unique_ptr<controller> validating_node = std::make_unique<controller>(vcfg, make_protocol_feature_set(), genesis.compute_chain_id());
-         validating_node->add_indices();
-         if(dmlog)
-         {
-            validating_node->enable_deep_mind(dmlog);
-         }
-         if (use_genesis) {
-            validating_node->startup( [](){}, []() { return false; }, genesis );
-         }
-         else {
-            validating_node->startup( [](){}, []() { return false; } );
-         }
-         return validating_node;
-      }
+      static unique_ptr<controller> create_validating_node(controller::config vcfg, const genesis_state& genesis, bool use_genesis, deep_mind_handler* dmlog = nullptr);
 
       validating_tester(const fc::temp_directory& tempdir, bool use_genesis) {
          auto def_conf = default_config(tempdir);

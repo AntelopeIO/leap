@@ -20,10 +20,10 @@ namespace eosio::hotstuff {
 
       chain_pacemaker(controller* chain,
                       std::set<account_name> my_producers,
-                      chain::bls_key_map_t finalizer_keys,
+                      bls_pub_priv_key_map_t finalizer_keys,
                       fc::logger& logger);
-      void register_bcast_function(std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> broadcast_hs_message);
-      void register_warn_function(std::function<void(const uint32_t, const chain::hs_message_warning&)> warning_hs_message);
+      void register_bcast_function(std::function<void(const std::optional<uint32_t>&, const hs_message&)> broadcast_hs_message);
+      void register_warn_function(std::function<void(uint32_t, const hs_message_warning&)> warning_hs_message);
 
       void beat();
 
@@ -33,20 +33,20 @@ namespace eosio::hotstuff {
 
       //base_pacemaker interface functions
 
-      name get_proposer();
-      name get_leader() ;
-      name get_next_leader() ;
-      const finalizer_set&  get_finalizer_set();
+      name get_proposer() final;
+      name get_leader() final;
+      name get_next_leader() final;
+      const finalizer_set&  get_finalizer_set() final;
 
-      block_id_type get_current_block_id();
+      block_id_type get_current_block_id() final;
 
-      uint32_t get_quorum_threshold();
+      uint32_t get_quorum_threshold() final;
 
-      void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
-      void send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
-      void send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+      void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) final;
+      void send_hs_vote_msg(const hs_vote_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) final;
+      void send_hs_new_view_msg(const hs_new_view_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) final;
 
-      void send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code);
+      void send_hs_message_warning(uint32_t sender_peer, hs_message_warning code) final;
 
    private:
       void on_accepted_block( const block_state_ptr& blk );
@@ -80,8 +80,8 @@ namespace eosio::hotstuff {
       boost::signals2::scoped_connection _irreversible_block_connection;
 
       qc_chain                _qc_chain;
-      std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> bcast_hs_message;
-      std::function<void(const uint32_t, const chain::hs_message_warning&)> warn_hs_message;
+      std::function<void(const std::optional<uint32_t>&, const hs_message&)> bcast_hs_message = [](const std::optional<uint32_t>&, const hs_message&){};
+      std::function<void(uint32_t, const hs_message_warning&)> warn_hs_message = [](uint32_t, const hs_message_warning&){};
 
       uint32_t                _quorum_threshold = 15; //FIXME/TODO: calculate from schedule
       fc::logger&             _logger;

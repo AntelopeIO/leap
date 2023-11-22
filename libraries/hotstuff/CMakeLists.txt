@@ -15,3 +15,10 @@ target_include_directories( hotstuff
                           )
 
 add_subdirectory( test )
+
+install(TARGETS hotstuff
+        LIBRARY DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_FULL_LIBDIR} COMPONENT dev EXCLUDE_FROM_ALL)
+install(DIRECTORY include/eosio/hotstuff/
+        DESTINATION ${CMAKE_INSTALL_FULL_INCLUDEDIR}/eosio/hotstuff
+        COMPONENT dev EXCLUDE_FROM_ALL)

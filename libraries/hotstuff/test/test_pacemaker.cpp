@@ -206,7 +206,7 @@ namespace eosio::hotstuff {
       _pending_message_queue.push_back(std::make_pair(id, msg));
    };
 
-   void test_pacemaker::send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code) { }
+   void test_pacemaker::send_hs_message_warning(uint32_t sender_peer, const hs_message_warning code) { }
 
    void test_pacemaker::on_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id) {
       for (const auto& [qcc_name, qcc_ptr] : _qcc_store) {
