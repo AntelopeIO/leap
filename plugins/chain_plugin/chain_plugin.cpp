@@ -16,7 +16,6 @@
 #include <eosio/chain_plugin/trx_finality_status_processing.hpp>
 #include <eosio/chain/permission_link_object.hpp>
 #include <eosio/chain/global_property_object.hpp>
-#include <eosio/hotstuff/chain_pacemaker.hpp>
 
 #include <eosio/resource_monitor_plugin/resource_monitor_plugin.hpp>
 
@@ -39,9 +38,6 @@ FC_REFLECT(chainbase::environment, (debug)(os)(arch)(boost_version)(compiler) )
 
 const std::string deep_mind_logger_name("deep-mind");
 eosio::chain::deep_mind_handler _deep_mind_log;
-
-const std::string hotstuff_logger_name("hotstuff");
-fc::logger hotstuff_logger;
 
 namespace eosio {
 
@@ -211,7 +207,6 @@ public:
    std::optional<scoped_connection>                                   applied_transaction_connection;
    std::optional<scoped_connection>                                   block_start_connection;
 
-   std::optional<eosio::hotstuff::chain_pacemaker>                    _chain_pacemaker;
    std::optional<chain_apis::account_query_db>                        _account_query_db;
    std::optional<chain_apis::trx_retry_db>                            _trx_retry_db;
    chain_apis::trx_finality_status_processing_ptr                     _trx_finality_status_processing;
@@ -1106,21 +1101,6 @@ void chain_plugin_impl::plugin_initialize(const variables_map& options) {
    } FC_LOG_AND_RETHROW()
 }
 
-void chain_plugin::create_pacemaker(std::set<chain::account_name> my_producers, chain::bls_key_map_t finalizer_keys) {
-   EOS_ASSERT( !my->_chain_pacemaker, plugin_config_exception, "duplicate chain_pacemaker initialization" );
-   my->_chain_pacemaker.emplace(&chain(), std::move(my_producers), std::move(finalizer_keys), hotstuff_logger);
-}
-
-void chain_plugin::register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const chain::hs_message&)> bcast_hs_message) {
-   EOS_ASSERT( my->_chain_pacemaker, plugin_config_exception, "chain_pacemaker not created" );
-   my->_chain_pacemaker->register_bcast_function(std::move(bcast_hs_message));
-}
-
-void chain_plugin::register_pacemaker_warn_function(std::function<void(const uint32_t, const chain::hs_message_warning&)> warn_hs_message) {
-   EOS_ASSERT( my->_chain_pacemaker, plugin_config_exception, "chain_pacemaker not created" );
-   my->_chain_pacemaker->register_warn_function(std::move(warn_hs_message));
-}
-
 void chain_plugin::plugin_initialize(const variables_map& options) {
    handle_sighup(); // Sets loggers
    my->plugin_initialize(options);
@@ -1196,7 +1176,6 @@ void chain_plugin::plugin_shutdown() {
 
 void chain_plugin::handle_sighup() {
    _deep_mind_log.update_logger( deep_mind_logger_name );
-   fc::logger::update( hotstuff_logger_name, hotstuff_logger );
 }
 
 chain_apis::read_write::read_write(controller& db,
@@ -1222,7 +1201,7 @@ chain_apis::read_write chain_plugin::get_read_write_api(const fc::microseconds& 
 }
 
 chain_apis::read_only chain_plugin::get_read_only_api(const fc::microseconds& http_max_response_time) const {
-   return chain_apis::read_only(chain(), my->_account_query_db, my->_chain_pacemaker, get_abi_serializer_max_time(), http_max_response_time, my->_trx_finality_status_processing.get());
+   return chain_apis::read_only(chain(), my->_account_query_db, get_abi_serializer_max_time(), http_max_response_time, my->_trx_finality_status_processing.get());
 }
 
 
@@ -2662,40 +2641,27 @@ read_only::get_finalizer_state_results
 read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time_point& deadline ) const {
    get_finalizer_state_results results;
 
-   if ( chain_pacemaker ) {  // is null when called from chain_plugin_tests.cpp and get_table_tests.cpp
-      finalizer_state fs;
-      chain_pacemaker->get_state( fs );
-      results.b_leaf                 = fs.b_leaf;
-      results.b_lock                 = fs.b_lock;
-      results.b_exec                 = fs.b_exec;
-      results.b_finality_violation   = fs.b_finality_violation;
-      results.block_exec             = fs.block_exec;
-      results.pending_proposal_block = fs.pending_proposal_block;
-      results.v_height               = fs.v_height;
-      results.high_qc                = fs.high_qc;
-      results.current_qc             = fs.current_qc;
-      results.schedule               = fs.schedule;
-      results.proposals.reserve( fs.proposals.size() );
-      for (const auto& proposal : fs.proposals) {
-         const chain::hs_proposal_message& p = proposal.second;
-         results.proposals.push_back( hs_complete_proposal_message( p ) );
-      }
+   hotstuff::finalizer_state fs;
+   db.get_finalizer_state( fs );
+   results.b_leaf                 = fs.b_leaf;
+   results.b_lock                 = fs.b_lock;
+   results.b_exec                 = fs.b_exec;
+   results.b_finality_violation   = fs.b_finality_violation;
+   results.block_exec             = fs.block_exec;
+   results.pending_proposal_block = fs.pending_proposal_block;
+   results.v_height               = fs.v_height;
+   results.high_qc                = fs.high_qc;
+   results.current_qc             = fs.current_qc;
+   results.schedule               = fs.schedule;
+   results.proposals.reserve( fs.proposals.size() );
+   for (const auto& proposal : fs.proposals) {
+      const hotstuff::hs_proposal_message& p = proposal.second;
+      results.proposals.push_back( hs_complete_proposal_message( p ) );
    }
    return results;
 }
 
 } // namespace chain_apis
-
-// called from net threads
-void chain_plugin::notify_hs_message( const uint32_t connection_id, const hs_message& msg ) {
-   my->_chain_pacemaker->on_hs_msg(connection_id, msg);
-};
-
-void chain_plugin::notify_hs_block_produced() {
-   if (chain().is_builtin_activated( builtin_protocol_feature_t::instant_finality )) {
-      my->_chain_pacemaker->beat();
-   }
-}
 
 fc::variant chain_plugin::get_log_trx_trace(const transaction_trace_ptr& trx_trace ) const {
     fc::variant pretty_output;

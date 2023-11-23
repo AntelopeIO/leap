@@ -1,11 +1,10 @@
 #pragma once
-#include <eosio/chain/hotstuff.hpp>
-#include <eosio/chain/fork_database.hpp>
-#include <eosio/chain/controller.hpp>
-#include <eosio/chain/block_state.hpp>
+#include <eosio/hotstuff/hotstuff.hpp>
 #include <eosio/hotstuff/base_pacemaker.hpp>
 #include <eosio/hotstuff/state.hpp>
 
+#include <eosio/chain/controller.hpp>
+#include <eosio/chain/block_state.hpp>
 #include <eosio/chain/finalizer_set.hpp>
 #include <eosio/chain/finalizer_authority.hpp>
 
@@ -145,6 +144,8 @@ namespace eosio::hotstuff {
       std::set<fc::crypto::blslib::bls_public_key>   finalizers;  // finalizers that have voted on the proposal
    };
 
+   using bls_pub_priv_key_map_t = std::map<std::string, std::string>;
+
    // Concurrency note: qc_chain is a single-threaded and lock-free decision engine.
    //                   All thread synchronization, if any, is external.
    class qc_chain {
@@ -154,7 +155,7 @@ namespace eosio::hotstuff {
 
       qc_chain(std::string id, base_pacemaker* pacemaker,
                std::set<name> my_producers,
-               chain::bls_key_map_t finalizer_keys,
+               bls_pub_priv_key_map_t finalizer_keys,
                fc::logger& logger,
                std::string safety_state_file);
 
@@ -227,7 +228,7 @@ namespace eosio::hotstuff {
       void send_hs_vote_msg(const std::optional<uint32_t>& connection_id, const hs_vote_message& msg);
       void send_hs_new_view_msg(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
 
-      void send_hs_message_warning(const std::optional<uint32_t>& connection_id, const chain::hs_message_warning code);
+      void send_hs_message_warning(const std::optional<uint32_t>& connection_id, const hs_message_warning code);
 
       void update(const hs_proposal_message& proposal);
       void commit(const hs_proposal_message& proposal);
@@ -244,7 +245,7 @@ namespace eosio::hotstuff {
       quorum_certificate _current_qc;
       base_pacemaker* _pacemaker = nullptr;
       std::set<name> _my_producers;
-      chain::bls_key_map_t _my_finalizer_keys;
+      bls_key_map_t _my_finalizer_keys;
       std::string _id;
 
       std::string _safety_state_file; // if empty, safety state persistence is turned off

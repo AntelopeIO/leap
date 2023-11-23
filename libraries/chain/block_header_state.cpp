@@ -128,6 +128,7 @@ namespace eosio { namespace chain {
          // fork_database will prefer hotstuff blocks over dpos blocks
          result.dpos_irreversible_blocknum          = hs_dpos_irreversible_blocknum;
          // Change to active on the next().next() producer block_num
+         // TODO: use calculated hotstuff lib instead of block_num
          if( pending_schedule.schedule.producers.size() &&
              block_num >= detail::get_next_next_round_block_num(when, pending_schedule.schedule_lib_num)) {
             result.active_schedule = pending_schedule.schedule;
