@@ -131,6 +131,25 @@ namespace eosio { namespace hotstuff {
       warn_hs_message = std::move(warning_hs_message);
    }
 
+   // signed_block is being produced and needs a QC to be put in it before it is broadcast
+   quorum_certificate_message chain_pacemaker::on_block_proposal(const chain::block_id_type& block_id) {
+      csc prof("psnd");
+      std::lock_guard g( _hotstuff_global_mutex );
+      prof.core_in();
+      quorum_certificate_message qc =_qc_chain.on_block_proposal(block_id);
+      prof.core_out();
+      return qc;
+   }
+
+   // signed_block with a QC has been received from the network
+   void chain_pacemaker::on_block_receipt(const chain::block_id_type& block_id, const quorum_certificate_message& qc) {
+      csc prof("prcv");
+      std::lock_guard g( _hotstuff_global_mutex );
+      prof.core_in();
+      _qc_chain.on_block_receipt(block_id, qc);
+      prof.core_out();
+   }
+
    void chain_pacemaker::get_state(finalizer_state& fs) const {
       // lock-free state version check
       uint64_t current_state_version = _qc_chain.get_state_version();
