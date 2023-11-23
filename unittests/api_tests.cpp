@@ -24,6 +24,7 @@
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/wasm_interface.hpp>
 #include <eosio/chain/resource_limits.hpp>
+#include <eosio/chain/finalizer_authority.hpp>
 
 #include <fc/crypto/digest.hpp>
 #include <fc/crypto/sha256.hpp>
@@ -3853,6 +3854,52 @@ BOOST_AUTO_TEST_CASE(get_code_hash_tests) { try {
    check("test"_n, 2);
    t.set_code("test"_n, std::vector<uint8_t>{});
    check("test"_n, 3);
+} FC_LOG_AND_RETHROW() }
+
+// test set_finalizer host function serialization and tester set_finalizers
+BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
+   validating_tester t;
+
+   t.produce_block();
+
+   // Create finalizer accounts
+   vector<account_name> finalizers = {
+      "inita"_n, "initb"_n, "initc"_n, "initd"_n, "inite"_n, "initf"_n, "initg"_n,
+      "inith"_n, "initi"_n, "initj"_n, "initk"_n, "initl"_n, "initm"_n, "initn"_n,
+      "inito"_n, "initp"_n, "initq"_n, "initr"_n, "inits"_n, "initt"_n, "initu"_n
+   };
+
+   t.create_accounts(finalizers);
+   t.produce_block();
+
+   // activate hotstuff
+   t.set_finalizers(finalizers);
+   auto block = t.produce_block(); // this block contains the header extension of the finalizer set
+
+   std::optional<block_header_extension> ext = block->extract_header_extension(hs_finalizer_set_extension::extension_id());
+   BOOST_TEST(!!ext);
+   BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).finalizers.size() == finalizers.size());
+   BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).generation == 1);
+   BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).fthreshold == finalizers.size() / 3 * 2);
+
+   // old dpos still in affect until block is irreversible
+   BOOST_TEST(block->confirmed == 0);
+   block_state_ptr block_state = t.control->fetch_block_state_by_id(block->calculate_id());
+   BOOST_REQUIRE(!!block_state);
+   BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
+
+   block = t.produce_block(); // only one producer so now this block is irreversible, next block will be hotstuff
+   BOOST_TEST(block->confirmed == 0);
+   block_state = t.control->fetch_block_state_by_id(block->calculate_id());
+   BOOST_REQUIRE(!!block_state);
+   BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
+
+   block = t.produce_block(); // hotstuff now active
+   BOOST_TEST(block->confirmed == std::numeric_limits<uint16_t>::max());
+   block_state = t.control->fetch_block_state_by_id(block->calculate_id());
+   BOOST_REQUIRE(!!block_state);
+   BOOST_TEST(block_state->dpos_irreversible_blocknum == hs_dpos_irreversible_blocknum);
+
 } FC_LOG_AND_RETHROW() }
 
 BOOST_AUTO_TEST_SUITE_END()

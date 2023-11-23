@@ -63,19 +63,19 @@ namespace eosio { namespace hotstuff {
 
       //base_pacemaker interface functions
 
-      name get_proposer();
-      name get_leader();
-      name get_next_leader();
-      const finalizer_set& get_finalizer_set();
+      name get_proposer() override;
+      name get_leader() override;
+      name get_next_leader() override;
+      const finalizer_set& get_finalizer_set() override;
 
-      block_id_type get_current_block_id();
+      block_id_type get_current_block_id() override;
 
-      uint32_t get_quorum_threshold();
+      uint32_t get_quorum_threshold() override;
 
-      void send_hs_vote_msg(const hs_vote_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
-      void send_hs_new_view_msg(const hs_new_view_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer);
+      void send_hs_vote_msg(const hs_vote_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) override;
+      void send_hs_new_view_msg(const hs_new_view_message & msg, const std::string& id, const std::optional<uint32_t>& exclude_peer) override;
 
-      void send_hs_message_warning(const uint32_t sender_peer, const chain::hs_message_warning code);
+      void send_hs_message_warning(uint32_t sender_peer, const hs_message_warning code) override;
 
    private:
 

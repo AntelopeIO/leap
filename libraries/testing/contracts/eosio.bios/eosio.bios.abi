@@ -171,6 +171,38 @@
             ]
         },
         {
+            "name": "finalizer_authority",
+            "base": "",
+            "fields": [
+                {
+                    "name": "description",
+                    "type": "string"
+                },
+                {
+                    "name": "fweight",
+                    "type": "uint64"
+                },
+                {
+                    "name": "public_key_g1_affine_le",
+                    "type": "bytes"
+                }
+            ]
+        },
+        {
+            "name": "finalizer_set",
+            "base": "",
+            "fields": [
+                {
+                    "name": "fthreshold",
+                    "type": "uint64"
+                },
+                {
+                    "name": "finalizers",
+                    "type": "finalizer_authority[]"
+                }
+            ]
+        },
+        {
             "name": "key_weight",
             "base": "",
             "fields": [
@@ -363,6 +395,16 @@
             ]
         },
         {
+            "name": "setfinset",
+            "base": "",
+            "fields": [
+                {
+                    "name": "fin_set",
+                    "type": "finalizer_set"
+                }
+            ]
+        },
+        {
             "name": "setparams",
             "base": "",
             "fields": [
@@ -505,6 +547,11 @@
         {
             "name": "setcode",
             "type": "setcode",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "setfinset",
+            "type": "setfinset",
             "ricardian_contract": ""
         },
         {

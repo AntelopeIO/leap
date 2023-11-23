@@ -277,6 +277,20 @@ BOOST_AUTO_TEST_CASE(bls_binary_keys_encoding_check) try {
 
 } FC_LOG_AND_RETHROW();
 
+BOOST_AUTO_TEST_CASE(bls_regenerate_check) try {
+
+  bls_private_key sk1 = bls_private_key(seed_1);
+  bls_private_key sk2 = bls_private_key(seed_1);
+
+  BOOST_CHECK_EQUAL(sk1.to_string(), sk2.to_string());
+
+  bls_public_key pk1 = sk1.get_public_key();
+  bls_public_key pk2 = sk2.get_public_key();
+
+  BOOST_CHECK_EQUAL(pk1.to_string(), pk2.to_string());
+
+} FC_LOG_AND_RETHROW();
+
 BOOST_AUTO_TEST_CASE(bls_prefix_encoding_check) try {
 
   //test no_throw for correctly encoded keys
