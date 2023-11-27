@@ -54,7 +54,7 @@ namespace eosio::hotstuff {
 
    struct hs_vote_message {
       fc::sha256                          proposal_id; //vote on proposal
-      bool                                strong;
+      bool                                strong{false};
       fc::crypto::blslib::bls_public_key  finalizer_key;
       fc::crypto::blslib::bls_signature   sig;
    };

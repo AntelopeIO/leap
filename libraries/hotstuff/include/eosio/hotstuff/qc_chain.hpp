@@ -82,9 +82,9 @@ namespace eosio::hotstuff {
    using bls_signature   = fc::crypto::blslib::bls_signature;
    using bls_private_key = fc::crypto::blslib::bls_private_key;
 
-   static inline std::string bitset_to_string(const hs_bitset& bs) { std::string r; boost::to_string(bs, r); return r; }
-   static inline hs_bitset   vector_to_bitset(const std::vector<uint32_t>& v) { return { v.cbegin(), v.cend() }; }
-   static inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) { 
+   inline std::string bitset_to_string(const hs_bitset& bs) { std::string r; boost::to_string(bs, r); return r; }
+   inline hs_bitset   vector_to_bitset(const std::vector<uint32_t>& v) { return { v.cbegin(), v.cend() }; }
+   inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) { 
       std::vector<uint32_t> r;
       r.resize(bs.num_blocks());
       boost::to_block_range(bs, r.begin());
