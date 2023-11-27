@@ -90,14 +90,13 @@ inline void move_nodes(Container& to, Container&& from) {
  * change.  This allows proofs based on this merkle to be very stable
  * after some time has past only needing to update or add a single
  * value to maintain validity.
+ *
+ * @param canonical if true use the merkle make_canonical_pair which sets the left/right bits of the hash
  */
-template<typename DigestType, template<typename ...> class Container = vector, typename ...Args>
+template<typename DigestType, bool canonical = false, template<typename ...> class Container = vector, typename ...Args>
 class incremental_merkle_impl {
    public:
-      incremental_merkle_impl()
-      :_node_count(0)
-      {}
-
+      incremental_merkle_impl() = default;
       incremental_merkle_impl( const incremental_merkle_impl& ) = default;
       incremental_merkle_impl( incremental_merkle_impl&& ) = default;
       incremental_merkle_impl& operator= (const incremental_merkle_impl& ) = default;
@@ -188,7 +187,11 @@ class incremental_merkle_impl {
 
                // calculate the partially realized node value by implying the "right" value is identical
                // to the "left" value
-               top = DigestType::hash(make_canonical_pair(top, top));
+               if constexpr (canonical) {
+                  top = DigestType::hash(make_canonical_pair(top, top));
+               } else {
+                  top = DigestType::hash(std::make_pair(std::cref(top), std::cref(top)));
+               }
                partial = true;
             } else {
                // we are collapsing from a "right" value and an fully-realized "left"
@@ -204,11 +207,15 @@ class incremental_merkle_impl {
                }
 
                // calculate the node
-               top = DigestType::hash(make_canonical_pair(left_value, top));
+               if constexpr (canonical) {
+                  top = DigestType::hash(make_canonical_pair(left_value, top));
+               } else {
+                  top = DigestType::hash(std::make_pair(std::cref(left_value), std::cref(top)));
+               }
             }
 
             // move up a level in the tree
-            current_depth--;
+            --current_depth;
             index = index >> 1;
          }
 
@@ -219,16 +226,14 @@ class incremental_merkle_impl {
          detail::move_nodes(_active_nodes, std::move(updated_active_nodes));
 
          // update the node count
-         _node_count++;
+         ++_node_count;
 
          return _active_nodes.back();
 
       }
 
-      /**l
+      /**
        * return the current root of the incremental merkle
-       *
-       * @return
        */
       DigestType get_root() const {
          if (_node_count > 0) {
@@ -238,14 +243,17 @@ class incremental_merkle_impl {
          }
       }
 
-//   private:
-      uint64_t                         _node_count;
+   private:
+      friend struct fc::reflector<incremental_merkle_impl>;
+      uint64_t                         _node_count = 0;
       Container<DigestType, Args...>   _active_nodes;
 };
 
-typedef incremental_merkle_impl<digest_type>               incremental_merkle;
-typedef incremental_merkle_impl<digest_type,shared_vector> shared_incremental_merkle;
+typedef incremental_merkle_impl<digest_type, true>                incremental_canonical_merkle;
+typedef incremental_merkle_impl<digest_type, true, shared_vector> shared_incremental_canonical_merkle;
+typedef incremental_merkle_impl<digest_type>                      incremental_merkle_tree;
 
 } } /// eosio::chain
 
-FC_REFLECT( eosio::chain::incremental_merkle, (_active_nodes)(_node_count) );
+FC_REFLECT( eosio::chain::incremental_canonical_merkle, (_active_nodes)(_node_count) );
+FC_REFLECT( eosio::chain::incremental_merkle_tree, (_active_nodes)(_node_count) );
