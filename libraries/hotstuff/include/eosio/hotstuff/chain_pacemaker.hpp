@@ -26,10 +26,10 @@ namespace eosio::hotstuff {
       void register_warn_function(std::function<void(uint32_t, const hs_message_warning&)> warning_hs_message);
 
       // signed_block is being produced and needs a QC to be put in it before it is broadcast
-      quorum_certificate_message on_block_proposal(const chain::block_id_type& block_id);
+      quorum_certificate_message on_producing_block(const chain::block_id_type& block_id);
 
       // signed_block with a QC has been received from the network
-      void on_block_receipt(const chain::block_id_type& block_id, const quorum_certificate_message& qc);
+      void on_received_block(const chain::block_id_type& block_id, const quorum_certificate_message& qc);
 
       void on_hs_msg(const uint32_t connection_id, const hs_message& msg);
 

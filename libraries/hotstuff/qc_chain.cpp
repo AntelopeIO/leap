@@ -27,13 +27,13 @@ namespace eosio::hotstuff {
    }
 
    // signed_block is being produced and needs a QC to be put in it before it is broadcast
-   quorum_certificate_message qc_chain::on_block_proposal(const chain::block_id_type& block_id) {
+   quorum_certificate_message qc_chain::on_producing_block(const chain::block_id_type& block_id) {
       hs_proposal proposal = create_proposal(block_id);
 #warning FIXME/TODO: how to get the quorum_certificate_message that the caller wants from this hs_proposal object that is created?
    }
 
    // signed_block with a QC has been received from the network
-   void qc_chain::on_block_receipt(const chain::block_id_type& block_id, const quorum_certificate_message& qc) {
+   void qc_chain::on_received_block(const chain::block_id_type& block_id, const quorum_certificate_message& qc) {
 #warning FIXME/TODO: what to do with the received quorum_certificate_message, exactly? How does it become an incoming hs_proposal?
    }
 
