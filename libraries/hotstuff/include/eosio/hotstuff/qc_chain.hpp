@@ -145,13 +145,16 @@ namespace eosio::hotstuff {
          pending_quorum_certificate(num_finalizers, quorum) {         
          _proposal_id = proposal_id;
          _proposal_digest.assign(proposal_digest.data(), proposal_digest.data() + 32);
-         _state = state_t::unrestricted;
       }
 
       size_t num_weak()   const { return _weak_votes.count(); }
       size_t num_strong() const { return _strong_votes.count(); }
 
-      bool   valid() const { return _state >= state_t::weak_achieved; }
+      bool   valid() const {
+         return _state == state_t::weak_achieved ||
+                _state == state_t::weak_final ||
+                _state == state_t::strong;
+      }
 
       // ================== begin compatibility functions =======================
       // these assume *only* strong votes
@@ -195,10 +198,11 @@ namespace eosio::hotstuff {
          switch(_state) {
          case state_t::unrestricted:
          case state_t::restricted:
-            if (strong >= _quorum)
-                _state = state_t::strong;
-            else if (weak + strong >= _quorum)
-               _state = state_t::weak_achieved;
+            if (strong >= _quorum) {
+               assert(_state != state_t::restricted);
+               _state = state_t::strong;
+            } else if (weak + strong >= _quorum)
+               _state = (_state == state_t::restricted) ? state_t::weak_final : state_t::weak_achieved;
             break;
             
          case state_t::weak_achieved:
