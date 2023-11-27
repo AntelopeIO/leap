@@ -47,8 +47,8 @@ namespace eosio::hotstuff {
 
    struct quorum_certificate_message {
       fc::sha256                          proposal_id;
-      std::vector<chain::unsigned_int>    strong_votes; //bitset encoding, following canonical order
-      std::vector<chain::unsigned_int>    weak_votes;   //bitset encoding, following canonical order
+      std::vector<uint32_t>               strong_votes; //bitset encoding, following canonical order
+      std::vector<uint32_t>               weak_votes;   //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
    };
 

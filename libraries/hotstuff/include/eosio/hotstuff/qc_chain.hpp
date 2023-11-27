@@ -83,9 +83,9 @@ namespace eosio::hotstuff {
    using bls_private_key = fc::crypto::blslib::bls_private_key;
 
    static inline std::string bitset_to_string(const hs_bitset& bs) { std::string r; boost::to_string(bs, r); return r; }
-   static inline hs_bitset   vector_to_bitset(const std::vector<unsigned_int>& v) { return { v.cbegin(), v.cend() }; }
-   static inline std::vector<unsigned_int> bitset_to_vector(const hs_bitset& bs) { 
-      std::vector<unsigned_int> r;
+   static inline hs_bitset   vector_to_bitset(const std::vector<uint32_t>& v) { return { v.cbegin(), v.cend() }; }
+   static inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) { 
+      std::vector<uint32_t> r;
       r.resize(bs.num_blocks());
       boost::to_block_range(bs, r.begin());
       return r;
@@ -287,8 +287,8 @@ namespace eosio::hotstuff {
       
       valid_quorum_certificate(const fc::sha256& proposal_id,
                                const std::vector<uint8_t>& proposal_digest,
-                               const std::vector<unsigned_int>& strong_votes, //bitset encoding, following canonical order
-                               const std::vector<unsigned_int>& weak_votes,   //bitset encoding, following canonical order
+                               const std::vector<uint32_t>& strong_votes, //bitset encoding, following canonical order
+                               const std::vector<uint32_t>& weak_votes,   //bitset encoding, following canonical order
                                const bls_signature& sig) :
          _proposal_id(proposal_id),
          _proposal_digest(proposal_digest),
@@ -313,7 +313,7 @@ namespace eosio::hotstuff {
       // it will be removed, as well as the _proposal_id member of this class
       quorum_certificate_message to_msg() const {
          return {.proposal_id = _proposal_id,
-                 .strong_votes = _strong_votes ? bitset_to_vector(*_strong_votes) : std::vector<unsigned_int>{1,0},
+                 .strong_votes = _strong_votes ? bitset_to_vector(*_strong_votes) : std::vector<uint32_t>{1,0},
                  .active_agg_sig = _sig};
       }
 

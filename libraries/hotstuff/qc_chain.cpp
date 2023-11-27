@@ -756,7 +756,7 @@ namespace eosio::hotstuff {
       update_high_qc(valid_quorum_certificate(justify->proposal_id,
                                               std::vector<uint8_t>(digest.data(), digest.data() + 32),
                                               proposal.justify.strong_votes,
-                                              std::vector<unsigned_int>{},
+                                              std::vector<uint32_t>{},
                                               proposal.justify.active_agg_sig)); 
 
       if (chain_length<1){
