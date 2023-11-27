@@ -150,7 +150,7 @@ namespace eosio::hotstuff {
       size_t num_weak()   const { return _weak_votes.count(); }
       size_t num_strong() const { return _strong_votes.count(); }
 
-      bool   valid() const {
+      bool   is_quorum_met() const {
          return _state == state_t::weak_achieved ||
                 _state == state_t::weak_final ||
                 _state == state_t::strong;
@@ -167,7 +167,6 @@ namespace eosio::hotstuff {
                  .active_agg_sig = _strong_votes._sig};
       }
 
-      bool                 is_quorum_met() const { return valid(); }
       const fc::sha256&    get_proposal_id() const { return _proposal_id; }
       std::string          get_votes_string() const {
          return std::string("strong(\"") + bitset_to_string(_strong_votes._bitset) + "\", weak(\"" +
@@ -281,7 +280,7 @@ namespace eosio::hotstuff {
          if (qc._state == pending_quorum_certificate::state_t::strong) {
             _strong_votes = qc._strong_votes._bitset;
             _sig = qc._strong_votes._sig;
-         } else if (qc.valid()) {
+         } else if (qc.is_quorum_met()) {
             _strong_votes = qc._strong_votes._bitset;
             _weak_votes   = qc._weak_votes._bitset;
             _sig = fc::crypto::blslib::aggregate({ qc._strong_votes._sig, qc._weak_votes._sig });
