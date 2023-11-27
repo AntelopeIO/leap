@@ -352,7 +352,7 @@ namespace eosio::hotstuff {
       fc_tlog(_logger, " === Process vote from ${finalizer_key} : current bitset ${value}" ,
               ("finalizer_key", vote.finalizer_key)("value", _current_qc.get_votes_string()));
 
-      bool quorum_met = _current_qc.valid(); // [todo] better state check - strong/weak check
+      bool quorum_met = _current_qc.is_quorum_met(); // [todo] better state check - strong/weak check
 
       // If quorum is already met, we don't need to do anything else. Otherwise, we aggregate the signature.
       if (!quorum_met) {
@@ -364,7 +364,7 @@ namespace eosio::hotstuff {
                                         i, vote.finalizer_key, vote.sig)) {
                   // fc_tlog(_logger, " === update bitset ${value} ${finalizer_key}",
                   //         ("value", _current_qc.get_active_finalizers_string())("finalizer_key", vote.finalizer_key));
-                  if (_current_qc.valid()) {
+                  if (_current_qc.is_quorum_met()) {
                      auto increment_version = fc::make_scoped_exit([this]() { ++_state_version; });
                      fc_dlog(_logger, " === ${id} quorum met on #${block_num} ${phase_counter} ${proposal_id} ",
                              ("block_num", p->block_num())
