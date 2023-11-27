@@ -345,9 +345,9 @@ namespace eosio::hotstuff {
 
       qc_chain(std::string id, base_pacemaker* pacemaker,
                std::set<name> my_producers,
-               bls_pub_priv_key_map_t finalizer_keys,
+               const bls_pub_priv_key_map_t& finalizer_keys,
                fc::logger& logger,
-               std::string safety_state_file);
+               const std::string& safety_state_file);
 
       uint64_t get_state_version() const { return _state_version; } // no lock required
 

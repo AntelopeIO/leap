@@ -134,9 +134,9 @@ namespace eosio::hotstuff {
    qc_chain::qc_chain(std::string id,
                       base_pacemaker* pacemaker,
                       std::set<name> my_producers,
-                      bls_pub_priv_key_map_t finalizer_keys,
+                      const bls_pub_priv_key_map_t& finalizer_keys,
                       fc::logger& logger,
-                      std::string safety_state_file)
+                      const std::string& safety_state_file)
       : _pacemaker(pacemaker),
         _my_producers(std::move(my_producers)),
         _id(std::move(id)),
@@ -146,7 +146,7 @@ namespace eosio::hotstuff {
       //todo : read liveness state / select initialization heuristics ?
 
       for (const auto& kp : finalizer_keys) {
-         _my_finalizer_keys[fc::crypto::blslib::bls_public_key{kp.first}] = fc::crypto::blslib::bls_private_key{kp.second};
+         _my_finalizer_keys[bls_public_key{kp.first}] = bls_private_key{kp.second};
       }
 
       if (!_safety_state_file.empty()) {
