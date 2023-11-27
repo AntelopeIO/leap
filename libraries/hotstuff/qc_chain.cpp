@@ -357,9 +357,9 @@ namespace eosio::hotstuff {
       // If quorum is already met, we don't need to do anything else. Otherwise, we aggregate the signature.
       if (!quorum_met) {
          const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+         digest_type digest = p->get_proposal_digest();
          for (size_t i=0; i<finalizers.size(); ++i)
             if (finalizers[i].public_key == vote.finalizer_key) {
-               digest_type digest = p->get_proposal_digest();
                if (_current_qc.add_vote(vote.strong, std::vector<uint8_t>(digest.data(), digest.data() + 32),
                                         i, vote.finalizer_key, vote.sig)) {
                   // fc_tlog(_logger, " === update bitset ${value} ${finalizer_key}",
@@ -408,6 +408,7 @@ namespace eosio::hotstuff {
                      }
                   }
                }
+               break;
             }
       }
 

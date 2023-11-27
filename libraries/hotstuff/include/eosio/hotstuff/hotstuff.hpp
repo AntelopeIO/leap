@@ -66,8 +66,13 @@ namespace eosio::hotstuff {
       fc::sha256                          final_on_qc;
       quorum_certificate_message          justify; //justification
       uint8_t                             phase_counter = 0;
+      mutable std::optional<chain::digest_type> digest;
 
-      chain::digest_type get_proposal_digest() const { return get_digest_to_sign(block_id, phase_counter, final_on_qc); };
+      chain::digest_type get_proposal_digest() const {
+         if (!digest)
+            digest.emplace(get_digest_to_sign(block_id, phase_counter, final_on_qc));
+         return *digest;
+      };
 
       uint32_t block_num() const { return chain::block_header::num_from_id(block_id); }
       uint64_t get_key() const { return compute_height(chain::block_header::num_from_id(block_id), phase_counter); };
