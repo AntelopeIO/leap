@@ -27,7 +27,6 @@ namespace eosio::hotstuff {
    }
 
    void qc_chain::get_state(finalizer_state& fs) const {
-      fs.chained_mode           = _chained_mode;
       fs.b_leaf                 = _b_leaf;
       fs.b_lock                 = _safety_state.get_b_lock();
       fs.b_exec                 = _b_exec;
@@ -352,13 +351,13 @@ namespace eosio::hotstuff {
       fc_tlog(_logger, " === Process vote from ${finalizer_key} : current bitset ${value}" ,
               ("finalizer_key", vote.finalizer_key)("value", _current_qc.get_votes_string()));
 
-      bool quorum_met = _current_qc.is_quorum_met(); // [todo] better state check - strong/weak check
+      bool quorum_met = _current_qc.is_quorum_met();
 
       // If quorum is already met, we don't need to do anything else. Otherwise, we aggregate the signature.
       if (!quorum_met) {
          const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
          digest_type digest = p->get_proposal_digest();
-         for (size_t i=0; i<finalizers.size(); ++i)
+         for (size_t i=0; i<finalizers.size(); ++i) {
             if (finalizers[i].public_key == vote.finalizer_key) {
                if (_current_qc.add_vote(vote.strong, std::vector<uint8_t>(digest.data(), digest.data() + 32),
                                         i, vote.finalizer_key, vote.sig)) {
@@ -382,34 +381,11 @@ namespace eosio::hotstuff {
 
                      //check for leader change
                      leader_rotation_check();
-
-                     //if we're operating in event-driven mode and the proposal hasn't reached the decide phase yet
-                     if (_chained_mode == false && p->phase_counter < 3) {
-                        fc_tlog(_logger, " === ${id} phase increment on proposal ${proposal_id}", ("proposal_id", vote.proposal_id)("id", _id));
-                        hs_proposal_message proposal_candidate;
-                        
-                        if (_pending_proposal_block.empty())
-                           proposal_candidate = new_proposal_candidate( p->block_id, p->phase_counter + 1 );
-                        else
-                           proposal_candidate = new_proposal_candidate( _pending_proposal_block, 0 );
-
-                        reset_qc(proposal_candidate);
-                        fc_tlog(_logger, " === ${id} setting _pending_proposal_block to null (process_vote)", ("id", _id));
-
-                        _pending_proposal_block = {};
-                        _b_leaf = proposal_candidate.proposal_id;
-
-                        //todo : asynchronous?
-                        //write_state(_liveness_state_file , _liveness_state);
-
-                        send_hs_proposal_msg( std::nullopt, proposal_candidate );
-
-                        fc_tlog(_logger, " === ${id} _b_leaf updated (process_vote): ${proposal_id}", ("proposal_id", proposal_candidate.proposal_id)("id", _id));
-                     }
                   }
                }
                break;
             }
+         }
       }
 
       //auto total_time = fc::time_point::now() - start;

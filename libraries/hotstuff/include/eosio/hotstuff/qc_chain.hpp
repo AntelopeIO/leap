@@ -423,8 +423,6 @@ namespace eosio::hotstuff {
 
       void gc_proposals(uint64_t cutoff);
 
-      bool _chained_mode = false;
-
       block_id_type _block_exec;
       block_id_type _pending_proposal_block;
       safety_state _safety_state;
