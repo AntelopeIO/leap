@@ -750,7 +750,7 @@ namespace eosio::hotstuff {
       EOS_ASSERT( b_lock != nullptr || _safety_state.get_b_lock().empty() , chain_exception, "expected hs_proposal ${id} not found", ("id", _safety_state.get_b_lock()) );
 
       //fc_tlog(_logger, " === update_high_qc : proposal.justify ===");
-      const hs_proposal_message *justify = get_proposal(proposal.justify.proposal_id);
+      const hs_proposal_message* justify = get_proposal(proposal.justify.proposal_id);
       digest_type digest = justify->get_proposal_digest();
       const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
       update_high_qc(valid_quorum_certificate(justify->proposal_id,
