@@ -281,7 +281,7 @@ namespace eosio::hotstuff {
          if (qc._state == pending_quorum_certificate::state_t::strong) {
             _strong_votes = qc._strong_votes._bitset;
             _sig = qc._strong_votes._sig;
-         } if (qc._state > pending_quorum_certificate::state_t::weak_achieved) {
+         } else if (qc.valid()) {
             _strong_votes = qc._strong_votes._bitset;
             _weak_votes   = qc._weak_votes._bitset;
             _sig = fc::crypto::blslib::aggregate({ qc._strong_votes._sig, qc._weak_votes._sig });
