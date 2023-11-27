@@ -116,7 +116,7 @@ namespace eosio::hotstuff {
 
 
 FC_REFLECT(eosio::hotstuff::view_number, (bheight)(pcounter));
-FC_REFLECT(eosio::hotstuff::quorum_certificate_message, (proposal_id)(strong_votes)(active_agg_sig));
+FC_REFLECT(eosio::hotstuff::quorum_certificate_message, (proposal_id)(strong_votes)(weak_votes)(active_agg_sig));
 FC_REFLECT(eosio::hotstuff::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::hotstuff::hs_vote_message, (proposal_id)(finalizer_key)(sig));
 FC_REFLECT(eosio::hotstuff::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
