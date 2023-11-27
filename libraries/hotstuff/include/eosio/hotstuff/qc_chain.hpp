@@ -385,9 +385,9 @@ namespace eosio::hotstuff {
       bool am_i_finalizer();
 
       // connection_id.has_value() when processing a non-loopback message
-      void process_proposal(const std::optional<uint32_t>& connection_id, const hs_proposal_message& msg);
-      void process_vote(const std::optional<uint32_t>& connection_id, const hs_vote_message& msg);
-      void process_new_view(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
+      void process_proposal(std::optional<uint32_t> connection_id, const hs_proposal_message& msg);
+      void process_vote(std::optional<uint32_t> connection_id, const hs_vote_message& msg);
+      void process_new_view(std::optional<uint32_t> connection_id, const hs_new_view_message& msg);
 
       void create_proposal(const block_id_type& block_id);
 
@@ -409,11 +409,11 @@ namespace eosio::hotstuff {
       std::vector<hs_proposal_message> get_qc_chain(const fc::sha256& proposal_id);
 
       // connection_id.has_value() when just propagating a received message
-      void send_hs_proposal_msg(const std::optional<uint32_t>& connection_id, const hs_proposal_message& msg);
-      void send_hs_vote_msg(const std::optional<uint32_t>& connection_id, const hs_vote_message& msg);
-      void send_hs_new_view_msg(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg);
+      void send_hs_proposal_msg(std::optional<uint32_t> connection_id, const hs_proposal_message& msg);
+      void send_hs_vote_msg(std::optional<uint32_t> connection_id, const hs_vote_message& msg);
+      void send_hs_new_view_msg(std::optional<uint32_t> connection_id, const hs_new_view_message& msg);
 
-      void send_hs_message_warning(const std::optional<uint32_t>& connection_id, const hs_message_warning code);
+      void send_hs_message_warning(std::optional<uint32_t> connection_id, const hs_message_warning code);
 
       void update(const hs_proposal_message& proposal);
       void commit(const hs_proposal_message& proposal);

@@ -188,7 +188,7 @@ namespace eosio::hotstuff {
       return v_msg;
    }
 
-   void qc_chain::process_proposal(const std::optional<uint32_t>& connection_id, const hs_proposal_message& proposal){
+   void qc_chain::process_proposal(std::optional<uint32_t> connection_id, const hs_proposal_message& proposal){
 
       if (!proposal.justify.proposal_id.empty()) {
 
@@ -302,7 +302,7 @@ namespace eosio::hotstuff {
       //fc_dlog(_logger, " ... process_proposal() total time : ${total_time}", ("total_time", total_time));
    }
 
-   void qc_chain::process_vote(const std::optional<uint32_t>& connection_id, const hs_vote_message& vote){
+   void qc_chain::process_vote(std::optional<uint32_t> connection_id, const hs_vote_message& vote){
 
       //auto start = fc::time_point::now();
 #warning check for duplicate or invalid vote. We will return in either case, but keep proposals for evidence of double signing
@@ -415,7 +415,7 @@ namespace eosio::hotstuff {
       //fc_tlog(_logger, " ... process_vote() total time : ${total_time}", ("total_time", total_time));
    }
 
-   void qc_chain::process_new_view(const std::optional<uint32_t>& connection_id, const hs_new_view_message& msg){
+   void qc_chain::process_new_view(std::optional<uint32_t> connection_id, const hs_new_view_message& msg){
 #if 0
       // new_view message deprecated
       fc_tlog(_logger, " === ${id} process_new_view === ${qc}", ("qc", msg.high_qc)("id", _id));
@@ -469,26 +469,26 @@ namespace eosio::hotstuff {
       }
    }
 
-   void qc_chain::send_hs_proposal_msg(const std::optional<uint32_t>& connection_id, const hs_proposal_message & msg){
+   void qc_chain::send_hs_proposal_msg(std::optional<uint32_t> connection_id, const hs_proposal_message & msg){
       fc_tlog(_logger, " === broadcast_hs_proposal ===");
       _pacemaker->send_hs_proposal_msg(msg, _id, connection_id);
       if (!connection_id.has_value())
          process_proposal( std::nullopt, msg );
    }
 
-   void qc_chain::send_hs_vote_msg(const std::optional<uint32_t>& connection_id, const hs_vote_message & msg){
+   void qc_chain::send_hs_vote_msg(std::optional<uint32_t> connection_id, const hs_vote_message & msg){
       fc_tlog(_logger, " === broadcast_hs_vote ===");
       _pacemaker->send_hs_vote_msg(msg, _id, connection_id);
       if (!connection_id.has_value())
          process_vote( std::nullopt, msg );
    }
 
-   void qc_chain::send_hs_new_view_msg(const std::optional<uint32_t>& connection_id, const hs_new_view_message & msg){
+   void qc_chain::send_hs_new_view_msg(std::optional<uint32_t> connection_id, const hs_new_view_message & msg){
       fc_tlog(_logger, " === broadcast_hs_new_view ===");
       _pacemaker->send_hs_new_view_msg(msg, _id, connection_id);
    }
 
-   void qc_chain::send_hs_message_warning(const std::optional<uint32_t>& connection_id, const hs_message_warning code) {
+   void qc_chain::send_hs_message_warning(std::optional<uint32_t> connection_id, const hs_message_warning code) {
       if (connection_id.has_value())
          _pacemaker->send_hs_message_warning(connection_id.value(), code);
    }
@@ -721,17 +721,17 @@ namespace eosio::hotstuff {
 
    //on proposal received, called from network thread
    void qc_chain::on_hs_proposal_msg(const uint32_t connection_id, const hs_proposal_message& msg) {
-      process_proposal( std::optional<uint32_t>(connection_id), msg );
+      process_proposal( connection_id, msg );
    }
 
    //on vote received, called from network thread
    void qc_chain::on_hs_vote_msg(const uint32_t connection_id, const hs_vote_message& msg) {
-      process_vote( std::optional<uint32_t>(connection_id), msg );
+      process_vote( connection_id, msg );
    }
 
    //on new view received, called from network thread
    void qc_chain::on_hs_new_view_msg(const uint32_t connection_id, const hs_new_view_message& msg) {
-      process_new_view( std::optional<uint32_t>(connection_id), msg );
+      process_new_view( connection_id, msg );
    }
 
    void qc_chain::update(const hs_proposal_message& proposal) {
