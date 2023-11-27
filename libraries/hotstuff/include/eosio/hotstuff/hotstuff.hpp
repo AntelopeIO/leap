@@ -89,7 +89,6 @@ namespace eosio::hotstuff {
    };
 
    struct finalizer_state {
-      bool chained_mode = false;
       fc::sha256 b_leaf;
       fc::sha256 b_lock;
       fc::sha256 b_exec;
@@ -119,5 +118,5 @@ FC_REFLECT(eosio::hotstuff::extended_schedule, (producer_schedule)(bls_pub_keys)
 FC_REFLECT(eosio::hotstuff::hs_vote_message, (proposal_id)(finalizer_key)(sig));
 FC_REFLECT(eosio::hotstuff::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::hotstuff::hs_new_view_message, (high_qc));
-FC_REFLECT(eosio::hotstuff::finalizer_state, (chained_mode)(b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));
+FC_REFLECT(eosio::hotstuff::finalizer_state, (b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));
 FC_REFLECT(eosio::hotstuff::hs_message, (msg));

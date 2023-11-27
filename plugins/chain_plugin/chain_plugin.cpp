@@ -2643,7 +2643,6 @@ read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time
 
    hotstuff::finalizer_state fs;
    db.get_finalizer_state( fs );
-   results.chained_mode           = fs.chained_mode;
    results.b_leaf                 = fs.b_leaf;
    results.b_lock                 = fs.b_lock;
    results.b_exec                 = fs.b_exec;
