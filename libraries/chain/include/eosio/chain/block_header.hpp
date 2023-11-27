@@ -3,6 +3,7 @@
 #include <eosio/chain/producer_schedule.hpp>
 #include <eosio/chain/protocol_feature_activation.hpp>
 #include <eosio/chain/finalizer_set.hpp>
+#include <eosio/chain/hs_proposal_info.hpp>
 
 #include <optional>
 #include <type_traits>
@@ -20,7 +21,8 @@ namespace eosio { namespace chain {
    using block_header_extension_types = detail::block_header_extension_types<
       protocol_feature_activation,
       producer_schedule_change_extension,
-      hs_finalizer_set_extension
+      hs_finalizer_set_extension,
+      hs_proposal_info_extension
    >;
 
    using block_header_extension = block_header_extension_types::block_header_extension_t;
