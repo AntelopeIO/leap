@@ -30,8 +30,8 @@ BOOST_AUTO_TEST_CASE( irrblock ) try {
 } FC_LOG_AND_RETHROW()
 
 struct fork_tracker {
-   vector<signed_block_ptr>      blocks;
-   incremental_canonical_merkle  block_merkle;
+   vector<signed_block_ptr>           blocks;
+   incremental_canonical_merkle_tree  block_merkle;
 };
 
 BOOST_AUTO_TEST_CASE( fork_with_bad_block ) try {

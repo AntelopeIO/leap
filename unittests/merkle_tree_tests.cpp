@@ -7,7 +7,7 @@ using namespace eosio::chain;
 BOOST_AUTO_TEST_SUITE(merkle_tree_tests)
 
 BOOST_AUTO_TEST_CASE(basic_append_and_root_check_canonical) {
-   incremental_canonical_merkle tree;
+   incremental_canonical_merkle_tree tree;
    BOOST_CHECK_EQUAL(tree.get_root(), fc::sha256());
 
    auto node1 = fc::sha256::hash("Node1");
@@ -16,7 +16,7 @@ BOOST_AUTO_TEST_CASE(basic_append_and_root_check_canonical) {
 }
 
 BOOST_AUTO_TEST_CASE(multiple_appends_canonical) {
-   incremental_canonical_merkle tree;
+   incremental_canonical_merkle_tree tree;
    auto node1 = fc::sha256::hash("Node1");
    auto node2 = fc::sha256::hash("Node2");
    auto node3 = fc::sha256::hash("Node3");
@@ -28,7 +28,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends_canonical) {
    auto node9 = fc::sha256::hash("Node9");
 
    tree.append(node1);
-   BOOST_CHECK_EQUAL(tree.get_root(), node1);
+   BOOST_CHECK_EQUAL(tree.get_root().str(), node1.str());
 
    tree.append(node2);
    BOOST_CHECK_EQUAL(tree.get_root().str(), fc::sha256::hash(make_canonical_pair(node1, node2)).str());
@@ -155,7 +155,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends) {
    auto node9 = fc::sha256::hash("Node9");
 
    tree.append(node1);
-   BOOST_CHECK_EQUAL(tree.get_root(), node1);
+   BOOST_CHECK_EQUAL(tree.get_root().str(), node1.str());
 
    tree.append(node2);
    BOOST_CHECK_EQUAL(tree.get_root().str(), fc::sha256::hash(std::make_pair(node1, node2)).str());
