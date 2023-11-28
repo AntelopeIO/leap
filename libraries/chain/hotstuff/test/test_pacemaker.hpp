@@ -1,10 +1,10 @@
 #pragma once
-#include <eosio/hotstuff/base_pacemaker.hpp>
-#include <eosio/hotstuff/qc_chain.hpp>
+#include <eosio/chain/hotstuff/base_pacemaker.hpp>
+#include <eosio/chain/hotstuff/qc_chain.hpp>
 
 //#include <eosio/chain/finalizer_set.hpp>
 
-namespace eosio { namespace hotstuff {
+namespace eosio::chain {
 
    class test_pacemaker : public base_pacemaker {
    public:
@@ -106,4 +106,4 @@ namespace eosio { namespace hotstuff {
       uint32_t _quorum_threshold = 15; //todo : calculate from schedule
    };
 
-}}
+} // eosio::chain

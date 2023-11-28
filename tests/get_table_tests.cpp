@@ -8,7 +8,7 @@
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
-#include <eosio/hotstuff/chain_pacemaker.hpp>
+#include <eosio/chain/hotstuff/chain_pacemaker.hpp>
 
 #include <contracts.hpp>
 #include <test_contracts.hpp>

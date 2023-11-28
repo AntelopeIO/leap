@@ -10,7 +10,7 @@
 #include <eosio/chain/contract_table_objects.hpp>
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/wast_to_wasm.hpp>
-#include <eosio/hotstuff/chain_pacemaker.hpp>
+#include <eosio/chain/hotstuff/chain_pacemaker.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <fc/log/logger.hpp>
 #include <cstdlib>

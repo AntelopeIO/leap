@@ -6,13 +6,11 @@
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
-#include <eosio/hotstuff/qc_chain.hpp>
-
+#include <eosio/chain/hotstuff/qc_chain.hpp>
 
 BOOST_AUTO_TEST_CASE(view_number_tests) try {
-  using namespace eosio::hotstuff;
-  using eosio::chain::block_id_type;
-   
+  using namespace eosio::chain;
+
   hs_proposal_message hspm_1;
   hs_proposal_message hspm_2;
   hs_proposal_message hspm_3;
@@ -65,7 +63,7 @@ BOOST_AUTO_TEST_CASE(view_number_tests) try {
 //            Allow boost to print `pending_quorum_certificate::state_t`
 // -----------------------------------------------------------------------------
 namespace std {
-   using state_t = eosio::hotstuff::pending_quorum_certificate::state_t;
+   using state_t = eosio::chain::pending_quorum_certificate::state_t;
    std::ostream& operator<<(std::ostream& os, state_t s)
    {
       switch(s) {
@@ -80,7 +78,6 @@ namespace std {
 }
 
 BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
-   using namespace eosio::hotstuff;
    using namespace eosio::chain;
    using namespace fc::crypto::blslib;
    using state_t = pending_quorum_certificate::state_t;

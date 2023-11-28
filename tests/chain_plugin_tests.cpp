@@ -9,7 +9,7 @@
 #include <eosio/chain/wast_to_wasm.hpp>
 #include <eosio/chain/global_property_object.hpp>
 #include <eosio/chain_plugin/chain_plugin.hpp>
-#include <eosio/hotstuff/chain_pacemaker.hpp>
+#include <eosio/chain/hotstuff/chain_pacemaker.hpp>
 
 #include <test_contracts.hpp>
 
