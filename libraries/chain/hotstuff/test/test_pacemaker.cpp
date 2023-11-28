@@ -1,7 +1,7 @@
-#include <eosio/hotstuff/test_pacemaker.hpp>
+#include "test_pacemaker.hpp"
 #include <iostream>
 
-namespace eosio::hotstuff {
+namespace eosio::chain {
 
    void test_pacemaker::set_proposer(name proposer) {
       _proposer = proposer;

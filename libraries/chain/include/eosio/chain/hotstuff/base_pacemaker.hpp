@@ -1,11 +1,11 @@
 #pragma once
 
-#include <eosio/hotstuff/hotstuff.hpp>
+#include <eosio/chain/hotstuff/hotstuff.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/name.hpp>
 #include <eosio/chain/finalizer_set.hpp>
 
-namespace eosio::hotstuff {
+namespace eosio::chain {
 
    // Abstract pacemaker; a reference of this type will only be used by qc_chain, as qc_chain
    //   cannot know which environment it is in.
@@ -21,12 +21,12 @@ namespace eosio::hotstuff {
 #warning discuss
       virtual uint32_t get_quorum_threshold() = 0;
 
-      virtual chain::block_id_type get_current_block_id() = 0;
+      virtual block_id_type get_current_block_id() = 0;
 
-      virtual chain::name get_proposer() = 0;
-      virtual chain::name get_leader() = 0;
-      virtual chain::name get_next_leader() = 0;
-      virtual const chain::finalizer_set& get_finalizer_set() = 0;
+      virtual name get_proposer() = 0;
+      virtual name get_leader() = 0;
+      virtual name get_next_leader() = 0;
+      virtual const finalizer_set& get_finalizer_set() = 0;
 
       //outbound communications; 'id' is the producer name (can be ignored if/when irrelevant to the implementer)
       virtual void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;

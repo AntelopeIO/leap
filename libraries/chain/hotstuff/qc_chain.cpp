@@ -1,8 +1,8 @@
-#include <eosio/hotstuff/qc_chain.hpp>
+#include <eosio/chain/hotstuff/qc_chain.hpp>
 #include <fc/scoped_exit.hpp>
 #include <boost/range/adaptor/reversed.hpp>
 
-namespace eosio::hotstuff {
+namespace eosio::chain {
 
    void qc_chain::write_safety_state_file() {
       if (_safety_state_file.empty())

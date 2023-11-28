@@ -1,17 +1,15 @@
 #pragma once
 
-#include <eosio/hotstuff/base_pacemaker.hpp>
-#include <eosio/hotstuff/qc_chain.hpp>
+#include <eosio/chain/hotstuff/base_pacemaker.hpp>
+#include <eosio/chain/hotstuff/qc_chain.hpp>
 
 #include <boost/signals2/connection.hpp>
 
 #include <shared_mutex>
 
 namespace eosio::chain {
-   class controller;
-}
 
-namespace eosio::hotstuff {
+   class controller;
 
    class chain_pacemaker : public base_pacemaker {
    public:

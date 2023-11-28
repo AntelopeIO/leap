@@ -8,8 +8,8 @@
 
 #include <boost/dynamic_bitset.hpp>
 
-#include <eosio/hotstuff/test_pacemaker.hpp>
-#include <eosio/hotstuff/qc_chain.hpp>
+#include "test_pacemaker.hpp"
+#include <eosio/chain/hotstuff/qc_chain.hpp>
 #include <eosio/chain/finalizer_set.hpp>
 #include <eosio/chain/finalizer_authority.hpp>
 
@@ -17,7 +17,7 @@
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
-using namespace eosio::hotstuff;
+using namespace eosio::chain;
 
 using std::cout;
 
@@ -75,7 +75,7 @@ public:
 
       for (size_t i = 0 ; i < replicas.size() ; i++){
          fc::crypto::blslib::bls_private_key sk = fc::crypto::blslib::bls_private_key(replica_keys[i]);
-         eosio::hotstuff::bls_pub_priv_key_map_t keys{{sk.get_public_key().to_string(), sk.to_string()}};
+         bls_pub_priv_key_map_t keys{{sk.get_public_key().to_string(), sk.to_string()}};
          qc_chain *qcc_ptr = new qc_chain(replica_keys[i].to_string(), &tpm, {replicas[i]}, keys, hotstuff_logger, std::string());
          std::shared_ptr<qc_chain> qcc_shared_ptr(qcc_ptr);
          _qc_chains.push_back( std::make_pair(replicas[i], qcc_shared_ptr) );

@@ -2641,7 +2641,7 @@ read_only::get_finalizer_state_results
 read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time_point& deadline ) const {
    get_finalizer_state_results results;
 
-   hotstuff::finalizer_state fs;
+   chain::finalizer_state fs;
    db.get_finalizer_state( fs );
    results.b_leaf                 = fs.b_leaf;
    results.b_lock                 = fs.b_lock;
@@ -2655,7 +2655,7 @@ read_only::get_finalizer_state(const get_finalizer_state_params&, const fc::time
    results.schedule               = fs.schedule;
    results.proposals.reserve( fs.proposals.size() );
    for (const auto& proposal : fs.proposals) {
-      const hotstuff::hs_proposal_message& p = proposal.second;
+      const chain::hs_proposal_message& p = proposal.second;
       results.proposals.push_back( hs_complete_proposal_message( p ) );
    }
    return results;

@@ -1,6 +1,6 @@
-#include <eosio/hotstuff/hotstuff.hpp>
+#include <eosio/chain/hotstuff/hotstuff.hpp>
 
-namespace eosio::hotstuff {
+namespace eosio::chain {
 
     using namespace eosio::chain;
 
@@ -56,4 +56,4 @@ namespace eosio::hotstuff {
     };
 }
 
-FC_REFLECT(eosio::hotstuff::safety_state, (_states))
+FC_REFLECT(eosio::chain::safety_state, (_states))

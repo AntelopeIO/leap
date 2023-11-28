@@ -17,7 +17,7 @@
 #include <eosio/chain/plugin_interface.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/fixed_bytes.hpp>
-#include <eosio/hotstuff/hotstuff.hpp>
+#include <eosio/chain/hotstuff/hotstuff.hpp>
 
 #include <boost/container/flat_set.hpp>
 #include <boost/multiprecision/cpp_int.hpp>
@@ -835,11 +835,11 @@ public:
       chain::block_id_type       block_id;
       fc::sha256                 parent_id;
       fc::sha256                 final_on_qc;
-      hotstuff::quorum_certificate_message  justify;
+      chain::quorum_certificate_message  justify;
       uint8_t                    phase_counter   = 0;
       uint32_t                   block_height    = 0;
       uint64_t                   view_number     = 0;
-      explicit hs_complete_proposal_message( const hotstuff::hs_proposal_message& p ) {
+      explicit hs_complete_proposal_message( const chain::hs_proposal_message& p ) {
          proposal_id    = p.proposal_id;
          block_id       = p.block_id;
          parent_id      = p.parent_id;
@@ -860,10 +860,10 @@ public:
       fc::sha256 b_finality_violation;
       chain::block_id_type block_exec;
       chain::block_id_type pending_proposal_block;
-      hotstuff::view_number v_height;
-      hotstuff::quorum_certificate_message high_qc;
-      hotstuff::quorum_certificate_message current_qc;
-      hotstuff::extended_schedule schedule;
+      chain::view_number v_height;
+      chain::quorum_certificate_message high_qc;
+      chain::quorum_certificate_message current_qc;
+      chain::extended_schedule schedule;
       vector<hs_complete_proposal_message> proposals;
    };
 

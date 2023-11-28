@@ -1186,7 +1186,7 @@ namespace eosio { namespace testing {
    }
 
    transaction_trace_ptr base_tester::set_finalizers(const vector<account_name>& finalizer_names) {
-      uint64_t fthreshold = finalizer_names.size() * 2 / 3;
+      uint64_t fthreshold = finalizer_names.size() * 2 / 3 + 1;
 
       fc::variants finalizer_auths;
       for (const auto& n: finalizer_names) {
