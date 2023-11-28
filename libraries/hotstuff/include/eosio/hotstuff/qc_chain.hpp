@@ -166,10 +166,10 @@ namespace eosio::hotstuff {
       // Calls to the following methods should be thread-synchronized externally:
 
       // signed_block is being produced and needs a QC to be put in it before it is broadcast
-      quorum_certificate_message on_producing_block(const chain::block_id_type& block_id);
+      hs_proposal on_producing_block(const chain::block_id_type& block_id);
 
       // signed_block with a QC has been received from the network
-      void on_received_block(const chain::block_id_type& block_id, const quorum_certificate_message& qc);
+      void on_received_block(const chain::block_id_type& block_id, const signed_block_ptr block);
 
       void get_state(finalizer_state& fs) const;
 

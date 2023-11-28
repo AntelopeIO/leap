@@ -132,21 +132,21 @@ namespace eosio { namespace hotstuff {
    }
 
    // signed_block is being produced and needs a QC to be put in it before it is broadcast
-   quorum_certificate_message chain_pacemaker::on_producing_block(const chain::block_id_type& block_id) {
+   hs_proposal chain_pacemaker::on_producing_block(const chain::block_id_type& block_id) {
       csc prof("psnd");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
-      quorum_certificate_message qc =_qc_chain.on_producing_block(block_id);
+      hs_proposal p =_qc_chain.on_producing_block(block_id);
       prof.core_out();
-      return qc;
+      return p;
    }
 
    // signed_block with a QC has been received from the network
-   void chain_pacemaker::on_received_block(const chain::block_id_type& block_id, const quorum_certificate_message& qc) {
+   void chain_pacemaker::on_received_block(const chain::block_id_type& block_id, const signed_block_ptr block) {
       csc prof("prcv");
       std::lock_guard g( _hotstuff_global_mutex );
       prof.core_in();
-      _qc_chain.on_received_block(block_id, qc);
+      _qc_chain.on_received_block(block_id, block);
       prof.core_out();
    }
 
