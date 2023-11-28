@@ -5,7 +5,7 @@
 // comment this out to remove the core profiler
 #define HS_CORE_PROFILER
 
-namespace eosio { namespace chain {
+namespace eosio::chain {
 
 // ======================== Core profiling instrumentation =========================
 #ifdef HS_CORE_PROFILER
@@ -273,4 +273,4 @@ namespace eosio { namespace chain {
       prof.core_out();
    }
 
-}}
+} // namespace eosio::chain

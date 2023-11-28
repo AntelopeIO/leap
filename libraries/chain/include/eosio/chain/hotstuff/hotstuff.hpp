@@ -116,7 +116,7 @@ namespace eosio::chain {
       }
    };
 
-} //eosio::hotstuff
+} //eosio::chain
 
 
 FC_REFLECT(eosio::chain::view_number, (bheight)(pcounter));
