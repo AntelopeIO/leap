@@ -233,7 +233,7 @@ namespace eosio::hotstuff {
             if (weak + strong >= _quorum)
                _state = state_t::weak_achieved;
             
-            if (weak >= (_num_finalizers - _quorum)) {
+            if (weak > (_num_finalizers - _quorum)) {
                if (_state == state_t::weak_achieved)
                   _state = state_t::weak_final;
                else if (_state == state_t::unrestricted)
