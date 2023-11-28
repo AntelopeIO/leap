@@ -1,7 +1,7 @@
 #pragma once
-#include <eosio/hotstuff/hotstuff.hpp>
-#include <eosio/hotstuff/base_pacemaker.hpp>
-#include <eosio/hotstuff/state.hpp>
+#include <eosio/chain/hotstuff/hotstuff.hpp>
+#include <eosio/chain/hotstuff/base_pacemaker.hpp>
+#include <eosio/chain/hotstuff/state.hpp>
 
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/block_state.hpp>
@@ -17,16 +17,12 @@
 #include <boost/multi_index/hashed_index.hpp>
 #include <boost/multi_index/mem_fun.hpp>
 #include <boost/multi_index/global_fun.hpp>
-#include <boost/multi_index/composite_key.hpp>
 
 #include <boost/dynamic_bitset.hpp>
 
 #include <fc/io/cfile.hpp>
 
-#include <exception>
-#include <stdexcept>
-
-namespace eosio::hotstuff {
+namespace eosio::chain {
 
    template<typename StateObjectType> class state_db_manager {
    public:

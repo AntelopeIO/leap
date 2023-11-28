@@ -1,11 +1,11 @@
-#include <eosio/hotstuff/chain_pacemaker.hpp>
+#include <eosio/chain/hotstuff/chain_pacemaker.hpp>
 #include <eosio/chain/finalizer_authority.hpp>
 #include <iostream>
 
 // comment this out to remove the core profiler
 #define HS_CORE_PROFILER
 
-namespace eosio { namespace hotstuff {
+namespace eosio { namespace chain {
 
 // ======================== Core profiling instrumentation =========================
 #ifdef HS_CORE_PROFILER
