@@ -2243,7 +2243,7 @@ BOOST_AUTO_TEST_CASE( block_validation_after_stage_1_test ) { try {
    const auto& trxs = copy_b->transactions;
    for( const auto& a : trxs )
       trx_digests.emplace_back( a.digest() );
-   copy_b->transaction_mroot = merkle( std::move(trx_digests) );
+   copy_b->transaction_mroot = canonical_merkle( std::move(trx_digests) );
 
    // Re-sign the block
    auto header_bmroot = digest_type::hash( std::make_pair( copy_b->digest(), tester1.control->head_block_state()->blockroot_merkle.get_root() ) );
