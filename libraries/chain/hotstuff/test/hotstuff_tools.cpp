@@ -192,7 +192,7 @@ BOOST_AUTO_TEST_CASE(qc_state_transitions) try {
       {
          pending_quorum_certificate qc2(qc);
 
-         // add a strong votegi
+         // add a strong vote
          // -----------------
          strong_vote(qc2, digest, 2);
          BOOST_CHECK_EQUAL(qc2._state, state_t::strong);
