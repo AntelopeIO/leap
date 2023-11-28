@@ -416,6 +416,7 @@ namespace eosio { namespace chain {
             fc::raw::unpack(stream, size);
          } EOS_RETHROW_EXCEPTIONS( unpack_exception, "Unable to unpack size of array '${p}'", ("p", ctx.get_path_string()) )
          vector<fc::variant> vars;
+         vars.reserve(size);
          auto h1 = ctx.push_to_path( impl::array_index_path_item{} );
          for( decltype(size.value) i = 0; i < size; ++i ) {
             ctx.set_array_index_of_path_back(i);
@@ -502,7 +503,7 @@ namespace eosio { namespace chain {
          btype->second.second(var, ds, is_array(rtype), is_optional(rtype), ctx.get_yield_function());
       } else if ( is_array(rtype) ) {
          ctx.hint_array_type_if_in_array();
-         vector<fc::variant> vars = var.get_array();
+         const vector<fc::variant>& vars = var.get_array();
          fc::raw::pack(ds, (fc::unsigned_int)vars.size());
 
          auto h1 = ctx.push_to_path( impl::array_index_path_item{} );
