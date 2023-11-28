@@ -82,10 +82,10 @@ namespace eosio::hotstuff {
    using bls_signature   = fc::crypto::blslib::bls_signature;
    using bls_private_key = fc::crypto::blslib::bls_private_key;
 
-   static inline std::string bitset_to_string(const hs_bitset& bs) { std::string r; boost::to_string(bs, r); return r; }
-   static inline hs_bitset   vector_to_bitset(const std::vector<unsigned_int>& v) { return { v.cbegin(), v.cend() }; }
-   static inline std::vector<unsigned_int> bitset_to_vector(const hs_bitset& bs) { 
-      std::vector<unsigned_int> r;
+   inline std::string bitset_to_string(const hs_bitset& bs) { std::string r; boost::to_string(bs, r); return r; }
+   inline hs_bitset   vector_to_bitset(const std::vector<uint32_t>& v) { return { v.cbegin(), v.cend() }; }
+   inline std::vector<uint32_t> bitset_to_vector(const hs_bitset& bs) { 
+      std::vector<uint32_t> r;
       r.resize(bs.num_blocks());
       boost::to_block_range(bs, r.begin());
       return r;
@@ -145,13 +145,16 @@ namespace eosio::hotstuff {
          pending_quorum_certificate(num_finalizers, quorum) {         
          _proposal_id = proposal_id;
          _proposal_digest.assign(proposal_digest.data(), proposal_digest.data() + 32);
-         _state = state_t::unrestricted;
       }
 
       size_t num_weak()   const { return _weak_votes.count(); }
       size_t num_strong() const { return _strong_votes.count(); }
 
-      bool   valid() const { return _state >= state_t::weak_achieved; }
+      bool   is_quorum_met() const {
+         return _state == state_t::weak_achieved ||
+                _state == state_t::weak_final ||
+                _state == state_t::strong;
+      }
 
       // ================== begin compatibility functions =======================
       // these assume *only* strong votes
@@ -164,7 +167,6 @@ namespace eosio::hotstuff {
                  .active_agg_sig = _strong_votes._sig};
       }
 
-      bool                 is_quorum_met() const { return valid(); }
       const fc::sha256&    get_proposal_id() const { return _proposal_id; }
       std::string          get_votes_string() const {
          return std::string("strong(\"") + bitset_to_string(_strong_votes._bitset) + "\", weak(\"" +
@@ -195,10 +197,11 @@ namespace eosio::hotstuff {
          switch(_state) {
          case state_t::unrestricted:
          case state_t::restricted:
-            if (strong >= _quorum)
-                _state = state_t::strong;
-            else if (weak + strong >= _quorum)
-               _state = state_t::weak_achieved;
+            if (strong >= _quorum) {
+               assert(_state != state_t::restricted);
+               _state = state_t::strong;
+            } else if (weak + strong >= _quorum)
+               _state = (_state == state_t::restricted) ? state_t::weak_final : state_t::weak_achieved;
             break;
             
          case state_t::weak_achieved:
@@ -230,7 +233,7 @@ namespace eosio::hotstuff {
             if (weak + strong >= _quorum)
                _state = state_t::weak_achieved;
             
-            if (weak >= (_num_finalizers - _quorum)) {
+            if (weak > (_num_finalizers - _quorum)) {
                if (_state == state_t::weak_achieved)
                   _state = state_t::weak_final;
                else if (_state == state_t::unrestricted)
@@ -277,7 +280,7 @@ namespace eosio::hotstuff {
          if (qc._state == pending_quorum_certificate::state_t::strong) {
             _strong_votes = qc._strong_votes._bitset;
             _sig = qc._strong_votes._sig;
-         } if (qc._state > pending_quorum_certificate::state_t::weak_achieved) {
+         } else if (qc.is_quorum_met()) {
             _strong_votes = qc._strong_votes._bitset;
             _weak_votes   = qc._weak_votes._bitset;
             _sig = fc::crypto::blslib::aggregate({ qc._strong_votes._sig, qc._weak_votes._sig });
@@ -287,8 +290,8 @@ namespace eosio::hotstuff {
       
       valid_quorum_certificate(const fc::sha256& proposal_id,
                                const std::vector<uint8_t>& proposal_digest,
-                               const std::vector<unsigned_int>& strong_votes, //bitset encoding, following canonical order
-                               const std::vector<unsigned_int>& weak_votes,   //bitset encoding, following canonical order
+                               const std::vector<uint32_t>& strong_votes, //bitset encoding, following canonical order
+                               const std::vector<uint32_t>& weak_votes,   //bitset encoding, following canonical order
                                const bls_signature& sig) :
          _proposal_id(proposal_id),
          _proposal_digest(proposal_digest),
@@ -313,7 +316,7 @@ namespace eosio::hotstuff {
       // it will be removed, as well as the _proposal_id member of this class
       quorum_certificate_message to_msg() const {
          return {.proposal_id = _proposal_id,
-                 .strong_votes = _strong_votes ? bitset_to_vector(*_strong_votes) : std::vector<unsigned_int>{1,0},
+                 .strong_votes = _strong_votes ? bitset_to_vector(*_strong_votes) : std::vector<uint32_t>{1,0},
                  .active_agg_sig = _sig};
       }
 
@@ -419,8 +422,6 @@ namespace eosio::hotstuff {
       void commit(const hs_proposal_message& proposal);
 
       void gc_proposals(uint64_t cutoff);
-
-      bool _chained_mode = false;
 
       block_id_type _block_exec;
       block_id_type _pending_proposal_block;

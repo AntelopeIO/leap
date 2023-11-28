@@ -47,14 +47,14 @@ namespace eosio::hotstuff {
 
    struct quorum_certificate_message {
       fc::sha256                          proposal_id;
-      std::vector<chain::unsigned_int>    strong_votes; //bitset encoding, following canonical order
-      std::vector<chain::unsigned_int>    weak_votes;   //bitset encoding, following canonical order
+      std::vector<uint32_t>               strong_votes; //bitset encoding, following canonical order
+      std::vector<uint32_t>               weak_votes;   //bitset encoding, following canonical order
       fc::crypto::blslib::bls_signature   active_agg_sig;
    };
 
    struct hs_vote_message {
       fc::sha256                          proposal_id; //vote on proposal
-      bool                                strong;
+      bool                                strong{false};
       fc::crypto::blslib::bls_public_key  finalizer_key;
       fc::crypto::blslib::bls_signature   sig;
    };
@@ -66,8 +66,13 @@ namespace eosio::hotstuff {
       fc::sha256                          final_on_qc;
       quorum_certificate_message          justify; //justification
       uint8_t                             phase_counter = 0;
+      mutable std::optional<chain::digest_type> digest;
 
-      chain::digest_type get_proposal_digest() const { return get_digest_to_sign(block_id, phase_counter, final_on_qc); };
+      chain::digest_type get_proposal_digest() const {
+         if (!digest)
+            digest.emplace(get_digest_to_sign(block_id, phase_counter, final_on_qc));
+         return *digest;
+      };
 
       uint32_t block_num() const { return chain::block_header::num_from_id(block_id); }
       uint64_t get_key() const { return compute_height(chain::block_header::num_from_id(block_id), phase_counter); };
@@ -91,7 +96,6 @@ namespace eosio::hotstuff {
    };
 
    struct finalizer_state {
-      bool chained_mode = false;
       fc::sha256 b_leaf;
       fc::sha256 b_lock;
       fc::sha256 b_exec;
@@ -116,10 +120,10 @@ namespace eosio::hotstuff {
 
 
 FC_REFLECT(eosio::hotstuff::view_number, (bheight)(pcounter));
-FC_REFLECT(eosio::hotstuff::quorum_certificate_message, (proposal_id)(strong_votes)(active_agg_sig));
+FC_REFLECT(eosio::hotstuff::quorum_certificate_message, (proposal_id)(strong_votes)(weak_votes)(active_agg_sig));
 FC_REFLECT(eosio::hotstuff::extended_schedule, (producer_schedule)(bls_pub_keys));
 FC_REFLECT(eosio::hotstuff::hs_vote_message, (proposal_id)(finalizer_key)(sig));
 FC_REFLECT(eosio::hotstuff::hs_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter));
 FC_REFLECT(eosio::hotstuff::hs_new_view_message, (high_qc));
-FC_REFLECT(eosio::hotstuff::finalizer_state, (chained_mode)(b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));
+FC_REFLECT(eosio::hotstuff::finalizer_state, (b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals));
 FC_REFLECT(eosio::hotstuff::hs_message, (msg));

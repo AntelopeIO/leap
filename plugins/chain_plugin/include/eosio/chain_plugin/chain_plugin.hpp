@@ -854,7 +854,6 @@ public:
 
    using get_finalizer_state_params = empty;
    struct get_finalizer_state_results {
-      bool chained_mode = false;
       fc::sha256 b_leaf;
       fc::sha256 b_lock;
       fc::sha256 b_exec;
@@ -1122,4 +1121,4 @@ FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_params, (tr
 FC_REFLECT( eosio::chain_apis::read_only::send_read_only_transaction_results, (transaction_id)(processed) )
 FC_REFLECT( eosio::chain_apis::read_only::get_consensus_parameters_results, (chain_config)(wasm_config))
 FC_REFLECT( eosio::chain_apis::read_only::hs_complete_proposal_message, (proposal_id)(block_id)(parent_id)(final_on_qc)(justify)(phase_counter)(block_height)(view_number))
-FC_REFLECT( eosio::chain_apis::read_only::get_finalizer_state_results, (chained_mode)(b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals))
+FC_REFLECT( eosio::chain_apis::read_only::get_finalizer_state_results, (b_leaf)(b_lock)(b_exec)(b_finality_violation)(block_exec)(pending_proposal_block)(v_height)(high_qc)(current_qc)(schedule)(proposals))
