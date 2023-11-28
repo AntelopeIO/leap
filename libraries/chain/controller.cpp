@@ -1883,14 +1883,14 @@ struct controller_impl {
 
       auto action_merkle_fut = post_async_task( thread_pool.get_executor(),
                                                 [ids{std::move( bb._action_receipt_digests )}]() mutable {
-                                                   return merkle( std::move( ids ) );
+                                                   return canonical_merkle( std::move( ids ) );
                                                 } );
       const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb._trx_mroot_or_receipt_digests);
       std::future<checksum256_type> trx_merkle_fut;
       if( calc_trx_merkle ) {
          trx_merkle_fut = post_async_task( thread_pool.get_executor(),
                                            [ids{std::move( std::get<digests_t>(bb._trx_mroot_or_receipt_digests) )}]() mutable {
-                                              return merkle( std::move( ids ) );
+                                              return canonical_merkle( std::move( ids ) );
                                            } );
       }
 
@@ -2465,7 +2465,7 @@ struct controller_impl {
       for( const auto& a : trxs )
          trx_digests.emplace_back( a.digest() );
 
-      return merkle( std::move(trx_digests) );
+      return canonical_merkle( std::move(trx_digests) );
    }
 
    void update_producers_authority() {
