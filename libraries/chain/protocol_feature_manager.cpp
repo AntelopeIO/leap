@@ -262,14 +262,14 @@ Enables new `get_block_num` intrinsic which returns the current block number.
             {}
          } )
          (  builtin_protocol_feature_t::bls_primitives, builtin_protocol_feature_spec{
-            "BLS_PRIMITIVES",
-            fc::variant("dbb957731e310f86462d1643fd98f69eedb193892e3c1d38593410e34ad5d8ef").as<digest_type>(),
+            "BLS_PRIMITIVES2",
+            fc::variant("c0cce5bcd8ea19a28d9e12eafda65ebe6d0e0177e280d4f20c7ad66dcd9e011b").as<digest_type>(),
             // SHA256 hash of the raw message below within the comment delimiters (do not modify message below).
 /*
-Builtin protocol feature: BLS_PRIMITIVES
+Builtin protocol feature: BLS_PRIMITIVES2
 
 Adds new cryptographic host functions
-- Add, weighted-sum, map, and pairing functions for the bls12-381 elliptic curve.
+- Add, weighted sum, map, and pairing functions for the bls12-381 elliptic curve.
 */
             {}
          } )
