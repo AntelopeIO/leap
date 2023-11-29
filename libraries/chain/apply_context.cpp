@@ -131,7 +131,7 @@ void apply_context::exec_one()
                }
             }
          }
-      } FC_RETHROW_EXCEPTIONS( warn, "pending console output: ${console}", ("console", _pending_console_output) )
+      } FC_RETHROW_EXCEPTIONS( warn, "${receiver} <= ${account}::${action} pending console output: ${console}", ("console", _pending_console_output)("account", act->account)("action", act->name)("receiver", receiver) )
 
       if( control.is_builtin_activated( builtin_protocol_feature_t::action_return_value ) ) {
          act_digest =   generate_action_digest(

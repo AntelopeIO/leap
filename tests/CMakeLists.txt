@@ -238,7 +238,6 @@ set_property(TEST nodeos_high_transaction_lr_test PROPERTY LABELS long_running_t
 add_test(NAME nodeos_retry_transaction_lr_test COMMAND tests/nodeos_retry_transaction_test.py -v --num-transactions 100 --max-transactions-per-second 10 --total-accounts 5 ${UNSHARE} WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST nodeos_retry_transaction_lr_test PROPERTY LABELS long_running_tests)
 
-
 add_test(NAME cli_test COMMAND tests/cli_test.py WORKING_DIRECTORY ${CMAKE_BINARY_DIR})
 set_property(TEST cli_test PROPERTY LABELS nonparallelizable_tests)
 

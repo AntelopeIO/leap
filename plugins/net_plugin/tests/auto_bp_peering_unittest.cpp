@@ -1,5 +1,4 @@
-#define BOOST_TEST_MODULE auto_bp_peering
-#include <boost/test/included/unit_test.hpp>
+#include <boost/test/unit_test.hpp>
 #include <eosio/net_plugin/auto_bp_peering.hpp>
 
 struct mock_connection {
