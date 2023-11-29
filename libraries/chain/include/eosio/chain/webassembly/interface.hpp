@@ -1808,7 +1808,7 @@ namespace webassembly {
          int32_t bls_g2_add(span<const char> op1, span<const char> op2, span<char> result) const;
 
          /**
-          * Host function for G1 weighted sum (multi-exponentiation) on the elliptic curve bls12-381
+          * Host function for G1 weighted sum on the elliptic curve bls12-381
           *
           * @ingroup crypto
           * @param points - a span containing a list of G1 points (P0, P1, P2... Pn) - 96*n bytes little-endian.
@@ -1820,7 +1820,7 @@ namespace webassembly {
          int32_t bls_g1_weighted_sum(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
 
          /**
-          * Host function for G2 weighted sum (multi-exponentiation) on the elliptic curve bls12-381
+          * Host function for G2 weighted sum on the elliptic curve bls12-381
           *
           * @ingroup crypto
           * @param points - a span containing a list of G2 points (P0, P1, P2... Pn) - 192*n bytes little-endian.
