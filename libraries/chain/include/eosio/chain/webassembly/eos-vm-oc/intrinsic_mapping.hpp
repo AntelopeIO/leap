@@ -270,14 +270,14 @@ inline constexpr auto get_intrinsic_table() {
       "env.get_block_num",
       "env.bls_g1_add",
       "env.bls_g2_add",
-      "env.bls_g1_mul",
-      "env.bls_g2_mul",
-      "env.bls_g1_exp",
-      "env.bls_g2_exp",
+      "env.bls_g1_weighted_sum",
+      "env.bls_g2_weighted_sum",
       "env.bls_pairing",
       "env.bls_g1_map",
       "env.bls_g2_map",
-      "env.bls_fp_mod"
+      "env.bls_fp_mod",
+      "env.bls_fp_mul",
+      "env.bls_fp_exp"
    );
 }
 inline constexpr std::size_t find_intrinsic_index(std::string_view hf) {
