@@ -1,7 +1,7 @@
 #pragma once
 
 #include <eosio/trace_api/trace.hpp>
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 
 namespace eosio { namespace trace_api {
 

@@ -2,7 +2,7 @@
 
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/trace.hpp>
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/exceptions.hpp>
 
 #include <boost/multi_index_container.hpp>

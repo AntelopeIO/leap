@@ -1,6 +1,6 @@
 #pragma once
 #include <eosio/chain/types.hpp>
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/trace.hpp>
 
 #include <fc/container/tracked_storage.hpp>

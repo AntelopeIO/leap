@@ -1,5 +1,5 @@
 #pragma once
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <boost/signals2/signal.hpp>
 
 namespace eosio { namespace chain {

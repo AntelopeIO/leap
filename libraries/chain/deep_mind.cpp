@@ -1,5 +1,5 @@
 #include <eosio/chain/deep_mind.hpp>
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/contract_table_objects.hpp>
 #include <eosio/chain/resource_limits_private.hpp>

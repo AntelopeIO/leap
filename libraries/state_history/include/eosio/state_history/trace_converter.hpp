@@ -1,6 +1,6 @@
 #pragma once
 
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/state_history/types.hpp>
 #include <boost/iostreams/filtering_streambuf.hpp>
 
