@@ -25,9 +25,6 @@ namespace {
 namespace {
    using eosio::chain::span;
    using eosio::chain::webassembly::return_code;
-
-   
-
 }
 
 namespace eosio { namespace chain { namespace webassembly {

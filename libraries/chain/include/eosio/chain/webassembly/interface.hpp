@@ -1789,9 +1789,9 @@ namespace webassembly {
           * Host function for G1 addition on the elliptic curve bls12-381
           *
           * @ingroup crypto
-          * @param op1 - a span containing the affine coordingates of the first operand G1 point - 96 bytes little-endian.
-          * @param op2 - a span containing the affine coordingates of the second operand G1 point - 96 bytes little-endian.
-          * @param[out] result - the result op1 + op2 - 96 bytes little-endian.
+          * @param op1 - a span containing the affine coordinates of the first operand G1 point - 96 bytes little-endian.
+          * @param op2 - a span containing the affine coordinates of the second operand G1 point - 96 bytes little-endian.
+          * @param[out] result - the result op1 + op2 - affine coordinates 96 bytes little-endian.
           * @return -1 if there was an error, 0 otherwise
          */
          int32_t bls_g1_add(span<const char> op1, span<const char> op2, span<char> result) const;
@@ -1800,9 +1800,9 @@ namespace webassembly {
           * Host function for G2 addition on the elliptic curve bls12-381
           *
           * @ingroup crypto
-          * @param op1 - a span containing the affine coordingates of the first operand G2 point - 192 bytes little-endian.
-          * @param op2 - a span containing the affine coordingates of the second operand G2 point - 192 bytes little-endian.
-          * @param[out] result - the result op1 + op2 - 192 bytes little-endian.
+          * @param op1 - a span containing the affine coordinates of the first operand G2 point - 192 bytes little-endian.
+          * @param op2 - a span containing the affine coordinates of the second operand G2 point - 192 bytes little-endian.
+          * @param[out] result - the result op1 + op2 - affine coordinates 192 bytes little-endian.
           * @return -1 if there was an error, 0 otherwise
          */
          int32_t bls_g2_add(span<const char> op1, span<const char> op2, span<char> result) const;
@@ -1811,10 +1811,10 @@ namespace webassembly {
           * Host function for G1 weighted sum on the elliptic curve bls12-381
           *
           * @ingroup crypto
-          * @param points - a span containing a list of G1 points (P0, P1, P2... Pn) - 96*n bytes little-endian.
+          * @param points - a span containing a list of G1 points (P0, P1, P2... Pn) - affine coordinates 96*n bytes little-endian.
           * @param scalars - a span containing a list of 32 byte scalars (s0, s1, s2... sn) - 32*n bytes little-endian.
           * @param n - the number of elements in the lists.
-          * @param[out] result - the result s0 * P0 + s1 * P1 + ... + sn * Pn.
+          * @param[out] result - the result s0 * P0 + s1 * P1 + ... + sn * Pn. - affine coordinates 96 bytes little-endian.
           * @return -1 if there was an error, 0 otherwise
          */
          int32_t bls_g1_weighted_sum(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
@@ -1823,10 +1823,10 @@ namespace webassembly {
           * Host function for G2 weighted sum on the elliptic curve bls12-381
           *
           * @ingroup crypto
-          * @param points - a span containing a list of G2 points (P0, P1, P2... Pn) - 192*n bytes little-endian.
+          * @param points - a span containing a list of G2 points (P0, P1, P2... Pn) - affine coordinates 192*n bytes little-endian.
           * @param scalars - a span containing a list of 32 byte scalars (s0, s1, s2... sn) - 32*n bytes little-endian.
           * @param n - the number of elements in the lists.
-          * @param[out] result - the result s0 * P0 + s1 * P1 + ... + sn * Pn - 192 bytes little-endian.
+          * @param[out] result - the result s0 * P0 + s1 * P1 + ... + sn * Pn - affine coordinates 192 bytes little-endian.
           * @return -1 if there was an error, 0 otherwise
          */
          int32_t bls_g2_weighted_sum(span<const char> points, span<const char> scalars, const uint32_t n, span<char> result) const;
@@ -1835,8 +1835,8 @@ namespace webassembly {
           * Host function to calculate the pairing of (G1, G2) pairs on the elliptic curve bls12-381
           *
           * @ingroup crypto
-          * @param g1_points - a span containing a list of G1 points (P0, P1, P2... Pn) - 96*n bytes little-endian.
-          * @param g2_points - a span containing a list of G2 points (P0, P1, P2... Pn) - 192*n bytes little-endian..
+          * @param g1_points - a span containing a list of G1 points (P0, P1, P2... Pn) - affine coordinates 96*n bytes little-endian.
+          * @param g2_points - a span containing a list of G2 points (P0, P1, P2... Pn) - affine coordinates 192*n bytes little-endian..
           * @param n - the number of elements in the lists.
           * @param[out] result - the result e(g1_0, g2_0) * e(g1_1, g2_1) * ... * e(g1_n, g2_n) - 576 bytes little-endian.
           * @return -1 if there was an error, 0 otherwise
@@ -1848,7 +1848,7 @@ namespace webassembly {
           *
           * @ingroup crypto
           * @param e - a span containing the field element fp to be mapped - 48 bytes little-endian.
-          * @param[out] result - the resulting element in G1 - 96 bytes little-endian.
+          * @param[out] result - the resulting element in G1 - affine coordinates 96 bytes little-endian.
           * @return -1 if there was an error, 0 otherwise
          */
          int32_t bls_g1_map(span<const char> e, span<char> result) const;
@@ -1858,7 +1858,7 @@ namespace webassembly {
           *
           * @ingroup crypto
           * @param e - a span containing the field element fp2 to be mapped - 96 bytes little-endian.
-          * @param[out] result - the resulting element in G2 - 192 bytes little-endian.
+          * @param[out] result - the resulting element in G2 - affine coordinates 192 bytes little-endian.
           * @return -1 if there was an error, 0 otherwise
          */
          int32_t bls_g2_map(span<const char> e, span<char> result) const;
@@ -1867,7 +1867,7 @@ namespace webassembly {
           * Host function for modular reduction of 64 bytes wide scalar to a field element (fp, 48 bytes) of the elliptic curve bls12-381
           *
           * @ingroup crypto
-          * @param s - a span containing the 64 bytes wide scalar to be reduced.
+          * @param s - a span containing the 64 bytes little-endian wide scalar to be reduced.
           * @param[out] result - the resulting field element fp - 48 bytes little-endian.
           * @return -1 if there was an error, 0 otherwise
          */
@@ -1889,7 +1889,7 @@ namespace webassembly {
           *
           * @ingroup crypto
           * @param base - a span containing the base fp point - 48 bytes little-endian.
-          * @param exp - a span containing the 64 bytes wide scalar as exponent.
+          * @param exp - a span containing the 64 bytes little-endian wide scalar as exponent.
           * @param[out] result - the result of base to the power of exp - 48 bytes little-endian.
           * @return -1 if there was an error, 0 otherwise
          */
