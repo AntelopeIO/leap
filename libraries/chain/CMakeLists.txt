@@ -82,6 +82,7 @@ set(CHAIN_WEBASSEMBLY_SOURCES
 set(CHAIN_HOTSTUFF_SOURCES
    hotstuff/chain_pacemaker.cpp
    hotstuff/qc_chain.cpp
+   hotstuff/hotstuff.cpp
 )
 
 add_library(eosio_rapidjson INTERFACE)
