@@ -3842,14 +3842,14 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_add" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_add" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_mul" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_mul" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_exp" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_exp" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_weighted_sum" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_weighted_sum" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_pairing" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_map" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_map" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_mod" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_mul" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_exp" );
    } );
 }
 

@@ -4,7 +4,47 @@
     "types": [],
     "structs": [
         {
-            "name": "testg1add",
+            "name": "testfpexp",
+            "base": "",
+            "fields": [
+                {
+                    "name": "base",
+                    "type": "bytes"
+                },
+                {
+                    "name": "exp",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testfpmod",
+            "base": "",
+            "fields": [
+                {
+                    "name": "s",
+                    "type": "bytes"
+                },
+                {
+                    "name": "res",
+                    "type": "bytes"
+                },
+                {
+                    "name": "expected_error",
+                    "type": "int32"
+                }
+            ]
+        },
+        {
+            "name": "testfpmul",
             "base": "",
             "fields": [
                 {
@@ -26,20 +66,16 @@
             ]
         },
         {
-            "name": "testg1exp",
+            "name": "testg1add",
             "base": "",
             "fields": [
                 {
-                    "name": "points",
+                    "name": "op1",
                     "type": "bytes"
                 },
                 {
-                    "name": "scalars",
+                    "name": "op2",
                     "type": "bytes"
-                },
-                {
-                    "name": "num",
-                    "type": "uint32"
                 },
                 {
                     "name": "res",
@@ -70,16 +106,20 @@
             ]
         },
         {
-            "name": "testg1mul",
+            "name": "testg1wsum",
             "base": "",
             "fields": [
                 {
-                    "name": "point",
+                    "name": "points",
                     "type": "bytes"
                 },
                 {
-                    "name": "scalar",
+                    "name": "scalars",
                     "type": "bytes"
+                },
+                {
+                    "name": "num",
+                    "type": "uint32"
                 },
                 {
                     "name": "res",
@@ -114,32 +154,6 @@
             ]
         },
         {
-            "name": "testg2exp",
-            "base": "",
-            "fields": [
-                {
-                    "name": "points",
-                    "type": "bytes"
-                },
-                {
-                    "name": "scalars",
-                    "type": "bytes"
-                },
-                {
-                    "name": "num",
-                    "type": "uint32"
-                },
-                {
-                    "name": "res",
-                    "type": "bytes"
-                },
-                {
-                    "name": "expected_error",
-                    "type": "int32"
-                }
-            ]
-        },
-        {
             "name": "testg2map",
             "base": "",
             "fields": [
@@ -158,16 +172,20 @@
             ]
         },
         {
-            "name": "testg2mul",
+            "name": "testg2wsum",
             "base": "",
             "fields": [
                 {
-                    "name": "point",
+                    "name": "points",
                     "type": "bytes"
                 },
                 {
-                    "name": "scalar",
+                    "name": "scalars",
                     "type": "bytes"
+                },
+                {
+                    "name": "num",
+                    "type": "uint32"
                 },
                 {
                     "name": "res",
@@ -208,13 +226,23 @@
     ],
     "actions": [
         {
-            "name": "testg1add",
-            "type": "testg1add",
+            "name": "testfpexp",
+            "type": "testfpexp",
             "ricardian_contract": ""
         },
         {
-            "name": "testg1exp",
-            "type": "testg1exp",
+            "name": "testfpmod",
+            "type": "testfpmod",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testfpmul",
+            "type": "testfpmul",
+            "ricardian_contract": ""
+        },
+        {
+            "name": "testg1add",
+            "type": "testg1add",
             "ricardian_contract": ""
         },
         {
@@ -223,8 +251,8 @@
             "ricardian_contract": ""
         },
         {
-            "name": "testg1mul",
-            "type": "testg1mul",
+            "name": "testg1wsum",
+            "type": "testg1wsum",
             "ricardian_contract": ""
         },
         {
@@ -233,18 +261,13 @@
             "ricardian_contract": ""
         },
         {
-            "name": "testg2exp",
-            "type": "testg2exp",
-            "ricardian_contract": ""
-        },
-        {
             "name": "testg2map",
             "type": "testg2map",
             "ricardian_contract": ""
         },
         {
-            "name": "testg2mul",
-            "type": "testg2mul",
+            "name": "testg2wsum",
+            "type": "testg2wsum",
             "ricardian_contract": ""
         },
         {
