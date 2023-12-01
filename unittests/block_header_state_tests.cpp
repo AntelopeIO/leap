@@ -1,4 +1,5 @@
-#include <eosio/chain/block_header_state_legacy.hpp>
+#include <eosio/chain/block_header_state.hpp>
+#include <eosio/chain/exceptions.hpp>
 
 #include <boost/test/unit_test.hpp>
 
