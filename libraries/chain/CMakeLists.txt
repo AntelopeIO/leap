@@ -83,7 +83,7 @@ set(CHAIN_HOTSTUFF_SOURCES
    hotstuff/chain_pacemaker.cpp
    hotstuff/qc_chain.cpp
    hotstuff/finalizer_policy.cpp
-
+   hotstuff/hotstuff.cpp
 )
 
 add_library(eosio_rapidjson INTERFACE)
