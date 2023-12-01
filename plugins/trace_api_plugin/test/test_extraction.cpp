@@ -136,7 +136,7 @@ struct extraction_test_fixture {
       extraction_impl.signal_applied_transaction(trace, ptrx);
    }
 
-   void signal_accepted_block( const chain::block_state_ptr& bsp ) {
+   void signal_accepted_block( const chain::block_state_legacy_ptr& bsp ) {
       extraction_impl.signal_accepted_block(bsp);
    }
 

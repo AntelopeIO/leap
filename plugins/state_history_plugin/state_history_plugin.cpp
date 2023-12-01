@@ -88,7 +88,7 @@ public:
    boost::asio::io_context& get_ship_executor() { return thread_pool.get_executor(); }
 
    // thread-safe
-   signed_block_ptr get_block(uint32_t block_num, const block_state_ptr& block_state) const {
+   signed_block_ptr get_block(uint32_t block_num, const block_state_legacy_ptr& block_state) const {
       chain::signed_block_ptr p;
       try {
          if (block_state && block_num == block_state->block_num) {
@@ -107,7 +107,7 @@ public:
    }
 
    // thread-safe
-   void get_block(uint32_t block_num, const block_state_ptr& block_state, std::optional<bytes>& result) const {
+   void get_block(uint32_t block_num, const block_state_legacy_ptr& block_state, std::optional<bytes>& result) const {
       auto p = get_block(block_num, block_state);
       if (p)
          result = fc::raw::pack(*p);
@@ -201,7 +201,7 @@ public:
    }
 
    // called from main thread
-   void on_accepted_block(const block_state_ptr& block_state) {
+   void on_accepted_block(const block_state_legacy_ptr& block_state) {
       update_current();
 
       try {
@@ -243,7 +243,7 @@ public:
    }
 
    // called from main thread
-   void store_traces(const block_state_ptr& block_state) {
+   void store_traces(const block_state_legacy_ptr& block_state) {
       if (!trace_log)
          return;
 
@@ -256,7 +256,7 @@ public:
    }
 
    // called from main thread
-   void store_chain_state(const block_state_ptr& block_state) {
+   void store_chain_state(const block_state_legacy_ptr& block_state) {
       if (!chain_state_log)
          return;
       bool fresh = chain_state_log->empty();
@@ -329,7 +329,7 @@ void state_history_plugin_impl::plugin_initialize(const variables_map& options) 
              on_applied_transaction(std::get<0>(t), std::get<1>(t));
           }));
       accepted_block_connection.emplace(
-          chain.accepted_block.connect([&](const block_state_ptr& p) { on_accepted_block(p); }));
+          chain.accepted_block.connect([&](const block_state_legacy_ptr& p) { on_accepted_block(p); }));
       block_start_connection.emplace(
           chain.block_start.connect([&](uint32_t block_num) { on_block_start(block_num); }));
 

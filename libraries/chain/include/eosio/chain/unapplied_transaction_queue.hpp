@@ -114,7 +114,7 @@ public:
       return true;
    }
 
-   void clear_applied( const block_state_ptr& bs ) {
+   void clear_applied( const block_state_legacy_ptr& bs ) {
       if( empty() ) return;
       auto& idx = queue.get<by_trx_id>();
       for( const auto& receipt : bs->block->transactions ) {
@@ -136,7 +136,7 @@ public:
    void add_forked( const branch_type& forked_branch ) {
       // forked_branch is in reverse order
       for( auto ritr = forked_branch.rbegin(), rend = forked_branch.rend(); ritr != rend; ++ritr ) {
-         const block_state_ptr& bsptr = *ritr;
+         const block_state_legacy_ptr& bsptr = *ritr;
          for( auto itr = bsptr->trxs_metas().begin(), end = bsptr->trxs_metas().end(); itr != end; ++itr ) {
             const auto& trx = *itr;
             auto insert_itr = queue.insert( { trx, trx_enum_type::forked } );

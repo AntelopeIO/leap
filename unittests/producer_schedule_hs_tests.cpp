@@ -53,7 +53,7 @@ BOOST_FIXTURE_TEST_CASE( verify_producer_schedule_after_hotstuff_activation, val
    };
 
    uint32_t lib = 0;
-   control->irreversible_block.connect([&](const block_state_ptr& bs) {
+   control->irreversible_block.connect([&](const block_state_legacy_ptr& bs) {
       lib = bs->block_num;
    });
 

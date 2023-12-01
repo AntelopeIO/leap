@@ -15,9 +15,9 @@ public:
    void kill_on_head(account_name prod, uint32_t where_in_seq);
 
 private:
-   void accepted_block(const chain::block_state_ptr& bsp);
-   void applied_irreversible_block(const chain::block_state_ptr& bsp);
-   void process_next_block_state(const chain::block_state_ptr& bsp);
+   void accepted_block(const chain::block_state_legacy_ptr& bsp);
+   void applied_irreversible_block(const chain::block_state_legacy_ptr& bsp);
+   void process_next_block_state(const chain::block_state_legacy_ptr& bsp);
 
    std::optional<boost::signals2::scoped_connection> _accepted_block_connection;
    std::optional<boost::signals2::scoped_connection> _irreversible_block_connection;
@@ -32,11 +32,11 @@ private:
 
 void test_control_plugin_impl::connect() {
    _irreversible_block_connection.emplace(
-         _chain.irreversible_block.connect( [&]( const chain::block_state_ptr& bs ) {
+         _chain.irreversible_block.connect( [&]( const chain::block_state_legacy_ptr& bs ) {
             applied_irreversible_block( bs );
          } ));
    _accepted_block_connection =
-         _chain.accepted_block.connect( [&]( const chain::block_state_ptr& bs ) {
+         _chain.accepted_block.connect( [&]( const chain::block_state_legacy_ptr& bs ) {
             accepted_block( bs );
          } );
 }
@@ -46,17 +46,17 @@ void test_control_plugin_impl::disconnect() {
    _irreversible_block_connection.reset();
 }
 
-void test_control_plugin_impl::applied_irreversible_block(const chain::block_state_ptr& bsp) {
+void test_control_plugin_impl::applied_irreversible_block(const chain::block_state_legacy_ptr& bsp) {
    if (_track_lib)
       process_next_block_state(bsp);
 }
 
-void test_control_plugin_impl::accepted_block(const chain::block_state_ptr& bsp) {
+void test_control_plugin_impl::accepted_block(const chain::block_state_legacy_ptr& bsp) {
    if (_track_head)
       process_next_block_state(bsp);
 }
 
-void test_control_plugin_impl::process_next_block_state(const chain::block_state_ptr& bsp) {
+void test_control_plugin_impl::process_next_block_state(const chain::block_state_legacy_ptr& bsp) {
    // Tests expect the shutdown only after signaling a producer shutdown and seeing a full production cycle
    const auto block_time = _chain.head_block_time() + fc::microseconds(chain::config::block_interval_us);
    const auto& producer_authority = bsp->get_scheduled_producer(block_time);

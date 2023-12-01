@@ -15,7 +15,7 @@ namespace eosio::chain_apis {
 
       void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx );
 
-      void signal_accepted_block( const chain::block_state_ptr& bsp );
+      void signal_accepted_block( const chain::block_state_legacy_ptr& bsp );
 
       void handle_rollback();
 
@@ -47,7 +47,7 @@ namespace eosio::chain_apis {
 
    trx_finality_status_processing::~trx_finality_status_processing() = default;
 
-   void trx_finality_status_processing::signal_irreversible_block( const chain::block_state_ptr& bsp ) {
+   void trx_finality_status_processing::signal_irreversible_block( const chain::block_state_legacy_ptr& bsp ) {
       try {
          _my->_irr_block_id = bsp->id;
          _my->_irr_block_timestamp = bsp->block->timestamp;
@@ -67,7 +67,7 @@ namespace eosio::chain_apis {
       } FC_LOG_AND_DROP(("Failed to signal applied transaction for finality status"));
    }
 
-   void trx_finality_status_processing::signal_accepted_block( const chain::block_state_ptr& bsp ) {
+   void trx_finality_status_processing::signal_accepted_block( const chain::block_state_legacy_ptr& bsp ) {
       try {
          _my->signal_accepted_block(bsp);
       } FC_LOG_AND_DROP(("Failed to signal accepted block for finality status"));
@@ -139,7 +139,7 @@ namespace eosio::chain_apis {
       }
    }
 
-   void trx_finality_status_processing_impl::signal_accepted_block( const chain::block_state_ptr& bsp ) {
+   void trx_finality_status_processing_impl::signal_accepted_block( const chain::block_state_legacy_ptr& bsp ) {
       // if this block had any transactions, then we have processed everything we need to already
       if (bsp->id == _head_block_id) {
          return;

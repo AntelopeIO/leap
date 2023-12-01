@@ -11,7 +11,7 @@ class generated_transaction_object;
 class table_id_object;
 struct key_value_object;
 class permission_object;
-struct block_state;
+struct block_state_legacy;
 struct protocol_feature;
 struct signed_transaction;
 struct packed_transaction;
@@ -56,7 +56,7 @@ public:
 
    void on_startup(chainbase::database& db, uint32_t head_block_num);
    void on_start_block(uint32_t block_num);
-   void on_accepted_block(const std::shared_ptr<block_state>& bsp);
+   void on_accepted_block(const std::shared_ptr<block_state_legacy>& bsp);
    void on_switch_forks(const block_id_type& old_head, const block_id_type& new_head);
    void on_onerror(const signed_transaction& etrx);
    void on_onblock(const signed_transaction& trx);

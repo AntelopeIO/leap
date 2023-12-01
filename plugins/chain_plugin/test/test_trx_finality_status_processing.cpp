@@ -78,7 +78,7 @@ chain::block_id_type make_block_id( uint32_t block_num ) {
    return block_id;
 }
 
-chain::transaction_trace_ptr make_transaction_trace( const packed_transaction_ptr trx, uint32_t block_number, const eosio::chain::block_state_ptr& bs_ptr,
+chain::transaction_trace_ptr make_transaction_trace( const packed_transaction_ptr trx, uint32_t block_number, const eosio::chain::block_state_legacy_ptr& bs_ptr,
                                                      chain::transaction_receipt_header::status_enum status = eosio::chain::transaction_receipt_header::executed ) {
    return std::make_shared<chain::transaction_trace>(chain::transaction_trace{
          trx->id(),
@@ -113,7 +113,7 @@ auto make_block_state( uint32_t block_num ) {
    auto priv_key = get_private_key( block->producer, "active" );
    auto pub_key = get_public_key( block->producer, "active" );
 
-   auto prev = std::make_shared<chain::block_state>();
+   auto prev = std::make_shared<chain::block_state_legacy>();
    auto header_bmroot = chain::digest_type::hash( std::make_pair( block->digest(), prev->blockroot_merkle.get_root()));
    auto sig_digest = chain::digest_type::hash( std::make_pair( header_bmroot, prev->pending_schedule.schedule_hash ));
    block->producer_signature = priv_key.sign( sig_digest );
@@ -136,7 +136,7 @@ auto make_block_state( uint32_t block_num ) {
                                         chain::block_signing_authority_v0{1, {{pub_key, 1}}}}}};
    pbhs.active_schedule = schedule;
    pbhs.valid_block_signing_authority = chain::block_signing_authority_v0{1, {{pub_key, 1}}};
-   auto bsp = std::make_shared<chain::block_state>(
+   auto bsp = std::make_shared<chain::block_state_legacy>(
          std::move( pbhs ),
          std::move( block ),
          deque<chain::transaction_metadata_ptr>(),
@@ -172,7 +172,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
    using trx_deque = eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >;
 
    uint32_t bn = 20;
-   auto add = [&bn, &status](trx_deque& trx_pairs, const eosio::chain::block_state_ptr& bs_ptr) {
+   auto add = [&bn, &status](trx_deque& trx_pairs, const eosio::chain::block_state_legacy_ptr& bs_ptr) {
       auto trx = make_unique_trx(fc::seconds(2));
       auto trace = make_transaction_trace( trx, bn, bs_ptr);
       trx_pairs.push_back(std::tuple(trace, trx));
@@ -183,7 +183,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
    // Create speculative block to begin applying transactions locally
    status.signal_block_start(bn);
-   const eosio::chain::block_state_ptr no_bs;
+   const eosio::chain::block_state_legacy_ptr no_bs;
 
    add(trx_pairs_20, no_bs);
    add(trx_pairs_20, no_bs);
@@ -834,7 +834,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_logic) { try {
 
 namespace {
    using trx_deque = eosio::chain::deque< std::tuple< chain::transaction_trace_ptr, packed_transaction_ptr > >;
-   const eosio::chain::block_state_ptr no_bs;
+   const eosio::chain::block_state_legacy_ptr no_bs;
 
    struct block_frame {
       static uint32_t last_used_block_num;
@@ -844,7 +844,7 @@ namespace {
       const std::string time;
       trx_deque pre_block;
       trx_deque block;
-      chain::block_state_ptr bs;
+      chain::block_state_legacy_ptr bs;
       std::string context;
 
       block_frame(trx_finality_status_processing& finality_status, const char* block_time, uint32_t block_num = 0)
@@ -914,7 +914,7 @@ namespace {
       }
 
    private:
-      void verify(const trx_deque& trx_pairs, const chain::block_state_ptr& bs, uint32_t begin, uint32_t end) {
+      void verify(const trx_deque& trx_pairs, const chain::block_state_legacy_ptr& bs, uint32_t begin, uint32_t end) {
          if (end == std::numeric_limits<uint32_t>::max()) {
             end = block.size();
          }
@@ -950,7 +950,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_storage_reduction) { try {
    const uint64_t max_storage = 10'000;
    trx_finality_status_processing status(max_storage, max_success_duration, max_failure_duration);
 
-   // auto verify_trx = [&status](trx_deque& trx_pairs, const eosio::chain::block_state_ptr& bs) {
+   // auto verify_trx = [&status](trx_deque& trx_pairs, const eosio::chain::block_state_legacy_ptr& bs) {
    //    const auto id = bs ? bs->id : eosio::chain::transaction_id_type{};
    //    for (const auto& trx_pair : trx_pairs) {
    //       auto ts = status.get_trx_state(std::get<1>(trx_pair)->id());
@@ -1124,7 +1124,7 @@ BOOST_AUTO_TEST_CASE(trx_finality_status_lifespan) { try {
    const uint64_t max_storage = 10'000;
    trx_finality_status_processing status(max_storage, max_success_duration, max_failure_duration);
 
-   // auto verify_trx = [&status](trx_deque& trx_pairs, const eosio::chain::block_state_ptr& bs) {
+   // auto verify_trx = [&status](trx_deque& trx_pairs, const eosio::chain::block_state_legacy_ptr& bs) {
    //    const auto id = bs ? bs->id : eosio::chain::transaction_id_type{};
    //    for (const auto& trx_pair : trx_pairs) {
    //       auto ts = status.get_trx_state(std::get<1>(trx_pair)->id());
