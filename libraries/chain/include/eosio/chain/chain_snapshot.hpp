@@ -23,10 +23,13 @@ struct chain_snapshot_header {
     *   5: Updated for v3.0.0 eos features:
     *         - chain_config update
     *   6: Updated for v3.1.0 release
+    *   7. Updated for v6.0.0 release:
+    *         - Instant Finality
     */
 
    static constexpr uint32_t minimum_compatible_version = 2;
-   static constexpr uint32_t current_version = 6;
+   static constexpr uint32_t last_block_state_legacy_version = 6;
+   static constexpr uint32_t current_version = 7;
 
    uint32_t version = current_version;
 

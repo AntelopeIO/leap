@@ -911,12 +911,17 @@ struct controller_impl {
          using v2 = legacy::snapshot_block_header_state_v2;
 
          if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
-            snapshot->read_section<block_state_legacy>([this, &head_header_state]( auto &section ) {
+            snapshot->read_section("eosio::chain::block_state", [this, &head_header_state]( auto &section ) {
                legacy::snapshot_block_header_state_v2 legacy_header_state;
                section.read_row(legacy_header_state, db);
                head_header_state = block_header_state_legacy(std::move(legacy_header_state));
             });
+         } else if ( header.version <= chain_snapshot_header::last_block_state_legacy_version ) {
+            snapshot->read_section("eosio::chain::block_state", [this,&head_header_state]( auto &section ){
+               section.read_row(head_header_state, db);
+            });
          } else {
+#warning change block_state_legacy to new block_state when updating snapshot for IF
             snapshot->read_section<block_state_legacy>([this,&head_header_state]( auto &section ){
                section.read_row(head_header_state, db);
             });
