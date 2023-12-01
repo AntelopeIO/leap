@@ -2,7 +2,7 @@
 #include <eosio/chain/block_header.hpp>
 #include <eosio/chain/incremental_merkle.hpp>
 #include <eosio/chain/protocol_feature_manager.hpp>
-#include <eosio/chain/finalizer_set.hpp>
+#include <eosio/chain/hotstuff/finalizer_policy.hpp>
 #include <eosio/chain/chain_snapshot.hpp>
 #include <future>
 
@@ -58,7 +58,7 @@ namespace detail {
       uint32_t                          dpos_proposed_irreversible_blocknum = 0;
       uint32_t                          dpos_irreversible_blocknum = 0;
       producer_authority_schedule       active_schedule;
-      uint32_t                          last_proposed_finalizer_set_generation = 0; // TODO: Add to snapshot_block_header_state_v3
+      uint32_t                          last_proposed_finalizer_policy_generation = 0; // TODO: Add to snapshot_block_header_state_v3
       incremental_canonical_merkle_tree blockroot_merkle;
       flat_map<account_name,uint32_t>   producer_to_last_produced;
       flat_map<account_name,uint32_t>   producer_to_last_implied_irb;
@@ -83,7 +83,7 @@ namespace detail {
 struct pending_block_header_state : public detail::block_header_state_common {
    protocol_feature_activation_set_ptr  prev_activated_protocol_features;
    detail::schedule_info                prev_pending_schedule;
-   std::optional<finalizer_set>         proposed_finalizer_set; // set by set_finalizer host function
+   std::optional<finalizer_policy>         proposed_finalizer_policy; // set by set_finalizer host function
    bool                                 was_pending_promoted = false;
    block_id_type                        previous;
    account_name                         producer;
@@ -226,7 +226,7 @@ FC_REFLECT( eosio::chain::detail::block_header_state_common,
             (dpos_proposed_irreversible_blocknum)
             (dpos_irreversible_blocknum)
             (active_schedule)
-            (last_proposed_finalizer_set_generation)
+            (last_proposed_finalizer_policy_generation)
             (blockroot_merkle)
             (producer_to_last_produced)
             (producer_to_last_implied_irb)

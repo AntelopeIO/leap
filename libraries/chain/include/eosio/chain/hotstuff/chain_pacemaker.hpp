@@ -34,7 +34,7 @@ namespace eosio::chain {
       name get_proposer() final;
       name get_leader() final;
       name get_next_leader() final;
-      const finalizer_set&  get_finalizer_set() final;
+      const finalizer_policy&  get_finalizer_policy() final;
 
       block_id_type get_current_block_id() final;
 
@@ -72,7 +72,7 @@ namespace eosio::chain {
 
       mutable std::mutex                 _chain_state_mutex;
       block_state_ptr                    _head_block_state;
-      finalizer_set                      _active_finalizer_set;
+      finalizer_policy                   _active_finalizer_policy;
 
       boost::signals2::scoped_connection _accepted_block_connection;
       boost::signals2::scoped_connection _irreversible_block_connection;

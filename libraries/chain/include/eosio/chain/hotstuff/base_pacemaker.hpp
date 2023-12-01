@@ -3,7 +3,7 @@
 #include <eosio/chain/hotstuff/hotstuff.hpp>
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/name.hpp>
-#include <eosio/chain/finalizer_set.hpp>
+#include <eosio/chain/hotstuff/finalizer_policy.hpp>
 
 namespace eosio::chain {
 
@@ -26,7 +26,7 @@ namespace eosio::chain {
       virtual name get_proposer() = 0;
       virtual name get_leader() = 0;
       virtual name get_next_leader() = 0;
-      virtual const finalizer_set& get_finalizer_set() = 0;
+      virtual const finalizer_policy& get_finalizer_policy() = 0;
 
       //outbound communications; 'id' is the producer name (can be ignored if/when irrelevant to the implementer)
       virtual void send_hs_proposal_msg(const hs_proposal_message& msg, const std::string& id, const std::optional<uint32_t>& exclude_peer = std::nullopt) = 0;

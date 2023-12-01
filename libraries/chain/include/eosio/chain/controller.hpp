@@ -27,7 +27,7 @@ namespace eosio::chain {
    struct finalizer_state;
    enum class hs_message_warning;
    using bls_pub_priv_key_map_t = std::map<std::string, std::string>;
-   struct finalizer_set;
+   struct finalizer_policy;
 
    class authorization_manager;
 
@@ -304,7 +304,7 @@ namespace eosio::chain {
          void register_pacemaker_bcast_function(std::function<void(const std::optional<uint32_t>&, const hs_message&)> bcast_hs_message);
          void register_pacemaker_warn_function(std::function<void(uint32_t, hs_message_warning)> warn_hs_message);
          // called by host function set_finalizers
-         void set_proposed_finalizers( const finalizer_set& fin_set );
+         void set_proposed_finalizers( const finalizer_policy& fin_set );
          void get_finalizer_state( finalizer_state& fs ) const;
          // called from net threads
          void notify_hs_message( const uint32_t connection_id, const hs_message& msg );

@@ -24,7 +24,7 @@
 #include <eosio/chain/generated_transaction_object.hpp>
 #include <eosio/chain/wasm_interface.hpp>
 #include <eosio/chain/resource_limits.hpp>
-#include <eosio/chain/finalizer_authority.hpp>
+#include <eosio/chain/hotstuff/finalizer_authority.hpp>
 
 #include <fc/crypto/digest.hpp>
 #include <fc/crypto/sha256.hpp>
@@ -3876,11 +3876,11 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
    t.set_finalizers(finalizers);
    auto block = t.produce_block(); // this block contains the header extension of the finalizer set
 
-   std::optional<block_header_extension> ext = block->extract_header_extension(hs_finalizer_set_extension::extension_id());
+   std::optional<block_header_extension> ext = block->extract_header_extension(finalizer_policy_extension::extension_id());
    BOOST_TEST(!!ext);
-   BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).finalizers.size() == finalizers.size());
-   BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).generation == 1);
-   BOOST_TEST(std::get<hs_finalizer_set_extension>(*ext).fthreshold == finalizers.size() / 3 * 2 + 1);
+   BOOST_TEST(std::get<finalizer_policy_extension>(*ext).finalizers.size() == finalizers.size());
+   BOOST_TEST(std::get<finalizer_policy_extension>(*ext).generation == 1);
+   BOOST_TEST(std::get<finalizer_policy_extension>(*ext).fthreshold == finalizers.size() / 3 * 2 + 1);
 
    // old dpos still in affect until block is irreversible
    BOOST_TEST(block->confirmed == 0);

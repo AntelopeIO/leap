@@ -2,7 +2,7 @@
 #include <eosio/chain/hotstuff/base_pacemaker.hpp>
 #include <eosio/chain/hotstuff/qc_chain.hpp>
 
-//#include <eosio/chain/finalizer_set.hpp>
+//#include <eosio/chain/finalizer_policy.hpp>
 
 namespace eosio::chain {
 
@@ -28,7 +28,7 @@ namespace eosio::chain {
 
       void set_next_leader(name next_leader);
 
-      void set_finalizer_set(const eosio::chain::finalizer_set& finalizer_set);
+      void set_finalizer_policy(const eosio::chain::finalizer_policy& finalizer_policy);
 
       void set_current_block_id(block_id_type id);
 
@@ -67,7 +67,7 @@ namespace eosio::chain {
       name get_proposer() override;
       name get_leader() override;
       name get_next_leader() override;
-      const finalizer_set& get_finalizer_set() override;
+      const finalizer_policy& get_finalizer_policy() override;
 
       block_id_type get_current_block_id() override;
 
@@ -98,7 +98,7 @@ namespace eosio::chain {
       name _leader;
       name _next_leader;
 
-      finalizer_set _finalizer_set;
+      finalizer_policy _finalizer_policy;
 
       block_id_type _current_block_id;
 

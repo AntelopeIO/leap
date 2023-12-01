@@ -5,8 +5,8 @@
 
 #include <eosio/chain/controller.hpp>
 #include <eosio/chain/block_state.hpp>
-#include <eosio/chain/finalizer_set.hpp>
-#include <eosio/chain/finalizer_authority.hpp>
+#include <eosio/chain/hotstuff/finalizer_policy.hpp>
+#include <eosio/chain/hotstuff/finalizer_authority.hpp>
 
 #include <fc/crypto/bls_utils.hpp>
 #include <fc/crypto/sha256.hpp>
@@ -120,7 +120,7 @@ namespace eosio::chain {
 
       uint32_t positive_bits_count(const hs_bitset& finalizers);
 
-      hs_bitset update_bitset(const hs_bitset& finalizer_set, const bls_public_key& finalizer_key);
+      hs_bitset update_bitset(const hs_bitset& finalizer_policy, const bls_public_key& finalizer_key);
 
       void reset_qc(const hs_proposal_message& proposal);
 
