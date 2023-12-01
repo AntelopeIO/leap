@@ -1,5 +1,5 @@
 #include <eosio/chain/hotstuff/chain_pacemaker.hpp>
-#include <eosio/chain/finalizer_authority.hpp>
+#include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <iostream>
 
 // comment this out to remove the core profiler
@@ -165,15 +165,15 @@ namespace eosio::chain {
    // called from main thread
    void chain_pacemaker::on_irreversible_block( const block_state_ptr& blk ) {
       if (!blk->block->header_extensions.empty()) {
-         std::optional<block_header_extension> ext = blk->block->extract_header_extension(hs_finalizer_set_extension::extension_id());
+         std::optional<block_header_extension> ext = blk->block->extract_header_extension(finalizer_policy_extension::extension_id());
          if (ext) {
             std::scoped_lock g( _chain_state_mutex );
-            if (_active_finalizer_set.generation == 0) {
+            if (_active_finalizer_policy.generation == 0) {
                // switching from dpos to hotstuff, all nodes will switch at same block height
                // block header extension is set in finalize_block to value set by host function set_finalizers
                _chain->set_hs_irreversible_block_num(blk->block_num); // can be any value <= dpos lib
             }
-            _active_finalizer_set = std::move(std::get<hs_finalizer_set_extension>(*ext));
+            _active_finalizer_policy = std::move(std::get<finalizer_policy_extension>(*ext));
          }
       }
    }
@@ -198,8 +198,8 @@ namespace eosio::chain {
       return p_auth.producer_name;
    }
 
-   const finalizer_set& chain_pacemaker::get_finalizer_set() {
-      return _active_finalizer_set;
+   const finalizer_policy& chain_pacemaker::get_finalizer_policy() {
+      return _active_finalizer_policy;
    }
 
    block_id_type chain_pacemaker::get_current_block_id() {

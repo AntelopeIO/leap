@@ -15,8 +15,8 @@ namespace eosio::chain {
       _next_leader = next_leader;
    };
 
-   void test_pacemaker::set_finalizer_set(const eosio::chain::finalizer_set& finalizer_set) {
-      _finalizer_set = finalizer_set;
+   void test_pacemaker::set_finalizer_policy(const eosio::chain::finalizer_policy& finalizer_policy) {
+      _finalizer_policy = finalizer_policy;
    };
 
    void test_pacemaker::set_current_block_id(block_id_type id) {
@@ -165,8 +165,8 @@ namespace eosio::chain {
       return _next_leader;
    };
    
-   const finalizer_set& test_pacemaker::get_finalizer_set() {
-      return _finalizer_set;
+   const finalizer_policy& test_pacemaker::get_finalizer_policy() {
+      return _finalizer_policy;
    };
    
    block_id_type test_pacemaker::get_current_block_id() {

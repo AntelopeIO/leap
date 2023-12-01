@@ -10,10 +10,9 @@
 
 #include "test_pacemaker.hpp"
 #include <eosio/chain/hotstuff/qc_chain.hpp>
-#include <eosio/chain/finalizer_set.hpp>
-#include <eosio/chain/finalizer_authority.hpp>
+#include <eosio/chain/hotstuff/finalizer_policy.hpp>
+#include <eosio/chain/hotstuff/finalizer_authority.hpp>
 
-#include <eosio/chain/finalizer_set.hpp>
 #include <fc/crypto/bls_private_key.hpp>
 #include <fc/crypto/bls_utils.hpp>
 
@@ -182,7 +181,7 @@ static std::vector<fc::crypto::blslib::bls_private_key> map_to_sks(std::vector<s
    return sks;
 }
 
-static finalizer_set create_fs(std::vector<std::string> keys){
+static finalizer_policy create_fs(std::vector<std::string> keys){
    std::vector<fc::crypto::blslib::bls_private_key> sks;
    std::vector<finalizer_authority> f_auths;
    f_auths.reserve(keys.size());
@@ -192,7 +191,7 @@ static finalizer_set create_fs(std::vector<std::string> keys){
       sks.push_back(sk);
       f_auths.push_back(eosio::chain::finalizer_authority{"" , 1 , pk});
    }
-   eosio::chain::finalizer_set fset;
+   eosio::chain::finalizer_policy fset;
    fset.fthreshold = 15;
    fset.finalizers = f_auths;
    return fset;
@@ -205,13 +204,13 @@ BOOST_AUTO_TEST_CASE(hotstuff_1) try {
 
    hotstuff_test_handler ht;
    std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
-   finalizer_set fset = create_fs(unique_replica_keys);
+   finalizer_policy fset = create_fs(unique_replica_keys);
    
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_set(fset);
+   tpm.set_finalizer_policy(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -325,13 +324,13 @@ BOOST_AUTO_TEST_CASE(hotstuff_2) try {
 
    hotstuff_test_handler ht;
    std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
-   finalizer_set fset = create_fs(unique_replica_keys);
+   finalizer_policy fset = create_fs(unique_replica_keys);
 
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_set(fset);
+   tpm.set_finalizer_policy(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -415,13 +414,13 @@ BOOST_AUTO_TEST_CASE(hotstuff_2) try {
 
    hotstuff_test_handler ht;
    std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
-   finalizer_set fset = create_fs(unique_replica_keys);
+   finalizer_policy fset = create_fs(unique_replica_keys);
 
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_set(fset);
+   tpm.set_finalizer_policy(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -536,13 +535,13 @@ BOOST_AUTO_TEST_CASE(hotstuff_4) try {
 
    hotstuff_test_handler ht;
    std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
-   finalizer_set fset = create_fs(unique_replica_keys);
+   finalizer_policy fset = create_fs(unique_replica_keys);
   
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_set(fset);
+   tpm.set_finalizer_policy(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -760,8 +759,8 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
    std::vector<fc::crypto::blslib::bls_private_key> sks_1 = map_to_sks(replica_set_1);
    std::vector<fc::crypto::blslib::bls_private_key> sks_2 = map_to_sks(replica_set_2);
 
-   finalizer_set fset_1 = create_fs(replica_set_1);
-   finalizer_set fset_2 = create_fs(replica_set_2);
+   finalizer_policy fset_1 = create_fs(replica_set_1);
+   finalizer_policy fset_2 = create_fs(replica_set_2);
   
    //simulating a fork, where
    test_pacemaker tpm1;
@@ -778,12 +777,12 @@ BOOST_AUTO_TEST_CASE(hotstuff_5) try {
    tpm1.set_proposer("bpe"_n); //honest leader
    tpm1.set_leader("bpe"_n);
    tpm1.set_next_leader("bpe"_n);
-   tpm1.set_finalizer_set(fset_1);
+   tpm1.set_finalizer_policy(fset_1);
    tpm2.set_proposer("bpf"_n); //byzantine leader
    tpm2.set_leader("bpf"_n);
    tpm2.set_next_leader("bpf"_n);
 
-   tpm2.set_finalizer_set(fset_2);
+   tpm2.set_finalizer_policy(fset_2);
 
    auto qcc_bpe = std::find_if(ht1._qc_chains.begin(), ht1._qc_chains.end(), [&](const auto& q){ return q.first == "bpe"_n; });
    finalizer_state fs_bpe;
@@ -909,13 +908,13 @@ BOOST_AUTO_TEST_CASE(hotstuff_7) try {
 
    hotstuff_test_handler ht;
    std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
-   finalizer_set fset = create_fs(unique_replica_keys);
+   finalizer_policy fset = create_fs(unique_replica_keys);
 
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_set(fset);
+   tpm.set_finalizer_policy(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -1044,13 +1043,13 @@ BOOST_AUTO_TEST_CASE(hotstuff_8) try {
 
    hotstuff_test_handler ht;
    std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
-   finalizer_set fset = create_fs(unique_replica_keys);
+   finalizer_policy fset = create_fs(unique_replica_keys);
 
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_set(fset);
+   tpm.set_finalizer_policy(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -1184,14 +1183,14 @@ BOOST_AUTO_TEST_CASE(hotstuff_9) try {
 
    hotstuff_test_handler ht;
    std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
-   finalizer_set fset = create_fs(unique_replica_keys);
+   finalizer_policy fset = create_fs(unique_replica_keys);
 
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_set(fset);
+   tpm.set_finalizer_policy(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;
@@ -1345,14 +1344,14 @@ BOOST_AUTO_TEST_CASE(hotstuff_10) try {
 
    hotstuff_test_handler ht;
    std::vector<fc::crypto::blslib::bls_private_key> sks = map_to_sks(unique_replica_keys);
-   finalizer_set fset = create_fs(unique_replica_keys);
+   finalizer_policy fset = create_fs(unique_replica_keys);
 
    ht.initialize_qc_chains(tpm, unique_replicas, sks);
 
    tpm.set_proposer("bpa"_n);
    tpm.set_leader("bpa"_n);
    tpm.set_next_leader("bpa"_n);
-   tpm.set_finalizer_set(fset);
+   tpm.set_finalizer_policy(fset);
 
    auto qcc_bpa = std::find_if(ht._qc_chains.begin(), ht._qc_chains.end(), [&](const auto& q){ return q.first == "bpa"_n; });
    finalizer_state fs_bpa;

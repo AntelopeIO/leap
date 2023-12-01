@@ -82,6 +82,8 @@ set(CHAIN_WEBASSEMBLY_SOURCES
 set(CHAIN_HOTSTUFF_SOURCES
    hotstuff/chain_pacemaker.cpp
    hotstuff/qc_chain.cpp
+   hotstuff/finalizer_policy.cpp
+
 )
 
 add_library(eosio_rapidjson INTERFACE)
@@ -128,7 +130,6 @@ add_library( eosio_chain
              ${CHAIN_HOTSTUFF_SOURCES}
 
              authority.cpp
-             finalizer_set.cpp
              trace.cpp
              transaction_metadata.cpp
              protocol_state_object.cpp

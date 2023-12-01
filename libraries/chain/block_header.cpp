@@ -1,5 +1,5 @@
 #include <eosio/chain/block.hpp>
-#include <eosio/chain/finalizer_authority.hpp>
+#include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <eosio/chain/merkle.hpp>
 #include <fc/io/raw.hpp>
 #include <fc/bitutil.hpp>
