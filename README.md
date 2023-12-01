@@ -1,4 +1,11 @@
 # Leap
+
+1. [Branches](#branches)
+2. [Supported Operating Systems](#supported-operating-systems)
+3. [Binary Installation](#binary-installation)
+4. [Build and Install from Source](#build-and-install-from-source)
+5. [Bash Autocomplete](#bash-autocomplete)
+
 Leap is a C++ implementation of the [Antelope](https://github.com/AntelopeIO) protocol. It contains blockchain node software and supporting tools for developers and node operators.
 
 ## Branches
@@ -208,3 +215,10 @@ It is also possible to install using `make` instead:
 ```bash
 sudo make install
 ```
+
+## Bash Autocomplete
+`cleos` and `leap-util` offer a substantial amount of functionality. Consider using bash's autocompletion support which makes it easier to discover all their various options.
+
+For our provided `.deb` packages simply install Ubuntu's `bash-completion` package: `apt-get install bash-completion` (you may need to log out/in after installing).
+
+If building from source install the `build/programs/cleos/bash-completion/completions/cleos` and `build/programs/leap-util/bash-completion/completions/leap-util` files to your bash-completion directory. Refer to [bash-completion's documentation](https://github.com/scop/bash-completion#faq) on the possible install locations.
