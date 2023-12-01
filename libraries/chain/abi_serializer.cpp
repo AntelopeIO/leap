@@ -2,7 +2,6 @@
 #include <eosio/chain/asset.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <eosio/chain/hotstuff/finalizer_authority.hpp>
-#include <eosio/chain/hotstuff/finalizer_policy.hpp>
 #include <fc/io/raw.hpp>
 #include <boost/algorithm/string/predicate.hpp>
 #include <fc/io/varint.hpp>
