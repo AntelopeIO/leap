@@ -26,8 +26,8 @@
 #include <eosio/chain/thread_utils.hpp>
 #include <eosio/chain/platform_timer.hpp>
 #include <eosio/chain/deep_mind.hpp>
-#include <eosio/chain/finalizer_set.hpp>
-#include <eosio/chain/finalizer_authority.hpp>
+#include <eosio/chain/hotstuff/finalizer_policy.hpp>
+#include <eosio/chain/hotstuff/finalizer_authority.hpp>
 #include <eosio/chain/hotstuff/hotstuff.hpp>
 #include <eosio/chain/hotstuff/chain_pacemaker.hpp>
 
@@ -1920,15 +1920,15 @@ struct controller_impl {
 
       block_ptr->transactions = std::move( bb._pending_trx_receipts );
 
-      if (bb._pending_block_header_state.proposed_finalizer_set) {
-         // proposed_finalizer_set can't be set until builtin_protocol_feature_t::instant_finality activated
-         finalizer_set& fin_set = *bb._pending_block_header_state.proposed_finalizer_set;
-         ++bb._pending_block_header_state.last_proposed_finalizer_set_generation;
-         fin_set.generation = bb._pending_block_header_state.last_proposed_finalizer_set_generation;
+      if (bb._pending_block_header_state.proposed_finalizer_policy) {
+         // proposed_finalizer_policy can't be set until builtin_protocol_feature_t::instant_finality activated
+         finalizer_policy& fin_pol = *bb._pending_block_header_state.proposed_finalizer_policy;
+         ++bb._pending_block_header_state.last_proposed_finalizer_policy_generation;
+         fin_pol.generation = bb._pending_block_header_state.last_proposed_finalizer_policy_generation;
          emplace_extension(
                  block_ptr->header_extensions,
-                 hs_finalizer_set_extension::extension_id(),
-                 fc::raw::pack( hs_finalizer_set_extension{ std::move(fin_set) } )
+                 finalizer_policy_extension::extension_id(),
+                 fc::raw::pack( finalizer_policy_extension{ std::move(fin_pol) } )
          );
       }
 
@@ -2006,11 +2006,11 @@ struct controller_impl {
       pending->push();
    }
 
-   void set_proposed_finalizers(const finalizer_set& fin_set) {
+   void set_proposed_finalizers(const finalizer_policy& fin_pol) {
       assert(pending); // has to exist and be building_block since called from host function
       auto& bb = std::get<building_block>(pending->_block_stage);
 
-      bb._pending_block_header_state.proposed_finalizer_set.emplace(fin_set);
+      bb._pending_block_header_state.proposed_finalizer_policy.emplace(fin_pol);
    }
 
    /**
@@ -3344,8 +3344,8 @@ void controller::register_pacemaker_warn_function(std::function<void(uint32_t, h
    my->pacemaker->register_warn_function(std::move(warn_hs_message));
 }
 
-void controller::set_proposed_finalizers( const finalizer_set& fin_set ) {
-   my->set_proposed_finalizers(fin_set);
+void controller::set_proposed_finalizers( const finalizer_policy& fin_pol ) {
+   my->set_proposed_finalizers(fin_pol);
 }
 
 void controller::get_finalizer_state( finalizer_state& fs ) const {
@@ -3914,14 +3914,14 @@ void controller_impl::on_activation<builtin_protocol_feature_t::bls_primitives>(
    db.modify( db.get<protocol_state_object>(), [&]( auto& ps ) {
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_add" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_add" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_mul" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_mul" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_exp" );
-      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_exp" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_weighted_sum" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_weighted_sum" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_pairing" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g1_map" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_g2_map" );
       add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_mod" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_mul" );
+      add_intrinsic_to_whitelist( ps.whitelisted_intrinsics, "bls_fp_exp" );
    } );
 }
 

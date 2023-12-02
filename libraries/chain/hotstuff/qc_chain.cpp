@@ -49,11 +49,11 @@ namespace eosio::chain {
       return finalizers.count(); // the number of bits in this bitset that are set.
    }
 
-   hs_bitset qc_chain::update_bitset(const hs_bitset& finalizer_set, const bls_public_key& finalizer_key ) {
+   hs_bitset qc_chain::update_bitset(const hs_bitset& finalizer_policy, const bls_public_key& finalizer_key ) {
 
-      hs_bitset b(finalizer_set );
+      hs_bitset b(finalizer_policy );
 
-      const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+      const auto& finalizers = _pacemaker->get_finalizer_policy().finalizers;
 
       for (size_t i = 0; i < finalizers.size();i++) {
          if (finalizers[i].public_key == finalizer_key) {
@@ -126,7 +126,7 @@ namespace eosio::chain {
 
    void qc_chain::reset_qc(const hs_proposal_message& proposal) {
       fc_tlog(_logger, " === ${id} resetting qc : ${proposal_id}", ("proposal_id" , proposal.proposal_id)("id", _id));
-      const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+      const auto& finalizers = _pacemaker->get_finalizer_policy().finalizers;
       _current_qc.reset(proposal.proposal_id, proposal.get_proposal_digest(), finalizers.size(),  _pacemaker->get_quorum_threshold());
    }
 
@@ -165,7 +165,7 @@ namespace eosio::chain {
    }
 
    bool qc_chain::am_i_finalizer() {
-      const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+      const auto& finalizers = _pacemaker->get_finalizer_policy().finalizers;
       return !_my_finalizer_keys.empty() &&
          std::any_of(finalizers.begin(), finalizers.end(), [&](const auto& fa) { return _my_finalizer_keys.contains(fa.public_key); });
    }
@@ -256,7 +256,7 @@ namespace eosio::chain {
 
       if (signature_required && !_my_finalizer_keys.empty()){
          //iterate over all my finalizer keys and sign / broadcast for each that is in the schedule
-         const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+         const auto& finalizers = _pacemaker->get_finalizer_policy().finalizers;
 
          for (const auto& i : finalizers) {
             auto mfk_itr = _my_finalizer_keys.find(i.public_key);
@@ -355,7 +355,7 @@ namespace eosio::chain {
 
       // If quorum is already met, we don't need to do anything else. Otherwise, we aggregate the signature.
       if (!quorum_met) {
-         const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+         const auto& finalizers = _pacemaker->get_finalizer_policy().finalizers;
          digest_type digest = p->get_proposal_digest();
          for (size_t i=0; i<finalizers.size(); ++i) {
             if (finalizers[i].public_key == vote.finalizer_key) {
@@ -729,7 +729,7 @@ namespace eosio::chain {
       //fc_tlog(_logger, " === update_high_qc : proposal.justify ===");
       const hs_proposal_message* justify = get_proposal(proposal.justify.proposal_id);
       digest_type digest = justify->get_proposal_digest();
-      const auto& finalizers = _pacemaker->get_finalizer_set().finalizers;
+      const auto& finalizers = _pacemaker->get_finalizer_policy().finalizers;
       update_high_qc(valid_quorum_certificate(justify->proposal_id,
                                               std::vector<uint8_t>(digest.data(), digest.data() + 32),
                                               proposal.justify.strong_votes,

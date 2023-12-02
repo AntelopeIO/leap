@@ -31,3 +31,5 @@ struct block_header_state_core {
                                  bool is_last_qc_strong);
 };
 } } /// namespace eosio::chain
+
+
