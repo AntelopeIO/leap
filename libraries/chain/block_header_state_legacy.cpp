@@ -68,7 +68,7 @@ namespace eosio { namespace chain {
 
       result.valid_block_signing_authority                   = proauth.authority;
       result.producer                                        = proauth.producer_name;
-      result.last_proposed_finalizer_set_generation          = last_proposed_finalizer_set_generation;
+      result.last_proposed_finalizer_policy_generation       = last_proposed_finalizer_policy_generation;
 
       result.blockroot_merkle = blockroot_merkle;
       result.blockroot_merkle.append( id );
