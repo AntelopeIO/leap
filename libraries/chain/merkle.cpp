@@ -49,4 +49,21 @@ digest_type canonical_merkle(deque<digest_type> ids) {
    return ids.front();
 }
 
+digest_type calculate_merkle( deque<digest_type> ids ) {
+   if( 0 == ids.size() ) { return digest_type(); }
+
+   while( ids.size() > 1 ) {
+      if( ids.size() % 2 )
+         ids.push_back(ids.back());
+
+      for (size_t i = 0; i < ids.size() / 2; ++i) {
+         ids[i] = digest_type::hash(std::make_pair(std::cref(ids[2 * i]), std::cref(ids[(2 * i) + 1])));
+      }
+
+      ids.resize(ids.size() / 2);
+   }
+
+   return ids.front();
+}
+
 } } // eosio::chain
