@@ -18,12 +18,15 @@ namespace fc::crypto::blslib {
          bls_public_key( bls_public_key&& ) = default;
          bls_public_key( const bls_public_key& ) = default;
          explicit bls_public_key( const bls12_381::g1& pkey ) {_pkey = pkey;}
+         // affine non-montgomery base64 with bls_public_key_prefix
          explicit bls_public_key(const std::string& base64str);
 
          bls_public_key& operator=(const bls_public_key&) = default;
-         std::string to_string(const yield_function_t& yield = yield_function_t()) const;
-         friend bool operator==(const bls_public_key& p1, const bls_public_key& p2);
 
+         // affine non-montgomery base64 with bls_public_key_prefix
+         std::string to_string(const yield_function_t& yield = yield_function_t()) const;
+
+         friend bool operator==(const bls_public_key& p1, const bls_public_key& p2);
          auto operator<=>(const bls_public_key&) const = default;
 
          bls12_381::g1 _pkey;
