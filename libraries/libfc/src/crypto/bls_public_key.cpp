@@ -16,7 +16,7 @@ namespace fc::crypto::blslib {
       std::array<uint8_t, 96> bytes = fc::crypto::blslib::deserialize_base64<std::array<uint8_t, 96>>(data_str);
       
       constexpr bool check = true; // check if base64str is invalid
-      constexpr bool raw = true;
+      constexpr bool raw = false;  // non-montgomery
       std::optional<bls12_381::g1> g1 = bls12_381::g1::fromAffineBytesLE(bytes, check, raw);
       FC_ASSERT(g1);
       return *g1;
@@ -28,7 +28,7 @@ namespace fc::crypto::blslib {
 
    std::string bls_public_key::to_string(const yield_function_t& yield)const {
 
-      constexpr bool raw = true;
+      constexpr bool raw = false; // non-montgomery
       std::array<uint8_t, 96> bytes = _pkey.toAffineBytesLE(raw);
 
       std::string data_str = fc::crypto::blslib::serialize_base64<std::array<uint8_t, 96>>(bytes);
