@@ -40,7 +40,7 @@ namespace eosio::chain_apis {
        * uncommitted traces.
        * @param block
        */
-      void commit_block(const chain::block_state_ptr& block );
+      void commit_block(const chain::block_state_legacy_ptr& block );
 
       /**
        * parameters for the get_accounts_by_authorizers RPC

@@ -42,9 +42,9 @@ namespace eosio::chain_apis {
 
       void signal_applied_transaction( const chain::transaction_trace_ptr& trace, const chain::packed_transaction_ptr& ptrx );
 
-      void signal_accepted_block( const chain::block_state_ptr& bsp );
+      void signal_accepted_block( const chain::block_state_legacy_ptr& bsp );
 
-      void signal_irreversible_block( const chain::block_state_ptr& bsp );
+      void signal_irreversible_block( const chain::block_state_legacy_ptr& bsp );
 
       void signal_block_start( uint32_t block_num );
 
