@@ -4,7 +4,7 @@
 #include <appbase/method.hpp>
 
 #include <eosio/chain/block.hpp>
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/trace.hpp>
 

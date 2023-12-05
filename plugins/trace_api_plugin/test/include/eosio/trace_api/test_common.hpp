@@ -7,7 +7,7 @@
 #include <eosio/chain/abi_def.hpp>
 #include <eosio/chain/asset.hpp>
 #include <eosio/chain/block.hpp>
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/name.hpp>
 #include <eosio/chain/types.hpp>
 

@@ -1,6 +1,6 @@
 #pragma once
 
-#include <eosio/chain/block_header_state.hpp>
+#include <eosio/chain/block_header_state_legacy.hpp>
 #include <eosio/chain/block.hpp>
 #include <eosio/chain/transaction_metadata.hpp>
 #include <eosio/chain/action_receipt.hpp>
