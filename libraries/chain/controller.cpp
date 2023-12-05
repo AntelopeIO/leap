@@ -851,7 +851,7 @@ struct controller_impl {
          section.add_row(chain_snapshot_header(), db);
       });
 
-      snapshot->write_section<block_state_legacy>([this]( auto &section ){
+      snapshot->write_section("eosio::chain::block_state", [this]( auto &section ){
          section.template add_row<block_header_state_legacy>(*head, db);
       });
 
@@ -906,13 +906,13 @@ struct controller_impl {
          using v2 = legacy::snapshot_block_header_state_v2;
 
          if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
-            snapshot->read_section<block_state_legacy>([this, &head_header_state]( auto &section ) {
+            snapshot->read_section("eosio::chain::block_state", [this, &head_header_state]( auto &section ) {
                legacy::snapshot_block_header_state_v2 legacy_header_state;
                section.read_row(legacy_header_state, db);
                head_header_state = block_header_state_legacy(std::move(legacy_header_state));
             });
          } else {
-            snapshot->read_section<block_state_legacy>([this,&head_header_state]( auto &section ){
+            snapshot->read_section("eosio::chain::block_state", [this,&head_header_state]( auto &section ){
                section.read_row(head_header_state, db);
             });
          }
