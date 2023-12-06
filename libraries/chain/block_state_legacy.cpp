@@ -91,9 +91,9 @@ namespace eosio { namespace chain {
                                            deque<transaction_metadata_ptr>&& trx_metas,
                                            const protocol_feature_set& pfs,
                                            const std::function<void( block_timestamp_type,
-                                                       const flat_set<digest_type>&,
-                                                       const vector<digest_type>& )>& validator,
-                             const signer_callback_type& signer
+                                                                     const flat_set<digest_type>&,
+                                                                     const vector<digest_type>& )>& validator,
+                                           const signer_callback_type& signer
                            )
    :block_header_state_legacy( inject_additional_signatures( std::move(cur), *b, pfs, validator, signer ) )
    ,block( std::move(b) )
