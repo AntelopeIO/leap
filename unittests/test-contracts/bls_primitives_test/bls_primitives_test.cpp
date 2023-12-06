@@ -5,7 +5,7 @@ using namespace eosio;
 
 void bls_primitives_test::testg1add(const std::vector<uint8_t>& op1, const std::vector<uint8_t>& op2, const std::vector<uint8_t>& res, int32_t expected_error)
 {
-    bls_g1 r;
+    bls_g1 r{};
     int32_t error = internal_use_do_not_use::bls_g1_add(
         reinterpret_cast<const char*>(op1.data()),
         sizeof(bls_g1),
@@ -20,7 +20,7 @@ void bls_primitives_test::testg1add(const std::vector<uint8_t>& op1, const std::
 
 void bls_primitives_test::testg2add(const std::vector<uint8_t>& op1, const std::vector<uint8_t>& op2, const std::vector<uint8_t>& res, int32_t expected_error)
 {
-    bls_g2 r;
+    bls_g2 r{};
     int32_t error = internal_use_do_not_use::bls_g2_add(
         reinterpret_cast<const char*>(op1.data()),
         sizeof(bls_g2),
@@ -35,7 +35,7 @@ void bls_primitives_test::testg2add(const std::vector<uint8_t>& op1, const std::
 
 void bls_primitives_test::testg1wsum(const std::vector<uint8_t>& points, const std::vector<uint8_t>& scalars, const uint32_t num, const std::vector<uint8_t>& res, int32_t expected_error)
 {
-    bls_g1 r;
+    bls_g1 r{};
     int32_t error = internal_use_do_not_use::bls_g1_weighted_sum(
         reinterpret_cast<const char*>(points.data()),
         num * sizeof(bls_g1),
@@ -51,7 +51,7 @@ void bls_primitives_test::testg1wsum(const std::vector<uint8_t>& points, const s
 
 void bls_primitives_test::testg2wsum(const std::vector<uint8_t>& points, const std::vector<uint8_t>& scalars, const uint32_t num, const std::vector<uint8_t>& res, int32_t expected_error)
 {
-    bls_g2 r;
+    bls_g2 r{};
     int32_t error = internal_use_do_not_use::bls_g2_weighted_sum(
         reinterpret_cast<const char*>(points.data()),
         num * sizeof(bls_g2),
@@ -67,7 +67,7 @@ void bls_primitives_test::testg2wsum(const std::vector<uint8_t>& points, const s
 
 void bls_primitives_test::testpairing(const std::vector<uint8_t>& g1_points, const std::vector<uint8_t>& g2_points, const uint32_t num, const std::vector<uint8_t>& res, int32_t expected_error)
 {
-    bls_gt r;
+    bls_gt r{};
     int32_t error = internal_use_do_not_use::bls_pairing(
         reinterpret_cast<const char*>(g1_points.data()),
         num * sizeof(bls_g1),
@@ -83,7 +83,7 @@ void bls_primitives_test::testpairing(const std::vector<uint8_t>& g1_points, con
 
 void bls_primitives_test::testg1map(const std::vector<uint8_t>& e, const std::vector<uint8_t>& res, int32_t expected_error)
 {
-    bls_g1 r;
+    bls_g1 r{};
     int32_t error = internal_use_do_not_use::bls_g1_map(
         reinterpret_cast<const char*>(e.data()),
         sizeof(bls_fp),
@@ -96,7 +96,7 @@ void bls_primitives_test::testg1map(const std::vector<uint8_t>& e, const std::ve
 
 void bls_primitives_test::testg2map(const std::vector<uint8_t>& e, const std::vector<uint8_t>& res, int32_t expected_error)
 {
-    bls_g2 r;
+    bls_g2 r{};
     int32_t error = internal_use_do_not_use::bls_g2_map(
         reinterpret_cast<const char*>(e.data()),
         sizeof(bls_fp2),
@@ -109,7 +109,7 @@ void bls_primitives_test::testg2map(const std::vector<uint8_t>& e, const std::ve
 
 void bls_primitives_test::testfpmul(const std::vector<uint8_t>& op1, const std::vector<uint8_t>& op2, const std::vector<uint8_t>& res, int32_t expected_error)
 {
-    bls_fp r;
+    bls_fp r{};
     int32_t error = internal_use_do_not_use::bls_fp_mul(
         reinterpret_cast<const char*>(op1.data()),
         sizeof(bls_fp),
@@ -124,7 +124,7 @@ void bls_primitives_test::testfpmul(const std::vector<uint8_t>& op1, const std::
 
 void bls_primitives_test::testfpexp(const std::vector<uint8_t>& base, const std::vector<uint8_t>& exp, const std::vector<uint8_t>& res, int32_t expected_error)
 {
-    bls_fp r;
+    bls_fp r{};
     int32_t error = internal_use_do_not_use::bls_fp_exp(
         reinterpret_cast<const char*>(base.data()),
         sizeof(bls_fp),
@@ -140,7 +140,7 @@ void bls_primitives_test::testfpexp(const std::vector<uint8_t>& base, const std:
 
 void bls_primitives_test::testfpmod(const std::vector<uint8_t>& s, const std::vector<uint8_t>& res, int32_t expected_error)
 {
-    bls_fp r;
+    bls_fp r{};
     int32_t error = internal_use_do_not_use::bls_fp_mod(
         reinterpret_cast<const char*>(s.data()),
         sizeof(bls_scalar_large),
