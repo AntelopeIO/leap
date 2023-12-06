@@ -1,4 +1,5 @@
 #include <eosio/chain/incremental_merkle.hpp>
+#include <eosio/chain/merkle.hpp>
 #include <boost/test/unit_test.hpp>
 #include <fc/crypto/sha256.hpp>
 
@@ -12,7 +13,8 @@ BOOST_AUTO_TEST_CASE(basic_append_and_root_check_canonical) {
 
    auto node1 = fc::sha256::hash("Node1");
    tree.append(node1);
-   BOOST_CHECK_EQUAL(tree.get_root(), node1);
+   BOOST_CHECK_EQUAL(tree.get_root().str(), node1.str());
+   BOOST_CHECK_EQUAL(canonical_merkle({node1}).str(), node1.str());
 }
 
 BOOST_AUTO_TEST_CASE(multiple_appends_canonical) {
@@ -29,12 +31,17 @@ BOOST_AUTO_TEST_CASE(multiple_appends_canonical) {
 
    tree.append(node1);
    BOOST_CHECK_EQUAL(tree.get_root().str(), node1.str());
+   BOOST_CHECK_EQUAL(canonical_merkle({node1}).str(), node1.str());
 
    tree.append(node2);
    BOOST_CHECK_EQUAL(tree.get_root().str(), fc::sha256::hash(make_canonical_pair(node1, node2)).str());
+   BOOST_CHECK_EQUAL(canonical_merkle({node1, node2}).str(), fc::sha256::hash(make_canonical_pair(node1, node2)).str());
 
    tree.append(node3);
    BOOST_CHECK_EQUAL(tree.get_root().str(), fc::sha256::hash(make_canonical_pair(
+                        fc::sha256::hash(make_canonical_pair(node1, node2)),
+                        fc::sha256::hash(make_canonical_pair(node3, node3)))).str());
+   BOOST_CHECK_EQUAL(canonical_merkle({node1, node2, node3}).str(), fc::sha256::hash(make_canonical_pair(
                         fc::sha256::hash(make_canonical_pair(node1, node2)),
                         fc::sha256::hash(make_canonical_pair(node3, node3)))).str());
 
@@ -43,6 +50,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends_canonical) {
       fc::sha256::hash(make_canonical_pair(node1, node2)),
       fc::sha256::hash(make_canonical_pair(node3, node4))));
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(canonical_merkle({node1, node2, node3, node4}).str(), calculated_root.str());
 
    tree.append(node5);
    calculated_root = fc::sha256::hash(
@@ -58,6 +66,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends_canonical) {
       )
    );
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(canonical_merkle({node1, node2, node3, node4, node5}).str(), calculated_root.str());
 
    tree.append(node6);
    calculated_root = fc::sha256::hash(
@@ -73,6 +82,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends_canonical) {
       )
    );
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(canonical_merkle({node1, node2, node3, node4, node5, node6}).str(), calculated_root.str());
 
    tree.append(node7);
    calculated_root = fc::sha256::hash(
@@ -88,6 +98,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends_canonical) {
       )
    );
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(canonical_merkle({node1, node2, node3, node4, node5, node6, node7}).str(), calculated_root.str());
 
    tree.append(node8);
    calculated_root = fc::sha256::hash(
@@ -103,6 +114,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends_canonical) {
       )
    );
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(canonical_merkle({node1, node2, node3, node4, node5, node6, node7, node8}).str(), calculated_root.str());
 
    tree.append(node9);
    calculated_root = fc::sha256::hash(make_canonical_pair(
@@ -131,6 +143,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends_canonical) {
          )
       )   ));
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(canonical_merkle({node1, node2, node3, node4, node5, node6, node7, node8, node9}).str(), calculated_root.str());
 }
 
 BOOST_AUTO_TEST_CASE(basic_append_and_root_check) {
@@ -140,6 +153,7 @@ BOOST_AUTO_TEST_CASE(basic_append_and_root_check) {
    auto node1 = fc::sha256::hash("Node1");
    tree.append(node1);
    BOOST_CHECK_EQUAL(tree.get_root(), node1);
+   BOOST_CHECK_EQUAL(calculate_merkle({node1}).str(), node1.str());
 }
 
 BOOST_AUTO_TEST_CASE(multiple_appends) {
@@ -156,12 +170,17 @@ BOOST_AUTO_TEST_CASE(multiple_appends) {
 
    tree.append(node1);
    BOOST_CHECK_EQUAL(tree.get_root().str(), node1.str());
+   BOOST_CHECK_EQUAL(calculate_merkle({node1}).str(), node1.str());
 
    tree.append(node2);
    BOOST_CHECK_EQUAL(tree.get_root().str(), fc::sha256::hash(std::make_pair(node1, node2)).str());
+   BOOST_CHECK_EQUAL(calculate_merkle({node1, node2}).str(), fc::sha256::hash(std::make_pair(node1, node2)).str());
 
    tree.append(node3);
    BOOST_CHECK_EQUAL(tree.get_root().str(), fc::sha256::hash(std::make_pair(
+                        fc::sha256::hash(std::make_pair(node1, node2)),
+                        fc::sha256::hash(std::make_pair(node3, node3)))).str());
+   BOOST_CHECK_EQUAL(calculate_merkle({node1, node2, node3}).str(), fc::sha256::hash(std::make_pair(
                         fc::sha256::hash(std::make_pair(node1, node2)),
                         fc::sha256::hash(std::make_pair(node3, node3)))).str());
 
@@ -170,6 +189,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends) {
       fc::sha256::hash(std::make_pair(node1, node2)),
       fc::sha256::hash(std::make_pair(node3, node4))));
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(calculate_merkle({node1, node2, node3, node4}).str(), calculated_root.str());
 
    tree.append(node5);
    calculated_root = fc::sha256::hash(
@@ -185,6 +205,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends) {
       )
    );
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(calculate_merkle({node1, node2, node3, node4, node5}).str(), calculated_root.str());
 
    tree.append(node6);
    calculated_root = fc::sha256::hash(
@@ -200,6 +221,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends) {
       )
    );
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(calculate_merkle({node1, node2, node3, node4, node5, node6}).str(), calculated_root.str());
 
    tree.append(node7);
    calculated_root = fc::sha256::hash(
@@ -215,6 +237,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends) {
       )
    );
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(calculate_merkle({node1, node2, node3, node4, node5, node6, node7}).str(), calculated_root.str());
 
    tree.append(node8);
    calculated_root = fc::sha256::hash(
@@ -230,6 +253,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends) {
       )
    );
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(calculate_merkle({node1, node2, node3, node4, node5, node6, node7, node8}).str(), calculated_root.str());
 
    tree.append(node9);
    calculated_root = fc::sha256::hash(std::make_pair(
@@ -258,6 +282,7 @@ BOOST_AUTO_TEST_CASE(multiple_appends) {
          )
       )   ));
    BOOST_CHECK_EQUAL(tree.get_root().str(), calculated_root.str());
+   BOOST_CHECK_EQUAL(calculate_merkle({node1, node2, node3, node4, node5, node6, node7, node8, node9}).str(), calculated_root.str());
 }
 
 BOOST_AUTO_TEST_SUITE_END()
