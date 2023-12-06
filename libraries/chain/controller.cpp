@@ -1877,31 +1877,22 @@ struct controller_impl {
 
       try {
 
-      uint32_t hs_lib = hs_irreversible_block_num.load();
-      const bool hs_active = hs_lib > 0;
+      const bool if_active = hs_irreversible_block_num.load() > 0;
 
       auto& pbhs = pending->get_pending_block_header_state();
 
       auto& bb = std::get<building_block>(pending->_block_stage);
 
       auto action_merkle_fut = post_async_task( thread_pool.get_executor(),
-                                                [ids{std::move( bb._action_receipt_digests )}, hs_active]() mutable {
-                                                   if (hs_active) {
-                                                      return calculate_merkle( std::move( ids ) );
-                                                   } else {
-                                                      return canonical_merkle( std::move( ids ) );
-                                                   }
+                                                [ids{std::move( bb._action_receipt_digests )}, if_active]() mutable {
+                                                   return calc_merkle(std::move(ids), if_active);
                                                 } );
       const bool calc_trx_merkle = !std::holds_alternative<checksum256_type>(bb._trx_mroot_or_receipt_digests);
       std::future<checksum256_type> trx_merkle_fut;
       if( calc_trx_merkle ) {
          trx_merkle_fut = post_async_task( thread_pool.get_executor(),
-                                           [ids{std::move( std::get<digests_t>(bb._trx_mroot_or_receipt_digests) )}, hs_active]() mutable {
-                                              if (hs_active) {
-                                                 return calculate_merkle( std::move( ids ) );
-                                              } else {
-                                                 return canonical_merkle( std::move( ids ) );
-                                              }
+                                           [ids{std::move( std::get<digests_t>(bb._trx_mroot_or_receipt_digests) )}, if_active]() mutable {
+                                              return calc_merkle(std::move(ids), if_active);
                                            } );
       }
 
@@ -2477,16 +2468,21 @@ struct controller_impl {
       return applied_trxs;
    }
 
-   static checksum256_type calculate_trx_merkle( const deque<transaction_receipt>& trxs, bool hs_active ) {
+   // @param if_active true if instant finality is active
+   static checksum256_type calc_merkle( deque<digest_type>&& digests, bool if_active ) {
+      if (if_active) {
+         return calculate_merkle( std::move(digests) );
+      } else {
+         return canonical_merkle( std::move(digests) );
+      }
+   }
+
+   static checksum256_type calculate_trx_merkle( const deque<transaction_receipt>& trxs, bool if_active ) {
       deque<digest_type> trx_digests;
       for( const auto& a : trxs )
          trx_digests.emplace_back( a.digest() );
 
-      if (hs_active) {
-         return calculate_merkle( std::move(trx_digests) );
-      } else {
-         return canonical_merkle( std::move(trx_digests) );
-      }
+      return calc_merkle(std::move(trx_digests), if_active);
    }
 
    void update_producers_authority() {
