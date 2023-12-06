@@ -23,7 +23,6 @@ namespace eosio { namespace chain {
       }
    }
 
-<<<<<<< HEAD:libraries/chain/block_header_state.cpp
    block_header_state_core::block_header_state_core( uint32_t last_final_block_height,
                                       std::optional<uint32_t> final_on_strong_qc_block_height,
                                       std::optional<uint32_t> last_qc_block_height )
@@ -71,10 +70,8 @@ namespace eosio { namespace chain {
 
       return result;
    }
-   producer_authority block_header_state::get_scheduled_producer( block_timestamp_type t )const {
-=======
+
    producer_authority block_header_state_legacy::get_scheduled_producer( block_timestamp_type t )const {
->>>>>>> origin/main:libraries/chain/block_header_state_legacy.cpp
       auto index = t.slot % (active_schedule.producers.size() * config::producer_repetitions);
       index /= config::producer_repetitions;
       return active_schedule.producers[index];
@@ -94,17 +91,12 @@ namespace eosio { namespace chain {
       return blocknums[ index ];
    }
 
-<<<<<<< HEAD:libraries/chain/block_header_state.cpp
    // create pending_block_header_state from this for `when`
    // If hotstuff_activated then use new consensus values and simpler active schedule update.
    // If notstuff is not activated then use previous pre-hotstuff consensus logic.
-   pending_block_header_state  block_header_state::next( block_timestamp_type when,
+   pending_block_header_state  block_header_state_legacy::next( block_timestamp_type when,
                                                          bool hotstuff_activated,
                                                          uint16_t num_prev_blocks_to_confirm )const
-=======
-   pending_block_header_state  block_header_state_legacy::next( block_timestamp_type when,
-                                                                uint16_t num_prev_blocks_to_confirm )const
->>>>>>> origin/main:libraries/chain/block_header_state_legacy.cpp
    {
       pending_block_header_state result;
 

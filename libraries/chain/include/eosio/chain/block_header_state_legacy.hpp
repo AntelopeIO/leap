@@ -121,7 +121,6 @@ protected:
 };
 
 /**
-<<<<<<< HEAD:libraries/chain/include/eosio/chain/block_header_state.hpp
  *  @struct block_header_state_core
  *
  *  A data structure holding hotstuff core information
@@ -175,9 +174,7 @@ struct block_header_state_core {
  *           block_state.pending_schedule = prev_pending_schedule
  *
  *
-=======
  *  @struct block_header_state_legacy
->>>>>>> origin/main:libraries/chain/include/eosio/chain/block_header_state_legacy.hpp
  *  @brief defines the minimum state necessary to validate transaction headers
  */
 struct block_header_state_legacy : public detail::block_header_state_legacy_common {
@@ -201,24 +198,14 @@ struct block_header_state_legacy : public detail::block_header_state_legacy_comm
 
    pending_block_header_state  next( block_timestamp_type when, bool hotstuff_activated, uint16_t num_prev_blocks_to_confirm )const;
 
-<<<<<<< HEAD:libraries/chain/include/eosio/chain/block_header_state.hpp
-   block_header_state   next( const signed_block_header& h,
-                              vector<signature_type>&& additional_signatures,
-                              const protocol_feature_set& pfs,
-                              bool hotstuff_activated,
-                              const std::function<void( block_timestamp_type,
-                                                        const flat_set<digest_type>&,
-                                                        const vector<digest_type>& )>& validator,
-                              bool skip_validate_signee = false )const;
-=======
    block_header_state_legacy  next( const signed_block_header& h,
                                     vector<signature_type>&& additional_signatures,
                                     const protocol_feature_set& pfs,
+                                    bool hotstuff_activated,
                                     const std::function<void( block_timestamp_type,
                                                               const flat_set<digest_type>&,
                                                               const vector<digest_type>& )>& validator,
                                     bool skip_validate_signee = false )const;
->>>>>>> origin/main:libraries/chain/include/eosio/chain/block_header_state_legacy.hpp
 
    uint32_t             calc_dpos_last_irreversible( account_name producer_of_next_block )const;
 

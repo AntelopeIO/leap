@@ -2651,12 +2651,7 @@ void producer_plugin_impl::produce_block() {
 
    chain.commit_block();
 
-<<<<<<< HEAD
-   block_state_ptr new_bs = chain.head_block_state();
-
-=======
    block_state_legacy_ptr new_bs = chain.head_block_state();
->>>>>>> origin/main
    producer_plugin::produced_block_metrics metrics;
 
    br.total_time += fc::time_point::now() - start;

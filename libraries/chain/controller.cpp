@@ -2216,8 +2216,7 @@ struct controller_impl {
 
 
    // thread safe, expected to be called from thread other than the main thread
-<<<<<<< HEAD
-   block_state_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
+   block_state_legacy_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
       bool hs_active = false;
       if (!b->header_extensions.empty()) {
          std::optional<block_header_extension> ext = b->extract_header_extension(proposal_info_extension::extension_id());
@@ -2225,10 +2224,6 @@ struct controller_impl {
       }
 
       auto trx_mroot = calculate_trx_merkle( b->transactions, hs_active );
-=======
-   block_state_legacy_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
-      auto trx_mroot = calculate_trx_merkle( b->transactions );
->>>>>>> origin/main
       EOS_ASSERT( b->transaction_mroot == trx_mroot, block_validate_exception,
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
 
