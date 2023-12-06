@@ -624,7 +624,7 @@ public:
                                ((_produce_block_cpu_effort.count() / 1000) * config::producer_repetitions) );
    }
 
-   void on_block(const block_state_ptr& bsp) {
+   void on_block(const block_state_legacy_ptr& bsp) {
       auto& chain  = chain_plug->chain();
       auto  before = _unapplied_transactions.size();
       _unapplied_transactions.clear_applied(bsp);
@@ -634,7 +634,7 @@ public:
       }
    }
 
-   void on_block_header(const block_state_ptr& bsp) {
+   void on_block_header(const block_state_legacy_ptr& bsp) {
       if (_producers.contains(bsp->header.producer))
          _producer_watermarks.consider_new_watermark(bsp->header.producer, bsp->block_num, bsp->block->timestamp);
    }
@@ -666,7 +666,7 @@ public:
       _time_tracker.clear();
    }
 
-   bool on_incoming_block(const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
+   bool on_incoming_block(const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_legacy_ptr& bsp) {
       auto& chain = chain_plug->chain();
       if (in_producing_mode()) {
          fc_wlog(_log, "dropped incoming block #${num} id: ${id}", ("num", block->block_num())("id", block_id ? (*block_id).str() : "UNKNOWN"));
@@ -694,7 +694,7 @@ public:
       } 
 
       // start processing of block
-      std::future<block_state_ptr> bsf;
+      std::future<block_state_legacy_ptr> bsf;
       if (!bsp) {
          bsf = chain.create_block_state_future(id, block);
       }
@@ -711,7 +711,7 @@ public:
 
       controller::block_report br;
       try {
-         const block_state_ptr& bspr = bsp ? bsp : bsf.get();
+         const block_state_legacy_ptr& bspr = bsp ? bsp : bsf.get();
          chain.push_block(
             br,
             bspr,
@@ -1280,7 +1280,7 @@ void producer_plugin_impl::plugin_initialize(const boost::program_options::varia
    ilog("read-only-threads ${s}, max read-only trx time to be enforced: ${t} us", ("s", _ro_thread_pool_size)("t", _ro_max_trx_time_us));
 
    _incoming_block_sync_provider = app().get_method<incoming::methods::block_sync>().register_provider(
-      [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_ptr& bsp) {
+      [this](const signed_block_ptr& block, const std::optional<block_id_type>& block_id, const block_state_legacy_ptr& bsp) {
          return on_incoming_block(block, block_id, bsp);
       });
 
@@ -2651,8 +2651,12 @@ void producer_plugin_impl::produce_block() {
 
    chain.commit_block();
 
+<<<<<<< HEAD
    block_state_ptr new_bs = chain.head_block_state();
 
+=======
+   block_state_legacy_ptr new_bs = chain.head_block_state();
+>>>>>>> origin/main
    producer_plugin::produced_block_metrics metrics;
 
    br.total_time += fc::time_point::now() - start;

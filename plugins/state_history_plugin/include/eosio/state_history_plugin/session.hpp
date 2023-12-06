@@ -1,5 +1,5 @@
 #pragma once
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/state_history/compression.hpp>
 #include <eosio/state_history/log.hpp>
 #include <eosio/state_history/serialization.hpp>
@@ -26,7 +26,7 @@ struct send_queue_entry_base {
 
 struct session_base {
    virtual void send_update(bool changed)                                     = 0;
-   virtual void send_update(const eosio::chain::block_state_ptr& block_state) = 0;
+   virtual void send_update(const eosio::chain::block_state_legacy_ptr& block_state) = 0;
    virtual ~session_base()                                                    = default;
 
    std::optional<state_history::get_blocks_request_v0> current_request;
@@ -35,9 +35,9 @@ struct session_base {
 
 class send_update_send_queue_entry : public send_queue_entry_base {
    std::shared_ptr<session_base> session;
-   const chain::block_state_ptr block_state;
+   const chain::block_state_legacy_ptr block_state;
 public:
-   send_update_send_queue_entry(std::shared_ptr<session_base> s, chain::block_state_ptr block_state)
+   send_update_send_queue_entry(std::shared_ptr<session_base> s, chain::block_state_legacy_ptr block_state)
          : session(std::move(s))
          , block_state(std::move(block_state)){}
 
@@ -123,7 +123,7 @@ public:
       }
    }
 
-   void send_update(const chain::block_state_ptr& block_state) {
+   void send_update(const chain::block_state_legacy_ptr& block_state) {
       for( auto& s : session_set ) {
          add_send_queue(s, std::make_unique<send_update_send_queue_entry>(s, block_state));
       }
@@ -481,7 +481,7 @@ private:
       current_request = std::move(req);
    }
 
-   void send_update(state_history::get_blocks_result_v0 result, const chain::block_state_ptr& block_state) {
+   void send_update(state_history::get_blocks_result_v0 result, const chain::block_state_legacy_ptr& block_state) {
       need_to_send_update = true;
       if (!current_request || !current_request->max_messages_in_flight) {
          session_mgr.pop_entry(false);
@@ -553,7 +553,7 @@ private:
       std::make_shared<blocks_result_send_queue_entry<session>>(this->shared_from_this(), std::move(result))->send_entry();
    }
 
-   void send_update(const chain::block_state_ptr& block_state) override {
+   void send_update(const chain::block_state_legacy_ptr& block_state) override {
       if (!current_request || !current_request->max_messages_in_flight) {
          session_mgr.pop_entry(false);
          return;

@@ -1,5 +1,5 @@
 #pragma once
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <boost/signals2/signal.hpp>
 
 namespace eosio { namespace chain {
@@ -30,14 +30,14 @@ namespace eosio { namespace chain {
                                               const vector<digest_type>& )>& validator );
          void close();
 
-         block_header_state_ptr  get_block_header( const block_id_type& id )const;
-         block_state_ptr         get_block( const block_id_type& id )const;
+         block_header_state_legacy_ptr  get_block_header( const block_id_type& id )const;
+         block_state_legacy_ptr         get_block( const block_id_type& id )const;
 
          /**
           *  Purges any existing blocks from the fork database and resets the root block_header_state to the provided value.
           *  The head will also be reset to point to the root.
           */
-         void            reset( const block_header_state& root_bhs );
+         void            reset( const block_header_state_legacy& root_bhs );
 
          /**
           *  Removes validated flag from all blocks in fork database and resets head to point to the root.
@@ -53,13 +53,13 @@ namespace eosio { namespace chain {
           *  Add block state to fork database.
           *  Must link to existing block in fork database or the root.
           */
-         void            add( const block_state_ptr& next_block, bool ignore_duplicate = false );
+         void            add( const block_state_legacy_ptr& next_block, bool ignore_duplicate = false );
 
          void            remove( const block_id_type& id );
 
-         block_state_ptr root()const;
-         block_state_ptr head()const;
-         block_state_ptr pending_head()const;
+         block_state_legacy_ptr root()const;
+         block_state_legacy_ptr head()const;
+         block_state_legacy_ptr pending_head()const;
 
          /**
           *  Returns the sequence of block states resulting from trimming the branch from the
@@ -76,7 +76,7 @@ namespace eosio { namespace chain {
           *  Returns the block state with a block number of `block_num` that is on the branch that
           *  contains a block with an id of`h`, or the empty shared pointer if no such block can be found.
           */
-         block_state_ptr search_on_branch( const block_id_type& h, uint32_t block_num )const;
+         block_state_legacy_ptr search_on_branch( const block_id_type& h, uint32_t block_num )const;
 
          /**
           *  Given two head blocks, return two branches of the fork graph that
@@ -86,7 +86,7 @@ namespace eosio { namespace chain {
                                                               const block_id_type& second )const;
 
 
-         void mark_valid( const block_state_ptr& h );
+         void mark_valid( const block_state_legacy_ptr& h );
 
          static const uint32_t magic_number;
 

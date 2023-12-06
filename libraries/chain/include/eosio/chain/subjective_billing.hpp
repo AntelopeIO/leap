@@ -2,7 +2,7 @@
 
 #include <eosio/chain/types.hpp>
 #include <eosio/chain/exceptions.hpp>
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/transaction.hpp>
 #include <eosio/chain/resource_limits.hpp>
 #include <eosio/chain/resource_limits_private.hpp>
@@ -81,7 +81,7 @@ private:
       }
    }
 
-   void remove_subjective_billing( const chain::block_state_ptr& bsp, uint32_t time_ordinal ) {
+   void remove_subjective_billing( const chain::block_state_legacy_ptr& bsp, uint32_t time_ordinal ) {
       if( !_trx_cache_index.empty() ) {
          for( const auto& receipt : bsp->block->transactions ) {
             if( std::holds_alternative<chain::packed_transaction>(receipt.trx) ) {
@@ -151,7 +151,7 @@ public:
       }
    }
 
-   void on_block( fc::logger& log, const chain::block_state_ptr& bsp, const fc::time_point& now ) {
+   void on_block( fc::logger& log, const chain::block_state_legacy_ptr& bsp, const fc::time_point& now ) {
       if( bsp == nullptr || _disabled ) return;
       const auto time_ordinal = time_ordinal_for(now);
       const auto orig_count = _account_subjective_bill_cache.size();

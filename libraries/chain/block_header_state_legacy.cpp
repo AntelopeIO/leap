@@ -1,4 +1,4 @@
-#include <eosio/chain/block_header_state.hpp>
+#include <eosio/chain/block_header_state_legacy.hpp>
 #include <eosio/chain/exceptions.hpp>
 #include <limits>
 
@@ -23,6 +23,7 @@ namespace eosio { namespace chain {
       }
    }
 
+<<<<<<< HEAD:libraries/chain/block_header_state.cpp
    block_header_state_core::block_header_state_core( uint32_t last_final_block_height,
                                       std::optional<uint32_t> final_on_strong_qc_block_height,
                                       std::optional<uint32_t> last_qc_block_height )
@@ -71,12 +72,15 @@ namespace eosio { namespace chain {
       return result;
    }
    producer_authority block_header_state::get_scheduled_producer( block_timestamp_type t )const {
+=======
+   producer_authority block_header_state_legacy::get_scheduled_producer( block_timestamp_type t )const {
+>>>>>>> origin/main:libraries/chain/block_header_state_legacy.cpp
       auto index = t.slot % (active_schedule.producers.size() * config::producer_repetitions);
       index /= config::producer_repetitions;
       return active_schedule.producers[index];
    }
 
-   uint32_t block_header_state::calc_dpos_last_irreversible( account_name producer_of_next_block )const {
+   uint32_t block_header_state_legacy::calc_dpos_last_irreversible( account_name producer_of_next_block )const {
       vector<uint32_t> blocknums; blocknums.reserve( producer_to_last_implied_irb.size() );
       for( auto& i : producer_to_last_implied_irb ) {
          blocknums.push_back( (i.first == producer_of_next_block) ? dpos_proposed_irreversible_blocknum : i.second);
@@ -90,12 +94,17 @@ namespace eosio { namespace chain {
       return blocknums[ index ];
    }
 
+<<<<<<< HEAD:libraries/chain/block_header_state.cpp
    // create pending_block_header_state from this for `when`
    // If hotstuff_activated then use new consensus values and simpler active schedule update.
    // If notstuff is not activated then use previous pre-hotstuff consensus logic.
    pending_block_header_state  block_header_state::next( block_timestamp_type when,
                                                          bool hotstuff_activated,
                                                          uint16_t num_prev_blocks_to_confirm )const
+=======
+   pending_block_header_state  block_header_state_legacy::next( block_timestamp_type when,
+                                                                uint16_t num_prev_blocks_to_confirm )const
+>>>>>>> origin/main:libraries/chain/block_header_state_legacy.cpp
    {
       pending_block_header_state result;
 
@@ -299,7 +308,7 @@ namespace eosio { namespace chain {
       return h;
    }
 
-   block_header_state pending_block_header_state::_finish_next(
+   block_header_state_legacy pending_block_header_state::_finish_next(
                                  const signed_block_header& h,
                                  const protocol_feature_set& pfs,
                                  const std::function<void( block_timestamp_type,
@@ -369,7 +378,7 @@ namespace eosio { namespace chain {
 
       auto block_number = block_num;
 
-      block_header_state result( std::move( *static_cast<detail::block_header_state_common*>(this) ) );
+      block_header_state_legacy result( std::move( *static_cast<detail::block_header_state_legacy_common*>(this) ) );
 
       result.id      = h.calculate_id();
       result.header  = h;
@@ -395,7 +404,7 @@ namespace eosio { namespace chain {
       return result;
    }
 
-   block_header_state pending_block_header_state::finish_next(
+   block_header_state_legacy pending_block_header_state::finish_next(
                                  const signed_block_header& h,
                                  vector<signature_type>&& additional_signatures,
                                  const protocol_feature_set& pfs,
@@ -425,7 +434,7 @@ namespace eosio { namespace chain {
       return result;
    }
 
-   block_header_state pending_block_header_state::finish_next(
+   block_header_state_legacy pending_block_header_state::finish_next(
                                  signed_block_header& h,
                                  const protocol_feature_set& pfs,
                                  const std::function<void( block_timestamp_type,
@@ -456,7 +465,7 @@ namespace eosio { namespace chain {
     *
     *  If the header specifies new_producers then apply them accordingly.
     */
-   block_header_state block_header_state::next(
+   block_header_state_legacy block_header_state_legacy::next(
                         const signed_block_header& h,
                         vector<signature_type>&& _additional_signatures,
                         const protocol_feature_set& pfs,
@@ -469,12 +478,12 @@ namespace eosio { namespace chain {
       return next( h.timestamp, hotstuff_activated, h.confirmed ).finish_next( h, std::move(_additional_signatures), pfs, validator, skip_validate_signee );
    }
 
-   digest_type   block_header_state::sig_digest()const {
+   digest_type   block_header_state_legacy::sig_digest()const {
       auto header_bmroot = digest_type::hash( std::make_pair( header.digest(), blockroot_merkle.get_root() ) );
       return digest_type::hash( std::make_pair(header_bmroot, pending_schedule.schedule_hash) );
    }
 
-   void block_header_state::sign( const signer_callback_type& signer ) {
+   void block_header_state_legacy::sign( const signer_callback_type& signer ) {
       auto d = sig_digest();
       auto sigs = signer( d );
 
@@ -487,7 +496,7 @@ namespace eosio { namespace chain {
       verify_signee();
    }
 
-   void block_header_state::verify_signee( )const {
+   void block_header_state_legacy::verify_signee( )const {
 
       auto num_keys_in_authority = std::visit([](const auto &a){ return a.keys.size(); }, valid_block_signing_authority);
       EOS_ASSERT(1 + additional_signatures.size() <= num_keys_in_authority, wrong_signing_key,
@@ -523,7 +532,7 @@ namespace eosio { namespace chain {
    /**
     *  Reference cannot outlive *this. Assumes header_exts is not mutated after instatiation.
     */
-   const vector<digest_type>& block_header_state::get_new_protocol_feature_activations()const {
+   const vector<digest_type>& block_header_state_legacy::get_new_protocol_feature_activations()const {
       static const vector<digest_type> no_activations{};
 
       if( header_exts.count(protocol_feature_activation::extension_id()) == 0 )
@@ -532,7 +541,7 @@ namespace eosio { namespace chain {
       return std::get<protocol_feature_activation>(header_exts.lower_bound(protocol_feature_activation::extension_id())->second).protocol_features;
    }
 
-   block_header_state::block_header_state( legacy::snapshot_block_header_state_v2&& snapshot )
+   block_header_state_legacy::block_header_state_legacy( legacy::snapshot_block_header_state_v2&& snapshot )
    {
       block_num                             = snapshot.block_num;
       dpos_proposed_irreversible_blocknum   = snapshot.dpos_proposed_irreversible_blocknum;

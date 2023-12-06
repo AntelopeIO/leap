@@ -337,7 +337,7 @@ namespace eosio { namespace testing {
       control->add_indices();
       if (lambda) lambda();
       chain_transactions.clear();
-      control->accepted_block.connect([this]( const block_state_ptr& block_state ){
+      control->accepted_block.connect([this]( const block_state_legacy_ptr& block_state ){
         FC_ASSERT( block_state->block );
           for( auto receipt : block_state->block->transactions ) {
               if( std::holds_alternative<packed_transaction>(receipt.trx) ) {

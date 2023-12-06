@@ -351,9 +351,9 @@ BOOST_AUTO_TEST_CASE( validator_accepts_valid_blocks ) try {
 
    auto id = n1.control->head_block_id();
 
-   block_state_ptr first_block;
+   block_state_legacy_ptr first_block;
 
-   auto c = n2.control->accepted_block.connect( [&]( const block_state_ptr& bsp) {
+   auto c = n2.control->accepted_block.connect( [&]( const block_state_legacy_ptr& bsp) {
       first_block = bsp;
    } );
 
@@ -697,7 +697,7 @@ BOOST_AUTO_TEST_CASE( push_block_returns_forked_transactions ) try {
 
    // test forked blocks signal accepted_block in order, required by trace_api_plugin
    std::vector<signed_block_ptr> accepted_blocks;
-   auto conn = c.control->accepted_block.connect( [&]( const block_state_ptr& bsp) {
+   auto conn = c.control->accepted_block.connect( [&]( const block_state_legacy_ptr& bsp) {
       accepted_blocks.emplace_back( bsp->block );
    } );
 
