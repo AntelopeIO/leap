@@ -619,7 +619,7 @@ struct state_history_tester : state_history_tester_logs, tester {
           trace_converter.add_transaction(std::get<0>(t), std::get<1>(t));
        });
 
-      control.accepted_block.connect([&](const block_state_ptr& block_state) {
+      control.accepted_block.connect([&](const block_state_legacy_ptr& block_state) {
          eosio::state_history_log_header header{.magic        = eosio::ship_magic(eosio::ship_current_version, 0),
                                       .block_id     = block_state->id,
                                       .payload_size = 0};

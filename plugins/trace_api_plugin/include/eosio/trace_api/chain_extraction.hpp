@@ -31,12 +31,12 @@ public:
    }
 
    /// connect to chain controller accepted_block signal
-   void signal_accepted_block( const chain::block_state_ptr& bsp ) {
+   void signal_accepted_block( const chain::block_state_legacy_ptr& bsp ) {
       on_accepted_block( bsp );
    }
 
    /// connect to chain controller irreversible_block signal
-   void signal_irreversible_block( const chain::block_state_ptr& bsp ) {
+   void signal_irreversible_block( const chain::block_state_legacy_ptr& bsp ) {
       on_irreversible_block( bsp );
    }
 
@@ -63,11 +63,11 @@ private:
       }
    }
 
-   void on_accepted_block(const chain::block_state_ptr& block_state) {
+   void on_accepted_block(const chain::block_state_legacy_ptr& block_state) {
       store_block_trace( block_state );
    }
 
-   void on_irreversible_block( const chain::block_state_ptr& block_state ) {
+   void on_irreversible_block( const chain::block_state_legacy_ptr& block_state ) {
       store_lib( block_state );
    }
 
@@ -80,7 +80,7 @@ private:
       onblock_trace.reset();
    }
 
-   void store_block_trace( const chain::block_state_ptr& block_state ) {
+   void store_block_trace( const chain::block_state_legacy_ptr& block_state ) {
       try {
          using transaction_trace_t = transaction_trace_v3;
          auto bt = create_block_trace( block_state );
@@ -117,7 +117,7 @@ private:
       }
    }
 
-   void store_lib( const chain::block_state_ptr& bsp ) {
+   void store_lib( const chain::block_state_legacy_ptr& bsp ) {
       try {
          store.append_lib( bsp->block_num );
       } catch( ... ) {

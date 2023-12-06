@@ -43,7 +43,7 @@ auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
    auto priv_key = eosio::testing::base_tester::get_private_key( block->producer, "active" );
    auto pub_key  = eosio::testing::base_tester::get_public_key( block->producer, "active" );
 
-   auto prev = std::make_shared<block_state>();
+   auto prev = std::make_shared<block_state_legacy>();
    auto header_bmroot = digest_type::hash( std::make_pair( block->digest(), prev->blockroot_merkle.get_root() ) );
    auto sig_digest = digest_type::hash( std::make_pair(header_bmroot, prev->pending_schedule.schedule_hash) );
    block->producer_signature = priv_key.sign( sig_digest );
@@ -63,7 +63,7 @@ auto create_test_block_state( deque<transaction_metadata_ptr> trx_metas ) {
    producer_authority_schedule schedule = { 0, { producer_authority{block->producer, block_signing_authority_v0{ 1, {{pub_key, 1}} } } } };
    pbhs.active_schedule = schedule;
    pbhs.valid_block_signing_authority = block_signing_authority_v0{ 1, {{pub_key, 1}} };
-   auto bsp = std::make_shared<block_state>(
+   auto bsp = std::make_shared<block_state_legacy>(
          std::move( pbhs ),
          std::move( block ),
          std::move( trx_metas ),
