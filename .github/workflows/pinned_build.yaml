@@ -1,0 +1,11 @@
+name: "Pinned Build"
+
+on:
+  workflow_dispatch:
+
+jobs:
+  dummy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dummy
+        run: echo This workflow is a stub on main to allow it to be manually run on 3.x/4.0
