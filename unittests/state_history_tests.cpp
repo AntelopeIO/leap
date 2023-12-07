@@ -30,6 +30,18 @@ bool operator==(const eosio::checksum256& lhs, const transaction_id_type& rhs) {
 
 namespace eosio::state_history {
 
+template <typename ST>
+datastream<ST>& operator>>(datastream<ST>& ds, row_pair& rp) {
+   fc::raw::unpack(ds, rp.first);
+   fc::unsigned_int sz;
+   fc::raw::unpack(ds, sz);
+   if(sz) {
+      rp.second.resize(sz);
+      ds.read(rp.second.data(), sz);
+   }
+   return ds;
+}
+
 template <typename ST, typename T>
 datastream<ST>& operator>>(datastream<ST>& ds, eosio::state_history::big_vector_wrapper<T>& obj) {
    fc::unsigned_int sz;
