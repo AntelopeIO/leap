@@ -270,7 +270,7 @@ namespace eosio { namespace chain {
          emplace_extension(
                h.header_extensions,
                protocol_feature_activation::extension_id(),
-               fc::raw::pack( protocol_feature_activation{ std::move(new_protocol_feature_activations) } )
+               fc::raw::pack( protocol_feature_activation{ .protocol_features=std::move(new_protocol_feature_activations) } )
          );
       }
 
