@@ -4,7 +4,7 @@
 #include <eosio/chain/hotstuff/state.hpp>
 
 #include <eosio/chain/controller.hpp>
-#include <eosio/chain/block_state.hpp>
+#include <eosio/chain/block_state_legacy.hpp>
 #include <eosio/chain/hotstuff/finalizer_policy.hpp>
 #include <eosio/chain/hotstuff/finalizer_authority.hpp>
 

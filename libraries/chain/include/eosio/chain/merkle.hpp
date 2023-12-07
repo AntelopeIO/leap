@@ -16,7 +16,14 @@ namespace eosio { namespace chain {
 
    /**
     *  Calculates the merkle root of a set of digests, if ids is odd it will duplicate the last id.
+    *  Uses make_canonical_pair which before hashing sets the first bit of the previous hashes
+    *  to 0 or 1 to indicate the side it is on.
     */
    digest_type canonical_merkle( deque<digest_type> ids );
+
+   /**
+    * Calculates the merkle root of a set of digests. Does not manipulate the digests.
+    */
+   digest_type calculate_merkle( deque<digest_type> ids );
 
 } } /// eosio::chain

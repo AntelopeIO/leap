@@ -149,8 +149,8 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
    tester chain;
    tester validator;
 
-   block_state_ptr accepted_bsp;
-   auto c = chain.control->accepted_block.connect([&](const block_state_ptr& b) {
+   block_state_legacy_ptr accepted_bsp;
+   auto c = chain.control->accepted_block.connect([&](const block_state_legacy_ptr& b) {
       BOOST_CHECK(b);
       BOOST_CHECK(chain.control->fetch_block_state_by_id(b->id) == b);
       BOOST_CHECK(chain.control->fetch_block_state_by_number(b->block_num) == b);  // verify it can be found (has to be validated)
@@ -162,8 +162,8 @@ BOOST_AUTO_TEST_CASE( signal_validated_blocks ) try {
       BOOST_CHECK(chain.control->fetch_block_header_by_id(b->id)->calculate_id() == b->id);
       accepted_bsp = b;
    });
-   block_state_ptr validated_bsp;
-   auto c2 = validator.control->accepted_block.connect([&](const block_state_ptr& b) {
+   block_state_legacy_ptr validated_bsp;
+   auto c2 = validator.control->accepted_block.connect([&](const block_state_legacy_ptr& b) {
       BOOST_CHECK(b);
       BOOST_CHECK(validator.control->fetch_block_state_by_id(b->id) == b);
       BOOST_CHECK(validator.control->fetch_block_state_by_number(b->block_num) == b);  // verify it can be found (has to be validated)

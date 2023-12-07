@@ -1471,8 +1471,8 @@ void transaction_tests(T& chain) {
             auto& t = std::get<0>(x);
             if (t && t->receipt && t->receipt->status != transaction_receipt::executed) { trace = t; }
          } );
-         block_state_ptr bsp;
-         auto c2 = chain.control->accepted_block.connect([&](const block_state_ptr& b) { bsp = b; });
+         block_state_legacy_ptr bsp;
+         auto c2 = chain.control->accepted_block.connect([&](const block_state_legacy_ptr& b) { bsp = b; });
 
          // test error handling on deferred transaction failure
          auto test_trace = CALL_TEST_FUNCTION(chain, "test_transaction", "send_transaction_trigger_error_handler", {});
@@ -3884,7 +3884,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
 
    // old dpos still in affect until block is irreversible
    BOOST_TEST(block->confirmed == 0);
-   block_state_ptr block_state = t.control->fetch_block_state_by_id(block->calculate_id());
+   block_state_legacy_ptr block_state = t.control->fetch_block_state_by_id(block->calculate_id());
    BOOST_REQUIRE(!!block_state);
    BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
 

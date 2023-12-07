@@ -68,7 +68,7 @@ auto make_unique_trx( const chain_id_type& chain_id ) {
 }
 
 // verify all trxs are in blocks only once
-bool verify_equal( const std::deque<packed_transaction_ptr>& trxs, const std::deque<block_state_ptr>& all_blocks) {
+bool verify_equal( const std::deque<packed_transaction_ptr>& trxs, const std::deque<block_state_legacy_ptr>& all_blocks) {
    std::set<transaction_id_type> trxs_ids; // trx can appear more than once if they were aborted
    std::set<transaction_id_type> blk_trxs_ids;
 
@@ -126,10 +126,10 @@ BOOST_AUTO_TEST_CASE(producer) {
       auto[prod_plug, chain_plug] = plugin_fut.get();
       auto chain_id = chain_plug->get_chain_id();
 
-      std::deque<block_state_ptr> all_blocks;
+      std::deque<block_state_legacy_ptr> all_blocks;
       std::promise<void> empty_blocks_promise;
       std::future<void> empty_blocks_fut = empty_blocks_promise.get_future();
-      auto ab = chain_plug->chain().accepted_block.connect( [&](const block_state_ptr& bsp) {
+      auto ab = chain_plug->chain().accepted_block.connect( [&](const block_state_legacy_ptr& bsp) {
          static int num_empty = std::numeric_limits<int>::max();
          all_blocks.push_back( bsp );
          if( bsp->block->transactions.empty() ) {

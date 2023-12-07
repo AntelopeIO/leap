@@ -96,8 +96,8 @@ add_library( eosio_chain
              transaction.cpp
              block.cpp
              block_header.cpp
-             block_header_state.cpp
-             block_state.cpp
+             block_header_state_legacy.cpp
+             block_state_legacy.cpp
              fork_database.cpp
              controller.cpp
              authorization_manager.cpp
