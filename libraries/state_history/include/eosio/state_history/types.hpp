@@ -17,6 +17,12 @@ struct big_vector_wrapper {
    T obj;
 };
 
+struct row_pair {
+   row_pair(const bool f, const bytes& s) : first(f), second(s){}
+   bool first = false;
+   bytes second;
+};
+
 struct partial_transaction {
    fc::time_point_sec          expiration             = {};
    uint16_t                    ref_block_num          = {};
@@ -66,7 +72,7 @@ struct augmented_transaction_trace {
 struct table_delta {
    fc::unsigned_int                                                       struct_version = 0;
    std::string                                                            name{};
-   state_history::big_vector_wrapper<std::vector<std::pair<bool, bytes>>> rows{};
+   state_history::big_vector_wrapper<std::vector<row_pair>>               rows{};
 };
 
 struct block_position {
