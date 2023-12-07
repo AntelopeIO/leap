@@ -3884,7 +3884,7 @@ BOOST_AUTO_TEST_CASE(set_finalizer_test) { try {
 
    // old dpos still in affect until block is irreversible
    BOOST_TEST(block->confirmed == 0);
-   block_state_ptr block_state = t.control->fetch_block_state_by_id(block->calculate_id());
+   block_state_legacy_ptr block_state = t.control->fetch_block_state_by_id(block->calculate_id());
    BOOST_REQUIRE(!!block_state);
    BOOST_TEST(block_state->dpos_irreversible_blocknum != hs_dpos_irreversible_blocknum);
 

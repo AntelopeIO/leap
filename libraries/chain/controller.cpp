@@ -2216,7 +2216,7 @@ struct controller_impl {
 
 
    // thread safe, expected to be called from thread other than the main thread
-   block_state_legacy_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
+   block_state_legacy_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
       bool hs_active = false;
       if (!b->header_extensions.empty()) {
          std::optional<block_header_extension> ext = b->extract_header_extension(proposal_info_extension::extension_id());

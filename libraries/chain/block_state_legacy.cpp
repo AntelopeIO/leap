@@ -74,7 +74,7 @@ namespace eosio { namespace chain {
 
    }
 
-   block_state_legacy::block_state_legacy( const block_state_legacy& prev,
+   block_state_legacy::block_state_legacy( const block_header_state_legacy& prev,
                                            signed_block_ptr b,
                                            const protocol_feature_set& pfs,
                                            bool hotstuff_activated,
