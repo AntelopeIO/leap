@@ -194,7 +194,7 @@ namespace eosio::chain_apis {
          key_bimap.right.erase(key_range.first, key_range.second);
       }
 
-      bool is_rollback_required( const chain::block_state_ptr& bsp ) const {
+      bool is_rollback_required( const chain::block_state_legacy_ptr& bsp ) const {
          std::shared_lock read_lock(rw_mutex);
          const auto bnum = bsp->block->block_num();
          const auto& index = permission_info_index.get<by_last_updated_height>();
@@ -233,7 +233,7 @@ namespace eosio::chain_apis {
        * at the HEAD state of the chain.
        * @param bsp - the block to rollback before
        */
-      void rollback_to_before( const chain::block_state_ptr& bsp ) {
+      void rollback_to_before( const chain::block_state_legacy_ptr& bsp ) {
          const auto bnum = bsp->block->block_num();
          auto& index = permission_info_index.get<by_last_updated_height>();
          const auto& permission_by_owner = controller.db().get_index<chain::permission_index>().indices().get<chain::by_owner>();
@@ -305,7 +305,7 @@ namespace eosio::chain_apis {
        * the thread-safe data set
        * @param bsp
        */
-      auto commit_block_prelock( const chain::block_state_ptr& bsp ) const {
+      auto commit_block_prelock( const chain::block_state_legacy_ptr& bsp ) const {
          permission_set_t updated;
          permission_set_t deleted;
 
@@ -360,7 +360,7 @@ namespace eosio::chain_apis {
        * transaction traces need to be in the cache prior to this call
        * @param bsp
        */
-      void commit_block(const chain::block_state_ptr& bsp ) {
+      void commit_block(const chain::block_state_legacy_ptr& bsp ) {
          permission_set_t updated;
          permission_set_t deleted;
          bool rollback_required = false;
@@ -520,7 +520,7 @@ namespace eosio::chain_apis {
       } FC_LOG_AND_DROP(("ACCOUNT DB cache_transaction_trace ERROR"));
    }
 
-   void account_query_db::commit_block(const chain::block_state_ptr& block ) {
+   void account_query_db::commit_block(const chain::block_state_legacy_ptr& block ) {
       try {
          _impl->commit_block(block);
       } FC_LOG_AND_DROP(("ACCOUNT DB commit_block ERROR"));

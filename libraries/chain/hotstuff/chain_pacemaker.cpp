@@ -110,10 +110,10 @@ namespace eosio::chain {
         _qc_chain("default", this, std::move(my_producers), std::move(finalizer_keys), logger, eosio::chain::config::safetydb_filename),
         _logger(logger)
    {
-      _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_ptr& blk ) {
+      _accepted_block_connection = chain->accepted_block.connect( [this]( const block_state_legacy_ptr& blk ) {
          on_accepted_block( blk );
       } );
-      _irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_state_ptr& blk ) {
+      _irreversible_block_connection = chain->irreversible_block.connect( [this]( const block_state_legacy_ptr& blk ) {
          on_irreversible_block( blk );
       } );
       _head_block_state = chain->head_block_state();
@@ -157,13 +157,13 @@ namespace eosio::chain {
    }
 
    // called from main thread
-   void chain_pacemaker::on_accepted_block( const block_state_ptr& blk ) {
+   void chain_pacemaker::on_accepted_block( const block_state_legacy_ptr& blk ) {
       std::scoped_lock g( _chain_state_mutex );
       _head_block_state = blk;
    }
 
    // called from main thread
-   void chain_pacemaker::on_irreversible_block( const block_state_ptr& blk ) {
+   void chain_pacemaker::on_irreversible_block( const block_state_legacy_ptr& blk ) {
       if (!blk->block->header_extensions.empty()) {
          std::optional<block_header_extension> ext = blk->block->extract_header_extension(finalizer_policy_extension::extension_id());
          if (ext) {

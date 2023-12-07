@@ -117,7 +117,7 @@ class maybe_session {
 };
 
 struct building_block {
-   building_block( const block_header_state& prev,
+   building_block( const block_header_state_legacy& prev,
                    block_timestamp_type when,
                    bool hotstuff_activated,
                    uint16_t num_prev_blocks_to_confirm,
@@ -148,13 +148,13 @@ struct assembled_block {
 };
 
 struct completed_block {
-   block_state_ptr                   _block_state;
+   block_state_legacy_ptr            _block_state;
 };
 
 using block_stage_type = std::variant<building_block, assembled_block, completed_block>;
 
 struct pending_state {
-   pending_state( maybe_session&& s, const block_header_state& prev,
+   pending_state( maybe_session&& s, const block_header_state_legacy& prev,
                   block_timestamp_type when,
                   bool hotstuff_activated,
                   uint16_t num_prev_blocks_to_confirm,
@@ -238,7 +238,7 @@ struct controller_impl {
    chainbase::database             db;
    block_log                       blog;
    std::optional<pending_state>    pending;
-   block_state_ptr                 head;
+   block_state_legacy_ptr          head;
    fork_database                   fork_db;
    std::optional<chain_pacemaker>  pacemaker;
    std::atomic<uint32_t>           hs_irreversible_block_num{0};
@@ -350,7 +350,7 @@ struct controller_impl {
       set_activation_handler<builtin_protocol_feature_t::disable_deferred_trxs_stage_2>();
       set_activation_handler<builtin_protocol_feature_t::instant_finality>();
 
-      self.irreversible_block.connect([this](const block_state_ptr& bsp) {
+      self.irreversible_block.connect([this](const block_state_legacy_ptr& bsp) {
          wasmif.current_lib(bsp->block_num);
       });
 
@@ -489,7 +489,7 @@ struct controller_impl {
       producer_authority_schedule initial_schedule = { 0, { producer_authority{config::system_account_name, block_signing_authority_v0{ 1, {{genesis.initial_key, 1}} } } } };
       legacy::producer_schedule_type initial_legacy_schedule{ 0, {{config::system_account_name, genesis.initial_key}} };
 
-      block_header_state genheader;
+      block_header_state_legacy genheader;
       genheader.active_schedule                = initial_schedule;
       genheader.pending_schedule.schedule      = initial_schedule;
       // NOTE: if wtmsig block signatures are enabled at genesis time this should be the hash of a producer authority schedule
@@ -499,8 +499,8 @@ struct controller_impl {
       genheader.id                             = genheader.header.calculate_id();
       genheader.block_num                      = genheader.header.block_num();
 
-      head = std::make_shared<block_state>();
-      static_cast<block_header_state&>(*head) = genheader;
+      head = std::make_shared<block_state_legacy>();
+      static_cast<block_header_state_legacy&>(*head) = genheader;
       head->activated_protocol_features = std::make_shared<protocol_feature_activation_set>();
       head->block = std::make_shared<signed_block>(genheader.header);
       db.set_revision( head->block_num );
@@ -856,8 +856,8 @@ struct controller_impl {
          section.add_row(chain_snapshot_header(), db);
       });
 
-      snapshot->write_section<block_state>([this]( auto &section ){
-         section.template add_row<block_header_state>(*head, db);
+      snapshot->write_section("eosio::chain::block_state", [this]( auto &section ){
+         section.template add_row<block_header_state_legacy>(*head, db);
       });
 
       controller_index_set::walk_indices([this, &snapshot]( auto utils ){
@@ -907,17 +907,17 @@ struct controller_impl {
       });
 
       { /// load and upgrade the block header state
-         block_header_state head_header_state;
+         block_header_state_legacy head_header_state;
          using v2 = legacy::snapshot_block_header_state_v2;
 
          if (std::clamp(header.version, v2::minimum_version, v2::maximum_version) == header.version ) {
-            snapshot->read_section<block_state>([this, &head_header_state]( auto &section ) {
+            snapshot->read_section("eosio::chain::block_state", [this, &head_header_state]( auto &section ) {
                legacy::snapshot_block_header_state_v2 legacy_header_state;
                section.read_row(legacy_header_state, db);
-               head_header_state = block_header_state(std::move(legacy_header_state));
+               head_header_state = block_header_state_legacy(std::move(legacy_header_state));
             });
          } else {
-            snapshot->read_section<block_state>([this,&head_header_state]( auto &section ){
+            snapshot->read_section("eosio::chain::block_state", [this,&head_header_state]( auto &section ){
                section.read_row(head_header_state, db);
             });
          }
@@ -931,8 +931,8 @@ struct controller_impl {
                      ("block_log_last_num", blog_end)
          );
 
-         head = std::make_shared<block_state>();
-         static_cast<block_header_state&>(*head) = head_header_state;
+         head = std::make_shared<block_state_legacy>();
+         static_cast<block_header_state_legacy&>(*head) = head_header_state;
       }
 
       controller_index_set::walk_indices([this, &snapshot, &header]( auto utils ){
@@ -2092,7 +2092,7 @@ struct controller_impl {
    }
 
 
-   void apply_block( controller::block_report& br, const block_state_ptr& bsp, controller::block_status s,
+   void apply_block( controller::block_report& br, const block_state_legacy_ptr& bsp, controller::block_status s,
                      const trx_meta_cache_lookup& trx_lookup )
    { try {
       try {
@@ -2216,7 +2216,7 @@ struct controller_impl {
 
 
    // thread safe, expected to be called from thread other than the main thread
-   block_state_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state& prev ) {
+   block_state_legacy_ptr create_block_state_i( const block_id_type& id, const signed_block_ptr& b, const block_header_state_legacy& prev ) {
       bool hs_active = false;
       if (!b->header_extensions.empty()) {
          std::optional<block_header_extension> ext = b->extract_header_extension(proposal_info_extension::extension_id());
@@ -2228,7 +2228,7 @@ struct controller_impl {
                   "invalid block transaction merkle root ${b} != ${c}", ("b", b->transaction_mroot)("c", trx_mroot) );
 
       const bool skip_validate_signee = false;
-      auto bsp = std::make_shared<block_state>(
+      auto bsp = std::make_shared<block_state_legacy>(
             prev,
             b,
             protocol_features.get_protocol_feature_set(),
@@ -2245,7 +2245,7 @@ struct controller_impl {
       return bsp;
    }
 
-   std::future<block_state_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b ) {
+   std::future<block_state_legacy_ptr> create_block_state_future( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
 
       return post_async_task( thread_pool.get_executor(), [b, id, control=this]() {
@@ -2262,7 +2262,7 @@ struct controller_impl {
    }
 
    // thread safe, expected to be called from thread other than the main thread
-   block_state_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b ) {
+   block_state_legacy_ptr create_block_state( const block_id_type& id, const signed_block_ptr& b ) {
       EOS_ASSERT( b, block_validate_exception, "null block" );
 
       // no reason for a block_state if fork_db already knows about block
@@ -2277,7 +2277,7 @@ struct controller_impl {
    }
 
    void push_block( controller::block_report& br,
-                    const block_state_ptr& bsp,
+                    const block_state_legacy_ptr& bsp,
                     const forked_branch_callback& forked_branch_cb,
                     const trx_meta_cache_lookup& trx_lookup )
    {
@@ -2335,7 +2335,7 @@ struct controller_impl {
          emit( self.pre_accepted_block, b );
          const bool skip_validate_signee = !conf.force_all_checks;
 
-         auto bsp = std::make_shared<block_state>(
+         auto bsp = std::make_shared<block_state_legacy>(
                         *head,
                         b,
                         protocol_features.get_protocol_feature_set(),
@@ -2374,7 +2374,7 @@ struct controller_impl {
       } FC_LOG_AND_RETHROW( )
    }
 
-   void maybe_switch_forks( controller::block_report& br, const block_state_ptr& new_head, controller::block_status s,
+   void maybe_switch_forks( controller::block_report& br, const block_state_legacy_ptr& new_head, controller::block_status s,
                             const forked_branch_callback& forked_branch_cb, const trx_meta_cache_lookup& trx_lookup )
    {
       bool head_changed = true;
@@ -2762,7 +2762,7 @@ struct controller_impl {
       wasmif.code_block_num_last_used(code_hash, vm_type, vm_version, block_num);
    }
 
-   block_state_ptr fork_db_head() const;
+   block_state_legacy_ptr fork_db_head() const;
 }; /// controller_impl
 
 thread_local platform_timer controller_impl::timer;
@@ -2990,14 +2990,14 @@ void controller::start_block( block_timestamp_type when,
                     bs, std::optional<block_id_type>(), deadline );
 }
 
-block_state_ptr controller::finalize_block( block_report& br, const signer_callback_type& signer_callback ) {
+block_state_legacy_ptr controller::finalize_block( block_report& br, const signer_callback_type& signer_callback ) {
    validate_db_available_size();
 
    my->finalize_block();
 
    auto& ab = std::get<assembled_block>(my->pending->_block_stage);
 
-   auto bsp = std::make_shared<block_state>(
+   auto bsp = std::make_shared<block_state_legacy>(
                   std::move( ab._pending_block_header_state ),
                   std::move( ab._unsigned_block ),
                   std::move( ab._trx_metas ),
@@ -3029,16 +3029,16 @@ boost::asio::io_context& controller::get_thread_pool() {
    return my->thread_pool.get_executor();
 }
 
-std::future<block_state_ptr> controller::create_block_state_future( const block_id_type& id, const signed_block_ptr& b ) {
+std::future<block_state_legacy_ptr> controller::create_block_state_future( const block_id_type& id, const signed_block_ptr& b ) {
    return my->create_block_state_future( id, b );
 }
 
-block_state_ptr controller::create_block_state( const block_id_type& id, const signed_block_ptr& b ) const {
+block_state_legacy_ptr controller::create_block_state( const block_id_type& id, const signed_block_ptr& b ) const {
    return my->create_block_state( id, b );
 }
 
 void controller::push_block( controller::block_report& br,
-                             const block_state_ptr& bsp,
+                             const block_state_legacy_ptr& bsp,
                              const forked_branch_callback& forked_branch_cb,
                              const trx_meta_cache_lookup& trx_lookup )
 {
@@ -3126,11 +3126,11 @@ account_name  controller::head_block_producer()const {
 const block_header& controller::head_block_header()const {
    return my->head->header;
 }
-block_state_ptr controller::head_block_state()const {
+block_state_legacy_ptr controller::head_block_state()const {
    return my->head;
 }
 
-block_state_ptr controller_impl::fork_db_head() const {
+block_state_legacy_ptr controller_impl::fork_db_head() const {
    if( read_mode == db_read_mode::IRREVERSIBLE ) {
       // When in IRREVERSIBLE mode fork_db blocks are marked valid when they become irreversible so that
       // fork_db.head() returns irreversible block
@@ -3254,12 +3254,12 @@ std::optional<signed_block_header> controller::fetch_block_header_by_number( uin
    return my->blog.read_block_header_by_num(block_num);
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 
-block_state_ptr controller::fetch_block_state_by_id( block_id_type id )const {
+block_state_legacy_ptr controller::fetch_block_state_by_id( block_id_type id )const {
    auto state = my->fork_db.get_block(id);
    return state;
 }
 
-block_state_ptr controller::fetch_block_state_by_number( uint32_t block_num )const  { try {
+block_state_legacy_ptr controller::fetch_block_state_by_number( uint32_t block_num )const  { try {
    return my->fork_db.search_on_branch( fork_db_head_block_id(), block_num );
 } FC_CAPTURE_AND_RETHROW( (block_num) ) }
 

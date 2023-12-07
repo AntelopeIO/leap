@@ -25,7 +25,7 @@ namespace legacy {
          producer_schedule_type            schedule;
       };
 
-      /// from block_header_state_common
+      /// from block_header_state_legacy_common
       uint32_t                             block_num = 0;
       uint32_t                             dpos_proposed_irreversible_blocknum = 0;
       uint32_t                             dpos_irreversible_blocknum = 0;
@@ -36,7 +36,7 @@ namespace legacy {
       public_key_type                      block_signing_key;
       vector<uint8_t>                      confirm_count;
 
-      // from block_header_state
+      // from block_header_state_legacy
       block_id_type                        id;
       signed_block_header                  header;
       schedule_info                        pending_schedule;
@@ -46,14 +46,14 @@ namespace legacy {
 
 using signer_callback_type = std::function<std::vector<signature_type>(const digest_type&)>;
 
-struct block_header_state;
+struct block_header_state_legacy;
 
 // totem for dpos_irreversible_blocknum after hotstuff is activated
 // This value implicitly means that fork_database will prefer hotstuff blocks over dpos blocks
 constexpr uint32_t hs_dpos_irreversible_blocknum = std::numeric_limits<uint32_t>::max();
 
 namespace detail {
-   struct block_header_state_common {
+   struct block_header_state_legacy_common {
       uint32_t                          block_num = 0;
       uint32_t                          dpos_proposed_irreversible_blocknum = 0;
       uint32_t                          dpos_irreversible_blocknum = 0;
@@ -80,7 +80,7 @@ namespace detail {
                               builtin_protocol_feature_t feature_codename );
 }
 
-struct pending_block_header_state : public detail::block_header_state_common {
+struct pending_block_header_state : public detail::block_header_state_legacy_common {
    protocol_feature_activation_set_ptr  prev_activated_protocol_features;
    detail::schedule_info                prev_pending_schedule;
    std::optional<finalizer_policy>         proposed_finalizer_policy; // set by set_finalizer host function
@@ -97,27 +97,27 @@ struct pending_block_header_state : public detail::block_header_state_common {
                                           vector<digest_type>&& new_protocol_feature_activations,
                                           const protocol_feature_set& pfs)const;
 
-   block_header_state  finish_next( const signed_block_header& h,
-                                    vector<signature_type>&& additional_signatures,
-                                    const protocol_feature_set& pfs,
-                                    const std::function<void( block_timestamp_type,
-                                                              const flat_set<digest_type>&,
-                                                              const vector<digest_type>& )>& validator,
-                                    bool skip_validate_signee = false )&&;
+   block_header_state_legacy  finish_next( const signed_block_header& h,
+                                           vector<signature_type>&& additional_signatures,
+                                           const protocol_feature_set& pfs,
+                                           const std::function<void( block_timestamp_type,
+                                                                     const flat_set<digest_type>&,
+                                                                     const vector<digest_type>& )>& validator,
+                                           bool skip_validate_signee = false )&&;
 
-   block_header_state  finish_next( signed_block_header& h,
-                                    const protocol_feature_set& pfs,
-                                    const std::function<void( block_timestamp_type,
-                                                              const flat_set<digest_type>&,
-                                                              const vector<digest_type>& )>& validator,
-                                    const signer_callback_type& signer )&&;
+   block_header_state_legacy  finish_next( signed_block_header& h,
+                                           const protocol_feature_set& pfs,
+                                           const std::function<void( block_timestamp_type,
+                                                                     const flat_set<digest_type>&,
+                                                                     const vector<digest_type>& )>& validator,
+                                           const signer_callback_type& signer )&&;
 
 protected:
-   block_header_state  _finish_next( const signed_block_header& h,
-                                     const protocol_feature_set& pfs,
-                                     const std::function<void( block_timestamp_type,
-                                                               const flat_set<digest_type>&,
-                                                               const vector<digest_type>& )>& validator )&&;
+   block_header_state_legacy  _finish_next( const signed_block_header& h,
+                                            const protocol_feature_set& pfs,
+                                            const std::function<void( block_timestamp_type,
+                                                                      const flat_set<digest_type>&,
+                                                                      const vector<digest_type>& )>& validator )&&;
 };
 
 /**
@@ -174,9 +174,10 @@ struct block_header_state_core {
  *           block_state.pending_schedule = prev_pending_schedule
  *
  *
+ *  @struct block_header_state_legacy
  *  @brief defines the minimum state necessary to validate transaction headers
  */
-struct block_header_state : public detail::block_header_state_common {
+struct block_header_state_legacy : public detail::block_header_state_legacy_common {
    block_id_type                        id;
    signed_block_header                  header;
    detail::schedule_info                pending_schedule;
@@ -187,24 +188,24 @@ struct block_header_state : public detail::block_header_state_common {
    /// duplication of work
    flat_multimap<uint16_t, block_header_extension> header_exts;
 
-   block_header_state() = default;
+   block_header_state_legacy() = default;
 
-   explicit block_header_state( detail::block_header_state_common&& base )
-   :detail::block_header_state_common( std::move(base) )
+   explicit block_header_state_legacy( detail::block_header_state_legacy_common&& base )
+   :detail::block_header_state_legacy_common( std::move(base) )
    {}
 
-   explicit block_header_state( legacy::snapshot_block_header_state_v2&& snapshot );
+   explicit block_header_state_legacy( legacy::snapshot_block_header_state_v2&& snapshot );
 
    pending_block_header_state  next( block_timestamp_type when, bool hotstuff_activated, uint16_t num_prev_blocks_to_confirm )const;
 
-   block_header_state   next( const signed_block_header& h,
-                              vector<signature_type>&& additional_signatures,
-                              const protocol_feature_set& pfs,
-                              bool hotstuff_activated,
-                              const std::function<void( block_timestamp_type,
-                                                        const flat_set<digest_type>&,
-                                                        const vector<digest_type>& )>& validator,
-                              bool skip_validate_signee = false )const;
+   block_header_state_legacy  next( const signed_block_header& h,
+                                    vector<signature_type>&& additional_signatures,
+                                    const protocol_feature_set& pfs,
+                                    bool hotstuff_activated,
+                                    const std::function<void( block_timestamp_type,
+                                                              const flat_set<digest_type>&,
+                                                              const vector<digest_type>& )>& validator,
+                                    bool skip_validate_signee = false )const;
 
    uint32_t             calc_dpos_last_irreversible( account_name producer_of_next_block )const;
 
@@ -217,11 +218,11 @@ struct block_header_state : public detail::block_header_state_common {
    const vector<digest_type>& get_new_protocol_feature_activations()const;
 };
 
-using block_header_state_ptr = std::shared_ptr<block_header_state>;
+using block_header_state_legacy_ptr = std::shared_ptr<block_header_state_legacy>;
 
 } } /// namespace eosio::chain
 
-FC_REFLECT( eosio::chain::detail::block_header_state_common,
+FC_REFLECT( eosio::chain::detail::block_header_state_legacy_common,
             (block_num)
             (dpos_proposed_irreversible_blocknum)
             (dpos_irreversible_blocknum)
@@ -240,7 +241,7 @@ FC_REFLECT( eosio::chain::detail::schedule_info,
             (schedule)
 )
 
-FC_REFLECT_DERIVED(  eosio::chain::block_header_state, (eosio::chain::detail::block_header_state_common),
+FC_REFLECT_DERIVED(  eosio::chain::block_header_state_legacy, (eosio::chain::detail::block_header_state_legacy_common),
                      (id)
                      (header)
                      (pending_schedule)
